@@ -7,8 +7,9 @@
 //! same trait.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, Outcome, Receipt, RunMetadata,
-    UsageNormalized, VerificationReport, WorkOrder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, CapabilityRequirement,
+    CapabilityRequirements, Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport,
+    WorkOrder, CONTRACT_VERSION,
 };
 use abp_host::{HostError, SidecarClient, SidecarSpec};
 use anyhow::{Context, Result};
@@ -68,33 +69,45 @@ impl Backend for MockBackend {
         work_order: WorkOrder,
         events_tx: mpsc::Sender<AgentEvent>,
     ) -> Result<Receipt> {
+        ensure_capability_requirements(&work_order.requirements, &self.capabilities())
+            .context("capability requirements not satisfied")?;
+
         let started = Utc::now();
         let mut trace = Vec::new();
-
-        let mut emit = |kind: AgentEventKind| async {
-            let ev = AgentEvent { ts: Utc::now(), kind };
-            trace.push(ev.clone());
-            let _ = events_tx.send(ev).await;
-        };
-
-        emit(AgentEventKind::RunStarted {
-            message: format!("mock backend starting: {}", work_order.task),
-        })
+        emit_event(
+            &mut trace,
+            &events_tx,
+            AgentEventKind::RunStarted {
+                message: format!("mock backend starting: {}", work_order.task),
+            },
+        )
         .await;
 
-        emit(AgentEventKind::AssistantMessage {
-            text: "This is a mock backend. It does not call any real SDK.".into(),
-        })
+        emit_event(
+            &mut trace,
+            &events_tx,
+            AgentEventKind::AssistantMessage {
+                text: "This is a mock backend. It does not call any real SDK.".into(),
+            },
+        )
         .await;
 
-        emit(AgentEventKind::AssistantMessage {
-            text: "Use --backend sidecar:<name> once you add a sidecar config.".into(),
-        })
+        emit_event(
+            &mut trace,
+            &events_tx,
+            AgentEventKind::AssistantMessage {
+                text: "Use --backend sidecar:<name> once you add a sidecar config.".into(),
+            },
+        )
         .await;
 
-        emit(AgentEventKind::RunCompleted {
-            message: "mock run complete".into(),
-        })
+        emit_event(
+            &mut trace,
+            &events_tx,
+            AgentEventKind::RunCompleted {
+                message: "mock run complete".into(),
+            },
+        )
         .await;
 
         let finished = Utc::now();
@@ -177,6 +190,9 @@ impl Backend for SidecarBackend {
             .await
             .context("spawn sidecar")?;
 
+        ensure_capability_requirements(&work_order.requirements, &client.hello.capabilities)
+            .context("capability requirements not satisfied")?;
+
         debug!(target: "abp.sidecar", "connected to sidecar backend={}", client.hello.backend.id);
 
         let mut run = client
@@ -201,4 +217,53 @@ impl Backend for SidecarBackend {
 
 fn host_to_anyhow(e: HostError) -> anyhow::Error {
     anyhow::anyhow!(e)
+}
+
+fn ensure_capability_requirements(
+    requirements: &CapabilityRequirements,
+    capabilities: &CapabilityManifest,
+) -> Result<()> {
+    let mut unsatisfied = Vec::new();
+
+    for req in &requirements.required {
+        if !capability_satisfies(req, capabilities) {
+            unsatisfied.push(format_requirement(req, capabilities));
+        }
+    }
+
+    if unsatisfied.is_empty() {
+        return Ok(());
+    }
+
+    anyhow::bail!("unsatisfied requirements: {}", unsatisfied.join("; "));
+}
+
+fn capability_satisfies(req: &CapabilityRequirement, capabilities: &CapabilityManifest) -> bool {
+    capabilities
+        .get(&req.capability)
+        .is_some_and(|level| level.satisfies(&req.min_support))
+}
+
+fn format_requirement(req: &CapabilityRequirement, capabilities: &CapabilityManifest) -> String {
+    let actual = capabilities
+        .get(&req.capability)
+        .map(|v| format!("{v:?}"))
+        .unwrap_or_else(|| "missing".to_string());
+    format!(
+        "{:?} requires {:?}, backend has {}",
+        req.capability, req.min_support, actual
+    )
+}
+
+async fn emit_event(
+    trace: &mut Vec<AgentEvent>,
+    events_tx: &mpsc::Sender<AgentEvent>,
+    kind: AgentEventKind,
+) {
+    let ev = AgentEvent {
+        ts: Utc::now(),
+        kind,
+    };
+    trace.push(ev.clone());
+    let _ = events_tx.send(ev).await;
 }

@@ -35,6 +35,9 @@ cargo run -p abp-cli -- run --task "hello from node" --backend sidecar:node
 
 # run the python sidecar backend (requires python installed)
 cargo run -p abp-cli -- run --task "hello from python" --backend sidecar:python
+
+# run the claude sidecar backend (requires node installed)
+cargo run -p abp-cli -- run --task "hello from claude sidecar" --backend sidecar:claude
 ```
 
 Receipts land in `.agent-backplane/receipts/<run_id>.json`.
@@ -52,6 +55,7 @@ Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 - `crates/abp-daemon`: placeholder daemon
 - `hosts/node`: example sidecar (JSONL over stdio)
 - `hosts/python`: example sidecar (JSONL over stdio)
+- `hosts/claude`: Claude-oriented sidecar with pluggable adapter module
 - `contracts/schemas`: generated JSON schemas
 
 ## What’s intentionally missing
