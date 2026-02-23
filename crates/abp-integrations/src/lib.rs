@@ -8,8 +8,8 @@
 
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, CapabilityRequirement,
-    CapabilityRequirements, Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport,
-    WorkOrder, CONTRACT_VERSION,
+    CapabilityRequirements, ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized,
+    VerificationReport, WorkOrder, CONTRACT_VERSION,
 };
 use abp_host::{HostError, SidecarClient, SidecarSpec};
 use anyhow::{Context, Result};
@@ -116,6 +116,8 @@ impl Backend for MockBackend {
             .unwrap_or_default()
             .as_millis() as u64;
 
+        let mode = extract_execution_mode(&work_order);
+
         let receipt = Receipt {
             meta: RunMetadata {
                 run_id,
@@ -127,6 +129,7 @@ impl Backend for MockBackend {
             },
             backend: self.identity(),
             capabilities: self.capabilities(),
+            mode,
             usage_raw: json!({"note": "mock"}),
             usage: UsageNormalized {
                 input_tokens: Some(0),
@@ -263,7 +266,34 @@ async fn emit_event(
     let ev = AgentEvent {
         ts: Utc::now(),
         kind,
+        ext: None,
     };
     trace.push(ev.clone());
     let _ = events_tx.send(ev).await;
+}
+
+/// Extract execution mode from WorkOrder config.vendor.abp.mode.
+///
+/// Returns `ExecutionMode::Mapped` (default) if not specified.
+pub fn extract_execution_mode(work_order: &WorkOrder) -> ExecutionMode {
+    work_order
+        .config
+        .vendor
+        .get("abp")
+        .and_then(|v| v.as_object())
+        .and_then(|obj| obj.get("mode"))
+        .and_then(|m| serde_json::from_value(m.clone()).ok())
+        .unwrap_or_default()
+}
+
+/// Validate that passthrough mode is compatible with the backend.
+///
+/// Passthrough invariants:
+/// - No request rewriting: SDK sees exactly what caller sent
+/// - Stream equivalence: After removing ABP framing, stream is bitwise-equivalent
+/// - Observer-only governance: Log/record but don't modify tool calls or outputs
+pub fn validate_passthrough_compatibility(_work_order: &WorkOrder) -> Result<()> {
+    // In v0.1, we accept passthrough mode for any work order.
+    // Future versions may enforce additional constraints.
+    Ok(())
 }

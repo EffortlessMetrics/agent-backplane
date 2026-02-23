@@ -216,6 +216,24 @@ impl SupportLevel {
 
 pub type CapabilityManifest = BTreeMap<Capability, SupportLevel>;
 
+/// Execution mode for how ABP processes requests.
+///
+/// - Passthrough: Lossless wrapping - ABP acts as observer/recorder only
+/// - Mapped: Full dialect translation - ABP translates between dialects
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionMode {
+    /// Lossless wrapping mode. ABP passes requests directly to the SDK
+    /// without modification. Stream is bitwise-equivalent to direct SDK call
+    /// after removing ABP framing.
+    Passthrough,
+
+    /// Full dialect translation mode. ABP translates between different
+    /// agent dialects, potentially modifying requests and responses.
+    #[default]
+    Mapped,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BackendIdentity {
     /// Stable backend identifier.
@@ -233,6 +251,10 @@ pub struct Receipt {
     pub meta: RunMetadata,
     pub backend: BackendIdentity,
     pub capabilities: CapabilityManifest,
+
+    /// Execution mode used for this run.
+    #[serde(default)]
+    pub mode: ExecutionMode,
 
     /// Vendor-specific usage payload as reported.
     pub usage_raw: serde_json::Value,
@@ -302,6 +324,14 @@ pub struct AgentEvent {
 
     #[serde(flatten)]
     pub kind: AgentEventKind,
+
+    /// Extension field for passthrough mode raw data.
+    ///
+    /// In passthrough mode, this contains the original SDK message
+    /// for lossless reconstruction. The key `raw_message` contains
+    /// the verbatim SDK message.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ext: Option<BTreeMap<String, serde_json::Value>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

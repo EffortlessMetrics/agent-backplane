@@ -135,7 +135,10 @@ impl SidecarClient {
 
         // Expect hello as the first line.
         let mut line = String::new();
-        let n = stdout.read_line(&mut line).await.map_err(HostError::Stdout)?;
+        let n = stdout
+            .read_line(&mut line)
+            .await
+            .map_err(HostError::Stdout)?;
         if n == 0 {
             let status = child.wait().await.ok();
             return Err(HostError::Exited {
@@ -170,7 +173,11 @@ impl SidecarClient {
         })
     }
 
-    pub async fn run(mut self, run_id: String, work_order: WorkOrder) -> Result<SidecarRun, HostError> {
+    pub async fn run(
+        mut self,
+        run_id: String,
+        work_order: WorkOrder,
+    ) -> Result<SidecarRun, HostError> {
         let (ev_tx, ev_rx) = mpsc::channel::<AgentEvent>(256);
         let (receipt_tx, receipt_rx) = oneshot::channel::<Result<Receipt, HostError>>();
 
@@ -193,11 +200,18 @@ impl SidecarClient {
             let mut buf = String::new();
             loop {
                 buf.clear();
-                let n = stdout.read_line(&mut buf).await.map_err(HostError::Stdout)?;
+                let n = stdout
+                    .read_line(&mut buf)
+                    .await
+                    .map_err(HostError::Stdout)?;
                 if n == 0 {
                     // Child closed stdout; treat as exit.
-                    let status = child.wait().await.map_err(|e| HostError::Exited { code: e.raw_os_error() })?;
-                    return Err(HostError::Exited { code: status.code() });
+                    let status = child.wait().await.map_err(|e| HostError::Exited {
+                        code: e.raw_os_error(),
+                    })?;
+                    return Err(HostError::Exited {
+                        code: status.code(),
+                    });
                 }
 
                 let line = buf.trim_end();

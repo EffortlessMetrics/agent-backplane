@@ -4,7 +4,8 @@
 //! Current transport: JSONL over stdio.
 
 use abp_core::{
-    AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder, CONTRACT_VERSION,
+    AgentEvent, BackendIdentity, CapabilityManifest, ExecutionMode, Receipt, WorkOrder,
+    CONTRACT_VERSION,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -23,6 +24,9 @@ pub enum Envelope {
         contract_version: String,
         backend: BackendIdentity,
         capabilities: CapabilityManifest,
+        /// Execution mode this sidecar will use. Defaults to "mapped" if absent.
+        #[serde(default)]
+        mode: ExecutionMode,
     },
 
     Run {
@@ -48,10 +52,19 @@ pub enum Envelope {
 
 impl Envelope {
     pub fn hello(backend: BackendIdentity, capabilities: CapabilityManifest) -> Self {
+        Self::hello_with_mode(backend, capabilities, ExecutionMode::default())
+    }
+
+    pub fn hello_with_mode(
+        backend: BackendIdentity,
+        capabilities: CapabilityManifest,
+        mode: ExecutionMode,
+    ) -> Self {
         Self::Hello {
             contract_version: CONTRACT_VERSION.to_string(),
             backend,
             capabilities,
+            mode,
         }
     }
 }

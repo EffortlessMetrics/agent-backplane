@@ -1,5 +1,5 @@
 use abp_core::{
-    receipt_hash, BackendIdentity, Outcome, Receipt, RunMetadata, UsageNormalized,
+    receipt_hash, BackendIdentity, ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized,
     VerificationReport, CONTRACT_VERSION,
 };
 use chrono::{TimeZone, Utc};
@@ -24,6 +24,7 @@ fn receipt_hash_matches_stored_hash() {
             adapter_version: None,
         },
         capabilities: Default::default(),
+        mode: ExecutionMode::default(),
         usage_raw: serde_json::json!({}),
         usage: UsageNormalized::default(),
         trace: vec![],
