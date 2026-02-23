@@ -150,7 +150,9 @@ pub enum MinSupport {
     Emulated,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Capability {
     Streaming,
@@ -193,7 +195,9 @@ pub enum SupportLevel {
     Unsupported,
 
     /// Supported in principle, but disabled by policy or environment.
-    Restricted { reason: String },
+    Restricted {
+        reason: String,
+    },
 }
 
 impl SupportLevel {
@@ -303,11 +307,19 @@ pub struct AgentEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentEventKind {
-    RunStarted { message: String },
-    RunCompleted { message: String },
+    RunStarted {
+        message: String,
+    },
+    RunCompleted {
+        message: String,
+    },
 
-    AssistantDelta { text: String },
-    AssistantMessage { text: String },
+    AssistantDelta {
+        text: String,
+    },
+    AssistantMessage {
+        text: String,
+    },
 
     ToolCall {
         tool_name: String,
@@ -323,7 +335,10 @@ pub enum AgentEventKind {
         is_error: bool,
     },
 
-    FileChanged { path: String, summary: String },
+    FileChanged {
+        path: String,
+        summary: String,
+    },
 
     CommandExecuted {
         command: String,
@@ -331,9 +346,13 @@ pub enum AgentEventKind {
         output_preview: Option<String>,
     },
 
-    Warning { message: String },
+    Warning {
+        message: String,
+    },
 
-    Error { message: String },
+    Error {
+        message: String,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -359,12 +378,22 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 pub fn receipt_hash(receipt: &Receipt) -> Result<String, ContractError> {
-    let json = canonical_json(receipt)?;
+    // Important: `receipt_sha256` must not influence the hash input, otherwise
+    // the stored hash becomes self-inconsistent.
+    //
+    // We canonicalize via serde_json::Value so we can force the field to `null`
+    // without cloning the full receipt (which may include a large trace).
+    let mut v = serde_json::to_value(receipt)?;
+    if let serde_json::Value::Object(map) = &mut v {
+        map.insert("receipt_sha256".to_string(), serde_json::Value::Null);
+    }
+    let json = serde_json::to_string(&v)?;
     Ok(sha256_hex(json.as_bytes()))
 }
 
 impl Receipt {
     pub fn with_hash(mut self) -> Result<Self, ContractError> {
+        // Ensure we hash the canonical form (receipt_sha256 treated as null).
         let h = receipt_hash(&self)?;
         self.receipt_sha256 = Some(h);
         Ok(self)

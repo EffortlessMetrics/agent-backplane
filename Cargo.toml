@@ -18,7 +18,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Effortless Metrics"]
-repository = "https://example.invalid/agent-backplane"
+repository = "https://github.com/EffortlessMetrics/agent-backplane"
 
 [workspace.dependencies]
 anyhow = "1"

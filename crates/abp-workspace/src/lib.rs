@@ -78,17 +78,22 @@ fn build_globset(patterns: &[String]) -> Result<Option<GlobSet>> {
     Ok(Some(b.build()?))
 }
 
-fn copy_workspace(src_root: &Path, dest_root: &Path, include: &Option<GlobSet>, exclude: &Option<GlobSet>) -> Result<()> {
+fn copy_workspace(
+    src_root: &Path,
+    dest_root: &Path,
+    include: &Option<GlobSet>,
+    exclude: &Option<GlobSet>,
+) -> Result<()> {
     debug!(target: "abp.workspace", "staging workspace from {} to {}", src_root.display(), dest_root.display());
 
-    for entry in WalkDir::new(src_root).follow_links(false) {
+    let walker = WalkDir::new(src_root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| e.file_name() != std::ffi::OsStr::new(".git"));
+
+    for entry in walker {
         let entry = entry?;
         let path = entry.path();
-
-        // Skip git metadata by default.
-        if path.file_name().is_some_and(|n| n == ".git") {
-            continue;
-        }
 
         let rel = path.strip_prefix(src_root).unwrap_or(path);
         if rel.as_os_str().is_empty() {
@@ -109,13 +114,15 @@ fn copy_workspace(src_root: &Path, dest_root: &Path, include: &Option<GlobSet>, 
 
         let dest_path = dest_root.join(rel);
         if entry.file_type().is_dir() {
-            fs::create_dir_all(&dest_path).ok();
+            fs::create_dir_all(&dest_path)
+                .with_context(|| format!("create dir {}", dest_path.display()))?;
             continue;
         }
 
         if entry.file_type().is_file() {
             if let Some(parent) = dest_path.parent() {
-                fs::create_dir_all(parent).ok();
+                fs::create_dir_all(parent)
+                    .with_context(|| format!("create dir {}", parent.display()))?;
             }
             fs::copy(path, &dest_path).with_context(|| format!("copy {}", rel.display()))?;
         }
@@ -141,7 +148,15 @@ fn ensure_git_repo(path: &Path) {
         .status();
 
     let _ = Command::new("git")
-        .args(["-c", "user.name=abp", "-c", "user.email=abp@local", "commit", "-qm", "baseline"])
+        .args([
+            "-c",
+            "user.name=abp",
+            "-c",
+            "user.email=abp@local",
+            "commit",
+            "-qm",
+            "baseline",
+        ])
         .current_dir(path)
         .status();
 }
