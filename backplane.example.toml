@@ -1,0 +1,14 @@
+# Example configuration (not yet wired into the CLI).
+
+[backends.mock]
+type = "mock"
+
+[backends.openai]
+type = "sidecar"
+command = "node"
+args = ["path/to/openai-sidecar.js"]
+
+[backends.anthropic]
+type = "sidecar"
+command = "python3"
+args = ["path/to/anthropic-sidecar.py"]
