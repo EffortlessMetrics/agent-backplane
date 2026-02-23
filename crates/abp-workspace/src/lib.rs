@@ -1,0 +1,161 @@
+//! abp-workspace
+//!
+//! Workspace preparation and harness utilities.
+//!
+//! Two modes matter:
+//! - PassThrough: run directly in the user's workspace.
+//! - Staged: create a sanitized copy (and optionally a synthetic git repo).
+
+use abp_core::{WorkspaceMode, WorkspaceSpec};
+use anyhow::{Context, Result};
+use globset::{Glob, GlobSet, GlobSetBuilder};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use tempfile::TempDir;
+use tracing::debug;
+use walkdir::WalkDir;
+
+pub struct PreparedWorkspace {
+    path: PathBuf,
+    _temp: Option<TempDir>,
+}
+
+impl PreparedWorkspace {
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+pub struct WorkspaceManager;
+
+impl WorkspaceManager {
+    pub fn prepare(spec: &WorkspaceSpec) -> Result<PreparedWorkspace> {
+        let root = PathBuf::from(&spec.root);
+        match spec.mode {
+            WorkspaceMode::PassThrough => Ok(PreparedWorkspace {
+                path: root,
+                _temp: None,
+            }),
+            WorkspaceMode::Staged => {
+                let tmp = tempfile::tempdir().context("create temp dir")?;
+                let dest = tmp.path().to_path_buf();
+
+                let include = build_globset(&spec.include)?;
+                let exclude = build_globset(&spec.exclude)?;
+
+                copy_workspace(&root, &dest, &include, &exclude)?;
+
+                // If the staged workspace isn't a git repo, initialize one.
+                ensure_git_repo(&dest);
+
+                Ok(PreparedWorkspace {
+                    path: dest,
+                    _temp: Some(tmp),
+                })
+            }
+        }
+    }
+
+    pub fn git_status(path: &Path) -> Option<String> {
+        run_git(path, &["status", "--porcelain=v1"]).ok()
+    }
+
+    pub fn git_diff(path: &Path) -> Option<String> {
+        run_git(path, &["diff", "--no-color"]).ok()
+    }
+}
+
+fn build_globset(patterns: &[String]) -> Result<Option<GlobSet>> {
+    if patterns.is_empty() {
+        return Ok(None);
+    }
+
+    let mut b = GlobSetBuilder::new();
+    for p in patterns {
+        b.add(Glob::new(p).with_context(|| format!("invalid glob: {p}"))?);
+    }
+    Ok(Some(b.build()?))
+}
+
+fn copy_workspace(src_root: &Path, dest_root: &Path, include: &Option<GlobSet>, exclude: &Option<GlobSet>) -> Result<()> {
+    debug!(target: "abp.workspace", "staging workspace from {} to {}", src_root.display(), dest_root.display());
+
+    for entry in WalkDir::new(src_root).follow_links(false) {
+        let entry = entry?;
+        let path = entry.path();
+
+        // Skip git metadata by default.
+        if path.file_name().is_some_and(|n| n == ".git") {
+            continue;
+        }
+
+        let rel = path.strip_prefix(src_root).unwrap_or(path);
+        if rel.as_os_str().is_empty() {
+            continue;
+        }
+
+        // Apply include/exclude globs.
+        if let Some(ex) = exclude {
+            if ex.is_match(rel) {
+                continue;
+            }
+        }
+        if let Some(inc) = include {
+            if !inc.is_match(rel) {
+                continue;
+            }
+        }
+
+        let dest_path = dest_root.join(rel);
+        if entry.file_type().is_dir() {
+            fs::create_dir_all(&dest_path).ok();
+            continue;
+        }
+
+        if entry.file_type().is_file() {
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent).ok();
+            }
+            fs::copy(path, &dest_path).with_context(|| format!("copy {}", rel.display()))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn ensure_git_repo(path: &Path) {
+    if path.join(".git").exists() {
+        return;
+    }
+
+    let _ = Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(path)
+        .status();
+
+    // Create an initial commit so diffs are meaningful.
+    let _ = Command::new("git")
+        .args(["add", "-A"])
+        .current_dir(path)
+        .status();
+
+    let _ = Command::new("git")
+        .args(["-c", "user.name=abp", "-c", "user.email=abp@local", "commit", "-qm", "baseline"])
+        .current_dir(path)
+        .status();
+}
+
+fn run_git(path: &Path, args: &[&str]) -> Result<String> {
+    let out = Command::new("git")
+        .args(args)
+        .current_dir(path)
+        .output()
+        .with_context(|| format!("run git {args:?}"))?;
+
+    if !out.status.success() {
+        anyhow::bail!("git {:?} failed (code={:?})", args, out.status.code());
+    }
+
+    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}

@@ -1,0 +1,41 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/abp-core",
+  "crates/abp-protocol",
+  "crates/abp-host",
+  "crates/abp-workspace",
+  "crates/abp-policy",
+  "crates/abp-integrations",
+  "crates/abp-runtime",
+  "crates/abp-cli",
+  "crates/abp-daemon",
+  "xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["Effortless Metrics"]
+repository = "https://example.invalid/agent-backplane"
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+futures = "0.3"
+globset = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = { version = "0.8", features = ["chrono", "uuid1"] }
+sha2 = "0.10"
+thiserror = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "fs"] }
+tokio-stream = "0.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+uuid = { version = "1", features = ["serde", "v4"] }
+walkdir = "2"
+tempfile = "3"
