@@ -2,6 +2,7 @@ use abp_core::{
     CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
     WorkspaceMode, WorkspaceSpec,
 };
+use abp_codex_sdk as codex_sdk;
 use abp_host::SidecarSpec;
 use abp_integrations::SidecarBackend;
 use abp_runtime::Runtime;
@@ -31,7 +32,7 @@ enum Commands {
 
     /// Run a work order.
     Run {
-        /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude | sidecar:copilot | sidecar:kimi
+        /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude | sidecar:copilot | sidecar:kimi | sidecar:codex
         #[arg(long, default_value = "mock")]
         backend: String,
 
@@ -148,6 +149,7 @@ async fn cmd_backends() -> Result<()> {
     println!("sidecar:claude");
     println!("sidecar:copilot");
     println!("sidecar:kimi");
+    println!("sidecar:codex");
     Ok(())
 }
 
@@ -238,6 +240,14 @@ async fn cmd_run(
         let mut spec = SidecarSpec::new(cmd);
         spec.args = vec![script.to_string_lossy().into_owned()];
         rt.register_backend("sidecar:copilot", SidecarBackend::new(spec));
+    }
+    if backend == codex_sdk::BACKEND_NAME {
+        if !codex_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {
+            anyhow::bail!(
+                "codex sidecar not available at {} (node not found or script missing)",
+                codex_sdk::sidecar_script(&PathBuf::from(".")).display()
+            );
+        }
     }
     if backend == "sidecar:kimi" {
         let cmd = if which("node").is_some() {

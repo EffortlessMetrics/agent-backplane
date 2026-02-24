@@ -37,6 +37,9 @@ cargo run -p abp-cli -- run --task "hello from node" --backend sidecar:node
 # run the python sidecar backend (requires python installed)
 cargo run -p abp-cli -- run --task "hello from python" --backend sidecar:python
 
+# run the codex sidecar backend (requires node installed)
+cargo run -p abp-cli -- run --task "hello from codex sidecar" --backend sidecar:codex
+
 # run the claude sidecar backend (requires node installed)
 cargo run -p abp-cli -- run --task "hello from claude sidecar" --backend sidecar:claude
 
@@ -71,11 +74,13 @@ Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 - `crates/abp-policy`: policy compilation + allow/deny checks
 - `crates/abp-integrations`: backend trait + implementations
 - `crates/abp-runtime`: orchestration (workspace -> backend -> receipt)
+- `crates/abp-codex-sdk`: Codex sidecar integration microcrate
 - `crates/abp-cli`: `abp` CLI
 - `crates/abp-daemon`: HTTP control plane + receipt persistence
 - `hosts/node`: example sidecar (JSONL over stdio)
 - `hosts/python`: example sidecar (JSONL over stdio)
 - `hosts/claude`: Claude-oriented sidecar with pluggable adapter module
+- `hosts/codex`: Codex-oriented sidecar with passthrough/mapped modes
 - `hosts/copilot`: GitHub Copilot sidecar scaffold with Copilot adapter contract
 - `hosts/kimi`: Kimi sidecar scaffold with runnable adapter contract
 - `contracts/schemas`: generated JSON schemas
