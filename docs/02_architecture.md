@@ -52,7 +52,7 @@ Think of the system like a power distribution panel:
 ### `abp-cli` / `abp-daemon`
 
 - CLI for local usage.
-- Daemon is a stub for an eventual control-plane service.
+- `abp-daemon` exposes a basic HTTP control-plane API and persists run receipts.
 
 ## Sidecars vs in-process adapters
 
