@@ -1,16 +1,17 @@
+use abp_claude_sdk as claude_sdk;
+use abp_codex_sdk as codex_sdk;
 use abp_core::{
     CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
     WorkspaceMode, WorkspaceSpec,
 };
-use abp_codex_sdk as codex_sdk;
-use abp_claude_sdk as claude_sdk;
 use abp_gemini_sdk as gemini_sdk;
-use abp_kimi_sdk as kimi_sdk;
 use abp_host::SidecarSpec;
 use abp_integrations::SidecarBackend;
+use abp_kimi_sdk as kimi_sdk;
 use abp_runtime::Runtime;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
+use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use tokio_stream::StreamExt;
@@ -35,13 +36,18 @@ enum Commands {
 
     /// Run a work order.
     Run {
-        /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude | sidecar:copilot | sidecar:kimi | sidecar:gemini | sidecar:codex
+        /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude | sidecar:copilot | sidecar:kimi | sidecar:gemini | sidecar:codex.
+        /// Aliases are also supported: node, python, claude, copilot, kimi, gemini, codex.
         #[arg(long, default_value = "mock")]
         backend: String,
 
         /// Task to execute.
         #[arg(long)]
         task: String,
+
+        /// Preferred model (sets work_order.config.model).
+        #[arg(long)]
+        model: Option<String>,
 
         /// Workspace root.
         #[arg(long, default_value = ".")]
@@ -60,6 +66,27 @@ enum Commands {
         /// Exclude glob(s) (relative to root). Can be repeated.
         #[arg(long)]
         exclude: Vec<String>,
+
+        /// Vendor params as key=value. Repeated values are merged.
+        ///
+        /// Examples:
+        /// --param model=gemini-2.5-flash
+        /// --param abp.mode=passthrough
+        /// --param stream=true
+        #[arg(long = "param")]
+        params: Vec<String>,
+
+        /// Environment variables passed through to the runtime as KEY=VALUE.
+        #[arg(long = "env")]
+        env_vars: Vec<String>,
+
+        /// Optional hard cap on run budget in USD (best-effort).
+        #[arg(long)]
+        max_budget_usd: Option<f64>,
+
+        /// Optional hard cap on run turns/iterations (best-effort).
+        #[arg(long)]
+        max_turns: Option<u32>,
 
         /// Where to write the receipt (defaults to .agent-backplane/receipts/<run_id>.json).
         #[arg(long)]
@@ -118,22 +145,32 @@ async fn main() -> Result<()> {
         Commands::Run {
             backend,
             task,
+            model,
             root,
             workspace_mode,
             lane,
             include,
             exclude,
+            params,
+            env_vars,
+            max_budget_usd,
+            max_turns,
             out,
             json,
         } => {
             cmd_run(
                 backend,
                 task,
+                model,
                 root,
                 workspace_mode,
                 lane,
                 include,
                 exclude,
+                params,
+                env_vars,
+                max_budget_usd,
+                max_turns,
                 out,
                 json,
             )
@@ -154,20 +191,33 @@ async fn cmd_backends() -> Result<()> {
     println!("sidecar:kimi");
     println!("sidecar:gemini");
     println!("sidecar:codex");
+    println!("node");
+    println!("python");
+    println!("claude");
+    println!("copilot");
+    println!("kimi");
+    println!("gemini");
+    println!("codex");
     Ok(())
 }
 
 async fn cmd_run(
     backend: String,
     task: String,
+    model: Option<String>,
     root: String,
     workspace_mode: WorkspaceModeArg,
     lane: LaneArg,
     include: Vec<String>,
     exclude: Vec<String>,
+    params: Vec<String>,
+    env_vars: Vec<String>,
+    max_budget_usd: Option<f64>,
+    max_turns: Option<u32>,
     out: Option<PathBuf>,
     json: bool,
 ) -> Result<()> {
+    let backend = normalize_backend_name(&backend);
     let mut rt = Runtime::with_default_backends();
 
     // Register built-in sidecars.
@@ -258,6 +308,40 @@ async fn cmd_run(
             );
         }
     }
+
+    let mut resolved_model = model;
+    let mut vendor = BTreeMap::new();
+    let mut env = BTreeMap::new();
+    let default_vendor_namespace = backend_vendor_namespace(&backend);
+
+    for raw in params {
+        let (key, raw_value) = parse_key_value_flag(&raw, "--param")?;
+
+        if key == "model" {
+            if resolved_model.is_none() {
+                resolved_model = Some(raw_value);
+            }
+            continue;
+        }
+
+        let value = parse_param_value(&raw_value);
+        if key.contains('.') {
+            insert_vendor_path(&mut vendor, &key, value);
+            continue;
+        }
+
+        if let Some(namespace) = default_vendor_namespace {
+            insert_vendor_path(&mut vendor, &format!("{namespace}.{key}"), value);
+        } else {
+            vendor.insert(key, value);
+        }
+    }
+
+    for raw in env_vars {
+        let (key, value) = parse_key_value_flag(&raw, "--env")?;
+        env.insert(key, value);
+    }
+
     let work_order_id = Uuid::new_v4();
     let wo = WorkOrder {
         id: work_order_id,
@@ -273,11 +357,11 @@ async fn cmd_run(
         policy: default_policy(),
         requirements: CapabilityRequirements::default(),
         config: RuntimeConfig {
-            model: None,
-            vendor: BTreeMap::new(),
-            env: BTreeMap::new(),
-            max_budget_usd: None,
-            max_turns: None,
+            model: resolved_model,
+            vendor,
+            env,
+            max_budget_usd,
+            max_turns,
         },
     };
 
@@ -329,6 +413,95 @@ async fn cmd_run(
     }
 
     Ok(())
+}
+
+fn parse_key_value_flag(raw: &str, flag_name: &str) -> Result<(String, String)> {
+    let (raw_key, raw_value) = raw
+        .split_once('=')
+        .with_context(|| format!("{flag_name} expects KEY=VALUE, got '{raw}'"))?;
+
+    let key = raw_key.trim();
+    if key.is_empty() {
+        anyhow::bail!("{flag_name} key cannot be empty (got '{raw}')");
+    }
+
+    Ok((key.to_string(), raw_value.to_string()))
+}
+
+fn parse_param_value(raw: &str) -> JsonValue {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return JsonValue::String(String::new());
+    }
+
+    serde_json::from_str::<JsonValue>(trimmed)
+        .unwrap_or_else(|_| JsonValue::String(raw.to_string()))
+}
+
+fn insert_vendor_path(vendor: &mut BTreeMap<String, JsonValue>, key: &str, value: JsonValue) {
+    let parts: Vec<&str> = key.split('.').filter(|p| !p.trim().is_empty()).collect();
+    if parts.is_empty() {
+        return;
+    }
+
+    if parts.len() == 1 {
+        vendor.insert(parts[0].to_string(), value);
+        return;
+    }
+
+    let root = parts[0].to_string();
+    let root_value = vendor
+        .entry(root)
+        .or_insert_with(|| JsonValue::Object(JsonMap::new()));
+    if !root_value.is_object() {
+        *root_value = JsonValue::Object(JsonMap::new());
+    }
+
+    let mut current = root_value;
+    for part in &parts[1..parts.len() - 1] {
+        let obj = current
+            .as_object_mut()
+            .expect("insert_vendor_path: current node must be an object");
+        let entry = obj
+            .entry((*part).to_string())
+            .or_insert_with(|| JsonValue::Object(JsonMap::new()));
+        if !entry.is_object() {
+            *entry = JsonValue::Object(JsonMap::new());
+        }
+        current = entry;
+    }
+
+    if let Some(last) = parts.last() {
+        let obj = current
+            .as_object_mut()
+            .expect("insert_vendor_path: final parent must be an object");
+        obj.insert((*last).to_string(), value);
+    }
+}
+
+fn backend_vendor_namespace(backend: &str) -> Option<&'static str> {
+    match backend {
+        "sidecar:gemini" => Some("gemini"),
+        "sidecar:codex" => Some("codex"),
+        "sidecar:claude" => Some("claude"),
+        "sidecar:kimi" => Some("kimi"),
+        "sidecar:copilot" => Some("copilot"),
+        "sidecar:node" | "sidecar:python" => Some("abp"),
+        _ => None,
+    }
+}
+
+fn normalize_backend_name(raw: &str) -> String {
+    match raw.trim() {
+        "node" => "sidecar:node".to_string(),
+        "python" => "sidecar:python".to_string(),
+        "claude" | "sidecar:claude" => claude_sdk::BACKEND_NAME.to_string(),
+        "copilot" => "sidecar:copilot".to_string(),
+        "kimi" | "sidecar:kimi" => kimi_sdk::BACKEND_NAME.to_string(),
+        "gemini" | "sidecar:gemini" => gemini_sdk::BACKEND_NAME.to_string(),
+        "codex" | "sidecar:codex" => codex_sdk::BACKEND_NAME.to_string(),
+        other => other.to_string(),
+    }
 }
 
 fn print_event(ev: &abp_core::AgentEvent) {
@@ -405,4 +578,53 @@ fn which(bin: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn normalize_backend_supports_aliases() {
+        assert_eq!(normalize_backend_name("gemini"), "sidecar:gemini");
+        assert_eq!(normalize_backend_name("codex"), "sidecar:codex");
+        assert_eq!(normalize_backend_name("node"), "sidecar:node");
+        assert_eq!(normalize_backend_name("mock"), "mock");
+    }
+
+    #[test]
+    fn parse_param_value_parses_jsonish_values() {
+        assert_eq!(parse_param_value("true"), json!(true));
+        assert_eq!(parse_param_value("1.5"), json!(1.5));
+        assert_eq!(parse_param_value("{\"a\":1}"), json!({"a": 1}));
+        assert_eq!(
+            parse_param_value("gemini-2.0-flash"),
+            json!("gemini-2.0-flash")
+        );
+    }
+
+    #[test]
+    fn insert_vendor_path_writes_nested_values() {
+        let mut vendor = BTreeMap::new();
+        insert_vendor_path(&mut vendor, "gemini.model", json!("gemini-2.5-flash"));
+        insert_vendor_path(&mut vendor, "gemini.vertex", json!(true));
+
+        assert_eq!(
+            vendor.get("gemini"),
+            Some(&json!({
+                "model": "gemini-2.5-flash",
+                "vertex": true
+            }))
+        );
+    }
+
+    #[test]
+    fn parse_key_value_requires_equals() {
+        let err = parse_key_value_flag("foo", "--param").unwrap_err();
+        assert!(
+            err.to_string().contains("KEY=VALUE"),
+            "unexpected error: {err}"
+        );
+    }
 }

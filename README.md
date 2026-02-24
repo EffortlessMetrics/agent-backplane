@@ -50,7 +50,12 @@ cargo run -p abp-cli -- run --task "hello from copilot sidecar" --backend sideca
 cargo run -p abp-cli -- run --task "hello from kimi sidecar" --backend sidecar:kimi
 
 # run the gemini sidecar backend (requires node installed)
+# npm --prefix hosts/gemini install
 cargo run -p abp-cli -- run --task "hello from gemini sidecar" --backend sidecar:gemini
+
+# alias + runtime vendor params
+cargo run -p abp-cli -- run --task "summarize this codebase" --backend gemini \
+  --model gemini-2.5-flash --param stream=true --param vertex=false
 
 # run the daemon control plane
 cargo run -p abp-daemon -- --bind 127.0.0.1:8088
