@@ -49,6 +49,9 @@ cargo run -p abp-cli -- run --task "hello from copilot sidecar" --backend sideca
 # run the kimi sidecar backend (requires node installed)
 cargo run -p abp-cli -- run --task "hello from kimi sidecar" --backend sidecar:kimi
 
+# run the gemini sidecar backend (requires node installed)
+cargo run -p abp-cli -- run --task "hello from gemini sidecar" --backend sidecar:gemini
+
 # run the daemon control plane
 cargo run -p abp-daemon -- --bind 127.0.0.1:8088
 ```
@@ -75,6 +78,7 @@ Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 - `crates/abp-integrations`: backend trait + implementations
 - `crates/abp-runtime`: orchestration (workspace -> backend -> receipt)
 - `crates/abp-codex-sdk`: Codex sidecar integration microcrate
+- `crates/abp-gemini-sdk`: Gemini CLI sidecar integration microcrate
 - `crates/abp-cli`: `abp` CLI
 - `crates/abp-daemon`: HTTP control plane + receipt persistence
 - `hosts/node`: example sidecar (JSONL over stdio)
@@ -83,6 +87,7 @@ Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 - `hosts/codex`: Codex-oriented sidecar with passthrough/mapped modes
 - `hosts/copilot`: GitHub Copilot sidecar scaffold with Copilot adapter contract
 - `hosts/kimi`: Kimi sidecar scaffold with runnable adapter contract
+- `hosts/gemini`: Gemini CLI sidecar scaffold with runnable adapter contract
 - `contracts/schemas`: generated JSON schemas
 
 ## What’s intentionally missing

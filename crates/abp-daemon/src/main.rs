@@ -2,6 +2,7 @@ use abp_core::{AgentEvent, CapabilityManifest, Receipt, WorkOrder};
 use abp_host::SidecarSpec;
 use abp_integrations::{MockBackend, SidecarBackend};
 use abp_codex_sdk as codex_sdk;
+use abp_gemini_sdk as gemini_sdk;
 use abp_runtime::Runtime;
 use anyhow::{Context, Result};
 use axum::{
@@ -316,6 +317,8 @@ fn build_runtime(host_root: &Path) -> Result<Runtime> {
         if which("node").is_some() { "node" } else { "node" },
         &host_root.join("hosts/kimi/host.js"),
     )?;
+
+    gemini_sdk::register_default(&mut runtime, host_root, None)?;
 
     codex_sdk::register_default(&mut runtime, host_root, None)?;
 

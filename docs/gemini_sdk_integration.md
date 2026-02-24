@@ -2,6 +2,29 @@
 
 This document provides comprehensive documentation for integrating Google's Gemini CLI and related AI ecosystem with Agent Backplane.
 
+## ABP status (this repository)
+
+This workspace includes a runnable Gemini CLI backend integration scaffold:
+
+- `hosts/gemini/host.js` (ABP sidecar entry point)
+- `hosts/gemini/adapter.js` (Gemini CLI command adapter)
+- `hosts/gemini/capabilities.js` (manifest)
+- `crates/abp-gemini-sdk` (Rust registration shim for `sidecar:gemini`)
+
+Activation:
+
+```bash
+cargo run -p abp-cli -- run --task "audit the repo" --backend sidecar:gemini
+```
+
+The adapter executes Gemini CLI by default through `gemini` and can be pointed at a custom runner via:
+
+- `ABP_GEMINI_CMD`
+- `ABP_GEMINI_ARGS`
+- `ABP_GEMINI_RUNNER`
+- `ABP_GEMINI_RUNNER_ARGS`
+- `ABP_GEMINI_ADAPTER_MODULE`
+
 ## A. Taxonomy of Google's AI Ecosystem
 
 Google's AI landscape consists of several interconnected but distinct layers:
