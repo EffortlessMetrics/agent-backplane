@@ -2,10 +2,11 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 const ADAPTER_NAME = "claude_sdk_adapter";
-const ADAPTER_VERSION = "0.1.0";
+const ADAPTER_VERSION = "0.2.0";
 const DEFAULT_SDK_MODULES = ["@anthropic-ai/claude-agent-sdk", "claude-agent-sdk"];
 const DEFAULT_RETRY_COUNT = 1;
 const DEFAULT_RETRY_DELAY_MS = 1000;
+const DEFAULT_CLIENT_TIMEOUT_MS = 0;
 
 const ExecutionMode = {
   Mapped: "mapped",
@@ -13,6 +14,8 @@ const ExecutionMode = {
 };
 
 let cachedSdk = null;
+const clientSessions = new Map();
+let cleanupHooksBound = false;
 
 function safeString(value) {
   if (value == null) {
@@ -48,6 +51,14 @@ function pickString(obj, keys) {
   const value = pickValue(obj, keys);
   if (typeof value === "string" && value.trim().length > 0) {
     return value.trim();
+  }
+  return undefined;
+}
+
+function pickBoolean(obj, keys) {
+  const value = pickValue(obj, keys);
+  if (typeof value === "boolean") {
+    return value;
   }
   return undefined;
 }
@@ -129,6 +140,43 @@ function getPassthroughRequest(workOrder) {
     return null;
   }
   return request;
+}
+
+function getClientConfig(workOrder) {
+  const abpCfg = getVendorNamespace(workOrder, "abp");
+  const claudeCfg = getVendorNamespace(workOrder, "claude");
+  const enabled =
+    pickBoolean(abpCfg, ["client_mode", "clientMode"]) ??
+    pickBoolean(claudeCfg, ["client_mode", "clientMode"]) ??
+    false;
+  const persist =
+    pickBoolean(abpCfg, ["client_persist", "clientPersist"]) ??
+    pickBoolean(claudeCfg, ["client_persist", "clientPersist"]) ??
+    false;
+  const sessionKey =
+    pickString(abpCfg, ["client_session_key", "clientSessionKey"]) ||
+    pickString(claudeCfg, ["client_session_key", "clientSessionKey"]) ||
+    undefined;
+  const parsedTimeoutMs = parseInt(
+    process.env.ABP_CLAUDE_CLIENT_TIMEOUT_MS || String(DEFAULT_CLIENT_TIMEOUT_MS),
+    10
+  );
+  const timeoutMs =
+    pickNumber(abpCfg, [
+      "client_timeout_ms",
+      "clientTimeoutMs",
+      "timeoutMs",
+      "timeout_ms",
+    ]) ??
+    pickNumber(claudeCfg, ["client_timeout_ms", "clientTimeoutMs"]) ??
+    (Number.isFinite(parsedTimeoutMs) ? parsedTimeoutMs : DEFAULT_CLIENT_TIMEOUT_MS);
+
+  return {
+    enabled,
+    persist,
+    sessionKey,
+    timeoutMs: Math.max(0, timeoutMs || 0),
+  };
 }
 
 function buildPrompt(workOrder) {
@@ -225,6 +273,161 @@ function getRetryConfig(workOrder) {
     maxAttempts: Math.max(1, 1 + Math.max(0, Math.floor(retryCount || 0))),
     retryDelayMs: Math.max(0, Number.isFinite(retryDelayMs) ? retryDelayMs : DEFAULT_RETRY_DELAY_MS),
   };
+}
+
+function stableJsonValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(stableJsonValue);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const out = {};
+  for (const key of Object.keys(value).sort()) {
+    out[key] = stableJsonValue(value[key]);
+  }
+  return out;
+}
+
+function stableSerialize(value) {
+  try {
+    return JSON.stringify(stableJsonValue(value));
+  } catch (_) {
+    return safeString(value);
+  }
+}
+
+function isIterableLike(value) {
+  if (!value) {
+    return false;
+  }
+  if (typeof value[Symbol.asyncIterator] === "function") {
+    return true;
+  }
+  return typeof value[Symbol.iterator] === "function" && !ArrayBuffer.isView(value);
+}
+
+function resolveMethod(target, methodNames) {
+  if (!target || typeof target !== "object") {
+    return null;
+  }
+  for (const methodName of methodNames) {
+    if (typeof target[methodName] === "function") {
+      return target[methodName].bind(target);
+    }
+  }
+  return null;
+}
+
+async function withTimeout(promise, timeoutMs, onTimeout) {
+  if (!timeoutMs || timeoutMs <= 0) {
+    return promise;
+  }
+
+  let timer = null;
+  let timeoutTriggered = false;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      timeoutTriggered = true;
+      Promise.resolve()
+        .then(async () => {
+          if (typeof onTimeout === "function") {
+            await onTimeout();
+          }
+        })
+        .finally(() => {
+          reject(new Error(`Claude SDK client query timed out after ${timeoutMs}ms`));
+        });
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (!timeoutTriggered && timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+function resolveClientSessionKey(workOrder, request, clientConfig) {
+  if (clientConfig.sessionKey) {
+    return clientConfig.sessionKey;
+  }
+
+  const requestOptions = asObject(request?.options);
+  const explicitSessionId = pickString(requestOptions, ["sessionId", "session_id"]);
+  if (explicitSessionId) {
+    return `session:${explicitSessionId}`;
+  }
+
+  const workspaceRoot = pickString(asObject(workOrder?.workspace), ["root"]);
+  if (workspaceRoot) {
+    return `workspace:${workspaceRoot}`;
+  }
+
+  return "default";
+}
+
+function withSessionLock(session, fn) {
+  const runPromise = session.lock.then(fn);
+  session.lock = runPromise.catch(() => {});
+  return runPromise;
+}
+
+async function disconnectClient(client) {
+  const disconnectFn = resolveMethod(client, ["disconnect", "close", "end"]);
+  if (!disconnectFn) {
+    return;
+  }
+  await disconnectFn();
+}
+
+async function connectClient(client) {
+  const connectFn = resolveMethod(client, ["connect"]);
+  if (!connectFn) {
+    return;
+  }
+  await connectFn();
+}
+
+async function interruptClient(client) {
+  const interruptFn = resolveMethod(client, ["interrupt", "cancel", "abort"]);
+  if (!interruptFn) {
+    return;
+  }
+  await interruptFn();
+}
+
+async function closeClientSession(session) {
+  if (!session) {
+    return;
+  }
+  if (session.key && clientSessions.get(session.key) === session) {
+    clientSessions.delete(session.key);
+  }
+  await disconnectClient(session.client);
+}
+
+async function closeAllClientSessions() {
+  const sessions = Array.from(clientSessions.values());
+  clientSessions.clear();
+  await Promise.all(
+    sessions.map((session) =>
+      closeClientSession(session).catch(() => {})
+    )
+  );
+}
+
+function bindCleanupHooks() {
+  if (cleanupHooksBound) {
+    return;
+  }
+  cleanupHooksBound = true;
+  process.once("beforeExit", () => {
+    void closeAllClientSessions();
+  });
 }
 
 function normalizeUsage(raw) {
@@ -564,6 +767,92 @@ function resolveQueryFunction(mod) {
   return null;
 }
 
+function resolveAgentOptionsCtor(mod) {
+  if (!mod) {
+    return null;
+  }
+
+  const candidates = [
+    mod.ClaudeAgentOptions,
+    mod.default?.ClaudeAgentOptions,
+    mod.AgentOptions,
+    mod.default?.AgentOptions,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "function") {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function resolveClientFactory(mod) {
+  if (!mod) {
+    return null;
+  }
+
+  const directFactoryCandidates = [
+    mod.createClient,
+    mod.default?.createClient,
+  ];
+  for (const candidate of directFactoryCandidates) {
+    if (typeof candidate === "function") {
+      return async (options) => {
+        let lastError = null;
+        const attempts = [
+          () => candidate({ options }),
+          () => candidate(options),
+        ];
+        for (const attempt of attempts) {
+          try {
+            const client = await attempt();
+            if (client && typeof client === "object") {
+              return client;
+            }
+          } catch (err) {
+            lastError = err;
+          }
+        }
+        throw new Error(`failed to create SDK client: ${safeString(lastError)}`);
+      };
+    }
+  }
+
+  const constructorCandidates = [
+    mod.ClaudeSDKClient,
+    mod.default?.ClaudeSDKClient,
+    mod.SDKClient,
+    mod.default?.SDKClient,
+  ];
+  for (const Candidate of constructorCandidates) {
+    if (typeof Candidate !== "function") {
+      continue;
+    }
+    return async (options) => {
+      let lastError = null;
+      const attempts = [
+        () => new Candidate({ options }),
+        () => new Candidate(options),
+        () => Candidate({ options }),
+        () => Candidate(options),
+      ];
+      for (const attempt of attempts) {
+        try {
+          const client = await attempt();
+          if (client && typeof client === "object") {
+            return client;
+          }
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw new Error(`failed to instantiate SDK client: ${safeString(lastError)}`);
+    };
+  }
+
+  return null;
+}
+
 async function loadSdk() {
   if (cachedSdk) {
     return cachedSdk;
@@ -586,12 +875,16 @@ async function loadSdk() {
     try {
       const mod = await importModule(candidate);
       const query = resolveQueryFunction(mod);
-      if (typeof query !== "function") {
-        throw new Error(`module '${candidate}' does not export query()`);
+      const createClient = resolveClientFactory(mod);
+      if (typeof query !== "function" && typeof createClient !== "function") {
+        throw new Error(`module '${candidate}' does not export query() or ClaudeSDKClient`);
       }
       cachedSdk = {
         moduleName: candidate,
+        module: mod,
         query,
+        createClient,
+        agentOptionsCtor: resolveAgentOptionsCtor(mod),
       };
       return cachedSdk;
     } catch (err) {
@@ -606,14 +899,116 @@ async function loadSdk() {
 }
 
 async function invokeQuery(queryFn, request) {
+  if (typeof queryFn !== "function") {
+    throw new Error("claude SDK query() is unavailable");
+  }
   try {
-    return queryFn(request);
+    return await queryFn(request);
   } catch (firstErr) {
     if (request && typeof request === "object" && Object.prototype.hasOwnProperty.call(request, "prompt")) {
-      return queryFn(request.prompt, request.options);
+      try {
+        return await queryFn(request.prompt, request.options);
+      } catch (_) {
+        return queryFn(request.prompt);
+      }
     }
     throw firstErr;
   }
+}
+
+function buildClientOptions(sdk, request) {
+  const rawOptions = asObject(request?.options);
+  if (typeof sdk.agentOptionsCtor === "function") {
+    try {
+      return new sdk.agentOptionsCtor(rawOptions);
+    } catch (_) {
+      // Fall through to plain options object.
+    }
+  }
+  return rawOptions;
+}
+
+async function acquireClientSession(sdk, workOrder, request, clientConfig) {
+  bindCleanupHooks();
+
+  const key = clientConfig.persist
+    ? resolveClientSessionKey(workOrder, request, clientConfig)
+    : null;
+  const optionFingerprint = stableSerialize(buildClientOptions(sdk, request));
+
+  if (key && clientSessions.has(key)) {
+    const existing = clientSessions.get(key);
+    if (existing.optionFingerprint === optionFingerprint) {
+      return existing;
+    }
+    await closeClientSession(existing);
+  }
+
+  const clientOptions = buildClientOptions(sdk, request);
+  if (typeof sdk.createClient !== "function") {
+    throw new Error("client_mode was enabled but SDK client constructor is unavailable");
+  }
+  const client = await sdk.createClient(clientOptions);
+  await connectClient(client);
+
+  const session = {
+    key,
+    client,
+    optionFingerprint,
+    lock: Promise.resolve(),
+  };
+
+  if (key) {
+    clientSessions.set(key, session);
+  }
+
+  return session;
+}
+
+async function invokeClientQuery(client, request) {
+  const queryFn = resolveMethod(client, ["query"]);
+  if (!queryFn) {
+    throw new Error("client_mode was enabled but client.query() is unavailable");
+  }
+
+  try {
+    return await queryFn(request);
+  } catch (firstErr) {
+    if (request && typeof request === "object" && Object.prototype.hasOwnProperty.call(request, "prompt")) {
+      try {
+        return await queryFn(request.prompt, request.options);
+      } catch (_) {
+        try {
+          return await queryFn(request.prompt);
+        } catch (_) {
+          throw firstErr;
+        }
+      }
+    }
+    throw firstErr;
+  }
+}
+
+async function resolveClientResponseSource(client, queryResult) {
+  if (isIterableLike(queryResult)) {
+    return queryResult;
+  }
+
+  const receiveResponse = resolveMethod(client, ["receiveResponse", "receive_response"]);
+  if (receiveResponse) {
+    const received = await receiveResponse();
+    if (isIterableLike(received)) {
+      return received;
+    }
+    if (received != null) {
+      return [received];
+    }
+  }
+
+  if (queryResult != null) {
+    return [queryResult];
+  }
+  return [];
 }
 
 async function runOnce(ctx, queryFn, request, passthroughMode) {
@@ -651,11 +1046,59 @@ async function runOnce(ctx, queryFn, request, passthroughMode) {
   };
 }
 
+async function runOnceWithClientSession(
+  ctx,
+  clientSession,
+  request,
+  passthroughMode,
+  timeoutMs
+) {
+  const state = {
+    usageRaw: {},
+    lastAssistantText: "",
+    sawAssistantDelta: false,
+    sawAssistantMessage: false,
+  };
+
+  const queryResult = await withTimeout(
+    invokeClientQuery(clientSession.client, request),
+    timeoutMs,
+    () => interruptClient(clientSession.client)
+  );
+  const response = await resolveClientResponseSource(clientSession.client, queryResult);
+
+  for await (const rawMessage of toAsyncIterable(response)) {
+    if (passthroughMode && typeof ctx.emitPassthroughEvent === "function") {
+      ctx.emitPassthroughEvent(rawMessage);
+      collectUsage(state, rawMessage);
+      continue;
+    }
+    emitMappedMessage(ctx, rawMessage, state);
+  }
+
+  if (
+    !passthroughMode &&
+    state.sawAssistantDelta &&
+    !state.sawAssistantMessage &&
+    state.lastAssistantText.length > 0
+  ) {
+    ctx.emitAssistantMessage(state.lastAssistantText);
+  }
+
+  return {
+    usageRaw: state.usageRaw,
+    usage: normalizeUsage(state.usageRaw),
+    outcome: "complete",
+    ...(passthroughMode ? { stream_equivalent: true } : {}),
+  };
+}
+
 async function run(ctx) {
   const workOrder = asObject(ctx?.workOrder);
   const mode = getExecutionMode(workOrder);
   const passthroughRequest = getPassthroughRequest(workOrder);
   const usePassthrough = mode === ExecutionMode.Passthrough && passthroughRequest != null;
+  const clientConfig = getClientConfig(workOrder);
 
   let sdk;
   try {
@@ -680,19 +1123,72 @@ async function run(ctx) {
     ctx.emitWarning("work order task is empty; running Claude SDK with an empty prompt");
   }
 
+  let useClientMode = clientConfig.enabled;
+  if (useClientMode && typeof sdk.createClient !== "function") {
+    ctx.emitWarning(
+      "abp.client_mode=true requested, but this Claude SDK module does not expose a stateful client; falling back to query()."
+    );
+    useClientMode = false;
+  }
+
+  if (!useClientMode && typeof sdk.query !== "function") {
+    ctx.emitError(
+      "Claude SDK module does not expose query(). Enable client_mode with a compatible SDK or install a query()-compatible SDK."
+    );
+    return {
+      usageRaw: {
+        sdk_module: sdk.moduleName,
+        error: "sdk_missing_query",
+      },
+      usage: {},
+      outcome: "failed",
+    };
+  }
+
   const retryConfig = getRetryConfig(workOrder);
   let lastError = null;
+  let clientSession = null;
   for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt += 1) {
     try {
-      const result = await runOnce(ctx, sdk.query, request, usePassthrough);
+      if (useClientMode && !clientSession) {
+        clientSession = await acquireClientSession(sdk, workOrder, request, clientConfig);
+      }
+
+      const result = useClientMode
+        ? await withSessionLock(clientSession, () =>
+          runOnceWithClientSession(
+            ctx,
+            clientSession,
+            request,
+            usePassthrough,
+            clientConfig.timeoutMs
+          ))
+        : await runOnce(ctx, sdk.query, request, usePassthrough);
+
       result.usageRaw = {
         sdk_module: sdk.moduleName,
+        transport: useClientMode ? "client" : "query",
+        client_mode: useClientMode,
+        ...(useClientMode
+          ? {
+            client_session_key: clientSession?.key || null,
+            client_persist: clientConfig.persist,
+          }
+          : {}),
         ...asObject(result.usageRaw),
       };
       result.usage = normalizeUsage(result.usageRaw);
+      if (useClientMode && clientSession && !clientConfig.persist) {
+        await closeClientSession(clientSession);
+        clientSession = null;
+      }
       return result;
     } catch (err) {
       lastError = err;
+      if (clientSession) {
+        await closeClientSession(clientSession).catch(() => {});
+        clientSession = null;
+      }
       const shouldRetry = attempt < retryConfig.maxAttempts && isRetriableError(err);
       if (!shouldRetry) {
         break;
@@ -709,6 +1205,8 @@ async function run(ctx) {
   return {
     usageRaw: {
       sdk_module: sdk.moduleName,
+      transport: useClientMode ? "client" : "query",
+      client_mode: useClientMode,
       error: safeString(lastError),
     },
     usage: {},

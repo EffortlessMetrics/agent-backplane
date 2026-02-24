@@ -58,6 +58,11 @@ cargo run -p abp-daemon -- --bind 127.0.0.1:8088
 
 Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 
+### Python Claude Client Mode
+
+`hosts/python/host.py` now supports the same `vendor.abp.client_mode` feature flag used by the Claude sidecar adapter.  
+If `claude_agent_sdk` is installed and `client_mode=true`, it will use a stateful SDK client path; otherwise it falls back to `query()` when available (or to deterministic partial fallback if the SDK is missing).
+
 ## Daemon API
 
 - `GET /health`

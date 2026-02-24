@@ -60,8 +60,34 @@ Without a custom adapter:
 - Passthrough mode uses the host's native passthrough stream wrapper.
 - If no compatible SDK is found, it runs deterministic fallback mode and emits `outcome: "partial"`.
 
+## Client Mode (Feature Flag)
+
+The built-in adapter now supports a stateful SDK-client path behind `vendor.abp.client_mode`.
+
+```json
+{
+  "config": {
+    "vendor": {
+      "abp": {
+        "client_mode": true,
+        "client_persist": false,
+        "client_timeout_ms": 120000
+      }
+    }
+  }
+}
+```
+
+Notes:
+
+- Default remains `query()` mode for backward compatibility.
+- If `client_mode=true` is set but the loaded SDK module has no client class/factory, the adapter emits a warning and falls back to `query()`.
+- `client_persist=true` reuses the SDK client in-process by session key (`abp.client_session_key`, then `options.sessionId`, then workspace root).
+- Receipt `usage_raw.transport` indicates which path was used (`\"query\"` or `\"client\"`).
+
 ## Environment variables
 
 - `ABP_CLAUDE_ADAPTER_MODULE`: Path to the custom adapter module.
 - `ABP_CLAUDE_MAX_INLINE_OUTPUT_BYTES`: Threshold for in-trace tool output before artifact offload (default `8192`).
 - `ABP_CLAUDE_SDK_MODULE`: Optional SDK module override (useful for testing).
+- `ABP_CLAUDE_CLIENT_TIMEOUT_MS`: Default timeout for client-mode query calls when no per-run timeout is set.
