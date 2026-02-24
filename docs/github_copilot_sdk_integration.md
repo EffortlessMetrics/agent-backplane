@@ -13,14 +13,16 @@ This guide defines the implemented `sidecar:copilot` integration in this reposit
 
 ```text
 WorkOrder -> abp-runtime -> host runtime -> ABP host process (hosts/copilot/host.js)
-   -> adapter (hosts/copilot/adapter.js) -> Copilot ACP transport (stdlib stdio/tcp)
-   -> optional legacy runner fallback (ABP_COPILOT_RUNNER)
+   -> adapter (hosts/copilot/adapter.js)
+      -> Copilot SDK transport (@github/copilot-sdk, default in auto mode)
+      -> ACP transport fallback (stdio/tcp)
+      -> optional legacy runner fallback (ABP_COPILOT_RUNNER)
 ```
 
 This split is intentional:
 
 - `host.js` owns protocol, policy preflight, artifacts, receipts.
-- `adapter.js` owns Copilot transport details.
+- `adapter.js` owns Copilot transport details (SDK/ACP/legacy).
 - external runner logic can be swapped without changing ABP internals.
 
 ## 3) Protocol behavior in this stack
@@ -37,7 +39,7 @@ from the sidecar is replaced with the runtime canonical hash.
 
 ## 4) WorkOrder mapping
 
-`hosts/copilot/adapter.js` currently consumes:
+`hosts/copilot/adapter.js` consumes:
 
 - `work_order.task`
 - `work_order.workspace.root`
@@ -100,8 +102,11 @@ Security defaults are policy-driven, so they can evolve without changing the sid
 
 Runtime mode behavior:
 
-- `ABP_COPILOT_PROTOCOL=acp` (default): start local Copilot in ACP mode or connect to an ACP endpoint, then run `initialize`, session creation, and `session/prompt` flow.
-- `ABP_COPILOT_PROTOCOL=legacy`: send request JSON to a runner/command for line-delimited event mode.
+- `ABP_COPILOT_TRANSPORT=auto` (default): try SDK first, then ACP, then legacy runner.
+- `ABP_COPILOT_TRANSPORT=sdk`: force official `@github/copilot-sdk` path.
+- `ABP_COPILOT_TRANSPORT=acp`: force ACP JSON-RPC flow.
+- `ABP_COPILOT_TRANSPORT=legacy`: force runner/command fallback.
+- `ABP_COPILOT_PROTOCOL=acp|legacy` remains as back-compat input when `ABP_COPILOT_TRANSPORT` is unset.
 
 ACP protocol mapping:
 
@@ -116,6 +121,14 @@ Runner mode mapping:
 - `ABP_COPILOT_RUNNER` (preferred): any executable that consumes the JSON request from stdin and emits JSON/line events.
 - `ABP_COPILOT_CMD` + `ABP_COPILOT_ARGS`: fallback command mode.
 - if no runner configured, adapter returns a deterministic fallback explanation and outcome `partial`.
+
+SDK mode mapping:
+
+- import `@github/copilot-sdk` dynamically (`ABP_COPILOT_SDK_MODULE` override supported)
+- create client + session from WorkOrder model/workspace config
+- stream message/tool deltas into ABP events
+- normalize usage fields to ABP receipt schema
+- retry transient failures with bounded exponential backoff
 
 Runner-emitted event kinds are normalized into ABP events:
 
@@ -154,7 +167,7 @@ Optional runtime overrides:
 
 ## 10) Delivery path for production use
 
-1. replace `hosts/copilot/adapter.js` with a real Copilot runner binding (or set `ABP_COPILOT_RUNNER`),
+1. install `@github/copilot-sdk` in `hosts/copilot` and set `GH_TOKEN`/`GITHUB_TOKEN`,
 2. keep `host.js` unchanged unless event/receipt schema changes are required,
 3. use policy assertions in integration tests:
    - hello-first ordering,

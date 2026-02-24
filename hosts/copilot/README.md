@@ -5,6 +5,12 @@ This directory contains the GitHub Copilot sidecar implementation for Agent Back
 The Copilot host follows the ABP JSONL protocol and emits normalized ABP events
 (`hello`, `event`, `final`) while delegating Copilot-specific behavior to an adapter.
 
+## Install
+
+```bash
+npm --prefix hosts/copilot install
+```
+
 ## Usage
 
 ```bash
@@ -12,7 +18,8 @@ The Copilot host follows the ABP JSONL protocol and emits normalized ABP events
 node hosts/copilot/host.js
 
 # Use in ABP CLI (from repo root)
-cargo run -p abp-cli -- run --backend sidecar:copilot --task "inspect this repo"
+set GH_TOKEN=YOUR_TOKEN
+cargo run -p abp-cli -- run --backend copilot --task "inspect this repo"
 
 # Debug with a custom adapter module
 ABP_COPILOT_ADAPTER_MODULE=./hosts/copilot/adapter.template.js \
@@ -44,7 +51,7 @@ ABP_COPILOT_ADAPTER_MODULE=./hosts/copilot/adapter.template.js \
 | File | Purpose |
 |------|---------|
 | `host.js` | Sidecar runtime, JSONL protocol handling, events, receipt |
-| `adapter.js` | Default adapter for ACP mode with legacy fallback |
+| `adapter.js` | Default adapter with SDK-first transport and ACP/legacy fallback |
 | `adapter.template.js` | Template showing a custom Copilot integration module |
 | `capabilities.js` | Capability manifest and support levels |
 
@@ -57,10 +64,14 @@ ABP_COPILOT_ADAPTER_MODULE=./hosts/copilot/adapter.template.js \
 | `ABP_COPILOT_RUNNER` | Optional command that accepts Copilot request JSON on stdin |
 | `ABP_COPILOT_CMD` | Default command name for non-runner flows | `copilot` |
 | `ABP_COPILOT_ARGS` | JSON array of arguments for `ABP_COPILOT_CMD` | `[]` |
-| `ABP_COPILOT_PROTOCOL` | `acp` (default) or `legacy` | `acp` |
+| `ABP_COPILOT_TRANSPORT` | `auto` (default), `sdk`, `acp`, or `legacy` | `auto` |
+| `ABP_COPILOT_PROTOCOL` | Back-compat switch (`acp` / `legacy`) when transport not set | `acp` |
 | `ABP_COPILOT_ACP_URL` | Remote ACP endpoint (`host:port`/`tcp://...`) | `` |
 | `ABP_COPILOT_ACP_PORT` | Local ACP TCP port (stdio omitted) | `` |
 | `ABP_COPILOT_ACP_ARGS` | JSON args for ACP startup process | `[]` |
+| `ABP_COPILOT_SDK_MODULE` | Override SDK import path (tests/custom builds) | `@github/copilot-sdk` |
+| `ABP_COPILOT_RETRY_ATTEMPTS` | SDK retry attempts for transient errors | `3` |
+| `ABP_COPILOT_RETRY_BASE_DELAY_MS` | SDK retry base delay | `1000` |
 | `ABP_COPILOT_PERMISSION_ALLOW_ALWAYS` | Allow every request (`allow_always`) | `false` |
 | `ABP_COPILOT_PERMISSION_ALLOW_TOOLS` | Auto-approve listed tools (`allow_once`) | `[]` |
 | `ABP_COPILOT_PERMISSION_DENY_TOOLS` | Quick deny list by prefix | `[]` |
@@ -71,7 +82,7 @@ ABP_COPILOT_ADAPTER_MODULE=./hosts/copilot/adapter.template.js \
 
 - `hello` must be first output line.
 - The adapter receives `workOrder` plus normalized policy helpers.
-- `ABP_COPILOT_PROTOCOL=acp` uses local/remote ACP transport by default.
+- `ABP_COPILOT_TRANSPORT=auto` tries SDK first, then ACP, then legacy runner.
 - Receipts follow the ABP contract and include deterministic `receipt_sha256`.
 
 ## Minimal Security Posture

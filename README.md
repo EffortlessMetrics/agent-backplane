@@ -44,6 +44,7 @@ cargo run -p abp-cli -- run --task "hello from codex sidecar" --backend sidecar:
 cargo run -p abp-cli -- run --task "hello from claude sidecar" --backend sidecar:claude
 
 # run the copilot sidecar backend (requires node installed)
+# npm --prefix hosts/copilot install
 cargo run -p abp-cli -- run --task "hello from copilot sidecar" --backend sidecar:copilot
 
 # run the kimi sidecar backend (requires node installed)
