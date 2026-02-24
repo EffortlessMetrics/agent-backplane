@@ -6,7 +6,9 @@ version = 4
 name = "abp-cli"
 version = "0.1.0"
 dependencies = [
+ "abp-codex-sdk",
  "abp-core",
+ "abp-gemini-sdk",
  "abp-host",
  "abp-integrations",
  "abp-runtime",
@@ -19,6 +21,16 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "abp-codex-sdk"
+version = "0.1.0"
+dependencies = [
+ "abp-host",
+ "abp-integrations",
+ "abp-runtime",
+ "anyhow",
 ]
 
 [[package]]
@@ -38,7 +50,9 @@ dependencies = [
 name = "abp-daemon"
 version = "0.1.0"
 dependencies = [
+ "abp-codex-sdk",
  "abp-core",
+ "abp-gemini-sdk",
  "abp-host",
  "abp-integrations",
  "abp-runtime",
@@ -53,6 +67,16 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "abp-gemini-sdk"
+version = "0.1.0"
+dependencies = [
+ "abp-host",
+ "abp-integrations",
+ "abp-runtime",
+ "anyhow",
 ]
 
 [[package]]
