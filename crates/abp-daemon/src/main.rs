@@ -309,6 +309,13 @@ fn build_runtime(host_root: &Path) -> Result<Runtime> {
         &host_root.join("hosts/copilot/host.js"),
     )?;
 
+    register_sidecar_backend(
+        &mut runtime,
+        "sidecar:kimi",
+        if which("node").is_some() { "node" } else { "node" },
+        &host_root.join("hosts/kimi/host.js"),
+    )?;
+
     Ok(runtime)
 }
 

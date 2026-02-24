@@ -31,7 +31,7 @@ enum Commands {
 
     /// Run a work order.
     Run {
-        /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude | sidecar:copilot
+        /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude | sidecar:copilot | sidecar:kimi
         #[arg(long, default_value = "mock")]
         backend: String,
 
@@ -147,6 +147,7 @@ async fn cmd_backends() -> Result<()> {
     println!("sidecar:python");
     println!("sidecar:claude");
     println!("sidecar:copilot");
+    println!("sidecar:kimi");
     Ok(())
 }
 
@@ -237,6 +238,25 @@ async fn cmd_run(
         let mut spec = SidecarSpec::new(cmd);
         spec.args = vec![script.to_string_lossy().into_owned()];
         rt.register_backend("sidecar:copilot", SidecarBackend::new(spec));
+    }
+    if backend == "sidecar:kimi" {
+        let cmd = if which("node").is_some() {
+            "node"
+        } else {
+            anyhow::bail!("node executable not found in PATH");
+        };
+
+        let script = PathBuf::from("hosts/kimi/host.js");
+        if !script.is_file() {
+            anyhow::bail!(
+                "kimi sidecar host script not found at {} (run from repo root)",
+                script.display()
+            );
+        }
+
+        let mut spec = SidecarSpec::new(cmd);
+        spec.args = vec![script.to_string_lossy().into_owned()];
+        rt.register_backend("sidecar:kimi", SidecarBackend::new(spec));
     }
 
     let work_order_id = Uuid::new_v4();
