@@ -48,7 +48,7 @@ struct Args {
     debug: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct AppState {
     runtime: Arc<Runtime>,
     receipts: Arc<RwLock<HashMap<Uuid, Receipt>>>,
@@ -208,7 +208,7 @@ async fn cmd_run(
         events.push(event);
     }
 
-    let mut receipt = handle
+    let receipt = handle
         .receipt
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?

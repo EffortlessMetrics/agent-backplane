@@ -40,7 +40,7 @@ fn schema(out_dir: PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn write_schema(path: &PathBuf, schema: &schemars::schema::RootSchema) -> Result<()> {
+fn write_schema(path: &PathBuf, schema: &schemars::Schema) -> Result<()> {
     let s = serde_json::to_string_pretty(schema)?;
     std::fs::write(path, s).with_context(|| format!("write {}", path.display()))?;
     Ok(())
