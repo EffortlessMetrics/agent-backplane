@@ -1,6 +1,6 @@
 use abp_core::{
-    CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkspaceMode,
-    WorkspaceSpec, WorkOrder,
+    CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
+    WorkspaceMode, WorkspaceSpec,
 };
 use abp_host::SidecarSpec;
 use abp_integrations::SidecarBackend;
@@ -31,7 +31,7 @@ enum Commands {
 
     /// Run a work order.
     Run {
-        /// Backend name: mock | sidecar:node | sidecar:python
+        /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude
         #[arg(long, default_value = "mock")]
         backend: String,
 
@@ -121,18 +121,20 @@ async fn main() -> Result<()> {
             exclude,
             out,
             json,
-        } => cmd_run(
-            backend,
-            task,
-            root,
-            workspace_mode,
-            lane,
-            include,
-            exclude,
-            out,
-            json,
-        )
-        .await,
+        } => {
+            cmd_run(
+                backend,
+                task,
+                root,
+                workspace_mode,
+                lane,
+                include,
+                exclude,
+                out,
+                json,
+            )
+            .await
+        }
     }
 }
 
@@ -143,6 +145,7 @@ async fn cmd_backends() -> Result<()> {
     }
     println!("sidecar:node");
     println!("sidecar:python");
+    println!("sidecar:claude");
     Ok(())
 }
 
@@ -161,16 +164,59 @@ async fn cmd_run(
 
     // Register built-in sidecars.
     if backend == "sidecar:node" {
+        // These example sidecars are checked in under `hosts/` and are meant for local dev.
+        // If you're running `abp` outside the repo root, pass a real backend config instead.
+        let script = PathBuf::from("hosts/node/host.js");
+        if !script.is_file() {
+            anyhow::bail!(
+                "node sidecar host script not found at {} (run from repo root)",
+                script.display()
+            );
+        }
+
         let mut spec = SidecarSpec::new("node");
-        spec.args = vec!["hosts/node/host.js".into()];
+        spec.args = vec![script.to_string_lossy().into_owned()];
         rt.register_backend("sidecar:node", SidecarBackend::new(spec));
     }
     if backend == "sidecar:python" {
         // Prefer python3, but fall back to python.
-        let cmd = if which("python3").is_some() { "python3" } else { "python" };
+        let cmd = if which("python3").is_some() {
+            "python3"
+        } else {
+            "python"
+        };
+
+        // These example sidecars are checked in under `hosts/` and are meant for local dev.
+        let script = PathBuf::from("hosts/python/host.py");
+        if !script.is_file() {
+            anyhow::bail!(
+                "python sidecar host script not found at {} (run from repo root)",
+                script.display()
+            );
+        }
+
         let mut spec = SidecarSpec::new(cmd);
-        spec.args = vec!["hosts/python/host.py".into()];
+        spec.args = vec![script.to_string_lossy().into_owned()];
         rt.register_backend("sidecar:python", SidecarBackend::new(spec));
+    }
+    if backend == "sidecar:claude" {
+        let cmd = if which("node").is_some() {
+            "node"
+        } else {
+            anyhow::bail!("node executable not found in PATH");
+        };
+
+        let script = PathBuf::from("hosts/claude/host.js");
+        if !script.is_file() {
+            anyhow::bail!(
+                "claude sidecar host script not found at {} (run from repo root)",
+                script.display()
+            );
+        }
+
+        let mut spec = SidecarSpec::new(cmd);
+        spec.args = vec![script.to_string_lossy().into_owned()];
+        rt.register_backend("sidecar:claude", SidecarBackend::new(spec));
     }
 
     let work_order_id = Uuid::new_v4();
@@ -227,7 +273,8 @@ async fn cmd_run(
     });
 
     if let Some(parent) = out_path.parent() {
-        std::fs::create_dir_all(parent).ok();
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("create receipt directory {}", parent.display()))?;
     }
 
     std::fs::write(&out_path, serde_json::to_string_pretty(&receipt)?)
@@ -236,7 +283,10 @@ async fn cmd_run(
     if !json {
         eprintln!("---");
         eprintln!("receipt: {}", out_path.display());
-        eprintln!("sha256: {}", receipt.receipt_sha256.clone().unwrap_or_default());
+        eprintln!(
+            "sha256: {}",
+            receipt.receipt_sha256.clone().unwrap_or_default()
+        );
     }
 
     Ok(())
@@ -268,7 +318,10 @@ fn print_event(ev: &abp_core::AgentEvent) {
             is_error,
             ..
         } => {
-            eprintln!("[tool] result {tool_name} id={:?} error={is_error}", tool_use_id);
+            eprintln!(
+                "[tool] result {tool_name} id={:?} error={is_error}",
+                tool_use_id
+            );
         }
 
         FileChanged { path, summary } => {
@@ -276,9 +329,7 @@ fn print_event(ev: &abp_core::AgentEvent) {
         }
 
         CommandExecuted {
-            command,
-            exit_code,
-            ..
+            command, exit_code, ..
         } => {
             eprintln!("[bash] {:?} => {:?}", command, exit_code);
         }
@@ -291,11 +342,7 @@ fn print_event(ev: &abp_core::AgentEvent) {
 fn default_policy() -> PolicyProfile {
     PolicyProfile {
         allowed_tools: vec![],
-        disallowed_tools: vec![
-            "KillBash".into(),
-            "NotebookEdit".into(),
-            "mcp__*__*".into(),
-        ],
+        disallowed_tools: vec!["KillBash".into(), "NotebookEdit".into(), "mcp__*__*".into()],
         deny_read: vec![
             "**/.env".into(),
             "**/.env.*".into(),

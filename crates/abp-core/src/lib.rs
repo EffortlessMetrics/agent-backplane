@@ -150,7 +150,9 @@ pub enum MinSupport {
     Emulated,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Capability {
     Streaming,
@@ -193,7 +195,9 @@ pub enum SupportLevel {
     Unsupported,
 
     /// Supported in principle, but disabled by policy or environment.
-    Restricted { reason: String },
+    Restricted {
+        reason: String,
+    },
 }
 
 impl SupportLevel {
@@ -212,6 +216,24 @@ impl SupportLevel {
 
 pub type CapabilityManifest = BTreeMap<Capability, SupportLevel>;
 
+/// Execution mode for how ABP processes requests.
+///
+/// - Passthrough: Lossless wrapping - ABP acts as observer/recorder only
+/// - Mapped: Full dialect translation - ABP translates between dialects
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionMode {
+    /// Lossless wrapping mode. ABP passes requests directly to the SDK
+    /// without modification. Stream is bitwise-equivalent to direct SDK call
+    /// after removing ABP framing.
+    Passthrough,
+
+    /// Full dialect translation mode. ABP translates between different
+    /// agent dialects, potentially modifying requests and responses.
+    #[default]
+    Mapped,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BackendIdentity {
     /// Stable backend identifier.
@@ -229,6 +251,10 @@ pub struct Receipt {
     pub meta: RunMetadata,
     pub backend: BackendIdentity,
     pub capabilities: CapabilityManifest,
+
+    /// Execution mode used for this run.
+    #[serde(default)]
+    pub mode: ExecutionMode,
 
     /// Vendor-specific usage payload as reported.
     pub usage_raw: serde_json::Value,
@@ -298,16 +324,32 @@ pub struct AgentEvent {
 
     #[serde(flatten)]
     pub kind: AgentEventKind,
+
+    /// Extension field for passthrough mode raw data.
+    ///
+    /// In passthrough mode, this contains the original SDK message
+    /// for lossless reconstruction. The key `raw_message` contains
+    /// the verbatim SDK message.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ext: Option<BTreeMap<String, serde_json::Value>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentEventKind {
-    RunStarted { message: String },
-    RunCompleted { message: String },
+    RunStarted {
+        message: String,
+    },
+    RunCompleted {
+        message: String,
+    },
 
-    AssistantDelta { text: String },
-    AssistantMessage { text: String },
+    AssistantDelta {
+        text: String,
+    },
+    AssistantMessage {
+        text: String,
+    },
 
     ToolCall {
         tool_name: String,
@@ -323,7 +365,10 @@ pub enum AgentEventKind {
         is_error: bool,
     },
 
-    FileChanged { path: String, summary: String },
+    FileChanged {
+        path: String,
+        summary: String,
+    },
 
     CommandExecuted {
         command: String,
@@ -331,9 +376,13 @@ pub enum AgentEventKind {
         output_preview: Option<String>,
     },
 
-    Warning { message: String },
+    Warning {
+        message: String,
+    },
 
-    Error { message: String },
+    Error {
+        message: String,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -359,12 +408,22 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 pub fn receipt_hash(receipt: &Receipt) -> Result<String, ContractError> {
-    let json = canonical_json(receipt)?;
+    // Important: `receipt_sha256` must not influence the hash input, otherwise
+    // the stored hash becomes self-inconsistent.
+    //
+    // We canonicalize via serde_json::Value so we can force the field to `null`
+    // without cloning the full receipt (which may include a large trace).
+    let mut v = serde_json::to_value(receipt)?;
+    if let serde_json::Value::Object(map) = &mut v {
+        map.insert("receipt_sha256".to_string(), serde_json::Value::Null);
+    }
+    let json = serde_json::to_string(&v)?;
     Ok(sha256_hex(json.as_bytes()))
 }
 
 impl Receipt {
     pub fn with_hash(mut self) -> Result<Self, ContractError> {
+        // Ensure we hash the canonical form (receipt_sha256 treated as null).
         let h = receipt_hash(&self)?;
         self.receipt_sha256 = Some(h);
         Ok(self)

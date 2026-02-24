@@ -20,7 +20,9 @@ async fn main() -> Result<()> {
 
     eprintln!("abp-daemon is a stub in v0.1");
     eprintln!("bind requested: {}", args.bind);
-    eprintln!("\nNext: implement an HTTP control-plane API that exposes /run, /capabilities, /receipts.");
+    eprintln!(
+        "\nNext: implement an HTTP control-plane API that exposes /run, /capabilities, /receipts."
+    );
 
     Ok(())
 }

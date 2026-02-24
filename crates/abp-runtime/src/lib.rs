@@ -8,7 +8,7 @@
 //! - select a backend and stream events
 //! - produce a canonical receipt with verification metadata
 
-use abp_core::{AgentEvent, Outcome, Receipt, WorkOrder};
+use abp_core::{AgentEvent, ExecutionMode, Outcome, Receipt, WorkOrder};
 use abp_integrations::Backend;
 use abp_policy::PolicyEngine;
 use abp_workspace::WorkspaceManager;
@@ -57,7 +57,11 @@ impl Runtime {
         self.backends.get(name).cloned()
     }
 
-    pub async fn run_streaming(&self, backend_name: &str, work_order: WorkOrder) -> Result<RunHandle> {
+    pub async fn run_streaming(
+        &self,
+        backend_name: &str,
+        work_order: WorkOrder,
+    ) -> Result<RunHandle> {
         let backend = self
             .backend(backend_name)
             .with_context(|| format!("unknown backend: {backend_name}"))?;
@@ -71,8 +75,8 @@ impl Runtime {
 
         let receipt = tokio::spawn(async move {
             // Keep the prepared workspace alive for the duration of the run.
-            let prepared = WorkspaceManager::prepare(&work_order.workspace)
-                .context("prepare workspace")?;
+            let prepared =
+                WorkspaceManager::prepare(&work_order.workspace).context("prepare workspace")?;
 
             // Clone and rewrite the work order to point at prepared workspace.
             let mut wo = work_order.clone();
@@ -85,7 +89,8 @@ impl Runtime {
 
             // Run backend in a task so we can multiplex events.
             let backend2 = backend.clone();
-            let mut backend_handle = tokio::spawn(async move { backend2.run(run_id, wo, from_backend_tx).await });
+            let mut backend_handle =
+                tokio::spawn(async move { backend2.run(run_id, wo, from_backend_tx).await });
 
             let mut trace: Vec<AgentEvent> = Vec::new();
             let mut receipt_opt: Option<Receipt> = None;
@@ -130,6 +135,7 @@ impl Runtime {
                     },
                     backend: backend.identity(),
                     capabilities: backend.capabilities(),
+                    mode: ExecutionMode::default(),
                     usage_raw: serde_json::json!({"error": "no receipt"}),
                     usage: Default::default(),
                     trace: vec![],

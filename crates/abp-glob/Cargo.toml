@@ -1,5 +1,5 @@
 [package]
-name = "abp-policy"
+name = "abp-glob"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,8 +7,5 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-abp-core = { path = "../abp-core" }
-abp-glob = { path = "../abp-glob" }
 anyhow.workspace = true
-serde.workspace = true
-schemars.workspace = true
+globset.workspace = true

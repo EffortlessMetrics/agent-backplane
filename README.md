@@ -9,6 +9,7 @@ This repo is a **compilable, runnable scaffold**:
 - A Rust microcrate workspace with a stable contract (`abp-core`)
 - A JSONL sidecar protocol (`abp-protocol`)
 - A sidecar host/supervisor (`abp-host`)
+- Shared include/exclude glob matching utilities (`abp-glob`)
 - Workspace staging + git harness utilities (`abp-workspace`)
 - Policy utilities (`abp-policy`)
 - Backend trait + `mock` + `sidecar` backends (`abp-integrations`)
@@ -35,6 +36,9 @@ cargo run -p abp-cli -- run --task "hello from node" --backend sidecar:node
 
 # run the python sidecar backend (requires python installed)
 cargo run -p abp-cli -- run --task "hello from python" --backend sidecar:python
+
+# run the claude sidecar backend (requires node installed)
+cargo run -p abp-cli -- run --task "hello from claude sidecar" --backend sidecar:claude
 ```
 
 Receipts land in `.agent-backplane/receipts/<run_id>.json`.
@@ -44,6 +48,7 @@ Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 - `crates/abp-core`: stable Rust types (WorkOrder, Receipt, events, capabilities)
 - `crates/abp-protocol`: JSONL envelope + codec
 - `crates/abp-host`: spawn a sidecar process and stream messages
+- `crates/abp-glob`: compile and evaluate include/exclude glob rules
 - `crates/abp-workspace`: staging + git harness utilities
 - `crates/abp-policy`: policy compilation + allow/deny checks
 - `crates/abp-integrations`: backend trait + implementations
@@ -52,6 +57,7 @@ Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 - `crates/abp-daemon`: placeholder daemon
 - `hosts/node`: example sidecar (JSONL over stdio)
 - `hosts/python`: example sidecar (JSONL over stdio)
+- `hosts/claude`: Claude-oriented sidecar with pluggable adapter module
 - `contracts/schemas`: generated JSON schemas
 
 ## What’s intentionally missing

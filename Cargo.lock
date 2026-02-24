@@ -46,6 +46,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-glob"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "globset",
+]
+
+[[package]]
 name = "abp-host"
 version = "0.1.0"
 dependencies = [
@@ -72,6 +80,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -79,8 +88,8 @@ name = "abp-policy"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-glob",
  "anyhow",
- "globset",
  "schemars",
  "serde",
 ]
@@ -117,8 +126,8 @@ name = "abp-workspace"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-glob",
  "anyhow",
- "globset",
  "tempfile",
  "tokio",
  "tracing",
