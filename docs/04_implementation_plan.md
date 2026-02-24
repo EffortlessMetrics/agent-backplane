@@ -39,7 +39,7 @@ Pick one SDK and ship a drop-in shim.
 
 ## Milestone 5: daemon + persistence
 
-- [ ] HTTP daemon API
-- [ ] receipt store
+- [x] HTTP daemon API
+- [x] receipt store
 - [ ] replay/debug tools
 
