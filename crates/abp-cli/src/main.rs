@@ -588,6 +588,7 @@ mod tests {
     #[test]
     fn normalize_backend_supports_aliases() {
         assert_eq!(normalize_backend_name("gemini"), "sidecar:gemini");
+        assert_eq!(normalize_backend_name("kimi"), "sidecar:kimi");
         assert_eq!(normalize_backend_name("codex"), "sidecar:codex");
         assert_eq!(normalize_backend_name("node"), "sidecar:node");
         assert_eq!(normalize_backend_name("mock"), "mock");
@@ -626,5 +627,10 @@ mod tests {
             err.to_string().contains("KEY=VALUE"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn backend_vendor_namespace_supports_kimi() {
+        assert_eq!(backend_vendor_namespace("sidecar:kimi"), Some("kimi"));
     }
 }

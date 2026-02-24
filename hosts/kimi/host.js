@@ -383,6 +383,20 @@ function parseUsage(raw) {
   };
 }
 
+function normalizeOutcome(value, fallback = "complete") {
+  const raw = String(value || fallback).trim().toLowerCase();
+  if (raw === "complete" || raw === "completed") {
+    return "complete";
+  }
+  if (raw === "partial" || raw === "partially_complete" || raw === "partially-complete") {
+    return "partial";
+  }
+  if (raw === "failed" || raw === "failure" || raw === "error") {
+    return "failed";
+  }
+  return fallback;
+}
+
 async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
   const startedAt = nowIso();
   const workspaceRoot = (workOrder.workspace && workOrder.workspace.root) || process.cwd();
@@ -486,17 +500,15 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
 
   let usageRaw = {};
   let usage = {};
-  let outcome = "Complete";
+  let outcome = "complete";
 
   try {
     const result = (await adapter.run(ctx)) || {};
     usageRaw = result.usageRaw && typeof result.usageRaw === "object" ? result.usageRaw : {};
     usage = result.usage && typeof result.usage === "object" ? result.usage : parseUsage(usageRaw);
-    if (typeof result.outcome === "string") {
-      outcome = result.outcome;
-    }
+    outcome = normalizeOutcome(result.outcome, outcome);
   } catch (err) {
-    outcome = "Failed";
+    outcome = "failed";
     emitError(err && err.stack ? err.stack : safeString(err));
   }
 
