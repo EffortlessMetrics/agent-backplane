@@ -77,6 +77,7 @@ Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 - `crates/abp-policy`: policy compilation + allow/deny checks
 - `crates/abp-integrations`: backend trait + implementations
 - `crates/abp-runtime`: orchestration (workspace -> backend -> receipt)
+- `crates/abp-claude-sdk`: Claude sidecar integration microcrate
 - `crates/abp-codex-sdk`: Codex sidecar integration microcrate
 - `crates/abp-gemini-sdk`: Gemini CLI sidecar integration microcrate
 - `crates/abp-cli`: `abp` CLI

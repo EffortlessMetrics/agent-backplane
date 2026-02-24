@@ -62,16 +62,8 @@ const ExecutionMode = {
  * @returns {string} - "passthrough" or "mapped" (default)
  */
 function getExecutionMode(workOrder) {
-  const vendor = workOrder.config && workOrder.config.vendor;
-  if (!vendor || typeof vendor !== "object") {
-    return ExecutionMode.Mapped;
-  }
-  const abp = vendor.abp;
-  if (!abp || typeof abp !== "object") {
-    return ExecutionMode.Mapped;
-  }
-  const mode = abp.mode;
-  if (mode === ExecutionMode.Passthrough) {
+  const value = getAbpVendorValue(workOrder, "mode");
+  if (value === ExecutionMode.Passthrough) {
     return ExecutionMode.Passthrough;
   }
   return ExecutionMode.Mapped;
@@ -83,15 +75,37 @@ function getExecutionMode(workOrder) {
  * @returns {object|null} - The raw SDK request or null if not in passthrough mode
  */
 function getPassthroughRequest(workOrder) {
+  const request = getAbpVendorValue(workOrder, "request");
+  if (request == null) {
+    return null;
+  }
+  return request;
+}
+
+/**
+ * Read ABP metadata from work_order.config.vendor.
+ *
+ * Supported shapes:
+ *   - vendor: { abp: { mode: ..., request: ... } }
+ *   - vendor: { "abp.mode": ..., "abp.request": ... }
+ */
+function getAbpVendorValue(workOrder, key) {
   const vendor = workOrder.config && workOrder.config.vendor;
   if (!vendor || typeof vendor !== "object") {
     return null;
   }
-  const abp = vendor.abp;
-  if (!abp || typeof abp !== "object") {
-    return null;
+
+  const nested = vendor.abp;
+  if (nested && typeof nested === "object" && Object.prototype.hasOwnProperty.call(nested, key)) {
+    return nested[key];
   }
-  return abp.request || null;
+
+  const dotted = `abp.${key}`;
+  if (Object.prototype.hasOwnProperty.call(vendor, dotted)) {
+    return vendor[dotted];
+  }
+
+  return null;
 }
 
 function nowIso() {
@@ -450,26 +464,60 @@ function buildPrompt(workOrder) {
 }
 
 function buildSdkOptions(workOrder) {
+  const request = getPassthroughRequest(workOrder) || workOrder.config?.vendor || {};
+  const settingSources =
+    Array.isArray(request.setting_sources) && request.setting_sources.length > 0
+      ? request.setting_sources
+      : ["project"];
+  const allowedTools = Array.isArray(request.allowed_tools)
+    ? request.allowed_tools
+    : Array.isArray(request.allowedTools)
+      ? request.allowedTools
+      : workOrder.policy && Array.isArray(workOrder.policy.allowed_tools)
+        ? workOrder.policy.allowed_tools
+        : undefined;
+  const disallowedTools = Array.isArray(request.disallowed_tools)
+    ? request.disallowed_tools
+    : Array.isArray(request.disallowedTools)
+      ? request.disallowedTools
+      : workOrder.policy && Array.isArray(workOrder.policy.disallowed_tools)
+        ? workOrder.policy.disallowed_tools
+        : undefined;
+  const permissionMode =
+    request.permission_mode ||
+    request.permissionMode ||
+    permissionModeForLane(workOrder.lane);
+
   const options = {
     cwd: workOrder.workspace && workOrder.workspace.root,
     env: workOrder.config && workOrder.config.env ? workOrder.config.env : {},
-    model: workOrder.config && workOrder.config.model ? workOrder.config.model : undefined,
-    permissionMode: permissionModeForLane(workOrder.lane),
-    settingSources: ["project"],
-    allowedTools:
-      workOrder.policy && Array.isArray(workOrder.policy.allowed_tools)
-        ? workOrder.policy.allowed_tools
-        : undefined,
-    disallowedTools:
-      workOrder.policy && Array.isArray(workOrder.policy.disallowed_tools)
-        ? workOrder.policy.disallowed_tools
-        : undefined,
+    model:
+      request.model ||
+      (workOrder.config && workOrder.config.model ? workOrder.config.model : undefined),
+    permissionMode,
+    permission_mode: request.permission_mode,
+    session_id: request.session_id || request.sessionId,
+    resume: request.resume || request.resume_session || request.resume_session_id,
+    settingSources,
+    setting_sources: settingSources,
+    allowedTools,
+    allowed_tools: allowedTools,
+    disallowedTools,
+    disallowed_tools: disallowedTools,
     vendor:
       workOrder.config && workOrder.config.vendor ? workOrder.config.vendor : {},
     maxTurns:
-      workOrder.config && typeof workOrder.config.max_turns === "number"
+      request.maxTurns ||
+      request.max_turns ||
+      (workOrder.config && typeof workOrder.config.max_turns === "number"
         ? workOrder.config.max_turns
-        : undefined,
+        : undefined),
+    max_turns:
+      request.maxTurns ||
+      request.max_turns ||
+      (workOrder.config && typeof workOrder.config.max_turns === "number"
+        ? workOrder.config.max_turns
+        : undefined),
   };
   return options;
 }
