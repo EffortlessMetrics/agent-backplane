@@ -3,6 +3,7 @@ use abp_core::{
     WorkspaceMode, WorkspaceSpec,
 };
 use abp_codex_sdk as codex_sdk;
+use abp_gemini_sdk as gemini_sdk;
 use abp_host::SidecarSpec;
 use abp_integrations::SidecarBackend;
 use abp_runtime::Runtime;
@@ -32,7 +33,7 @@ enum Commands {
 
     /// Run a work order.
     Run {
-        /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude | sidecar:copilot | sidecar:kimi | sidecar:codex
+        /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude | sidecar:copilot | sidecar:kimi | sidecar:gemini | sidecar:codex
         #[arg(long, default_value = "mock")]
         backend: String,
 
@@ -149,6 +150,7 @@ async fn cmd_backends() -> Result<()> {
     println!("sidecar:claude");
     println!("sidecar:copilot");
     println!("sidecar:kimi");
+    println!("sidecar:gemini");
     println!("sidecar:codex");
     Ok(())
 }
@@ -246,6 +248,14 @@ async fn cmd_run(
             anyhow::bail!(
                 "codex sidecar not available at {} (node not found or script missing)",
                 codex_sdk::sidecar_script(&PathBuf::from(".")).display()
+            );
+        }
+    }
+    if backend == gemini_sdk::BACKEND_NAME {
+        if !gemini_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {
+            anyhow::bail!(
+                "gemini sidecar not available at {} (node not found or script missing)",
+                gemini_sdk::sidecar_script(&PathBuf::from(".")).display()
             );
         }
     }
