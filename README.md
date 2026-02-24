@@ -40,6 +40,9 @@ cargo run -p abp-cli -- run --task "hello from python" --backend sidecar:python
 # run the claude sidecar backend (requires node installed)
 cargo run -p abp-cli -- run --task "hello from claude sidecar" --backend sidecar:claude
 
+# run the copilot sidecar backend (requires node installed)
+cargo run -p abp-cli -- run --task "hello from copilot sidecar" --backend sidecar:copilot
+
 # run the daemon control plane
 cargo run -p abp-daemon -- --bind 127.0.0.1:8088
 ```
@@ -70,6 +73,7 @@ Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 - `hosts/node`: example sidecar (JSONL over stdio)
 - `hosts/python`: example sidecar (JSONL over stdio)
 - `hosts/claude`: Claude-oriented sidecar with pluggable adapter module
+- `hosts/copilot`: GitHub Copilot sidecar scaffold with Copilot adapter contract
 - `contracts/schemas`: generated JSON schemas
 
 ## What’s intentionally missing

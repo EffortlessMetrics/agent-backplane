@@ -22,6 +22,7 @@ Pick one SDK and ship a drop-in shim.
 - [ ] Shim maps each call to a WorkOrder/internal commands.
 - [ ] Sidecar backend routes to the real provider.
 - [ ] Receipt emitted and validated.
+- [x] Add GitHub Copilot SDK scaffold backend under `hosts/copilot` and wire registration in CLI/daemon.
 
 ## Milestone 3: projection matrix
 
