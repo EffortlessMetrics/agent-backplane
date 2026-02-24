@@ -11,30 +11,41 @@ const ADAPTER_VERSION = "0.1-test";
  * Get execution mode from work order
  */
 function getExecutionMode(workOrder) {
-  const vendor = workOrder.config && workOrder.config.vendor;
-  if (!vendor || typeof vendor !== "object") {
-    return "mapped";
-  }
-  const abp = vendor.abp;
-  if (!abp || typeof abp !== "object") {
-    return "mapped";
-  }
-  return abp.mode === "passthrough" ? "passthrough" : "mapped";
+  const mode = getAbpVendorValue(workOrder, "mode");
+  return mode === "passthrough" ? "passthrough" : "mapped";
 }
 
 /**
  * Get passthrough request from work order
  */
 function getPassthroughRequest(workOrder) {
+  const request = getAbpVendorValue(workOrder, "request");
+  if (request == null) {
+    return null;
+  }
+  return request;
+}
+
+/**
+ * Read ABP metadata from work_order.config.vendor.
+ */
+function getAbpVendorValue(workOrder, key) {
   const vendor = workOrder.config && workOrder.config.vendor;
   if (!vendor || typeof vendor !== "object") {
     return null;
   }
-  const abp = vendor.abp;
-  if (!abp || typeof abp !== "object") {
-    return null;
+
+  const nested = vendor.abp;
+  if (nested && typeof nested === "object" && Object.prototype.hasOwnProperty.call(nested, key)) {
+    return nested[key];
   }
-  return abp.request || null;
+
+  const dotted = `abp.${key}`;
+  if (Object.prototype.hasOwnProperty.call(vendor, dotted)) {
+    return vendor[dotted];
+  }
+
+  return null;
 }
 
 module.exports = {

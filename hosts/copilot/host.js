@@ -15,7 +15,7 @@ const readline = require("node:readline");
 const { getCapabilityManifest } = require("./capabilities");
 
 const CONTRACT_VERSION = "abp/v0.1";
-const ADAPTER_VERSION = "0.1";
+const ADAPTER_VERSION = "0.2.0";
 const MAX_INLINE_OUTPUT_BYTES = parseInt(
   process.env.ABP_COPILOT_MAX_INLINE_OUTPUT_BYTES || "8192",
   10

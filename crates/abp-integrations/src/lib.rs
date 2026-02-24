@@ -276,14 +276,28 @@ async fn emit_event(
 ///
 /// Returns `ExecutionMode::Mapped` (default) if not specified.
 pub fn extract_execution_mode(work_order: &WorkOrder) -> ExecutionMode {
-    work_order
+    let nested = work_order
         .config
         .vendor
         .get("abp")
         .and_then(|v| v.as_object())
         .and_then(|obj| obj.get("mode"))
+        .and_then(|m| serde_json::from_value(m.clone()).ok());
+
+    if let Some(mode) = nested {
+        return mode;
+    }
+
+    if let Some(mode) = work_order
+        .config
+        .vendor
+        .get("abp.mode")
         .and_then(|m| serde_json::from_value(m.clone()).ok())
-        .unwrap_or_default()
+    {
+        return mode;
+    }
+
+    ExecutionMode::default()
 }
 
 /// Validate that passthrough mode is compatible with the backend.

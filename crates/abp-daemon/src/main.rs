@@ -2,6 +2,8 @@ use abp_core::{AgentEvent, CapabilityManifest, Receipt, WorkOrder};
 use abp_host::SidecarSpec;
 use abp_integrations::{MockBackend, SidecarBackend};
 use abp_codex_sdk as codex_sdk;
+use abp_claude_sdk as claude_sdk;
+use abp_kimi_sdk as kimi_sdk;
 use abp_gemini_sdk as gemini_sdk;
 use abp_runtime::Runtime;
 use anyhow::{Context, Result};
@@ -46,7 +48,7 @@ struct Args {
     debug: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct AppState {
     runtime: Arc<Runtime>,
     receipts: Arc<RwLock<HashMap<Uuid, Receipt>>>,
@@ -206,7 +208,7 @@ async fn cmd_run(
         events.push(event);
     }
 
-    let mut receipt = handle
+    let receipt = handle
         .receipt
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
@@ -297,12 +299,10 @@ fn build_runtime(host_root: &Path) -> Result<Runtime> {
         &host_root.join("hosts/python/host.py"),
     )?;
 
-    register_sidecar_backend(
-        &mut runtime,
-        "sidecar:claude",
-        if which("node").is_some() { "node" } else { "node" },
-        &host_root.join("hosts/claude/host.js"),
-    )?;
+    if !claude_sdk::register_default(&mut runtime, host_root, None)? {
+        // Silently skip if Claude host/Node is unavailable in this environment.
+        // Keep startup resilient for deployments that omit that optional backend.
+    }
 
     register_sidecar_backend(
         &mut runtime,
@@ -311,12 +311,7 @@ fn build_runtime(host_root: &Path) -> Result<Runtime> {
         &host_root.join("hosts/copilot/host.js"),
     )?;
 
-    register_sidecar_backend(
-        &mut runtime,
-        "sidecar:kimi",
-        if which("node").is_some() { "node" } else { "node" },
-        &host_root.join("hosts/kimi/host.js"),
-    )?;
+    kimi_sdk::register_default(&mut runtime, host_root, None)?;
 
     gemini_sdk::register_default(&mut runtime, host_root, None)?;
 

@@ -1,9 +1,19 @@
 const { spawn } = require("node:child_process");
+const fs = require("node:fs");
 const net = require("node:net");
+const path = require("node:path");
 const readline = require("node:readline");
+const { pathToFileURL } = require("node:url");
 
-const ADAPTER_NAME = "copilot_acp_adapter";
-const ADAPTER_VERSION = "0.1.0";
+const ADAPTER_NAME = "copilot_sdk_adapter";
+const ADAPTER_VERSION = "0.2.0";
+const SDK_MODULE = process.env.ABP_COPILOT_SDK_MODULE || "@github/copilot-sdk";
+const TRANSPORT_MODE = String(process.env.ABP_COPILOT_TRANSPORT || "auto").toLowerCase();
+const SDK_RETRY_ATTEMPTS = parseInt(process.env.ABP_COPILOT_RETRY_ATTEMPTS || "3", 10);
+const SDK_RETRY_BASE_DELAY_MS = parseInt(
+  process.env.ABP_COPILOT_RETRY_BASE_DELAY_MS || "1000",
+  10
+);
 
 const DEFAULT_COPILOT_CMD = process.env.ABP_COPILOT_CLI_PATH || process.env.ABP_COPILOT_CMD || "copilot";
 const DEFAULT_COPILOT_ARGS = parseArgList(process.env.ABP_COPILOT_ARGS);
@@ -24,12 +34,22 @@ const AUTO_DENY_ALWAYS_TOOLS = toLowerSet(
   parseArgList(process.env.ABP_COPILOT_PERMISSION_DENY_ALWAYS_TOOLS)
 );
 
+let cachedCopilotClientCtor = null;
+let cachedSdkLoadError = null;
+let cachedSdkVersion = null;
+
 function safeString(value) {
   if (value == null) {
     return "";
   }
+  if (value instanceof Error) {
+    return value.message || String(value);
+  }
   if (typeof value === "string") {
     return value;
+  }
+  if (typeof value === "object" && typeof value.message === "string") {
+    return value.message;
   }
   try {
     return JSON.stringify(value);
@@ -68,6 +88,141 @@ function parseArgList(raw) {
       .filter(Boolean);
   }
   return [];
+}
+
+function asObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value;
+}
+
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(String(value || ""), 10);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return fallback;
+}
+
+function isRunnablePath(candidate) {
+  try {
+    return fs.statSync(candidate).isFile();
+  } catch (_) {
+    return false;
+  }
+}
+
+function resolveCommandPath(command) {
+  const cmd = String(command || "").trim();
+  if (!cmd) {
+    return null;
+  }
+
+  if (path.isAbsolute(cmd) || cmd.includes(path.sep)) {
+    const absolute = path.resolve(cmd);
+    return isRunnablePath(absolute) ? absolute : null;
+  }
+
+  const pathVar = process.env.PATH;
+  if (!pathVar) {
+    return null;
+  }
+
+  for (const dir of pathVar.split(path.delimiter)) {
+    if (!dir) {
+      continue;
+    }
+
+    if (process.platform === "win32") {
+      for (const ext of [".exe", ".cmd", ".bat", ".com", ".ps1"]) {
+        const candidate = path.join(dir, `${cmd}${ext}`);
+        if (isRunnablePath(candidate)) {
+          return candidate;
+        }
+      }
+      continue;
+    }
+
+    const candidate = path.join(dir, cmd);
+    if (isRunnablePath(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function resolveSdkVersion() {
+  const candidates = [
+    path.resolve(process.cwd(), "hosts/copilot/node_modules/@github/copilot-sdk/package.json"),
+    path.resolve(__dirname, "node_modules/@github/copilot-sdk/package.json"),
+  ];
+
+  for (const candidate of candidates) {
+    if (!isRunnablePath(candidate)) {
+      continue;
+    }
+    try {
+      const pkg = JSON.parse(fs.readFileSync(candidate, "utf8"));
+      if (typeof pkg.version === "string" && pkg.version.length > 0) {
+        return pkg.version;
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+async function loadCopilotClientCtor() {
+  if (cachedCopilotClientCtor) {
+    return cachedCopilotClientCtor;
+  }
+  if (cachedSdkLoadError) {
+    throw cachedSdkLoadError;
+  }
+
+  try {
+    const mod = await import(normalizeSdkImportTarget(SDK_MODULE));
+    const ctor =
+      mod?.CopilotClient ||
+      mod?.default?.CopilotClient ||
+      mod?.default;
+    if (!ctor || typeof ctor !== "function") {
+      throw new Error(`module '${SDK_MODULE}' does not export CopilotClient`);
+    }
+    cachedCopilotClientCtor = ctor;
+    cachedSdkVersion = resolveSdkVersion();
+    return cachedCopilotClientCtor;
+  } catch (err) {
+    cachedSdkLoadError = new Error(
+      `failed to load Copilot SDK module '${SDK_MODULE}': ${safeString(err)}`
+    );
+    throw cachedSdkLoadError;
+  }
+}
+
+function normalizeSdkImportTarget(target) {
+  const raw = String(target || "").trim();
+  if (!raw) {
+    return raw;
+  }
+  if (
+    raw.startsWith("file://") ||
+    raw.startsWith("node:") ||
+    raw.startsWith("data:")
+  ) {
+    return raw;
+  }
+
+  if (path.isAbsolute(raw) || raw.startsWith(".") || raw.startsWith("..")) {
+    const resolved = path.resolve(raw);
+    return pathToFileURL(resolved).href;
+  }
+
+  return raw;
 }
 
 function toLowerSet(values) {
@@ -150,6 +305,10 @@ function parseContextText(context) {
   if (files.length > 0) {
     lines.push("### Context files");
     for (const file of files) {
+      if (typeof file === "string") {
+        lines.push(`- ${file}`);
+        continue;
+      }
       if (!file || typeof file !== "object") {
         continue;
       }
@@ -179,9 +338,9 @@ function parseContextText(context) {
 
 function pickContextForRequest(ctx) {
   const workOrder = ctx.workOrder || {};
-  const vendor = (workOrder.config && workOrder.config.vendor) || {};
-  const copilotVendor = vendor.copilot || {};
-  const abpVendor = vendor.abp || {};
+  const vendor = asObject(workOrder.config && workOrder.config.vendor);
+  const copilotVendor = asObject(vendor.copilot);
+  const abpVendor = asObject(vendor.abp);
   const requestText = `${workOrder.task || ""}`.trim();
   const contextText = parseContextText(workOrder.context || {});
 
@@ -193,6 +352,15 @@ function pickContextForRequest(ctx) {
     model: (workOrder.config && workOrder.config.model) || copilotVendor.model || null,
     reasoningEffort: copilotVendor.reasoningEffort || null,
     systemMessage: copilotVendor.systemMessage || null,
+    copilotToken:
+      copilotVendor.token ||
+      copilotVendor.apiToken ||
+      process.env.GH_TOKEN ||
+      process.env.GITHUB_TOKEN ||
+      null,
+    timeoutMs: parsePositiveInt(copilotVendor.timeoutMs || copilotVendor.timeout_ms, 120000),
+    retryAttempts: parsePositiveInt(copilotVendor.retryAttempts || copilotVendor.retry_attempts, parsePositiveInt(SDK_RETRY_ATTEMPTS, 3)),
+    retryBaseDelayMs: parsePositiveInt(copilotVendor.retryBaseDelayMs || copilotVendor.retry_base_delay_ms, parsePositiveInt(SDK_RETRY_BASE_DELAY_MS, 1000)),
     availableTools: normalizeToolList([
       ...(normalizeToolList(copilotVendor.availableTools) || []),
       ...(normalizeToolList(copilotVendor.available_tools) || []),
@@ -222,6 +390,7 @@ function pickContextForRequest(ctx) {
     policy: ctx.policy || {},
     env: (workOrder.config && workOrder.config.env) || {},
     policyEngine: ctx.policyEngine || null,
+    vendor,
   };
 }
 
@@ -247,6 +416,455 @@ function parseMcpServers(raw) {
     return raw;
   }
   return {};
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isAuthError(err) {
+  const msg = safeString(err).toLowerCase();
+  return (
+    msg.includes("401") ||
+    msg.includes("unauthorized") ||
+    msg.includes("authentication") ||
+    msg.includes("auth failed") ||
+    msg.includes("token")
+  );
+}
+
+function isRetriableError(err) {
+  const msg = safeString(err).toLowerCase();
+  return (
+    msg.includes("429") ||
+    msg.includes("rate limit") ||
+    msg.includes("503") ||
+    msg.includes("504") ||
+    msg.includes("temporar") ||
+    msg.includes("timeout") ||
+    msg.includes("timed out") ||
+    msg.includes("econnreset")
+  );
+}
+
+function extractText(value, depth = 0) {
+  if (value == null || depth > 5) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value.text === "string") {
+    return value.text;
+  }
+  if (typeof value.delta === "string") {
+    return value.delta;
+  }
+  if (typeof value.message === "string") {
+    return value.message;
+  }
+  if (value.message && typeof value.message === "object") {
+    const nested = extractText(value.message, depth + 1);
+    if (nested) {
+      return nested;
+    }
+  }
+  if (Array.isArray(value.content)) {
+    const joined = value.content
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+        if (item && typeof item.text === "string") {
+          return item.text;
+        }
+        if (item && typeof item.content === "string") {
+          return item.content;
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join("");
+    if (joined) {
+      return joined;
+    }
+  }
+  if (Array.isArray(value.choices)) {
+    for (const choice of value.choices) {
+      const choiceText =
+        extractText(choice?.delta, depth + 1) ||
+        extractText(choice?.message, depth + 1) ||
+        extractText(choice, depth + 1);
+      if (choiceText) {
+        return choiceText;
+      }
+    }
+  }
+  if (value.response) {
+    return extractText(value.response, depth + 1);
+  }
+  return "";
+}
+
+function extractUsage(value) {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  if (value.usage && typeof value.usage === "object") {
+    return value.usage;
+  }
+  if (value.usageMetadata && typeof value.usageMetadata === "object") {
+    return value.usageMetadata;
+  }
+  if (
+    typeof value.input_tokens === "number" ||
+    typeof value.output_tokens === "number" ||
+    typeof value.prompt_tokens === "number"
+  ) {
+    return value;
+  }
+  if (value.response && typeof value.response === "object") {
+    return extractUsage(value.response);
+  }
+  return {};
+}
+
+function normalizeToolEvent(payload) {
+  const type = String(payload?.type || payload?.kind || "").toLowerCase();
+  const toolName = String(
+    payload?.tool_name ||
+      payload?.toolName ||
+      payload?.name ||
+      payload?.tool ||
+      payload?.function_name ||
+      "tool"
+  );
+  const toolUseId =
+    payload?.tool_use_id ||
+    payload?.toolUseId ||
+    payload?.id ||
+    payload?.tool_call_id ||
+    null;
+  const parentToolUseId =
+    payload?.parent_tool_use_id ||
+    payload?.parentToolUseId ||
+    null;
+  const input = payload?.input || payload?.arguments || payload?.params || {};
+  const output = payload?.output || payload?.result || payload?.value || {};
+  const isError = !!(payload?.is_error || payload?.isError || payload?.error);
+
+  if (type.includes("tool") && type.includes("call")) {
+    return {
+      kind: "call",
+      toolName,
+      toolUseId,
+      parentToolUseId,
+      input,
+    };
+  }
+
+  if (type.includes("tool") && type.includes("result")) {
+    return {
+      kind: "result",
+      toolName,
+      toolUseId,
+      output,
+      isError,
+    };
+  }
+
+  if (payload?.tool_calls && Array.isArray(payload.tool_calls)) {
+    const call = payload.tool_calls[0] || {};
+    return {
+      kind: "call",
+      toolName: String(call.name || call.tool_name || toolName),
+      toolUseId: call.id || toolUseId,
+      parentToolUseId,
+      input: call.input || call.arguments || input,
+    };
+  }
+
+  return null;
+}
+
+function toAsyncIterable(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value[Symbol.asyncIterator] === "function") {
+    return value;
+  }
+  if (value.stream && typeof value.stream[Symbol.asyncIterator] === "function") {
+    return value.stream;
+  }
+  if (value.events && typeof value.events[Symbol.asyncIterator] === "function") {
+    return value.events;
+  }
+  return null;
+}
+
+async function maybeAwait(value) {
+  if (value && typeof value.then === "function") {
+    return value;
+  }
+  return value;
+}
+
+async function closeCopilotResources(client, session) {
+  const closers = [
+    [session, "close"],
+    [session, "stop"],
+    [client, "close"],
+    [client, "stop"],
+    [client, "shutdown"],
+    [client, "destroy"],
+  ];
+  for (const [target, method] of closers) {
+    if (!target || typeof target[method] !== "function") {
+      continue;
+    }
+    try {
+      await target[method]();
+    } catch (_) {
+      // best-effort cleanup
+    }
+  }
+}
+
+function createSdkClientOptions(request) {
+  const options = {};
+  if (request.copilotToken) {
+    options.token = request.copilotToken;
+    options.authToken = request.copilotToken;
+  }
+  if (request.workspace_root) {
+    options.cwd = request.workspace_root;
+    options.workingDirectory = request.workspace_root;
+  }
+  if (request.timeoutMs) {
+    options.timeoutMs = request.timeoutMs;
+  }
+  return options;
+}
+
+async function createSdkSession(client, request) {
+  const opts = {
+    model: request.model || null,
+    cwd: request.workspace_root,
+    workingDirectory: request.workspace_root,
+    systemMessage: request.systemMessage || null,
+    reasoningEffort: request.reasoningEffort || null,
+    mcpServers: request.mcpServers || {},
+    sessionId: request.sessionId || null,
+  };
+
+  const methodCandidates = [
+    client && client.createSession,
+    client && client.startSession,
+    client && client.newSession,
+  ];
+
+  for (const method of methodCandidates) {
+    if (typeof method !== "function") {
+      continue;
+    }
+    try {
+      const session = await method.call(client, opts);
+      if (session) {
+        return session;
+      }
+    } catch (err) {
+      if (safeString(err).toLowerCase().includes("not implemented")) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (client && client.session && typeof client.session === "object") {
+    const nested = client.session;
+    if (typeof nested.create === "function") {
+      return nested.create(opts);
+    }
+    if (typeof nested.start === "function") {
+      return nested.start(opts);
+    }
+  }
+
+  throw new Error("Copilot SDK client does not expose a compatible session API");
+}
+
+async function sendPromptWithSdkSession(session, request, ctx) {
+  const prompt = collectPromptText(request);
+  const payload = {
+    prompt,
+    input: prompt,
+    message: {
+      role: "user",
+      content: [{ type: "text", text: prompt }],
+    },
+    model: request.model || null,
+    systemMessage: request.systemMessage || null,
+    reasoningEffort: request.reasoningEffort || null,
+    mcpServers: request.mcpServers || {},
+    tools: {
+      available: request.availableTools || [],
+      excluded: request.excludedTools || [],
+    },
+    stream: true,
+  };
+
+  const state = {
+    sawDelta: false,
+    usageRaw: {},
+  };
+
+  const applyChunk = (chunk) => {
+    if (!chunk) {
+      return;
+    }
+
+    const usage = extractUsage(chunk);
+    if (usage && Object.keys(usage).length > 0) {
+      state.usageRaw = mergeUsage(state.usageRaw, usage);
+    }
+
+    const toolEvent = normalizeToolEvent(chunk);
+    if (toolEvent && toolEvent.kind === "call") {
+      ctx.emitToolCall({
+        toolName: toolEvent.toolName,
+        toolUseId: toolEvent.toolUseId,
+        parentToolUseId: toolEvent.parentToolUseId,
+        input: toolEvent.input,
+      });
+      return;
+    }
+    if (toolEvent && toolEvent.kind === "result") {
+      ctx.emitToolResult({
+        toolName: toolEvent.toolName,
+        toolUseId: toolEvent.toolUseId,
+        output: toolEvent.output,
+        isError: toolEvent.isError,
+      });
+      return;
+    }
+
+    const type = String(chunk.type || chunk.kind || "").toLowerCase();
+    if (type.includes("warning")) {
+      ctx.emitWarning(safeString(chunk.message || chunk.text || chunk.warning || ""));
+      return;
+    }
+    if (type.includes("error")) {
+      ctx.emitError(safeString(chunk.error || chunk.message || chunk));
+      return;
+    }
+
+    const text = extractText(chunk);
+    if (text) {
+      state.sawDelta = true;
+      ctx.emitAssistantDelta(text);
+    }
+  };
+
+  let response = null;
+  let stream = null;
+  if (typeof session.sendAndStream === "function") {
+    response = await session.sendAndStream(payload);
+    stream = toAsyncIterable(response);
+  } else if (typeof session.send === "function") {
+    response = await session.send(payload);
+    stream = toAsyncIterable(response);
+  } else if (typeof session.prompt === "function") {
+    response = await session.prompt(payload);
+    stream = toAsyncIterable(response);
+  } else if (typeof session.run === "function") {
+    response = await session.run(payload);
+    stream = toAsyncIterable(response);
+  } else {
+    throw new Error("Copilot SDK session does not expose a compatible prompt method");
+  }
+
+  if (stream) {
+    for await (const chunk of stream) {
+      applyChunk(chunk);
+    }
+  } else if (response) {
+    applyChunk(response);
+  }
+
+  if (response && response.response) {
+    const finalResponse = await maybeAwait(response.response);
+    applyChunk(finalResponse);
+    if (!state.sawDelta) {
+      const finalText = extractText(finalResponse);
+      if (finalText) {
+        ctx.emitAssistantMessage(finalText);
+      }
+    }
+  } else if (!state.sawDelta) {
+    const finalText = extractText(response);
+    if (finalText) {
+      ctx.emitAssistantMessage(finalText);
+    }
+  }
+
+  return {
+    usageRaw: state.usageRaw,
+    usage: parseUsage(state.usageRaw),
+    outcome: "complete",
+  };
+}
+
+async function runSdkOnce(request, ctx) {
+  const CopilotClient = await loadCopilotClientCtor();
+  const clientOptions = createSdkClientOptions(request);
+  const client = new CopilotClient(clientOptions);
+  let session = null;
+  try {
+    session = await createSdkSession(client, request);
+    const result = await sendPromptWithSdkSession(session, request, ctx);
+    return {
+      ...result,
+      usageRaw: {
+        ...asObject(result.usageRaw),
+        sdk_transport: "github_copilot_sdk",
+        sdk_version: cachedSdkVersion,
+      },
+    };
+  } finally {
+    await closeCopilotResources(client, session);
+  }
+}
+
+async function runSdkWithRetry(request, ctx) {
+  const attempts = parsePositiveInt(request.retryAttempts, 3);
+  const baseDelayMs = parsePositiveInt(request.retryBaseDelayMs, 1000);
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await runSdkOnce(request, ctx);
+    } catch (err) {
+      lastError = err;
+      if (isAuthError(err)) {
+        throw new Error(`Copilot authentication failed: ${safeString(err)}`);
+      }
+
+      const canRetry = attempt < attempts && isRetriableError(err);
+      if (!canRetry) {
+        break;
+      }
+
+      const jitter = Math.floor(Math.random() * 250);
+      const delayMs = Math.min(10000, baseDelayMs * 2 ** (attempt - 1) + jitter);
+      ctx.emitWarning(
+        `Copilot SDK call failed (attempt ${attempt}/${attempts}), retrying in ${delayMs}ms: ${safeString(err)}`
+      );
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError || new Error("Copilot SDK run failed");
 }
 
 function createJsonRpcTransport(writeLine, onNotification) {
@@ -620,37 +1238,72 @@ function pickSessionId(result) {
   return result.sessionId || result.session_id || result.id || null;
 }
 
-function isAcpMode() {
-  return MODE !== "legacy";
-}
-
-function shouldUseLegacyFallback() {
-  return MODE === "legacy";
+function resolveTransportMode() {
+  if (["sdk", "acp", "legacy", "auto"].includes(TRANSPORT_MODE)) {
+    return TRANSPORT_MODE;
+  }
+  if (MODE === "legacy") {
+    return "legacy";
+  }
+  if (MODE === "acp") {
+    return "acp";
+  }
+  return "auto";
 }
 
 function resolveLegacyRunner() {
   if (RUNNER_CMD && RUNNER_CMD.trim()) {
+    const resolved = resolveCommandPath(RUNNER_CMD) || RUNNER_CMD;
     return {
-      command: RUNNER_CMD,
+      command: resolved,
       args: RUNNER_ARGS,
     };
   }
 
   if (process.env.ABP_COPILOT_CMD || DEFAULT_COPILOT_ARGS.length > 0) {
+    const resolved = resolveCommandPath(DEFAULT_COPILOT_CMD);
+    if (!resolved) {
+      return null;
+    }
     return {
-      command: DEFAULT_COPILOT_CMD,
+      command: resolved,
       args: DEFAULT_COPILOT_ARGS,
     };
   }
 
+  const resolved = resolveCommandPath(DEFAULT_COPILOT_CMD);
+  if (!resolved) {
+    return null;
+  }
+
   return {
-    command: DEFAULT_COPILOT_CMD,
+    command: resolved,
     args: [],
   };
 }
 
 async function runFromCommand(command, args, request, ctx) {
   return new Promise((resolve) => {
+    if (!command) {
+      resolve({
+        usageRaw: {
+          mode: "legacy_runner_not_configured",
+        },
+        usage: {},
+        outcome: "partial",
+      });
+      return;
+    }
+
+    let settled = false;
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(result);
+    };
+
     const child = spawn(command, args, {
       cwd: request.workspace_root || process.cwd(),
       env: {
@@ -728,10 +1381,18 @@ async function runFromCommand(command, args, request, ctx) {
 
     child.on("error", (err) => {
       ctx.emitError(`legacy command failed to start: ${safeString(err)}`);
+      finish({
+        usageRaw: {
+          mode: "legacy_runner_start_failed",
+          error: safeString(err),
+        },
+        usage: {},
+        outcome: "failed",
+      });
     });
 
     child.on("close", (code) => {
-      resolve({
+      finish({
         usageRaw,
         usage: parseUsage(usageRaw),
         outcome: code === 0 ? "complete" : "failed",
@@ -837,7 +1498,7 @@ function spawnAcpServer(request) {
       args.push("--port", `${request.acpPort}`);
     }
   }
-  const command = DEFAULT_COPILOT_CMD;
+  const command = resolveCommandPath(DEFAULT_COPILOT_CMD) || DEFAULT_COPILOT_CMD;
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: request.workspace_root || process.cwd(),
@@ -1062,6 +1723,7 @@ async function runFromLegacy(request, ctx) {
 
 async function run(ctx) {
   const request = pickContextForRequest(ctx);
+  const transportMode = resolveTransportMode();
 
   if (request.mode === "passthrough" && request.raw_request) {
     const passthrough = {
@@ -1071,45 +1733,66 @@ async function run(ctx) {
       model: request.model,
       env: request.env,
     };
-    if (isAcpMode() && !shouldUseLegacyFallback()) {
+
+    if (transportMode === "sdk") {
+      return runSdkWithRetry(passthrough, ctx);
+    }
+    if (transportMode === "acp") {
       try {
-        return runAcp(request, ctx);
+        return await runAcp(passthrough, ctx);
       } catch (err) {
-        ctx.emitWarning(`ACP passthrough failed, falling back to legacy runner: ${safeString(err)}`);
-        return runFromCommand(...[resolveLegacyRunner().command, resolveLegacyRunner().args, passthrough, ctx]);
+        ctx.emitWarning(
+          `ACP passthrough failed, falling back to legacy runner: ${safeString(err)}`
+        );
+        return runFromLegacy(passthrough, ctx);
       }
     }
-    return runFromCommand(...[resolveLegacyRunner().command, resolveLegacyRunner().args, passthrough, ctx]);
+    if (transportMode === "legacy") {
+      return runFromLegacy(passthrough, ctx);
+    }
+
+    // auto
+    try {
+      return await runSdkWithRetry(passthrough, ctx);
+    } catch (sdkErr) {
+      ctx.emitWarning(`Copilot SDK passthrough failed, trying ACP: ${safeString(sdkErr)}`);
+    }
+    try {
+      return await runAcp(passthrough, ctx);
+    } catch (acpErr) {
+      ctx.emitWarning(
+        `ACP passthrough failed, falling back to legacy runner: ${safeString(acpErr)}`
+      );
+      return runFromLegacy(passthrough, ctx);
+    }
   }
 
-  if (!isAcpMode() || shouldUseLegacyFallback()) {
-    return runFromCommand(
-      resolveLegacyRunner().command,
-      resolveLegacyRunner().args,
-      request,
-      ctx
-    );
+  if (transportMode === "sdk") {
+    return runSdkWithRetry(request, ctx);
   }
-
-  try {
-    return await runAcp(request, ctx);
-  } catch (err) {
-    ctx.emitWarning(`ACP mode failed, falling back to legacy command: ${safeString(err)}`);
-    if (shouldUseLegacyFallback()) {
+  if (transportMode === "acp") {
+    try {
+      return await runAcp(request, ctx);
+    } catch (err) {
+      ctx.emitWarning(`ACP mode failed, falling back to legacy command: ${safeString(err)}`);
       return runFromLegacy(request, ctx);
     }
-    const fallback = resolveLegacyRunner();
-    if (fallback) {
-      return runFromCommand(fallback.command, fallback.args, request, ctx);
-    }
-    return {
-      usageRaw: {
-        mode: "copilot_adapter_fallback",
-        error: safeString(err),
-      },
-      usage: {},
-      outcome: "failed",
-    };
+  }
+  if (transportMode === "legacy") {
+    return runFromLegacy(request, ctx);
+  }
+
+  // auto
+  try {
+    return await runSdkWithRetry(request, ctx);
+  } catch (sdkErr) {
+    ctx.emitWarning(`Copilot SDK mode failed, trying ACP: ${safeString(sdkErr)}`);
+  }
+  try {
+    return await runAcp(request, ctx);
+  } catch (acpErr) {
+    ctx.emitWarning(`ACP mode failed, falling back to legacy command: ${safeString(acpErr)}`);
+    return runFromLegacy(request, ctx);
   }
 }
 

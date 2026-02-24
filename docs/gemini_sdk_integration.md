@@ -4,20 +4,29 @@ This document provides comprehensive documentation for integrating Google's Gemi
 
 ## ABP status (this repository)
 
-This workspace includes a runnable Gemini CLI backend integration scaffold:
+This workspace includes a runnable Gemini backend integration:
 
 - `hosts/gemini/host.js` (ABP sidecar entry point)
-- `hosts/gemini/adapter.js` (Gemini CLI command adapter)
+- `hosts/gemini/adapter.js` (SDK-first adapter with CLI fallback)
 - `hosts/gemini/capabilities.js` (manifest)
 - `crates/abp-gemini-sdk` (Rust registration shim for `sidecar:gemini`)
 
 Activation:
 
 ```bash
-cargo run -p abp-cli -- run --task "audit the repo" --backend sidecar:gemini
+cargo run -p abp-cli -- run --task "audit the repo" --backend gemini
 ```
 
-The adapter executes Gemini CLI by default through `gemini` and can be pointed at a custom runner via:
+CLI/runtime flags supported in `abp run`:
+
+- `--backend gemini` (alias for `sidecar:gemini`)
+- `--model <model>`
+- repeated `--param key=value`
+- repeated `--env KEY=VALUE`
+
+Default transport is SDK (`@google/genai`) with retry/backoff; CLI fallback can be forced with `ABP_GEMINI_TRANSPORT=cli`.
+
+CLI transport can be pointed at a custom runner via:
 
 - `ABP_GEMINI_CMD`
 - `ABP_GEMINI_ARGS`

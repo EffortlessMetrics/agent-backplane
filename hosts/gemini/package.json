@@ -1,0 +1,12 @@
+{
+  "name": "abp-gemini-host",
+  "private": true,
+  "version": "0.2.0",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@google/genai": "^1.33.0"
+  }
+}

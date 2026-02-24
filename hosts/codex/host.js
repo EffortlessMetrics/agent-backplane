@@ -1,114 +1,38 @@
 #!/usr/bin/env node
 
-// Codex sidecar for Agent Backplane (ABP).
-//
-// This process speaks JSONL envelopes over stdio:
-// - hello (with mode: "passthrough" or "mapped")
-// - run
-// - event*
-// - final
-//
-// This sidecar operates in TWO modes:
-// - PASSTHROUGH: Codex dialect → Codex engine (no transformation)
-// - MAPPED: Codex dialect → Claude engine (opinionated mapping)
-//
-// Mode is determined by config.vendor.abp.mode:
-// - "passthrough" → Forward to Codex SDK unchanged
-// - "mapped" (default) → Transform to Claude format
-//
-// A custom adapter can be provided via:
-//   ABP_CODEX_ADAPTER_MODULE=./path/to/adapter.js
-//
-// Adapter contract:
-//   module.exports = {
-//     name: "codex_adapter_name",
-//     version: "x.y.z",
-//     async run(ctx) { ... }
-//   }
-
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const readline = require("node:readline");
-const crypto = require("node:crypto");
-
-const {
-  SupportLevel,
-  ClaudeCapabilities,
-  getCapabilityManifest,
-} = require("./capabilities");
-
-const {
-  ErrorCodes,
-  ErrorNames,
-  createError,
-  validateFacade,
-  validateCapabilities,
-  extractRequiredCapabilities,
-  mapCodexToClaude,
-  mapModel,
-  mapToolList,
-  mapPermissionMode,
-  createMappedReceiptAdditions,
-  mapClaudeToCodexResponse,
-} = require("./mapper");
 
 const CONTRACT_VERSION = "abp/v0.1";
-const ADAPTER_VERSION = "0.1";
-const MAX_INLINE_OUTPUT_BYTES = parseInt(
-  process.env.ABP_CODEX_MAX_INLINE_OUTPUT_BYTES || "8192",
-  10
-);
+const ADAPTER_VERSION = "0.2.0";
+const BACKEND_ID = "codex";
+const DEFAULT_MODE = "mapped";
 
-// Execution modes for ABP
-const ExecutionMode = {
-  Passthrough: "passthrough",
-  Mapped: "mapped",
+const capabilities = {
+  streaming: "native",
+  tool_read: "native",
+  tool_write: "native",
+  tool_edit: "native",
+  tool_bash: "native",
+  tool_glob: "native",
+  tool_grep: "native",
+  tool_web_search: "native",
+  session_resume: "native",
+  structured_output_json_schema: "native",
+  mcp_client: "native",
 };
 
-/**
- * Extract execution mode from WorkOrder config.vendor.abp.mode
- * @param {object} workOrder - The work order
- * @returns {string} - "passthrough" or "mapped" (default)
- */
-function getExecutionMode(workOrder) {
-  const vendor = workOrder.config && workOrder.config.vendor;
-  if (!vendor || typeof vendor !== "object") {
-    return ExecutionMode.Mapped;
-  }
-  const abp = vendor.abp;
-  if (!abp || typeof abp !== "object") {
-    return ExecutionMode.Mapped;
-  }
-  const mode = abp.mode;
-  if (mode === ExecutionMode.Passthrough) {
-    return ExecutionMode.Passthrough;
-  }
-  return ExecutionMode.Mapped;
-}
-
-/**
- * Get the passthrough SDK request from WorkOrder config.vendor.abp.request
- * @param {object} workOrder - The work order
- * @returns {object|null} - The raw SDK request or null if not in passthrough mode
- */
-function getPassthroughRequest(workOrder) {
-  const vendor = workOrder.config && workOrder.config.vendor;
-  if (!vendor || typeof vendor !== "object") {
-    return null;
-  }
-  const abp = vendor.abp;
-  if (!abp || typeof abp !== "object") {
-    return null;
-  }
-  return abp.request || null;
-}
+let cachedCodexClass = null;
+let cachedCodexError = null;
 
 function nowIso() {
   return new Date().toISOString();
 }
 
 function write(obj) {
-  process.stdout.write(JSON.stringify(obj) + "\n");
+  process.stdout.write(`${JSON.stringify(obj)}\n`);
 }
 
 function safeString(value) {
@@ -125,692 +49,888 @@ function safeString(value) {
   }
 }
 
-function sanitizeFilePart(value) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "")
-    .slice(0, 64);
+function asObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value;
 }
 
-// ============================================================================
-// Policy Engine (similar to Claude/Gemini host)
-// ============================================================================
+function pickValue(obj, keys) {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      return obj[key];
+    }
+  }
+  return undefined;
+}
 
-function compileGlob(pattern) {
-  const normalized = String(pattern || "").replace(/\\/g, "/");
-  let out = "^";
-  for (let i = 0; i < normalized.length; i += 1) {
-    const ch = normalized[i];
-    if (ch === "*") {
-      const next = normalized[i + 1];
-      if (next === "*") {
-        i += 1;
-        if (normalized[i + 1] === "/") {
-          i += 1;
-          out += "(?:.*/)?";
-        } else {
-          out += ".*";
-        }
-      } else {
-        out += "[^/]*";
+function pickString(obj, keys) {
+  const value = pickValue(obj, keys);
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+  return undefined;
+}
+
+function pickBoolean(obj, keys) {
+  const value = pickValue(obj, keys);
+  if (typeof value === "boolean") {
+    return value;
+  }
+  return undefined;
+}
+
+function pickNumber(obj, keys) {
+  const value = pickValue(obj, keys);
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  return undefined;
+}
+
+function pickArray(obj, keys) {
+  const value = pickValue(obj, keys);
+  if (Array.isArray(value)) {
+    return value;
+  }
+  return undefined;
+}
+
+function pickObject(obj, keys) {
+  const value = pickValue(obj, keys);
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
       }
-    } else if (ch === "?") {
-      out += "[^/]";
-    } else if ("+.^$|()[]{}".includes(ch)) {
-      out += `\\${ch}`;
-    } else {
-      out += ch;
+    } catch (_) {
+      return undefined;
     }
   }
-  out += "$";
-  return new RegExp(out);
+  return undefined;
 }
 
-function compileGlobList(list) {
-  if (!Array.isArray(list) || list.length === 0) {
-    return [];
+function getVendorNamespace(workOrder, namespace) {
+  const vendor = asObject(workOrder?.config?.vendor);
+  const out = {};
+  const nested = asObject(vendor[namespace]);
+  Object.assign(out, nested);
+
+  const prefix = `${namespace}.`;
+  for (const [key, value] of Object.entries(vendor)) {
+    if (key.startsWith(prefix)) {
+      out[key.slice(prefix.length)] = value;
+    }
   }
-  return list
-    .map((p) => {
-      try {
-        return compileGlob(p);
-      } catch (_) {
-        return null;
-      }
-    })
-    .filter(Boolean);
+  return out;
 }
 
-function matchesAny(matchers, value) {
-  if (!matchers || matchers.length === 0) {
-    return false;
+function getExecutionMode(workOrder) {
+  const abp = getVendorNamespace(workOrder, "abp");
+  const mode = pickString(abp, ["mode"]);
+  if (mode === "passthrough") {
+    return "passthrough";
   }
-  return matchers.some((m) => m.test(value));
+  return DEFAULT_MODE;
 }
 
-function toPosixPath(p) {
-  return String(p || "").replace(/\\/g, "/");
+function buildPrompt(workOrder) {
+  let prompt = String(workOrder?.task || "").trim();
+  const context = asObject(workOrder?.context);
+  const files = Array.isArray(context.files) ? context.files : [];
+  const snippets = Array.isArray(context.snippets) ? context.snippets : [];
+
+  if (files.length > 0) {
+    prompt += "\n\nContext files:\n";
+    for (const file of files) {
+      prompt += `- ${safeString(file)}\n`;
+    }
+  }
+
+  if (snippets.length > 0) {
+    prompt += "\nContext snippets:\n";
+    for (const snippet of snippets) {
+      const name = safeString(snippet?.name || "snippet");
+      const content = safeString(snippet?.content || "");
+      prompt += `\n[${name}]\n${content}\n`;
+    }
+  }
+
+  return prompt;
 }
 
-function canonicalWithin(root, maybePath) {
-  const rootReal = fs.realpathSync(root);
-  const candidate = path.resolve(rootReal, maybePath || ".");
-  const candidateReal = fs.existsSync(candidate)
-    ? fs.realpathSync(candidate)
-    : path.resolve(rootReal, maybePath || ".");
-  const rel = path.relative(rootReal, candidateReal);
-  const relPosix = toPosixPath(rel);
-  if (
-    relPosix === ".." ||
-    relPosix.startsWith("../") ||
-    path.isAbsolute(relPosix)
-  ) {
-    return null;
+function normalizeUsage(usageRaw) {
+  const usage = asObject(usageRaw);
+  const inputTokens = pickNumber(usage, ["input_tokens", "inputTokens"]);
+  const outputTokens = pickNumber(usage, ["output_tokens", "outputTokens"]);
+  const cacheReadTokens = pickNumber(usage, [
+    "cached_input_tokens",
+    "cache_read_tokens",
+    "cacheReadTokens",
+  ]);
+
+  const out = {};
+  if (inputTokens !== undefined) {
+    out.input_tokens = inputTokens;
   }
-  return relPosix || ".";
+  if (outputTokens !== undefined) {
+    out.output_tokens = outputTokens;
+  }
+  if (cacheReadTokens !== undefined) {
+    out.cache_read_tokens = cacheReadTokens;
+  }
+  return out;
 }
 
-function collectPathValues(input) {
-  if (!input || typeof input !== "object") {
-    return [];
+function addArtifact(artifacts, kind, artifactPath) {
+  if (!artifactPath || typeof artifactPath !== "string") {
+    return;
   }
-  const values = [];
-  for (const [k, v] of Object.entries(input)) {
-    const key = k.toLowerCase();
-    if (key.includes("path") || key.includes("file")) {
-      if (typeof v === "string") {
-        values.push(v);
-      } else if (Array.isArray(v)) {
-        for (const item of v) {
-          if (typeof item === "string") {
-            values.push(item);
-          }
-        }
-      }
-    }
-  }
-  return values;
+  artifacts.push({
+    kind,
+    path: artifactPath.replace(/\\/g, "/"),
+  });
 }
 
-function buildPolicyEngine(policy, workspaceRoot) {
-  const allowedTools = compileGlobList(policy.allowed_tools || []);
-  const disallowedTools = compileGlobList(policy.disallowed_tools || []);
-  const denyRead = compileGlobList(policy.deny_read || []);
-  const denyWrite = compileGlobList(policy.deny_write || []);
-  const requireApprovalFor = compileGlobList(policy.require_approval_for || []);
-  const allowNetwork = compileGlobList(policy.allow_network || []);
-  const denyNetwork = compileGlobList(policy.deny_network || []);
-
-  function canUseTool(toolName) {
-    if (matchesAny(disallowedTools, toolName)) {
-      return { allowed: false, reason: "disallowed" };
+function makeEmitter(runId, trace) {
+  return function emit(kind, extRawMessage) {
+    const event = {
+      ts: nowIso(),
+      ...kind,
+    };
+    if (extRawMessage !== undefined) {
+      event.ext = {
+        raw_message: extRawMessage,
+      };
     }
-    if (allowedTools.length > 0 && !matchesAny(allowedTools, toolName)) {
-      return { allowed: false, reason: "not_in_allowlist" };
-    }
-    return { allowed: true };
-  }
-
-  function checkPathAccess(filePath, mode) {
-    const posixPath = toPosixPath(filePath);
-    const canonical = canonicalWithin(workspaceRoot, filePath);
-    if (canonical === null) {
-      return { allowed: false, reason: "escape_attempt" };
-    }
-    if (mode === "read" && matchesAny(denyRead, posixPath)) {
-      return { allowed: false, reason: "deny_read" };
-    }
-    if (mode === "write" && matchesAny(denyWrite, posixPath)) {
-      return { allowed: false, reason: "deny_write" };
-    }
-    return { allowed: true, canonical };
-  }
-
-  function needsApproval(toolName, input) {
-    if (matchesAny(requireApprovalFor, toolName)) {
-      return true;
-    }
-    return false;
-  }
-
-  function checkNetwork(url) {
-    const urlStr = String(url || "");
-    if (matchesAny(denyNetwork, urlStr)) {
-      return { allowed: false, reason: "deny_network" };
-    }
-    if (allowNetwork.length > 0 && !matchesAny(allowNetwork, urlStr)) {
-      return { allowed: false, reason: "not_in_allowlist" };
-    }
-    return { allowed: true };
-  }
-
-  return {
-    canUseTool,
-    checkPathAccess,
-    needsApproval,
-    checkNetwork,
-    allowedTools,
-    disallowedTools,
-    denyRead,
-    denyWrite,
-    requireApprovalFor,
-    allowNetwork,
-    denyNetwork,
+    trace.push(event);
+    write({
+      t: "event",
+      ref_id: runId,
+      event,
+    });
   };
 }
 
-// ============================================================================
-// Receipt Generation
-// ============================================================================
-
-function hashReceipt(receipt) {
-  const clone = JSON.parse(JSON.stringify(receipt));
-  clone.receipt_sha256 = null;
-  const canonical = JSON.stringify(clone);
-  return crypto.createHash("sha256").update(canonical).digest("hex");
+function isRetriableError(err) {
+  const text = safeString(err).toLowerCase();
+  return (
+    text.includes("rate limit") ||
+    text.includes("timeout") ||
+    text.includes("timed out") ||
+    text.includes("temporar") ||
+    text.includes("econnreset") ||
+    text.includes("eai_again") ||
+    text.includes("503")
+  );
 }
 
-function createBaseReceipt(workOrder, runId, mode) {
-  return {
-    contract_version: CONTRACT_VERSION,
-    run_id: runId,
-    work_order_id: workOrder.id,
-    mode: mode,
-    source_dialect: "codex",
-    target_engine: mode === ExecutionMode.Passthrough ? "codex" : "claude",
-    started_at: nowIso(),
-    status: "running",
-    events: [],
-    tool_calls: [],
-    artifacts: [],
-    usage: {
-      input_tokens: 0,
-      output_tokens: 0,
-      total_tokens: 0,
-    },
-    ext: {},
-  };
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
-// ============================================================================
-// Adapter Loading
-// ============================================================================
+function resolveSdkVersion() {
+  const candidates = [
+    path.resolve(process.cwd(), "hosts/codex/node_modules/@openai/codex-sdk/package.json"),
+    path.resolve(__dirname, "node_modules/@openai/codex-sdk/package.json"),
+  ];
 
-function loadAdapter() {
-  const adapterPath = process.env.ABP_CODEX_ADAPTER_MODULE;
-  if (adapterPath) {
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) {
+      continue;
+    }
     try {
-      const resolved = path.resolve(adapterPath);
-      const adapter = require(resolved);
-      if (adapter && typeof adapter.run === "function") {
-        return adapter;
+      const parsed = JSON.parse(fs.readFileSync(candidate, "utf8"));
+      if (typeof parsed.version === "string" && parsed.version.length > 0) {
+        return parsed.version;
       }
-    } catch (e) {
-      console.error(`[codex-host] Failed to load adapter from ${adapterPath}:`, e.message);
+    } catch (_) {
+      return null;
     }
-  }
-
-  // Fall back to built-in adapter
-  try {
-    return require("./adapter");
-  } catch (e) {
-    console.error("[codex-host] Failed to load built-in adapter:", e.message);
-    return null;
-  }
-}
-
-// ============================================================================
-// Claude Backend Adapter (for mapped mode)
-// ============================================================================
-
-function loadClaudeAdapter() {
-  // For mapped mode, we need to load the Claude adapter
-  const claudeAdapterPath = process.env.ABP_CLAUDE_ADAPTER_MODULE;
-  if (claudeAdapterPath) {
-    try {
-      const resolved = path.resolve(claudeAdapterPath);
-      return require(resolved);
-    } catch (e) {
-      console.error(`[codex-host] Failed to load Claude adapter from ${claudeAdapterPath}:`, e.message);
-    }
-  }
-
-  // Try to load from relative path
-  try {
-    return require("../claude/adapter.template.js");
-  } catch (e) {
-    // Ignore
   }
 
   return null;
 }
 
-// ============================================================================
-// Main Run Handler
-// ============================================================================
+async function loadCodexClass() {
+  if (cachedCodexClass) {
+    return cachedCodexClass;
+  }
+  if (cachedCodexError) {
+    throw cachedCodexError;
+  }
 
-async function handleRun(envelope, adapter) {
-  const runId = envelope.id;
-  const workOrder = envelope.work_order;
+  try {
+    const mod = await import("@openai/codex-sdk");
+    const codexClass =
+      mod?.Codex ||
+      mod?.default?.Codex ||
+      mod?.default;
+    if (!codexClass) {
+      throw new Error("module '@openai/codex-sdk' does not export Codex");
+    }
+    cachedCodexClass = codexClass;
+    return codexClass;
+  } catch (err) {
+    cachedCodexError = new Error(
+      `failed to load @openai/codex-sdk: ${safeString(err)}`
+    );
+    throw cachedCodexError;
+  }
+}
 
-  if (!workOrder) {
-    write({
-      t: "final",
-      id: runId,
-      error: "Missing work_order in run envelope",
+function createCodexClient(Codex, workOrder, codexCfg) {
+  const envOverrides = {};
+  const rawEnvOverrides = {
+    ...asObject(workOrder?.config?.env),
+    ...asObject(codexCfg.env),
+  };
+  for (const [key, value] of Object.entries(rawEnvOverrides)) {
+    if (value == null) {
+      continue;
+    }
+    envOverrides[key] = String(value);
+  }
+  const mergedEnv =
+    Object.keys(envOverrides).length > 0
+      ? { ...process.env, ...envOverrides }
+      : undefined;
+
+  const apiKey =
+    pickString(codexCfg, ["apiKey", "api_key"]) ||
+    process.env.CODEX_API_KEY ||
+    process.env.OPENAI_API_KEY;
+
+  const baseUrl =
+    pickString(codexCfg, ["baseUrl", "base_url"]) ||
+    process.env.OPENAI_BASE_URL;
+
+  const config =
+    pickObject(codexCfg, ["config"]) ||
+    undefined;
+
+  const codexPathOverride = pickString(codexCfg, [
+    "codexPathOverride",
+    "codex_path_override",
+  ]);
+
+  const options = {};
+  if (apiKey) {
+    options.apiKey = apiKey;
+  }
+  if (baseUrl) {
+    options.baseUrl = baseUrl;
+  }
+  if (config) {
+    options.config = config;
+  }
+  if (mergedEnv) {
+    options.env = mergedEnv;
+  }
+  if (codexPathOverride) {
+    options.codexPathOverride = codexPathOverride;
+  }
+
+  return new Codex(options);
+}
+
+function buildThreadOptions(workOrder, codexCfg) {
+  const options = {};
+  const workspaceRoot = pickString(asObject(workOrder?.workspace), ["root"]);
+  if (workspaceRoot) {
+    options.workingDirectory = workspaceRoot;
+  }
+
+  const model =
+    pickString(codexCfg, ["model"]) ||
+    pickString(asObject(workOrder?.config), ["model"]);
+  if (model) {
+    options.model = model;
+  }
+
+  const sandboxMode = pickString(codexCfg, ["sandboxMode", "sandbox_mode"]);
+  if (sandboxMode) {
+    options.sandboxMode = sandboxMode;
+  }
+
+  const skipGitRepoCheck = pickBoolean(codexCfg, [
+    "skipGitRepoCheck",
+    "skip_git_repo_check",
+  ]);
+  if (skipGitRepoCheck !== undefined) {
+    options.skipGitRepoCheck = skipGitRepoCheck;
+  }
+
+  const webSearchMode = pickString(codexCfg, ["webSearchMode", "web_search_mode"]);
+  if (webSearchMode) {
+    options.webSearchMode = webSearchMode;
+  }
+
+  const webSearchEnabled = pickBoolean(codexCfg, [
+    "webSearchEnabled",
+    "web_search_enabled",
+  ]);
+  if (webSearchEnabled !== undefined) {
+    options.webSearchEnabled = webSearchEnabled;
+  }
+
+  const approvalPolicy = pickString(codexCfg, ["approvalPolicy", "approval_policy"]);
+  if (approvalPolicy) {
+    options.approvalPolicy = approvalPolicy;
+  }
+
+  const additionalDirectories = pickArray(codexCfg, [
+    "additionalDirectories",
+    "additional_directories",
+  ]);
+  if (additionalDirectories) {
+    options.additionalDirectories = additionalDirectories.map((v) => safeString(v));
+  }
+
+  return options;
+}
+
+function buildTurnOptions(workOrder, codexCfg) {
+  const options = {};
+  const model =
+    pickString(codexCfg, ["model"]) ||
+    pickString(asObject(workOrder?.config), ["model"]);
+  if (model) {
+    options.model = model;
+  }
+
+  const outputSchema = pickObject(codexCfg, ["outputSchema", "output_schema"]);
+  if (outputSchema) {
+    options.outputSchema = outputSchema;
+  }
+
+  const modelReasoningEffort = pickString(codexCfg, [
+    "modelReasoningEffort",
+    "model_reasoning_effort",
+  ]);
+  if (modelReasoningEffort) {
+    options.modelReasoningEffort = modelReasoningEffort;
+  }
+
+  return options;
+}
+
+function emitItemStarted(item, emit, state) {
+  if (!item || typeof item !== "object") {
+    return;
+  }
+
+  if (item.type === "command_execution") {
+    const toolUseId = item.id || null;
+    state.openToolCalls.add(toolUseId || `bash-${state.openToolCalls.size}`);
+    emit({
+      type: "tool_call",
+      tool_name: "Bash",
+      tool_use_id: toolUseId,
+      parent_tool_use_id: null,
+      input: {
+        command: safeString(item.command || ""),
+      },
     });
     return;
   }
 
-  const mode = getExecutionMode(workOrder);
-  const receipt = createBaseReceipt(workOrder, runId, mode);
-
-  // Prepare workspace
-  const workspaceRoot = workOrder.workspace?.root || process.cwd();
-  const policy = buildPolicyEngine(workOrder.policy || {}, workspaceRoot);
-
-  // Event collection
-  const events = [];
-  const toolCalls = [];
-  const artifacts = [];
-
-  function emitEvent(event) {
-    events.push(event);
-    receipt.events.push({
-      timestamp: nowIso(),
-      ...event,
-    });
-    write({
-      t: "event",
-      id: runId,
-      event,
-    });
-  }
-
-  function emitAssistantDelta(text) {
-    emitEvent({
-      type: "assistant_delta",
-      text,
-    });
-  }
-
-  function emitAssistantMessage(text) {
-    emitEvent({
-      type: "assistant_message",
-      text,
-    });
-  }
-
-  function emitToolCall({ toolName, toolUseId, parentToolUseId, input }) {
-    const tc = {
-      tool_name: toolName,
-      tool_use_id: toolUseId,
-      parent_tool_use_id: parentToolUseId || null,
-      input,
-      started_at: nowIso(),
-    };
-    toolCalls.push(tc);
-    receipt.tool_calls.push(tc);
-    emitEvent({
+  if (item.type === "mcp_tool_call") {
+    const toolUseId = item.id || null;
+    state.openToolCalls.add(toolUseId || `mcp-${state.openToolCalls.size}`);
+    emit({
       type: "tool_call",
-      tool_name: toolName,
+      tool_name: `mcp:${safeString(item.server)}.${safeString(item.tool)}`,
       tool_use_id: toolUseId,
-      parent_tool_use_id: parentToolUseId || null,
-      input,
+      parent_tool_use_id: null,
+      input: asObject(item.arguments),
     });
+    return;
   }
 
-  function emitToolResult({ toolName, toolUseId, output, isError }) {
-    emitEvent({
-      type: "tool_result",
-      tool_name: toolName,
+  if (item.type === "web_search") {
+    const toolUseId = item.id || null;
+    state.openToolCalls.add(toolUseId || `web-${state.openToolCalls.size}`);
+    emit({
+      type: "tool_call",
+      tool_name: "WebSearch",
       tool_use_id: toolUseId,
-      output,
-      is_error: isError || false,
+      parent_tool_use_id: null,
+      input: {
+        query: safeString(item.query || ""),
+      },
     });
   }
+}
 
-  function emitWarning(message) {
-    emitEvent({
-      type: "warning",
-      message,
-    });
+function emitItemUpdated(item, emit, state) {
+  if (!item || typeof item !== "object") {
+    return;
   }
 
-  function emitError(message) {
-    emitEvent({
-      type: "error",
-      message,
-    });
-  }
-
-  async function writeArtifact(kind, suggestedName, content) {
-    const artifactId = crypto.randomUUID();
-    const sanitizedName = sanitizeFilePart(suggestedName) || "artifact";
-    const fileName = `${artifactId.slice(0, 8)}_${sanitizedName}`;
-
-    // Store artifact reference
-    const artifact = {
-      id: artifactId,
-      kind,
-      file_name: fileName,
-      suggested_name: suggestedName,
-      content_size: Buffer.byteLength(content),
-    };
-    artifacts.push(artifact);
-    receipt.artifacts.push(artifact);
-
-    emitEvent({
-      type: "artifact",
-      artifact_id: artifactId,
-      kind,
-      file_name: fileName,
-      suggested_name: suggestedName,
-    });
-
-    return artifactId;
-  }
-
-  try {
-    if (mode === ExecutionMode.Passthrough) {
-      // PASSTHROUGH MODE: Forward to Codex SDK unchanged
-      await runPassthroughMode(workOrder, adapter, {
-        receipt,
-        policy,
-        workspaceRoot,
-        emitAssistantDelta,
-        emitAssistantMessage,
-        emitToolCall,
-        emitToolResult,
-        emitWarning,
-        emitError,
-        writeArtifact,
-      });
-    } else {
-      // MAPPED MODE: Transform Codex → Claude
-      await runMappedMode(workOrder, adapter, {
-        receipt,
-        policy,
-        workspaceRoot,
-        emitAssistantDelta,
-        emitAssistantMessage,
-        emitToolCall,
-        emitToolResult,
-        emitWarning,
-        emitError,
-        writeArtifact,
-      });
+  if (item.type === "agent_message") {
+    const itemId = item.id || "agent";
+    const text = safeString(item.text || "");
+    const previous = state.agentTextByItem.get(itemId) || "";
+    const delta = text.startsWith(previous) ? text.slice(previous.length) : text;
+    state.agentTextByItem.set(itemId, text);
+    if (delta.length > 0) {
+      emit(
+        {
+          type: "assistant_delta",
+          text: delta,
+        },
+        item
+      );
     }
-
-    receipt.status = "completed";
-  } catch (error) {
-    receipt.status = "failed";
-    receipt.error = {
-      message: error.message,
-      code: error.code || "UNKNOWN",
-    };
-    emitError(error.message);
   }
-
-  // Finalize receipt
-  receipt.completed_at = nowIso();
-  receipt.receipt_sha256 = hashReceipt(receipt);
-
-  write({
-    t: "final",
-    id: runId,
-    receipt,
-  });
 }
 
-/**
- * Run in passthrough mode (Codex → Codex)
- */
-async function runPassthroughMode(workOrder, adapter, ctx) {
-  const { receipt, emitWarning, emitError } = ctx;
-
-  // Get raw request
-  const rawRequest = getPassthroughRequest(workOrder);
-  if (!rawRequest) {
-    throw new Error("Passthrough mode requires config.vendor.abp.request");
+function emitItemCompleted(item, emit, state, artifacts) {
+  if (!item || typeof item !== "object") {
+    return;
   }
 
-  // Store raw request in ext
-  receipt.ext.raw_request = rawRequest;
-  receipt.ext.mode_detail = "passthrough_codex_to_codex";
-
-  emitWarning("Execution mode: passthrough (Codex → Codex)");
-
-  if (!adapter) {
-    throw new Error("No Codex adapter available for passthrough mode");
+  if (item.type === "agent_message") {
+    const itemId = item.id || "agent";
+    const finalText = safeString(item.text || state.agentTextByItem.get(itemId) || "");
+    state.agentTextByItem.delete(itemId);
+    if (finalText.length > 0) {
+      emit(
+        {
+          type: "assistant_message",
+          text: finalText,
+        },
+        item
+      );
+    }
+    return;
   }
 
-  // Build SDK options
-  const sdkOptions = {
-    model: rawRequest.model,
-    tools: rawRequest.tools,
-    temperature: rawRequest.temperature,
-    max_tokens: rawRequest.max_tokens,
-    thread_id: rawRequest.thread_id,
-    cwd: workOrder.workspace?.root,
-  };
+  if (item.type === "command_execution") {
+    const toolUseId = item.id || null;
+    const command = safeString(item.command || "");
+    const output = safeString(item.aggregated_output || "");
+    const exitCode =
+      typeof item.exit_code === "number" && Number.isFinite(item.exit_code)
+        ? item.exit_code
+        : null;
+    const isError = item.status === "failed" || (typeof exitCode === "number" && exitCode !== 0);
 
-  // Run adapter
-  await adapter.run({
-    workOrder,
-    sdkOptions,
-    policy: workOrder.policy || {},
-    ...ctx,
-  });
-}
+    emit(
+      {
+        type: "command_executed",
+        command,
+        exit_code: exitCode,
+        output_preview: output.length > 2048 ? output.slice(0, 2048) : output,
+      },
+      item
+    );
 
-/**
- * Run in mapped mode (Codex → Claude)
- */
-async function runMappedMode(workOrder, adapter, ctx) {
-  const { receipt, policy, emitWarning, emitError } = ctx;
-
-  // Get Codex request
-  const codexRequest = getPassthroughRequest(workOrder) || workOrder.config?.vendor || {};
-
-  // Stage 1: Facade validation
-  const facadeValidation = validateFacade(codexRequest);
-  if (!facadeValidation.valid) {
-    // Early failure with typed errors
-    const errors = facadeValidation.errors.map(e => ({
-      code: e.code,
-      name: e.name,
-      message: e.message,
-      feature: e.feature,
-      suggestion: e.suggestion,
-    }));
-
-    receipt.mapping_errors = errors;
-    receipt.status = "failed";
-
-    throw new Error(`Mapping validation failed: ${errors.map(e => e.message).join("; ")}`);
-  }
-
-  // Log warnings
-  for (const warning of facadeValidation.warnings) {
-    emitWarning(warning.message);
-  }
-
-  // Map Codex request to Claude request
-  const claudeRequest = mapCodexToClaude(codexRequest);
-
-  // Stage 2: Runtime capability validation
-  const backendCapabilities = {}; // Would be populated from actual Claude backend
-  const capabilityValidation = validateCapabilities(claudeRequest, backendCapabilities);
-
-  if (!capabilityValidation.valid) {
-    const errors = capabilityValidation.errors.map(e => ({
-      code: e.code,
-      name: e.name,
-      message: e.message,
-      feature: e.feature,
-    }));
-
-    receipt.mapping_errors = errors;
-    receipt.status = "failed";
-
-    throw new Error(`Capability validation failed: ${errors.map(e => e.message).join("; ")}`);
-  }
-
-  // Store mapping metadata in receipt
-  const sessionMapping = {
-    codexThreadId: codexRequest.thread_id,
-    claudeSessionId: claudeRequest.session_id,
-  };
-
-  const mappedReceiptAdditions = createMappedReceiptAdditions(
-    codexRequest,
-    claudeRequest,
-    {
-      warnings: facadeValidation.warnings,
-      capabilities_used: capabilityValidation.capabilities_used,
-    },
-    sessionMapping
-  );
-
-  Object.assign(receipt, mappedReceiptAdditions);
-  receipt.ext.mode_detail = "mapped_codex_to_claude";
-  receipt.ext.original_request = codexRequest;
-  receipt.ext.mapped_request = claudeRequest;
-
-  emitWarning("Execution mode: mapped (Codex → Claude)");
-
-  // Load Claude adapter for mapped mode
-  const claudeAdapter = loadClaudeAdapter();
-  if (!claudeAdapter) {
-    // Fall back to explain-only mode
-    emitWarning("Claude adapter not available, using explain-only mode");
-    ctx.emitAssistantMessage(
-      `Mapped request would be sent to Claude backend.\n` +
-      `Original model: ${codexRequest.model || "default"}\n` +
-      `Mapped model: ${claudeRequest.model}\n` +
-      `Tools: ${(claudeRequest.allowed_tools || []).join(", ")}`
+    emit(
+      {
+        type: "tool_result",
+        tool_name: "Bash",
+        tool_use_id: toolUseId,
+        output: output,
+        is_error: isError,
+      },
+      item
     );
     return;
   }
 
-  // Build Claude SDK options
-  const sdkOptions = {
-    model: claudeRequest.model,
-    tools: claudeRequest.allowed_tools,
-    temperature: claudeRequest.temperature,
-    max_tokens: claudeRequest.max_tokens,
-    session_id: claudeRequest.session_id,
-    resume: claudeRequest.resume,
-    cwd: workOrder.workspace?.root,
-  };
-
-  // Create modified work order for Claude
-  const claudeWorkOrder = {
-    ...workOrder,
-    config: {
-      ...workOrder.config,
-      vendor: {
-        ...workOrder.config?.vendor,
-        abp: {
-          ...workOrder.config?.vendor?.abp,
-          request: claudeRequest,
+  if (item.type === "file_change") {
+    const changes = Array.isArray(item.changes) ? item.changes : [];
+    if (changes.length === 0) {
+      emit(
+        {
+          type: "file_changed",
+          path: ".",
+          summary: safeString(item.status || "file_change"),
         },
+        item
+      );
+      return;
+    }
+
+    for (const change of changes) {
+      const changedPath = safeString(change?.path || ".");
+      const summary = safeString(change?.kind || item.status || "updated");
+      emit(
+        {
+          type: "file_changed",
+          path: changedPath,
+          summary,
+        },
+        change
+      );
+      addArtifact(artifacts, "file_change", changedPath);
+    }
+    return;
+  }
+
+  if (item.type === "mcp_tool_call") {
+    const toolUseId = item.id || null;
+    const output =
+      item.error != null
+        ? { error: safeString(item.error) }
+        : item.result != null
+          ? item.result
+          : {};
+    emit(
+      {
+        type: "tool_result",
+        tool_name: `mcp:${safeString(item.server)}.${safeString(item.tool)}`,
+        tool_use_id: toolUseId,
+        output,
+        is_error: item.error != null || item.status === "failed",
       },
-    },
+      item
+    );
+    return;
+  }
+
+  if (item.type === "web_search") {
+    const toolUseId = item.id || null;
+    emit(
+      {
+        type: "tool_result",
+        tool_name: "WebSearch",
+        tool_use_id: toolUseId,
+        output: {
+          query: safeString(item.query || ""),
+          status: safeString(item.status || "completed"),
+        },
+        is_error: item.status === "failed",
+      },
+      item
+    );
+    return;
+  }
+
+  if (item.type === "error") {
+    emit(
+      {
+        type: "error",
+        message: safeString(item.message || "codex item error"),
+      },
+      item
+    );
+  }
+}
+
+function handleSdkEvent(sdkEvent, emit, state, artifacts) {
+  if (!sdkEvent || typeof sdkEvent !== "object") {
+    return;
+  }
+
+  if (sdkEvent.type === "thread.started") {
+    if (typeof sdkEvent.thread_id === "string") {
+      state.threadId = sdkEvent.thread_id;
+    }
+    return;
+  }
+
+  if (sdkEvent.type === "turn.completed") {
+    state.usageRaw = asObject(sdkEvent.usage);
+    return;
+  }
+
+  if (sdkEvent.type === "turn.failed") {
+    const message = safeString(sdkEvent.error || "turn failed");
+    state.turnFailedMessage = message;
+    emit(
+      {
+        type: "error",
+        message,
+      },
+      sdkEvent
+    );
+    return;
+  }
+
+  if (sdkEvent.type === "error") {
+    emit(
+      {
+        type: "error",
+        message: safeString(sdkEvent.error || sdkEvent.message || "codex error"),
+      },
+      sdkEvent
+    );
+    return;
+  }
+
+  if (sdkEvent.type === "item.started") {
+    emitItemStarted(sdkEvent.item, emit, state);
+    return;
+  }
+
+  if (sdkEvent.type === "item.updated") {
+    emitItemUpdated(sdkEvent.item, emit, state);
+    return;
+  }
+
+  if (sdkEvent.type === "item.completed") {
+    emitItemCompleted(sdkEvent.item, emit, state, artifacts);
+  }
+}
+
+async function executeTurn(codex, workOrder, codexCfg, emit, artifacts) {
+  const threadOptions = buildThreadOptions(workOrder, codexCfg);
+  const turnOptions = buildTurnOptions(workOrder, codexCfg);
+
+  const threadId = pickString(codexCfg, ["threadId", "thread_id"]);
+  const resumeFlag = pickBoolean(codexCfg, ["resume"]) === true;
+  const shouldResume = !!threadId && (resumeFlag || threadId.length > 0);
+
+  let thread;
+  if (shouldResume) {
+    thread = await codex.resumeThread(threadId, threadOptions);
+  } else {
+    if (resumeFlag && !threadId) {
+      emit({
+        type: "warning",
+        message: "vendor.codex.resume=true was set without vendor.codex.threadId; starting a new thread",
+      });
+    }
+    thread = codex.startThread(threadOptions);
+  }
+
+  const timeoutMs = pickNumber(codexCfg, ["timeoutMs", "timeout_ms"]);
+  let timeoutHandle = null;
+  let controller = null;
+  if (timeoutMs !== undefined && timeoutMs > 0) {
+    controller = new AbortController();
+    timeoutHandle = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+    turnOptions.signal = controller.signal;
+  }
+
+  const state = {
+    threadId: typeof thread.threadId === "function" ? thread.threadId() : undefined,
+    usageRaw: {},
+    turnFailedMessage: null,
+    agentTextByItem: new Map(),
+    openToolCalls: new Set(),
   };
 
-  // Run Claude adapter
-  await claudeAdapter.run({
-    workOrder: claudeWorkOrder,
-    sdkOptions,
-    policy: workOrder.policy || {},
-    ...ctx,
+  const promptInput = buildPrompt(workOrder);
+  let streamed;
+  try {
+    streamed = await thread.runStreamed(promptInput, turnOptions);
+    for await (const event of streamed.events) {
+      handleSdkEvent(event, emit, state, artifacts);
+    }
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+
+  if (state.turnFailedMessage) {
+    throw new Error(state.turnFailedMessage);
+  }
+
+  const usageRaw = {
+    ...asObject(state.usageRaw),
+  };
+  if (streamed.requestId) {
+    usageRaw.request_id = streamed.requestId;
+  }
+  if (state.threadId) {
+    usageRaw.thread_id = state.threadId;
+  }
+
+  return {
+    usageRaw,
+  };
+}
+
+async function executeWithRetry(codex, workOrder, codexCfg, emit, artifacts) {
+  const retries = pickNumber(codexCfg, ["retryCount", "retry_count", "retries"]);
+  const maxAttempts = Math.max(1, 1 + (retries !== undefined ? Math.floor(retries) : 1));
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await executeTurn(codex, workOrder, codexCfg, emit, artifacts);
+    } catch (err) {
+      lastError = err;
+      const canRetry = attempt < maxAttempts && isRetriableError(err);
+      if (!canRetry) {
+        break;
+      }
+
+      const delayMs = Math.min(5000, attempt * 1000);
+      emit({
+        type: "warning",
+        message: `Codex turn failed (attempt ${attempt}/${maxAttempts}); retrying in ${delayMs}ms: ${safeString(err)}`,
+      });
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError || new Error("codex turn failed");
+}
+
+async function runWorkOrder(envelope, backendInfo) {
+  const runId =
+    typeof envelope.id === "string" && envelope.id.length > 0
+      ? envelope.id
+      : crypto.randomUUID();
+  const workOrder = asObject(envelope.work_order);
+  const mode = getExecutionMode(workOrder);
+
+  const startedAt = nowIso();
+  const trace = [];
+  const artifacts = [];
+  const emit = makeEmitter(runId, trace);
+
+  let usageRaw = {};
+  let usage = {};
+  let outcome = "complete";
+
+  emit({
+    type: "run_started",
+    message: `codex run starting: ${safeString(workOrder.task || "")}`,
+  });
+
+  try {
+    const Codex = await loadCodexClass();
+    const codexCfg = getVendorNamespace(workOrder, "codex");
+
+    const workspaceRoot = pickString(asObject(workOrder.workspace), ["root"]);
+    if (workspaceRoot) {
+      try {
+        process.chdir(workspaceRoot);
+      } catch (err) {
+        emit({
+          type: "warning",
+          message: `unable to change cwd to workspace root '${workspaceRoot}': ${safeString(err)}`,
+        });
+      }
+    }
+
+    const codex = createCodexClient(Codex, workOrder, codexCfg);
+    const runResult = await executeWithRetry(codex, workOrder, codexCfg, emit, artifacts);
+    usageRaw = asObject(runResult.usageRaw);
+    usage = normalizeUsage(usageRaw);
+  } catch (err) {
+    outcome = "failed";
+    emit({
+      type: "error",
+      message: safeString(err),
+    });
+  }
+
+  emit({
+    type: "run_completed",
+    message:
+      outcome === "complete"
+        ? "codex run completed"
+        : `codex run failed: ${safeString(trace[trace.length - 1]?.message || "")}`,
+  });
+
+  const finishedAt = nowIso();
+  const receipt = {
+    meta: {
+      run_id: runId,
+      work_order_id: workOrder.id,
+      contract_version: CONTRACT_VERSION,
+      started_at: startedAt,
+      finished_at: finishedAt,
+      duration_ms: Math.max(
+        0,
+        new Date(finishedAt).getTime() - new Date(startedAt).getTime()
+      ),
+    },
+    backend: backendInfo,
+    capabilities,
+    mode,
+    usage_raw: usageRaw,
+    usage,
+    trace,
+    artifacts,
+    verification: {
+      git_diff: null,
+      git_status: null,
+      harness_ok: true,
+    },
+    outcome,
+    receipt_sha256: null,
+  };
+
+  write({
+    t: "final",
+    ref_id: runId,
+    receipt,
   });
 }
 
-// ============================================================================
-// Main Entry Point
-// ============================================================================
-
 async function main() {
-  const adapter = loadAdapter();
+  const backend = {
+    id: BACKEND_ID,
+    backend_version: resolveSdkVersion(),
+    adapter_version: ADAPTER_VERSION,
+  };
+
+  write({
+    t: "hello",
+    contract_version: CONTRACT_VERSION,
+    backend,
+    capabilities,
+    mode: DEFAULT_MODE,
+  });
 
   const rl = readline.createInterface({
     input: process.stdin,
     crlfDelay: Infinity,
   });
 
-  let sentHello = false;
-
-  rl.on("line", (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
+  for await (const line of rl) {
+    if (!line || !line.trim()) {
+      continue;
+    }
 
     let envelope;
     try {
-      envelope = JSON.parse(trimmed);
-    } catch (e) {
+      envelope = JSON.parse(line);
+    } catch (err) {
       write({
-        t: "error",
-        error: "Invalid JSON envelope",
-        raw: trimmed.slice(0, 100),
+        t: "fatal",
+        ref_id: null,
+        error: `invalid json: ${safeString(err)}`,
       });
-      return;
+      continue;
     }
 
-    // Handle hello handshake
-    if (!sentHello) {
-      // First message should be hello or run
-      if (envelope.t === "hello") {
-        // Respond to hello
-        write({
-          t: "hello",
-          version: CONTRACT_VERSION,
-          adapter: adapter ? adapter.name : "codex_host",
-          adapter_version: adapter ? adapter.version : ADAPTER_VERSION,
-          capabilities: getCapabilityManifest(),
-        });
-        sentHello = true;
-        return;
-      }
-
-      if (envelope.t === "run") {
-        // Auto-send hello first
-        const mode = getExecutionMode(envelope.work_order || {});
-        write({
-          t: "hello",
-          version: CONTRACT_VERSION,
-          adapter: adapter ? adapter.name : "codex_host",
-          adapter_version: adapter ? adapter.version : ADAPTER_VERSION,
-          mode: mode,
-          capabilities: getCapabilityManifest(),
-        });
-        sentHello = true;
-      }
-    }
-
-    if (envelope.t === "run") {
-      handleRun(envelope, adapter).catch((err) => {
-        write({
-          t: "final",
-          id: envelope.id,
-          error: err.message,
-        });
+    if (envelope.t !== "run") {
+      write({
+        t: "fatal",
+        ref_id: null,
+        error: `expected run envelope, got '${safeString(envelope.t)}'`,
       });
-    } else if (envelope.t === "shutdown") {
-      rl.close();
+      continue;
     }
-  });
 
-  rl.on("close", () => {
-    process.exit(0);
-  });
+    await runWorkOrder(envelope, backend);
+  }
 }
 
 main().catch((err) => {
-  console.error("[codex-host] Fatal error:", err);
-  process.exit(1);
+  write({
+    t: "fatal",
+    ref_id: null,
+    error: `codex host failed: ${safeString(err)}`,
+  });
+  process.exitCode = 1;
 });

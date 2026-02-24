@@ -40,7 +40,7 @@ const TOOL_HINTS = {
 function getCapabilityManifest() {
   return {
     backend: "github_copilot_sdk",
-    version: "0.1.0",
+    version: "0.2.0",
     capabilities: { ...CopilotCapabilities },
     tool_hints: { ...TOOL_HINTS },
   };
