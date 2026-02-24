@@ -19,6 +19,7 @@ cargo run -p xtask -- schema                   # Generate JSON schemas to contra
 cargo run -p abp-cli -- run --task "hello" --backend mock   # Run with mock backend
 cargo run -p abp-cli -- run --task "hello" --backend sidecar:node    # Node sidecar (requires node)
 cargo run -p abp-cli -- run --task "hello" --backend sidecar:claude  # Claude sidecar (requires node)
+cargo run -p abp-cli -- run --task "hello" --backend sidecar:copilot # Copilot sidecar (requires node)
 cargo run -p abp-cli -- backends               # List available backends
 ```
 
@@ -51,7 +52,7 @@ abp-protocol ─── abp-host ─── abp-integrations ─── abp-runtime
 - **abp-policy**: Compiles `PolicyProfile` into `PolicyEngine` with tool/read/write allow/deny checks via globs.
 - **abp-integrations**: `Backend` trait + `MockBackend` + `SidecarBackend`. Backends stream `AgentEvent`s via `mpsc::Sender` and return a `Receipt`.
 - **abp-runtime**: Orchestration — prepares workspace, selects backend, multiplexes event streams, produces canonical hashed receipt.
-- **abp-cli**: `abp` binary with `run` and `backends` subcommands. Registers built-in sidecars (node, python, claude).
+- **abp-cli**: `abp` binary with `run` and `backends` subcommands. Registers built-in sidecars (node, python, claude, copilot).
 - **abp-daemon**: Stub for future HTTP control-plane API.
 
 ### Sidecar Protocol (JSONL over stdio)
@@ -91,6 +92,7 @@ Set via `work_order.config.vendor.abp.mode`.
 - `hosts/python/` — Minimal Python sidecar example
 - `hosts/claude/` — Claude-oriented sidecar with pluggable adapter module (has its own test suite)
 - `hosts/gemini/` — Gemini sidecar with Claude-to-Gemini mapping (`mapper.js`, `capabilities.js`)
+- `hosts/copilot/` — GitHub Copilot sidecar scaffold and adapter contract
 
 ## License
 
