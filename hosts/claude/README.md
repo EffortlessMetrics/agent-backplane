@@ -15,6 +15,12 @@ From the repository root:
 cargo run -p abp-cli -- run --backend sidecar:claude --task "analyze this repo"
 ```
 
+Install sidecar dependencies first:
+
+```powershell
+npm --prefix hosts/claude install
+```
+
 ## Adapter model
 
 `host.js` supports a custom adapter module:
@@ -50,10 +56,12 @@ module.exports = {
 
 Without a custom adapter:
 
-- The sidecar tries a best-effort probe for `@anthropic-ai/claude-agent-sdk` and `claude-agent-sdk`.
-- If no compatible entrypoint is found, it runs a deterministic fallback mode and emits `outcome: "partial"`.
+- Mapped mode uses `hosts/claude/adapter.js` (Claude SDK adapter).
+- Passthrough mode uses the host's native passthrough stream wrapper.
+- If no compatible SDK is found, it runs deterministic fallback mode and emits `outcome: "partial"`.
 
 ## Environment variables
 
 - `ABP_CLAUDE_ADAPTER_MODULE`: Path to the custom adapter module.
 - `ABP_CLAUDE_MAX_INLINE_OUTPUT_BYTES`: Threshold for in-trace tool output before artifact offload (default `8192`).
+- `ABP_CLAUDE_SDK_MODULE`: Optional SDK module override (useful for testing).

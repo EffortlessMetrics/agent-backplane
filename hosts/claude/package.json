@@ -1,0 +1,12 @@
+{
+  "name": "abp-claude-host",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.52"
+  }
+}

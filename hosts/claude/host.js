@@ -34,9 +34,10 @@
 //   - emitError(message)
 //   - writeArtifact(kind, suggestedName, content)
 //
-// If no custom adapter is provided, this script attempts a best-effort
-// integration with common Claude Agent SDK entry points. If unavailable, it
-// falls back to a deterministic "explain-only" mode.
+// If no custom adapter is provided, this script loads ./adapter.js for mapped
+// execution and uses a built-in passthrough wrapper for raw SDK requests. If
+// no compatible SDK is available, it falls back to deterministic explain-only
+// mode.
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -818,27 +819,57 @@ function resolveAdapterModulePath(rawPath) {
   return path.resolve(rawPath);
 }
 
+function materializeAdapter(loaded, fallbackName) {
+  const adapter = loaded && loaded.default ? loaded.default : loaded;
+  if (!adapter || typeof adapter.run !== "function") {
+    throw new Error(
+      `adapter '${fallbackName}' must export an object with async run(ctx)`
+    );
+  }
+
+  return {
+    name: adapter.name || fallbackName,
+    version: adapter.version || null,
+    capabilities: {
+      ...defaultCapabilities(),
+      ...(adapter.capabilities || {}),
+    },
+    run: adapter.run,
+  };
+}
+
+function tryLoadLocalMappedAdapter() {
+  const localAdapterPath = path.join(__dirname, "adapter.js");
+  if (!fs.existsSync(localAdapterPath)) {
+    return null;
+  }
+
+  try {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    const loaded = require(localAdapterPath);
+    return materializeAdapter(loaded, "claude_sdk_adapter");
+  } catch (err) {
+    process.stderr.write(
+      `[claude-host] failed to load local mapped adapter '${localAdapterPath}': ${safeString(err)}\n`
+    );
+    return null;
+  }
+}
+
 function loadAdapter(mode = ExecutionMode.Mapped) {
   const customPath = process.env.ABP_CLAUDE_ADAPTER_MODULE;
   if (customPath) {
     const resolved = resolveAdapterModulePath(customPath);
     // eslint-disable-next-line global-require, import/no-dynamic-require
     const loaded = require(resolved);
-    const adapter = loaded && loaded.default ? loaded.default : loaded;
-    if (!adapter || typeof adapter.run !== "function") {
-      throw new Error(
-        `custom adapter '${resolved}' must export an object with async run(ctx)`
-      );
+    return materializeAdapter(loaded, "custom_claude_adapter");
+  }
+
+  if (mode === ExecutionMode.Mapped) {
+    const localMappedAdapter = tryLoadLocalMappedAdapter();
+    if (localMappedAdapter) {
+      return localMappedAdapter;
     }
-    return {
-      name: adapter.name || "custom_claude_adapter",
-      version: adapter.version || null,
-      capabilities: {
-        ...defaultCapabilities(),
-        ...(adapter.capabilities || {}),
-      },
-      run: adapter.run,
-    };
   }
 
   const probe =
