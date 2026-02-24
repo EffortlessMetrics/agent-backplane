@@ -281,3 +281,11 @@ impl SidecarClient {
 
 // Convenience: accept a stream of events as a trait object.
 pub type EventStream = dyn Stream<Item = AgentEvent> + Send + Unpin;
+
+// Re-export raw transport types from sidecar-kit.
+pub use sidecar_kit::CancelToken;
+pub use sidecar_kit::ProcessSpec as RawProcessSpec;
+pub use sidecar_kit::RawRun;
+pub use sidecar_kit::SidecarClient as RawSidecarClient;
+pub use sidecar_kit::SidecarError;
+pub use sidecar_kit::SidecarProcess as RawSidecarProcess;

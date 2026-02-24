@@ -91,3 +91,7 @@ impl JsonlCodec {
         Ok(serde_json::from_str::<Envelope>(line)?)
     }
 }
+
+// Raw (Value-based) protocol types from sidecar-kit.
+pub use sidecar_kit::Frame as RawFrame;
+pub use sidecar_kit::JsonlCodec as RawCodec;
