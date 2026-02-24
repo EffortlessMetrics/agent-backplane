@@ -11,6 +11,7 @@ members = [
   "crates/abp-runtime",
   "crates/abp-cli",
   "crates/abp-daemon",
+  "crates/abp-codex-sdk",
   "xtask",
 ]
 
