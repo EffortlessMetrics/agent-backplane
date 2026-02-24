@@ -3,6 +3,7 @@ use abp_host::SidecarSpec;
 use abp_integrations::{MockBackend, SidecarBackend};
 use abp_codex_sdk as codex_sdk;
 use abp_claude_sdk as claude_sdk;
+use abp_kimi_sdk as kimi_sdk;
 use abp_gemini_sdk as gemini_sdk;
 use abp_runtime::Runtime;
 use anyhow::{Context, Result};
@@ -310,12 +311,7 @@ fn build_runtime(host_root: &Path) -> Result<Runtime> {
         &host_root.join("hosts/copilot/host.js"),
     )?;
 
-    register_sidecar_backend(
-        &mut runtime,
-        "sidecar:kimi",
-        if which("node").is_some() { "node" } else { "node" },
-        &host_root.join("hosts/kimi/host.js"),
-    )?;
+    kimi_sdk::register_default(&mut runtime, host_root, None)?;
 
     gemini_sdk::register_default(&mut runtime, host_root, None)?;
 

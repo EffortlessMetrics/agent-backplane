@@ -14,6 +14,7 @@ members = [
   "crates/abp-codex-sdk",
   "crates/abp-gemini-sdk",
   "crates/abp-claude-sdk",
+  "crates/abp-kimi-sdk",
   "xtask",
 ]
 

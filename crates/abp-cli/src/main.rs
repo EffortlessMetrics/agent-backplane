@@ -5,6 +5,7 @@ use abp_core::{
 use abp_codex_sdk as codex_sdk;
 use abp_claude_sdk as claude_sdk;
 use abp_gemini_sdk as gemini_sdk;
+use abp_kimi_sdk as kimi_sdk;
 use abp_host::SidecarSpec;
 use abp_integrations::SidecarBackend;
 use abp_runtime::Runtime;
@@ -233,6 +234,14 @@ async fn cmd_run(
         spec.args = vec![script.to_string_lossy().into_owned()];
         rt.register_backend("sidecar:copilot", SidecarBackend::new(spec));
     }
+    if backend == kimi_sdk::BACKEND_NAME {
+        if !kimi_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {
+            anyhow::bail!(
+                "kimi sidecar not available at {} (node not found or script missing)",
+                kimi_sdk::sidecar_script(&PathBuf::from(".")).display()
+            );
+        }
+    }
     if backend == codex_sdk::BACKEND_NAME {
         if !codex_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {
             anyhow::bail!(
@@ -249,26 +258,6 @@ async fn cmd_run(
             );
         }
     }
-    if backend == "sidecar:kimi" {
-        let cmd = if which("node").is_some() {
-            "node"
-        } else {
-            anyhow::bail!("node executable not found in PATH");
-        };
-
-        let script = PathBuf::from("hosts/kimi/host.js");
-        if !script.is_file() {
-            anyhow::bail!(
-                "kimi sidecar host script not found at {} (run from repo root)",
-                script.display()
-            );
-        }
-
-        let mut spec = SidecarSpec::new(cmd);
-        spec.args = vec![script.to_string_lossy().into_owned()];
-        rt.register_backend("sidecar:kimi", SidecarBackend::new(spec));
-    }
-
     let work_order_id = Uuid::new_v4();
     let wo = WorkOrder {
         id: work_order_id,

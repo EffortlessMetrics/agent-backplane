@@ -34,6 +34,7 @@ ABP_KIMI_ADAPTER_MODULE=./hosts/kimi/adapter.js \
 |----------|-------------|---------|
 | `ABP_KIMI_ADAPTER_MODULE` | Custom adapter module path | `./adapter.js` |
 | `ABP_KIMI_MAX_INLINE_OUTPUT_BYTES` | Max inline artifact size | `8192` |
+| `KIMI_API_KEY` or `KIMI_API_CODE` | API key for non-interactive auth (if supported by installed runner/sdk) | unset |
 | `ABP_KIMI_RUNNER` | Path to a command that accepts request JSON on stdin | (unset) |
 | `ABP_KIMI_CMD` | Fallback command name | `kimi` |
 | `ABP_KIMI_ARGS` | JSON array of args for `ABP_KIMI_CMD` | `[]` |

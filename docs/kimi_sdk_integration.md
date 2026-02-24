@@ -39,6 +39,12 @@ cargo run -p abp-cli -- run --backend sidecar:kimi --task "audit this repository
 - `ABP_KIMI_CMD`
 - `ABP_KIMI_ARGS`
 - `ABP_KIMI_MAX_INLINE_OUTPUT_BYTES`
+- `KIMI_API_KEY` or `KIMI_API_CODE`
+
+Authentication options:
+
+- Prefer OAuth flow once by running `kimi /login` in your shell.
+- For key-based mode, set either `KIMI_API_KEY` or `KIMI_API_CODE` in the environment before running the sidecar.
 
 ## Receipt behavior
 

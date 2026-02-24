@@ -80,6 +80,7 @@ Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 - `crates/abp-claude-sdk`: Claude sidecar integration microcrate
 - `crates/abp-codex-sdk`: Codex sidecar integration microcrate
 - `crates/abp-gemini-sdk`: Gemini CLI sidecar integration microcrate
+- `crates/abp-kimi-sdk`: Kimi sidecar integration microcrate
 - `crates/abp-cli`: `abp` CLI
 - `crates/abp-daemon`: HTTP control plane + receipt persistence
 - `hosts/node`: example sidecar (JSONL over stdio)

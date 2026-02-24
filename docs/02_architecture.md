@@ -59,10 +59,11 @@ The stack prefers microcrates: small, single-purpose modules with one clear depe
 
 ## GitHub Copilot and Kimi sidecars in scope (microcrate pattern)
 
-This repo now includes dedicated sidecar scaffolds under:
+This repo now includes dedicated sidecar scaffolds and registration microcrates under:
 
 - `hosts/copilot`
 - `hosts/kimi`
+- `crates/abp-kimi-sdk`
 
 - `host.js`: protocol binding, policy gatekeeping, artifact capture, receipt assembly.
 - `adapter.js`: default adapter entrypoint that can be replaced by `ABP_COPILOT_ADAPTER_MODULE`.
