@@ -37,9 +37,14 @@ const passthroughCells = filterMatrix({
  */
 function extractRawMessages(messages) {
   return messages.filter((m) => {
-    // Keep agent_event messages which contain the actual SDK content
-    return m.t === "agent_event";
+    // Keep event messages which contain the actual SDK content
+    return m.t === "event";
   }).map((m) => m.event);
+}
+
+function findReceipt(messages) {
+  const finalMsg = messages.find((m) => m.t === "final");
+  return finalMsg?.receipt || null;
 }
 
 /**
@@ -125,7 +130,7 @@ describe("Passthrough Parity", () => {
 
       // The request should have been passed through unchanged
       // (In a real test, we would verify the mock adapter received the exact request)
-      const agentEvents = messages.filter((m) => m.t === "agent_event");
+      const agentEvents = messages.filter((m) => m.t === "event");
       assert(agentEvents.length > 0, "Should have agent events");
     });
 
@@ -178,7 +183,7 @@ describe("Passthrough Parity", () => {
 
       // Find tool use events
       const toolEvents = messages.filter((m) => {
-        if (m.t === "agent_event") {
+        if (m.t === "event") {
           const event = m.event;
           return event?.type === "tool_use" || event?.content_block?.type === "tool_use";
         }
@@ -244,19 +249,18 @@ describe("Passthrough Parity", () => {
 
       const { messages } = await runSidecarTest("claude", workOrder);
 
-      // Receipt should be a separate message, not inside agent_event
+      // Receipt should be a separate message, not inside event
       const receiptInStream = messages.find((m) => {
-        if (m.t === "agent_event" && m.event) {
+        if (m.t === "event" && m.event) {
           return m.event.receipt || m.event.receipt_sha256;
         }
         return false;
       });
 
-      assert(!receiptInStream, "Receipt should not be injected into agent_event stream");
+      assert(!receiptInStream, "Receipt should not be injected into event stream");
 
-      // Receipt should be a separate message
-      const receipt = messages.find((m) => m.t === "receipt");
-      assert(receipt, "Receipt should be present as separate message");
+      const receipt = findReceipt(messages);
+      assert(receipt, "Final receipt should be present");
     });
 
     it("should preserve event ordering", async () => {
@@ -274,18 +278,18 @@ describe("Passthrough Parity", () => {
       assert(messages.length > 0, "Should have messages");
       assert.strictEqual(messages[0].t, "hello", "First message should be hello");
 
-      // Find agent_event indices
+      // Find event indices
       const agentEventIndices = messages
-        .map((m, i) => (m.t === "agent_event" ? i : -1))
+        .map((m, i) => (m.t === "event" ? i : -1))
         .filter((i) => i >= 0);
 
-      // Find receipt index
-      const receiptIndex = messages.findIndex((m) => m.t === "receipt");
+      // Find final index
+      const receiptIndex = messages.findIndex((m) => m.t === "final");
 
-      // All agent_events should come before receipt
+      // All events should come before final receipt
       if (receiptIndex >= 0 && agentEventIndices.length > 0) {
         for (const idx of agentEventIndices) {
-          assert(idx < receiptIndex, "Agent events should come before receipt");
+          assert(idx < receiptIndex, "Agent events should come before final receipt");
         }
       }
     });
@@ -320,7 +324,7 @@ describe("Passthrough Parity", () => {
       const { messages } = await runSidecarTest("codex", workOrder);
 
       assert(messages.length > 0, "Should have messages");
-      const agentEvents = messages.filter((m) => m.t === "agent_event");
+      const agentEvents = messages.filter((m) => m.t === "event");
       assert(agentEvents.length > 0, "Should have agent events");
     });
 
@@ -365,7 +369,7 @@ describe("Passthrough Parity", () => {
 
       // Find tool call events
       const toolEvents = messages.filter((m) => {
-        if (m.t === "agent_event") {
+        if (m.t === "event") {
           const event = m.event;
           return event?.type === "function_call" || event?.tool_calls;
         }
@@ -397,19 +401,18 @@ describe("Passthrough Parity", () => {
 
       const { messages } = await runSidecarTest("codex", workOrder);
 
-      // Receipt should not be in agent_event
+      // Receipt should not be in event
       const receiptInStream = messages.find((m) => {
-        if (m.t === "agent_event" && m.event) {
+        if (m.t === "event" && m.event) {
           return m.event.receipt || m.event.receipt_sha256;
         }
         return false;
       });
 
-      assert(!receiptInStream, "Receipt should not be in agent_event stream");
+      assert(!receiptInStream, "Receipt should not be in event stream");
 
-      // Receipt should be separate
-      const receipt = messages.find((m) => m.t === "receipt");
-      assert(receipt, "Receipt should be present as separate message");
+      const receipt = findReceipt(messages);
+      assert(receipt, "Final receipt should be present");
     });
 
     it("should preserve event ordering", async () => {
@@ -427,14 +430,14 @@ describe("Passthrough Parity", () => {
       assert.strictEqual(messages[0].t, "hello", "First message should be hello");
 
       const agentEventIndices = messages
-        .map((m, i) => (m.t === "agent_event" ? i : -1))
+        .map((m, i) => (m.t === "event" ? i : -1))
         .filter((i) => i >= 0);
 
-      const receiptIndex = messages.findIndex((m) => m.t === "receipt");
+      const receiptIndex = messages.findIndex((m) => m.t === "final");
 
       if (receiptIndex >= 0 && agentEventIndices.length > 0) {
         for (const idx of agentEventIndices) {
-          assert(idx < receiptIndex, "Agent events should come before receipt");
+          assert(idx < receiptIndex, "Agent events should come before final receipt");
         }
       }
     });
@@ -445,11 +448,11 @@ describe("Passthrough Parity", () => {
     it("should have consistent behavior across Claude and Codex passthrough", async () => {
       // Both passthrough modes should:
       // 1. Send hello first
-      // 2. Stream agent events
-      // 3. Send receipt at end
+      // 2. Stream events
+      // 3. Send final receipt at end
       // 4. Not modify content
 
-      const expectedEnvelopeTypes = ["hello", "agent_event", "receipt"];
+      const expectedEnvelopeTypes = ["hello", "event", "final"];
 
       for (const cell of passthroughCells) {
         const workOrder = createWorkOrder({

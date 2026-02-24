@@ -36,6 +36,11 @@ const describeMapped = shouldRunMapped && mappedCells.length > 0
   ? describe
   : describe.skip;
 
+function findReceipt(messages) {
+  const finalMsg = messages.find((m) => m.t === "final");
+  return finalMsg?.receipt || null;
+}
+
 /**
  * Claude→Gemini tool mapping
  */
@@ -172,7 +177,7 @@ describe("Mapped Contract", () => {
       const { messages } = await runSidecarTest("claude", workOrder);
 
       // If successful, check receipt for mapping info
-      const receipt = messages.find((m) => m.t === "receipt");
+      const receipt = findReceipt(messages);
       
       if (receipt && receipt.mapping) {
         // Verify tools were mapped
@@ -199,7 +204,7 @@ describe("Mapped Contract", () => {
 
       const { messages } = await runSidecarTest("claude", workOrder);
 
-      const receipt = messages.find((m) => m.t === "receipt");
+      const receipt = findReceipt(messages);
       
       if (receipt) {
         // Mapped receipts should include source_dialect and target_engine
@@ -242,7 +247,7 @@ describe("Mapped Contract", () => {
 
       // Get text content from agent events
       const textEvents = messages.filter((m) => {
-        if (m.t === "agent_event" && m.event) {
+        if (m.t === "event" && m.event) {
           return m.event.type === "text" || m.event.content_block?.type === "text";
         }
         return false;
@@ -278,7 +283,7 @@ describe("Mapped Contract", () => {
 
       const { messages } = await runSidecarTest("claude", workOrder);
 
-      const receipt = messages.find((m) => m.t === "receipt");
+      const receipt = findReceipt(messages);
       
       if (receipt && receipt.capabilities_used) {
         assert(
@@ -313,7 +318,7 @@ describe("Mapped Contract", () => {
       if (error) {
         // If there's an error, there should be no tool calls
         const toolEvents = messages.filter((m) => {
-          if (m.t === "agent_event") {
+          if (m.t === "event") {
             return m.event?.type === "tool_use" || m.event?.content_block?.type === "tool_use";
           }
           return false;
@@ -407,7 +412,7 @@ describe("Mapped Contract", () => {
 
       const { messages } = await runSidecarTest("codex", workOrder);
 
-      const receipt = messages.find((m) => m.t === "receipt");
+      const receipt = findReceipt(messages);
       
       if (receipt && receipt.mapping) {
         // Verify tools were mapped
@@ -434,7 +439,7 @@ describe("Mapped Contract", () => {
 
       const { messages } = await runSidecarTest("codex", workOrder);
 
-      const receipt = messages.find((m) => m.t === "receipt");
+      const receipt = findReceipt(messages);
       
       if (receipt) {
         if (receipt.source_dialect) {
@@ -475,7 +480,7 @@ describe("Mapped Contract", () => {
       const { messages } = await runSidecarTest("codex", workOrder);
 
       // If successful, thread_id should be mapped to session_id
-      const receipt = messages.find((m) => m.t === "receipt");
+      const receipt = findReceipt(messages);
       
       if (receipt && receipt.mapping) {
         if (receipt.mapping.thread_to_session) {
@@ -507,7 +512,7 @@ describe("Mapped Contract", () => {
 
       const { messages } = await runSidecarTest("codex", workOrder);
 
-      const receipt = messages.find((m) => m.t === "receipt");
+      const receipt = findReceipt(messages);
       
       if (receipt && receipt.mapping && receipt.mapping.model) {
         // GPT-4 should map to some Claude model
@@ -536,7 +541,7 @@ describe("Mapped Contract", () => {
 
       // Get text content from agent events
       const textEvents = messages.filter((m) => {
-        if (m.t === "agent_event" && m.event) {
+        if (m.t === "event" && m.event) {
           return m.event.type === "text" || m.event.delta?.content;
         }
         return false;
@@ -591,7 +596,7 @@ describe("Mapped Contract", () => {
 
         const { messages } = await runSidecarTest(cell.dialect, workOrder);
 
-        const receipt = messages.find((m) => m.t === "receipt");
+        const receipt = findReceipt(messages);
         
         if (receipt) {
           assert(

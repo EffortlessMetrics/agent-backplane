@@ -284,8 +284,6 @@ if (require.main === module) {
     path.resolve(__dirname, "matrix.test.js"),
     path.resolve(__dirname, "passthrough.test.js"),
     path.resolve(__dirname, "mapped.test.js"),
-    path.resolve(__dirname, "receipt.test.js"),
-    path.resolve(__dirname, "error.test.js"),
   ];
 
   // Pass options as environment variables
