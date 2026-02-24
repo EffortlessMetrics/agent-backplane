@@ -57,9 +57,12 @@ Think of the system like a power distribution panel:
 
 The stack prefers microcrates: small, single-purpose modules with one clear dependency edge.
 
-## GitHub Copilot sidecar in scope (microcrate pattern)
+## GitHub Copilot and Kimi sidecars in scope (microcrate pattern)
 
-This repo now includes a dedicated Copilot sidecar scaffold under `hosts/copilot`:
+This repo now includes dedicated sidecar scaffolds under:
+
+- `hosts/copilot`
+- `hosts/kimi`
 
 - `host.js`: protocol binding, policy gatekeeping, artifact capture, receipt assembly.
 - `adapter.js`: default adapter entrypoint that can be replaced by `ABP_COPILOT_ADAPTER_MODULE`.
@@ -104,11 +107,11 @@ Instead:
 ### GitHub Copilot integration status
 
 - Backend wire-up:
-  - `sidecar:copilot` is available in `abp-cli` and `abp-daemon` when Node runtime is present.
+- `sidecar:copilot` and `sidecar:kimi` are available in `abp-cli` and `abp-daemon` when Node runtime is present.
   - hello/`run`/`event`/`final` protocol remains unchanged.
 - Integration extension points:
   - `ABP_COPILOT_ADAPTER_MODULE` to inject your real SDK binding.
   - `ABP_COPILOT_RUNNER` for process-based runners that accept ABI-shaped JSON request payloads.
-  - `work_order.config.vendor.copilot` for per-run overrides (`model`, `reasoningEffort`, `systemMessage`, tool policy).
+- `work_order.config.vendor.copilot` for Copilot overrides and `work_order.config.vendor.kimi` for Kimi overrides (`model`, `reasoningEffort`, `agentMode`, `agentSwarm`, `topP`, tool policy).
 
 
