@@ -29,12 +29,13 @@ ABP_COPILOT_ADAPTER_MODULE=./hosts/copilot/adapter.template.js \
 │ - policy enforcement                   │
 │ - artifact capture                     │
 │ - receipt assembly                     │
+│ - request_permission handling          │
 ├───────────────────────────────────────┤
 │ adapter.run(ctx) → emits ABP events    │
 │        ↕                              │
 │ Copilot adapter (adapter.js or custom) │
-│ - invoke CLI / SDK                    │
-│ - map tool calls + usage                │
+│ - invoke ACP transport by default       │
+│ - map tool calls + usage               │
 └───────────────────────────────────────┘
 ```
 
@@ -43,7 +44,7 @@ ABP_COPILOT_ADAPTER_MODULE=./hosts/copilot/adapter.template.js \
 | File | Purpose |
 |------|---------|
 | `host.js` | Sidecar runtime, JSONL protocol handling, events, receipt |
-| `adapter.js` | Default adapter scaffold for Copilot integration |
+| `adapter.js` | Default adapter for ACP mode with legacy fallback |
 | `adapter.template.js` | Template showing a custom Copilot integration module |
 | `capabilities.js` | Capability manifest and support levels |
 
@@ -56,11 +57,21 @@ ABP_COPILOT_ADAPTER_MODULE=./hosts/copilot/adapter.template.js \
 | `ABP_COPILOT_RUNNER` | Optional command that accepts Copilot request JSON on stdin |
 | `ABP_COPILOT_CMD` | Default command name for non-runner flows | `copilot` |
 | `ABP_COPILOT_ARGS` | JSON array of arguments for `ABP_COPILOT_CMD` | `[]` |
+| `ABP_COPILOT_PROTOCOL` | `acp` (default) or `legacy` | `acp` |
+| `ABP_COPILOT_ACP_URL` | Remote ACP endpoint (`host:port`/`tcp://...`) | `` |
+| `ABP_COPILOT_ACP_PORT` | Local ACP TCP port (stdio omitted) | `` |
+| `ABP_COPILOT_ACP_ARGS` | JSON args for ACP startup process | `[]` |
+| `ABP_COPILOT_PERMISSION_ALLOW_ALWAYS` | Allow every request (`allow_always`) | `false` |
+| `ABP_COPILOT_PERMISSION_ALLOW_TOOLS` | Auto-approve listed tools (`allow_once`) | `[]` |
+| `ABP_COPILOT_PERMISSION_DENY_TOOLS` | Quick deny list by prefix | `[]` |
+| `ABP_COPILOT_PERMISSION_ALLOW_ALWAYS_TOOLS` | Always auto-allow list | `[]` |
+| `ABP_COPILOT_PERMISSION_DENY_ALWAYS_TOOLS` | Always deny list | `[]` |
 
 ## Protocol Notes
 
 - `hello` must be first output line.
-- The adapter receives fully built `workOrder` plus normalized policy helpers.
+- The adapter receives `workOrder` plus normalized policy helpers.
+- `ABP_COPILOT_PROTOCOL=acp` uses local/remote ACP transport by default.
 - Receipts follow the ABP contract and include deterministic `receipt_sha256`.
 
 ## Minimal Security Posture
@@ -70,8 +81,8 @@ ABP_COPILOT_ADAPTER_MODULE=./hosts/copilot/adapter.template.js \
   - `KillBash`, `NotebookEdit`
   - write paths under `.git`
   - `deny_read` / `deny_write` patterns
-- The sidecar also rejects tools marked in `require_approval_for` until a custom
-  permission callback is added.
+- The sidecar handles `session/request_permission` from ACP and can auto-approve
+  or reject based on allow/deny lists.
 - Path checks are relative to `workOrder.workspace.root` when path-like arguments are present.
 
 ## Example custom adapter integration

@@ -13,8 +13,8 @@ This guide defines the implemented `sidecar:copilot` integration in this reposit
 
 ```text
 WorkOrder -> abp-runtime -> host runtime -> ABP host process (hosts/copilot/host.js)
-   -> adapter (hosts/copilot/adapter.js) -> optional runner (ABP_COPILOT_RUNNER)
-   -> external Copilot process/SDK
+   -> adapter (hosts/copilot/adapter.js) -> Copilot ACP transport (stdlib stdio/tcp)
+   -> optional legacy runner fallback (ABP_COPILOT_RUNNER)
 ```
 
 This split is intentional:
@@ -89,13 +89,27 @@ This manifest is what runtime checks use when capability requirements are declar
 
 Security defaults are policy-driven, so they can evolve without changing the sidecar protocol.
 
-## 7) Adapter contract
+## 7) Adapter contract (implemented)
 
-`adapter.js` expects a request body compatible with this shape:
+`adapter.js` expects the following normalized shape:
 
-- `request_id`, `prompt`, `workspace_root`, `model`, `reasoning_effort`
-- `system_message`, `context`, `policy`, `tools`, `mcp_servers`, `streaming`, `raw_request`
+- `request_id`, `prompt`, `workspace_root`, `model`, `reasoningEffort`
+- `systemMessage`, `context`, `policy`, `availableTools`, `excludedTools`, `mcpServers`
+- `streaming`, `raw_request`
 - optional `env`
+
+Runtime mode behavior:
+
+- `ABP_COPILOT_PROTOCOL=acp` (default): start local Copilot in ACP mode or connect to an ACP endpoint, then run `initialize`, session creation, and `session/prompt` flow.
+- `ABP_COPILOT_PROTOCOL=legacy`: send request JSON to a runner/command for line-delimited event mode.
+
+ACP protocol mapping:
+
+- `initialize` (fallback: `initializeClient`)
+- `session/loadClient` (fallback: `session/load`) if `sessionId` exists
+- `session/newClient` (fallback: `session/new`)
+- `session/promptClient` (fallback: `session/prompt`)
+- `session/request_permission` is answered with `{ decision, approval, action, reason }` and can be `allow_once`, `allow_always`, or `reject`.
 
 Runner mode mapping:
 
@@ -132,6 +146,11 @@ Optional runtime overrides:
 - `ABP_COPILOT_RUNNER=./bin/copilot-runner`
 - `ABP_COPILOT_CMD=copilot`
 - `ABP_COPILOT_ARGS='["agent","--acp"]'`
+- `ABP_COPILOT_PROTOCOL=acp`
+- `ABP_COPILOT_ACP_URL=tcp://127.0.0.1:3000`
+- `ABP_COPILOT_ACP_PORT=3000`
+- `ABP_COPILOT_ACP_ARGS='["agent","--acp","--stdio"]'`
+- `ABP_COPILOT_PERMISSION_ALLOW_ALWAYS_TOOLS='["Write","Bash"]'`
 
 ## 10) Delivery path for production use
 
@@ -143,4 +162,3 @@ Optional runtime overrides:
    - require_approval_for rejection,
    - receipt hash determinism,
    - artifact persistence.
-
