@@ -4,7 +4,7 @@ const SupportLevel = {
   Unsupported: "unsupported",
 };
 
-const GeminiCapabilities = {
+const CopilotCapabilities = {
   streaming: SupportLevel.Native,
   tool_read: SupportLevel.Native,
   tool_write: SupportLevel.Native,
@@ -14,7 +14,7 @@ const GeminiCapabilities = {
   tool_grep: SupportLevel.Native,
   tool_web_search: SupportLevel.Native,
   tool_web_fetch: SupportLevel.Native,
-  structured_output_json_schema: SupportLevel.Emulated,
+  structured_output_json_schema: SupportLevel.Native,
   hooks_pre_tool_use: SupportLevel.Emulated,
   hooks_post_tool_use: SupportLevel.Emulated,
   session_resume: SupportLevel.Native,
@@ -39,16 +39,17 @@ const TOOL_HINTS = {
 
 function getCapabilityManifest() {
   return {
-    backend: "gemini",
+    backend: "github_copilot_sdk",
     version: "0.1.0",
-    capabilities: { ...GeminiCapabilities },
+    capabilities: { ...CopilotCapabilities },
     tool_hints: { ...TOOL_HINTS },
   };
 }
 
 module.exports = {
   SupportLevel,
-  GeminiCapabilities,
+  CopilotCapabilities,
   TOOL_HINTS,
   getCapabilityManifest,
 };
+

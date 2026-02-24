@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Gemini sidecar for Agent Backplane (ABP).
+// Kimi sidecar for Agent Backplane (ABP).
 //
 // This sidecar speaks the ABP JSONL protocol:
 // - hello
@@ -17,7 +17,7 @@ const { getCapabilityManifest } = require("./capabilities");
 const CONTRACT_VERSION = "abp/v0.1";
 const ADAPTER_VERSION = "0.1.0";
 const MAX_INLINE_OUTPUT_BYTES = parseInt(
-  process.env.ABP_GEMINI_MAX_INLINE_OUTPUT_BYTES || "8192",
+  process.env.ABP_KIMI_MAX_INLINE_OUTPUT_BYTES || "8192",
   10
 );
 
@@ -134,6 +134,7 @@ function collectPathValues(input) {
   if (!input || typeof input !== "object") {
     return [];
   }
+
   const values = [];
   for (const [k, v] of Object.entries(input)) {
     const key = k.toLowerCase();
@@ -156,6 +157,7 @@ function extractHostname(input) {
   if (!input || typeof input !== "object") {
     return null;
   }
+
   for (const [k, v] of Object.entries(input)) {
     const key = k.toLowerCase();
     if (key.includes("url") || key.includes("uri") || key.includes("host")) {
@@ -310,7 +312,7 @@ function trimToolOutput(ctx, toolName, output) {
 }
 
 function loadAdapter() {
-  const customPath = process.env.ABP_GEMINI_ADAPTER_MODULE;
+  const customPath = process.env.ABP_KIMI_ADAPTER_MODULE;
   if (customPath) {
     const resolved = path.resolve(customPath);
     const mod = require(resolved);
@@ -321,7 +323,7 @@ function loadAdapter() {
       );
     }
     return {
-      name: adapter.name || "gemini_custom_adapter",
+      name: adapter.name || "kimi_custom_adapter",
       version: adapter.version || null,
       run: adapter.run,
     };
@@ -329,30 +331,29 @@ function loadAdapter() {
 
   const adapter = require("./adapter");
   if (!adapter || typeof adapter.run !== "function") {
-    throw new Error("Invalid default Gemini adapter module");
+    throw new Error("Invalid default Kimi adapter module");
   }
   return adapter;
 }
 
 function getExecutionMode(workOrder) {
-  const mode =
-    workOrder && workOrder.config && workOrder.config.vendor
-      ? workOrder.config.vendor.abp?.mode
-      : null;
+  const mode = workOrder && workOrder.config && workOrder.config.vendor
+    ? workOrder.config.vendor.abp?.mode
+    : null;
   return mode === ExecutionMode.Passthrough ? ExecutionMode.Passthrough : ExecutionMode.Mapped;
 }
 
 function buildRequestOptions(workOrder) {
   const vendor = (workOrder.config && workOrder.config.vendor) || {};
-  const geminiVendor = vendor.gemini || {};
+  const kimiVendor = vendor.kimi || {};
   const policy = workOrder.policy || {};
 
   return {
-    model: workOrder.config && workOrder.config.model ? workOrder.config.model : geminiVendor.model,
-    reasoningEffort: geminiVendor.reasoningEffort,
-    temperature: geminiVendor.temperature,
-    topP: geminiVendor.topP,
-    thinkingMode: geminiVendor.thinkingMode,
+    model: workOrder.config && workOrder.config.model ? workOrder.config.model : kimiVendor.model,
+    reasoningEffort: kimiVendor.reasoningEffort,
+    agentMode: kimiVendor.agentMode,
+    temperature: kimiVendor.temperature,
+    topP: kimiVendor.topP,
     policy,
     vendor,
   };
@@ -420,10 +421,7 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
   function emitToolCall({ toolName, toolUseId, parentToolUseId, input }) {
     const decision = policyEngine.preTool(String(toolName || "tool"), input || {});
     if (!decision.allowed) {
-      emit({
-        type: "warning",
-        message: `tool denied: ${decision.reason || "policy"} (${toolName})`,
-      });
+      emit({ type: "warning", message: `tool denied: ${decision.reason || "policy"} (${toolName})` });
       emit({
         type: "tool_result",
         tool_name: String(toolName || "tool"),
@@ -465,10 +463,10 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
   }
 
   function log(message) {
-    process.stderr.write(`[gemini-host] ${message}\n`);
+    process.stderr.write(`[kimi-host] ${message}\n`);
   }
 
-  emit({ type: "run_started", message: `gemini sidecar starting: ${safeString(workOrder.task)}` });
+  emit({ type: "run_started", message: `kimi sidecar starting: ${safeString(workOrder.task)}` });
 
   const ctx = {
     run_id: runId,
@@ -502,7 +500,7 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
     emitError(err && err.stack ? err.stack : safeString(err));
   }
 
-  emit({ type: "run_completed", message: `gemini sidecar run completed: ${outcome}` });
+  emit({ type: "run_completed", message: `kimi sidecar run completed: ${outcome}` });
 
   const finishedAt = nowIso();
   const receipt = {
@@ -518,7 +516,7 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
       ),
     },
     backend: {
-      id: "gemini",
+      id: "kimi_agent_sdk",
       backend_version: adapter.version || ADAPTER_VERSION,
       adapter_version: ADAPTER_VERSION,
     },
@@ -555,7 +553,7 @@ async function main() {
     t: "hello",
     contract_version: CONTRACT_VERSION,
     backend: {
-      id: "gemini",
+      id: "kimi_agent_sdk",
       backend_version: adapter.version || ADAPTER_VERSION,
       adapter_version: ADAPTER_VERSION,
     },
@@ -610,6 +608,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`gemini host failed: ${safeString(err)}`);
+  console.error(`kimi host failed: ${safeString(err)}`);
   process.exitCode = 1;
 });

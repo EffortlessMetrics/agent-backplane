@@ -4,7 +4,7 @@ const SupportLevel = {
   Unsupported: "unsupported",
 };
 
-const GeminiCapabilities = {
+const KimiCapabilities = {
   streaming: SupportLevel.Native,
   tool_read: SupportLevel.Native,
   tool_write: SupportLevel.Native,
@@ -39,16 +39,16 @@ const TOOL_HINTS = {
 
 function getCapabilityManifest() {
   return {
-    backend: "gemini",
+    backend: "kimi_agent_sdk",
     version: "0.1.0",
-    capabilities: { ...GeminiCapabilities },
+    capabilities: { ...KimiCapabilities },
     tool_hints: { ...TOOL_HINTS },
   };
 }
 
 module.exports = {
   SupportLevel,
-  GeminiCapabilities,
+  KimiCapabilities,
   TOOL_HINTS,
   getCapabilityManifest,
 };

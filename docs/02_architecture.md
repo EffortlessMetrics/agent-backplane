@@ -8,6 +8,7 @@ Think of the system like a power distribution panel:
 - Each **SDK shim** is a plug adapter.
 - Each **backend** is a generator.
 - The **runtime** is the breaker box.
+- The new GitHub Copilot sidecar is another isolated generator on the same bus.
 
 ### `abp-core` (contract)
 
@@ -52,7 +53,29 @@ Think of the system like a power distribution panel:
 ### `abp-cli` / `abp-daemon`
 
 - CLI for local usage.
-- Daemon is a stub for an eventual control-plane service.
+- `abp-daemon` exposes a basic HTTP control-plane API and persists run receipts.
+
+The stack prefers microcrates: small, single-purpose modules with one clear dependency edge.
+
+## GitHub Copilot and Kimi sidecars in scope (microcrate pattern)
+
+This repo now includes dedicated sidecar scaffolds under:
+
+- `hosts/copilot`
+- `hosts/kimi`
+
+- `host.js`: protocol binding, policy gatekeeping, artifact capture, receipt assembly.
+- `adapter.js`: default adapter entrypoint that can be replaced by `ABP_COPILOT_ADAPTER_MODULE`.
+- `capabilities.js`: declared contract mapping for Copilot-compatible behaviors (tools, web, ACP/MCP hooks, sessions).
+
+The integration intentionally keeps ABI and orchestration concerns in `abp-core` /
+`abp-runtime`, while Copilot execution remains isolated in the host boundary.
+
+This follows the microcrate pattern:
+
+- no contract changes required,
+- no runtime changes beyond backend registration,
+- swap-in behavior by changing adapter module or host-level policy/environment.
 
 ## Sidecars vs in-process adapters
 
@@ -80,4 +103,15 @@ Instead:
 - express **capabilities** precisely
 - emulate when you can
 - fail loudly when you cannot
+
+### GitHub Copilot integration status
+
+- Backend wire-up:
+- `sidecar:copilot` and `sidecar:kimi` are available in `abp-cli` and `abp-daemon` when Node runtime is present.
+  - hello/`run`/`event`/`final` protocol remains unchanged.
+- Integration extension points:
+  - `ABP_COPILOT_ADAPTER_MODULE` to inject your real SDK binding.
+  - `ABP_COPILOT_RUNNER` for process-based runners that accept ABI-shaped JSON request payloads.
+- `work_order.config.vendor.copilot` for Copilot overrides and `work_order.config.vendor.kimi` for Kimi overrides (`model`, `reasoningEffort`, `agentMode`, `agentSwarm`, `topP`, tool policy).
+
 

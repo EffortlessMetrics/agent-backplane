@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-// Gemini sidecar for Agent Backplane (ABP).
+// GitHub Copilot sidecar for Agent Backplane (ABP).
 //
-// This sidecar speaks the ABP JSONL protocol:
-// - hello
-// - run
-// - event*
-// - final
+// This sidecar follows the ABP JSONL protocol:
+//   - hello (first line)
+//   - run
+//   - event*
+//   - final
 
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -15,9 +15,9 @@ const readline = require("node:readline");
 const { getCapabilityManifest } = require("./capabilities");
 
 const CONTRACT_VERSION = "abp/v0.1";
-const ADAPTER_VERSION = "0.1.0";
+const ADAPTER_VERSION = "0.1";
 const MAX_INLINE_OUTPUT_BYTES = parseInt(
-  process.env.ABP_GEMINI_MAX_INLINE_OUTPUT_BYTES || "8192",
+  process.env.ABP_COPILOT_MAX_INLINE_OUTPUT_BYTES || "8192",
   10
 );
 
@@ -57,28 +57,13 @@ function sanitizeFilePart(value) {
     .slice(0, 64);
 }
 
-function toPosixPath(p) {
-  return String(p || "").replace(/\\/g, "/");
-}
-
-function canonicalWithin(root, maybePath) {
-  const rootReal = fs.realpathSync(root);
-  const candidate = path.resolve(rootReal, maybePath || ".");
-  const candidateReal = fs.existsSync(candidate)
-    ? fs.realpathSync(candidate)
-    : path.resolve(rootReal, maybePath || ".");
-  const rel = path.relative(rootReal, candidateReal);
-  const relPosix = toPosixPath(rel);
-  if (relPosix === ".." || relPosix.startsWith("../") || path.isAbsolute(relPosix)) {
-    return null;
-  }
-  return relPosix || ".";
+function canonicalizeGlobPattern(pattern) {
+  return String(pattern || "").replace(/\\/g, "/");
 }
 
 function compileGlob(pattern) {
-  const normalized = String(pattern || "").replace(/\\/g, "/");
+  const normalized = canonicalizeGlobPattern(pattern);
   let out = "^";
-
   for (let i = 0; i < normalized.length; i += 1) {
     const ch = normalized[i];
     if (ch === "*") {
@@ -102,7 +87,6 @@ function compileGlob(pattern) {
       out += ch;
     }
   }
-
   out += "$";
   return new RegExp(out);
 }
@@ -111,7 +95,6 @@ function compileGlobList(list) {
   if (!Array.isArray(list) || list.length === 0) {
     return [];
   }
-
   return list
     .map((p) => {
       try {
@@ -128,6 +111,28 @@ function matchesAny(matchers, value) {
     return false;
   }
   return matchers.some((m) => m.test(value));
+}
+
+function toPosixPath(p) {
+  return String(p || "").replace(/\\/g, "/");
+}
+
+function canonicalWithin(root, maybePath) {
+  const rootReal = fs.realpathSync(root);
+  const candidate = path.resolve(rootReal, maybePath || ".");
+  const candidateReal = fs.existsSync(candidate)
+    ? fs.realpathSync(candidate)
+    : path.resolve(rootReal, maybePath || ".");
+  const rel = path.relative(rootReal, candidateReal);
+  const relPosix = toPosixPath(rel);
+  if (
+    relPosix === ".." ||
+    relPosix.startsWith("../") ||
+    path.isAbsolute(relPosix)
+  ) {
+    return null;
+  }
+  return relPosix || ".";
 }
 
 function collectPathValues(input) {
@@ -150,24 +155,6 @@ function collectPathValues(input) {
     }
   }
   return values;
-}
-
-function extractHostname(input) {
-  if (!input || typeof input !== "object") {
-    return null;
-  }
-  for (const [k, v] of Object.entries(input)) {
-    const key = k.toLowerCase();
-    if (key.includes("url") || key.includes("uri") || key.includes("host")) {
-      try {
-        const parsed = new URL(v);
-        return parsed.hostname;
-      } catch (_) {
-        return null;
-      }
-    }
-  }
-  return null;
 }
 
 function buildPolicyEngine(policy, workspaceRoot) {
@@ -229,6 +216,29 @@ function buildPolicyEngine(policy, workspaceRoot) {
     return { allowed: true };
   }
 
+  function extractHostname(input) {
+    if (!input || typeof input !== "object") {
+      return null;
+    }
+    for (const [k, v] of Object.entries(input)) {
+      const key = k.toLowerCase();
+      if (
+        key.includes("url") ||
+        key.includes("uri") ||
+        key.includes("host") ||
+        key.includes("endpoint")
+      ) {
+        try {
+          const url = new URL(v);
+          return url.hostname;
+        } catch (_) {
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
   function preTool(toolName, input) {
     const decision = canUseTool(toolName);
     if (!decision.allowed) {
@@ -251,14 +261,12 @@ function buildPolicyEngine(policy, workspaceRoot) {
           reason: `path escapes workspace root: '${rawPath}'`,
         };
       }
-
       if (["read", "glob", "grep", "list"].some((needle) => lower.includes(needle))) {
         const check = canReadPath(rel);
         if (!check.allowed) {
           return check;
         }
       }
-
       if (
         ["write", "edit", "patch", "delete", "rm", "mkdir", "copy", "move"].some((needle) =>
           lower.includes(needle)
@@ -293,12 +301,12 @@ function buildPolicyEngine(policy, workspaceRoot) {
 }
 
 function computeReceiptHash(receipt) {
-  const value = JSON.parse(JSON.stringify(receipt));
-  value.receipt_sha256 = null;
-  return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  const v = JSON.parse(JSON.stringify(receipt));
+  v.receipt_sha256 = null;
+  return crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
 }
 
-function trimToolOutput(ctx, toolName, output) {
+function trimToolOutput(runCtx, toolName, output) {
   const text = safeString(output);
   const size = Buffer.byteLength(text, "utf8");
   if (size <= MAX_INLINE_OUTPUT_BYTES) {
@@ -306,11 +314,11 @@ function trimToolOutput(ctx, toolName, output) {
   }
 
   const baseName = `${sanitizeFilePart(toolName || "tool")}-${Date.now()}.txt`;
-  return ctx.writeArtifact("tool_output", baseName, text);
+  return runCtx.writeArtifact("tool_output", baseName, text);
 }
 
 function loadAdapter() {
-  const customPath = process.env.ABP_GEMINI_ADAPTER_MODULE;
+  const customPath = process.env.ABP_COPILOT_ADAPTER_MODULE;
   if (customPath) {
     const resolved = path.resolve(customPath);
     const mod = require(resolved);
@@ -321,7 +329,7 @@ function loadAdapter() {
       );
     }
     return {
-      name: adapter.name || "gemini_custom_adapter",
+      name: adapter.name || "copilot_custom_adapter",
       version: adapter.version || null,
       run: adapter.run,
     };
@@ -329,7 +337,7 @@ function loadAdapter() {
 
   const adapter = require("./adapter");
   if (!adapter || typeof adapter.run !== "function") {
-    throw new Error("Invalid default Gemini adapter module");
+    throw new Error("Invalid default Copilot adapter module");
   }
   return adapter;
 }
@@ -344,16 +352,15 @@ function getExecutionMode(workOrder) {
 
 function buildRequestOptions(workOrder) {
   const vendor = (workOrder.config && workOrder.config.vendor) || {};
-  const geminiVendor = vendor.gemini || {};
+  const copilotVendor = vendor.copilot || {};
   const policy = workOrder.policy || {};
 
   return {
-    model: workOrder.config && workOrder.config.model ? workOrder.config.model : geminiVendor.model,
-    reasoningEffort: geminiVendor.reasoningEffort,
-    temperature: geminiVendor.temperature,
-    topP: geminiVendor.topP,
-    thinkingMode: geminiVendor.thinkingMode,
-    policy,
+    model: workOrder.config && workOrder.config.model ? workOrder.config.model : copilotVendor.model,
+    reasoningEffort: copilotVendor.reasoningEffort,
+    systemMessage: copilotVendor.systemMessage,
+    allowedTools: policy.allowed_tools,
+    disallowedTools: policy.disallowed_tools,
     vendor,
   };
 }
@@ -388,7 +395,6 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
   const policyEngine = buildPolicyEngine(workOrder.policy || {}, workspaceRoot);
   const artifactRoot = path.join(workspaceRoot, ".agent-backplane", "artifacts", runId);
   fs.mkdirSync(artifactRoot, { recursive: true });
-
   const trace = [];
   const artifacts = [];
   const toolCalls = [];
@@ -407,23 +413,22 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
     emit({ type: "assistant_message", text: String(text || "") });
   }
 
-  function writeArtifact(kind, suggestedName, content) {
-    const base = sanitizeFilePart(suggestedName || kind || "artifact") || "artifact";
-    const fileName = base.includes(".") ? base : `${base}.txt`;
-    const abs = path.join(artifactRoot, fileName);
-    fs.writeFileSync(abs, safeString(content), "utf8");
-    const rel = toPosixPath(path.relative(workspaceRoot, abs));
-    artifacts.push({ kind, path: rel });
-    return rel;
-  }
+function writeArtifact(kind, suggestedName, content) {
+  const base = sanitizeFilePart(suggestedName || kind || "artifact") || "artifact";
+  const fileName = base.includes(".") ? base : `${base}.txt`;
+  const abs = path.join(artifactRoot, fileName);
+  fs.writeFileSync(abs, safeString(content), "utf8");
+  const rel = toPosixPath(path.relative(workspaceRoot, abs));
+  const id = path.normalize(rel);
+  artifacts.push({ kind, path: id });
+  return id;
+}
 
   function emitToolCall({ toolName, toolUseId, parentToolUseId, input }) {
     const decision = policyEngine.preTool(String(toolName || "tool"), input || {});
     if (!decision.allowed) {
-      emit({
-        type: "warning",
-        message: `tool denied: ${decision.reason || "policy"} (${toolName})`,
-      });
+      const msg = `tool denied: ${decision.reason || "policy"} (${toolName})`;
+      emit({ type: "warning", message: msg });
       emit({
         type: "tool_result",
         tool_name: String(toolName || "tool"),
@@ -447,11 +452,16 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
   }
 
   function emitToolResult({ toolName, toolUseId, output, isError }) {
+    const safeOutput = trimToolOutput(
+      { writeArtifact },
+      String(toolName || "tool"),
+      output
+    );
     emit({
       type: "tool_result",
       tool_name: String(toolName || "tool"),
       tool_use_id: toolUseId || null,
-      output: trimToolOutput({ writeArtifact }, String(toolName || "tool"), output),
+      output: safeOutput,
       is_error: !!isError,
     });
   }
@@ -465,10 +475,10 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
   }
 
   function log(message) {
-    process.stderr.write(`[gemini-host] ${message}\n`);
+    process.stderr.write(`[copilot-host] ${message}\n`);
   }
 
-  emit({ type: "run_started", message: `gemini sidecar starting: ${safeString(workOrder.task)}` });
+  emit({ type: "run_started", message: `copilot sidecar starting: ${safeString(workOrder.task)}` });
 
   const ctx = {
     run_id: runId,
@@ -488,7 +498,7 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
 
   let usageRaw = {};
   let usage = {};
-  let outcome = "Complete";
+  let outcome = "complete";
 
   try {
     const result = (await adapter.run(ctx)) || {};
@@ -498,11 +508,11 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
       outcome = result.outcome;
     }
   } catch (err) {
-    outcome = "Failed";
+    outcome = "failed";
     emitError(err && err.stack ? err.stack : safeString(err));
   }
 
-  emit({ type: "run_completed", message: `gemini sidecar run completed: ${outcome}` });
+  emit({ type: "run_completed", message: `copilot sidecar run completed: ${outcome}` });
 
   const finishedAt = nowIso();
   const receipt = {
@@ -518,7 +528,7 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
       ),
     },
     backend: {
-      id: "gemini",
+      id: "github_copilot_sdk",
       backend_version: adapter.version || ADAPTER_VERSION,
       adapter_version: ADAPTER_VERSION,
     },
@@ -555,7 +565,7 @@ async function main() {
     t: "hello",
     contract_version: CONTRACT_VERSION,
     backend: {
-      id: "gemini",
+      id: "github_copilot_sdk",
       backend_version: adapter.version || ADAPTER_VERSION,
       adapter_version: ADAPTER_VERSION,
     },
@@ -565,7 +575,10 @@ async function main() {
     mode: ExecutionMode.Mapped,
   });
 
-  const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+  const rl = readline.createInterface({
+    input: process.stdin,
+    crlfDelay: Infinity,
+  });
 
   for await (const line of rl) {
     if (!line.trim()) {
@@ -596,7 +609,6 @@ async function main() {
     const runId = envelope.id;
     const workOrder = envelope.work_order || {};
     const mode = getExecutionMode(workOrder);
-
     try {
       await handleRun(runId, workOrder, adapter, backendCaps, mode);
     } catch (err) {
@@ -610,6 +622,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`gemini host failed: ${safeString(err)}`);
+  console.error(`copilot host failed: ${safeString(err)}`);
   process.exitCode = 1;
 });
