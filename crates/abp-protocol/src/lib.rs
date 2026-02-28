@@ -1,4 +1,5 @@
 //! abp-protocol
+#![deny(unsafe_code)]
 //!
 //! Wire format for talking to sidecars and daemons.
 //! Current transport: JSONL over stdio.
@@ -79,6 +80,9 @@ pub enum ProtocolError {
 
     #[error("protocol violation: {0}")]
     Violation(String),
+
+    #[error("unexpected message: expected {expected}, got {got}")]
+    UnexpectedMessage { expected: String, got: String },
 }
 
 /// Stateless codec for encoding/decoding [`Envelope`] messages as newline-delimited JSON.

@@ -1,0 +1,13 @@
+---
+source: crates/abp-protocol/tests/snapshots_test.rs
+expression: env
+---
+{
+  "t": "event",
+  "ref_id": "run-001",
+  "event": {
+    "ts": "2024-01-01T00:00:00Z",
+    "type": "assistant_delta",
+    "text": "chunk"
+  }
+}

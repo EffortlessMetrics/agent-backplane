@@ -1,0 +1,15 @@
+---
+source: crates/abp-core/tests/snapshots_test.rs
+expression: value
+---
+{
+  "mcp_client": {
+    "restricted": {
+      "reason": "policy"
+    }
+  },
+  "streaming": "native",
+  "tool_bash": "unsupported",
+  "tool_read": "native",
+  "tool_write": "emulated"
+}

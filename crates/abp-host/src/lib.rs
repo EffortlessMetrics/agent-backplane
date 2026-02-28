@@ -1,4 +1,5 @@
 //! abp-host
+#![deny(unsafe_code)]
 //!
 //! Process supervision + JSONL transport for sidecars.
 
@@ -165,9 +166,10 @@ impl SidecarClient {
                 ..
             } => (backend, capabilities),
             other => {
-                return Err(HostError::Violation(format!(
-                    "expected hello, got {other:?}"
-                )))
+                return Err(HostError::Protocol(ProtocolError::UnexpectedMessage {
+                    expected: "hello".into(),
+                    got: format!("{other:?}"),
+                }))
             }
         };
 
@@ -253,11 +255,11 @@ impl SidecarClient {
                         break;
                     }
                     Ok(Envelope::Fatal { ref_id, error }) => {
-                        if let Some(ref_id) = ref_id {
-                            if ref_id != run_id {
-                                warn!(target: "abp.sidecar", "dropping fatal for other run_id={ref_id}");
-                                continue;
-                            }
+                        if let Some(ref_id) = ref_id
+                            && ref_id != run_id
+                        {
+                            warn!(target: "abp.sidecar", "dropping fatal for other run_id={ref_id}");
+                            continue;
                         }
                         let _ = receipt_tx.send(Err(HostError::Fatal(error.clone())));
                         break;

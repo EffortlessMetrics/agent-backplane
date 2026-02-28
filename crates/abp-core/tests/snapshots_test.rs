@@ -107,7 +107,7 @@ fn snapshot_work_order() {
 
 #[test]
 fn snapshot_receipt() {
-    let value = serde_json::to_value(&sample_receipt()).unwrap();
+    let value = serde_json::to_value(sample_receipt()).unwrap();
     assert_json_snapshot!("receipt", value);
 }
 
