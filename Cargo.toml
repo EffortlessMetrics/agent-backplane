@@ -69,6 +69,8 @@ abp-host = { path = "crates/abp-host" }
 abp-runtime = { path = "crates/abp-runtime" }
 abp-integrations = { path = "crates/abp-integrations" }
 abp-policy = { path = "crates/abp-policy" }
+abp-glob = { path = "crates/abp-glob" }
+abp-workspace = { path = "crates/abp-workspace" }
 abp-cli = { path = "crates/abp-cli" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
