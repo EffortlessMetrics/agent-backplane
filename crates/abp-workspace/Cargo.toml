@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Staged workspace creation with glob filtering for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "workspace", "staging"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }

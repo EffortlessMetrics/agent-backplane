@@ -158,10 +158,12 @@ name = "abp-protocol"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "chrono",
  "serde",
  "serde_json",
  "sidecar-kit",
  "thiserror",
+ "uuid",
 ]
 
 [[package]]

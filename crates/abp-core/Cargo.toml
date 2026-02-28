@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Stable contract types for the Agent Backplane — WorkOrder, Receipt, AgentEvent, and capabilities"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "contract", "sdk"]
+categories = ["development-tools"]
 
 [dependencies]
 chrono.workspace = true

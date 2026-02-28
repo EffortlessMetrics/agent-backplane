@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Sidecar process supervision and JSONL handshake for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "sidecar", "process"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }

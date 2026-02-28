@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "HTTP control-plane daemon for the Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "daemon", "server"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "abp-daemon"

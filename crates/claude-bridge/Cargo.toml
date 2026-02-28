@@ -6,6 +6,9 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "Standalone Claude SDK bridge using sidecar-kit transport"
+readme = "README.md"
+keywords = ["claude", "sidecar", "bridge", "ai", "anthropic"]
+categories = ["development-tools"]
 
 [features]
 default = []

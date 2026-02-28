@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Backend trait and implementations for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "backend", "integration"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }

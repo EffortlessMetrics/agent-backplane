@@ -11,6 +11,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
+/// Current contract version string embedded in all wire messages and receipts.
 pub const CONTRACT_VERSION: &str = "abp/v0.1";
 
 /// A single unit of work.
@@ -37,6 +38,7 @@ pub struct WorkOrder {
     pub config: RuntimeConfig,
 }
 
+/// Strategy for how the agent produces its output.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecutionLane {
@@ -47,6 +49,7 @@ pub enum ExecutionLane {
     WorkspaceFirst,
 }
 
+/// Describes the workspace root, staging mode, and include/exclude globs.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceSpec {
     /// Root folder for the step.
@@ -62,6 +65,7 @@ pub struct WorkspaceSpec {
     pub exclude: Vec<String>,
 }
 
+/// How the runtime treats the workspace before handing it to a backend.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkspaceMode {
@@ -72,6 +76,7 @@ pub enum WorkspaceMode {
     Staged,
 }
 
+/// Pre-loaded context files and snippets attached to a [`WorkOrder`].
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct ContextPacket {
     /// Explicit file paths to include (relative to workspace root).
@@ -81,12 +86,14 @@ pub struct ContextPacket {
     pub snippets: Vec<ContextSnippet>,
 }
 
+/// A named text fragment included in [`ContextPacket`].
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ContextSnippet {
     pub name: String,
     pub content: String,
 }
 
+/// Runtime-level knobs: model selection, vendor flags, budget caps, etc.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct RuntimeConfig {
     /// Preferred backend/model identifier.
@@ -105,6 +112,9 @@ pub struct RuntimeConfig {
     pub max_turns: Option<u32>,
 }
 
+/// Security policy: tool allow/deny lists, path restrictions, network rules.
+///
+/// An empty profile permits everything (no restrictions).
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct PolicyProfile {
     /// Tool allowlist. Empty means "backend default".
@@ -129,17 +139,20 @@ pub struct PolicyProfile {
     pub require_approval_for: Vec<String>,
 }
 
+/// Set of capabilities the work order requires from its backend.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct CapabilityRequirements {
     pub required: Vec<CapabilityRequirement>,
 }
 
+/// A single capability + minimum support level pair.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CapabilityRequirement {
     pub capability: Capability,
     pub min_support: MinSupport,
 }
 
+/// Minimum acceptable [`SupportLevel`] threshold.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MinSupport {
@@ -150,6 +163,7 @@ pub enum MinSupport {
     Emulated,
 }
 
+/// A discrete feature that a backend may support (tools, hooks, MCP, etc.).
 #[derive(
     Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
@@ -187,6 +201,7 @@ pub enum Capability {
     McpServer,
 }
 
+/// How well a backend supports a given [`Capability`].
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportLevel {
@@ -201,6 +216,7 @@ pub enum SupportLevel {
 }
 
 impl SupportLevel {
+    /// Returns `true` if this support level meets or exceeds `min`.
     pub fn satisfies(&self, min: &MinSupport) -> bool {
         match (min, self) {
             (MinSupport::Native, SupportLevel::Native) => true,
@@ -214,6 +230,7 @@ impl SupportLevel {
     }
 }
 
+/// Maps each [`Capability`] to its [`SupportLevel`] for a given backend.
 pub type CapabilityManifest = BTreeMap<Capability, SupportLevel>;
 
 /// Execution mode for how ABP processes requests.
@@ -234,6 +251,7 @@ pub enum ExecutionMode {
     Mapped,
 }
 
+/// Identifies a backend and its version information.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BackendIdentity {
     /// Stable backend identifier.
@@ -246,6 +264,9 @@ pub struct BackendIdentity {
     pub adapter_version: Option<String>,
 }
 
+/// The outcome of a completed run: metadata, usage, trace, and verification.
+///
+/// Use [`Receipt::with_hash`] to compute and attach the canonical SHA-256 hash.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Receipt {
     pub meta: RunMetadata,
@@ -274,6 +295,7 @@ pub struct Receipt {
     pub receipt_sha256: Option<String>,
 }
 
+/// Timing and identity metadata for a single run.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct RunMetadata {
     pub run_id: Uuid,
@@ -284,6 +306,7 @@ pub struct RunMetadata {
     pub duration_ms: u64,
 }
 
+/// Best-effort normalized token/cost counters across different backends.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct UsageNormalized {
     pub input_tokens: Option<u64>,
@@ -297,6 +320,7 @@ pub struct UsageNormalized {
     pub estimated_cost_usd: Option<f64>,
 }
 
+/// High-level result status of a run.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
@@ -305,12 +329,14 @@ pub enum Outcome {
     Failed,
 }
 
+/// Reference to an artifact produced during a run (e.g. a patch file).
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ArtifactRef {
     pub kind: String,
     pub path: String,
 }
 
+/// Git-based verification data captured after a run completes.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct VerificationReport {
     pub git_diff: Option<String>,
@@ -318,6 +344,7 @@ pub struct VerificationReport {
     pub harness_ok: bool,
 }
 
+/// A timestamped event emitted by an agent during a run.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AgentEvent {
     pub ts: DateTime<Utc>,
@@ -334,6 +361,10 @@ pub struct AgentEvent {
     pub ext: Option<BTreeMap<String, serde_json::Value>>,
 }
 
+/// The payload discriminator for [`AgentEvent`].
+///
+/// Serialized with `#[serde(tag = "type")]` — note this is different from
+/// the protocol envelope which uses `#[serde(tag = "t")]`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentEventKind {
@@ -385,6 +416,7 @@ pub enum AgentEventKind {
     },
 }
 
+/// Errors from contract-level operations (serialization, hashing).
 #[derive(Debug, thiserror::Error)]
 pub enum ContractError {
     #[error("failed to serialize JSON: {0}")]
@@ -401,12 +433,18 @@ pub fn canonical_json<T: Serialize>(value: &T) -> Result<String, ContractError> 
     Ok(serde_json::to_string(&v)?)
 }
 
+/// Compute the hex-encoded SHA-256 digest of `bytes`.
 pub fn sha256_hex(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     format!("{:x}", hasher.finalize())
 }
 
+/// Compute the canonical hash of a receipt.
+///
+/// **Gotcha:** Sets `receipt_sha256` to `null` before hashing to prevent
+/// the stored hash from being self-referential. Always prefer
+/// [`Receipt::with_hash`] over calling this directly.
 pub fn receipt_hash(receipt: &Receipt) -> Result<String, ContractError> {
     // Important: `receipt_sha256` must not influence the hash input, otherwise
     // the stored hash becomes self-inconsistent.
@@ -422,6 +460,7 @@ pub fn receipt_hash(receipt: &Receipt) -> Result<String, ContractError> {
 }
 
 impl Receipt {
+    /// Compute and attach the canonical SHA-256 hash, returning the updated receipt.
     pub fn with_hash(mut self) -> Result<Self, ContractError> {
         // Ensure we hash the canonical form (receipt_sha256 treated as null).
         let h = receipt_hash(&self)?;

@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Google Gemini SDK adapter for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "gemini", "google"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-host = { path = "../abp-host" }
