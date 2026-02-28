@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! abp-protocol
 #![deny(unsafe_code)]
 //!
@@ -5,8 +6,8 @@
 //! Current transport: JSONL over stdio.
 
 use abp_core::{
-    AgentEvent, BackendIdentity, CapabilityManifest, ExecutionMode, Receipt, WorkOrder,
-    CONTRACT_VERSION,
+    AgentEvent, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Receipt,
+    WorkOrder,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -18,6 +19,31 @@ use thiserror::Error;
 /// - control plane sends `run`
 /// - sidecar streams `event`
 /// - sidecar concludes with `final` (receipt)
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::{BackendIdentity, CapabilityManifest};
+/// use abp_protocol::{Envelope, JsonlCodec};
+///
+/// let hello = Envelope::hello(
+///     BackendIdentity {
+///         id: "my-sidecar".into(),
+///         backend_version: Some("1.0.0".into()),
+///         adapter_version: None,
+///     },
+///     CapabilityManifest::new(),
+/// );
+///
+/// // Serialize to a newline-terminated JSON string.
+/// let line = JsonlCodec::encode(&hello).unwrap();
+/// assert!(line.ends_with('\n'));
+/// assert!(line.contains("\"t\":\"hello\""));
+///
+/// // Round-trip back to an Envelope.
+/// let decoded = JsonlCodec::decode(line.trim()).unwrap();
+/// assert!(matches!(decoded, Envelope::Hello { .. }));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum Envelope {
@@ -86,10 +112,24 @@ pub enum ProtocolError {
 }
 
 /// Stateless codec for encoding/decoding [`Envelope`] messages as newline-delimited JSON.
+#[derive(Debug, Clone, Copy)]
 pub struct JsonlCodec;
 
 impl JsonlCodec {
     /// Serialize an [`Envelope`] to a newline-terminated JSON string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use abp_core::{BackendIdentity, CapabilityManifest};
+    /// # use abp_protocol::{Envelope, JsonlCodec};
+    /// let envelope = Envelope::Fatal {
+    ///     ref_id: Some("run-123".into()),
+    ///     error: "out of memory".into(),
+    /// };
+    /// let json = JsonlCodec::encode(&envelope).unwrap();
+    /// assert!(json.ends_with('\n'));
+    /// ```
     pub fn encode(msg: &Envelope) -> Result<String, ProtocolError> {
         let mut s = serde_json::to_string(msg)?;
         s.push('\n');
@@ -97,6 +137,16 @@ impl JsonlCodec {
     }
 
     /// Deserialize a single JSON line into an [`Envelope`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_protocol::{Envelope, JsonlCodec};
+    ///
+    /// let line = r#"{"t":"fatal","ref_id":null,"error":"boom"}"#;
+    /// let envelope = JsonlCodec::decode(line).unwrap();
+    /// assert!(matches!(envelope, Envelope::Fatal { error, .. } if error == "boom"));
+    /// ```
     pub fn decode(line: &str) -> Result<Envelope, ProtocolError> {
         Ok(serde_json::from_str::<Envelope>(line)?)
     }

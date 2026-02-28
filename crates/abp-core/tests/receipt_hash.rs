@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_core::{
-    receipt_hash, BackendIdentity, ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized,
-    VerificationReport, CONTRACT_VERSION,
+    BackendIdentity, CONTRACT_VERSION, ExecutionMode, Outcome, Receipt, RunMetadata,
+    UsageNormalized, VerificationReport, receipt_hash,
 };
 use chrono::{TimeZone, Utc};
 use uuid::Uuid;

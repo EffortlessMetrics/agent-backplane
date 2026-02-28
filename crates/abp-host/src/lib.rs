@@ -19,9 +19,13 @@ use tracing::{debug, warn};
 /// Configuration for spawning a sidecar process.
 #[derive(Debug, Clone)]
 pub struct SidecarSpec {
+    /// Executable command to run.
     pub command: String,
+    /// Arguments passed to the command.
     pub args: Vec<String>,
+    /// Environment variables set for the process.
     pub env: BTreeMap<String, String>,
+    /// Working directory for the process.
     pub cwd: Option<String>,
 }
 
@@ -40,8 +44,11 @@ impl SidecarSpec {
 /// Data extracted from a sidecar's initial `hello` handshake.
 #[derive(Debug, Clone)]
 pub struct SidecarHello {
+    /// Protocol version reported by the sidecar.
     pub contract_version: String,
+    /// Backend identity metadata from the sidecar.
     pub backend: BackendIdentity,
+    /// Capability manifest advertised by the sidecar.
     pub capabilities: CapabilityManifest,
 }
 
@@ -303,10 +310,16 @@ impl SidecarClient {
 // Convenience: accept a stream of events as a trait object.
 pub type EventStream = dyn Stream<Item = AgentEvent> + Send + Unpin;
 
-// Re-export raw transport types from sidecar-kit.
+// Re-export raw transport types from sidecar-kit for advanced protocol usage.
+/// Low-level cancellation token for sidecar processes.
 pub use sidecar_kit::CancelToken;
+/// Raw process specification for spawning sidecar processes.
 pub use sidecar_kit::ProcessSpec as RawProcessSpec;
+/// Raw run handle from the sidecar-kit transport layer.
 pub use sidecar_kit::RawRun;
+/// Raw sidecar client from the sidecar-kit transport layer.
 pub use sidecar_kit::SidecarClient as RawSidecarClient;
+/// Errors from the sidecar-kit transport layer.
 pub use sidecar_kit::SidecarError;
+/// Raw sidecar process handle from the sidecar-kit transport layer.
 pub use sidecar_kit::SidecarProcess as RawSidecarProcess;

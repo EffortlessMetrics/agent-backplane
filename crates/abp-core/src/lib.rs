@@ -14,6 +14,12 @@ use std::collections::BTreeMap;
 use uuid::Uuid;
 
 /// Current contract version string embedded in all wire messages and receipts.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(abp_core::CONTRACT_VERSION, "abp/v0.1");
+/// ```
 pub const CONTRACT_VERSION: &str = "abp/v0.1";
 
 /// A single unit of work.
@@ -22,21 +28,28 @@ pub const CONTRACT_VERSION: &str = "abp/v0.1";
 /// but the contract is step-oriented.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkOrder {
+    /// Unique identifier for this work order.
     pub id: Uuid,
 
     /// Human intent.
     pub task: String,
 
+    /// Strategy for how the agent produces output.
     pub lane: ExecutionLane,
 
+    /// Workspace root, staging mode, and include/exclude globs.
     pub workspace: WorkspaceSpec,
 
+    /// Pre-loaded context files and snippets.
     pub context: ContextPacket,
 
+    /// Security policy (tool/path restrictions).
     pub policy: PolicyProfile,
 
+    /// Capability requirements the backend must satisfy.
     pub requirements: CapabilityRequirements,
 
+    /// Runtime-level knobs (model, budget, vendor flags).
     pub config: RuntimeConfig,
 }
 
@@ -91,7 +104,9 @@ pub struct ContextPacket {
 /// A named text fragment included in [`ContextPacket`].
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ContextSnippet {
+    /// Human-readable label for the snippet.
     pub name: String,
+    /// The snippet text.
     pub content: String,
 }
 
@@ -144,13 +159,16 @@ pub struct PolicyProfile {
 /// Set of capabilities the work order requires from its backend.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct CapabilityRequirements {
+    /// List of capability/support-level pairs the backend must satisfy.
     pub required: Vec<CapabilityRequirement>,
 }
 
 /// A single capability + minimum support level pair.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CapabilityRequirement {
+    /// The capability being required.
     pub capability: Capability,
+    /// Minimum acceptable support level.
     pub min_support: MinSupport,
 }
 
@@ -166,6 +184,18 @@ pub enum MinSupport {
 }
 
 /// A discrete feature that a backend may support (tools, hooks, MCP, etc.).
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::{Capability, SupportLevel, CapabilityManifest};
+///
+/// let mut manifest = CapabilityManifest::new();
+/// manifest.insert(Capability::ToolRead, SupportLevel::Native);
+/// manifest.insert(Capability::Streaming, SupportLevel::Emulated);
+///
+/// assert!(manifest.contains_key(&Capability::ToolRead));
+/// ```
 #[derive(
     Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
@@ -256,7 +286,7 @@ pub enum ExecutionMode {
 /// Identifies a backend and its version information.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BackendIdentity {
-    /// Stable backend identifier.
+    /// Stable backend identifier (e.g. `"mock"`, `"sidecar:node"`).
     pub id: String,
 
     /// Backend runtime version (SDK version, CLI version, etc.).
@@ -271,8 +301,11 @@ pub struct BackendIdentity {
 /// Use [`Receipt::with_hash`] to compute and attach the canonical SHA-256 hash.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Receipt {
+    /// Timing and identity metadata for this run.
     pub meta: RunMetadata,
+    /// Backend that executed the work order.
     pub backend: BackendIdentity,
+    /// Capability manifest reported by the backend.
     pub capabilities: CapabilityManifest,
 
     /// Execution mode used for this run.
@@ -285,12 +318,16 @@ pub struct Receipt {
     /// Normalized usage fields (best-effort).
     pub usage: UsageNormalized,
 
+    /// Ordered log of events emitted during the run.
     pub trace: Vec<AgentEvent>,
 
+    /// References to artifacts produced during the run.
     pub artifacts: Vec<ArtifactRef>,
 
+    /// Git-based verification data captured after completion.
     pub verification: VerificationReport,
 
+    /// High-level result status.
     pub outcome: Outcome,
 
     /// Hash of the canonical receipt (filled in by the control plane).
@@ -300,11 +337,17 @@ pub struct Receipt {
 /// Timing and identity metadata for a single run.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct RunMetadata {
+    /// Unique run identifier.
     pub run_id: Uuid,
+    /// The work order this run fulfilled.
     pub work_order_id: Uuid,
+    /// Contract version used for this run.
     pub contract_version: String,
+    /// Timestamp when the run started.
     pub started_at: DateTime<Utc>,
+    /// Timestamp when the run finished.
     pub finished_at: DateTime<Utc>,
+    /// Wall-clock duration in milliseconds.
     pub duration_ms: u64,
 }
 
@@ -323,7 +366,7 @@ pub struct UsageNormalized {
 }
 
 /// High-level result status of a run.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
     Complete,
@@ -334,15 +377,20 @@ pub enum Outcome {
 /// Reference to an artifact produced during a run (e.g. a patch file).
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ArtifactRef {
+    /// Artifact type (e.g. `"patch"`, `"log"`).
     pub kind: String,
+    /// Path to the artifact relative to the workspace root.
     pub path: String,
 }
 
 /// Git-based verification data captured after a run completes.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct VerificationReport {
+    /// Output of `git diff` in the workspace, if available.
     pub git_diff: Option<String>,
+    /// Output of `git status --porcelain` in the workspace, if available.
     pub git_status: Option<String>,
+    /// Whether the harness (if any) reported success.
     pub harness_ok: bool,
 }
 
@@ -447,6 +495,45 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 /// **Gotcha:** Sets `receipt_sha256` to `null` before hashing to prevent
 /// the stored hash from being self-referential. Always prefer
 /// [`Receipt::with_hash`] over calling this directly.
+///
+/// # Examples
+///
+/// ```
+/// # use abp_core::*;
+/// # use chrono::Utc;
+/// # use uuid::Uuid;
+/// # use std::collections::BTreeMap;
+/// let receipt = Receipt {
+///     meta: RunMetadata {
+///         run_id: Uuid::nil(),
+///         work_order_id: Uuid::nil(),
+///         contract_version: CONTRACT_VERSION.to_string(),
+///         started_at: Utc::now(),
+///         finished_at: Utc::now(),
+///         duration_ms: 42,
+///     },
+///     backend: BackendIdentity {
+///         id: "mock".into(),
+///         backend_version: None,
+///         adapter_version: None,
+///     },
+///     capabilities: CapabilityManifest::new(),
+///     mode: ExecutionMode::default(),
+///     usage_raw: serde_json::json!({}),
+///     usage: UsageNormalized::default(),
+///     trace: vec![],
+///     artifacts: vec![],
+///     verification: VerificationReport::default(),
+///     outcome: Outcome::Complete,
+///     receipt_sha256: None,
+/// };
+///
+/// let hash = receipt_hash(&receipt).unwrap();
+/// assert_eq!(hash.len(), 64); // SHA-256 hex digest
+///
+/// // Hashing is deterministic — same receipt produces same hash.
+/// assert_eq!(hash, receipt_hash(&receipt).unwrap());
+/// ```
 pub fn receipt_hash(receipt: &Receipt) -> Result<String, ContractError> {
     // Important: `receipt_sha256` must not influence the hash input, otherwise
     // the stored hash becomes self-inconsistent.
@@ -462,6 +549,24 @@ pub fn receipt_hash(receipt: &Receipt) -> Result<String, ContractError> {
 }
 
 /// Builder for constructing [`WorkOrder`]s ergonomically.
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::{WorkOrderBuilder, ExecutionLane};
+///
+/// let wo = WorkOrderBuilder::new("Fix the login bug")
+///     .lane(ExecutionLane::WorkspaceFirst)
+///     .root("/tmp/workspace")
+///     .model("gpt-4")
+///     .max_turns(10)
+///     .build();
+///
+/// assert_eq!(wo.task, "Fix the login bug");
+/// assert_eq!(wo.config.model.as_deref(), Some("gpt-4"));
+/// assert_eq!(wo.config.max_turns, Some(10));
+/// ```
+#[derive(Debug)]
 pub struct WorkOrderBuilder {
     task: String,
     lane: ExecutionLane,
@@ -491,18 +596,54 @@ impl WorkOrderBuilder {
         }
     }
 
-    pub fn lane(mut self, lane: ExecutionLane) -> Self { self.lane = lane; self }
-    pub fn root(mut self, root: impl Into<String>) -> Self { self.root = root.into(); self }
-    pub fn workspace_mode(mut self, mode: WorkspaceMode) -> Self { self.workspace_mode = mode; self }
-    pub fn include(mut self, patterns: Vec<String>) -> Self { self.include = patterns; self }
-    pub fn exclude(mut self, patterns: Vec<String>) -> Self { self.exclude = patterns; self }
-    pub fn context(mut self, ctx: ContextPacket) -> Self { self.context = ctx; self }
-    pub fn policy(mut self, policy: PolicyProfile) -> Self { self.policy = policy; self }
-    pub fn requirements(mut self, reqs: CapabilityRequirements) -> Self { self.requirements = reqs; self }
-    pub fn config(mut self, config: RuntimeConfig) -> Self { self.config = config; self }
-    pub fn model(mut self, model: impl Into<String>) -> Self { self.config.model = Some(model.into()); self }
-    pub fn max_budget_usd(mut self, budget: f64) -> Self { self.config.max_budget_usd = Some(budget); self }
-    pub fn max_turns(mut self, turns: u32) -> Self { self.config.max_turns = Some(turns); self }
+    pub fn lane(mut self, lane: ExecutionLane) -> Self {
+        self.lane = lane;
+        self
+    }
+    pub fn root(mut self, root: impl Into<String>) -> Self {
+        self.root = root.into();
+        self
+    }
+    pub fn workspace_mode(mut self, mode: WorkspaceMode) -> Self {
+        self.workspace_mode = mode;
+        self
+    }
+    pub fn include(mut self, patterns: Vec<String>) -> Self {
+        self.include = patterns;
+        self
+    }
+    pub fn exclude(mut self, patterns: Vec<String>) -> Self {
+        self.exclude = patterns;
+        self
+    }
+    pub fn context(mut self, ctx: ContextPacket) -> Self {
+        self.context = ctx;
+        self
+    }
+    pub fn policy(mut self, policy: PolicyProfile) -> Self {
+        self.policy = policy;
+        self
+    }
+    pub fn requirements(mut self, reqs: CapabilityRequirements) -> Self {
+        self.requirements = reqs;
+        self
+    }
+    pub fn config(mut self, config: RuntimeConfig) -> Self {
+        self.config = config;
+        self
+    }
+    pub fn model(mut self, model: impl Into<String>) -> Self {
+        self.config.model = Some(model.into());
+        self
+    }
+    pub fn max_budget_usd(mut self, budget: f64) -> Self {
+        self.config.max_budget_usd = Some(budget);
+        self
+    }
+    pub fn max_turns(mut self, turns: u32) -> Self {
+        self.config.max_turns = Some(turns);
+        self
+    }
 
     pub fn build(self) -> WorkOrder {
         WorkOrder {

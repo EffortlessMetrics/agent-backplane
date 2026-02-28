@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Value-based JSONL frame definitions for the ABP sidecar protocol.
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};

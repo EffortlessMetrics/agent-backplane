@@ -1,11 +1,11 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! End-to-end tests using the mock backend.
 //!
 //! These tests exercise the full pipeline: Runtime -> Backend -> Receipt
 
 use abp_core::{
-    AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements, ExecutionLane,
-    MinSupport, Outcome, PolicyProfile, WorkOrder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement, CapabilityRequirements,
+    ExecutionLane, MinSupport, Outcome, PolicyProfile, WorkOrder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_runtime::Runtime;
 use std::collections::HashSet;
@@ -53,7 +53,10 @@ async fn full_mock_pipeline() {
     assert_eq!(receipt.meta.work_order_id, wo_id);
     assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
     assert!(matches!(receipt.outcome, Outcome::Complete));
-    assert!(receipt.receipt_sha256.is_some(), "receipt must have sha256 hash");
+    assert!(
+        receipt.receipt_sha256.is_some(),
+        "receipt must have sha256 hash"
+    );
 
     let has_started = events
         .iter()
@@ -156,13 +159,14 @@ async fn unsatisfiable_capability_requirements() {
         }],
     };
 
-    let handle = rt.run_streaming("mock", wo).await.expect("run_streaming");
-    let _: Vec<_> = handle.events.collect().await;
-    let result = handle.receipt.await.expect("join");
+    // The capability pre-check now happens inside run_streaming, so it returns an error directly.
+    let result = rt.run_streaming("mock", wo).await;
     assert!(result.is_err(), "unsatisfiable requirements should fail");
-    let err_msg = format!("{}", result.unwrap_err());
+    let err_msg = result.err().map(|e| format!("{e}")).unwrap_or_default();
     assert!(
-        err_msg.contains("capability") || err_msg.contains("unsatisfied") || err_msg.contains("backend"),
+        err_msg.contains("capability")
+            || err_msg.contains("unsatisfied")
+            || err_msg.contains("Capability"),
         "error should mention capability/backend issue: {err_msg}"
     );
 }
@@ -176,7 +180,10 @@ async fn receipt_hash_verification() {
 
     let stored_hash = receipt.receipt_sha256.clone().expect("hash must exist");
     let recomputed = abp_core::receipt_hash(&receipt).expect("recompute hash");
-    assert_eq!(stored_hash, recomputed, "stored hash must match recomputed hash");
+    assert_eq!(
+        stored_hash, recomputed,
+        "stored hash must match recomputed hash"
+    );
 }
 
 // ---------- 8. Event ordering ----------

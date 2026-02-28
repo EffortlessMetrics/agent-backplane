@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_core::*;
 use abp_protocol::{Envelope, JsonlCodec};
 use chrono::{TimeZone, Utc};

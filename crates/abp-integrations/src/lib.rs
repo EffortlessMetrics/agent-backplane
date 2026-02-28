@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! abp-integrations
 #![deny(unsafe_code)]
 //!
@@ -8,9 +9,9 @@
 //! same trait.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, CapabilityRequirement,
-    CapabilityRequirements, ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized,
-    VerificationReport, WorkOrder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ExecutionMode, Outcome, Receipt, RunMetadata,
+    UsageNormalized, VerificationReport, WorkOrder,
 };
 use abp_host::{HostError, SidecarClient, SidecarSpec};
 use anyhow::{Context, Result};
@@ -166,6 +167,7 @@ impl Backend for MockBackend {
 /// A sidecar is an executable that speaks JSONL `abp-protocol` over stdio.
 #[derive(Debug, Clone)]
 pub struct SidecarBackend {
+    /// Process specification for spawning the sidecar.
     pub spec: SidecarSpec,
 }
 

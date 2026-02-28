@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! abp-workspace
 #![deny(unsafe_code)]
 //!
@@ -21,6 +22,7 @@ use walkdir::WalkDir;
 ///
 /// For [`WorkspaceMode::Staged`] workspaces the temp directory is cleaned up
 /// when this value is dropped.
+#[derive(Debug)]
 pub struct PreparedWorkspace {
     path: PathBuf,
     _temp: Option<TempDir>,
@@ -34,6 +36,7 @@ impl PreparedWorkspace {
 }
 
 /// Entry point for workspace preparation (pass-through or staged copy).
+#[derive(Debug, Clone, Copy)]
 pub struct WorkspaceManager;
 
 impl WorkspaceManager {

@@ -11,6 +11,7 @@
 
 #![deny(unsafe_code)]
 
+/// Receipt persistence and retrieval.
 pub mod store;
 
 use abp_core::{AgentEvent, CapabilityRequirements, ExecutionMode, Outcome, Receipt, WorkOrder};
@@ -58,8 +59,11 @@ pub struct Runtime {
 
 /// Handle to a running work order: provides a run id, event stream, and receipt future.
 pub struct RunHandle {
+    /// Unique identifier for this run.
     pub run_id: Uuid,
+    /// Stream of [`AgentEvent`]s emitted during execution.
     pub events: ReceiverStream<AgentEvent>,
+    /// Future that resolves to the final [`Receipt`] or an error.
     pub receipt: tokio::task::JoinHandle<Result<Receipt, RuntimeError>>,
 }
 

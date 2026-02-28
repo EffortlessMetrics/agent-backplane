@@ -1,0 +1,5 @@
+---
+source: crates/abp-runtime/tests/snapshots_test.rs
+expression: err.to_string()
+---
+capability check failed: missing capability: mcp_client requires native but got unsupported

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Microcrate for wiring the Kimi sidecar into ABP runtimes.
 #![deny(unsafe_code)]
 
@@ -82,9 +83,8 @@ fn command_exists(command: &str) -> bool {
         return candidate.exists();
     }
 
-    std::env::var_os("PATH").is_some_and(|path| {
-        std::env::split_paths(&path).any(|dir| path_has_command(&dir, command))
-    })
+    std::env::var_os("PATH")
+        .is_some_and(|path| std::env::split_paths(&path).any(|dir| path_has_command(&dir, command)))
 }
 
 fn path_has_command(dir: &Path, command: &str) -> bool {
@@ -130,4 +130,3 @@ mod tests {
         assert!(!result);
     }
 }
-

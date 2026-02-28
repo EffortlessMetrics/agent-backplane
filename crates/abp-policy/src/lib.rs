@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! abp-policy
 #![deny(unsafe_code)]
 //!
@@ -16,7 +17,9 @@ use std::path::Path;
 /// The result of a policy check — allowed or denied with an optional reason.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Decision {
+    /// Whether the action is permitted.
     pub allowed: bool,
+    /// Human-readable reason when denied.
     pub reason: Option<String>,
 }
 
@@ -51,6 +54,25 @@ pub struct PolicyEngine {
 
 impl PolicyEngine {
     /// Compile a [`PolicyProfile`] into a reusable engine.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_core::PolicyProfile;
+    /// use abp_policy::PolicyEngine;
+    /// use std::path::Path;
+    ///
+    /// let policy = PolicyProfile {
+    ///     disallowed_tools: vec!["Bash".into()],
+    ///     deny_write: vec!["**/.git/**".into()],
+    ///     ..PolicyProfile::default()
+    /// };
+    /// let engine = PolicyEngine::new(&policy).unwrap();
+    ///
+    /// assert!(!engine.can_use_tool("Bash").allowed);
+    /// assert!(engine.can_use_tool("Read").allowed);
+    /// assert!(!engine.can_write_path(Path::new(".git/config")).allowed);
+    /// ```
     pub fn new(policy: &PolicyProfile) -> Result<Self> {
         let no_include: &[String] = &[];
         Ok(Self {

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Value-based run: event streaming and receipt collection.
 
 use serde_json::Value;
@@ -5,7 +6,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::warn;
 
-use super::{cancel::CancelToken, frame::Frame, process::SidecarProcess, SidecarError};
+use super::{SidecarError, cancel::CancelToken, frame::Frame, process::SidecarProcess};
 
 /// An in-progress value-based sidecar run.
 ///
@@ -56,10 +57,7 @@ impl RawRun {
         }
     }
 
-    pub(crate) fn start(
-        mut process: SidecarProcess,
-        run_id: String,
-    ) -> Result<Self, SidecarError> {
+    pub(crate) fn start(mut process: SidecarProcess, run_id: String) -> Result<Self, SidecarError> {
         let (ev_tx, ev_rx) = mpsc::channel::<Value>(256);
         let (result_tx, result_rx) = oneshot::channel::<Result<Value, SidecarError>>();
         let cancel = CancelToken::new();

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_core::*;
 use chrono::{TimeZone, Utc};
 use proptest::prelude::*;
@@ -15,15 +16,24 @@ fn arb_datetime() -> impl Strategy<Value = chrono::DateTime<Utc>> {
 }
 
 fn arb_execution_mode() -> impl Strategy<Value = ExecutionMode> {
-    prop_oneof![Just(ExecutionMode::Passthrough), Just(ExecutionMode::Mapped)]
+    prop_oneof![
+        Just(ExecutionMode::Passthrough),
+        Just(ExecutionMode::Mapped)
+    ]
 }
 
 fn arb_execution_lane() -> impl Strategy<Value = ExecutionLane> {
-    prop_oneof![Just(ExecutionLane::PatchFirst), Just(ExecutionLane::WorkspaceFirst)]
+    prop_oneof![
+        Just(ExecutionLane::PatchFirst),
+        Just(ExecutionLane::WorkspaceFirst)
+    ]
 }
 
 fn arb_workspace_mode() -> impl Strategy<Value = WorkspaceMode> {
-    prop_oneof![Just(WorkspaceMode::PassThrough), Just(WorkspaceMode::Staged)]
+    prop_oneof![
+        Just(WorkspaceMode::PassThrough),
+        Just(WorkspaceMode::Staged)
+    ]
 }
 
 fn arb_workspace_spec() -> impl Strategy<Value = WorkspaceSpec> {
@@ -78,11 +88,12 @@ fn arb_min_support() -> impl Strategy<Value = MinSupport> {
 }
 
 fn arb_capability_requirement() -> impl Strategy<Value = CapabilityRequirement> {
-    (arb_capability(), arb_min_support())
-        .prop_map(|(capability, min_support)| CapabilityRequirement {
+    (arb_capability(), arb_min_support()).prop_map(|(capability, min_support)| {
+        CapabilityRequirement {
             capability,
             min_support,
-        })
+        }
+    })
 }
 
 fn arb_capability_requirements() -> impl Strategy<Value = CapabilityRequirements> {

@@ -1,8 +1,9 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for abp-host.
 
 use abp_core::{
-    CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig,
-    WorkOrder, WorkspaceMode, WorkspaceSpec,
+    CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
+    WorkspaceMode, WorkspaceSpec,
 };
 use abp_host::{HostError, SidecarClient, SidecarSpec};
 use tokio_stream::StreamExt;
@@ -93,7 +94,10 @@ fn sidecar_spec_fields_are_settable() {
 
 #[test]
 fn host_error_spawn_display() {
-    let err = HostError::Spawn(std::io::Error::new(std::io::ErrorKind::NotFound, "not found"));
+    let err = HostError::Spawn(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "not found",
+    ));
     let msg = err.to_string();
     assert!(msg.contains("spawn"), "got: {msg}");
     assert!(msg.contains("not found"), "got: {msg}");
@@ -165,10 +169,7 @@ async fn spawn_receives_hello() {
         .expect("spawn should succeed");
 
     assert_eq!(client.hello.backend.id, "mock-test");
-    assert_eq!(
-        client.hello.backend.backend_version.as_deref(),
-        Some("0.1")
-    );
+    assert_eq!(client.hello.backend.backend_version.as_deref(), Some("0.1"));
 }
 
 #[tokio::test]

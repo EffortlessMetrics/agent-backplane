@@ -13,3 +13,11 @@ categories = ["development-tools"]
 [dependencies]
 anyhow.workspace = true
 globset.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+proptest = { workspace = true }
+
+[[bench]]
+name = "matching"
+harness = false

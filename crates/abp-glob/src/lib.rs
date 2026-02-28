@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! abp-glob
 #![deny(unsafe_code)]
 //!
@@ -38,6 +39,21 @@ pub struct IncludeExcludeGlobs {
 
 impl IncludeExcludeGlobs {
     /// Compile include and exclude pattern lists into a reusable matcher.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_glob::{IncludeExcludeGlobs, MatchDecision};
+    ///
+    /// let globs = IncludeExcludeGlobs::new(
+    ///     &["src/**".into(), "tests/**".into()],
+    ///     &["src/generated/**".into()],
+    /// ).unwrap();
+    ///
+    /// assert_eq!(globs.decide_str("src/lib.rs"), MatchDecision::Allowed);
+    /// assert_eq!(globs.decide_str("src/generated/out.rs"), MatchDecision::DeniedByExclude);
+    /// assert_eq!(globs.decide_str("README.md"), MatchDecision::DeniedByMissingInclude);
+    /// ```
     pub fn new(include: &[String], exclude: &[String]) -> Result<Self> {
         Ok(Self {
             include: build_globset(include)?,
@@ -132,9 +148,8 @@ mod tests {
 
     #[test]
     fn multiple_include_patterns() {
-        let rules =
-            IncludeExcludeGlobs::new(&patterns(&["src/**", "tests/**"]), &Vec::new())
-                .expect("compile rules");
+        let rules = IncludeExcludeGlobs::new(&patterns(&["src/**", "tests/**"]), &Vec::new())
+            .expect("compile rules");
         assert_eq!(rules.decide_str("src/lib.rs"), MatchDecision::Allowed);
         assert_eq!(rules.decide_str("tests/it.rs"), MatchDecision::Allowed);
         assert_eq!(
@@ -149,12 +164,13 @@ mod tests {
 
     #[test]
     fn multiple_exclude_patterns() {
-        let rules = IncludeExcludeGlobs::new(
-            &Vec::new(),
-            &patterns(&["*.log", "target/**", "*.tmp"]),
-        )
-        .expect("compile rules");
-        assert_eq!(rules.decide_str("build.log"), MatchDecision::DeniedByExclude);
+        let rules =
+            IncludeExcludeGlobs::new(&Vec::new(), &patterns(&["*.log", "target/**", "*.tmp"]))
+                .expect("compile rules");
+        assert_eq!(
+            rules.decide_str("build.log"),
+            MatchDecision::DeniedByExclude
+        );
         assert_eq!(
             rules.decide_str("target/debug/bin"),
             MatchDecision::DeniedByExclude
@@ -165,12 +181,9 @@ mod tests {
 
     #[test]
     fn nested_paths() {
-        let rules = IncludeExcludeGlobs::new(&patterns(&["src/**"]), &Vec::new())
-            .expect("compile rules");
-        assert_eq!(
-            rules.decide_str("src/a/b/c/d.rs"),
-            MatchDecision::Allowed
-        );
+        let rules =
+            IncludeExcludeGlobs::new(&patterns(&["src/**"]), &Vec::new()).expect("compile rules");
+        assert_eq!(rules.decide_str("src/a/b/c/d.rs"), MatchDecision::Allowed);
         assert_eq!(
             rules.decide_str("src/a/b/c/d/e/f/g.txt"),
             MatchDecision::Allowed
@@ -179,8 +192,8 @@ mod tests {
 
     #[test]
     fn unicode_paths() {
-        let rules = IncludeExcludeGlobs::new(&patterns(&["src/**"]), &Vec::new())
-            .expect("compile rules");
+        let rules =
+            IncludeExcludeGlobs::new(&patterns(&["src/**"]), &Vec::new()).expect("compile rules");
         assert_eq!(
             rules.decide_str("src/données/fichier.rs"),
             MatchDecision::Allowed
@@ -206,8 +219,8 @@ mod tests {
 
     #[test]
     fn wildcard_only_include() {
-        let rules = IncludeExcludeGlobs::new(&patterns(&["*"]), &Vec::new())
-            .expect("compile rules");
+        let rules =
+            IncludeExcludeGlobs::new(&patterns(&["*"]), &Vec::new()).expect("compile rules");
         assert_eq!(rules.decide_str("README.md"), MatchDecision::Allowed);
         assert_eq!(rules.decide_str("Cargo.toml"), MatchDecision::Allowed);
         // globset default: literal_separator is false, so * crosses /
@@ -267,9 +280,8 @@ mod tests {
     fn decide_path_vs_decide_str_consistency() {
         use std::path::Path;
 
-        let rules =
-            IncludeExcludeGlobs::new(&patterns(&["src/**"]), &patterns(&["src/secret/**"]))
-                .expect("compile rules");
+        let rules = IncludeExcludeGlobs::new(&patterns(&["src/**"]), &patterns(&["src/secret/**"]))
+            .expect("compile rules");
 
         let cases = &["src/lib.rs", "src/secret/key.pem", "README.md"];
         for &c in cases {
@@ -289,8 +301,7 @@ mod tests {
 
     #[test]
     fn build_globset_with_patterns_returns_some() {
-        let result =
-            super::build_globset(&patterns(&["*.rs", "src/**"])).expect("should succeed");
+        let result = super::build_globset(&patterns(&["*.rs", "src/**"])).expect("should succeed");
         assert!(result.is_some());
         let set = result.unwrap();
         assert!(set.is_match("main.rs"));

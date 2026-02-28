@@ -1,9 +1,10 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use claude_bridge::config::ClaudeBridgeConfig;
 use claude_bridge::discovery::{
-    resolve_host_script, resolve_node, DEFAULT_NODE_COMMAND, HOST_SCRIPT_ENV, HOST_SCRIPT_RELATIVE,
+    DEFAULT_NODE_COMMAND, HOST_SCRIPT_ENV, HOST_SCRIPT_RELATIVE, resolve_host_script, resolve_node,
 };
 use claude_bridge::error::BridgeError;
 use claude_bridge::raw::RunOptions;
@@ -53,7 +54,10 @@ fn config_builder_with_cwd() {
 #[test]
 fn config_builder_with_adapter_module() {
     let cfg = ClaudeBridgeConfig::new().with_adapter_module("/adapters/custom.js");
-    assert_eq!(cfg.adapter_module, Some(PathBuf::from("/adapters/custom.js")));
+    assert_eq!(
+        cfg.adapter_module,
+        Some(PathBuf::from("/adapters/custom.js"))
+    );
 }
 
 #[test]

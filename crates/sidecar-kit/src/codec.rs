@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! JSONL codec for [`Frame`] serialization.
 
 use super::{Frame, SidecarError};

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Process specification types.
 
 use std::collections::BTreeMap;

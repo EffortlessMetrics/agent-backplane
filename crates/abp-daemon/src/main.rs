@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 #![deny(unsafe_code)]
-use abp_daemon::{build_app, hydrate_receipts_from_disk, AppState};
-use abp_codex_sdk as codex_sdk;
 use abp_claude_sdk as claude_sdk;
+use abp_codex_sdk as codex_sdk;
+use abp_daemon::{AppState, build_app, hydrate_receipts_from_disk};
 use abp_gemini_sdk as gemini_sdk;
 use abp_host::SidecarSpec;
 use abp_integrations::{MockBackend, SidecarBackend};
@@ -74,9 +75,7 @@ async fn main() -> Result<()> {
         "abp-daemon listening"
     );
 
-    axum::serve(listener, app)
-        .await
-        .context("serve")
+    axum::serve(listener, app).await.context("serve")
 }
 
 fn build_runtime(host_root: &Path) -> Result<Runtime> {
@@ -93,7 +92,11 @@ fn build_runtime(host_root: &Path) -> Result<Runtime> {
     register_sidecar_backend(
         &mut runtime,
         "sidecar:python",
-        if which("python3").is_some() { "python3" } else { "python" },
+        if which("python3").is_some() {
+            "python3"
+        } else {
+            "python"
+        },
         &host_root.join("hosts/python/host.py"),
     )?;
 
@@ -147,5 +150,3 @@ fn which(bin: &str) -> Option<PathBuf> {
     }
     None
 }
-
-

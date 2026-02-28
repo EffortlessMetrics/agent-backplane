@@ -1,12 +1,13 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 #![deny(unsafe_code)]
 use abp_core::{AgentEvent, CapabilityManifest, Receipt, WorkOrder};
 use abp_runtime::Runtime;
 use axum::{
+    Json, Router,
     extract::{Path as AxPath, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json, Router,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};

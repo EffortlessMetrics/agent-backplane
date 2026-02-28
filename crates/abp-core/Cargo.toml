@@ -22,6 +22,11 @@ uuid.workspace = true
 [dev-dependencies]
 proptest.workspace = true
 insta.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "hashing"
+harness = false
 
 [features]
 # Keep a feature gate for anything that could be “heavy” later.

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Normalized mode: maps raw Value events to typed `AgentEvent` and `Receipt`.
 //!
 //! This module is only available when the `normalized` feature is enabled,
@@ -7,8 +8,8 @@
 mod inner {
     use sidecar_kit::RawRun;
     use tokio::sync::{mpsc, oneshot};
-    use tokio_stream::wrappers::ReceiverStream;
     use tokio_stream::StreamExt;
+    use tokio_stream::wrappers::ReceiverStream;
 
     use abp_core::{AgentEvent, Receipt};
 
@@ -68,9 +69,8 @@ mod inner {
                         let _ = result_tx.send(Err(BridgeError::Sidecar(e)));
                     }
                     Err(_) => {
-                        let _ = result_tx.send(Err(BridgeError::Run(
-                            "receipt channel closed".into(),
-                        )));
+                        let _ =
+                            result_tx.send(Err(BridgeError::Run("receipt channel closed".into())));
                     }
                 }
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_core::*;
 use chrono::{TimeZone, Utc};
 use insta::assert_json_snapshot;

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_core::{WorkspaceMode, WorkspaceSpec};
 use abp_workspace::WorkspaceManager;
 use std::fs;
@@ -35,7 +36,10 @@ fn staged_creates_temp_directory_with_files() {
 
     assert_ne!(prepared.path(), src.path());
     assert!(prepared.path().join("hello.txt").exists());
-    assert_eq!(fs::read_to_string(prepared.path().join("hello.txt")).unwrap(), "world");
+    assert_eq!(
+        fs::read_to_string(prepared.path().join("hello.txt")).unwrap(),
+        "world"
+    );
 }
 
 // 3. Staged mode excludes .git directory
@@ -56,7 +60,10 @@ fn staged_excludes_dot_git() {
     let config_path = prepared.path().join(".git").join("config");
     if config_path.exists() {
         let content = fs::read_to_string(&config_path).unwrap();
-        assert_ne!(content, "git stuff", ".git content from source should not be copied");
+        assert_ne!(
+            content, "git stuff",
+            ".git content from source should not be copied"
+        );
     }
 }
 
@@ -107,7 +114,10 @@ fn staged_initializes_git_repo() {
     let spec = make_spec(&src.path().to_string_lossy(), WorkspaceMode::Staged);
     let prepared = WorkspaceManager::prepare(&spec).unwrap();
 
-    assert!(prepared.path().join(".git").exists(), "staged workspace should have .git");
+    assert!(
+        prepared.path().join(".git").exists(),
+        "staged workspace should have .git"
+    );
 }
 
 // 7. git_status on staged workspace shows clean state
@@ -153,9 +163,25 @@ fn nested_directory_structure_preserved() {
     let prepared = WorkspaceManager::prepare(&spec).unwrap();
 
     assert!(prepared.path().join("top.txt").exists());
-    assert!(prepared.path().join("a").join("b").join("c").join("deep.txt").exists());
+    assert!(
+        prepared
+            .path()
+            .join("a")
+            .join("b")
+            .join("c")
+            .join("deep.txt")
+            .exists()
+    );
     assert_eq!(
-        fs::read_to_string(prepared.path().join("a").join("b").join("c").join("deep.txt")).unwrap(),
+        fs::read_to_string(
+            prepared
+                .path()
+                .join("a")
+                .join("b")
+                .join("c")
+                .join("deep.txt")
+        )
+        .unwrap(),
         "deep content"
     );
 }
@@ -172,4 +198,152 @@ fn empty_source_directory() {
     assert_ne!(prepared.path(), src.path());
     // Should still have .git from ensure_git_repo
     assert!(prepared.path().join(".git").exists());
+}
+
+// 11. Staged workspace captures file modifications in git_diff
+#[test]
+fn staged_captures_file_modifications_in_git_diff() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("README.md"), "original content").unwrap();
+
+    let spec = make_spec(&src.path().to_string_lossy(), WorkspaceMode::Staged);
+    let prepared = WorkspaceManager::prepare(&spec).unwrap();
+
+    // Modify a file after staging (baseline commit already exists)
+    fs::write(prepared.path().join("README.md"), "modified content").unwrap();
+
+    let diff = WorkspaceManager::git_diff(prepared.path());
+    assert!(diff.is_some(), "git_diff should return Some for a git repo");
+    let diff = diff.unwrap();
+    assert!(
+        diff.contains("README.md"),
+        "diff should mention the modified file, got: {diff}"
+    );
+    assert!(
+        diff.contains("modified content"),
+        "diff should contain the new content, got: {diff}"
+    );
+}
+
+// 12. Staged workspace captures new files in git_status
+#[test]
+fn staged_captures_new_files_in_git_status() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("existing.txt"), "hello").unwrap();
+
+    let spec = make_spec(&src.path().to_string_lossy(), WorkspaceMode::Staged);
+    let prepared = WorkspaceManager::prepare(&spec).unwrap();
+
+    // Create a brand-new file in the staged workspace
+    fs::write(prepared.path().join("new_file.txt"), "I am new").unwrap();
+
+    let status = WorkspaceManager::git_status(prepared.path());
+    assert!(
+        status.is_some(),
+        "git_status should return Some for a git repo"
+    );
+    let status = status.unwrap();
+    assert!(
+        status.contains("new_file.txt"),
+        "status should show the new untracked file, got: {status}"
+    );
+}
+
+// 13. Staged workspace captures deletions
+#[test]
+fn staged_captures_deletions() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("doomed.txt"), "will be deleted").unwrap();
+
+    let spec = make_spec(&src.path().to_string_lossy(), WorkspaceMode::Staged);
+    let prepared = WorkspaceManager::prepare(&spec).unwrap();
+
+    // Delete a committed file
+    fs::remove_file(prepared.path().join("doomed.txt")).unwrap();
+
+    let status = WorkspaceManager::git_status(prepared.path());
+    assert!(
+        status.is_some(),
+        "git_status should return Some for a git repo"
+    );
+    let status = status.unwrap();
+    assert!(
+        status.contains("doomed.txt"),
+        "status should show the deleted file, got: {status}"
+    );
+    // Porcelain v1 marks deletions with " D"
+    assert!(
+        status.contains(" D "),
+        "status should show deletion marker, got: {status}"
+    );
+}
+
+// 14. git_diff returns None for non-git directory
+#[test]
+fn git_diff_returns_none_for_non_git_directory() {
+    let tmp = tempdir().unwrap();
+    fs::write(tmp.path().join("plain.txt"), "no git here").unwrap();
+
+    let diff = WorkspaceManager::git_diff(tmp.path());
+    assert!(
+        diff.is_none(),
+        "git_diff should return None for a directory without git"
+    );
+}
+
+// 15. git_status on modified staged workspace — full flow
+#[test]
+fn staged_full_flow_modify_status_and_diff() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("config.toml"), "key = \"original\"").unwrap();
+    fs::write(src.path().join("main.rs"), "fn main() {}").unwrap();
+
+    let spec = make_spec(&src.path().to_string_lossy(), WorkspaceMode::Staged);
+    let prepared = WorkspaceManager::prepare(&spec).unwrap();
+
+    // Initially clean
+    let status = WorkspaceManager::git_status(prepared.path());
+    if let Some(ref s) = status {
+        assert!(
+            s.trim().is_empty(),
+            "expected clean status initially, got: {s}"
+        );
+    }
+    let diff = WorkspaceManager::git_diff(prepared.path());
+    if let Some(ref d) = diff {
+        assert!(
+            d.trim().is_empty(),
+            "expected empty diff initially, got: {d}"
+        );
+    }
+
+    // Modify an existing file
+    fs::write(prepared.path().join("config.toml"), "key = \"changed\"").unwrap();
+    // Add a new file
+    fs::write(prepared.path().join("extra.log"), "log data").unwrap();
+    // Delete a file
+    fs::remove_file(prepared.path().join("main.rs")).unwrap();
+
+    // Status should reflect all three changes
+    let status = WorkspaceManager::git_status(prepared.path()).unwrap();
+    assert!(
+        status.contains("config.toml"),
+        "status should show modified file"
+    );
+    assert!(status.contains("extra.log"), "status should show new file");
+    assert!(
+        status.contains("main.rs"),
+        "status should show deleted file"
+    );
+
+    // Diff should show the modification to the tracked file
+    let diff = WorkspaceManager::git_diff(prepared.path()).unwrap();
+    assert!(
+        diff.contains("config.toml"),
+        "diff should mention modified tracked file, got: {diff}"
+    );
+    assert!(
+        diff.contains("changed"),
+        "diff should contain new content, got: {diff}"
+    );
 }

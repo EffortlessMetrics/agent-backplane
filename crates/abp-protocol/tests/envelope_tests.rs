@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_core::*;
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
@@ -184,9 +185,7 @@ fn event_serialize_has_correct_tag() {
 fn event_ref_id_correlation() {
     let env = Envelope::Event {
         ref_id: "run-42".into(),
-        event: test_agent_event(AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        }),
+        event: test_agent_event(AgentEventKind::AssistantDelta { text: "hi".into() }),
     };
     let s = serde_json::to_string(&env).unwrap();
     let back: Envelope = serde_json::from_str(&s).unwrap();
@@ -298,9 +297,7 @@ fn event_with_command_executed() {
     let back: Envelope = serde_json::from_str(&s).unwrap();
     if let Envelope::Event { event, .. } = back {
         if let AgentEventKind::CommandExecuted {
-            command,
-            exit_code,
-            ..
+            command, exit_code, ..
         } = event.kind
         {
             assert_eq!(command, "cargo build");
@@ -486,8 +483,7 @@ fn hello_with_mode_passthrough_explicit() {
 
 #[test]
 fn hello_with_mode_mapped_explicit() {
-    let env =
-        Envelope::hello_with_mode(test_backend(), test_capabilities(), ExecutionMode::Mapped);
+    let env = Envelope::hello_with_mode(test_backend(), test_capabilities(), ExecutionMode::Mapped);
     if let Envelope::Hello { mode, .. } = env {
         assert_eq!(mode, ExecutionMode::Mapped);
     } else {
@@ -585,13 +581,15 @@ fn decode_empty_string() {
 
 #[test]
 fn decode_partial_json() {
-    let result = JsonlCodec::decode(r#"{"t":"hello","contract_version":#);
+    let result = JsonlCodec::decode(
+        r#"{"t":"hello","contract_version":#);
     assert!(result.is_err());
 }
 
 #[test]
 fn decode_wrong_tag_value() {
-    let result = JsonlCodec::decode(r#"{"t":"bogus","data":"value"}"#);
+    let result = JsonlCodec::decode(r#"{"t":"bogus","data":"value"}"#,
+    );
     assert!(result.is_err());
 }
 

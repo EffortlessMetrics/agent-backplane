@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Validates that generated JSON schema files are valid JSON.
 
 use std::path::Path;

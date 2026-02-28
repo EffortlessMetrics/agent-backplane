@@ -1,12 +1,11 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Sidecar client: spawn + handshake + run initiation.
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tracing::debug;
 
-use super::{
-    frame::Frame, process::SidecarProcess, run::RawRun, spec::ProcessSpec, SidecarError,
-};
+use super::{SidecarError, frame::Frame, process::SidecarProcess, run::RawRun, spec::ProcessSpec};
 
 /// Parsed `hello` handshake data from a sidecar (value-based).
 #[derive(Debug, Clone)]

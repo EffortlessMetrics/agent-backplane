@@ -1,10 +1,11 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_core::{
     AgentEventKind, Capability, CapabilityManifest, CapabilityRequirements, ExecutionMode,
     SupportLevel,
 };
 use abp_integrations::{
-    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
-    Backend, MockBackend,
+    Backend, MockBackend, ensure_capability_requirements, extract_execution_mode,
+    validate_passthrough_compatibility,
 };
 use serde_json::json;
 use tokio::sync::mpsc;
@@ -44,11 +45,26 @@ fn mock_backend_capabilities() {
     let backend = MockBackend;
     let caps = backend.capabilities();
 
-    assert!(matches!(caps.get(&Capability::Streaming), Some(SupportLevel::Native)));
-    assert!(matches!(caps.get(&Capability::ToolRead), Some(SupportLevel::Emulated)));
-    assert!(matches!(caps.get(&Capability::ToolWrite), Some(SupportLevel::Emulated)));
-    assert!(matches!(caps.get(&Capability::ToolEdit), Some(SupportLevel::Emulated)));
-    assert!(matches!(caps.get(&Capability::ToolBash), Some(SupportLevel::Emulated)));
+    assert!(matches!(
+        caps.get(&Capability::Streaming),
+        Some(SupportLevel::Native)
+    ));
+    assert!(matches!(
+        caps.get(&Capability::ToolRead),
+        Some(SupportLevel::Emulated)
+    ));
+    assert!(matches!(
+        caps.get(&Capability::ToolWrite),
+        Some(SupportLevel::Emulated)
+    ));
+    assert!(matches!(
+        caps.get(&Capability::ToolEdit),
+        Some(SupportLevel::Emulated)
+    ));
+    assert!(matches!(
+        caps.get(&Capability::ToolBash),
+        Some(SupportLevel::Emulated)
+    ));
     assert!(matches!(
         caps.get(&Capability::StructuredOutputJsonSchema),
         Some(SupportLevel::Emulated)
@@ -87,15 +103,21 @@ async fn mock_backend_run_streams_events() {
     }
 
     assert!(
-        kinds.iter().any(|k| matches!(k, AgentEventKind::RunStarted { .. })),
+        kinds
+            .iter()
+            .any(|k| matches!(k, AgentEventKind::RunStarted { .. })),
         "expected RunStarted event"
     );
     assert!(
-        kinds.iter().any(|k| matches!(k, AgentEventKind::AssistantMessage { .. })),
+        kinds
+            .iter()
+            .any(|k| matches!(k, AgentEventKind::AssistantMessage { .. })),
         "expected AssistantMessage event"
     );
     assert!(
-        kinds.iter().any(|k| matches!(k, AgentEventKind::RunCompleted { .. })),
+        kinds
+            .iter()
+            .any(|k| matches!(k, AgentEventKind::RunCompleted { .. })),
         "expected RunCompleted event"
     );
 }
@@ -109,7 +131,10 @@ async fn mock_backend_run_includes_trace() {
 
     let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
 
-    assert!(!receipt.trace.is_empty(), "receipt trace should be non-empty");
+    assert!(
+        !receipt.trace.is_empty(),
+        "receipt trace should be non-empty"
+    );
 }
 
 // 6. extract_execution_mode defaults to Mapped
@@ -123,10 +148,9 @@ fn extract_execution_mode_defaults_to_mapped() {
 #[test]
 fn extract_execution_mode_nested_key() {
     let mut wo = test_work_order();
-    wo.config.vendor.insert(
-        "abp".to_string(),
-        json!({"mode": "passthrough"}),
-    );
+    wo.config
+        .vendor
+        .insert("abp".to_string(), json!({"mode": "passthrough"}));
     assert_eq!(extract_execution_mode(&wo), ExecutionMode::Passthrough);
 }
 
@@ -164,7 +188,13 @@ async fn mock_backend_receipt_has_valid_hash() {
 
     let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
 
-    let stored_hash = receipt.receipt_sha256.clone().expect("hash should be present");
+    let stored_hash = receipt
+        .receipt_sha256
+        .clone()
+        .expect("hash should be present");
     let recomputed = abp_core::receipt_hash(&receipt).unwrap();
-    assert_eq!(stored_hash, recomputed, "stored hash should match recomputed hash");
+    assert_eq!(
+        stored_hash, recomputed,
+        "stored hash should match recomputed hash"
+    );
 }

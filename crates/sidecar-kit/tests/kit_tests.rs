@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use serde_json::{Value, json};
 use sidecar_kit::{CancelToken, Frame, JsonlCodec, ProcessSpec, SidecarError};
 
