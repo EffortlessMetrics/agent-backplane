@@ -23,6 +23,8 @@ pub mod store;
 pub mod retry;
 /// Telemetry and metrics collection.
 pub mod telemetry;
+/// Event multiplexer for broadcasting events to multiple consumers.
+pub mod multiplex;
 
 use abp_core::{AgentEvent, CapabilityRequirements, ExecutionMode, Outcome, Receipt, WorkOrder};
 use abp_integrations::{Backend, ensure_capability_requirements};

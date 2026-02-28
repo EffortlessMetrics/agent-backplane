@@ -7,6 +7,7 @@
 //! Current transport: JSONL over stdio.
 
 pub mod codec;
+pub mod version;
 
 use std::io::{BufRead, Write};
 

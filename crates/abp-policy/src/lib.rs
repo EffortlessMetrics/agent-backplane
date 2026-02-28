@@ -8,6 +8,8 @@
 //! In v0.1 this is a small “contract utility” crate.
 //! Eventually this becomes the opinionated policy engine.
 
+pub mod audit;
+
 use abp_core::PolicyProfile;
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use anyhow::{Context, Result};
