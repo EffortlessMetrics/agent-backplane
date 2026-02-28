@@ -1,11 +1,124 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! Moonshot Kimi dialect: config, request/response types, and mapping stubs.
+//! Moonshot Kimi dialect: config, request/response types, and mapping logic.
 //!
 //! Kimi uses an OpenAI-compatible chat completions API surface.
 
-use abp_core::{AgentEvent, AgentEventKind, WorkOrder};
+use abp_core::{
+    AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
+};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+
+/// Version string for this dialect adapter.
+pub const DIALECT_VERSION: &str = "kimi/v0.1";
+
+/// Default model used when none is specified.
+pub const DEFAULT_MODEL: &str = "moonshot-v1-8k";
+
+// ---------------------------------------------------------------------------
+// Model-name mapping
+// ---------------------------------------------------------------------------
+
+/// Known Moonshot Kimi model identifiers.
+const KNOWN_MODELS: &[&str] = &[
+    "moonshot-v1-8k",
+    "moonshot-v1-32k",
+    "moonshot-v1-128k",
+];
+
+/// Map a vendor model name to the ABP canonical form (`moonshot/<model>`).
+#[must_use]
+pub fn to_canonical_model(vendor_model: &str) -> String {
+    format!("moonshot/{vendor_model}")
+}
+
+/// Map an ABP canonical model name back to the vendor model name.
+///
+/// Strips the `moonshot/` prefix if present; otherwise returns the input unchanged.
+#[must_use]
+pub fn from_canonical_model(canonical: &str) -> String {
+    canonical
+        .strip_prefix("moonshot/")
+        .unwrap_or(canonical)
+        .to_string()
+}
+
+/// Returns `true` if `model` is a known Moonshot Kimi model identifier.
+#[must_use]
+pub fn is_known_model(model: &str) -> bool {
+    KNOWN_MODELS.contains(&model)
+}
+
+// ---------------------------------------------------------------------------
+// Capability mapping
+// ---------------------------------------------------------------------------
+
+/// Build a [`CapabilityManifest`] describing what the Kimi backend supports.
+#[must_use]
+pub fn capability_manifest() -> CapabilityManifest {
+    let mut m = CapabilityManifest::new();
+    m.insert(Capability::Streaming, SupportLevel::Native);
+    m.insert(Capability::ToolRead, SupportLevel::Native);
+    m.insert(Capability::ToolWrite, SupportLevel::Emulated);
+    m.insert(Capability::ToolEdit, SupportLevel::Unsupported);
+    m.insert(Capability::ToolBash, SupportLevel::Unsupported);
+    m.insert(Capability::ToolWebSearch, SupportLevel::Native);
+    m.insert(Capability::StructuredOutputJsonSchema, SupportLevel::Emulated);
+    m.insert(Capability::McpClient, SupportLevel::Unsupported);
+    m.insert(Capability::McpServer, SupportLevel::Unsupported);
+    m
+}
+
+// ---------------------------------------------------------------------------
+// Tool-format translation
+// ---------------------------------------------------------------------------
+
+/// A vendor-agnostic tool definition used as the ABP canonical form.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CanonicalToolDef {
+    pub name: String,
+    pub description: String,
+    pub parameters_schema: serde_json::Value,
+}
+
+/// Kimi/OpenAI-compatible function tool definition.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiToolDef {
+    #[serde(rename = "type")]
+    pub tool_type: String,
+    pub function: KimiFunctionDef,
+}
+
+/// The function payload inside a [`KimiToolDef`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiFunctionDef {
+    pub name: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+}
+
+/// Convert an ABP canonical tool definition to the Kimi function tool format.
+#[must_use]
+pub fn tool_def_to_kimi(def: &CanonicalToolDef) -> KimiToolDef {
+    KimiToolDef {
+        tool_type: "function".into(),
+        function: KimiFunctionDef {
+            name: def.name.clone(),
+            description: def.description.clone(),
+            parameters: def.parameters_schema.clone(),
+        },
+    }
+}
+
+/// Convert a Kimi function tool definition back to the ABP canonical form.
+#[must_use]
+pub fn tool_def_from_kimi(def: &KimiToolDef) -> CanonicalToolDef {
+    CanonicalToolDef {
+        name: def.function.name.clone(),
+        description: def.function.description.clone(),
+        parameters_schema: def.function.parameters.clone(),
+    }
+}
 
 /// Vendor-specific configuration for the Moonshot Kimi API.
 #[derive(Debug, Clone, Serialize, Deserialize)]

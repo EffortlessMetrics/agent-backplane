@@ -1,9 +1,132 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! OpenAI Codex dialect: config, request/response types, and mapping stubs.
+//! OpenAI Codex dialect: config, request/response types, and mapping logic.
 
-use abp_core::{AgentEvent, AgentEventKind, WorkOrder};
+use abp_core::{
+    AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
+};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+
+/// Version string for this dialect adapter.
+pub const DIALECT_VERSION: &str = "codex/v0.1";
+
+/// Default model used when none is specified.
+pub const DEFAULT_MODEL: &str = "codex-mini-latest";
+
+// ---------------------------------------------------------------------------
+// Model-name mapping
+// ---------------------------------------------------------------------------
+
+/// Known Codex/OpenAI model identifiers.
+const KNOWN_MODELS: &[&str] = &[
+    "codex-mini-latest",
+    "o3-mini",
+    "o4-mini",
+    "gpt-4",
+    "gpt-4o",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+];
+
+/// Map a vendor model name to the ABP canonical form (`openai/<model>`).
+///
+/// Known models are prefixed; unknown models pass through with the prefix.
+#[must_use]
+pub fn to_canonical_model(vendor_model: &str) -> String {
+    format!("openai/{vendor_model}")
+}
+
+/// Map an ABP canonical model name back to the vendor model name.
+///
+/// Strips the `openai/` prefix if present; otherwise returns the input unchanged.
+#[must_use]
+pub fn from_canonical_model(canonical: &str) -> String {
+    canonical
+        .strip_prefix("openai/")
+        .unwrap_or(canonical)
+        .to_string()
+}
+
+/// Returns `true` if `model` is a known Codex/OpenAI model identifier.
+#[must_use]
+pub fn is_known_model(model: &str) -> bool {
+    KNOWN_MODELS.contains(&model)
+}
+
+// ---------------------------------------------------------------------------
+// Capability mapping
+// ---------------------------------------------------------------------------
+
+/// Build a [`CapabilityManifest`] describing what the Codex backend supports.
+#[must_use]
+pub fn capability_manifest() -> CapabilityManifest {
+    let mut m = CapabilityManifest::new();
+    m.insert(Capability::Streaming, SupportLevel::Native);
+    m.insert(Capability::ToolRead, SupportLevel::Native);
+    m.insert(Capability::ToolWrite, SupportLevel::Native);
+    m.insert(Capability::ToolEdit, SupportLevel::Native);
+    m.insert(Capability::ToolBash, SupportLevel::Native);
+    m.insert(Capability::ToolGlob, SupportLevel::Emulated);
+    m.insert(Capability::ToolGrep, SupportLevel::Emulated);
+    m.insert(Capability::StructuredOutputJsonSchema, SupportLevel::Native);
+    m.insert(Capability::HooksPreToolUse, SupportLevel::Emulated);
+    m.insert(Capability::HooksPostToolUse, SupportLevel::Emulated);
+    m.insert(Capability::McpClient, SupportLevel::Unsupported);
+    m.insert(Capability::McpServer, SupportLevel::Unsupported);
+    m
+}
+
+// ---------------------------------------------------------------------------
+// Tool-format translation
+// ---------------------------------------------------------------------------
+
+/// A vendor-agnostic tool definition used as the ABP canonical form.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CanonicalToolDef {
+    pub name: String,
+    pub description: String,
+    pub parameters_schema: serde_json::Value,
+}
+
+/// OpenAI-style function tool definition.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CodexToolDef {
+    #[serde(rename = "type")]
+    pub tool_type: String,
+    pub function: CodexFunctionDef,
+}
+
+/// The function payload inside a [`CodexToolDef`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CodexFunctionDef {
+    pub name: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+}
+
+/// Convert an ABP canonical tool definition to the OpenAI function tool format.
+#[must_use]
+pub fn tool_def_to_codex(def: &CanonicalToolDef) -> CodexToolDef {
+    CodexToolDef {
+        tool_type: "function".into(),
+        function: CodexFunctionDef {
+            name: def.name.clone(),
+            description: def.description.clone(),
+            parameters: def.parameters_schema.clone(),
+        },
+    }
+}
+
+/// Convert an OpenAI function tool definition back to the ABP canonical form.
+#[must_use]
+pub fn tool_def_from_codex(def: &CodexToolDef) -> CanonicalToolDef {
+    CanonicalToolDef {
+        name: def.function.name.clone(),
+        description: def.function.description.clone(),
+        parameters_schema: def.function.parameters.clone(),
+    }
+}
 
 /// Vendor-specific configuration for the OpenAI Codex / Responses API.
 #[derive(Debug, Clone, Serialize, Deserialize)]

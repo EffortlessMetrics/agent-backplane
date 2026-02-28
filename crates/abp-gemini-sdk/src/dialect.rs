@@ -1,9 +1,115 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! Google Gemini dialect: config, request/response types, and mapping stubs.
+//! Google Gemini dialect: config, request/response types, and mapping logic.
 
-use abp_core::{AgentEvent, AgentEventKind, WorkOrder};
+use abp_core::{
+    AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
+};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+
+/// Version string for this dialect adapter.
+pub const DIALECT_VERSION: &str = "gemini/v0.1";
+
+/// Default model used when none is specified.
+pub const DEFAULT_MODEL: &str = "gemini-2.5-flash";
+
+// ---------------------------------------------------------------------------
+// Model-name mapping
+// ---------------------------------------------------------------------------
+
+/// Known Gemini model identifiers.
+const KNOWN_MODELS: &[&str] = &[
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+];
+
+/// Map a vendor model name to the ABP canonical form (`google/<model>`).
+#[must_use]
+pub fn to_canonical_model(vendor_model: &str) -> String {
+    format!("google/{vendor_model}")
+}
+
+/// Map an ABP canonical model name back to the vendor model name.
+///
+/// Strips the `google/` prefix if present; otherwise returns the input unchanged.
+#[must_use]
+pub fn from_canonical_model(canonical: &str) -> String {
+    canonical
+        .strip_prefix("google/")
+        .unwrap_or(canonical)
+        .to_string()
+}
+
+/// Returns `true` if `model` is a known Gemini model identifier.
+#[must_use]
+pub fn is_known_model(model: &str) -> bool {
+    KNOWN_MODELS.contains(&model)
+}
+
+// ---------------------------------------------------------------------------
+// Capability mapping
+// ---------------------------------------------------------------------------
+
+/// Build a [`CapabilityManifest`] describing what the Gemini backend supports.
+#[must_use]
+pub fn capability_manifest() -> CapabilityManifest {
+    let mut m = CapabilityManifest::new();
+    m.insert(Capability::Streaming, SupportLevel::Native);
+    m.insert(Capability::ToolRead, SupportLevel::Native);
+    m.insert(Capability::ToolWrite, SupportLevel::Emulated);
+    m.insert(Capability::ToolEdit, SupportLevel::Emulated);
+    m.insert(Capability::ToolBash, SupportLevel::Emulated);
+    m.insert(Capability::StructuredOutputJsonSchema, SupportLevel::Native);
+    m.insert(Capability::ToolGlob, SupportLevel::Unsupported);
+    m.insert(Capability::ToolGrep, SupportLevel::Unsupported);
+    m.insert(Capability::McpClient, SupportLevel::Unsupported);
+    m.insert(Capability::McpServer, SupportLevel::Unsupported);
+    m
+}
+
+// ---------------------------------------------------------------------------
+// Tool-format translation
+// ---------------------------------------------------------------------------
+
+/// A vendor-agnostic tool definition used as the ABP canonical form.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CanonicalToolDef {
+    pub name: String,
+    pub description: String,
+    pub parameters_schema: serde_json::Value,
+}
+
+/// Gemini-style function declaration.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct GeminiFunctionDeclaration {
+    pub name: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+}
+
+/// Convert an ABP canonical tool definition to the Gemini function declaration format.
+#[must_use]
+pub fn tool_def_to_gemini(def: &CanonicalToolDef) -> GeminiFunctionDeclaration {
+    GeminiFunctionDeclaration {
+        name: def.name.clone(),
+        description: def.description.clone(),
+        parameters: def.parameters_schema.clone(),
+    }
+}
+
+/// Convert a Gemini function declaration back to the ABP canonical form.
+#[must_use]
+pub fn tool_def_from_gemini(def: &GeminiFunctionDeclaration) -> CanonicalToolDef {
+    CanonicalToolDef {
+        name: def.name.clone(),
+        description: def.description.clone(),
+        parameters_schema: def.parameters.clone(),
+    }
+}
 
 /// Vendor-specific configuration for the Google Gemini API.
 #[derive(Debug, Clone, Serialize, Deserialize)]
