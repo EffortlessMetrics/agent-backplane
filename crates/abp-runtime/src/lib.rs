@@ -25,6 +25,8 @@ pub mod store;
 pub mod retry;
 /// Telemetry and metrics collection.
 pub mod telemetry;
+/// Budget enforcement for runtime runs.
+pub mod budget;
 pub mod multiplex;
 pub mod hooks;
 

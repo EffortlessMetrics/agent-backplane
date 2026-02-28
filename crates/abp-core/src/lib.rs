@@ -8,6 +8,8 @@
 //!
 //! If you only take one dependency, take this one.
 
+/// Event aggregation and analytics.
+pub mod aggregate;
 /// Receipt chain verification and integrity checking.
 pub mod chain;
 /// Comprehensive error catalog for the Agent Backplane.

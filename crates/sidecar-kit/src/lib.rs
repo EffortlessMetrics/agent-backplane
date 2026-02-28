@@ -19,6 +19,7 @@ pub mod pipeline;
 pub mod process;
 pub mod run;
 pub mod spec;
+pub mod transform;
 
 pub use cancel::CancelToken;
 pub use client::{HelloData, SidecarClient};
@@ -30,3 +31,7 @@ pub use pipeline::{EventPipeline, PipelineError, PipelineStage, RedactStage, Tim
 pub use process::SidecarProcess;
 pub use run::RawRun;
 pub use spec::ProcessSpec;
+pub use transform::{
+    EnrichTransformer, EventTransformer, FilterTransformer, RedactTransformer,
+    ThrottleTransformer, TimestampTransformer, TransformerChain,
+};
