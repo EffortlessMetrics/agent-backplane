@@ -118,7 +118,7 @@ fn all_crates_have_description() {
         if skip.contains(name) {
             continue;
         }
-        if resolve_pkg_field(&ct, &ws, "description").map_or(true, |s| s.is_empty()) {
+        if resolve_pkg_field(&ct, &ws, "description").is_none_or(|s| s.is_empty()) {
             missing.push(name.to_string());
         }
     }
@@ -210,16 +210,17 @@ fn no_path_only_external_dependencies() {
                 let has_version = dep_val.get("version").is_some() || dep_val.is_str();
                 let dep_path = dep_val.get("path").and_then(|v| v.as_str());
 
-                if let Some(rel) = dep_path {
-                    if !has_version && !is_workspace {
-                        let resolved = root.join(dir).join(rel);
-                        let resolved = resolved.canonicalize().unwrap_or(resolved);
-                        let is_member = member_paths.iter().any(|mp| *mp == resolved);
-                        if !is_member {
-                            bad.push(format!(
-                                "{name}: {dep_name} (path-only, not a workspace member)"
-                            ));
-                        }
+                if let Some(rel) = dep_path
+                    && !has_version
+                    && !is_workspace
+                {
+                    let resolved = root.join(dir).join(rel);
+                    let resolved = resolved.canonicalize().unwrap_or(resolved);
+                    let is_member = member_paths.contains(&resolved);
+                    if !is_member {
+                        bad.push(format!(
+                            "{name}: {dep_name} (path-only, not a workspace member)"
+                        ));
                     }
                 }
             }

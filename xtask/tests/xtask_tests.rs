@@ -91,3 +91,73 @@ fn schema_still_works() {
     assert!(tmp.path().join("work_order.schema.json").exists());
     assert!(tmp.path().join("receipt.schema.json").exists());
 }
+
+#[test]
+fn audit_subcommand_exists() {
+    xtask()
+        .arg("audit")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("quality").or(predicate::str::contains("unused")));
+}
+
+#[test]
+fn stats_subcommand_exists() {
+    xtask()
+        .arg("stats")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("statistic").or(predicate::str::contains("LOC")));
+}
+
+#[test]
+fn unknown_subcommand_errors() {
+    xtask()
+        .arg("nonexistent-command")
+        .assert()
+        .failure();
+}
+
+#[test]
+fn no_subcommand_shows_usage() {
+    xtask()
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Usage"));
+}
+
+#[test]
+fn help_lists_all_subcommands() {
+    xtask()
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("schema"))
+        .stdout(predicate::str::contains("audit"))
+        .stdout(predicate::str::contains("stats"));
+}
+
+#[test]
+fn stats_shows_expected_format() {
+    xtask()
+        .arg("stats")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("crates:"))
+        .stdout(predicate::str::contains("LOC"))
+        .stdout(predicate::str::contains("TOTAL"))
+        .stdout(predicate::str::contains("dependency tree depth"));
+}
+
+#[test]
+fn audit_runs_successfully() {
+    xtask()
+        .arg("audit")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("required fields"))
+        .stdout(predicate::str::contains("version consistency"))
+        .stdout(predicate::str::contains("unused dependencies"));
+}

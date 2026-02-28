@@ -5,15 +5,23 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest,
-    ContextPacket, ContextSnippet, ExecutionMode, Outcome, PolicyProfile,
-    Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
-    receipt_hash, filter::EventFilter,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet,
+    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
+    RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    chain::ReceiptChain,
+    ext::{AgentEventExt, ReceiptExt, WorkOrderExt},
+    filter::EventFilter,
+    receipt_hash,
+    stream::EventStream,
+    validate::validate_receipt,
 };
 use abp_integrations::{Backend, MockBackend};
 use abp_policy::PolicyEngine;
+use abp_policy::audit::{PolicyAuditor, PolicyDecision};
 use abp_runtime::store::ReceiptStore;
 use abp_runtime::{Runtime, RuntimeError};
+use abp_workspace::template::{TemplateRegistry, WorkspaceTemplate};
 use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
@@ -888,4 +896,940 @@ async fn scenario_concurrent_mixed_backends() {
     let backend_ids: Vec<_> = receipts.iter().map(|r| r.backend.id.as_str()).collect();
     assert!(backend_ids.contains(&"mock"));
     assert!(backend_ids.contains(&"tool-call-mock"));
+}
+
+// ===========================================================================
+// 15. Simple task execution — minimal WorkOrder → MockBackend → Receipt
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_simple_task_execution() {
+    let rt = Runtime::with_default_backends();
+    let wo = WorkOrderBuilder::new("say hello")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (events, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    assert_eq!(receipt.outcome, Outcome::Complete);
+    assert_eq!(receipt.backend.id, "mock");
+    assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
+    assert!(receipt.receipt_sha256.is_some());
+    assert_eq!(
+        receipt.receipt_sha256.as_deref(),
+        Some(receipt_hash(&receipt).unwrap().as_str())
+    );
+    assert!(!events.is_empty());
+    assert!(receipt.meta.duration_ms < 30_000);
+}
+
+// ===========================================================================
+// 16. Task with staged workspace — create files → stage → run → verify diff
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_task_with_staged_workspace() {
+    let src_dir = tempfile::tempdir().unwrap();
+    std::fs::write(src_dir.path().join("main.rs"), "fn main() {}").unwrap();
+    std::fs::create_dir_all(src_dir.path().join("src")).unwrap();
+    std::fs::write(src_dir.path().join("src").join("lib.rs"), "// lib").unwrap();
+
+    let rt = Runtime::with_default_backends();
+    let wo = WorkOrderBuilder::new("refactor staged workspace")
+        .root(src_dir.path().to_str().unwrap())
+        .workspace_mode(WorkspaceMode::Staged)
+        .build();
+
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    assert_eq!(receipt.outcome, Outcome::Complete);
+    // Staged workspace produces git verification metadata.
+    // git_diff and git_status should be set (possibly empty string for clean workspace).
+    assert!(receipt.verification.git_diff.is_some());
+    assert!(receipt.verification.git_status.is_some());
+    assert!(receipt.receipt_sha256.is_some());
+}
+
+// ===========================================================================
+// 17. Task with policy — restrict tools → run → verify policy applied
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_task_with_policy_applied() {
+    let policy = PolicyProfile {
+        allowed_tools: vec!["Read".into(), "Grep".into()],
+        disallowed_tools: vec!["Bash".into(), "Write".into()],
+        deny_write: vec!["**/.git/**".into()],
+        ..PolicyProfile::default()
+    };
+
+    let engine = PolicyEngine::new(&policy).unwrap();
+    assert!(engine.can_use_tool("Read").allowed);
+    assert!(engine.can_use_tool("Grep").allowed);
+    assert!(!engine.can_use_tool("Bash").allowed);
+    assert!(!engine.can_use_tool("Write").allowed);
+    assert!(!engine.can_write_path(Path::new(".git/config")).allowed);
+    assert!(engine.can_write_path(Path::new("src/main.rs")).allowed);
+
+    // Pipeline still completes with policy attached.
+    let rt = Runtime::with_default_backends();
+    let wo = WorkOrderBuilder::new("read-only task with policy")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .policy(policy)
+        .build();
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    assert_eq!(receipt.unwrap().outcome, Outcome::Complete);
+}
+
+// ===========================================================================
+// 18. Multi-step execution — first receipt feeds second run's context
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_multi_step_chained_execution() {
+    let rt = Runtime::with_default_backends();
+
+    // Step 1.
+    let wo1 = WorkOrderBuilder::new("step 1: analyze")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle1 = rt.run_streaming("mock", wo1).await.unwrap();
+    let (_, receipt1) = drain_run(handle1).await;
+    let receipt1 = receipt1.unwrap();
+    let r1_hash = receipt1.receipt_sha256.clone().unwrap();
+
+    // Step 2: reference step 1's receipt hash.
+    let wo2 = WorkOrderBuilder::new("step 2: implement based on analysis")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .context(ContextPacket {
+            files: vec![],
+            snippets: vec![ContextSnippet {
+                name: "prior-receipt-hash".into(),
+                content: r1_hash.clone(),
+            }],
+        })
+        .build();
+    let handle2 = rt.run_streaming("mock", wo2).await.unwrap();
+    let (_, receipt2) = drain_run(handle2).await;
+    let receipt2 = receipt2.unwrap();
+
+    assert_ne!(receipt1.meta.run_id, receipt2.meta.run_id);
+    assert_eq!(receipt1.outcome, Outcome::Complete);
+    assert_eq!(receipt2.outcome, Outcome::Complete);
+    // Both have valid hashes.
+    assert_eq!(r1_hash, receipt_hash(&receipt1).unwrap());
+    assert!(receipt2.receipt_sha256.is_some());
+}
+
+// ===========================================================================
+// 19. Capability negotiation — require cap that MockBackend supports
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_capability_negotiation_pass() {
+    let rt = Runtime::with_default_backends();
+
+    // MockBackend supports Streaming (Native) and ToolRead (Emulated).
+    let wo = WorkOrderBuilder::new("task requiring streaming")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .requirements(CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Native,
+            }],
+        })
+        .build();
+
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    assert_eq!(receipt.unwrap().outcome, Outcome::Complete);
+}
+
+// ===========================================================================
+// 20. Capability negotiation — require cap MockBackend lacks → fail
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_capability_negotiation_fail() {
+    let rt = Runtime::with_default_backends();
+
+    // MockBackend does NOT support McpClient.
+    let wo = WorkOrderBuilder::new("task requiring MCP")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .requirements(CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::McpClient,
+                min_support: MinSupport::Native,
+            }],
+        })
+        .build();
+
+    match rt.run_streaming("mock", wo).await {
+        Err(RuntimeError::CapabilityCheckFailed(msg)) => {
+            assert!(msg.contains("McpClient"));
+        }
+        Err(e) => panic!("expected CapabilityCheckFailed, got {e:?}"),
+        Ok(_) => panic!("expected CapabilityCheckFailed, got Ok"),
+    }
+}
+
+// ===========================================================================
+// 21. Receipt chain — 3 sequential runs → build chain → verify integrity
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_receipt_chain_integrity() {
+    let rt = Runtime::with_default_backends();
+    let mut chain = ReceiptChain::new();
+
+    for i in 0..3 {
+        let wo = WorkOrderBuilder::new(format!("chain step {i}"))
+            .workspace_mode(WorkspaceMode::PassThrough)
+            .build();
+        let handle = rt.run_streaming("mock", wo).await.unwrap();
+        let (_, receipt) = drain_run(handle).await;
+        let receipt = receipt.unwrap();
+        chain.push(receipt).unwrap();
+    }
+
+    assert_eq!(chain.len(), 3);
+    assert!(!chain.is_empty());
+    chain.verify().unwrap();
+    assert!((chain.success_rate() - 1.0).abs() < f64::EPSILON);
+    assert!(chain.total_events() > 0);
+    assert!(chain.duration_range().is_some());
+
+    // Each receipt in chain is findable by its run_id.
+    for r in chain.iter() {
+        assert!(chain.find_by_id(&r.meta.run_id).is_some());
+    }
+    // All from "mock" backend.
+    assert_eq!(chain.find_by_backend("mock").len(), 3);
+}
+
+// ===========================================================================
+// 22. Config override — default + per-run overrides merged
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_config_override() {
+    let rt = Runtime::with_default_backends();
+
+    let mut vendor = BTreeMap::new();
+    vendor.insert("custom_key".to_string(), serde_json::json!("custom_value"));
+    vendor.insert(
+        "abp".to_string(),
+        serde_json::json!({"mode": "passthrough"}),
+    );
+
+    let wo = WorkOrderBuilder::new("config override test")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .model("gpt-4-turbo")
+        .max_turns(5)
+        .max_budget_usd(1.50)
+        .config(RuntimeConfig {
+            model: Some("gpt-4-turbo".into()),
+            vendor,
+            max_budget_usd: Some(1.50),
+            max_turns: Some(5),
+            ..Default::default()
+        })
+        .build();
+
+    assert_eq!(wo.config.model.as_deref(), Some("gpt-4-turbo"));
+    assert_eq!(wo.config.max_turns, Some(5));
+    assert_eq!(wo.config.max_budget_usd, Some(1.50));
+    assert!(wo.config.vendor.contains_key("custom_key"));
+
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+    // Passthrough mode applied via vendor config.
+    assert_eq!(receipt.mode, ExecutionMode::Passthrough);
+    assert_eq!(receipt.outcome, Outcome::Complete);
+}
+
+// ===========================================================================
+// 23. Error recovery — backend fails → RuntimeError returned
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_backend_error_receipt() {
+    let mut rt = Runtime::new();
+    rt.register_backend("failing", FailingBackend);
+
+    let wo = WorkOrderBuilder::new("doomed task")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("failing", wo).await.unwrap();
+    let (events, receipt) = drain_run(handle).await;
+
+    assert!(receipt.is_err());
+    match receipt.unwrap_err() {
+        RuntimeError::BackendFailed(e) => {
+            assert!(e.to_string().contains("intentional failure"));
+        }
+        other => panic!("expected BackendFailed, got {other:?}"),
+    }
+    // No events emitted by failing backend.
+    assert!(events.is_empty());
+}
+
+// ===========================================================================
+// 24. Large task — 50KB description through full pipeline
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_large_task_50kb() {
+    let large_task = "z".repeat(50 * 1024);
+    let rt = Runtime::with_default_backends();
+
+    let wo = WorkOrderBuilder::new(large_task.clone())
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    assert_eq!(wo.task.len(), 50 * 1024);
+
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    assert_eq!(receipt.outcome, Outcome::Complete);
+    let hash = receipt.receipt_sha256.as_ref().unwrap();
+    assert_eq!(hash.len(), 64);
+    assert_eq!(hash, &receipt_hash(&receipt).unwrap());
+}
+
+// ===========================================================================
+// 25. Concurrent executions — 5 runs in parallel → all succeed
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_five_concurrent_runs() {
+    let rt = Runtime::with_default_backends();
+    let mut handles = Vec::new();
+
+    for i in 0..5 {
+        let wo = WorkOrderBuilder::new(format!("parallel task {i}"))
+            .workspace_mode(WorkspaceMode::PassThrough)
+            .build();
+        handles.push(rt.run_streaming("mock", wo).await.unwrap());
+    }
+
+    let mut run_ids = std::collections::HashSet::new();
+    for handle in handles {
+        let (events, receipt) = drain_run(handle).await;
+        let receipt = receipt.unwrap();
+        assert_eq!(receipt.outcome, Outcome::Complete);
+        assert!(!events.is_empty());
+        run_ids.insert(receipt.meta.run_id);
+    }
+    assert_eq!(run_ids.len(), 5, "all run IDs must be unique");
+}
+
+// ===========================================================================
+// 26. Event stream combinator — collect → EventStream → analyze
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_event_stream_combinator() {
+    let mut rt = Runtime::new();
+    rt.register_backend("tool-mock", ToolCallBackend);
+
+    let wo = WorkOrderBuilder::new("event stream analysis")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("tool-mock", wo).await.unwrap();
+    let (events, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+    assert_eq!(receipt.outcome, Outcome::Complete);
+
+    let stream = EventStream::new(events);
+    assert!(!stream.is_empty());
+
+    // Filter by kind.
+    let tool_calls = stream.by_kind("tool_call");
+    assert_eq!(tool_calls.len(), 3);
+
+    let tool_results = stream.by_kind("tool_result");
+    assert_eq!(tool_results.len(), 3);
+
+    // Count by kind.
+    let counts = stream.count_by_kind();
+    assert_eq!(counts.get("run_started"), Some(&1));
+    assert_eq!(counts.get("run_completed"), Some(&1));
+    assert_eq!(counts.get("tool_call"), Some(&3));
+    assert_eq!(counts.get("tool_result"), Some(&3));
+
+    // First/last of kind.
+    assert!(stream.first_of_kind("run_started").is_some());
+    assert!(stream.last_of_kind("run_completed").is_some());
+
+    // Filter with EventFilter.
+    let filter = EventFilter::include_kinds(&["file_changed"]);
+    let file_changes = stream.filter(&filter);
+    assert_eq!(file_changes.len(), 1);
+}
+
+// ===========================================================================
+// 27. Extension trait usage — ReceiptExt and WorkOrderExt helpers
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_extension_trait_usage() {
+    let mut rt = Runtime::new();
+    rt.register_backend("tool-mock", ToolCallBackend);
+
+    let wo = WorkOrderBuilder::new("implement a code fix for the login module")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .max_turns(10)
+        .requirements(CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Native,
+            }],
+        })
+        .build();
+
+    // WorkOrderExt.
+    assert!(wo.is_code_task());
+    assert_eq!(wo.tool_budget_remaining(), Some(10));
+    assert!(wo.has_capability(&Capability::Streaming));
+    assert!(!wo.has_capability(&Capability::McpClient));
+    let summary = wo.task_summary(20);
+    assert!(summary.chars().count() <= 21); // 20 chars + ellipsis
+    let caps = wo.required_capabilities();
+    assert!(caps.contains(&Capability::Streaming));
+
+    let handle = rt.run_streaming("tool-mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    // ReceiptExt.
+    assert!(receipt.is_success());
+    assert!(!receipt.is_failure());
+    assert!(!receipt.has_errors());
+    assert_eq!(receipt.total_tool_calls(), 3);
+    assert_eq!(receipt.tool_calls().len(), 3);
+    assert_eq!(receipt.assistant_messages().len(), 1);
+    assert!(receipt.duration_secs() >= 0.0);
+
+    let kind_counts = receipt.event_count_by_kind();
+    assert!(kind_counts.contains_key("tool_call"));
+    assert!(kind_counts.contains_key("run_started"));
+
+    // AgentEventExt.
+    let first = &receipt.trace[0];
+    assert!(!first.is_tool_call());
+    let last = receipt.trace.last().unwrap();
+    assert!(last.is_terminal());
+}
+
+// ===========================================================================
+// 28. Receipt serialization round-trip — JSON → file → load → verify hash
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_receipt_serialization_roundtrip() {
+    let store_dir = tempfile::tempdir().unwrap();
+    let store = ReceiptStore::new(store_dir.path());
+    let rt = Runtime::with_default_backends();
+
+    let wo = WorkOrderBuilder::new("serialization test")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+    let original_hash = receipt.receipt_sha256.clone().unwrap();
+
+    // Save to file.
+    let path = store.save(&receipt).unwrap();
+    assert!(path.exists());
+
+    // Load from file.
+    let loaded = store.load(receipt.meta.run_id).unwrap();
+    assert_eq!(loaded.receipt_sha256.as_deref(), Some(original_hash.as_str()));
+
+    // Recompute hash matches.
+    let recomputed = receipt_hash(&loaded).unwrap();
+    assert_eq!(recomputed, original_hash);
+    assert!(store.verify(receipt.meta.run_id).unwrap());
+
+    // Also test raw JSON round-trip.
+    let json = serde_json::to_string_pretty(&receipt).unwrap();
+    let from_json: Receipt = serde_json::from_str(&json).unwrap();
+    assert_eq!(from_json.receipt_sha256.as_deref(), Some(original_hash.as_str()));
+    assert_eq!(receipt_hash(&from_json).unwrap(), original_hash);
+
+    // validate_receipt passes.
+    validate_receipt(&loaded).unwrap();
+}
+
+// ===========================================================================
+// 29. Policy audit trail — check audit entries via PolicyAuditor
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_policy_audit_trail() {
+    let policy = PolicyProfile {
+        allowed_tools: vec!["Read".into(), "Grep".into()],
+        disallowed_tools: vec!["Bash".into()],
+        deny_read: vec!["**/.env".into()],
+        deny_write: vec!["**/locked/**".into()],
+        ..PolicyProfile::default()
+    };
+
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let mut auditor = PolicyAuditor::new(engine);
+
+    // Perform a series of checks.
+    assert_eq!(auditor.check_tool("Read"), PolicyDecision::Allow);
+    assert_eq!(auditor.check_tool("Grep"), PolicyDecision::Allow);
+    assert!(matches!(auditor.check_tool("Bash"), PolicyDecision::Deny { .. }));
+    assert!(matches!(auditor.check_tool("Write"), PolicyDecision::Deny { .. }));
+
+    assert_eq!(auditor.check_read("src/lib.rs"), PolicyDecision::Allow);
+    assert!(matches!(auditor.check_read(".env"), PolicyDecision::Deny { .. }));
+
+    assert_eq!(auditor.check_write("src/lib.rs"), PolicyDecision::Allow);
+    assert!(matches!(auditor.check_write("locked/data.txt"), PolicyDecision::Deny { .. }));
+
+    // Verify audit log.
+    let entries = auditor.entries();
+    assert_eq!(entries.len(), 8);
+
+    let summary = auditor.summary();
+    assert_eq!(summary.allowed, 4); // Read, Grep, src/lib.rs read, src/lib.rs write
+    assert_eq!(summary.denied, 4); // Bash, Write, .env, locked/data.txt
+
+    assert_eq!(auditor.allowed_count(), 4);
+    assert_eq!(auditor.denied_count(), 4);
+
+    // Entries have timestamps and action types.
+    assert_eq!(entries[0].action, "tool");
+    assert_eq!(entries[0].resource, "Read");
+    assert_eq!(entries[4].action, "read");
+    assert_eq!(entries[6].action, "write");
+}
+
+// ===========================================================================
+// 30. Backend metrics — run 3 times → check metrics snapshot
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_backend_metrics_three_runs() {
+    let rt = Runtime::with_default_backends();
+    let initial = rt.metrics().snapshot();
+    assert_eq!(initial.total_runs, 0);
+
+    for i in 0..3 {
+        let wo = WorkOrderBuilder::new(format!("metrics run {i}"))
+            .workspace_mode(WorkspaceMode::PassThrough)
+            .build();
+        let handle = rt.run_streaming("mock", wo).await.unwrap();
+        let (_, receipt) = drain_run(handle).await;
+        receipt.unwrap();
+    }
+
+    let snap = rt.metrics().snapshot();
+    assert_eq!(snap.total_runs, 3);
+    assert_eq!(snap.successful_runs, 3);
+    assert_eq!(snap.failed_runs, 0);
+    assert!(snap.total_events > 0);
+    // Average duration should be non-negative.
+    assert!(snap.average_run_duration_ms < 30_000);
+}
+
+// ===========================================================================
+// 31. Version compatibility — CONTRACT_VERSION through full pipeline
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_version_compatibility() {
+    let rt = Runtime::with_default_backends();
+
+    let wo = WorkOrderBuilder::new("version check")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
+    assert_eq!(receipt.meta.contract_version, "abp/v0.1");
+
+    // JSON round-trip preserves version.
+    let json = serde_json::to_string(&receipt).unwrap();
+    assert!(json.contains("abp/v0.1"));
+    let loaded: Receipt = serde_json::from_str(&json).unwrap();
+    assert_eq!(loaded.meta.contract_version, CONTRACT_VERSION);
+
+    // ReceiptBuilder also stamps the version.
+    let built = ReceiptBuilder::new("test")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    assert_eq!(built.meta.contract_version, CONTRACT_VERSION);
+}
+
+// ===========================================================================
+// 32. Empty configuration — minimal work order still works
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_empty_configuration() {
+    let rt = Runtime::with_default_backends();
+
+    // Truly minimal: just a task string, all defaults.
+    let wo = WorkOrderBuilder::new("minimal")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+
+    assert!(wo.config.model.is_none());
+    assert!(wo.config.max_turns.is_none());
+    assert!(wo.config.max_budget_usd.is_none());
+    assert!(wo.config.vendor.is_empty());
+    assert!(wo.config.env.is_empty());
+    assert!(wo.policy.allowed_tools.is_empty());
+    assert!(wo.policy.disallowed_tools.is_empty());
+    assert!(wo.requirements.required.is_empty());
+    assert!(wo.context.files.is_empty());
+    assert!(wo.context.snippets.is_empty());
+
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (events, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    assert_eq!(receipt.outcome, Outcome::Complete);
+    assert!(!events.is_empty());
+    assert!(receipt.receipt_sha256.is_some());
+    validate_receipt(&receipt).unwrap();
+}
+
+// ===========================================================================
+// 33. Custom vendor config — pass-through vendor config survives pipeline
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_custom_vendor_config() {
+    let rt = Runtime::with_default_backends();
+
+    let mut vendor = BTreeMap::new();
+    vendor.insert(
+        "my_sdk".to_string(),
+        serde_json::json!({
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "stop_sequences": ["END"]
+        }),
+    );
+    vendor.insert("debug".to_string(), serde_json::json!(true));
+
+    let wo = WorkOrderBuilder::new("vendor config test")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .config(RuntimeConfig {
+            vendor: vendor.clone(),
+            model: Some("custom-model".into()),
+            ..Default::default()
+        })
+        .build();
+
+    // Vendor config is preserved in work order.
+    assert_eq!(wo.config.vendor.get("debug"), Some(&serde_json::json!(true)));
+    let sdk = wo.config.vendor.get("my_sdk").unwrap();
+    assert_eq!(sdk["temperature"], 0.7);
+
+    // WorkOrderExt::vendor_config lookup.
+    assert!(wo.vendor_config("my_sdk").is_some());
+    assert!(wo.vendor_config("nonexistent").is_none());
+
+    // Work order serializes/deserializes with vendor config intact.
+    let json = serde_json::to_string(&wo).unwrap();
+    let loaded: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(loaded.config.vendor.get("debug"), Some(&serde_json::json!(true)));
+
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    assert_eq!(receipt.unwrap().outcome, Outcome::Complete);
+}
+
+// ===========================================================================
+// 34. Workspace template — apply template → run → verify workspace state
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_workspace_template() {
+    let target_dir = tempfile::tempdir().unwrap();
+
+    // Build a template with some files.
+    let mut template = WorkspaceTemplate::new("rust-project", "Basic Rust project scaffold");
+    template.add_file("src/main.rs", "fn main() {\n    println!(\"hello\");\n}\n");
+    template.add_file("Cargo.toml", "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n");
+    template.add_file("README.md", "# Demo\n");
+
+    assert_eq!(template.file_count(), 3);
+    assert!(template.has_file("src/main.rs"));
+    assert!(!template.has_file("nonexistent.txt"));
+    assert!(template.validate().is_empty());
+
+    // Apply to target directory.
+    let written = template.apply(target_dir.path()).unwrap();
+    assert_eq!(written, 3);
+    assert!(target_dir.path().join("src").join("main.rs").exists());
+    assert!(target_dir.path().join("Cargo.toml").exists());
+    assert!(target_dir.path().join("README.md").exists());
+
+    // Register in a TemplateRegistry.
+    let mut registry = TemplateRegistry::new();
+    registry.register(template);
+    assert_eq!(registry.count(), 1);
+    assert!(registry.get("rust-project").is_some());
+    assert_eq!(registry.list(), vec!["rust-project"]);
+
+    // Use the templated directory as a workspace root.
+    let rt = Runtime::with_default_backends();
+    let wo = WorkOrderBuilder::new("task on template workspace")
+        .root(target_dir.path().to_str().unwrap())
+        .workspace_mode(WorkspaceMode::Staged)
+        .build();
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    assert_eq!(receipt.outcome, Outcome::Complete);
+    assert!(receipt.verification.git_diff.is_some());
+}
+
+// ===========================================================================
+// 35. Receipt validation — valid and invalid receipts
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_receipt_validation() {
+    let rt = Runtime::with_default_backends();
+
+    let wo = WorkOrderBuilder::new("validation test")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    // Valid receipt passes.
+    validate_receipt(&receipt).unwrap();
+
+    // Tampered hash fails validation.
+    let mut tampered = receipt.clone();
+    tampered.receipt_sha256 = Some("0000000000000000000000000000000000000000000000000000000000000000".into());
+    let errors = validate_receipt(&tampered).unwrap_err();
+    assert!(errors.iter().any(|e| matches!(e, abp_core::validate::ValidationError::InvalidHash { .. })));
+
+    // Receipt without hash also passes (hash is optional).
+    let mut no_hash = receipt.clone();
+    no_hash.receipt_sha256 = None;
+    validate_receipt(&no_hash).unwrap();
+}
+
+// ===========================================================================
+// 36. Capability manifest matching — Emulated satisfies Emulated requirement
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_capability_emulated_satisfies() {
+    let rt = Runtime::with_default_backends();
+
+    // MockBackend has ToolRead as Emulated.
+    let wo = WorkOrderBuilder::new("require emulated tool_read")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .requirements(CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::ToolRead,
+                min_support: MinSupport::Emulated,
+            }],
+        })
+        .build();
+
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    assert_eq!(receipt.unwrap().outcome, Outcome::Complete);
+
+    // But requiring Native for an Emulated capability fails.
+    let wo_native = WorkOrderBuilder::new("require native tool_read")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .requirements(CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::ToolRead,
+                min_support: MinSupport::Native,
+            }],
+        })
+        .build();
+
+    match rt.run_streaming("mock", wo_native).await {
+        Err(RuntimeError::CapabilityCheckFailed(_)) => {}
+        Err(e) => panic!("expected CapabilityCheckFailed, got {e:?}"),
+        Ok(_) => panic!("expected CapabilityCheckFailed, got Ok"),
+    }
+}
+
+// ===========================================================================
+// 37. ReceiptBuilder — build receipt directly without runtime
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_receipt_builder_standalone() {
+    let wo_id = Uuid::new_v4();
+    let receipt = ReceiptBuilder::new("custom-backend")
+        .outcome(Outcome::Complete)
+        .work_order_id(wo_id)
+        .backend_version("1.0.0")
+        .adapter_version("0.5.0")
+        .mode(ExecutionMode::Passthrough)
+        .usage_raw(serde_json::json!({"prompt_tokens": 100, "completion_tokens": 50}))
+        .usage(abp_core::UsageNormalized {
+            input_tokens: Some(100),
+            output_tokens: Some(50),
+            estimated_cost_usd: Some(0.01),
+            ..Default::default()
+        })
+        .with_hash()
+        .unwrap();
+
+    assert_eq!(receipt.backend.id, "custom-backend");
+    assert_eq!(receipt.backend.backend_version.as_deref(), Some("1.0.0"));
+    assert_eq!(receipt.backend.adapter_version.as_deref(), Some("0.5.0"));
+    assert_eq!(receipt.meta.work_order_id, wo_id);
+    assert_eq!(receipt.mode, ExecutionMode::Passthrough);
+    assert_eq!(receipt.outcome, Outcome::Complete);
+    assert_eq!(receipt.usage.input_tokens, Some(100));
+    assert!(receipt.receipt_sha256.is_some());
+
+    validate_receipt(&receipt).unwrap();
+    let hash = receipt_hash(&receipt).unwrap();
+    assert_eq!(receipt.receipt_sha256.as_deref(), Some(hash.as_str()));
+}
+
+// ===========================================================================
+// 38. Event text extraction via AgentEventExt
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_event_text_extraction() {
+    let mut rt = Runtime::new();
+    rt.register_backend("tool-mock", ToolCallBackend);
+
+    let wo = WorkOrderBuilder::new("event text extraction")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("tool-mock", wo).await.unwrap();
+    let (events, _) = drain_run(handle).await;
+
+    // Assistant messages have text content.
+    let messages: Vec<_> = events.iter().filter(|e| e.text_content().is_some()).collect();
+    assert!(!messages.is_empty());
+    for msg in &messages {
+        assert!(!msg.text_content().unwrap().is_empty());
+    }
+
+    // Tool call events do not have text content.
+    let tool_calls: Vec<_> = events.iter().filter(|e| e.is_tool_call()).collect();
+    for tc in &tool_calls {
+        assert!(tc.text_content().is_none());
+    }
+
+    // Exactly one terminal event at the end.
+    let terminals: Vec<_> = events.iter().filter(|e| e.is_terminal()).collect();
+    assert_eq!(terminals.len(), 1);
+}
+
+// ===========================================================================
+// 39. SupportLevel::satisfies edge cases
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_support_level_satisfies() {
+    // Native satisfies Native.
+    assert!(SupportLevel::Native.satisfies(&MinSupport::Native));
+    // Native satisfies Emulated.
+    assert!(SupportLevel::Native.satisfies(&MinSupport::Emulated));
+    // Emulated satisfies Emulated.
+    assert!(SupportLevel::Emulated.satisfies(&MinSupport::Emulated));
+    // Emulated does NOT satisfy Native.
+    assert!(!SupportLevel::Emulated.satisfies(&MinSupport::Native));
+    // Unsupported satisfies neither.
+    assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Native));
+    assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
+    // Restricted satisfies Emulated but not Native.
+    let restricted = SupportLevel::Restricted {
+        reason: "policy".into(),
+    };
+    assert!(!restricted.satisfies(&MinSupport::Native));
+    assert!(restricted.satisfies(&MinSupport::Emulated));
+}
+
+// ===========================================================================
+// 40. Receipt chain — duplicate run_id rejected
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_receipt_chain_duplicate_rejected() {
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+
+    let mut chain = ReceiptChain::new();
+    chain.push(receipt.clone()).unwrap();
+
+    // Pushing same receipt (same run_id) again fails.
+    let err = chain.push(receipt).unwrap_err();
+    assert!(matches!(err, abp_core::chain::ChainError::DuplicateId { .. }));
+    assert_eq!(chain.len(), 1);
+}
+
+// ===========================================================================
+// 41. WorkOrder serialization round-trip
+// ===========================================================================
+
+#[tokio::test]
+async fn scenario_work_order_serialization() {
+    let wo = WorkOrderBuilder::new("serialize me")
+        .workspace_mode(WorkspaceMode::Staged)
+        .root("/tmp/test")
+        .model("gpt-4")
+        .max_turns(15)
+        .policy(PolicyProfile {
+            disallowed_tools: vec!["Bash".into()],
+            deny_write: vec!["**/.git/**".into()],
+            ..PolicyProfile::default()
+        })
+        .context(ContextPacket {
+            files: vec!["src/main.rs".into()],
+            snippets: vec![ContextSnippet {
+                name: "hint".into(),
+                content: "focus on error handling".into(),
+            }],
+        })
+        .requirements(CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Native,
+            }],
+        })
+        .build();
+
+    let json = serde_json::to_string_pretty(&wo).unwrap();
+    let loaded: WorkOrder = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(loaded.task, wo.task);
+    assert_eq!(loaded.id, wo.id);
+    assert_eq!(loaded.config.model, wo.config.model);
+    assert_eq!(loaded.config.max_turns, wo.config.max_turns);
+    assert_eq!(loaded.policy.disallowed_tools, wo.policy.disallowed_tools);
+    assert_eq!(loaded.context.files, wo.context.files);
+    assert_eq!(loaded.requirements.required.len(), 1);
 }

@@ -13,6 +13,8 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// Cancellation primitives for runtime runs.
+pub mod cancel;
 /// Processing pipeline for work order pre-processing.
 pub mod pipeline;
 /// Backend registry for named backend lookup.

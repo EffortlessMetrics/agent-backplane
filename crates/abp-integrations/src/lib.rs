@@ -11,6 +11,7 @@
 //! same trait.
 
 pub mod capability;
+pub mod metrics;
 pub mod projection;
 
 use abp_core::{
