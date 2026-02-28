@@ -10,6 +10,10 @@ readme = "README.md"
 keywords = ["agent", "backplane", "ai", "daemon", "server"]
 categories = ["command-line-utilities"]
 
+[lib]
+name = "abp_daemon"
+path = "src/lib.rs"
+
 [[bin]]
 name = "abp-daemon"
 path = "src/main.rs"
@@ -34,3 +38,8 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 axum = "0.8.8"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+tempfile = { workspace = true }
