@@ -1,4 +1,5 @@
 //! Microcrate for wiring the Gemini CLI sidecar into ABP runtimes.
+#![deny(unsafe_code)]
 
 use abp_host::SidecarSpec;
 use abp_integrations::SidecarBackend;

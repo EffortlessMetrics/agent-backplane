@@ -1,4 +1,5 @@
 //! abp-integrations
+#![deny(unsafe_code)]
 //!
 //! Backends are how Agent Backplane talks to the outside world.
 //!

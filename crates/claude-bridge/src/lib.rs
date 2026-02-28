@@ -1,4 +1,5 @@
 //! claude-bridge
+#![deny(unsafe_code)]
 //!
 //! Standalone Claude SDK bridge built on `sidecar-kit` transport.
 //!

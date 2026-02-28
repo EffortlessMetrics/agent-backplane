@@ -1,4 +1,5 @@
 //! abp-core
+#![deny(unsafe_code)]
 //!
 //! The stable contract for Agent Backplane.
 //!

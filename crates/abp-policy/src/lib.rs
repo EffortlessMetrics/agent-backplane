@@ -1,4 +1,5 @@
 //! abp-policy
+#![deny(unsafe_code)]
 //!
 //! Policy evaluation.
 //!

@@ -1,7 +1,6 @@
 use abp_core::*;
 use chrono::{TimeZone, Utc};
 use proptest::prelude::*;
-use serde_json;
 use uuid::Uuid;
 
 // ── Arbitrary strategies ────────────────────────────────────────────

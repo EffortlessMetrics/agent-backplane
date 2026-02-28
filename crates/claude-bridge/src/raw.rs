@@ -57,11 +57,11 @@ pub async fn run_mapped_raw(
     let mut vendor_config = json!({
         "abp.mode": "mapped"
     });
-    if let Some(extra) = &opts.extra_config {
-        if let Some(obj) = extra.as_object() {
-            for (k, v) in obj {
-                vendor_config[k] = v.clone();
-            }
+    if let Some(extra) = &opts.extra_config
+        && let Some(obj) = extra.as_object()
+    {
+        for (k, v) in obj {
+            vendor_config[k] = v.clone();
         }
     }
 

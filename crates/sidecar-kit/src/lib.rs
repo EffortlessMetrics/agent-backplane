@@ -1,4 +1,5 @@
 //! sidecar-kit
+#![deny(unsafe_code)]
 //!
 //! Value-based transport layer for sidecar processes speaking JSONL over stdio.
 //!

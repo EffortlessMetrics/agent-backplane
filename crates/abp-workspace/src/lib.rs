@@ -1,4 +1,5 @@
 //! abp-workspace
+#![deny(unsafe_code)]
 //!
 //! Workspace preparation and harness utilities.
 //!

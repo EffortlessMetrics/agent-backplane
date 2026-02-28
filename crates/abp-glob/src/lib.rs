@@ -1,4 +1,5 @@
 //! abp-glob
+#![deny(unsafe_code)]
 //!
 //! Focused glob compilation and include/exclude matching utilities.
 

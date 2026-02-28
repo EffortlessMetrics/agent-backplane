@@ -120,9 +120,8 @@ fn git_status_on_staged_workspace_is_clean() {
     let prepared = WorkspaceManager::prepare(&spec).unwrap();
 
     let status = WorkspaceManager::git_status(prepared.path());
-    match status {
-        Some(s) => assert!(s.trim().is_empty(), "expected clean status, got: {s}"),
-        None => {} // also acceptable if git not available
+    if let Some(s) = status {
+        assert!(s.trim().is_empty(), "expected clean status, got: {s}");
     }
 }
 
@@ -136,9 +135,8 @@ fn git_diff_on_clean_workspace_is_empty() {
     let prepared = WorkspaceManager::prepare(&spec).unwrap();
 
     let diff = WorkspaceManager::git_diff(prepared.path());
-    match diff {
-        Some(d) => assert!(d.trim().is_empty(), "expected empty diff, got: {d}"),
-        None => {}
+    if let Some(d) = diff {
+        assert!(d.trim().is_empty(), "expected empty diff, got: {d}");
     }
 }
 

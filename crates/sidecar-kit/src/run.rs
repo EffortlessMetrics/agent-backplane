@@ -34,6 +34,8 @@ impl Drop for RawRun {
 impl RawRun {
     /// Consume the `RawRun` and return its constituent parts, disabling
     /// the automatic cancel-on-drop behavior.
+    #[allow(clippy::type_complexity)]
+    #[allow(unsafe_code)]
     pub fn into_parts(
         self,
     ) -> (
@@ -116,11 +118,11 @@ impl RawRun {
                                 break;
                             }
                             Ok(Some(Frame::Fatal { ref_id, error })) => {
-                                if let Some(ref rid) = ref_id {
-                                    if *rid != run_id {
-                                        warn!(target: "sidecar_kit", "dropping fatal for other run_id={rid}");
-                                        continue;
-                                    }
+                                if let Some(ref rid) = ref_id
+                                    && *rid != run_id
+                                {
+                                    warn!(target: "sidecar_kit", "dropping fatal for other run_id={rid}");
+                                    continue;
                                 }
                                 let _ = result_tx.send(Err(SidecarError::Fatal(error)));
                                 break;

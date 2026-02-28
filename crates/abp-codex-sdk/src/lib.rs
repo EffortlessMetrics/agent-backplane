@@ -1,4 +1,5 @@
 //! Microcrate for wiring the OpenAI Codex sidecar into ABP runtimes.
+#![deny(unsafe_code)]
 
 use abp_host::SidecarSpec;
 use abp_integrations::SidecarBackend;
