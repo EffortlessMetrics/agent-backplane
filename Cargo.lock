@@ -6,10 +6,14 @@ version = 4
 name = "abp-claude-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-core",
  "abp-host",
  "abp-integrations",
  "abp-runtime",
  "anyhow",
+ "chrono",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -42,10 +46,14 @@ dependencies = [
 name = "abp-codex-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-core",
  "abp-host",
  "abp-integrations",
  "abp-runtime",
  "anyhow",
+ "chrono",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -96,10 +104,14 @@ dependencies = [
 name = "abp-gemini-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-core",
  "abp-host",
  "abp-integrations",
  "abp-runtime",
  "anyhow",
+ "chrono",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -148,10 +160,14 @@ dependencies = [
 name = "abp-kimi-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-core",
  "abp-host",
  "abp-integrations",
  "abp-runtime",
  "anyhow",
+ "chrono",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -202,6 +218,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -536,8 +553,10 @@ version = "0.1.0"
 dependencies = [
  "abp-core",
  "futures",
+ "proptest",
  "serde_json",
  "sidecar-kit",
+ "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",

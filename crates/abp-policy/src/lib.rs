@@ -25,6 +25,7 @@ pub struct Decision {
 
 impl Decision {
     /// Create a permissive decision with no reason.
+    #[must_use]
     pub fn allow() -> Self {
         Self {
             allowed: true,
@@ -33,6 +34,7 @@ impl Decision {
     }
 
     /// Create a denial decision with a human-readable reason.
+    #[must_use]
     pub fn deny(reason: impl Into<String>) -> Self {
         Self {
             allowed: false,
@@ -73,6 +75,10 @@ impl PolicyEngine {
     /// assert!(engine.can_use_tool("Read").allowed);
     /// assert!(!engine.can_write_path(Path::new(".git/config")).allowed);
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any glob pattern in the policy is syntactically invalid.
     pub fn new(policy: &PolicyProfile) -> Result<Self> {
         let no_include: &[String] = &[];
         Ok(Self {
@@ -86,6 +92,7 @@ impl PolicyEngine {
     }
 
     /// Check whether `tool_name` is permitted by the allow/deny tool rules.
+    #[must_use]
     pub fn can_use_tool(&self, tool_name: &str) -> Decision {
         match self.tool_rules.decide_str(tool_name) {
             MatchDecision::Allowed => Decision::allow(),
@@ -99,6 +106,7 @@ impl PolicyEngine {
     }
 
     /// Check whether reading `rel_path` is permitted.
+    #[must_use]
     pub fn can_read_path(&self, rel_path: &Path) -> Decision {
         let s = rel_path.to_string_lossy();
         if !self.deny_read.decide_path(rel_path).is_allowed() {
@@ -108,6 +116,7 @@ impl PolicyEngine {
     }
 
     /// Check whether writing `rel_path` is permitted.
+    #[must_use]
     pub fn can_write_path(&self, rel_path: &Path) -> Decision {
         let s = rel_path.to_string_lossy();
         if !self.deny_write.decide_path(rel_path).is_allowed() {

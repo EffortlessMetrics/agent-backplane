@@ -251,6 +251,7 @@ pub enum SupportLevel {
 
 impl SupportLevel {
     /// Returns `true` if this support level meets or exceeds `min`.
+    #[must_use]
     pub fn satisfies(&self, min: &MinSupport) -> bool {
         match (min, self) {
             (MinSupport::Native, SupportLevel::Native) => true,
@@ -480,12 +481,17 @@ pub enum ContractError {
 /// This is not a full JCS implementation, but it is stable for our types:
 /// - keys are sorted (serde_json Map is a BTreeMap by default)
 /// - numbers are serialized consistently by serde_json
+///
+/// # Errors
+///
+/// Returns [`ContractError::Json`] if the value cannot be serialized.
 pub fn canonical_json<T: Serialize>(value: &T) -> Result<String, ContractError> {
     let v = serde_json::to_value(value)?;
     Ok(serde_json::to_string(&v)?)
 }
 
 /// Compute the hex-encoded SHA-256 digest of `bytes`.
+#[must_use]
 pub fn sha256_hex(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
@@ -536,6 +542,10 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 /// // Hashing is deterministic — same receipt produces same hash.
 /// assert_eq!(hash, receipt_hash(&receipt).unwrap());
 /// ```
+///
+/// # Errors
+///
+/// Returns [`ContractError::Json`] if the receipt cannot be serialized.
 pub fn receipt_hash(receipt: &Receipt) -> Result<String, ContractError> {
     // Important: `receipt_sha256` must not influence the hash input, otherwise
     // the stored hash becomes self-inconsistent.
@@ -583,6 +593,7 @@ pub struct WorkOrderBuilder {
 }
 
 impl WorkOrderBuilder {
+    #[must_use]
     pub fn new(task: impl Into<String>) -> Self {
         Self {
             task: task.into(),
@@ -598,55 +609,68 @@ impl WorkOrderBuilder {
         }
     }
 
+    #[must_use]
     pub fn lane(mut self, lane: ExecutionLane) -> Self {
         self.lane = lane;
         self
     }
+    #[must_use]
     pub fn root(mut self, root: impl Into<String>) -> Self {
         self.root = root.into();
         self
     }
+    #[must_use]
     pub fn workspace_mode(mut self, mode: WorkspaceMode) -> Self {
         self.workspace_mode = mode;
         self
     }
+    #[must_use]
     pub fn include(mut self, patterns: Vec<String>) -> Self {
         self.include = patterns;
         self
     }
+    #[must_use]
     pub fn exclude(mut self, patterns: Vec<String>) -> Self {
         self.exclude = patterns;
         self
     }
+    #[must_use]
     pub fn context(mut self, ctx: ContextPacket) -> Self {
         self.context = ctx;
         self
     }
+    #[must_use]
     pub fn policy(mut self, policy: PolicyProfile) -> Self {
         self.policy = policy;
         self
     }
+    #[must_use]
     pub fn requirements(mut self, reqs: CapabilityRequirements) -> Self {
         self.requirements = reqs;
         self
     }
+    #[must_use]
     pub fn config(mut self, config: RuntimeConfig) -> Self {
         self.config = config;
         self
     }
+    #[must_use]
     pub fn model(mut self, model: impl Into<String>) -> Self {
         self.config.model = Some(model.into());
         self
     }
+    #[must_use]
     pub fn max_budget_usd(mut self, budget: f64) -> Self {
         self.config.max_budget_usd = Some(budget);
         self
     }
+    #[must_use]
     pub fn max_turns(mut self, turns: u32) -> Self {
         self.config.max_turns = Some(turns);
         self
     }
 
+    #[must_use]
     pub fn build(self) -> WorkOrder {
         WorkOrder {
             id: Uuid::new_v4(),
@@ -668,6 +692,10 @@ impl WorkOrderBuilder {
 
 impl Receipt {
     /// Compute and attach the canonical SHA-256 hash, returning the updated receipt.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ContractError::Json`] if the receipt cannot be serialized.
     pub fn with_hash(mut self) -> Result<Self, ContractError> {
         // Ensure we hash the canonical form (receipt_sha256 treated as null).
         let h = receipt_hash(&self)?;

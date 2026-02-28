@@ -21,6 +21,7 @@ pub enum MatchDecision {
 
 impl MatchDecision {
     /// Returns `true` only for [`MatchDecision::Allowed`].
+    #[must_use]
     pub fn is_allowed(self) -> bool {
         matches!(self, Self::Allowed)
     }
@@ -54,6 +55,10 @@ impl IncludeExcludeGlobs {
     /// assert_eq!(globs.decide_str("src/generated/out.rs"), MatchDecision::DeniedByExclude);
     /// assert_eq!(globs.decide_str("README.md"), MatchDecision::DeniedByMissingInclude);
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any glob pattern is syntactically invalid.
     pub fn new(include: &[String], exclude: &[String]) -> Result<Self> {
         Ok(Self {
             include: build_globset(include)?,
@@ -62,6 +67,7 @@ impl IncludeExcludeGlobs {
     }
 
     /// Evaluate a [`Path`] against the compiled glob rules.
+    #[must_use]
     pub fn decide_path(&self, candidate: &Path) -> MatchDecision {
         if self
             .exclude
@@ -81,12 +87,17 @@ impl IncludeExcludeGlobs {
     }
 
     /// Convenience wrapper around [`decide_path`](Self::decide_path) for string slices.
+    #[must_use]
     pub fn decide_str(&self, candidate: &str) -> MatchDecision {
         self.decide_path(Path::new(candidate))
     }
 }
 
 /// Compile a list of glob patterns into a [`GlobSet`], returning `None` for empty input.
+///
+/// # Errors
+///
+/// Returns an error if any pattern is not a valid glob.
 pub fn build_globset(patterns: &[String]) -> Result<Option<GlobSet>> {
     if patterns.is_empty() {
         return Ok(None);

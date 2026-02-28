@@ -19,10 +19,10 @@ pub enum SidecarError {
     Protocol(String),
 
     #[error("serialization error: {0}")]
-    Serialize(String),
+    Serialize(#[source] serde_json::Error),
 
     #[error("deserialization error: {0}")]
-    Deserialize(String),
+    Deserialize(#[source] serde_json::Error),
 
     #[error("sidecar fatal error: {0}")]
     Fatal(String),

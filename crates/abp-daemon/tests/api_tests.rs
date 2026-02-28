@@ -294,3 +294,56 @@ async fn get_receipt_unknown_returns_404() {
 
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn sse_events_returns_200_with_correct_content_type() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+    let run_id = Uuid::nil();
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/runs/{}/events", run_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(
+        ct.contains("text/event-stream"),
+        "expected SSE content type, got: {ct}"
+    );
+}
+
+#[tokio::test]
+async fn sse_stream_contains_event() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+    let run_id = Uuid::nil();
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/runs/{}/events", run_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let text = String::from_utf8_lossy(&body);
+    assert!(
+        text.contains("data: ping"),
+        "expected SSE data field, got: {text}"
+    );
+}

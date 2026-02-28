@@ -30,6 +30,7 @@ pub struct PreparedWorkspace {
 
 impl PreparedWorkspace {
     /// Returns the root path of the prepared workspace.
+    #[must_use]
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -45,6 +46,11 @@ impl WorkspaceManager {
     /// In [`WorkspaceMode::PassThrough`] mode the original path is used directly.
     /// In [`WorkspaceMode::Staged`] mode a filtered copy is created in a temp
     /// directory and a fresh git repo is initialised for meaningful diffs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the temp directory cannot be created, glob patterns
+    /// are invalid, or the file copy fails.
     pub fn prepare(spec: &WorkspaceSpec) -> Result<PreparedWorkspace> {
         let root = PathBuf::from(&spec.root);
         match spec.mode {
@@ -73,11 +79,13 @@ impl WorkspaceManager {
     }
 
     /// Run `git status --porcelain=v1` in the workspace, returning `None` on failure.
+    #[must_use]
     pub fn git_status(path: &Path) -> Option<String> {
         run_git(path, &["status", "--porcelain=v1"]).ok()
     }
 
     /// Run `git diff --no-color` in the workspace, returning `None` on failure.
+    #[must_use]
     pub fn git_diff(path: &Path) -> Option<String> {
         run_git(path, &["diff", "--no-color"]).ok()
     }

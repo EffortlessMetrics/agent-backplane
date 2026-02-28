@@ -437,14 +437,18 @@ fn error_protocol_display() {
 
 #[test]
 fn error_serialize_display() {
-    let e = SidecarError::Serialize("failed".into());
-    assert_eq!(e.to_string(), "serialization error: failed");
+    let serde_err = serde_json::from_str::<()>("bad json").unwrap_err();
+    let msg = serde_err.to_string();
+    let e = SidecarError::Serialize(serde_err);
+    assert_eq!(e.to_string(), format!("serialization error: {msg}"));
 }
 
 #[test]
 fn error_deserialize_display() {
-    let e = SidecarError::Deserialize("invalid".into());
-    assert_eq!(e.to_string(), "deserialization error: invalid");
+    let serde_err = serde_json::from_str::<()>("bad json").unwrap_err();
+    let msg = serde_err.to_string();
+    let e = SidecarError::Deserialize(serde_err);
+    assert_eq!(e.to_string(), format!("deserialization error: {msg}"));
 }
 
 #[test]

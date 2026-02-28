@@ -19,14 +19,12 @@ pub struct HelloData {
 impl HelloData {
     /// Deserialize the `backend` value into a concrete type.
     pub fn backend_as<T: DeserializeOwned>(&self) -> Result<T, SidecarError> {
-        serde_json::from_value(self.backend.clone())
-            .map_err(|e| SidecarError::Deserialize(e.to_string()))
+        serde_json::from_value(self.backend.clone()).map_err(SidecarError::Deserialize)
     }
 
     /// Deserialize the `capabilities` value into a concrete type.
     pub fn capabilities_as<T: DeserializeOwned>(&self) -> Result<T, SidecarError> {
-        serde_json::from_value(self.capabilities.clone())
-            .map_err(|e| SidecarError::Deserialize(e.to_string()))
+        serde_json::from_value(self.capabilities.clone()).map_err(SidecarError::Deserialize)
     }
 }
 

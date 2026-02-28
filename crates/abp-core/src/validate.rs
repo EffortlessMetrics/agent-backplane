@@ -39,6 +39,10 @@ impl std::error::Error for ValidationError {}
 ///
 /// Returns `Ok(())` when the receipt passes all checks, or `Err(errors)` with
 /// every problem found (errors are accumulated, not short-circuited).
+///
+/// # Errors
+///
+/// Returns a `Vec<ValidationError>` listing every problem found in the receipt.
 pub fn validate_receipt(receipt: &Receipt) -> Result<(), Vec<ValidationError>> {
     let mut errors = Vec::new();
 

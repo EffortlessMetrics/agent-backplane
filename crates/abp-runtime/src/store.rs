@@ -19,6 +19,10 @@ impl ReceiptStore {
     }
 
     /// Persist a receipt to disk.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the directory cannot be created or the file cannot be written.
     pub fn save(&self, receipt: &Receipt) -> Result<PathBuf> {
         let path = self.receipt_path(receipt.meta.run_id);
         if let Some(parent) = path.parent() {
@@ -31,7 +35,11 @@ impl ReceiptStore {
         Ok(path)
     }
 
-    /// Load a receipt by run_id.
+    /// Load a receipt by `run_id`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be read or parsed.
     pub fn load(&self, run_id: Uuid) -> Result<Receipt> {
         let path = self.receipt_path(run_id);
         let json = std::fs::read_to_string(&path)
@@ -41,6 +49,10 @@ impl ReceiptStore {
     }
 
     /// List all stored receipt run_ids.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the store directory cannot be read.
     pub fn list(&self) -> Result<Vec<Uuid>> {
         let dir = match std::fs::read_dir(&self.root) {
             Ok(d) => d,
@@ -67,6 +79,10 @@ impl ReceiptStore {
     }
 
     /// Verify a receipt's hash matches its stored content.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the receipt cannot be loaded or its hash recomputed.
     pub fn verify(&self, run_id: Uuid) -> Result<bool> {
         let receipt = self.load(run_id)?;
         let computed = abp_core::receipt_hash(&receipt)?;

@@ -79,11 +79,13 @@ pub enum Envelope {
 
 impl Envelope {
     /// Create a `Hello` envelope with the default execution mode (Mapped).
+    #[must_use]
     pub fn hello(backend: BackendIdentity, capabilities: CapabilityManifest) -> Self {
         Self::hello_with_mode(backend, capabilities, ExecutionMode::default())
     }
 
     /// Create a `Hello` envelope with an explicit [`ExecutionMode`].
+    #[must_use]
     pub fn hello_with_mode(
         backend: BackendIdentity,
         capabilities: CapabilityManifest,
@@ -130,6 +132,10 @@ impl JsonlCodec {
     /// let json = JsonlCodec::encode(&envelope).unwrap();
     /// assert!(json.ends_with('\n'));
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProtocolError::Json`] if the envelope cannot be serialized.
     pub fn encode(msg: &Envelope) -> Result<String, ProtocolError> {
         let mut s = serde_json::to_string(msg)?;
         s.push('\n');
@@ -147,6 +153,11 @@ impl JsonlCodec {
     /// let envelope = JsonlCodec::decode(line).unwrap();
     /// assert!(matches!(envelope, Envelope::Fatal { error, .. } if error == "boom"));
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProtocolError::Json`] if the line is not valid JSON or does
+    /// not match any [`Envelope`] variant.
     pub fn decode(line: &str) -> Result<Envelope, ProtocolError> {
         Ok(serde_json::from_str::<Envelope>(line)?)
     }
@@ -159,6 +170,7 @@ impl JsonlCodec {
 /// Parse a version string of the form `"abp/vMAJOR.MINOR"` into `(MAJOR, MINOR)`.
 ///
 /// Returns `None` if the string does not match the expected format.
+#[must_use]
 pub fn parse_version(version: &str) -> Option<(u32, u32)> {
     let rest = version.strip_prefix("abp/v")?;
     let (major_str, minor_str) = rest.split_once('.')?;
@@ -172,6 +184,7 @@ pub fn parse_version(version: &str) -> Option<(u32, u32)> {
 /// For example `"abp/v0.1"` and `"abp/v0.2"` are compatible, but
 /// `"abp/v1.0"` and `"abp/v0.1"` are not.  Returns `false` if either
 /// string cannot be parsed.
+#[must_use]
 pub fn is_compatible_version(their_version: &str, our_version: &str) -> bool {
     match (parse_version(their_version), parse_version(our_version)) {
         (Some((their_major, _)), Some((our_major, _))) => their_major == our_major,

@@ -53,8 +53,8 @@ impl Frame {
     pub fn try_event<T: DeserializeOwned>(&self) -> Result<(String, T), SidecarError> {
         match self {
             Frame::Event { ref_id, event } => {
-                let typed = serde_json::from_value(event.clone())
-                    .map_err(|e| SidecarError::Deserialize(e.to_string()))?;
+                let typed =
+                    serde_json::from_value(event.clone()).map_err(SidecarError::Deserialize)?;
                 Ok((ref_id.clone(), typed))
             }
             _ => Err(SidecarError::Protocol("expected Event frame".into())),
@@ -65,8 +65,8 @@ impl Frame {
     pub fn try_final<T: DeserializeOwned>(&self) -> Result<(String, T), SidecarError> {
         match self {
             Frame::Final { ref_id, receipt } => {
-                let typed = serde_json::from_value(receipt.clone())
-                    .map_err(|e| SidecarError::Deserialize(e.to_string()))?;
+                let typed =
+                    serde_json::from_value(receipt.clone()).map_err(SidecarError::Deserialize)?;
                 Ok((ref_id.clone(), typed))
             }
             _ => Err(SidecarError::Protocol("expected Final frame".into())),

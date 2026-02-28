@@ -22,16 +22,19 @@ impl BackendRegistry {
     }
 
     /// Look up a backend by name.
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&dyn Backend> {
         self.backends.get(name).map(|b| &**b)
     }
 
     /// Return an `Arc` handle to the named backend.
+    #[must_use]
     pub fn get_arc(&self, name: &str) -> Option<Arc<dyn Backend>> {
         self.backends.get(name).cloned()
     }
 
     /// Return a sorted list of registered backend names.
+    #[must_use]
     pub fn list(&self) -> Vec<&str> {
         let mut v: Vec<&str> = self.backends.keys().map(|s| s.as_str()).collect();
         v.sort();
@@ -39,6 +42,7 @@ impl BackendRegistry {
     }
 
     /// Check whether a backend with the given name is registered.
+    #[must_use]
     pub fn contains(&self, name: &str) -> bool {
         self.backends.contains_key(name)
     }

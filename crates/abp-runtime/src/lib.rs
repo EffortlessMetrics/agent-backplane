@@ -25,7 +25,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::debug;
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 pub use registry::BackendRegistry;
@@ -78,6 +78,7 @@ impl Default for Runtime {
 
 impl Runtime {
     /// Create an empty runtime with no backends registered.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             backends: BackendRegistry::default(),
@@ -85,6 +86,7 @@ impl Runtime {
     }
 
     /// Create a runtime pre-loaded with the [`MockBackend`](abp_integrations::MockBackend).
+    #[must_use]
     pub fn with_default_backends() -> Self {
         let mut rt = Self::new();
         rt.register_backend("mock", abp_integrations::MockBackend);
@@ -97,16 +99,19 @@ impl Runtime {
     }
 
     /// Return a sorted list of all registered backend names.
+    #[must_use]
     pub fn backend_names(&self) -> Vec<String> {
         self.backends.list().into_iter().map(String::from).collect()
     }
 
     /// Look up a backend by name.
+    #[must_use]
     pub fn backend(&self, name: &str) -> Option<Arc<dyn Backend>> {
         self.backends.get_arc(name)
     }
 
     /// Return a reference to the underlying [`BackendRegistry`].
+    #[must_use]
     pub fn registry(&self) -> &BackendRegistry {
         &self.backends
     }
@@ -121,6 +126,11 @@ impl Runtime {
     /// For sidecar backends whose capabilities come from handshake, this will
     /// check against the (empty) default manifest — use the in-backend check
     /// for authoritative validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::UnknownBackend`] if the backend is not registered,
+    /// or [`RuntimeError::CapabilityCheckFailed`] if requirements are not met.
     pub fn check_capabilities(
         &self,
         backend_name: &str,
@@ -141,16 +151,23 @@ impl Runtime {
     /// The handle provides a streaming event channel and a receipt future.
     /// The runtime prepares the workspace, compiles the policy, and attaches
     /// verification metadata and receipt hash after the backend finishes.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::UnknownBackend`] if the named backend is not
+    /// registered, or [`RuntimeError::CapabilityCheckFailed`] if pre-flight
+    /// capability checks fail.
     pub async fn run_streaming(
         &self,
         backend_name: &str,
         work_order: WorkOrder,
     ) -> Result<RunHandle, RuntimeError> {
-        let backend = self
-            .backend(backend_name)
-            .ok_or_else(|| RuntimeError::UnknownBackend {
+        let backend = self.backend(backend_name).ok_or_else(|| {
+            warn!(target: "abp.runtime", name = %backend_name, "unknown backend");
+            RuntimeError::UnknownBackend {
                 name: backend_name.to_string(),
-            })?;
+            }
+        })?;
 
         // Pre-flight capability check: skip for sidecar backends whose
         // capabilities are only known after handshake (empty default manifest).

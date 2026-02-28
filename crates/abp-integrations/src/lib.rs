@@ -173,6 +173,7 @@ pub struct SidecarBackend {
 
 impl SidecarBackend {
     /// Create a new [`SidecarBackend`] from a process specification.
+    #[must_use]
     pub fn new(spec: SidecarSpec) -> Self {
         Self { spec }
     }
@@ -236,6 +237,10 @@ fn host_to_anyhow(e: HostError) -> anyhow::Error {
 /// Verify that a backend's capabilities satisfy all requirements.
 ///
 /// Returns an error listing every unsatisfied requirement.
+///
+/// # Errors
+///
+/// Returns an error with details on each unsatisfied capability requirement.
 pub fn ensure_capability_requirements(
     requirements: &CapabilityRequirements,
     capabilities: &CapabilityManifest,
@@ -289,6 +294,7 @@ async fn emit_event(
 /// Extract execution mode from WorkOrder config.vendor.abp.mode.
 ///
 /// Returns `ExecutionMode::Mapped` (default) if not specified.
+#[must_use]
 pub fn extract_execution_mode(work_order: &WorkOrder) -> ExecutionMode {
     let nested = work_order
         .config
@@ -320,6 +326,10 @@ pub fn extract_execution_mode(work_order: &WorkOrder) -> ExecutionMode {
 /// - No request rewriting: SDK sees exactly what caller sent
 /// - Stream equivalence: After removing ABP framing, stream is bitwise-equivalent
 /// - Observer-only governance: Log/record but don't modify tool calls or outputs
+///
+/// # Errors
+///
+/// Currently always succeeds. Future versions may enforce additional constraints.
 pub fn validate_passthrough_compatibility(_work_order: &WorkOrder) -> Result<()> {
     // In v0.1, we accept passthrough mode for any work order.
     // Future versions may enforce additional constraints.

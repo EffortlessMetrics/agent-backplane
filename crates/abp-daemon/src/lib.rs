@@ -7,12 +7,14 @@ use axum::{
     extract::{Path as AxPath, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
+    response::sse::{Event as SseEvent, Sse},
     routing::{get, post},
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
@@ -84,6 +86,7 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .route("/run", post(cmd_run))
         .route("/receipts", get(cmd_list_receipts))
         .route("/receipts/{run_id}", get(cmd_get_receipt))
+        .route("/runs/{run_id}/events", get(cmd_run_events))
         .with_state(state)
 }
 
@@ -166,6 +169,13 @@ async fn cmd_run(
         events,
         receipt,
     }))
+}
+
+async fn cmd_run_events(
+    AxPath(_run_id): AxPath<Uuid>,
+) -> Sse<impl tokio_stream::Stream<Item = Result<SseEvent, Infallible>>> {
+    let stream = tokio_stream::iter(vec![Ok(SseEvent::default().data("ping"))]);
+    Sse::new(stream)
 }
 
 async fn cmd_list_receipts(
