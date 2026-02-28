@@ -64,6 +64,7 @@ This repo now includes dedicated sidecar scaffolds and registration microcrates 
 - `hosts/copilot`
 - `hosts/kimi`
 - `crates/abp-kimi-sdk`
+- `crates/abp-sidecar-sdk` (shared SRP helper for sidecar registration)
 
 - `host.js`: protocol binding, policy gatekeeping, artifact capture, receipt assembly.
 - `adapter.js`: default adapter entrypoint that can be replaced by `ABP_COPILOT_ADAPTER_MODULE`.
@@ -72,7 +73,7 @@ This repo now includes dedicated sidecar scaffolds and registration microcrates 
 The integration intentionally keeps ABI and orchestration concerns in `abp-core` /
 `abp-runtime`, while Copilot execution remains isolated in the host boundary.
 
-This follows the microcrate pattern:
+This follows the microcrate pattern, with `abp-sidecar-sdk` isolating shared command/script registration behavior:
 
 - no contract changes required,
 - no runtime changes beyond backend registration,
