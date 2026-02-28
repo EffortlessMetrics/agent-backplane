@@ -13,6 +13,7 @@
 pub mod diff;
 pub mod snapshot;
 pub mod template;
+pub mod tracker;
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
 use abp_glob::IncludeExcludeGlobs;

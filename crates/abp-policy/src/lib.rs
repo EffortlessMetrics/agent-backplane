@@ -11,6 +11,8 @@
 
 /// Audit trail for policy decisions.
 pub mod audit;
+/// Composable policy sets, precedence strategies, and validation.
+pub mod compose;
 
 use abp_core::PolicyProfile;
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};

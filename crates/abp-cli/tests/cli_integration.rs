@@ -608,3 +608,181 @@ fn invalid_workspace_mode_is_rejected() {
         .failure()
         .stderr(predicate::str::contains("invalid value"));
 }
+
+// ── 16. Combined debug + json flags ─────────────────────────────────
+
+#[test]
+fn debug_and_json_flags_together() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt = tmp.path().join("receipt.json");
+    let output = abp()
+        .args([
+            "--debug",
+            "run",
+            "--backend",
+            "mock",
+            "--task",
+            "combined flags test",
+            "--json",
+            "--root",
+            tmp.path().to_str().unwrap(),
+            "--workspace-mode",
+            "pass-through",
+            "--out",
+            receipt.to_str().unwrap(),
+        ])
+        .output()
+        .expect("execute abp");
+
+    assert!(output.status.success());
+    // With --debug, tracing output may appear on stdout; only validate
+    // lines that look like JSON objects (start with '{').
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json_lines: Vec<&str> = stdout.lines().filter(|l| l.starts_with('{')).collect();
+    for line in &json_lines {
+        serde_json::from_str::<serde_json::Value>(line)
+            .unwrap_or_else(|e| panic!("each JSON line should be valid: {e}\n  line: {line}"));
+    }
+}
+
+// ── 17. Model flag is accepted──────────────────────────────────────
+
+#[test]
+fn model_flag_is_accepted() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt = tmp.path().join("receipt.json");
+    abp()
+        .args([
+            "run",
+            "--backend",
+            "mock",
+            "--task",
+            "model test",
+            "--model",
+            "gpt-4o",
+            "--root",
+            tmp.path().to_str().unwrap(),
+            "--workspace-mode",
+            "pass-through",
+            "--out",
+            receipt.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    assert!(receipt.exists());
+}
+
+// ── 18. Include/exclude globs are accepted ──────────────────────────
+
+#[test]
+fn include_exclude_globs_accepted() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt = tmp.path().join("receipt.json");
+    abp()
+        .args([
+            "run",
+            "--backend",
+            "mock",
+            "--task",
+            "glob test",
+            "--include",
+            "src/**/*.rs",
+            "--exclude",
+            "target/**",
+            "--root",
+            tmp.path().to_str().unwrap(),
+            "--workspace-mode",
+            "pass-through",
+            "--out",
+            receipt.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+}
+
+// ── 19. Receipt JSON contains expected structure ────────────────────
+
+#[test]
+fn receipt_contains_expected_fields() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt = tmp.path().join("receipt.json");
+    abp()
+        .args([
+            "run",
+            "--backend",
+            "mock",
+            "--task",
+            "receipt fields test",
+            "--root",
+            tmp.path().to_str().unwrap(),
+            "--workspace-mode",
+            "pass-through",
+            "--out",
+            receipt.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let content = std::fs::read_to_string(&receipt).expect("read receipt");
+    let json: serde_json::Value = serde_json::from_str(&content).expect("parse receipt JSON");
+    assert!(json.get("outcome").is_some(), "receipt should have outcome");
+    assert!(json.get("backend").is_some(), "receipt should have backend");
+    assert!(json.get("meta").is_some(), "receipt should have meta");
+    assert!(json.get("trace").is_some(), "receipt should have trace");
+    assert!(
+        json["meta"].get("run_id").is_some(),
+        "meta should have run_id"
+    );
+}
+
+// ── 20. Max budget and max turns flags are accepted ─────────────────
+
+#[test]
+fn max_budget_and_turns_flags_accepted() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt = tmp.path().join("receipt.json");
+    abp()
+        .args([
+            "run",
+            "--backend",
+            "mock",
+            "--task",
+            "budget test",
+            "--max-budget-usd",
+            "5.0",
+            "--max-turns",
+            "10",
+            "--root",
+            tmp.path().to_str().unwrap(),
+            "--workspace-mode",
+            "pass-through",
+            "--out",
+            receipt.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+}
+
+// ── 21. Invalid env flag format fails ───────────────────────────────
+
+#[test]
+fn invalid_env_format_fails() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    abp()
+        .args([
+            "run",
+            "--backend",
+            "mock",
+            "--task",
+            "bad env",
+            "--env",
+            "no-equals",
+            "--root",
+            tmp.path().to_str().unwrap(),
+            "--workspace-mode",
+            "pass-through",
+        ])
+        .assert()
+        .failure();
+}

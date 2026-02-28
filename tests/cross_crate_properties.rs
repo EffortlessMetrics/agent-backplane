@@ -295,8 +295,8 @@ proptest! {
         let include_pat = format!("{prefix}/**");
         let candidate = format!("{prefix}/{filename}.txt");
 
-        let globs1 = IncludeExcludeGlobs::new(&[include_pat.clone()], &[]).unwrap();
-        let globs2 = IncludeExcludeGlobs::new(&[include_pat], &[]).unwrap();
+        let globs1 = IncludeExcludeGlobs::new(std::slice::from_ref(&include_pat), &[]).unwrap();
+        let globs2 = IncludeExcludeGlobs::new(std::slice::from_ref(&include_pat), &[]).unwrap();
 
         prop_assert_eq!(
             globs1.decide_str(&candidate),
