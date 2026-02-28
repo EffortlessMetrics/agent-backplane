@@ -1,4 +1,5 @@
 //! abp-runtime
+#![deny(unsafe_code)]
 //!
 //! Orchestration layer.
 //!
@@ -12,13 +13,30 @@ use abp_core::{AgentEvent, ExecutionMode, Outcome, Receipt, WorkOrder};
 use abp_integrations::Backend;
 use abp_policy::PolicyEngine;
 use abp_workspace::WorkspaceManager;
-use anyhow::{Context, Result};
+use anyhow::Context;
 use std::collections::HashMap;
 use std::sync::Arc;
+use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::debug;
 use uuid::Uuid;
+
+/// Errors from the ABP runtime orchestrator.
+#[derive(Debug, Error)]
+pub enum RuntimeError {
+    #[error("unknown backend: {name}")]
+    UnknownBackend { name: String },
+
+    #[error("workspace preparation failed")]
+    WorkspaceFailed(#[source] anyhow::Error),
+
+    #[error("policy compilation failed")]
+    PolicyFailed(#[source] anyhow::Error),
+
+    #[error("backend execution failed")]
+    BackendFailed(#[source] anyhow::Error),
+}
 
 /// Central orchestrator that holds registered backends and executes work orders.
 ///
@@ -35,7 +53,13 @@ pub struct Runtime {
 pub struct RunHandle {
     pub run_id: Uuid,
     pub events: ReceiverStream<AgentEvent>,
-    pub receipt: tokio::task::JoinHandle<Result<Receipt>>,
+    pub receipt: tokio::task::JoinHandle<Result<Receipt, RuntimeError>>,
+}
+
+impl Default for Runtime {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Runtime {
@@ -79,10 +103,12 @@ impl Runtime {
         &self,
         backend_name: &str,
         work_order: WorkOrder,
-    ) -> Result<RunHandle> {
+    ) -> Result<RunHandle, RuntimeError> {
         let backend = self
             .backend(backend_name)
-            .with_context(|| format!("unknown backend: {backend_name}"))?;
+            .ok_or_else(|| RuntimeError::UnknownBackend {
+                name: backend_name.to_string(),
+            })?;
 
         let backend_name = backend_name.to_string();
         let run_id = Uuid::new_v4();
@@ -93,15 +119,18 @@ impl Runtime {
 
         let receipt = tokio::spawn(async move {
             // Keep the prepared workspace alive for the duration of the run.
-            let prepared =
-                WorkspaceManager::prepare(&work_order.workspace).context("prepare workspace")?;
+            let prepared = WorkspaceManager::prepare(&work_order.workspace)
+                .context("prepare workspace")
+                .map_err(RuntimeError::WorkspaceFailed)?;
 
             // Clone and rewrite the work order to point at prepared workspace.
             let mut wo = work_order.clone();
             wo.workspace.root = prepared.path().to_string_lossy().to_string();
 
             // Compile policy globs (even if adapters do the heavy lifting).
-            let _policy = PolicyEngine::new(&wo.policy).context("compile policy")?;
+            let _policy = PolicyEngine::new(&wo.policy)
+                .context("compile policy")
+                .map_err(RuntimeError::PolicyFailed)?;
 
             debug!(target: "abp.runtime", backend=%backend_name, run_id=%run_id, "starting run");
 
@@ -125,7 +154,13 @@ impl Runtime {
                         }
                     }
                     res = &mut backend_handle => {
-                        let r = res.context("backend task join")??;
+                        let r = match res {
+                            Ok(Ok(receipt)) => receipt,
+                            Ok(Err(e)) => return Err(RuntimeError::BackendFailed(e)),
+                            Err(e) => return Err(RuntimeError::BackendFailed(
+                                anyhow::Error::new(e).context("backend task panicked"),
+                            )),
+                        };
                         receipt_opt = Some(r);
                         break;
                     }
@@ -136,6 +171,20 @@ impl Runtime {
             while let Some(ev) = from_backend_rx.recv().await {
                 trace.push(ev.clone());
                 let _ = to_caller_tx.send(ev).await;
+            }
+
+            // If the channel closed before the select polled the backend handle,
+            // await it now so we don't lose the real receipt or error.
+            if receipt_opt.is_none() {
+                match backend_handle.await {
+                    Ok(Ok(r)) => receipt_opt = Some(r),
+                    Ok(Err(e)) => return Err(RuntimeError::BackendFailed(e)),
+                    Err(e) => {
+                        return Err(RuntimeError::BackendFailed(
+                            anyhow::Error::new(e).context("backend task panicked"),
+                        ));
+                    }
+                }
             }
 
             drop(to_caller_tx);
@@ -178,7 +227,10 @@ impl Runtime {
             }
 
             // Ensure receipt hash is present and consistent.
-            receipt = receipt.with_hash().context("hash receipt")?;
+            receipt = receipt
+                .with_hash()
+                .context("hash receipt")
+                .map_err(RuntimeError::BackendFailed)?;
 
             Ok(receipt)
         });
