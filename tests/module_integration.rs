@@ -665,12 +665,11 @@ fn transform_chain_with_diagnostics() {
     });
 
     let result = chain.process(event);
-    if let Some(transformed) = result {
-        if let AgentEventKind::AssistantMessage { ref text } = transformed.kind {
-            if text.contains("[REDACTED]") {
-                diag.add_info("REDACT001", "Redaction applied");
-            }
-        }
+    if let Some(transformed) = result
+        && let AgentEventKind::AssistantMessage { ref text } = transformed.kind
+        && text.contains("[REDACTED]")
+    {
+        diag.add_info("REDACT001", "Redaction applied");
     }
 
     diag.add_info("TRANSFORM001", "Transform chain complete");
@@ -1005,7 +1004,7 @@ fn error_catalog_to_diagnostics() {
     assert!(!contract_errors.is_empty());
 
     for code in &contract_errors[..2.min(contract_errors.len())] {
-        let info = ErrorInfo::new(code.clone(), format!("Test error: {}", code.description()))
+        let info = ErrorInfo::new(*code, format!("Test error: {}", code.description()))
             .with_context("test", "true");
         diag.add_error(code.code(), &info.message);
     }

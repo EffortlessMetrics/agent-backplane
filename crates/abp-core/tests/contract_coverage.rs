@@ -6,7 +6,6 @@
 
 use abp_core::*;
 use chrono::Utc;
-use serde_json;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
@@ -134,9 +133,11 @@ fn runtime_config_default() {
 
 #[test]
 fn runtime_config_serde_roundtrip() {
-    let mut cfg = RuntimeConfig::default();
-    cfg.model = Some("claude-3".into());
-    cfg.max_turns = Some(10);
+    let cfg = RuntimeConfig {
+        model: Some("claude-3".into()),
+        max_turns: Some(10),
+        ..RuntimeConfig::default()
+    };
     let cfg2 = roundtrip(&cfg);
     assert_eq!(cfg.model, cfg2.model);
     assert_eq!(cfg.max_turns, cfg2.max_turns);
@@ -581,9 +582,11 @@ fn policy_profile_default() {
 
 #[test]
 fn policy_profile_serde_roundtrip() {
-    let mut p = PolicyProfile::default();
-    p.allowed_tools = vec!["read".into(), "write".into()];
-    p.deny_read = vec!["secrets/*".into()];
+    let p = PolicyProfile {
+        allowed_tools: vec!["read".into(), "write".into()],
+        deny_read: vec!["secrets/*".into()],
+        ..PolicyProfile::default()
+    };
     let p2 = roundtrip(&p);
     assert_eq!(p.allowed_tools, p2.allowed_tools);
     assert_eq!(p.deny_read, p2.deny_read);
@@ -621,7 +624,7 @@ fn execution_mode_mapped() {
 fn execution_mode_clone_debug() {
     for m in [ExecutionMode::Passthrough, ExecutionMode::Mapped] {
         assert_debug(&m);
-        let _ = m.clone();
+        let _copy = m;
     }
 }
 
@@ -704,7 +707,7 @@ fn workspace_mode_staged() {
 fn workspace_mode_clone_debug() {
     for m in [WorkspaceMode::PassThrough, WorkspaceMode::Staged] {
         assert_debug(&m);
-        let _ = m.clone();
+        let _copy = m;
     }
 }
 
@@ -807,7 +810,7 @@ fn min_support_emulated_serde() {
 fn min_support_clone_debug() {
     for m in [MinSupport::Native, MinSupport::Emulated] {
         assert_debug(&m);
-        let _ = m.clone();
+        let _copy = m;
     }
 }
 

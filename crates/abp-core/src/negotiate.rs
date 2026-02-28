@@ -55,7 +55,7 @@ impl CapabilityNegotiator {
         for cap in &request.required {
             let meets = manifest
                 .get(cap)
-                .map_or(false, |level| support_rank(level) >= min_rank);
+                .is_some_and(|level| support_rank(level) >= min_rank);
             if meets {
                 satisfied.push(cap.clone());
             } else {
@@ -69,7 +69,7 @@ impl CapabilityNegotiator {
             .filter(|cap| {
                 manifest
                     .get(cap)
-                    .map_or(false, |level| support_rank(level) >= min_rank)
+                    .is_some_and(|level| support_rank(level) >= min_rank)
             })
             .cloned()
             .collect();
@@ -166,10 +166,6 @@ impl CapabilityDiff {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn manifest(pairs: &[(Capability, SupportLevel)]) -> CapabilityManifest {
-        pairs.iter().cloned().collect()
-    }
 
     #[test]
     fn support_rank_ordering() {
