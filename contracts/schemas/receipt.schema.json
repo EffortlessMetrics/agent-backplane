@@ -1,0 +1,558 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Receipt",
+  "type": "object",
+  "properties": {
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      }
+    },
+    "backend": {
+      "$ref": "#/$defs/BackendIdentity"
+    },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "checkpointing": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "hooks_post_tool_use": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "hooks_pre_tool_use": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "mcp_client": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "mcp_server": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "session_fork": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "session_resume": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "streaming": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "structured_output_json_schema": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "tool_ask_user": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "tool_bash": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "tool_edit": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "tool_glob": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "tool_grep": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "tool_read": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "tool_web_fetch": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "tool_web_search": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "tool_write": {
+          "$ref": "#/$defs/SupportLevel"
+        }
+      },
+      "additionalProperties": false
+    },
+    "meta": {
+      "$ref": "#/$defs/RunMetadata"
+    },
+    "mode": {
+      "description": "Execution mode used for this run.",
+      "$ref": "#/$defs/ExecutionMode",
+      "default": "mapped"
+    },
+    "outcome": {
+      "$ref": "#/$defs/Outcome"
+    },
+    "receipt_sha256": {
+      "description": "Hash of the canonical receipt (filled in by the control plane).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "trace": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AgentEvent"
+      }
+    },
+    "usage": {
+      "description": "Normalized usage fields (best-effort).",
+      "$ref": "#/$defs/UsageNormalized"
+    },
+    "usage_raw": {
+      "description": "Vendor-specific usage payload as reported."
+    },
+    "verification": {
+      "$ref": "#/$defs/VerificationReport"
+    }
+  },
+  "required": [
+    "meta",
+    "backend",
+    "capabilities",
+    "usage_raw",
+    "usage",
+    "trace",
+    "artifacts",
+    "verification",
+    "outcome"
+  ],
+  "$defs": {
+    "AgentEvent": {
+      "type": "object",
+      "properties": {
+        "ext": {
+          "description": "Extension field for passthrough mode raw data.\n\nIn passthrough mode, this contains the original SDK message\nfor lossless reconstruction. The key `raw_message` contains\nthe verbatim SDK message.",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "run_started"
+            }
+          },
+          "required": [
+            "type",
+            "message"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "run_completed"
+            }
+          },
+          "required": [
+            "type",
+            "message"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "assistant_delta"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "assistant_message"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "input": true,
+            "parent_tool_use_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tool_name": {
+              "type": "string"
+            },
+            "tool_use_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "const": "tool_call"
+            }
+          },
+          "required": [
+            "type",
+            "tool_name",
+            "input"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "is_error": {
+              "type": "boolean"
+            },
+            "output": true,
+            "tool_name": {
+              "type": "string"
+            },
+            "tool_use_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "const": "tool_result"
+            }
+          },
+          "required": [
+            "type",
+            "tool_name",
+            "output",
+            "is_error"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "file_changed"
+            }
+          },
+          "required": [
+            "type",
+            "path",
+            "summary"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "exit_code": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32"
+            },
+            "output_preview": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "const": "command_executed"
+            }
+          },
+          "required": [
+            "type",
+            "command"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "warning"
+            }
+          },
+          "required": [
+            "type",
+            "message"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "error"
+            }
+          },
+          "required": [
+            "type",
+            "message"
+          ]
+        }
+      ],
+      "required": [
+        "ts"
+      ]
+    },
+    "ArtifactRef": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "path"
+      ]
+    },
+    "BackendIdentity": {
+      "type": "object",
+      "properties": {
+        "adapter_version": {
+          "description": "Adapter version (your sidecar wrapper version).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "backend_version": {
+          "description": "Backend runtime version (SDK version, CLI version, etc.).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Stable backend identifier.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "ExecutionMode": {
+      "description": "Execution mode for how ABP processes requests.\n\n- Passthrough: Lossless wrapping - ABP acts as observer/recorder only\n- Mapped: Full dialect translation - ABP translates between dialects",
+      "oneOf": [
+        {
+          "description": "Lossless wrapping mode. ABP passes requests directly to the SDK\nwithout modification. Stream is bitwise-equivalent to direct SDK call\nafter removing ABP framing.",
+          "type": "string",
+          "const": "passthrough"
+        },
+        {
+          "description": "Full dialect translation mode. ABP translates between different\nagent dialects, potentially modifying requests and responses.",
+          "type": "string",
+          "const": "mapped"
+        }
+      ]
+    },
+    "Outcome": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "failed"
+      ]
+    },
+    "RunMetadata": {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "type": "string"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "finished_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "work_order_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "run_id",
+        "work_order_id",
+        "contract_version",
+        "started_at",
+        "finished_at",
+        "duration_ms"
+      ]
+    },
+    "SupportLevel": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "native",
+            "emulated",
+            "unsupported"
+          ]
+        },
+        {
+          "description": "Supported in principle, but disabled by policy or environment.",
+          "type": "object",
+          "properties": {
+            "restricted": {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "reason"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "restricted"
+          ]
+        }
+      ]
+    },
+    "UsageNormalized": {
+      "type": "object",
+      "properties": {
+        "cache_read_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "cache_write_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "estimated_cost_usd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "request_units": {
+          "description": "Copilot-style billing.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      }
+    },
+    "VerificationReport": {
+      "type": "object",
+      "properties": {
+        "git_diff": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "git_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "harness_ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "harness_ok"
+      ]
+    }
+  }
+}

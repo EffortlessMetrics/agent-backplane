@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkOrder",
+  "description": "A single unit of work.\n\nThis is intentionally *not* a chat session. Sessions can exist underneath,\nbut the contract is step-oriented.",
+  "type": "object",
+  "properties": {
+    "config": {
+      "$ref": "#/$defs/RuntimeConfig"
+    },
+    "context": {
+      "$ref": "#/$defs/ContextPacket"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "lane": {
+      "$ref": "#/$defs/ExecutionLane"
+    },
+    "policy": {
+      "$ref": "#/$defs/PolicyProfile"
+    },
+    "requirements": {
+      "$ref": "#/$defs/CapabilityRequirements"
+    },
+    "task": {
+      "description": "Human intent.",
+      "type": "string"
+    },
+    "workspace": {
+      "$ref": "#/$defs/WorkspaceSpec"
+    }
+  },
+  "required": [
+    "id",
+    "task",
+    "lane",
+    "workspace",
+    "context",
+    "policy",
+    "requirements",
+    "config"
+  ],
+  "$defs": {
+    "Capability": {
+      "type": "string",
+      "enum": [
+        "streaming",
+        "tool_read",
+        "tool_write",
+        "tool_edit",
+        "tool_bash",
+        "tool_glob",
+        "tool_grep",
+        "tool_web_search",
+        "tool_web_fetch",
+        "tool_ask_user",
+        "hooks_pre_tool_use",
+        "hooks_post_tool_use",
+        "session_resume",
+        "session_fork",
+        "checkpointing",
+        "structured_output_json_schema",
+        "mcp_client",
+        "mcp_server"
+      ]
+    },
+    "CapabilityRequirement": {
+      "type": "object",
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/Capability"
+        },
+        "min_support": {
+          "$ref": "#/$defs/MinSupport"
+        }
+      },
+      "required": [
+        "capability",
+        "min_support"
+      ]
+    },
+    "CapabilityRequirements": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CapabilityRequirement"
+          }
+        }
+      },
+      "required": [
+        "required"
+      ]
+    },
+    "ContextPacket": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "description": "Explicit file paths to include (relative to workspace root).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "snippets": {
+          "description": "Optional snippets (for UIs or preloaded context).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ContextSnippet"
+          }
+        }
+      },
+      "required": [
+        "files",
+        "snippets"
+      ]
+    },
+    "ContextSnippet": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "content"
+      ]
+    },
+    "ExecutionLane": {
+      "oneOf": [
+        {
+          "description": "Agent proposes a patch/diff. No direct mutation of the user's repo.",
+          "type": "string",
+          "const": "patch_first"
+        },
+        {
+          "description": "Agent can mutate a workspace (often a staged worktree).",
+          "type": "string",
+          "const": "workspace_first"
+        }
+      ]
+    },
+    "MinSupport": {
+      "oneOf": [
+        {
+          "description": "Only accept native support.",
+          "type": "string",
+          "const": "native"
+        },
+        {
+          "description": "Native or emulated is acceptable.",
+          "type": "string",
+          "const": "emulated"
+        }
+      ]
+    },
+    "PolicyProfile": {
+      "type": "object",
+      "properties": {
+        "allow_network": {
+          "description": "Network allowlist (domains or patterns).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_tools": {
+          "description": "Tool allowlist. Empty means \"backend default\".",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deny_network": {
+          "description": "Network denylist (domains or patterns).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deny_read": {
+          "description": "Deny reading paths matching any of these globs.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deny_write": {
+          "description": "Deny writing/editing paths matching any of these globs.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "disallowed_tools": {
+          "description": "Tool denylist.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "require_approval_for": {
+          "description": "Require explicit approval for these tools.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "allowed_tools",
+        "disallowed_tools",
+        "deny_read",
+        "deny_write",
+        "allow_network",
+        "deny_network",
+        "require_approval_for"
+      ]
+    },
+    "RuntimeConfig": {
+      "type": "object",
+      "properties": {
+        "env": {
+          "description": "Environment variables for the runtime.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "max_budget_usd": {
+          "description": "Hard cap on cost (best-effort).",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "max_turns": {
+          "description": "Hard cap on turns/iterations (best-effort).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "model": {
+          "description": "Preferred backend/model identifier.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vendor": {
+          "description": "Optional vendor-specific flags (passed through adapters).",
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "vendor",
+        "env"
+      ]
+    },
+    "WorkspaceMode": {
+      "oneOf": [
+        {
+          "description": "Use the workspace as-is.",
+          "type": "string",
+          "const": "pass_through"
+        },
+        {
+          "description": "Create a sanitized copy (or worktree) before running tools.",
+          "type": "string",
+          "const": "staged"
+        }
+      ]
+    },
+    "WorkspaceSpec": {
+      "type": "object",
+      "properties": {
+        "exclude": {
+          "description": "Optional exclude globs (evaluated relative to root).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "include": {
+          "description": "Optional include globs (evaluated relative to root).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mode": {
+          "description": "How the runtime should treat the workspace.",
+          "$ref": "#/$defs/WorkspaceMode"
+        },
+        "root": {
+          "description": "Root folder for the step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "root",
+        "mode",
+        "include",
+        "exclude"
+      ]
+    }
+  }
+}

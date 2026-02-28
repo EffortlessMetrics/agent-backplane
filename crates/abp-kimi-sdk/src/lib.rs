@@ -104,3 +104,29 @@ fn path_has_command(dir: &Path, command: &str) -> bool {
     false
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn backend_name_is_correct() {
+        assert_eq!(BACKEND_NAME, "sidecar:kimi");
+    }
+
+    #[test]
+    fn sidecar_script_returns_correct_path() {
+        let root = Path::new("/fake/root");
+        let script = sidecar_script(root);
+        assert_eq!(script, root.join("hosts/kimi/host.js"));
+    }
+
+    #[test]
+    fn register_default_with_nonexistent_root_returns_false() {
+        let mut runtime = Runtime::new();
+        let bogus = Path::new("/nonexistent/path/that/does/not/exist");
+        let result = register_default(&mut runtime, bogus, None).unwrap_or(false);
+        assert!(!result);
+    }
+}
+
