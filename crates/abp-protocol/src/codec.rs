@@ -11,6 +11,20 @@ impl StreamingCodec {
     /// Encode multiple envelopes into a single JSONL string.
     ///
     /// Each envelope is serialized as one newline-terminated JSON line.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use abp_protocol::{Envelope, codec::StreamingCodec};
+    /// let envelopes = vec![
+    ///     Envelope::Fatal { ref_id: None, error: "err1".into() },
+    ///     Envelope::Fatal { ref_id: None, error: "err2".into() },
+    /// ];
+    /// let batch = StreamingCodec::encode_batch(&envelopes);
+    /// assert_eq!(batch.lines().count(), 2);
+    /// assert!(batch.contains("err1"));
+    /// assert!(batch.contains("err2"));
+    /// ```
     #[must_use]
     pub fn encode_batch(envelopes: &[Envelope]) -> String {
         let mut out = String::new();

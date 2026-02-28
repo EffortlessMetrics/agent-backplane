@@ -534,6 +534,446 @@ fn schema_evolution_old_data_still_valid_after_optional_additions() {
     assert_valid(&schema, &instance);
 }
 
+// ── 13. Load schema files from disk and validate ─────────────────────
+
+fn load_schema_file(name: &str) -> Value {
+    let path = format!("contracts/schemas/{name}");
+    let content = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
+    serde_json::from_str(&content)
+        .unwrap_or_else(|e| panic!("failed to parse {path}: {e}"))
+}
+
+#[test]
+fn file_work_order_schema_is_valid() {
+    let schema = load_schema_file("work_order.schema.json");
+    jsonschema::validator_for(&schema).expect("on-disk WorkOrder schema must compile");
+}
+
+#[test]
+fn file_receipt_schema_is_valid() {
+    let schema = load_schema_file("receipt.schema.json");
+    jsonschema::validator_for(&schema).expect("on-disk Receipt schema must compile");
+}
+
+#[test]
+fn file_backplane_config_schema_is_valid() {
+    let schema = load_schema_file("backplane_config.schema.json");
+    jsonschema::validator_for(&schema).expect("on-disk BackplaneConfig schema must compile");
+}
+
+#[test]
+fn file_schemas_validate_generated_instances() {
+    // WorkOrder from disk schema
+    let wo_schema = load_schema_file("work_order.schema.json");
+    assert_valid(&wo_schema, &valid_work_order_json());
+
+    // Receipt from disk schema
+    let r_schema = load_schema_file("receipt.schema.json");
+    assert_valid(&r_schema, &valid_receipt_json());
+
+    // BackplaneConfig from disk schema
+    let bc_schema = load_schema_file("backplane_config.schema.json");
+    let config = json!({"backends": {"m": {"type": "mock"}}});
+    assert_valid(&bc_schema, &config);
+}
+
+// ── 14. PolicyProfile standalone schema validation ───────────────────
+
+fn policy_profile_schema() -> Value {
+    serde_json::to_value(schema_for!(abp_core::PolicyProfile)).unwrap()
+}
+
+#[test]
+fn policy_profile_schema_is_valid() {
+    let schema = policy_profile_schema();
+    jsonschema::validator_for(&schema).expect("PolicyProfile schema must compile");
+}
+
+#[test]
+fn policy_profile_valid_minimal() {
+    let schema = policy_profile_schema();
+    let instance = json!({
+        "allowed_tools": [],
+        "disallowed_tools": [],
+        "deny_read": [],
+        "deny_write": [],
+        "allow_network": [],
+        "deny_network": [],
+        "require_approval_for": []
+    });
+    assert_valid(&schema, &instance);
+}
+
+#[test]
+fn policy_profile_valid_full() {
+    let schema = policy_profile_schema();
+    let pp = abp_core::PolicyProfile {
+        allowed_tools: vec!["read".into(), "write".into()],
+        disallowed_tools: vec!["bash".into()],
+        deny_read: vec!["**/.env".into()],
+        deny_write: vec!["**/node_modules/**".into()],
+        allow_network: vec!["*.example.com".into()],
+        deny_network: vec!["*.evil.com".into()],
+        require_approval_for: vec!["bash".into()],
+    };
+    let instance = serde_json::to_value(&pp).unwrap();
+    assert_valid(&schema, &instance);
+}
+
+#[test]
+fn policy_profile_missing_required_field_fails() {
+    let schema = policy_profile_schema();
+    // Missing "allowed_tools"
+    let instance = json!({
+        "disallowed_tools": [],
+        "deny_read": [],
+        "deny_write": [],
+        "allow_network": [],
+        "deny_network": [],
+        "require_approval_for": []
+    });
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn policy_profile_wrong_type_field_fails() {
+    let schema = policy_profile_schema();
+    let instance = json!({
+        "allowed_tools": "not_an_array",
+        "disallowed_tools": [],
+        "deny_read": [],
+        "deny_write": [],
+        "allow_network": [],
+        "deny_network": [],
+        "require_approval_for": []
+    });
+    assert_invalid(&schema, &instance);
+}
+
+// ── 15. AgentEvent standalone schema validation ──────────────────────
+
+fn agent_event_schema() -> Value {
+    serde_json::to_value(schema_for!(abp_core::AgentEvent)).unwrap()
+}
+
+#[test]
+fn agent_event_schema_is_valid() {
+    let schema = agent_event_schema();
+    jsonschema::validator_for(&schema).expect("AgentEvent schema must compile");
+}
+
+#[test]
+fn agent_event_valid_minimal_run_started() {
+    let schema = agent_event_schema();
+    let event = AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
+        ext: None,
+    };
+    let instance = serde_json::to_value(&event).unwrap();
+    assert_valid(&schema, &instance);
+}
+
+#[test]
+fn agent_event_valid_full_tool_call() {
+    let schema = agent_event_schema();
+    let event = AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::ToolCall {
+            tool_name: "read_file".into(),
+            tool_use_id: Some("tu_123".into()),
+            parent_tool_use_id: Some("tu_parent".into()),
+            input: json!({"path": "/tmp/test.rs", "lines": [1, 50]}),
+        },
+        ext: Some(std::collections::BTreeMap::from([(
+            "raw_message".into(),
+            json!({"vendor": "data"}),
+        )])),
+    };
+    let instance = serde_json::to_value(&event).unwrap();
+    assert_valid(&schema, &instance);
+}
+
+#[test]
+fn agent_event_missing_ts_fails() {
+    let schema = agent_event_schema();
+    let instance = json!({
+        "type": "run_started",
+        "message": "go"
+    });
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn agent_event_wrong_type_ts_fails() {
+    let schema = agent_event_schema();
+    let instance = json!({
+        "ts": 12345,
+        "type": "run_started",
+        "message": "go"
+    });
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn agent_event_invalid_event_type_fails() {
+    let schema = agent_event_schema();
+    let instance = json!({
+        "ts": "2024-01-01T00:00:00Z",
+        "type": "nonexistent_event_type",
+        "message": "test"
+    });
+    assert_invalid(&schema, &instance);
+}
+
+// ── 16. BackplaneConfig negative tests ───────────────────────────────
+
+#[test]
+fn backplane_config_valid_full() {
+    let schema = backplane_config_schema();
+    let config = json!({
+        "default_backend": "mock",
+        "log_level": "debug",
+        "receipts_dir": "/tmp/receipts",
+        "backends": {
+            "mock": {"type": "mock"},
+            "sc": {
+                "type": "sidecar",
+                "command": "node",
+                "args": ["host.js"],
+                "timeout_secs": 300
+            }
+        }
+    });
+    assert_valid(&schema, &config);
+}
+
+#[test]
+fn backplane_config_wrong_type_backends_fails() {
+    let schema = backplane_config_schema();
+    let instance = json!({"backends": "not_an_object"});
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn backplane_config_sidecar_missing_command_fails() {
+    let schema = backplane_config_schema();
+    let instance = json!({
+        "backends": {
+            "bad": {
+                "type": "sidecar",
+                "args": ["host.js"]
+            }
+        }
+    });
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn backplane_config_wrong_type_log_level_fails() {
+    let schema = backplane_config_schema();
+    let instance = json!({"log_level": 42});
+    assert_invalid(&schema, &instance);
+}
+
+// ── 17. Schema $ref resolution ───────────────────────────────────────
+
+#[test]
+fn work_order_schema_ref_resolution_workspace_spec() {
+    let schema = work_order_schema();
+    // WorkspaceSpec is referenced via $ref — ensure it resolves and validates.
+    let wo = WorkOrderBuilder::new("test").root("/my/root").build();
+    let instance = serde_json::to_value(&wo).unwrap();
+    assert_valid(&schema, &instance);
+
+    // Break the ref'd sub-object: workspace.root should be a string.
+    let mut bad = instance.clone();
+    bad["workspace"]["root"] = json!(123);
+    assert_invalid(&schema, &bad);
+}
+
+#[test]
+fn work_order_schema_ref_resolution_runtime_config() {
+    let schema = work_order_schema();
+    let mut instance = valid_work_order_json();
+    // RuntimeConfig.env is required to be object<string, string>.
+    instance["config"]["env"] = json!("not_an_object");
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn receipt_schema_ref_resolution_run_metadata() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    // RunMetadata.run_id must be a string (uuid format).
+    instance["meta"]["run_id"] = json!(999);
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn receipt_schema_ref_resolution_backend_identity() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    // BackendIdentity.id is required string.
+    instance["backend"]["id"] = json!(null);
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn receipt_schema_ref_resolution_agent_event_in_trace() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    // Inject an invalid trace event (missing ts).
+    instance["trace"] = json!([{"type": "run_started", "message": "go"}]);
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn backplane_config_ref_resolution_backend_config() {
+    let schema = backplane_config_schema();
+    // BackendConfig is referenced via $ref in additionalProperties.
+    // Invalid backend type should fail.
+    let instance = json!({
+        "backends": {
+            "bad": {"type": "unknown_type"}
+        }
+    });
+    assert_invalid(&schema, &instance);
+}
+
+// ── 18. Empty object rejection ───────────────────────────────────────
+
+#[test]
+fn empty_object_rejected_as_work_order() {
+    let schema = work_order_schema();
+    assert_invalid(&schema, &json!({}));
+}
+
+#[test]
+fn empty_object_rejected_as_receipt() {
+    let schema = receipt_schema();
+    assert_invalid(&schema, &json!({}));
+}
+
+#[test]
+fn empty_object_rejected_as_agent_event() {
+    let schema = agent_event_schema();
+    assert_invalid(&schema, &json!({}));
+}
+
+#[test]
+fn empty_object_rejected_as_policy_profile() {
+    let schema = policy_profile_schema();
+    assert_invalid(&schema, &json!({}));
+}
+
+// ── 19. Receipt: missing required fields ─────────────────────────────
+
+#[test]
+fn receipt_missing_meta_fails() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    instance.as_object_mut().unwrap().remove("meta");
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn receipt_missing_backend_fails() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    instance.as_object_mut().unwrap().remove("backend");
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn receipt_missing_outcome_fails() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    instance.as_object_mut().unwrap().remove("outcome");
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn receipt_missing_trace_fails() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    instance.as_object_mut().unwrap().remove("trace");
+    assert_invalid(&schema, &instance);
+}
+
+// ── 20. Receipt: wrong-type fields ───────────────────────────────────
+
+#[test]
+fn receipt_wrong_type_meta_fails() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    instance["meta"] = json!("not_an_object");
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn receipt_wrong_type_trace_fails() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    instance["trace"] = json!("not_an_array");
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn receipt_wrong_type_artifacts_fails() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    instance["artifacts"] = json!(42);
+    assert_invalid(&schema, &instance);
+}
+
+// ── 21. WorkOrder: additional missing-field tests ────────────────────
+
+#[test]
+fn work_order_missing_workspace_fails() {
+    let schema = work_order_schema();
+    let mut instance = valid_work_order_json();
+    instance.as_object_mut().unwrap().remove("workspace");
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn work_order_missing_config_fails() {
+    let schema = work_order_schema();
+    let mut instance = valid_work_order_json();
+    instance.as_object_mut().unwrap().remove("config");
+    assert_invalid(&schema, &instance);
+}
+
+#[test]
+fn work_order_missing_id_fails() {
+    let schema = work_order_schema();
+    let mut instance = valid_work_order_json();
+    instance.as_object_mut().unwrap().remove("id");
+    assert_invalid(&schema, &instance);
+}
+
+// ── 22. Null vs absent for optional fields ───────────────────────────
+
+#[test]
+fn work_order_null_model_validates() {
+    let schema = work_order_schema();
+    let mut instance = valid_work_order_json();
+    instance["config"]["model"] = json!(null);
+    assert_valid(&schema, &instance);
+}
+
+#[test]
+fn receipt_null_receipt_sha256_validates() {
+    let schema = receipt_schema();
+    let mut instance = valid_receipt_json();
+    instance["receipt_sha256"] = json!(null);
+    assert_valid(&schema, &instance);
+}
+
 // ── Bonus: agent event kind variants all validate ────────────────────
 
 #[test]

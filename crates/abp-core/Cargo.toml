@@ -32,6 +32,10 @@ harness = false
 name = "core_benches"
 harness = false
 
+[[bench]]
+name = "core_bench"
+harness = false
+
 [features]
 # Keep a feature gate for anything that could be “heavy” later.
 default = []

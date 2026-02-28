@@ -47,12 +47,36 @@ pub struct ReceiptChain {
 
 impl ReceiptChain {
     /// Create an empty receipt chain.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use abp_core::chain::ReceiptChain;
+    /// let chain = ReceiptChain::new();
+    /// assert!(chain.is_empty());
+    /// assert_eq!(chain.len(), 0);
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Validate a receipt's hash and append it to the chain.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use abp_core::chain::ReceiptChain;
+    /// # use abp_core::{ReceiptBuilder, Outcome};
+    /// let mut chain = ReceiptChain::new();
+    ///
+    /// let receipt = ReceiptBuilder::new("mock")
+    ///     .outcome(Outcome::Complete)
+    ///     .with_hash()
+    ///     .unwrap();
+    /// chain.push(receipt).unwrap();
+    /// assert_eq!(chain.len(), 1);
+    /// ```
     ///
     /// # Errors
     ///

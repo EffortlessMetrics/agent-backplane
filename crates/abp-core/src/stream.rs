@@ -15,12 +15,45 @@ pub struct EventStream {
 
 impl EventStream {
     /// Create a new `EventStream` from a vector of events.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use abp_core::stream::EventStream;
+    /// # use abp_core::{AgentEvent, AgentEventKind};
+    /// # use chrono::Utc;
+    /// let events = vec![
+    ///     AgentEvent { ts: Utc::now(), kind: AgentEventKind::RunStarted { message: "go".into() }, ext: None },
+    ///     AgentEvent { ts: Utc::now(), kind: AgentEventKind::RunCompleted { message: "done".into() }, ext: None },
+    /// ];
+    /// let stream = EventStream::new(events);
+    /// assert_eq!(stream.len(), 2);
+    /// assert!(!stream.is_empty());
+    /// ```
     #[must_use]
     pub fn new(events: Vec<AgentEvent>) -> Self {
         Self { events }
     }
 
     /// Return a new stream containing only events that pass `filter`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use abp_core::stream::EventStream;
+    /// # use abp_core::filter::EventFilter;
+    /// # use abp_core::{AgentEvent, AgentEventKind};
+    /// # use chrono::Utc;
+    /// let events = vec![
+    ///     AgentEvent { ts: Utc::now(), kind: AgentEventKind::RunStarted { message: "go".into() }, ext: None },
+    ///     AgentEvent { ts: Utc::now(), kind: AgentEventKind::Warning { message: "oops".into() }, ext: None },
+    ///     AgentEvent { ts: Utc::now(), kind: AgentEventKind::RunCompleted { message: "done".into() }, ext: None },
+    /// ];
+    /// let stream = EventStream::new(events);
+    /// let only_warnings = EventFilter::include_kinds(&["warning"]);
+    /// let filtered = stream.filter(&only_warnings);
+    /// assert_eq!(filtered.len(), 1);
+    /// ```
     #[must_use]
     pub fn filter(&self, f: &EventFilter) -> Self {
         Self {

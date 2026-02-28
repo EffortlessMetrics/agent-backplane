@@ -25,3 +25,7 @@ harness = false
 [[bench]]
 name = "glob_benches"
 harness = false
+
+[[bench]]
+name = "glob_bench"
+harness = false

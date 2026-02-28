@@ -47,6 +47,18 @@ pub struct ProtocolVersion {
 impl ProtocolVersion {
     /// Parse a version string of the form `"abp/vMAJOR.MINOR"`.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use abp_protocol::version::ProtocolVersion;
+    /// let v = ProtocolVersion::parse("abp/v0.1").unwrap();
+    /// assert_eq!(v.major, 0);
+    /// assert_eq!(v.minor, 1);
+    ///
+    /// // Invalid format returns an error.
+    /// assert!(ProtocolVersion::parse("invalid").is_err());
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns [`VersionError`] if the string does not match the expected format.

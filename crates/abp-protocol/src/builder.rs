@@ -58,6 +58,23 @@ pub struct EnvelopeBuilder;
 
 impl EnvelopeBuilder {
     /// Start building a `Hello` envelope.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use abp_protocol::builder::EnvelopeBuilder;
+    /// # use abp_protocol::Envelope;
+    /// let envelope = EnvelopeBuilder::hello()
+    ///     .backend("my-sidecar")
+    ///     .version("1.0.0")
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// match &envelope {
+    ///     Envelope::Hello { backend, .. } => assert_eq!(backend.id, "my-sidecar"),
+    ///     _ => panic!("expected Hello"),
+    /// }
+    /// ```
     #[must_use]
     pub fn hello() -> HelloBuilder {
         HelloBuilder::default()
