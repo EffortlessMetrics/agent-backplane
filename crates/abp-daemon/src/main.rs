@@ -2,7 +2,7 @@
 #![deny(unsafe_code)]
 use abp_claude_sdk as claude_sdk;
 use abp_codex_sdk as codex_sdk;
-use abp_daemon::{AppState, build_app, hydrate_receipts_from_disk};
+use abp_daemon::{AppState, RunTracker, build_app, hydrate_receipts_from_disk};
 use abp_gemini_sdk as gemini_sdk;
 use abp_host::SidecarSpec;
 use abp_integrations::{MockBackend, SidecarBackend};
@@ -59,6 +59,7 @@ async fn main() -> Result<()> {
         runtime,
         receipts: Arc::new(RwLock::new(HashMap::new())),
         receipts_dir: args.receipts_dir.clone(),
+        run_tracker: RunTracker::new(),
     });
 
     // Warm cache with any existing receipt files to support immediate GET /receipts/:id.

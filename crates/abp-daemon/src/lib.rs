@@ -24,11 +24,85 @@ use tokio_stream::StreamExt;
 use tracing::{error, info};
 use uuid::Uuid;
 
+// ---------------------------------------------------------------------------
+// Run lifecycle tracking
+// ---------------------------------------------------------------------------
+
+/// Status of a tracked run.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum RunStatus {
+    Pending,
+    Running,
+    Completed { receipt: Receipt },
+    Failed { error: String },
+}
+
+/// Tracks active and finished runs with their current status.
+#[derive(Clone, Default)]
+pub struct RunTracker {
+    runs: Arc<RwLock<HashMap<Uuid, RunStatus>>>,
+}
+
+impl RunTracker {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Mark a run as running. Errors if the run is already tracked.
+    pub async fn start_run(&self, run_id: Uuid) -> anyhow::Result<()> {
+        let mut guard = self.runs.write().await;
+        if guard.contains_key(&run_id) {
+            anyhow::bail!("run {run_id} is already tracked");
+        }
+        guard.insert(run_id, RunStatus::Running);
+        Ok(())
+    }
+
+    /// Transition a run to completed with its receipt. Errors if the run is
+    /// not currently tracked.
+    pub async fn complete_run(&self, run_id: Uuid, receipt: Receipt) -> anyhow::Result<()> {
+        let mut guard = self.runs.write().await;
+        if !guard.contains_key(&run_id) {
+            anyhow::bail!("run {run_id} is not tracked");
+        }
+        guard.insert(run_id, RunStatus::Completed { receipt });
+        Ok(())
+    }
+
+    /// Transition a run to failed with an error message. Errors if the run is
+    /// not currently tracked.
+    pub async fn fail_run(&self, run_id: Uuid, error: String) -> anyhow::Result<()> {
+        let mut guard = self.runs.write().await;
+        if !guard.contains_key(&run_id) {
+            anyhow::bail!("run {run_id} is not tracked");
+        }
+        guard.insert(run_id, RunStatus::Failed { error });
+        Ok(())
+    }
+
+    /// Return the current status of a run, or `None` if not tracked.
+    pub async fn get_run_status(&self, run_id: Uuid) -> Option<RunStatus> {
+        self.runs.read().await.get(&run_id).cloned()
+    }
+
+    /// Return all tracked runs and their statuses.
+    pub async fn list_runs(&self) -> Vec<(Uuid, RunStatus)> {
+        self.runs
+            .read()
+            .await
+            .iter()
+            .map(|(id, s)| (*id, s.clone()))
+            .collect()
+    }
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub runtime: Arc<Runtime>,
     pub receipts: Arc<RwLock<HashMap<Uuid, Receipt>>>,
     pub receipts_dir: PathBuf,
+    pub run_tracker: RunTracker,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -139,11 +213,23 @@ async fn cmd_run(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RunRequest>,
 ) -> Result<Json<RunResponse>, ApiError> {
-    let handle = state
+    let run_id = req.work_order.id;
+
+    // Track the run as running (ignore duplicate-id errors for passthrough
+    // compatibility with the existing receipt-only flow).
+    let _ = state.run_tracker.start_run(run_id).await;
+
+    let handle = match state
         .runtime
         .run_streaming(&req.backend, req.work_order)
         .await
-        .map_err(|e| ApiError::new(StatusCode::BAD_REQUEST, e.to_string()))?;
+    {
+        Ok(h) => h,
+        Err(e) => {
+            let _ = state.run_tracker.fail_run(run_id, e.to_string()).await;
+            return Err(ApiError::new(StatusCode::BAD_REQUEST, e.to_string()));
+        }
+    };
 
     let mut events: Vec<AgentEvent> = Vec::new();
     let mut event_stream = handle.events;
@@ -151,11 +237,23 @@ async fn cmd_run(
         events.push(event);
     }
 
-    let receipt = handle
-        .receipt
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let receipt = match handle.receipt.await {
+        Ok(Ok(r)) => r,
+        Ok(Err(e)) => {
+            let _ = state.run_tracker.fail_run(run_id, e.to_string()).await;
+            return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
+        }
+        Err(e) => {
+            let _ = state.run_tracker.fail_run(run_id, e.to_string()).await;
+            return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
+        }
+    };
+
+    // Mark completed in tracker.
+    let _ = state
+        .run_tracker
+        .complete_run(receipt.meta.run_id, receipt.clone())
+        .await;
 
     {
         let mut guard = state.receipts.write().await;
@@ -178,7 +276,13 @@ async fn cmd_run(
 async fn cmd_list_runs(
     State(state): State<Arc<AppState>>,
 ) -> Json<Vec<Uuid>> {
+    // Merge tracker runs with legacy receipt-only runs for backward compat.
     let mut ids: Vec<Uuid> = state.receipts.read().await.keys().cloned().collect();
+    for (id, _) in state.run_tracker.list_runs().await {
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
     ids.sort_unstable();
     Json(ids)
 }
@@ -187,6 +291,15 @@ async fn cmd_get_run(
     AxPath(run_id): AxPath<Uuid>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    // Prefer tracker status when available.
+    if let Some(status) = state.run_tracker.get_run_status(run_id).await {
+        return Ok(Json(json!({
+            "run_id": run_id,
+            "status": status,
+        })));
+    }
+
+    // Fall back to receipt-only lookup for backward compat.
     let guard = state.receipts.read().await;
     let receipt = guard
         .get(&run_id)

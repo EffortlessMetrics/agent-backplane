@@ -3,7 +3,7 @@ use abp_core::{
     CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
     WorkspaceMode, WorkspaceSpec,
 };
-use abp_daemon::{AppState, BackendInfo, RunRequest, RunResponse, build_app};
+use abp_daemon::{AppState, BackendInfo, RunRequest, RunResponse, RunTracker, build_app};
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;
 use axum::body::Body;
@@ -41,6 +41,7 @@ fn test_state(receipts_dir: &std::path::Path) -> Arc<AppState> {
         runtime: Arc::new(runtime),
         receipts: Arc::new(RwLock::new(HashMap::new())),
         receipts_dir: receipts_dir.to_path_buf(),
+        run_tracker: RunTracker::new(),
     })
 }
 
