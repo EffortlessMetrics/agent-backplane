@@ -114,4 +114,179 @@ mod tests {
             "unexpected error: {err:?}"
         );
     }
+
+    #[test]
+    fn multiple_include_patterns() {
+        let rules =
+            IncludeExcludeGlobs::new(&patterns(&["src/**", "tests/**"]), &Vec::new())
+                .expect("compile rules");
+        assert_eq!(rules.decide_str("src/lib.rs"), MatchDecision::Allowed);
+        assert_eq!(rules.decide_str("tests/it.rs"), MatchDecision::Allowed);
+        assert_eq!(
+            rules.decide_str("README.md"),
+            MatchDecision::DeniedByMissingInclude
+        );
+        assert_eq!(
+            rules.decide_str("docs/guide.md"),
+            MatchDecision::DeniedByMissingInclude
+        );
+    }
+
+    #[test]
+    fn multiple_exclude_patterns() {
+        let rules = IncludeExcludeGlobs::new(
+            &Vec::new(),
+            &patterns(&["*.log", "target/**", "*.tmp"]),
+        )
+        .expect("compile rules");
+        assert_eq!(rules.decide_str("build.log"), MatchDecision::DeniedByExclude);
+        assert_eq!(
+            rules.decide_str("target/debug/bin"),
+            MatchDecision::DeniedByExclude
+        );
+        assert_eq!(rules.decide_str("data.tmp"), MatchDecision::DeniedByExclude);
+        assert_eq!(rules.decide_str("src/main.rs"), MatchDecision::Allowed);
+    }
+
+    #[test]
+    fn nested_paths() {
+        let rules = IncludeExcludeGlobs::new(&patterns(&["src/**"]), &Vec::new())
+            .expect("compile rules");
+        assert_eq!(
+            rules.decide_str("src/a/b/c/d.rs"),
+            MatchDecision::Allowed
+        );
+        assert_eq!(
+            rules.decide_str("src/a/b/c/d/e/f/g.txt"),
+            MatchDecision::Allowed
+        );
+    }
+
+    #[test]
+    fn unicode_paths() {
+        let rules = IncludeExcludeGlobs::new(&patterns(&["src/**"]), &Vec::new())
+            .expect("compile rules");
+        assert_eq!(
+            rules.decide_str("src/données/fichier.rs"),
+            MatchDecision::Allowed
+        );
+        assert_eq!(
+            rules.decide_str("données/fichier.rs"),
+            MatchDecision::DeniedByMissingInclude
+        );
+    }
+
+    #[test]
+    fn empty_string_path() {
+        let rules = IncludeExcludeGlobs::new(&Vec::new(), &Vec::new()).expect("compile rules");
+        assert_eq!(rules.decide_str(""), MatchDecision::Allowed);
+
+        let with_include =
+            IncludeExcludeGlobs::new(&patterns(&["src/**"]), &Vec::new()).expect("compile rules");
+        assert_eq!(
+            with_include.decide_str(""),
+            MatchDecision::DeniedByMissingInclude
+        );
+    }
+
+    #[test]
+    fn wildcard_only_include() {
+        let rules = IncludeExcludeGlobs::new(&patterns(&["*"]), &Vec::new())
+            .expect("compile rules");
+        assert_eq!(rules.decide_str("README.md"), MatchDecision::Allowed);
+        assert_eq!(rules.decide_str("Cargo.toml"), MatchDecision::Allowed);
+        // globset default: literal_separator is false, so * crosses /
+        assert_eq!(rules.decide_str("src/lib.rs"), MatchDecision::Allowed);
+    }
+
+    #[test]
+    fn double_star_vs_single_star() {
+        let single = IncludeExcludeGlobs::new(&patterns(&["*.rs"]), &Vec::new())
+            .expect("compile single star");
+        let double = IncludeExcludeGlobs::new(&patterns(&["**/*.rs"]), &Vec::new())
+            .expect("compile double star");
+
+        // Top-level .rs file: both match
+        assert_eq!(single.decide_str("main.rs"), MatchDecision::Allowed);
+        assert_eq!(double.decide_str("main.rs"), MatchDecision::Allowed);
+
+        // globset default: literal_separator is false, so *.rs also matches nested
+        assert_eq!(single.decide_str("src/lib.rs"), MatchDecision::Allowed);
+        assert_eq!(double.decide_str("src/lib.rs"), MatchDecision::Allowed);
+
+        // Difference: *.rs won't match a file without .rs extension
+        assert_eq!(
+            single.decide_str("src/lib.txt"),
+            MatchDecision::DeniedByMissingInclude
+        );
+        assert_eq!(
+            double.decide_str("src/lib.txt"),
+            MatchDecision::DeniedByMissingInclude
+        );
+    }
+
+    #[test]
+    fn exclude_overrides_include_complex() {
+        let rules = IncludeExcludeGlobs::new(
+            &patterns(&["src/**", "tests/**"]),
+            &patterns(&["src/generated/**", "tests/fixtures/**"]),
+        )
+        .expect("compile rules");
+        assert_eq!(rules.decide_str("src/lib.rs"), MatchDecision::Allowed);
+        assert_eq!(
+            rules.decide_str("src/generated/output.rs"),
+            MatchDecision::DeniedByExclude
+        );
+        assert_eq!(rules.decide_str("tests/unit.rs"), MatchDecision::Allowed);
+        assert_eq!(
+            rules.decide_str("tests/fixtures/data.json"),
+            MatchDecision::DeniedByExclude
+        );
+        assert_eq!(
+            rules.decide_str("docs/readme.md"),
+            MatchDecision::DeniedByMissingInclude
+        );
+    }
+
+    #[test]
+    fn decide_path_vs_decide_str_consistency() {
+        use std::path::Path;
+
+        let rules =
+            IncludeExcludeGlobs::new(&patterns(&["src/**"]), &patterns(&["src/secret/**"]))
+                .expect("compile rules");
+
+        let cases = &["src/lib.rs", "src/secret/key.pem", "README.md"];
+        for &c in cases {
+            assert_eq!(
+                rules.decide_str(c),
+                rules.decide_path(Path::new(c)),
+                "mismatch for path: {c}"
+            );
+        }
+    }
+
+    #[test]
+    fn build_globset_with_empty_returns_none() {
+        let result = super::build_globset(&[]).expect("should succeed");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn build_globset_with_patterns_returns_some() {
+        let result =
+            super::build_globset(&patterns(&["*.rs", "src/**"])).expect("should succeed");
+        assert!(result.is_some());
+        let set = result.unwrap();
+        assert!(set.is_match("main.rs"));
+        assert!(set.is_match("src/lib.rs"));
+        assert!(!set.is_match("README.md"));
+    }
+
+    #[test]
+    fn match_decision_is_allowed() {
+        assert!(MatchDecision::Allowed.is_allowed());
+        assert!(!MatchDecision::DeniedByExclude.is_allowed());
+        assert!(!MatchDecision::DeniedByMissingInclude.is_allowed());
+    }
 }
