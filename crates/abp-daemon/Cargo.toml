@@ -45,4 +45,5 @@ tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 tempfile = { workspace = true }
 tokio-tungstenite = "0.28"
+futures = { workspace = true }
 proptest = { workspace = true }

@@ -12,6 +12,8 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// Processing pipeline for work order pre-processing.
+pub mod pipeline;
 /// Backend registry for named backend lookup.
 pub mod registry;
 /// Receipt persistence and retrieval.

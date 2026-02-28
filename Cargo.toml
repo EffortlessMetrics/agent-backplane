@@ -44,6 +44,7 @@ globset = "0.4.18"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 schemars = { version = "1.2.1", features = ["chrono04", "uuid1"] }
+jsonschema = "0.28"
 sha2 = "0.10.9"
 thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "fs"] }
@@ -72,6 +73,8 @@ abp-policy = { path = "crates/abp-policy" }
 abp-glob = { path = "crates/abp-glob" }
 abp-workspace = { path = "crates/abp-workspace" }
 abp-cli = { path = "crates/abp-cli" }
+sidecar-kit = { path = "crates/sidecar-kit" }
+claude-bridge = { path = "crates/claude-bridge" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 tempfile = { workspace = true }
@@ -79,9 +82,12 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 uuid = { workspace = true }
 serde_json = { workspace = true }
+serde = { workspace = true }
 chrono = { workspace = true }
 tracing.workspace = true
 tracing-subscriber.workspace = true
+schemars.workspace = true
+jsonschema.workspace = true
 
 [[test]]
 name = "bdd"

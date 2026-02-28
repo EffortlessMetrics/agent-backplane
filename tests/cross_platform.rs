@@ -66,6 +66,7 @@ fn read_only_file_is_readable() {
 
     // Restore writability so tempdir cleanup works on Windows.
     let mut perms = fs::metadata(&file).unwrap().permissions();
+    #[allow(clippy::permissions_set_readonly_false)]
     perms.set_readonly(false);
     fs::set_permissions(&file, perms).unwrap();
 }
