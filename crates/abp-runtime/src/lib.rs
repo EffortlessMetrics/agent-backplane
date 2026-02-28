@@ -29,6 +29,8 @@ pub mod telemetry;
 pub mod budget;
 pub mod multiplex;
 pub mod hooks;
+/// Broadcast-based event bus for decoupled event distribution.
+pub mod bus;
 
 use abp_core::{AgentEvent, CapabilityRequirements, ExecutionMode, Outcome, Receipt, WorkOrder};
 use abp_integrations::{Backend, ensure_capability_requirements};

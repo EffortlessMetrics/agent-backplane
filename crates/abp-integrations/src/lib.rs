@@ -13,6 +13,7 @@
 pub mod capability;
 pub mod metrics;
 pub mod projection;
+pub mod selector;
 
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,

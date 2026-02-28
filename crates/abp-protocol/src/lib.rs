@@ -7,6 +7,7 @@
 //! Wire format for talking to sidecars and daemons.
 //! Current transport: JSONL over stdio.
 
+pub mod batch;
 pub mod builder;
 pub mod codec;
 pub mod compress;
