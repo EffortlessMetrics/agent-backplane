@@ -18,6 +18,7 @@ import sys
 import json
 import datetime
 import time
+import os
 
 mode = sys.argv[1] if len(sys.argv) > 1 else "default"
 
@@ -150,6 +151,22 @@ elif mode == "hang":
     emit(make_event(ref_id, "run_started", message="going to hang"))
     # Sleep long enough that the test timeout fires first.
     time.sleep(5)
+
+elif mode == "echo_env":
+    # Emit the value of ABP_TEST_VAR in a run_started event message.
+    emit(make_hello())
+    ref_id = read_run()
+    val = os.environ.get("ABP_TEST_VAR", "<unset>")
+    emit(make_event(ref_id, "run_started", message=f"ABP_TEST_VAR={val}"))
+    emit(make_final(ref_id))
+
+elif mode == "echo_cwd":
+    # Emit the current working directory in a run_started event message.
+    emit(make_hello())
+    ref_id = read_run()
+    cwd = os.getcwd()
+    emit(make_event(ref_id, "run_started", message=f"cwd={cwd}"))
+    emit(make_final(ref_id))
 
 else:
     print(f"Unknown mode: {mode}", file=sys.stderr)

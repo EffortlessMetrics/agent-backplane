@@ -603,3 +603,50 @@ async fn post_run_legacy_endpoint_still_works() {
 
     assert_eq!(resp.status(), StatusCode::OK);
 }
+
+// ---------------------------------------------------------------------------
+// GET /ws – WebSocket upgrade returns 101 Switching Protocols
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn ws_upgrade_returns_101() {
+    let tmp = tempfile::tempdir().unwrap();
+    let state = test_state(tmp.path());
+    let app = build_app(state);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let url = format!("ws://127.0.0.1:{}/ws", addr.port());
+    let (ws_stream, resp) = tokio_tungstenite::connect_async(&url).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::SWITCHING_PROTOCOLS);
+    drop(ws_stream);
+}
+
+// ---------------------------------------------------------------------------
+// GET /ws – request without upgrade headers is rejected
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn ws_without_upgrade_headers_is_rejected() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/ws")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // Without proper upgrade headers, axum rejects with a client error
+    assert!(
+        resp.status().is_client_error(),
+        "expected 4xx without upgrade headers, got {}",
+        resp.status()
+    );
+}

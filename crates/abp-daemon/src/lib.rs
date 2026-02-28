@@ -5,6 +5,7 @@ use abp_runtime::Runtime;
 use axum::{
     Json, Router,
     extract::{Path as AxPath, Query, State},
+    extract::ws::{Message, WebSocket, WebSocketUpgrade},
     http::StatusCode,
     response::{IntoResponse, Response},
     response::sse::{Event as SseEvent, Sse},
@@ -89,6 +90,7 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .route("/receipts", get(cmd_list_receipts))
         .route("/receipts/{run_id}", get(cmd_get_receipt))
         .route("/runs/{run_id}/events", get(cmd_run_events))
+        .route("/ws", get(cmd_ws))
         .with_state(state)
 }
 
@@ -201,6 +203,24 @@ async fn cmd_run_events(
 ) -> Sse<impl tokio_stream::Stream<Item = Result<SseEvent, Infallible>>> {
     let stream = tokio_stream::iter(vec![Ok(SseEvent::default().data("ping"))]);
     Sse::new(stream)
+}
+
+async fn cmd_ws(ws: WebSocketUpgrade) -> impl IntoResponse {
+    ws.on_upgrade(handle_ws)
+}
+
+async fn handle_ws(mut socket: WebSocket) {
+    while let Some(Ok(msg)) = socket.recv().await {
+        match msg {
+            Message::Text(text) => {
+                if socket.send(Message::Text(text)).await.is_err() {
+                    break;
+                }
+            }
+            Message::Close(_) => break,
+            _ => {}
+        }
+    }
 }
 
 async fn cmd_list_receipts(

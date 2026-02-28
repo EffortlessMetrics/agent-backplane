@@ -37,9 +37,10 @@ tokio-stream.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
-axum = "0.8.8"
+axum = { version = "0.8.8", features = ["ws"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 tempfile = { workspace = true }
+tokio-tungstenite = "0.28"

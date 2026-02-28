@@ -704,3 +704,184 @@ impl Receipt {
         Ok(self)
     }
 }
+
+/// Builder for constructing [`Receipt`]s ergonomically.
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::{ReceiptBuilder, Outcome};
+///
+/// let receipt = ReceiptBuilder::new("mock")
+///     .outcome(Outcome::Complete)
+///     .build();
+///
+/// assert_eq!(receipt.backend.id, "mock");
+/// assert_eq!(receipt.outcome, Outcome::Complete);
+/// assert!(receipt.receipt_sha256.is_none());
+/// ```
+#[derive(Debug)]
+pub struct ReceiptBuilder {
+    backend_id: String,
+    backend_version: Option<String>,
+    adapter_version: Option<String>,
+    capabilities: CapabilityManifest,
+    mode: ExecutionMode,
+    outcome: Outcome,
+    work_order_id: Uuid,
+    started_at: DateTime<Utc>,
+    finished_at: DateTime<Utc>,
+    usage_raw: serde_json::Value,
+    usage: UsageNormalized,
+    trace: Vec<AgentEvent>,
+    artifacts: Vec<ArtifactRef>,
+    verification: VerificationReport,
+}
+
+impl ReceiptBuilder {
+    #[must_use]
+    pub fn new(backend_id: impl Into<String>) -> Self {
+        let now = Utc::now();
+        Self {
+            backend_id: backend_id.into(),
+            backend_version: None,
+            adapter_version: None,
+            capabilities: CapabilityManifest::new(),
+            mode: ExecutionMode::default(),
+            outcome: Outcome::Complete,
+            work_order_id: Uuid::nil(),
+            started_at: now,
+            finished_at: now,
+            usage_raw: serde_json::json!({}),
+            usage: UsageNormalized::default(),
+            trace: vec![],
+            artifacts: vec![],
+            verification: VerificationReport::default(),
+        }
+    }
+
+    #[must_use]
+    pub fn backend_id(mut self, id: impl Into<String>) -> Self {
+        self.backend_id = id.into();
+        self
+    }
+
+    #[must_use]
+    pub fn outcome(mut self, outcome: Outcome) -> Self {
+        self.outcome = outcome;
+        self
+    }
+
+    #[must_use]
+    pub fn started_at(mut self, dt: DateTime<Utc>) -> Self {
+        self.started_at = dt;
+        self
+    }
+
+    #[must_use]
+    pub fn finished_at(mut self, dt: DateTime<Utc>) -> Self {
+        self.finished_at = dt;
+        self
+    }
+
+    #[must_use]
+    pub fn work_order_id(mut self, id: Uuid) -> Self {
+        self.work_order_id = id;
+        self
+    }
+
+    #[must_use]
+    pub fn add_trace_event(mut self, event: AgentEvent) -> Self {
+        self.trace.push(event);
+        self
+    }
+
+    #[must_use]
+    pub fn add_artifact(mut self, artifact: ArtifactRef) -> Self {
+        self.artifacts.push(artifact);
+        self
+    }
+
+    #[must_use]
+    pub fn capabilities(mut self, caps: CapabilityManifest) -> Self {
+        self.capabilities = caps;
+        self
+    }
+
+    #[must_use]
+    pub fn mode(mut self, mode: ExecutionMode) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    #[must_use]
+    pub fn backend_version(mut self, version: impl Into<String>) -> Self {
+        self.backend_version = Some(version.into());
+        self
+    }
+
+    #[must_use]
+    pub fn adapter_version(mut self, version: impl Into<String>) -> Self {
+        self.adapter_version = Some(version.into());
+        self
+    }
+
+    #[must_use]
+    pub fn usage_raw(mut self, raw: serde_json::Value) -> Self {
+        self.usage_raw = raw;
+        self
+    }
+
+    #[must_use]
+    pub fn usage(mut self, usage: UsageNormalized) -> Self {
+        self.usage = usage;
+        self
+    }
+
+    #[must_use]
+    pub fn verification(mut self, verification: VerificationReport) -> Self {
+        self.verification = verification;
+        self
+    }
+
+    /// Compute and set the receipt hash before returning.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ContractError::Json`] if the receipt cannot be serialized.
+    pub fn with_hash(self) -> Result<Receipt, ContractError> {
+        self.build().with_hash()
+    }
+
+    #[must_use]
+    pub fn build(self) -> Receipt {
+        let duration_ms = (self.finished_at - self.started_at)
+            .num_milliseconds()
+            .max(0) as u64;
+
+        Receipt {
+            meta: RunMetadata {
+                run_id: Uuid::new_v4(),
+                work_order_id: self.work_order_id,
+                contract_version: CONTRACT_VERSION.to_string(),
+                started_at: self.started_at,
+                finished_at: self.finished_at,
+                duration_ms,
+            },
+            backend: BackendIdentity {
+                id: self.backend_id,
+                backend_version: self.backend_version,
+                adapter_version: self.adapter_version,
+            },
+            capabilities: self.capabilities,
+            mode: self.mode,
+            usage_raw: self.usage_raw,
+            usage: self.usage,
+            trace: self.trace,
+            artifacts: self.artifacts,
+            verification: self.verification,
+            outcome: self.outcome,
+            receipt_sha256: None,
+        }
+    }
+}
