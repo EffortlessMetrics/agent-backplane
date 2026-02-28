@@ -150,7 +150,7 @@ fn large_path_set_evaluation() {
         let path = match i % 5 {
             0 => format!("src/module_{i}/lib.rs"),
             1 => format!("secrets/vault/key_{i}.pem"),
-            2 => format!(".env.production"),
+            2 => ".env.production".to_string(),
             3 => format!(".git/objects/{i:04x}"),
             _ => format!("node_modules/pkg_{i}/index.js"),
         };

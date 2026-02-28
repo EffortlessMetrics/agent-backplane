@@ -182,7 +182,7 @@ fn try_final_type_mismatch_gives_deserialize() {
 
 #[test]
 fn all_variants_have_nonempty_display() {
-    let io_err = || std::io::Error::new(std::io::ErrorKind::Other, "test");
+    let io_err = || std::io::Error::other("test");
     let serde_err = || serde_json::from_str::<()>("x").unwrap_err();
 
     let variants: Vec<SidecarError> = vec![
@@ -209,7 +209,7 @@ fn all_variants_have_nonempty_display() {
 
 #[test]
 fn all_variants_have_debug() {
-    let io_err = || std::io::Error::new(std::io::ErrorKind::Other, "test");
+    let io_err = || std::io::Error::other("test");
     let serde_err = || serde_json::from_str::<()>("x").unwrap_err();
 
     let variants: Vec<SidecarError> = vec![

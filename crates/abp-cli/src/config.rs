@@ -91,10 +91,10 @@ pub fn validate_config(config: &BackplaneConfig) -> Result<(), Vec<ConfigError>>
                         reason: "sidecar command must not be empty".into(),
                     });
                 }
-                if let Some(t) = timeout_secs {
-                    if *t == 0 || *t > MAX_TIMEOUT_SECS {
-                        errors.push(ConfigError::InvalidTimeout { value: *t });
-                    }
+                if let Some(t) = timeout_secs
+                    && (*t == 0 || *t > MAX_TIMEOUT_SECS)
+                {
+                    errors.push(ConfigError::InvalidTimeout { value: *t });
                 }
             }
             BackendConfig::Mock {} => {}

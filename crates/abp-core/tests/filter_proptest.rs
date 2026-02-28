@@ -120,7 +120,7 @@ proptest! {
         event in arb_agent_event(),
         names in prop::collection::vec(arb_kind_name(), 0..5),
     ) {
-        let names_ref: Vec<&str> = names.iter().copied().collect();
+        let names_ref: Vec<&str> = names.to_vec();
         let include = EventFilter::include_kinds(&names_ref);
         let exclude = EventFilter::exclude_kinds(&names_ref);
 

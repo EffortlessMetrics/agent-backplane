@@ -141,16 +141,16 @@ pub fn map_response(resp: &KimiResponse) -> Vec<AgentEvent> {
     let now = Utc::now();
 
     for choice in &resp.choices {
-        if let Some(text) = &choice.message.content {
-            if !text.is_empty() {
-                events.push(AgentEvent {
-                    ts: now,
-                    kind: AgentEventKind::AssistantMessage {
-                        text: text.clone(),
-                    },
-                    ext: None,
-                });
-            }
+        if let Some(text) = &choice.message.content
+            && !text.is_empty()
+        {
+            events.push(AgentEvent {
+                ts: now,
+                kind: AgentEventKind::AssistantMessage {
+                    text: text.clone(),
+                },
+                ext: None,
+            });
         }
 
         if let Some(tool_calls) = &choice.message.tool_calls {

@@ -31,7 +31,7 @@ proptest! {
     fn include_matching_path_returns_allowed(path in relative_path()) {
         // Use a wildcard include that matches every path.
         let globs = IncludeExcludeGlobs::new(
-            &["**".to_string()].to_vec(),
+            &["**".to_string()],
             &Vec::new(),
         ).unwrap();
 
@@ -47,7 +47,7 @@ proptest! {
         // Use a wildcard exclude that matches every path.
         let globs = IncludeExcludeGlobs::new(
             &Vec::new(),
-            &["**".to_string()].to_vec(),
+            &["**".to_string()],
         ).unwrap();
 
         prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
@@ -60,8 +60,8 @@ proptest! {
     #[test]
     fn exclude_beats_include(path in relative_path()) {
         let globs = IncludeExcludeGlobs::new(
-            &["**".to_string()].to_vec(),
-            &["**".to_string()].to_vec(),
+            &["**".to_string()],
+            &["**".to_string()],
         ).unwrap();
 
         prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
@@ -110,7 +110,7 @@ proptest! {
         let outside = format!("other/{seg}/{rest}");
 
         let globs = IncludeExcludeGlobs::new(
-            &["src/**".to_string()].to_vec(),
+            &["src/**".to_string()],
             &Vec::new(),
         ).unwrap();
 
@@ -132,7 +132,7 @@ proptest! {
 
         let globs = IncludeExcludeGlobs::new(
             &Vec::new(),
-            &["secret/**".to_string()].to_vec(),
+            &["secret/**".to_string()],
         ).unwrap();
 
         prop_assert_eq!(globs.decide_str(&inside), MatchDecision::DeniedByExclude);

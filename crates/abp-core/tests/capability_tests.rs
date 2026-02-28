@@ -222,7 +222,7 @@ mod manifest_lookup {
     #[test]
     fn lookup_missing_capability() {
         let m = sample_manifest();
-        assert!(m.get(&Capability::SessionFork).is_none());
+        assert!(!m.contains_key(&Capability::SessionFork));
     }
 
     #[test]
@@ -255,7 +255,7 @@ mod empty_manifest {
         let m = CapabilityManifest::new();
         for cap in all_capabilities() {
             assert!(
-                m.get(&cap).is_none(),
+                !m.contains_key(&cap),
                 "empty manifest should not contain {cap:?}"
             );
         }
@@ -284,7 +284,7 @@ mod requirement_matching {
         reqs.iter().all(|req| {
             manifest
                 .get(&req.capability)
-                .map_or(false, |level| level.satisfies(&req.min_support))
+                .is_some_and(|level| level.satisfies(&req.min_support))
         })
     }
 

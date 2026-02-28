@@ -190,7 +190,7 @@ fn golden_envelope_fatal_no_ref() {
 fn golden_jsonl_stream() {
     let ts = fixed_ts();
 
-    let envelopes = vec![
+    let envelopes = [
         Envelope::hello(
             BackendIdentity {
                 id: "test-sidecar".into(),

@@ -151,7 +151,7 @@ fn execution_mode_debug() {
 #[test]
 fn execution_mode_clone_eq() {
     for v in &all_execution_modes() {
-        let cloned = v.clone();
+        let cloned = *v;
         assert_eq!(*v, cloned, "clone must equal original");
     }
 }

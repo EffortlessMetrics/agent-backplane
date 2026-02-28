@@ -80,12 +80,11 @@ impl ReceiptStore {
         for entry in dir {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("json") {
-                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    if let Ok(id) = Uuid::parse_str(stem) {
-                        ids.push(id);
-                    }
-                }
+            if path.extension().and_then(|e| e.to_str()) == Some("json")
+                && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+                && let Ok(id) = Uuid::parse_str(stem)
+            {
+                ids.push(id);
             }
         }
         ids.sort();

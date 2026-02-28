@@ -34,7 +34,7 @@ use uuid::Uuid;
 pub enum RunStatus {
     Pending,
     Running,
-    Completed { receipt: Receipt },
+    Completed { receipt: Box<Receipt> },
     Failed { error: String },
 }
 
@@ -66,7 +66,7 @@ impl RunTracker {
         if !guard.contains_key(&run_id) {
             anyhow::bail!("run {run_id} is not tracked");
         }
-        guard.insert(run_id, RunStatus::Completed { receipt });
+        guard.insert(run_id, RunStatus::Completed { receipt: Box::new(receipt) });
         Ok(())
     }
 

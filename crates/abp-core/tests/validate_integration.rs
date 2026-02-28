@@ -76,7 +76,7 @@ fn validation_accumulates_multiple_errors() {
 /// Every `ValidationError` variant produces a unique and informative display string.
 #[test]
 fn validation_error_display_messages_are_unique() {
-    let errors = vec![
+    let errors = [
         ValidationError::EmptyBackendId,
         ValidationError::MissingField { field: "task" },
         ValidationError::InvalidHash {

@@ -532,7 +532,7 @@ async fn json_endpoints_have_json_content_type() {
             let ct = resp
                 .headers()
                 .get("content-type")
-                .expect(&format!("no content-type on {u}"))
+                .unwrap_or_else(|| panic!("no content-type on {u}"))
                 .to_str()
                 .unwrap()
                 .to_string();
