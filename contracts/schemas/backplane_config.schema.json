@@ -5,10 +5,33 @@
   "type": "object",
   "properties": {
     "backends": {
+      "description": "Named backend definitions.",
       "type": "object",
       "additionalProperties": {
         "$ref": "#/$defs/BackendConfig"
-      }
+      },
+      "default": {}
+    },
+    "default_backend": {
+      "description": "Default backend name used when none is specified on the command line.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "log_level": {
+      "description": "Log level override (e.g. \"debug\", \"info\", \"warn\").",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "receipts_dir": {
+      "description": "Directory for storing receipt files.",
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "$defs": {
@@ -47,7 +70,6 @@
                 "null"
               ],
               "format": "uint64",
-              "default": null,
               "minimum": 0
             },
             "type": {
