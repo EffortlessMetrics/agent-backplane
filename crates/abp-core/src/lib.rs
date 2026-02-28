@@ -694,6 +694,21 @@ impl WorkOrderBuilder {
 impl Receipt {
     /// Compute and attach the canonical SHA-256 hash, returning the updated receipt.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_core::{ReceiptBuilder, Outcome};
+    ///
+    /// let receipt = ReceiptBuilder::new("mock")
+    ///     .outcome(Outcome::Complete)
+    ///     .build()
+    ///     .with_hash()
+    ///     .unwrap();
+    ///
+    /// assert!(receipt.receipt_sha256.is_some());
+    /// assert_eq!(receipt.receipt_sha256.as_ref().unwrap().len(), 64);
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns [`ContractError::Json`] if the receipt cannot be serialized.

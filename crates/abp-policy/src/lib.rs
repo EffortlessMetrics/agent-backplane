@@ -92,6 +92,24 @@ impl PolicyEngine {
     }
 
     /// Check whether `tool_name` is permitted by the allow/deny tool rules.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_core::PolicyProfile;
+    /// use abp_policy::PolicyEngine;
+    ///
+    /// let policy = PolicyProfile {
+    ///     allowed_tools: vec!["Read".into(), "Grep".into()],
+    ///     disallowed_tools: vec!["Bash".into()],
+    ///     ..PolicyProfile::default()
+    /// };
+    /// let engine = PolicyEngine::new(&policy).unwrap();
+    ///
+    /// assert!(engine.can_use_tool("Read").allowed);
+    /// assert!(!engine.can_use_tool("Bash").allowed);
+    /// assert!(!engine.can_use_tool("Write").allowed); // not in allowlist
+    /// ```
     #[must_use]
     pub fn can_use_tool(&self, tool_name: &str) -> Decision {
         match self.tool_rules.decide_str(tool_name) {

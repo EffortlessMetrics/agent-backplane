@@ -87,6 +87,21 @@ impl IncludeExcludeGlobs {
     }
 
     /// Convenience wrapper around [`decide_path`](Self::decide_path) for string slices.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_glob::{IncludeExcludeGlobs, MatchDecision};
+    ///
+    /// // No patterns → everything is allowed.
+    /// let open = IncludeExcludeGlobs::new(&[], &[]).unwrap();
+    /// assert_eq!(open.decide_str("any/path.txt"), MatchDecision::Allowed);
+    ///
+    /// // Exclude-only → deny matches, allow the rest.
+    /// let no_logs = IncludeExcludeGlobs::new(&[], &["*.log".into()]).unwrap();
+    /// assert_eq!(no_logs.decide_str("app.log"), MatchDecision::DeniedByExclude);
+    /// assert_eq!(no_logs.decide_str("src/main.rs"), MatchDecision::Allowed);
+    /// ```
     #[must_use]
     pub fn decide_str(&self, candidate: &str) -> MatchDecision {
         self.decide_path(Path::new(candidate))

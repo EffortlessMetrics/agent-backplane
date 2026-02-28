@@ -40,6 +40,32 @@ impl std::error::Error for ValidationError {}
 /// Returns `Ok(())` when the receipt passes all checks, or `Err(errors)` with
 /// every problem found (errors are accumulated, not short-circuited).
 ///
+/// # Examples
+///
+/// ```
+/// use abp_core::{ReceiptBuilder, Outcome};
+/// use abp_core::validate::validate_receipt;
+///
+/// // A valid receipt with a correct hash passes validation.
+/// let receipt = ReceiptBuilder::new("mock")
+///     .outcome(Outcome::Complete)
+///     .with_hash()
+///     .unwrap();
+/// assert!(validate_receipt(&receipt).is_ok());
+/// ```
+///
+/// ```
+/// use abp_core::{ReceiptBuilder, Outcome};
+/// use abp_core::validate::{validate_receipt, ValidationError};
+///
+/// // An empty backend id is rejected.
+/// let bad = ReceiptBuilder::new("")
+///     .outcome(Outcome::Complete)
+///     .build();
+/// let errs = validate_receipt(&bad).unwrap_err();
+/// assert!(errs.iter().any(|e| matches!(e, ValidationError::EmptyBackendId)));
+/// ```
+///
 /// # Errors
 ///
 /// Returns a `Vec<ValidationError>` listing every problem found in the receipt.

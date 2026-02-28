@@ -166,6 +166,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "insta",
  "proptest",
  "serde",
  "serde_json",
@@ -265,6 +266,7 @@ dependencies = [
 name = "agent-backplane"
 version = "0.1.0"
 dependencies = [
+ "abp-cli",
  "abp-core",
  "abp-host",
  "abp-integrations",
@@ -279,6 +281,8 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-stream",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 

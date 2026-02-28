@@ -214,11 +214,10 @@ fn release_check() -> Result<()> {
         if let Some(ver) = pkg
             .and_then(|p| p.get("version"))
             .and_then(|v| v.as_str())
+            .filter(|&ver| ver != ws_version)
         {
-            if ver != ws_version {
-                eprintln!("  ✗ {name}: version {ver} != workspace {ws_version}");
-                ok = false;
-            }
+            eprintln!("  ✗ {name}: version {ver} != workspace {ws_version}");
+            ok = false;
         }
     }
 

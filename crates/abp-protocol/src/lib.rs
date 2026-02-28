@@ -171,6 +171,22 @@ impl JsonlCodec {
     /// blank lines, and deserializing each into an [`Envelope`].
     ///
     /// The iterator yields one `Result<Envelope>` per non-blank line.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_protocol::{Envelope, JsonlCodec};
+    /// use std::io::BufReader;
+    ///
+    /// let input = r#"{"t":"fatal","ref_id":null,"error":"boom"}
+    /// {"t":"fatal","ref_id":null,"error":"bang"}
+    /// "#;
+    /// let reader = BufReader::new(input.as_bytes());
+    /// let envelopes: Vec<_> = JsonlCodec::decode_stream(reader)
+    ///     .collect::<Result<Vec<_>, _>>()
+    ///     .unwrap();
+    /// assert_eq!(envelopes.len(), 2);
+    /// ```
     pub fn decode_stream(
         reader: impl BufRead,
     ) -> impl Iterator<Item = Result<Envelope, ProtocolError>> {

@@ -25,6 +25,22 @@ impl EventFilter {
     /// Create a filter that only passes events whose kind is in `kinds`.
     ///
     /// An empty list means nothing passes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_core::filter::EventFilter;
+    /// use abp_core::{AgentEvent, AgentEventKind};
+    /// use chrono::Utc;
+    ///
+    /// let filter = EventFilter::include_kinds(&["assistant_message", "error"]);
+    ///
+    /// let msg = AgentEvent { ts: Utc::now(), kind: AgentEventKind::AssistantMessage { text: "hi".into() }, ext: None };
+    /// assert!(filter.matches(&msg));
+    ///
+    /// let started = AgentEvent { ts: Utc::now(), kind: AgentEventKind::RunStarted { message: "go".into() }, ext: None };
+    /// assert!(!filter.matches(&started));
+    /// ```
     #[must_use]
     pub fn include_kinds(kinds: &[&str]) -> Self {
         Self {
@@ -37,6 +53,22 @@ impl EventFilter {
     /// in `kinds`.
     ///
     /// An empty list means everything passes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_core::filter::EventFilter;
+    /// use abp_core::{AgentEvent, AgentEventKind};
+    /// use chrono::Utc;
+    ///
+    /// let filter = EventFilter::exclude_kinds(&["assistant_delta"]);
+    ///
+    /// let delta = AgentEvent { ts: Utc::now(), kind: AgentEventKind::AssistantDelta { text: "…".into() }, ext: None };
+    /// assert!(!filter.matches(&delta));
+    ///
+    /// let msg = AgentEvent { ts: Utc::now(), kind: AgentEventKind::AssistantMessage { text: "done".into() }, ext: None };
+    /// assert!(filter.matches(&msg));
+    /// ```
     #[must_use]
     pub fn exclude_kinds(kinds: &[&str]) -> Self {
         Self {
