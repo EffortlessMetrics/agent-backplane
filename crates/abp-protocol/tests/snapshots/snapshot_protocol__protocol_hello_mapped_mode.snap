@@ -1,0 +1,17 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "backend": {
+    "adapter_version": "0.1.0",
+    "backend_version": null,
+    "id": "python-sidecar"
+  },
+  "capabilities": {
+    "streaming": "emulated"
+  },
+  "contract_version": "abp/v0.1",
+  "mode": "mapped",
+  "t": "hello"
+}

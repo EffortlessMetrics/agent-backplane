@@ -1,0 +1,15 @@
+---
+source: crates/abp-core/tests/snapshot_comprehensive.rs
+expression: event
+---
+{
+  "ts": "2024-06-15T12:30:00Z",
+  "type": "tool_call",
+  "tool_name": "write",
+  "tool_use_id": "toolu_abc123",
+  "parent_tool_use_id": "toolu_parent",
+  "input": {
+    "content": "pub fn login() {}\n",
+    "path": "src/auth.rs"
+  }
+}

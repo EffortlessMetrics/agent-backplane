@@ -1,0 +1,15 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "event": {
+    "command": "cargo build",
+    "exit_code": 0,
+    "output_preview": "Compiling...",
+    "ts": "2024-06-15T12:30:00Z",
+    "type": "command_executed"
+  },
+  "ref_id": "run-42",
+  "t": "event"
+}

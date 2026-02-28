@@ -1,0 +1,13 @@
+---
+source: crates/abp-integrations/tests/snapshot_integrations.rs
+expression: "formatted.join(\"\\n\")"
+---
+Abp -> Abp
+Claude -> Claude
+Codex -> Codex
+Gemini -> Gemini
+Kimi -> Kimi
+Abp -> Claude
+Abp -> Codex
+Abp -> Gemini
+Abp -> Kimi

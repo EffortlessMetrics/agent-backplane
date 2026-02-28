@@ -1,0 +1,46 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "id": "run-42",
+  "t": "run",
+  "work_order": {
+    "config": {
+      "env": {},
+      "max_budget_usd": null,
+      "max_turns": null,
+      "model": "gpt-4",
+      "vendor": {}
+    },
+    "context": {
+      "files": [],
+      "snippets": []
+    },
+    "id": "00000000-0000-0000-0000-000000000000",
+    "lane": "patch_first",
+    "policy": {
+      "allow_network": [],
+      "allowed_tools": [],
+      "deny_network": [],
+      "deny_read": [],
+      "deny_write": [],
+      "disallowed_tools": [],
+      "require_approval_for": []
+    },
+    "requirements": {
+      "required": []
+    },
+    "task": "Fix auth bug",
+    "workspace": {
+      "exclude": [
+        "target/**"
+      ],
+      "include": [
+        "src/**"
+      ],
+      "mode": "staged",
+      "root": "/tmp/ws"
+    }
+  }
+}

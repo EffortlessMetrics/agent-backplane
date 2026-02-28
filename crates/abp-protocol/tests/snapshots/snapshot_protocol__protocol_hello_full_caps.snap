@@ -1,0 +1,33 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "backend": {
+    "adapter_version": "0.3.0",
+    "backend_version": "2024.6.1",
+    "id": "claude-sidecar"
+  },
+  "capabilities": {
+    "checkpointing": "native",
+    "hooks_post_tool_use": "native",
+    "hooks_pre_tool_use": "native",
+    "mcp_client": {
+      "restricted": {
+        "reason": "beta"
+      }
+    },
+    "streaming": "native",
+    "tool_bash": "native",
+    "tool_edit": "emulated",
+    "tool_glob": "native",
+    "tool_grep": "native",
+    "tool_read": "native",
+    "tool_web_fetch": "emulated",
+    "tool_web_search": "emulated",
+    "tool_write": "native"
+  },
+  "contract_version": "abp/v0.1",
+  "mode": "passthrough",
+  "t": "hello"
+}

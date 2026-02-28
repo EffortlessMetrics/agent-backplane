@@ -1,0 +1,15 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "backend": {
+    "adapter_version": "0.1.0",
+    "backend_version": "1.2.0",
+    "id": "node-sidecar"
+  },
+  "capabilities": {},
+  "contract_version": "abp/v0.1",
+  "mode": "mapped",
+  "t": "hello"
+}

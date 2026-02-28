@@ -1,0 +1,13 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "event": {
+    "text": "Let me look at ",
+    "ts": "2024-06-15T12:30:00Z",
+    "type": "assistant_delta"
+  },
+  "ref_id": "run-42",
+  "t": "event"
+}

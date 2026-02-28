@@ -1,0 +1,12 @@
+---
+source: crates/abp-core/tests/snapshot_comprehensive.rs
+expression: event
+---
+{
+  "ts": "2024-06-15T12:30:00Z",
+  "type": "tool_result",
+  "tool_name": "bash",
+  "tool_use_id": "toolu_err",
+  "output": "permission denied: /etc/shadow",
+  "is_error": true
+}

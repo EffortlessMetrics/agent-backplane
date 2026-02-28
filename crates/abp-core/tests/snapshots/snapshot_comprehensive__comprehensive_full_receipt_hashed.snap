@@ -1,0 +1,75 @@
+---
+source: crates/abp-core/tests/snapshot_comprehensive.rs
+expression: value
+---
+{
+  "artifacts": [
+    {
+      "kind": "patch",
+      "path": "output.patch"
+    },
+    {
+      "kind": "log",
+      "path": "run.log"
+    }
+  ],
+  "backend": {
+    "adapter_version": "0.1.3",
+    "backend_version": "2024.6.1",
+    "id": "sidecar:claude"
+  },
+  "capabilities": {
+    "mcp_client": {
+      "restricted": {
+        "reason": "sandbox policy"
+      }
+    },
+    "streaming": "native",
+    "tool_bash": "unsupported",
+    "tool_edit": "emulated",
+    "tool_read": "native",
+    "tool_write": "native"
+  },
+  "meta": {
+    "contract_version": "abp/v0.1",
+    "duration_ms": 300000,
+    "finished_at": "2024-06-15T12:35:00Z",
+    "run_id": "00000000-0000-0000-0000-000000000000",
+    "started_at": "2024-06-15T12:30:00Z",
+    "work_order_id": "00000000-0000-0000-0000-00000000002a"
+  },
+  "mode": "mapped",
+  "outcome": "complete",
+  "receipt_sha256": "[sha256]",
+  "trace": [
+    {
+      "message": "starting OAuth2 implementation",
+      "ts": "2024-06-15T12:30:00Z",
+      "type": "run_started"
+    },
+    {
+      "message": "done",
+      "ts": "2024-06-15T12:35:00Z",
+      "type": "run_completed"
+    }
+  ],
+  "usage": {
+    "cache_read_tokens": 800,
+    "cache_write_tokens": 200,
+    "estimated_cost_usd": 0.042,
+    "input_tokens": 1500,
+    "output_tokens": 3200,
+    "request_units": null
+  },
+  "usage_raw": {
+    "cache_creation_input_tokens": 200,
+    "cache_read_input_tokens": 800,
+    "input_tokens": 1500,
+    "output_tokens": 3200
+  },
+  "verification": {
+    "git_diff": "+pub fn authorize() -> Result<Token> {\n+    // PKCE flow\n+}",
+    "git_status": "M src/auth.rs\nA src/oauth2.rs",
+    "harness_ok": true
+  }
+}
