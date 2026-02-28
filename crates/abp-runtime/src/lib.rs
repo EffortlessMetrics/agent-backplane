@@ -25,6 +25,8 @@ pub mod retry;
 pub mod telemetry;
 /// Event multiplexer for broadcasting events to multiple consumers.
 pub mod multiplex;
+/// Lifecycle hooks for runtime extensibility.
+pub mod hooks;
 
 use abp_core::{AgentEvent, CapabilityRequirements, ExecutionMode, Outcome, Receipt, WorkOrder};
 use abp_integrations::{Backend, ensure_capability_requirements};

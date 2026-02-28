@@ -14,7 +14,7 @@ fn sample_wo() -> abp_core::WorkOrder {
 
 #[test]
 fn default_and_new_equivalent() {
-    let def = ProjectionMatrix;
+    let def = ProjectionMatrix::default();
     let new = ProjectionMatrix::new();
     assert_eq!(def.supported_translations(), new.supported_translations());
 }

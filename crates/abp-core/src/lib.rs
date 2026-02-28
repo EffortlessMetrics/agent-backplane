@@ -9,6 +9,7 @@
 
 pub mod chain;
 pub mod error;
+pub mod ext;
 pub mod filter;
 pub mod stream;
 pub mod validate;
