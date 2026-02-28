@@ -21,6 +21,7 @@ abp-gemini-sdk = { path = "../abp-gemini-sdk" }
 abp-host = { path = "../abp-host" }
 abp-integrations = { path = "../abp-integrations" }
 abp-runtime = { path = "../abp-runtime" }
+abp-which = { path = "../abp-which" }
 chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true

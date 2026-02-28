@@ -1,20 +1,22 @@
+use abp_claude_sdk as claude_sdk;
+use abp_codex_sdk as codex_sdk;
 use abp_core::{AgentEvent, CapabilityManifest, Receipt, WorkOrder};
+use abp_gemini_sdk as gemini_sdk;
 use abp_host::SidecarSpec;
 use abp_integrations::{MockBackend, SidecarBackend};
-use abp_codex_sdk as codex_sdk;
-use abp_claude_sdk as claude_sdk;
 use abp_kimi_sdk as kimi_sdk;
-use abp_gemini_sdk as gemini_sdk;
 use abp_runtime::Runtime;
+use abp_which::which;
 use anyhow::{Context, Result};
 use axum::{
+    Json, Router,
     extract::{Path as AxPath, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json, Router,
 };
 use chrono::Utc;
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -25,7 +27,6 @@ use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
-use clap::Parser;
 use uuid::Uuid;
 
 #[derive(Parser, Debug)]
@@ -146,9 +147,7 @@ async fn main() -> Result<()> {
         "abp-daemon listening"
     );
 
-    axum::serve(listener, app)
-        .await
-        .context("serve")
+    axum::serve(listener, app).await.context("serve")
 }
 
 async fn cmd_health() -> impl IntoResponse {
@@ -295,7 +294,11 @@ fn build_runtime(host_root: &Path) -> Result<Runtime> {
     register_sidecar_backend(
         &mut runtime,
         "sidecar:python",
-        if which("python3").is_some() { "python3" } else { "python" },
+        if which("python3").is_some() {
+            "python3"
+        } else {
+            "python"
+        },
         &host_root.join("hosts/python/host.py"),
     )?;
 
@@ -307,7 +310,11 @@ fn build_runtime(host_root: &Path) -> Result<Runtime> {
     register_sidecar_backend(
         &mut runtime,
         "sidecar:copilot",
-        if which("node").is_some() { "node" } else { "node" },
+        if which("node").is_some() {
+            "node"
+        } else {
+            "node"
+        },
         &host_root.join("hosts/copilot/host.js"),
     )?;
 
@@ -339,27 +346,12 @@ fn register_sidecar_backend(
     Ok(())
 }
 
-fn which(bin: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    for p in std::env::split_paths(&path) {
-        let candidate = p.join(bin);
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-    None
-}
-
 async fn hydrate_receipts_from_disk(
     receipts: &Arc<RwLock<HashMap<Uuid, Receipt>>>,
     dir: &Path,
 ) -> Result<()> {
     let mut entries = fs::read_dir(dir).await.context("read receipts dir")?;
-    while let Some(entry) = entries
-        .next_entry()
-        .await
-        .context("iterate receipts dir")?
-    {
+    while let Some(entry) = entries.next_entry().await.context("iterate receipts dir")? {
         let p = entry.path();
         if p.extension().and_then(|s| s.to_str()) != Some("json") {
             continue;

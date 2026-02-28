@@ -6,6 +6,8 @@ use abp_runtime::Runtime;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
+use abp_which::command_exists;
+
 /// Canonical backend name used by CLI, daemon, and integrations.
 pub const BACKEND_NAME: &str = "sidecar:codex";
 
@@ -71,35 +73,4 @@ fn resolve_command(command_override: Option<&str>) -> Result<Option<String>> {
     }
 
     Ok(None)
-}
-
-fn command_exists(command: &str) -> bool {
-    let candidate = Path::new(command);
-    let has_path = candidate.components().count() > 1;
-
-    if has_path {
-        return candidate.exists();
-    }
-
-    std::env::var_os("PATH").is_some_and(|path| {
-        std::env::split_paths(&path).any(|dir| path_has_command(&dir, command))
-    })
-}
-
-fn path_has_command(dir: &Path, command: &str) -> bool {
-    if dir.join(command).exists() {
-        return true;
-    }
-
-    if !cfg!(windows) {
-        return false;
-    }
-
-    for ext in ["", ".exe", ".cmd", ".bat", ".com"] {
-        if dir.join(format!("{command}{ext}")).exists() {
-            return true;
-        }
-    }
-
-    false
 }

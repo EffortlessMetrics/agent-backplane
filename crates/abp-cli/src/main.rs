@@ -9,6 +9,7 @@ use abp_host::SidecarSpec;
 use abp_integrations::SidecarBackend;
 use abp_kimi_sdk as kimi_sdk;
 use abp_runtime::Runtime;
+use abp_which::which;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use serde_json::{Map as JsonMap, Value as JsonValue};
@@ -567,17 +568,6 @@ fn default_policy() -> PolicyProfile {
         deny_network: vec![],
         require_approval_for: vec!["Bash".into(), "Write".into(), "Edit".into()],
     }
-}
-
-fn which(bin: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    for p in std::env::split_paths(&path) {
-        let candidate = p.join(bin);
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-    None
 }
 
 #[cfg(test)]
