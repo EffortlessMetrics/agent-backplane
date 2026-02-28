@@ -9,6 +9,26 @@ use crate::filter::kind_name;
 use crate::{AgentEvent, AgentEventKind};
 
 /// Incrementally aggregates statistics from a stream of [`AgentEvent`]s.
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::aggregate::EventAggregator;
+/// use abp_core::{AgentEvent, AgentEventKind};
+/// use chrono::Utc;
+///
+/// let mut agg = EventAggregator::new();
+///
+/// agg.add(&AgentEvent { ts: Utc::now(), kind: AgentEventKind::RunStarted { message: "go".into() }, ext: None });
+/// agg.add(&AgentEvent { ts: Utc::now(), kind: AgentEventKind::AssistantMessage { text: "hello".into() }, ext: None });
+///
+/// assert_eq!(agg.event_count(), 2);
+/// assert!(!agg.has_errors());
+///
+/// let summary = agg.summary();
+/// assert_eq!(summary.total_events, 2);
+/// assert_eq!(summary.total_text_chars, 5); // "hello"
+/// ```
 #[derive(Debug, Clone)]
 pub struct EventAggregator {
     events: Vec<AgentEvent>,

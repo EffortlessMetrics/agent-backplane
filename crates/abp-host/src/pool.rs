@@ -101,6 +101,21 @@ impl PoolStats {
 }
 
 /// Manages a pool of sidecar instances with configurable sizing.
+///
+/// # Examples
+///
+/// ```
+/// use abp_host::pool::{SidecarPool, PoolConfig, PoolEntryState};
+///
+/// let pool = SidecarPool::new(PoolConfig::default());
+/// assert!(pool.add("s1"));
+///
+/// let entry = pool.acquire().unwrap();
+/// assert_eq!(entry.state, PoolEntryState::Busy);
+///
+/// pool.release(&entry.id);
+/// assert_eq!(pool.idle_count(), 1);
+/// ```
 #[derive(Debug)]
 pub struct SidecarPool {
     config: PoolConfig,

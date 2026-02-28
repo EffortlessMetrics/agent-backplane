@@ -7,6 +7,20 @@ use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 use std::sync::{Arc, RwLock};
 
 /// Thread-safe, atomic metrics for a single backend.
+///
+/// # Examples
+///
+/// ```
+/// use abp_integrations::metrics::BackendMetrics;
+///
+/// let m = BackendMetrics::new();
+/// m.record_run(true, 10, 500);
+/// m.record_run(false, 5, 300);
+///
+/// assert_eq!(m.total_runs(), 2);
+/// assert!((m.success_rate() - 0.5).abs() < f64::EPSILON);
+/// assert!((m.average_duration_ms() - 400.0).abs() < f64::EPSILON);
+/// ```
 pub struct BackendMetrics {
     total_runs: AtomicU64,
     successful_runs: AtomicU64,

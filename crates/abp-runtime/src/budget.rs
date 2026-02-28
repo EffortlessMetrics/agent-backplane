@@ -50,6 +50,26 @@ mod optional_duration_ms {
 }
 
 /// Thread-safe budget tracker backed by atomic counters.
+///
+/// # Examples
+///
+/// ```
+/// use abp_runtime::budget::{BudgetTracker, BudgetLimit, BudgetStatus};
+///
+/// let tracker = BudgetTracker::new(BudgetLimit {
+///     max_tokens: Some(1000),
+///     max_turns: Some(5),
+///     ..BudgetLimit::default()
+/// });
+///
+/// tracker.record_tokens(200);
+/// tracker.record_turn();
+/// assert_eq!(tracker.check(), BudgetStatus::WithinLimits);
+///
+/// // Exceed the token budget.
+/// tracker.record_tokens(900);
+/// assert!(matches!(tracker.check(), BudgetStatus::Exceeded(_)));
+/// ```
 pub struct BudgetTracker {
     limit: BudgetLimit,
     tokens_used: AtomicU64,
