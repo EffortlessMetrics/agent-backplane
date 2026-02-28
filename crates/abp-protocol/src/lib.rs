@@ -152,6 +152,33 @@ impl JsonlCodec {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Version negotiation helpers
+// ---------------------------------------------------------------------------
+
+/// Parse a version string of the form `"abp/vMAJOR.MINOR"` into `(MAJOR, MINOR)`.
+///
+/// Returns `None` if the string does not match the expected format.
+pub fn parse_version(version: &str) -> Option<(u32, u32)> {
+    let rest = version.strip_prefix("abp/v")?;
+    let (major_str, minor_str) = rest.split_once('.')?;
+    let major = major_str.parse::<u32>().ok()?;
+    let minor = minor_str.parse::<u32>().ok()?;
+    Some((major, minor))
+}
+
+/// Two versions are compatible when they share the same major component.
+///
+/// For example `"abp/v0.1"` and `"abp/v0.2"` are compatible, but
+/// `"abp/v1.0"` and `"abp/v0.1"` are not.  Returns `false` if either
+/// string cannot be parsed.
+pub fn is_compatible_version(their_version: &str, our_version: &str) -> bool {
+    match (parse_version(their_version), parse_version(our_version)) {
+        (Some((their_major, _)), Some((our_major, _))) => their_major == our_major,
+        _ => false,
+    }
+}
+
 /// Re-export of the value-based [`sidecar_kit::Frame`] for raw protocol work.
 pub use sidecar_kit::Frame as RawFrame;
 /// Re-export of the value-based [`sidecar_kit::JsonlCodec`] for raw JSONL encoding.

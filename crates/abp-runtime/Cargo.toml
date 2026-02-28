@@ -16,6 +16,7 @@ abp-integrations = { path = "../abp-integrations" }
 abp-policy = { path = "../abp-policy" }
 abp-workspace = { path = "../abp-workspace" }
 anyhow.workspace = true
+async-trait.workspace = true
 thiserror.workspace = true
 chrono.workspace = true
 serde_json.workspace = true

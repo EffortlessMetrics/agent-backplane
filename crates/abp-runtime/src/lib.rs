@@ -11,6 +11,8 @@
 
 #![deny(unsafe_code)]
 
+/// Backend registry for named backend lookup.
+pub mod registry;
 /// Receipt persistence and retrieval.
 pub mod store;
 
@@ -19,13 +21,14 @@ use abp_integrations::{Backend, ensure_capability_requirements};
 use abp_policy::PolicyEngine;
 use abp_workspace::WorkspaceManager;
 use anyhow::Context;
-use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::debug;
 use uuid::Uuid;
+
+pub use registry::BackendRegistry;
 
 /// Errors from the ABP runtime orchestrator.
 #[derive(Debug, Error)]
@@ -54,7 +57,7 @@ pub enum RuntimeError {
 /// // rt.register_backend("sidecar:node", my_sidecar);
 /// ```
 pub struct Runtime {
-    backends: HashMap<String, Arc<dyn Backend>>,
+    backends: BackendRegistry,
 }
 
 /// Handle to a running work order: provides a run id, event stream, and receipt future.
@@ -77,7 +80,7 @@ impl Runtime {
     /// Create an empty runtime with no backends registered.
     pub fn new() -> Self {
         Self {
-            backends: HashMap::new(),
+            backends: BackendRegistry::default(),
         }
     }
 
@@ -90,19 +93,27 @@ impl Runtime {
 
     /// Register a backend under the given name, replacing any previous registration.
     pub fn register_backend<B: Backend + 'static>(&mut self, name: &str, backend: B) {
-        self.backends.insert(name.to_string(), Arc::new(backend));
+        self.backends.register(name, backend);
     }
 
     /// Return a sorted list of all registered backend names.
     pub fn backend_names(&self) -> Vec<String> {
-        let mut v: Vec<_> = self.backends.keys().cloned().collect();
-        v.sort();
-        v
+        self.backends.list().into_iter().map(String::from).collect()
     }
 
     /// Look up a backend by name.
     pub fn backend(&self, name: &str) -> Option<Arc<dyn Backend>> {
-        self.backends.get(name).cloned()
+        self.backends.get_arc(name)
+    }
+
+    /// Return a reference to the underlying [`BackendRegistry`].
+    pub fn registry(&self) -> &BackendRegistry {
+        &self.backends
+    }
+
+    /// Return a mutable reference to the underlying [`BackendRegistry`].
+    pub fn registry_mut(&mut self) -> &mut BackendRegistry {
+        &mut self.backends
     }
 
     /// Check whether a backend's capabilities satisfy the given requirements.

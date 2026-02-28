@@ -6,6 +6,8 @@
 //!
 //! If you only take one dependency, take this one.
 
+pub mod validate;
+
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

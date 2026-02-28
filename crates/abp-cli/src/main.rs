@@ -13,9 +13,9 @@ use abp_kimi_sdk as kimi_sdk;
 use abp_runtime::Runtime;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use serde::Deserialize;
+use abp_cli::config::BackendConfig;
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use tokio_stream::StreamExt;
 use tracing_subscriber::EnvFilter;
@@ -315,13 +315,20 @@ async fn cmd_run(
     }
 
     // Register backends from backplane.toml (if present).
-    if let Some(cfg) = load_config() {
+    let config_path = std::path::Path::new("backplane.toml");
+    if config_path.exists() {
+        let cfg = abp_cli::config::load_config(config_path)?;
+        if let Err(errors) = abp_cli::config::validate_config(&cfg) {
+            for e in &errors {
+                tracing::warn!("config: {e}");
+            }
+        }
         for (name, bc) in cfg.backends {
             match bc {
                 BackendConfig::Mock {} => {
                     rt.register_backend(&name, abp_integrations::MockBackend);
                 }
-                BackendConfig::Sidecar { command, args } => {
+                BackendConfig::Sidecar { command, args, .. } => {
                     let mut spec = SidecarSpec::new(&command);
                     spec.args = args;
                     rt.register_backend(&name, SidecarBackend::new(spec));
@@ -601,40 +608,11 @@ fn which(bin: &str) -> Option<PathBuf> {
     None
 }
 
-// ── Config file support ──────────────────────────────────────────────
-
-#[derive(Debug, Deserialize)]
-struct BackplaneConfig {
-    #[serde(default)]
-    backends: HashMap<String, BackendConfig>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
-enum BackendConfig {
-    #[serde(rename = "mock")]
-    Mock {},
-    #[serde(rename = "sidecar")]
-    Sidecar {
-        command: String,
-        #[serde(default)]
-        args: Vec<String>,
-    },
-}
-
-fn load_config() -> Option<BackplaneConfig> {
-    let path = std::path::Path::new("backplane.toml");
-    if path.exists() {
-        let content = std::fs::read_to_string(path).ok()?;
-        toml::from_str(&content).ok()
-    } else {
-        None
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use abp_cli::config::BackplaneConfig;
     use serde_json::json;
 
     #[test]
