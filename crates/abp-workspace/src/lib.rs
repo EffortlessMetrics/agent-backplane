@@ -9,6 +9,8 @@
 //! - PassThrough: run directly in the user's workspace.
 //! - Staged: create a sanitized copy (and optionally a synthetic git repo).
 
+pub mod diff;
+
 use abp_core::{WorkspaceMode, WorkspaceSpec};
 use abp_glob::IncludeExcludeGlobs;
 use anyhow::{Context, Result};

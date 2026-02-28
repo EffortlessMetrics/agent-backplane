@@ -90,7 +90,7 @@ impl EventFilter {
 }
 
 /// Extract the serde tag name (lowercase) for an [`AgentEventKind`] variant.
-fn kind_name(kind: &AgentEventKind) -> String {
+pub(crate) fn kind_name(kind: &AgentEventKind) -> String {
     // AgentEventKind uses `#[serde(tag = "type", rename_all = "snake_case")]`,
     // so serializing to a JSON Value and reading the "type" field gives us the
     // canonical serde name.

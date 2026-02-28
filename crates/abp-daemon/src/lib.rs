@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #![doc = include_str!("../README.md")]
 #![deny(unsafe_code)]
+pub mod validation;
+
 use abp_core::{AgentEvent, CapabilityManifest, Receipt, WorkOrder};
 use abp_runtime::Runtime;
 use axum::{
@@ -265,6 +267,19 @@ async fn cmd_run(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RunRequest>,
 ) -> Result<Json<RunResponse>, ApiError> {
+    // Validate the work order before processing.
+    if let Err(errors) = validation::RequestValidator::validate_work_order(&req.work_order) {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            errors.join("; "),
+        ));
+    }
+
+    let backend_names = state.runtime.backend_names();
+    if let Err(e) = validation::RequestValidator::validate_backend_name(&req.backend, &backend_names) {
+        return Err(ApiError::new(StatusCode::BAD_REQUEST, e));
+    }
+
     let run_id = req.work_order.id;
 
     // Track the run as running (ignore duplicate-id errors for passthrough
@@ -417,20 +432,18 @@ async fn cmd_validate(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RunRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    // Check that the requested backend exists.
-    if state.runtime.backend(&req.backend).is_none() {
+    // Validate the work order fields.
+    if let Err(errors) = validation::RequestValidator::validate_work_order(&req.work_order) {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
-            format!("unknown backend: {}", req.backend),
+            errors.join("; "),
         ));
     }
 
-    // Basic validation: task must not be empty.
-    if req.work_order.task.is_empty() {
-        return Err(ApiError::new(
-            StatusCode::BAD_REQUEST,
-            "work_order.task must not be empty",
-        ));
+    // Check that the requested backend exists.
+    let backend_names = state.runtime.backend_names();
+    if let Err(e) = validation::RequestValidator::validate_backend_name(&req.backend, &backend_names) {
+        return Err(ApiError::new(StatusCode::BAD_REQUEST, e));
     }
 
     Ok(Json(json!({

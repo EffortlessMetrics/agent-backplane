@@ -19,6 +19,8 @@ pub mod pipeline;
 pub mod registry;
 /// Receipt persistence and retrieval.
 pub mod store;
+/// Retry policies and timeout configuration for resilient backend execution.
+pub mod retry;
 /// Telemetry and metrics collection.
 pub mod telemetry;
 

@@ -6,6 +6,7 @@
 //!
 //! Process supervision + JSONL transport for sidecars.
 
+pub mod process;
 pub mod registry;
 
 use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};

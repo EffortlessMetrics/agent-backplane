@@ -20,11 +20,13 @@ thiserror.workspace = true
 futures.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
+chrono.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
 abp-core = { path = "../abp-core" }
 abp-protocol = { path = "../abp-protocol" }
+chrono.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

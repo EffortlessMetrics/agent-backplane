@@ -6,6 +6,8 @@
 //! Wire format for talking to sidecars and daemons.
 //! Current transport: JSONL over stdio.
 
+pub mod codec;
+
 use std::io::{BufRead, Write};
 
 use abp_core::{
