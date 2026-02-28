@@ -9,6 +9,7 @@ dependencies = [
  "abp-host",
  "abp-integrations",
  "abp-runtime",
+ "abp-which",
  "anyhow",
 ]
 
@@ -24,6 +25,7 @@ dependencies = [
  "abp-integrations",
  "abp-kimi-sdk",
  "abp-runtime",
+ "abp-which",
  "anyhow",
  "chrono",
  "clap",
@@ -42,6 +44,7 @@ dependencies = [
  "abp-host",
  "abp-integrations",
  "abp-runtime",
+ "abp-which",
  "anyhow",
 ]
 
@@ -70,6 +73,7 @@ dependencies = [
  "abp-integrations",
  "abp-kimi-sdk",
  "abp-runtime",
+ "abp-which",
  "anyhow",
  "axum",
  "chrono",
@@ -90,6 +94,7 @@ dependencies = [
  "abp-host",
  "abp-integrations",
  "abp-runtime",
+ "abp-which",
  "anyhow",
 ]
 
@@ -138,6 +143,7 @@ dependencies = [
  "abp-host",
  "abp-integrations",
  "abp-runtime",
+ "abp-which",
  "anyhow",
 ]
 
@@ -178,6 +184,10 @@ dependencies = [
  "tracing",
  "uuid",
 ]
+
+[[package]]
+name = "abp-which"
+version = "0.1.0"
 
 [[package]]
 name = "abp-workspace"

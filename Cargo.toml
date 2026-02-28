@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "crates/abp-glob",
+  "crates/abp-which",
   "crates/abp-core",
   "crates/abp-protocol",
   "crates/abp-host",
