@@ -317,7 +317,7 @@ async fn cmd_run(
     // Register backends from backplane.toml (if present).
     let config_path = std::path::Path::new("backplane.toml");
     if config_path.exists() {
-        let cfg = abp_cli::config::load_config(config_path)?;
+        let cfg = abp_cli::config::load_config(Some(config_path))?;
         if let Err(errors) = abp_cli::config::validate_config(&cfg) {
             for e in &errors {
                 tracing::warn!("config: {e}");
