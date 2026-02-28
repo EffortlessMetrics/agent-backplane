@@ -12,3 +12,8 @@ sidecar-kit = { path = "../sidecar-kit" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+uuid.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
