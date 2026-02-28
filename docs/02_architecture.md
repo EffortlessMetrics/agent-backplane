@@ -64,6 +64,7 @@ This repo now includes dedicated sidecar scaffolds and registration microcrates 
 - `hosts/copilot`
 - `hosts/kimi`
 - `crates/abp-kimi-sdk`
+- `crates/abp-copilot-sdk`
 
 - `host.js`: protocol binding, policy gatekeeping, artifact capture, receipt assembly.
 - `adapter.js`: default adapter entrypoint that can be replaced by `ABP_COPILOT_ADAPTER_MODULE`.

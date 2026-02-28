@@ -1,5 +1,6 @@
 use abp_claude_sdk as claude_sdk;
 use abp_codex_sdk as codex_sdk;
+use abp_copilot_sdk as copilot_sdk;
 use abp_core::{
     CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
     WorkspaceMode, WorkspaceSpec,
@@ -265,24 +266,13 @@ async fn cmd_run(
             );
         }
     }
-    if backend == "sidecar:copilot" {
-        let cmd = if which("node").is_some() {
-            "node"
-        } else {
-            anyhow::bail!("node executable not found in PATH");
-        };
-
-        let script = PathBuf::from("hosts/copilot/host.js");
-        if !script.is_file() {
+    if backend == copilot_sdk::BACKEND_NAME {
+        if !copilot_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {
             anyhow::bail!(
-                "copilot sidecar host script not found at {} (run from repo root)",
-                script.display()
+                "copilot sidecar not available at {} (node not found or script missing)",
+                copilot_sdk::sidecar_script(&PathBuf::from(".")).display()
             );
         }
-
-        let mut spec = SidecarSpec::new(cmd);
-        spec.args = vec![script.to_string_lossy().into_owned()];
-        rt.register_backend("sidecar:copilot", SidecarBackend::new(spec));
     }
     if backend == kimi_sdk::BACKEND_NAME {
         if !kimi_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {

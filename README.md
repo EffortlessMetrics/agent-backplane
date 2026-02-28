@@ -93,6 +93,7 @@ If `claude_agent_sdk` is installed and `client_mode=true`, it will use a statefu
 - `crates/abp-codex-sdk`: Codex sidecar integration microcrate
 - `crates/abp-gemini-sdk`: Gemini CLI sidecar integration microcrate
 - `crates/abp-kimi-sdk`: Kimi sidecar integration microcrate
+- `crates/abp-copilot-sdk`: Copilot sidecar integration microcrate
 - `crates/abp-cli`: `abp` CLI
 - `crates/abp-daemon`: HTTP control plane + receipt persistence
 - `hosts/node`: example sidecar (JSONL over stdio)
