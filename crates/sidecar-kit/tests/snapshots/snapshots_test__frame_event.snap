@@ -1,0 +1,12 @@
+---
+source: crates/sidecar-kit/tests/snapshots_test.rs
+expression: val
+---
+{
+  "event": {
+    "text": "Hello",
+    "type": "assistant_delta"
+  },
+  "ref_id": "run-001",
+  "t": "event"
+}

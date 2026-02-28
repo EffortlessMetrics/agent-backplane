@@ -3,8 +3,22 @@
 
 use abp_core::Receipt;
 use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 use uuid::Uuid;
+
+/// Result of verifying the stored receipt chain.
+#[derive(Debug, Clone)]
+pub struct ChainVerification {
+    /// Number of receipts with valid hashes.
+    pub valid_count: usize,
+    /// Run IDs of receipts whose hash did not match.
+    pub invalid_hashes: Vec<Uuid>,
+    /// Time gaps between consecutive runs (`finished_at` → next `started_at`).
+    pub gaps: Vec<(DateTime<Utc>, DateTime<Utc>)>,
+    /// `true` when every receipt hash is valid and receipts are in chronological order.
+    pub is_valid: bool,
+}
 
 /// File-based receipt store.
 #[derive(Debug)]
@@ -87,6 +101,61 @@ impl ReceiptStore {
         let receipt = self.load(run_id)?;
         let computed = abp_core::receipt_hash(&receipt)?;
         Ok(receipt.receipt_sha256.as_deref() == Some(&computed))
+    }
+
+    /// Verify that all stored receipts have valid hashes and form a
+    /// chronological sequence.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the store directory cannot be read or a receipt
+    /// cannot be loaded.
+    pub fn verify_chain(&self) -> Result<ChainVerification> {
+        let ids = self.list()?;
+        if ids.is_empty() {
+            return Ok(ChainVerification {
+                valid_count: 0,
+                invalid_hashes: Vec::new(),
+                gaps: Vec::new(),
+                is_valid: true,
+            });
+        }
+
+        let mut receipts: Vec<Receipt> = ids
+            .iter()
+            .map(|id| self.load(*id))
+            .collect::<Result<Vec<_>>>()?;
+
+        // Sort by started_at for chronological ordering.
+        receipts.sort_by_key(|r| r.meta.started_at);
+
+        let mut valid_count: usize = 0;
+        let mut invalid_hashes: Vec<Uuid> = Vec::new();
+
+        for r in &receipts {
+            let computed = abp_core::receipt_hash(r)
+                .with_context(|| format!("hash receipt {}", r.meta.run_id))?;
+            if r.receipt_sha256.as_deref() == Some(&computed) {
+                valid_count += 1;
+            } else {
+                invalid_hashes.push(r.meta.run_id);
+            }
+        }
+
+        // Collect time gaps between consecutive runs.
+        let mut gaps: Vec<(DateTime<Utc>, DateTime<Utc>)> = Vec::new();
+        for pair in receipts.windows(2) {
+            gaps.push((pair[0].meta.finished_at, pair[1].meta.started_at));
+        }
+
+        let is_valid = invalid_hashes.is_empty();
+
+        Ok(ChainVerification {
+            valid_count,
+            invalid_hashes,
+            gaps,
+            is_valid,
+        })
     }
 
     fn receipt_path(&self, run_id: Uuid) -> PathBuf {

@@ -1,0 +1,17 @@
+---
+source: crates/sidecar-kit/tests/snapshots_test.rs
+expression: "format!(\"{:#?}\", spec)"
+---
+ProcessSpec {
+    command: "node",
+    args: [
+        "index.js",
+        "--verbose",
+    ],
+    env: {
+        "NODE_ENV": "production",
+    },
+    cwd: Some(
+        "/tmp/work",
+    ),
+}

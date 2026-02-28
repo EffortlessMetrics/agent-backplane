@@ -1,0 +1,5 @@
+---
+source: crates/sidecar-kit/tests/snapshots_test.rs
+expression: err.to_string()
+---
+sidecar exited unexpectedly (code=Some(1))
