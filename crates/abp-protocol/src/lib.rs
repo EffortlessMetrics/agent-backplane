@@ -12,6 +12,7 @@ pub mod builder;
 pub mod codec;
 pub mod compress;
 pub mod router;
+pub mod validate;
 pub mod version;
 
 use std::io::{BufRead, Write};

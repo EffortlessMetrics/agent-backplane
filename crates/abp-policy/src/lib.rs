@@ -13,6 +13,8 @@
 pub mod audit;
 /// Composable policy sets, precedence strategies, and validation.
 pub mod compose;
+/// Rule-based access control engine.
+pub mod rules;
 
 use abp_core::PolicyProfile;
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};

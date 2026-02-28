@@ -1,0 +1,14 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: snap
+---
+{
+  "total_runs": 3,
+  "successful_runs": 2,
+  "failed_runs": 1,
+  "total_events": 21,
+  "total_duration_ms": 2000,
+  "success_rate": 0.6666666666666666,
+  "average_duration_ms": 666.6666666666666,
+  "average_events_per_run": 7.0
+}

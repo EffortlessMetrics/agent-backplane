@@ -1,0 +1,23 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: msg
+---
+{
+  "algorithm": "gzip",
+  "original_size": 11,
+  "compressed_size": 12,
+  "data": [
+    1,
+    104,
+    101,
+    108,
+    108,
+    111,
+    32,
+    119,
+    111,
+    114,
+    108,
+    100
+  ]
+}

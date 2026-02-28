@@ -1,0 +1,9 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: route
+---
+{
+  "pattern": "run-",
+  "destination": "run_dispatcher",
+  "priority": 5
+}

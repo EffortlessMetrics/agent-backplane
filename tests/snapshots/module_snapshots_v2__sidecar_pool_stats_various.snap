@@ -1,0 +1,11 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: stats
+---
+{
+  "total": 3,
+  "idle": 1,
+  "busy": 1,
+  "draining": 0,
+  "failed": 1
+}

@@ -24,6 +24,8 @@ pub mod stream;
 pub mod config;
 /// Receipt validation utilities.
 pub mod validate;
+/// Comprehensive receipt and chain verification.
+pub mod verify;
 
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;

@@ -1,0 +1,5 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: reason
+---
+"budget_exhausted"

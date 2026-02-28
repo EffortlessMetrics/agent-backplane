@@ -3,6 +3,7 @@
 #![deny(unsafe_code)]
 pub mod middleware;
 pub mod validation;
+pub mod versioning;
 
 use abp_core::{AgentEvent, CapabilityManifest, Receipt, WorkOrder};
 use abp_runtime::Runtime;

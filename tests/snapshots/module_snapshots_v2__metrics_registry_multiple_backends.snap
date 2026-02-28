@@ -1,0 +1,26 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: snap
+---
+{
+  "anthropic": {
+    "total_runs": 2,
+    "successful_runs": 1,
+    "failed_runs": 1,
+    "total_events": 22,
+    "total_duration_ms": 550,
+    "success_rate": 0.5,
+    "average_duration_ms": 275.0,
+    "average_events_per_run": 11.0
+  },
+  "openai": {
+    "total_runs": 2,
+    "successful_runs": 2,
+    "failed_runs": 0,
+    "total_events": 27,
+    "total_duration_ms": 1400,
+    "success_rate": 1.0,
+    "average_duration_ms": 700.0,
+    "average_events_per_run": 13.5
+  }
+}

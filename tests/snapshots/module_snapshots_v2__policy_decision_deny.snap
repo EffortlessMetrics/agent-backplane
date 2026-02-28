@@ -1,0 +1,8 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: decision
+---
+{
+  "type": "deny",
+  "reason": "tool 'execute_command' is disallowed"
+}

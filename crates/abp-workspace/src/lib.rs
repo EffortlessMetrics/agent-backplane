@@ -11,6 +11,7 @@
 //! - Staged: create a sanitized copy (and optionally a synthetic git repo).
 
 pub mod diff;
+pub mod ops;
 pub mod snapshot;
 pub mod template;
 pub mod tracker;

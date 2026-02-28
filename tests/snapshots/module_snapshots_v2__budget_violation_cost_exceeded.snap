@@ -1,0 +1,5 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: violation.to_string()
+---
+cost budget exceeded: used $5.1234, limit $5.0000

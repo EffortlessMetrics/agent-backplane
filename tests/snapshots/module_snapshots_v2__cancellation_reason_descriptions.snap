@@ -1,0 +1,11 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: descs
+---
+[
+  "cancelled by user request",
+  "cancelled due to timeout",
+  "cancelled because budget was exhausted",
+  "cancelled due to policy violation",
+  "cancelled because the system is shutting down"
+]

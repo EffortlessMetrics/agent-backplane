@@ -1,0 +1,9 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: limit
+---
+{
+  "max_tokens": null,
+  "max_cost_usd": null,
+  "max_turns": null
+}

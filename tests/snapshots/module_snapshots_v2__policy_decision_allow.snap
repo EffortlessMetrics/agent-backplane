@@ -1,0 +1,8 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: decision
+---
+{
+  "type": "allow",
+  "reason": "tool 'read_file' permitted by allowlist"
+}

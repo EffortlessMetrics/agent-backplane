@@ -1,0 +1,13 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: states
+---
+[
+  "uninitialized",
+  "starting",
+  "ready",
+  "running",
+  "stopping",
+  "stopped",
+  "failed"
+]

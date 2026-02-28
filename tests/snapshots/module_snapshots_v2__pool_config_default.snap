@@ -1,0 +1,10 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: cfg
+---
+{
+  "min_size": 1,
+  "max_size": 4,
+  "idle_timeout": 300000,
+  "health_check_interval": 30000
+}

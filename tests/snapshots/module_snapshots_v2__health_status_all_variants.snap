@@ -1,0 +1,20 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: statuses
+---
+[
+  {
+    "status": "healthy"
+  },
+  {
+    "status": "degraded",
+    "reason": "high latency on openai backend"
+  },
+  {
+    "status": "unhealthy",
+    "reason": "connection refused"
+  },
+  {
+    "status": "unknown"
+  }
+]

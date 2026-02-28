@@ -1,0 +1,21 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: merged
+---
+{
+  "allowed_tools": [
+    "execute",
+    "read_file",
+    "write_file"
+  ],
+  "disallowed_tools": [],
+  "deny_read": [
+    "*.secret"
+  ],
+  "deny_write": [
+    "/etc/**"
+  ],
+  "allow_network": [],
+  "deny_network": [],
+  "require_approval_for": []
+}

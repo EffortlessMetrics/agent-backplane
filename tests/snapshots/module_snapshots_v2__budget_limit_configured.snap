@@ -1,0 +1,10 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: limit
+---
+{
+  "max_tokens": 100000,
+  "max_cost_usd": 5.0,
+  "max_turns": 25,
+  "max_duration": 600000
+}
