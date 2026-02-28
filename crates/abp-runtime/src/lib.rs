@@ -24,6 +24,7 @@ use abp_policy::PolicyEngine;
 use abp_workspace::WorkspaceManager;
 use anyhow::Context;
 use std::sync::Arc;
+use telemetry::RunMetrics;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -60,6 +61,7 @@ pub enum RuntimeError {
 /// ```
 pub struct Runtime {
     backends: BackendRegistry,
+    metrics: Arc<RunMetrics>,
 }
 
 /// Handle to a running work order: provides a run id, event stream, and receipt future.
@@ -84,6 +86,7 @@ impl Runtime {
     pub fn new() -> Self {
         Self {
             backends: BackendRegistry::default(),
+            metrics: Arc::new(RunMetrics::new()),
         }
     }
 
@@ -121,6 +124,12 @@ impl Runtime {
     /// Return a mutable reference to the underlying [`BackendRegistry`].
     pub fn registry_mut(&mut self) -> &mut BackendRegistry {
         &mut self.backends
+    }
+
+    /// Return a reference to the shared [`RunMetrics`] collector.
+    #[must_use]
+    pub fn metrics(&self) -> &RunMetrics {
+        &self.metrics
     }
 
     /// Check whether a backend's capabilities satisfy the given requirements.
@@ -181,12 +190,15 @@ impl Runtime {
 
         let backend_name = backend_name.to_string();
         let run_id = Uuid::new_v4();
+        let metrics = Arc::clone(&self.metrics);
 
         // Two-stage channel: backend -> runtime -> caller
         let (from_backend_tx, mut from_backend_rx) = mpsc::channel::<AgentEvent>(256);
         let (to_caller_tx, to_caller_rx) = mpsc::channel::<AgentEvent>(256);
 
         let receipt = tokio::spawn(async move {
+            let run_start = std::time::Instant::now();
+
             // Keep the prepared workspace alive for the duration of the run.
             let prepared = WorkspaceManager::prepare(&work_order.workspace)
                 .context("prepare workspace")
@@ -300,6 +312,12 @@ impl Runtime {
                 .with_hash()
                 .context("hash receipt")
                 .map_err(RuntimeError::BackendFailed)?;
+
+            // Record telemetry.
+            let duration_ms = run_start.elapsed().as_millis() as u64;
+            let success = matches!(receipt.outcome, Outcome::Complete | Outcome::Partial);
+            let event_count = receipt.trace.len() as u64;
+            metrics.record_run(duration_ms, success, event_count);
 
             Ok(receipt)
         });
