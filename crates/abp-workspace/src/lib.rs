@@ -10,6 +10,7 @@
 //! - Staged: create a sanitized copy (and optionally a synthetic git repo).
 
 pub mod diff;
+pub mod template;
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
 use abp_glob::IncludeExcludeGlobs;

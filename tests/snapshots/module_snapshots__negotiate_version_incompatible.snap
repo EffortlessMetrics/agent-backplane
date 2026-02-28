@@ -1,0 +1,5 @@
+---
+source: tests/module_snapshots.rs
+expression: err.to_string()
+---
+incompatible protocol versions: local abp/v0.1, remote abp/v1.0

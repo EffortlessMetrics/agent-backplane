@@ -1,0 +1,5 @@
+---
+source: tests/module_snapshots.rs
+expression: encoded
+---
+{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"test-sidecar","backend_version":"1.0.0","adapter_version":null},"capabilities":{},"mode":"mapped"}

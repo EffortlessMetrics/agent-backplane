@@ -1,0 +1,22 @@
+---
+source: tests/module_snapshots.rs
+expression: info
+---
+{
+  "spec": {
+    "command": "node",
+    "args": [],
+    "env": {},
+    "cwd": null
+  },
+  "config": {
+    "working_dir": null,
+    "env_vars": {},
+    "inherit_env": true
+  },
+  "status": {
+    "state": "not_started"
+  },
+  "started_at": null,
+  "ended_at": null
+}

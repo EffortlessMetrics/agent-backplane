@@ -89,6 +89,7 @@ tracing-subscriber.workspace = true
 schemars.workspace = true
 jsonschema.workspace = true
 abp-daemon = { path = "crates/abp-daemon" }
+insta = { workspace = true }
 axum = { version = "0.8.8", features = ["ws"] }
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"

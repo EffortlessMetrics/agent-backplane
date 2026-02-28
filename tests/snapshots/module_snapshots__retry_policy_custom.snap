@@ -1,0 +1,10 @@
+---
+source: tests/module_snapshots.rs
+expression: policy
+---
+{
+  "max_retries": 5,
+  "initial_backoff": 250,
+  "max_backoff": 30000,
+  "backoff_multiplier": 3.0
+}

@@ -1,0 +1,6 @@
+---
+source: tests/module_snapshots.rs
+expression: batch
+---
+{"t":"fatal","ref_id":"run-1","error":"out of memory"}
+{"t":"fatal","ref_id":null,"error":"unknown"}

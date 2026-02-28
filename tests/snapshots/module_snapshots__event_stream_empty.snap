@@ -1,0 +1,5 @@
+---
+source: tests/module_snapshots.rs
+expression: counts
+---
+{}

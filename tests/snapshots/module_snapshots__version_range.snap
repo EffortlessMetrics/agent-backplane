@@ -1,0 +1,14 @@
+---
+source: tests/module_snapshots.rs
+expression: range
+---
+{
+  "min": {
+    "major": 0,
+    "minor": 1
+  },
+  "max": {
+    "major": 0,
+    "minor": 5
+  }
+}

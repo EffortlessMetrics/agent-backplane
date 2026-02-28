@@ -1,0 +1,23 @@
+---
+source: tests/module_snapshots.rs
+expression: statuses
+---
+[
+  {
+    "state": "not_started"
+  },
+  {
+    "state": "running",
+    "pid": 12345
+  },
+  {
+    "state": "exited",
+    "code": 0
+  },
+  {
+    "state": "killed"
+  },
+  {
+    "state": "timed_out"
+  }
+]

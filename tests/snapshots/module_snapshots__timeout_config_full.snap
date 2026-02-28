@@ -1,0 +1,8 @@
+---
+source: tests/module_snapshots.rs
+expression: cfg
+---
+{
+  "run_timeout": 300000,
+  "event_timeout": 60000
+}

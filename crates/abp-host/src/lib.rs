@@ -6,6 +6,7 @@
 //!
 //! Process supervision + JSONL transport for sidecars.
 
+pub mod health;
 pub mod process;
 pub mod registry;
 

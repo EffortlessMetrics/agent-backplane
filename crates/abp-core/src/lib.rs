@@ -7,6 +7,8 @@
 //!
 //! If you only take one dependency, take this one.
 
+pub mod chain;
+pub mod error;
 pub mod filter;
 pub mod stream;
 pub mod validate;
