@@ -222,7 +222,7 @@ fn host_to_anyhow(e: HostError) -> anyhow::Error {
     anyhow::anyhow!(e)
 }
 
-fn ensure_capability_requirements(
+pub fn ensure_capability_requirements(
     requirements: &CapabilityRequirements,
     capabilities: &CapabilityManifest,
 ) -> Result<()> {
