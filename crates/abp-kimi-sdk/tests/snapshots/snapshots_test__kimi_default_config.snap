@@ -1,0 +1,11 @@
+---
+source: crates/abp-kimi-sdk/tests/snapshots_test.rs
+expression: "KimiConfig::default()"
+---
+{
+  "api_key": "",
+  "base_url": "https://api.moonshot.cn/v1",
+  "model": "moonshot-v1-8k",
+  "max_tokens": 4096,
+  "temperature": null
+}

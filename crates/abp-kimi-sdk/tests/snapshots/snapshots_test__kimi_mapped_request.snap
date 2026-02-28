@@ -1,0 +1,14 @@
+---
+source: crates/abp-kimi-sdk/tests/snapshots_test.rs
+expression: req
+---
+{
+  "model": "moonshot-v1-8k",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Optimize database queries"
+    }
+  ],
+  "max_tokens": 4096
+}

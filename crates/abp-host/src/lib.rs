@@ -9,6 +9,7 @@ pub mod registry;
 use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use futures::Stream;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::process::Stdio;
 use thiserror::Error;
@@ -19,7 +20,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
 
 /// Configuration for spawning a sidecar process.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SidecarSpec {
     /// Executable command to run.
     pub command: String,
@@ -44,7 +45,7 @@ impl SidecarSpec {
 }
 
 /// Data extracted from a sidecar's initial `hello` handshake.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SidecarHello {
     /// Protocol version reported by the sidecar.
     pub contract_version: String,

@@ -15,6 +15,7 @@ abp-core = { path = "../abp-core" }
 abp-protocol = { path = "../abp-protocol" }
 sidecar-kit = { path = "../sidecar-kit" }
 anyhow.workspace = true
+serde.workspace = true
 thiserror.workspace = true
 futures.workspace = true
 tokio.workspace = true
@@ -23,6 +24,8 @@ tracing.workspace = true
 
 [dev-dependencies]
 abp-core = { path = "../abp-core" }
+abp-protocol = { path = "../abp-protocol" }
+serde_json.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tokio-stream.workspace = true
 uuid = { workspace = true }

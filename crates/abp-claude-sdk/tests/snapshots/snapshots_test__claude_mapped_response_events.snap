@@ -1,0 +1,19 @@
+---
+source: crates/abp-claude-sdk/tests/snapshots_test.rs
+expression: events
+---
+[
+  {
+    "type": "assistant_message",
+    "text": "I'll refactor the auth module."
+  },
+  {
+    "type": "tool_call",
+    "tool_name": "read_file",
+    "tool_use_id": "tu_1",
+    "parent_tool_use_id": null,
+    "input": {
+      "path": "src/auth.rs"
+    }
+  }
+]

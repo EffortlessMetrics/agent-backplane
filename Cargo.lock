@@ -12,6 +12,7 @@ dependencies = [
  "abp-runtime",
  "anyhow",
  "chrono",
+ "insta",
  "serde",
  "serde_json",
 ]
@@ -54,6 +55,7 @@ dependencies = [
  "abp-runtime",
  "anyhow",
  "chrono",
+ "insta",
  "serde",
  "serde_json",
 ]
@@ -113,6 +115,7 @@ dependencies = [
  "abp-runtime",
  "anyhow",
  "chrono",
+ "insta",
  "serde",
  "serde_json",
 ]
@@ -135,6 +138,8 @@ dependencies = [
  "abp-protocol",
  "anyhow",
  "futures",
+ "serde",
+ "serde_json",
  "sidecar-kit",
  "thiserror",
  "tokio",
@@ -174,6 +179,7 @@ dependencies = [
  "abp-runtime",
  "anyhow",
  "chrono",
+ "insta",
  "serde",
  "serde_json",
 ]

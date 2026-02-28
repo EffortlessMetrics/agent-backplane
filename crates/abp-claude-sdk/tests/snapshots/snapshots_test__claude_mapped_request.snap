@@ -1,0 +1,15 @@
+---
+source: crates/abp-claude-sdk/tests/snapshots_test.rs
+expression: req
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "max_tokens": 4096,
+  "system": null,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Refactor auth module"
+    }
+  ]
+}
