@@ -3,6 +3,9 @@ resolver = "2"
 members = [
   "crates/abp-glob",
   "crates/abp-core",
+  "crates/abp-backend",
+  "crates/abp-backend-mock",
+  "crates/abp-backend-sidecar",
   "crates/abp-protocol",
   "crates/abp-host",
   "crates/abp-workspace",

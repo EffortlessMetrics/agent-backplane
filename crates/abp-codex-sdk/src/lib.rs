@@ -1,7 +1,7 @@
 //! Microcrate for wiring the OpenAI Codex sidecar into ABP runtimes.
 
+use abp_backend_sidecar::SidecarBackend;
 use abp_host::SidecarSpec;
-use abp_integrations::SidecarBackend;
 use abp_runtime::Runtime;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -81,9 +81,8 @@ fn command_exists(command: &str) -> bool {
         return candidate.exists();
     }
 
-    std::env::var_os("PATH").is_some_and(|path| {
-        std::env::split_paths(&path).any(|dir| path_has_command(&dir, command))
-    })
+    std::env::var_os("PATH")
+        .is_some_and(|path| std::env::split_paths(&path).any(|dir| path_has_command(&dir, command)))
 }
 
 fn path_has_command(dir: &Path, command: &str) -> bool {

@@ -3,11 +3,52 @@
 version = 4
 
 [[package]]
+name = "abp-backend"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "anyhow",
+ "async-trait",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "abp-backend-mock"
+version = "0.1.0"
+dependencies = [
+ "abp-backend",
+ "abp-core",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "abp-backend-sidecar"
+version = "0.1.0"
+dependencies = [
+ "abp-backend",
+ "abp-core",
+ "abp-host",
+ "anyhow",
+ "async-trait",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "abp-claude-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-backend-sidecar",
  "abp-host",
- "abp-integrations",
  "abp-runtime",
  "anyhow",
 ]
@@ -16,12 +57,12 @@ dependencies = [
 name = "abp-cli"
 version = "0.1.0"
 dependencies = [
+ "abp-backend-sidecar",
  "abp-claude-sdk",
  "abp-codex-sdk",
  "abp-core",
  "abp-gemini-sdk",
  "abp-host",
- "abp-integrations",
  "abp-kimi-sdk",
  "abp-runtime",
  "anyhow",
@@ -39,8 +80,8 @@ dependencies = [
 name = "abp-codex-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-backend-sidecar",
  "abp-host",
- "abp-integrations",
  "abp-runtime",
  "anyhow",
 ]
@@ -62,12 +103,13 @@ dependencies = [
 name = "abp-daemon"
 version = "0.1.0"
 dependencies = [
+ "abp-backend-mock",
+ "abp-backend-sidecar",
  "abp-claude-sdk",
  "abp-codex-sdk",
  "abp-core",
  "abp-gemini-sdk",
  "abp-host",
- "abp-integrations",
  "abp-kimi-sdk",
  "abp-runtime",
  "anyhow",
@@ -87,8 +129,8 @@ dependencies = [
 name = "abp-gemini-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-backend-sidecar",
  "abp-host",
- "abp-integrations",
  "abp-runtime",
  "anyhow",
 ]
@@ -119,24 +161,17 @@ dependencies = [
 name = "abp-integrations"
 version = "0.1.0"
 dependencies = [
- "abp-core",
- "abp-host",
- "anyhow",
- "async-trait",
- "chrono",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tracing",
- "uuid",
+ "abp-backend",
+ "abp-backend-mock",
+ "abp-backend-sidecar",
 ]
 
 [[package]]
 name = "abp-kimi-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-backend-sidecar",
  "abp-host",
- "abp-integrations",
  "abp-runtime",
  "anyhow",
 ]
@@ -166,8 +201,9 @@ dependencies = [
 name = "abp-runtime"
 version = "0.1.0"
 dependencies = [
+ "abp-backend",
+ "abp-backend-mock",
  "abp-core",
- "abp-integrations",
  "abp-policy",
  "abp-workspace",
  "anyhow",

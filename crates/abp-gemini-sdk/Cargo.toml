@@ -8,6 +8,6 @@ repository.workspace = true
 
 [dependencies]
 abp-host = { path = "../abp-host" }
-abp-integrations = { path = "../abp-integrations" }
+abp-backend-sidecar = { path = "../abp-backend-sidecar" }
 abp-runtime = { path = "../abp-runtime" }
 anyhow.workspace = true

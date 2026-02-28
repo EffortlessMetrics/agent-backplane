@@ -1,3 +1,4 @@
+use abp_backend_sidecar::SidecarBackend;
 use abp_claude_sdk as claude_sdk;
 use abp_codex_sdk as codex_sdk;
 use abp_core::{
@@ -6,7 +7,6 @@ use abp_core::{
 };
 use abp_gemini_sdk as gemini_sdk;
 use abp_host::SidecarSpec;
-use abp_integrations::SidecarBackend;
 use abp_kimi_sdk as kimi_sdk;
 use abp_runtime::Runtime;
 use anyhow::{Context, Result};
