@@ -8,8 +8,10 @@ expression: value
       "description": "A timestamped event emitted by an agent during a run.",
       "oneOf": [
         {
+          "description": "The agent run has started.",
           "properties": {
             "message": {
+              "description": "Human-readable start message.",
               "type": "string"
             },
             "type": {
@@ -24,8 +26,10 @@ expression: value
           "type": "object"
         },
         {
+          "description": "The agent run has completed.",
           "properties": {
             "message": {
+              "description": "Human-readable completion message.",
               "type": "string"
             },
             "type": {
@@ -40,8 +44,10 @@ expression: value
           "type": "object"
         },
         {
+          "description": "Incremental assistant text (streaming token).",
           "properties": {
             "text": {
+              "description": "The text fragment.",
               "type": "string"
             },
             "type": {
@@ -56,8 +62,10 @@ expression: value
           "type": "object"
         },
         {
+          "description": "Complete assistant message.",
           "properties": {
             "text": {
+              "description": "The full message text.",
               "type": "string"
             },
             "type": {
@@ -72,18 +80,24 @@ expression: value
           "type": "object"
         },
         {
+          "description": "A tool invocation by the agent.",
           "properties": {
-            "input": true,
+            "input": {
+              "description": "JSON input passed to the tool."
+            },
             "parent_tool_use_id": {
+              "description": "Identifier of the parent tool use, if nested.",
               "type": [
                 "string",
                 "null"
               ]
             },
             "tool_name": {
+              "description": "Name of the tool being called.",
               "type": "string"
             },
             "tool_use_id": {
+              "description": "Unique identifier for this tool use.",
               "type": [
                 "string",
                 "null"
@@ -102,15 +116,21 @@ expression: value
           "type": "object"
         },
         {
+          "description": "Result returned from a tool invocation.",
           "properties": {
             "is_error": {
+              "description": "Whether the tool reported an error.",
               "type": "boolean"
             },
-            "output": true,
+            "output": {
+              "description": "JSON output from the tool."
+            },
             "tool_name": {
+              "description": "Name of the tool that produced this result.",
               "type": "string"
             },
             "tool_use_id": {
+              "description": "Identifier correlating to the originating tool call.",
               "type": [
                 "string",
                 "null"
@@ -130,11 +150,14 @@ expression: value
           "type": "object"
         },
         {
+          "description": "A file was created or modified in the workspace.",
           "properties": {
             "path": {
+              "description": "Path to the changed file (relative to workspace root).",
               "type": "string"
             },
             "summary": {
+              "description": "Human-readable summary of the change.",
               "type": "string"
             },
             "type": {
@@ -150,11 +173,14 @@ expression: value
           "type": "object"
         },
         {
+          "description": "A shell command was executed.",
           "properties": {
             "command": {
+              "description": "The command that was run.",
               "type": "string"
             },
             "exit_code": {
+              "description": "Process exit code, if available.",
               "format": "int32",
               "type": [
                 "integer",
@@ -162,6 +188,7 @@ expression: value
               ]
             },
             "output_preview": {
+              "description": "Truncated preview of the command output.",
               "type": [
                 "string",
                 "null"
@@ -179,8 +206,10 @@ expression: value
           "type": "object"
         },
         {
+          "description": "A non-fatal warning emitted during the run.",
           "properties": {
             "message": {
+              "description": "Warning message text.",
               "type": "string"
             },
             "type": {
@@ -195,8 +224,10 @@ expression: value
           "type": "object"
         },
         {
+          "description": "A fatal error emitted during the run.",
           "properties": {
             "message": {
+              "description": "Error message text.",
               "type": "string"
             },
             "type": {
@@ -221,6 +252,7 @@ expression: value
           ]
         },
         "ts": {
+          "description": "Timestamp when the event was emitted.",
           "format": "date-time",
           "type": "string"
         }
@@ -292,12 +324,23 @@ expression: value
     },
     "Outcome": {
       "description": "High-level result status of a run.",
-      "enum": [
-        "complete",
-        "partial",
-        "failed"
-      ],
-      "type": "string"
+      "oneOf": [
+        {
+          "const": "complete",
+          "description": "The run finished successfully.",
+          "type": "string"
+        },
+        {
+          "const": "partial",
+          "description": "The run produced partial results (e.g. budget exhausted).",
+          "type": "string"
+        },
+        {
+          "const": "failed",
+          "description": "The run failed.",
+          "type": "string"
+        }
+      ]
     },
     "RunMetadata": {
       "description": "Timing and identity metadata for a single run.",
@@ -347,11 +390,18 @@ expression: value
       "description": "How well a backend supports a given [`Capability`].",
       "oneOf": [
         {
-          "enum": [
-            "native",
-            "emulated",
-            "unsupported"
-          ],
+          "const": "native",
+          "description": "First-class support built into the backend.",
+          "type": "string"
+        },
+        {
+          "const": "emulated",
+          "description": "Support via adapter or polyfill layer.",
+          "type": "string"
+        },
+        {
+          "const": "unsupported",
+          "description": "Capability is not available.",
           "type": "string"
         },
         {
@@ -361,6 +411,7 @@ expression: value
             "restricted": {
               "properties": {
                 "reason": {
+                  "description": "Human-readable explanation of the restriction.",
                   "type": "string"
                 }
               },
@@ -381,6 +432,7 @@ expression: value
       "description": "Best-effort normalized token/cost counters across different backends.",
       "properties": {
         "cache_read_tokens": {
+          "description": "Tokens read from the cache.",
           "format": "uint64",
           "minimum": 0,
           "type": [
@@ -389,6 +441,7 @@ expression: value
           ]
         },
         "cache_write_tokens": {
+          "description": "Tokens written to the cache.",
           "format": "uint64",
           "minimum": 0,
           "type": [
@@ -397,6 +450,7 @@ expression: value
           ]
         },
         "estimated_cost_usd": {
+          "description": "Estimated cost in US dollars (best-effort).",
           "format": "double",
           "type": [
             "number",
@@ -404,6 +458,7 @@ expression: value
           ]
         },
         "input_tokens": {
+          "description": "Number of input (prompt) tokens consumed.",
           "format": "uint64",
           "minimum": 0,
           "type": [
@@ -412,6 +467,7 @@ expression: value
           ]
         },
         "output_tokens": {
+          "description": "Number of output (completion) tokens produced.",
           "format": "uint64",
           "minimum": 0,
           "type": [
@@ -474,64 +530,10 @@ expression: value
       "description": "Backend that executed the work order."
     },
     "capabilities": {
-      "additionalProperties": false,
-      "description": "Capability manifest reported by the backend.",
-      "properties": {
-        "checkpointing": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "hooks_post_tool_use": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "hooks_pre_tool_use": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "mcp_client": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "mcp_server": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "session_fork": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "session_resume": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "streaming": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "structured_output_json_schema": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_ask_user": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_bash": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_edit": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_glob": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_grep": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_read": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_web_fetch": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_web_search": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_write": {
-          "$ref": "#/$defs/SupportLevel"
-        }
+      "additionalProperties": {
+        "$ref": "#/$defs/SupportLevel"
       },
+      "description": "Capability manifest reported by the backend.",
       "type": "object"
     },
     "meta": {

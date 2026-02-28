@@ -2,6 +2,7 @@
 #![doc = include_str!("../README.md")]
 //! abp-workspace
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! Workspace preparation and harness utilities.
 //!

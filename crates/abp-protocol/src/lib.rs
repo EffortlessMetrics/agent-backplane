@@ -2,6 +2,7 @@
 #![doc = include_str!("../README.md")]
 //! abp-protocol
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! Wire format for talking to sidecars and daemons.
 //! Current transport: JSONL over stdio.
@@ -54,32 +55,48 @@ use thiserror::Error;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum Envelope {
+    /// Sidecar announcement sent as the first message after connection.
     Hello {
+        /// Protocol version the sidecar speaks (e.g. `"abp/v0.1"`).
         contract_version: String,
+        /// Identity of the backend behind the sidecar.
         backend: BackendIdentity,
+        /// Capabilities the sidecar advertises.
         capabilities: CapabilityManifest,
         /// Execution mode this sidecar will use. Defaults to "mapped" if absent.
         #[serde(default)]
         mode: ExecutionMode,
     },
 
+    /// Control-plane request to start executing a work order.
     Run {
+        /// Unique identifier for this run.
         id: String,
+        /// The work order to execute.
         work_order: WorkOrder,
     },
 
+    /// Streaming event emitted by the sidecar during execution.
     Event {
+        /// Run identifier this event belongs to.
         ref_id: String,
+        /// The agent event payload.
         event: AgentEvent,
     },
 
+    /// Terminal message carrying the execution receipt.
     Final {
+        /// Run identifier this receipt belongs to.
         ref_id: String,
+        /// The completed execution receipt.
         receipt: Receipt,
     },
 
+    /// Unrecoverable error from the sidecar.
     Fatal {
+        /// Run identifier, if known.
         ref_id: Option<String>,
+        /// Human-readable error description.
         error: String,
     },
 }
@@ -110,17 +127,26 @@ impl Envelope {
 /// Errors arising from JSONL encoding/decoding or protocol-level violations.
 #[derive(Debug, Error)]
 pub enum ProtocolError {
+    /// JSON serialization or deserialization failure.
     #[error("invalid JSON: {0}")]
     Json(#[from] serde_json::Error),
 
+    /// Underlying I/O error.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// A protocol-level invariant was violated.
     #[error("protocol violation: {0}")]
     Violation(String),
 
+    /// Received a message type that was not expected at this point.
     #[error("unexpected message: expected {expected}, got {got}")]
-    UnexpectedMessage { expected: String, got: String },
+    UnexpectedMessage {
+        /// The envelope type that was expected.
+        expected: String,
+        /// The envelope type that was actually received.
+        got: String,
+    },
 }
 
 /// Stateless codec for encoding/decoding [`Envelope`] messages as newline-delimited JSON.

@@ -18,63 +18,9 @@
     "capabilities": {
       "description": "Capability manifest reported by the backend.",
       "type": "object",
-      "properties": {
-        "checkpointing": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "hooks_post_tool_use": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "hooks_pre_tool_use": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "mcp_client": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "mcp_server": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "session_fork": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "session_resume": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "streaming": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "structured_output_json_schema": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_ask_user": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_bash": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_edit": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_glob": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_grep": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_read": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_web_fetch": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_web_search": {
-          "$ref": "#/$defs/SupportLevel"
-        },
-        "tool_write": {
-          "$ref": "#/$defs/SupportLevel"
-        }
-      },
-      "additionalProperties": false
+      "additionalProperties": {
+        "$ref": "#/$defs/SupportLevel"
+      }
     },
     "meta": {
       "description": "Timing and identity metadata for this run.",
@@ -140,15 +86,18 @@
           "additionalProperties": true
         },
         "ts": {
+          "description": "Timestamp when the event was emitted.",
           "type": "string",
           "format": "date-time"
         }
       },
       "oneOf": [
         {
+          "description": "The agent run has started.",
           "type": "object",
           "properties": {
             "message": {
+              "description": "Human-readable start message.",
               "type": "string"
             },
             "type": {
@@ -162,9 +111,11 @@
           ]
         },
         {
+          "description": "The agent run has completed.",
           "type": "object",
           "properties": {
             "message": {
+              "description": "Human-readable completion message.",
               "type": "string"
             },
             "type": {
@@ -178,9 +129,11 @@
           ]
         },
         {
+          "description": "Incremental assistant text (streaming token).",
           "type": "object",
           "properties": {
             "text": {
+              "description": "The text fragment.",
               "type": "string"
             },
             "type": {
@@ -194,9 +147,11 @@
           ]
         },
         {
+          "description": "Complete assistant message.",
           "type": "object",
           "properties": {
             "text": {
+              "description": "The full message text.",
               "type": "string"
             },
             "type": {
@@ -210,19 +165,25 @@
           ]
         },
         {
+          "description": "A tool invocation by the agent.",
           "type": "object",
           "properties": {
-            "input": true,
+            "input": {
+              "description": "JSON input passed to the tool."
+            },
             "parent_tool_use_id": {
+              "description": "Identifier of the parent tool use, if nested.",
               "type": [
                 "string",
                 "null"
               ]
             },
             "tool_name": {
+              "description": "Name of the tool being called.",
               "type": "string"
             },
             "tool_use_id": {
+              "description": "Unique identifier for this tool use.",
               "type": [
                 "string",
                 "null"
@@ -240,16 +201,22 @@
           ]
         },
         {
+          "description": "Result returned from a tool invocation.",
           "type": "object",
           "properties": {
             "is_error": {
+              "description": "Whether the tool reported an error.",
               "type": "boolean"
             },
-            "output": true,
+            "output": {
+              "description": "JSON output from the tool."
+            },
             "tool_name": {
+              "description": "Name of the tool that produced this result.",
               "type": "string"
             },
             "tool_use_id": {
+              "description": "Identifier correlating to the originating tool call.",
               "type": [
                 "string",
                 "null"
@@ -268,12 +235,15 @@
           ]
         },
         {
+          "description": "A file was created or modified in the workspace.",
           "type": "object",
           "properties": {
             "path": {
+              "description": "Path to the changed file (relative to workspace root).",
               "type": "string"
             },
             "summary": {
+              "description": "Human-readable summary of the change.",
               "type": "string"
             },
             "type": {
@@ -288,12 +258,15 @@
           ]
         },
         {
+          "description": "A shell command was executed.",
           "type": "object",
           "properties": {
             "command": {
+              "description": "The command that was run.",
               "type": "string"
             },
             "exit_code": {
+              "description": "Process exit code, if available.",
               "type": [
                 "integer",
                 "null"
@@ -301,6 +274,7 @@
               "format": "int32"
             },
             "output_preview": {
+              "description": "Truncated preview of the command output.",
               "type": [
                 "string",
                 "null"
@@ -317,9 +291,11 @@
           ]
         },
         {
+          "description": "A non-fatal warning emitted during the run.",
           "type": "object",
           "properties": {
             "message": {
+              "description": "Warning message text.",
               "type": "string"
             },
             "type": {
@@ -333,9 +309,11 @@
           ]
         },
         {
+          "description": "A fatal error emitted during the run.",
           "type": "object",
           "properties": {
             "message": {
+              "description": "Error message text.",
               "type": "string"
             },
             "type": {
@@ -415,11 +393,22 @@
     },
     "Outcome": {
       "description": "High-level result status of a run.",
-      "type": "string",
-      "enum": [
-        "complete",
-        "partial",
-        "failed"
+      "oneOf": [
+        {
+          "description": "The run finished successfully.",
+          "type": "string",
+          "const": "complete"
+        },
+        {
+          "description": "The run produced partial results (e.g. budget exhausted).",
+          "type": "string",
+          "const": "partial"
+        },
+        {
+          "description": "The run failed.",
+          "type": "string",
+          "const": "failed"
+        }
       ]
     },
     "RunMetadata": {
@@ -470,12 +459,19 @@
       "description": "How well a backend supports a given [`Capability`].",
       "oneOf": [
         {
+          "description": "First-class support built into the backend.",
           "type": "string",
-          "enum": [
-            "native",
-            "emulated",
-            "unsupported"
-          ]
+          "const": "native"
+        },
+        {
+          "description": "Support via adapter or polyfill layer.",
+          "type": "string",
+          "const": "emulated"
+        },
+        {
+          "description": "Capability is not available.",
+          "type": "string",
+          "const": "unsupported"
         },
         {
           "description": "Supported in principle, but disabled by policy or environment.",
@@ -485,6 +481,7 @@
               "type": "object",
               "properties": {
                 "reason": {
+                  "description": "Human-readable explanation of the restriction.",
                   "type": "string"
                 }
               },
@@ -505,6 +502,7 @@
       "type": "object",
       "properties": {
         "cache_read_tokens": {
+          "description": "Tokens read from the cache.",
           "type": [
             "integer",
             "null"
@@ -513,6 +511,7 @@
           "minimum": 0
         },
         "cache_write_tokens": {
+          "description": "Tokens written to the cache.",
           "type": [
             "integer",
             "null"
@@ -521,6 +520,7 @@
           "minimum": 0
         },
         "estimated_cost_usd": {
+          "description": "Estimated cost in US dollars (best-effort).",
           "type": [
             "number",
             "null"
@@ -528,6 +528,7 @@
           "format": "double"
         },
         "input_tokens": {
+          "description": "Number of input (prompt) tokens consumed.",
           "type": [
             "integer",
             "null"
@@ -536,6 +537,7 @@
           "minimum": 0
         },
         "output_tokens": {
+          "description": "Number of output (completion) tokens produced.",
           "type": [
             "integer",
             "null"

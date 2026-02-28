@@ -11,13 +11,24 @@ use crate::{receipt_hash, Receipt, CONTRACT_VERSION};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValidationError {
     /// A required field is missing or empty.
-    MissingField { field: &'static str },
+    MissingField {
+        /// Name of the missing field.
+        field: &'static str,
+    },
     /// The stored hash does not match the recomputed hash.
-    InvalidHash { expected: String, actual: String },
+    InvalidHash {
+        /// The recomputed hash value.
+        expected: String,
+        /// The stored hash value.
+        actual: String,
+    },
     /// The `backend.id` field is empty.
     EmptyBackendId,
     /// The outcome or another field has an invalid value.
-    InvalidOutcome { reason: String },
+    InvalidOutcome {
+        /// Description of why the outcome is invalid.
+        reason: String,
+    },
 }
 
 impl fmt::Display for ValidationError {

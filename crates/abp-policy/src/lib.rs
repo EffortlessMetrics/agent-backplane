@@ -2,12 +2,14 @@
 #![doc = include_str!("../README.md")]
 //! abp-policy
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! Policy evaluation.
 //!
 //! In v0.1 this is a small “contract utility” crate.
 //! Eventually this becomes the opinionated policy engine.
 
+/// Audit trail for policy decisions.
 pub mod audit;
 
 use abp_core::PolicyProfile;

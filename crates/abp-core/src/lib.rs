@@ -2,16 +2,23 @@
 #![doc = include_str!("../README.md")]
 //! abp-core
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! The stable contract for Agent Backplane.
 //!
 //! If you only take one dependency, take this one.
 
+/// Receipt chain verification and integrity checking.
 pub mod chain;
+/// Comprehensive error catalog for the Agent Backplane.
 pub mod error;
+/// Extension traits for work orders, receipts, and events.
 pub mod ext;
+/// Event filtering for agent event streams.
 pub mod filter;
+/// Event stream combinator utilities.
 pub mod stream;
+/// Receipt validation utilities.
 pub mod validate;
 
 use chrono::{DateTime, Utc};
@@ -209,35 +216,47 @@ pub enum MinSupport {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum Capability {
+    /// Real-time token streaming support.
     Streaming,
 
-    // Built-in-ish tool expectations.
+    /// Read file contents from the workspace.
     ToolRead,
+    /// Write new files to the workspace.
     ToolWrite,
+    /// Edit existing files in the workspace.
     ToolEdit,
+    /// Execute shell commands.
     ToolBash,
+    /// Search for files by glob pattern.
     ToolGlob,
+    /// Search file contents by regex pattern.
     ToolGrep,
+    /// Perform web searches.
     ToolWebSearch,
+    /// Fetch content from URLs.
     ToolWebFetch,
+    /// Prompt the user for input.
     ToolAskUser,
 
-    // Governance.
+    /// Pre-tool-use governance hook.
     HooksPreToolUse,
+    /// Post-tool-use governance hook.
     HooksPostToolUse,
 
-    // Session behavior.
+    /// Resume a previous session.
     SessionResume,
+    /// Fork a session into parallel branches.
     SessionFork,
 
-    // Reversibility.
+    /// Save and restore execution checkpoints.
     Checkpointing,
 
-    // Structure.
+    /// Structured output via JSON Schema.
     StructuredOutputJsonSchema,
 
-    // MCP integration.
+    /// Act as an MCP client.
     McpClient,
+    /// Act as an MCP server.
     McpServer,
 }
 
@@ -245,12 +264,16 @@ pub enum Capability {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportLevel {
+    /// First-class support built into the backend.
     Native,
+    /// Support via adapter or polyfill layer.
     Emulated,
+    /// Capability is not available.
     Unsupported,
 
     /// Supported in principle, but disabled by policy or environment.
     Restricted {
+        /// Human-readable explanation of the restriction.
         reason: String,
     },
 }
@@ -363,14 +386,19 @@ pub struct RunMetadata {
 /// Best-effort normalized token/cost counters across different backends.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 pub struct UsageNormalized {
+    /// Number of input (prompt) tokens consumed.
     pub input_tokens: Option<u64>,
+    /// Number of output (completion) tokens produced.
     pub output_tokens: Option<u64>,
+    /// Tokens read from the cache.
     pub cache_read_tokens: Option<u64>,
+    /// Tokens written to the cache.
     pub cache_write_tokens: Option<u64>,
 
     /// Copilot-style billing.
     pub request_units: Option<u64>,
 
+    /// Estimated cost in US dollars (best-effort).
     pub estimated_cost_usd: Option<f64>,
 }
 
@@ -378,8 +406,11 @@ pub struct UsageNormalized {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
+    /// The run finished successfully.
     Complete,
+    /// The run produced partial results (e.g. budget exhausted).
     Partial,
+    /// The run failed.
     Failed,
 }
 
@@ -406,8 +437,10 @@ pub struct VerificationReport {
 /// A timestamped event emitted by an agent during a run.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AgentEvent {
+    /// Timestamp when the event was emitted.
     pub ts: DateTime<Utc>,
 
+    /// The event payload.
     #[serde(flatten)]
     pub kind: AgentEventKind,
 
@@ -427,50 +460,79 @@ pub struct AgentEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentEventKind {
+    /// The agent run has started.
     RunStarted {
+        /// Human-readable start message.
         message: String,
     },
+    /// The agent run has completed.
     RunCompleted {
+        /// Human-readable completion message.
         message: String,
     },
 
+    /// Incremental assistant text (streaming token).
     AssistantDelta {
+        /// The text fragment.
         text: String,
     },
+    /// Complete assistant message.
     AssistantMessage {
+        /// The full message text.
         text: String,
     },
 
+    /// A tool invocation by the agent.
     ToolCall {
+        /// Name of the tool being called.
         tool_name: String,
+        /// Unique identifier for this tool use.
         tool_use_id: Option<String>,
+        /// Identifier of the parent tool use, if nested.
         parent_tool_use_id: Option<String>,
+        /// JSON input passed to the tool.
         input: serde_json::Value,
     },
 
+    /// Result returned from a tool invocation.
     ToolResult {
+        /// Name of the tool that produced this result.
         tool_name: String,
+        /// Identifier correlating to the originating tool call.
         tool_use_id: Option<String>,
+        /// JSON output from the tool.
         output: serde_json::Value,
+        /// Whether the tool reported an error.
         is_error: bool,
     },
 
+    /// A file was created or modified in the workspace.
     FileChanged {
+        /// Path to the changed file (relative to workspace root).
         path: String,
+        /// Human-readable summary of the change.
         summary: String,
     },
 
+    /// A shell command was executed.
     CommandExecuted {
+        /// The command that was run.
         command: String,
+        /// Process exit code, if available.
         exit_code: Option<i32>,
+        /// Truncated preview of the command output.
         output_preview: Option<String>,
     },
 
+    /// A non-fatal warning emitted during the run.
     Warning {
+        /// Warning message text.
         message: String,
     },
 
+    /// A fatal error emitted during the run.
     Error {
+        /// Error message text.
         message: String,
     },
 }
@@ -478,6 +540,7 @@ pub enum AgentEventKind {
 /// Errors from contract-level operations (serialization, hashing).
 #[derive(Debug, thiserror::Error)]
 pub enum ContractError {
+    /// JSON serialization or deserialization failed.
     #[error("failed to serialize JSON: {0}")]
     Json(#[from] serde_json::Error),
 }
@@ -599,6 +662,7 @@ pub struct WorkOrderBuilder {
 }
 
 impl WorkOrderBuilder {
+    /// Create a new builder with the given task description.
     #[must_use]
     pub fn new(task: impl Into<String>) -> Self {
         Self {
@@ -615,67 +679,80 @@ impl WorkOrderBuilder {
         }
     }
 
+    /// Set the execution lane.
     #[must_use]
     pub fn lane(mut self, lane: ExecutionLane) -> Self {
         self.lane = lane;
         self
     }
+    /// Set the workspace root path.
     #[must_use]
     pub fn root(mut self, root: impl Into<String>) -> Self {
         self.root = root.into();
         self
     }
+    /// Set the workspace mode.
     #[must_use]
     pub fn workspace_mode(mut self, mode: WorkspaceMode) -> Self {
         self.workspace_mode = mode;
         self
     }
+    /// Set the include glob patterns.
     #[must_use]
     pub fn include(mut self, patterns: Vec<String>) -> Self {
         self.include = patterns;
         self
     }
+    /// Set the exclude glob patterns.
     #[must_use]
     pub fn exclude(mut self, patterns: Vec<String>) -> Self {
         self.exclude = patterns;
         self
     }
+    /// Set the context packet.
     #[must_use]
     pub fn context(mut self, ctx: ContextPacket) -> Self {
         self.context = ctx;
         self
     }
+    /// Set the security policy.
     #[must_use]
     pub fn policy(mut self, policy: PolicyProfile) -> Self {
         self.policy = policy;
         self
     }
+    /// Set the capability requirements.
     #[must_use]
     pub fn requirements(mut self, reqs: CapabilityRequirements) -> Self {
         self.requirements = reqs;
         self
     }
+    /// Set the runtime configuration.
     #[must_use]
     pub fn config(mut self, config: RuntimeConfig) -> Self {
         self.config = config;
         self
     }
+    /// Set the preferred model identifier.
     #[must_use]
     pub fn model(mut self, model: impl Into<String>) -> Self {
         self.config.model = Some(model.into());
         self
     }
+    /// Set the maximum budget in USD.
     #[must_use]
     pub fn max_budget_usd(mut self, budget: f64) -> Self {
         self.config.max_budget_usd = Some(budget);
         self
     }
+    /// Set the maximum number of turns.
     #[must_use]
     pub fn max_turns(mut self, turns: u32) -> Self {
         self.config.max_turns = Some(turns);
         self
     }
 
+    /// Consume the builder and produce a [`WorkOrder`].
     #[must_use]
     pub fn build(self) -> WorkOrder {
         WorkOrder {
@@ -759,6 +836,7 @@ pub struct ReceiptBuilder {
 }
 
 impl ReceiptBuilder {
+    /// Create a new builder with the given backend identifier.
     #[must_use]
     pub fn new(backend_id: impl Into<String>) -> Self {
         let now = Utc::now();
@@ -780,84 +858,98 @@ impl ReceiptBuilder {
         }
     }
 
+    /// Set the backend identifier.
     #[must_use]
     pub fn backend_id(mut self, id: impl Into<String>) -> Self {
         self.backend_id = id.into();
         self
     }
 
+    /// Set the run outcome.
     #[must_use]
     pub fn outcome(mut self, outcome: Outcome) -> Self {
         self.outcome = outcome;
         self
     }
 
+    /// Set the run start timestamp.
     #[must_use]
     pub fn started_at(mut self, dt: DateTime<Utc>) -> Self {
         self.started_at = dt;
         self
     }
 
+    /// Set the run finish timestamp.
     #[must_use]
     pub fn finished_at(mut self, dt: DateTime<Utc>) -> Self {
         self.finished_at = dt;
         self
     }
 
+    /// Set the work order identifier this receipt corresponds to.
     #[must_use]
     pub fn work_order_id(mut self, id: Uuid) -> Self {
         self.work_order_id = id;
         self
     }
 
+    /// Append a trace event to the receipt.
     #[must_use]
     pub fn add_trace_event(mut self, event: AgentEvent) -> Self {
         self.trace.push(event);
         self
     }
 
+    /// Append an artifact reference to the receipt.
     #[must_use]
     pub fn add_artifact(mut self, artifact: ArtifactRef) -> Self {
         self.artifacts.push(artifact);
         self
     }
 
+    /// Set the capability manifest.
     #[must_use]
     pub fn capabilities(mut self, caps: CapabilityManifest) -> Self {
         self.capabilities = caps;
         self
     }
 
+    /// Set the execution mode.
     #[must_use]
     pub fn mode(mut self, mode: ExecutionMode) -> Self {
         self.mode = mode;
         self
     }
 
+    /// Set the backend runtime version.
     #[must_use]
     pub fn backend_version(mut self, version: impl Into<String>) -> Self {
         self.backend_version = Some(version.into());
         self
     }
 
+    /// Set the adapter version.
     #[must_use]
     pub fn adapter_version(mut self, version: impl Into<String>) -> Self {
         self.adapter_version = Some(version.into());
         self
     }
 
+    /// Set the raw vendor-specific usage payload.
     #[must_use]
     pub fn usage_raw(mut self, raw: serde_json::Value) -> Self {
         self.usage_raw = raw;
         self
     }
 
+    /// Set the normalized usage counters.
     #[must_use]
     pub fn usage(mut self, usage: UsageNormalized) -> Self {
         self.usage = usage;
         self
     }
 
+    /// Set the verification report.
     #[must_use]
     pub fn verification(mut self, verification: VerificationReport) -> Self {
         self.verification = verification;
@@ -873,6 +965,7 @@ impl ReceiptBuilder {
         self.build().with_hash()
     }
 
+    /// Consume the builder and produce a [`Receipt`].
     #[must_use]
     pub fn build(self) -> Receipt {
         let duration_ms = (self.finished_at - self.started_at)

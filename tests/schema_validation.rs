@@ -243,11 +243,12 @@ fn receipt_rejects_invalid_outcome() {
 fn capability_enum_variants_in_schema() {
     let schema = work_order_schema();
     let cap_def = &schema["$defs"]["Capability"];
-    let variants: Vec<&str> = cap_def["enum"]
+    // With doc comments on variants, schemars uses oneOf with const values
+    let variants: Vec<&str> = cap_def["oneOf"]
         .as_array()
-        .expect("Capability should be an enum in schema")
+        .expect("Capability should use oneOf in schema")
         .iter()
-        .map(|v| v.as_str().unwrap())
+        .map(|v| v["const"].as_str().unwrap())
         .collect();
 
     let expected = [
@@ -305,11 +306,12 @@ fn execution_lane_variants_in_schema() {
 fn outcome_enum_variants_in_schema() {
     let schema = receipt_schema();
     let outcome_def = &schema["$defs"]["Outcome"];
-    let variants: Vec<&str> = outcome_def["enum"]
+    // With doc comments on variants, schemars uses oneOf with const values
+    let variants: Vec<&str> = outcome_def["oneOf"]
         .as_array()
-        .expect("Outcome should be an enum")
+        .expect("Outcome should use oneOf in schema")
         .iter()
-        .map(|v| v.as_str().unwrap())
+        .map(|v| v["const"].as_str().unwrap())
         .collect();
 
     assert_eq!(variants, vec!["complete", "partial", "failed"]);

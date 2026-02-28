@@ -25,72 +25,131 @@ use std::fmt;
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     // ── Contract (C) ──────────────────────────────────────────────────
+    /// The contract version string is invalid or unsupported.
     InvalidContractVersion,
+    /// The work order could not be parsed or is structurally invalid.
     MalformedWorkOrder,
+    /// The receipt could not be parsed or is structurally invalid.
     MalformedReceipt,
+    /// The receipt hash does not match the recomputed canonical hash.
     InvalidHash,
+    /// A required field is missing or empty.
     MissingRequiredField,
+    /// The work order ID is invalid (e.g. nil UUID).
     InvalidWorkOrderId,
+    /// The run ID is invalid (e.g. nil UUID).
     InvalidRunId,
+    /// A work order with the same ID already exists.
     DuplicateWorkOrderId,
+    /// The contract version does not match the expected version.
     ContractVersionMismatch,
+    /// The outcome value is invalid for the current state.
     InvalidOutcome,
+    /// The execution lane value is not recognized.
     InvalidExecutionLane,
+    /// The execution mode value is not recognized.
     InvalidExecutionMode,
 
     // ── Protocol (P) ──────────────────────────────────────────────────
+    /// The JSONL envelope could not be parsed.
     InvalidEnvelope,
+    /// The sidecar handshake (hello exchange) failed.
     HandshakeFailed,
+    /// Received a message not expected in the current protocol state.
     UnexpectedMessage,
+    /// The protocol version does not match between host and sidecar.
     VersionMismatch,
+    /// A JSONL line could not be parsed as valid JSON.
     MalformedJsonl,
+    /// The `ref_id` does not match the active run.
     InvalidRefId,
+    /// The envelope exceeds the maximum permitted size.
     EnvelopeTooLarge,
+    /// A required field is missing from the envelope.
     MissingEnvelopeField,
+    /// The envelope discriminator tag is unknown.
     InvalidEnvelopeTag,
+    /// The protocol exchange timed out waiting for a response.
     ProtocolTimeout,
+    /// A second hello envelope was received on the same connection.
     DuplicateHello,
+    /// A final envelope was received without an active run.
     UnexpectedFinal,
 
     // ── Policy (L) ────────────────────────────────────────────────────
+    /// The requested tool is on the deny list.
     ToolDenied,
+    /// Read access to the path is denied by policy.
     ReadDenied,
+    /// Write access to the path is denied by policy.
     WriteDenied,
+    /// The policy profile could not be compiled into a policy engine.
     PolicyCompilationFailed,
+    /// The backend does not support a required capability.
     CapabilityNotSupported,
+    /// Network access to the domain is denied by policy.
     NetworkDenied,
+    /// The tool requires explicit approval before execution.
     ApprovalRequired,
+    /// A general policy violation was detected.
     PolicyViolation,
+    /// A glob pattern in the policy is syntactically invalid.
     InvalidGlobPattern,
+    /// The tool name is not recognized by the backend.
     ToolNotRegistered,
+    /// The path attempts to escape the workspace root.
     PathTraversal,
 
     // ── Runtime (R) ───────────────────────────────────────────────────
+    /// The selected backend is not available or not registered.
     BackendUnavailable,
+    /// The backend did not respond within the timeout period.
     BackendTimeout,
+    /// Failed to create the staged workspace copy.
     WorkspaceStagingFailed,
+    /// The agent event stream was closed unexpectedly.
     EventStreamClosed,
+    /// The run was cancelled by the user or control plane.
     RunCancelled,
+    /// The sidecar process exited unexpectedly.
     SidecarCrashed,
+    /// Failed to spawn the sidecar process.
     SidecarSpawnFailed,
+    /// Failed to clean up the staged workspace after the run.
     WorkspaceCleanupFailed,
+    /// The run exceeded the maximum number of allowed turns.
     MaxTurnsExceeded,
+    /// The run exceeded the configured cost budget.
     BudgetExceeded,
+    /// The backend identity does not match the expected backend.
     BackendMismatch,
+    /// The run has already been marked as completed.
     RunAlreadyCompleted,
+    /// No backend has been registered for the requested identifier.
     NoBackendRegistered,
 
     // ── System (S) ────────────────────────────────────────────────────
+    /// An I/O operation failed.
     IoError,
+    /// JSON serialization or deserialization failed.
     SerializationError,
+    /// An unexpected internal error occurred.
     InternalError,
+    /// The configuration is invalid or incomplete.
     ConfigurationError,
+    /// A system resource (memory, file handles, etc.) is exhausted.
     ResourceExhausted,
+    /// A byte sequence could not be decoded as valid UTF-8.
     Utf8Error,
+    /// An async task failed to join.
     TaskJoinError,
+    /// An internal channel was closed unexpectedly.
     ChannelClosed,
+    /// An argument value is invalid.
     InvalidArgument,
+    /// The operation was denied due to insufficient permissions.
     PermissionDenied,
+    /// The requested feature is not yet implemented.
     NotImplemented,
 }
 
@@ -321,6 +380,8 @@ impl fmt::Display for ErrorCode {
         write!(f, "{}", self.code())
     }
 }
+
+impl std::error::Error for ErrorCode {}
 
 // ---------------------------------------------------------------------------
 // Complete list for catalog operations

@@ -6,27 +6,98 @@ expression: value
   "$defs": {
     "Capability": {
       "description": "A discrete feature that a backend may support (tools, hooks, MCP, etc.).\n\n# Examples\n\n```\nuse abp_core::{Capability, SupportLevel, CapabilityManifest};\n\nlet mut manifest = CapabilityManifest::new();\nmanifest.insert(Capability::ToolRead, SupportLevel::Native);\nmanifest.insert(Capability::Streaming, SupportLevel::Emulated);\n\nassert!(manifest.contains_key(&Capability::ToolRead));\n```",
-      "enum": [
-        "streaming",
-        "tool_read",
-        "tool_write",
-        "tool_edit",
-        "tool_bash",
-        "tool_glob",
-        "tool_grep",
-        "tool_web_search",
-        "tool_web_fetch",
-        "tool_ask_user",
-        "hooks_pre_tool_use",
-        "hooks_post_tool_use",
-        "session_resume",
-        "session_fork",
-        "checkpointing",
-        "structured_output_json_schema",
-        "mcp_client",
-        "mcp_server"
-      ],
-      "type": "string"
+      "oneOf": [
+        {
+          "const": "streaming",
+          "description": "Real-time token streaming support.",
+          "type": "string"
+        },
+        {
+          "const": "tool_read",
+          "description": "Read file contents from the workspace.",
+          "type": "string"
+        },
+        {
+          "const": "tool_write",
+          "description": "Write new files to the workspace.",
+          "type": "string"
+        },
+        {
+          "const": "tool_edit",
+          "description": "Edit existing files in the workspace.",
+          "type": "string"
+        },
+        {
+          "const": "tool_bash",
+          "description": "Execute shell commands.",
+          "type": "string"
+        },
+        {
+          "const": "tool_glob",
+          "description": "Search for files by glob pattern.",
+          "type": "string"
+        },
+        {
+          "const": "tool_grep",
+          "description": "Search file contents by regex pattern.",
+          "type": "string"
+        },
+        {
+          "const": "tool_web_search",
+          "description": "Perform web searches.",
+          "type": "string"
+        },
+        {
+          "const": "tool_web_fetch",
+          "description": "Fetch content from URLs.",
+          "type": "string"
+        },
+        {
+          "const": "tool_ask_user",
+          "description": "Prompt the user for input.",
+          "type": "string"
+        },
+        {
+          "const": "hooks_pre_tool_use",
+          "description": "Pre-tool-use governance hook.",
+          "type": "string"
+        },
+        {
+          "const": "hooks_post_tool_use",
+          "description": "Post-tool-use governance hook.",
+          "type": "string"
+        },
+        {
+          "const": "session_resume",
+          "description": "Resume a previous session.",
+          "type": "string"
+        },
+        {
+          "const": "session_fork",
+          "description": "Fork a session into parallel branches.",
+          "type": "string"
+        },
+        {
+          "const": "checkpointing",
+          "description": "Save and restore execution checkpoints.",
+          "type": "string"
+        },
+        {
+          "const": "structured_output_json_schema",
+          "description": "Structured output via JSON Schema.",
+          "type": "string"
+        },
+        {
+          "const": "mcp_client",
+          "description": "Act as an MCP client.",
+          "type": "string"
+        },
+        {
+          "const": "mcp_server",
+          "description": "Act as an MCP server.",
+          "type": "string"
+        }
+      ]
     },
     "CapabilityRequirement": {
       "description": "A single capability + minimum support level pair.",

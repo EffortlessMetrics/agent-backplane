@@ -101,7 +101,7 @@ impl RateLimiter {
     ///
     /// Because the limiter carries state we cannot use a bare `async fn`
     /// directly; instead callers should use [`axum::middleware::from_fn`]
-    /// together with a closure, or use [`Self::layer`].
+    /// together with a closure, or use [`Self::into_layer`].
     pub async fn check(&self) -> Result<(), StatusCode> {
         let now = Instant::now();
         let mut guard = self.inner.lock().await;
@@ -129,7 +129,7 @@ impl RateLimiter {
     }
 }
 
-/// Tower [`Layer`] that wraps services with [`RateLimiter`] enforcement.
+/// Tower `Layer` that wraps services with [`RateLimiter`] enforcement.
 #[derive(Clone)]
 pub struct RateLimiterLayer(RateLimiter);
 
@@ -144,7 +144,7 @@ impl<S: Clone> tower::Layer<S> for RateLimiterLayer {
     }
 }
 
-/// Tower [`Service`] that enforces rate limiting before forwarding to the
+/// Tower `Service` that enforces rate limiting before forwarding to the
 /// inner service.
 #[derive(Clone)]
 pub struct RateLimiterService<S> {

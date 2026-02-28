@@ -15,11 +15,17 @@ use crate::{receipt_hash, Outcome, Receipt};
 #[derive(Debug, Clone)]
 pub enum ChainError {
     /// A receipt's stored hash does not match the recomputed hash.
-    InvalidHash { index: usize },
+    InvalidHash {
+        /// Index of the receipt with the invalid hash.
+        index: usize,
+    },
     /// The chain is empty when a non-empty chain was expected.
     EmptyChain,
     /// A receipt with a duplicate run ID was encountered.
-    DuplicateId { id: Uuid },
+    DuplicateId {
+        /// The duplicate run ID.
+        id: Uuid,
+    },
 }
 
 impl fmt::Display for ChainError {

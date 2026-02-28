@@ -95,7 +95,7 @@ impl EventSubscriber {
     }
 }
 
-/// Extracts the serde-serialized `"type"` tag from an [`AgentEventKind`].
+/// Extracts the serde-serialized `"type"` tag from an `AgentEventKind`.
 fn event_kind_name(event: &AgentEvent) -> Option<String> {
     let value = serde_json::to_value(&event.kind).ok()?;
     value.get("type").and_then(|v| v.as_str()).map(String::from)
@@ -106,7 +106,7 @@ type EventHandler = Box<dyn Fn(&AgentEvent) + Send + Sync>;
 /// Routes events to handlers registered for specific event kinds.
 ///
 /// Kind strings match the serde `rename_all = "snake_case"` tag on
-/// [`AgentEventKind`] (e.g. `"run_started"`, `"tool_call"`).
+/// `AgentEventKind` (e.g. `"run_started"`, `"tool_call"`).
 pub struct EventRouter {
     routes: HashMap<String, Vec<EventHandler>>,
 }

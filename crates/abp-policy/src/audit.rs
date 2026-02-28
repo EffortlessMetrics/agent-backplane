@@ -12,25 +12,41 @@ use crate::PolicyEngine;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PolicyDecision {
+    /// The action was permitted.
     Allow,
-    Deny { reason: String },
-    Warn { reason: String },
+    /// The action was denied for the given reason.
+    Deny {
+        /// Human-readable explanation of why the action was denied.
+        reason: String,
+    },
+    /// The action was allowed but flagged with a warning.
+    Warn {
+        /// Human-readable warning message.
+        reason: String,
+    },
 }
 
 /// A single recorded policy evaluation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEntry {
+    /// When the evaluation occurred.
     pub timestamp: DateTime<Utc>,
+    /// The kind of action checked (e.g. `"tool"`, `"read"`, `"write"`).
     pub action: String,
+    /// The resource name or path that was evaluated.
     pub resource: String,
+    /// The resulting policy decision.
     pub decision: PolicyDecision,
 }
 
 /// Aggregate counts of policy decisions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuditSummary {
+    /// Number of decisions that were allowed.
     pub allowed: usize,
+    /// Number of decisions that were denied.
     pub denied: usize,
+    /// Number of decisions that produced warnings.
     pub warned: usize,
 }
 

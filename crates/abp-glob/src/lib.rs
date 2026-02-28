@@ -2,6 +2,7 @@
 #![doc = include_str!("../README.md")]
 //! abp-glob
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! Focused glob compilation and include/exclude matching utilities.
 

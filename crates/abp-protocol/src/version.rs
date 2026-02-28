@@ -17,18 +17,24 @@ use thiserror::Error;
 /// Errors that can occur when parsing or negotiating protocol versions.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum VersionError {
+    /// The string does not match the `"abp/vMAJOR.MINOR"` format.
     #[error("invalid version format (expected \"abp/vMAJOR.MINOR\")")]
     InvalidFormat,
 
+    /// The major version component is not a valid integer.
     #[error("invalid major version component")]
     InvalidMajor,
 
+    /// The minor version component is not a valid integer.
     #[error("invalid minor version component")]
     InvalidMinor,
 
+    /// The local and remote versions have different major versions.
     #[error("incompatible protocol versions: local {local}, remote {remote}")]
     Incompatible {
+        /// The local protocol version.
         local: ProtocolVersion,
+        /// The remote protocol version.
         remote: ProtocolVersion,
     },
 }
@@ -40,7 +46,9 @@ pub enum VersionError {
 /// A parsed `"abp/vMAJOR.MINOR"` protocol version.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ProtocolVersion {
+    /// Major version number (breaking changes).
     pub major: u32,
+    /// Minor version number (backwards-compatible additions).
     pub minor: u32,
 }
 
@@ -106,7 +114,9 @@ impl fmt::Display for ProtocolVersion {
 /// An inclusive range of protocol versions `[min, max]`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VersionRange {
+    /// Minimum supported version (inclusive).
     pub min: ProtocolVersion,
+    /// Maximum supported version (inclusive).
     pub max: ProtocolVersion,
 }
 
