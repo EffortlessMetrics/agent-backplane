@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Processing pipeline for work order pre-processing.
 //!
-//! A [`Pipeline`] chains zero or more [`PipelineStage`] implementations that
+//! A `Pipeline` chains zero or more `PipelineStage` implementations that
 //! inspect and optionally mutate a [`WorkOrder`] before it reaches a backend.
 //! Stages run in insertion order; any failure short-circuits the remaining
 //! stages.
@@ -58,7 +58,7 @@ impl PipelineStage for ValidationStage {
 
 /// Checks the work order's policy for disallowed tools.
 ///
-/// Compiles the [`PolicyEngine`] from the order's [`PolicyProfile`] and
+/// Compiles the [`PolicyEngine`] from the order's `PolicyProfile` and
 /// rejects the order if any tool in `allowed_tools` is simultaneously
 /// present in `disallowed_tools`.
 pub struct PolicyStage;

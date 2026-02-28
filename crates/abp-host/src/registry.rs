@@ -47,7 +47,7 @@ impl SidecarRegistry {
     /// Scan `dir` for subdirectories that contain a recognised host script
     /// and build a registry from them.
     ///
-    /// For each child directory, the first matching file from [`KNOWN_HOSTS`]
+    /// For each child directory, the first matching file from `KNOWN_HOSTS`
     /// becomes the sidecar's command, with the directory name used as the
     /// sidecar name.
     pub fn discover_from_dir(dir: &Path) -> Result<SidecarRegistry> {

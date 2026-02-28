@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![doc = include_str!("../README.md")]
 //! abp-glob
 #![deny(unsafe_code)]
 //!

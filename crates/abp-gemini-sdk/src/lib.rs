@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![doc = include_str!("../README.md")]
 //! Microcrate for wiring the Gemini CLI sidecar into ABP runtimes.
 //!
-//! Provides [`GeminiConfig`] for vendor-specific configuration and mapping
-//! functions ([`map_work_order`], [`map_response`]) for translating between
-//! ABP contract types and the Google Gemini generateContent API format.
+//! Registers the Gemini CLI sidecar backend and exposes the
+//! [`dialect`] module for translating between ABP contract types and
+//! the Google Gemini generateContent API format.
 #![deny(unsafe_code)]
 
 pub mod dialect;

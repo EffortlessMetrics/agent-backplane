@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![doc = include_str!("../README.md")]
 //! Microcrate for wiring the Claude sidecar into ABP runtimes.
 //!
-//! Provides [`ClaudeConfig`] for vendor-specific configuration and mapping
-//! functions ([`map_work_order`], [`map_response`]) for translating between
-//! ABP contract types and the Anthropic Messages API format.
+//! Registers the Claude sidecar backend and exposes the
+//! [`dialect`] module for translating between ABP contract types and
+//! the Anthropic Messages API format.
 #![deny(unsafe_code)]
 
 pub mod dialect;
