@@ -64,12 +64,19 @@ cucumber = "0.21"
 [dev-dependencies]
 cucumber = { workspace = true }
 abp-core = { path = "crates/abp-core" }
+abp-protocol = { path = "crates/abp-protocol" }
+abp-host = { path = "crates/abp-host" }
 abp-runtime = { path = "crates/abp-runtime" }
 abp-integrations = { path = "crates/abp-integrations" }
+abp-policy = { path = "crates/abp-policy" }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+tempfile = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 uuid = { workspace = true }
 serde_json = { workspace = true }
+chrono = { workspace = true }
 
 [[test]]
 name = "bdd"

@@ -1,0 +1,20 @@
+---
+source: crates/abp-workspace/tests/staging_snapshots.rs
+expression: listing
+---
+[
+  "Cargo.toml",
+  "README.md",
+  "assets/",
+  "assets/images/",
+  "assets/images/logo.png",
+  "docs/",
+  "docs/guide.md",
+  "src/",
+  "src/lib.rs",
+  "src/main.rs",
+  "src/utils/",
+  "src/utils/mod.rs",
+  "tests/",
+  "tests/integration.rs"
+]

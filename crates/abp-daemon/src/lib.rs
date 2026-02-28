@@ -86,6 +86,17 @@ impl RunTracker {
         self.runs.read().await.get(&run_id).cloned()
     }
 
+    /// Remove a completed or failed run from the tracker. Returns the removed
+    /// status, or an error if the run is still running or not found.
+    pub async fn remove_run(&self, run_id: Uuid) -> Result<RunStatus, &'static str> {
+        let mut guard = self.runs.write().await;
+        match guard.get(&run_id) {
+            None => Err("not found"),
+            Some(RunStatus::Running) | Some(RunStatus::Pending) => Err("conflict"),
+            Some(_) => Ok(guard.remove(&run_id).unwrap()),
+        }
+    }
+
     /// Return all tracked runs and their statuses.
     pub async fn list_runs(&self) -> Vec<(Uuid, RunStatus)> {
         self.runs
@@ -168,9 +179,13 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .route("/metrics", get(cmd_metrics))
         .route("/backends", get(cmd_backends))
         .route("/capabilities", get(cmd_capabilities))
+        .route("/config", get(cmd_config))
+        .route("/validate", post(cmd_validate))
+        .route("/schema/{schema_type}", get(cmd_schema))
         .route("/run", post(cmd_run))
         .route("/runs", get(cmd_list_runs).post(cmd_run))
-        .route("/runs/{run_id}", get(cmd_get_run))
+        .route("/runs/{run_id}", get(cmd_get_run).delete(cmd_delete_run))
+        .route("/runs/{run_id}/receipt", get(cmd_get_run_receipt))
         .route("/receipts", get(cmd_list_receipts))
         .route("/receipts/{run_id}", get(cmd_get_receipt))
         .route("/runs/{run_id}/events", get(cmd_run_events))
@@ -345,6 +360,101 @@ async fn cmd_get_run(
         "status": "completed",
         "receipt": receipt,
     })))
+}
+
+async fn cmd_delete_run(
+    AxPath(run_id): AxPath<Uuid>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    match state.run_tracker.remove_run(run_id).await {
+        Ok(_status) => {
+            // Also remove from receipts cache if present.
+            state.receipts.write().await.remove(&run_id);
+            Ok(Json(json!({ "deleted": run_id })))
+        }
+        Err("conflict") => Err(ApiError::new(StatusCode::CONFLICT, "run is still active")),
+        Err(_) => {
+            // Fall back: if a receipt exists (legacy run not in tracker), allow deletion.
+            if state.receipts.write().await.remove(&run_id).is_some() {
+                Ok(Json(json!({ "deleted": run_id })))
+            } else {
+                Err(ApiError::new(StatusCode::NOT_FOUND, "run not found"))
+            }
+        }
+    }
+}
+
+async fn cmd_get_run_receipt(
+    AxPath(run_id): AxPath<Uuid>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Receipt>, ApiError> {
+    // Check tracker first.
+    if let Some(status) = state.run_tracker.get_run_status(run_id).await {
+        if let RunStatus::Completed { receipt } = status {
+            return Ok(Json(*receipt));
+        }
+        return Err(ApiError::new(StatusCode::NOT_FOUND, "run has no receipt yet"));
+    }
+    // Fall back to receipts map for backward compat.
+    if let Some(receipt) = state.receipts.read().await.get(&run_id).cloned() {
+        return Ok(Json(receipt));
+    }
+    Err(ApiError::new(StatusCode::NOT_FOUND, "run not found"))
+}
+
+async fn cmd_config(
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    Json(json!({
+        "backends": state.runtime.backend_names(),
+        "contract_version": abp_core::CONTRACT_VERSION,
+        "receipts_dir": state.receipts_dir.display().to_string(),
+    }))
+}
+
+async fn cmd_validate(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<RunRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    // Check that the requested backend exists.
+    if state.runtime.backend(&req.backend).is_none() {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            format!("unknown backend: {}", req.backend),
+        ));
+    }
+
+    // Basic validation: task must not be empty.
+    if req.work_order.task.is_empty() {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "work_order.task must not be empty",
+        ));
+    }
+
+    Ok(Json(json!({
+        "valid": true,
+        "backend": req.backend,
+        "work_order_id": req.work_order.id,
+    })))
+}
+
+async fn cmd_schema(
+    AxPath(schema_type): AxPath<String>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let schema = match schema_type.as_str() {
+        "work_order" => schemars::schema_for!(WorkOrder),
+        "receipt" => schemars::schema_for!(Receipt),
+        _ => {
+            return Err(ApiError::new(
+                StatusCode::NOT_FOUND,
+                format!("unknown schema type: {schema_type}"),
+            ));
+        }
+    };
+    let value = serde_json::to_value(&schema)
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(value))
 }
 
 async fn cmd_run_events(

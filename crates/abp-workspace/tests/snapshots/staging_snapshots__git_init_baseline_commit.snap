@@ -1,0 +1,5 @@
+---
+source: crates/abp-workspace/tests/staging_snapshots.rs
+expression: "{\n    let trimmed = log.trim(); if let Some((_hash, msg)) =\n    trimmed.split_once(' ') { format!(\"<hash> {msg}\") } else\n    { trimmed.to_string() }\n}"
+---
+<hash> baseline

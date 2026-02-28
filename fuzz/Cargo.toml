@@ -12,6 +12,7 @@ libfuzzer-sys = "0.4"
 abp-core = { path = "../crates/abp-core" }
 abp-protocol = { path = "../crates/abp-protocol" }
 serde_json = "1"
+toml = "0.8"
 
 [[bin]]
 name = "fuzz_work_order"
@@ -41,4 +42,24 @@ doc = false
 [[bin]]
 name = "fuzz_jsonl_stream"
 path = "fuzz_targets/fuzz_jsonl_stream.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_validation"
+path = "fuzz_targets/fuzz_validation.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_filter"
+path = "fuzz_targets/fuzz_filter.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_config"
+path = "fuzz_targets/fuzz_config.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_work_order_builder"
+path = "fuzz_targets/fuzz_work_order_builder.rs"
 doc = false

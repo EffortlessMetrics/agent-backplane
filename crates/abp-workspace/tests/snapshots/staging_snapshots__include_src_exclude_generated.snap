@@ -1,0 +1,11 @@
+---
+source: crates/abp-workspace/tests/staging_snapshots.rs
+expression: listing
+---
+[
+  "src/",
+  "src/core/",
+  "src/core/mod.rs",
+  "src/generated/",
+  "src/lib.rs"
+]

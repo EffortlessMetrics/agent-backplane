@@ -168,6 +168,36 @@ elif mode == "echo_cwd":
     emit(make_event(ref_id, "run_started", message=f"cwd={cwd}"))
     emit(make_final(ref_id))
 
+elif mode == "exit_nonzero":
+    # Exit immediately with non-zero code (no hello).
+    sys.exit(42)
+
+elif mode == "no_final":
+    # Send hello + events but never send final, then close.
+    emit(make_hello())
+    ref_id = read_run()
+    emit(make_event(ref_id, "run_started", message="no final coming"))
+    emit(make_event(ref_id, "assistant_message", text="still going"))
+    # Close stdout without sending final.
+    sys.stdout.close()
+    sys.exit(0)
+
+elif mode == "multi_final":
+    # Send two final envelopes.
+    emit(make_hello())
+    ref_id = read_run()
+    emit(make_event(ref_id, "run_started", message="multi final"))
+    emit(make_final(ref_id))
+    emit(make_final(ref_id))
+
+elif mode == "drop_midstream":
+    # Send hello + run + one event, then abruptly exit.
+    emit(make_hello())
+    ref_id = read_run()
+    emit(make_event(ref_id, "run_started", message="about to drop"))
+    sys.stdout.flush()
+    os._exit(1)
+
 else:
     print(f"Unknown mode: {mode}", file=sys.stderr)
     sys.exit(1)
