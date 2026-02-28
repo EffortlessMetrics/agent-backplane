@@ -28,6 +28,10 @@ criterion.workspace = true
 name = "hashing"
 harness = false
 
+[[bench]]
+name = "core_benches"
+harness = false
+
 [features]
 # Keep a feature gate for anything that could be “heavy” later.
 default = []

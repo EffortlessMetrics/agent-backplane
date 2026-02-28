@@ -26,6 +26,7 @@ tracing.workspace = true
 abp-core = { path = "../abp-core" }
 abp-protocol = { path = "../abp-protocol" }
 serde_json.workspace = true
+tempfile.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tokio-stream.workspace = true
 uuid = { workspace = true }

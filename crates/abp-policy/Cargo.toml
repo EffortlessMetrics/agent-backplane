@@ -26,3 +26,7 @@ serde_json.workspace = true
 [[bench]]
 name = "policy_eval"
 harness = false
+
+[[bench]]
+name = "policy_benches"
+harness = false

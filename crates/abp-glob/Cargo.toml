@@ -21,3 +21,7 @@ proptest = { workspace = true }
 [[bench]]
 name = "matching"
 harness = false
+
+[[bench]]
+name = "glob_benches"
+harness = false
