@@ -156,7 +156,7 @@ impl SidecarClient {
             other => {
                 return Err(HostError::Violation(format!(
                     "expected hello, got {other:?}"
-                )))
+                )));
             }
         };
 

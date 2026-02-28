@@ -81,9 +81,8 @@ fn command_exists(command: &str) -> bool {
         return candidate.exists();
     }
 
-    std::env::var_os("PATH").is_some_and(|path| {
-        std::env::split_paths(&path).any(|dir| path_has_command(&dir, command))
-    })
+    std::env::var_os("PATH")
+        .is_some_and(|path| std::env::split_paths(&path).any(|dir| path_has_command(&dir, command)))
 }
 
 fn path_has_command(dir: &Path, command: &str) -> bool {

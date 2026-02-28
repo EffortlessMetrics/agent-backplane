@@ -8,8 +8,8 @@
 //! - select a backend and stream events
 //! - produce a canonical receipt with verification metadata
 
+use abp_backend::Backend;
 use abp_core::{AgentEvent, ExecutionMode, Outcome, Receipt, WorkOrder};
-use abp_integrations::Backend;
 use abp_policy::PolicyEngine;
 use abp_workspace::WorkspaceManager;
 use anyhow::{Context, Result};
@@ -39,7 +39,7 @@ impl Runtime {
 
     pub fn with_default_backends() -> Self {
         let mut rt = Self::new();
-        rt.register_backend("mock", abp_integrations::MockBackend);
+        rt.register_backend("mock", abp_mock_backend::MockBackend);
         rt
     }
 

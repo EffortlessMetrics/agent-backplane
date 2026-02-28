@@ -4,8 +4,8 @@
 //! Current transport: JSONL over stdio.
 
 use abp_core::{
-    AgentEvent, BackendIdentity, CapabilityManifest, ExecutionMode, Receipt, WorkOrder,
-    CONTRACT_VERSION,
+    AgentEvent, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Receipt,
+    WorkOrder,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
