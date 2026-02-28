@@ -33,6 +33,8 @@ pub mod hooks;
 pub mod bus;
 /// Observability primitives: tracing spans and runtime observer.
 pub mod observe;
+/// Additional built-in pipeline stages, builder, and execution helpers.
+pub mod stages;
 
 use abp_core::{AgentEvent, CapabilityRequirements, ExecutionMode, Outcome, Receipt, WorkOrder};
 use abp_integrations::{Backend, ensure_capability_requirements};

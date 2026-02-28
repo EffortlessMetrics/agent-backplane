@@ -2,6 +2,7 @@
 #![doc = include_str!("../README.md")]
 #![deny(unsafe_code)]
 pub mod middleware;
+pub mod queue;
 pub mod validation;
 pub mod versioning;
 

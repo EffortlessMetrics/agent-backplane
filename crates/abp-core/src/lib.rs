@@ -26,6 +26,8 @@ pub mod config;
 pub mod validate;
 /// Comprehensive receipt and chain verification.
 pub mod verify;
+/// Advanced capability negotiation.
+pub mod negotiate;
 
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;

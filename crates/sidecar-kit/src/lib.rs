@@ -12,6 +12,7 @@
 pub mod cancel;
 pub mod client;
 pub mod codec;
+pub mod diagnostics;
 pub mod error;
 pub mod frame;
 pub mod middleware;
