@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --workspace
+
+  publish-dry-run:
+    name: Publish (dry-run)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Dry-run publish for library crates
+        run: |
+          crates=(
+            abp-glob
+            abp-core
+            abp-protocol
+            abp-host
+            abp-workspace
+            abp-policy
+            abp-integrations
+            abp-runtime
+            abp-codex-sdk
+            abp-gemini-sdk
+            abp-claude-sdk
+            abp-kimi-sdk
+            sidecar-kit
+            claude-bridge
+          )
+          for crate in "${crates[@]}"; do
+            echo "::group::$crate"
+            cargo publish -p "$crate" --dry-run
+            echo "::endgroup::"
+          done
