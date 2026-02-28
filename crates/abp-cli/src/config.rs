@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Configuration loading and validation for the Agent Backplane CLI.
 
+use schemars::JsonSchema;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
 
 /// Top-level configuration for the agent backplane.
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize, Default, JsonSchema)]
 pub struct BackplaneConfig {
     #[serde(default)]
     pub backends: HashMap<String, BackendConfig>,
 }
 
 /// Configuration for a single backend.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(tag = "type")]
 pub enum BackendConfig {
     #[serde(rename = "mock")]

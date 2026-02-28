@@ -1,18 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Receipt",
+  "description": "The outcome of a completed run: metadata, usage, trace, and verification.\n\nUse [`Receipt::with_hash`] to compute and attach the canonical SHA-256 hash.",
   "type": "object",
   "properties": {
     "artifacts": {
+      "description": "References to artifacts produced during the run.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/ArtifactRef"
       }
     },
     "backend": {
+      "description": "Backend that executed the work order.",
       "$ref": "#/$defs/BackendIdentity"
     },
     "capabilities": {
+      "description": "Capability manifest reported by the backend.",
       "type": "object",
       "properties": {
         "checkpointing": {
@@ -73,6 +77,7 @@
       "additionalProperties": false
     },
     "meta": {
+      "description": "Timing and identity metadata for this run.",
       "$ref": "#/$defs/RunMetadata"
     },
     "mode": {
@@ -81,6 +86,7 @@
       "default": "mapped"
     },
     "outcome": {
+      "description": "High-level result status.",
       "$ref": "#/$defs/Outcome"
     },
     "receipt_sha256": {
@@ -91,6 +97,7 @@
       ]
     },
     "trace": {
+      "description": "Ordered log of events emitted during the run.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/AgentEvent"
@@ -104,6 +111,7 @@
       "description": "Vendor-specific usage payload as reported."
     },
     "verification": {
+      "description": "Git-based verification data captured after completion.",
       "$ref": "#/$defs/VerificationReport"
     }
   },
@@ -120,6 +128,7 @@
   ],
   "$defs": {
     "AgentEvent": {
+      "description": "A timestamped event emitted by an agent during a run.",
       "type": "object",
       "properties": {
         "ext": {
@@ -345,12 +354,15 @@
       ]
     },
     "ArtifactRef": {
+      "description": "Reference to an artifact produced during a run (e.g. a patch file).",
       "type": "object",
       "properties": {
         "kind": {
+          "description": "Artifact type (e.g. `\"patch\"`, `\"log\"`).",
           "type": "string"
         },
         "path": {
+          "description": "Path to the artifact relative to the workspace root.",
           "type": "string"
         }
       },
@@ -360,6 +372,7 @@
       ]
     },
     "BackendIdentity": {
+      "description": "Identifies a backend and its version information.",
       "type": "object",
       "properties": {
         "adapter_version": {
@@ -377,7 +390,7 @@
           ]
         },
         "id": {
-          "description": "Stable backend identifier.",
+          "description": "Stable backend identifier (e.g. `\"mock\"`, `\"sidecar:node\"`).",
           "type": "string"
         }
       },
@@ -401,6 +414,7 @@
       ]
     },
     "Outcome": {
+      "description": "High-level result status of a run.",
       "type": "string",
       "enum": [
         "complete",
@@ -409,29 +423,36 @@
       ]
     },
     "RunMetadata": {
+      "description": "Timing and identity metadata for a single run.",
       "type": "object",
       "properties": {
         "contract_version": {
+          "description": "Contract version used for this run.",
           "type": "string"
         },
         "duration_ms": {
+          "description": "Wall-clock duration in milliseconds.",
           "type": "integer",
           "format": "uint64",
           "minimum": 0
         },
         "finished_at": {
+          "description": "Timestamp when the run finished.",
           "type": "string",
           "format": "date-time"
         },
         "run_id": {
+          "description": "Unique run identifier.",
           "type": "string",
           "format": "uuid"
         },
         "started_at": {
+          "description": "Timestamp when the run started.",
           "type": "string",
           "format": "date-time"
         },
         "work_order_id": {
+          "description": "The work order this run fulfilled.",
           "type": "string",
           "format": "uuid"
         }
@@ -446,6 +467,7 @@
       ]
     },
     "SupportLevel": {
+      "description": "How well a backend supports a given [`Capability`].",
       "oneOf": [
         {
           "type": "string",
@@ -479,6 +501,7 @@
       ]
     },
     "UsageNormalized": {
+      "description": "Best-effort normalized token/cost counters across different backends.",
       "type": "object",
       "properties": {
         "cache_read_tokens": {
@@ -532,21 +555,25 @@
       }
     },
     "VerificationReport": {
+      "description": "Git-based verification data captured after a run completes.",
       "type": "object",
       "properties": {
         "git_diff": {
+          "description": "Output of `git diff` in the workspace, if available.",
           "type": [
             "string",
             "null"
           ]
         },
         "git_status": {
+          "description": "Output of `git status --porcelain` in the workspace, if available.",
           "type": [
             "string",
             "null"
           ]
         },
         "harness_ok": {
+          "description": "Whether the harness (if any) reported success.",
           "type": "boolean"
         }
       },

@@ -27,3 +27,18 @@ doc = false
 name = "fuzz_receipt"
 path = "fuzz_targets/fuzz_receipt.rs"
 doc = false
+
+[[bin]]
+name = "fuzz_agent_event"
+path = "fuzz_targets/fuzz_agent_event.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_profile"
+path = "fuzz_targets/fuzz_policy_profile.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_jsonl_stream"
+path = "fuzz_targets/fuzz_jsonl_stream.rs"
+doc = false

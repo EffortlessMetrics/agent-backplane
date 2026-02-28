@@ -5,22 +5,28 @@
   "type": "object",
   "properties": {
     "config": {
+      "description": "Runtime-level knobs (model, budget, vendor flags).",
       "$ref": "#/$defs/RuntimeConfig"
     },
     "context": {
+      "description": "Pre-loaded context files and snippets.",
       "$ref": "#/$defs/ContextPacket"
     },
     "id": {
+      "description": "Unique identifier for this work order.",
       "type": "string",
       "format": "uuid"
     },
     "lane": {
+      "description": "Strategy for how the agent produces output.",
       "$ref": "#/$defs/ExecutionLane"
     },
     "policy": {
+      "description": "Security policy (tool/path restrictions).",
       "$ref": "#/$defs/PolicyProfile"
     },
     "requirements": {
+      "description": "Capability requirements the backend must satisfy.",
       "$ref": "#/$defs/CapabilityRequirements"
     },
     "task": {
@@ -28,6 +34,7 @@
       "type": "string"
     },
     "workspace": {
+      "description": "Workspace root, staging mode, and include/exclude globs.",
       "$ref": "#/$defs/WorkspaceSpec"
     }
   },
@@ -43,6 +50,7 @@
   ],
   "$defs": {
     "Capability": {
+      "description": "A discrete feature that a backend may support (tools, hooks, MCP, etc.).\n\n# Examples\n\n```\nuse abp_core::{Capability, SupportLevel, CapabilityManifest};\n\nlet mut manifest = CapabilityManifest::new();\nmanifest.insert(Capability::ToolRead, SupportLevel::Native);\nmanifest.insert(Capability::Streaming, SupportLevel::Emulated);\n\nassert!(manifest.contains_key(&Capability::ToolRead));\n```",
       "type": "string",
       "enum": [
         "streaming",
@@ -66,12 +74,15 @@
       ]
     },
     "CapabilityRequirement": {
+      "description": "A single capability + minimum support level pair.",
       "type": "object",
       "properties": {
         "capability": {
+          "description": "The capability being required.",
           "$ref": "#/$defs/Capability"
         },
         "min_support": {
+          "description": "Minimum acceptable support level.",
           "$ref": "#/$defs/MinSupport"
         }
       },
@@ -81,9 +92,11 @@
       ]
     },
     "CapabilityRequirements": {
+      "description": "Set of capabilities the work order requires from its backend.",
       "type": "object",
       "properties": {
         "required": {
+          "description": "List of capability/support-level pairs the backend must satisfy.",
           "type": "array",
           "items": {
             "$ref": "#/$defs/CapabilityRequirement"
@@ -95,6 +108,7 @@
       ]
     },
     "ContextPacket": {
+      "description": "Pre-loaded context files and snippets attached to a [`WorkOrder`].",
       "type": "object",
       "properties": {
         "files": {
@@ -118,12 +132,15 @@
       ]
     },
     "ContextSnippet": {
+      "description": "A named text fragment included in [`ContextPacket`].",
       "type": "object",
       "properties": {
         "content": {
+          "description": "The snippet text.",
           "type": "string"
         },
         "name": {
+          "description": "Human-readable label for the snippet.",
           "type": "string"
         }
       },
@@ -133,6 +150,7 @@
       ]
     },
     "ExecutionLane": {
+      "description": "Strategy for how the agent produces its output.",
       "oneOf": [
         {
           "description": "Agent proposes a patch/diff. No direct mutation of the user's repo.",
@@ -147,6 +165,7 @@
       ]
     },
     "MinSupport": {
+      "description": "Minimum acceptable [`SupportLevel`] threshold.",
       "oneOf": [
         {
           "description": "Only accept native support.",
@@ -161,6 +180,7 @@
       ]
     },
     "PolicyProfile": {
+      "description": "Security policy: tool allow/deny lists, path restrictions, network rules.\n\nAn empty profile permits everything (no restrictions).",
       "type": "object",
       "properties": {
         "allow_network": {
@@ -224,6 +244,7 @@
       ]
     },
     "RuntimeConfig": {
+      "description": "Runtime-level knobs: model selection, vendor flags, budget caps, etc.",
       "type": "object",
       "properties": {
         "env": {
@@ -269,6 +290,7 @@
       ]
     },
     "WorkspaceMode": {
+      "description": "How the runtime treats the workspace before handing it to a backend.",
       "oneOf": [
         {
           "description": "Use the workspace as-is.",
@@ -283,6 +305,7 @@
       ]
     },
     "WorkspaceSpec": {
+      "description": "Describes the workspace root, staging mode, and include/exclude globs.",
       "type": "object",
       "properties": {
         "exclude": {

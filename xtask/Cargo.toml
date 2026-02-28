@@ -11,6 +11,7 @@ name = "xtask"
 path = "src/main.rs"
 
 [dependencies]
+abp-cli = { path = "../crates/abp-cli" }
 abp-core = { path = "../crates/abp-core" }
 anyhow.workspace = true
 clap.workspace = true

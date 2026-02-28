@@ -1,0 +1,9 @@
+---
+source: crates/abp-runtime/tests/pipeline_snapshots.rs
+expression: receipt.backend
+---
+{
+  "id": "mock",
+  "backend_version": "0.1",
+  "adapter_version": "0.1"
+}

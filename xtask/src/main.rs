@@ -45,9 +45,11 @@ fn schema(out_dir: PathBuf) -> Result<()> {
 
     let wo = schema_for!(abp_core::WorkOrder);
     let receipt = schema_for!(abp_core::Receipt);
+    let config = schema_for!(abp_cli::config::BackplaneConfig);
 
     write_schema(&out_dir.join("work_order.schema.json"), &wo)?;
     write_schema(&out_dir.join("receipt.schema.json"), &receipt)?;
+    write_schema(&out_dir.join("backplane_config.schema.json"), &config)?;
 
     eprintln!("wrote schemas to {}", out_dir.display());
     Ok(())

@@ -130,6 +130,15 @@ pub struct ReceiptListQuery {
     pub limit: Option<usize>,
 }
 
+/// Aggregate run metrics exposed via GET /metrics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunMetrics {
+    pub total_runs: usize,
+    pub running: usize,
+    pub completed: usize,
+    pub failed: usize,
+}
+
 #[derive(Debug)]
 pub struct ApiError {
     pub status: StatusCode,
@@ -156,6 +165,7 @@ impl IntoResponse for ApiError {
 pub fn build_app(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(cmd_health))
+        .route("/metrics", get(cmd_metrics))
         .route("/backends", get(cmd_backends))
         .route("/capabilities", get(cmd_capabilities))
         .route("/run", post(cmd_run))
@@ -174,6 +184,32 @@ async fn cmd_health() -> impl IntoResponse {
         "contract_version": abp_core::CONTRACT_VERSION,
         "time": Utc::now().to_rfc3339(),
     }))
+}
+
+async fn cmd_metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let runs = state.run_tracker.list_runs().await;
+    let mut running = 0usize;
+    let mut completed = 0usize;
+    let mut failed = 0usize;
+    for (_, status) in &runs {
+        match status {
+            RunStatus::Pending | RunStatus::Running => running += 1,
+            RunStatus::Completed { .. } => completed += 1,
+            RunStatus::Failed { .. } => failed += 1,
+        }
+    }
+    // Include receipts that may not be in the tracker (legacy runs).
+    let receipt_count = state.receipts.read().await.len();
+    if receipt_count > completed {
+        completed = receipt_count;
+    }
+    let total = running + completed + failed;
+    Json(RunMetrics {
+        total_runs: total,
+        running,
+        completed,
+        failed,
+    })
 }
 
 async fn cmd_backends(State(state): State<Arc<AppState>>) -> impl IntoResponse {

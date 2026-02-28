@@ -1,0 +1,26 @@
+---
+source: crates/abp-runtime/tests/pipeline_snapshots.rs
+expression: events
+---
+[
+  {
+    "ts": "[timestamp]",
+    "type": "run_started",
+    "message": "mock backend starting: snapshot test task"
+  },
+  {
+    "ts": "[timestamp]",
+    "type": "assistant_message",
+    "text": "This is a mock backend. It does not call any real SDK."
+  },
+  {
+    "ts": "[timestamp]",
+    "type": "assistant_message",
+    "text": "Use --backend sidecar:<name> once you add a sidecar config."
+  },
+  {
+    "ts": "[timestamp]",
+    "type": "run_completed",
+    "message": "mock run complete"
+  }
+]

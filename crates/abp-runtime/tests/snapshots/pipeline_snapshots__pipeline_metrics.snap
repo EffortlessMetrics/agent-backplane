@@ -1,0 +1,11 @@
+---
+source: crates/abp-runtime/tests/pipeline_snapshots.rs
+expression: snap
+---
+{
+  "total_runs": 2,
+  "successful_runs": 2,
+  "failed_runs": 0,
+  "total_events": 8,
+  "average_run_duration_ms": "[duration]"
+}
