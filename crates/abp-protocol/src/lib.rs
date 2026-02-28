@@ -51,10 +51,12 @@ pub enum Envelope {
 }
 
 impl Envelope {
+    /// Create a `Hello` envelope with the default execution mode (Mapped).
     pub fn hello(backend: BackendIdentity, capabilities: CapabilityManifest) -> Self {
         Self::hello_with_mode(backend, capabilities, ExecutionMode::default())
     }
 
+    /// Create a `Hello` envelope with an explicit [`ExecutionMode`].
     pub fn hello_with_mode(
         backend: BackendIdentity,
         capabilities: CapabilityManifest,
@@ -69,6 +71,7 @@ impl Envelope {
     }
 }
 
+/// Errors arising from JSONL encoding/decoding or protocol-level violations.
 #[derive(Debug, Error)]
 pub enum ProtocolError {
     #[error("invalid JSON: {0}")]
@@ -78,20 +81,24 @@ pub enum ProtocolError {
     Violation(String),
 }
 
+/// Stateless codec for encoding/decoding [`Envelope`] messages as newline-delimited JSON.
 pub struct JsonlCodec;
 
 impl JsonlCodec {
+    /// Serialize an [`Envelope`] to a newline-terminated JSON string.
     pub fn encode(msg: &Envelope) -> Result<String, ProtocolError> {
         let mut s = serde_json::to_string(msg)?;
         s.push('\n');
         Ok(s)
     }
 
+    /// Deserialize a single JSON line into an [`Envelope`].
     pub fn decode(line: &str) -> Result<Envelope, ProtocolError> {
         Ok(serde_json::from_str::<Envelope>(line)?)
     }
 }
 
-// Raw (Value-based) protocol types from sidecar-kit.
+/// Re-export of the value-based [`sidecar_kit::Frame`] for raw protocol work.
 pub use sidecar_kit::Frame as RawFrame;
+/// Re-export of the value-based [`sidecar_kit::JsonlCodec`] for raw JSONL encoding.
 pub use sidecar_kit::JsonlCodec as RawCodec;

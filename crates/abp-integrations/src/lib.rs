@@ -21,9 +21,16 @@ use tokio_stream::StreamExt;
 use tracing::debug;
 use uuid::Uuid;
 
+/// Trait that all backends must implement to participate in the ABP runtime.
+///
+/// Backends stream [`AgentEvent`]s into the provided channel and return
+/// a [`Receipt`] when the run completes.
 #[async_trait]
 pub trait Backend: Send + Sync {
+    /// Return the backend's identity metadata.
     fn identity(&self) -> BackendIdentity;
+
+    /// Return the backend's capability manifest.
     fn capabilities(&self) -> CapabilityManifest;
 
     /// Execute a work order.
@@ -162,6 +169,7 @@ pub struct SidecarBackend {
 }
 
 impl SidecarBackend {
+    /// Create a new [`SidecarBackend`] from a process specification.
     pub fn new(spec: SidecarSpec) -> Self {
         Self { spec }
     }
@@ -222,6 +230,9 @@ fn host_to_anyhow(e: HostError) -> anyhow::Error {
     anyhow::anyhow!(e)
 }
 
+/// Verify that a backend's capabilities satisfy all requirements.
+///
+/// Returns an error listing every unsatisfied requirement.
 pub fn ensure_capability_requirements(
     requirements: &CapabilityRequirements,
     capabilities: &CapabilityManifest,

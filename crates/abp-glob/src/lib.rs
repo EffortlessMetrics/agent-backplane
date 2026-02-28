@@ -6,19 +6,29 @@ use anyhow::{Context, Result};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::path::Path;
 
+/// Result of evaluating a path against include/exclude glob rules.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MatchDecision {
+    /// Path passes both include and exclude filters.
     Allowed,
+    /// Path matched an exclude pattern.
     DeniedByExclude,
+    /// Path did not match any include pattern (when includes are specified).
     DeniedByMissingInclude,
 }
 
 impl MatchDecision {
+    /// Returns `true` only for [`MatchDecision::Allowed`].
     pub fn is_allowed(self) -> bool {
         matches!(self, Self::Allowed)
     }
 }
 
+/// Compiled include/exclude glob pair for path filtering.
+///
+/// Exclude patterns take precedence: a path matching an exclude glob is denied
+/// even if it also matches an include glob. Empty pattern lists are treated as
+/// "no constraint" (all paths pass).
 #[derive(Debug, Clone)]
 pub struct IncludeExcludeGlobs {
     include: Option<GlobSet>,
@@ -26,6 +36,7 @@ pub struct IncludeExcludeGlobs {
 }
 
 impl IncludeExcludeGlobs {
+    /// Compile include and exclude pattern lists into a reusable matcher.
     pub fn new(include: &[String], exclude: &[String]) -> Result<Self> {
         Ok(Self {
             include: build_globset(include)?,
@@ -33,6 +44,7 @@ impl IncludeExcludeGlobs {
         })
     }
 
+    /// Evaluate a [`Path`] against the compiled glob rules.
     pub fn decide_path(&self, candidate: &Path) -> MatchDecision {
         if self
             .exclude
@@ -51,11 +63,13 @@ impl IncludeExcludeGlobs {
         MatchDecision::Allowed
     }
 
+    /// Convenience wrapper around [`decide_path`](Self::decide_path) for string slices.
     pub fn decide_str(&self, candidate: &str) -> MatchDecision {
         self.decide_path(Path::new(candidate))
     }
 }
 
+/// Compile a list of glob patterns into a [`GlobSet`], returning `None` for empty input.
 pub fn build_globset(patterns: &[String]) -> Result<Option<GlobSet>> {
     if patterns.is_empty() {
         return Ok(None);

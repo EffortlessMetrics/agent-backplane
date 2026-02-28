@@ -12,6 +12,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+/// The result of a policy check — allowed or denied with an optional reason.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Decision {
     pub allowed: bool,
@@ -19,6 +20,7 @@ pub struct Decision {
 }
 
 impl Decision {
+    /// Create a permissive decision with no reason.
     pub fn allow() -> Self {
         Self {
             allowed: true,
@@ -26,6 +28,7 @@ impl Decision {
         }
     }
 
+    /// Create a denial decision with a human-readable reason.
     pub fn deny(reason: impl Into<String>) -> Self {
         Self {
             allowed: false,
@@ -34,6 +37,10 @@ impl Decision {
     }
 }
 
+/// Compiled policy evaluator built from a [`PolicyProfile`].
+///
+/// Enforces tool allow/deny lists and path-based read/write restrictions
+/// using glob pattern matching. Deny rules always take precedence over allow rules.
 #[derive(Debug, Clone)]
 pub struct PolicyEngine {
     tool_rules: IncludeExcludeGlobs,
@@ -42,6 +49,7 @@ pub struct PolicyEngine {
 }
 
 impl PolicyEngine {
+    /// Compile a [`PolicyProfile`] into a reusable engine.
     pub fn new(policy: &PolicyProfile) -> Result<Self> {
         let no_include: &[String] = &[];
         Ok(Self {
@@ -54,6 +62,7 @@ impl PolicyEngine {
         })
     }
 
+    /// Check whether `tool_name` is permitted by the allow/deny tool rules.
     pub fn can_use_tool(&self, tool_name: &str) -> Decision {
         match self.tool_rules.decide_str(tool_name) {
             MatchDecision::Allowed => Decision::allow(),
@@ -66,6 +75,7 @@ impl PolicyEngine {
         }
     }
 
+    /// Check whether reading `rel_path` is permitted.
     pub fn can_read_path(&self, rel_path: &Path) -> Decision {
         let s = rel_path.to_string_lossy();
         if !self.deny_read.decide_path(rel_path).is_allowed() {
@@ -74,6 +84,7 @@ impl PolicyEngine {
         Decision::allow()
     }
 
+    /// Check whether writing `rel_path` is permitted.
     pub fn can_write_path(&self, rel_path: &Path) -> Decision {
         let s = rel_path.to_string_lossy();
         if !self.deny_write.decide_path(rel_path).is_allowed() {

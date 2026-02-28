@@ -1,3 +1,5 @@
+//! Value-based run: event streaming and receipt collection.
+
 use serde_json::Value;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
@@ -5,6 +7,10 @@ use tracing::warn;
 
 use super::{cancel::CancelToken, frame::Frame, process::SidecarProcess, SidecarError};
 
+/// An in-progress value-based sidecar run.
+///
+/// Provides a raw event stream, a receipt future, and a [`CancelToken`].
+/// Dropping a `RawRun` automatically cancels the sidecar.
 pub struct RawRun {
     /// Stream of raw event Values.
     pub events: ReceiverStream<Value>,

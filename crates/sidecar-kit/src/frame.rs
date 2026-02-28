@@ -1,8 +1,14 @@
+//! Value-based JSONL frame definitions for the ABP sidecar protocol.
+
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
 use super::SidecarError;
 
+/// Value-based JSONL frame matching the ABP sidecar protocol.
+///
+/// All payload fields use [`serde_json::Value`] so this crate stays independent
+/// of `abp-core` types. The discriminator tag is `"t"`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum Frame {

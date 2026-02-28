@@ -1,3 +1,5 @@
+//! Low-level process spawning and stdio management.
+
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
@@ -5,6 +7,7 @@ use tracing::warn;
 
 use super::{Frame, JsonlCodec, ProcessSpec, SidecarError};
 
+/// A spawned sidecar process with captured stdin/stdout for JSONL communication.
 pub struct SidecarProcess {
     child: Child,
     stdin: ChildStdin,
@@ -12,6 +15,9 @@ pub struct SidecarProcess {
 }
 
 impl SidecarProcess {
+    /// Spawn a new sidecar from the given process specification.
+    ///
+    /// Stderr is forwarded through `tracing` at warn level.
     pub async fn spawn(spec: ProcessSpec) -> Result<Self, SidecarError> {
         let mut cmd = Command::new(&spec.command);
         cmd.args(&spec.args)
@@ -69,6 +75,7 @@ impl SidecarProcess {
         })
     }
 
+    /// Send a frame to the sidecar's stdin.
     pub async fn send(&mut self, frame: &Frame) -> Result<(), SidecarError> {
         let line = JsonlCodec::encode(frame)?;
         self.stdin
@@ -79,6 +86,7 @@ impl SidecarProcess {
         Ok(())
     }
 
+    /// Read the next frame from the sidecar's stdout, or `None` on EOF.
     pub async fn recv(&mut self) -> Result<Option<Frame>, SidecarError> {
         let mut buf = String::new();
         let n = self
@@ -96,6 +104,7 @@ impl SidecarProcess {
         JsonlCodec::decode(line).map(Some)
     }
 
+    /// Kill the sidecar process and wait for it to exit.
     pub async fn kill(&mut self) {
         let _ = self.child.kill().await;
         let _ = self.child.wait().await;

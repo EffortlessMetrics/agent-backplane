@@ -1,5 +1,8 @@
+//! Error types for sidecar-kit operations.
+
 use thiserror::Error;
 
+/// Errors from sidecar process I/O and protocol handling.
 #[derive(Debug, Error)]
 pub enum SidecarError {
     #[error("failed to spawn sidecar: {0}")]

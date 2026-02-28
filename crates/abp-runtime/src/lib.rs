@@ -20,10 +20,18 @@ use tokio_stream::wrappers::ReceiverStream;
 use tracing::debug;
 use uuid::Uuid;
 
+/// Central orchestrator that holds registered backends and executes work orders.
+///
+/// ```no_run
+/// # use abp_runtime::Runtime;
+/// let mut rt = Runtime::with_default_backends();
+/// // rt.register_backend("sidecar:node", my_sidecar);
+/// ```
 pub struct Runtime {
     backends: HashMap<String, Arc<dyn Backend>>,
 }
 
+/// Handle to a running work order: provides a run id, event stream, and receipt future.
 pub struct RunHandle {
     pub run_id: Uuid,
     pub events: ReceiverStream<AgentEvent>,
@@ -31,32 +39,42 @@ pub struct RunHandle {
 }
 
 impl Runtime {
+    /// Create an empty runtime with no backends registered.
     pub fn new() -> Self {
         Self {
             backends: HashMap::new(),
         }
     }
 
+    /// Create a runtime pre-loaded with the [`MockBackend`](abp_integrations::MockBackend).
     pub fn with_default_backends() -> Self {
         let mut rt = Self::new();
         rt.register_backend("mock", abp_integrations::MockBackend);
         rt
     }
 
+    /// Register a backend under the given name, replacing any previous registration.
     pub fn register_backend<B: Backend + 'static>(&mut self, name: &str, backend: B) {
         self.backends.insert(name.to_string(), Arc::new(backend));
     }
 
+    /// Return a sorted list of all registered backend names.
     pub fn backend_names(&self) -> Vec<String> {
         let mut v: Vec<_> = self.backends.keys().cloned().collect();
         v.sort();
         v
     }
 
+    /// Look up a backend by name.
     pub fn backend(&self, name: &str) -> Option<Arc<dyn Backend>> {
         self.backends.get(name).cloned()
     }
 
+    /// Execute a work order against the named backend, returning a [`RunHandle`].
+    ///
+    /// The handle provides a streaming event channel and a receipt future.
+    /// The runtime prepares the workspace, compiles the policy, and attaches
+    /// verification metadata and receipt hash after the backend finishes.
     pub async fn run_streaming(
         &self,
         backend_name: &str,

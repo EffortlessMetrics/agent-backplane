@@ -14,6 +14,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
 
+/// Configuration for spawning a sidecar process.
 #[derive(Debug, Clone)]
 pub struct SidecarSpec {
     pub command: String,
@@ -23,6 +24,7 @@ pub struct SidecarSpec {
 }
 
 impl SidecarSpec {
+    /// Create a spec with the given command and default (empty) args/env.
     pub fn new(command: impl Into<String>) -> Self {
         Self {
             command: command.into(),
@@ -33,12 +35,16 @@ impl SidecarSpec {
     }
 }
 
+/// Data extracted from a sidecar's initial `hello` handshake.
 #[derive(Debug, Clone)]
 pub struct SidecarHello {
     pub backend: BackendIdentity,
     pub capabilities: CapabilityManifest,
 }
 
+/// A connected sidecar process that has completed its `hello` handshake.
+///
+/// Use [`SidecarClient::spawn`] to create, then [`SidecarClient::run`] to execute a work order.
 #[derive(Debug)]
 pub struct SidecarClient {
     child: Child,
@@ -47,6 +53,7 @@ pub struct SidecarClient {
     pub hello: SidecarHello,
 }
 
+/// An in-progress sidecar run: provides an event stream, a receipt future, and a wait handle.
 #[derive(Debug)]
 pub struct SidecarRun {
     /// Stream of normalized events.
@@ -59,6 +66,7 @@ pub struct SidecarRun {
     pub wait: tokio::task::JoinHandle<Result<(), HostError>>,
 }
 
+/// Errors from sidecar process management and protocol handling.
 #[derive(Debug, Error)]
 pub enum HostError {
     #[error("failed to spawn sidecar: {0}")]
@@ -84,6 +92,9 @@ pub enum HostError {
 }
 
 impl SidecarClient {
+    /// Spawn a sidecar process and perform the `hello` handshake.
+    ///
+    /// The sidecar MUST emit a `hello` envelope as its first stdout line.
     pub async fn spawn(spec: SidecarSpec) -> Result<Self, HostError> {
         let mut cmd = Command::new(&spec.command);
         cmd.args(&spec.args)
@@ -173,6 +184,9 @@ impl SidecarClient {
         })
     }
 
+    /// Send a work order and begin streaming events from the sidecar.
+    ///
+    /// Consumes `self` because a single client handles exactly one run.
     pub async fn run(
         mut self,
         run_id: String,
@@ -279,6 +293,7 @@ impl SidecarClient {
     }
 }
 
+/// Type-erased stream of [`AgentEvent`]s.
 // Convenience: accept a stream of events as a trait object.
 pub type EventStream = dyn Stream<Item = AgentEvent> + Send + Unpin;
 
