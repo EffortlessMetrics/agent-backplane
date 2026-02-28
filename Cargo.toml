@@ -30,7 +30,9 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
 license = "MIT OR Apache-2.0"
+description = "Translation layer between agent SDKs"
 authors = ["Effortless Metrics"]
 repository = "https://github.com/EffortlessMetrics/agent-backplane"
 
@@ -54,6 +56,11 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
 uuid = { version = "1.21.0", features = ["serde", "v4"] }
 walkdir = "2.5.0"
 tempfile = "3.26.0"
+axum = { version = "0.8.8", features = ["ws"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors"] }
+http-body-util = "0.1"
+tokio-tungstenite = "0.28"
 assert_cmd = "2"
 predicates = "3"
 insta = { version = "1", features = ["json", "redactions"] }
@@ -90,9 +97,11 @@ schemars.workspace = true
 jsonschema.workspace = true
 abp-daemon = { path = "crates/abp-daemon" }
 insta = { workspace = true }
-axum = { version = "0.8.8", features = ["ws"] }
-tower = { version = "0.5", features = ["util"] }
-http-body-util = "0.1"
+proptest = { workspace = true }
+toml = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+http-body-util = { workspace = true }
 
 [[test]]
 name = "bdd"
