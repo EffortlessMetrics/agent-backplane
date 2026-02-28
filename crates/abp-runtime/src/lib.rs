@@ -10,6 +10,7 @@
 //! - produce a canonical receipt with verification metadata
 
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 
 /// Backend registry for named backend lookup.
 pub mod registry;
@@ -31,23 +32,32 @@ use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
+/// Re-export of [`registry::BackendRegistry`] for convenience.
 pub use registry::BackendRegistry;
 
 /// Errors from the ABP runtime orchestrator.
 #[derive(Debug, Error)]
 pub enum RuntimeError {
+    /// The requested backend name is not registered in the [`BackendRegistry`].
     #[error("unknown backend: {name}")]
-    UnknownBackend { name: String },
+    UnknownBackend {
+        /// Name that was looked up.
+        name: String,
+    },
 
+    /// Workspace staging (temp-dir copy, git init) failed.
     #[error("workspace preparation failed")]
     WorkspaceFailed(#[source] anyhow::Error),
 
+    /// The [`PolicyEngine`] could not compile the work order's policy globs.
     #[error("policy compilation failed")]
     PolicyFailed(#[source] anyhow::Error),
 
+    /// The backend returned an error during execution.
     #[error("backend execution failed")]
     BackendFailed(#[source] anyhow::Error),
 
+    /// Pre-flight capability requirements were not satisfied.
     #[error("capability check failed: {0}")]
     CapabilityCheckFailed(String),
 }

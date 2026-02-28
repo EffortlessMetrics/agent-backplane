@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! abp-host
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! Process supervision + JSONL transport for sidecars.
 
@@ -63,6 +64,7 @@ pub struct SidecarClient {
     child: Child,
     stdin: ChildStdin,
     stdout: BufReader<tokio::process::ChildStdout>,
+    /// Handshake data received from the sidecar's initial `hello` message.
     pub hello: SidecarHello,
 }
 
@@ -82,26 +84,36 @@ pub struct SidecarRun {
 /// Errors from sidecar process management and protocol handling.
 #[derive(Debug, Error)]
 pub enum HostError {
+    /// The sidecar process could not be spawned.
     #[error("failed to spawn sidecar: {0}")]
     Spawn(#[source] std::io::Error),
 
+    /// Reading from the sidecar's stdout failed.
     #[error("failed to read sidecar stdout: {0}")]
     Stdout(#[source] std::io::Error),
 
+    /// Writing to the sidecar's stdin failed.
     #[error("failed to write sidecar stdin: {0}")]
     Stdin(#[source] std::io::Error),
 
+    /// A JSONL protocol-level encoding or decoding error.
     #[error("protocol error: {0}")]
     Protocol(#[from] ProtocolError),
 
+    /// The sidecar sent an unexpected or out-of-order message.
     #[error("sidecar protocol violation: {0}")]
     Violation(String),
 
+    /// The sidecar reported a fatal error via a `fatal` envelope.
     #[error("sidecar fatal error: {0}")]
     Fatal(String),
 
+    /// The sidecar process exited before completing the run.
     #[error("sidecar exited unexpectedly (code={code:?})")]
-    Exited { code: Option<i32> },
+    Exited {
+        /// Process exit code, if available.
+        code: Option<i32>,
+    },
 }
 
 impl SidecarClient {

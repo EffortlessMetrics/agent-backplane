@@ -65,9 +65,14 @@ impl Default for RunMetrics {
 /// Non-atomic, serialisable snapshot of [`RunMetrics`].
 #[derive(Debug, Clone, Serialize)]
 pub struct MetricsSnapshot {
+    /// Total number of runs recorded.
     pub total_runs: u64,
+    /// Number of runs that completed successfully.
     pub successful_runs: u64,
+    /// Number of runs that failed.
     pub failed_runs: u64,
+    /// Cumulative number of [`AgentEvent`](abp_core::AgentEvent)s across all runs.
     pub total_events: u64,
+    /// Running average of run duration in milliseconds.
     pub average_run_duration_ms: u64,
 }

@@ -23,6 +23,7 @@ each type of test in the Agent Backplane workspace.
   - [Conformance Tests](#conformance-tests)
   - [Host-Specific Tests](#host-specific-tests)
 - [Test Coverage Goals](#test-coverage-goals)
+- [Mutation Testing](#mutation-testing)
 - [Writing New Tests](#writing-new-tests)
 
 ---
@@ -412,6 +413,70 @@ their protocol compliance and mapping correctness.
   events → final/fatal) must reject invalid sequences.
 - **Policy deny-overrides-allow**: the `PolicyEngine` must never allow an
   operation that matches a deny rule, even if it also matches an allow rule.
+
+---
+
+## Mutation Testing
+
+### What Is Mutation Testing?
+
+Mutation testing measures test suite quality by introducing small changes
+("mutants") into the source code — flipping comparisons, replacing return
+values, deleting statements — and checking whether the tests catch each
+change.  A mutant that is **killed** (tests fail) indicates the test suite
+covers that logic path.  A mutant that **survives** (tests still pass) reveals
+a gap.
+
+We use [cargo-mutants](https://mutants.rs/) for Rust mutation testing.
+
+### Running Mutation Tests
+
+```bash
+# Install cargo-mutants (one-time)
+cargo install cargo-mutants --locked
+
+# Run against a single crate (recommended starting point)
+cargo mutants --package abp-core
+cargo mutants --package abp-protocol
+
+# Output goes to mutants-out/ by default
+```
+
+Configuration lives in `.cargo/mutants.toml`:
+- Focuses on `abp-core` and `abp-protocol` (highest-value crates)
+- Excludes test files, benchmarks, fuzz targets, and xtask
+- Skips trivial trait impls (`Display`, `Debug`, `Default`, `From`)
+- Uses a 3× timeout multiplier (test suite runs ~5 min)
+
+### Interpreting Results
+
+After a run, `mutants-out/` contains:
+- `caught.txt` — mutants killed by the test suite ✅
+- `unviable.txt` — mutants that don't compile (expected) ⚠️
+- `missed.txt` — mutants that survived (**action needed**) ❌
+- `timeout.txt` — mutants that timed out (may need investigation)
+
+Focus on `missed.txt`.  Each entry describes the mutation and the source
+location.  Write a targeted test that would fail under that mutation.  The
+`mutation_guards.rs` test file in `abp-core` demonstrates this pattern.
+
+### Coverage Targets
+
+| Crate | Target | Notes |
+|-------|--------|-------|
+| `abp-core` | < 5% missed | Contract types are the product |
+| `abp-protocol` | < 10% missed | Wire format correctness |
+| Other crates | Advisory | Run periodically to find gaps |
+
+### CI Integration
+
+Mutation testing runs as an **advisory, manual-dispatch** workflow
+(`.github/workflows/mutants.yml`).  It is not part of the regular CI gate
+because runs are slow (minutes per mutant).  Trigger it manually when:
+
+- Adding new public API surface
+- Refactoring core logic
+- Reviewing test coverage before a release
 
 ---
 

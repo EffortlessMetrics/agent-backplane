@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/EffortlessMetrics/agent-backplane/actions/workflows/ci.yml/badge.svg)](https://github.com/EffortlessMetrics/agent-backplane/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
+[![codecov](https://codecov.io/gh/EffortlessMetrics/agent-backplane/branch/main/graph/badge.svg)](https://codecov.io/gh/EffortlessMetrics/agent-backplane)
 <!-- [![crates.io](https://img.shields.io/crates/v/abp-core.svg)](https://crates.io/crates/abp-core) -->
 
 Agent Backplane (ABP) is a **translation layer between agent SDKs**. It provides vendor-agnostic SDK shims that map each vendor's surface area onto a stable internal contract, then routes work orders to any backend (OpenAI, Anthropic, Gemini, local models, etc.) via a projection matrix.

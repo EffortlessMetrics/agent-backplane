@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! abp-integrations
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! Backends are how Agent Backplane talks to the outside world.
 //!

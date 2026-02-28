@@ -1,3 +1,9 @@
+[package]
+name = "agent-backplane"
+version.workspace = true
+edition.workspace = true
+publish = false
+
 [workspace]
 resolver = "2"
 exclude = ["fuzz"]
@@ -53,3 +59,19 @@ insta = { version = "1", features = ["json", "redactions"] }
 toml = "0.8"
 proptest = "1"
 criterion = { version = "0.5", features = ["html_reports"] }
+cucumber = "0.21"
+
+[dev-dependencies]
+cucumber = { workspace = true }
+abp-core = { path = "crates/abp-core" }
+abp-runtime = { path = "crates/abp-runtime" }
+abp-integrations = { path = "crates/abp-integrations" }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+uuid = { workspace = true }
+serde_json = { workspace = true }
+
+[[test]]
+name = "bdd"
+harness = false
+path = "tests/bdd_steps.rs"

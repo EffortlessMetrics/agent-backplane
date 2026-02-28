@@ -1,0 +1,8 @@
+[default]
+workspace = true
+timeout = "300s"
+out = ["Html", "Lcov"]
+output-dir = "target/tarpaulin"
+exclude-files = ["fuzz/*", "tests/*"]
+# Exclude test functions from coverage measurement
+ignore-tests = true
