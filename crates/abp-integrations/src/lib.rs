@@ -8,6 +8,8 @@
 //! Real SDK mappings live in separate crates/repos and register through the
 //! same trait.
 
+pub mod projection;
+
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, Outcome, Receipt, RunMetadata,

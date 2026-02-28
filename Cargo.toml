@@ -47,6 +47,8 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
 uuid = { version = "1.21.0", features = ["serde", "v4"] }
 walkdir = "2.5.0"
 tempfile = "3.26.0"
+assert_cmd = "2"
+predicates = "3"
 insta = { version = "1", features = ["json"] }
 toml = "0.8"
 proptest = "1"

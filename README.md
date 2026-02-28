@@ -1,122 +1,250 @@
-# Agent Backplane (v0.1 skeleton)
+# Agent Backplane
 
-Agent Backplane is a **translation layer** between *agent SDKs*.
+[![CI](https://github.com/EffortlessMetrics/agent-backplane/actions/workflows/ci.yml/badge.svg)](https://github.com/EffortlessMetrics/agent-backplane/actions/workflows/ci.yml)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
+<!-- [![crates.io](https://img.shields.io/crates/v/abp-core.svg)](https://crates.io/crates/abp-core) -->
 
-You ship “drop‑in” SDK shims (one per vendor SDK) that map the vendor’s surface area onto a stable internal contract. The control plane then routes work orders to any backend (OpenAI, Anthropic, Gemini, local models, etc.) with a best‑effort projection matrix.
+Agent Backplane (ABP) is a **translation layer between agent SDKs**. It provides vendor-agnostic SDK shims that map each vendor's surface area onto a stable internal contract, then routes work orders to any backend (OpenAI, Anthropic, Gemini, local models, etc.) via a projection matrix.
 
-This repo is a **compilable, runnable scaffold**:
+**The contract is the product.** Everything else exists to faithfully map SDK semantics into that contract and back out again.
 
-- A Rust microcrate workspace with a stable contract (`abp-core`)
-- A JSONL sidecar protocol (`abp-protocol`)
-- A sidecar host/supervisor (`abp-host`)
-- Shared include/exclude glob matching utilities (`abp-glob`)
-- Workspace staging + git harness utilities (`abp-workspace`)
-- Policy utilities (`abp-policy`)
-- Backend trait + `mock` + `sidecar` backends (`abp-integrations`)
-- Orchestration runtime (`abp-runtime`)
-- CLI (`abp`) and an HTTP daemon control plane (`abp-daemon`)
-- Simple Node + Python sidecar examples under `hosts/`
+## Architecture
 
-The important point: **the contract is the product.** Everything else exists to faithfully map SDK semantics into that contract and back out again.
+```
+                        +----------------+
+                        |    abp-cli     |
+                        +-------+--------+
+                                |
+                        +-------v--------+
+                        |  abp-runtime   |
+                        +-------+--------+
+                                |
+               +----------------+----------------+
+               |                |                |
+        +------v---------+ +---v--------+ +-----v----------+
+        |abp-integrations| |abp-policy  | | abp-workspace  |
+        +------+---------+ +---+--------+ +-----+----------+
+               |               |                |
+        +------v-------+ +----v-------+ +------v-----------+
+        |   abp-host   | |  abp-glob  | |     abp-glob    |
+        +------+-------+ +------------+ +------------------+
+               |
+        +------v--------+
+        | abp-protocol  |
+        +------+--------+
+               |
+        +------v--------+     +--------------+
+        |   abp-core    |     |  sidecar-kit |
+        +---------------+     +------+-------+
+                                     |
+                               +-----v--------+
+                               | claude-bridge|
+                               +--------------+
+```
 
-## Quick start
+### Crate Overview
+
+| Crate | Description |
+|-------|-------------|
+| **abp-core** | Stable contract types — `WorkOrder`, `Receipt`, `AgentEvent`, capabilities |
+| **abp-protocol** | JSONL wire format (`Envelope` tagged with `#[serde(tag = "t")]`) |
+| **abp-host** | Sidecar process supervision, JSONL handshake + event streaming over stdio |
+| **abp-glob** | Include/exclude glob compilation using `globset` |
+| **abp-workspace** | Staged workspace creation (temp dir copy with glob filtering, auto git init) |
+| **abp-policy** | Policy engine — compiles `PolicyProfile` into allow/deny checks for tools/read/write |
+| **abp-integrations** | `Backend` trait + `MockBackend` + `SidecarBackend` implementations |
+| **abp-runtime** | Orchestration — workspace → backend → event multiplexing → hashed receipt |
+| **abp-cli** | `abp` binary with `run` and `backends` subcommands |
+| **abp-daemon** | HTTP control-plane API with receipt persistence |
+| **abp-claude-sdk** | Anthropic Claude SDK adapter |
+| **abp-codex-sdk** | OpenAI Codex SDK adapter |
+| **abp-gemini-sdk** | Google Gemini SDK adapter |
+| **abp-kimi-sdk** | Kimi (Moonshot) SDK adapter |
+| **sidecar-kit** | Value-based JSONL transport layer for sidecar processes |
+| **claude-bridge** | Standalone Claude SDK bridge built on sidecar-kit |
+
+### Sidecar Hosts
+
+Example sidecars live in `hosts/`. Each speaks the JSONL protocol over stdio:
+
+| Host | Runtime | Notes |
+|------|---------|-------|
+| `hosts/node` | Node.js | Minimal JSONL sidecar example |
+| `hosts/python` | Python | Minimal JSONL sidecar example, optional `claude_agent_sdk` client mode |
+| `hosts/claude` | Node.js | Claude-oriented sidecar with pluggable adapter module |
+| `hosts/codex` | Node.js | Codex-oriented sidecar with passthrough/mapped modes |
+| `hosts/copilot` | Node.js | GitHub Copilot sidecar scaffold |
+| `hosts/kimi` | Node.js | Kimi sidecar with SDK-first adapter and CLI fallback |
+| `hosts/gemini` | Node.js | Gemini sidecar with Claude-to-Gemini mapping |
+
+## Getting Started
+
+### Prerequisites
+
+- **Rust** (nightly recommended — workspace uses edition 2024)
+- **Node.js** (for sidecar hosts)
+- **Python** (optional, for the Python sidecar)
+
+### Build & Run
 
 ```bash
-# build
+# Build all workspace crates
 cargo build
 
-# generate JSON schemas for the public contract
+# Run all tests
+cargo test --workspace
+
+# Generate JSON schemas for the public contract
 cargo run -p xtask -- schema
 
-# run the mock backend
+# Run with the mock backend (no external deps)
 cargo run -p abp-cli -- run --task "say hello" --backend mock
 
-# run the node sidecar backend (requires node installed)
-cargo run -p abp-cli -- run --task "hello from node" --backend sidecar:node
+# List available backends
+cargo run -p abp-cli -- backends
 
-# run the python sidecar backend (requires python installed)
-cargo run -p abp-cli -- run --task "hello from python" --backend sidecar:python
-
-# run the codex sidecar backend (requires node installed)
-cargo run -p abp-cli -- run --task "hello from codex sidecar" --backend sidecar:codex
-
-# run the claude sidecar backend (requires node installed)
-cargo run -p abp-cli -- run --task "hello from claude sidecar" --backend sidecar:claude
-
-# run the copilot sidecar backend (requires node installed)
-# npm --prefix hosts/copilot install
-cargo run -p abp-cli -- run --task "hello from copilot sidecar" --backend sidecar:copilot
-
-# run the kimi sidecar backend (requires node installed)
-# npm --prefix hosts/kimi install
-cargo run -p abp-cli -- run --task "hello from kimi sidecar" --backend sidecar:kimi
-
-# run the gemini sidecar backend (requires node installed)
-# npm --prefix hosts/gemini install
-cargo run -p abp-cli -- run --task "hello from gemini sidecar" --backend sidecar:gemini
-
-# alias + runtime vendor params
+# Run with vendor params
 cargo run -p abp-cli -- run --task "summarize this codebase" --backend gemini \
   --model gemini-2.5-flash --param stream=true --param vertex=false
 
-# run the daemon control plane
+# Start the daemon control plane
 cargo run -p abp-daemon -- --bind 127.0.0.1:8088
 ```
 
+Enable debug logging with the `--debug` flag or `RUST_LOG=abp=debug`.
+
 Receipts land in `.agent-backplane/receipts/<run_id>.json`.
 
-### Python Claude Client Mode
+### Available Sidecar Backends
 
-`hosts/python/host.py` now supports the same `vendor.abp.client_mode` feature flag used by the Claude sidecar adapter.  
-If `claude_agent_sdk` is installed and `client_mode=true`, it will use a stateful SDK client path; otherwise it falls back to `query()` when available (or to deterministic partial fallback if the SDK is missing).
+```bash
+cargo run -p abp-cli -- run --task "hello" --backend sidecar:node      # Node.js
+cargo run -p abp-cli -- run --task "hello" --backend sidecar:python    # Python
+cargo run -p abp-cli -- run --task "hello" --backend sidecar:claude    # Claude
+cargo run -p abp-cli -- run --task "hello" --backend sidecar:codex     # Codex
+cargo run -p abp-cli -- run --task "hello" --backend sidecar:copilot   # Copilot
+cargo run -p abp-cli -- run --task "hello" --backend sidecar:kimi      # Kimi
+cargo run -p abp-cli -- run --task "hello" --backend sidecar:gemini    # Gemini
+```
+
+> **Note:** Some sidecar hosts require `npm install` first (e.g. `npm --prefix hosts/copilot install`).
+
+## Configuration
+
+ABP can be configured via a `backplane.toml` file. See [`backplane.example.toml`](backplane.example.toml) for a full example.
+
+```toml
+[backends.mock]
+type = "mock"
+
+[backends.openai]
+type = "sidecar"
+command = "node"
+args = ["path/to/openai-sidecar.js"]
+
+[backends.anthropic]
+type = "sidecar"
+command = "python3"
+args = ["path/to/anthropic-sidecar.py"]
+```
+
+Each backend entry declares either a `"mock"` type for the built-in mock or a `"sidecar"` type with a command and arguments to spawn the sidecar process.
 
 ## Daemon API
 
-- `GET /health`
-- `GET /backends`
-- `GET /capabilities` or `GET /capabilities?backend=<name>`
-- `POST /run` with JSON body: `{ "backend": "mock", "work_order": {...} }`
-- `GET /receipts`
-- `GET /receipts/:run_id`
+The HTTP daemon (`abp-daemon`) exposes a REST API for programmatic use:
 
-## Repository layout
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/backends` | GET | List registered backends |
+| `/capabilities` | GET | Query backend capabilities (optional `?backend=<name>`) |
+| `/run` | POST | Submit a work order (`{ "backend": "mock", "work_order": {...} }`) |
+| `/receipts` | GET | List all receipts |
+| `/receipts/:run_id` | GET | Fetch a specific receipt |
 
-- `crates/abp-core`: stable Rust types (WorkOrder, Receipt, events, capabilities)
-- `crates/abp-protocol`: JSONL envelope + codec
-- `crates/abp-host`: spawn a sidecar process and stream messages
-- `crates/abp-glob`: compile and evaluate include/exclude glob rules
-- `crates/abp-workspace`: staging + git harness utilities
-- `crates/abp-policy`: policy compilation + allow/deny checks
-- `crates/abp-integrations`: backend trait + implementations
-- `crates/abp-runtime`: orchestration (workspace -> backend -> receipt)
-- `crates/abp-claude-sdk`: Claude sidecar integration microcrate
-- `crates/abp-codex-sdk`: Codex sidecar integration microcrate
-- `crates/abp-gemini-sdk`: Gemini CLI sidecar integration microcrate
-- `crates/abp-kimi-sdk`: Kimi sidecar integration microcrate
-- `crates/abp-cli`: `abp` CLI
-- `crates/abp-daemon`: HTTP control plane + receipt persistence
-- `hosts/node`: example sidecar (JSONL over stdio)
-- `hosts/python`: example sidecar (JSONL over stdio)
-- `hosts/claude`: Claude-oriented sidecar with pluggable adapter module
-- `hosts/codex`: Codex-oriented sidecar with passthrough/mapped modes
-- `hosts/copilot`: GitHub Copilot sidecar scaffold with Copilot adapter contract
-- `hosts/kimi`: Kimi sidecar with SDK-first adapter and CLI fallback
-- `hosts/gemini`: Gemini CLI sidecar scaffold with runnable adapter contract
-- `contracts/schemas`: generated JSON schemas
+## Testing
 
-## What’s intentionally missing
+The project has a comprehensive test suite spanning multiple strategies:
 
-This is a *skeleton*, not the finished backplane:
+### Test Categories
 
-- No real vendor SDK adapters yet (OpenAI / Anthropic / etc.)
-- No projection matrix implementation
-- HTTP daemon and durable receipt persistence are now available
-- No projection matrix implementation
-- No policy enforcement inside sidecars (yet)
-- No sandboxing/containers
+| Category | Description | Example |
+|----------|-------------|---------|
+| **Unit tests** | Per-crate module-level tests | `cargo test -p abp-core` |
+| **Snapshot tests** | JSON serialization stability via [insta](https://insta.rs) | `crates/*/tests/snapshots/` |
+| **Property tests** | Randomized input via [proptest](https://proptest-rs.github.io/proptest/) | `crates/abp-core/tests/proptest_types.rs` |
+| **Fuzz tests** | [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) targets for envelope/receipt/work-order parsing | `fuzz/fuzz_targets/` |
+| **Benchmarks** | [criterion](https://bheisler.github.io/criterion.rs/) micro-benchmarks for hashing, glob matching, policy eval | `crates/*/benches/` |
+| **Conformance tests** | End-to-end sidecar protocol conformance (JS) | `tests/conformance/` |
+| **Doc tests** | In-doc examples verified by CI | `cargo test --doc --workspace` |
 
-Those are the next layers; the structure here is meant to make them incremental.
+### Running Tests
+
+```bash
+# All tests
+cargo test --workspace
+
+# Single crate
+cargo test -p abp-core
+
+# Single test by name
+cargo test -p abp-core receipt_hash
+
+# Snapshot review (requires cargo-insta)
+cargo insta review
+
+# Benchmarks
+cargo bench --workspace
+
+# Fuzz (requires cargo-fuzz, nightly)
+cd fuzz && cargo +nightly fuzz run fuzz_envelope
+
+# Conformance tests (requires node)
+cd tests/conformance && node runner.js
+```
+
+### CI Pipeline
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push and PR:
+
+- **Format & lint** — `cargo fmt --check` + `cargo clippy`
+- **Tests** — `cargo test --workspace` on Ubuntu and Windows
+- **Doc tests** — `cargo test --doc --workspace`
+- **Documentation** — `cargo doc --workspace --no-deps` with `-D warnings`
+- **Cargo Deny** — license and advisory audit
+- **Benchmarks** — compile-check (`--no-run`)
+- **Schema generation** — verifies `contracts/schemas/` are up-to-date
+
+## Sidecar Protocol
+
+Sidecars are external processes (Node/Python/etc.) that speak a JSONL protocol over stdio:
+
+1. Sidecar sends `hello` envelope (MUST be first) with backend identity + capabilities
+2. Control plane sends `run` with a `WorkOrder`
+3. Sidecar streams `event` envelopes containing `AgentEvent`s
+4. Sidecar concludes with `final` (containing a `Receipt`) or `fatal`
+
+All envelopes use `ref_id` to correlate with the run. See [`docs/sidecar_protocol.md`](docs/sidecar_protocol.md) for the full specification.
+
+## What's Next
+
+The current scaffold is designed for incremental extension:
+
+- Projection matrix implementation (dialect-to-dialect mapping)
+- Policy enforcement inside sidecars
+- Sandboxing/container isolation
+- Additional vendor SDK adapters
+
+## Contributing
+
+1. Fork the repo and create a feature branch
+2. Ensure `cargo fmt --check` and `cargo clippy --workspace --all-targets -- -D warnings` pass
+3. Add tests for new functionality
+4. Run `cargo test --workspace` to verify nothing is broken
+5. If contract types changed, regenerate schemas: `cargo run -p xtask -- schema`
+6. Open a pull request against `main`
 
 ## License
 
-Dual-licensed MIT OR Apache-2.0.
+Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
