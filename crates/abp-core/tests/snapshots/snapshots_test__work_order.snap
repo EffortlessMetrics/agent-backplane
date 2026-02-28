@@ -1,0 +1,68 @@
+---
+source: crates/abp-core/tests/snapshots_test.rs
+expression: sample_work_order()
+---
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "task": "Refactor auth module",
+  "lane": "patch_first",
+  "workspace": {
+    "root": "/tmp/ws",
+    "mode": "staged",
+    "include": [
+      "src/**"
+    ],
+    "exclude": [
+      "target/**"
+    ]
+  },
+  "context": {
+    "files": [
+      "README.md"
+    ],
+    "snippets": [
+      {
+        "name": "hint",
+        "content": "Use JWT"
+      }
+    ]
+  },
+  "policy": {
+    "allowed_tools": [
+      "read"
+    ],
+    "disallowed_tools": [
+      "bash"
+    ],
+    "deny_read": [
+      ".env"
+    ],
+    "deny_write": [
+      "Cargo.lock"
+    ],
+    "allow_network": [
+      "api.example.com"
+    ],
+    "deny_network": [
+      "evil.com"
+    ],
+    "require_approval_for": [
+      "write"
+    ]
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "streaming",
+        "min_support": "native"
+      }
+    ]
+  },
+  "config": {
+    "model": "gpt-4",
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": 1.0,
+    "max_turns": 10
+  }
+}
