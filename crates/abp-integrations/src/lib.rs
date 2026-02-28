@@ -11,6 +11,7 @@
 //! same trait.
 
 pub mod capability;
+pub mod health;
 pub mod metrics;
 pub mod projection;
 pub mod selector;

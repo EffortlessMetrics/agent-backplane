@@ -20,6 +20,8 @@ pub mod ext;
 pub mod filter;
 /// Event stream combinator utilities.
 pub mod stream;
+/// Configuration validation and defaults.
+pub mod config;
 /// Receipt validation utilities.
 pub mod validate;
 
