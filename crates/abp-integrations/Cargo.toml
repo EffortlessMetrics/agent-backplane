@@ -28,4 +28,6 @@ abp-claude-sdk = { path = "../abp-claude-sdk" }
 abp-codex-sdk = { path = "../abp-codex-sdk" }
 abp-gemini-sdk = { path = "../abp-gemini-sdk" }
 abp-kimi-sdk = { path = "../abp-kimi-sdk" }
+proptest = { workspace = true }
 serde_json.workspace = true
+tokio = { workspace = true }
