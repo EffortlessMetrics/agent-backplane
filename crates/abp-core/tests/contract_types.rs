@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_core::*;
 use chrono::{TimeZone, Utc};
 use serde_json::json;
@@ -160,7 +161,10 @@ mod receipt_hashing {
 
         let h1 = receipt_hash(&r1).unwrap();
         let h2 = receipt_hash(&r2).unwrap();
-        assert_ne!(h1, h2, "different duration_ms must produce different hashes");
+        assert_ne!(
+            h1, h2,
+            "different duration_ms must produce different hashes"
+        );
     }
 
     #[test]
@@ -304,18 +308,13 @@ mod agent_event_variants {
 
         let event = AgentEvent {
             ts: ts(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "hi".into() },
             ext: Some(ext),
         };
         let json = serde_json::to_string(&event).unwrap();
         let back: AgentEvent = serde_json::from_str(&json).unwrap();
         assert!(back.ext.is_some());
-        assert_eq!(
-            back.ext.unwrap()["raw_message"],
-            json!({"vendor": true})
-        );
+        assert_eq!(back.ext.unwrap()["raw_message"], json!({"vendor": true}));
     }
 }
 
@@ -422,7 +421,10 @@ mod capability_ordering {
 
         let j1 = serde_json::to_string(&m1).unwrap();
         let j2 = serde_json::to_string(&m2).unwrap();
-        assert_eq!(j1, j2, "BTreeMap must produce identical JSON regardless of insertion order");
+        assert_eq!(
+            j1, j2,
+            "BTreeMap must produce identical JSON regardless of insertion order"
+        );
     }
 
     #[test]
@@ -546,7 +548,10 @@ mod sha256_hex_tests {
     #[test]
     fn hash_is_lowercase_hex() {
         let h = sha256_hex(b"test");
-        assert!(h.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+        assert!(
+            h.chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        );
         assert_eq!(h.len(), 64);
     }
 }
@@ -594,9 +599,91 @@ mod outcome_serde {
 
     #[test]
     fn outcome_values() {
-        assert_eq!(serde_json::to_value(Outcome::Complete).unwrap(), json!("complete"));
-        assert_eq!(serde_json::to_value(Outcome::Partial).unwrap(), json!("partial"));
-        assert_eq!(serde_json::to_value(Outcome::Failed).unwrap(), json!("failed"));
+        assert_eq!(
+            serde_json::to_value(Outcome::Complete).unwrap(),
+            json!("complete")
+        );
+        assert_eq!(
+            serde_json::to_value(Outcome::Partial).unwrap(),
+            json!("partial")
+        );
+        assert_eq!(
+            serde_json::to_value(Outcome::Failed).unwrap(),
+            json!("failed")
+        );
+    }
+}
+
+// ── WorkOrderBuilder ────────────────────────────────────────────────
+
+mod builder {
+    use super::*;
+
+    #[test]
+    fn builder_with_defaults() {
+        let wo = WorkOrderBuilder::new("do something").build();
+        assert_eq!(wo.task, "do something");
+        assert_eq!(wo.workspace.root, ".");
+        assert!(wo.config.model.is_none());
+        assert!(wo.config.max_budget_usd.is_none());
+        assert!(wo.config.max_turns.is_none());
+        assert!(wo.context.files.is_empty());
+        assert!(wo.policy.allowed_tools.is_empty());
+        assert!(wo.requirements.required.is_empty());
+    }
+
+    #[test]
+    fn builder_with_all_fields() {
+        let wo = WorkOrderBuilder::new("refactor auth")
+            .lane(ExecutionLane::WorkspaceFirst)
+            .root("/tmp/ws")
+            .workspace_mode(WorkspaceMode::PassThrough)
+            .include(vec!["src/**".into()])
+            .exclude(vec!["target/**".into()])
+            .context(ContextPacket {
+                files: vec!["README.md".into()],
+                snippets: vec![],
+            })
+            .policy(PolicyProfile {
+                allowed_tools: vec!["read".into()],
+                ..Default::default()
+            })
+            .requirements(CapabilityRequirements {
+                required: vec![CapabilityRequirement {
+                    capability: Capability::Streaming,
+                    min_support: MinSupport::Native,
+                }],
+            })
+            .model("gpt-4")
+            .max_budget_usd(1.0)
+            .max_turns(10)
+            .build();
+
+        assert_eq!(wo.task, "refactor auth");
+        assert_eq!(wo.workspace.root, "/tmp/ws");
+        assert_eq!(wo.workspace.include, vec!["src/**"]);
+        assert_eq!(wo.workspace.exclude, vec!["target/**"]);
+        assert_eq!(wo.context.files, vec!["README.md"]);
+        assert_eq!(wo.policy.allowed_tools, vec!["read"]);
+        assert_eq!(wo.requirements.required.len(), 1);
+        assert_eq!(wo.config.model.as_deref(), Some("gpt-4"));
+        assert_eq!(wo.config.max_budget_usd, Some(1.0));
+        assert_eq!(wo.config.max_turns, Some(10));
+    }
+
+    #[test]
+    fn builder_produces_valid_work_order() {
+        let wo = WorkOrderBuilder::new("test task")
+            .model("claude-3")
+            .max_turns(5)
+            .build();
+
+        let json = serde_json::to_string_pretty(&wo).unwrap();
+        let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+        assert_eq!(wo.id, wo2.id);
+        assert_eq!(wo.task, wo2.task);
+        assert_eq!(wo.config.model, wo2.config.model);
+        assert_eq!(wo.config.max_turns, wo2.config.max_turns);
     }
 }
 

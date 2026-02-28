@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! abp-host
 #![deny(unsafe_code)]
 //!
@@ -39,6 +40,7 @@ impl SidecarSpec {
 /// Data extracted from a sidecar's initial `hello` handshake.
 #[derive(Debug, Clone)]
 pub struct SidecarHello {
+    pub contract_version: String,
     pub backend: BackendIdentity,
     pub capabilities: CapabilityManifest,
 }
@@ -159,17 +161,18 @@ impl SidecarClient {
         }
 
         let env = JsonlCodec::decode(line.trim_end())?;
-        let (backend, capabilities) = match env {
+        let (contract_version, backend, capabilities) = match env {
             Envelope::Hello {
+                contract_version,
                 backend,
                 capabilities,
                 ..
-            } => (backend, capabilities),
+            } => (contract_version, backend, capabilities),
             other => {
                 return Err(HostError::Protocol(ProtocolError::UnexpectedMessage {
                     expected: "hello".into(),
                     got: format!("{other:?}"),
-                }))
+                }));
             }
         };
 
@@ -180,6 +183,7 @@ impl SidecarClient {
             stdin,
             stdout,
             hello: SidecarHello {
+                contract_version,
                 backend,
                 capabilities,
             },

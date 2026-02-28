@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! abp-core
 #![deny(unsafe_code)]
 //!
@@ -458,6 +459,68 @@ pub fn receipt_hash(receipt: &Receipt) -> Result<String, ContractError> {
     }
     let json = serde_json::to_string(&v)?;
     Ok(sha256_hex(json.as_bytes()))
+}
+
+/// Builder for constructing [`WorkOrder`]s ergonomically.
+pub struct WorkOrderBuilder {
+    task: String,
+    lane: ExecutionLane,
+    root: String,
+    workspace_mode: WorkspaceMode,
+    include: Vec<String>,
+    exclude: Vec<String>,
+    context: ContextPacket,
+    policy: PolicyProfile,
+    requirements: CapabilityRequirements,
+    config: RuntimeConfig,
+}
+
+impl WorkOrderBuilder {
+    pub fn new(task: impl Into<String>) -> Self {
+        Self {
+            task: task.into(),
+            lane: ExecutionLane::PatchFirst,
+            root: ".".into(),
+            workspace_mode: WorkspaceMode::Staged,
+            include: vec![],
+            exclude: vec![],
+            context: ContextPacket::default(),
+            policy: PolicyProfile::default(),
+            requirements: CapabilityRequirements::default(),
+            config: RuntimeConfig::default(),
+        }
+    }
+
+    pub fn lane(mut self, lane: ExecutionLane) -> Self { self.lane = lane; self }
+    pub fn root(mut self, root: impl Into<String>) -> Self { self.root = root.into(); self }
+    pub fn workspace_mode(mut self, mode: WorkspaceMode) -> Self { self.workspace_mode = mode; self }
+    pub fn include(mut self, patterns: Vec<String>) -> Self { self.include = patterns; self }
+    pub fn exclude(mut self, patterns: Vec<String>) -> Self { self.exclude = patterns; self }
+    pub fn context(mut self, ctx: ContextPacket) -> Self { self.context = ctx; self }
+    pub fn policy(mut self, policy: PolicyProfile) -> Self { self.policy = policy; self }
+    pub fn requirements(mut self, reqs: CapabilityRequirements) -> Self { self.requirements = reqs; self }
+    pub fn config(mut self, config: RuntimeConfig) -> Self { self.config = config; self }
+    pub fn model(mut self, model: impl Into<String>) -> Self { self.config.model = Some(model.into()); self }
+    pub fn max_budget_usd(mut self, budget: f64) -> Self { self.config.max_budget_usd = Some(budget); self }
+    pub fn max_turns(mut self, turns: u32) -> Self { self.config.max_turns = Some(turns); self }
+
+    pub fn build(self) -> WorkOrder {
+        WorkOrder {
+            id: Uuid::new_v4(),
+            task: self.task,
+            lane: self.lane,
+            workspace: WorkspaceSpec {
+                root: self.root,
+                mode: self.workspace_mode,
+                include: self.include,
+                exclude: self.exclude,
+            },
+            context: self.context,
+            policy: self.policy,
+            requirements: self.requirements,
+            config: self.config,
+        }
+    }
 }
 
 impl Receipt {
