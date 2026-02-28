@@ -5,6 +5,8 @@
 //! Wire format for talking to sidecars and daemons.
 //! Current transport: JSONL over stdio.
 
+use std::io::{BufRead, Write};
+
 use abp_core::{
     AgentEvent, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Receipt,
     WorkOrder,
@@ -106,6 +108,9 @@ pub enum ProtocolError {
     #[error("invalid JSON: {0}")]
     Json(#[from] serde_json::Error),
 
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+
     #[error("protocol violation: {0}")]
     Violation(String),
 
@@ -160,6 +165,54 @@ impl JsonlCodec {
     /// not match any [`Envelope`] variant.
     pub fn decode(line: &str) -> Result<Envelope, ProtocolError> {
         Ok(serde_json::from_str::<Envelope>(line)?)
+    }
+
+    /// Return a lazy iterator that reads JSONL lines from `reader`, skipping
+    /// blank lines, and deserializing each into an [`Envelope`].
+    ///
+    /// The iterator yields one `Result<Envelope>` per non-blank line.
+    pub fn decode_stream(
+        reader: impl BufRead,
+    ) -> impl Iterator<Item = Result<Envelope, ProtocolError>> {
+        reader.lines().filter_map(|line_result| match line_result {
+            Err(e) => Some(Err(ProtocolError::Io(e))),
+            Ok(line) => {
+                if line.trim().is_empty() {
+                    None
+                } else {
+                    Some(Self::decode(line.trim()))
+                }
+            }
+        })
+    }
+
+    /// Write a single [`Envelope`] as a newline-terminated JSON line.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProtocolError`] on serialization or I/O failure.
+    pub fn encode_to_writer(
+        writer: &mut impl Write,
+        envelope: &Envelope,
+    ) -> Result<(), ProtocolError> {
+        let line = Self::encode(envelope)?;
+        writer.write_all(line.as_bytes())?;
+        Ok(())
+    }
+
+    /// Write multiple [`Envelope`]s as consecutive JSONL lines.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProtocolError`] on serialization or I/O failure.
+    pub fn encode_many_to_writer(
+        writer: &mut impl Write,
+        envelopes: &[Envelope],
+    ) -> Result<(), ProtocolError> {
+        for env in envelopes {
+            Self::encode_to_writer(writer, env)?;
+        }
+        Ok(())
     }
 }
 

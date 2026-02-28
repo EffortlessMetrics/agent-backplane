@@ -15,6 +15,8 @@
 pub mod registry;
 /// Receipt persistence and retrieval.
 pub mod store;
+/// Telemetry and metrics collection.
+pub mod telemetry;
 
 use abp_core::{AgentEvent, CapabilityRequirements, ExecutionMode, Outcome, Receipt, WorkOrder};
 use abp_integrations::{Backend, ensure_capability_requirements};

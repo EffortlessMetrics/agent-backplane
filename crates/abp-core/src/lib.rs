@@ -6,6 +6,7 @@
 //!
 //! If you only take one dependency, take this one.
 
+pub mod filter;
 pub mod validate;
 
 use chrono::{DateTime, Utc};

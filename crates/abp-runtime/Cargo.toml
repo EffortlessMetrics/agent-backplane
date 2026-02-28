@@ -15,6 +15,7 @@ abp-core = { path = "../abp-core" }
 abp-integrations = { path = "../abp-integrations" }
 abp-policy = { path = "../abp-policy" }
 abp-workspace = { path = "../abp-workspace" }
+serde.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true

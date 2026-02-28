@@ -146,8 +146,12 @@ dependencies = [
 name = "abp-integrations"
 version = "0.1.0"
 dependencies = [
+ "abp-claude-sdk",
+ "abp-codex-sdk",
  "abp-core",
+ "abp-gemini-sdk",
  "abp-host",
+ "abp-kimi-sdk",
  "anyhow",
  "async-trait",
  "chrono",
@@ -216,6 +220,7 @@ dependencies = [
  "chrono",
  "insta",
  "proptest",
+ "serde",
  "serde_json",
  "tempfile",
  "thiserror",
