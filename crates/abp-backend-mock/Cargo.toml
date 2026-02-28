@@ -1,0 +1,17 @@
+[package]
+name = "abp-backend-mock"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+abp-backend-core = { path = "../abp-backend-core" }
+abp-core = { path = "../abp-core" }
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+uuid.workspace = true
