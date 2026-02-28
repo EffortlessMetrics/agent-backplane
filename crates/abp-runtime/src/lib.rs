@@ -1,5 +1,5 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! abp-runtime
-#![deny(unsafe_code)]
 //!
 //! Orchestration layer.
 //!
@@ -9,8 +9,12 @@
 //! - select a backend and stream events
 //! - produce a canonical receipt with verification metadata
 
-use abp_core::{AgentEvent, ExecutionMode, Outcome, Receipt, WorkOrder};
-use abp_integrations::Backend;
+#![deny(unsafe_code)]
+
+pub mod store;
+
+use abp_core::{AgentEvent, CapabilityRequirements, ExecutionMode, Outcome, Receipt, WorkOrder};
+use abp_integrations::{Backend, ensure_capability_requirements};
 use abp_policy::PolicyEngine;
 use abp_workspace::WorkspaceManager;
 use anyhow::Context;
@@ -36,6 +40,9 @@ pub enum RuntimeError {
 
     #[error("backend execution failed")]
     BackendFailed(#[source] anyhow::Error),
+
+    #[error("capability check failed: {0}")]
+    CapabilityCheckFailed(String),
 }
 
 /// Central orchestrator that holds registered backends and executes work orders.
@@ -94,6 +101,26 @@ impl Runtime {
         self.backends.get(name).cloned()
     }
 
+    /// Check whether a backend's capabilities satisfy the given requirements.
+    ///
+    /// For sidecar backends whose capabilities come from handshake, this will
+    /// check against the (empty) default manifest — use the in-backend check
+    /// for authoritative validation.
+    pub fn check_capabilities(
+        &self,
+        backend_name: &str,
+        requirements: &CapabilityRequirements,
+    ) -> Result<(), RuntimeError> {
+        let backend = self
+            .backend(backend_name)
+            .ok_or_else(|| RuntimeError::UnknownBackend {
+                name: backend_name.to_string(),
+            })?;
+        ensure_capability_requirements(requirements, &backend.capabilities())
+            .map_err(|e| RuntimeError::CapabilityCheckFailed(e.to_string()))?;
+        Ok(())
+    }
+
     /// Execute a work order against the named backend, returning a [`RunHandle`].
     ///
     /// The handle provides a streaming event channel and a receipt future.
@@ -109,6 +136,14 @@ impl Runtime {
             .ok_or_else(|| RuntimeError::UnknownBackend {
                 name: backend_name.to_string(),
             })?;
+
+        // Pre-flight capability check: skip for sidecar backends whose
+        // capabilities are only known after handshake (empty default manifest).
+        let caps = backend.capabilities();
+        if !caps.is_empty() {
+            ensure_capability_requirements(&work_order.requirements, &caps)
+                .map_err(|e| RuntimeError::CapabilityCheckFailed(e.to_string()))?;
+        }
 
         let backend_name = backend_name.to_string();
         let run_id = Uuid::new_v4();
@@ -240,5 +275,46 @@ impl Runtime {
             events: ReceiverStream::new(to_caller_rx),
             receipt,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use abp_core::{Capability, CapabilityRequirement, MinSupport};
+
+    #[test]
+    fn check_capabilities_passes_for_satisfiable_requirements() {
+        let rt = Runtime::with_default_backends();
+        let reqs = CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Native,
+            }],
+        };
+        rt.check_capabilities("mock", &reqs).unwrap();
+    }
+
+    #[test]
+    fn check_capabilities_fails_for_unsatisfiable_requirements() {
+        let rt = Runtime::with_default_backends();
+        let reqs = CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::McpClient,
+                min_support: MinSupport::Native,
+            }],
+        };
+        let err = rt.check_capabilities("mock", &reqs).unwrap_err();
+        assert!(
+            matches!(err, RuntimeError::CapabilityCheckFailed(_)),
+            "expected CapabilityCheckFailed, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn check_capabilities_empty_requirements_always_passes() {
+        let rt = Runtime::with_default_backends();
+        let reqs = CapabilityRequirements::default();
+        rt.check_capabilities("mock", &reqs).unwrap();
     }
 }
