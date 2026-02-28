@@ -11,8 +11,9 @@ use abp_kimi_sdk as kimi_sdk;
 use abp_runtime::Runtime;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
+use serde::Deserialize;
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use tokio_stream::StreamExt;
 use tracing_subscriber::EnvFilter;
@@ -309,6 +310,22 @@ async fn cmd_run(
         }
     }
 
+    // Register backends from backplane.toml (if present).
+    if let Some(cfg) = load_config() {
+        for (name, bc) in cfg.backends {
+            match bc {
+                BackendConfig::Mock {} => {
+                    rt.register_backend(&name, abp_integrations::MockBackend);
+                }
+                BackendConfig::Sidecar { command, args } => {
+                    let mut spec = SidecarSpec::new(&command);
+                    spec.args = args;
+                    rt.register_backend(&name, SidecarBackend::new(spec));
+                }
+            }
+        }
+    }
+
     let mut resolved_model = model;
     let mut vendor = BTreeMap::new();
     let mut env = BTreeMap::new();
@@ -580,6 +597,37 @@ fn which(bin: &str) -> Option<PathBuf> {
     None
 }
 
+// ── Config file support ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct BackplaneConfig {
+    #[serde(default)]
+    backends: HashMap<String, BackendConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+enum BackendConfig {
+    #[serde(rename = "mock")]
+    Mock {},
+    #[serde(rename = "sidecar")]
+    Sidecar {
+        command: String,
+        #[serde(default)]
+        args: Vec<String>,
+    },
+}
+
+fn load_config() -> Option<BackplaneConfig> {
+    let path = std::path::Path::new("backplane.toml");
+    if path.exists() {
+        let content = std::fs::read_to_string(path).ok()?;
+        toml::from_str(&content).ok()
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -632,5 +680,12 @@ mod tests {
     #[test]
     fn backend_vendor_namespace_supports_kimi() {
         assert_eq!(backend_vendor_namespace("sidecar:kimi"), Some("kimi"));
+    }
+
+    #[test]
+    fn parse_example_config() {
+        let content = include_str!("../../../backplane.example.toml");
+        let config: BackplaneConfig = toml::from_str(content).expect("parse example config");
+        assert!(!config.backends.is_empty());
     }
 }
