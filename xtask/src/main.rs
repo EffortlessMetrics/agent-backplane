@@ -20,10 +20,20 @@ enum Command {
         #[arg(long, default_value = "contracts/schemas")]
         out_dir: PathBuf,
     },
-    /// Run full CI checks locally (fmt, clippy, test, doc).
+    /// Run full CI checks locally (fmt, clippy, test, doc-test).
     Check,
     /// Print instructions for running code coverage with tarpaulin.
     Coverage,
+    /// Run formatting and clippy checks only.
+    Lint,
+    /// Verify crates.io release readiness.
+    ReleaseCheck,
+    /// Build workspace documentation.
+    Docs {
+        /// Open documentation in browser after building.
+        #[arg(long)]
+        open: bool,
+    },
     /// List all workspace crates with their paths.
     ListCrates,
 }
@@ -34,6 +44,9 @@ fn main() -> Result<()> {
         Command::Schema { out_dir } => schema(out_dir),
         Command::Check => check(),
         Command::Coverage => coverage(),
+        Command::Lint => lint(),
+        Command::ReleaseCheck => release_check(),
+        Command::Docs { open } => docs(open),
         Command::ListCrates => list_crates(),
     }
 }
@@ -74,12 +87,37 @@ fn run_cargo(args: &[&str]) -> Result<()> {
 }
 
 fn check() -> Result<()> {
-    run_cargo(&["fmt", "--all", "--", "--check"])?;
-    run_cargo(&["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"])?;
-    run_cargo(&["test", "--workspace"])?;
-    run_cargo(&["doc", "--workspace", "--no-deps"])?;
-    eprintln!("all checks passed ✓");
-    Ok(())
+    let steps: &[(&str, &[&str])] = &[
+        ("fmt", &["fmt", "--all", "--", "--check"]),
+        ("clippy", &["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]),
+        ("test", &["test", "--workspace"]),
+        ("doc-test", &["test", "--doc", "--workspace"]),
+    ];
+
+    let mut results: Vec<(&str, bool)> = Vec::new();
+    for (name, args) in steps {
+        let ok = run_cargo(args).is_ok();
+        results.push((name, ok));
+    }
+
+    eprintln!();
+    eprintln!("── summary ─────────────────────────");
+    let mut all_passed = true;
+    for (name, ok) in &results {
+        let icon = if *ok { "✓" } else { "✗" };
+        eprintln!("  {icon} {name}");
+        if !*ok {
+            all_passed = false;
+        }
+    }
+    eprintln!();
+
+    if all_passed {
+        eprintln!("all checks passed ✓");
+        Ok(())
+    } else {
+        anyhow::bail!("some checks failed");
+    }
 }
 
 // ── coverage ─────────────────────────────────────────────────────────
@@ -103,6 +141,112 @@ fn coverage() -> Result<()> {
         eprintln!("Then run:");
         eprintln!("  cargo tarpaulin --workspace --out html");
     }
+    Ok(())
+}
+
+// ── lint ──────────────────────────────────────────────────────────────
+
+fn lint() -> Result<()> {
+    run_cargo(&["fmt", "--all", "--", "--check"])?;
+    run_cargo(&["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"])?;
+    eprintln!("lint passed ✓");
+    Ok(())
+}
+
+// ── release-check ────────────────────────────────────────────────────
+
+fn release_check() -> Result<()> {
+    let root = workspace_root()?;
+    let ws_manifest = std::fs::read_to_string(root.join("Cargo.toml"))
+        .context("read workspace Cargo.toml")?;
+    let ws_doc: toml::Value = ws_manifest.parse().context("parse workspace Cargo.toml")?;
+
+    let ws_version = ws_doc
+        .get("workspace")
+        .and_then(|w| w.get("package"))
+        .and_then(|p| p.get("version"))
+        .and_then(|v| v.as_str())
+        .context("workspace.package.version not found")?;
+
+    let members = ws_doc
+        .get("workspace")
+        .and_then(|w| w.get("members"))
+        .and_then(|m| m.as_array())
+        .context("workspace.members not found")?;
+
+    let mut ok = true;
+    for member in members {
+        let Some(path) = member.as_str() else { continue };
+        let crate_toml_path = root.join(path).join("Cargo.toml");
+        if !crate_toml_path.exists() {
+            eprintln!("  ✗ {path}: Cargo.toml missing");
+            ok = false;
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&crate_toml_path)
+            .with_context(|| format!("read {}", crate_toml_path.display()))?;
+        let doc: toml::Value = content.parse()
+            .with_context(|| format!("parse {}", crate_toml_path.display()))?;
+
+        let pkg = doc.get("package");
+        let name = pkg
+            .and_then(|p| p.get("name"))
+            .and_then(|n| n.as_str())
+            .unwrap_or(path);
+
+        // Check required fields (may be inherited via `.workspace = true`)
+        for field in ["version", "edition", "license"] {
+            if pkg.and_then(|p| p.get(field)).is_none() {
+                eprintln!("  ✗ {name}: missing package.{field}");
+                ok = false;
+            }
+        }
+
+        // Check README exists
+        let readme_path = root.join(path).join("README.md");
+        if !readme_path.exists() {
+            eprintln!("  ✗ {name}: missing README.md");
+            ok = false;
+        }
+
+        // Check version consistency (explicit versions should match workspace)
+        if let Some(ver) = pkg
+            .and_then(|p| p.get("version"))
+            .and_then(|v| v.as_str())
+        {
+            if ver != ws_version {
+                eprintln!("  ✗ {name}: version {ver} != workspace {ws_version}");
+                ok = false;
+            }
+        }
+    }
+
+    if ok {
+        eprintln!("  ✓ all crates have required fields, README, and consistent versions");
+    }
+
+    // Dry-run packaging
+    eprintln!();
+    eprintln!("running cargo package --workspace --allow-dirty (dry-run)…");
+    run_cargo(&["package", "--workspace", "--allow-dirty", "--list"])?;
+
+    if !ok {
+        anyhow::bail!("release-check found issues");
+    }
+    eprintln!("release-check passed ✓");
+    Ok(())
+}
+
+// ── docs ─────────────────────────────────────────────────────────────
+
+fn docs(open: bool) -> Result<()> {
+    let mut args = vec!["doc", "--workspace", "--no-deps"];
+    if open {
+        args.push("--open");
+    }
+    run_cargo(&args)?;
+    eprintln!("docs built ✓");
     Ok(())
 }
 

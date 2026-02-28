@@ -17,7 +17,57 @@ fn check_subcommand_exists() {
         .arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("check").or(predicate::str::contains("Check")));
+        .stdout(predicate::str::contains("CI"));
+}
+
+#[test]
+fn lint_subcommand_exists() {
+    xtask()
+        .arg("lint")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("clippy").or(predicate::str::contains("formatting")));
+}
+
+#[test]
+fn release_check_subcommand_exists() {
+    xtask()
+        .arg("release-check")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("release").or(predicate::str::contains("readiness")));
+}
+
+#[test]
+fn docs_subcommand_exists() {
+    xtask()
+        .arg("docs")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("documentation"));
+}
+
+#[test]
+fn docs_has_open_flag() {
+    xtask()
+        .arg("docs")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--open"));
+}
+
+#[test]
+fn coverage_subcommand_exists() {
+    xtask()
+        .arg("coverage")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("coverage").or(predicate::str::contains("tarpaulin")));
 }
 
 #[test]
