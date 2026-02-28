@@ -4,6 +4,8 @@
 //!
 //! Process supervision + JSONL transport for sidecars.
 
+pub mod registry;
+
 use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use futures::Stream;

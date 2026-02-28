@@ -1,0 +1,19 @@
+---
+source: crates/abp-protocol/tests/golden_tests.rs
+expression: value
+---
+{
+  "backend": {
+    "adapter_version": "0.1.0",
+    "backend_version": "0.1.0",
+    "id": "test-sidecar"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_read": "native",
+    "tool_write": "emulated"
+  },
+  "contract_version": "abp/v0.1",
+  "mode": "passthrough",
+  "t": "hello"
+}

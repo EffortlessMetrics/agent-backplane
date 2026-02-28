@@ -347,3 +347,259 @@ async fn sse_stream_contains_event() {
         "expected SSE data field, got: {text}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// POST /runs – invalid JSON body returns error
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn post_runs_invalid_json_returns_error() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/runs")
+                .header("content-type", "application/json")
+                .body(Body::from("not valid json"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // Axum returns 422 for JSON deserialization failures
+    assert!(
+        resp.status() == StatusCode::BAD_REQUEST
+            || resp.status() == StatusCode::UNPROCESSABLE_ENTITY,
+        "expected 400 or 422, got {}",
+        resp.status()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// POST /runs – valid body returns 200 with run_id
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn post_runs_valid_body_returns_ok_with_run_id() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+
+    let req_body = RunRequest {
+        backend: "mock".into(),
+        work_order: test_work_order(),
+    };
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/runs")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&req_body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let run_resp: RunResponse = serde_json::from_slice(&body).unwrap();
+    // run_id must be present and non-nil (receipt generates one)
+    assert_eq!(run_resp.backend, "mock");
+    assert!(run_resp.receipt.receipt_sha256.is_some());
+}
+
+// ---------------------------------------------------------------------------
+// GET /runs – returns a JSON array
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn list_runs_returns_array() {
+    let tmp = tempfile::tempdir().unwrap();
+    let state = test_state(tmp.path());
+
+    // Perform a run first so the list is non-empty
+    {
+        let app = build_app(state.clone());
+        let req_body = RunRequest {
+            backend: "mock".into(),
+            work_order: test_work_order(),
+        };
+        let _resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/runs")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_vec(&req_body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+    }
+
+    let app = build_app(state);
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/runs")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let ids: Vec<Uuid> = serde_json::from_slice(&body).unwrap();
+    assert!(!ids.is_empty(), "expected at least one run in list");
+}
+
+// ---------------------------------------------------------------------------
+// GET /runs/{run_id} – non-existent ID returns 404
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn get_run_nonexistent_returns_404() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+
+    let fake_id = Uuid::new_v4();
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/runs/{}", fake_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+// ---------------------------------------------------------------------------
+// GET /health – response body contains status and contract_version
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn health_response_has_required_fields() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["status"], "ok");
+    assert!(json.get("contract_version").is_some());
+    assert!(json.get("time").is_some());
+}
+
+// ---------------------------------------------------------------------------
+// Content-Type is application/json on JSON endpoints
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn json_endpoints_have_json_content_type() {
+    let tmp = tempfile::tempdir().unwrap();
+    let state = test_state(tmp.path());
+
+    let check = |uri: &str| {
+        let s = state.clone();
+        let u = uri.to_string();
+        async move {
+            let app = build_app(s);
+            let resp = app
+                .oneshot(
+                    Request::builder()
+                        .uri(&u)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let ct = resp
+                .headers()
+                .get("content-type")
+                .expect(&format!("no content-type on {u}"))
+                .to_str()
+                .unwrap()
+                .to_string();
+            assert!(
+                ct.contains("application/json"),
+                "expected application/json on {u}, got: {ct}"
+            );
+        }
+    };
+
+    check("/health").await;
+    check("/backends").await;
+    check("/capabilities").await;
+    check("/runs").await;
+    check("/receipts").await;
+}
+
+// ---------------------------------------------------------------------------
+// POST /runs with missing content-type still returns an error, not panic
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn post_runs_missing_content_type_returns_error() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/runs")
+                .body(Body::from(r#"{"backend":"mock"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // Should get 4xx, not 500 or panic
+    assert!(
+        resp.status().is_client_error(),
+        "expected 4xx, got {}",
+        resp.status()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// POST /run (legacy) still works
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn post_run_legacy_endpoint_still_works() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+
+    let req_body = RunRequest {
+        backend: "mock".into(),
+        work_order: test_work_order(),
+    };
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/run")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&req_body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+}

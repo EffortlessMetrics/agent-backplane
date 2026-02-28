@@ -165,6 +165,107 @@ fn ensure_git_repo(path: &Path) {
         .status();
 }
 
+/// Builder for staged workspace creation.
+///
+/// Provides a fluent API as an alternative to [`WorkspaceManager::prepare`]
+/// for staged-only workflows where callers don't need pass-through mode.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use abp_workspace::WorkspaceStager;
+/// let ws = WorkspaceStager::new()
+///     .source_root("./my-project")
+///     .exclude(vec!["*.log".into()])
+///     .stage()
+///     .unwrap();
+/// println!("staged at: {}", ws.path().display());
+/// ```
+#[derive(Debug, Clone)]
+pub struct WorkspaceStager {
+    source_root: Option<PathBuf>,
+    include: Vec<String>,
+    exclude: Vec<String>,
+    git_init: bool,
+}
+
+impl Default for WorkspaceStager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WorkspaceStager {
+    /// Create a new builder with default settings (git init enabled, no glob filters).
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            source_root: None,
+            include: Vec::new(),
+            exclude: Vec::new(),
+            git_init: true,
+        }
+    }
+
+    /// Set the source directory to stage from.
+    #[must_use]
+    pub fn source_root(mut self, path: impl Into<PathBuf>) -> Self {
+        self.source_root = Some(path.into());
+        self
+    }
+
+    /// Set include glob patterns.
+    #[must_use]
+    pub fn include(mut self, patterns: Vec<String>) -> Self {
+        self.include = patterns;
+        self
+    }
+
+    /// Set exclude glob patterns.
+    #[must_use]
+    pub fn exclude(mut self, patterns: Vec<String>) -> Self {
+        self.exclude = patterns;
+        self
+    }
+
+    /// Whether to initialize a git repository in the staged workspace (default: `true`).
+    #[must_use]
+    pub fn with_git_init(mut self, init: bool) -> Self {
+        self.git_init = init;
+        self
+    }
+
+    /// Execute staging and return a [`PreparedWorkspace`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `source_root` was not set, the source directory does
+    /// not exist, glob patterns are invalid, or file copy fails.
+    pub fn stage(self) -> Result<PreparedWorkspace> {
+        let root = self
+            .source_root
+            .context("WorkspaceStager: source_root is required")?;
+        anyhow::ensure!(root.exists(), "source directory does not exist: {}", root.display());
+
+        let tmp = tempfile::tempdir().context("create temp dir")?;
+        let dest = tmp.path().to_path_buf();
+
+        let path_rules = IncludeExcludeGlobs::new(&self.include, &self.exclude)
+            .context("compile workspace include/exclude globs")?;
+
+        copy_workspace(&root, &dest, &path_rules)?;
+
+        if self.git_init {
+            ensure_git_repo(&dest);
+        }
+
+        Ok(PreparedWorkspace {
+            path: dest,
+            _temp: Some(tmp),
+        })
+    }
+}
+
 fn run_git(path: &Path, args: &[&str]) -> Result<String> {
     let out = Command::new("git")
         .args(args)

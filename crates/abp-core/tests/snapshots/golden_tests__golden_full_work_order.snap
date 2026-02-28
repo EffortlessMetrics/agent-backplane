@@ -1,0 +1,80 @@
+---
+source: crates/abp-core/tests/golden_tests.rs
+expression: full_work_order()
+---
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "task": "Refactor auth module",
+  "lane": "workspace_first",
+  "workspace": {
+    "root": "/tmp/ws",
+    "mode": "staged",
+    "include": [
+      "src/**"
+    ],
+    "exclude": [
+      "target/**"
+    ]
+  },
+  "context": {
+    "files": [
+      "README.md",
+      "src/lib.rs"
+    ],
+    "snippets": [
+      {
+        "name": "hint",
+        "content": "Use JWT for auth"
+      }
+    ]
+  },
+  "policy": {
+    "allowed_tools": [
+      "read",
+      "glob"
+    ],
+    "disallowed_tools": [
+      "bash"
+    ],
+    "deny_read": [
+      ".env"
+    ],
+    "deny_write": [
+      "Cargo.lock"
+    ],
+    "allow_network": [
+      "api.example.com"
+    ],
+    "deny_network": [
+      "evil.com"
+    ],
+    "require_approval_for": [
+      "write"
+    ]
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "streaming",
+        "min_support": "native"
+      },
+      {
+        "capability": "tool_read",
+        "min_support": "emulated"
+      }
+    ]
+  },
+  "config": {
+    "model": "gpt-4",
+    "vendor": {
+      "abp": {
+        "mode": "mapped"
+      }
+    },
+    "env": {
+      "RUST_LOG": "debug"
+    },
+    "max_budget_usd": 5.0,
+    "max_turns": 20
+  }
+}

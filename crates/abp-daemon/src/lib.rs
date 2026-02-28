@@ -84,6 +84,8 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .route("/backends", get(cmd_backends))
         .route("/capabilities", get(cmd_capabilities))
         .route("/run", post(cmd_run))
+        .route("/runs", get(cmd_list_runs).post(cmd_run))
+        .route("/runs/{run_id}", get(cmd_get_run))
         .route("/receipts", get(cmd_list_receipts))
         .route("/receipts/{run_id}", get(cmd_get_receipt))
         .route("/runs/{run_id}/events", get(cmd_run_events))
@@ -169,6 +171,29 @@ async fn cmd_run(
         events,
         receipt,
     }))
+}
+
+async fn cmd_list_runs(
+    State(state): State<Arc<AppState>>,
+) -> Json<Vec<Uuid>> {
+    let mut ids: Vec<Uuid> = state.receipts.read().await.keys().cloned().collect();
+    ids.sort_unstable();
+    Json(ids)
+}
+
+async fn cmd_get_run(
+    AxPath(run_id): AxPath<Uuid>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let guard = state.receipts.read().await;
+    let receipt = guard
+        .get(&run_id)
+        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "run not found"))?;
+    Ok(Json(json!({
+        "run_id": run_id,
+        "status": "completed",
+        "receipt": receipt,
+    })))
 }
 
 async fn cmd_run_events(
