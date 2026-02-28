@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
+exclude = ["fuzz"]
 members = [
   "crates/abp-glob",
   "crates/abp-core",
@@ -49,3 +50,4 @@ tempfile = "3.26.0"
 insta = { version = "1", features = ["json"] }
 toml = "0.8"
 proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }

@@ -1,0 +1,29 @@
+[package]
+name = "abp-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+abp-core = { path = "../crates/abp-core" }
+abp-protocol = { path = "../crates/abp-protocol" }
+serde_json = "1"
+
+[[bin]]
+name = "fuzz_work_order"
+path = "fuzz_targets/fuzz_work_order.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_envelope"
+path = "fuzz_targets/fuzz_envelope.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt"
+path = "fuzz_targets/fuzz_receipt.rs"
+doc = false
