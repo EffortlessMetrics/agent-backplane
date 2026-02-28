@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Orchestration engine for Agent Backplane — workspace, backend, and event multiplexing"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "runtime", "orchestration"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }
