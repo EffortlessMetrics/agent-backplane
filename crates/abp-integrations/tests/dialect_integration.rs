@@ -72,6 +72,8 @@ mod claude {
             usage: Some(ClaudeUsage {
                 input_tokens: 100,
                 output_tokens: 50,
+                cache_creation_input_tokens: None,
+                cache_read_input_tokens: None,
             }),
         };
         let events = map_response(&resp);
