@@ -3,7 +3,7 @@
 //! Validates workspace metadata, documentation, licensing, and structural
 //! requirements that must be satisfied before publishing a release.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -593,5 +593,170 @@ fn root_package_not_publishable() {
     assert!(
         !publish,
         "Root workspace package should have publish = false"
+    );
+}
+
+// ── 24. All crates have readme ──────────────────────────────────────────
+
+#[test]
+fn all_crates_have_readme() {
+    let root = workspace_root();
+    let skip = build_tool_names();
+    let mut missing = Vec::new();
+
+    for dir in workspace_member_dirs() {
+        let ct = read_toml(&root.join(&dir).join("Cargo.toml"));
+        let name = ct["package"]["name"].as_str().unwrap_or("?").to_string();
+        if skip.contains(name.as_str()) {
+            continue;
+        }
+
+        let has_readme_field = ct["package"]
+            .get("readme")
+            .and_then(|v| v.as_str())
+            .is_some_and(|s| !s.is_empty());
+        let has_readme_file = root.join(&dir).join("README.md").exists();
+
+        if !has_readme_field && !has_readme_file {
+            missing.push(name);
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "Crates missing readme field or README.md: {missing:?}"
+    );
+}
+
+// ── 25. No circular dependencies ────────────────────────────────────────
+
+#[test]
+fn no_circular_dependencies() {
+    let root = workspace_root();
+
+    // Build name → [dependency names] graph for workspace crates only
+    let mut names: HashSet<String> = HashSet::new();
+    let mut graph: HashMap<String, Vec<String>> = HashMap::new();
+
+    for dir in workspace_member_dirs() {
+        let ct = read_toml(&root.join(&dir).join("Cargo.toml"));
+        let name = ct["package"]["name"].as_str().unwrap_or("?").to_string();
+        names.insert(name.clone());
+        graph.entry(name).or_default();
+    }
+
+    for dir in workspace_member_dirs() {
+        let ct = read_toml(&root.join(&dir).join("Cargo.toml"));
+        let name = ct["package"]["name"].as_str().unwrap_or("?").to_string();
+
+        // dev-dependencies may form cycles legitimately
+        for section in ["dependencies", "build-dependencies"] {
+            if let Some(deps) = ct.get(section).and_then(|v| v.as_table()) {
+                for dep_name in deps.keys() {
+                    if names.contains(dep_name) {
+                        graph
+                            .entry(name.clone())
+                            .or_default()
+                            .push(dep_name.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    // BFS cycle detection for each node
+    let mut cycles = Vec::new();
+    for start in &names {
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+        if let Some(deps) = graph.get(start) {
+            for d in deps {
+                queue.push_back((d.clone(), vec![start.clone(), d.clone()]));
+            }
+        }
+        while let Some((node, path)) = queue.pop_front() {
+            if &node == start {
+                cycles.push(path);
+                break;
+            }
+            if !visited.insert(node.clone()) {
+                continue;
+            }
+            if let Some(deps) = graph.get(&node) {
+                for d in deps {
+                    let mut p = path.clone();
+                    p.push(d.clone());
+                    queue.push_back((d.clone(), p));
+                }
+            }
+        }
+    }
+    assert!(
+        cycles.is_empty(),
+        "Circular dependencies detected: {cycles:?}"
+    );
+}
+
+// ── 26. Expected workspace members ──────────────────────────────────────
+
+#[test]
+fn expected_crates_are_workspace_members() {
+    let members = workspace_member_dirs();
+    let member_names: Vec<String> = {
+        let root = workspace_root();
+        members
+            .iter()
+            .map(|dir| {
+                let ct = read_toml(&root.join(dir).join("Cargo.toml"));
+                ct["package"]["name"].as_str().unwrap_or("?").to_string()
+            })
+            .collect()
+    };
+    let member_set: HashSet<&str> = member_names.iter().map(|s| s.as_str()).collect();
+
+    let expected = [
+        // core layer
+        "abp-core",
+        "abp-protocol",
+        "abp-host",
+        "abp-glob",
+        "abp-workspace",
+        "abp-policy",
+        // backend layer
+        "abp-backend-core",
+        "abp-backend-mock",
+        "abp-backend-sidecar",
+        // integration / runtime
+        "abp-integrations",
+        "abp-runtime",
+        "abp-cli",
+        "abp-daemon",
+        // SDK shims
+        "abp-openai-sdk",
+        "abp-claude-sdk",
+        "abp-gemini-sdk",
+        "abp-codex-sdk",
+        "abp-kimi-sdk",
+        "abp-copilot-sdk",
+        // new crates
+        "abp-emulation",
+        "abp-telemetry",
+        "abp-dialect",
+        // sidecar / bridge
+        "abp-sidecar-sdk",
+        "abp-git",
+        "sidecar-kit",
+        "claude-bridge",
+    ];
+
+    let mut missing: Vec<&str> = expected
+        .iter()
+        .filter(|name| !member_set.contains(**name))
+        .copied()
+        .collect();
+    missing.sort();
+
+    assert!(
+        missing.is_empty(),
+        "Expected crates missing from workspace members: {missing:?}"
     );
 }

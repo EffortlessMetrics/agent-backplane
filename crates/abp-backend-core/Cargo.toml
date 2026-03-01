@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
 description = "Shared backend trait and capability helpers for the Agent Backplane"
 keywords = ["agent", "backplane", "backend", "ai", "trait"]
 categories = ["development-tools"]

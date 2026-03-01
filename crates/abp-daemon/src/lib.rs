@@ -2,6 +2,8 @@
 #![doc = include_str!("../README.md")]
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
+/// HTTP control-plane API types and handler signatures.
+pub mod api;
 /// Middleware stack for the daemon HTTP API.
 pub mod middleware;
 /// Priority-based run queue.
@@ -57,6 +59,8 @@ pub enum RunStatus {
         /// Error description.
         error: String,
     },
+    /// The run was cancelled by a user request.
+    Cancelled,
 }
 
 /// Tracks active and finished runs with their current status.
@@ -108,6 +112,19 @@ impl RunTracker {
         Ok(())
     }
 
+    /// Cancel a run. Only pending or running runs can be cancelled.
+    pub async fn cancel_run(&self, run_id: Uuid) -> anyhow::Result<()> {
+        let mut guard = self.runs.write().await;
+        match guard.get(&run_id) {
+            None => anyhow::bail!("run {run_id} is not tracked"),
+            Some(RunStatus::Pending) | Some(RunStatus::Running) => {
+                guard.insert(run_id, RunStatus::Cancelled);
+                Ok(())
+            }
+            Some(_) => anyhow::bail!("run {run_id} is already in a terminal state"),
+        }
+    }
+
     /// Return the current status of a run, or `None` if not tracked.
     pub async fn get_run_status(&self, run_id: Uuid) -> Option<RunStatus> {
         self.runs.read().await.get(&run_id).cloned()
@@ -120,7 +137,9 @@ impl RunTracker {
         match guard.get(&run_id) {
             None => Err("not found"),
             Some(RunStatus::Running) | Some(RunStatus::Pending) => Err("conflict"),
-            Some(_) => Ok(guard.remove(&run_id).unwrap()),
+            Some(RunStatus::Completed { .. })
+            | Some(RunStatus::Failed { .. })
+            | Some(RunStatus::Cancelled) => Ok(guard.remove(&run_id).unwrap()),
         }
     }
 
@@ -247,6 +266,7 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .route("/runs", get(cmd_list_runs).post(cmd_run))
         .route("/runs/{run_id}", get(cmd_get_run).delete(cmd_delete_run))
         .route("/runs/{run_id}/receipt", get(cmd_get_run_receipt))
+        .route("/runs/{run_id}/cancel", post(cmd_cancel_run))
         .route("/receipts", get(cmd_list_receipts))
         .route("/receipts/{run_id}", get(cmd_get_receipt))
         .route("/runs/{run_id}/events", get(cmd_run_events))
@@ -271,7 +291,7 @@ async fn cmd_metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         match status {
             RunStatus::Pending | RunStatus::Running => running += 1,
             RunStatus::Completed { .. } => completed += 1,
-            RunStatus::Failed { .. } => failed += 1,
+            RunStatus::Failed { .. } | RunStatus::Cancelled => failed += 1,
         }
     }
     // Include receipts that may not be in the tracker (legacy runs).
@@ -480,6 +500,19 @@ async fn cmd_get_run_receipt(
         return Ok(Json(receipt));
     }
     Err(ApiError::new(StatusCode::NOT_FOUND, "run not found"))
+}
+
+async fn cmd_cancel_run(
+    AxPath(run_id): AxPath<Uuid>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    state
+        .run_tracker
+        .cancel_run(run_id)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::CONFLICT, e.to_string()))?;
+    info!(run_id = %run_id, "run cancelled");
+    Ok(Json(json!({ "run_id": run_id, "status": "cancelled" })))
 }
 
 async fn cmd_config(State(state): State<Arc<AppState>>) -> impl IntoResponse {

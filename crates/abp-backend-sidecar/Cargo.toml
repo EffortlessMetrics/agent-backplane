@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
 description = "Sidecar backend adapter for JSONL protocol agents in the Agent Backplane"
 keywords = ["agent", "backplane", "sidecar", "backend", "jsonl"]
 categories = ["development-tools"]

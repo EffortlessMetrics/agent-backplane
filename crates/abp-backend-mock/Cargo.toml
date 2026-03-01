@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
 description = "Mock backend implementation for local testing of the Agent Backplane"
 keywords = ["agent", "backplane", "mock", "testing", "backend"]
 categories = ["development-tools"]
