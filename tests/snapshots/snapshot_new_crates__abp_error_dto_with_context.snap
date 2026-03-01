@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: dto
+---
+{
+  "code": "BACKEND_TIMEOUT",
+  "message": "timed out after 30s",
+  "context": {
+    "backend": "sidecar:claude",
+    "retries": 3,
+    "timeout_ms": 30000
+  }
+}

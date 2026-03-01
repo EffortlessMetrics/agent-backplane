@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: info
+---
+{
+  "id": "00000000-0000-4000-8000-000000000001",
+  "status": "running",
+  "backend": "sidecar:claude",
+  "created_at": "2025-01-15T12:00:00Z",
+  "events_count": 42
+}

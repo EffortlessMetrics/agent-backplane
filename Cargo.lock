@@ -44,6 +44,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-capability"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-claude-sdk"
 version = "0.1.0"
 dependencies = [
@@ -181,6 +190,15 @@ dependencies = [
  "abp-core",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "abp-error"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -322,6 +340,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-receipt"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "chrono",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+ "uuid",
+]
+
+[[package]]
 name = "abp-runtime"
 version = "0.1.0"
 dependencies = [
@@ -392,9 +424,12 @@ dependencies = [
  "abp-claude-sdk",
  "abp-cli",
  "abp-codex-sdk",
+ "abp-copilot-sdk",
  "abp-core",
  "abp-daemon",
+ "abp-dialect",
  "abp-emulation",
+ "abp-error",
  "abp-gemini-sdk",
  "abp-glob",
  "abp-host",

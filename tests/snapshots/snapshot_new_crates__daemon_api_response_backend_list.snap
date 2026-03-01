@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: resp
+---
+{
+  "type": "backend_list",
+  "backends": [
+    {
+      "id": "mock",
+      "capabilities": {}
+    }
+  ]
+}

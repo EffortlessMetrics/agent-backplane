@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: entry
+---
+{
+  "capability": "extended_thinking",
+  "strategy": {
+    "type": "system_prompt_injection",
+    "prompt": "Think carefully."
+  }
+}

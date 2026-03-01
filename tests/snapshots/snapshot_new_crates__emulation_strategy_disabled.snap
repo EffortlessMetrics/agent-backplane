@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: s
+---
+{
+  "type": "disabled",
+  "reason": "Cannot safely emulate sandboxed code execution"
+}

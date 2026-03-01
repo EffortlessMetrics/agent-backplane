@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: span
+---
+{
+  "name": "agent.run",
+  "attributes": {
+    "backend": "sidecar:claude",
+    "dialect": "claude",
+    "run_id": "00000000-0000-4000-8000-000000000001"
+  }
+}

@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: dto
+---
+{
+  "code": "CONFIG_INVALID",
+  "message": "bad config",
+  "context": {
+    "details": {
+      "column": 5,
+      "line": 42
+    },
+    "file": "backplane.toml"
+  }
+}

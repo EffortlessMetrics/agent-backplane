@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: err
+---
+{
+  "code": "invalid_request",
+  "message": "validation failed",
+  "details": {
+    "field": "work_order.task",
+    "reason": "must not be empty"
+  }
+}

@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_protocol.rs
+expression: env
+---
+{
+  "t": "event",
+  "ref_id": "00000000-0000-4000-8000-000000000001",
+  "event": {
+    "ts": "2025-01-15T12:00:00Z",
+    "type": "tool_result",
+    "tool_name": "read_file",
+    "tool_use_id": "tu_001",
+    "output": "fn main() { println!(\"hello\"); }",
+    "is_error": false
+  }
+}

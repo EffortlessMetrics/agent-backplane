@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: m
+---
+{
+  "backend_name": "",
+  "dialect": "",
+  "duration_ms": 0,
+  "events_count": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "tool_calls_count": 0,
+  "errors_count": 0,
+  "emulations_applied": 0
+}

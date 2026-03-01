@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_protocol.rs
+expression: s
+---
+{
+  "type": "failed",
+  "error": "invalid JSON: unexpected token"
+}

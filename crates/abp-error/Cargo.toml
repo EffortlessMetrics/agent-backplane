@@ -1,0 +1,19 @@
+[package]
+name = "abp-error"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Unified error taxonomy with stable error codes for the Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "error", "taxonomy"]
+categories = ["development-tools"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

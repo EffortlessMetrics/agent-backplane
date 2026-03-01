@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: s
+---
+{
+  "type": "post_processing",
+  "detail": "Parse and validate JSON from text response"
+}

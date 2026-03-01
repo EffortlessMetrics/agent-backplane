@@ -1,0 +1,23 @@
+---
+source: tests/snapshot_protocol.rs
+expression: json_str
+---
+{
+  "t": "hello",
+  "contract_version": "abp/v0.1",
+  "backend": {
+    "id": "sidecar:gemini",
+    "backend_version": "2.0.0",
+    "adapter_version": "0.2.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_read": "native",
+    "tool_write": "native",
+    "structured_output_json_schema": "emulated",
+    "tool_use": "native",
+    "extended_thinking": "emulated",
+    "code_execution": "unsupported"
+  },
+  "mode": "mapped"
+}

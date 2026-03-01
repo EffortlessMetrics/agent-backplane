@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: json_str
+---
+{
+  "id": "mock",
+  "capabilities": {
+    "streaming": "native",
+    "tool_use": "native",
+    "extended_thinking": "emulated"
+  }
+}

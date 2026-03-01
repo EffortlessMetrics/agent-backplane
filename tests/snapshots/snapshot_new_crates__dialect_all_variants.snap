@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: dialects
+---
+[
+  "open_ai",
+  "claude",
+  "gemini",
+  "codex",
+  "kimi",
+  "copilot"
+]

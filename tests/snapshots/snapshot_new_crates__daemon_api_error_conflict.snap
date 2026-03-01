@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: err
+---
+{
+  "code": "conflict",
+  "message": "run is already in a terminal state"
+}

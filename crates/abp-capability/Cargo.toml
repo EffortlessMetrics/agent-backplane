@@ -1,0 +1,18 @@
+[package]
+name = "abp-capability"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Capability negotiation between work-order requirements and backend manifests"
+readme = "README.md"
+keywords = ["agent", "backplane", "capability", "negotiation"]
+categories = ["development-tools"]
+
+[dependencies]
+abp-core = { path = "../abp-core" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
