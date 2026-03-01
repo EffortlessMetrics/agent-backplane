@@ -501,11 +501,14 @@ async fn cmd_ws(ws: WebSocketUpgrade) -> impl IntoResponse {
     ws.on_upgrade(handle_ws)
 }
 
+#[allow(clippy::collapsible_match)]
 async fn handle_ws(mut socket: WebSocket) {
     while let Some(Ok(msg)) = socket.recv().await {
         match msg {
-            Message::Text(text) if socket.send(Message::Text(text)).await.is_err() => {
-                break;
+            Message::Text(text) => {
+                if socket.send(Message::Text(text)).await.is_err() {
+                    break;
+                }
             }
             Message::Close(_) => break,
             _ => {}

@@ -36,6 +36,8 @@ fn snapshot_mapped_response_events() {
         usage: Some(ClaudeUsage {
             input_tokens: 120,
             output_tokens: 35,
+            cache_creation_input_tokens: None,
+            cache_read_input_tokens: None,
         }),
     };
     let events: Vec<_> = map_response(&resp).into_iter().map(|e| e.kind).collect();

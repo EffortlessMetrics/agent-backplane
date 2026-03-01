@@ -25,6 +25,9 @@ const KNOWN_MODELS: &[&str] = &[
     "claude-sonnet-3-5-20241022",
     "claude-3-5-haiku-latest",
     "claude-sonnet-4-latest",
+    "claude-opus-4-latest",
+    "claude-4-20250714",
+    "claude-4-latest",
 ];
 
 /// Map a vendor model name to the ABP canonical form (`anthropic/<model>`).
@@ -164,7 +167,7 @@ pub struct ClaudeMessage {
 }
 
 /// Simplified representation of an Anthropic Messages API response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ClaudeResponse {
     pub id: String,
     pub model: String,
@@ -175,7 +178,7 @@ pub struct ClaudeResponse {
 }
 
 /// A content block in a Claude response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeContentBlock {
     Text {
@@ -186,13 +189,129 @@ pub enum ClaudeContentBlock {
         name: String,
         input: serde_json::Value,
     },
+    ToolResult {
+        tool_use_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        content: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        is_error: Option<bool>,
+    },
+    Thinking {
+        thinking: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        signature: Option<String>,
+    },
+    Image {
+        source: ClaudeImageSource,
+    },
+}
+
+/// Image source for an image content block.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ClaudeImageSource {
+    Base64 { media_type: String, data: String },
+    Url { url: String },
+}
+
+/// System prompt block with optional cache control.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ClaudeSystemBlock {
+    Text {
+        text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cache_control: Option<ClaudeCacheControl>,
+    },
+}
+
+/// Cache control directive for prompt caching.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ClaudeCacheControl {
+    #[serde(rename = "type")]
+    pub cache_type: String,
+}
+
+impl ClaudeCacheControl {
+    /// Create an "ephemeral" cache control (the most common variant).
+    #[must_use]
+    pub fn ephemeral() -> Self {
+        Self {
+            cache_type: "ephemeral".into(),
+        }
+    }
 }
 
 /// Token usage reported by the Anthropic API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ClaudeUsage {
     pub input_tokens: u64,
     pub output_tokens: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_creation_input_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read_input_tokens: Option<u64>,
+}
+
+// ---------------------------------------------------------------------------
+// Streaming event types
+// ---------------------------------------------------------------------------
+
+/// Server-sent event types from the Anthropic streaming API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ClaudeStreamEvent {
+    MessageStart {
+        message: ClaudeResponse,
+    },
+    ContentBlockStart {
+        index: u32,
+        content_block: ClaudeContentBlock,
+    },
+    ContentBlockDelta {
+        index: u32,
+        delta: ClaudeStreamDelta,
+    },
+    ContentBlockStop {
+        index: u32,
+    },
+    MessageDelta {
+        delta: ClaudeMessageDelta,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        usage: Option<ClaudeUsage>,
+    },
+    MessageStop {},
+    Ping {},
+    Error {
+        error: ClaudeApiError,
+    },
+}
+
+/// Delta payload within a `content_block_delta` streaming event.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ClaudeStreamDelta {
+    TextDelta { text: String },
+    InputJsonDelta { partial_json: String },
+    ThinkingDelta { thinking: String },
+    SignatureDelta { signature: String },
+}
+
+/// Delta payload within a `message_delta` streaming event.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ClaudeMessageDelta {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_sequence: Option<String>,
+}
+
+/// Error object returned by the Anthropic API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ClaudeApiError {
+    #[serde(rename = "type")]
+    pub error_type: String,
+    pub message: String,
 }
 
 /// Map an ABP [`WorkOrder`] to a [`ClaudeRequest`].
@@ -254,10 +373,94 @@ pub fn map_response(resp: &ClaudeResponse) -> Vec<AgentEvent> {
                     ext: None,
                 });
             }
+            ClaudeContentBlock::ToolResult {
+                tool_use_id,
+                content,
+                is_error,
+            } => {
+                events.push(AgentEvent {
+                    ts: now,
+                    kind: AgentEventKind::ToolResult {
+                        tool_name: String::new(),
+                        tool_use_id: Some(tool_use_id.clone()),
+                        output: serde_json::Value::String(content.clone().unwrap_or_default()),
+                        is_error: is_error.unwrap_or(false),
+                    },
+                    ext: None,
+                });
+            }
+            // Thinking and Image blocks don't map to standard ABP events.
+            ClaudeContentBlock::Thinking { .. } | ClaudeContentBlock::Image { .. } => {}
         }
     }
 
     events
+}
+
+/// Map a single [`ClaudeStreamEvent`] to zero or more ABP [`AgentEvent`]s.
+pub fn map_stream_event(event: &ClaudeStreamEvent) -> Vec<AgentEvent> {
+    let now = Utc::now();
+
+    match event {
+        ClaudeStreamEvent::ContentBlockDelta {
+            delta: ClaudeStreamDelta::TextDelta { text },
+            ..
+        } => {
+            vec![AgentEvent {
+                ts: now,
+                kind: AgentEventKind::AssistantDelta { text: text.clone() },
+                ext: None,
+            }]
+        }
+        ClaudeStreamEvent::MessageStart { .. } => {
+            vec![AgentEvent {
+                ts: now,
+                kind: AgentEventKind::RunStarted {
+                    message: "Claude stream started".into(),
+                },
+                ext: None,
+            }]
+        }
+        ClaudeStreamEvent::MessageStop {} => {
+            vec![AgentEvent {
+                ts: now,
+                kind: AgentEventKind::RunCompleted {
+                    message: "Claude stream completed".into(),
+                },
+                ext: None,
+            }]
+        }
+        ClaudeStreamEvent::Error { error } => {
+            vec![AgentEvent {
+                ts: now,
+                kind: AgentEventKind::Error {
+                    message: format!("{}: {}", error.error_type, error.message),
+                },
+                ext: None,
+            }]
+        }
+        // Other event types (ping, content_block_start/stop, message_delta) are structural
+        // and don't produce ABP events.
+        _ => vec![],
+    }
+}
+
+/// Create a Claude `tool_result` message from ABP tool result data.
+///
+/// Returns a [`ClaudeMessage`] with role `"user"` containing a single
+/// `tool_result` content block, matching the Anthropic Messages API format.
+#[must_use]
+pub fn map_tool_result(tool_use_id: &str, output: &str, is_error: bool) -> ClaudeMessage {
+    let block = ClaudeContentBlock::ToolResult {
+        tool_use_id: tool_use_id.to_string(),
+        content: Some(output.to_string()),
+        is_error: if is_error { Some(true) } else { None },
+    };
+    let content = serde_json::to_string(&vec![block]).unwrap_or_default();
+    ClaudeMessage {
+        role: "user".into(),
+        content,
+    }
 }
 
 #[cfg(test)]
