@@ -78,16 +78,22 @@ pub fn capability_manifest() -> CapabilityManifest {
 /// A vendor-agnostic tool definition used as the ABP canonical form.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CanonicalToolDef {
+    /// Tool name.
     pub name: String,
+    /// Human-readable description of the tool.
     pub description: String,
+    /// JSON Schema describing the tool's parameters.
     pub parameters_schema: serde_json::Value,
 }
 
 /// Gemini-style function declaration.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GeminiFunctionDeclaration {
+    /// Function name.
     pub name: String,
+    /// Human-readable description.
     pub description: String,
+    /// JSON Schema for the function parameters.
     pub parameters: serde_json::Value,
 }
 
@@ -145,16 +151,23 @@ impl Default for GeminiConfig {
 /// Simplified representation of a Gemini generateContent request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeminiRequest {
+    /// Model identifier (e.g. `gemini-2.5-flash`).
     pub model: String,
+    /// Conversation content blocks.
     pub contents: Vec<GeminiContent>,
+    /// Optional system instruction content.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system_instruction: Option<GeminiContent>,
+    /// Generation configuration parameters.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub generation_config: Option<GeminiGenerationConfig>,
+    /// Safety settings for content filtering.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub safety_settings: Option<Vec<GeminiSafetySetting>>,
+    /// Tool definitions available to the model.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<GeminiTool>>,
+    /// Function-calling configuration.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_config: Option<GeminiToolConfig>,
 }
@@ -162,7 +175,9 @@ pub struct GeminiRequest {
 /// A content block in the Gemini API format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeminiContent {
+    /// Role of the content author (`user` or `model`).
     pub role: String,
+    /// Content parts.
     pub parts: Vec<GeminiPart>,
 }
 
@@ -170,7 +185,9 @@ pub struct GeminiContent {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiInlineData {
+    /// MIME type of the data (e.g. `image/png`).
     pub mime_type: String,
+    /// Base64-encoded binary data.
     pub data: String,
 }
 
@@ -178,14 +195,22 @@ pub struct GeminiInlineData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GeminiPart {
+    /// Plain text content.
     Text(String),
+    /// Inline binary data (e.g. images).
     InlineData(GeminiInlineData),
+    /// A function call requested by the model.
     FunctionCall {
+        /// Name of the function to invoke.
         name: String,
+        /// Arguments as a JSON value.
         args: serde_json::Value,
     },
+    /// A function response returned to the model.
     FunctionResponse {
+        /// Name of the function that was called.
         name: String,
+        /// The function's response payload.
         response: serde_json::Value,
     },
 }
@@ -194,16 +219,22 @@ pub enum GeminiPart {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiGenerationConfig {
+    /// Maximum number of output tokens.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
+    /// Sampling temperature.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
+    /// Top-p (nucleus) sampling parameter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f64>,
+    /// Top-k sampling parameter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_k: Option<u32>,
+    /// MIME type for the response (e.g. `application/json`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_mime_type: Option<String>,
+    /// JSON Schema for structured output.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_schema: Option<serde_json::Value>,
 }
@@ -211,7 +242,9 @@ pub struct GeminiGenerationConfig {
 /// Simplified representation of a Gemini generateContent response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeminiResponse {
+    /// Response candidates from the model.
     pub candidates: Vec<GeminiCandidate>,
+    /// Token usage metadata.
     #[serde(default)]
     pub usage_metadata: Option<GeminiUsageMetadata>,
 }
@@ -219,11 +252,15 @@ pub struct GeminiResponse {
 /// A candidate completion in a Gemini response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeminiCandidate {
+    /// The generated content.
     pub content: GeminiContent,
+    /// Reason the model stopped generating (e.g. `STOP`).
     #[serde(default)]
     pub finish_reason: Option<String>,
+    /// Safety ratings for this candidate.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub safety_ratings: Option<Vec<GeminiSafetyRating>>,
+    /// Citation metadata for grounded content.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub citation_metadata: Option<GeminiCitationMetadata>,
 }
@@ -232,8 +269,11 @@ pub struct GeminiCandidate {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiUsageMetadata {
+    /// Tokens consumed by the prompt.
     pub prompt_token_count: u64,
+    /// Tokens generated across all candidates.
     pub candidates_token_count: u64,
+    /// Total tokens (prompt + candidates).
     pub total_token_count: u64,
 }
 
@@ -245,10 +285,15 @@ pub struct GeminiUsageMetadata {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum HarmCategory {
+    /// Harassment content.
     HarmCategoryHarassment,
+    /// Hate speech content.
     HarmCategoryHateSpeech,
+    /// Sexually explicit content.
     HarmCategorySexuallyExplicit,
+    /// Dangerous content.
     HarmCategoryDangerousContent,
+    /// Civic integrity content.
     HarmCategoryCivicIntegrity,
 }
 
@@ -256,9 +301,13 @@ pub enum HarmCategory {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum HarmBlockThreshold {
+    /// Do not block any content.
     BlockNone,
+    /// Block low-probability harmful content and above.
     BlockLowAndAbove,
+    /// Block medium-probability harmful content and above.
     BlockMediumAndAbove,
+    /// Only block high-probability harmful content.
     BlockOnlyHigh,
 }
 
@@ -266,7 +315,9 @@ pub enum HarmBlockThreshold {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiSafetySetting {
+    /// The harm category to configure.
     pub category: HarmCategory,
+    /// The blocking threshold for this category.
     pub threshold: HarmBlockThreshold,
 }
 
@@ -274,9 +325,13 @@ pub struct GeminiSafetySetting {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum HarmProbability {
+    /// Negligible probability of harm.
     Negligible,
+    /// Low probability of harm.
     Low,
+    /// Medium probability of harm.
     Medium,
+    /// High probability of harm.
     High,
 }
 
@@ -284,7 +339,9 @@ pub enum HarmProbability {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiSafetyRating {
+    /// The evaluated harm category.
     pub category: HarmCategory,
+    /// Assessed probability of harm.
     pub probability: HarmProbability,
 }
 
@@ -296,6 +353,7 @@ pub struct GeminiSafetyRating {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiGroundingConfig {
+    /// Google Search retrieval configuration.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub google_search_retrieval: Option<GoogleSearchRetrieval>,
 }
@@ -304,6 +362,7 @@ pub struct GeminiGroundingConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GoogleSearchRetrieval {
+    /// Dynamic retrieval configuration.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dynamic_retrieval_config: Option<DynamicRetrievalConfig>,
 }
@@ -312,7 +371,9 @@ pub struct GoogleSearchRetrieval {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct DynamicRetrievalConfig {
+    /// Retrieval mode (e.g. `MODE_DYNAMIC`).
     pub mode: String,
+    /// Confidence threshold for dynamic retrieval.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dynamic_threshold: Option<f64>,
 }
@@ -325,6 +386,7 @@ pub struct DynamicRetrievalConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiTool {
+    /// Function declarations available to the model.
     pub function_declarations: Vec<GeminiFunctionDeclaration>,
 }
 
@@ -332,8 +394,11 @@ pub struct GeminiTool {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum FunctionCallingMode {
+    /// Model decides whether to call functions.
     Auto,
+    /// Model must call at least one function.
     Any,
+    /// Model must not call any functions.
     None,
 }
 
@@ -341,6 +406,7 @@ pub enum FunctionCallingMode {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiToolConfig {
+    /// Function-calling behaviour configuration.
     pub function_calling_config: GeminiFunctionCallingConfig,
 }
 
@@ -348,7 +414,9 @@ pub struct GeminiToolConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiFunctionCallingConfig {
+    /// The function-calling mode.
     pub mode: FunctionCallingMode,
+    /// Restrict calls to these function names, if set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowed_function_names: Option<Vec<String>>,
 }
@@ -361,6 +429,7 @@ pub struct GeminiFunctionCallingConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiCitationMetadata {
+    /// Individual citation sources.
     pub citation_sources: Vec<GeminiCitationSource>,
 }
 
@@ -368,12 +437,16 @@ pub struct GeminiCitationMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiCitationSource {
+    /// Start index of the cited span in the output.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start_index: Option<u32>,
+    /// End index of the cited span in the output.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end_index: Option<u32>,
+    /// URI of the citation source.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
+    /// License of the cited content.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub license: Option<String>,
 }
@@ -385,8 +458,10 @@ pub struct GeminiCitationSource {
 /// A single chunk in a streaming Gemini response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeminiStreamChunk {
+    /// Response candidates in this chunk.
     #[serde(default)]
     pub candidates: Vec<GeminiCandidate>,
+    /// Token usage metadata (usually in the final chunk).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usage_metadata: Option<GeminiUsageMetadata>,
 }

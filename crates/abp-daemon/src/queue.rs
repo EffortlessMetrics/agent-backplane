@@ -9,20 +9,30 @@ use std::fmt;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QueuePriority {
+    /// Lowest priority.
     Low,
+    /// Default priority.
     Normal,
+    /// Elevated priority.
     High,
+    /// Highest priority — processed before all others.
     Critical,
 }
 
 /// A work-order run waiting in the queue.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QueuedRun {
+    /// Unique queue entry identifier.
     pub id: String,
+    /// Associated work order identifier.
     pub work_order_id: String,
+    /// Priority level for scheduling.
     pub priority: QueuePriority,
+    /// ISO-8601 timestamp when the run was enqueued.
     pub queued_at: String,
+    /// Target backend name, if specified.
     pub backend: Option<String>,
+    /// Arbitrary key-value metadata.
     pub metadata: BTreeMap<String, String>,
 }
 
@@ -49,8 +59,11 @@ impl std::error::Error for QueueError {}
 /// Snapshot statistics for a [`RunQueue`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QueueStats {
+    /// Number of items currently in the queue.
     pub total: usize,
+    /// Maximum queue capacity.
     pub max: usize,
+    /// Breakdown of items per priority level.
     pub by_priority: BTreeMap<String, usize>,
 }
 

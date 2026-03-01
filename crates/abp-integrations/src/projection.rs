@@ -26,6 +26,9 @@ pub enum Dialect {
     Gemini,
     /// Moonshot Kimi chat completions API.
     Kimi,
+    /// OpenAI Chat Completions API.
+    #[serde(rename = "openai")]
+    OpenAi,
 }
 
 impl Dialect {
@@ -36,6 +39,7 @@ impl Dialect {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::OpenAi,
     ];
 }
 
@@ -714,6 +718,17 @@ fn wo_to_kimi(wo: &WorkOrder) -> serde_json::Value {
     })
 }
 
+fn wo_to_openai(wo: &WorkOrder) -> serde_json::Value {
+    json!({
+        "model": model_or_default(wo, "gpt-4o"),
+        "messages": [{
+            "role": "user",
+            "content": build_user_content(wo),
+        }],
+        "max_tokens": 4096,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -734,6 +749,7 @@ pub fn translate(from: Dialect, to: Dialect, wo: &WorkOrder) -> Result<serde_jso
             Dialect::Codex => wo_to_codex(wo),
             Dialect::Gemini => wo_to_gemini(wo),
             Dialect::Kimi => wo_to_kimi(wo),
+            Dialect::OpenAi => wo_to_openai(wo),
             Dialect::Abp => unreachable!("handled by identity branch"),
         });
     }

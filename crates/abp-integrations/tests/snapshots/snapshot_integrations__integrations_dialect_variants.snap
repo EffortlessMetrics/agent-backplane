@@ -7,5 +7,6 @@ expression: dialects
   "claude",
   "codex",
   "gemini",
-  "kimi"
+  "kimi",
+  "openai"
 ]

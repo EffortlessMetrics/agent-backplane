@@ -6,6 +6,7 @@
 //! [`dialect`] module for translating between ABP contract types and
 //! the OpenAI Chat Completions API format.
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 
 pub mod dialect;
 

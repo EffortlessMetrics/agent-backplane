@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #![doc = include_str!("../README.md")]
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
+/// Middleware stack for the daemon HTTP API.
 pub mod middleware;
+/// Priority-based run queue.
 pub mod queue;
+/// Request validation for the daemon API.
 pub mod validation;
+/// API versioning support.
 pub mod versioning;
 
 use abp_core::{AgentEvent, CapabilityManifest, Receipt, WorkOrder};
@@ -38,10 +43,20 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum RunStatus {
+    /// The run is queued but not yet started.
     Pending,
+    /// The run is currently executing.
     Running,
-    Completed { receipt: Box<Receipt> },
-    Failed { error: String },
+    /// The run completed successfully with a receipt.
+    Completed {
+        /// The final receipt.
+        receipt: Box<Receipt>,
+    },
+    /// The run failed with an error.
+    Failed {
+        /// Error description.
+        error: String,
+    },
 }
 
 /// Tracks active and finished runs with their current status.
@@ -51,6 +66,7 @@ pub struct RunTracker {
 }
 
 impl RunTracker {
+    /// Create an empty run tracker.
     pub fn new() -> Self {
         Self::default()
     }
@@ -119,55 +135,81 @@ impl RunTracker {
     }
 }
 
+/// Shared application state for the daemon HTTP server.
 #[derive(Clone)]
 pub struct AppState {
+    /// The ABP runtime with registered backends.
     pub runtime: Arc<Runtime>,
+    /// In-memory receipt cache keyed by run ID.
     pub receipts: Arc<RwLock<HashMap<Uuid, Receipt>>>,
+    /// Directory for persisting receipts to disk.
     pub receipts_dir: PathBuf,
+    /// Tracks active and completed runs.
     pub run_tracker: RunTracker,
 }
 
+/// Request body for the `/run` endpoint.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RunRequest {
+    /// Backend name to execute the work order against.
     pub backend: String,
+    /// The work order to execute.
     pub work_order: WorkOrder,
 }
 
+/// Response body from the `/run` endpoint.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RunResponse {
+    /// Unique run identifier.
     pub run_id: Uuid,
+    /// Backend that executed the run.
     pub backend: String,
+    /// Agent events emitted during the run.
     pub events: Vec<AgentEvent>,
+    /// Final receipt with verification metadata.
     pub receipt: Receipt,
 }
 
+/// Backend identity and capability information.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackendInfo {
+    /// Backend identifier.
     pub id: String,
+    /// Capability manifest reported by this backend.
     pub capabilities: CapabilityManifest,
 }
 
+/// Query parameters for the receipt list endpoint.
 #[derive(Debug, Deserialize)]
 pub struct ReceiptListQuery {
+    /// Maximum number of receipts to return.
     pub limit: Option<usize>,
 }
 
 /// Aggregate run metrics exposed via GET /metrics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunMetrics {
+    /// Total number of runs tracked.
     pub total_runs: usize,
+    /// Number of currently running tasks.
     pub running: usize,
+    /// Number of completed runs.
     pub completed: usize,
+    /// Number of failed runs.
     pub failed: usize,
 }
 
+/// An API error with HTTP status code and message.
 #[derive(Debug)]
 pub struct ApiError {
+    /// HTTP status code.
     pub status: StatusCode,
+    /// Human-readable error message.
     pub message: String,
 }
 
 impl ApiError {
+    /// Create a new `ApiError` with the given status and message.
     pub fn new(status: StatusCode, message: impl Into<String>) -> Self {
         Self {
             status,
@@ -564,6 +606,7 @@ async fn cmd_get_receipt(
     Ok(Json(receipt))
 }
 
+/// Load all receipt JSON files from `dir` into the in-memory cache.
 pub async fn hydrate_receipts_from_disk(
     receipts: &Arc<RwLock<HashMap<Uuid, Receipt>>>,
     dir: &Path,
@@ -611,6 +654,7 @@ fn receipt_path(root: &Path, run_id: Uuid) -> PathBuf {
     p
 }
 
+/// Persist a receipt to disk as pretty-printed JSON.
 pub async fn persist_receipt(root: &Path, receipt: &Receipt) -> anyhow::Result<()> {
     let path = receipt_path(root, receipt.meta.run_id);
     let bytes = serde_json::to_vec_pretty(receipt)?;

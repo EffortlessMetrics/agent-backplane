@@ -75,24 +75,32 @@ pub fn capability_manifest() -> CapabilityManifest {
 /// A vendor-agnostic tool definition used as the ABP canonical form.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CanonicalToolDef {
+    /// Tool name.
     pub name: String,
+    /// Human-readable description of the tool.
     pub description: String,
+    /// JSON Schema describing the tool's parameters.
     pub parameters_schema: serde_json::Value,
 }
 
 /// Kimi/OpenAI-compatible function tool definition.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KimiToolDef {
+    /// Tool type (always `"function"`).
     #[serde(rename = "type")]
     pub tool_type: String,
+    /// The function definition payload.
     pub function: KimiFunctionDef,
 }
 
 /// The function payload inside a [`KimiToolDef`].
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KimiFunctionDef {
+    /// Function name.
     pub name: String,
+    /// Human-readable description.
     pub description: String,
+    /// JSON Schema for the function parameters.
     pub parameters: serde_json::Value,
 }
 
@@ -155,10 +163,14 @@ impl Default for KimiConfig {
 /// Kimi follows the OpenAI chat completions shape with minor extensions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiRequest {
+    /// Model identifier (e.g. `moonshot-v1-8k`).
     pub model: String,
+    /// Conversation messages.
     pub messages: Vec<KimiMessage>,
+    /// Maximum tokens to generate.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
+    /// Sampling temperature.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
 }
@@ -166,56 +178,76 @@ pub struct KimiRequest {
 /// A single message in the Kimi conversation format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiMessage {
+    /// Message role (`user`, `assistant`, or `system`).
     pub role: String,
+    /// Text content of the message.
     pub content: String,
 }
 
 /// Simplified representation of a Kimi chat completions response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiResponse {
+    /// Unique response identifier.
     pub id: String,
+    /// Model that generated the response.
     pub model: String,
+    /// Completion choices.
     pub choices: Vec<KimiChoice>,
+    /// Token usage statistics.
     pub usage: Option<KimiUsage>,
 }
 
 /// A single choice in a Kimi completions response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiChoice {
+    /// Zero-based index of this choice.
     pub index: u32,
+    /// The assistant's response message.
     pub message: KimiResponseMessage,
+    /// Reason the model stopped generating.
     pub finish_reason: Option<String>,
 }
 
 /// A message within a Kimi response choice.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiResponseMessage {
+    /// Message role.
     pub role: String,
+    /// Text content, if any.
     pub content: Option<String>,
+    /// Tool calls requested by the model.
     pub tool_calls: Option<Vec<KimiToolCall>>,
 }
 
 /// A tool call in a Kimi response (OpenAI-compatible shape).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiToolCall {
+    /// Unique tool call identifier.
     pub id: String,
+    /// Call type (always `"function"`).
     #[serde(rename = "type")]
     pub call_type: String,
+    /// The function invocation details.
     pub function: KimiFunctionCall,
 }
 
 /// The function payload within a Kimi tool call.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiFunctionCall {
+    /// Name of the function to invoke.
     pub name: String,
+    /// JSON-encoded arguments for the function.
     pub arguments: String,
 }
 
 /// Token usage reported by the Kimi API.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiUsage {
+    /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,
+    /// Tokens generated in the completion.
     pub completion_tokens: u64,
+    /// Total tokens (prompt + completion).
     pub total_tokens: u64,
 }
 

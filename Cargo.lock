@@ -289,12 +289,17 @@ dependencies = [
 name = "agent-backplane"
 version = "0.1.0"
 dependencies = [
+ "abp-claude-sdk",
  "abp-cli",
+ "abp-codex-sdk",
  "abp-core",
  "abp-daemon",
+ "abp-gemini-sdk",
  "abp-glob",
  "abp-host",
  "abp-integrations",
+ "abp-kimi-sdk",
+ "abp-openai-sdk",
  "abp-policy",
  "abp-protocol",
  "abp-runtime",

@@ -97,6 +97,11 @@ tracing-subscriber.workspace = true
 schemars.workspace = true
 jsonschema.workspace = true
 abp-daemon = { path = "crates/abp-daemon" }
+abp-claude-sdk = { path = "crates/abp-claude-sdk" }
+abp-gemini-sdk = { path = "crates/abp-gemini-sdk" }
+abp-codex-sdk = { path = "crates/abp-codex-sdk" }
+abp-kimi-sdk = { path = "crates/abp-kimi-sdk" }
+abp-openai-sdk = { path = "crates/abp-openai-sdk" }
 insta = { workspace = true }
 proptest = { workspace = true }
 toml = { workspace = true }

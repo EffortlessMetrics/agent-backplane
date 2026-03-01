@@ -22,6 +22,7 @@ fn arb_dialect() -> impl Strategy<Value = Dialect> {
         Just(Dialect::Codex),
         Just(Dialect::Gemini),
         Just(Dialect::Kimi),
+        Just(Dialect::OpenAi),
     ]
 }
 

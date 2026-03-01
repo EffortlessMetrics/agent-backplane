@@ -189,8 +189,11 @@ where
 /// Configuration for CORS headers.
 #[derive(Debug, Clone)]
 pub struct CorsConfig {
+    /// Allowed origin URLs.
     pub allowed_origins: Vec<String>,
+    /// Allowed HTTP methods (e.g. `GET`, `POST`).
     pub allowed_methods: Vec<String>,
+    /// Allowed request headers.
     pub allowed_headers: Vec<String>,
 }
 

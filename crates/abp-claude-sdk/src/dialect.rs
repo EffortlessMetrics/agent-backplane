@@ -86,16 +86,22 @@ pub fn capability_manifest() -> CapabilityManifest {
 /// A vendor-agnostic tool definition used as the ABP canonical form.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CanonicalToolDef {
+    /// Tool name.
     pub name: String,
+    /// Human-readable description of the tool.
     pub description: String,
+    /// JSON Schema describing the tool's parameters.
     pub parameters_schema: serde_json::Value,
 }
 
 /// Anthropic-style tool definition (Messages API `tools` array element).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ClaudeToolDef {
+    /// Tool name.
     pub name: String,
+    /// Human-readable description.
     pub description: String,
+    /// JSON Schema for the tool's input.
     pub input_schema: serde_json::Value,
 }
 
@@ -153,27 +159,39 @@ impl Default for ClaudeConfig {
 /// Simplified representation of an Anthropic Messages API request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClaudeRequest {
+    /// Model identifier (e.g. `claude-sonnet-4-20250514`).
     pub model: String,
+    /// Maximum tokens to generate.
     pub max_tokens: u32,
+    /// Optional system prompt.
     pub system: Option<String>,
+    /// Conversation messages.
     pub messages: Vec<ClaudeMessage>,
 }
 
 /// A single message in the Claude conversation format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClaudeMessage {
+    /// Message role (`user` or `assistant`).
     pub role: String,
+    /// Text content of the message.
     pub content: String,
 }
 
 /// Simplified representation of an Anthropic Messages API response.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ClaudeResponse {
+    /// Unique message identifier.
     pub id: String,
+    /// Model that generated the response.
     pub model: String,
+    /// Role of the response (always `assistant`).
     pub role: String,
+    /// Content blocks in the response.
     pub content: Vec<ClaudeContentBlock>,
+    /// Reason the model stopped generating.
     pub stop_reason: Option<String>,
+    /// Token usage statistics.
     pub usage: Option<ClaudeUsage>,
 }
 
@@ -181,27 +199,42 @@ pub struct ClaudeResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeContentBlock {
+    /// A text content block.
     Text {
+        /// The text content.
         text: String,
     },
+    /// A tool use request from the assistant.
     ToolUse {
+        /// Unique tool use identifier.
         id: String,
+        /// Name of the tool to invoke.
         name: String,
+        /// JSON input for the tool.
         input: serde_json::Value,
     },
+    /// A tool result returned to the model.
     ToolResult {
+        /// ID of the tool use this result corresponds to.
         tool_use_id: String,
+        /// Text content of the tool result.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         content: Option<String>,
+        /// Whether the tool execution produced an error.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         is_error: Option<bool>,
     },
+    /// An extended thinking block.
     Thinking {
+        /// The model's internal reasoning text.
         thinking: String,
+        /// Cryptographic signature for thinking verification.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         signature: Option<String>,
     },
+    /// An image content block.
     Image {
+        /// The image source data.
         source: ClaudeImageSource,
     },
 }
@@ -210,16 +243,29 @@ pub enum ClaudeContentBlock {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeImageSource {
-    Base64 { media_type: String, data: String },
-    Url { url: String },
+    /// Base64-encoded image data.
+    Base64 {
+        /// MIME type (e.g. `image/png`).
+        media_type: String,
+        /// Base64-encoded image bytes.
+        data: String,
+    },
+    /// Image referenced by URL.
+    Url {
+        /// The image URL.
+        url: String,
+    },
 }
 
 /// System prompt block with optional cache control.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeSystemBlock {
+    /// A text system prompt block.
     Text {
+        /// The system prompt text.
         text: String,
+        /// Optional cache control directive.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         cache_control: Option<ClaudeCacheControl>,
     },
@@ -228,6 +274,7 @@ pub enum ClaudeSystemBlock {
 /// Cache control directive for prompt caching.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ClaudeCacheControl {
+    /// Cache type (e.g. `ephemeral`).
     #[serde(rename = "type")]
     pub cache_type: String,
 }
@@ -245,10 +292,14 @@ impl ClaudeCacheControl {
 /// Token usage reported by the Anthropic API.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ClaudeUsage {
+    /// Number of input tokens consumed.
     pub input_tokens: u64,
+    /// Number of output tokens generated.
     pub output_tokens: u64,
+    /// Tokens written to the prompt cache.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_creation_input_tokens: Option<u64>,
+    /// Tokens read from the prompt cache.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_read_input_tokens: Option<u64>,
 }
@@ -261,28 +312,45 @@ pub struct ClaudeUsage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeStreamEvent {
+    /// Initial message metadata at stream start.
     MessageStart {
+        /// The initial (incomplete) response object.
         message: ClaudeResponse,
     },
+    /// A new content block begins.
     ContentBlockStart {
+        /// Zero-based index of the content block.
         index: u32,
+        /// The initial content block.
         content_block: ClaudeContentBlock,
     },
+    /// Incremental update to a content block.
     ContentBlockDelta {
+        /// Index of the content block being updated.
         index: u32,
+        /// The incremental delta payload.
         delta: ClaudeStreamDelta,
     },
+    /// A content block has finished.
     ContentBlockStop {
+        /// Index of the completed content block.
         index: u32,
     },
+    /// Top-level message metadata update (e.g. stop reason).
     MessageDelta {
+        /// The message-level delta (stop reason, etc.).
         delta: ClaudeMessageDelta,
+        /// Updated usage statistics.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         usage: Option<ClaudeUsage>,
     },
+    /// The message stream has ended.
     MessageStop {},
+    /// Keep-alive ping event.
     Ping {},
+    /// An error occurred during streaming.
     Error {
+        /// The error details.
         error: ClaudeApiError,
     },
 }
@@ -291,17 +359,35 @@ pub enum ClaudeStreamEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeStreamDelta {
-    TextDelta { text: String },
-    InputJsonDelta { partial_json: String },
-    ThinkingDelta { thinking: String },
-    SignatureDelta { signature: String },
+    /// Incremental text output.
+    TextDelta {
+        /// The text fragment.
+        text: String,
+    },
+    /// Incremental JSON for tool input.
+    InputJsonDelta {
+        /// Partial JSON string.
+        partial_json: String,
+    },
+    /// Incremental thinking text.
+    ThinkingDelta {
+        /// The thinking fragment.
+        thinking: String,
+    },
+    /// Incremental signature data.
+    SignatureDelta {
+        /// The signature fragment.
+        signature: String,
+    },
 }
 
 /// Delta payload within a `message_delta` streaming event.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ClaudeMessageDelta {
+    /// Reason the model stopped generating.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop_reason: Option<String>,
+    /// Stop sequence that triggered the stop, if any.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop_sequence: Option<String>,
 }
@@ -309,8 +395,10 @@ pub struct ClaudeMessageDelta {
 /// Error object returned by the Anthropic API.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ClaudeApiError {
+    /// Error type identifier (e.g. `invalid_request_error`).
     #[serde(rename = "type")]
     pub error_type: String,
+    /// Human-readable error message.
     pub message: String,
 }
 

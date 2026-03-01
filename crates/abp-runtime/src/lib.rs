@@ -19,7 +19,9 @@ pub mod budget;
 pub mod bus;
 /// Cancellation primitives for runtime runs.
 pub mod cancel;
+/// Lifecycle hooks for runtime extensibility.
 pub mod hooks;
+/// Event multiplexing and routing for broadcasting agent events.
 pub mod multiplex;
 /// Observability primitives: tracing spans and runtime observer.
 pub mod observe;

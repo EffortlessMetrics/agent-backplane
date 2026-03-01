@@ -11,7 +11,9 @@ use std::fmt;
 /// A semantic API version consisting of a major and minor component.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ApiVersion {
+    /// Major version component.
     pub major: u32,
+    /// Minor version component.
     pub minor: u32,
 }
 

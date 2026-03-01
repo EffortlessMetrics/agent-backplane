@@ -84,24 +84,32 @@ pub fn capability_manifest() -> CapabilityManifest {
 /// A vendor-agnostic tool definition used as the ABP canonical form.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CanonicalToolDef {
+    /// Tool name.
     pub name: String,
+    /// Human-readable description of the tool.
     pub description: String,
+    /// JSON Schema describing the tool's parameters.
     pub parameters_schema: serde_json::Value,
 }
 
 /// OpenAI-style function tool definition.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CodexToolDef {
+    /// Tool type (always `"function"`).
     #[serde(rename = "type")]
     pub tool_type: String,
+    /// The function definition payload.
     pub function: CodexFunctionDef,
 }
 
 /// The function payload inside a [`CodexToolDef`].
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CodexFunctionDef {
+    /// Function name.
     pub name: String,
+    /// Human-readable description.
     pub description: String,
+    /// JSON Schema for the function parameters.
     pub parameters: serde_json::Value,
 }
 
@@ -162,10 +170,14 @@ impl Default for CodexConfig {
 /// Simplified representation of an OpenAI Responses API request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodexRequest {
+    /// Model identifier (e.g. `codex-mini-latest`).
     pub model: String,
+    /// Input items (messages) for the request.
     pub input: Vec<CodexInputItem>,
+    /// Maximum output tokens.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
+    /// Sampling temperature.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
 }
@@ -174,15 +186,25 @@ pub struct CodexRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexInputItem {
-    Message { role: String, content: String },
+    /// A conversation message.
+    Message {
+        /// Message role (`user`, `assistant`, or `system`).
+        role: String,
+        /// Text content of the message.
+        content: String,
+    },
 }
 
 /// Simplified representation of an OpenAI Responses API response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodexResponse {
+    /// Unique response identifier.
     pub id: String,
+    /// Model used for the completion.
     pub model: String,
+    /// Output items (messages and function calls).
     pub output: Vec<CodexOutputItem>,
+    /// Token usage statistics.
     pub usage: Option<CodexUsage>,
 }
 
@@ -190,13 +212,20 @@ pub struct CodexResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexOutputItem {
+    /// An assistant message with content parts.
     Message {
+        /// Message role.
         role: String,
+        /// Content parts of the message.
         content: Vec<CodexContentPart>,
     },
+    /// A function call requested by the model.
     FunctionCall {
+        /// Unique function call identifier.
         id: String,
+        /// Name of the function to invoke.
         name: String,
+        /// JSON-encoded arguments.
         arguments: String,
     },
 }
@@ -205,14 +234,21 @@ pub enum CodexOutputItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexContentPart {
-    OutputText { text: String },
+    /// Text output from the model.
+    OutputText {
+        /// The text content.
+        text: String,
+    },
 }
 
 /// Token usage reported by the OpenAI API.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodexUsage {
+    /// Tokens consumed by the input.
     pub input_tokens: u64,
+    /// Tokens generated in the output.
     pub output_tokens: u64,
+    /// Total tokens (input + output).
     pub total_tokens: u64,
 }
 

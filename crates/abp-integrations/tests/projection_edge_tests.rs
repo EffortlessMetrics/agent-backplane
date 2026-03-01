@@ -26,7 +26,7 @@ fn default_and_new_equivalent() {
 #[test]
 fn supported_translations_count() {
     let pairs = supported_translations();
-    // Identity: 5 dialects => 5 pairs + ABP-to-vendor for 4 non-ABP = 9 total
+    // Identity: 6 dialects => 6 pairs + ABP-to-vendor for 5 non-ABP = 11 total
     let identity_count = Dialect::ALL.len();
     let abp_to_vendor_count = Dialect::ALL.iter().filter(|&&d| d != Dialect::Abp).count();
     assert_eq!(pairs.len(), identity_count + abp_to_vendor_count);
@@ -57,6 +57,7 @@ fn all_vendor_to_vendor_pairs_unsupported() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::OpenAi,
     ];
 
     for &from in &vendors {
@@ -82,6 +83,7 @@ fn vendor_to_abp_unsupported() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::OpenAi,
     ] {
         let result = translate(d, Dialect::Abp, &wo);
         assert!(result.is_err(), "{d:?} -> Abp should be unsupported");
@@ -103,6 +105,7 @@ fn custom_model_propagates() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::OpenAi,
     ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
         let model = val.get("model").and_then(|m| m.as_str()).unwrap();
@@ -134,6 +137,7 @@ fn snippets_in_all_translations() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::OpenAi,
     ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
         let json_str = serde_json::to_string(&val).unwrap();
@@ -161,6 +165,7 @@ fn default_model_fallbacks_nonempty() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::OpenAi,
     ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
         let model = val.get("model").and_then(|m| m.as_str()).unwrap();
@@ -174,12 +179,13 @@ fn default_model_fallbacks_nonempty() {
 
 #[test]
 fn dialect_all_complete() {
-    assert_eq!(Dialect::ALL.len(), 5);
+    assert_eq!(Dialect::ALL.len(), 6);
     assert!(Dialect::ALL.contains(&Dialect::Abp));
     assert!(Dialect::ALL.contains(&Dialect::Claude));
     assert!(Dialect::ALL.contains(&Dialect::Codex));
     assert!(Dialect::ALL.contains(&Dialect::Gemini));
     assert!(Dialect::ALL.contains(&Dialect::Kimi));
+    assert!(Dialect::ALL.contains(&Dialect::OpenAi));
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +200,7 @@ fn supported_translations_no_cross_vendor() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::OpenAi,
     ];
 
     for &from in &vendors {
@@ -261,4 +268,8 @@ fn dialect_serde_snake_case() {
         "\"gemini\""
     );
     assert_eq!(serde_json::to_string(&Dialect::Kimi).unwrap(), "\"kimi\"");
+    assert_eq!(
+        serde_json::to_string(&Dialect::OpenAi).unwrap(),
+        "\"openai\""
+    );
 }

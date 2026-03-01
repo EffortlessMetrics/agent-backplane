@@ -81,24 +81,32 @@ pub fn capability_manifest() -> CapabilityManifest {
 /// A vendor-agnostic tool definition used as the ABP canonical form.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CanonicalToolDef {
+    /// Tool name.
     pub name: String,
+    /// Human-readable description of the tool.
     pub description: String,
+    /// JSON Schema describing the tool's parameters.
     pub parameters_schema: serde_json::Value,
 }
 
 /// OpenAI-style function tool definition (Chat Completions `tools` array element).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpenAIToolDef {
+    /// Tool type (always `"function"`).
     #[serde(rename = "type")]
     pub tool_type: String,
+    /// The function definition payload.
     pub function: OpenAIFunctionDef,
 }
 
 /// The function payload inside an [`OpenAIToolDef`].
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpenAIFunctionDef {
+    /// Function name.
     pub name: String,
+    /// Human-readable description.
     pub description: String,
+    /// JSON Schema for the function parameters.
     pub parameters: serde_json::Value,
 }
 
@@ -167,14 +175,20 @@ impl Default for OpenAIConfig {
 /// Simplified representation of an OpenAI Chat Completions API request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenAIRequest {
+    /// Model identifier (e.g. `gpt-4o`).
     pub model: String,
+    /// Conversation messages.
     pub messages: Vec<OpenAIMessage>,
+    /// Tool definitions available to the model.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<OpenAIToolDef>>,
+    /// Sampling temperature.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
+    /// Maximum tokens to generate.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
+    /// Response format constraint (e.g. JSON mode).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_format: Option<serde_json::Value>,
 }
@@ -182,11 +196,15 @@ pub struct OpenAIRequest {
 /// A single message in the OpenAI Chat Completions format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenAIMessage {
+    /// Message role (`system`, `user`, `assistant`, or `tool`).
     pub role: String,
+    /// Text content of the message.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    /// Tool calls requested by the assistant.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<OpenAIToolCall>>,
+    /// ID of the tool call this message is responding to.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_call_id: Option<String>,
 }
@@ -194,16 +212,21 @@ pub struct OpenAIMessage {
 /// A tool call emitted by the model.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpenAIToolCall {
+    /// Unique identifier for this tool call.
     pub id: String,
+    /// Call type (always `"function"`).
     #[serde(rename = "type")]
     pub call_type: String,
+    /// The function invocation details.
     pub function: OpenAIFunctionCall,
 }
 
 /// The function invocation inside an [`OpenAIToolCall`].
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpenAIFunctionCall {
+    /// Name of the function to invoke.
     pub name: String,
+    /// JSON-encoded arguments for the function.
     pub arguments: String,
 }
 
@@ -214,10 +237,15 @@ pub struct OpenAIFunctionCall {
 /// Simplified representation of an OpenAI Chat Completions API response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenAIResponse {
+    /// Unique response identifier.
     pub id: String,
+    /// Object type (e.g. `chat.completion`).
     pub object: String,
+    /// Model used for the completion.
     pub model: String,
+    /// Completion choices.
     pub choices: Vec<OpenAIChoice>,
+    /// Token usage statistics.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<OpenAIUsage>,
 }
@@ -225,16 +253,22 @@ pub struct OpenAIResponse {
 /// A single choice in the Chat Completions response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenAIChoice {
+    /// Zero-based index of this choice.
     pub index: u32,
+    /// The assistant's response message.
     pub message: OpenAIMessage,
+    /// Reason the model stopped generating (e.g. `stop`, `tool_calls`).
     pub finish_reason: Option<String>,
 }
 
 /// Token usage reported by the OpenAI API.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenAIUsage {
+    /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,
+    /// Tokens generated in the completion.
     pub completion_tokens: u64,
+    /// Total tokens (prompt + completion).
     pub total_tokens: u64,
 }
 

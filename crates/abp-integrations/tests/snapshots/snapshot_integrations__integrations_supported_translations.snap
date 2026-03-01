@@ -7,7 +7,9 @@ Claude -> Claude
 Codex -> Codex
 Gemini -> Gemini
 Kimi -> Kimi
+OpenAi -> OpenAi
 Abp -> Claude
 Abp -> Codex
 Abp -> Gemini
 Abp -> Kimi
+Abp -> OpenAi

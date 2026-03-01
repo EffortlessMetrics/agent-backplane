@@ -369,6 +369,27 @@ fn projection_abp_to_kimi_has_correct_structure() {
 }
 
 #[test]
+fn projection_abp_to_openai_has_correct_structure() {
+    let wo = simple_work_order();
+    let val = translate(Dialect::Abp, Dialect::OpenAi, &wo).unwrap();
+    let obj = val.as_object().expect("should be JSON object");
+
+    assert!(obj.contains_key("model"));
+    assert!(obj.contains_key("messages"));
+    assert!(obj.contains_key("max_tokens"));
+
+    let messages = obj["messages"].as_array().unwrap();
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0]["role"], "user");
+    assert!(
+        messages[0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Refactor")
+    );
+}
+
+#[test]
 fn projection_matrix_method_matches_free_fn_for_all_vendors() {
     let wo = simple_work_order();
     let matrix = ProjectionMatrix::new();
@@ -378,6 +399,7 @@ fn projection_matrix_method_matches_free_fn_for_all_vendors() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::OpenAi,
     ] {
         let method_val = matrix.translate(Dialect::Abp, dialect, &wo).unwrap();
         let free_val = translate(Dialect::Abp, dialect, &wo).unwrap();
@@ -399,6 +421,7 @@ fn translation_is_deterministic_across_runs() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::OpenAi,
     ] {
         let first = translate(Dialect::Abp, dialect, &wo).unwrap();
         let second = translate(Dialect::Abp, dialect, &wo).unwrap();
@@ -429,6 +452,7 @@ fn context_preserved_in_all_vendor_translations() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::OpenAi,
     ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
         let json = val.to_string();

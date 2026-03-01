@@ -343,6 +343,350 @@ fn supported_dialects_list() {
     assert_eq!(dialects.len(), 4);
 }
 
+// ---------------------------------------------------------------------------
+// OpenAI projection tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn abp_to_openai_produces_valid_json() {
+    let wo = sample_work_order();
+    let val = translate(Dialect::Abp, Dialect::OpenAi, &wo).unwrap();
+    let obj = val.as_object().expect("should be a JSON object");
+    assert!(obj.contains_key("model"), "OpenAI request must have model");
+    assert!(
+        obj.contains_key("messages"),
+        "OpenAI request must have messages"
+    );
+    assert!(
+        obj.contains_key("max_tokens"),
+        "OpenAI request must have max_tokens"
+    );
+}
+
+#[test]
+fn abp_to_openai_default_model() {
+    let wo = sample_work_order();
+    let val = translate(Dialect::Abp, Dialect::OpenAi, &wo).unwrap();
+    let model = val.get("model").and_then(|m| m.as_str()).unwrap();
+    assert_eq!(model, "gpt-4o");
+}
+
+#[test]
+fn abp_to_openai_custom_model() {
+    let wo = WorkOrderBuilder::new("task").model("gpt-4-turbo").build();
+    let val = translate(Dialect::Abp, Dialect::OpenAi, &wo).unwrap();
+    let model = val.get("model").and_then(|m| m.as_str()).unwrap();
+    assert_eq!(model, "gpt-4-turbo");
+}
+
+#[test]
+fn translate_tool_call_claude_to_openai() {
+    let matrix = ProjectionMatrix::new();
+    let call = sample_tool_call("Read");
+    let translated = matrix
+        .translate_tool_call("anthropic", "openai", &call)
+        .unwrap();
+    assert_eq!(translated.tool_name, "file_read");
+}
+
+#[test]
+fn translate_tool_call_openai_to_gemini() {
+    let matrix = ProjectionMatrix::new();
+    let call = sample_tool_call("file_write");
+    let translated = matrix
+        .translate_tool_call("openai", "gemini", &call)
+        .unwrap();
+    assert_eq!(translated.tool_name, "writeFile");
+}
+
+#[test]
+fn translate_tool_call_gemini_to_openai() {
+    let matrix = ProjectionMatrix::new();
+    let call = sample_tool_call("executeCommand");
+    let translated = matrix
+        .translate_tool_call("gemini", "openai", &call)
+        .unwrap();
+    assert_eq!(translated.tool_name, "shell");
+}
+
+#[test]
+fn round_trip_tool_call_claude_openai() {
+    let matrix = ProjectionMatrix::new();
+    let original = sample_tool_call("Read");
+    let to_openai = matrix
+        .translate_tool_call("anthropic", "openai", &original)
+        .unwrap();
+    assert_eq!(to_openai.tool_name, "file_read");
+    let back = matrix
+        .translate_tool_call("openai", "anthropic", &to_openai)
+        .unwrap();
+    assert_eq!(back.tool_name, "Read");
+    assert_eq!(back.input, original.input);
+}
+
+#[test]
+fn round_trip_tool_call_openai_gemini() {
+    let matrix = ProjectionMatrix::new();
+    let original = sample_tool_call("file_search");
+    let to_gemini = matrix
+        .translate_tool_call("openai", "gemini", &original)
+        .unwrap();
+    assert_eq!(to_gemini.tool_name, "searchFiles");
+    let back = matrix
+        .translate_tool_call("gemini", "openai", &to_gemini)
+        .unwrap();
+    assert_eq!(back.tool_name, "file_search");
+}
+
+#[test]
+fn round_trip_tool_call_openai_abp() {
+    let matrix = ProjectionMatrix::new();
+    let original = sample_tool_call("apply_diff");
+    let to_abp = matrix
+        .translate_tool_call("openai", "abp", &original)
+        .unwrap();
+    assert_eq!(to_abp.tool_name, "edit_file");
+    let back = matrix
+        .translate_tool_call("abp", "openai", &to_abp)
+        .unwrap();
+    assert_eq!(back.tool_name, "apply_diff");
+}
+
+#[test]
+fn translate_tool_result_openai_to_anthropic() {
+    let matrix = ProjectionMatrix::new();
+    let result = sample_tool_result("shell");
+    let translated = matrix
+        .translate_tool_result("openai", "anthropic", &result)
+        .unwrap();
+    assert_eq!(translated.tool_name, "Bash");
+    assert_eq!(translated.output, result.output);
+}
+
+#[test]
+fn translate_tool_result_openai_to_gemini() {
+    let matrix = ProjectionMatrix::new();
+    let result = sample_tool_result("file_read");
+    let translated = matrix
+        .translate_tool_result("openai", "gemini", &result)
+        .unwrap();
+    assert_eq!(translated.tool_name, "readFile");
+}
+
+#[test]
+fn translate_event_tool_call_openai_to_anthropic() {
+    let matrix = ProjectionMatrix::new();
+    let event = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::ToolCall {
+            tool_name: "shell".into(),
+            tool_use_id: Some("tc-10".into()),
+            parent_tool_use_id: None,
+            input: serde_json::json!({"command": "ls"}),
+        },
+        ext: None,
+    };
+    let translated = matrix
+        .translate_event("openai", "anthropic", &event)
+        .unwrap();
+    match &translated.kind {
+        AgentEventKind::ToolCall { tool_name, .. } => {
+            assert_eq!(tool_name, "Bash");
+        }
+        other => panic!("expected ToolCall, got {other:?}"),
+    }
+}
+
+#[test]
+fn translate_event_tool_result_openai_to_gemini() {
+    let matrix = ProjectionMatrix::new();
+    let event = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::ToolResult {
+            tool_name: "file_write".into(),
+            tool_use_id: Some("tc-11".into()),
+            output: serde_json::json!({"ok": true}),
+            is_error: false,
+        },
+        ext: None,
+    };
+    let translated = matrix.translate_event("openai", "gemini", &event).unwrap();
+    match &translated.kind {
+        AgentEventKind::ToolResult {
+            tool_name,
+            is_error,
+            ..
+        } => {
+            assert_eq!(tool_name, "writeFile");
+            assert!(!*is_error);
+        }
+        other => panic!("expected ToolResult, got {other:?}"),
+    }
+}
+
+#[test]
+fn translate_event_assistant_message_openai_passthrough() {
+    let matrix = ProjectionMatrix::new();
+    let event = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::AssistantMessage {
+            text: "Done!".into(),
+        },
+        ext: None,
+    };
+    let translated = matrix
+        .translate_event("openai", "anthropic", &event)
+        .unwrap();
+    match &translated.kind {
+        AgentEventKind::AssistantMessage { text } => assert_eq!(text, "Done!"),
+        other => panic!("expected AssistantMessage, got {other:?}"),
+    }
+}
+
+#[test]
+fn event_mapping_openai_to_anthropic() {
+    let matrix = ProjectionMatrix::new();
+    let mapping = matrix.event_mapping("openai", "anthropic").unwrap();
+    assert_eq!(
+        mapping.kind_map.get("response.created").unwrap(),
+        "message_start"
+    );
+    assert_eq!(mapping.kind_map.get("function_call").unwrap(), "tool_use");
+}
+
+#[test]
+fn event_mapping_openai_to_gemini() {
+    let matrix = ProjectionMatrix::new();
+    let mapping = matrix.event_mapping("openai", "gemini").unwrap();
+    assert_eq!(
+        mapping.kind_map.get("response.created").unwrap(),
+        "generate_content_start"
+    );
+    assert_eq!(
+        mapping.kind_map.get("function_call_output").unwrap(),
+        "function_response"
+    );
+}
+
+#[test]
+fn event_mapping_abp_to_openai() {
+    let matrix = ProjectionMatrix::new();
+    let mapping = matrix.event_mapping("abp", "openai").unwrap();
+    assert_eq!(
+        mapping.kind_map.get("run_started").unwrap(),
+        "response.created"
+    );
+    assert_eq!(
+        mapping.kind_map.get("tool_result").unwrap(),
+        "function_call_output"
+    );
+}
+
+#[test]
+fn full_chain_abp_openai_anthropic_gemini_abp() {
+    let matrix = ProjectionMatrix::new();
+    let call = sample_tool_call("glob");
+
+    let step1 = matrix.translate_tool_call("abp", "openai", &call).unwrap();
+    assert_eq!(step1.tool_name, "file_search");
+
+    let step2 = matrix
+        .translate_tool_call("openai", "anthropic", &step1)
+        .unwrap();
+    assert_eq!(step2.tool_name, "Glob");
+
+    let step3 = matrix
+        .translate_tool_call("anthropic", "gemini", &step2)
+        .unwrap();
+    assert_eq!(step3.tool_name, "searchFiles");
+
+    let step4 = matrix.translate_tool_call("gemini", "abp", &step3).unwrap();
+    assert_eq!(step4.tool_name, "glob");
+    assert_eq!(step4.input, call.input);
+}
+
+#[test]
+fn empty_tool_name_passthrough() {
+    let matrix = ProjectionMatrix::new();
+    let call = ToolCall {
+        tool_name: String::new(),
+        tool_use_id: None,
+        parent_tool_use_id: None,
+        input: serde_json::json!({}),
+    };
+    let translated = matrix.translate_tool_call("abp", "openai", &call).unwrap();
+    assert_eq!(translated.tool_name, "");
+}
+
+#[test]
+fn tool_result_error_flag_preserved() {
+    let matrix = ProjectionMatrix::new();
+    let result = ToolResult {
+        tool_name: "shell".into(),
+        tool_use_id: Some("tc-err".into()),
+        output: serde_json::json!({"error": "command not found"}),
+        is_error: true,
+    };
+    let translated = matrix
+        .translate_tool_result("openai", "abp", &result)
+        .unwrap();
+    assert_eq!(translated.tool_name, "bash");
+    assert!(translated.is_error);
+}
+
+#[test]
+fn translate_event_preserves_ext_field() {
+    let matrix = ProjectionMatrix::new();
+    let mut ext = std::collections::BTreeMap::new();
+    ext.insert("custom".to_string(), serde_json::json!("data"));
+    let event = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::ToolCall {
+            tool_name: "file_read".into(),
+            tool_use_id: Some("tc-ext".into()),
+            parent_tool_use_id: None,
+            input: serde_json::json!({}),
+        },
+        ext: Some(ext.clone()),
+    };
+    let translated = matrix
+        .translate_event("openai", "anthropic", &event)
+        .unwrap();
+    assert_eq!(translated.ext, Some(ext));
+}
+
+#[test]
+fn translate_event_preserves_timestamp() {
+    let matrix = ProjectionMatrix::new();
+    let now = Utc::now();
+    let event = AgentEvent {
+        ts: now,
+        kind: AgentEventKind::RunStarted {
+            message: "starting".into(),
+        },
+        ext: None,
+    };
+    let translated = matrix.translate_event("abp", "openai", &event).unwrap();
+    assert_eq!(translated.ts, now);
+}
+
+#[test]
+fn tool_translation_table_openai_to_gemini() {
+    let matrix = ProjectionMatrix::new();
+    let tt = matrix.tool_translation("openai", "gemini").unwrap();
+    assert_eq!(tt.name_map.get("shell").unwrap(), "executeCommand");
+    assert_eq!(tt.name_map.get("file_search").unwrap(), "searchFiles");
+}
+
+#[test]
+fn has_translation_openai_pairs() {
+    let matrix = ProjectionMatrix::new();
+    assert!(matrix.has_translation("openai", "abp"));
+    assert!(matrix.has_translation("abp", "openai"));
+    assert!(matrix.has_translation("openai", "anthropic"));
+    assert!(matrix.has_translation("openai", "gemini"));
+}
+
 #[test]
 fn has_translation_known_pair() {
     let matrix = ProjectionMatrix::new();
