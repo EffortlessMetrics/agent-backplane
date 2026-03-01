@@ -542,7 +542,7 @@ fn roundtrip_tool_calls_with_complex_arguments() {
         "empty_arr": [],
         "null_val": null,
         "number": 42,
-        "float": 3.14,
+        "float": 2.78,
         "bool": true
     });
     for &from in STRING_DIALECTS {
