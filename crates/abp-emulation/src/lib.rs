@@ -121,6 +121,12 @@ impl EmulationReport {
     pub fn is_empty(&self) -> bool {
         self.applied.is_empty() && self.warnings.is_empty()
     }
+
+    /// Returns `true` if any requested capability could not be emulated (has warnings).
+    #[must_use]
+    pub fn has_unemulatable(&self) -> bool {
+        !self.warnings.is_empty()
+    }
 }
 
 // ── Engine ──────────────────────────────────────────────────────────────
@@ -155,6 +161,33 @@ impl EmulationEngine {
             .get(capability)
             .cloned()
             .unwrap_or_else(|| default_strategy(capability))
+    }
+
+    /// Check which capabilities can be emulated without mutating a conversation.
+    ///
+    /// Returns a report describing which capabilities would be emulated and
+    /// which cannot. Use [`EmulationReport::has_unemulatable`] to determine if
+    /// any requested capabilities are unavailable.
+    pub fn check_missing(&self, capabilities: &[Capability]) -> EmulationReport {
+        let mut report = EmulationReport::default();
+
+        for cap in capabilities {
+            let strategy = self.resolve_strategy(cap);
+            match &strategy {
+                EmulationStrategy::Disabled { reason } => {
+                    report
+                        .warnings
+                        .push(format!("Capability {cap:?} not emulated: {reason}"));
+                }
+                _ => {
+                    report.applied.push(EmulationEntry {
+                        capability: cap.clone(),
+                        strategy,
+                    });
+                }
+            }
+        }
+        report
     }
 
     /// Apply emulations for the given capabilities to a conversation.

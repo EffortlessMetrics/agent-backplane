@@ -39,6 +39,7 @@ pub mod store;
 pub mod telemetry;
 
 use abp_core::{AgentEvent, CapabilityRequirements, ExecutionMode, Outcome, Receipt, WorkOrder};
+use abp_emulation::{EmulationConfig, EmulationEngine, EmulationReport};
 use abp_integrations::{Backend, ensure_capability_requirements};
 use abp_policy::PolicyEngine;
 use abp_workspace::WorkspaceManager;
@@ -48,7 +49,7 @@ use telemetry::RunMetrics;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 /// Re-export of [`registry::BackendRegistry`] for convenience.
@@ -91,6 +92,7 @@ pub enum RuntimeError {
 pub struct Runtime {
     backends: BackendRegistry,
     metrics: Arc<RunMetrics>,
+    emulation: Option<EmulationConfig>,
 }
 
 /// Handle to a running work order: provides a run id, event stream, and receipt future.
@@ -116,6 +118,7 @@ impl Runtime {
         Self {
             backends: BackendRegistry::default(),
             metrics: Arc::new(RunMetrics::new()),
+            emulation: None,
         }
     }
 
@@ -159,6 +162,23 @@ impl Runtime {
     #[must_use]
     pub fn metrics(&self) -> &RunMetrics {
         &self.metrics
+    }
+
+    /// Enable capability emulation with the given configuration.
+    ///
+    /// When emulation is enabled and a backend is missing required capabilities,
+    /// the runtime will check if the missing capabilities can be emulated. If so,
+    /// the run proceeds and the emulation report is recorded in the receipt.
+    #[must_use]
+    pub fn with_emulation(mut self, config: EmulationConfig) -> Self {
+        self.emulation = Some(config);
+        self
+    }
+
+    /// Return the current emulation configuration, if any.
+    #[must_use]
+    pub fn emulation_config(&self) -> Option<&EmulationConfig> {
+        self.emulation.as_ref()
     }
 
     /// Check whether a backend's capabilities satisfy the given requirements.
@@ -213,11 +233,46 @@ impl Runtime {
         // Pre-flight capability check: skip for sidecar backends whose
         // capabilities are only known after handshake (empty default manifest).
         let caps = backend.capabilities();
-        if !caps.is_empty() {
-            ensure_capability_requirements(&work_order.requirements, &caps).map_err(|e| {
-                RuntimeError::CapabilityCheckFailed(format!("backend '{backend_name}': {e}"))
-            })?;
-        }
+        let emulation_report: Option<EmulationReport> = if !caps.is_empty() {
+            match ensure_capability_requirements(&work_order.requirements, &caps) {
+                Ok(()) => None,
+                Err(e) => {
+                    // Capabilities unsatisfied — try emulation if configured.
+                    if let Some(emu_config) = &self.emulation {
+                        let missing: Vec<_> = work_order
+                            .requirements
+                            .required
+                            .iter()
+                            .filter(|req| !caps.contains_key(&req.capability))
+                            .map(|req| req.capability.clone())
+                            .collect();
+
+                        let engine = EmulationEngine::new(emu_config.clone());
+                        let report = engine.check_missing(&missing);
+
+                        if report.has_unemulatable() {
+                            return Err(RuntimeError::CapabilityCheckFailed(format!(
+                                "backend '{backend_name}': {e} (emulation unavailable for some capabilities)"
+                            )));
+                        }
+
+                        info!(
+                            target: "abp.runtime",
+                            backend=%backend_name,
+                            emulated=?report.applied.iter().map(|e| &e.capability).collect::<Vec<_>>(),
+                            "emulating missing capabilities"
+                        );
+                        Some(report)
+                    } else {
+                        return Err(RuntimeError::CapabilityCheckFailed(format!(
+                            "backend '{backend_name}': {e}"
+                        )));
+                    }
+                }
+            }
+        } else {
+            None
+        };
 
         let backend_name = backend_name.to_string();
         let run_id = Uuid::new_v4();
@@ -238,6 +293,16 @@ impl Runtime {
             // Clone and rewrite the work order to point at prepared workspace.
             let mut wo = work_order.clone();
             wo.workspace.root = prepared.path().to_string_lossy().to_string();
+
+            // Strip emulated capability requirements so the backend's own check
+            // does not reject capabilities the runtime is emulating.
+            if let Some(ref report) = emulation_report {
+                let emulated_caps: std::collections::BTreeSet<_> =
+                    report.applied.iter().map(|e| &e.capability).collect();
+                wo.requirements
+                    .required
+                    .retain(|r| !emulated_caps.contains(&r.capability));
+            }
 
             // Compile policy globs (even if adapters do the heavy lifting).
             let _policy = PolicyEngine::new(&wo.policy)
@@ -343,6 +408,21 @@ impl Runtime {
             }
             if receipt.verification.git_status.is_none() {
                 receipt.verification.git_status = WorkspaceManager::git_status(prepared.path());
+            }
+
+            // Record emulation report in receipt metadata if emulation was applied.
+            if let Some(emu_report) = emulation_report
+                && let (false, Ok(report_value)) =
+                    (emu_report.is_empty(), serde_json::to_value(&emu_report))
+            {
+                if let Some(obj) = receipt.usage_raw.as_object_mut() {
+                    obj.insert("emulation".to_string(), report_value);
+                } else {
+                    receipt.usage_raw = serde_json::json!({
+                        "original": receipt.usage_raw,
+                        "emulation": report_value,
+                    });
+                }
             }
 
             // Ensure receipt hash is present and consistent.

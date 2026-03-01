@@ -131,11 +131,12 @@ for the full guide.
 |----------|---------|-------------|
 | **Unit** | `cargo test -p <crate>` | Per-crate module-level tests |
 | **Integration** | `cargo test --workspace` | Cross-crate integration tests |
+| **BDD** | `cargo test --test bdd` | Cucumber scenarios in `tests/features/` |
 | **Snapshot** | `cargo insta review` | JSON serialization stability ([insta](https://insta.rs)) |
 | **Property** | `cargo test -p abp-core proptest` | Randomized input via [proptest](https://proptest-rs.github.io/proptest/) |
-| **Fuzz** | `cd fuzz && cargo +nightly fuzz run <target>` | Envelope/receipt/work-order parsing |
+| **Fuzz** | `cd fuzz && cargo +nightly fuzz run <target>` | 20 targets for envelope/receipt/work-order/policy parsing |
 | **Benchmarks** | `cargo bench --workspace` | [Criterion](https://bheisler.github.io/criterion.rs/) micro-benchmarks |
-| **Conformance** | `cd tests/conformance && node runner.js` | End-to-end sidecar protocol conformance |
+| **Conformance** | `cargo test --test conformance_suite` | Contract and sidecar protocol conformance |
 | **Doc tests** | `cargo test --doc --workspace` | In-doc examples |
 
 ### Running All Tests

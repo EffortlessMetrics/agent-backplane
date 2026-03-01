@@ -5,6 +5,7 @@
 //! types, consistent with the rest of `sidecar-kit`.
 
 use serde_json::Value;
+use std::time::Instant;
 use tracing::debug;
 
 // ── Trait ────────────────────────────────────────────────────────────
@@ -150,5 +151,64 @@ impl MiddlewareChain {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.layers.is_empty()
+    }
+}
+
+// ── TimingMiddleware ─────────────────────────────────────────────────
+
+/// Middleware that injects a `"_processing_us"` field recording how many
+/// microseconds each event spent traversing this middleware.
+///
+/// Useful for diagnosing pipeline latency; the field is added to JSON
+/// objects only and ignored for non-object events.
+#[derive(Debug, Clone, Default)]
+pub struct TimingMiddleware;
+
+impl TimingMiddleware {
+    /// Create a new `TimingMiddleware`.
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl EventMiddleware for TimingMiddleware {
+    fn process(&self, event: &Value) -> Option<Value> {
+        let start = Instant::now();
+        let mut out = event.clone();
+        let elapsed = start.elapsed().as_micros() as u64;
+        if let Some(obj) = out.as_object_mut() {
+            obj.insert("_processing_us".to_string(), Value::Number(elapsed.into()));
+        }
+        Some(out)
+    }
+}
+
+// ── ErrorWrapMiddleware ──────────────────────────────────────────────
+
+/// Middleware that wraps any malformed event (non-object) into an error
+/// event, ensuring downstream stages always receive JSON objects.
+#[derive(Debug, Clone, Default)]
+pub struct ErrorWrapMiddleware;
+
+impl ErrorWrapMiddleware {
+    /// Create a new `ErrorWrapMiddleware`.
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl EventMiddleware for ErrorWrapMiddleware {
+    fn process(&self, event: &Value) -> Option<Value> {
+        if event.is_object() {
+            Some(event.clone())
+        } else {
+            Some(serde_json::json!({
+                "type": "error",
+                "message": format!("non-object event replaced: {event}"),
+                "_original": event.clone(),
+            }))
+        }
     }
 }

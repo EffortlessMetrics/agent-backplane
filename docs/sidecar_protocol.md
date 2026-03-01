@@ -254,3 +254,20 @@ for await (const line of rl) {
 
 See `hosts/node/`, `hosts/python/`, and `hosts/claude/` for complete examples.
 
+---
+
+## Protocol Utilities (`abp-protocol`)
+
+The `abp-protocol` crate provides modules beyond core envelope types:
+
+| Module | Purpose |
+|--------|---------|
+| `codec` | `JsonlCodec` — encode/decode envelopes, streaming JSONL reader |
+| `version` | `parse_version()`, `is_compatible_version()` helpers |
+| `validate` | Envelope validation (field presence, ref_id correlation) |
+| `builder` | Ergonomic envelope construction helpers |
+| `batch` | Batch envelope encoding/decoding |
+| `compress` | Optional envelope compression |
+| `router` | Envelope routing by type or ref_id |
+| `stream` | Async stream utilities for envelope processing |
+
