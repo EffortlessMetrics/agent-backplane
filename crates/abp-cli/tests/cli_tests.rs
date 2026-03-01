@@ -499,11 +499,8 @@ fn runtime_error_exits_with_code_1() {
         .expect("execute abp");
 
     assert!(!output.status.success());
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        assert_eq!(output.status.code(), Some(1));
-    }
+    // code() works on all platforms; no ExitStatusExt needed
+    assert_eq!(output.status.code(), Some(1));
 }
 
 #[test]
@@ -511,9 +508,5 @@ fn usage_error_exits_with_code_2() {
     // Missing required subcommand → clap exits with 2
     let output = abp().output().expect("execute abp");
     assert!(!output.status.success());
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        assert_eq!(output.status.code(), Some(2));
-    }
+    assert_eq!(output.status.code(), Some(2));
 }

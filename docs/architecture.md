@@ -107,11 +107,18 @@ abp-glob ──────────┐
 abp-core ──────────┤                         │
   │                └── abp-workspace ────────┤
   │                                          │
-abp-protocol ─── abp-host ─── abp-integrations ─── abp-runtime ─── abp-cli
-                     │                                                  │
-                 sidecar-kit                                       abp-daemon
-                     │
-                claude-bridge
+  ├── abp-dialect                            │
+  │                                          │
+abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
+                     │              │                abp-backend-sidecar
+                 sidecar-kit        │
+                     │         abp-integrations ─── abp-runtime ─── abp-cli
+                claude-bridge                                         │
+                                                                 abp-daemon
+
+Vendor SDK microcrates (abp-claude-sdk, abp-codex-sdk, abp-openai-sdk,
+abp-gemini-sdk, abp-kimi-sdk, abp-copilot-sdk) depend on abp-core +
+abp-runtime and register via abp-sidecar-sdk.
 ```
 
 ### abp-core — Contract Types
@@ -207,27 +214,53 @@ Higher-level sidecar management built on `sidecar-kit`.
   future.
 - Error types wrap `ProtocolError` and add process-supervision concerns.
 
-### abp-integrations — Backend Trait
+### abp-backend-core — Backend Trait
 
-Defines the `Backend` trait and built-in implementations.
+Defines the core `Backend` trait and capability helpers shared across all backend
+implementations. Extracted so downstream crates can depend on the trait without
+pulling in specific implementations.
 
-```rust
-pub trait Backend: Send + Sync {
-    fn identity(&self) -> BackendIdentity;
-    fn capabilities(&self) -> CapabilityManifest;
-    async fn run(
-        &self,
-        run_id: Uuid,
-        work_order: WorkOrder,
-        events_tx: mpsc::Sender<AgentEvent>,
-    ) -> Result<Receipt>;
-}
-```
+### abp-backend-mock — Mock Backend
 
-- `MockBackend`: simple test backend that emits a few events and returns a
-  receipt. Reports `Streaming: Native`, `ToolRead: Emulated`.
-- `SidecarBackend`: generic wrapper that delegates to a sidecar process via
-  `abp-host`.
+Simple test backend that emits a few events and returns a receipt. Reports
+`Streaming: Native`, `ToolRead: Emulated`. Useful for integration tests and
+development without any external API keys.
+
+### abp-backend-sidecar — Sidecar Backend Adapter
+
+Generic wrapper that delegates work to an external sidecar process via
+`abp-host`. Translates the `Backend` trait into JSONL protocol I/O.
+
+### abp-integrations — Backend Registry
+
+Re-exports `abp-backend-core`, `abp-backend-mock`, and `abp-backend-sidecar`
+under a single crate. Provides the `BackendRegistry` for runtime lookup.
+
+### abp-dialect — Dialect Detection
+
+Detects and validates SDK dialects from request metadata. Provides dialect
+identity, version information, and validation helpers used by the projection
+matrix.
+
+### abp-sidecar-sdk — Vendor Registration Helpers
+
+Shared registration helpers that vendor SDK microcrates use to register their
+sidecar hosts with the runtime. Depends on `abp-host`, `abp-integrations`, and
+`abp-runtime`.
+
+### Vendor SDK Microcrates
+
+Each vendor has a dedicated SDK adapter crate:
+
+- `abp-claude-sdk` — Anthropic Claude (Messages API)
+- `abp-codex-sdk` — OpenAI Codex (Responses API)
+- `abp-openai-sdk` — OpenAI Chat Completions
+- `abp-gemini-sdk` — Google Gemini (generateContent)
+- `abp-kimi-sdk` — Moonshot Kimi (Chat Completions)
+- `abp-copilot-sdk` — GitHub Copilot (scaffold)
+
+All implement the dialect pattern: model name mapping, capability manifest,
+`map_work_order()`, `map_response()`, and tool definition translation.
 
 ### claude-bridge — Claude Sidecar Bridge
 

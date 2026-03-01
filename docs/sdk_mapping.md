@@ -55,8 +55,10 @@ The mapping layer solves three problems:
 |--------|-----------|------------|---------------|-----------------|---------------------|
 | **Anthropic Claude** | `abp-claude-sdk` | Messages API (`/v1/messages`) | `claude-sonnet-4-20250514` | `claude/v0.1` | ✅ Full |
 | **OpenAI Codex** | `abp-codex-sdk` | Responses API (`/v1/responses`) | `codex-mini-latest` | `codex/v0.1` | ✅ Full |
+| **OpenAI Chat** | `abp-openai-sdk` | Chat Completions (`/v1/chat/completions`) | `gpt-4` | `openai/v0.1` | ✅ Full |
 | **Google Gemini** | `abp-gemini-sdk` | generateContent (`/v1beta`) | `gemini-2.5-flash` | `gemini/v0.1` | ✅ Full |
 | **Moonshot Kimi** | `abp-kimi-sdk` | Chat Completions (`/v1/chat/completions`) | `moonshot-v1-8k` | `kimi/v0.1` | ✅ Full |
+| **GitHub Copilot** | `abp-copilot-sdk` | Copilot Extensions API | — | — | 🚧 Scaffold |
 
 ## Contract Types
 

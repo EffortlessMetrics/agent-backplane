@@ -167,6 +167,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-dialect"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-gemini-sdk"
 version = "0.1.0"
 dependencies = [
@@ -380,6 +388,7 @@ dependencies = [
  "axum",
  "chrono",
  "claude-bridge",
+ "criterion",
  "cucumber",
  "http-body-util",
  "insta",

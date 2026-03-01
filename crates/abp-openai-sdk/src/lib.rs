@@ -9,6 +9,7 @@
 #![warn(missing_docs)]
 
 pub mod dialect;
+pub mod lowering;
 pub mod response_format;
 pub mod streaming;
 pub mod validation;

@@ -1175,7 +1175,12 @@ async fn scenario_backend_error_receipt() {
     assert!(receipt.is_err());
     match receipt.unwrap_err() {
         RuntimeError::BackendFailed(e) => {
-            assert!(e.to_string().contains("intentional failure"));
+            // anyhow context wraps the message; check full chain
+            let chain = format!("{e:?}");
+            assert!(
+                chain.contains("intentional failure"),
+                "error chain should contain 'intentional failure': {chain}"
+            );
         }
         other => panic!("expected BackendFailed, got {other:?}"),
     }
