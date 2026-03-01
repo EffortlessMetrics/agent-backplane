@@ -420,6 +420,7 @@ dependencies = [
  "abp-host",
  "abp-integrations",
  "abp-runtime",
+ "abp-which",
  "anyhow",
 ]
 
@@ -430,6 +431,13 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+]
+
+[[package]]
+name = "abp-which"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
 ]
 
 [[package]]
@@ -479,6 +487,7 @@ dependencies = [
  "abp-receipt",
  "abp-runtime",
  "abp-telemetry",
+ "abp-which",
  "abp-workspace",
  "anyhow",
  "async-trait",

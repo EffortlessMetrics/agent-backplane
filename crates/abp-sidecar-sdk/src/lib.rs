@@ -48,47 +48,17 @@ fn resolve_command(
     if let Some(command) = command_override {
         let command = command.trim();
         if !command.is_empty() {
-            if command_exists(command) {
-                return Ok(Some(command.to_string()));
+            if let Some(resolved) = abp_which::which(command) {
+                return Ok(Some(resolved.to_string_lossy().into_owned()));
             }
 
             anyhow::bail!("explicit {provider_label} command '{command}' is not available");
         }
     }
 
-    if command_exists(default_command) {
-        return Ok(Some(default_command.to_string()));
+    if let Some(resolved) = abp_which::which(default_command) {
+        return Ok(Some(resolved.to_string_lossy().into_owned()));
     }
 
     Ok(None)
-}
-
-fn command_exists(command: &str) -> bool {
-    let candidate = Path::new(command);
-    let has_path = candidate.components().count() > 1;
-
-    if has_path {
-        return candidate.exists();
-    }
-
-    std::env::var_os("PATH")
-        .is_some_and(|path| std::env::split_paths(&path).any(|dir| path_has_command(&dir, command)))
-}
-
-fn path_has_command(dir: &Path, command: &str) -> bool {
-    if dir.join(command).exists() {
-        return true;
-    }
-
-    if !cfg!(windows) {
-        return false;
-    }
-
-    for ext in ["", ".exe", ".cmd", ".bat", ".com"] {
-        if dir.join(format!("{command}{ext}")).exists() {
-            return true;
-        }
-    }
-
-    false
 }

@@ -14,4 +14,5 @@ categories = ["development-tools"]
 abp-host = { path = "../abp-host" }
 abp-integrations = { path = "../abp-integrations" }
 abp-runtime = { path = "../abp-runtime" }
+abp-which = { path = "../abp-which" }
 anyhow.workspace = true

@@ -1,0 +1,16 @@
+[package]
+name = "abp-which"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "Small utility crate for PATH/executable discovery in the Agent Backplane"
+keywords = ["agent", "backplane", "which", "path", "executable"]
+categories = ["development-tools"]
+
+[dependencies]
+
+[dev-dependencies]
+tempfile.workspace = true

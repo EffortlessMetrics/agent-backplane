@@ -37,6 +37,7 @@ members = [
   "crates/abp-sidecar-proto",
   "crates/abp-sidecar-sdk",
   "crates/abp-telemetry",
+  "crates/abp-which",
   "crates/abp-workspace",
   "crates/claude-bridge",
   "crates/sidecar-kit",
@@ -127,6 +128,7 @@ abp-codex-sdk = { path = "crates/abp-codex-sdk" }
 abp-kimi-sdk = { path = "crates/abp-kimi-sdk" }
 abp-openai-sdk = { path = "crates/abp-openai-sdk" }
 abp-copilot-sdk = { path = "crates/abp-copilot-sdk" }
+abp-which = { path = "crates/abp-which" }
 insta = { workspace = true }
 proptest = { workspace = true }
 toml = { workspace = true }
