@@ -5,14 +5,14 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use abp_core::{
-    filter::EventFilter, receipt_hash, validate::validate_receipt, AgentEvent, AgentEventKind,
-    Outcome, ReceiptBuilder, WorkOrderBuilder, WorkspaceMode,
+    AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, WorkOrderBuilder, WorkspaceMode,
+    filter::EventFilter, receipt_hash, validate::validate_receipt,
 };
 use abp_daemon::{AppState, RunRequest, RunResponse, RunTracker};
+use abp_runtime::Runtime;
 use abp_runtime::pipeline::{AuditStage, Pipeline, ValidationStage};
 use abp_runtime::store::ReceiptStore;
 use abp_runtime::telemetry::RunMetrics;
-use abp_runtime::Runtime;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tokio::sync::RwLock;
@@ -237,7 +237,11 @@ async fn stress_10_concurrent_workspace_staging() {
     while let Some(result) = set.join_next().await {
         paths.insert(result.unwrap());
     }
-    assert_eq!(paths.len(), 10, "all staged workspaces must have unique paths");
+    assert_eq!(
+        paths.len(),
+        10,
+        "all staged workspaces must have unique paths"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -252,9 +256,7 @@ async fn stress_100_concurrent_event_filter_applications() {
     let events: Arc<Vec<AgentEvent>> = Arc::new(vec![
         AgentEvent {
             ts: chrono::Utc::now(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
             ext: None,
         },
         AgentEvent {
@@ -458,7 +460,10 @@ async fn stress_mixed_read_write_daemon_run_tracker() {
                 .outcome(Outcome::Complete)
                 .with_hash()
                 .unwrap();
-            tracker.complete_run(run_id, *Box::new(receipt)).await.unwrap();
+            tracker
+                .complete_run(run_id, *Box::new(receipt))
+                .await
+                .unwrap();
             run_id
         });
     }
@@ -471,10 +476,7 @@ async fn stress_mixed_read_write_daemon_run_tracker() {
             barrier.wait().await;
             let run_id = Uuid::new_v4();
             tracker.start_run(run_id).await.unwrap();
-            tracker
-                .fail_run(run_id, "test error".into())
-                .await
-                .unwrap();
+            tracker.fail_run(run_id, "test error".into()).await.unwrap();
             run_id
         });
     }

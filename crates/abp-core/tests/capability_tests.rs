@@ -50,7 +50,10 @@ fn expected_wire_names() -> Vec<(&'static str, Capability)> {
         ("session_resume", Capability::SessionResume),
         ("session_fork", Capability::SessionFork),
         ("checkpointing", Capability::Checkpointing),
-        ("structured_output_json_schema", Capability::StructuredOutputJsonSchema),
+        (
+            "structured_output_json_schema",
+            Capability::StructuredOutputJsonSchema,
+        ),
         ("mcp_client", Capability::McpClient),
         ("mcp_server", Capability::McpServer),
     ]
@@ -93,10 +96,7 @@ mod capability_serde {
     #[test]
     fn deserialize_from_string() {
         let cap: Capability = serde_json::from_value(json!("mcp_server")).unwrap();
-        assert_eq!(
-            serde_json::to_value(&cap).unwrap(),
-            json!("mcp_server")
-        );
+        assert_eq!(serde_json::to_value(&cap).unwrap(), json!("mcp_server"));
     }
 
     #[test]
@@ -154,20 +154,22 @@ mod min_support {
 
     #[test]
     fn unsupported_does_not_satisfy_emulated() {
-        assert!(!satisfies(&SupportLevel::Unsupported, &MinSupport::Emulated));
+        assert!(!satisfies(
+            &SupportLevel::Unsupported,
+            &MinSupport::Emulated
+        ));
     }
 
     #[test]
     fn min_support_serde_round_trip() {
-        for (expected, ms) in [("native", MinSupport::Native), ("emulated", MinSupport::Emulated)]
-        {
+        for (expected, ms) in [
+            ("native", MinSupport::Native),
+            ("emulated", MinSupport::Emulated),
+        ] {
             let value = serde_json::to_value(&ms).unwrap();
             assert_eq!(value, json!(expected));
             let back: MinSupport = serde_json::from_value(value).unwrap();
-            assert_eq!(
-                serde_json::to_value(&back).unwrap(),
-                json!(expected)
-            );
+            assert_eq!(serde_json::to_value(&back).unwrap(), json!(expected));
         }
     }
 }
@@ -181,9 +183,12 @@ mod manifest_lookup {
         BTreeMap::from([
             (Capability::Streaming, SupportLevel::Native),
             (Capability::ToolRead, SupportLevel::Emulated),
-            (Capability::ToolBash, SupportLevel::Restricted {
-                reason: "sandbox only".into(),
-            }),
+            (
+                Capability::ToolBash,
+                SupportLevel::Restricted {
+                    reason: "sandbox only".into(),
+                },
+            ),
             (Capability::McpClient, SupportLevel::Unsupported),
         ])
     }
@@ -455,9 +460,12 @@ mod manifest_in_receipt {
         let manifest: CapabilityManifest = BTreeMap::from([
             (Capability::Streaming, SupportLevel::Native),
             (Capability::ToolRead, SupportLevel::Emulated),
-            (Capability::ToolBash, SupportLevel::Restricted {
-                reason: "sandbox only".into(),
-            }),
+            (
+                Capability::ToolBash,
+                SupportLevel::Restricted {
+                    reason: "sandbox only".into(),
+                },
+            ),
         ]);
         let json = serde_json::to_value(&manifest).unwrap();
         let back: CapabilityManifest = serde_json::from_value(json).unwrap();
@@ -487,6 +495,9 @@ mod manifest_ordering {
 
         let j1 = serde_json::to_string(&m1).unwrap();
         let j2 = serde_json::to_string(&m2).unwrap();
-        assert_eq!(j1, j2, "BTreeMap must produce identical JSON regardless of insertion order");
+        assert_eq!(
+            j1, j2,
+            "BTreeMap must produce identical JSON regardless of insertion order"
+        );
     }
 }

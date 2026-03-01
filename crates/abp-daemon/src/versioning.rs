@@ -176,8 +176,7 @@ impl ApiVersionRegistry {
         self.endpoints
             .iter()
             .filter(|ep| {
-                *version >= ep.min_version
-                    && ep.max_version.is_none_or(|max| *version <= max)
+                *version >= ep.min_version && ep.max_version.is_none_or(|max| *version <= max)
             })
             .collect()
     }

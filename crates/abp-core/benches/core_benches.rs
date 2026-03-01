@@ -2,10 +2,9 @@
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION,
-    ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
-    Receipt, RunMetadata, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, canonical_json, receipt_hash,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, ExecutionLane,
+    ExecutionMode, Outcome, PolicyProfile, Receipt, RunMetadata, UsageNormalized,
+    VerificationReport, WorkOrder, WorkOrderBuilder, canonical_json, receipt_hash,
 };
 use chrono::Utc;
 use std::collections::BTreeMap;
@@ -157,7 +156,12 @@ fn bench_agent_event_serialize(c: &mut Criterion) {
     let events: Vec<AgentEvent> = (0..4).map(make_event).collect();
 
     let mut group = c.benchmark_group("agent_event_serialize");
-    let labels = ["assistant_delta", "tool_call", "tool_result", "file_changed"];
+    let labels = [
+        "assistant_delta",
+        "tool_call",
+        "tool_result",
+        "file_changed",
+    ];
     for (event, label) in events.iter().zip(labels.iter()) {
         group.bench_with_input(BenchmarkId::from_parameter(label), event, |b, ev| {
             b.iter(|| serde_json::to_string(black_box(ev)).unwrap());

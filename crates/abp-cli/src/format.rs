@@ -67,9 +67,7 @@ impl Formatter {
     pub fn format_receipt(&self, receipt: &Receipt) -> String {
         match &self.format {
             OutputFormat::Json => serde_json::to_string(receipt).unwrap_or_default(),
-            OutputFormat::JsonPretty => {
-                serde_json::to_string_pretty(receipt).unwrap_or_default()
-            }
+            OutputFormat::JsonPretty => serde_json::to_string_pretty(receipt).unwrap_or_default(),
             OutputFormat::Text => format_receipt_text(receipt),
             OutputFormat::Table => format_receipt_table(receipt),
             OutputFormat::Compact => format_receipt_compact(receipt),
@@ -81,9 +79,7 @@ impl Formatter {
     pub fn format_event(&self, event: &AgentEvent) -> String {
         match &self.format {
             OutputFormat::Json => serde_json::to_string(event).unwrap_or_default(),
-            OutputFormat::JsonPretty => {
-                serde_json::to_string_pretty(event).unwrap_or_default()
-            }
+            OutputFormat::JsonPretty => serde_json::to_string_pretty(event).unwrap_or_default(),
             OutputFormat::Text => format_event_text(event),
             OutputFormat::Table => format_event_table(event),
             OutputFormat::Compact => format_event_compact(event),
@@ -95,9 +91,7 @@ impl Formatter {
     pub fn format_work_order(&self, wo: &WorkOrder) -> String {
         match &self.format {
             OutputFormat::Json => serde_json::to_string(wo).unwrap_or_default(),
-            OutputFormat::JsonPretty => {
-                serde_json::to_string_pretty(wo).unwrap_or_default()
-            }
+            OutputFormat::JsonPretty => serde_json::to_string_pretty(wo).unwrap_or_default(),
             OutputFormat::Text => format_work_order_text(wo),
             OutputFormat::Table => format_work_order_table(wo),
             OutputFormat::Compact => format_work_order_compact(wo),
@@ -191,10 +185,7 @@ fn event_brief(kind: &AgentEventKind) -> String {
 // ── Receipt formatters ────────────────────────────────────────────────
 
 fn format_receipt_text(r: &Receipt) -> String {
-    let model = r
-        .backend
-        .id
-        .as_str();
+    let model = r.backend.id.as_str();
     format!(
         "Outcome: {}\nBackend: {}\nDuration: {}ms\nEvents: {}",
         outcome_str(&r.outcome),

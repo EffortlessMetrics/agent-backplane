@@ -18,14 +18,10 @@ fn path_segment() -> impl Strategy<Value = String> {
 
 /// Strategy producing a relative file path like `dir/subdir/file.ext`.
 fn relative_path() -> impl Strategy<Value = String> {
-    (
-        prop::collection::vec(path_segment(), 1..=4),
-        "[a-z]{1,4}",
-    )
-        .prop_map(|(segs, ext)| {
-            let joined = segs.join("/");
-            format!("{joined}.{ext}")
-        })
+    (prop::collection::vec(path_segment(), 1..=4), "[a-z]{1,4}").prop_map(|(segs, ext)| {
+        let joined = segs.join("/");
+        format!("{joined}.{ext}")
+    })
 }
 
 // ── 1. Allowing a tool ⇒ can_use_tool returns allowed ──────────────

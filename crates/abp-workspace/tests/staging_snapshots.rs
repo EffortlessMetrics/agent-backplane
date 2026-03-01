@@ -15,11 +15,7 @@ fn file_listing(root: &std::path::Path) -> Vec<String> {
         .sort_by_file_name()
         .into_iter()
         .filter_map(Result::ok)
-        .filter(|e| {
-            !e.path()
-                .components()
-                .any(|c| c.as_os_str() == ".git")
-        })
+        .filter(|e| !e.path().components().any(|c| c.as_os_str() == ".git"))
         .filter(|e| e.path() != root)
         .map(|e| {
             let rel = e.path().strip_prefix(root).unwrap();
@@ -52,10 +48,22 @@ fn snapshot_complex_directory_staging() {
     fs::write(p.join("README.md"), "# Demo").unwrap();
     fs::write(p.join("src").join("main.rs"), "fn main() {}").unwrap();
     fs::write(p.join("src").join("lib.rs"), "pub mod utils;").unwrap();
-    fs::write(p.join("src").join("utils").join("mod.rs"), "pub fn helper() {}").unwrap();
-    fs::write(p.join("tests").join("integration.rs"), "#[test] fn it_works() {}").unwrap();
+    fs::write(
+        p.join("src").join("utils").join("mod.rs"),
+        "pub fn helper() {}",
+    )
+    .unwrap();
+    fs::write(
+        p.join("tests").join("integration.rs"),
+        "#[test] fn it_works() {}",
+    )
+    .unwrap();
     fs::write(p.join("docs").join("guide.md"), "# Guide").unwrap();
-    fs::write(p.join("assets").join("images").join("logo.png"), [0x89, 0x50, 0x4E, 0x47]).unwrap();
+    fs::write(
+        p.join("assets").join("images").join("logo.png"),
+        [0x89, 0x50, 0x4E, 0x47],
+    )
+    .unwrap();
 
     let ws = WorkspaceStager::new()
         .source_root(p)
@@ -85,8 +93,7 @@ fn snapshot_git_status_after_staging() {
         .unwrap();
 
     // Fresh staged workspace should have clean git status
-    let status = abp_workspace::WorkspaceManager::git_status(ws.path())
-        .unwrap_or_default();
+    let status = abp_workspace::WorkspaceManager::git_status(ws.path()).unwrap_or_default();
 
     insta::assert_snapshot!("git_status_clean_after_staging", status.trim());
 }
@@ -148,7 +155,11 @@ fn snapshot_include_src_exclude_generated() {
     fs::create_dir_all(p.join("src").join("core")).unwrap();
     fs::write(p.join("src").join("lib.rs"), "pub mod core;").unwrap();
     fs::write(p.join("src").join("core").join("mod.rs"), "pub fn run() {}").unwrap();
-    fs::write(p.join("src").join("generated").join("out.rs"), "// generated").unwrap();
+    fs::write(
+        p.join("src").join("generated").join("out.rs"),
+        "// generated",
+    )
+    .unwrap();
     fs::write(p.join("README.md"), "# Readme").unwrap();
 
     let ws = WorkspaceStager::new()
@@ -178,7 +189,11 @@ fn snapshot_multiple_include_patterns() {
 
     let ws = WorkspaceStager::new()
         .source_root(p)
-        .include(vec!["src/**".into(), "tests/**".into(), "Cargo.toml".into()])
+        .include(vec![
+            "src/**".into(),
+            "tests/**".into(),
+            "Cargo.toml".into(),
+        ])
         .with_git_init(false)
         .stage()
         .unwrap();
@@ -310,10 +325,7 @@ fn snapshot_binary_files() {
     insta::assert_json_snapshot!("binary_files", listing);
 
     // Verify binary content is preserved
-    assert_eq!(
-        fs::read(ws.path().join("data.bin")).unwrap(),
-        vec![0u8; 64]
-    );
+    assert_eq!(fs::read(ws.path().join("data.bin")).unwrap(), vec![0u8; 64]);
     assert_eq!(
         fs::read(ws.path().join("image.png")).unwrap(),
         &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]

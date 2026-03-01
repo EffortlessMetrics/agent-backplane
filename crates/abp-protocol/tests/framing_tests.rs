@@ -6,7 +6,7 @@ use std::io::BufReader;
 
 use abp_core::*;
 use abp_protocol::codec::StreamingCodec;
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
+use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec};
 
 // ── helpers ──────────────────────────────────────────────────────────
@@ -93,8 +93,7 @@ fn binary_injection_non_utf8_in_stream() {
 fn binary_injection_valid_utf8_around_envelope() {
     // Valid UTF-8 but not valid JSON → error
     let reader = BufReader::new("not-json\n".as_bytes());
-    let results: Vec<_> = JsonlCodec::decode_stream(reader)
-        .collect::<Vec<_>>();
+    let results: Vec<_> = JsonlCodec::decode_stream(reader).collect::<Vec<_>>();
     assert_eq!(results.len(), 1);
     assert!(results[0].is_err());
 }
@@ -213,7 +212,9 @@ fn missing_run_work_order_field() {
 #[test]
 fn missing_event_ref_id() {
     // event needs ref_id and event fields
-    let result = JsonlCodec::decode(r#"{"t":"event","event":{"ts":"2024-01-01T00:00:00Z","kind":{"type":"run_started","message":"hi"}}}"#);
+    let result = JsonlCodec::decode(
+        r#"{"t":"event","event":{"ts":"2024-01-01T00:00:00Z","kind":{"type":"run_started","message":"hi"}}}"#,
+    );
     assert!(result.is_err(), "event without 'ref_id' must fail");
 }
 
@@ -724,9 +725,7 @@ fn array_empty_batch_encode_decode() {
 
 #[test]
 fn array_large_batch_500_envelopes() {
-    let envelopes: Vec<Envelope> = (0..500)
-        .map(|i| make_fatal(&format!("msg-{i}")))
-        .collect();
+    let envelopes: Vec<Envelope> = (0..500).map(|i| make_fatal(&format!("msg-{i}"))).collect();
     let jsonl = StreamingCodec::encode_batch(&envelopes);
     let decoded: Vec<_> = StreamingCodec::decode_batch(&jsonl)
         .into_iter()
@@ -817,7 +816,10 @@ fn all_json_escape_sequences() {
 fn encode_always_ends_with_newline() {
     for env in [make_hello(), make_fatal("x"), make_run()] {
         let encoded = JsonlCodec::encode(&env).unwrap();
-        assert!(encoded.ends_with('\n'), "encoded line must end with newline");
+        assert!(
+            encoded.ends_with('\n'),
+            "encoded line must end with newline"
+        );
         // Exactly one newline at the end
         assert_eq!(encoded.trim_end_matches('\n').matches('\n').count(), 0);
     }

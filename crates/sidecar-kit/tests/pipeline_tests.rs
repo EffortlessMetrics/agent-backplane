@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+use serde_json::Value;
 use serde_json::json;
 use sidecar_kit::pipeline::{
     EventPipeline, PipelineError, PipelineStage, RedactStage, TimestampStage, ValidateStage,
 };
-use serde_json::Value;
 
 // ── helpers ──────────────────────────────────────────────────────────
 
@@ -19,7 +19,9 @@ fn sample_event() -> Value {
 struct DropStage;
 
 impl PipelineStage for DropStage {
-    fn name(&self) -> &str { "drop" }
+    fn name(&self) -> &str {
+        "drop"
+    }
     fn process(&self, _event: Value) -> Result<Option<Value>, PipelineError> {
         Ok(None)
     }
@@ -29,7 +31,9 @@ impl PipelineStage for DropStage {
 struct FailStage;
 
 impl PipelineStage for FailStage {
-    fn name(&self) -> &str { "fail" }
+    fn name(&self) -> &str {
+        "fail"
+    }
     fn process(&self, _event: Value) -> Result<Option<Value>, PipelineError> {
         Err(PipelineError::StageError {
             stage: "fail".into(),

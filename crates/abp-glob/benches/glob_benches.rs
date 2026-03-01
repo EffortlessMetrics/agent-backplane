@@ -104,17 +104,17 @@ fn bench_decision_scaling(c: &mut Criterion) {
     let path_miss = "other/file.rs";
 
     let mut group = c.benchmark_group("decision_scaling");
-    for (label, globs) in [("1_rule", &globs_1), ("10_rules", &globs_10), ("100_rules", &globs_100)] {
-        group.bench_with_input(
-            BenchmarkId::new(label, "hit"),
-            &path_hit,
-            |b, p| b.iter(|| globs.decide_str(black_box(p))),
-        );
-        group.bench_with_input(
-            BenchmarkId::new(label, "miss"),
-            &path_miss,
-            |b, p| b.iter(|| globs.decide_str(black_box(p))),
-        );
+    for (label, globs) in [
+        ("1_rule", &globs_1),
+        ("10_rules", &globs_10),
+        ("100_rules", &globs_100),
+    ] {
+        group.bench_with_input(BenchmarkId::new(label, "hit"), &path_hit, |b, p| {
+            b.iter(|| globs.decide_str(black_box(p)))
+        });
+        group.bench_with_input(BenchmarkId::new(label, "miss"), &path_miss, |b, p| {
+            b.iter(|| globs.decide_str(black_box(p)))
+        });
     }
     group.finish();
 }

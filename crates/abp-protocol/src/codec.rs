@@ -64,9 +64,7 @@ impl StreamingCodec {
             .lines()
             .enumerate()
             .filter(|(_, l)| !l.trim().is_empty())
-            .filter_map(|(idx, l)| {
-                JsonlCodec::decode(l.trim()).err().map(|e| (idx + 1, e))
-            })
+            .filter_map(|(idx, l)| JsonlCodec::decode(l.trim()).err().map(|e| (idx + 1, e)))
             .collect()
     }
 }

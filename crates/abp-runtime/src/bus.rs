@@ -5,8 +5,8 @@
 //! publishing statistics and supports filtered subscriptions.
 
 use abp_core::AgentEvent;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::broadcast;
 
 /// Default channel capacity for the event bus.

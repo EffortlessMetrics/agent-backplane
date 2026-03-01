@@ -179,7 +179,10 @@ mod tests {
             ..Default::default()
         };
         let errs = validate_config(&config).unwrap_err();
-        assert!(errs.iter().any(|e| matches!(e, ConfigError::InvalidBackend { .. })));
+        assert!(
+            errs.iter()
+                .any(|e| matches!(e, ConfigError::InvalidBackend { .. }))
+        );
     }
 
     #[test]
@@ -196,7 +199,10 @@ mod tests {
             ..Default::default()
         };
         let errs = validate_config(&config).unwrap_err();
-        assert!(errs.iter().any(|e| matches!(e, ConfigError::InvalidTimeout { value: 0 })));
+        assert!(
+            errs.iter()
+                .any(|e| matches!(e, ConfigError::InvalidTimeout { value: 0 }))
+        );
     }
 
     #[test]

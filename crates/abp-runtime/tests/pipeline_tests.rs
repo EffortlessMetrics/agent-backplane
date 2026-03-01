@@ -5,12 +5,13 @@ use abp_core::{
     CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
     WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
-use abp_runtime::pipeline::{
-    AuditStage, Pipeline, PipelineStage, PolicyStage, ValidationStage,
-};
+use abp_runtime::pipeline::{AuditStage, Pipeline, PipelineStage, PolicyStage, ValidationStage};
 use anyhow::Result;
 use async_trait::async_trait;
-use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -226,7 +227,10 @@ async fn empty_pipeline_is_noop() {
     assert!(pipeline.is_empty());
 
     let mut wo = minimal_work_order("unchanged");
-    pipeline.execute(&mut wo).await.expect("empty pipeline must succeed");
+    pipeline
+        .execute(&mut wo)
+        .await
+        .expect("empty pipeline must succeed");
     assert_eq!(wo.task, "unchanged");
 }
 
@@ -347,5 +351,8 @@ async fn pipeline_works_with_builder_api() {
         .workspace_mode(WorkspaceMode::PassThrough)
         .build();
 
-    pipeline.execute(&mut wo).await.expect("builder-produced order should pass full pipeline");
+    pipeline
+        .execute(&mut wo)
+        .await
+        .expect("builder-produced order should pass full pipeline");
 }

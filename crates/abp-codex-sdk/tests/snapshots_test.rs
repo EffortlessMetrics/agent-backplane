@@ -40,9 +40,6 @@ fn snapshot_mapped_response_events() {
             total_tokens: 125,
         }),
     };
-    let events: Vec<_> = map_response(&resp)
-        .into_iter()
-        .map(|e| e.kind)
-        .collect();
+    let events: Vec<_> = map_response(&resp).into_iter().map(|e| e.kind).collect();
     assert_json_snapshot!("codex_mapped_response_events", events);
 }

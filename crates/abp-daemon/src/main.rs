@@ -38,8 +38,6 @@ struct Args {
     debug: bool,
 }
 
-
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();

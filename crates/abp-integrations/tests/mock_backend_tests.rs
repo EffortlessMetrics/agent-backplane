@@ -2,8 +2,8 @@
 //! Extended MockBackend tests: concurrency, edge cases, config extraction.
 
 use abp_core::{
-    AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
-    MinSupport, Outcome, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement, CapabilityRequirements,
+    ExecutionMode, MinSupport, Outcome, WorkOrderBuilder,
 };
 use abp_integrations::{
     Backend, MockBackend, extract_execution_mode, validate_passthrough_compatibility,
@@ -210,11 +210,17 @@ async fn event_ordering() {
 
     assert!(events.len() >= 2, "expected at least 2 events");
     assert!(
-        matches!(events.first().unwrap().kind, AgentEventKind::RunStarted { .. }),
+        matches!(
+            events.first().unwrap().kind,
+            AgentEventKind::RunStarted { .. }
+        ),
         "first event should be RunStarted"
     );
     assert!(
-        matches!(events.last().unwrap().kind, AgentEventKind::RunCompleted { .. }),
+        matches!(
+            events.last().unwrap().kind,
+            AgentEventKind::RunCompleted { .. }
+        ),
         "last event should be RunCompleted"
     );
 }
@@ -267,9 +273,7 @@ fn extract_execution_mode_nested_priority() {
     wo.config
         .vendor
         .insert("abp".into(), json!({"mode": "passthrough"}));
-    wo.config
-        .vendor
-        .insert("abp.mode".into(), json!("mapped"));
+    wo.config.vendor.insert("abp.mode".into(), json!("mapped"));
     // Nested "abp" object is checked first
     assert_eq!(extract_execution_mode(&wo), ExecutionMode::Passthrough);
 }

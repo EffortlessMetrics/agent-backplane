@@ -94,42 +94,65 @@ impl EventTransformer for RedactTransformer {
 
     fn transform(&self, mut event: AgentEvent) -> Option<AgentEvent> {
         event.kind = match event.kind {
-            AgentEventKind::RunStarted { message } => {
-                AgentEventKind::RunStarted { message: self.redact_string(&message) }
-            }
-            AgentEventKind::RunCompleted { message } => {
-                AgentEventKind::RunCompleted { message: self.redact_string(&message) }
-            }
-            AgentEventKind::AssistantDelta { text } => {
-                AgentEventKind::AssistantDelta { text: self.redact_string(&text) }
-            }
-            AgentEventKind::AssistantMessage { text } => {
-                AgentEventKind::AssistantMessage { text: self.redact_string(&text) }
-            }
-            AgentEventKind::ToolCall { tool_name, tool_use_id, parent_tool_use_id, mut input } => {
+            AgentEventKind::RunStarted { message } => AgentEventKind::RunStarted {
+                message: self.redact_string(&message),
+            },
+            AgentEventKind::RunCompleted { message } => AgentEventKind::RunCompleted {
+                message: self.redact_string(&message),
+            },
+            AgentEventKind::AssistantDelta { text } => AgentEventKind::AssistantDelta {
+                text: self.redact_string(&text),
+            },
+            AgentEventKind::AssistantMessage { text } => AgentEventKind::AssistantMessage {
+                text: self.redact_string(&text),
+            },
+            AgentEventKind::ToolCall {
+                tool_name,
+                tool_use_id,
+                parent_tool_use_id,
+                mut input,
+            } => {
                 self.redact_value(&mut input);
-                AgentEventKind::ToolCall { tool_name, tool_use_id, parent_tool_use_id, input }
-            }
-            AgentEventKind::ToolResult { tool_name, tool_use_id, mut output, is_error } => {
-                self.redact_value(&mut output);
-                AgentEventKind::ToolResult { tool_name, tool_use_id, output, is_error }
-            }
-            AgentEventKind::FileChanged { path, summary } => {
-                AgentEventKind::FileChanged { path, summary: self.redact_string(&summary) }
-            }
-            AgentEventKind::CommandExecuted { command, exit_code, output_preview } => {
-                AgentEventKind::CommandExecuted {
-                    command: self.redact_string(&command),
-                    exit_code,
-                    output_preview: output_preview.map(|s| self.redact_string(&s)),
+                AgentEventKind::ToolCall {
+                    tool_name,
+                    tool_use_id,
+                    parent_tool_use_id,
+                    input,
                 }
             }
-            AgentEventKind::Warning { message } => {
-                AgentEventKind::Warning { message: self.redact_string(&message) }
+            AgentEventKind::ToolResult {
+                tool_name,
+                tool_use_id,
+                mut output,
+                is_error,
+            } => {
+                self.redact_value(&mut output);
+                AgentEventKind::ToolResult {
+                    tool_name,
+                    tool_use_id,
+                    output,
+                    is_error,
+                }
             }
-            AgentEventKind::Error { message } => {
-                AgentEventKind::Error { message: self.redact_string(&message) }
-            }
+            AgentEventKind::FileChanged { path, summary } => AgentEventKind::FileChanged {
+                path,
+                summary: self.redact_string(&summary),
+            },
+            AgentEventKind::CommandExecuted {
+                command,
+                exit_code,
+                output_preview,
+            } => AgentEventKind::CommandExecuted {
+                command: self.redact_string(&command),
+                exit_code,
+                output_preview: output_preview.map(|s| self.redact_string(&s)),
+            },
+            AgentEventKind::Warning { message } => AgentEventKind::Warning {
+                message: self.redact_string(&message),
+            },
+            AgentEventKind::Error { message } => AgentEventKind::Error {
+                message: self.redact_string(&message),
+            },
         };
         Some(event)
     }

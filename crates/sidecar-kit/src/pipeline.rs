@@ -68,9 +68,7 @@ impl EventPipeline {
     /// Create an empty pipeline (acts as passthrough).
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            stages: Vec::new(),
-        }
+        Self { stages: Vec::new() }
     }
 
     /// Append a stage to the end of the pipeline.
@@ -119,9 +117,7 @@ impl PipelineStage for TimestampStage {
     }
 
     fn process(&self, mut event: Value) -> Result<Option<Value>, PipelineError> {
-        let obj = event
-            .as_object_mut()
-            .ok_or(PipelineError::InvalidEvent)?;
+        let obj = event.as_object_mut().ok_or(PipelineError::InvalidEvent)?;
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -158,9 +154,7 @@ impl PipelineStage for RedactStage {
     }
 
     fn process(&self, mut event: Value) -> Result<Option<Value>, PipelineError> {
-        let obj = event
-            .as_object_mut()
-            .ok_or(PipelineError::InvalidEvent)?;
+        let obj = event.as_object_mut().ok_or(PipelineError::InvalidEvent)?;
 
         for field in &self.fields {
             obj.remove(field);

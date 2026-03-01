@@ -7,10 +7,9 @@
 use std::collections::HashSet;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
     RunMetadata, SupportLevel, UsageNormalized, VerificationReport, WorkOrderBuilder,
-    CONTRACT_VERSION,
 };
 use abp_integrations::{Backend, MockBackend};
 use anyhow::Result;
@@ -207,12 +206,18 @@ async fn roundtrip_event_stream_order() {
 
     // First event must be RunStarted
     assert!(
-        matches!(events.first().unwrap().kind, AgentEventKind::RunStarted { .. }),
+        matches!(
+            events.first().unwrap().kind,
+            AgentEventKind::RunStarted { .. }
+        ),
         "first streamed event should be RunStarted"
     );
     // Last event must be RunCompleted
     assert!(
-        matches!(events.last().unwrap().kind, AgentEventKind::RunCompleted { .. }),
+        matches!(
+            events.last().unwrap().kind,
+            AgentEventKind::RunCompleted { .. }
+        ),
         "last streamed event should be RunCompleted"
     );
 
@@ -243,7 +248,10 @@ async fn roundtrip_receipt_hash_valid() {
 
     // Recompute and verify
     let recomputed = abp_core::receipt_hash(&receipt).unwrap();
-    assert_eq!(stored, recomputed, "hash should be deterministically reproducible");
+    assert_eq!(
+        stored, recomputed,
+        "hash should be deterministically reproducible"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -323,7 +331,10 @@ async fn roundtrip_empty_task_produces_receipt() {
 
     assert_eq!(receipt.outcome, Outcome::Complete);
     assert!(receipt.receipt_sha256.is_some());
-    assert!(!events.is_empty(), "events should still be emitted for empty task");
+    assert!(
+        !events.is_empty(),
+        "events should still be emitted for empty task"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -362,10 +373,9 @@ async fn roundtrip_large_task_preserves_info() {
 async fn roundtrip_custom_vendor_config() {
     let backend = MockBackend;
     let mut wo = make_work_order("custom config test");
-    wo.config.vendor.insert(
-        "abp".to_string(),
-        json!({"mode": "passthrough"}),
-    );
+    wo.config
+        .vendor
+        .insert("abp".to_string(), json!({"mode": "passthrough"}));
     wo.config.model = Some("gpt-4-test".to_string());
     wo.config.max_turns = Some(42);
 
@@ -387,11 +397,26 @@ async fn roundtrip_capability_manifest_in_receipt() {
     let (receipt, _) = run_and_collect(&backend, wo).await;
 
     let caps = &receipt.capabilities;
-    assert!(matches!(caps.get(&Capability::Streaming), Some(SupportLevel::Native)));
-    assert!(matches!(caps.get(&Capability::ToolRead), Some(SupportLevel::Emulated)));
-    assert!(matches!(caps.get(&Capability::ToolWrite), Some(SupportLevel::Emulated)));
-    assert!(matches!(caps.get(&Capability::ToolEdit), Some(SupportLevel::Emulated)));
-    assert!(matches!(caps.get(&Capability::ToolBash), Some(SupportLevel::Emulated)));
+    assert!(matches!(
+        caps.get(&Capability::Streaming),
+        Some(SupportLevel::Native)
+    ));
+    assert!(matches!(
+        caps.get(&Capability::ToolRead),
+        Some(SupportLevel::Emulated)
+    ));
+    assert!(matches!(
+        caps.get(&Capability::ToolWrite),
+        Some(SupportLevel::Emulated)
+    ));
+    assert!(matches!(
+        caps.get(&Capability::ToolEdit),
+        Some(SupportLevel::Emulated)
+    ));
+    assert!(matches!(
+        caps.get(&Capability::ToolBash),
+        Some(SupportLevel::Emulated)
+    ));
     assert!(matches!(
         caps.get(&Capability::StructuredOutputJsonSchema),
         Some(SupportLevel::Emulated)
@@ -631,7 +656,10 @@ async fn roundtrip_hash_determinism() {
     // But recomputing the same receipt's hash should be stable
     let hash1 = abp_core::receipt_hash(&r1).unwrap();
     let hash2 = abp_core::receipt_hash(&r1).unwrap();
-    assert_eq!(hash1, hash2, "recomputing hash on same receipt should be deterministic");
+    assert_eq!(
+        hash1, hash2,
+        "recomputing hash on same receipt should be deterministic"
+    );
     assert_eq!(
         r1.receipt_sha256.as_ref().unwrap(),
         &hash1,

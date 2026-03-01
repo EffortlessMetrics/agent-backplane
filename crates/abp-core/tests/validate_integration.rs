@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use abp_core::validate::{validate_receipt, ValidationError};
+use abp_core::validate::{ValidationError, validate_receipt};
 use abp_core::*;
 use chrono::{TimeZone, Utc};
 
@@ -100,7 +100,10 @@ fn validation_error_display_messages_are_unique() {
 
     // Every message must contain meaningful content (not just empty or boilerplate).
     for msg in &messages {
-        assert!(msg.len() > 10, "message too short to be informative: {msg:?}");
+        assert!(
+            msg.len() > 10,
+            "message too short to be informative: {msg:?}"
+        );
     }
 }
 

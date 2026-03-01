@@ -118,12 +118,10 @@ impl BackendSelector {
 
         let chosen = match &self.strategy {
             SelectionStrategy::FirstMatch => eligible[0],
-            SelectionStrategy::BestFit => {
-                *eligible
-                    .iter()
-                    .max_by_key(|&&i| Self::match_count(&self.candidates[i], required))
-                    .unwrap()
-            }
+            SelectionStrategy::BestFit => *eligible
+                .iter()
+                .max_by_key(|&&i| Self::match_count(&self.candidates[i], required))
+                .unwrap(),
             SelectionStrategy::LeastLoaded => {
                 // Use priority as a proxy for load (lower = less loaded).
                 *eligible
@@ -135,12 +133,10 @@ impl BackendSelector {
                 let idx = self.rr_counter.fetch_add(1, Relaxed);
                 eligible[idx % eligible.len()]
             }
-            SelectionStrategy::Priority => {
-                *eligible
-                    .iter()
-                    .min_by_key(|&&i| self.candidates[i].priority)
-                    .unwrap()
-            }
+            SelectionStrategy::Priority => *eligible
+                .iter()
+                .min_by_key(|&&i| self.candidates[i].priority)
+                .unwrap(),
         };
 
         Some(&self.candidates[chosen])
@@ -166,7 +162,10 @@ impl BackendSelector {
         if !unmet.is_empty() {
             return SelectionResult {
                 selected: String::new(),
-                reason: format!("no candidate satisfies all requirements; unmet: {}", unmet.join(", ")),
+                reason: format!(
+                    "no candidate satisfies all requirements; unmet: {}",
+                    unmet.join(", ")
+                ),
                 alternatives: matching_names,
                 unmet_capabilities: unmet,
             };
@@ -175,14 +174,8 @@ impl BackendSelector {
         match self.select(required) {
             Some(c) => {
                 let name = c.name.clone();
-                let reason = format!(
-                    "selected via {:?} strategy",
-                    self.strategy
-                );
-                let alternatives = matching_names
-                    .into_iter()
-                    .filter(|n| n != &name)
-                    .collect();
+                let reason = format!("selected via {:?} strategy", self.strategy);
+                let alternatives = matching_names.into_iter().filter(|n| n != &name).collect();
                 SelectionResult {
                     selected: name,
                     reason,

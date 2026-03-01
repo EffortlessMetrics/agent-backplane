@@ -102,7 +102,11 @@ fn empty_selector_select_all_returns_empty() {
 fn first_match_picks_first_capable() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(candidate("a", &[Capability::ToolRead], 1));
-    sel.add_candidate(candidate("b", &[Capability::Streaming, Capability::ToolRead], 2));
+    sel.add_candidate(candidate(
+        "b",
+        &[Capability::Streaming, Capability::ToolRead],
+        2,
+    ));
     let picked = sel.select(&[Capability::ToolRead]).unwrap();
     assert_eq!(picked.name, "a");
 }
@@ -126,10 +130,16 @@ fn best_fit_picks_most_matching() {
     sel.add_candidate(candidate("a", &[Capability::ToolRead], 1));
     sel.add_candidate(candidate(
         "b",
-        &[Capability::ToolRead, Capability::ToolWrite, Capability::Streaming],
+        &[
+            Capability::ToolRead,
+            Capability::ToolWrite,
+            Capability::Streaming,
+        ],
         2,
     ));
-    let picked = sel.select(&[Capability::ToolRead, Capability::ToolWrite]).unwrap();
+    let picked = sel
+        .select(&[Capability::ToolRead, Capability::ToolWrite])
+        .unwrap();
     assert_eq!(picked.name, "b");
 }
 
@@ -213,9 +223,17 @@ fn all_disabled_returns_none() {
 #[test]
 fn select_all_returns_all_matching() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
-    sel.add_candidate(candidate("a", &[Capability::Streaming, Capability::ToolRead], 1));
+    sel.add_candidate(candidate(
+        "a",
+        &[Capability::Streaming, Capability::ToolRead],
+        1,
+    ));
     sel.add_candidate(candidate("b", &[Capability::Streaming], 2));
-    sel.add_candidate(candidate("c", &[Capability::Streaming, Capability::ToolRead], 3));
+    sel.add_candidate(candidate(
+        "c",
+        &[Capability::Streaming, Capability::ToolRead],
+        3,
+    ));
     let all = sel.select_all(&[Capability::Streaming, Capability::ToolRead]);
     let names: Vec<&str> = all.iter().map(|c| c.name.as_str()).collect();
     assert_eq!(names, vec!["a", "c"]);
@@ -309,7 +327,8 @@ fn no_candidate_has_all_caps() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(candidate("a", &[Capability::ToolRead], 1));
     sel.add_candidate(candidate("b", &[Capability::ToolWrite], 2));
-    assert!(sel
-        .select(&[Capability::ToolRead, Capability::ToolWrite])
-        .is_none());
+    assert!(
+        sel.select(&[Capability::ToolRead, Capability::ToolWrite])
+            .is_none()
+    );
 }

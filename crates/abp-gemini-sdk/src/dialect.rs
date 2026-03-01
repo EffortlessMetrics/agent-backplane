@@ -224,7 +224,10 @@ pub fn map_work_order(wo: &WorkOrder, config: &GeminiConfig) -> GeminiRequest {
 
     let mut user_text = wo.task.clone();
     for snippet in &wo.context.snippets {
-        user_text.push_str(&format!("\n\n--- {} ---\n{}", snippet.name, snippet.content));
+        user_text.push_str(&format!(
+            "\n\n--- {} ---\n{}",
+            snippet.name, snippet.content
+        ));
     }
 
     let generation_config = if config.max_output_tokens.is_some() || config.temperature.is_some() {
@@ -258,9 +261,7 @@ pub fn map_response(resp: &GeminiResponse) -> Vec<AgentEvent> {
                 GeminiPart::Text(text) => {
                     events.push(AgentEvent {
                         ts: now,
-                        kind: AgentEventKind::AssistantMessage {
-                            text: text.clone(),
-                        },
+                        kind: AgentEventKind::AssistantMessage { text: text.clone() },
                         ext: None,
                     });
                 }
@@ -315,7 +316,9 @@ mod tests {
 
     #[test]
     fn map_work_order_respects_model_override() {
-        let wo = WorkOrderBuilder::new("task").model("gemini-2.5-pro").build();
+        let wo = WorkOrderBuilder::new("task")
+            .model("gemini-2.5-pro")
+            .build();
         let cfg = GeminiConfig::default();
         let req = map_work_order(&wo, &cfg);
 

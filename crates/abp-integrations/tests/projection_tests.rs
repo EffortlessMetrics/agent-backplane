@@ -28,7 +28,10 @@ fn abp_to_claude_produces_valid_json() {
     let val = translate(Dialect::Abp, Dialect::Claude, &wo).unwrap();
     let obj = val.as_object().expect("should be a JSON object");
     assert!(obj.contains_key("model"), "Claude request must have model");
-    assert!(obj.contains_key("messages"), "Claude request must have messages");
+    assert!(
+        obj.contains_key("messages"),
+        "Claude request must have messages"
+    );
 }
 
 #[test]
@@ -46,7 +49,10 @@ fn abp_to_gemini_produces_valid_json() {
     let val = translate(Dialect::Abp, Dialect::Gemini, &wo).unwrap();
     let obj = val.as_object().expect("should be a JSON object");
     assert!(obj.contains_key("model"), "Gemini request must have model");
-    assert!(obj.contains_key("contents"), "Gemini request must have contents");
+    assert!(
+        obj.contains_key("contents"),
+        "Gemini request must have contents"
+    );
 }
 
 #[test]
@@ -55,7 +61,10 @@ fn abp_to_kimi_produces_valid_json() {
     let val = translate(Dialect::Abp, Dialect::Kimi, &wo).unwrap();
     let obj = val.as_object().expect("should be a JSON object");
     assert!(obj.contains_key("model"), "Kimi request must have model");
-    assert!(obj.contains_key("messages"), "Kimi request must have messages");
+    assert!(
+        obj.contains_key("messages"),
+        "Kimi request must have messages"
+    );
 }
 
 #[test]
@@ -65,7 +74,10 @@ fn unsupported_translation_returns_error() {
     let result = translate(Dialect::Claude, Dialect::Codex, &wo);
     assert!(result.is_err(), "Claude->Codex should be unsupported");
     let msg = result.unwrap_err().to_string();
-    assert!(msg.contains("unsupported"), "error should mention 'unsupported': {msg}");
+    assert!(
+        msg.contains("unsupported"),
+        "error should mention 'unsupported': {msg}"
+    );
 }
 
 #[test]
@@ -98,7 +110,9 @@ fn projection_matrix_struct_matches_free_functions() {
     let matrix = ProjectionMatrix::new();
 
     // Method should give the same results as the free function.
-    let method_result = matrix.translate(Dialect::Abp, Dialect::Claude, &wo).unwrap();
+    let method_result = matrix
+        .translate(Dialect::Abp, Dialect::Claude, &wo)
+        .unwrap();
     let free_result = translate(Dialect::Abp, Dialect::Claude, &wo).unwrap();
     assert_eq!(method_result, free_result);
 
@@ -141,7 +155,9 @@ fn translate_tool_call_abp_to_openai() {
 fn translate_tool_call_abp_to_anthropic() {
     let matrix = ProjectionMatrix::new();
     let call = sample_tool_call("bash");
-    let translated = matrix.translate_tool_call("abp", "anthropic", &call).unwrap();
+    let translated = matrix
+        .translate_tool_call("abp", "anthropic", &call)
+        .unwrap();
     assert_eq!(translated.tool_name, "Bash");
 }
 
@@ -291,7 +307,9 @@ fn identity_translation_event() {
 fn round_trip_tool_call_abp_openai() {
     let matrix = ProjectionMatrix::new();
     let original = sample_tool_call("bash");
-    let to_openai = matrix.translate_tool_call("abp", "openai", &original).unwrap();
+    let to_openai = matrix
+        .translate_tool_call("abp", "openai", &original)
+        .unwrap();
     assert_eq!(to_openai.tool_name, "shell");
     let back = matrix
         .translate_tool_call("openai", "abp", &to_openai)
@@ -361,10 +379,7 @@ fn tool_name_mapping_unmapped_passthrough() {
 fn event_kind_mapping_exists() {
     let matrix = ProjectionMatrix::new();
     let mapping = matrix.event_mapping("abp", "openai").unwrap();
-    assert_eq!(
-        mapping.kind_map.get("tool_call").unwrap(),
-        "function_call"
-    );
+    assert_eq!(mapping.kind_map.get("tool_call").unwrap(), "function_call");
     assert_eq!(
         mapping.kind_map.get("run_started").unwrap(),
         "response.created"
@@ -401,9 +416,7 @@ fn multiple_sequential_translations() {
         .unwrap();
     assert_eq!(step3.tool_name, "readFile");
 
-    let step4 = matrix
-        .translate_tool_call("gemini", "abp", &step3)
-        .unwrap();
+    let step4 = matrix.translate_tool_call("gemini", "abp", &step3).unwrap();
     assert_eq!(step4.tool_name, "read_file");
     assert_eq!(step4.input, call.input);
 }

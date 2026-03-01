@@ -2,15 +2,15 @@
 //! Tests for the lifecycle hooks module.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, WorkOrder,
-    WorkspaceSpec, WorkspaceMode, ExecutionLane, ContextPacket, PolicyProfile,
-    CapabilityRequirements, RuntimeConfig,
-};
-use abp_runtime::hooks::{
-    HookRegistry, LifecycleHook, LoggingHook, MetricsHook, ValidationHook,
+    AgentEvent, AgentEventKind, CapabilityRequirements, ContextPacket, ExecutionLane, Outcome,
+    PolicyProfile, ReceiptBuilder, RuntimeConfig, WorkOrder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_runtime::RuntimeError;
-use std::sync::{Arc, atomic::{AtomicU32, Ordering}};
+use abp_runtime::hooks::{HookRegistry, LifecycleHook, LoggingHook, MetricsHook, ValidationHook};
+use std::sync::{
+    Arc,
+    atomic::{AtomicU32, Ordering},
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -166,7 +166,9 @@ fn fire_event_calls_all_hooks() {
 
 #[test]
 fn fire_run_complete_calls_all_hooks() {
-    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     let mut reg = HookRegistry::new();
     reg.register(Box::new(LoggingHook));
     let results = reg.fire_run_complete(&receipt);
@@ -234,7 +236,9 @@ fn metrics_hook_records_run() {
     let mut reg = HookRegistry::new();
     reg.register(Box::new(hook));
 
-    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     let results = reg.fire_run_complete(&receipt);
     assert!(results[0].is_ok());
 
@@ -280,8 +284,6 @@ fn default_trait_methods_are_no_ops() {
     let receipt = ReceiptBuilder::new("mock").build();
     assert!(reg.fire_run_complete(&receipt)[0].is_ok());
 
-    let err = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "x".into() };
     reg.fire_error(&err);
 }

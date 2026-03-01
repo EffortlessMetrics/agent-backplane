@@ -2,8 +2,8 @@
 use abp_core::{AgentEvent, AgentEventKind};
 use chrono::{DateTime, TimeZone, Utc};
 use sidecar_kit::transform::{
-    EnrichTransformer, EventTransformer, FilterTransformer, RedactTransformer,
-    ThrottleTransformer, TimestampTransformer, TransformerChain,
+    EnrichTransformer, EventTransformer, FilterTransformer, RedactTransformer, ThrottleTransformer,
+    TimestampTransformer, TransformerChain,
 };
 use std::collections::BTreeMap;
 
@@ -18,7 +18,11 @@ fn make_event(kind: AgentEventKind) -> AgentEvent {
 }
 
 fn make_event_at(kind: AgentEventKind, ts: DateTime<Utc>) -> AgentEvent {
-    AgentEvent { ts, kind, ext: None }
+    AgentEvent {
+        ts,
+        kind,
+        ext: None,
+    }
 }
 
 fn run_started(msg: &str) -> AgentEvent {
@@ -141,7 +145,11 @@ fn redact_handles_command_executed() {
     });
     let result = t.transform(event).unwrap();
     match &result.kind {
-        AgentEventKind::CommandExecuted { command, output_preview, .. } => {
+        AgentEventKind::CommandExecuted {
+            command,
+            output_preview,
+            ..
+        } => {
             assert_eq!(command, "env [REDACTED] ./run.sh");
             assert_eq!(output_preview.as_deref(), Some("[REDACTED] was set"));
         }
@@ -232,7 +240,12 @@ fn filter_reject_all() {
 fn timestamp_replaces_epoch_timestamp() {
     let t = TimestampTransformer::new();
     let epoch = Utc.timestamp_opt(0, 0).unwrap();
-    let event = make_event_at(AgentEventKind::RunStarted { message: "test".into() }, epoch);
+    let event = make_event_at(
+        AgentEventKind::RunStarted {
+            message: "test".into(),
+        },
+        epoch,
+    );
     assert_eq!(event.ts.timestamp(), 0);
     let result = t.transform(event).unwrap();
     assert!(result.ts.timestamp() > 0);
@@ -242,7 +255,12 @@ fn timestamp_replaces_epoch_timestamp() {
 fn timestamp_preserves_valid_timestamp() {
     let t = TimestampTransformer::new();
     let now = Utc::now();
-    let event = make_event_at(AgentEventKind::RunStarted { message: "test".into() }, now);
+    let event = make_event_at(
+        AgentEventKind::RunStarted {
+            message: "test".into(),
+        },
+        now,
+    );
     let result = t.transform(event).unwrap();
     assert_eq!(result.ts, now);
 }

@@ -8,11 +8,11 @@
 //! 4. Clone equality (via PartialEq or JSON comparison)
 //! 5. Variant count matches expected (catches additions/removals)
 
+use abp_core::validate::ValidationError;
 use abp_core::{
     AgentEventKind, Capability, ContractError, ExecutionLane, ExecutionMode, MinSupport, Outcome,
     SupportLevel, WorkspaceMode,
 };
-use abp_core::validate::ValidationError;
 
 // ---------------------------------------------------------------------------
 // Helper: round-trip via JSON for types without PartialEq
@@ -75,7 +75,11 @@ fn execution_lane_clone_eq() {
 
 #[test]
 fn execution_lane_count() {
-    assert_eq!(all_execution_lanes().len(), 2, "ExecutionLane variant count changed");
+    assert_eq!(
+        all_execution_lanes().len(),
+        2,
+        "ExecutionLane variant count changed"
+    );
 }
 
 // ===========================================================================
@@ -116,7 +120,11 @@ fn workspace_mode_clone_eq() {
 
 #[test]
 fn workspace_mode_count() {
-    assert_eq!(all_workspace_modes().len(), 2, "WorkspaceMode variant count changed");
+    assert_eq!(
+        all_workspace_modes().len(),
+        2,
+        "WorkspaceMode variant count changed"
+    );
 }
 
 // ===========================================================================
@@ -158,7 +166,11 @@ fn execution_mode_clone_eq() {
 
 #[test]
 fn execution_mode_count() {
-    assert_eq!(all_execution_modes().len(), 2, "ExecutionMode variant count changed");
+    assert_eq!(
+        all_execution_modes().len(),
+        2,
+        "ExecutionMode variant count changed"
+    );
 }
 
 // ===========================================================================
@@ -241,7 +253,11 @@ fn min_support_clone_eq() {
 
 #[test]
 fn min_support_count() {
-    assert_eq!(all_min_supports().len(), 2, "MinSupport variant count changed");
+    assert_eq!(
+        all_min_supports().len(),
+        2,
+        "MinSupport variant count changed"
+    );
 }
 
 // ===========================================================================
@@ -289,7 +305,11 @@ fn support_level_clone_eq() {
 
 #[test]
 fn support_level_count() {
-    assert_eq!(all_support_levels().len(), 4, "SupportLevel variant count changed");
+    assert_eq!(
+        all_support_levels().len(),
+        4,
+        "SupportLevel variant count changed"
+    );
 }
 
 // ===========================================================================
@@ -350,7 +370,11 @@ fn capability_clone_eq() {
 
 #[test]
 fn capability_count() {
-    assert_eq!(all_capabilities().len(), 18, "Capability variant count changed");
+    assert_eq!(
+        all_capabilities().len(),
+        18,
+        "Capability variant count changed"
+    );
 }
 
 // ===========================================================================
@@ -368,9 +392,7 @@ fn all_agent_event_kinds() -> Vec<AgentEventKind> {
         AgentEventKind::AssistantDelta {
             text: "delta".into(),
         },
-        AgentEventKind::AssistantMessage {
-            text: "msg".into(),
-        },
+        AgentEventKind::AssistantMessage { text: "msg".into() },
         AgentEventKind::ToolCall {
             tool_name: "read".into(),
             tool_use_id: Some("t1".into()),
@@ -446,17 +468,15 @@ fn agent_event_kind_count() {
 
 #[test]
 fn contract_error_debug() {
-    let err = ContractError::Json(
-        serde_json::from_str::<serde_json::Value>("!invalid").unwrap_err(),
-    );
+    let err =
+        ContractError::Json(serde_json::from_str::<serde_json::Value>("!invalid").unwrap_err());
     assert_debug_non_empty(&err);
 }
 
 #[test]
 fn contract_error_display() {
-    let err = ContractError::Json(
-        serde_json::from_str::<serde_json::Value>("!invalid").unwrap_err(),
-    );
+    let err =
+        ContractError::Json(serde_json::from_str::<serde_json::Value>("!invalid").unwrap_err());
     let msg = err.to_string();
     assert!(!msg.is_empty(), "Display output must be non-empty");
 }
@@ -465,9 +485,8 @@ fn contract_error_display() {
 fn contract_error_count() {
     // ContractError has 1 variant: Json
     // If a new variant is added, this will remind the developer to add coverage.
-    let _json_variant = ContractError::Json(
-        serde_json::from_str::<serde_json::Value>("!invalid").unwrap_err(),
-    );
+    let _json_variant =
+        ContractError::Json(serde_json::from_str::<serde_json::Value>("!invalid").unwrap_err());
     // Variant count: 1 — update this comment and add tests if new variants appear.
     let count: usize = 1;
     assert_eq!(count, 1, "ContractError variant count changed");

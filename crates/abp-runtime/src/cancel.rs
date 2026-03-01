@@ -3,8 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Notify;
 use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::sync::Notify;
 
 /// A cloneable, cheaply-shareable token used to signal cancellation.
 ///
@@ -253,7 +253,10 @@ mod tests {
     fn debug_format_includes_state() {
         let token = CancellationToken::new();
         let dbg = format!("{token:?}");
-        assert!(dbg.contains("false"), "expected not-cancelled in debug: {dbg}");
+        assert!(
+            dbg.contains("false"),
+            "expected not-cancelled in debug: {dbg}"
+        );
         token.cancel();
         let dbg = format!("{token:?}");
         assert!(dbg.contains("true"), "expected cancelled in debug: {dbg}");

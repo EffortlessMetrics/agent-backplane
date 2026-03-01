@@ -253,7 +253,11 @@ impl WorkspaceStager {
         let root = self
             .source_root
             .context("WorkspaceStager: source_root is required")?;
-        anyhow::ensure!(root.exists(), "source directory does not exist: {}", root.display());
+        anyhow::ensure!(
+            root.exists(),
+            "source directory does not exist: {}",
+            root.display()
+        );
 
         let tmp = tempfile::tempdir().context("create temp dir")?;
         let dest = tmp.path().to_path_buf();

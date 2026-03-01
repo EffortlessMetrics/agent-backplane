@@ -8,11 +8,11 @@
 
 use std::path::Path;
 
+use abp_core::validate::validate_receipt;
 use abp_core::{
     AgentEvent, AgentEventKind, CONTRACT_VERSION, Outcome, PolicyProfile, WorkOrderBuilder,
     WorkspaceMode,
 };
-use abp_core::validate::validate_receipt;
 use abp_integrations::MockBackend;
 use abp_policy::PolicyEngine;
 use abp_runtime::Runtime;
@@ -101,10 +101,7 @@ async fn receipt_trace_matches_streamed_events() {
     let (events, receipt) = run_to_completion(&rt, "mock", wo).await;
 
     // The receipt trace should contain at least as many events as we streamed.
-    assert!(
-        !receipt.trace.is_empty(),
-        "receipt trace must not be empty"
-    );
+    assert!(!receipt.trace.is_empty(), "receipt trace must not be empty");
     assert_eq!(
         events.len(),
         receipt.trace.len(),
@@ -146,7 +143,10 @@ async fn policy_engine_enforces_tool_restrictions() {
     let engine = PolicyEngine::new(&policy).expect("policy should compile");
 
     // Tool restrictions
-    assert!(engine.can_use_tool("Read").allowed, "Read should be allowed");
+    assert!(
+        engine.can_use_tool("Read").allowed,
+        "Read should be allowed"
+    );
     assert!(
         !engine.can_use_tool("Bash").allowed,
         "Bash should be denied"
@@ -162,7 +162,9 @@ async fn policy_engine_enforces_tool_restrictions() {
         "*.secret should be read-denied"
     );
     assert!(
-        !engine.can_write_path(Path::new("protected/data.txt")).allowed,
+        !engine
+            .can_write_path(Path::new("protected/data.txt"))
+            .allowed,
         "protected/ should be write-denied"
     );
     assert!(

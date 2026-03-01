@@ -52,7 +52,10 @@ fn hash_is_idempotent() {
     let r = fixed_receipt();
     let h1 = receipt_hash(&r).unwrap();
     let h2 = receipt_hash(&r).unwrap();
-    assert_eq!(h1, h2, "hashing the same receipt twice must yield the same hash");
+    assert_eq!(
+        h1, h2,
+        "hashing the same receipt twice must yield the same hash"
+    );
 }
 
 #[test]
@@ -184,7 +187,10 @@ fn hash_changes_when_work_order_id_changes() {
 fn hash_deterministic_across_separate_constructions() {
     let h1 = receipt_hash(&fixed_receipt()).unwrap();
     let h2 = receipt_hash(&fixed_receipt()).unwrap();
-    assert_eq!(h1, h2, "identically constructed receipts must hash the same");
+    assert_eq!(
+        h1, h2,
+        "identically constructed receipts must hash the same"
+    );
 }
 
 #[test]

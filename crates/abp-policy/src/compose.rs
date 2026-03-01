@@ -106,9 +106,7 @@ impl PolicySet {
                 .extend(p.disallowed_tools.iter().cloned());
             merged.deny_read.extend(p.deny_read.iter().cloned());
             merged.deny_write.extend(p.deny_write.iter().cloned());
-            merged
-                .allow_network
-                .extend(p.allow_network.iter().cloned());
+            merged.allow_network.extend(p.allow_network.iter().cloned());
             merged.deny_network.extend(p.deny_network.iter().cloned());
             merged
                 .require_approval_for

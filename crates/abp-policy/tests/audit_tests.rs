@@ -2,8 +2,8 @@
 //! Tests for the audit module.
 
 use abp_core::PolicyProfile;
-use abp_policy::audit::{AuditEntry, AuditSummary, PolicyAuditor, PolicyDecision};
 use abp_policy::PolicyEngine;
+use abp_policy::audit::{AuditEntry, AuditSummary, PolicyAuditor, PolicyDecision};
 
 fn permissive_engine() -> PolicyEngine {
     PolicyEngine::new(&PolicyProfile::default()).unwrap()
@@ -129,7 +129,11 @@ fn entries_preserve_order() {
     auditor.check_tool("A");
     auditor.check_read("B");
     auditor.check_write("C");
-    let resources: Vec<&str> = auditor.entries().iter().map(|e| e.resource.as_str()).collect();
+    let resources: Vec<&str> = auditor
+        .entries()
+        .iter()
+        .map(|e| e.resource.as_str())
+        .collect();
     assert_eq!(resources, vec!["A", "B", "C"]);
 }
 

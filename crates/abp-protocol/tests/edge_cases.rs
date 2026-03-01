@@ -121,7 +121,9 @@ fn decode_ignores_leading_trailing_whitespace() {
     let trimmed = encoded.trim();
     let decoded = JsonlCodec::decode(trimmed).unwrap();
     match decoded {
-        Envelope::Hello { contract_version, .. } => {
+        Envelope::Hello {
+            contract_version, ..
+        } => {
             assert_eq!(contract_version, CONTRACT_VERSION);
         }
         other => panic!("expected Hello, got {:?}", other),

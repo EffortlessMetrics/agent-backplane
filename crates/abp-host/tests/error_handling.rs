@@ -88,7 +88,10 @@ async fn sidecar_exit_nonzero_returns_exited_error() {
     let spec = mock_spec_with_mode(&py, "exit_nonzero");
 
     let result = SidecarClient::spawn(spec).await;
-    assert!(result.is_err(), "should fail when sidecar exits immediately");
+    assert!(
+        result.is_err(),
+        "should fail when sidecar exits immediately"
+    );
 
     let err = result.unwrap_err();
     assert!(
@@ -154,7 +157,10 @@ async fn sidecar_no_hello_returns_protocol_error() {
 
     let err = result.unwrap_err();
     assert!(
-        matches!(err, HostError::Protocol(ProtocolError::UnexpectedMessage { .. })),
+        matches!(
+            err,
+            HostError::Protocol(ProtocolError::UnexpectedMessage { .. })
+        ),
         "expected UnexpectedMessage protocol error, got: {err}"
     );
 }
@@ -180,10 +186,7 @@ async fn sidecar_no_final_yields_exited_error() {
 
     // Drain events.
     let events: Vec<_> = sidecar_run.events.collect().await;
-    assert!(
-        !events.is_empty(),
-        "should receive events before close"
-    );
+    assert!(!events.is_empty(), "should receive events before close");
 
     // The receipt channel may deliver an error or be dropped.
     let receipt_result = sidecar_run.receipt.await;

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Tests for `SidecarRegistry`.
 
-use abp_host::registry::SidecarRegistry;
 use abp_host::SidecarSpec;
+use abp_host::registry::SidecarRegistry;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -28,7 +28,10 @@ fn register_duplicate_names_overwrites() {
     reg.register("node", SidecarSpec::new("node-v16"));
     reg.register("node", SidecarSpec::new("node-v20"));
     let spec = reg.get("node").expect("should find registered sidecar");
-    assert_eq!(spec.command, "node-v20", "second register should overwrite first");
+    assert_eq!(
+        spec.command, "node-v20",
+        "second register should overwrite first"
+    );
     assert_eq!(reg.list().len(), 1, "should still have exactly one entry");
 }
 
@@ -138,7 +141,11 @@ fn discover_from_temp_dir_with_mock_scripts() {
     let reg = SidecarRegistry::discover_from_dir(tmp.path()).expect("discover should succeed");
     let names = reg.list();
 
-    assert_eq!(names.len(), 2, "should discover exactly 2 sidecars: {names:?}");
+    assert_eq!(
+        names.len(),
+        2,
+        "should discover exactly 2 sidecars: {names:?}"
+    );
     assert!(names.contains(&"my-node"));
     assert!(names.contains(&"my-python"));
 
@@ -161,7 +168,10 @@ fn discover_nonexistent_dir_is_err() {
 fn discover_from_empty_dir() {
     let tmp = tempfile::tempdir().expect("create temp dir");
     let reg = SidecarRegistry::discover_from_dir(tmp.path()).expect("discover should succeed");
-    assert!(reg.list().is_empty(), "empty dir should produce empty registry");
+    assert!(
+        reg.list().is_empty(),
+        "empty dir should produce empty registry"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -267,7 +277,10 @@ fn discover_prioritises_host_js_over_host_py() {
 fn register_many_sidecars() {
     let mut reg = SidecarRegistry::default();
     for i in 0..50 {
-        reg.register(format!("sidecar-{i:03}"), SidecarSpec::new(format!("cmd-{i}")));
+        reg.register(
+            format!("sidecar-{i:03}"),
+            SidecarSpec::new(format!("cmd-{i}")),
+        );
     }
     let names = reg.list();
     assert_eq!(names.len(), 50);

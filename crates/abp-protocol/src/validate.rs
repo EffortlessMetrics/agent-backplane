@@ -52,7 +52,10 @@ impl fmt::Display for ValidationError {
                 field,
                 value,
                 expected,
-            } => write!(f, "invalid value for {field}: got \"{value}\", expected {expected}"),
+            } => write!(
+                f,
+                "invalid value for {field}: got \"{value}\", expected {expected}"
+            ),
             Self::InvalidVersion { version } => {
                 write!(f, "invalid protocol version: \"{version}\"")
             }
@@ -179,7 +182,10 @@ impl fmt::Display for SequenceError {
             }
             Self::MultipleTerminals => write!(f, "sequence contains multiple terminal envelopes"),
             Self::RefIdMismatch { expected, found } => {
-                write!(f, "ref_id mismatch: expected \"{expected}\", found \"{found}\"")
+                write!(
+                    f,
+                    "ref_id mismatch: expected \"{expected}\", found \"{found}\""
+                )
             }
             Self::OutOfOrderEvents => {
                 write!(f, "Event envelope found outside the Run→Terminal window")
@@ -271,9 +277,7 @@ impl EnvelopeValidator {
 
             Envelope::Run { id, work_order } => {
                 if id.is_empty() {
-                    result.push_error(ValidationError::EmptyField {
-                        field: "id".into(),
-                    });
+                    result.push_error(ValidationError::EmptyField { field: "id".into() });
                 }
                 if work_order.task.is_empty() {
                     result.push_error(ValidationError::EmptyField {
@@ -402,7 +406,9 @@ impl EnvelopeValidator {
                         });
                     }
                 }
-                Envelope::Fatal { ref_id: Some(rid), .. } => {
+                Envelope::Fatal {
+                    ref_id: Some(rid), ..
+                } => {
                     if let Some(expected) = run_id
                         && rid != expected
                     {

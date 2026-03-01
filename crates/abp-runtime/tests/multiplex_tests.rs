@@ -4,8 +4,8 @@
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_runtime::multiplex::{EventMultiplexer, EventRouter, MultiplexError};
 use chrono::Utc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn make_event(kind: AgentEventKind) -> AgentEvent {
     AgentEvent {
@@ -106,7 +106,10 @@ async fn closed_channel_returns_closed() {
     drop(mux);
 
     let result = sub.recv().await;
-    assert!(matches!(result, Err(MultiplexError::Closed)), "expected Closed, got {result:?}");
+    assert!(
+        matches!(result, Err(MultiplexError::Closed)),
+        "expected Closed, got {result:?}"
+    );
 }
 
 #[tokio::test]

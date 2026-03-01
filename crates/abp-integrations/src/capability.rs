@@ -32,9 +32,7 @@ impl CapabilityMatrix {
     /// Check whether `backend` supports `cap`.
     #[must_use]
     pub fn supports(&self, backend: &str, cap: &Capability) -> bool {
-        self.inner
-            .get(backend)
-            .is_some_and(|set| set.contains(cap))
+        self.inner.get(backend).is_some_and(|set| set.contains(cap))
     }
 
     /// Return all backend names that support `cap`.

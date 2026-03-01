@@ -137,7 +137,9 @@ async fn unknown_backend_emits_warning() {
     let (_guard, logs) = capturing_subscriber();
     let rt = Runtime::with_default_backends();
 
-    let result = rt.run_streaming("nonexistent_backend", mock_work_order()).await;
+    let result = rt
+        .run_streaming("nonexistent_backend", mock_work_order())
+        .await;
     assert!(result.is_err(), "should fail for unknown backend");
 
     let output = logs.contents();

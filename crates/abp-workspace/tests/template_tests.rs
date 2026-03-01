@@ -155,11 +155,9 @@ fn template_with_globs() {
     t.add_file("src/generated/out.rs", "// generated");
     t.add_file("README.md", "# Hello");
 
-    let globs = IncludeExcludeGlobs::new(
-        &["src/**".to_string()],
-        &["src/generated/**".to_string()],
-    )
-    .unwrap();
+    let globs =
+        IncludeExcludeGlobs::new(&["src/**".to_string()], &["src/generated/**".to_string()])
+            .unwrap();
     t.globs = Some(globs);
 
     let count = t.apply(dir.path()).unwrap();

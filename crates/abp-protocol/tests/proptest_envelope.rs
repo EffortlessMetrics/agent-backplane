@@ -87,7 +87,10 @@ fn arb_backend_identity() -> impl Strategy<Value = BackendIdentity> {
 }
 
 fn arb_execution_mode() -> impl Strategy<Value = ExecutionMode> {
-    prop_oneof![Just(ExecutionMode::Passthrough), Just(ExecutionMode::Mapped)]
+    prop_oneof![
+        Just(ExecutionMode::Passthrough),
+        Just(ExecutionMode::Mapped)
+    ]
 }
 
 fn arb_execution_lane() -> impl Strategy<Value = ExecutionLane> {
@@ -159,15 +162,13 @@ fn arb_capability_requirements() -> impl Strategy<Value = CapabilityRequirements
 }
 
 fn arb_runtime_config() -> impl Strategy<Value = RuntimeConfig> {
-    (
-        prop::option::of(arb_string()),
-        prop::option::of(0u32..1000),
-    )
-        .prop_map(|(model, max_turns)| RuntimeConfig {
+    (prop::option::of(arb_string()), prop::option::of(0u32..1000)).prop_map(|(model, max_turns)| {
+        RuntimeConfig {
             model,
             max_turns,
             ..RuntimeConfig::default()
-        })
+        }
+    })
 }
 
 fn arb_work_order() -> impl Strategy<Value = WorkOrder> {
@@ -207,16 +208,14 @@ fn arb_agent_event_kind() -> impl Strategy<Value = AgentEventKind> {
             prop::option::of(arb_string()),
             arb_json_value_simple(),
         )
-            .prop_map(
-                |(tool_name, tool_use_id, parent_tool_use_id, input)| {
-                    AgentEventKind::ToolCall {
-                        tool_name,
-                        tool_use_id,
-                        parent_tool_use_id,
-                        input,
-                    }
-                },
-            ),
+            .prop_map(|(tool_name, tool_use_id, parent_tool_use_id, input)| {
+                AgentEventKind::ToolCall {
+                    tool_name,
+                    tool_use_id,
+                    parent_tool_use_id,
+                    input,
+                }
+            },),
         (
             arb_nonempty_string(),
             prop::option::of(arb_string()),

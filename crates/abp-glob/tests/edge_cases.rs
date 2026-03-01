@@ -42,7 +42,7 @@ fn root_path_slash() {
 
 #[test]
 fn root_path_excluded() {
-    let g = IncludeExcludeGlobs::new(&[], &pats(&["/"]) ).unwrap();
+    let g = IncludeExcludeGlobs::new(&[], &pats(&["/"])).unwrap();
     assert_eq!(g.decide_str("/"), MatchDecision::DeniedByExclude);
 }
 
@@ -113,16 +113,28 @@ fn backslash_paths_via_decide_path() {
 fn glob_matching_is_case_sensitive() {
     let g = IncludeExcludeGlobs::new(&pats(&["*.rs"]), &[]).unwrap();
     assert_eq!(g.decide_str("main.rs"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("main.RS"), MatchDecision::DeniedByMissingInclude);
-    assert_eq!(g.decide_str("Main.Rs"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("main.RS"),
+        MatchDecision::DeniedByMissingInclude
+    );
+    assert_eq!(
+        g.decide_str("Main.Rs"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 #[test]
 fn case_sensitive_directory_names() {
     let g = IncludeExcludeGlobs::new(&pats(&["Src/**"]), &[]).unwrap();
     assert_eq!(g.decide_str("Src/lib.rs"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::DeniedByMissingInclude);
-    assert_eq!(g.decide_str("SRC/lib.rs"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("src/lib.rs"),
+        MatchDecision::DeniedByMissingInclude
+    );
+    assert_eq!(
+        g.decide_str("SRC/lib.rs"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -163,14 +175,20 @@ fn trailing_slash_in_pattern() {
 fn pattern_with_spaces() {
     let g = IncludeExcludeGlobs::new(&pats(&["my file.txt"]), &[]).unwrap();
     assert_eq!(g.decide_str("my file.txt"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("myfile.txt"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("myfile.txt"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 #[test]
 fn path_with_spaces_in_directory() {
     let g = IncludeExcludeGlobs::new(&pats(&["my dir/**"]), &[]).unwrap();
     assert_eq!(g.decide_str("my dir/file.txt"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("mydir/file.txt"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("mydir/file.txt"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -258,8 +276,14 @@ fn star_dot_star_matches_files_with_extension() {
 #[test]
 fn star_dot_star_does_not_match_extensionless_file() {
     let g = IncludeExcludeGlobs::new(&pats(&["*.*"]), &[]).unwrap();
-    assert_eq!(g.decide_str("Makefile"), MatchDecision::DeniedByMissingInclude);
-    assert_eq!(g.decide_str("LICENSE"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("Makefile"),
+        MatchDecision::DeniedByMissingInclude
+    );
+    assert_eq!(
+        g.decide_str("LICENSE"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -272,7 +296,10 @@ fn double_star_matches_everything() {
     assert_eq!(g.decide_str("a"), MatchDecision::Allowed);
     assert_eq!(g.decide_str("a/b/c"), MatchDecision::Allowed);
     assert_eq!(g.decide_str(".hidden"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("deeply/nested/path/file.rs"), MatchDecision::Allowed);
+    assert_eq!(
+        g.decide_str("deeply/nested/path/file.rs"),
+        MatchDecision::Allowed
+    );
 }
 
 #[test]
@@ -291,7 +318,10 @@ fn alternation_basic() {
     let g = IncludeExcludeGlobs::new(&pats(&["*.{rs,toml}"]), &[]).unwrap();
     assert_eq!(g.decide_str("main.rs"), MatchDecision::Allowed);
     assert_eq!(g.decide_str("Cargo.toml"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("README.md"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("README.md"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 #[test]
@@ -299,7 +329,10 @@ fn alternation_in_directory_name() {
     let g = IncludeExcludeGlobs::new(&pats(&["{src,tests}/**"]), &[]).unwrap();
     assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::Allowed);
     assert_eq!(g.decide_str("tests/it.rs"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("docs/guide.md"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("docs/guide.md"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 #[test]
@@ -328,8 +361,14 @@ fn exclude_everything_except_via_narrow_include() {
     // Include only *.rs, exclude nothing — effectively negates everything else.
     let g = IncludeExcludeGlobs::new(&pats(&["**/*.rs"]), &[]).unwrap();
     assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("src/lib.txt"), MatchDecision::DeniedByMissingInclude);
-    assert_eq!(g.decide_str("Cargo.toml"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("src/lib.txt"),
+        MatchDecision::DeniedByMissingInclude
+    );
+    assert_eq!(
+        g.decide_str("Cargo.toml"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 #[test]
@@ -337,7 +376,10 @@ fn exclamation_mark_is_literal_in_glob() {
     // globset does not support negation with "!" — it's treated as literal.
     let g = IncludeExcludeGlobs::new(&pats(&["!*.rs"]), &[]).unwrap();
     // "!*.rs" is a literal pattern starting with '!', won't match "main.rs".
-    assert_eq!(g.decide_str("main.rs"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("main.rs"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -362,5 +404,8 @@ fn both_include_and_exclude_match_same_file() {
 fn question_mark_single_char_wildcard() {
     let g = IncludeExcludeGlobs::new(&pats(&["?.txt"]), &[]).unwrap();
     assert_eq!(g.decide_str("a.txt"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("ab.txt"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("ab.txt"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }

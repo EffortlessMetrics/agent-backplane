@@ -87,9 +87,7 @@ fn filter_mixed_stream_include() {
         event(AgentEventKind::RunStarted {
             message: "go".into(),
         }),
-        event(AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        }),
+        event(AgentEventKind::AssistantMessage { text: "hi".into() }),
         event(AgentEventKind::Error {
             message: "oops".into(),
         }),
@@ -100,7 +98,10 @@ fn filter_mixed_stream_include() {
     let f = EventFilter::include_kinds(&["assistant_message", "error"]);
     let passed = filter_events(&f, &events);
     assert_eq!(passed.len(), 2);
-    assert!(matches!(passed[0].kind, AgentEventKind::AssistantMessage { .. }));
+    assert!(matches!(
+        passed[0].kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
     assert!(matches!(passed[1].kind, AgentEventKind::Error { .. }));
 }
 
@@ -124,7 +125,10 @@ fn filter_mixed_stream_exclude() {
     let passed = filter_events(&f, &events);
     assert_eq!(passed.len(), 2);
     assert!(matches!(passed[0].kind, AgentEventKind::RunStarted { .. }));
-    assert!(matches!(passed[1].kind, AgentEventKind::RunCompleted { .. }));
+    assert!(matches!(
+        passed[1].kind,
+        AgentEventKind::RunCompleted { .. }
+    ));
 }
 
 #[test]
@@ -140,7 +144,8 @@ fn multiple_include_kinds() {
 
 #[test]
 fn multiple_exclude_kinds() {
-    let f = EventFilter::exclude_kinds(&["assistant_delta", "assistant_message", "warning", "error"]);
+    let f =
+        EventFilter::exclude_kinds(&["assistant_delta", "assistant_message", "warning", "error"]);
     let events = all_event_kinds();
     let passed = filter_events(&f, &events);
     // Should keep: run_started, run_completed, tool_call, tool_result, file_changed, command_executed
@@ -222,10 +227,7 @@ fn exclude_all_kinds_passes_nothing() {
     let f = EventFilter::exclude_kinds(ALL_KIND_NAMES);
     let events = all_event_kinds();
     let passed = filter_events(&f, &events);
-    assert!(
-        passed.is_empty(),
-        "excluding all kinds should pass nothing"
-    );
+    assert!(passed.is_empty(), "excluding all kinds should pass nothing");
 }
 
 #[test]

@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Deep tests for [`BackendRegistry`] — registration, lookup, removal, and edge cases.
 
-use abp_core::{
-    AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder,
-};
+use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};
 use abp_integrations::{Backend, MockBackend};
 use abp_runtime::registry::BackendRegistry;
 use async_trait::async_trait;
@@ -46,7 +44,12 @@ impl Backend for NamedBackend {
 #[test]
 fn register_and_lookup_by_name() {
     let mut reg = BackendRegistry::default();
-    reg.register("alpha", NamedBackend { name: "alpha".into() });
+    reg.register(
+        "alpha",
+        NamedBackend {
+            name: "alpha".into(),
+        },
+    );
     let b = reg.get("alpha").expect("should find alpha");
     assert_eq!(b.identity().id, "alpha");
 }
@@ -82,8 +85,18 @@ fn remove_nonexistent_returns_none() {
 #[test]
 fn duplicate_registration_replaces_previous() {
     let mut reg = BackendRegistry::default();
-    reg.register("dup", NamedBackend { name: "first".into() });
-    reg.register("dup", NamedBackend { name: "second".into() });
+    reg.register(
+        "dup",
+        NamedBackend {
+            name: "first".into(),
+        },
+    );
+    reg.register(
+        "dup",
+        NamedBackend {
+            name: "second".into(),
+        },
+    );
 
     assert_eq!(reg.list().len(), 1);
     let b = reg.get("dup").unwrap();
@@ -192,7 +205,10 @@ async fn run_backend_via_registry() {
     };
 
     let run_id = Uuid::new_v4();
-    let receipt = backend.run(run_id, wo, tx).await.expect("run should succeed");
+    let receipt = backend
+        .run(run_id, wo, tx)
+        .await
+        .expect("run should succeed");
 
     assert!(matches!(receipt.outcome, abp_core::Outcome::Complete));
     assert!(receipt.receipt_sha256.is_some());

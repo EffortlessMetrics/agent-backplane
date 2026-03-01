@@ -144,10 +144,7 @@ fn run_envelope_matches_golden_json() {
     assert_eq!(v["work_order"]["workspace"]["root"], "/tmp/workspace");
     assert_eq!(v["work_order"]["lane"], "patch_first");
     assert_eq!(v["work_order"]["workspace"]["mode"], "staged");
-    assert_eq!(
-        v["work_order"]["id"],
-        FIXED_UUID
-    );
+    assert_eq!(v["work_order"]["id"], FIXED_UUID);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -300,27 +297,19 @@ fn agent_event_kinds_match_js_host_strings() {
     // Verify every Rust variant serializes to the same snake_case string.
     let cases: Vec<(AgentEventKind, &str)> = vec![
         (
-            AgentEventKind::RunStarted {
-                message: "".into(),
-            },
+            AgentEventKind::RunStarted { message: "".into() },
             "run_started",
         ),
         (
-            AgentEventKind::RunCompleted {
-                message: "".into(),
-            },
+            AgentEventKind::RunCompleted { message: "".into() },
             "run_completed",
         ),
         (
-            AgentEventKind::AssistantDelta {
-                text: "".into(),
-            },
+            AgentEventKind::AssistantDelta { text: "".into() },
             "assistant_delta",
         ),
         (
-            AgentEventKind::AssistantMessage {
-                text: "".into(),
-            },
+            AgentEventKind::AssistantMessage { text: "".into() },
             "assistant_message",
         ),
         (
@@ -341,18 +330,8 @@ fn agent_event_kinds_match_js_host_strings() {
             },
             "tool_result",
         ),
-        (
-            AgentEventKind::Warning {
-                message: "".into(),
-            },
-            "warning",
-        ),
-        (
-            AgentEventKind::Error {
-                message: "".into(),
-            },
-            "error",
-        ),
+        (AgentEventKind::Warning { message: "".into() }, "warning"),
+        (AgentEventKind::Error { message: "".into() }, "error"),
     ];
 
     for (kind, expected_type) in cases {
@@ -397,7 +376,10 @@ fn capability_names_match_js_host_strings() {
         (Capability::SessionResume, "session_resume"),
         (Capability::SessionFork, "session_fork"),
         (Capability::Checkpointing, "checkpointing"),
-        (Capability::StructuredOutputJsonSchema, "structured_output_json_schema"),
+        (
+            Capability::StructuredOutputJsonSchema,
+            "structured_output_json_schema",
+        ),
         (Capability::McpClient, "mcp_client"),
         (Capability::McpServer, "mcp_server"),
     ];

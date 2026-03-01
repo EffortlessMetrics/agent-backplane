@@ -178,8 +178,14 @@ pub struct ClaudeResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeContentBlock {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: serde_json::Value },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: serde_json::Value,
+    },
 }
 
 /// Token usage reported by the Anthropic API.
@@ -205,7 +211,10 @@ pub fn map_work_order(wo: &WorkOrder, config: &ClaudeConfig) -> ClaudeRequest {
 
     let mut user_content = wo.task.clone();
     for snippet in &wo.context.snippets {
-        user_content.push_str(&format!("\n\n--- {} ---\n{}", snippet.name, snippet.content));
+        user_content.push_str(&format!(
+            "\n\n--- {} ---\n{}",
+            snippet.name, snippet.content
+        ));
     }
 
     ClaudeRequest {
@@ -229,9 +238,7 @@ pub fn map_response(resp: &ClaudeResponse) -> Vec<AgentEvent> {
             ClaudeContentBlock::Text { text } => {
                 events.push(AgentEvent {
                     ts: now,
-                    kind: AgentEventKind::AssistantMessage {
-                        text: text.clone(),
-                    },
+                    kind: AgentEventKind::AssistantMessage { text: text.clone() },
                     ext: None,
                 });
             }
@@ -279,7 +286,9 @@ mod tests {
 
     #[test]
     fn map_work_order_respects_model_override() {
-        let wo = WorkOrderBuilder::new("task").model("claude-opus-4-20250514").build();
+        let wo = WorkOrderBuilder::new("task")
+            .model("claude-opus-4-20250514")
+            .build();
         let cfg = ClaudeConfig::default();
         let req = map_work_order(&wo, &cfg);
 
@@ -323,7 +332,11 @@ mod tests {
         let events = map_response(&resp);
         assert_eq!(events.len(), 1);
         match &events[0].kind {
-            AgentEventKind::ToolCall { tool_name, tool_use_id, .. } => {
+            AgentEventKind::ToolCall {
+                tool_name,
+                tool_use_id,
+                ..
+            } => {
                 assert_eq!(tool_name, "read_file");
                 assert_eq!(tool_use_id.as_deref(), Some("tu_1"));
             }

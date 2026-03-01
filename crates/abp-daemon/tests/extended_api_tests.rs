@@ -2,8 +2,8 @@
 //! Extended API tests for the new daemon endpoints.
 
 use abp_core::{
-    CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile,
-    RuntimeConfig, WorkOrder, WorkspaceMode, WorkspaceSpec,
+    CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
+    WorkspaceMode, WorkspaceSpec,
 };
 use abp_daemon::{AppState, RunRequest, RunResponse, RunTracker, build_app};
 use abp_integrations::MockBackend;
@@ -370,9 +370,7 @@ async fn concurrent_requests_dont_corrupt_state() {
     let mut handles = Vec::new();
     for _ in 0..10 {
         let s = state.clone();
-        handles.push(tokio::spawn(async move {
-            do_run(&s).await
-        }));
+        handles.push(tokio::spawn(async move { do_run(&s).await }));
     }
 
     let mut run_ids = Vec::new();
@@ -383,23 +381,25 @@ async fn concurrent_requests_dont_corrupt_state() {
 
     // All run_ids should be unique.
     let unique: std::collections::HashSet<_> = run_ids.iter().collect();
-    assert_eq!(unique.len(), run_ids.len(), "expected all run_ids to be unique");
+    assert_eq!(
+        unique.len(),
+        run_ids.len(),
+        "expected all run_ids to be unique"
+    );
 
     // List runs should contain all of them.
     let app = build_app(state.clone());
     let resp = app
-        .oneshot(
-            Request::builder()
-                .uri("/runs")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri("/runs").body(Body::empty()).unwrap())
         .await
         .unwrap();
     let body = resp.into_body().collect().await.unwrap().to_bytes();
     let ids: Vec<Uuid> = serde_json::from_slice(&body).unwrap();
     for run_id in &run_ids {
-        assert!(ids.contains(run_id), "missing run_id {run_id} in /runs list");
+        assert!(
+            ids.contains(run_id),
+            "missing run_id {run_id} in /runs list"
+        );
     }
 }
 
@@ -418,12 +418,7 @@ async fn new_endpoints_have_json_content_type() {
         async move {
             let app = build_app(s);
             let resp = app
-                .oneshot(
-                    Request::builder()
-                        .uri(&u)
-                        .body(Body::empty())
-                        .unwrap(),
-                )
+                .oneshot(Request::builder().uri(&u).body(Body::empty()).unwrap())
                 .await
                 .unwrap();
             let ct = resp

@@ -379,9 +379,7 @@ fn event_kind_run_completed() {
 
 #[test]
 fn event_kind_assistant_delta() {
-    let k = AgentEventKind::AssistantDelta {
-        text: "tok".into(),
-    };
+    let k = AgentEventKind::AssistantDelta { text: "tok".into() };
     let e = make_agent_event(k);
     let _ = roundtrip(&e);
 }
@@ -545,9 +543,7 @@ fn support_level_clone_debug() {
         SupportLevel::Native,
         SupportLevel::Emulated,
         SupportLevel::Unsupported,
-        SupportLevel::Restricted {
-            reason: "r".into(),
-        },
+        SupportLevel::Restricted { reason: "r".into() },
     ] {
         assert_debug(&s);
         let _ = s.clone();

@@ -127,9 +127,12 @@ fn handshake_hello_must_include_contract_version() {
 #[test]
 fn handshake_non_hello_first_is_detectable() {
     // If a sidecar sends an event before hello, the host should detect it.
-    let event = make_event("run-1", AgentEventKind::RunStarted {
-        message: "oops".into(),
-    });
+    let event = make_event(
+        "run-1",
+        AgentEventKind::RunStarted {
+            message: "oops".into(),
+        },
+    );
     let line = JsonlCodec::encode(&event).unwrap();
     let decoded = JsonlCodec::decode(line.trim()).unwrap();
     assert!(
@@ -157,9 +160,10 @@ fn handshake_hello_with_empty_capabilities_is_valid() {
 #[test]
 fn event_ref_id_must_match_run_id() {
     let run_id = "run-abc";
-    let event = make_event(run_id, AgentEventKind::AssistantMessage {
-        text: "hi".into(),
-    });
+    let event = make_event(
+        run_id,
+        AgentEventKind::AssistantMessage { text: "hi".into() },
+    );
     if let Envelope::Event { ref_id, .. } = &event {
         assert_eq!(ref_id, run_id);
     } else {
@@ -167,9 +171,10 @@ fn event_ref_id_must_match_run_id() {
     }
 
     // A mismatched ref_id is structurally valid but semantically wrong.
-    let wrong = make_event("run-OTHER", AgentEventKind::AssistantMessage {
-        text: "hi".into(),
-    });
+    let wrong = make_event(
+        "run-OTHER",
+        AgentEventKind::AssistantMessage { text: "hi".into() },
+    );
     if let Envelope::Event { ref_id, .. } = &wrong {
         assert_ne!(ref_id, run_id, "mismatched ref_id must be detectable");
     } else {
@@ -182,18 +187,30 @@ fn event_stream_all_ref_ids_consistent() {
     let run_id = "run-42";
     let events = vec![
         make_hello(),
-        make_event(run_id, AgentEventKind::RunStarted {
-            message: "start".into(),
-        }),
-        make_event(run_id, AgentEventKind::AssistantDelta {
-            text: "chunk1".into(),
-        }),
-        make_event(run_id, AgentEventKind::AssistantDelta {
-            text: "chunk2".into(),
-        }),
-        make_event(run_id, AgentEventKind::RunCompleted {
-            message: "done".into(),
-        }),
+        make_event(
+            run_id,
+            AgentEventKind::RunStarted {
+                message: "start".into(),
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::AssistantDelta {
+                text: "chunk1".into(),
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::AssistantDelta {
+                text: "chunk2".into(),
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+        ),
         make_final(run_id),
     ];
 
@@ -249,9 +266,12 @@ fn final_ref_id_matches_run() {
 fn fatal_terminates_stream() {
     let envelopes = vec![
         make_hello(),
-        make_event("run-1", AgentEventKind::RunStarted {
-            message: "go".into(),
-        }),
+        make_event(
+            "run-1",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
         Envelope::Fatal {
             ref_id: Some("run-1".into()),
             error: "out of memory".into(),
@@ -482,21 +502,33 @@ fn sequential_runs_have_distinct_ref_ids() {
     let run2_id = "run-second";
 
     let run1_events = vec![
-        make_event(run1_id, AgentEventKind::RunStarted {
-            message: "first".into(),
-        }),
-        make_event(run1_id, AgentEventKind::RunCompleted {
-            message: "done".into(),
-        }),
+        make_event(
+            run1_id,
+            AgentEventKind::RunStarted {
+                message: "first".into(),
+            },
+        ),
+        make_event(
+            run1_id,
+            AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+        ),
         make_final(run1_id),
     ];
     let run2_events = vec![
-        make_event(run2_id, AgentEventKind::RunStarted {
-            message: "second".into(),
-        }),
-        make_event(run2_id, AgentEventKind::RunCompleted {
-            message: "done".into(),
-        }),
+        make_event(
+            run2_id,
+            AgentEventKind::RunStarted {
+                message: "second".into(),
+            },
+        ),
+        make_event(
+            run2_id,
+            AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+        ),
         make_final(run2_id),
     ];
 
@@ -527,14 +559,14 @@ fn sequential_runs_receipts_have_unique_run_ids() {
     let final2 = make_final("run-b");
 
     let (r1, r2) = match (&final1, &final2) {
-        (
-            Envelope::Final { receipt: r1, .. },
-            Envelope::Final { receipt: r2, .. },
-        ) => (r1, r2),
+        (Envelope::Final { receipt: r1, .. }, Envelope::Final { receipt: r2, .. }) => (r1, r2),
         _ => panic!("expected Final"),
     };
 
-    assert_ne!(r1.meta.run_id, r2.meta.run_id, "each run gets a unique run_id");
+    assert_ne!(
+        r1.meta.run_id, r2.meta.run_id,
+        "each run gets a unique run_id"
+    );
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -601,19 +633,31 @@ fn envelope_ordering_events_before_final() {
     let run_id = "run-order";
     let envelopes = vec![
         make_hello(),
-        make_event(run_id, AgentEventKind::RunStarted {
-            message: "begin".into(),
-        }),
-        make_event(run_id, AgentEventKind::AssistantMessage {
-            text: "working...".into(),
-        }),
-        make_event(run_id, AgentEventKind::FileChanged {
-            path: "src/lib.rs".into(),
-            summary: "refactored".into(),
-        }),
-        make_event(run_id, AgentEventKind::RunCompleted {
-            message: "done".into(),
-        }),
+        make_event(
+            run_id,
+            AgentEventKind::RunStarted {
+                message: "begin".into(),
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::AssistantMessage {
+                text: "working...".into(),
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::FileChanged {
+                path: "src/lib.rs".into(),
+                summary: "refactored".into(),
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+        ),
         make_final(run_id),
     ];
 
@@ -632,7 +676,10 @@ fn envelope_ordering_events_before_final() {
     // All Event envelopes must appear before the Final.
     for (i, env) in decoded.iter().enumerate() {
         if matches!(env, Envelope::Event { .. }) {
-            assert!(i < final_idx, "Event at index {i} must precede Final at {final_idx}");
+            assert!(
+                i < final_idx,
+                "Event at index {i} must precede Final at {final_idx}"
+            );
         }
     }
 }
@@ -642,9 +689,12 @@ fn envelope_ordering_hello_precedes_everything() {
     let run_id = "run-order2";
     let envelopes = vec![
         make_hello(),
-        make_event(run_id, AgentEventKind::RunStarted {
-            message: "go".into(),
-        }),
+        make_event(
+            run_id,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
         make_final(run_id),
     ];
 
@@ -674,10 +724,16 @@ fn hello_wrong_contract_version_is_detectable() {
         "capabilities": {}
     });
     let env: Envelope = serde_json::from_value(raw).unwrap();
-    if let Envelope::Hello { contract_version, .. } = env {
+    if let Envelope::Hello {
+        contract_version, ..
+    } = env
+    {
         assert_ne!(contract_version, CONTRACT_VERSION);
         // Host should reject or warn about version mismatch.
-        assert!(!abp_protocol::is_compatible_version(&contract_version, CONTRACT_VERSION));
+        assert!(!abp_protocol::is_compatible_version(
+            &contract_version,
+            CONTRACT_VERSION
+        ));
     } else {
         panic!("expected Hello");
     }
@@ -692,28 +748,43 @@ fn full_session_hello_events_final() {
     let run_id = "run-full-session";
     let envelopes = vec![
         make_hello(),
-        make_event(run_id, AgentEventKind::RunStarted {
-            message: "starting".into(),
-        }),
-        make_event(run_id, AgentEventKind::ToolCall {
-            tool_name: "read".into(),
-            tool_use_id: Some("tu-1".into()),
-            parent_tool_use_id: None,
-            input: serde_json::json!({"path": "src/main.rs"}),
-        }),
-        make_event(run_id, AgentEventKind::ToolResult {
-            tool_name: "read".into(),
-            tool_use_id: Some("tu-1".into()),
-            output: serde_json::json!("fn main() {}"),
-            is_error: false,
-        }),
-        make_event(run_id, AgentEventKind::FileChanged {
-            path: "src/main.rs".into(),
-            summary: "added logging".into(),
-        }),
-        make_event(run_id, AgentEventKind::RunCompleted {
-            message: "all done".into(),
-        }),
+        make_event(
+            run_id,
+            AgentEventKind::RunStarted {
+                message: "starting".into(),
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::ToolCall {
+                tool_name: "read".into(),
+                tool_use_id: Some("tu-1".into()),
+                parent_tool_use_id: None,
+                input: serde_json::json!({"path": "src/main.rs"}),
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::ToolResult {
+                tool_name: "read".into(),
+                tool_use_id: Some("tu-1".into()),
+                output: serde_json::json!("fn main() {}"),
+                is_error: false,
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::FileChanged {
+                path: "src/main.rs".into(),
+                summary: "added logging".into(),
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::RunCompleted {
+                message: "all done".into(),
+            },
+        ),
         make_final(run_id),
     ];
 
@@ -751,7 +822,10 @@ fn full_session_hello_events_final() {
 fn discriminator_tag_is_t_not_type() {
     let hello = make_hello();
     let json = serde_json::to_value(&hello).unwrap();
-    assert!(json.get("t").is_some(), "envelope must use 't' as discriminator");
+    assert!(
+        json.get("t").is_some(),
+        "envelope must use 't' as discriminator"
+    );
     assert!(json.get("type").is_none(), "envelope must NOT use 'type'");
 }
 
@@ -780,7 +854,10 @@ fn event_ext_field_roundtrips() {
     if let Envelope::Event { event, .. } = decoded {
         assert!(event.ext.is_some());
         let decoded_ext = event.ext.unwrap();
-        assert_eq!(decoded_ext["raw_message"], serde_json::json!({"vendor": "data"}));
+        assert_eq!(
+            decoded_ext["raw_message"],
+            serde_json::json!({"vendor": "data"})
+        );
     } else {
         panic!("expected Event");
     }
@@ -835,9 +912,7 @@ fn stream_with_interleaved_garbage_lines() {
     .unwrap();
     let final_line = JsonlCodec::encode(&make_final("run-1")).unwrap();
 
-    let input = format!(
-        "{hello_line}GARBAGE LINE 1\n{event_line}{{\"incomplete\n{final_line}"
-    );
+    let input = format!("{hello_line}GARBAGE LINE 1\n{event_line}{{\"incomplete\n{final_line}");
 
     let reader = BufReader::new(input.as_bytes());
     let results: Vec<_> = JsonlCodec::decode_stream(reader).collect();

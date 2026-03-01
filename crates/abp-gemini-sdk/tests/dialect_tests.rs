@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the Gemini dialect mapping, model names, capabilities, and tool formats.
 
-use abp_gemini_sdk::dialect::{
-    capability_manifest, from_canonical_model, is_known_model, to_canonical_model,
-    tool_def_from_gemini, tool_def_to_gemini, CanonicalToolDef, GeminiCandidate, GeminiConfig,
-    GeminiContent, GeminiFunctionDeclaration, GeminiPart, GeminiResponse, GeminiUsageMetadata,
-    DIALECT_VERSION, DEFAULT_MODEL,
-};
 use abp_core::{Capability, SupportLevel};
+use abp_gemini_sdk::dialect::{
+    CanonicalToolDef, DEFAULT_MODEL, DIALECT_VERSION, GeminiCandidate, GeminiConfig, GeminiContent,
+    GeminiFunctionDeclaration, GeminiPart, GeminiResponse, GeminiUsageMetadata,
+    capability_manifest, from_canonical_model, is_known_model, to_canonical_model,
+    tool_def_from_gemini, tool_def_to_gemini,
+};
 
 // ---------------------------------------------------------------------------
 // Model-name mapping
@@ -69,7 +69,10 @@ fn dialect_version_is_set() {
 #[test]
 fn capability_manifest_has_streaming_native() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::Streaming),
+        Some(SupportLevel::Native)
+    ));
 }
 
 #[test]
@@ -84,7 +87,10 @@ fn capability_manifest_has_structured_output_native() {
 #[test]
 fn capability_manifest_glob_unsupported() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::ToolGlob), Some(SupportLevel::Unsupported)));
+    assert!(matches!(
+        m.get(&Capability::ToolGlob),
+        Some(SupportLevel::Unsupported)
+    ));
 }
 
 // ---------------------------------------------------------------------------

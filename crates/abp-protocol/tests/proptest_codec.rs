@@ -75,7 +75,10 @@ fn arb_backend_identity() -> impl Strategy<Value = BackendIdentity> {
 }
 
 fn arb_execution_mode() -> impl Strategy<Value = ExecutionMode> {
-    prop_oneof![Just(ExecutionMode::Passthrough), Just(ExecutionMode::Mapped)]
+    prop_oneof![
+        Just(ExecutionMode::Passthrough),
+        Just(ExecutionMode::Mapped)
+    ]
 }
 
 fn arb_work_order() -> impl Strategy<Value = WorkOrder> {

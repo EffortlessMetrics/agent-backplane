@@ -2,9 +2,9 @@
 //! Integration tests for the Codex dialect mapping, model names, capabilities, and tool formats.
 
 use abp_codex_sdk::dialect::{
-    capability_manifest, from_canonical_model, is_known_model, to_canonical_model,
-    tool_def_from_codex, tool_def_to_codex, CanonicalToolDef, CodexConfig, CodexContentPart,
-    CodexOutputItem, CodexResponse, CodexToolDef, CodexUsage, DIALECT_VERSION, DEFAULT_MODEL,
+    CanonicalToolDef, CodexConfig, CodexContentPart, CodexOutputItem, CodexResponse, CodexToolDef,
+    CodexUsage, DEFAULT_MODEL, DIALECT_VERSION, capability_manifest, from_canonical_model,
+    is_known_model, to_canonical_model, tool_def_from_codex, tool_def_to_codex,
 };
 use abp_core::{Capability, SupportLevel};
 
@@ -68,19 +68,28 @@ fn dialect_version_is_set() {
 #[test]
 fn capability_manifest_has_streaming_native() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::Streaming),
+        Some(SupportLevel::Native)
+    ));
 }
 
 #[test]
 fn capability_manifest_has_tool_bash_native() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::ToolBash), Some(SupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::ToolBash),
+        Some(SupportLevel::Native)
+    ));
 }
 
 #[test]
 fn capability_manifest_mcp_unsupported() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::McpClient), Some(SupportLevel::Unsupported)));
+    assert!(matches!(
+        m.get(&Capability::McpClient),
+        Some(SupportLevel::Unsupported)
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -141,9 +150,7 @@ fn codex_response_serde_roundtrip() {
         model: "codex-mini-latest".into(),
         output: vec![CodexOutputItem::Message {
             role: "assistant".into(),
-            content: vec![CodexContentPart::OutputText {
-                text: "hi".into(),
-            }],
+            content: vec![CodexContentPart::OutputText { text: "hi".into() }],
         }],
         usage: Some(CodexUsage {
             input_tokens: 10,

@@ -82,7 +82,10 @@ fn wo_full_build() {
     assert_eq!(wo.config.max_turns, Some(20));
     assert_eq!(wo.config.max_budget_usd, Some(1.5));
     assert_eq!(wo.config.env.get("FOO").unwrap(), "bar");
-    assert_eq!(wo.config.vendor.get("key").unwrap(), &serde_json::json!("val"));
+    assert_eq!(
+        wo.config.vendor.get("key").unwrap(),
+        &serde_json::json!("val")
+    );
     assert_eq!(wo.policy.allowed_tools, vec!["read"]);
     assert_eq!(wo.policy.disallowed_tools, vec!["bash"]);
     assert_eq!(wo.context.files, vec!["README.md"]);
@@ -476,8 +479,14 @@ fn receipt_serde_roundtrip() {
     let deserialized: Receipt = serde_json::from_str(&json).expect("deserialize");
 
     assert_eq!(deserialized.backend.id, original.backend.id);
-    assert_eq!(deserialized.backend.backend_version, original.backend.backend_version);
-    assert_eq!(deserialized.backend.adapter_version, original.backend.adapter_version);
+    assert_eq!(
+        deserialized.backend.backend_version,
+        original.backend.backend_version
+    );
+    assert_eq!(
+        deserialized.backend.adapter_version,
+        original.backend.adapter_version
+    );
     assert_eq!(deserialized.outcome, original.outcome);
     assert_eq!(deserialized.mode, original.mode);
     assert_eq!(deserialized.meta.work_order_id, original.meta.work_order_id);
@@ -485,20 +494,24 @@ fn receipt_serde_roundtrip() {
     assert_eq!(deserialized.meta.started_at, original.meta.started_at);
     assert_eq!(deserialized.meta.finished_at, original.meta.finished_at);
     assert_eq!(deserialized.meta.duration_ms, original.meta.duration_ms);
-    assert_eq!(deserialized.meta.contract_version, original.meta.contract_version);
+    assert_eq!(
+        deserialized.meta.contract_version,
+        original.meta.contract_version
+    );
     assert_eq!(deserialized.receipt_sha256, original.receipt_sha256);
     assert_eq!(deserialized.trace.len(), original.trace.len());
     assert_eq!(deserialized.usage.input_tokens, original.usage.input_tokens);
-    assert_eq!(deserialized.usage.output_tokens, original.usage.output_tokens);
+    assert_eq!(
+        deserialized.usage.output_tokens,
+        original.usage.output_tokens
+    );
     assert_eq!(deserialized.usage_raw, original.usage_raw);
 }
 
 #[test]
 fn receipt_from_work_order_reference() {
     let wo = WorkOrderBuilder::new("linked task").build();
-    let receipt = ReceiptBuilder::new("mock")
-        .work_order_id(wo.id)
-        .build();
+    let receipt = ReceiptBuilder::new("mock").work_order_id(wo.id).build();
 
     assert_eq!(receipt.meta.work_order_id, wo.id);
 }

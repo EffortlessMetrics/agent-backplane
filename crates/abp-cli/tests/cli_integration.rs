@@ -68,7 +68,12 @@ fn backends_lists_mock() {
 fn backends_lists_sidecar_variants() {
     let assert = abp().arg("backends").assert().success();
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
-    for name in ["sidecar:node", "sidecar:python", "sidecar:claude", "sidecar:copilot"] {
+    for name in [
+        "sidecar:node",
+        "sidecar:python",
+        "sidecar:claude",
+        "sidecar:copilot",
+    ] {
         assert!(
             stdout.contains(name),
             "expected backends output to contain '{name}'"
@@ -296,7 +301,10 @@ fn run_empty_task_string_is_accepted() {
         .assert()
         .success();
 
-    assert!(receipt.exists(), "receipt should be written even with empty task");
+    assert!(
+        receipt.exists(),
+        "receipt should be written even with empty task"
+    );
 }
 
 // ── 11. Long task ───────────────────────────────────────────────────
@@ -353,8 +361,9 @@ fn json_flag_emits_valid_json_lines() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     for line in stdout.lines() {
-        let parsed: serde_json::Value = serde_json::from_str(line)
-            .unwrap_or_else(|e| panic!("each stdout line should be valid JSON: {e}\n  line: {line}"));
+        let parsed: serde_json::Value = serde_json::from_str(line).unwrap_or_else(|e| {
+            panic!("each stdout line should be valid JSON: {e}\n  line: {line}")
+        });
         assert!(parsed.is_object(), "each JSON line should be an object");
     }
 }
@@ -406,10 +415,7 @@ fn no_subcommand_shows_usage_hint() {
     abp()
         .assert()
         .failure()
-        .stderr(
-            predicate::str::contains("Usage")
-                .or(predicate::str::contains("subcommand")),
-        );
+        .stderr(predicate::str::contains("Usage").or(predicate::str::contains("subcommand")));
 }
 
 // ── 14. Double dash ─────────────────────────────────────────────────
@@ -430,12 +436,7 @@ fn error_cases_use_nonzero_exit_code() {
     assert!(!status.success());
 
     // Unknown subcommand
-    let status = abp()
-        .arg("bogus")
-        .assert()
-        .failure()
-        .get_output()
-        .status;
+    let status = abp().arg("bogus").assert().failure().get_output().status;
     assert!(!status.success());
 
     // Missing required flag

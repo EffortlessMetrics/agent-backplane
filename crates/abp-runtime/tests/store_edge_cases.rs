@@ -92,7 +92,10 @@ fn save_receipt_with_special_characters() {
 
     let loaded = store.load(run_id).unwrap();
     assert_eq!(loaded.backend.id, receipt.backend.id);
-    assert_eq!(loaded.backend.backend_version, receipt.backend.backend_version);
+    assert_eq!(
+        loaded.backend.backend_version,
+        receipt.backend.backend_version
+    );
     assert!(store.verify(run_id).unwrap());
 }
 
@@ -120,7 +123,10 @@ fn load_from_nonexistent_directory_returns_error() {
 fn list_from_nonexistent_directory_returns_empty() {
     let store = ReceiptStore::new("/tmp/abp_nonexistent_dir_12345");
     let ids = store.list().unwrap();
-    assert!(ids.is_empty(), "list on missing dir should return empty vec");
+    assert!(
+        ids.is_empty(),
+        "list on missing dir should return empty vec"
+    );
 }
 
 // ── 4. Save two receipts with same UUID (overwrite) ─────────────────
@@ -204,7 +210,8 @@ fn verify_chain_detects_tampered_receipt() {
     // Manually write a receipt with an invalid hash.
     let bad_id = Uuid::new_v4();
     let mut bad = receipt_at(bad_id, 10);
-    bad.receipt_sha256 = Some("0000000000000000000000000000000000000000000000000000000000000000".into());
+    bad.receipt_sha256 =
+        Some("0000000000000000000000000000000000000000000000000000000000000000".into());
     let path = dir.path().join(format!("{bad_id}.json"));
     std::fs::write(&path, serde_json::to_string_pretty(&bad).unwrap()).unwrap();
 

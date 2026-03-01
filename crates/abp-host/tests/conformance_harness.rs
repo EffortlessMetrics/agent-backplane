@@ -9,10 +9,10 @@ use std::collections::HashSet;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode,
-    ReceiptBuilder, CONTRACT_VERSION, receipt_hash,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, ReceiptBuilder, receipt_hash,
 };
-use abp_protocol::{parse_version, Envelope, JsonlCodec};
+use abp_protocol::{Envelope, JsonlCodec, parse_version};
 use chrono::{DateTime, Utc};
 
 // =========================================================================
@@ -29,10 +29,18 @@ struct ConformanceResult {
 
 impl ConformanceResult {
     fn pass(name: impl Into<String>) -> Self {
-        Self { name: name.into(), passed: true, detail: None }
+        Self {
+            name: name.into(),
+            passed: true,
+            detail: None,
+        }
     }
     fn fail(name: impl Into<String>, detail: impl Into<String>) -> Self {
-        Self { name: name.into(), passed: false, detail: Some(detail.into()) }
+        Self {
+            name: name.into(),
+            passed: false,
+            detail: Some(detail.into()),
+        }
     }
 }
 
@@ -47,9 +55,17 @@ impl ConformanceResult {
 fn validate_hello(hello: &Envelope) -> Vec<ConformanceResult> {
     let mut r = Vec::new();
     match hello {
-        Envelope::Hello { contract_version, backend, capabilities: _, mode: _ } => {
+        Envelope::Hello {
+            contract_version,
+            backend,
+            capabilities: _,
+            mode: _,
+        } => {
             if backend.id.is_empty() {
-                r.push(ConformanceResult::fail("hello_has_backend", "backend.id is empty"));
+                r.push(ConformanceResult::fail(
+                    "hello_has_backend",
+                    "backend.id is empty",
+                ));
             } else {
                 r.push(ConformanceResult::pass("hello_has_backend"));
             }
@@ -121,7 +137,10 @@ fn validate_event_stream(events: &[Envelope]) -> Vec<ConformanceResult> {
         if ref_ids.iter().all(|id| id == first) {
             r.push(ConformanceResult::pass("events_ref_id_consistent"));
         } else {
-            r.push(ConformanceResult::fail("events_ref_id_consistent", "not all ref_ids match"));
+            r.push(ConformanceResult::fail(
+                "events_ref_id_consistent",
+                "not all ref_ids match",
+            ));
         }
     } else {
         r.push(ConformanceResult::pass("events_ref_id_consistent"));
@@ -147,14 +166,21 @@ fn validate_event_stream(events: &[Envelope]) -> Vec<ConformanceResult> {
     }
 
     // no duplicate timestamps
-    let millis: Vec<i64> = agent_events.iter().map(|e| e.ts.timestamp_millis()).collect();
+    let millis: Vec<i64> = agent_events
+        .iter()
+        .map(|e| e.ts.timestamp_millis())
+        .collect();
     let unique = millis.iter().collect::<HashSet<_>>().len();
     if unique == millis.len() {
         r.push(ConformanceResult::pass("events_no_duplicate_timestamps"));
     } else {
         r.push(ConformanceResult::fail(
             "events_no_duplicate_timestamps",
-            format!("{} duplicate(s) among {} events", millis.len() - unique, millis.len()),
+            format!(
+                "{} duplicate(s) among {} events",
+                millis.len() - unique,
+                millis.len()
+            ),
         ));
     }
 
@@ -173,7 +199,10 @@ fn validate_final(final_env: &Envelope) -> Vec<ConformanceResult> {
     match final_env {
         Envelope::Final { ref_id, receipt } => {
             if ref_id.is_empty() {
-                r.push(ConformanceResult::fail("final_has_ref_id", "ref_id is empty"));
+                r.push(ConformanceResult::fail(
+                    "final_has_ref_id",
+                    "ref_id is empty",
+                ));
             } else {
                 r.push(ConformanceResult::pass("final_has_ref_id"));
             }
@@ -208,7 +237,9 @@ fn validate_final(final_env: &Envelope) -> Vec<ConformanceResult> {
                     "receipt.meta.contract_version is empty",
                 ));
             } else {
-                r.push(ConformanceResult::pass("final_receipt_has_contract_version"));
+                r.push(ConformanceResult::pass(
+                    "final_receipt_has_contract_version",
+                ));
             }
         }
         other => {
@@ -229,7 +260,10 @@ fn validate_protocol_sequence(envelopes: &[Envelope]) -> Vec<ConformanceResult> 
     let mut r = Vec::new();
 
     if envelopes.is_empty() {
-        r.push(ConformanceResult::fail("sequence_non_empty", "empty sequence"));
+        r.push(ConformanceResult::fail(
+            "sequence_non_empty",
+            "empty sequence",
+        ));
         return r;
     }
 
@@ -287,7 +321,9 @@ fn validate_protocol_sequence(envelopes: &[Envelope]) -> Vec<ConformanceResult> 
             Envelope::Event { ref_id, .. } | Envelope::Final { ref_id, .. } => {
                 ids.push(ref_id.as_str());
             }
-            Envelope::Fatal { ref_id: Some(id), .. } => ids.push(id.as_str()),
+            Envelope::Fatal {
+                ref_id: Some(id), ..
+            } => ids.push(id.as_str()),
             _ => {}
         }
     }
@@ -340,13 +376,20 @@ fn make_hello() -> Envelope {
 fn make_event(ref_id: &str, kind: AgentEventKind, offset_ms: i64) -> Envelope {
     Envelope::Event {
         ref_id: ref_id.into(),
-        event: AgentEvent { ts: ts_at(offset_ms), kind, ext: None },
+        event: AgentEvent {
+            ts: ts_at(offset_ms),
+            kind,
+            ext: None,
+        },
     }
 }
 
 fn make_final(ref_id: &str) -> Envelope {
     let receipt = ReceiptBuilder::new("test-sidecar").build();
-    Envelope::Final { ref_id: ref_id.into(), receipt }
+    Envelope::Final {
+        ref_id: ref_id.into(),
+        receipt,
+    }
 }
 
 fn assert_all_pass(results: &[ConformanceResult]) {
@@ -382,7 +425,11 @@ fn test_validate_hello_valid() {
 fn test_validate_hello_empty_backend() {
     let hello = Envelope::Hello {
         contract_version: CONTRACT_VERSION.into(),
-        backend: BackendIdentity { id: String::new(), backend_version: None, adapter_version: None },
+        backend: BackendIdentity {
+            id: String::new(),
+            backend_version: None,
+            adapter_version: None,
+        },
         capabilities: CapabilityManifest::new(),
         mode: ExecutionMode::Mapped,
     };
@@ -393,7 +440,11 @@ fn test_validate_hello_empty_backend() {
 fn test_validate_hello_bad_version() {
     let hello = Envelope::Hello {
         contract_version: "not-a-version".into(),
-        backend: BackendIdentity { id: "x".into(), backend_version: None, adapter_version: None },
+        backend: BackendIdentity {
+            id: "x".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
         capabilities: CapabilityManifest::new(),
         mode: ExecutionMode::Mapped,
     };
@@ -402,14 +453,21 @@ fn test_validate_hello_bad_version() {
 
 #[test]
 fn test_validate_hello_non_hello_envelope() {
-    let fatal = Envelope::Fatal { ref_id: None, error: "boom".into() };
+    let fatal = Envelope::Fatal {
+        ref_id: None,
+        error: "boom".into(),
+    };
     assert_has_failure(&validate_hello(&fatal), "hello_has_backend");
 }
 
 #[test]
 fn test_validate_hello_passthrough_mode() {
     let hello = Envelope::hello_with_mode(
-        BackendIdentity { id: "pt".into(), backend_version: None, adapter_version: None },
+        BackendIdentity {
+            id: "pt".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
         CapabilityManifest::new(),
         ExecutionMode::Passthrough,
     );
@@ -424,9 +482,21 @@ fn test_validate_hello_passthrough_mode() {
 fn test_validate_events_valid() {
     let id = "run-1";
     let events = vec![
-        make_event(id, AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            id,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
         make_event(id, AgentEventKind::AssistantDelta { text: "hi".into() }, 1),
-        make_event(id, AgentEventKind::RunCompleted { message: "done".into() }, 2),
+        make_event(
+            id,
+            AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+            2,
+        ),
     ];
     assert_all_pass(&validate_event_stream(&events));
 }
@@ -434,8 +504,20 @@ fn test_validate_events_valid() {
 #[test]
 fn test_validate_events_mismatched_refs() {
     let events = vec![
-        make_event("run-1", AgentEventKind::RunStarted { message: "a".into() }, 0),
-        make_event("run-2", AgentEventKind::RunCompleted { message: "b".into() }, 1),
+        make_event(
+            "run-1",
+            AgentEventKind::RunStarted {
+                message: "a".into(),
+            },
+            0,
+        ),
+        make_event(
+            "run-2",
+            AgentEventKind::RunCompleted {
+                message: "b".into(),
+            },
+            1,
+        ),
     ];
     assert_has_failure(&validate_event_stream(&events), "events_ref_id_consistent");
 }
@@ -444,8 +526,20 @@ fn test_validate_events_mismatched_refs() {
 fn test_validate_events_bad_order() {
     let id = "run-1";
     let events = vec![
-        make_event(id, AgentEventKind::RunCompleted { message: "done".into() }, 0),
-        make_event(id, AgentEventKind::RunStarted { message: "go".into() }, 1),
+        make_event(
+            id,
+            AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+            0,
+        ),
+        make_event(
+            id,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            1,
+        ),
     ];
     assert_has_failure(&validate_event_stream(&events), "events_well_ordered");
 }
@@ -458,7 +552,9 @@ fn test_validate_events_duplicate_timestamps() {
             ref_id: "r".into(),
             event: AgentEvent {
                 ts,
-                kind: AgentEventKind::RunStarted { message: "a".into() },
+                kind: AgentEventKind::RunStarted {
+                    message: "a".into(),
+                },
                 ext: None,
             },
         },
@@ -466,12 +562,17 @@ fn test_validate_events_duplicate_timestamps() {
             ref_id: "r".into(),
             event: AgentEvent {
                 ts,
-                kind: AgentEventKind::RunCompleted { message: "b".into() },
+                kind: AgentEventKind::RunCompleted {
+                    message: "b".into(),
+                },
                 ext: None,
             },
         },
     ];
-    assert_has_failure(&validate_event_stream(&events), "events_no_duplicate_timestamps");
+    assert_has_failure(
+        &validate_event_stream(&events),
+        "events_no_duplicate_timestamps",
+    );
 }
 
 #[test]
@@ -491,14 +592,20 @@ fn test_validate_final_valid() {
 #[test]
 fn test_validate_final_empty_ref_id() {
     let receipt = ReceiptBuilder::new("test").build();
-    let f = Envelope::Final { ref_id: String::new(), receipt };
+    let f = Envelope::Final {
+        ref_id: String::new(),
+        receipt,
+    };
     assert_has_failure(&validate_final(&f), "final_has_ref_id");
 }
 
 #[test]
 fn test_validate_final_valid_hash() {
     let receipt = ReceiptBuilder::new("test").build().with_hash().unwrap();
-    let f = Envelope::Final { ref_id: "run-1".into(), receipt };
+    let f = Envelope::Final {
+        ref_id: "run-1".into(),
+        receipt,
+    };
     assert_all_pass(&validate_final(&f));
 }
 
@@ -506,7 +613,10 @@ fn test_validate_final_valid_hash() {
 fn test_validate_final_bad_hash() {
     let mut receipt = ReceiptBuilder::new("test").build();
     receipt.receipt_sha256 = Some("badhash".into());
-    let f = Envelope::Final { ref_id: "run-1".into(), receipt };
+    let f = Envelope::Final {
+        ref_id: "run-1".into(),
+        receipt,
+    };
     assert_has_failure(&validate_final(&f), "final_receipt_hash_valid");
 }
 
@@ -514,7 +624,10 @@ fn test_validate_final_bad_hash() {
 fn test_validate_final_empty_contract_version() {
     let mut receipt = ReceiptBuilder::new("test").build();
     receipt.meta.contract_version = String::new();
-    let f = Envelope::Final { ref_id: "run-1".into(), receipt };
+    let f = Envelope::Final {
+        ref_id: "run-1".into(),
+        receipt,
+    };
     assert_has_failure(&validate_final(&f), "final_receipt_has_contract_version");
 }
 
@@ -527,9 +640,25 @@ fn test_validate_sequence_valid() {
     let id = "run-1";
     let seq = vec![
         make_hello(),
-        make_event(id, AgentEventKind::RunStarted { message: "go".into() }, 0),
-        make_event(id, AgentEventKind::AssistantMessage { text: "hi".into() }, 1),
-        make_event(id, AgentEventKind::RunCompleted { message: "done".into() }, 2),
+        make_event(
+            id,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
+        make_event(
+            id,
+            AgentEventKind::AssistantMessage { text: "hi".into() },
+            1,
+        ),
+        make_event(
+            id,
+            AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+            2,
+        ),
         make_final(id),
     ];
     assert_all_pass(&validate_protocol_sequence(&seq));
@@ -538,17 +667,32 @@ fn test_validate_sequence_valid() {
 #[test]
 fn test_validate_sequence_no_hello() {
     let seq = vec![
-        make_event("r", AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            "r",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
         make_final("r"),
     ];
-    assert_has_failure(&validate_protocol_sequence(&seq), "sequence_starts_with_hello");
+    assert_has_failure(
+        &validate_protocol_sequence(&seq),
+        "sequence_starts_with_hello",
+    );
 }
 
 #[test]
 fn test_validate_sequence_no_terminal() {
     let seq = vec![
         make_hello(),
-        make_event("r", AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            "r",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
     ];
     assert_has_failure(
         &validate_protocol_sequence(&seq),
@@ -560,8 +704,17 @@ fn test_validate_sequence_no_terminal() {
 fn test_validate_sequence_fatal_ending() {
     let seq = vec![
         make_hello(),
-        make_event("r", AgentEventKind::RunStarted { message: "go".into() }, 0),
-        Envelope::Fatal { ref_id: Some("r".into()), error: "crash".into() },
+        make_event(
+            "r",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
+        Envelope::Fatal {
+            ref_id: Some("r".into()),
+            error: "crash".into(),
+        },
     ];
     assert_all_pass(&validate_protocol_sequence(&seq));
 }
@@ -570,8 +723,18 @@ fn test_validate_sequence_fatal_ending() {
 fn test_validate_sequence_ref_id_mismatch() {
     let seq = vec![
         make_hello(),
-        make_event("run-1", AgentEventKind::RunStarted { message: "go".into() }, 0),
-        make_event("run-2", AgentEventKind::AssistantDelta { text: "x".into() }, 1),
+        make_event(
+            "run-1",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
+        make_event(
+            "run-2",
+            AgentEventKind::AssistantDelta { text: "x".into() },
+            1,
+        ),
         make_final("run-1"),
     ];
     assert_has_failure(
@@ -585,7 +748,13 @@ fn test_validate_jsonl_round_trip() {
     let id = "run-abc";
     let seq = vec![
         make_hello(),
-        make_event(id, AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            id,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
         make_event(id, AgentEventKind::AssistantDelta { text: "tok".into() }, 1),
         make_final(id),
     ];
@@ -596,8 +765,9 @@ fn test_validate_jsonl_round_trip() {
 
     // Decode back
     let reader = BufReader::new(buf.as_slice());
-    let decoded: Vec<Envelope> =
-        JsonlCodec::decode_stream(reader).collect::<Result<_, _>>().unwrap();
+    let decoded: Vec<Envelope> = JsonlCodec::decode_stream(reader)
+        .collect::<Result<_, _>>()
+        .unwrap();
 
     assert_eq!(decoded.len(), seq.len());
     assert_all_pass(&validate_protocol_sequence(&decoded));

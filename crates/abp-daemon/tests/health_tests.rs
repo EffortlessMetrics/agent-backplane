@@ -116,7 +116,12 @@ async fn metrics_initially_shows_zero_runs() {
     let app = build_app(test_state(tmp.path()));
 
     let resp = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -164,7 +169,12 @@ async fn metrics_update_after_run() {
     // Now check metrics reflect the completed run.
     let app = build_app(state);
     let resp = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     let body = resp.into_body().collect().await.unwrap().to_bytes();
@@ -184,7 +194,12 @@ async fn backends_lists_registered_backends() {
     let app = build_app(test_state(tmp.path()));
 
     let resp = app
-        .oneshot(Request::builder().uri("/backends").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/backends")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -221,7 +236,12 @@ async fn rapid_health_checks_all_succeed() {
     for i in 0..100 {
         let app = build_app(state.clone());
         let resp = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(
@@ -244,7 +264,12 @@ async fn health_response_completes_quickly() {
 
     let start = std::time::Instant::now();
     let resp = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     let elapsed = start.elapsed();
@@ -264,7 +289,12 @@ async fn health_content_type_is_json() {
     let app = build_app(test_state(tmp.path()));
 
     let resp = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -290,7 +320,12 @@ async fn metrics_content_type_is_json() {
     let app = build_app(test_state(tmp.path()));
 
     let resp = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 

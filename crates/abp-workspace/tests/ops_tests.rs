@@ -148,16 +148,12 @@ fn operation_log_affected_paths_deduplicates() {
 #[test]
 fn operation_log_summary_counts() {
     let mut log = OperationLog::new();
-    log.record(FileOperation::Read {
-        path: "a".into(),
-    });
+    log.record(FileOperation::Read { path: "a".into() });
     log.record(FileOperation::Write {
         path: "b".into(),
         size: 10,
     });
-    log.record(FileOperation::Delete {
-        path: "c".into(),
-    });
+    log.record(FileOperation::Delete { path: "c".into() });
     log.record(FileOperation::Move {
         from: "d".into(),
         to: "e".into(),
@@ -166,9 +162,7 @@ fn operation_log_summary_counts() {
         from: "f".into(),
         to: "g".into(),
     });
-    log.record(FileOperation::CreateDir {
-        path: "h".into(),
-    });
+    log.record(FileOperation::CreateDir { path: "h".into() });
 
     let s = log.summary();
     assert_eq!(
@@ -214,9 +208,7 @@ fn operation_log_summary_empty() {
 #[test]
 fn operation_log_clear() {
     let mut log = OperationLog::new();
-    log.record(FileOperation::Read {
-        path: "x".into(),
-    });
+    log.record(FileOperation::Read { path: "x".into() });
     assert!(!log.operations().is_empty());
     log.clear();
     assert!(log.operations().is_empty());
@@ -324,9 +316,7 @@ fn file_operation_serde_roundtrip() {
             from: "f.txt".into(),
             to: "g.txt".into(),
         },
-        FileOperation::CreateDir {
-            path: "h".into(),
-        },
+        FileOperation::CreateDir { path: "h".into() },
     ];
 
     for op in &ops {

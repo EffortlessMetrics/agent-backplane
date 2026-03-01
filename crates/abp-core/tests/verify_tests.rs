@@ -3,9 +3,7 @@
 //! Tests for the `verify` module.
 
 use abp_core::verify::{ChainVerifier, ReceiptVerifier};
-use abp_core::{
-    AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder, CONTRACT_VERSION,
-};
+use abp_core::{AgentEvent, AgentEventKind, CONTRACT_VERSION, Outcome, Receipt, ReceiptBuilder};
 use chrono::{Duration, Utc};
 use uuid::Uuid;
 
@@ -46,7 +44,11 @@ fn hash_mismatch_detected() {
     r.receipt_sha256 = Some("bad_hash".into());
     let report = ReceiptVerifier::new().verify(&r);
     assert!(!report.passed);
-    let check = report.checks.iter().find(|c| c.name == "hash_integrity").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "hash_integrity")
+        .unwrap();
     assert!(!check.passed);
     assert!(check.detail.contains("bad_hash"));
 }
@@ -58,7 +60,11 @@ fn missing_hash_passes() {
         .outcome(Outcome::Complete)
         .build();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "hash_integrity").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "hash_integrity")
+        .unwrap();
     assert!(check.passed);
 }
 
@@ -69,7 +75,11 @@ fn empty_contract_version_fails() {
     // Recompute hash after mutation so hash check passes.
     r = r.with_hash().unwrap();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "contract_version").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "contract_version")
+        .unwrap();
     assert!(!check.passed);
 }
 
@@ -79,7 +89,11 @@ fn invalid_contract_version_format_fails() {
     r.meta.contract_version = "bad".into();
     r = r.with_hash().unwrap();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "contract_version").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "contract_version")
+        .unwrap();
     assert!(!check.passed);
     assert!(check.detail.contains("invalid format"));
 }
@@ -88,7 +102,11 @@ fn invalid_contract_version_format_fails() {
 fn valid_contract_version_passes() {
     let r = valid_receipt();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "contract_version").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "contract_version")
+        .unwrap();
     assert!(check.passed);
     assert!(check.detail.contains(CONTRACT_VERSION));
 }
@@ -101,7 +119,11 @@ fn nil_work_order_id_fails() {
     r.meta.work_order_id = Uuid::nil();
     r = r.with_hash().unwrap();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "work_order_id").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "work_order_id")
+        .unwrap();
     assert!(!check.passed);
 }
 
@@ -109,7 +131,11 @@ fn nil_work_order_id_fails() {
 fn valid_work_order_id_passes() {
     let r = valid_receipt();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "work_order_id").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "work_order_id")
+        .unwrap();
     assert!(check.passed);
 }
 
@@ -176,7 +202,11 @@ fn timestamps_started_after_finished_fails() {
         .build();
     r = r.with_hash().unwrap();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "timestamps").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "timestamps")
+        .unwrap();
     assert!(!check.passed);
 }
 
@@ -191,7 +221,11 @@ fn timestamps_equal_passes() {
         .with_hash()
         .unwrap();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "timestamps").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "timestamps")
+        .unwrap();
     assert!(check.passed);
 }
 
@@ -204,18 +238,26 @@ fn trace_order_sequential_passes() {
         .outcome(Outcome::Complete)
         .add_trace_event(AgentEvent {
             ts: t1,
-            kind: AgentEventKind::RunStarted { message: "start".into() },
+            kind: AgentEventKind::RunStarted {
+                message: "start".into(),
+            },
             ext: None,
         })
         .add_trace_event(AgentEvent {
             ts: t2,
-            kind: AgentEventKind::RunCompleted { message: "done".into() },
+            kind: AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
             ext: None,
         })
         .with_hash()
         .unwrap();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "trace_order").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "trace_order")
+        .unwrap();
     assert!(check.passed);
 }
 
@@ -228,18 +270,26 @@ fn trace_order_out_of_order_fails() {
         .outcome(Outcome::Complete)
         .add_trace_event(AgentEvent {
             ts: t1,
-            kind: AgentEventKind::RunStarted { message: "start".into() },
+            kind: AgentEventKind::RunStarted {
+                message: "start".into(),
+            },
             ext: None,
         })
         .add_trace_event(AgentEvent {
             ts: t2,
-            kind: AgentEventKind::RunCompleted { message: "done".into() },
+            kind: AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
             ext: None,
         })
         .build();
     r = r.with_hash().unwrap();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "trace_order").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "trace_order")
+        .unwrap();
     assert!(!check.passed);
 }
 
@@ -247,7 +297,11 @@ fn trace_order_out_of_order_fails() {
 fn trace_empty_passes_order_check() {
     let r = valid_receipt();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "trace_order").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "trace_order")
+        .unwrap();
     assert!(check.passed);
 }
 
@@ -280,7 +334,11 @@ fn trace_duplicate_tool_use_ids_fails() {
         .build();
     r = r.with_hash().unwrap();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "trace_no_duplicate_ids").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "trace_no_duplicate_ids")
+        .unwrap();
     assert!(!check.passed);
     assert!(check.detail.contains("id-1"));
 }
@@ -314,7 +372,11 @@ fn trace_unique_tool_use_ids_passes() {
         .with_hash()
         .unwrap();
     let report = ReceiptVerifier::new().verify(&r);
-    let check = report.checks.iter().find(|c| c.name == "trace_no_duplicate_ids").unwrap();
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.name == "trace_no_duplicate_ids")
+        .unwrap();
     assert!(check.passed);
 }
 
@@ -344,7 +406,11 @@ fn chain_ordered_by_timestamp_passes() {
     let r1 = valid_receipt_at(t1);
     let r2 = valid_receipt_at(t2);
     let report = ChainVerifier::verify_chain(&[r1, r2]);
-    let check = report.chain_checks.iter().find(|c| c.name == "chain_order").unwrap();
+    let check = report
+        .chain_checks
+        .iter()
+        .find(|c| c.name == "chain_order")
+        .unwrap();
     assert!(check.passed);
 }
 
@@ -355,7 +421,11 @@ fn chain_out_of_order_fails() {
     let r1 = valid_receipt_at(t1);
     let r2 = valid_receipt_at(t2);
     let report = ChainVerifier::verify_chain(&[r2, r1]);
-    let check = report.chain_checks.iter().find(|c| c.name == "chain_order").unwrap();
+    let check = report
+        .chain_checks
+        .iter()
+        .find(|c| c.name == "chain_order")
+        .unwrap();
     assert!(!check.passed);
     assert!(!report.all_valid);
 }
@@ -370,7 +440,11 @@ fn chain_duplicate_run_ids_fails() {
     r2.meta.run_id = shared_id;
     r2 = r2.with_hash().unwrap();
     let report = ChainVerifier::verify_chain(&[r1, r2]);
-    let check = report.chain_checks.iter().find(|c| c.name == "no_duplicate_run_ids").unwrap();
+    let check = report
+        .chain_checks
+        .iter()
+        .find(|c| c.name == "no_duplicate_run_ids")
+        .unwrap();
     assert!(!check.passed);
 }
 
@@ -379,7 +453,11 @@ fn chain_unique_run_ids_passes() {
     let r1 = valid_receipt();
     let r2 = valid_receipt();
     let report = ChainVerifier::verify_chain(&[r1, r2]);
-    let check = report.chain_checks.iter().find(|c| c.name == "no_duplicate_run_ids").unwrap();
+    let check = report
+        .chain_checks
+        .iter()
+        .find(|c| c.name == "no_duplicate_run_ids")
+        .unwrap();
     assert!(check.passed);
 }
 

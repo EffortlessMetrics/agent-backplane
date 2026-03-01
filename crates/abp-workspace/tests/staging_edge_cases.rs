@@ -5,8 +5,8 @@
 //! deeply nested paths, Unicode filenames, large file counts, double-staging,
 //! and .git exclusion guarantees.
 
-use abp_workspace::{WorkspaceManager, WorkspaceStager};
 use abp_core::{WorkspaceMode, WorkspaceSpec};
+use abp_workspace::{WorkspaceManager, WorkspaceStager};
 use std::fs;
 use tempfile::tempdir;
 use walkdir::WalkDir;
@@ -17,11 +17,7 @@ fn file_listing(root: &std::path::Path) -> Vec<String> {
         .sort_by_file_name()
         .into_iter()
         .filter_map(Result::ok)
-        .filter(|e| {
-            !e.path()
-                .components()
-                .any(|c| c.as_os_str() == ".git")
-        })
+        .filter(|e| !e.path().components().any(|c| c.as_os_str() == ".git"))
         .filter(|e| e.path() != root)
         .map(|e| {
             let rel = e.path().strip_prefix(root).unwrap();
@@ -51,7 +47,10 @@ fn stage_empty_directory() {
         .unwrap();
 
     let listing = file_listing(ws.path());
-    assert!(listing.is_empty(), "empty source should produce empty staging");
+    assert!(
+        listing.is_empty(),
+        "empty source should produce empty staging"
+    );
 }
 
 #[test]
@@ -66,7 +65,10 @@ fn stage_empty_directory_with_git() {
 
     // Only .git should exist, which file_listing excludes
     let listing = file_listing(ws.path());
-    assert!(listing.is_empty(), "empty source with git should have no user files");
+    assert!(
+        listing.is_empty(),
+        "empty source with git should have no user files"
+    );
     assert!(ws.path().join(".git").exists(), ".git should be created");
 }
 
@@ -95,7 +97,10 @@ fn stage_with_all_files_excluded() {
     // All files should be excluded; only directories that were created may remain
     // but with no files inside them
     let file_count = listing.iter().filter(|f| !f.ends_with('/')).count();
-    assert_eq!(file_count, 0, "no files should survive a **/* exclude, got: {listing:?}");
+    assert_eq!(
+        file_count, 0,
+        "no files should survive a **/* exclude, got: {listing:?}"
+    );
 }
 
 #[test]
@@ -146,7 +151,10 @@ fn stage_only_binary_files() {
 
     // Verify binary content integrity
     assert_eq!(fs::read(ws.path().join("image.png")).unwrap(), png_header);
-    assert_eq!(fs::read(ws.path().join("zeros.bin")).unwrap(), vec![0u8; 256]);
+    assert_eq!(
+        fs::read(ws.path().join("zeros.bin")).unwrap(),
+        vec![0u8; 256]
+    );
     assert_eq!(
         fs::read(ws.path().join("random.dat")).unwrap(),
         (0..128u8).collect::<Vec<u8>>()
@@ -305,7 +313,10 @@ fn double_staging_same_source() {
 
     let listing1 = file_listing(ws1.path());
     let listing2 = file_listing(ws2.path());
-    assert_eq!(listing1, listing2, "double-staged workspaces should be identical");
+    assert_eq!(
+        listing1, listing2,
+        "double-staged workspaces should be identical"
+    );
 
     // Mutation in one doesn't affect the other
     fs::write(ws1.path().join("file.txt"), "modified").unwrap();
@@ -459,7 +470,10 @@ fn exclude_star_star_leaves_nothing() {
 
     let listing = file_listing(ws.path());
     let file_count = listing.iter().filter(|f| !f.ends_with('/')).count();
-    assert_eq!(file_count, 0, "exclude ** should leave no files, got: {listing:?}");
+    assert_eq!(
+        file_count, 0,
+        "exclude ** should leave no files, got: {listing:?}"
+    );
 }
 
 #[test]

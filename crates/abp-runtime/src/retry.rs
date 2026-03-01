@@ -46,8 +46,8 @@ impl RetryPolicy {
     /// same instant.
     #[must_use]
     pub fn compute_delay(&self, attempt: u32) -> Duration {
-        let base = self.initial_backoff.as_secs_f64()
-            * self.backoff_multiplier.powi(attempt as i32);
+        let base =
+            self.initial_backoff.as_secs_f64() * self.backoff_multiplier.powi(attempt as i32);
         let capped = base.min(self.max_backoff.as_secs_f64());
 
         // Deterministic jitter derived from the attempt number.

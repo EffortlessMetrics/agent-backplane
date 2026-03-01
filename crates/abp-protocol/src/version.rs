@@ -72,11 +72,13 @@ impl ProtocolVersion {
     /// Returns [`VersionError`] if the string does not match the expected format.
     pub fn parse(s: &str) -> Result<Self, VersionError> {
         let rest = s.strip_prefix("abp/v").ok_or(VersionError::InvalidFormat)?;
-        let (major_str, minor_str) = rest
-            .split_once('.')
-            .ok_or(VersionError::InvalidFormat)?;
-        let major = major_str.parse::<u32>().map_err(|_| VersionError::InvalidMajor)?;
-        let minor = minor_str.parse::<u32>().map_err(|_| VersionError::InvalidMinor)?;
+        let (major_str, minor_str) = rest.split_once('.').ok_or(VersionError::InvalidFormat)?;
+        let major = major_str
+            .parse::<u32>()
+            .map_err(|_| VersionError::InvalidMajor)?;
+        let minor = minor_str
+            .parse::<u32>()
+            .map_err(|_| VersionError::InvalidMinor)?;
         Ok(Self { major, minor })
     }
 
@@ -131,9 +133,7 @@ impl VersionRange {
     /// shares the same major version as both bounds and falls within them.
     #[must_use]
     pub fn is_compatible(&self, version: &ProtocolVersion) -> bool {
-        self.min.major == version.major
-            && self.max.major == version.major
-            && self.contains(version)
+        self.min.major == version.major && self.max.major == version.major && self.contains(version)
     }
 }
 

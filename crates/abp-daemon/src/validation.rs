@@ -90,7 +90,9 @@ impl RequestValidator {
 
         const MAX_DEPTH: usize = 10;
         if exceeds_depth(config, MAX_DEPTH) {
-            errors.push(format!("config exceeds maximum nesting depth of {MAX_DEPTH}"));
+            errors.push(format!(
+                "config exceeds maximum nesting depth of {MAX_DEPTH}"
+            ));
         }
 
         if config.to_string().len() > 1_000_000 {
@@ -111,12 +113,8 @@ fn exceeds_depth(value: &serde_json::Value, max_depth: usize) -> bool {
         return value.is_object() || value.is_array();
     }
     match value {
-        serde_json::Value::Object(map) => {
-            map.values().any(|v| exceeds_depth(v, max_depth - 1))
-        }
-        serde_json::Value::Array(arr) => {
-            arr.iter().any(|v| exceeds_depth(v, max_depth - 1))
-        }
+        serde_json::Value::Object(map) => map.values().any(|v| exceeds_depth(v, max_depth - 1)),
+        serde_json::Value::Array(arr) => arr.iter().any(|v| exceeds_depth(v, max_depth - 1)),
         _ => false,
     }
 }

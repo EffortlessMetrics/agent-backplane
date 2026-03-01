@@ -5,10 +5,10 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    CONTRACT_VERSION, receipt_hash,
+    receipt_hash,
 };
 use abp_integrations::Backend;
 use abp_policy::PolicyEngine;

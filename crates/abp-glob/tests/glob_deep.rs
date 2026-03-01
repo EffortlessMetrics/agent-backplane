@@ -2,7 +2,7 @@
 //! Deep tests for `abp-glob` — covers complex patterns, priority semantics,
 //! case sensitivity, separator handling, and error conditions.
 
-use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
+use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
 use std::path::Path;
 
 fn pats(xs: &[&str]) -> Vec<String> {
@@ -18,10 +18,7 @@ fn complex_nested_src_rs_pattern() {
     let g = IncludeExcludeGlobs::new(&pats(&["**/src/**/*.rs"]), &[]).unwrap();
     assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::Allowed);
     assert_eq!(g.decide_str("crate/src/main.rs"), MatchDecision::Allowed);
-    assert_eq!(
-        g.decide_str("a/b/src/c/d/e.rs"),
-        MatchDecision::Allowed
-    );
+    assert_eq!(g.decide_str("a/b/src/c/d/e.rs"), MatchDecision::Allowed);
     assert_eq!(
         g.decide_str("src/mod/tests/test.rs"),
         MatchDecision::Allowed
@@ -40,11 +37,7 @@ fn complex_nested_src_rs_pattern() {
 
 #[test]
 fn complex_multi_level_double_star() {
-    let g = IncludeExcludeGlobs::new(
-        &pats(&["**/crates/**/tests/**/*.rs"]),
-        &[],
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&pats(&["**/crates/**/tests/**/*.rs"]), &[]).unwrap();
     assert_eq!(
         g.decide_str("crates/abp-core/tests/unit.rs"),
         MatchDecision::Allowed
@@ -65,11 +58,7 @@ fn complex_multi_level_double_star() {
 
 #[test]
 fn exclude_overrides_include() {
-    let g = IncludeExcludeGlobs::new(
-        &pats(&["src/**"]),
-        &pats(&["src/generated/**"]),
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&pats(&["src/**"]), &pats(&["src/generated/**"])).unwrap();
     assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::Allowed);
     assert_eq!(
         g.decide_str("src/generated/output.rs"),
@@ -79,11 +68,8 @@ fn exclude_overrides_include() {
 
 #[test]
 fn exclude_on_specific_file_inside_included_tree() {
-    let g = IncludeExcludeGlobs::new(
-        &pats(&["**"]),
-        &pats(&["**/.DS_Store", "**/Thumbs.db"]),
-    )
-    .unwrap();
+    let g =
+        IncludeExcludeGlobs::new(&pats(&["**"]), &pats(&["**/.DS_Store", "**/Thumbs.db"])).unwrap();
     assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::Allowed);
     assert_eq!(
         g.decide_str("src/.DS_Store"),
@@ -239,11 +225,7 @@ fn backslash_via_decide_path() {
 
 #[test]
 fn decide_path_and_decide_str_consistent() {
-    let g = IncludeExcludeGlobs::new(
-        &pats(&["src/**"]),
-        &pats(&["src/secret/**"]),
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&pats(&["src/**"]), &pats(&["src/secret/**"])).unwrap();
     for c in &["src/lib.rs", "src/secret/key.pem", "README.md"] {
         assert_eq!(
             g.decide_str(c),
@@ -289,10 +271,7 @@ fn character_class_basic() {
     assert_eq!(g.decide_str("a.txt"), MatchDecision::Allowed);
     assert_eq!(g.decide_str("b.txt"), MatchDecision::Allowed);
     assert_eq!(g.decide_str("c.txt"), MatchDecision::Allowed);
-    assert_eq!(
-        g.decide_str("d.txt"),
-        MatchDecision::DeniedByMissingInclude
-    );
+    assert_eq!(g.decide_str("d.txt"), MatchDecision::DeniedByMissingInclude);
 }
 
 #[test]
@@ -306,19 +285,13 @@ fn character_class_range() {
             "{name} should match"
         );
     }
-    assert_eq!(
-        g.decide_str("a.txt"),
-        MatchDecision::DeniedByMissingInclude
-    );
+    assert_eq!(g.decide_str("a.txt"), MatchDecision::DeniedByMissingInclude);
 }
 
 #[test]
 fn character_class_negation() {
     let g = IncludeExcludeGlobs::new(&pats(&["[!abc].txt"]), &[]).unwrap();
-    assert_eq!(
-        g.decide_str("a.txt"),
-        MatchDecision::DeniedByMissingInclude
-    );
+    assert_eq!(g.decide_str("a.txt"), MatchDecision::DeniedByMissingInclude);
     assert_eq!(g.decide_str("d.txt"), MatchDecision::Allowed);
     assert_eq!(g.decide_str("z.txt"), MatchDecision::Allowed);
 }

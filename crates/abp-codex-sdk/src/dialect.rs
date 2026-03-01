@@ -230,7 +230,10 @@ pub fn map_work_order(wo: &WorkOrder, config: &CodexConfig) -> CodexRequest {
 
     let mut user_content = wo.task.clone();
     for snippet in &wo.context.snippets {
-        user_content.push_str(&format!("\n\n--- {} ---\n{}", snippet.name, snippet.content));
+        user_content.push_str(&format!(
+            "\n\n--- {} ---\n{}",
+            snippet.name, snippet.content
+        ));
     }
 
     CodexRequest {
@@ -257,16 +260,18 @@ pub fn map_response(resp: &CodexResponse) -> Vec<AgentEvent> {
                         CodexContentPart::OutputText { text } => {
                             events.push(AgentEvent {
                                 ts: now,
-                                kind: AgentEventKind::AssistantMessage {
-                                    text: text.clone(),
-                                },
+                                kind: AgentEventKind::AssistantMessage { text: text.clone() },
                                 ext: None,
                             });
                         }
                     }
                 }
             }
-            CodexOutputItem::FunctionCall { id, name, arguments } => {
+            CodexOutputItem::FunctionCall {
+                id,
+                name,
+                arguments,
+            } => {
                 let input = serde_json::from_str(arguments)
                     .unwrap_or(serde_json::Value::String(arguments.clone()));
                 events.push(AgentEvent {
@@ -359,7 +364,11 @@ mod tests {
         let events = map_response(&resp);
         assert_eq!(events.len(), 1);
         match &events[0].kind {
-            AgentEventKind::ToolCall { tool_name, tool_use_id, .. } => {
+            AgentEventKind::ToolCall {
+                tool_name,
+                tool_use_id,
+                ..
+            } => {
                 assert_eq!(tool_name, "shell");
                 assert_eq!(tool_use_id.as_deref(), Some("fc_1"));
             }

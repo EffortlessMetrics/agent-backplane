@@ -94,7 +94,10 @@ async fn concurrent_runs_10_all_complete() {
     let mut run_ids = Vec::new();
     for h in handles {
         let resp = h.await.unwrap();
-        assert!(resp.receipt.receipt_sha256.is_some(), "receipt must be hashed");
+        assert!(
+            resp.receipt.receipt_sha256.is_some(),
+            "receipt must be hashed"
+        );
         assert!(!resp.events.is_empty(), "mock backend must produce events");
         run_ids.push(resp.run_id);
     }
@@ -171,10 +174,8 @@ async fn large_payload_100kb_task() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);
-    let run_resp: RunResponse = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let run_resp: RunResponse =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert!(run_resp.receipt.receipt_sha256.is_some());
 }
 
@@ -318,28 +319,19 @@ async fn full_run_lifecycle() {
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
-    let receipt: abp_core::Receipt = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let receipt: abp_core::Receipt =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(receipt.meta.run_id, run_id);
     assert!(receipt.receipt_sha256.is_some());
 
     // Step 4: Verify run appears in /runs list.
     let app = build_app(state.clone());
     let resp = app
-        .oneshot(
-            Request::builder()
-                .uri("/runs")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri("/runs").body(Body::empty()).unwrap())
         .await
         .unwrap();
-    let ids: Vec<Uuid> = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let ids: Vec<Uuid> =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert!(ids.contains(&run_id));
 
     // Step 5: Verify run appears in /receipts list.
@@ -353,10 +345,8 @@ async fn full_run_lifecycle() {
         )
         .await
         .unwrap();
-    let ids: Vec<Uuid> = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let ids: Vec<Uuid> =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert!(ids.contains(&run_id));
 }
 
@@ -407,15 +397,21 @@ async fn sse_stream_format_verification() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);
-    let ct = resp.headers().get("content-type").unwrap().to_str().unwrap();
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(ct.contains("text/event-stream"));
 
-    let body = String::from_utf8_lossy(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .to_string();
+    let body =
+        String::from_utf8_lossy(&resp.into_body().collect().await.unwrap().to_bytes()).to_string();
     // SSE format: each event has "data: " prefix.
-    assert!(body.contains("data: "), "SSE body must contain data field: {body}");
+    assert!(
+        body.contains("data: "),
+        "SSE body must contain data field: {body}"
+    );
     // Each event ends with double newline.
     assert!(body.contains("\n\n"), "SSE events separated by blank line");
 }
@@ -444,7 +440,9 @@ async fn websocket_echo_roundtrip() {
 
     // Send a text message.
     let msg = "hello backplane";
-    ws.send(tungstenite::Message::Text(msg.into())).await.unwrap();
+    ws.send(tungstenite::Message::Text(msg.into()))
+        .await
+        .unwrap();
 
     // Receive the echo.
     let echoed = ws.next().await.unwrap().unwrap();
@@ -469,14 +467,17 @@ async fn metrics_structure_after_runs() {
     // No runs yet → all zeros.
     let app = build_app(state.clone());
     let resp = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
-    let m: RunMetrics = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let m: RunMetrics =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(m.total_runs, 0);
     assert_eq!(m.completed, 0);
     assert_eq!(m.failed, 0);
@@ -488,15 +489,22 @@ async fn metrics_structure_after_runs() {
 
     let app = build_app(state.clone());
     let resp = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
-    let m: RunMetrics = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let m: RunMetrics =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
     // Receipts map is the source of truth for completed count.
-    assert!(m.completed >= 3, "expected ≥3 completed, got {}", m.completed);
+    assert!(
+        m.completed >= 3,
+        "expected ≥3 completed, got {}",
+        m.completed
+    );
     assert!(m.total_runs >= 3, "expected ≥3 total, got {}", m.total_runs);
 }
 
@@ -511,7 +519,12 @@ async fn config_structure_deep_check() {
 
     let app = build_app(state);
     let resp = app
-        .oneshot(Request::builder().uri("/config").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/config")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -588,7 +601,10 @@ async fn backends_listing_format() {
     let arr = json.as_array().expect("backends must be array");
     assert!(!arr.is_empty(), "at least one backend must be registered");
     for item in arr {
-        assert!(item.is_string(), "each backend must be a string, got: {item}");
+        assert!(
+            item.is_string(),
+            "each backend must be a string, got: {item}"
+        );
     }
     // Must contain "mock".
     let names: Vec<&str> = arr.iter().map(|v| v.as_str().unwrap()).collect();
@@ -819,10 +835,8 @@ async fn receipts_limit_parameter() {
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
-    let ids: Vec<Uuid> = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let ids: Vec<Uuid> =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(ids.len(), 2, "limit=2 should return exactly 2 receipts");
 
     // Limit to 0 returns empty.
@@ -836,10 +850,8 @@ async fn receipts_limit_parameter() {
         )
         .await
         .unwrap();
-    let ids: Vec<Uuid> = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let ids: Vec<Uuid> =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert!(ids.is_empty(), "limit=0 should return empty list");
 }
 
@@ -857,7 +869,14 @@ async fn concurrent_mixed_reads_under_load() {
         do_run(&state).await;
     }
 
-    let endpoints = ["/health", "/metrics", "/config", "/backends", "/runs", "/receipts"];
+    let endpoints = [
+        "/health",
+        "/metrics",
+        "/config",
+        "/backends",
+        "/runs",
+        "/receipts",
+    ];
     let mut handles = Vec::new();
     for _ in 0..5 {
         for ep in &endpoints {
@@ -866,12 +885,7 @@ async fn concurrent_mixed_reads_under_load() {
             handles.push(tokio::spawn(async move {
                 let app = build_app(s);
                 let resp = app
-                    .oneshot(
-                        Request::builder()
-                            .uri(&uri)
-                            .body(Body::empty())
-                            .unwrap(),
-                    )
+                    .oneshot(Request::builder().uri(&uri).body(Body::empty()).unwrap())
                     .await
                     .unwrap();
                 assert_eq!(
@@ -906,17 +920,32 @@ async fn metrics_track_running_state() {
 
     let app = build_app(state.clone());
     let resp = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
-    let m: RunMetrics = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let m: RunMetrics =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
 
-    assert!(m.running >= 1, "should have at least 1 running: got {}", m.running);
-    assert!(m.completed >= 1, "should have at least 1 completed: got {}", m.completed);
-    assert!(m.total_runs >= 2, "total should be >= 2: got {}", m.total_runs);
+    assert!(
+        m.running >= 1,
+        "should have at least 1 running: got {}",
+        m.running
+    );
+    assert!(
+        m.completed >= 1,
+        "should have at least 1 completed: got {}",
+        m.completed
+    );
+    assert!(
+        m.total_runs >= 2,
+        "total should be >= 2: got {}",
+        m.total_runs
+    );
 }
 
 // ---------------------------------------------------------------------------

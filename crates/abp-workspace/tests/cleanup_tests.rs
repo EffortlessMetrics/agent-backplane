@@ -26,7 +26,10 @@ fn staged_temp_dir_exists_during_use() {
     let prepared = WorkspaceManager::prepare(&staged_spec(&src.path().to_string_lossy())).unwrap();
     let ws_path = prepared.path().to_path_buf();
 
-    assert!(ws_path.exists(), "temp dir must exist while PreparedWorkspace is alive");
+    assert!(
+        ws_path.exists(),
+        "temp dir must exist while PreparedWorkspace is alive"
+    );
     assert!(ws_path.join("a.txt").exists());
 }
 
@@ -119,7 +122,11 @@ fn staged_excludes_dot_git_by_default() {
 
     assert!(prepared.path().join("main.rs").exists());
     assert!(
-        !prepared.path().join(".git").join("abp_test_sentinel").exists(),
+        !prepared
+            .path()
+            .join(".git")
+            .join("abp_test_sentinel")
+            .exists(),
         "source .git contents must not be copied into staged workspace"
     );
 }
@@ -207,7 +214,10 @@ fn git_repo_initialised_in_staged_workspace() {
 
     // Verify we can run git commands against it
     let status = WorkspaceManager::git_status(prepared.path());
-    assert!(status.is_some(), "git_status should succeed on initialised repo");
+    assert!(
+        status.is_some(),
+        "git_status should succeed on initialised repo"
+    );
     // Baseline commit means working tree is clean
     let status = status.unwrap();
     assert!(

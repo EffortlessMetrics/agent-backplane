@@ -42,10 +42,18 @@ fn core_receipt_and_builder_accessible() {
 fn core_agent_event_kind_all_variants() {
     use abp_core::AgentEventKind;
     let _variants: Vec<AgentEventKind> = vec![
-        AgentEventKind::RunStarted { message: String::new() },
-        AgentEventKind::RunCompleted { message: String::new() },
-        AgentEventKind::AssistantDelta { text: String::new() },
-        AgentEventKind::AssistantMessage { text: String::new() },
+        AgentEventKind::RunStarted {
+            message: String::new(),
+        },
+        AgentEventKind::RunCompleted {
+            message: String::new(),
+        },
+        AgentEventKind::AssistantDelta {
+            text: String::new(),
+        },
+        AgentEventKind::AssistantMessage {
+            text: String::new(),
+        },
         AgentEventKind::ToolCall {
             tool_name: String::new(),
             tool_use_id: None,
@@ -58,14 +66,21 @@ fn core_agent_event_kind_all_variants() {
             output: serde_json::Value::Null,
             is_error: false,
         },
-        AgentEventKind::FileChanged { path: String::new(), summary: String::new() },
+        AgentEventKind::FileChanged {
+            path: String::new(),
+            summary: String::new(),
+        },
         AgentEventKind::CommandExecuted {
             command: String::new(),
             exit_code: None,
             output_preview: None,
         },
-        AgentEventKind::Warning { message: String::new() },
-        AgentEventKind::Error { message: String::new() },
+        AgentEventKind::Warning {
+            message: String::new(),
+        },
+        AgentEventKind::Error {
+            message: String::new(),
+        },
     ];
     assert_eq!(_variants.len(), 10);
 }
@@ -113,7 +128,10 @@ fn core_outcome_variants() {
 fn core_execution_mode_variants() {
     let _pt = abp_core::ExecutionMode::Passthrough;
     let _m = abp_core::ExecutionMode::Mapped;
-    assert_eq!(abp_core::ExecutionMode::default(), abp_core::ExecutionMode::Mapped);
+    assert_eq!(
+        abp_core::ExecutionMode::default(),
+        abp_core::ExecutionMode::Mapped
+    );
 }
 
 #[test]
@@ -127,7 +145,10 @@ fn core_capability_manifest_type() {
     use std::collections::BTreeMap;
     // CapabilityManifest is a type alias for BTreeMap<Capability, SupportLevel>
     let mut manifest: abp_core::CapabilityManifest = BTreeMap::new();
-    manifest.insert(abp_core::Capability::Streaming, abp_core::SupportLevel::Native);
+    manifest.insert(
+        abp_core::Capability::Streaming,
+        abp_core::SupportLevel::Native,
+    );
     assert!(manifest.contains_key(&abp_core::Capability::Streaming));
 }
 
@@ -206,7 +227,7 @@ fn core_receipt_with_hash() {
 
 #[test]
 fn core_module_validate_accessible() {
-    use abp_core::validate::{validate_receipt, ValidationError};
+    use abp_core::validate::{ValidationError, validate_receipt};
     let receipt = abp_core::ReceiptBuilder::new("mock")
         .outcome(abp_core::Outcome::Complete)
         .with_hash()
@@ -298,7 +319,10 @@ fn protocol_envelope_all_variants() {
 #[test]
 fn protocol_jsonl_codec_accessible() {
     use abp_protocol::{Envelope, JsonlCodec};
-    let fatal = Envelope::Fatal { ref_id: None, error: "err".into() };
+    let fatal = Envelope::Fatal {
+        ref_id: None,
+        error: "err".into(),
+    };
     let encoded = JsonlCodec::encode(&fatal).unwrap();
     assert!(encoded.ends_with('\n'));
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
@@ -307,11 +331,17 @@ fn protocol_jsonl_codec_accessible() {
 
 #[test]
 fn protocol_streaming_codec_accessible() {
-    use abp_protocol::codec::StreamingCodec;
     use abp_protocol::Envelope;
+    use abp_protocol::codec::StreamingCodec;
     let envs = vec![
-        Envelope::Fatal { ref_id: None, error: "a".into() },
-        Envelope::Fatal { ref_id: None, error: "b".into() },
+        Envelope::Fatal {
+            ref_id: None,
+            error: "a".into(),
+        },
+        Envelope::Fatal {
+            ref_id: None,
+            error: "b".into(),
+        },
     ];
     let batch = StreamingCodec::encode_batch(&envs);
     assert_eq!(StreamingCodec::line_count(&batch), 2);
@@ -363,13 +393,16 @@ fn protocol_error_type_accessible() {
 #[test]
 fn glob_include_exclude_accessible() {
     use abp_glob::{IncludeExcludeGlobs, MatchDecision};
-    let globs = IncludeExcludeGlobs::new(
-        &["src/**".into()],
-        &["src/generated/**".into()],
-    ).unwrap();
+    let globs = IncludeExcludeGlobs::new(&["src/**".into()], &["src/generated/**".into()]).unwrap();
     assert_eq!(globs.decide_str("src/lib.rs"), MatchDecision::Allowed);
-    assert_eq!(globs.decide_str("src/generated/out.rs"), MatchDecision::DeniedByExclude);
-    assert_eq!(globs.decide_str("README.md"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        globs.decide_str("src/generated/out.rs"),
+        MatchDecision::DeniedByExclude
+    );
+    assert_eq!(
+        globs.decide_str("README.md"),
+        MatchDecision::DeniedByMissingInclude
+    );
     assert!(MatchDecision::Allowed.is_allowed());
 }
 
@@ -409,7 +442,8 @@ fn policy_auditor_and_decision_accessible() {
     let engine = abp_policy::PolicyEngine::new(&abp_core::PolicyProfile {
         disallowed_tools: vec!["Bash".into()],
         ..Default::default()
-    }).unwrap();
+    })
+    .unwrap();
     let mut auditor = PolicyAuditor::new(engine);
     let decision = auditor.check_tool("Bash");
     assert!(matches!(decision, PolicyDecision::Deny { .. }));

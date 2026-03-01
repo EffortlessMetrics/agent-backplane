@@ -7,7 +7,7 @@ use std::collections::HashSet;
 
 use uuid::Uuid;
 
-use crate::{receipt_hash, AgentEventKind, Receipt, CONTRACT_VERSION};
+use crate::{AgentEventKind, CONTRACT_VERSION, Receipt, receipt_hash};
 
 /// Result of a single verification check.
 #[derive(Debug, Clone)]
@@ -133,7 +133,9 @@ impl ReceiptVerifier {
             return VerificationCheck {
                 name,
                 passed: true,
-                detail: format!("valid format but differs from current ({CONTRACT_VERSION}): \"{ver}\""),
+                detail: format!(
+                    "valid format but differs from current ({CONTRACT_VERSION}): \"{ver}\""
+                ),
             };
         }
         VerificationCheck {

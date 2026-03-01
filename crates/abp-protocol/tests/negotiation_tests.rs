@@ -8,8 +8,8 @@
 
 use std::collections::BTreeMap;
 
-use abp_core::{BackendIdentity, CapabilityManifest, CONTRACT_VERSION};
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionError, VersionRange};
+use abp_core::{BackendIdentity, CONTRACT_VERSION, CapabilityManifest};
+use abp_protocol::version::{ProtocolVersion, VersionError, VersionRange, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -165,7 +165,10 @@ fn range_contains_min_and_max() {
 fn range_contains_midpoint() {
     let range = VersionRange {
         min: ProtocolVersion { major: 1, minor: 0 },
-        max: ProtocolVersion { major: 1, minor: 10 },
+        max: ProtocolVersion {
+            major: 1,
+            minor: 10,
+        },
     };
     assert!(range.contains(&ProtocolVersion { major: 1, minor: 5 }));
 }
@@ -234,7 +237,11 @@ fn negotiate_multi(
     client: &[ProtocolVersion],
     server: &[ProtocolVersion],
 ) -> Option<ProtocolVersion> {
-    let mut common: Vec<_> = client.iter().filter(|v| server.contains(v)).cloned().collect();
+    let mut common: Vec<_> = client
+        .iter()
+        .filter(|v| server.contains(v))
+        .cloned()
+        .collect();
     common.sort();
     common.last().cloned()
 }

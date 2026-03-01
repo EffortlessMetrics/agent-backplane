@@ -4,9 +4,7 @@
 //! Covers SidecarSpec serialization, SidecarClient timeout / reconnect
 //! behaviour, and SidecarHello parsing edge cases.
 
-use abp_core::{
-    BackendIdentity, Capability, CapabilityManifest, CONTRACT_VERSION, SupportLevel,
-};
+use abp_core::{BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest, SupportLevel};
 use abp_host::{SidecarClient, SidecarHello, SidecarSpec};
 use abp_protocol::{Envelope, JsonlCodec};
 use std::collections::BTreeMap;
@@ -109,7 +107,10 @@ async fn sidecar_client_timeout_on_no_response() {
     .await;
 
     // The outer timeout fires because the sidecar never sends hello.
-    assert!(result.is_err(), "spawn should timeout when sidecar is silent");
+    assert!(
+        result.is_err(),
+        "spawn should timeout when sidecar is silent"
+    );
 }
 
 // ---------------------------------------------------------------------------

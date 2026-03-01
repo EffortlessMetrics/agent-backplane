@@ -6,8 +6,8 @@
 //! error propagation, capability pre-checks, and receipt chain verification.
 
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
@@ -124,8 +124,16 @@ async fn full_pipeline_produces_valid_hashed_receipt() {
     assert_eq!(stored_hash, recomputed);
 
     // Events include RunStarted and RunCompleted
-    assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. })));
-    assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+    );
 }
 
 // ===========================================================================
@@ -184,7 +192,8 @@ async fn telemetry_metrics_after_run() {
     let snap_before = rt.metrics().snapshot();
     assert_eq!(snap_before.total_runs, 0);
 
-    let (_events, _receipt) = run_to_completion(&rt, "mock", make_work_order("telemetry test")).await;
+    let (_events, _receipt) =
+        run_to_completion(&rt, "mock", make_work_order("telemetry test")).await;
 
     let snap = rt.metrics().snapshot();
     assert_eq!(snap.total_runs, 1);
@@ -199,15 +208,16 @@ async fn telemetry_metrics_after_run() {
 
 #[tokio::test]
 async fn pipeline_stages_validation_and_policy() {
-    let pipeline = Pipeline::new()
-        .stage(ValidationStage)
-        .stage(PolicyStage);
+    let pipeline = Pipeline::new().stage(ValidationStage).stage(PolicyStage);
 
     assert_eq!(pipeline.len(), 2);
 
     // Valid work order passes
     let mut wo = make_work_order("pipeline stage test");
-    pipeline.execute(&mut wo).await.expect("pipeline should pass");
+    pipeline
+        .execute(&mut wo)
+        .await
+        .expect("pipeline should pass");
 
     // Empty task fails validation
     let mut bad_wo = make_work_order("");
@@ -432,7 +442,10 @@ async fn concurrent_subscriptions_receive_same_events() {
     assert_eq!(receivers, 5);
 
     for h in handles {
-        assert!(h.await.unwrap(), "subscriber should have received RunStarted");
+        assert!(
+            h.await.unwrap(),
+            "subscriber should have received RunStarted"
+        );
     }
 }
 
@@ -518,9 +531,7 @@ async fn run_metrics_correct_counts() {
 
 #[tokio::test]
 async fn pipeline_policy_rejects_conflicting_tools() {
-    let pipeline = Pipeline::new()
-        .stage(ValidationStage)
-        .stage(PolicyStage);
+    let pipeline = Pipeline::new().stage(ValidationStage).stage(PolicyStage);
 
     let mut wo = make_work_order("policy conflict test");
     wo.policy = PolicyProfile {
@@ -575,9 +586,15 @@ async fn multiplexer_sequential_events() {
     let mut sub = mux.subscribe();
 
     let kinds = [
-        AgentEventKind::RunStarted { message: "start".into() },
-        AgentEventKind::AssistantMessage { text: "hello".into() },
-        AgentEventKind::RunCompleted { message: "done".into() },
+        AgentEventKind::RunStarted {
+            message: "start".into(),
+        },
+        AgentEventKind::AssistantMessage {
+            text: "hello".into(),
+        },
+        AgentEventKind::RunCompleted {
+            message: "done".into(),
+        },
     ];
 
     for kind in &kinds {
@@ -609,5 +626,8 @@ async fn receipt_trace_is_populated() {
     let (events, receipt) = run_to_completion(&rt, "mock", wo).await;
 
     assert!(!events.is_empty(), "event stream should not be empty");
-    assert!(!receipt.trace.is_empty(), "receipt trace should not be empty");
+    assert!(
+        !receipt.trace.is_empty(),
+        "receipt trace should not be empty"
+    );
 }

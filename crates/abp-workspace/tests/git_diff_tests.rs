@@ -172,10 +172,7 @@ fn multiple_changes_produce_combined_diff() {
         diff.contains("delete_me.txt"),
         "diff should contain deleted file"
     );
-    assert!(
-        diff.contains("added.txt"),
-        "diff should contain added file"
-    );
+    assert!(diff.contains("added.txt"), "diff should contain added file");
     // Unchanged file must NOT appear.
     assert!(
         !diff.contains("keep.txt"),

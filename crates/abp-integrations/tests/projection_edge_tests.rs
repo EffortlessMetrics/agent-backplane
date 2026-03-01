@@ -52,7 +52,12 @@ fn identity_roundtrip_deserializes_back() {
 #[test]
 fn all_vendor_to_vendor_pairs_unsupported() {
     let wo = sample_wo();
-    let vendors = [Dialect::Claude, Dialect::Codex, Dialect::Gemini, Dialect::Kimi];
+    let vendors = [
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+    ];
 
     for &from in &vendors {
         for &to in &vendors {
@@ -60,10 +65,7 @@ fn all_vendor_to_vendor_pairs_unsupported() {
                 continue; // identity is supported
             }
             let result = translate(from, to, &wo);
-            assert!(
-                result.is_err(),
-                "{from:?} -> {to:?} should be unsupported"
-            );
+            assert!(result.is_err(), "{from:?} -> {to:?} should be unsupported");
         }
     }
 }
@@ -75,12 +77,14 @@ fn all_vendor_to_vendor_pairs_unsupported() {
 #[test]
 fn vendor_to_abp_unsupported() {
     let wo = sample_wo();
-    for &d in &[Dialect::Claude, Dialect::Codex, Dialect::Gemini, Dialect::Kimi] {
+    for &d in &[
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+    ] {
         let result = translate(d, Dialect::Abp, &wo);
-        assert!(
-            result.is_err(),
-            "{d:?} -> Abp should be unsupported"
-        );
+        assert!(result.is_err(), "{d:?} -> Abp should be unsupported");
     }
 }
 
@@ -90,9 +94,16 @@ fn vendor_to_abp_unsupported() {
 
 #[test]
 fn custom_model_propagates() {
-    let wo = WorkOrderBuilder::new("task").model("my-custom-model").build();
+    let wo = WorkOrderBuilder::new("task")
+        .model("my-custom-model")
+        .build();
 
-    for &dialect in &[Dialect::Claude, Dialect::Codex, Dialect::Gemini, Dialect::Kimi] {
+    for &dialect in &[
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+    ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
         let model = val.get("model").and_then(|m| m.as_str()).unwrap();
         assert_eq!(
@@ -118,7 +129,12 @@ fn snippets_in_all_translations() {
         })
         .build();
 
-    for &dialect in &[Dialect::Claude, Dialect::Codex, Dialect::Gemini, Dialect::Kimi] {
+    for &dialect in &[
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+    ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
         let json_str = serde_json::to_string(&val).unwrap();
         assert!(
@@ -140,13 +156,15 @@ fn snippets_in_all_translations() {
 fn default_model_fallbacks_nonempty() {
     let wo = sample_wo(); // no model override
 
-    for &dialect in &[Dialect::Claude, Dialect::Codex, Dialect::Gemini, Dialect::Kimi] {
+    for &dialect in &[
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+    ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
         let model = val.get("model").and_then(|m| m.as_str()).unwrap();
-        assert!(
-            !model.is_empty(),
-            "default model empty for {dialect:?}"
-        );
+        assert!(!model.is_empty(), "default model empty for {dialect:?}");
     }
 }
 
@@ -171,7 +189,12 @@ fn dialect_all_complete() {
 #[test]
 fn supported_translations_no_cross_vendor() {
     let pairs = supported_translations();
-    let vendors = [Dialect::Claude, Dialect::Codex, Dialect::Gemini, Dialect::Kimi];
+    let vendors = [
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+    ];
 
     for &from in &vendors {
         for &to in &vendors {
@@ -228,8 +251,14 @@ fn dialect_serde_roundtrip() {
 #[test]
 fn dialect_serde_snake_case() {
     assert_eq!(serde_json::to_string(&Dialect::Abp).unwrap(), "\"abp\"");
-    assert_eq!(serde_json::to_string(&Dialect::Claude).unwrap(), "\"claude\"");
+    assert_eq!(
+        serde_json::to_string(&Dialect::Claude).unwrap(),
+        "\"claude\""
+    );
     assert_eq!(serde_json::to_string(&Dialect::Codex).unwrap(), "\"codex\"");
-    assert_eq!(serde_json::to_string(&Dialect::Gemini).unwrap(), "\"gemini\"");
+    assert_eq!(
+        serde_json::to_string(&Dialect::Gemini).unwrap(),
+        "\"gemini\""
+    );
     assert_eq!(serde_json::to_string(&Dialect::Kimi).unwrap(), "\"kimi\"");
 }

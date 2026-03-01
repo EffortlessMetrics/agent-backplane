@@ -61,7 +61,11 @@ fn new_monitor_is_empty() {
 #[test]
 fn record_and_get_status() {
     let mut mon = HealthMonitor::new();
-    mon.record_check("node", HealthStatus::Healthy, Some(Duration::from_millis(42)));
+    mon.record_check(
+        "node",
+        HealthStatus::Healthy,
+        Some(Duration::from_millis(42)),
+    );
 
     let check = mon.get_status("node").expect("should exist");
     assert_eq!(check.name, "node");
@@ -217,7 +221,11 @@ fn generate_report_overall_status() {
 #[test]
 fn health_report_serde_roundtrip() {
     let mut mon = HealthMonitor::new();
-    mon.record_check("node", HealthStatus::Healthy, Some(Duration::from_millis(5)));
+    mon.record_check(
+        "node",
+        HealthStatus::Healthy,
+        Some(Duration::from_millis(5)),
+    );
     mon.record_check(
         "python",
         HealthStatus::Degraded {

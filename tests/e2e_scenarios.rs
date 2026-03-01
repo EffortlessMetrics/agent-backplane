@@ -5,10 +5,10 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
-    RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionMode,
+    MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig, SupportLevel,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode,
     chain::ReceiptChain,
     ext::{AgentEventExt, ReceiptExt, WorkOrderExt},
     filter::EventFilter,
@@ -390,7 +390,11 @@ async fn scenario_policy_restricted_agent() {
     // Read paths: normal files OK, secrets blocked.
     assert!(engine.can_read_path(Path::new("src/main.rs")).allowed);
     assert!(!engine.can_read_path(Path::new(".env")).allowed);
-    assert!(!engine.can_read_path(Path::new("secrets/api_key.txt")).allowed);
+    assert!(
+        !engine
+            .can_read_path(Path::new("secrets/api_key.txt"))
+            .allowed
+    );
 
     // Write paths: everything blocked.
     assert!(!engine.can_write_path(Path::new("src/main.rs")).allowed);
@@ -662,8 +666,7 @@ async fn scenario_receipt_audit_trail() {
     assert_eq!(chain.gaps.len(), 4); // 5 runs → 4 gaps
 
     // All run IDs are unique.
-    let unique_ids: std::collections::HashSet<_> =
-        receipts.iter().map(|r| r.meta.run_id).collect();
+    let unique_ids: std::collections::HashSet<_> = receipts.iter().map(|r| r.meta.run_id).collect();
     assert_eq!(unique_ids.len(), 5);
 
     // Hashes are deterministic: recomputing matches stored.
@@ -1353,7 +1356,10 @@ async fn scenario_receipt_serialization_roundtrip() {
 
     // Load from file.
     let loaded = store.load(receipt.meta.run_id).unwrap();
-    assert_eq!(loaded.receipt_sha256.as_deref(), Some(original_hash.as_str()));
+    assert_eq!(
+        loaded.receipt_sha256.as_deref(),
+        Some(original_hash.as_str())
+    );
 
     // Recompute hash matches.
     let recomputed = receipt_hash(&loaded).unwrap();
@@ -1363,7 +1369,10 @@ async fn scenario_receipt_serialization_roundtrip() {
     // Also test raw JSON round-trip.
     let json = serde_json::to_string_pretty(&receipt).unwrap();
     let from_json: Receipt = serde_json::from_str(&json).unwrap();
-    assert_eq!(from_json.receipt_sha256.as_deref(), Some(original_hash.as_str()));
+    assert_eq!(
+        from_json.receipt_sha256.as_deref(),
+        Some(original_hash.as_str())
+    );
     assert_eq!(receipt_hash(&from_json).unwrap(), original_hash);
 
     // validate_receipt passes.
@@ -1390,14 +1399,26 @@ async fn scenario_policy_audit_trail() {
     // Perform a series of checks.
     assert_eq!(auditor.check_tool("Read"), PolicyDecision::Allow);
     assert_eq!(auditor.check_tool("Grep"), PolicyDecision::Allow);
-    assert!(matches!(auditor.check_tool("Bash"), PolicyDecision::Deny { .. }));
-    assert!(matches!(auditor.check_tool("Write"), PolicyDecision::Deny { .. }));
+    assert!(matches!(
+        auditor.check_tool("Bash"),
+        PolicyDecision::Deny { .. }
+    ));
+    assert!(matches!(
+        auditor.check_tool("Write"),
+        PolicyDecision::Deny { .. }
+    ));
 
     assert_eq!(auditor.check_read("src/lib.rs"), PolicyDecision::Allow);
-    assert!(matches!(auditor.check_read(".env"), PolicyDecision::Deny { .. }));
+    assert!(matches!(
+        auditor.check_read(".env"),
+        PolicyDecision::Deny { .. }
+    ));
 
     assert_eq!(auditor.check_write("src/lib.rs"), PolicyDecision::Allow);
-    assert!(matches!(auditor.check_write("locked/data.txt"), PolicyDecision::Deny { .. }));
+    assert!(matches!(
+        auditor.check_write("locked/data.txt"),
+        PolicyDecision::Deny { .. }
+    ));
 
     // Verify audit log.
     let entries = auditor.entries();
@@ -1540,7 +1561,10 @@ async fn scenario_custom_vendor_config() {
         .build();
 
     // Vendor config is preserved in work order.
-    assert_eq!(wo.config.vendor.get("debug"), Some(&serde_json::json!(true)));
+    assert_eq!(
+        wo.config.vendor.get("debug"),
+        Some(&serde_json::json!(true))
+    );
     let sdk = wo.config.vendor.get("my_sdk").unwrap();
     assert_eq!(sdk["temperature"], 0.7);
 
@@ -1551,7 +1575,10 @@ async fn scenario_custom_vendor_config() {
     // Work order serializes/deserializes with vendor config intact.
     let json = serde_json::to_string(&wo).unwrap();
     let loaded: WorkOrder = serde_json::from_str(&json).unwrap();
-    assert_eq!(loaded.config.vendor.get("debug"), Some(&serde_json::json!(true)));
+    assert_eq!(
+        loaded.config.vendor.get("debug"),
+        Some(&serde_json::json!(true))
+    );
 
     let handle = rt.run_streaming("mock", wo).await.unwrap();
     let (_, receipt) = drain_run(handle).await;
@@ -1569,7 +1596,10 @@ async fn scenario_workspace_template() {
     // Build a template with some files.
     let mut template = WorkspaceTemplate::new("rust-project", "Basic Rust project scaffold");
     template.add_file("src/main.rs", "fn main() {\n    println!(\"hello\");\n}\n");
-    template.add_file("Cargo.toml", "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n");
+    template.add_file(
+        "Cargo.toml",
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    );
     template.add_file("README.md", "# Demo\n");
 
     assert_eq!(template.file_count(), 3);
@@ -1625,9 +1655,14 @@ async fn scenario_receipt_validation() {
 
     // Tampered hash fails validation.
     let mut tampered = receipt.clone();
-    tampered.receipt_sha256 = Some("0000000000000000000000000000000000000000000000000000000000000000".into());
+    tampered.receipt_sha256 =
+        Some("0000000000000000000000000000000000000000000000000000000000000000".into());
     let errors = validate_receipt(&tampered).unwrap_err();
-    assert!(errors.iter().any(|e| matches!(e, abp_core::validate::ValidationError::InvalidHash { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, abp_core::validate::ValidationError::InvalidHash { .. }))
+    );
 
     // Receipt without hash also passes (hash is optional).
     let mut no_hash = receipt.clone();
@@ -1729,7 +1764,10 @@ async fn scenario_event_text_extraction() {
     let (events, _) = drain_run(handle).await;
 
     // Assistant messages have text content.
-    let messages: Vec<_> = events.iter().filter(|e| e.text_content().is_some()).collect();
+    let messages: Vec<_> = events
+        .iter()
+        .filter(|e| e.text_content().is_some())
+        .collect();
     assert!(!messages.is_empty());
     for msg in &messages {
         assert!(!msg.text_content().unwrap().is_empty());
@@ -1787,7 +1825,10 @@ async fn scenario_receipt_chain_duplicate_rejected() {
 
     // Pushing same receipt (same run_id) again fails.
     let err = chain.push(receipt).unwrap_err();
-    assert!(matches!(err, abp_core::chain::ChainError::DuplicateId { .. }));
+    assert!(matches!(
+        err,
+        abp_core::chain::ChainError::DuplicateId { .. }
+    ));
     assert_eq!(chain.len(), 1);
 }
 

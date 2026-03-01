@@ -13,8 +13,8 @@
 use std::time::Instant;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, CapabilityManifest, ExecutionLane, Outcome, PolicyProfile,
-    Receipt, ReceiptBuilder, WorkOrderBuilder, canonical_json, receipt_hash,
+    AgentEvent, AgentEventKind, CapabilityManifest, ExecutionLane, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, WorkOrderBuilder, canonical_json, receipt_hash,
 };
 use abp_glob::IncludeExcludeGlobs;
 use abp_policy::PolicyEngine;
@@ -208,12 +208,8 @@ fn policy_engine_compilation_under_10ms() {
     let policy = PolicyProfile {
         allowed_tools: vec!["Read".into(), "Write".into(), "Grep".into(), "Glob".into()],
         disallowed_tools: vec!["Bash*".into(), "Delete*".into()],
-        deny_read: (0..10)
-            .map(|i| format!("**/secret_{i}/**"))
-            .collect(),
-        deny_write: (0..10)
-            .map(|i| format!("**/locked_{i}/**"))
-            .collect(),
+        deny_read: (0..10).map(|i| format!("**/secret_{i}/**")).collect(),
+        deny_write: (0..10).map(|i| format!("**/locked_{i}/**")).collect(),
         allow_network: vec!["*.example.com".into()],
         deny_network: vec!["evil.example.com".into()],
         require_approval_for: vec!["Bash".into()],
@@ -295,10 +291,7 @@ fn mock_backend_pipeline_under_100ms() {
         let (tx, mut rx) = mpsc::channel(256);
 
         let start = Instant::now();
-        let receipt = backend
-            .run(uuid::Uuid::new_v4(), wo, tx)
-            .await
-            .unwrap();
+        let receipt = backend.run(uuid::Uuid::new_v4(), wo, tx).await.unwrap();
         // Drain events
         while rx.try_recv().is_ok() {}
         let elapsed = start.elapsed();
@@ -325,7 +318,9 @@ fn receipt_store_100_save_load_under_1s() {
     let dir = tempfile::tempdir().unwrap();
     let store = ReceiptStore::new(dir.path());
 
-    let receipts: Vec<Receipt> = (0..100).map(|_| sample_receipt().with_hash().unwrap()).collect();
+    let receipts: Vec<Receipt> = (0..100)
+        .map(|_| sample_receipt().with_hash().unwrap())
+        .collect();
 
     let start = Instant::now();
     for r in &receipts {
@@ -506,11 +501,7 @@ fn envelope_roundtrip() {
 /// Sanity: Glob compilation and matching works.
 #[test]
 fn glob_compilation_and_matching() {
-    let globs = IncludeExcludeGlobs::new(
-        &["src/**".into()],
-        &["src/generated/**".into()],
-    )
-    .unwrap();
+    let globs = IncludeExcludeGlobs::new(&["src/**".into()], &["src/generated/**".into()]).unwrap();
     assert!(globs.decide_str("src/lib.rs").is_allowed());
     assert!(!globs.decide_str("src/generated/out.rs").is_allowed());
 }

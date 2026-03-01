@@ -366,14 +366,11 @@ async fn conformance_slow_sidecar_completes() {
 
     assert_eq!(events.len(), 3, "expected 3 events from slow sidecar");
 
-    let receipt = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        sidecar_run.receipt,
-    )
-    .await
-    .expect("receipt should arrive within timeout")
-    .expect("receipt channel should not be dropped")
-    .expect("receipt should be Ok");
+    let receipt = tokio::time::timeout(std::time::Duration::from_secs(5), sidecar_run.receipt)
+        .await
+        .expect("receipt should arrive within timeout")
+        .expect("receipt channel should not be dropped")
+        .expect("receipt should be Ok");
 
     assert!(matches!(receipt.outcome, abp_core::Outcome::Complete));
 
@@ -410,11 +407,8 @@ async fn conformance_hanging_sidecar_times_out() {
     );
 
     // Receipt should NOT arrive because the sidecar is hanging.
-    let result = tokio::time::timeout(
-        std::time::Duration::from_millis(500),
-        sidecar_run.receipt,
-    )
-    .await;
+    let result =
+        tokio::time::timeout(std::time::Duration::from_millis(500), sidecar_run.receipt).await;
     assert!(
         result.is_err(),
         "receipt should timeout because sidecar is hanging"

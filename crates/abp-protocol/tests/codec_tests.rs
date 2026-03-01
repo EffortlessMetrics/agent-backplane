@@ -94,11 +94,7 @@ fn encode_to_writer_valid_jsonl() {
 
 #[test]
 fn roundtrip_writer_reader() {
-    let envelopes = vec![
-        make_hello(),
-        make_fatal("one"),
-        make_fatal("two"),
-    ];
+    let envelopes = vec![make_hello(), make_fatal("one"), make_fatal("two")];
 
     let mut buf = Vec::new();
     JsonlCodec::encode_many_to_writer(&mut buf, &envelopes).unwrap();
@@ -261,9 +257,7 @@ fn streaming_validate_jsonl_all_valid() {
 
 #[test]
 fn streaming_large_batch() {
-    let envelopes: Vec<Envelope> = (0..1000)
-        .map(|i| make_fatal(&format!("msg-{i}")))
-        .collect();
+    let envelopes: Vec<Envelope> = (0..1000).map(|i| make_fatal(&format!("msg-{i}"))).collect();
 
     let jsonl = StreamingCodec::encode_batch(&envelopes);
     assert_eq!(StreamingCodec::line_count(&jsonl), 1000);
@@ -315,6 +309,10 @@ fn streaming_utf8_content() {
         .unwrap();
 
     assert_eq!(decoded.len(), 2);
-    assert!(matches!(&decoded[0], Envelope::Fatal { error, .. } if error == "日本語テスト 🚀 émojis & ñ"));
-    assert!(matches!(&decoded[1], Envelope::Fatal { error, ref_id } if error == "中文 العربية" && ref_id.as_deref() == Some("ü-ref")));
+    assert!(
+        matches!(&decoded[0], Envelope::Fatal { error, .. } if error == "日本語テスト 🚀 émojis & ñ")
+    );
+    assert!(
+        matches!(&decoded[1], Envelope::Fatal { error, ref_id } if error == "中文 العربية" && ref_id.as_deref() == Some("ü-ref"))
+    );
 }

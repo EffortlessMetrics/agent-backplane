@@ -167,10 +167,7 @@ fn evaluate_perfect_score() {
 #[test]
 fn evaluate_partial_score() {
     let m = matrix_with_two_backends();
-    let report = m.evaluate(
-        "alpha",
-        &[Capability::Streaming, Capability::McpClient],
-    );
+    let report = m.evaluate("alpha", &[Capability::Streaming, Capability::McpClient]);
     assert!((report.score - 0.5).abs() < f64::EPSILON);
     assert_eq!(report.supported, vec![Capability::Streaming]);
     assert_eq!(report.missing, vec![Capability::McpClient]);
@@ -249,7 +246,11 @@ fn report_fields() {
     let m = matrix_with_two_backends();
     let r: CapabilityReport = m.evaluate(
         "beta",
-        &[Capability::Streaming, Capability::McpClient, Capability::ToolBash],
+        &[
+            Capability::Streaming,
+            Capability::McpClient,
+            Capability::ToolBash,
+        ],
     );
     assert_eq!(r.backend, "beta");
     assert_eq!(r.supported.len(), 2);

@@ -9,13 +9,15 @@ use std::io::BufReader;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ContractError,
     ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
-    RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder,
+    WorkspaceMode, WorkspaceSpec,
 };
-use abp_integrations::{Backend, MockBackend, ensure_capability_requirements, extract_execution_mode};
+use abp_integrations::{
+    Backend, MockBackend, ensure_capability_requirements, extract_execution_mode,
+};
 use abp_policy::PolicyEngine;
 use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
 use abp_runtime::{Runtime, RuntimeError};
@@ -543,7 +545,11 @@ async fn full_pipeline_work_order_to_receipt() {
 async fn full_pipeline_unknown_backend_returns_error() {
     let wo = make_work_order("unknown backend");
     let rt = Runtime::with_default_backends();
-    let err = rt.run_streaming("nonexistent", wo).await.err().expect("should be Err");
+    let err = rt
+        .run_streaming("nonexistent", wo)
+        .await
+        .err()
+        .expect("should be Err");
 
     assert!(
         matches!(err, RuntimeError::UnknownBackend { .. }),
@@ -680,9 +686,11 @@ fn receipt_with_tampered_hash_fails_validation() {
 
     receipt.receipt_sha256 = Some("deadbeef".repeat(8));
     let errors = abp_core::validate::validate_receipt(&receipt).unwrap_err();
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, abp_core::validate::ValidationError::InvalidHash { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, abp_core::validate::ValidationError::InvalidHash { .. }))
+    );
 }
 
 // ===========================================================================
@@ -806,10 +814,9 @@ fn execution_mode_extracted_from_work_order_config() {
     assert_eq!(extract_execution_mode(&wo), ExecutionMode::Mapped);
 
     // Set passthrough via nested vendor config
-    wo.config.vendor.insert(
-        "abp".into(),
-        json!({"mode": "passthrough"}),
-    );
+    wo.config
+        .vendor
+        .insert("abp".into(), json!({"mode": "passthrough"}));
     assert_eq!(extract_execution_mode(&wo), ExecutionMode::Passthrough);
 }
 
@@ -862,9 +869,7 @@ fn contract_error_from_json_is_displayable() {
 
 #[test]
 fn runtime_error_variants_are_descriptive() {
-    let err = RuntimeError::UnknownBackend {
-        name: "foo".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "foo".into() };
     assert!(err.to_string().contains("foo"));
 
     let err = RuntimeError::CapabilityCheckFailed("missing streaming".into());
@@ -883,9 +888,7 @@ fn event_stream_filter_works_with_all_kinds() {
         make_event(AgentEventKind::RunStarted {
             message: "start".into(),
         }),
-        make_event(AgentEventKind::AssistantMessage {
-            text: "msg".into(),
-        }),
+        make_event(AgentEventKind::AssistantMessage { text: "msg".into() }),
         make_event(AgentEventKind::Warning {
             message: "warn".into(),
         }),
@@ -914,9 +917,7 @@ fn event_filter_works_with_protocol_events() {
 
     let filter = EventFilter::include_kinds(&["assistant_message", "tool_call"]);
 
-    let msg = make_event(AgentEventKind::AssistantMessage {
-        text: "hi".into(),
-    });
+    let msg = make_event(AgentEventKind::AssistantMessage { text: "hi".into() });
     assert!(filter.matches(&msg));
 
     let started = make_event(AgentEventKind::RunStarted {
@@ -1053,9 +1054,7 @@ fn agent_event_ext_field_roundtrips() {
 
     let ev = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: Some(ext),
     };
 
@@ -1184,12 +1183,12 @@ fn validation_catches_wrong_contract_version() {
 fn validation_catches_empty_backend_id() {
     use abp_core::validate::{ValidationError, validate_receipt};
 
-    let receipt = ReceiptBuilder::new("")
-        .outcome(Outcome::Complete)
-        .build();
+    let receipt = ReceiptBuilder::new("").outcome(Outcome::Complete).build();
 
     let errors = validate_receipt(&receipt).unwrap_err();
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::EmptyBackendId)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyBackendId))
+    );
 }

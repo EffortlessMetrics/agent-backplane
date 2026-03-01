@@ -12,11 +12,7 @@ fn patterns(xs: &[&str]) -> Vec<String> {
 // ---------------------------------------------------------------------------
 
 fn bench_simple_glob_match(c: &mut Criterion) {
-    let globs = IncludeExcludeGlobs::new(
-        &patterns(&["src/**"]),
-        &patterns(&["*.log"]),
-    )
-    .unwrap();
+    let globs = IncludeExcludeGlobs::new(&patterns(&["src/**"]), &patterns(&["*.log"])).unwrap();
 
     c.bench_function("simple_glob_match", |b| {
         b.iter(|| globs.decide_str(black_box("src/lib.rs")));
@@ -42,11 +38,7 @@ fn bench_complex_glob_match(c: &mut Criterion) {
 // ---------------------------------------------------------------------------
 
 fn bench_many_paths(c: &mut Criterion) {
-    let globs = IncludeExcludeGlobs::new(
-        &patterns(&["src/**"]),
-        &patterns(&["*.log"]),
-    )
-    .unwrap();
+    let globs = IncludeExcludeGlobs::new(&patterns(&["src/**"]), &patterns(&["*.log"])).unwrap();
 
     let paths: Vec<String> = (0..1000)
         .map(|i| format!("src/module_{}/file_{}.rs", i / 10, i))

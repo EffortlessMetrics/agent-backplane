@@ -2,8 +2,8 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, Outcome,
-    ReceiptBuilder, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, Outcome, ReceiptBuilder,
+    WorkOrderBuilder,
 };
 use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
 use chrono::Utc;
@@ -49,7 +49,9 @@ fn run_envelope() -> Envelope {
 fn final_envelope() -> Envelope {
     Envelope::Final {
         ref_id: "run-001".into(),
-        receipt: ReceiptBuilder::new("mock").outcome(Outcome::Complete).build(),
+        receipt: ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .build(),
     }
 }
 

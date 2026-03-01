@@ -261,7 +261,10 @@ fn chain_gaps_reflect_time_between_runs() {
     // Gap 0: minute 1 -> minute 10
     // Gap 1: minute 11 -> minute 20
     for (finished, started) in &chain.gaps {
-        assert!(started > finished, "started_at must be after finished_at of previous");
+        assert!(
+            started > finished,
+            "started_at must be after finished_at of previous"
+        );
     }
 }
 

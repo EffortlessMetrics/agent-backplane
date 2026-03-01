@@ -134,9 +134,7 @@ fn transition_stopping_to_failed() {
 #[test]
 fn invalid_uninitialized_to_running() {
     let mut mgr = LifecycleManager::new();
-    let err = mgr
-        .transition(LifecycleState::Running, None)
-        .unwrap_err();
+    let err = mgr.transition(LifecycleState::Running, None).unwrap_err();
     assert_eq!(
         err,
         LifecycleError::InvalidTransition {
@@ -151,9 +149,7 @@ fn invalid_ready_to_starting() {
     let mut mgr = LifecycleManager::new();
     mgr.transition(LifecycleState::Starting, None).unwrap();
     mgr.transition(LifecycleState::Ready, None).unwrap();
-    let err = mgr
-        .transition(LifecycleState::Starting, None)
-        .unwrap_err();
+    let err = mgr.transition(LifecycleState::Starting, None).unwrap_err();
     assert!(matches!(err, LifecycleError::InvalidTransition { .. }));
 }
 
@@ -164,9 +160,7 @@ fn invalid_stopped_to_running() {
     mgr.transition(LifecycleState::Ready, None).unwrap();
     mgr.transition(LifecycleState::Stopping, None).unwrap();
     mgr.transition(LifecycleState::Stopped, None).unwrap();
-    let err = mgr
-        .transition(LifecycleState::Running, None)
-        .unwrap_err();
+    let err = mgr.transition(LifecycleState::Running, None).unwrap_err();
     assert!(matches!(err, LifecycleError::InvalidTransition { .. }));
 }
 
@@ -192,10 +186,7 @@ fn already_in_state_ready() {
     mgr.transition(LifecycleState::Starting, None).unwrap();
     mgr.transition(LifecycleState::Ready, None).unwrap();
     let err = mgr.transition(LifecycleState::Ready, None).unwrap_err();
-    assert_eq!(
-        err,
-        LifecycleError::AlreadyInState(LifecycleState::Ready)
-    );
+    assert_eq!(err, LifecycleError::AlreadyInState(LifecycleState::Ready));
 }
 
 // ---------------------------------------------------------------------------
@@ -300,9 +291,8 @@ fn lifecycle_error_display_already_in_state() {
 
 #[test]
 fn lifecycle_error_is_std_error() {
-    let err: Box<dyn std::error::Error> = Box::new(LifecycleError::AlreadyInState(
-        LifecycleState::Stopped,
-    ));
+    let err: Box<dyn std::error::Error> =
+        Box::new(LifecycleError::AlreadyInState(LifecycleState::Stopped));
     assert!(err.to_string().contains("already in state"));
 }
 

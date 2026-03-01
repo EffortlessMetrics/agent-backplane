@@ -55,7 +55,9 @@ impl EventMultiplexer {
     ///
     /// Returns [`MultiplexError::NoSubscribers`] if there are no active subscribers.
     pub fn broadcast(&self, event: AgentEvent) -> Result<usize, MultiplexError> {
-        self.tx.send(event).map_err(|_| MultiplexError::NoSubscribers)
+        self.tx
+            .send(event)
+            .map_err(|_| MultiplexError::NoSubscribers)
     }
 
     /// Return the number of active subscribers.
@@ -121,11 +123,7 @@ impl EventRouter {
     }
 
     /// Register a handler for events whose kind matches `kind`.
-    pub fn add_route(
-        &mut self,
-        kind: &str,
-        handler: Box<dyn Fn(&AgentEvent) + Send + Sync>,
-    ) {
+    pub fn add_route(&mut self, kind: &str, handler: Box<dyn Fn(&AgentEvent) + Send + Sync>) {
         self.routes
             .entry(kind.to_string())
             .or_default()

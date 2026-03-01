@@ -26,10 +26,7 @@ fn policy_with_100_tool_deny_patterns() {
     // Every denied tool prefix should be blocked.
     for i in 0..100 {
         let tool = format!("DangerousTool_{i}_variant");
-        assert!(
-            !e.can_use_tool(&tool).allowed,
-            "expected deny for {tool}"
-        );
+        assert!(!e.can_use_tool(&tool).allowed, "expected deny for {tool}");
     }
 
     // A tool that matches none of the deny patterns should be allowed.
@@ -88,7 +85,10 @@ fn policy_with_100_write_deny_patterns() {
     // A .lock file outside the protected zones should be allowed.
     assert!(e.can_write_path(Path::new("other/cargo.lock")).allowed);
     // A non-.lock file inside a protected zone should also be allowed.
-    assert!(e.can_write_path(Path::new("protected/zone_0/file.rs")).allowed);
+    assert!(
+        e.can_write_path(Path::new("protected/zone_0/file.rs"))
+            .allowed
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -114,10 +114,26 @@ fn sequential_compilation_of_many_policies() {
     assert!(engines[0].can_use_tool("Tool_0").allowed);
     assert!(!engines[0].can_use_tool("Banned_0").allowed);
     assert!(!engines[0].can_use_tool("Tool_1").allowed); // not in this engine's allow list
-    assert!(!engines[99].can_read_path(Path::new("read_deny_99/secret.txt")).allowed);
-    assert!(engines[99].can_read_path(Path::new("read_deny_0/secret.txt")).allowed);
-    assert!(!engines[199].can_write_path(Path::new("write_deny_199/out.bin")).allowed);
-    assert!(engines[199].can_write_path(Path::new("write_deny_0/out.bin")).allowed);
+    assert!(
+        !engines[99]
+            .can_read_path(Path::new("read_deny_99/secret.txt"))
+            .allowed
+    );
+    assert!(
+        engines[99]
+            .can_read_path(Path::new("read_deny_0/secret.txt"))
+            .allowed
+    );
+    assert!(
+        !engines[199]
+            .can_write_path(Path::new("write_deny_199/out.bin"))
+            .allowed
+    );
+    assert!(
+        engines[199]
+            .can_write_path(Path::new("write_deny_0/out.bin"))
+            .allowed
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -127,11 +143,7 @@ fn sequential_compilation_of_many_policies() {
 #[test]
 fn large_path_set_evaluation() {
     let e = engine(PolicyProfile {
-        deny_read: vec![
-            "**/.env*".into(),
-            "**/secrets/**".into(),
-            "**/*.pem".into(),
-        ],
+        deny_read: vec!["**/.env*".into(), "**/secrets/**".into(), "**/*.pem".into()],
         deny_write: vec![
             "**/.git/**".into(),
             "**/node_modules/**".into(),

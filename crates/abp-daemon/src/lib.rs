@@ -10,11 +10,11 @@ use abp_core::{AgentEvent, CapabilityManifest, Receipt, WorkOrder};
 use abp_runtime::Runtime;
 use axum::{
     Json, Router,
-    extract::{Path as AxPath, Query, State},
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
+    extract::{Path as AxPath, Query, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
     response::sse::{Event as SseEvent, Sse},
+    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use chrono::Utc;
@@ -72,7 +72,12 @@ impl RunTracker {
         if !guard.contains_key(&run_id) {
             anyhow::bail!("run {run_id} is not tracked");
         }
-        guard.insert(run_id, RunStatus::Completed { receipt: Box::new(receipt) });
+        guard.insert(
+            run_id,
+            RunStatus::Completed {
+                receipt: Box::new(receipt),
+            },
+        );
         Ok(())
     }
 
@@ -280,14 +285,13 @@ async fn cmd_run(
 ) -> Result<Json<RunResponse>, ApiError> {
     // Validate the work order before processing.
     if let Err(errors) = validation::RequestValidator::validate_work_order(&req.work_order) {
-        return Err(ApiError::new(
-            StatusCode::BAD_REQUEST,
-            errors.join("; "),
-        ));
+        return Err(ApiError::new(StatusCode::BAD_REQUEST, errors.join("; ")));
     }
 
     let backend_names = state.runtime.backend_names();
-    if let Err(e) = validation::RequestValidator::validate_backend_name(&req.backend, &backend_names) {
+    if let Err(e) =
+        validation::RequestValidator::validate_backend_name(&req.backend, &backend_names)
+    {
         return Err(ApiError::new(StatusCode::BAD_REQUEST, e));
     }
 
@@ -319,11 +323,17 @@ async fn cmd_run(
         Ok(Ok(r)) => r,
         Ok(Err(e)) => {
             let _ = state.run_tracker.fail_run(run_id, e.to_string()).await;
-            return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
+            return Err(ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                e.to_string(),
+            ));
         }
         Err(e) => {
             let _ = state.run_tracker.fail_run(run_id, e.to_string()).await;
-            return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
+            return Err(ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                e.to_string(),
+            ));
         }
     };
 
@@ -351,9 +361,7 @@ async fn cmd_run(
     }))
 }
 
-async fn cmd_list_runs(
-    State(state): State<Arc<AppState>>,
-) -> Json<Vec<Uuid>> {
+async fn cmd_list_runs(State(state): State<Arc<AppState>>) -> Json<Vec<Uuid>> {
     // Merge tracker runs with legacy receipt-only runs for backward compat.
     let mut ids: Vec<Uuid> = state.receipts.read().await.keys().cloned().collect();
     for (id, _) in state.run_tracker.list_runs().await {
@@ -420,7 +428,10 @@ async fn cmd_get_run_receipt(
         if let RunStatus::Completed { receipt } = status {
             return Ok(Json(*receipt));
         }
-        return Err(ApiError::new(StatusCode::NOT_FOUND, "run has no receipt yet"));
+        return Err(ApiError::new(
+            StatusCode::NOT_FOUND,
+            "run has no receipt yet",
+        ));
     }
     // Fall back to receipts map for backward compat.
     if let Some(receipt) = state.receipts.read().await.get(&run_id).cloned() {
@@ -429,9 +440,7 @@ async fn cmd_get_run_receipt(
     Err(ApiError::new(StatusCode::NOT_FOUND, "run not found"))
 }
 
-async fn cmd_config(
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
+async fn cmd_config(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     Json(json!({
         "backends": state.runtime.backend_names(),
         "contract_version": abp_core::CONTRACT_VERSION,
@@ -445,15 +454,14 @@ async fn cmd_validate(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Validate the work order fields.
     if let Err(errors) = validation::RequestValidator::validate_work_order(&req.work_order) {
-        return Err(ApiError::new(
-            StatusCode::BAD_REQUEST,
-            errors.join("; "),
-        ));
+        return Err(ApiError::new(StatusCode::BAD_REQUEST, errors.join("; ")));
     }
 
     // Check that the requested backend exists.
     let backend_names = state.runtime.backend_names();
-    if let Err(e) = validation::RequestValidator::validate_backend_name(&req.backend, &backend_names) {
+    if let Err(e) =
+        validation::RequestValidator::validate_backend_name(&req.backend, &backend_names)
+    {
         return Err(ApiError::new(StatusCode::BAD_REQUEST, e));
     }
 

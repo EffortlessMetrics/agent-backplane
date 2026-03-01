@@ -8,7 +8,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use abp_cli::config::{load_config, BackendConfig};
+use abp_cli::config::{BackendConfig, load_config};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_protocol::{Envelope, JsonlCodec};
 
@@ -37,8 +37,7 @@ fn glob_matches_native_path_separators() {
 
 #[test]
 fn glob_exclude_with_native_paths() {
-    let globs =
-        IncludeExcludeGlobs::new(&patterns(&["**"]), &patterns(&["target/**"])).unwrap();
+    let globs = IncludeExcludeGlobs::new(&patterns(&["**"]), &patterns(&["target/**"])).unwrap();
     let native = PathBuf::from("target").join("debug").join("build");
     assert_eq!(globs.decide_path(&native), MatchDecision::DeniedByExclude);
     let ok = PathBuf::from("src").join("main.rs");
@@ -376,7 +375,9 @@ async fn concurrent_file_writes_to_separate_files() {
         let dir = base.clone();
         handles.push(tokio::spawn(async move {
             let path = dir.join(format!("file_{i}.txt"));
-            tokio::fs::write(&path, format!("content-{i}")).await.unwrap();
+            tokio::fs::write(&path, format!("content-{i}"))
+                .await
+                .unwrap();
             tokio::fs::read_to_string(&path).await.unwrap()
         }));
     }
@@ -411,7 +412,11 @@ fn path_normalisation_with_dot_segments() {
     );
     // The resolved path should end with "a/c" or "a\\c".
     let ends = canonical.ends_with(Path::new("a").join("c"));
-    assert!(ends, "expected path ending with a/c: {}", canonical.display());
+    assert!(
+        ends,
+        "expected path ending with a/c: {}",
+        canonical.display()
+    );
 }
 
 #[test]

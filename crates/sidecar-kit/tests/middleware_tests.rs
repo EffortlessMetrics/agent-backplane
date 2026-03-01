@@ -33,7 +33,11 @@ struct UppercaseMiddleware;
 impl EventMiddleware for UppercaseMiddleware {
     fn process(&self, event: &Value) -> Option<Value> {
         let mut out = event.clone();
-        if let Some(msg) = out.get("message").and_then(Value::as_str).map(str::to_uppercase) {
+        if let Some(msg) = out
+            .get("message")
+            .and_then(Value::as_str)
+            .map(str::to_uppercase)
+        {
             out["message"] = Value::String(msg);
         }
         Some(out)

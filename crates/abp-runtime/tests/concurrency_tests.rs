@@ -7,11 +7,9 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use abp_core::{
-    ExecutionLane, Outcome, WorkOrder, WorkspaceMode, WorkspaceSpec,
-};
-use abp_runtime::telemetry::RunMetrics;
+use abp_core::{ExecutionLane, Outcome, WorkOrder, WorkspaceMode, WorkspaceSpec};
 use abp_runtime::Runtime;
+use abp_runtime::telemetry::RunMetrics;
 use tokio_stream::StreamExt;
 
 /// Build a minimal work order suitable for mock-backend tests.
@@ -34,10 +32,7 @@ fn mock_work_order(task: &str) -> WorkOrder {
 }
 
 /// Drive a run to completion, returning the receipt.
-async fn run_to_receipt(
-    rt: &Runtime,
-    wo: WorkOrder,
-) -> abp_core::Receipt {
+async fn run_to_receipt(rt: &Runtime, wo: WorkOrder) -> abp_core::Receipt {
     let handle = rt.run_streaming("mock", wo).await.expect("run_streaming");
     // Drain the event stream so the run can finish.
     let _: Vec<_> = handle.events.collect().await;
@@ -102,7 +97,11 @@ async fn rapid_fire_concurrent_runs() {
         assert!(receipt.receipt_sha256.is_some());
     }
 
-    assert_eq!(run_ids.len(), count, "every concurrent run must have a unique id");
+    assert_eq!(
+        run_ids.len(),
+        count,
+        "every concurrent run must have a unique id"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -157,11 +156,7 @@ async fn telemetry_consistent_under_concurrent_records() {
         total,
         "success + failure must equal total"
     );
-    assert_eq!(
-        snap.total_events,
-        total * 2,
-        "each run records 2 events"
-    );
+    assert_eq!(snap.total_events, total * 2, "each run records 2 events");
     assert_eq!(
         snap.average_run_duration_ms, 10,
         "all durations are 10 ms so average must be 10"
@@ -178,9 +173,8 @@ async fn registry_reads_safe_during_run() {
 
     // Start a run in the background.
     let rt2 = Arc::clone(&rt);
-    let run_task = tokio::spawn(async move {
-        run_to_receipt(&rt2, mock_work_order("background")).await
-    });
+    let run_task =
+        tokio::spawn(async move { run_to_receipt(&rt2, mock_work_order("background")).await });
 
     // Concurrently read from the registry many times.
     let mut readers = Vec::new();

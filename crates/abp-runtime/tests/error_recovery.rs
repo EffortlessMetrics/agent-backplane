@@ -7,10 +7,10 @@
 //! timeout, workspace failures, and invalid work order fields.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionLane,
-    ExecutionMode, MinSupport, Outcome, Receipt, RunMetadata, UsageNormalized,
-    VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ExecutionLane, ExecutionMode, MinSupport,
+    Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode,
+    WorkspaceSpec,
 };
 use abp_integrations::Backend;
 use abp_runtime::{Runtime, RuntimeError};
@@ -23,9 +23,7 @@ use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 /// Extract the error from a `run_streaming` result (RunHandle lacks Debug).
-async fn expect_run_err(
-    result: Result<abp_runtime::RunHandle, RuntimeError>,
-) -> RuntimeError {
+async fn expect_run_err(result: Result<abp_runtime::RunHandle, RuntimeError>) -> RuntimeError {
     match result {
         Err(e) => e,
         Ok(_) => panic!("expected an error from run_streaming"),
@@ -151,9 +149,7 @@ async fn error_does_not_corrupt_registry_or_metrics() {
 
     // Trigger several errors.
     let _ = rt.run_streaming("nope", mock_work_order()).await;
-    let _ = rt
-        .run_streaming("mock", unsatisfiable_work_order())
-        .await;
+    let _ = rt.run_streaming("mock", unsatisfiable_work_order()).await;
 
     // Registry must be unchanged.
     assert_eq!(
@@ -203,7 +199,10 @@ async fn multiple_different_error_types_are_distinct() {
     let msg1 = e1.to_string();
     let msg2 = e2.to_string();
 
-    assert_ne!(msg1, msg2, "different error types should produce different messages");
+    assert_ne!(
+        msg1, msg2,
+        "different error types should produce different messages"
+    );
     assert!(msg1.contains("unknown backend"), "e1: {msg1}");
     assert!(msg2.contains("capability"), "e2: {msg2}");
 }
@@ -240,9 +239,7 @@ fn runtime_error_display_coverage() {
 #[test]
 fn runtime_error_debug_coverage() {
     let variants: Vec<RuntimeError> = vec![
-        RuntimeError::UnknownBackend {
-            name: "dbg".into(),
-        },
+        RuntimeError::UnknownBackend { name: "dbg".into() },
         RuntimeError::WorkspaceFailed(anyhow::anyhow!("ws")),
         RuntimeError::PolicyFailed(anyhow::anyhow!("pol")),
         RuntimeError::BackendFailed(anyhow::anyhow!("be")),
@@ -261,7 +258,10 @@ fn runtime_error_debug_coverage() {
             || debug.contains("PolicyFailed")
             || debug.contains("BackendFailed")
             || debug.contains("CapabilityCheckFailed");
-        assert!(contains_variant, "Debug output should name the variant: {debug}");
+        assert!(
+            contains_variant,
+            "Debug output should name the variant: {debug}"
+        );
     }
 }
 
@@ -283,15 +283,10 @@ fn error_source_chain() {
 
     let inner = anyhow::anyhow!("backend root");
     let err = RuntimeError::BackendFailed(inner);
-    assert!(
-        err.source().is_some(),
-        "BackendFailed should have a source"
-    );
+    assert!(err.source().is_some(), "BackendFailed should have a source");
 
     // Variants without #[source]: UnknownBackend, CapabilityCheckFailed.
-    let err = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "x".into() };
     assert!(
         err.source().is_none(),
         "UnknownBackend should not have a source"
@@ -554,7 +549,10 @@ async fn empty_event_stream_still_produces_receipt() {
         .expect("join handle")
         .expect("receipt should succeed");
 
-    assert!(receipt.receipt_sha256.is_some(), "receipt should have a hash");
+    assert!(
+        receipt.receipt_sha256.is_some(),
+        "receipt should have a hash"
+    );
     assert!(
         matches!(receipt.outcome, Outcome::Complete),
         "empty stream should still complete: {:?}",
@@ -743,10 +741,7 @@ async fn backend_error_does_not_corrupt_metrics() {
         snap_before.total_runs + 1,
         "only the successful run should be counted"
     );
-    assert!(
-        snap_final.successful_runs >= 1,
-        "at least one success"
-    );
+    assert!(snap_final.successful_runs >= 1, "at least one success");
 }
 
 // ---------- 18. Panic backend then state check ----------

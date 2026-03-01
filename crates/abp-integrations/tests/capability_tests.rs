@@ -177,7 +177,10 @@ fn multiple_requirements_partial_failure() {
     let c = caps(vec![(Capability::Streaming, SupportLevel::Native)]);
     let err = ensure_capability_requirements(&r, &c).unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("McpClient"), "should mention missing cap: {msg}");
+    assert!(
+        msg.contains("McpClient"),
+        "should mention missing cap: {msg}"
+    );
     // Streaming should NOT appear since it's satisfied
     assert!(
         !msg.contains("Streaming"),

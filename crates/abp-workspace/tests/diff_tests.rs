@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Tests for `abp_workspace::diff` module.
 
-use abp_workspace::diff::{diff_workspace, DiffSummary};
 use abp_workspace::WorkspaceStager;
+use abp_workspace::diff::{DiffSummary, diff_workspace};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::tempdir;
@@ -135,7 +135,11 @@ fn mixed_changes_all_categories() {
 fn large_diff_many_files() {
     let src = tempdir().unwrap();
     for i in 0..50 {
-        fs::write(src.path().join(format!("file_{i}.txt")), format!("line {i}\n")).unwrap();
+        fs::write(
+            src.path().join(format!("file_{i}.txt")),
+            format!("line {i}\n"),
+        )
+        .unwrap();
     }
 
     let ws = staged(src.path());
@@ -235,7 +239,11 @@ fn summary_methods_with_values() {
     let summary = DiffSummary {
         added: vec![PathBuf::from("a.txt"), PathBuf::from("b.txt")],
         modified: vec![PathBuf::from("c.txt")],
-        deleted: vec![PathBuf::from("d.txt"), PathBuf::from("e.txt"), PathBuf::from("f.txt")],
+        deleted: vec![
+            PathBuf::from("d.txt"),
+            PathBuf::from("e.txt"),
+            PathBuf::from("f.txt"),
+        ],
         total_additions: 100,
         total_deletions: 50,
     };
@@ -261,7 +269,11 @@ fn nested_directory_additions() {
 
     let summary = diff_workspace(&ws).unwrap();
 
-    assert!(summary.added.contains(&PathBuf::from("sub/deep/nested.txt")));
+    assert!(
+        summary
+            .added
+            .contains(&PathBuf::from("sub/deep/nested.txt"))
+    );
     assert_eq!(summary.total_additions, 1);
 }
 

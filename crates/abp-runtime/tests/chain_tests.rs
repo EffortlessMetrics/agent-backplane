@@ -57,7 +57,9 @@ fn single_receipt_produces_valid_chain() {
     let dir = tempfile::tempdir().unwrap();
     let store = ReceiptStore::new(dir.path());
 
-    store.save(&sample_receipt_at(Uuid::new_v4(), 0, 5)).unwrap();
+    store
+        .save(&sample_receipt_at(Uuid::new_v4(), 0, 5))
+        .unwrap();
 
     let chain = store.verify_chain().unwrap();
     assert!(chain.is_valid);
@@ -71,9 +73,15 @@ fn multiple_chronological_receipts_are_valid() {
     let dir = tempfile::tempdir().unwrap();
     let store = ReceiptStore::new(dir.path());
 
-    store.save(&sample_receipt_at(Uuid::new_v4(), 0, 5)).unwrap();
-    store.save(&sample_receipt_at(Uuid::new_v4(), 10, 15)).unwrap();
-    store.save(&sample_receipt_at(Uuid::new_v4(), 20, 25)).unwrap();
+    store
+        .save(&sample_receipt_at(Uuid::new_v4(), 0, 5))
+        .unwrap();
+    store
+        .save(&sample_receipt_at(Uuid::new_v4(), 10, 15))
+        .unwrap();
+    store
+        .save(&sample_receipt_at(Uuid::new_v4(), 20, 25))
+        .unwrap();
 
     let chain = store.verify_chain().unwrap();
     assert!(chain.is_valid);

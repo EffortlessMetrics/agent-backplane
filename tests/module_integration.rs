@@ -5,9 +5,8 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, ExecutionMode, Outcome,
-    PolicyProfile, Receipt, ReceiptBuilder, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, ExecutionMode,
+    Outcome, PolicyProfile, Receipt, ReceiptBuilder, WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -227,10 +226,7 @@ fn policy_rules_and_compose_combined_decisions() {
         priority: 5,
     });
 
-    assert!(matches!(
-        rule_engine.evaluate("BashExec"),
-        RuleEffect::Deny
-    ));
+    assert!(matches!(rule_engine.evaluate("BashExec"), RuleEffect::Deny));
     assert!(matches!(rule_engine.evaluate("Read"), RuleEffect::Allow));
 
     // Composed engine: two profiles, deny-overrides
@@ -333,9 +329,9 @@ fn config_validate_then_defaults_then_validate() {
 
 #[test]
 fn envelope_validate_then_route() {
+    use abp_protocol::Envelope;
     use abp_protocol::router::{MessageRoute, MessageRouter};
     use abp_protocol::validate::EnvelopeValidator;
-    use abp_protocol::Envelope;
 
     let wo = make_work_order("test task");
     let receipt = make_receipt(wo.id);
@@ -370,7 +366,10 @@ fn envelope_validate_then_route() {
     // Validate sequence
     let validator = EnvelopeValidator::new();
     let seq_errors = validator.validate_sequence(&envelopes);
-    assert!(seq_errors.is_empty(), "sequence should be valid: {seq_errors:?}");
+    assert!(
+        seq_errors.is_empty(),
+        "sequence should be valid: {seq_errors:?}"
+    );
 
     // Route each envelope
     let mut router = MessageRouter::new();
@@ -458,7 +457,10 @@ fn change_tracker_matches_file_ops() {
 
     let ops_summary = ops_log.summary();
     let change_summary = tracker.summary();
-    assert_eq!(ops_summary.writes, change_summary.created + change_summary.modified);
+    assert_eq!(
+        ops_summary.writes,
+        change_summary.created + change_summary.modified
+    );
     assert_eq!(ops_summary.deletes, change_summary.deleted);
 }
 
@@ -513,7 +515,11 @@ fn receipt_verify_individual_then_chain() {
 
     // Chain-level verification
     let chain_report = ChainVerifier::verify_chain(&[r1, r2]);
-    assert!(chain_report.all_valid, "chain should be valid: {:?}", chain_report.chain_checks);
+    assert!(
+        chain_report.all_valid,
+        "chain should be valid: {:?}",
+        chain_report.chain_checks
+    );
 }
 
 // ===========================================================================
@@ -522,9 +528,9 @@ fn receipt_verify_individual_then_chain() {
 
 #[test]
 fn batch_compress_decompress_roundtrip() {
+    use abp_protocol::Envelope;
     use abp_protocol::batch::{BatchProcessor, BatchRequest};
     use abp_protocol::compress::{CompressionAlgorithm, CompressionStats, MessageCompressor};
-    use abp_protocol::Envelope;
 
     let wo = make_work_order("batch test");
     let envelopes = vec![
@@ -600,7 +606,11 @@ fn select_backend_by_capability_and_strategy() {
     });
     selector.add_candidate(BackendCandidate {
         name: "claude".into(),
-        capabilities: vec![Capability::Streaming, Capability::ToolRead, Capability::ToolWrite],
+        capabilities: vec![
+            Capability::Streaming,
+            Capability::ToolRead,
+            Capability::ToolWrite,
+        ],
         priority: 2,
         enabled: true,
         metadata: BTreeMap::new(),
@@ -942,10 +952,9 @@ fn full_pipeline_end_to_end() {
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
     assert!(
-        warnings.iter().all(|w| !matches!(
-            w.severity,
-            abp_core::config::WarningSeverity::Error
-        )),
+        warnings
+            .iter()
+            .all(|w| !matches!(w.severity, abp_core::config::WarningSeverity::Error)),
         "no errors expected"
     );
 
@@ -1026,10 +1035,10 @@ fn error_catalog_to_diagnostics() {
 
 #[test]
 fn protocol_validate_batch_compress_pipeline() {
+    use abp_protocol::Envelope;
     use abp_protocol::batch::{BatchProcessor, BatchRequest};
     use abp_protocol::compress::{CompressionAlgorithm, MessageCompressor};
     use abp_protocol::validate::EnvelopeValidator;
-    use abp_protocol::Envelope;
 
     let wo = make_work_order("protocol pipeline");
     let receipt = make_receipt(wo.id);
@@ -1111,9 +1120,18 @@ fn policy_audit_rules_compose_pipeline() {
         priority: 50,
     });
 
-    assert!(matches!(rule_engine.evaluate("secret.key"), RuleEffect::Deny));
-    assert!(matches!(rule_engine.evaluate("config.toml"), RuleEffect::Log));
-    assert!(matches!(rule_engine.evaluate("readme.md"), RuleEffect::Allow));
+    assert!(matches!(
+        rule_engine.evaluate("secret.key"),
+        RuleEffect::Deny
+    ));
+    assert!(matches!(
+        rule_engine.evaluate("config.toml"),
+        RuleEffect::Log
+    ));
+    assert!(matches!(
+        rule_engine.evaluate("readme.md"),
+        RuleEffect::Allow
+    ));
 
     // Step 2: Compose policies
     let p1 = PolicyProfile {
@@ -1133,7 +1151,8 @@ fn policy_audit_rules_compose_pipeline() {
     assert!(w1.is_empty(), "p1 should have no warnings");
     assert!(w2.is_empty(), "p2 should have no warnings");
 
-    let composed = ComposedEngine::new(vec![p1.clone(), p2], PolicyPrecedence::DenyOverrides).unwrap();
+    let composed =
+        ComposedEngine::new(vec![p1.clone(), p2], PolicyPrecedence::DenyOverrides).unwrap();
     assert!(composed.check_tool("Read").is_allow());
     assert!(composed.check_tool("Bash").is_deny());
     assert!(composed.check_read("secret.key").is_deny());
@@ -1176,7 +1195,11 @@ fn receipt_verify_hash_chain_integrity() {
     let verifier = ReceiptVerifier::new();
     for (i, r) in receipts.iter().enumerate() {
         let report = verifier.verify(r);
-        assert!(report.passed, "receipt {i} verification failed: {:?}", report.checks);
+        assert!(
+            report.passed,
+            "receipt {i} verification failed: {:?}",
+            report.checks
+        );
     }
 
     // Build and verify chain
@@ -1208,12 +1231,12 @@ fn multi_crate_roundtrip() {
     use abp_core::filter::EventFilter;
     use abp_core::verify::ReceiptVerifier;
     use abp_glob::IncludeExcludeGlobs;
+    use abp_host::lifecycle::{LifecycleManager, LifecycleState};
+    use abp_host::pool::{PoolConfig, SidecarPool};
     use abp_integrations::capability::CapabilityMatrix;
     use abp_integrations::health::{HealthChecker, HealthStatus};
     use abp_integrations::metrics::MetricsRegistry;
     use abp_integrations::selector::{BackendCandidate, BackendSelector, SelectionStrategy};
-    use abp_host::lifecycle::{LifecycleManager, LifecycleState};
-    use abp_host::pool::{PoolConfig, SidecarPool};
     use abp_policy::audit::PolicyAuditor;
     use abp_policy::compose::{ComposedEngine, PolicyPrecedence};
     use abp_policy::rules::{Rule, RuleCondition, RuleEffect, RuleEngine};
@@ -1225,7 +1248,7 @@ fn multi_crate_roundtrip() {
     use abp_protocol::{Envelope, JsonlCodec};
     use abp_runtime::budget::{BudgetLimit, BudgetStatus, BudgetTracker};
     use abp_runtime::bus::EventBus;
-    use abp_runtime::cancel::{CancellationToken, CancellableRun};
+    use abp_runtime::cancel::{CancellableRun, CancellationToken};
     use abp_runtime::observe::RuntimeObserver;
     use abp_workspace::ops::{FileOperation, OperationLog};
     use abp_workspace::template::WorkspaceTemplate;
@@ -1248,20 +1271,20 @@ fn multi_crate_roundtrip() {
         .build();
     ConfigDefaults::apply_defaults(&mut wo);
     let validator = ConfigValidator::new();
-    assert!(!validator.validate_work_order(&wo).iter().any(|w| {
-        matches!(w.severity, abp_core::config::WarningSeverity::Error)
-    }));
+    assert!(
+        !validator
+            .validate_work_order(&wo)
+            .iter()
+            .any(|w| { matches!(w.severity, abp_core::config::WarningSeverity::Error) })
+    );
 
     // --- abp-core: error catalog ---
     let all_errors = ErrorCatalog::all();
     assert!(!all_errors.is_empty());
 
     // --- abp-glob: pattern matching ---
-    let globs = IncludeExcludeGlobs::new(
-        &["src/**".to_string()],
-        &["src/test/**".to_string()],
-    )
-    .unwrap();
+    let globs =
+        IncludeExcludeGlobs::new(&["src/**".to_string()], &["src/test/**".to_string()]).unwrap();
     assert!(globs.decide_str("src/main.rs").is_allowed());
 
     // --- abp-policy: engine + audit + rules + compose ---
@@ -1269,9 +1292,7 @@ fn multi_crate_roundtrip() {
     assert!(engine.can_use_tool("Read").allowed);
     assert!(!engine.can_use_tool("Bash").allowed);
 
-    let mut auditor = PolicyAuditor::new(
-        abp_policy::PolicyEngine::new(&wo.policy).unwrap(),
-    );
+    let mut auditor = PolicyAuditor::new(abp_policy::PolicyEngine::new(&wo.policy).unwrap());
     auditor.check_tool("Read");
 
     let mut rule_engine = RuleEngine::new();
@@ -1282,13 +1303,13 @@ fn multi_crate_roundtrip() {
         effect: RuleEffect::Allow,
         priority: 1,
     });
-    assert!(matches!(rule_engine.evaluate("anything"), RuleEffect::Allow));
+    assert!(matches!(
+        rule_engine.evaluate("anything"),
+        RuleEffect::Allow
+    ));
 
-    let composed = ComposedEngine::new(
-        vec![wo.policy.clone()],
-        PolicyPrecedence::DenyOverrides,
-    )
-    .unwrap();
+    let composed =
+        ComposedEngine::new(vec![wo.policy.clone()], PolicyPrecedence::DenyOverrides).unwrap();
     assert!(composed.check_tool("Read").is_allow());
 
     // --- abp-protocol: encode/decode + validate + batch + compress + route + version ---
@@ -1353,7 +1374,9 @@ fn multi_crate_roundtrip() {
 
     // --- abp-host: lifecycle + pool ---
     let mut lifecycle = LifecycleManager::new();
-    lifecycle.transition(LifecycleState::Starting, None).unwrap();
+    lifecycle
+        .transition(LifecycleState::Starting, None)
+        .unwrap();
     lifecycle.transition(LifecycleState::Ready, None).unwrap();
 
     let pool = SidecarPool::new(PoolConfig {
@@ -1412,9 +1435,15 @@ fn multi_crate_roundtrip() {
 
     // --- abp-core: events + aggregate + filter + verify + chain ---
     let events = vec![
-        make_event(AgentEventKind::RunStarted { message: "go".into() }),
-        make_event(AgentEventKind::AssistantMessage { text: "result".into() }),
-        make_event(AgentEventKind::RunCompleted { message: "done".into() }),
+        make_event(AgentEventKind::RunStarted {
+            message: "go".into(),
+        }),
+        make_event(AgentEventKind::AssistantMessage {
+            text: "result".into(),
+        }),
+        make_event(AgentEventKind::RunCompleted {
+            message: "done".into(),
+        }),
     ];
 
     let mut agg = EventAggregator::new();
@@ -1485,7 +1514,9 @@ fn filter_aggregate_analytics() {
     use abp_core::filter::EventFilter;
 
     let events = vec![
-        make_event(AgentEventKind::RunStarted { message: "go".into() }),
+        make_event(AgentEventKind::RunStarted {
+            message: "go".into(),
+        }),
         make_event(AgentEventKind::ToolCall {
             tool_name: "Read".into(),
             tool_use_id: Some("t1".into()),
@@ -1498,13 +1529,21 @@ fn filter_aggregate_analytics() {
             output: json!("content"),
             is_error: false,
         }),
-        make_event(AgentEventKind::AssistantMessage { text: "analysis complete".into() }),
-        make_event(AgentEventKind::RunCompleted { message: "done".into() }),
+        make_event(AgentEventKind::AssistantMessage {
+            text: "analysis complete".into(),
+        }),
+        make_event(AgentEventKind::RunCompleted {
+            message: "done".into(),
+        }),
     ];
 
     // Filter to only tool-related events
     let tool_filter = EventFilter::include_kinds(&["tool_call", "tool_result"]);
-    let tool_events: Vec<_> = events.iter().filter(|e| tool_filter.matches(e)).cloned().collect();
+    let tool_events: Vec<_> = events
+        .iter()
+        .filter(|e| tool_filter.matches(e))
+        .cloned()
+        .collect();
     assert_eq!(tool_events.len(), 2);
 
     // Analytics on full stream
@@ -1529,7 +1568,9 @@ fn policy_validator_detects_overlap() {
 
     let warnings = PolicyValidator::validate(&profile);
     assert!(
-        warnings.iter().any(|w| w.kind == WarningKind::OverlappingAllowDeny),
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::OverlappingAllowDeny),
         "should detect overlapping allow/deny: {warnings:?}"
     );
 

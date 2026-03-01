@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the observe module.
 
-use abp_runtime::observe::{
-    ObservabilitySummary, RuntimeObserver, SpanStatus, TraceCollector,
-};
+use abp_runtime::observe::{ObservabilitySummary, RuntimeObserver, SpanStatus, TraceCollector};
 
 // ---------------------------------------------------------------------------
 // TraceCollector basics

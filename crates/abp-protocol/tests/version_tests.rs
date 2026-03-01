@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use abp_core::CONTRACT_VERSION;
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionError, VersionRange};
+use abp_protocol::version::{ProtocolVersion, VersionError, VersionRange, negotiate_version};
 use abp_protocol::{is_compatible_version, parse_version};
 
 // --- parse_version (legacy free-function) ------------------------------------

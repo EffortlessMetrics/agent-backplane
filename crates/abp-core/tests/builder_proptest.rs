@@ -12,8 +12,8 @@ fn arb_datetime() -> impl Strategy<Value = chrono::DateTime<Utc>> {
     (0i64..2_000_000_000).prop_map(|secs| Utc.timestamp_opt(secs, 0).unwrap())
 }
 
-fn arb_ordered_datetimes()
--> impl Strategy<Value = (chrono::DateTime<Utc>, chrono::DateTime<Utc>)> {
+fn arb_ordered_datetimes() -> impl Strategy<Value = (chrono::DateTime<Utc>, chrono::DateTime<Utc>)>
+{
     (0i64..2_000_000_000, 0u32..100_000).prop_map(|(start_secs, delta)| {
         let start = Utc.timestamp_opt(start_secs, 0).unwrap();
         let end = Utc.timestamp_opt(start_secs + i64::from(delta), 0).unwrap();

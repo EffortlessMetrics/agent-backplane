@@ -2,8 +2,8 @@
 //! Property-based tests for `abp-runtime`.
 
 use abp_core::{
-    BackendIdentity, CapabilityManifest, ExecutionMode, Outcome, Receipt, RunMetadata,
-    UsageNormalized, VerificationReport, CONTRACT_VERSION,
+    BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Outcome, Receipt,
+    RunMetadata, UsageNormalized, VerificationReport,
 };
 use abp_runtime::store::ReceiptStore;
 use abp_runtime::{BackendRegistry, RuntimeError};

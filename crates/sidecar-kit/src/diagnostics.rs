@@ -109,19 +109,27 @@ impl DiagnosticCollector {
     /// Return references to diagnostics matching the given level.
     #[must_use]
     pub fn by_level(&self, level: DiagnosticLevel) -> Vec<&Diagnostic> {
-        self.diagnostics.iter().filter(|d| d.level == level).collect()
+        self.diagnostics
+            .iter()
+            .filter(|d| d.level == level)
+            .collect()
     }
 
     /// `true` if any diagnostic has level `Error`.
     #[must_use]
     pub fn has_errors(&self) -> bool {
-        self.diagnostics.iter().any(|d| d.level == DiagnosticLevel::Error)
+        self.diagnostics
+            .iter()
+            .any(|d| d.level == DiagnosticLevel::Error)
     }
 
     /// Number of `Error`-level diagnostics.
     #[must_use]
     pub fn error_count(&self) -> usize {
-        self.diagnostics.iter().filter(|d| d.level == DiagnosticLevel::Error).count()
+        self.diagnostics
+            .iter()
+            .filter(|d| d.level == DiagnosticLevel::Error)
+            .count()
     }
 
     /// Remove all collected diagnostics.

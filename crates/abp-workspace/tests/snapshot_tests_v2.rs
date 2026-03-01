@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Tests for the workspace snapshot and comparison utilities.
 
-use abp_workspace::snapshot::{capture, compare, SnapshotDiff, WorkspaceSnapshot};
+use abp_workspace::snapshot::{SnapshotDiff, WorkspaceSnapshot, capture, compare};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;

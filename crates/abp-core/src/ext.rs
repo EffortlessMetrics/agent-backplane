@@ -63,8 +63,12 @@ impl WorkOrderExt for WorkOrder {
     }
 
     fn required_capabilities(&self) -> Vec<Capability> {
-        let mut caps: Vec<Capability> =
-            self.requirements.required.iter().map(|r| r.capability.clone()).collect();
+        let mut caps: Vec<Capability> = self
+            .requirements
+            .required
+            .iter()
+            .map(|r| r.capability.clone())
+            .collect();
 
         let lower = self.task.to_ascii_lowercase();
         if (lower.contains("edit") || lower.contains("refactor"))

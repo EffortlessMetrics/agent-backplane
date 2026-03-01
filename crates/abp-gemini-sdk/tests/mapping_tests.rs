@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the Gemini SDK dialect mapping.
 
-use abp_gemini_sdk::dialect::{
-    map_response, map_work_order, GeminiCandidate, GeminiConfig, GeminiContent, GeminiPart,
-    GeminiResponse,
-};
 use abp_core::{AgentEventKind, ContextPacket, ContextSnippet, WorkOrderBuilder};
+use abp_gemini_sdk::dialect::{
+    GeminiCandidate, GeminiConfig, GeminiContent, GeminiPart, GeminiResponse, map_response,
+    map_work_order,
+};
 
 #[test]
 fn work_order_maps_to_correct_gemini_request_fields() {
@@ -80,7 +80,10 @@ fn response_with_text_and_function_call_produces_events() {
     };
     let events = map_response(&resp);
     assert_eq!(events.len(), 2);
-    assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
+    assert!(matches!(
+        &events[0].kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
     assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { .. }));
 }
 

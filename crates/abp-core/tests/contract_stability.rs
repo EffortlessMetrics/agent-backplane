@@ -180,8 +180,7 @@ fn work_order_fixture_deserializes() {
 
 #[test]
 fn receipt_fixture_deserializes() {
-    let r: Receipt =
-        serde_json::from_str(RECEIPT_JSON).expect("Receipt fixture must deserialize");
+    let r: Receipt = serde_json::from_str(RECEIPT_JSON).expect("Receipt fixture must deserialize");
     assert_eq!(r.outcome, Outcome::Complete);
     assert_eq!(r.meta.contract_version, "abp/v0.1");
 

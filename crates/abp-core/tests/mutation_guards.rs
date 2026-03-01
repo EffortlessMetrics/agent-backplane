@@ -9,8 +9,8 @@
 //! They complement the existing property-based and snapshot tests by focusing on
 //! boundary conditions and exact return values.
 
-use abp_core::*;
 use abp_core::validate::{ValidationError, validate_receipt};
+use abp_core::*;
 use chrono::{TimeZone, Utc};
 use std::collections::BTreeMap;
 use uuid::Uuid;
@@ -344,7 +344,8 @@ mod validation_edges {
         r.backend.id = String::new();
         let errs = validate_receipt(&r).unwrap_err();
         assert!(
-            errs.iter().any(|e| matches!(e, ValidationError::EmptyBackendId)),
+            errs.iter()
+                .any(|e| matches!(e, ValidationError::EmptyBackendId)),
             "must report EmptyBackendId"
         );
     }
@@ -356,7 +357,8 @@ mod validation_edges {
         r.meta.contract_version = "abp/v99.0".into();
         let errs = validate_receipt(&r).unwrap_err();
         assert!(
-            errs.iter().any(|e| matches!(e, ValidationError::InvalidOutcome { .. })),
+            errs.iter()
+                .any(|e| matches!(e, ValidationError::InvalidOutcome { .. })),
             "must report contract version mismatch"
         );
     }
@@ -369,7 +371,8 @@ mod validation_edges {
         r.meta.finished_at = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
         let errs = validate_receipt(&r).unwrap_err();
         assert!(
-            errs.iter().any(|e| matches!(e, ValidationError::InvalidOutcome { .. })),
+            errs.iter()
+                .any(|e| matches!(e, ValidationError::InvalidOutcome { .. })),
             "must report timestamp inversion"
         );
     }
@@ -381,7 +384,8 @@ mod validation_edges {
         r.receipt_sha256 = Some("bad".repeat(22)); // wrong hash
         let errs = validate_receipt(&r).unwrap_err();
         assert!(
-            errs.iter().any(|e| matches!(e, ValidationError::InvalidHash { .. })),
+            errs.iter()
+                .any(|e| matches!(e, ValidationError::InvalidHash { .. })),
             "must report hash mismatch"
         );
     }
@@ -401,7 +405,11 @@ mod validation_edges {
         r.backend.id = String::new(); // error 1
         r.meta.contract_version = "wrong".into(); // error 2
         let errs = validate_receipt(&r).unwrap_err();
-        assert!(errs.len() >= 2, "must accumulate all errors, got {}", errs.len());
+        assert!(
+            errs.len() >= 2,
+            "must accumulate all errors, got {}",
+            errs.len()
+        );
     }
 }
 
@@ -436,12 +444,18 @@ fn canonical_json_produces_string() {
 fn sha256_hex_empty_input() {
     // SHA-256 of empty string is a well-known constant.
     let h = sha256_hex(b"");
-    assert_eq!(h, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    assert_eq!(
+        h,
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
 }
 
 #[test]
 fn sha256_hex_known_input() {
     // SHA-256("hello") is a well-known constant.
     let h = sha256_hex(b"hello");
-    assert_eq!(h, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+    assert_eq!(
+        h,
+        "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    );
 }

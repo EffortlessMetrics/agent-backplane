@@ -43,7 +43,10 @@ pub struct ValidationStage;
 #[async_trait]
 impl PipelineStage for ValidationStage {
     async fn process(&self, order: &mut WorkOrder) -> Result<()> {
-        anyhow::ensure!(!order.task.trim().is_empty(), "work order task must not be empty");
+        anyhow::ensure!(
+            !order.task.trim().is_empty(),
+            "work order task must not be empty"
+        );
         anyhow::ensure!(
             !order.workspace.root.trim().is_empty(),
             "work order workspace root must not be empty"

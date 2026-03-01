@@ -152,7 +152,10 @@ fn missing_optional_fields_verification_report() {
 #[test]
 fn enum_execution_lane_variants() {
     assert_eq!(json!(ExecutionLane::PatchFirst), json!("patch_first"));
-    assert_eq!(json!(ExecutionLane::WorkspaceFirst), json!("workspace_first"));
+    assert_eq!(
+        json!(ExecutionLane::WorkspaceFirst),
+        json!("workspace_first")
+    );
 }
 
 #[test]
@@ -212,7 +215,10 @@ fn enum_capability_all_snake_case() {
         (Capability::SessionResume, "session_resume"),
         (Capability::SessionFork, "session_fork"),
         (Capability::Checkpointing, "checkpointing"),
-        (Capability::StructuredOutputJsonSchema, "structured_output_json_schema"),
+        (
+            Capability::StructuredOutputJsonSchema,
+            "structured_output_json_schema",
+        ),
         (Capability::McpClient, "mcp_client"),
         (Capability::McpServer, "mcp_server"),
     ];
@@ -231,7 +237,10 @@ fn enum_agent_event_kind_tag_is_type() {
         message: "go".into(),
     };
     let v = serde_json::to_value(&kind).unwrap();
-    assert_eq!(v["type"], "run_started", "AgentEventKind tag field must be \"type\"");
+    assert_eq!(
+        v["type"], "run_started",
+        "AgentEventKind tag field must be \"type\""
+    );
     assert_eq!(v["message"], "go");
 }
 
@@ -287,14 +296,8 @@ fn enum_agent_event_kind_all_variants() {
             },
             "command_executed",
         ),
-        (
-            AgentEventKind::Warning { message: "".into() },
-            "warning",
-        ),
-        (
-            AgentEventKind::Error { message: "".into() },
-            "error",
-        ),
+        (AgentEventKind::Warning { message: "".into() }, "warning"),
+        (AgentEventKind::Error { message: "".into() }, "error"),
     ];
     for (variant, expected_tag) in variants {
         let v = serde_json::to_value(&variant).unwrap();
@@ -354,7 +357,10 @@ fn btreemap_capability_manifest_deterministic() {
     // (discriminant order), which is deterministic across serializations.
     let s1 = serde_json::to_string(&manifest).unwrap();
     let s2 = serde_json::to_string(&manifest).unwrap();
-    assert_eq!(s1, s2, "CapabilityManifest serialization must be deterministic");
+    assert_eq!(
+        s1, s2,
+        "CapabilityManifest serialization must be deterministic"
+    );
 
     // Verify the order matches Capability discriminant order:
     // Streaming (0) < ToolWrite (2) < McpClient (16)

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the Kimi dialect mapping, model names, capabilities, and tool formats.
 
-use abp_kimi_sdk::dialect::{
-    capability_manifest, from_canonical_model, is_known_model, to_canonical_model,
-    tool_def_from_kimi, tool_def_to_kimi, CanonicalToolDef, KimiChoice, KimiConfig,
-    KimiFunctionCall, KimiFunctionDef, KimiResponse, KimiResponseMessage, KimiToolCall,
-    KimiToolDef, KimiUsage, DIALECT_VERSION, DEFAULT_MODEL,
-};
 use abp_core::{Capability, SupportLevel};
+use abp_kimi_sdk::dialect::{
+    CanonicalToolDef, DEFAULT_MODEL, DIALECT_VERSION, KimiChoice, KimiConfig, KimiFunctionCall,
+    KimiFunctionDef, KimiResponse, KimiResponseMessage, KimiToolCall, KimiToolDef, KimiUsage,
+    capability_manifest, from_canonical_model, is_known_model, to_canonical_model,
+    tool_def_from_kimi, tool_def_to_kimi,
+};
 
 // ---------------------------------------------------------------------------
 // Model-name mapping
@@ -69,19 +69,28 @@ fn dialect_version_is_set() {
 #[test]
 fn capability_manifest_has_streaming_native() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::Streaming),
+        Some(SupportLevel::Native)
+    ));
 }
 
 #[test]
 fn capability_manifest_has_web_search_native() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::ToolWebSearch), Some(SupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::ToolWebSearch),
+        Some(SupportLevel::Native)
+    ));
 }
 
 #[test]
 fn capability_manifest_mcp_unsupported() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::McpClient), Some(SupportLevel::Unsupported)));
+    assert!(matches!(
+        m.get(&Capability::McpClient),
+        Some(SupportLevel::Unsupported)
+    ));
 }
 
 // ---------------------------------------------------------------------------

@@ -96,7 +96,10 @@ pub(crate) fn kind_name(kind: &AgentEventKind) -> String {
     // canonical serde name.
     serde_json::to_value(kind)
         .ok()
-        .and_then(|v| v.get("type").and_then(|t| t.as_str().map(str::to_ascii_lowercase)))
+        .and_then(|v| {
+            v.get("type")
+                .and_then(|t| t.as_str().map(str::to_ascii_lowercase))
+        })
         .unwrap_or_default()
 }
 

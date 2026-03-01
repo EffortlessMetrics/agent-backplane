@@ -27,7 +27,11 @@ fn make_event(kind: AgentEventKind) -> AgentEvent {
 }
 
 fn make_event_at(ts: DateTime<Utc>, kind: AgentEventKind) -> AgentEvent {
-    AgentEvent { ts, kind, ext: None }
+    AgentEvent {
+        ts,
+        kind,
+        ext: None,
+    }
 }
 
 // ── 1. Empty string task ─────────────────────────────────────────────
@@ -146,7 +150,9 @@ fn deeply_nested_vendor_config_parses() {
         vendor,
         ..RuntimeConfig::default()
     };
-    let wo = WorkOrderBuilder::new("nested config").config(config).build();
+    let wo = WorkOrderBuilder::new("nested config")
+        .config(config)
+        .build();
     let json_str = serde_json::to_string(&wo).unwrap();
     let round: abp_core::WorkOrder = serde_json::from_str(&json_str).unwrap();
     // Walk down 100 levels.
@@ -193,9 +199,7 @@ fn work_order_with_1000_capability_requirements() {
 
 #[test]
 fn policy_with_10000_glob_patterns_compiles() {
-    let deny_write: Vec<String> = (0..10_000)
-        .map(|i| format!("**/deny_{i}/**"))
-        .collect();
+    let deny_write: Vec<String> = (0..10_000).map(|i| format!("**/deny_{i}/**")).collect();
     let policy = PolicyProfile {
         deny_write,
         ..PolicyProfile::default()

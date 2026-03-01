@@ -90,17 +90,13 @@ pub fn capture(path: &Path) -> Result<WorkspaceSnapshot> {
         let abs = entry.path();
         let rel = abs.strip_prefix(&root).unwrap_or(abs);
 
-        let content = fs::read(abs)
-            .with_context(|| format!("read {}", abs.display()))?;
+        let content = fs::read(abs).with_context(|| format!("read {}", abs.display()))?;
 
         let mut hasher = Sha256::new();
         hasher.update(&content);
         let sha256 = format!("{:x}", hasher.finalize());
 
-        let is_binary = content
-            .iter()
-            .take(8192)
-            .any(|&b| b == 0);
+        let is_binary = content.iter().take(8192).any(|&b| b == 0);
 
         files.insert(
             rel.to_path_buf(),

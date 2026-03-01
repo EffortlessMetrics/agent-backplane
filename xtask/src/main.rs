@@ -89,14 +89,29 @@ fn run_cargo(args: &[&str]) -> Result<()> {
         .args(args)
         .status()
         .with_context(|| format!("spawn cargo {}", args.join(" ")))?;
-    anyhow::ensure!(status.success(), "cargo {} failed ({})", args.join(" "), status);
+    anyhow::ensure!(
+        status.success(),
+        "cargo {} failed ({})",
+        args.join(" "),
+        status
+    );
     Ok(())
 }
 
 fn check() -> Result<()> {
     let steps: &[(&str, &[&str])] = &[
         ("fmt", &["fmt", "--all", "--", "--check"]),
-        ("clippy", &["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]),
+        (
+            "clippy",
+            &[
+                "clippy",
+                "--workspace",
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings",
+            ],
+        ),
         ("test", &["test", "--workspace"]),
         ("doc-test", &["test", "--doc", "--workspace"]),
     ];
@@ -155,7 +170,14 @@ fn coverage() -> Result<()> {
 
 fn lint() -> Result<()> {
     run_cargo(&["fmt", "--all", "--", "--check"])?;
-    run_cargo(&["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"])?;
+    run_cargo(&[
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings",
+    ])?;
     eprintln!("lint passed ✓");
     Ok(())
 }
@@ -164,8 +186,8 @@ fn lint() -> Result<()> {
 
 fn release_check() -> Result<()> {
     let root = workspace_root()?;
-    let ws_manifest = std::fs::read_to_string(root.join("Cargo.toml"))
-        .context("read workspace Cargo.toml")?;
+    let ws_manifest =
+        std::fs::read_to_string(root.join("Cargo.toml")).context("read workspace Cargo.toml")?;
     let ws_doc: toml::Value = ws_manifest.parse().context("parse workspace Cargo.toml")?;
 
     let ws_version = ws_doc
@@ -183,7 +205,9 @@ fn release_check() -> Result<()> {
 
     let mut ok = true;
     for member in members {
-        let Some(path) = member.as_str() else { continue };
+        let Some(path) = member.as_str() else {
+            continue;
+        };
         let crate_toml_path = root.join(path).join("Cargo.toml");
         if !crate_toml_path.exists() {
             eprintln!("  ✗ {path}: Cargo.toml missing");
@@ -193,7 +217,8 @@ fn release_check() -> Result<()> {
 
         let content = std::fs::read_to_string(&crate_toml_path)
             .with_context(|| format!("read {}", crate_toml_path.display()))?;
-        let doc: toml::Value = content.parse()
+        let doc: toml::Value = content
+            .parse()
             .with_context(|| format!("parse {}", crate_toml_path.display()))?;
 
         let pkg = doc.get("package");
@@ -285,7 +310,10 @@ fn list_crates() -> Result<()> {
 
 fn workspace_root() -> Result<PathBuf> {
     let xtask_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    xtask_dir.parent().map(PathBuf::from).context("find workspace root")
+    xtask_dir
+        .parent()
+        .map(PathBuf::from)
+        .context("find workspace root")
 }
 
 fn read_crate_name(path: &PathBuf) -> Option<String> {
@@ -295,8 +323,8 @@ fn read_crate_name(path: &PathBuf) -> Option<String> {
 }
 
 fn read_workspace(root: &std::path::Path) -> Result<(String, Vec<toml::Value>)> {
-    let ws_manifest = std::fs::read_to_string(root.join("Cargo.toml"))
-        .context("read workspace Cargo.toml")?;
+    let ws_manifest =
+        std::fs::read_to_string(root.join("Cargo.toml")).context("read workspace Cargo.toml")?;
     let ws_doc: toml::Value = ws_manifest.parse().context("parse workspace Cargo.toml")?;
 
     let ws_version = ws_doc
@@ -335,7 +363,9 @@ fn audit() -> Result<()> {
 
     println!("── audit: required fields ──────────────");
     for member in &members {
-        let Some(path) = member.as_str() else { continue };
+        let Some(path) = member.as_str() else {
+            continue;
+        };
         let crate_toml_path = root.join(path).join("Cargo.toml");
         if !crate_toml_path.exists() {
             println!("  ✗ {path}: Cargo.toml missing");
@@ -345,7 +375,8 @@ fn audit() -> Result<()> {
 
         let content = std::fs::read_to_string(&crate_toml_path)
             .with_context(|| format!("read {}", crate_toml_path.display()))?;
-        let doc: toml::Value = content.parse()
+        let doc: toml::Value = content
+            .parse()
             .with_context(|| format!("parse {}", crate_toml_path.display()))?;
         let pkg = doc.get("package");
         let name = pkg
@@ -364,9 +395,13 @@ fn audit() -> Result<()> {
     println!();
     println!("── audit: version consistency ──────────");
     for member in &members {
-        let Some(path) = member.as_str() else { continue };
+        let Some(path) = member.as_str() else {
+            continue;
+        };
         let crate_toml_path = root.join(path).join("Cargo.toml");
-        if !crate_toml_path.exists() { continue; }
+        if !crate_toml_path.exists() {
+            continue;
+        }
 
         let content = std::fs::read_to_string(&crate_toml_path)?;
         let doc: toml::Value = content.parse()?;
@@ -389,9 +424,13 @@ fn audit() -> Result<()> {
     println!();
     println!("── audit: unused dependencies ──────────");
     for member in &members {
-        let Some(path) = member.as_str() else { continue };
+        let Some(path) = member.as_str() else {
+            continue;
+        };
         let crate_toml_path = root.join(path).join("Cargo.toml");
-        if !crate_toml_path.exists() { continue; }
+        if !crate_toml_path.exists() {
+            continue;
+        }
 
         let content = std::fs::read_to_string(&crate_toml_path)?;
         let doc: toml::Value = content.parse()?;
@@ -400,7 +439,9 @@ fn audit() -> Result<()> {
         };
 
         let src_dir = root.join(path).join("src");
-        if !src_dir.exists() { continue; }
+        if !src_dir.exists() {
+            continue;
+        }
 
         let mut src_content = String::new();
         for rs_path in walk_rs_files(&src_dir) {
@@ -409,7 +450,8 @@ fn audit() -> Result<()> {
             }
         }
 
-        let name = doc.get("package")
+        let name = doc
+            .get("package")
             .and_then(|p| p.get("name"))
             .and_then(|n| n.as_str())
             .unwrap_or(path);
@@ -446,11 +488,16 @@ fn stats() -> Result<()> {
     println!();
     println!("crates: {crate_count}");
     println!();
-    println!("{:<30} {:>8} {:>10} {:>8}", "crate", "LOC", "test-files", "#deps");
+    println!(
+        "{:<30} {:>8} {:>10} {:>8}",
+        "crate", "LOC", "test-files", "#deps"
+    );
     println!("{}", "─".repeat(60));
 
     for member in &members {
-        let Some(path) = member.as_str() else { continue };
+        let Some(path) = member.as_str() else {
+            continue;
+        };
         let crate_dir = root.join(path);
         let crate_toml_path = crate_dir.join("Cargo.toml");
 
@@ -494,7 +541,8 @@ fn stats() -> Result<()> {
         // Dependency count
         let dep_count = if crate_toml_path.exists() {
             let content = std::fs::read_to_string(&crate_toml_path).unwrap_or_default();
-            let doc: toml::Value = content.parse()
+            let doc: toml::Value = content
+                .parse()
                 .unwrap_or(toml::Value::Table(Default::default()));
             doc.get("dependencies")
                 .and_then(|d| d.as_table())
@@ -512,10 +560,16 @@ fn stats() -> Result<()> {
     }
 
     println!("{}", "─".repeat(60));
-    println!("{:<30} {:>8} {:>10}", "TOTAL", total_lines, total_test_files);
+    println!(
+        "{:<30} {:>8} {:>10}",
+        "TOTAL", total_lines, total_test_files
+    );
     println!();
     println!("total #[test] functions:     {total_tests}");
-    println!("max dependency tree depth:   {}", max_dep_depth(&root, &members)?);
+    println!(
+        "max dependency tree depth:   {}",
+        max_dep_depth(&root, &members)?
+    );
 
     Ok(())
 }
@@ -525,13 +579,18 @@ fn max_dep_depth(root: &std::path::Path, members: &[toml::Value]) -> Result<usiz
     let mut dep_graph: HashMap<String, Vec<String>> = HashMap::new();
 
     for member in members {
-        let Some(path) = member.as_str() else { continue };
+        let Some(path) = member.as_str() else {
+            continue;
+        };
         let crate_toml = root.join(path).join("Cargo.toml");
-        if !crate_toml.exists() { continue; }
+        if !crate_toml.exists() {
+            continue;
+        }
 
         let content = std::fs::read_to_string(&crate_toml)?;
         let doc: toml::Value = content.parse()?;
-        let name = doc.get("package")
+        let name = doc
+            .get("package")
             .and_then(|p| p.get("name"))
             .and_then(|n| n.as_str())
             .unwrap_or(path)
@@ -539,7 +598,8 @@ fn max_dep_depth(root: &std::path::Path, members: &[toml::Value]) -> Result<usiz
 
         member_names.insert(name.clone());
 
-        let deps: Vec<String> = doc.get("dependencies")
+        let deps: Vec<String> = doc
+            .get("dependencies")
             .and_then(|d| d.as_table())
             .map(|t| t.keys().cloned().collect())
             .unwrap_or_default();

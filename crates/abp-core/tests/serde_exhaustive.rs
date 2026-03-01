@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 
 use chrono::{TimeZone, Utc};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use serde_json::json;
 use uuid::Uuid;
 

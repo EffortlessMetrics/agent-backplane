@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use abp_core::*;
 use chrono::{TimeZone, Utc};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 // ── Deterministic helpers ───────────────────────────────────────────────────
@@ -161,7 +161,10 @@ fn hardcoded_receipt_deserializes_all_fields() {
     }"#;
 
     let r: Receipt = serde_json::from_str(json).expect("hardcoded Receipt must parse");
-    assert_eq!(r.meta.run_id.to_string(), "00000000-0000-0000-0000-000000000002");
+    assert_eq!(
+        r.meta.run_id.to_string(),
+        "00000000-0000-0000-0000-000000000002"
+    );
     assert_eq!(r.meta.contract_version, "abp/v0.1");
     assert_eq!(r.meta.duration_ms, 60_000);
     assert_eq!(r.backend.id, "sidecar:node");
@@ -377,8 +380,14 @@ fn missing_optional_receipt_mode_defaults_to_mapped() {
 
 #[test]
 fn all_execution_lane_variants_snake_case() {
-    assert_eq!(serde_json::to_value(ExecutionLane::PatchFirst).unwrap(), "patch_first");
-    assert_eq!(serde_json::to_value(ExecutionLane::WorkspaceFirst).unwrap(), "workspace_first");
+    assert_eq!(
+        serde_json::to_value(ExecutionLane::PatchFirst).unwrap(),
+        "patch_first"
+    );
+    assert_eq!(
+        serde_json::to_value(ExecutionLane::WorkspaceFirst).unwrap(),
+        "workspace_first"
+    );
 
     // Roundtrip from string.
     let lane: ExecutionLane = serde_json::from_value(json!("patch_first")).unwrap();
@@ -387,8 +396,14 @@ fn all_execution_lane_variants_snake_case() {
 
 #[test]
 fn all_workspace_mode_variants_snake_case() {
-    assert_eq!(serde_json::to_value(WorkspaceMode::PassThrough).unwrap(), "pass_through");
-    assert_eq!(serde_json::to_value(WorkspaceMode::Staged).unwrap(), "staged");
+    assert_eq!(
+        serde_json::to_value(WorkspaceMode::PassThrough).unwrap(),
+        "pass_through"
+    );
+    assert_eq!(
+        serde_json::to_value(WorkspaceMode::Staged).unwrap(),
+        "staged"
+    );
 }
 
 #[test]
@@ -404,19 +419,30 @@ fn all_outcome_variants_snake_case() {
 
 #[test]
 fn all_execution_mode_variants_snake_case() {
-    assert_eq!(serde_json::to_value(ExecutionMode::Passthrough).unwrap(), "passthrough");
-    assert_eq!(serde_json::to_value(ExecutionMode::Mapped).unwrap(), "mapped");
+    assert_eq!(
+        serde_json::to_value(ExecutionMode::Passthrough).unwrap(),
+        "passthrough"
+    );
+    assert_eq!(
+        serde_json::to_value(ExecutionMode::Mapped).unwrap(),
+        "mapped"
+    );
 }
 
 #[test]
 fn all_min_support_variants_snake_case() {
     assert_eq!(serde_json::to_value(MinSupport::Native).unwrap(), "native");
-    assert_eq!(serde_json::to_value(MinSupport::Emulated).unwrap(), "emulated");
+    assert_eq!(
+        serde_json::to_value(MinSupport::Emulated).unwrap(),
+        "emulated"
+    );
 }
 
 #[test]
 fn support_level_restricted_serialization() {
-    let restricted = SupportLevel::Restricted { reason: "in beta".into() };
+    let restricted = SupportLevel::Restricted {
+        reason: "in beta".into(),
+    };
     let v = serde_json::to_value(&restricted).unwrap();
     assert_eq!(v, json!({"restricted": {"reason": "in beta"}}));
 
@@ -436,10 +462,12 @@ fn support_level_restricted_serialization() {
 fn null_vs_absent_model_field() {
     let with_null: RuntimeConfig = serde_json::from_value(json!({
         "model": null, "vendor": {}, "env": {}
-    })).unwrap();
+    }))
+    .unwrap();
     let absent: RuntimeConfig = serde_json::from_value(json!({
         "vendor": {}, "env": {}
-    })).unwrap();
+    }))
+    .unwrap();
     assert_eq!(with_null.model, absent.model);
     assert!(with_null.model.is_none());
 }
@@ -476,12 +504,14 @@ fn null_vs_absent_agent_event_ext() {
         "type": "run_started",
         "message": "go",
         "ext": null
-    })).unwrap();
+    }))
+    .unwrap();
     let without: AgentEvent = serde_json::from_value(json!({
         "ts": "2025-01-01T00:00:00Z",
         "type": "run_started",
         "message": "go"
-    })).unwrap();
+    }))
+    .unwrap();
     assert_eq!(with_null.ext, without.ext);
     assert!(with_null.ext.is_none());
 }
@@ -528,7 +558,10 @@ fn receipt_hash_vector_02_minimal_failed() {
     let hash = receipt_hash(&r).unwrap();
     // Different outcome ⇒ different hash from vector 01.
     let complete_hash = receipt_hash(&deterministic_receipt("mock", Outcome::Complete)).unwrap();
-    assert_ne!(hash, complete_hash, "Different outcomes must produce different hashes");
+    assert_ne!(
+        hash, complete_hash,
+        "Different outcomes must produce different hashes"
+    );
 }
 
 #[test]
@@ -544,7 +577,10 @@ fn receipt_hash_vector_04_different_backend() {
     let r = deterministic_receipt("sidecar:node", Outcome::Complete);
     let mock_hash = receipt_hash(&deterministic_receipt("mock", Outcome::Complete)).unwrap();
     let node_hash = receipt_hash(&r).unwrap();
-    assert_ne!(node_hash, mock_hash, "Different backends must produce different hashes");
+    assert_ne!(
+        node_hash, mock_hash,
+        "Different backends must produce different hashes"
+    );
 }
 
 #[test]
@@ -553,14 +589,19 @@ fn receipt_hash_vector_05_passthrough_mode() {
     r.mode = ExecutionMode::Passthrough;
     let mapped_hash = receipt_hash(&deterministic_receipt("mock", Outcome::Complete)).unwrap();
     let passthrough_hash = receipt_hash(&r).unwrap();
-    assert_ne!(passthrough_hash, mapped_hash, "Different modes must hash differently");
+    assert_ne!(
+        passthrough_hash, mapped_hash,
+        "Different modes must hash differently"
+    );
 }
 
 #[test]
 fn receipt_hash_vector_06_with_capabilities() {
     let mut r = deterministic_receipt("mock", Outcome::Complete);
-    r.capabilities.insert(Capability::Streaming, SupportLevel::Native);
-    r.capabilities.insert(Capability::ToolRead, SupportLevel::Emulated);
+    r.capabilities
+        .insert(Capability::Streaming, SupportLevel::Native);
+    r.capabilities
+        .insert(Capability::ToolRead, SupportLevel::Emulated);
     let empty_hash = receipt_hash(&deterministic_receipt("mock", Outcome::Complete)).unwrap();
     let caps_hash = receipt_hash(&r).unwrap();
     assert_ne!(caps_hash, empty_hash, "Capabilities must affect hash");
@@ -587,7 +628,9 @@ fn receipt_hash_vector_08_with_trace() {
     let mut r = deterministic_receipt("mock", Outcome::Complete);
     r.trace.push(AgentEvent {
         ts: fixed_ts(),
-        kind: AgentEventKind::RunStarted { message: "go".into() },
+        kind: AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
         ext: None,
     });
     let empty_hash = receipt_hash(&deterministic_receipt("mock", Outcome::Complete)).unwrap();
@@ -598,7 +641,10 @@ fn receipt_hash_vector_08_with_trace() {
 #[test]
 fn receipt_hash_vector_09_with_artifacts() {
     let mut r = deterministic_receipt("mock", Outcome::Complete);
-    r.artifacts.push(ArtifactRef { kind: "patch".into(), path: "out.diff".into() });
+    r.artifacts.push(ArtifactRef {
+        kind: "patch".into(),
+        path: "out.diff".into(),
+    });
     let empty_hash = receipt_hash(&deterministic_receipt("mock", Outcome::Complete)).unwrap();
     let art_hash = receipt_hash(&r).unwrap();
     assert_ne!(art_hash, empty_hash, "Artifacts must affect hash");
@@ -679,7 +725,10 @@ fn work_order_json_roundtrip_stable() {
     let json1 = serde_json::to_string(&wo).unwrap();
     let wo2: WorkOrder = serde_json::from_str(&json1).unwrap();
     let json2 = serde_json::to_string(&wo2).unwrap();
-    assert_eq!(json1, json2, "WorkOrder roundtrip must produce identical JSON");
+    assert_eq!(
+        json1, json2,
+        "WorkOrder roundtrip must produce identical JSON"
+    );
 }
 
 #[test]
@@ -688,7 +737,10 @@ fn receipt_json_roundtrip_stable() {
     let json1 = serde_json::to_string(&r).unwrap();
     let r2: Receipt = serde_json::from_str(&json1).unwrap();
     let json2 = serde_json::to_string(&r2).unwrap();
-    assert_eq!(json1, json2, "Receipt roundtrip must produce identical JSON");
+    assert_eq!(
+        json1, json2,
+        "Receipt roundtrip must produce identical JSON"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -700,10 +752,15 @@ fn receipt_json_roundtrip_stable() {
 
 #[test]
 fn agent_event_kind_uses_type_discriminator_not_t() {
-    let kind = AgentEventKind::RunStarted { message: "test".into() };
+    let kind = AgentEventKind::RunStarted {
+        message: "test".into(),
+    };
     let v = serde_json::to_value(&kind).unwrap();
     let obj = v.as_object().unwrap();
-    assert!(obj.contains_key("type"), "AgentEventKind must use 'type' as discriminator");
+    assert!(
+        obj.contains_key("type"),
+        "AgentEventKind must use 'type' as discriminator"
+    );
     assert!(!obj.contains_key("t"), "AgentEventKind must NOT use 't'");
     assert_eq!(obj["type"], "run_started");
 }
@@ -723,7 +780,10 @@ fn envelope_expected_wire_shape_event() {
     let v: Value = serde_json::from_str(event_json).unwrap();
     assert_eq!(v["t"], "event", "Envelope must use 't' for discrimination");
     // The nested AgentEvent uses "type", not "t".
-    assert_eq!(v["event"]["type"], "warning", "Nested AgentEvent must use 'type'");
+    assert_eq!(
+        v["event"]["type"], "warning",
+        "Nested AgentEvent must use 'type'"
+    );
 }
 
 #[test]
@@ -741,22 +801,55 @@ fn envelope_expected_wire_shape_fatal() {
 #[test]
 fn all_agent_event_kind_tags() {
     let cases: Vec<(AgentEventKind, &str)> = vec![
-        (AgentEventKind::RunStarted { message: "".into() }, "run_started"),
-        (AgentEventKind::RunCompleted { message: "".into() }, "run_completed"),
-        (AgentEventKind::AssistantDelta { text: "".into() }, "assistant_delta"),
-        (AgentEventKind::AssistantMessage { text: "".into() }, "assistant_message"),
-        (AgentEventKind::ToolCall {
-            tool_name: "t".into(), tool_use_id: None,
-            parent_tool_use_id: None, input: json!({}),
-        }, "tool_call"),
-        (AgentEventKind::ToolResult {
-            tool_name: "t".into(), tool_use_id: None,
-            output: json!({}), is_error: false,
-        }, "tool_result"),
-        (AgentEventKind::FileChanged { path: "f".into(), summary: "s".into() }, "file_changed"),
-        (AgentEventKind::CommandExecuted {
-            command: "c".into(), exit_code: None, output_preview: None,
-        }, "command_executed"),
+        (
+            AgentEventKind::RunStarted { message: "".into() },
+            "run_started",
+        ),
+        (
+            AgentEventKind::RunCompleted { message: "".into() },
+            "run_completed",
+        ),
+        (
+            AgentEventKind::AssistantDelta { text: "".into() },
+            "assistant_delta",
+        ),
+        (
+            AgentEventKind::AssistantMessage { text: "".into() },
+            "assistant_message",
+        ),
+        (
+            AgentEventKind::ToolCall {
+                tool_name: "t".into(),
+                tool_use_id: None,
+                parent_tool_use_id: None,
+                input: json!({}),
+            },
+            "tool_call",
+        ),
+        (
+            AgentEventKind::ToolResult {
+                tool_name: "t".into(),
+                tool_use_id: None,
+                output: json!({}),
+                is_error: false,
+            },
+            "tool_result",
+        ),
+        (
+            AgentEventKind::FileChanged {
+                path: "f".into(),
+                summary: "s".into(),
+            },
+            "file_changed",
+        ),
+        (
+            AgentEventKind::CommandExecuted {
+                command: "c".into(),
+                exit_code: None,
+                output_preview: None,
+            },
+            "command_executed",
+        ),
         (AgentEventKind::Warning { message: "".into() }, "warning"),
         (AgentEventKind::Error { message: "".into() }, "error"),
     ];
@@ -792,7 +885,10 @@ fn all_capability_variants_wire_strings() {
         (Capability::SessionResume, "session_resume"),
         (Capability::SessionFork, "session_fork"),
         (Capability::Checkpointing, "checkpointing"),
-        (Capability::StructuredOutputJsonSchema, "structured_output_json_schema"),
+        (
+            Capability::StructuredOutputJsonSchema,
+            "structured_output_json_schema",
+        ),
         (Capability::McpClient, "mcp_client"),
         (Capability::McpServer, "mcp_server"),
     ];
@@ -807,9 +903,18 @@ fn all_capability_variants_wire_strings() {
 
 #[test]
 fn support_level_simple_variants_wire_strings() {
-    assert_eq!(serde_json::to_value(SupportLevel::Native).unwrap(), "native");
-    assert_eq!(serde_json::to_value(SupportLevel::Emulated).unwrap(), "emulated");
-    assert_eq!(serde_json::to_value(SupportLevel::Unsupported).unwrap(), "unsupported");
+    assert_eq!(
+        serde_json::to_value(SupportLevel::Native).unwrap(),
+        "native"
+    );
+    assert_eq!(
+        serde_json::to_value(SupportLevel::Emulated).unwrap(),
+        "emulated"
+    );
+    assert_eq!(
+        serde_json::to_value(SupportLevel::Unsupported).unwrap(),
+        "unsupported"
+    );
 }
 
 #[test]
@@ -898,8 +1003,7 @@ fn timestamp_format_rfc3339_in_run_metadata() {
     let v = serde_json::to_value(&meta).unwrap();
     let started = v["started_at"].as_str().unwrap();
     // Must be valid RFC 3339.
-    chrono::DateTime::parse_from_rfc3339(started)
-        .expect("started_at must be valid RFC 3339");
+    chrono::DateTime::parse_from_rfc3339(started).expect("started_at must be valid RFC 3339");
 }
 
 #[test]
@@ -907,7 +1011,9 @@ fn timestamp_roundtrip_preserves_utc() {
     let ts = Utc.with_ymd_and_hms(2025, 12, 31, 23, 59, 59).unwrap();
     let event = AgentEvent {
         ts,
-        kind: AgentEventKind::Warning { message: "test".into() },
+        kind: AgentEventKind::Warning {
+            message: "test".into(),
+        },
         ext: None,
     };
     let json = serde_json::to_string(&event).unwrap();

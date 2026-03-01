@@ -2,7 +2,7 @@
 //! Snapshot tests for `sidecar-kit` types.
 
 use insta::{assert_json_snapshot, assert_snapshot};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::{Frame, ProcessSpec, SidecarError};
 
 // ── SidecarError Display snapshots ──────────────────────────────────────
@@ -77,8 +77,7 @@ fn snapshot_frame_fatal() {
 fn snapshot_process_spec() {
     let mut spec = ProcessSpec::new("node");
     spec.args = vec!["index.js".into(), "--verbose".into()];
-    spec.env
-        .insert("NODE_ENV".into(), "production".into());
+    spec.env.insert("NODE_ENV".into(), "production".into());
     spec.cwd = Some("/tmp/work".into());
     assert_snapshot!("process_spec", format!("{:#?}", spec));
 }

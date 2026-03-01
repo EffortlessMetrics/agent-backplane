@@ -45,9 +45,7 @@ fn health_status_different_variants_not_equal() {
     assert_ne!(HealthStatus::Healthy, HealthStatus::Unknown);
     assert_ne!(
         HealthStatus::Healthy,
-        HealthStatus::Degraded {
-            reason: "x".into()
-        }
+        HealthStatus::Degraded { reason: "x".into() }
     );
 }
 
@@ -227,12 +225,7 @@ fn checker_unhealthy_checks_filters() {
 fn checker_clear_resets() {
     let mut checker = HealthChecker::new();
     checker.add_check("a", HealthStatus::Healthy);
-    checker.add_check(
-        "b",
-        HealthStatus::Unhealthy {
-            reason: "x".into(),
-        },
-    );
+    checker.add_check("b", HealthStatus::Unhealthy { reason: "x".into() });
     assert_eq!(checker.check_count(), 2);
 
     checker.clear();

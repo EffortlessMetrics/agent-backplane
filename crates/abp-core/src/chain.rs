@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use uuid::Uuid;
 
-use crate::{receipt_hash, Outcome, Receipt};
+use crate::{Outcome, Receipt, receipt_hash};
 
 /// Error type for receipt chain operations.
 #[derive(Debug, Clone)]
@@ -195,10 +195,7 @@ impl ReceiptChain {
                 max = ms;
             }
         }
-        Some((
-            Duration::from_millis(min),
-            Duration::from_millis(max),
-        ))
+        Some((Duration::from_millis(min), Duration::from_millis(max)))
     }
 }
 
@@ -214,8 +211,7 @@ impl<'a> IntoIterator for &'a ReceiptChain {
 /// Verify that a single receipt's stored hash matches the recomputed hash.
 fn verify_receipt_hash(receipt: &Receipt, index: usize) -> Result<(), ChainError> {
     if let Some(ref stored) = receipt.receipt_sha256 {
-        let recomputed =
-            receipt_hash(receipt).map_err(|_| ChainError::InvalidHash { index })?;
+        let recomputed = receipt_hash(receipt).map_err(|_| ChainError::InvalidHash { index })?;
         if *stored != recomputed {
             return Err(ChainError::InvalidHash { index });
         }

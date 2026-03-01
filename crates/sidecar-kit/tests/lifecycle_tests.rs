@@ -81,7 +81,10 @@ async fn lifecycle_full_init_process_complete() {
     assert_eq!(events[0]["step"], 1);
     assert_eq!(events[1]["step"], 2);
 
-    let receipt = result.await.expect("receipt channel open").expect("receipt Ok");
+    let receipt = result
+        .await
+        .expect("receipt channel open")
+        .expect("receipt Ok");
     assert_eq!(receipt["status"], "complete");
 
     wait.await.unwrap().unwrap();
@@ -144,7 +147,10 @@ async fn lifecycle_large_event_stream() {
         assert_eq!(event["index"], i as u64, "event {i} has wrong index");
     }
 
-    let receipt = result.await.expect("receipt channel open").expect("receipt Ok");
+    let receipt = result
+        .await
+        .expect("receipt channel open")
+        .expect("receipt Ok");
     assert_eq!(receipt["status"], "complete");
 
     wait.await.unwrap().unwrap();
@@ -168,9 +174,15 @@ async fn lifecycle_empty_work_order() {
 
     let (events, result, wait, _cancel) = run.into_parts();
     let events: Vec<Value> = events.collect().await;
-    assert!(events.is_empty(), "empty work order should produce no events");
+    assert!(
+        events.is_empty(),
+        "empty work order should produce no events"
+    );
 
-    let receipt = result.await.expect("receipt channel open").expect("receipt Ok");
+    let receipt = result
+        .await
+        .expect("receipt channel open")
+        .expect("receipt Ok");
     assert_eq!(receipt["status"], "complete");
 
     wait.await.unwrap().unwrap();
@@ -204,7 +216,10 @@ async fn lifecycle_tool_call_handling() {
     assert_eq!(events[1]["tool"], "read_file");
     assert_eq!(events[1]["result"], "file contents");
 
-    let receipt = result.await.expect("receipt channel open").expect("receipt Ok");
+    let receipt = result
+        .await
+        .expect("receipt channel open")
+        .expect("receipt Ok");
     assert_eq!(receipt["status"], "complete");
 
     wait.await.unwrap().unwrap();
@@ -312,7 +327,10 @@ async fn lifecycle_resource_cleanup_on_crash() {
     )
     .await
     .expect("events collection should not hang");
-    assert!(!events.is_empty(), "should receive at least one event before crash");
+    assert!(
+        !events.is_empty(),
+        "should receive at least one event before crash"
+    );
 
     // Receipt should be an error (sidecar exited without final).
     let receipt_result = tokio::time::timeout(std::time::Duration::from_secs(5), result)

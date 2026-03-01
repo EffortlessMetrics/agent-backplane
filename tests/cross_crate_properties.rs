@@ -3,20 +3,19 @@
 
 use std::path::Path;
 
-use abp_cli::config::{merge_configs, BackplaneConfig};
+use abp_cli::config::{BackplaneConfig, merge_configs};
 use abp_core::chain::ReceiptChain;
 use abp_core::filter::EventFilter;
 use abp_core::stream::EventStream;
 use abp_core::{
-    canonical_json, receipt_hash, AgentEvent, AgentEventKind, BackendIdentity,
-    CapabilityManifest, CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode,
-    MinSupport, Outcome, PolicyProfile, Receipt, RunMetadata, RuntimeConfig, SupportLevel,
-    UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized,
+    VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec, canonical_json, receipt_hash,
 };
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_policy::PolicyEngine;
-use abp_protocol::version::{negotiate_version, ProtocolVersion};
+use abp_protocol::version::{ProtocolVersion, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec};
 use chrono::{TimeZone, Utc};
 use proptest::prelude::*;
@@ -39,7 +38,10 @@ fn arb_outcome() -> impl Strategy<Value = Outcome> {
 }
 
 fn arb_execution_mode() -> impl Strategy<Value = ExecutionMode> {
-    prop_oneof![Just(ExecutionMode::Passthrough), Just(ExecutionMode::Mapped)]
+    prop_oneof![
+        Just(ExecutionMode::Passthrough),
+        Just(ExecutionMode::Mapped)
+    ]
 }
 
 fn arb_backend_identity() -> impl Strategy<Value = BackendIdentity> {
@@ -171,10 +173,8 @@ fn arb_work_order() -> impl Strategy<Value = WorkOrder> {
 fn arb_envelope() -> impl Strategy<Value = Envelope> {
     prop_oneof![
         arb_backend_identity().prop_map(|bi| Envelope::hello(bi, CapabilityManifest::new())),
-        (arb_safe_string(), arb_work_order()).prop_map(|(id, wo)| Envelope::Run {
-            id,
-            work_order: wo,
-        }),
+        (arb_safe_string(), arb_work_order())
+            .prop_map(|(id, wo)| Envelope::Run { id, work_order: wo }),
         (arb_safe_string(), arb_agent_event())
             .prop_map(|(ref_id, event)| Envelope::Event { ref_id, event }),
         (arb_safe_string(), arb_safe_string()).prop_map(|(ref_id, error)| Envelope::Fatal {

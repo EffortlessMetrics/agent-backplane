@@ -292,11 +292,7 @@ async fn debug_level_includes_starting_run() {
     receipt.unwrap();
 
     // The runtime emits at debug level: "starting run"
-    assert!(
-        logs.contains("starting run"),
-        "logs: {}",
-        logs.contents()
-    );
+    assert!(logs.contains("starting run"), "logs: {}", logs.contents());
 }
 
 // ===========================================================================
@@ -378,11 +374,7 @@ async fn event_count_recorded_in_telemetry() {
     assert_eq!(snap.successful_runs, 1);
 
     // The runtime traces with "starting run" for this backend too.
-    assert!(
-        logs.contains("starting run"),
-        "logs: {}",
-        logs.contents()
-    );
+    assert!(logs.contains("starting run"), "logs: {}", logs.contents());
 }
 
 // ===========================================================================
@@ -408,11 +400,7 @@ async fn duration_recorded_in_metrics() {
     assert!(snap.average_run_duration_ms <= receipt.meta.duration_ms + 5000);
 
     // The "starting run" debug trace was emitted.
-    assert!(
-        logs.contains("starting run"),
-        "logs: {}",
-        logs.contents()
-    );
+    assert!(logs.contains("starting run"), "logs: {}", logs.contents());
 }
 
 // ===========================================================================
@@ -482,11 +470,7 @@ async fn failing_backend_traced_without_panic() {
     assert!(matches!(receipt, Err(RuntimeError::BackendFailed(_))));
 
     // The runtime should have emitted "starting run" before the failure.
-    assert!(
-        logs.contains("starting run"),
-        "logs: {}",
-        logs.contents()
-    );
+    assert!(logs.contains("starting run"), "logs: {}", logs.contents());
 }
 
 // ===========================================================================
@@ -511,11 +495,7 @@ async fn workspace_staging_uses_correct_tracing_target() {
     receipt.unwrap();
 
     // Workspace tracing uses target "abp.workspace".
-    assert!(
-        logs.contains("abp.workspace"),
-        "logs: {}",
-        logs.contents()
-    );
+    assert!(logs.contains("abp.workspace"), "logs: {}", logs.contents());
 }
 
 // ===========================================================================
@@ -536,9 +516,5 @@ async fn runtime_uses_correct_tracing_target() {
     receipt.unwrap();
 
     // Runtime tracing uses target "abp.runtime".
-    assert!(
-        logs.contains("abp.runtime"),
-        "logs: {}",
-        logs.contents()
-    );
+    assert!(logs.contains("abp.runtime"), "logs: {}", logs.contents());
 }

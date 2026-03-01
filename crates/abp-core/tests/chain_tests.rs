@@ -146,10 +146,14 @@ fn find_by_id_missing() {
 #[test]
 fn find_by_backend() {
     let mut chain = ReceiptChain::new();
-    chain.push(make_receipt("alpha", Outcome::Complete)).unwrap();
+    chain
+        .push(make_receipt("alpha", Outcome::Complete))
+        .unwrap();
     chain.push(make_receipt("beta", Outcome::Complete)).unwrap();
     chain.push(make_receipt("alpha", Outcome::Failed)).unwrap();
-    chain.push(make_receipt("gamma", Outcome::Complete)).unwrap();
+    chain
+        .push(make_receipt("gamma", Outcome::Complete))
+        .unwrap();
 
     let alphas = chain.find_by_backend("alpha");
     assert_eq!(alphas.len(), 2);
@@ -230,9 +234,7 @@ fn duration_range_empty() {
 #[test]
 fn duration_range_single() {
     let mut chain = ReceiptChain::new();
-    chain
-        .push(make_receipt_with_duration("a", 100))
-        .unwrap();
+    chain.push(make_receipt_with_duration("a", 100)).unwrap();
     let (min, max) = chain.duration_range().unwrap();
     assert_eq!(min, Duration::from_millis(100));
     assert_eq!(max, Duration::from_millis(100));

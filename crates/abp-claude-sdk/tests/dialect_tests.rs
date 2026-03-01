@@ -2,9 +2,9 @@
 //! Integration tests for the Claude dialect mapping, model names, capabilities, and tool formats.
 
 use abp_claude_sdk::dialect::{
-    capability_manifest, from_canonical_model, is_known_model, to_canonical_model,
-    tool_def_from_claude, tool_def_to_claude, CanonicalToolDef, ClaudeConfig, ClaudeContentBlock,
-    ClaudeResponse, ClaudeToolDef, ClaudeUsage, DIALECT_VERSION, DEFAULT_MODEL,
+    CanonicalToolDef, ClaudeConfig, ClaudeContentBlock, ClaudeResponse, ClaudeToolDef, ClaudeUsage,
+    DEFAULT_MODEL, DIALECT_VERSION, capability_manifest, from_canonical_model, is_known_model,
+    to_canonical_model, tool_def_from_claude, tool_def_to_claude,
 };
 use abp_core::{Capability, SupportLevel};
 
@@ -68,26 +68,41 @@ fn dialect_version_is_set() {
 #[test]
 fn capability_manifest_has_streaming_native() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::Streaming),
+        Some(SupportLevel::Native)
+    ));
 }
 
 #[test]
 fn capability_manifest_has_mcp_client_native() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::McpClient), Some(SupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::McpClient),
+        Some(SupportLevel::Native)
+    ));
 }
 
 #[test]
 fn capability_manifest_mcp_server_unsupported() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::McpServer), Some(SupportLevel::Unsupported)));
+    assert!(matches!(
+        m.get(&Capability::McpServer),
+        Some(SupportLevel::Unsupported)
+    ));
 }
 
 #[test]
 fn capability_manifest_hooks_native() {
     let m = capability_manifest();
-    assert!(matches!(m.get(&Capability::HooksPreToolUse), Some(SupportLevel::Native)));
-    assert!(matches!(m.get(&Capability::HooksPostToolUse), Some(SupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::HooksPreToolUse),
+        Some(SupportLevel::Native)
+    ));
+    assert!(matches!(
+        m.get(&Capability::HooksPostToolUse),
+        Some(SupportLevel::Native)
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +161,9 @@ fn claude_response_serde_roundtrip() {
         model: "claude-sonnet-4-20250514".into(),
         role: "assistant".into(),
         content: vec![
-            ClaudeContentBlock::Text { text: "Hello!".into() },
+            ClaudeContentBlock::Text {
+                text: "Hello!".into(),
+            },
             ClaudeContentBlock::ToolUse {
                 id: "tu_1".into(),
                 name: "bash".into(),

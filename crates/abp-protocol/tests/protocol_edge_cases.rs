@@ -123,7 +123,11 @@ fn tab_and_carriage_return_in_string() {
     let env = make_fatal(msg);
 
     let encoded = JsonlCodec::encode(&env).unwrap();
-    assert_eq!(encoded.matches('\n').count(), 1, "must be single JSONL line");
+    assert_eq!(
+        encoded.matches('\n').count(),
+        1,
+        "must be single JSONL line"
+    );
     let decoded = JsonlCodec::decode(encoded.trim_end()).unwrap();
     match decoded {
         Envelope::Fatal { error, .. } => assert_eq!(error, msg),
@@ -159,12 +163,7 @@ fn mixed_line_endings() {
     let l3 = JsonlCodec::encode(&make_fatal("b")).unwrap();
 
     // LF, CRLF, LF — mixed in a single stream.
-    let stream = format!(
-        "{}\n{}\r\n{}",
-        l1.trim_end(),
-        l2.trim_end(),
-        l3.trim_end()
-    );
+    let stream = format!("{}\n{}\r\n{}", l1.trim_end(), l2.trim_end(), l3.trim_end());
     let decoded = roundtrip_via_stream(stream.as_bytes());
 
     assert_eq!(decoded.len(), 3);

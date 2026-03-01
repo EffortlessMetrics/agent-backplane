@@ -228,7 +228,10 @@ fn path_multiple_deny_write_patterns_union() {
         ..Default::default()
     });
     assert!(!e.can_write_path(Path::new(".git/config")).allowed);
-    assert!(!e.can_write_path(Path::new("node_modules/pkg/index.js")).allowed);
+    assert!(
+        !e.can_write_path(Path::new("node_modules/pkg/index.js"))
+            .allowed
+    );
     assert!(!e.can_write_path(Path::new("dist/bundle.js")).allowed);
     assert!(e.can_write_path(Path::new("src/lib.rs")).allowed);
 }
@@ -333,7 +336,10 @@ fn many_patterns_performance() {
 
     // Spot-check denied.
     assert!(!e.can_use_tool("Tool_42").allowed);
-    assert!(!e.can_read_path(Path::new("secret_99/deep/file.txt")).allowed);
+    assert!(
+        !e.can_read_path(Path::new("secret_99/deep/file.txt"))
+            .allowed
+    );
     assert!(!e.can_write_path(Path::new("locked_150/file.txt")).allowed);
 
     // Spot-check allowed.

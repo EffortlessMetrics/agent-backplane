@@ -6,16 +6,14 @@ use std::time::Duration;
 
 use chrono::{TimeZone, Utc};
 
-use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, WorkOrderBuilder,
-};
 use abp_core::filter::EventFilter;
 use abp_core::stream::EventStream;
-use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
+use abp_core::{AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, WorkOrderBuilder};
 use abp_host::SidecarSpec;
+use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
+use abp_protocol::Envelope;
 use abp_protocol::codec::StreamingCodec;
 use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
-use abp_protocol::Envelope;
 use abp_runtime::retry::{RetryPolicy, TimeoutConfig};
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -211,7 +209,10 @@ fn streaming_codec_line_count_snapshot() {
 fn streaming_codec_decode_errors_snapshot() {
     let input = "not valid json\n{\"t\":\"fatal\",\"ref_id\":null,\"error\":\"ok\"}\nalso bad\n";
     let errors = StreamingCodec::validate_jsonl(input);
-    let display: Vec<String> = errors.iter().map(|(line, e)| format!("line {line}: {e}")).collect();
+    let display: Vec<String> = errors
+        .iter()
+        .map(|(line, e)| format!("line {line}: {e}"))
+        .collect();
     insta::assert_json_snapshot!("streaming_codec_decode_errors", display);
 }
 

@@ -442,12 +442,7 @@ async fn list_runs_returns_array() {
 
     let app = build_app(state);
     let resp = app
-        .oneshot(
-            Request::builder()
-                .uri("/runs")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri("/runs").body(Body::empty()).unwrap())
         .await
         .unwrap();
 
@@ -521,12 +516,7 @@ async fn json_endpoints_have_json_content_type() {
         async move {
             let app = build_app(s);
             let resp = app
-                .oneshot(
-                    Request::builder()
-                        .uri(&u)
-                        .body(Body::empty())
-                        .unwrap(),
-                )
+                .oneshot(Request::builder().uri(&u).body(Body::empty()).unwrap())
                 .await
                 .unwrap();
             let ct = resp
@@ -635,12 +625,7 @@ async fn ws_without_upgrade_headers_is_rejected() {
     let app = build_app(test_state(tmp.path()));
 
     let resp = app
-        .oneshot(
-            Request::builder()
-                .uri("/ws")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri("/ws").body(Body::empty()).unwrap())
         .await
         .unwrap();
 

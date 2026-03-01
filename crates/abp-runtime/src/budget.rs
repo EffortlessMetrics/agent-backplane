@@ -207,9 +207,10 @@ impl BudgetTracker {
             tokens: self.limit.max_tokens.map(|m| m.saturating_sub(tokens)),
             cost_usd: self.limit.max_cost_usd.map(|m| (m - cost_usd).max(0.0)),
             turns: self.limit.max_turns.map(|m| m.saturating_sub(turns)),
-            duration: self.limit.max_duration.map(|m| {
-                elapsed.map_or(m, |el| m.saturating_sub(el))
-            }),
+            duration: self
+                .limit
+                .max_duration
+                .map(|m| elapsed.map_or(m, |el| m.saturating_sub(el))),
         }
     }
 
@@ -277,7 +278,10 @@ impl fmt::Display for BudgetViolation {
                 write!(f, "token budget exceeded: used {used}, limit {limit}")
             }
             Self::CostExceeded { used, limit } => {
-                write!(f, "cost budget exceeded: used ${used:.4}, limit ${limit:.4}")
+                write!(
+                    f,
+                    "cost budget exceeded: used ${used:.4}, limit ${limit:.4}"
+                )
             }
             Self::TurnsExceeded { used, limit } => {
                 write!(f, "turn budget exceeded: used {used}, limit {limit}")
@@ -333,7 +337,10 @@ mod tests {
         t.record_tokens(101);
         assert!(matches!(
             t.check(),
-            BudgetStatus::Exceeded(BudgetViolation::TokensExceeded { used: 101, limit: 100 })
+            BudgetStatus::Exceeded(BudgetViolation::TokensExceeded {
+                used: 101,
+                limit: 100
+            })
         ));
     }
 

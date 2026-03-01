@@ -7,8 +7,7 @@ use std::time::Duration;
 
 use claude_bridge::config::ClaudeBridgeConfig;
 use claude_bridge::discovery::{
-    DEFAULT_NODE_COMMAND, HOST_SCRIPT_ENV, HOST_SCRIPT_RELATIVE, resolve_host_script,
-    resolve_node,
+    DEFAULT_NODE_COMMAND, HOST_SCRIPT_ENV, HOST_SCRIPT_RELATIVE, resolve_host_script, resolve_node,
 };
 use claude_bridge::error::BridgeError;
 use claude_bridge::raw::RunOptions;
@@ -310,7 +309,10 @@ fn resolve_host_script_explicit_directory_fails() {
     let dir = tempfile::tempdir().unwrap();
     // Passing a directory path (not a file) should fail.
     let result = resolve_host_script(Some(dir.path()));
-    assert!(result.is_err(), "directory should not be accepted as script");
+    assert!(
+        result.is_err(),
+        "directory should not be accepted as script"
+    );
 }
 
 #[test]
@@ -365,14 +367,8 @@ fn all_error_variants_have_non_empty_display() {
     ];
     for err in &variants {
         let msg = err.to_string();
-        assert!(
-            !msg.is_empty(),
-            "Display should be non-empty for {err:?}"
-        );
-        assert!(
-            msg.len() > 5,
-            "Display should be descriptive, got: {msg}"
-        );
+        assert!(!msg.is_empty(), "Display should be non-empty for {err:?}");
+        assert!(msg.len() > 5, "Display should be descriptive, got: {msg}");
     }
 }
 
@@ -458,8 +454,7 @@ fn sidecar_timeout_converts_to_bridge_error() {
 
 #[test]
 fn sidecar_protocol_converts_to_bridge_error() {
-    let bridge: BridgeError =
-        sidecar_kit::SidecarError::Protocol("bad envelope".into()).into();
+    let bridge: BridgeError = sidecar_kit::SidecarError::Protocol("bad envelope".into()).into();
     let msg = bridge.to_string();
     assert!(msg.contains("sidecar error"), "got: {msg}");
     assert!(msg.contains("protocol violation"), "got: {msg}");
@@ -467,8 +462,7 @@ fn sidecar_protocol_converts_to_bridge_error() {
 
 #[test]
 fn sidecar_fatal_converts_to_bridge_error() {
-    let bridge: BridgeError =
-        sidecar_kit::SidecarError::Fatal("crash".into()).into();
+    let bridge: BridgeError = sidecar_kit::SidecarError::Fatal("crash".into()).into();
     let msg = bridge.to_string();
     assert!(msg.contains("sidecar"), "got: {msg}");
     assert!(msg.contains("crash"), "got: {msg}");
@@ -549,7 +543,11 @@ fn run_options_clone_is_independent() {
     let mut cloned = original.clone();
     cloned.lane = Some("changed".into());
 
-    assert_eq!(original.lane.as_deref(), Some("patch"), "original unchanged");
+    assert_eq!(
+        original.lane.as_deref(),
+        Some("patch"),
+        "original unchanged"
+    );
     assert_eq!(cloned.lane.as_deref(), Some("changed"));
 }
 

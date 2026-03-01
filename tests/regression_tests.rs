@@ -7,13 +7,13 @@
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
-use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
-    Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig, WorkOrderBuilder,
-    CONTRACT_VERSION, canonical_json, receipt_hash, sha256_hex,
-};
 use abp_core::filter::EventFilter;
 use abp_core::validate::validate_receipt;
+use abp_core::{
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig,
+    WorkOrderBuilder, canonical_json, receipt_hash, sha256_hex,
+};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_policy::PolicyEngine;
 use abp_protocol::version::ProtocolVersion;
@@ -86,7 +86,10 @@ fn work_order_ids_are_uuids() {
     assert_eq!(s.len(), 36);
     let parts: Vec<&str> = s.split('-').collect();
     assert_eq!(parts.len(), 5);
-    assert_eq!(parts.iter().map(|p| p.len()).collect::<Vec<_>>(), vec![8, 4, 4, 4, 12]);
+    assert_eq!(
+        parts.iter().map(|p| p.len()).collect::<Vec<_>>(),
+        vec![8, 4, 4, 4, 12]
+    );
 }
 
 // ===========================================================================
@@ -183,7 +186,10 @@ fn envelope_tag_is_t_not_type() {
         error: "boom".into(),
     };
     let json = JsonlCodec::encode(&envelope).unwrap();
-    assert!(json.contains("\"t\":"), "Envelope must use 't' as tag field");
+    assert!(
+        json.contains("\"t\":"),
+        "Envelope must use 't' as tag field"
+    );
     // "type" should NOT appear as the discriminator key
     let v: serde_json::Value = serde_json::from_str(json.trim()).unwrap();
     assert!(v.get("t").is_some(), "Envelope must have 't' key");
@@ -425,15 +431,11 @@ fn event_filter_matches_each_kind() {
         ),
         (
             "assistant_delta",
-            AgentEventKind::AssistantDelta {
-                text: "tok".into(),
-            },
+            AgentEventKind::AssistantDelta { text: "tok".into() },
         ),
         (
             "assistant_message",
-            AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            },
+            AgentEventKind::AssistantMessage { text: "hi".into() },
         ),
         (
             "tool_call",
@@ -673,11 +675,8 @@ fn parse_version_rejects_invalid() {
 /// Glob deny takes precedence over include
 #[test]
 fn glob_exclude_takes_precedence_over_include() {
-    let globs = IncludeExcludeGlobs::new(
-        &["src/**".to_string()],
-        &["src/secret/**".to_string()],
-    )
-    .unwrap();
+    let globs =
+        IncludeExcludeGlobs::new(&["src/**".to_string()], &["src/secret/**".to_string()]).unwrap();
     assert_eq!(globs.decide_str("src/lib.rs"), MatchDecision::Allowed);
     assert_eq!(
         globs.decide_str("src/secret/key.pem"),
@@ -698,8 +697,5 @@ fn hello_envelope_contract_version_matches() {
     );
     let json = JsonlCodec::encode(&hello).unwrap();
     let v: serde_json::Value = serde_json::from_str(json.trim()).unwrap();
-    assert_eq!(
-        v["contract_version"].as_str().unwrap(),
-        CONTRACT_VERSION
-    );
+    assert_eq!(v["contract_version"].as_str().unwrap(), CONTRACT_VERSION);
 }

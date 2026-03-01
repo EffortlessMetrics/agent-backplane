@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-use abp_gemini_sdk::dialect::*;
 use abp_core::WorkOrderBuilder;
+use abp_gemini_sdk::dialect::*;
 use insta::assert_json_snapshot;
 
 #[test]
@@ -38,9 +38,6 @@ fn snapshot_mapped_response_events() {
             total_token_count: 132,
         }),
     };
-    let events: Vec<_> = map_response(&resp)
-        .into_iter()
-        .map(|e| e.kind)
-        .collect();
+    let events: Vec<_> = map_response(&resp).into_iter().map(|e| e.kind).collect();
     assert_json_snapshot!("gemini_mapped_response_events", events);
 }

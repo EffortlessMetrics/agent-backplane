@@ -17,8 +17,8 @@
 use std::fmt;
 
 use abp_core::{
-    AgentEvent, BackendIdentity, CapabilityManifest, ExecutionMode, Receipt, WorkOrder,
-    CONTRACT_VERSION,
+    AgentEvent, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Receipt,
+    WorkOrder,
 };
 
 use crate::Envelope;
@@ -255,9 +255,7 @@ impl EventBuilder {
     ///
     /// Returns [`BuilderError::MissingField`] if `ref_id` was not set.
     pub fn build(self) -> Result<Envelope, BuilderError> {
-        let ref_id = self
-            .ref_id
-            .ok_or(BuilderError::MissingField("ref_id"))?;
+        let ref_id = self.ref_id.ok_or(BuilderError::MissingField("ref_id"))?;
 
         Ok(Envelope::Event {
             ref_id,
@@ -291,9 +289,7 @@ impl FinalBuilder {
     ///
     /// Returns [`BuilderError::MissingField`] if `ref_id` was not set.
     pub fn build(self) -> Result<Envelope, BuilderError> {
-        let ref_id = self
-            .ref_id
-            .ok_or(BuilderError::MissingField("ref_id"))?;
+        let ref_id = self.ref_id.ok_or(BuilderError::MissingField("ref_id"))?;
 
         Ok(Envelope::Final {
             ref_id,
@@ -356,13 +352,13 @@ mod tests {
 
     #[test]
     fn hello_builder_minimal() {
-        let env = EnvelopeBuilder::hello()
-            .backend("test")
-            .build()
-            .unwrap();
+        let env = EnvelopeBuilder::hello().backend("test").build().unwrap();
         match env {
             Envelope::Hello {
-                backend, mode, capabilities, ..
+                backend,
+                mode,
+                capabilities,
+                ..
             } => {
                 assert_eq!(backend.id, "test");
                 assert_eq!(mode, ExecutionMode::Mapped);

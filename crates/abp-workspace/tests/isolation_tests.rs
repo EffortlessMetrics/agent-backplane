@@ -5,11 +5,11 @@
 //! that glob filtering works correctly, and that auxiliary modules (snapshot,
 //! diff, template, tracker) integrate properly with staged workspaces.
 
+use abp_workspace::WorkspaceStager;
 use abp_workspace::diff::diff_workspace;
 use abp_workspace::snapshot;
 use abp_workspace::template::WorkspaceTemplate;
 use abp_workspace::tracker::{ChangeKind, ChangeTracker, FileChange};
-use abp_workspace::WorkspaceStager;
 use std::fs;
 use std::path::Path;
 
@@ -67,7 +67,10 @@ fn basic_staging_copies_all_files() {
     let ws = stage_no_git(src.path());
 
     assert_eq!(list_files(ws.path()), vec!["a.txt", "b.txt", "sub/c.txt"]);
-    assert_eq!(fs::read_to_string(ws.path().join("a.txt")).unwrap(), "alpha");
+    assert_eq!(
+        fs::read_to_string(ws.path().join("a.txt")).unwrap(),
+        "alpha"
+    );
     assert_eq!(
         fs::read_to_string(ws.path().join("sub").join("c.txt")).unwrap(),
         "gamma"
@@ -202,13 +205,7 @@ fn hidden_dotfiles_are_copied() {
 #[test]
 fn deep_nesting_five_levels_preserved() {
     let src = tempfile::tempdir().unwrap();
-    let deep = src
-        .path()
-        .join("a")
-        .join("b")
-        .join("c")
-        .join("d")
-        .join("e");
+    let deep = src.path().join("a").join("b").join("c").join("d").join("e");
     fs::create_dir_all(&deep).unwrap();
     fs::write(deep.join("leaf.txt"), "deep content").unwrap();
     // Also a file at each level.
@@ -401,7 +398,11 @@ fn multiple_stages_are_independent() {
 fn concurrent_staging_no_interference() {
     let src = tempfile::tempdir().unwrap();
     for i in 0..10 {
-        fs::write(src.path().join(format!("file_{i}.txt")), format!("content {i}")).unwrap();
+        fs::write(
+            src.path().join(format!("file_{i}.txt")),
+            format!("content {i}"),
+        )
+        .unwrap();
     }
 
     let handles: Vec<_> = (0..4)

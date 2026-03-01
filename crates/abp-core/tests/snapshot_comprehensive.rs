@@ -349,7 +349,10 @@ fn snapshot_all_capability_variants() {
         (Capability::SessionResume, SupportLevel::Emulated),
         (Capability::SessionFork, SupportLevel::Unsupported),
         (Capability::Checkpointing, SupportLevel::Native),
-        (Capability::StructuredOutputJsonSchema, SupportLevel::Emulated),
+        (
+            Capability::StructuredOutputJsonSchema,
+            SupportLevel::Emulated,
+        ),
         (
             Capability::McpClient,
             SupportLevel::Restricted {
@@ -475,10 +478,7 @@ fn snapshot_validation_error_invalid_outcome() {
     let err = ValidationError::InvalidOutcome {
         reason: "started_at is after finished_at".into(),
     };
-    assert_snapshot!(
-        "comprehensive_validation_invalid_outcome",
-        err.to_string()
-    );
+    assert_snapshot!("comprehensive_validation_invalid_outcome", err.to_string());
 }
 
 // ── 9. Minimal (empty) WorkOrder ────────────────────────────────────────

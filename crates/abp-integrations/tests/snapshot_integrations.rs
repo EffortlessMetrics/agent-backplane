@@ -83,7 +83,9 @@ fn snapshot_abp_to_claude_translation() {
     let wo = WorkOrderBuilder::new("Refactor the auth module")
         .model("claude-sonnet-4-20250514")
         .build();
-    let result = matrix.translate(Dialect::Abp, Dialect::Claude, &wo).unwrap();
+    let result = matrix
+        .translate(Dialect::Abp, Dialect::Claude, &wo)
+        .unwrap();
     assert_json_snapshot!("integrations_abp_to_claude", result);
 }
 

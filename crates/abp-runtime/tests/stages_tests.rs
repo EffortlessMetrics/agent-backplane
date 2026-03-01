@@ -108,7 +108,10 @@ async fn dedup_allows_different_tasks() {
     let mut wo1 = minimal_work_order("task_a");
     let mut wo2 = minimal_work_order("task_b");
     stage.process(&mut wo1).await.unwrap();
-    stage.process(&mut wo2).await.expect("different task must pass");
+    stage
+        .process(&mut wo2)
+        .await
+        .expect("different task must pass");
 }
 
 #[tokio::test]
@@ -348,7 +351,13 @@ async fn full_pipeline_with_all_stages() {
     let names = pipeline.stage_names();
     assert_eq!(
         names,
-        vec!["rate_limit", "deduplication", "logging", "metrics", "validation"]
+        vec![
+            "rate_limit",
+            "deduplication",
+            "logging",
+            "metrics",
+            "validation"
+        ]
     );
 
     let mut wo = minimal_work_order("full pipeline");

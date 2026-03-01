@@ -94,10 +94,7 @@ async fn ws_connection_establishes_successfully() {
 
     let url = format!("ws://127.0.0.1:{}/ws", addr.port());
     let (stream, resp) = tokio_tungstenite::connect_async(&url).await.unwrap();
-    assert_eq!(
-        resp.status(),
-        axum::http::StatusCode::SWITCHING_PROTOCOLS
-    );
+    assert_eq!(resp.status(), axum::http::StatusCode::SWITCHING_PROTOCOLS);
     drop(stream);
 }
 
@@ -278,10 +275,9 @@ async fn ws_and_rest_concurrent() {
     let http_handle = {
         let port = addr.port();
         tokio::spawn(async move {
-            let mut tcp =
-                tokio::net::TcpStream::connect(format!("127.0.0.1:{port}"))
-                    .await
-                    .unwrap();
+            let mut tcp = tokio::net::TcpStream::connect(format!("127.0.0.1:{port}"))
+                .await
+                .unwrap();
             tcp.write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n")
                 .await
                 .unwrap();
@@ -449,10 +445,9 @@ async fn ws_concurrent_with_run_submission() {
                 body.len(),
                 body
             );
-            let mut tcp =
-                tokio::net::TcpStream::connect(format!("127.0.0.1:{port}"))
-                    .await
-                    .unwrap();
+            let mut tcp = tokio::net::TcpStream::connect(format!("127.0.0.1:{port}"))
+                .await
+                .unwrap();
             tcp.write_all(raw.as_bytes()).await.unwrap();
             let mut buf = vec![0u8; 16384];
             let n = tcp.read(&mut buf).await.unwrap();
@@ -465,9 +460,7 @@ async fn ws_concurrent_with_run_submission() {
     };
 
     // Echo over WebSocket while the run is in-flight.
-    sink.send(Message::Text("during run".into()))
-        .await
-        .unwrap();
+    sink.send(Message::Text("during run".into())).await.unwrap();
     let msg = stream.next().await.unwrap().unwrap();
     match msg {
         Message::Text(text) => assert_eq!(text, "during run"),
@@ -495,9 +488,7 @@ async fn ws_ping_frame_handling() {
 
     // The tungstenite library auto-responds with Pong at the protocol level.
     // Confirm the connection is still usable with a text echo.
-    sink.send(Message::Text("after ping".into()))
-        .await
-        .unwrap();
+    sink.send(Message::Text("after ping".into())).await.unwrap();
 
     // Drain any Pong frames, then expect our text echo.
     loop {

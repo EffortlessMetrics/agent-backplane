@@ -133,8 +133,7 @@ fn error_unsupported_version_display() {
 
 #[test]
 fn error_implements_std_error() {
-    let e: Box<dyn std::error::Error> =
-        Box::new(ApiVersionError::InvalidFormat("test".into()));
+    let e: Box<dyn std::error::Error> = Box::new(ApiVersionError::InvalidFormat("test".into()));
     assert!(!e.to_string().is_empty());
 }
 
@@ -187,7 +186,13 @@ fn registry_is_supported_present() {
 #[test]
 fn registry_is_supported_unbounded_max() {
     let reg = sample_registry();
-    assert!(reg.is_supported("/health", &ApiVersion { major: 99, minor: 0 }));
+    assert!(reg.is_supported(
+        "/health",
+        &ApiVersion {
+            major: 99,
+            minor: 0
+        }
+    ));
 }
 
 #[test]

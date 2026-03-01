@@ -38,7 +38,8 @@ fn dequeue_returns_none_when_empty() {
 fn dequeue_returns_highest_priority() {
     let mut q = RunQueue::new(10);
     q.enqueue(make_run("low", QueuePriority::Low)).unwrap();
-    q.enqueue(make_run("crit", QueuePriority::Critical)).unwrap();
+    q.enqueue(make_run("crit", QueuePriority::Critical))
+        .unwrap();
     q.enqueue(make_run("norm", QueuePriority::Normal)).unwrap();
     let got = q.dequeue().unwrap();
     assert_eq!(got.id, "crit");
@@ -163,7 +164,8 @@ fn full_drain_order() {
     q.enqueue(make_run("lo", QueuePriority::Low)).unwrap();
     q.enqueue(make_run("norm", QueuePriority::Normal)).unwrap();
     q.enqueue(make_run("hi", QueuePriority::High)).unwrap();
-    q.enqueue(make_run("crit", QueuePriority::Critical)).unwrap();
+    q.enqueue(make_run("crit", QueuePriority::Critical))
+        .unwrap();
     let order: Vec<String> = std::iter::from_fn(|| q.dequeue()).map(|r| r.id).collect();
     assert_eq!(order, vec!["crit", "hi", "norm", "lo"]);
 }

@@ -104,9 +104,7 @@ impl CapabilityNegotiator {
             .max_by(|(name_a, a), (name_b, b)| {
                 let score_a = a.satisfied.len() + a.bonus.len();
                 let score_b = b.satisfied.len() + b.bonus.len();
-                score_a
-                    .cmp(&score_b)
-                    .then_with(|| name_b.cmp(name_a)) // deterministic tie-break
+                score_a.cmp(&score_b).then_with(|| name_b.cmp(name_a)) // deterministic tie-break
             })
     }
 }
@@ -170,7 +168,16 @@ mod tests {
     #[test]
     fn support_rank_ordering() {
         assert!(support_rank(&SupportLevel::Native) > support_rank(&SupportLevel::Emulated));
-        assert!(support_rank(&SupportLevel::Emulated) > support_rank(&SupportLevel::Restricted { reason: String::new() }));
-        assert!(support_rank(&SupportLevel::Restricted { reason: String::new() }) > support_rank(&SupportLevel::Unsupported));
+        assert!(
+            support_rank(&SupportLevel::Emulated)
+                > support_rank(&SupportLevel::Restricted {
+                    reason: String::new()
+                })
+        );
+        assert!(
+            support_rank(&SupportLevel::Restricted {
+                reason: String::new()
+            }) > support_rank(&SupportLevel::Unsupported)
+        );
     }
 }

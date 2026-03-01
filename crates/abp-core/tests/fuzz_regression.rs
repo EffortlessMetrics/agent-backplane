@@ -44,16 +44,15 @@ fn empty_backend_id_fails_validation() {
     let mut receipt = minimal_receipt();
     receipt.backend.id = String::new();
     let errs = validate::validate_receipt(&receipt).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, validate::ValidationError::EmptyBackendId)));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, validate::ValidationError::EmptyBackendId))
+    );
 }
 
 #[test]
 fn empty_strings_in_receipt_fields() {
-    let receipt = ReceiptBuilder::new("")
-        .outcome(Outcome::Complete)
-        .build();
+    let receipt = ReceiptBuilder::new("").outcome(Outcome::Complete).build();
     // Hashing must not panic on empty backend id.
     let hash = receipt_hash(&receipt).unwrap();
     assert_eq!(hash.len(), 64);
@@ -155,9 +154,7 @@ fn deeply_nested_json_in_vendor_config() {
         "a": {"b": {"c": {"d": {"e": {"f": {"g": "deep"}}}}}}
     });
     let mut config = RuntimeConfig::default();
-    config
-        .vendor
-        .insert("deep".into(), deep_val.clone());
+    config.vendor.insert("deep".into(), deep_val.clone());
     let wo = WorkOrderBuilder::new("test").config(config).build();
     let json = serde_json::to_string(&wo).unwrap();
     let rt: WorkOrder = serde_json::from_str(&json).unwrap();
@@ -296,11 +293,13 @@ fn receipt_with_wrong_contract_version() {
 fn receipt_with_tampered_hash() {
     let receipt = minimal_receipt().with_hash().unwrap();
     let mut tampered = receipt;
-    tampered.receipt_sha256 = Some("0000000000000000000000000000000000000000000000000000000000000000".into());
+    tampered.receipt_sha256 =
+        Some("0000000000000000000000000000000000000000000000000000000000000000".into());
     let errs = validate::validate_receipt(&tampered).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, validate::ValidationError::InvalidHash { .. })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, validate::ValidationError::InvalidHash { .. }))
+    );
 }
 
 #[test]
@@ -326,9 +325,7 @@ fn event_with_large_ext_map() {
     }
     let event = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: "x".into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: "x".into() },
         ext: Some(ext),
     };
     let json = serde_json::to_string(&event).unwrap();

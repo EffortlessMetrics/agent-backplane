@@ -27,10 +27,7 @@ fn mock_work_order() -> WorkOrder {
     }
 }
 
-async fn run_to_completion(
-    rt: &Runtime,
-    wo: WorkOrder,
-) -> (Vec<AgentEvent>, abp_core::Receipt) {
+async fn run_to_completion(rt: &Runtime, wo: WorkOrder) -> (Vec<AgentEvent>, abp_core::Receipt) {
     let handle = rt.run_streaming("mock", wo).await.expect("run_streaming");
     let events: Vec<_> = handle.events.collect().await;
     let receipt = handle.receipt.await.expect("join").expect("receipt");

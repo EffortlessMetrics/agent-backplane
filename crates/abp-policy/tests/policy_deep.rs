@@ -27,7 +27,10 @@ fn s(v: &str) -> String {
 fn empty_policy_allows_all_tools() {
     let e = engine(PolicyProfile::default());
     for tool in &["Bash", "Read", "Write", "Grep", "CustomTool", ""] {
-        assert!(e.can_use_tool(tool).allowed, "tool '{tool}' should be allowed");
+        assert!(
+            e.can_use_tool(tool).allowed,
+            "tool '{tool}' should be allowed"
+        );
     }
 }
 
@@ -64,7 +67,10 @@ fn deny_all_tools_via_wildcard() {
         ..Default::default()
     });
     for tool in &["Bash", "Read", "Write", "AnythingElse"] {
-        assert!(!e.can_use_tool(tool).allowed, "tool '{tool}' should be denied");
+        assert!(
+            !e.can_use_tool(tool).allowed,
+            "tool '{tool}' should be denied"
+        );
     }
 }
 
@@ -159,7 +165,10 @@ fn write_deny_git_and_node_modules() {
     });
     assert!(!e.can_write_path(Path::new(".git/HEAD")).allowed);
     assert!(!e.can_write_path(Path::new("sub/.git/config")).allowed);
-    assert!(!e.can_write_path(Path::new("node_modules/foo/index.js")).allowed);
+    assert!(
+        !e.can_write_path(Path::new("node_modules/foo/index.js"))
+            .allowed
+    );
     assert!(e.can_write_path(Path::new("src/main.rs")).allowed);
 }
 
@@ -371,11 +380,7 @@ fn all_match_decision_variants_exercised() {
     // Directly test the glob layer's three variants surface through the engine.
     use abp_glob::IncludeExcludeGlobs;
 
-    let g = IncludeExcludeGlobs::new(
-        &[s("Read"), s("Write")],
-        &[s("Write")],
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&[s("Read"), s("Write")], &[s("Write")]).unwrap();
 
     assert_eq!(g.decide_str("Read"), MatchDecision::Allowed);
     assert_eq!(g.decide_str("Write"), MatchDecision::DeniedByExclude);
@@ -455,7 +460,10 @@ fn performance_1000_rules() {
 
     // Spot-check denied.
     assert!(!e.can_use_tool("DeniedTool_500").allowed);
-    assert!(!e.can_read_path(Path::new("secret_999/deep/file.txt")).allowed);
+    assert!(
+        !e.can_read_path(Path::new("secret_999/deep/file.txt"))
+            .allowed
+    );
     assert!(!e.can_write_path(Path::new("locked_0/file.bin")).allowed);
 
     // Spot-check allowed.
@@ -527,7 +535,10 @@ fn realistic_src_only_agent() {
 
     // Denied writes.
     assert!(!e.can_write_path(Path::new(".git/config")).allowed);
-    assert!(!e.can_write_path(Path::new("node_modules/pkg/index.js")).allowed);
+    assert!(
+        !e.can_write_path(Path::new("node_modules/pkg/index.js"))
+            .allowed
+    );
     assert!(!e.can_write_path(Path::new("target/debug/binary")).allowed);
     assert!(!e.can_write_path(Path::new("Cargo.lock")).allowed);
 }

@@ -62,7 +62,10 @@ fn all_cancellation_reason_variants_have_descriptions() {
     ];
     for r in &reasons {
         let desc = r.description();
-        assert!(!desc.is_empty(), "{r:?} should have a non-empty description");
+        assert!(
+            !desc.is_empty(),
+            "{r:?} should have a non-empty description"
+        );
     }
 }
 

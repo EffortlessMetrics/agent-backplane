@@ -55,10 +55,7 @@ fn hello_missing_backend_returns_error() {
 
 #[test]
 fn hello_default_mode_is_mapped() {
-    let env = EnvelopeBuilder::hello()
-        .backend("x")
-        .build()
-        .unwrap();
+    let env = EnvelopeBuilder::hello().backend("x").build().unwrap();
     match env {
         Envelope::Hello { mode, .. } => assert_eq!(mode, ExecutionMode::Mapped),
         _ => panic!("wrong variant"),
@@ -86,10 +83,7 @@ fn hello_with_capabilities() {
 
 #[test]
 fn hello_sets_contract_version() {
-    let env = EnvelopeBuilder::hello()
-        .backend("x")
-        .build()
-        .unwrap();
+    let env = EnvelopeBuilder::hello().backend("x").build().unwrap();
     match env {
         Envelope::Hello {
             contract_version, ..
@@ -143,9 +137,7 @@ fn build_event_envelope() {
 
 #[test]
 fn event_missing_ref_id_returns_error() {
-    let err = EnvelopeBuilder::event(sample_event())
-        .build()
-        .unwrap_err();
+    let err = EnvelopeBuilder::event(sample_event()).build().unwrap_err();
     assert_eq!(err, BuilderError::MissingField("ref_id"));
 }
 
@@ -213,10 +205,7 @@ fn fatal_with_ref_id() {
 #[test]
 fn fatal_with_code() {
     // code is stored but not part of the envelope wire format (yet)
-    let env = EnvelopeBuilder::fatal("err")
-        .code("E_OOM")
-        .build()
-        .unwrap();
+    let env = EnvelopeBuilder::fatal("err").code("E_OOM").build().unwrap();
     assert!(matches!(env, Envelope::Fatal { .. }));
 }
 

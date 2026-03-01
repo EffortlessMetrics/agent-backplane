@@ -72,7 +72,12 @@ fn tool_budget_remaining_none() {
 
 #[test]
 fn is_code_task_positive() {
-    for kw in &["fix the bug", "implement feature", "refactor module", "write code"] {
+    for kw in &[
+        "fix the bug",
+        "implement feature",
+        "refactor module",
+        "write code",
+    ] {
         let wo = WorkOrderBuilder::new(*kw).build();
         assert!(wo.is_code_task(), "expected true for {kw:?}");
     }
@@ -166,9 +171,7 @@ fn is_success_complete() {
 
 #[test]
 fn is_failure_failed() {
-    let r = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Failed)
-        .build();
+    let r = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
     assert!(r.is_failure());
     assert!(!r.is_success());
 }

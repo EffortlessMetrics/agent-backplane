@@ -12,22 +12,22 @@
 pub mod aggregate;
 /// Receipt chain verification and integrity checking.
 pub mod chain;
+/// Configuration validation and defaults.
+pub mod config;
 /// Comprehensive error catalog for the Agent Backplane.
 pub mod error;
 /// Extension traits for work orders, receipts, and events.
 pub mod ext;
 /// Event filtering for agent event streams.
 pub mod filter;
+/// Advanced capability negotiation.
+pub mod negotiate;
 /// Event stream combinator utilities.
 pub mod stream;
-/// Configuration validation and defaults.
-pub mod config;
 /// Receipt validation utilities.
 pub mod validate;
 /// Comprehensive receipt and chain verification.
 pub mod verify;
-/// Advanced capability negotiation.
-pub mod negotiate;
 
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;

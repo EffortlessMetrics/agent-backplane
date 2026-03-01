@@ -16,14 +16,22 @@ fn s(v: &str) -> String {
 
 #[test]
 fn compile_100_include_and_100_exclude_patterns() {
-    let includes: Vec<String> = (0..100).map(|i| format!("src/module_{i}/**/*.rs")).collect();
-    let excludes: Vec<String> = (0..100).map(|i| format!("src/module_{i}/**/generated/**")).collect();
+    let includes: Vec<String> = (0..100)
+        .map(|i| format!("src/module_{i}/**/*.rs"))
+        .collect();
+    let excludes: Vec<String> = (0..100)
+        .map(|i| format!("src/module_{i}/**/generated/**"))
+        .collect();
     let globs = IncludeExcludeGlobs::new(&includes, &excludes).expect("compile 200 patterns");
 
     // Matches include, not excluded.
     assert!(globs.decide_str("src/module_42/lib.rs").is_allowed());
     // Matches include AND exclude → denied.
-    assert!(!globs.decide_str("src/module_42/generated/out.rs").is_allowed());
+    assert!(
+        !globs
+            .decide_str("src/module_42/generated/out.rs")
+            .is_allowed()
+    );
     // Matches no include → denied.
     assert!(!globs.decide_str("other/file.txt").is_allowed());
     // Verify boundary modules.
@@ -75,28 +83,35 @@ fn match_10000_paths() {
 
 #[test]
 fn complex_nested_double_star_patterns() {
-    let includes = vec![
-        s("**/src/**/tests/**/*.rs"),
-        s("**/benches/**/*.rs"),
-    ];
+    let includes = vec![s("**/src/**/tests/**/*.rs"), s("**/benches/**/*.rs")];
     let excludes = vec![s("**/target/**")];
     let globs = IncludeExcludeGlobs::new(&includes, &excludes).expect("compile");
 
     // Deep nesting that matches.
-    assert!(globs
-        .decide_str("workspace/crate_a/src/module/tests/integration/test_foo.rs")
-        .is_allowed());
-    assert!(globs
-        .decide_str("benches/criterion/bench_main.rs")
-        .is_allowed());
+    assert!(
+        globs
+            .decide_str("workspace/crate_a/src/module/tests/integration/test_foo.rs")
+            .is_allowed()
+    );
+    assert!(
+        globs
+            .decide_str("benches/criterion/bench_main.rs")
+            .is_allowed()
+    );
 
     // Deep nesting that does NOT match includes.
-    assert!(!globs.decide_str("workspace/crate_a/src/module/lib.rs").is_allowed());
+    assert!(
+        !globs
+            .decide_str("workspace/crate_a/src/module/lib.rs")
+            .is_allowed()
+    );
 
     // Matches include but also matches exclude.
-    assert!(!globs
-        .decide_str("target/debug/build/src/tests/gen.rs")
-        .is_allowed());
+    assert!(
+        !globs
+            .decide_str("target/debug/build/src/tests/gen.rs")
+            .is_allowed()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -295,7 +310,10 @@ fn alternation_many_options() {
 
     for c in b'a'..=b'z' {
         let path = format!("{}.txt", c as char);
-        assert!(globs.decide_str(&path).is_allowed(), "expected {path} allowed");
+        assert!(
+            globs.decide_str(&path).is_allowed(),
+            "expected {path} allowed"
+        );
     }
     assert!(!globs.decide_str("1.txt").is_allowed());
     assert!(!globs.decide_str("ab.txt").is_allowed());
@@ -404,20 +422,27 @@ fn conflicting_include_exclude() {
     use abp_glob::MatchDecision;
 
     // Exclude takes precedence per API contract.
-    let globs = IncludeExcludeGlobs::new(
-        &[s("**/*.rs")],
-        &[s("**/*.rs")],
-    ).expect("conflicting patterns");
+    let globs =
+        IncludeExcludeGlobs::new(&[s("**/*.rs")], &[s("**/*.rs")]).expect("conflicting patterns");
 
-    assert_eq!(globs.decide_str("src/lib.rs"), MatchDecision::DeniedByExclude);
+    assert_eq!(
+        globs.decide_str("src/lib.rs"),
+        MatchDecision::DeniedByExclude
+    );
     assert_eq!(globs.decide_str("main.rs"), MatchDecision::DeniedByExclude);
     // Non-.rs files don't match include → DeniedByMissingInclude.
-    assert_eq!(globs.decide_str("readme.md"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        globs.decide_str("readme.md"),
+        MatchDecision::DeniedByMissingInclude
+    );
 
     // Partial overlap: include **, exclude *.log.
     let globs2 = IncludeExcludeGlobs::new(&[s("**")], &[s("**/*.log")]).expect("partial conflict");
     assert!(globs2.decide_str("src/lib.rs").is_allowed());
-    assert_eq!(globs2.decide_str("logs/app.log"), MatchDecision::DeniedByExclude);
+    assert_eq!(
+        globs2.decide_str("logs/app.log"),
+        MatchDecision::DeniedByExclude
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -444,7 +469,8 @@ fn negation_style_patterns() {
     }
 
     // The idiomatic way to "negate" in ABP is to use the exclude list.
-    let globs = IncludeExcludeGlobs::new(&[s("**")], &[s("*.log")]).expect("exclude-based negation");
+    let globs =
+        IncludeExcludeGlobs::new(&[s("**")], &[s("*.log")]).expect("exclude-based negation");
     assert!(globs.decide_str("app.rs").is_allowed());
     assert!(!globs.decide_str("app.log").is_allowed());
 }
@@ -476,16 +502,41 @@ fn real_world_gitignore_patterns() {
     assert!(globs.decide_str("src/main.rs").is_allowed());
     assert!(globs.decide_str("Cargo.toml").is_allowed());
     assert!(globs.decide_str("docs/README.md").is_allowed());
-    assert!(globs.decide_str("tests/integration/test_api.py").is_allowed());
+    assert!(
+        globs
+            .decide_str("tests/integration/test_api.py")
+            .is_allowed()
+    );
 
     // Denied.
-    assert_eq!(globs.decide_str("target/debug/mybinary"), MatchDecision::DeniedByExclude);
-    assert_eq!(globs.decide_str(".git/objects/ab/1234"), MatchDecision::DeniedByExclude);
-    assert_eq!(globs.decide_str("frontend/node_modules/lodash/index.js"), MatchDecision::DeniedByExclude);
-    assert_eq!(globs.decide_str("build/lib.o"), MatchDecision::DeniedByExclude);
-    assert_eq!(globs.decide_str("lib/binding.so"), MatchDecision::DeniedByExclude);
-    assert_eq!(globs.decide_str("scripts/__pycache__/util.pyc"), MatchDecision::DeniedByExclude);
-    assert_eq!(globs.decide_str("folder/.DS_Store"), MatchDecision::DeniedByExclude);
+    assert_eq!(
+        globs.decide_str("target/debug/mybinary"),
+        MatchDecision::DeniedByExclude
+    );
+    assert_eq!(
+        globs.decide_str(".git/objects/ab/1234"),
+        MatchDecision::DeniedByExclude
+    );
+    assert_eq!(
+        globs.decide_str("frontend/node_modules/lodash/index.js"),
+        MatchDecision::DeniedByExclude
+    );
+    assert_eq!(
+        globs.decide_str("build/lib.o"),
+        MatchDecision::DeniedByExclude
+    );
+    assert_eq!(
+        globs.decide_str("lib/binding.so"),
+        MatchDecision::DeniedByExclude
+    );
+    assert_eq!(
+        globs.decide_str("scripts/__pycache__/util.pyc"),
+        MatchDecision::DeniedByExclude
+    );
+    assert_eq!(
+        globs.decide_str("folder/.DS_Store"),
+        MatchDecision::DeniedByExclude
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -543,21 +594,33 @@ fn sequential_compilation_independence() {
     // First compilation: include only .rs files.
     let globs1 = IncludeExcludeGlobs::new(&[s("**/*.rs")], &[]).expect("first compile");
     assert!(globs1.decide_str("src/lib.rs").is_allowed());
-    assert_eq!(globs1.decide_str("src/lib.py"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        globs1.decide_str("src/lib.py"),
+        MatchDecision::DeniedByMissingInclude
+    );
 
     // Second compilation: include only .py files.
     let globs2 = IncludeExcludeGlobs::new(&[s("**/*.py")], &[]).expect("second compile");
     assert!(globs2.decide_str("src/lib.py").is_allowed());
-    assert_eq!(globs2.decide_str("src/lib.rs"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        globs2.decide_str("src/lib.rs"),
+        MatchDecision::DeniedByMissingInclude
+    );
 
     // First glob set still works the same — no cross-contamination.
     assert!(globs1.decide_str("src/lib.rs").is_allowed());
-    assert_eq!(globs1.decide_str("src/lib.py"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        globs1.decide_str("src/lib.py"),
+        MatchDecision::DeniedByMissingInclude
+    );
 
     // Third compilation: different exclude.
     let globs3 = IncludeExcludeGlobs::new(&[s("**")], &[s("**/secret/**")]).expect("third compile");
     assert!(globs3.decide_str("src/lib.rs").is_allowed());
-    assert_eq!(globs3.decide_str("src/secret/key.pem"), MatchDecision::DeniedByExclude);
+    assert_eq!(
+        globs3.decide_str("src/secret/key.pem"),
+        MatchDecision::DeniedByExclude
+    );
 
     // Previous compiles unaffected.
     assert!(globs1.decide_str("src/secret/key.rs").is_allowed());
@@ -576,10 +639,7 @@ fn path_with_50_plus_segments() {
     let deep_rs = format!("{}/leaf.rs", segments.join("/"));
     let _deep_txt = format!("{}/leaf.txt", segments.join("/"));
 
-    let globs = IncludeExcludeGlobs::new(
-        &[s("**/*.rs")],
-        &[s("**/seg50/**")],
-    ).expect("compile");
+    let globs = IncludeExcludeGlobs::new(&[s("**/*.rs")], &[s("**/seg50/**")]).expect("compile");
 
     // The path passes through seg50, so exclude fires.
     assert_eq!(globs.decide_str(&deep_rs), MatchDecision::DeniedByExclude);
@@ -591,7 +651,10 @@ fn path_with_50_plus_segments() {
 
     // Wrong extension + no exclude hit.
     let safe_txt = format!("{}/leaf.txt", safe_segments.join("/"));
-    assert_eq!(globs.decide_str(&safe_txt), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        globs.decide_str(&safe_txt),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -605,7 +668,8 @@ fn ten_thousand_candidates_with_mixed_rules() {
     let globs = IncludeExcludeGlobs::new(
         &[s("app/**/*.rs"), s("lib/**/*.rs")],
         &[s("**/generated/**")],
-    ).expect("compile");
+    )
+    .expect("compile");
 
     let mut allowed = 0u32;
     let mut denied_exclude = 0u32;
@@ -613,11 +677,11 @@ fn ten_thousand_candidates_with_mixed_rules() {
 
     for i in 0..10_000 {
         let path = match i % 5 {
-            0 => format!("app/mod_{i}/code.rs"),          // include match, no exclude
-            1 => format!("lib/mod_{i}/code.rs"),           // include match, no exclude
+            0 => format!("app/mod_{i}/code.rs"), // include match, no exclude
+            1 => format!("lib/mod_{i}/code.rs"), // include match, no exclude
             2 => format!("app/generated/mod_{i}/code.rs"), // include match + exclude match
-            3 => format!("docs/page_{i}.md"),              // no include match
-            _ => format!("lib/generated/out_{i}.rs"),      // include match + exclude match
+            3 => format!("docs/page_{i}.md"),    // no include match
+            _ => format!("lib/generated/out_{i}.rs"), // include match + exclude match
         };
         match globs.decide_str(&path) {
             MatchDecision::Allowed => allowed += 1,
@@ -626,7 +690,7 @@ fn ten_thousand_candidates_with_mixed_rules() {
         }
     }
 
-    assert_eq!(allowed, 4000);        // groups 0 + 1
+    assert_eq!(allowed, 4000); // groups 0 + 1
     assert_eq!(denied_exclude, 4000); // groups 2 + 4
     assert_eq!(denied_include, 2000); // group 3
 }

@@ -144,10 +144,7 @@ fn all_crates_have_license() {
             other => bad.push((name, other)),
         }
     }
-    assert!(
-        bad.is_empty(),
-        "Crates with wrong/missing license: {bad:?}"
-    );
+    assert!(bad.is_empty(), "Crates with wrong/missing license: {bad:?}");
 }
 
 // ── 6. Version consistency ──────────────────────────────────────────────
@@ -392,10 +389,7 @@ fn all_crates_have_repository() {
             missing.push(name);
         }
     }
-    assert!(
-        missing.is_empty(),
-        "Crates missing repository: {missing:?}"
-    );
+    assert!(missing.is_empty(), "Crates missing repository: {missing:?}");
 }
 
 // ── 14. Keywords ────────────────────────────────────────────────────────
@@ -420,10 +414,7 @@ fn all_crates_have_keywords() {
             missing.push(name);
         }
     }
-    assert!(
-        missing.is_empty(),
-        "Crates missing keywords: {missing:?}"
-    );
+    assert!(missing.is_empty(), "Crates missing keywords: {missing:?}");
 }
 
 // ── 15. CI workflow ─────────────────────────────────────────────────────
@@ -573,10 +564,7 @@ fn no_wildcard_dependencies() {
             }
         }
     }
-    assert!(
-        bad.is_empty(),
-        "Wildcard dependencies found: {bad:?}"
-    );
+    assert!(bad.is_empty(), "Wildcard dependencies found: {bad:?}");
 }
 
 // ── 22. Workspace license field ─────────────────────────────────────────

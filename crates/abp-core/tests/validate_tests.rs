@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use abp_core::validate::{validate_receipt, ValidationError};
+use abp_core::validate::{ValidationError, validate_receipt};
 use abp_core::*;
 use chrono::Utc;
 use uuid::Uuid;
@@ -52,7 +52,10 @@ fn wrong_hash_fails() {
     let mut r = valid_receipt();
     r.receipt_sha256 = Some("badhash".into());
     let errs = validate_receipt(&r).unwrap_err();
-    assert!(errs.iter().any(|e| matches!(e, ValidationError::InvalidHash { .. })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, ValidationError::InvalidHash { .. }))
+    );
 }
 
 #[test]
@@ -66,7 +69,10 @@ fn mismatched_contract_version_fails() {
     let mut r = valid_receipt();
     r.meta.contract_version = "abp/v999".into();
     let errs = validate_receipt(&r).unwrap_err();
-    assert!(errs.iter().any(|e| matches!(e, ValidationError::InvalidOutcome { .. })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, ValidationError::InvalidOutcome { .. }))
+    );
 }
 
 #[test]
@@ -88,5 +94,9 @@ fn multiple_errors_collected() {
     r.receipt_sha256 = Some("badhash".into());
     let errs = validate_receipt(&r).unwrap_err();
     // Should have at least: EmptyBackendId + contract mismatch + hash mismatch
-    assert!(errs.len() >= 3, "expected >=3 errors, got {}: {errs:?}", errs.len());
+    assert!(
+        errs.len() >= 3,
+        "expected >=3 errors, got {}: {errs:?}",
+        errs.len()
+    );
 }

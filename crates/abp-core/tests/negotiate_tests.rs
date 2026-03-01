@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the capability negotiation module.
 
-use abp_core::negotiate::{
-    CapabilityDiff, CapabilityNegotiator, NegotiationRequest,
-};
+use abp_core::negotiate::{CapabilityDiff, CapabilityNegotiator, NegotiationRequest};
 use abp_core::{Capability, CapabilityManifest, SupportLevel};
 
 // ---------------------------------------------------------------------------
@@ -159,11 +157,7 @@ fn negotiate_preferred_appear_as_bonus() {
 #[test]
 fn negotiate_preferred_below_minimum_not_bonus() {
     let m = manifest(&[(Capability::McpClient, SupportLevel::Emulated)]);
-    let r = req(
-        vec![],
-        vec![Capability::McpClient],
-        SupportLevel::Native,
-    );
+    let r = req(vec![], vec![Capability::McpClient], SupportLevel::Native);
     let result = CapabilityNegotiator::negotiate(&r, &m);
     assert!(result.bonus.is_empty());
 }
@@ -190,15 +184,12 @@ fn best_match_returns_none_when_none_compatible() {
 
 #[test]
 fn best_match_selects_highest_score() {
-    let m1 = manifest(&[
-        (Capability::Streaming, SupportLevel::Native),
-    ]);
+    let m1 = manifest(&[(Capability::Streaming, SupportLevel::Native)]);
     let m2 = manifest(&[
         (Capability::Streaming, SupportLevel::Native),
         (Capability::ToolRead, SupportLevel::Native),
     ]);
-    let manifests: Vec<(&str, CapabilityManifest)> =
-        vec![("basic", m1), ("rich", m2.clone())];
+    let manifests: Vec<(&str, CapabilityManifest)> = vec![("basic", m1), ("rich", m2.clone())];
     let r = req(
         vec![Capability::Streaming],
         vec![Capability::ToolRead],
@@ -227,8 +218,7 @@ fn best_match_all_compatible_picks_best() {
         (Capability::Streaming, SupportLevel::Native),
         (Capability::ToolRead, SupportLevel::Native),
     ]);
-    let manifests: Vec<(&str, CapabilityManifest)> =
-        vec![("full", m1), ("partial", m2)];
+    let manifests: Vec<(&str, CapabilityManifest)> = vec![("full", m1), ("partial", m2)];
     let r = req(
         vec![Capability::Streaming],
         vec![Capability::ToolRead, Capability::ToolWrite],
@@ -241,8 +231,7 @@ fn best_match_all_compatible_picks_best() {
 #[test]
 fn best_match_tie_broken_deterministically() {
     let m = manifest(&[(Capability::Streaming, SupportLevel::Native)]);
-    let manifests: Vec<(&str, CapabilityManifest)> =
-        vec![("alpha", m.clone()), ("beta", m)];
+    let manifests: Vec<(&str, CapabilityManifest)> = vec![("alpha", m.clone()), ("beta", m)];
     let r = req(vec![Capability::Streaming], vec![], SupportLevel::Emulated);
     let (name, _) = CapabilityNegotiator::best_match(&r, &manifests).unwrap();
     // Deterministic — same result every call
@@ -312,10 +301,10 @@ fn diff_mixed_changes() {
         (Capability::ToolWrite, SupportLevel::Native),
     ]);
     let new = manifest(&[
-        (Capability::Streaming, SupportLevel::Emulated),  // downgrade
-        (Capability::ToolRead, SupportLevel::Native),      // upgrade
-        (Capability::McpClient, SupportLevel::Native),     // added
-        // ToolWrite removed
+        (Capability::Streaming, SupportLevel::Emulated), // downgrade
+        (Capability::ToolRead, SupportLevel::Native),    // upgrade
+        (Capability::McpClient, SupportLevel::Native),   // added
+                                                         // ToolWrite removed
     ]);
     let d = CapabilityDiff::diff(&old, &new);
     assert_eq!(d.added, vec![Capability::McpClient]);

@@ -9,7 +9,6 @@ fn xtask() -> Command {
     Command::cargo_bin("xtask").unwrap()
 }
 
-
 #[test]
 fn check_subcommand_exists() {
     xtask()
@@ -114,10 +113,7 @@ fn stats_subcommand_exists() {
 
 #[test]
 fn unknown_subcommand_errors() {
-    xtask()
-        .arg("nonexistent-command")
-        .assert()
-        .failure();
+    xtask().arg("nonexistent-command").assert().failure();
 }
 
 #[test]

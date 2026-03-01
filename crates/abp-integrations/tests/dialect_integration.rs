@@ -20,13 +20,15 @@ fn simple_work_order() -> abp_core::WorkOrder {
 }
 
 fn work_order_with_context() -> abp_core::WorkOrder {
-    WorkOrderBuilder::new("Fix the login bug").context(ContextPacket {
-        files: vec!["src/auth.rs".into()],
-        snippets: vec![ContextSnippet {
-            name: "error log".into(),
-            content: "panic at auth.rs:42".into(),
-        }],
-    }).build()
+    WorkOrderBuilder::new("Fix the login bug")
+        .context(ContextPacket {
+            files: vec!["src/auth.rs".into()],
+            snippets: vec![ContextSnippet {
+                name: "error log".into(),
+                content: "panic at auth.rs:42".into(),
+            }],
+        })
+        .build()
 }
 
 // ---------------------------------------------------------------------------
@@ -46,14 +48,20 @@ mod claude {
         assert!(!req.model.is_empty(), "model must be set");
         assert_eq!(req.messages.len(), 1);
         assert_eq!(req.messages[0].role, "user");
-        assert!(req.messages[0].content.contains("Refactor the authentication module"));
+        assert!(
+            req.messages[0]
+                .content
+                .contains("Refactor the authentication module")
+        );
 
         let resp = ClaudeResponse {
             id: "msg_int_1".into(),
             model: req.model.clone(),
             role: "assistant".into(),
             content: vec![
-                ClaudeContentBlock::Text { text: "I'll refactor the auth module.".into() },
+                ClaudeContentBlock::Text {
+                    text: "I'll refactor the auth module.".into(),
+                },
                 ClaudeContentBlock::ToolUse {
                     id: "tu_1".into(),
                     name: "read_file".into(),
@@ -61,11 +69,17 @@ mod claude {
                 },
             ],
             stop_reason: Some("tool_use".into()),
-            usage: Some(ClaudeUsage { input_tokens: 100, output_tokens: 50 }),
+            usage: Some(ClaudeUsage {
+                input_tokens: 100,
+                output_tokens: 50,
+            }),
         };
         let events = map_response(&resp);
         assert_eq!(events.len(), 2);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
+        assert!(matches!(
+            &events[0].kind,
+            AgentEventKind::AssistantMessage { .. }
+        ));
         assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { .. }));
     }
 
@@ -115,12 +129,21 @@ mod codex {
                     arguments: r#"{"command":"cargo test"}"#.into(),
                 },
             ],
-            usage: Some(CodexUsage { input_tokens: 80, output_tokens: 40, total_tokens: 120 }),
+            usage: Some(CodexUsage {
+                input_tokens: 80,
+                output_tokens: 40,
+                total_tokens: 120,
+            }),
         };
         let events = map_response(&resp);
         assert_eq!(events.len(), 2);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
-        assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "shell"));
+        assert!(matches!(
+            &events[0].kind,
+            AgentEventKind::AssistantMessage { .. }
+        ));
+        assert!(
+            matches!(&events[1].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "shell")
+        );
     }
 
     #[test]
@@ -180,8 +203,13 @@ mod gemini {
         };
         let events = map_response(&resp);
         assert_eq!(events.len(), 2);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
-        assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "write_file"));
+        assert!(matches!(
+            &events[0].kind,
+            AgentEventKind::AssistantMessage { .. }
+        ));
+        assert!(
+            matches!(&events[1].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "write_file")
+        );
     }
 
     #[test]
@@ -213,7 +241,11 @@ mod kimi {
         assert!(!req.model.is_empty());
         assert_eq!(req.messages.len(), 1);
         assert_eq!(req.messages[0].role, "user");
-        assert!(req.messages[0].content.contains("Refactor the authentication module"));
+        assert!(
+            req.messages[0]
+                .content
+                .contains("Refactor the authentication module")
+        );
 
         let resp = KimiResponse {
             id: "cmpl_int_1".into(),
@@ -234,12 +266,21 @@ mod kimi {
                 },
                 finish_reason: Some("tool_calls".into()),
             }],
-            usage: Some(KimiUsage { prompt_tokens: 70, completion_tokens: 35, total_tokens: 105 }),
+            usage: Some(KimiUsage {
+                prompt_tokens: 70,
+                completion_tokens: 35,
+                total_tokens: 105,
+            }),
         };
         let events = map_response(&resp);
         assert_eq!(events.len(), 2);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
-        assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "read_file"));
+        assert!(matches!(
+            &events[0].kind,
+            AgentEventKind::AssistantMessage { .. }
+        ));
+        assert!(
+            matches!(&events[1].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "read_file")
+        );
     }
 
     #[test]
@@ -270,7 +311,12 @@ fn projection_abp_to_claude_has_correct_structure() {
     let messages = obj["messages"].as_array().unwrap();
     assert_eq!(messages.len(), 1);
     assert_eq!(messages[0]["role"], "user");
-    assert!(messages[0]["content"].as_str().unwrap().contains("Refactor"));
+    assert!(
+        messages[0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Refactor")
+    );
 }
 
 #[test]
@@ -323,7 +369,12 @@ fn projection_matrix_method_matches_free_fn_for_all_vendors() {
     let wo = simple_work_order();
     let matrix = ProjectionMatrix::new();
 
-    for &dialect in &[Dialect::Claude, Dialect::Codex, Dialect::Gemini, Dialect::Kimi] {
+    for &dialect in &[
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+    ] {
         let method_val = matrix.translate(Dialect::Abp, dialect, &wo).unwrap();
         let free_val = translate(Dialect::Abp, dialect, &wo).unwrap();
         assert_eq!(method_val, free_val, "mismatch for {dialect:?}");
@@ -339,7 +390,12 @@ fn translation_is_deterministic_across_runs() {
     // Build the WorkOrder once (fixed ID via clone) and translate twice.
     let wo = simple_work_order();
 
-    for &dialect in &[Dialect::Claude, Dialect::Codex, Dialect::Gemini, Dialect::Kimi] {
+    for &dialect in &[
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+    ] {
         let first = translate(Dialect::Abp, dialect, &wo).unwrap();
         let second = translate(Dialect::Abp, dialect, &wo).unwrap();
         assert_eq!(
@@ -364,7 +420,12 @@ fn identity_translation_is_deterministic() {
 fn context_preserved_in_all_vendor_translations() {
     let wo = work_order_with_context();
 
-    for &dialect in &[Dialect::Claude, Dialect::Codex, Dialect::Gemini, Dialect::Kimi] {
+    for &dialect in &[
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+    ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
         let json = val.to_string();
         assert!(

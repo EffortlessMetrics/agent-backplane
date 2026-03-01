@@ -78,8 +78,7 @@ impl WorkspaceTemplate {
                 fs::create_dir_all(parent)
                     .with_context(|| format!("create dir {}", parent.display()))?;
             }
-            fs::write(&dest, content)
-                .with_context(|| format!("write {}", dest.display()))?;
+            fs::write(&dest, content).with_context(|| format!("write {}", dest.display()))?;
             written += 1;
         }
         Ok(written)

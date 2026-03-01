@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! BDD-style tests for Agent Backplane work order scenarios.
 
-use cucumber::{given, then, when, World as _};
+use cucumber::{World as _, given, then, when};
 use tokio_stream::StreamExt;
 
 use abp_core::{

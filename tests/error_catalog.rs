@@ -28,7 +28,9 @@ fn check_anyhow_roundtrip<E: Error + Send + Sync + 'static + Clone>(err: E) {
     let display_after = anyhow_err.to_string();
     assert_eq!(display_before, display_after);
     // Downcast back
-    let downcasted = anyhow_err.downcast_ref::<E>().expect("downcast should succeed");
+    let downcasted = anyhow_err
+        .downcast_ref::<E>()
+        .expect("downcast should succeed");
     assert_eq!(downcasted.to_string(), display_before);
 }
 
@@ -51,8 +53,10 @@ mod contract_error {
         let serde_err = bad_json.unwrap_err();
         let err = ContractError::Json(serde_err);
         let msg = err.to_string();
-        assert!(msg.contains("serialize") || msg.contains("JSON") || msg.contains("json"),
-            "ContractError::Json Display should mention JSON: {msg}");
+        assert!(
+            msg.contains("serialize") || msg.contains("JSON") || msg.contains("json"),
+            "ContractError::Json Display should mention JSON: {msg}"
+        );
         check_display_debug(&err);
     }
 
@@ -61,7 +65,12 @@ mod contract_error {
         let serde_err = serde_json::from_str::<serde_json::Value>("!").unwrap_err();
         let err = ContractError::Json(serde_err);
         assert!(err.source().is_some(), "Json variant should have a source");
-        assert!(err.source().unwrap().downcast_ref::<serde_json::Error>().is_some());
+        assert!(
+            err.source()
+                .unwrap()
+                .downcast_ref::<serde_json::Error>()
+                .is_some()
+        );
     }
 
     #[test]
@@ -76,8 +85,11 @@ mod contract_error {
         let serde_err = serde_json::from_str::<serde_json::Value>("{bad").unwrap_err();
         let err = ContractError::Json(serde_err);
         let anyhow_err: anyhow::Error = err.into();
-        assert!(anyhow_err.to_string().contains("JSON") || anyhow_err.to_string().contains("json")
-            || anyhow_err.to_string().contains("serialize"));
+        assert!(
+            anyhow_err.to_string().contains("JSON")
+                || anyhow_err.to_string().contains("json")
+                || anyhow_err.to_string().contains("serialize")
+        );
         assert!(anyhow_err.downcast_ref::<ContractError>().is_some());
     }
 }
@@ -97,9 +109,14 @@ mod validation_error {
 
     #[test]
     fn missing_field_display() {
-        let err = ValidationError::MissingField { field: "backend_id" };
+        let err = ValidationError::MissingField {
+            field: "backend_id",
+        };
         let msg = err.to_string();
-        assert!(msg.contains("backend_id"), "should mention the field name: {msg}");
+        assert!(
+            msg.contains("backend_id"),
+            "should mention the field name: {msg}"
+        );
         assert!(msg.contains("missing"), "should mention 'missing': {msg}");
         check_display_debug(&err);
     }
@@ -111,7 +128,10 @@ mod validation_error {
             actual: "def456".into(),
         };
         let msg = err.to_string();
-        assert!(msg.contains("abc123"), "should include expected hash: {msg}");
+        assert!(
+            msg.contains("abc123"),
+            "should include expected hash: {msg}"
+        );
         assert!(msg.contains("def456"), "should include actual hash: {msg}");
         check_display_debug(&err);
     }
@@ -130,7 +150,10 @@ mod validation_error {
             reason: "timestamps are wrong".into(),
         };
         let msg = err.to_string();
-        assert!(msg.contains("timestamps are wrong"), "should include reason: {msg}");
+        assert!(
+            msg.contains("timestamps are wrong"),
+            "should include reason: {msg}"
+        );
         check_display_debug(&err);
     }
 
@@ -139,12 +162,18 @@ mod validation_error {
         // ValidationError is a leaf error; no underlying cause.
         let variants: Vec<ValidationError> = vec![
             ValidationError::MissingField { field: "x" },
-            ValidationError::InvalidHash { expected: "a".into(), actual: "b".into() },
+            ValidationError::InvalidHash {
+                expected: "a".into(),
+                actual: "b".into(),
+            },
             ValidationError::EmptyBackendId,
             ValidationError::InvalidOutcome { reason: "r".into() },
         ];
         for v in &variants {
-            assert!(v.source().is_none(), "ValidationError should have no source: {v}");
+            assert!(
+                v.source().is_none(),
+                "ValidationError should have no source: {v}"
+            );
         }
     }
 
@@ -153,7 +182,10 @@ mod validation_error {
         // Compile-time exhaustiveness: pattern-match all variants.
         let variants: Vec<ValidationError> = vec![
             ValidationError::MissingField { field: "f" },
-            ValidationError::InvalidHash { expected: "e".into(), actual: "a".into() },
+            ValidationError::InvalidHash {
+                expected: "e".into(),
+                actual: "a".into(),
+            },
             ValidationError::EmptyBackendId,
             ValidationError::InvalidOutcome { reason: "r".into() },
         ];
@@ -198,8 +230,11 @@ mod protocol_error {
     fn json_variant() {
         let serde_err = serde_json::from_str::<serde_json::Value>("{bad").unwrap_err();
         let err = ProtocolError::Json(serde_err);
-        assert!(err.to_string().contains("JSON") || err.to_string().contains("json")
-            || err.to_string().contains("invalid"));
+        assert!(
+            err.to_string().contains("JSON")
+                || err.to_string().contains("json")
+                || err.to_string().contains("invalid")
+        );
         assert!(err.source().is_some());
         check_display_debug(&err);
     }
@@ -255,7 +290,10 @@ mod protocol_error {
             ProtocolError::Json(serde_err),
             ProtocolError::Io(io::Error::other("x")),
             ProtocolError::Violation("v".into()),
-            ProtocolError::UnexpectedMessage { expected: "a".into(), got: "b".into() },
+            ProtocolError::UnexpectedMessage {
+                expected: "a".into(),
+                got: "b".into(),
+            },
         ];
         for v in &variants {
             match v {
@@ -349,8 +387,10 @@ mod host_error {
 
         let err_none = HostError::Exited { code: None };
         let msg_none = err_none.to_string();
-        assert!(msg_none.contains("None") || msg_none.contains("exited"),
-            "should handle None code: {msg_none}");
+        assert!(
+            msg_none.contains("None") || msg_none.contains("exited"),
+            "should handle None code: {msg_none}"
+        );
         check_display_debug(&err_none);
     }
 
@@ -404,11 +444,18 @@ mod runtime_error {
 
     #[test]
     fn unknown_backend_variant() {
-        let err = RuntimeError::UnknownBackend { name: "nonexistent".into() };
+        let err = RuntimeError::UnknownBackend {
+            name: "nonexistent".into(),
+        };
         let msg = err.to_string();
-        assert!(msg.contains("nonexistent"), "should include backend name: {msg}");
-        assert!(msg.contains("unknown") || msg.contains("backend"),
-            "should mention unknown backend: {msg}");
+        assert!(
+            msg.contains("nonexistent"),
+            "should include backend name: {msg}"
+        );
+        assert!(
+            msg.contains("unknown") || msg.contains("backend"),
+            "should mention unknown backend: {msg}"
+        );
         assert!(err.source().is_none());
         check_display_debug(&err);
     }
@@ -418,7 +465,10 @@ mod runtime_error {
         let err = RuntimeError::WorkspaceFailed(anyhow::anyhow!("disk full"));
         let msg = err.to_string();
         assert!(msg.contains("workspace"), "should mention workspace: {msg}");
-        assert!(err.source().is_some(), "should chain the inner anyhow error");
+        assert!(
+            err.source().is_some(),
+            "should chain the inner anyhow error"
+        );
         check_display_debug(&err);
     }
 
@@ -442,7 +492,10 @@ mod runtime_error {
     fn capability_check_failed_variant() {
         let err = RuntimeError::CapabilityCheckFailed("streaming not supported".into());
         let msg = err.to_string();
-        assert!(msg.contains("streaming not supported"), "should include details: {msg}");
+        assert!(
+            msg.contains("streaming not supported"),
+            "should include details: {msg}"
+        );
         assert!(err.source().is_none());
         check_display_debug(&err);
     }
@@ -498,7 +551,10 @@ mod config_error {
         };
         let msg = err.to_string();
         assert!(msg.contains("my-sidecar"), "should include name: {msg}");
-        assert!(msg.contains("command is empty"), "should include reason: {msg}");
+        assert!(
+            msg.contains("command is empty"),
+            "should include reason: {msg}"
+        );
         check_display_debug(&err);
     }
 
@@ -513,7 +569,9 @@ mod config_error {
 
     #[test]
     fn missing_required_field_display() {
-        let err = ConfigError::MissingRequiredField { field: "backend name".into() };
+        let err = ConfigError::MissingRequiredField {
+            field: "backend name".into(),
+        };
         let msg = err.to_string();
         assert!(msg.contains("backend name"), "should include field: {msg}");
         assert!(msg.contains("missing"), "should mention missing: {msg}");
@@ -523,19 +581,28 @@ mod config_error {
     #[test]
     fn no_source_for_config_errors() {
         let variants: Vec<ConfigError> = vec![
-            ConfigError::InvalidBackend { name: "x".into(), reason: "r".into() },
+            ConfigError::InvalidBackend {
+                name: "x".into(),
+                reason: "r".into(),
+            },
             ConfigError::InvalidTimeout { value: 99999 },
             ConfigError::MissingRequiredField { field: "f".into() },
         ];
         for v in &variants {
-            assert!(v.source().is_none(), "ConfigError should have no source: {v}");
+            assert!(
+                v.source().is_none(),
+                "ConfigError should have no source: {v}"
+            );
         }
     }
 
     #[test]
     fn exhaustive_variants() {
         let variants: Vec<ConfigError> = vec![
-            ConfigError::InvalidBackend { name: "n".into(), reason: "r".into() },
+            ConfigError::InvalidBackend {
+                name: "n".into(),
+                reason: "r".into(),
+            },
             ConfigError::InvalidTimeout { value: 100 },
             ConfigError::MissingRequiredField { field: "f".into() },
         ];
@@ -555,9 +622,7 @@ mod config_error {
             name: "x".into(),
             reason: "bad".into(),
         });
-        check_anyhow_roundtrip(ConfigError::MissingRequiredField {
-            field: "f".into(),
-        });
+        check_anyhow_roundtrip(ConfigError::MissingRequiredField { field: "f".into() });
     }
 }
 
@@ -838,7 +903,9 @@ mod error_conversion_paths {
 
         let src1 = bridge.source().expect("BridgeError should have source");
         assert!(src1.downcast_ref::<sidecar_kit::SidecarError>().is_some());
-        let src2 = src1.source().expect("SidecarError::Spawn should have source");
+        let src2 = src1
+            .source()
+            .expect("SidecarError::Spawn should have source");
         assert!(src2.downcast_ref::<io::Error>().is_some());
     }
 }
@@ -855,8 +922,10 @@ mod error_messages_quality {
         };
         let msg = err.to_string();
         // Should tell the user which backend was not found
-        assert!(msg.contains("openai-gpt4"),
-            "Error should include the attempted backend name for debugging: {msg}");
+        assert!(
+            msg.contains("openai-gpt4"),
+            "Error should include the attempted backend name for debugging: {msg}"
+        );
     }
 
     #[test]
@@ -866,8 +935,10 @@ mod error_messages_quality {
             actual: "bbbb2222".into(),
         };
         let msg = err.to_string();
-        assert!(msg.contains("aaaa1111") && msg.contains("bbbb2222"),
-            "Hash mismatch error should show both values for debugging: {msg}");
+        assert!(
+            msg.contains("aaaa1111") && msg.contains("bbbb2222"),
+            "Hash mismatch error should show both values for debugging: {msg}"
+        );
     }
 
     #[test]
@@ -877,10 +948,14 @@ mod error_messages_quality {
             reason: "command not found".into(),
         };
         let msg = err.to_string();
-        assert!(msg.contains("my-broken-sidecar"),
-            "Should name the problematic backend: {msg}");
-        assert!(msg.contains("command not found"),
-            "Should include the reason: {msg}");
+        assert!(
+            msg.contains("my-broken-sidecar"),
+            "Should name the problematic backend: {msg}"
+        );
+        assert!(
+            msg.contains("command not found"),
+            "Should include the reason: {msg}"
+        );
     }
 
     #[test]
@@ -890,23 +965,26 @@ mod error_messages_quality {
             got: "event".into(),
         };
         let msg = err.to_string();
-        assert!(msg.contains("hello") && msg.contains("event"),
-            "Should show both expected and actual message types: {msg}");
+        assert!(
+            msg.contains("hello") && msg.contains("event"),
+            "Should show both expected and actual message types: {msg}"
+        );
     }
 
     #[test]
     fn host_error_exit_code_is_visible() {
         let err = abp_host::HostError::Exited { code: Some(137) };
         let msg = err.to_string();
-        assert!(msg.contains("137"),
-            "Should show the exit code for signal debugging: {msg}");
+        assert!(
+            msg.contains("137"),
+            "Should show the exit code for signal debugging: {msg}"
+        );
     }
 
     #[test]
     fn sidecar_error_exit_code_is_visible() {
         let err = sidecar_kit::SidecarError::Exited(Some(2));
         let msg = err.to_string();
-        assert!(msg.contains('2'),
-            "Should show the exit code: {msg}");
+        assert!(msg.contains('2'), "Should show the exit code: {msg}");
     }
 }

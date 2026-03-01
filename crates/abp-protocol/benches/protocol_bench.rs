@@ -2,8 +2,8 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 use abp_core::{AgentEvent, AgentEventKind};
-use abp_protocol::{Envelope, JsonlCodec};
 use abp_protocol::codec::StreamingCodec;
+use abp_protocol::{Envelope, JsonlCodec};
 use chrono::Utc;
 
 // ---------------------------------------------------------------------------

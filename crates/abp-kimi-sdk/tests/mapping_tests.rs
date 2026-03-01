@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the Kimi SDK dialect mapping.
 
-use abp_kimi_sdk::dialect::{
-    map_response, map_work_order, KimiChoice, KimiConfig, KimiFunctionCall, KimiResponse,
-    KimiResponseMessage, KimiToolCall,
-};
 use abp_core::{AgentEventKind, ContextPacket, ContextSnippet, WorkOrderBuilder};
+use abp_kimi_sdk::dialect::{
+    KimiChoice, KimiConfig, KimiFunctionCall, KimiResponse, KimiResponseMessage, KimiToolCall,
+    map_response, map_work_order,
+};
 
 #[test]
 fn work_order_maps_to_correct_kimi_request_fields() {
@@ -22,7 +22,11 @@ fn work_order_maps_to_correct_kimi_request_fields() {
     assert_eq!(req.max_tokens, Some(2048));
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0].content.contains("Optimize database queries"));
+    assert!(
+        req.messages[0]
+            .content
+            .contains("Optimize database queries")
+    );
 }
 
 #[test]
@@ -43,7 +47,9 @@ fn context_snippets_are_included_in_user_message() {
             content: "Important context here.".into(),
         }],
     };
-    let wo = WorkOrderBuilder::new("Summarize notes").context(ctx).build();
+    let wo = WorkOrderBuilder::new("Summarize notes")
+        .context(ctx)
+        .build();
     let cfg = KimiConfig::default();
     let req = map_work_order(&wo, &cfg);
 
@@ -76,7 +82,10 @@ fn response_with_content_and_tool_calls_produces_events() {
     };
     let events = map_response(&resp);
     assert_eq!(events.len(), 2);
-    assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
+    assert!(matches!(
+        &events[0].kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
     assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { .. }));
 }
 

@@ -305,14 +305,18 @@ impl ErrorCode {
         match self {
             // Contract
             Self::InvalidContractVersion => "The contract version string is invalid or unsupported",
-            Self::MalformedWorkOrder => "The work order could not be parsed or is structurally invalid",
+            Self::MalformedWorkOrder => {
+                "The work order could not be parsed or is structurally invalid"
+            }
             Self::MalformedReceipt => "The receipt could not be parsed or is structurally invalid",
             Self::InvalidHash => "The receipt hash does not match the recomputed canonical hash",
             Self::MissingRequiredField => "A required field is missing or empty",
             Self::InvalidWorkOrderId => "The work order ID is invalid (e.g. nil UUID)",
             Self::InvalidRunId => "The run ID is invalid (e.g. nil UUID)",
             Self::DuplicateWorkOrderId => "A work order with the same ID already exists",
-            Self::ContractVersionMismatch => "The contract version does not match the expected version",
+            Self::ContractVersionMismatch => {
+                "The contract version does not match the expected version"
+            }
             Self::InvalidOutcome => "The outcome value is invalid for the current state",
             Self::InvalidExecutionLane => "The execution lane value is not recognized",
             Self::InvalidExecutionMode => "The execution mode value is not recognized",
@@ -320,7 +324,9 @@ impl ErrorCode {
             // Protocol
             Self::InvalidEnvelope => "The JSONL envelope could not be parsed",
             Self::HandshakeFailed => "The sidecar handshake (hello exchange) failed",
-            Self::UnexpectedMessage => "Received a message not expected in the current protocol state",
+            Self::UnexpectedMessage => {
+                "Received a message not expected in the current protocol state"
+            }
             Self::VersionMismatch => "The protocol version does not match between host and sidecar",
             Self::MalformedJsonl => "A JSONL line could not be parsed as valid JSON",
             Self::InvalidRefId => "The ref_id does not match the active run",
@@ -335,7 +341,9 @@ impl ErrorCode {
             Self::ToolDenied => "The requested tool is on the deny list",
             Self::ReadDenied => "Read access to the path is denied by policy",
             Self::WriteDenied => "Write access to the path is denied by policy",
-            Self::PolicyCompilationFailed => "The policy profile could not be compiled into a policy engine",
+            Self::PolicyCompilationFailed => {
+                "The policy profile could not be compiled into a policy engine"
+            }
             Self::CapabilityNotSupported => "The backend does not support a required capability",
             Self::NetworkDenied => "Network access to the domain is denied by policy",
             Self::ApprovalRequired => "The tool requires explicit approval before execution",
@@ -357,14 +365,18 @@ impl ErrorCode {
             Self::BudgetExceeded => "The run exceeded the configured cost budget",
             Self::BackendMismatch => "The backend identity does not match the expected backend",
             Self::RunAlreadyCompleted => "The run has already been marked as completed",
-            Self::NoBackendRegistered => "No backend has been registered for the requested identifier",
+            Self::NoBackendRegistered => {
+                "No backend has been registered for the requested identifier"
+            }
 
             // System
             Self::IoError => "An I/O operation failed",
             Self::SerializationError => "JSON serialization or deserialization failed",
             Self::InternalError => "An unexpected internal error occurred",
             Self::ConfigurationError => "The configuration is invalid or incomplete",
-            Self::ResourceExhausted => "A system resource (memory, file handles, etc.) is exhausted",
+            Self::ResourceExhausted => {
+                "A system resource (memory, file handles, etc.) is exhausted"
+            }
             Self::Utf8Error => "A byte sequence could not be decoded as valid UTF-8",
             Self::TaskJoinError => "An async task failed to join",
             Self::ChannelClosed => "An internal channel was closed unexpectedly",
@@ -531,7 +543,9 @@ impl fmt::Debug for ErrorInfo {
 
 impl std::error::Error for ErrorInfo {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_ref().map(|e| e.as_ref() as &(dyn std::error::Error + 'static))
+        self.source
+            .as_ref()
+            .map(|e| e.as_ref() as &(dyn std::error::Error + 'static))
     }
 }
 

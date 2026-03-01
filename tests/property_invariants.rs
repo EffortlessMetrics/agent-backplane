@@ -3,16 +3,15 @@
 
 use std::path::Path;
 
-use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest,
-    ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, RunMetadata, RuntimeConfig, UsageNormalized, VerificationReport,
-    WorkOrderBuilder, WorkOrder, WorkspaceMode, WorkspaceSpec, CapabilityRequirements,
-    CONTRACT_VERSION,
-};
 use abp_core::chain::ReceiptChain;
 use abp_core::filter::EventFilter;
 use abp_core::stream::EventStream;
+use abp_core::{
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
+    Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, UsageNormalized, VerificationReport,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, receipt_hash,
+};
 use abp_policy::PolicyEngine;
 use abp_protocol::version::{ProtocolVersion, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec};
@@ -30,9 +29,8 @@ fn arb_uuid() -> impl Strategy<Value = Uuid> {
 
 fn arb_datetime() -> impl Strategy<Value = DateTime<Utc>> {
     // Range of valid timestamps (2020-01-01 to 2030-01-01)
-    (1_577_836_800i64..1_893_456_000i64).prop_map(|secs| {
-        Utc.timestamp_opt(secs, 0).single().unwrap()
-    })
+    (1_577_836_800i64..1_893_456_000i64)
+        .prop_map(|secs| Utc.timestamp_opt(secs, 0).single().unwrap())
 }
 
 fn arb_outcome() -> impl Strategy<Value = Outcome> {
@@ -44,7 +42,10 @@ fn arb_outcome() -> impl Strategy<Value = Outcome> {
 }
 
 fn arb_execution_mode() -> impl Strategy<Value = ExecutionMode> {
-    prop_oneof![Just(ExecutionMode::Passthrough), Just(ExecutionMode::Mapped),]
+    prop_oneof![
+        Just(ExecutionMode::Passthrough),
+        Just(ExecutionMode::Mapped),
+    ]
 }
 
 fn arb_execution_lane() -> impl Strategy<Value = ExecutionLane> {
@@ -198,17 +199,14 @@ fn arb_work_order() -> impl Strategy<Value = WorkOrder> {
 fn arb_envelope() -> impl Strategy<Value = Envelope> {
     prop_oneof![
         arb_backend_identity().prop_map(|bi| Envelope::hello(bi, CapabilityManifest::new())),
-        (arb_safe_string(), arb_work_order()).prop_map(|(id, wo)| Envelope::Run {
-            id,
-            work_order: wo,
-        }),
+        (arb_safe_string(), arb_work_order())
+            .prop_map(|(id, wo)| Envelope::Run { id, work_order: wo }),
         (arb_safe_string(), arb_agent_event())
             .prop_map(|(ref_id, event)| Envelope::Event { ref_id, event }),
-        (arb_safe_string(), arb_safe_string())
-            .prop_map(|(ref_id, error)| Envelope::Fatal {
-                ref_id: Some(ref_id),
-                error,
-            }),
+        (arb_safe_string(), arb_safe_string()).prop_map(|(ref_id, error)| Envelope::Fatal {
+            ref_id: Some(ref_id),
+            error,
+        }),
     ]
 }
 

@@ -38,9 +38,6 @@ fn snapshot_mapped_response_events() {
             output_tokens: 35,
         }),
     };
-    let events: Vec<_> = map_response(&resp)
-        .into_iter()
-        .map(|e| e.kind)
-        .collect();
+    let events: Vec<_> = map_response(&resp).into_iter().map(|e| e.kind).collect();
     assert_json_snapshot!("claude_mapped_response_events", events);
 }

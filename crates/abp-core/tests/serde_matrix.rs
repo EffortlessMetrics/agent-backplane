@@ -12,8 +12,8 @@ use std::collections::BTreeMap;
 
 use abp_core::*;
 use chrono::Utc;
-use serde::{de::DeserializeOwned, Serialize};
-use serde_json::{json, Value};
+use serde::{Serialize, de::DeserializeOwned};
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 // ---------------------------------------------------------------------------
@@ -150,7 +150,9 @@ fn sample_receipt_full() -> Receipt {
 }
 
 fn sample_receipt_minimal() -> Receipt {
-    ReceiptBuilder::new("mock").outcome(Outcome::Complete).build()
+    ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build()
 }
 
 // ===========================================================================
@@ -334,7 +336,12 @@ fn agent_event_tool_call_null_optionals() {
         "input": {}
     });
     let e: AgentEvent = serde_json::from_value(v).unwrap();
-    if let AgentEventKind::ToolCall { tool_use_id, parent_tool_use_id, .. } = &e.kind {
+    if let AgentEventKind::ToolCall {
+        tool_use_id,
+        parent_tool_use_id,
+        ..
+    } = &e.kind
+    {
         assert!(tool_use_id.is_none());
         assert!(parent_tool_use_id.is_none());
     } else {
@@ -396,7 +403,12 @@ fn agent_event_command_executed_null_optionals() {
         "output_preview": null
     });
     let e: AgentEvent = serde_json::from_value(v).unwrap();
-    if let AgentEventKind::CommandExecuted { exit_code, output_preview, .. } = &e.kind {
+    if let AgentEventKind::CommandExecuted {
+        exit_code,
+        output_preview,
+        ..
+    } = &e.kind
+    {
         assert!(exit_code.is_none());
         assert!(output_preview.is_none());
     } else {
@@ -608,8 +620,14 @@ fn execution_mode_all_variants_roundtrip() {
     assert_roundtrip(&ExecutionMode::Passthrough);
     assert_roundtrip(&ExecutionMode::Mapped);
 
-    assert_eq!(serde_json::to_value(ExecutionMode::Passthrough).unwrap(), json!("passthrough"));
-    assert_eq!(serde_json::to_value(ExecutionMode::Mapped).unwrap(), json!("mapped"));
+    assert_eq!(
+        serde_json::to_value(ExecutionMode::Passthrough).unwrap(),
+        json!("passthrough")
+    );
+    assert_eq!(
+        serde_json::to_value(ExecutionMode::Mapped).unwrap(),
+        json!("mapped")
+    );
 }
 
 #[test]
@@ -627,7 +645,10 @@ fn execution_lane_all_variants_roundtrip() {
     assert_roundtrip(&ExecutionLane::PatchFirst);
     assert_roundtrip(&ExecutionLane::WorkspaceFirst);
 
-    assert_eq!(serde_json::to_value(ExecutionLane::PatchFirst).unwrap(), json!("patch_first"));
+    assert_eq!(
+        serde_json::to_value(ExecutionLane::PatchFirst).unwrap(),
+        json!("patch_first")
+    );
     assert_eq!(
         serde_json::to_value(ExecutionLane::WorkspaceFirst).unwrap(),
         json!("workspace_first")
@@ -649,8 +670,14 @@ fn workspace_mode_all_variants_roundtrip() {
     assert_roundtrip(&WorkspaceMode::PassThrough);
     assert_roundtrip(&WorkspaceMode::Staged);
 
-    assert_eq!(serde_json::to_value(WorkspaceMode::PassThrough).unwrap(), json!("pass_through"));
-    assert_eq!(serde_json::to_value(WorkspaceMode::Staged).unwrap(), json!("staged"));
+    assert_eq!(
+        serde_json::to_value(WorkspaceMode::PassThrough).unwrap(),
+        json!("pass_through")
+    );
+    assert_eq!(
+        serde_json::to_value(WorkspaceMode::Staged).unwrap(),
+        json!("staged")
+    );
 }
 
 #[test]
@@ -669,9 +696,18 @@ fn outcome_all_variants_roundtrip() {
     assert_roundtrip(&Outcome::Partial);
     assert_roundtrip(&Outcome::Failed);
 
-    assert_eq!(serde_json::to_value(Outcome::Complete).unwrap(), json!("complete"));
-    assert_eq!(serde_json::to_value(Outcome::Partial).unwrap(), json!("partial"));
-    assert_eq!(serde_json::to_value(Outcome::Failed).unwrap(), json!("failed"));
+    assert_eq!(
+        serde_json::to_value(Outcome::Complete).unwrap(),
+        json!("complete")
+    );
+    assert_eq!(
+        serde_json::to_value(Outcome::Partial).unwrap(),
+        json!("partial")
+    );
+    assert_eq!(
+        serde_json::to_value(Outcome::Failed).unwrap(),
+        json!("failed")
+    );
 }
 
 #[test]
@@ -705,7 +741,11 @@ fn capability_requirement_emulated_roundtrip() {
 
 #[test]
 fn capability_requirement_all_combos_roundtrip() {
-    let capabilities = [Capability::ToolRead, Capability::McpClient, Capability::Streaming];
+    let capabilities = [
+        Capability::ToolRead,
+        Capability::McpClient,
+        Capability::Streaming,
+    ];
     let supports = [MinSupport::Native, MinSupport::Emulated];
 
     for cap in &capabilities {

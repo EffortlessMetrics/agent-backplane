@@ -150,15 +150,30 @@ fn evaluate_no_rules_returns_allow() {
 #[test]
 fn evaluate_single_matching_rule() {
     let mut engine = RuleEngine::new();
-    engine.add_rule(make_rule("deny-all", RuleCondition::Always, RuleEffect::Deny, 1));
+    engine.add_rule(make_rule(
+        "deny-all",
+        RuleCondition::Always,
+        RuleEffect::Deny,
+        1,
+    ));
     assert_eq!(engine.evaluate("foo"), RuleEffect::Deny);
 }
 
 #[test]
 fn evaluate_highest_priority_wins() {
     let mut engine = RuleEngine::new();
-    engine.add_rule(make_rule("low", RuleCondition::Always, RuleEffect::Allow, 1));
-    engine.add_rule(make_rule("high", RuleCondition::Always, RuleEffect::Deny, 10));
+    engine.add_rule(make_rule(
+        "low",
+        RuleCondition::Always,
+        RuleEffect::Allow,
+        1,
+    ));
+    engine.add_rule(make_rule(
+        "high",
+        RuleCondition::Always,
+        RuleEffect::Deny,
+        10,
+    ));
     assert_eq!(engine.evaluate("foo"), RuleEffect::Deny);
 }
 
@@ -171,7 +186,12 @@ fn evaluate_only_matching_rules_considered() {
         RuleEffect::Deny,
         10,
     ));
-    engine.add_rule(make_rule("allow-all", RuleCondition::Always, RuleEffect::Allow, 1));
+    engine.add_rule(make_rule(
+        "allow-all",
+        RuleCondition::Always,
+        RuleEffect::Allow,
+        1,
+    ));
 
     assert_eq!(engine.evaluate("main.rs"), RuleEffect::Deny);
     assert_eq!(engine.evaluate("main.py"), RuleEffect::Allow);
@@ -235,8 +255,18 @@ fn evaluate_all_empty_engine() {
 #[test]
 fn equal_priority_first_inserted_wins() {
     let mut engine = RuleEngine::new();
-    engine.add_rule(make_rule("first", RuleCondition::Always, RuleEffect::Allow, 5));
-    engine.add_rule(make_rule("second", RuleCondition::Always, RuleEffect::Deny, 5));
+    engine.add_rule(make_rule(
+        "first",
+        RuleCondition::Always,
+        RuleEffect::Allow,
+        5,
+    ));
+    engine.add_rule(make_rule(
+        "second",
+        RuleCondition::Always,
+        RuleEffect::Deny,
+        5,
+    ));
     // max_by_key is stable — last match wins with equal keys,
     // but we intentionally accept either. The important thing is
     // that the engine doesn't panic and returns a valid effect.

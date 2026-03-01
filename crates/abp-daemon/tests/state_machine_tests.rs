@@ -231,10 +231,7 @@ async fn run_lookup_by_id() {
 
     tracker.start_run(id1).await.unwrap();
     tracker.start_run(id2).await.unwrap();
-    tracker
-        .fail_run(id2, "err".into())
-        .await
-        .unwrap();
+    tracker.fail_run(id2, "err".into()).await.unwrap();
 
     assert!(matches!(
         tracker.get_run_status(id1).await.unwrap(),
@@ -263,10 +260,7 @@ async fn list_filtering_by_state() {
 
     let receipt = make_receipt("mock", Outcome::Complete);
     tracker.complete_run(completed_id, receipt).await.unwrap();
-    tracker
-        .fail_run(failed_id, "err".into())
-        .await
-        .unwrap();
+    tracker.fail_run(failed_id, "err".into()).await.unwrap();
 
     let runs = tracker.list_runs().await;
 
@@ -350,10 +344,7 @@ async fn receipt_attached_to_completed_run() {
     match tracker.get_run_status(id).await.unwrap() {
         RunStatus::Completed { receipt: stored } => {
             assert_eq!(stored.backend.id, "openai");
-            assert_eq!(
-                stored.backend.backend_version.as_deref(),
-                Some("v1.2.3")
-            );
+            assert_eq!(stored.backend.backend_version.as_deref(), Some("v1.2.3"));
         }
         other => panic!("expected Completed, got {other:?}"),
     }
@@ -370,11 +361,15 @@ async fn idempotent_completion_overwrites() {
 
     tracker.start_run(id).await.unwrap();
 
-    let r1 = ReceiptBuilder::new("first").outcome(Outcome::Complete).build();
+    let r1 = ReceiptBuilder::new("first")
+        .outcome(Outcome::Complete)
+        .build();
     tracker.complete_run(id, r1).await.unwrap();
 
     // Completing again overwrites (the API allows it since the key exists).
-    let r2 = ReceiptBuilder::new("second").outcome(Outcome::Complete).build();
+    let r2 = ReceiptBuilder::new("second")
+        .outcome(Outcome::Complete)
+        .build();
     tracker.complete_run(id, r2).await.unwrap();
 
     match tracker.get_run_status(id).await.unwrap() {
@@ -411,10 +406,7 @@ async fn run_metadata_all_fields_preserved() {
             assert_eq!(receipt.meta.work_order_id, wo_id);
             assert_eq!(receipt.backend.id, "anthropic");
             assert_eq!(receipt.backend.backend_version.as_deref(), Some("claude-3"));
-            assert_eq!(
-                receipt.backend.adapter_version.as_deref(),
-                Some("0.5.0")
-            );
+            assert_eq!(receipt.backend.adapter_version.as_deref(), Some("0.5.0"));
             assert!(matches!(receipt.outcome, Outcome::Partial));
             assert_eq!(receipt.usage_raw, serde_json::json!({"tokens": 42}));
         }
@@ -519,10 +511,7 @@ async fn backend_tracking_in_receipt() {
     match tracker.get_run_status(id).await.unwrap() {
         RunStatus::Completed { receipt } => {
             assert_eq!(receipt.backend.id, "sidecar:node");
-            assert_eq!(
-                receipt.backend.backend_version.as_deref(),
-                Some("18.0.0")
-            );
+            assert_eq!(receipt.backend.backend_version.as_deref(), Some("18.0.0"));
         }
         other => panic!("expected Completed, got {other:?}"),
     }
@@ -602,10 +591,7 @@ async fn stats_computation() {
 
     // Fail next 3.
     for &id in &ids[6..9] {
-        tracker
-            .fail_run(id, "error".into())
-            .await
-            .unwrap();
+        tracker.fail_run(id, "error".into()).await.unwrap();
     }
     // ids[9] stays Running.
 
@@ -681,9 +667,7 @@ async fn failed_run_preserves_outcome_enum() {
     let id = Uuid::new_v4();
 
     // Build a receipt with Failed outcome and attach via complete_run.
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Failed)
-        .build();
+    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
 
     tracker.start_run(id).await.unwrap();
     tracker.complete_run(id, receipt).await.unwrap();

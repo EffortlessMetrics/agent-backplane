@@ -8,8 +8,8 @@
 use abp_core::{AgentEvent, Receipt, WorkOrder};
 use std::sync::Arc;
 
-use crate::telemetry::RunMetrics;
 use crate::RuntimeError;
+use crate::telemetry::RunMetrics;
 
 // ---------------------------------------------------------------------------
 // Trait
@@ -159,10 +159,7 @@ impl LifecycleHook for LoggingHook {
         Ok(())
     }
 
-    fn on_event(
-        &self,
-        event: &AgentEvent,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    fn on_event(&self, event: &AgentEvent) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         tracing::debug!(target: "abp.hooks", ?event, "agent event");
         Ok(())
     }

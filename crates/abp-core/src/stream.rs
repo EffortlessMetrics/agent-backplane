@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use crate::filter::EventFilter;
-use crate::{filter::kind_name, AgentEvent};
+use crate::{AgentEvent, filter::kind_name};
 
 /// A wrapper around a `Vec<AgentEvent>` providing combinator utilities.
 #[derive(Debug, Clone)]
@@ -57,7 +57,12 @@ impl EventStream {
     #[must_use]
     pub fn filter(&self, f: &EventFilter) -> Self {
         Self {
-            events: self.events.iter().filter(|e| f.matches(e)).cloned().collect(),
+            events: self
+                .events
+                .iter()
+                .filter(|e| f.matches(e))
+                .cloned()
+                .collect(),
         }
     }
 
@@ -97,7 +102,10 @@ impl EventStream {
     #[must_use]
     pub fn last_of_kind(&self, kind: &str) -> Option<&AgentEvent> {
         let lower = kind.to_ascii_lowercase();
-        self.events.iter().rev().find(|e| kind_name(&e.kind) == lower)
+        self.events
+            .iter()
+            .rev()
+            .find(|e| kind_name(&e.kind) == lower)
     }
 
     /// Wall-clock duration between the first and last event timestamps.

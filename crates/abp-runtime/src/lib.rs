@@ -13,28 +13,28 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// Budget enforcement for runtime runs.
+pub mod budget;
+/// Broadcast-based event bus for decoupled event distribution.
+pub mod bus;
 /// Cancellation primitives for runtime runs.
 pub mod cancel;
+pub mod hooks;
+pub mod multiplex;
+/// Observability primitives: tracing spans and runtime observer.
+pub mod observe;
 /// Processing pipeline for work order pre-processing.
 pub mod pipeline;
 /// Backend registry for named backend lookup.
 pub mod registry;
-/// Receipt persistence and retrieval.
-pub mod store;
 /// Retry policies and timeout configuration for resilient backend execution.
 pub mod retry;
-/// Telemetry and metrics collection.
-pub mod telemetry;
-/// Budget enforcement for runtime runs.
-pub mod budget;
-pub mod multiplex;
-pub mod hooks;
-/// Broadcast-based event bus for decoupled event distribution.
-pub mod bus;
-/// Observability primitives: tracing spans and runtime observer.
-pub mod observe;
 /// Additional built-in pipeline stages, builder, and execution helpers.
 pub mod stages;
+/// Receipt persistence and retrieval.
+pub mod store;
+/// Telemetry and metrics collection.
+pub mod telemetry;
 
 use abp_core::{AgentEvent, CapabilityRequirements, ExecutionMode, Outcome, Receipt, WorkOrder};
 use abp_integrations::{Backend, ensure_capability_requirements};

@@ -2,11 +2,11 @@
 use abp_daemon::middleware::{
     CorsConfig, RateLimiter, RequestId, RequestLogger, request_id_middleware,
 };
+use axum::Router;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use axum::middleware;
 use axum::routing::get;
-use axum::Router;
 use http_body_util::BodyExt;
 use std::collections::HashSet;
 use std::time::Duration;
@@ -23,10 +23,7 @@ fn app_with_request_id() -> Router {
 fn app_with_logger() -> Router {
     Router::new()
         .route("/ok", get(|| async { "ok" }))
-        .route(
-            "/not-found",
-            get(|| async { StatusCode::NOT_FOUND }),
-        )
+        .route("/not-found", get(|| async { StatusCode::NOT_FOUND }))
         .route(
             "/error",
             get(|| async { StatusCode::INTERNAL_SERVER_ERROR }),
@@ -47,7 +44,10 @@ async fn request_id_is_generated() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);
-    let hdr = resp.headers().get("x-request-id").expect("missing x-request-id");
+    let hdr = resp
+        .headers()
+        .get("x-request-id")
+        .expect("missing x-request-id");
     let parsed: uuid::Uuid = hdr.to_str().unwrap().parse().expect("not a valid uuid");
     assert_ne!(parsed, uuid::Uuid::nil());
 }
@@ -80,7 +80,7 @@ async fn request_id_available_as_extension() {
     let app = Router::new()
         .route(
             "/ext",
-            get(|ext: axum::Extension<RequestId>| async move { ext.0 .0.to_string() }),
+            get(|ext: axum::Extension<RequestId>| async move { ext.0.0.to_string() }),
         )
         .layer(middleware::from_fn(request_id_middleware));
 
@@ -189,7 +189,10 @@ async fn rate_limiter_blocks_over_limit() {
 async fn rate_limiter_check_method_works() {
     let limiter = RateLimiter::new(1, Duration::from_secs(60));
     assert!(limiter.check().await.is_ok());
-    assert_eq!(limiter.check().await.unwrap_err(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(
+        limiter.check().await.unwrap_err(),
+        StatusCode::TOO_MANY_REQUESTS
+    );
 }
 
 // -----------------------------------------------------------------------

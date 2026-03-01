@@ -24,11 +24,7 @@ fn all_error_codes_are_unique() {
     let all = ErrorCatalog::all();
     let mut seen = HashSet::new();
     for code in &all {
-        assert!(
-            seen.insert(code.code()),
-            "duplicate code: {}",
-            code.code()
-        );
+        assert!(seen.insert(code.code()), "duplicate code: {}", code.code());
     }
 }
 
@@ -104,10 +100,7 @@ fn category_system_non_empty() {
 
 #[test]
 fn all_categories_covered() {
-    let categories: HashSet<&str> = ErrorCatalog::all()
-        .iter()
-        .map(|c| c.category())
-        .collect();
+    let categories: HashSet<&str> = ErrorCatalog::all().iter().map(|c| c.category()).collect();
     for expected in &["contract", "protocol", "policy", "runtime", "system"] {
         assert!(
             categories.contains(expected),
@@ -183,8 +176,7 @@ fn error_info_display_basic() {
 
 #[test]
 fn error_info_display_with_context() {
-    let info = ErrorInfo::new(ErrorCode::ReadDenied, "blocked")
-        .with_context("path", "/etc/shadow");
+    let info = ErrorInfo::new(ErrorCode::ReadDenied, "blocked").with_context("path", "/etc/shadow");
     let s = info.to_string();
     assert!(s.contains("ABP-L002"));
     assert!(s.contains("path=/etc/shadow"));
@@ -221,8 +213,7 @@ fn error_info_empty_context_by_default() {
 #[test]
 fn error_info_with_source() {
     let io_err = io::Error::new(io::ErrorKind::NotFound, "gone");
-    let info = ErrorInfo::new(ErrorCode::IoError, "file not found")
-        .with_source(io_err);
+    let info = ErrorInfo::new(ErrorCode::IoError, "file not found").with_source(io_err);
     assert!(info.source.is_some());
 
     // std::error::Error::source() works
@@ -278,7 +269,8 @@ fn code_letter_matches_category() {
         let expected_letter = letter_map[code.category()];
         let actual_letter = code.code().chars().nth(4).unwrap();
         assert_eq!(
-            actual_letter, expected_letter,
+            actual_letter,
+            expected_letter,
             "{:?}: code {} has letter '{}' but category is '{}'",
             code,
             code.code(),

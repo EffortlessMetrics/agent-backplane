@@ -28,11 +28,13 @@ pub use codec::JsonlCodec;
 pub use error::SidecarError;
 pub use frame::Frame;
 pub use middleware::{EventMiddleware, FilterMiddleware, LoggingMiddleware, MiddlewareChain};
-pub use pipeline::{EventPipeline, PipelineError, PipelineStage, RedactStage, TimestampStage, ValidateStage};
+pub use pipeline::{
+    EventPipeline, PipelineError, PipelineStage, RedactStage, TimestampStage, ValidateStage,
+};
 pub use process::SidecarProcess;
 pub use run::RawRun;
 pub use spec::ProcessSpec;
 pub use transform::{
-    EnrichTransformer, EventTransformer, FilterTransformer, RedactTransformer,
-    ThrottleTransformer, TimestampTransformer, TransformerChain,
+    EnrichTransformer, EventTransformer, FilterTransformer, RedactTransformer, ThrottleTransformer,
+    TimestampTransformer, TransformerChain,
 };

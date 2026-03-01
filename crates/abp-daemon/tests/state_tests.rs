@@ -62,10 +62,7 @@ async fn list_runs_shows_all_tracked() {
 
     tracker.start_run(id1).await.unwrap();
     tracker.start_run(id2).await.unwrap();
-    tracker
-        .fail_run(id2, "oops".into())
-        .await
-        .unwrap();
+    tracker.fail_run(id2, "oops".into()).await.unwrap();
 
     let runs = tracker.list_runs().await;
     assert_eq!(runs.len(), 2);

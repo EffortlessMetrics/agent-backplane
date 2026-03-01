@@ -201,16 +201,17 @@ impl MetricsRegistry {
         }
         // Slow path: write lock.
         let mut map = self.backends.write().expect("metrics registry poisoned");
-        Arc::clone(map.entry(name.to_string()).or_insert_with(|| Arc::new(BackendMetrics::new())))
+        Arc::clone(
+            map.entry(name.to_string())
+                .or_insert_with(|| Arc::new(BackendMetrics::new())),
+        )
     }
 
     /// Take a snapshot of every registered backend's metrics.
     #[must_use]
     pub fn snapshot_all(&self) -> BTreeMap<String, MetricsSnapshot> {
         let map = self.backends.read().expect("metrics registry poisoned");
-        map.iter()
-            .map(|(k, v)| (k.clone(), v.snapshot()))
-            .collect()
+        map.iter().map(|(k, v)| (k.clone(), v.snapshot())).collect()
     }
 }
 

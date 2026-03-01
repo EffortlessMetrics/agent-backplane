@@ -25,12 +25,10 @@ use uuid::Uuid;
 // ── helpers ──────────────────────────────────────────────────────────
 
 const FIXED_UUID: Uuid = Uuid::from_bytes([
-    0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-    0x10,
+    0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
 ]);
 const FIXED_UUID2: Uuid = Uuid::from_bytes([
-    0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
-    0x99,
+    0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99,
 ]);
 
 fn fixed_timestamp() -> chrono::DateTime<Utc> {
@@ -214,7 +212,10 @@ fn btreemap_vendor_keys_are_alphabetical() {
     let keys: Vec<&String> = vendor.keys().collect();
     let mut sorted = keys.clone();
     sorted.sort();
-    assert_eq!(keys, sorted, "Vendor map keys should be in alphabetical order");
+    assert_eq!(
+        keys, sorted,
+        "Vendor map keys should be in alphabetical order"
+    );
 }
 
 #[test]
@@ -413,8 +414,7 @@ fn glob_patterns_produce_same_results() {
 
     for _ in 0..100 {
         let globs = IncludeExcludeGlobs::new(&include, &exclude).unwrap();
-        let results: Vec<MatchDecision> =
-            paths.iter().map(|p| globs.decide_str(p)).collect();
+        let results: Vec<MatchDecision> = paths.iter().map(|p| globs.decide_str(p)).collect();
         assert_eq!(results, reference);
     }
 }
@@ -425,7 +425,12 @@ fn glob_path_vs_str_consistency() {
     let exclude = vec!["src/secret/**".into()];
     let globs = IncludeExcludeGlobs::new(&include, &exclude).unwrap();
 
-    let cases = ["src/lib.rs", "src/secret/key.pem", "README.md", "tests/it.rs"];
+    let cases = [
+        "src/lib.rs",
+        "src/secret/key.pem",
+        "README.md",
+        "tests/it.rs",
+    ];
     for _ in 0..100 {
         for c in &cases {
             assert_eq!(
@@ -444,14 +449,10 @@ fn projection_matrix_identity_is_deterministic() {
     let matrix = ProjectionMatrix::new();
     let wo = make_work_order();
 
-    let reference = matrix
-        .translate(Dialect::Abp, Dialect::Abp, &wo)
-        .unwrap();
+    let reference = matrix.translate(Dialect::Abp, Dialect::Abp, &wo).unwrap();
 
     for i in 0..100 {
-        let result = matrix
-            .translate(Dialect::Abp, Dialect::Abp, &wo)
-            .unwrap();
+        let result = matrix.translate(Dialect::Abp, Dialect::Abp, &wo).unwrap();
         assert_eq!(
             result, reference,
             "Identity translation diverged on iteration {i}"
@@ -484,7 +485,12 @@ fn projection_matrix_all_vendors_deterministic() {
     let matrix = ProjectionMatrix::new();
     let wo = make_work_order();
 
-    let targets = [Dialect::Claude, Dialect::Codex, Dialect::Gemini, Dialect::Kimi];
+    let targets = [
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+    ];
     let references: Vec<serde_json::Value> = targets
         .iter()
         .map(|t| matrix.translate(Dialect::Abp, *t, &wo).unwrap())

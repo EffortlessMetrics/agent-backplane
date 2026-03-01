@@ -2,7 +2,7 @@
 //! Integration tests for the Claude SDK dialect mapping.
 
 use abp_claude_sdk::dialect::{
-    map_response, map_work_order, ClaudeConfig, ClaudeContentBlock, ClaudeResponse,
+    ClaudeConfig, ClaudeContentBlock, ClaudeResponse, map_response, map_work_order,
 };
 use abp_core::{AgentEventKind, ContextPacket, ContextSnippet, WorkOrderBuilder};
 
@@ -71,7 +71,10 @@ fn response_with_multiple_blocks_produces_multiple_events() {
     };
     let events = map_response(&resp);
     assert_eq!(events.len(), 2);
-    assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
+    assert!(matches!(
+        &events[0].kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
     assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { .. }));
 }
 

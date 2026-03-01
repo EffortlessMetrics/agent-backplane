@@ -20,11 +20,7 @@ pub const DEFAULT_MODEL: &str = "moonshot-v1-8k";
 // ---------------------------------------------------------------------------
 
 /// Known Moonshot Kimi model identifiers.
-const KNOWN_MODELS: &[&str] = &[
-    "moonshot-v1-8k",
-    "moonshot-v1-32k",
-    "moonshot-v1-128k",
-];
+const KNOWN_MODELS: &[&str] = &["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"];
 
 /// Map a vendor model name to the ABP canonical form (`moonshot/<model>`).
 #[must_use]
@@ -63,7 +59,10 @@ pub fn capability_manifest() -> CapabilityManifest {
     m.insert(Capability::ToolEdit, SupportLevel::Unsupported);
     m.insert(Capability::ToolBash, SupportLevel::Unsupported);
     m.insert(Capability::ToolWebSearch, SupportLevel::Native);
-    m.insert(Capability::StructuredOutputJsonSchema, SupportLevel::Emulated);
+    m.insert(
+        Capability::StructuredOutputJsonSchema,
+        SupportLevel::Emulated,
+    );
     m.insert(Capability::McpClient, SupportLevel::Unsupported);
     m.insert(Capability::McpServer, SupportLevel::Unsupported);
     m
@@ -234,7 +233,10 @@ pub fn map_work_order(wo: &WorkOrder, config: &KimiConfig) -> KimiRequest {
 
     let mut user_content = wo.task.clone();
     for snippet in &wo.context.snippets {
-        user_content.push_str(&format!("\n\n--- {} ---\n{}", snippet.name, snippet.content));
+        user_content.push_str(&format!(
+            "\n\n--- {} ---\n{}",
+            snippet.name, snippet.content
+        ));
     }
 
     KimiRequest {
@@ -259,9 +261,7 @@ pub fn map_response(resp: &KimiResponse) -> Vec<AgentEvent> {
         {
             events.push(AgentEvent {
                 ts: now,
-                kind: AgentEventKind::AssistantMessage {
-                    text: text.clone(),
-                },
+                kind: AgentEventKind::AssistantMessage { text: text.clone() },
                 ext: None,
             });
         }
@@ -308,12 +308,18 @@ mod tests {
 
         assert_eq!(req.messages.len(), 1);
         assert_eq!(req.messages[0].role, "user");
-        assert!(req.messages[0].content.contains("Optimize database queries"));
+        assert!(
+            req.messages[0]
+                .content
+                .contains("Optimize database queries")
+        );
     }
 
     #[test]
     fn map_work_order_respects_model_override() {
-        let wo = WorkOrderBuilder::new("task").model("moonshot-v1-128k").build();
+        let wo = WorkOrderBuilder::new("task")
+            .model("moonshot-v1-128k")
+            .build();
         let cfg = KimiConfig::default();
         let req = map_work_order(&wo, &cfg);
 
@@ -372,7 +378,11 @@ mod tests {
         let events = map_response(&resp);
         assert_eq!(events.len(), 1);
         match &events[0].kind {
-            AgentEventKind::ToolCall { tool_name, tool_use_id, .. } => {
+            AgentEventKind::ToolCall {
+                tool_name,
+                tool_use_id,
+                ..
+            } => {
                 assert_eq!(tool_name, "web_search");
                 assert_eq!(tool_use_id.as_deref(), Some("call_1"));
             }

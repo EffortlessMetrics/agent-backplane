@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Tests for the process management utilities.
 
-use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::SidecarSpec;
+use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use chrono::Utc;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -210,7 +210,10 @@ fn timeout_serialises_as_millis() {
 
     let json = serde_json::to_string(&cfg).unwrap();
     // Duration of 1500ms should serialize as the integer 1500.
-    assert!(json.contains("1500"), "expected millis value in json: {json}");
+    assert!(
+        json.contains("1500"),
+        "expected millis value in json: {json}"
+    );
 
     let back: ProcessConfig = serde_json::from_str(&json).unwrap();
     assert_eq!(back.timeout, Some(Duration::from_millis(1500)));

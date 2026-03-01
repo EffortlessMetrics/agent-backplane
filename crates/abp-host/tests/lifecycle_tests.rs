@@ -342,8 +342,7 @@ fn lifecycle_discover_from_hosts_dir() {
         return;
     }
 
-    let registry =
-        SidecarRegistry::discover_from_dir(&hosts).expect("discover should succeed");
+    let registry = SidecarRegistry::discover_from_dir(&hosts).expect("discover should succeed");
 
     let names = registry.list();
     assert!(

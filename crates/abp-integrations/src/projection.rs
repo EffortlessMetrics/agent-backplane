@@ -157,12 +157,7 @@ impl ProjectionMatrix {
     /// # Errors
     ///
     /// Returns an error if either dialect name is unknown.
-    pub fn translate_tool_call(
-        &self,
-        from: &str,
-        to: &str,
-        call: &ToolCall,
-    ) -> Result<ToolCall> {
+    pub fn translate_tool_call(&self, from: &str, to: &str, call: &ToolCall) -> Result<ToolCall> {
         self.validate_dialects(from, to)?;
         if from == to {
             return Ok(call.clone());
@@ -220,12 +215,7 @@ impl ProjectionMatrix {
     /// # Errors
     ///
     /// Returns an error if either dialect name is unknown.
-    pub fn translate_event(
-        &self,
-        from: &str,
-        to: &str,
-        event: &AgentEvent,
-    ) -> Result<AgentEvent> {
+    pub fn translate_event(&self, from: &str, to: &str, event: &AgentEvent) -> Result<AgentEvent> {
         self.validate_dialects(from, to)?;
         if from == to {
             return Ok(event.clone());
@@ -350,210 +340,306 @@ impl ProjectionMatrix {
         // ── Tool name mappings ──────────────────────────────────────
 
         // ABP ↔ OpenAI
-        self.register_tool_translation("abp", "openai", &[
-            ("read_file", "file_read"),
-            ("write_file", "file_write"),
-            ("bash", "shell"),
-            ("edit_file", "apply_diff"),
-            ("glob", "file_search"),
-        ]);
-        self.register_tool_translation("openai", "abp", &[
-            ("file_read", "read_file"),
-            ("file_write", "write_file"),
-            ("shell", "bash"),
-            ("apply_diff", "edit_file"),
-            ("file_search", "glob"),
-        ]);
+        self.register_tool_translation(
+            "abp",
+            "openai",
+            &[
+                ("read_file", "file_read"),
+                ("write_file", "file_write"),
+                ("bash", "shell"),
+                ("edit_file", "apply_diff"),
+                ("glob", "file_search"),
+            ],
+        );
+        self.register_tool_translation(
+            "openai",
+            "abp",
+            &[
+                ("file_read", "read_file"),
+                ("file_write", "write_file"),
+                ("shell", "bash"),
+                ("apply_diff", "edit_file"),
+                ("file_search", "glob"),
+            ],
+        );
 
         // ABP ↔ Anthropic
-        self.register_tool_translation("abp", "anthropic", &[
-            ("read_file", "Read"),
-            ("write_file", "Write"),
-            ("bash", "Bash"),
-            ("edit_file", "Edit"),
-            ("glob", "Glob"),
-        ]);
-        self.register_tool_translation("anthropic", "abp", &[
-            ("Read", "read_file"),
-            ("Write", "write_file"),
-            ("Bash", "bash"),
-            ("Edit", "edit_file"),
-            ("Glob", "glob"),
-        ]);
+        self.register_tool_translation(
+            "abp",
+            "anthropic",
+            &[
+                ("read_file", "Read"),
+                ("write_file", "Write"),
+                ("bash", "Bash"),
+                ("edit_file", "Edit"),
+                ("glob", "Glob"),
+            ],
+        );
+        self.register_tool_translation(
+            "anthropic",
+            "abp",
+            &[
+                ("Read", "read_file"),
+                ("Write", "write_file"),
+                ("Bash", "bash"),
+                ("Edit", "edit_file"),
+                ("Glob", "glob"),
+            ],
+        );
 
         // ABP ↔ Gemini
-        self.register_tool_translation("abp", "gemini", &[
-            ("read_file", "readFile"),
-            ("write_file", "writeFile"),
-            ("bash", "executeCommand"),
-            ("edit_file", "editFile"),
-            ("glob", "searchFiles"),
-        ]);
-        self.register_tool_translation("gemini", "abp", &[
-            ("readFile", "read_file"),
-            ("writeFile", "write_file"),
-            ("executeCommand", "bash"),
-            ("editFile", "edit_file"),
-            ("searchFiles", "glob"),
-        ]);
+        self.register_tool_translation(
+            "abp",
+            "gemini",
+            &[
+                ("read_file", "readFile"),
+                ("write_file", "writeFile"),
+                ("bash", "executeCommand"),
+                ("edit_file", "editFile"),
+                ("glob", "searchFiles"),
+            ],
+        );
+        self.register_tool_translation(
+            "gemini",
+            "abp",
+            &[
+                ("readFile", "read_file"),
+                ("writeFile", "write_file"),
+                ("executeCommand", "bash"),
+                ("editFile", "edit_file"),
+                ("searchFiles", "glob"),
+            ],
+        );
 
         // OpenAI ↔ Anthropic
-        self.register_tool_translation("openai", "anthropic", &[
-            ("file_read", "Read"),
-            ("file_write", "Write"),
-            ("shell", "Bash"),
-            ("apply_diff", "Edit"),
-            ("file_search", "Glob"),
-        ]);
-        self.register_tool_translation("anthropic", "openai", &[
-            ("Read", "file_read"),
-            ("Write", "file_write"),
-            ("Bash", "shell"),
-            ("Edit", "apply_diff"),
-            ("Glob", "file_search"),
-        ]);
+        self.register_tool_translation(
+            "openai",
+            "anthropic",
+            &[
+                ("file_read", "Read"),
+                ("file_write", "Write"),
+                ("shell", "Bash"),
+                ("apply_diff", "Edit"),
+                ("file_search", "Glob"),
+            ],
+        );
+        self.register_tool_translation(
+            "anthropic",
+            "openai",
+            &[
+                ("Read", "file_read"),
+                ("Write", "file_write"),
+                ("Bash", "shell"),
+                ("Edit", "apply_diff"),
+                ("Glob", "file_search"),
+            ],
+        );
 
         // OpenAI ↔ Gemini
-        self.register_tool_translation("openai", "gemini", &[
-            ("file_read", "readFile"),
-            ("file_write", "writeFile"),
-            ("shell", "executeCommand"),
-            ("apply_diff", "editFile"),
-            ("file_search", "searchFiles"),
-        ]);
-        self.register_tool_translation("gemini", "openai", &[
-            ("readFile", "file_read"),
-            ("writeFile", "file_write"),
-            ("executeCommand", "shell"),
-            ("editFile", "apply_diff"),
-            ("searchFiles", "file_search"),
-        ]);
+        self.register_tool_translation(
+            "openai",
+            "gemini",
+            &[
+                ("file_read", "readFile"),
+                ("file_write", "writeFile"),
+                ("shell", "executeCommand"),
+                ("apply_diff", "editFile"),
+                ("file_search", "searchFiles"),
+            ],
+        );
+        self.register_tool_translation(
+            "gemini",
+            "openai",
+            &[
+                ("readFile", "file_read"),
+                ("writeFile", "file_write"),
+                ("executeCommand", "shell"),
+                ("editFile", "apply_diff"),
+                ("searchFiles", "file_search"),
+            ],
+        );
 
         // Anthropic ↔ Gemini
-        self.register_tool_translation("anthropic", "gemini", &[
-            ("Read", "readFile"),
-            ("Write", "writeFile"),
-            ("Bash", "executeCommand"),
-            ("Edit", "editFile"),
-            ("Glob", "searchFiles"),
-        ]);
-        self.register_tool_translation("gemini", "anthropic", &[
-            ("readFile", "Read"),
-            ("writeFile", "Write"),
-            ("executeCommand", "Bash"),
-            ("editFile", "Edit"),
-            ("searchFiles", "Glob"),
-        ]);
+        self.register_tool_translation(
+            "anthropic",
+            "gemini",
+            &[
+                ("Read", "readFile"),
+                ("Write", "writeFile"),
+                ("Bash", "executeCommand"),
+                ("Edit", "editFile"),
+                ("Glob", "searchFiles"),
+            ],
+        );
+        self.register_tool_translation(
+            "gemini",
+            "anthropic",
+            &[
+                ("readFile", "Read"),
+                ("writeFile", "Write"),
+                ("executeCommand", "Bash"),
+                ("editFile", "Edit"),
+                ("searchFiles", "Glob"),
+            ],
+        );
 
         // ── Event kind mappings ─────────────────────────────────────
 
         // ABP ↔ OpenAI
-        self.register_event_mapping("abp", "openai", &[
-            ("run_started", "response.created"),
-            ("run_completed", "response.completed"),
-            ("assistant_message", "response.output_text.done"),
-            ("assistant_delta", "response.output_text.delta"),
-            ("tool_call", "function_call"),
-            ("tool_result", "function_call_output"),
-        ]);
-        self.register_event_mapping("openai", "abp", &[
-            ("response.created", "run_started"),
-            ("response.completed", "run_completed"),
-            ("response.output_text.done", "assistant_message"),
-            ("response.output_text.delta", "assistant_delta"),
-            ("function_call", "tool_call"),
-            ("function_call_output", "tool_result"),
-        ]);
+        self.register_event_mapping(
+            "abp",
+            "openai",
+            &[
+                ("run_started", "response.created"),
+                ("run_completed", "response.completed"),
+                ("assistant_message", "response.output_text.done"),
+                ("assistant_delta", "response.output_text.delta"),
+                ("tool_call", "function_call"),
+                ("tool_result", "function_call_output"),
+            ],
+        );
+        self.register_event_mapping(
+            "openai",
+            "abp",
+            &[
+                ("response.created", "run_started"),
+                ("response.completed", "run_completed"),
+                ("response.output_text.done", "assistant_message"),
+                ("response.output_text.delta", "assistant_delta"),
+                ("function_call", "tool_call"),
+                ("function_call_output", "tool_result"),
+            ],
+        );
 
         // ABP ↔ Anthropic
-        self.register_event_mapping("abp", "anthropic", &[
-            ("run_started", "message_start"),
-            ("run_completed", "message_stop"),
-            ("assistant_message", "content_block_stop"),
-            ("assistant_delta", "content_block_delta"),
-            ("tool_call", "tool_use"),
-            ("tool_result", "tool_result"),
-        ]);
-        self.register_event_mapping("anthropic", "abp", &[
-            ("message_start", "run_started"),
-            ("message_stop", "run_completed"),
-            ("content_block_stop", "assistant_message"),
-            ("content_block_delta", "assistant_delta"),
-            ("tool_use", "tool_call"),
-            ("tool_result", "tool_result"),
-        ]);
+        self.register_event_mapping(
+            "abp",
+            "anthropic",
+            &[
+                ("run_started", "message_start"),
+                ("run_completed", "message_stop"),
+                ("assistant_message", "content_block_stop"),
+                ("assistant_delta", "content_block_delta"),
+                ("tool_call", "tool_use"),
+                ("tool_result", "tool_result"),
+            ],
+        );
+        self.register_event_mapping(
+            "anthropic",
+            "abp",
+            &[
+                ("message_start", "run_started"),
+                ("message_stop", "run_completed"),
+                ("content_block_stop", "assistant_message"),
+                ("content_block_delta", "assistant_delta"),
+                ("tool_use", "tool_call"),
+                ("tool_result", "tool_result"),
+            ],
+        );
 
         // ABP ↔ Gemini
-        self.register_event_mapping("abp", "gemini", &[
-            ("run_started", "generate_content_start"),
-            ("run_completed", "generate_content_end"),
-            ("assistant_message", "text"),
-            ("assistant_delta", "text_delta"),
-            ("tool_call", "function_call"),
-            ("tool_result", "function_response"),
-        ]);
-        self.register_event_mapping("gemini", "abp", &[
-            ("generate_content_start", "run_started"),
-            ("generate_content_end", "run_completed"),
-            ("text", "assistant_message"),
-            ("text_delta", "assistant_delta"),
-            ("function_call", "tool_call"),
-            ("function_response", "tool_result"),
-        ]);
+        self.register_event_mapping(
+            "abp",
+            "gemini",
+            &[
+                ("run_started", "generate_content_start"),
+                ("run_completed", "generate_content_end"),
+                ("assistant_message", "text"),
+                ("assistant_delta", "text_delta"),
+                ("tool_call", "function_call"),
+                ("tool_result", "function_response"),
+            ],
+        );
+        self.register_event_mapping(
+            "gemini",
+            "abp",
+            &[
+                ("generate_content_start", "run_started"),
+                ("generate_content_end", "run_completed"),
+                ("text", "assistant_message"),
+                ("text_delta", "assistant_delta"),
+                ("function_call", "tool_call"),
+                ("function_response", "tool_result"),
+            ],
+        );
 
         // OpenAI ↔ Anthropic
-        self.register_event_mapping("openai", "anthropic", &[
-            ("response.created", "message_start"),
-            ("response.completed", "message_stop"),
-            ("response.output_text.done", "content_block_stop"),
-            ("response.output_text.delta", "content_block_delta"),
-            ("function_call", "tool_use"),
-            ("function_call_output", "tool_result"),
-        ]);
-        self.register_event_mapping("anthropic", "openai", &[
-            ("message_start", "response.created"),
-            ("message_stop", "response.completed"),
-            ("content_block_stop", "response.output_text.done"),
-            ("content_block_delta", "response.output_text.delta"),
-            ("tool_use", "function_call"),
-            ("tool_result", "function_call_output"),
-        ]);
+        self.register_event_mapping(
+            "openai",
+            "anthropic",
+            &[
+                ("response.created", "message_start"),
+                ("response.completed", "message_stop"),
+                ("response.output_text.done", "content_block_stop"),
+                ("response.output_text.delta", "content_block_delta"),
+                ("function_call", "tool_use"),
+                ("function_call_output", "tool_result"),
+            ],
+        );
+        self.register_event_mapping(
+            "anthropic",
+            "openai",
+            &[
+                ("message_start", "response.created"),
+                ("message_stop", "response.completed"),
+                ("content_block_stop", "response.output_text.done"),
+                ("content_block_delta", "response.output_text.delta"),
+                ("tool_use", "function_call"),
+                ("tool_result", "function_call_output"),
+            ],
+        );
 
         // OpenAI ↔ Gemini
-        self.register_event_mapping("openai", "gemini", &[
-            ("response.created", "generate_content_start"),
-            ("response.completed", "generate_content_end"),
-            ("response.output_text.done", "text"),
-            ("response.output_text.delta", "text_delta"),
-            ("function_call", "function_call"),
-            ("function_call_output", "function_response"),
-        ]);
-        self.register_event_mapping("gemini", "openai", &[
-            ("generate_content_start", "response.created"),
-            ("generate_content_end", "response.completed"),
-            ("text", "response.output_text.done"),
-            ("text_delta", "response.output_text.delta"),
-            ("function_call", "function_call"),
-            ("function_response", "function_call_output"),
-        ]);
+        self.register_event_mapping(
+            "openai",
+            "gemini",
+            &[
+                ("response.created", "generate_content_start"),
+                ("response.completed", "generate_content_end"),
+                ("response.output_text.done", "text"),
+                ("response.output_text.delta", "text_delta"),
+                ("function_call", "function_call"),
+                ("function_call_output", "function_response"),
+            ],
+        );
+        self.register_event_mapping(
+            "gemini",
+            "openai",
+            &[
+                ("generate_content_start", "response.created"),
+                ("generate_content_end", "response.completed"),
+                ("text", "response.output_text.done"),
+                ("text_delta", "response.output_text.delta"),
+                ("function_call", "function_call"),
+                ("function_response", "function_call_output"),
+            ],
+        );
 
         // Anthropic ↔ Gemini
-        self.register_event_mapping("anthropic", "gemini", &[
-            ("message_start", "generate_content_start"),
-            ("message_stop", "generate_content_end"),
-            ("content_block_stop", "text"),
-            ("content_block_delta", "text_delta"),
-            ("tool_use", "function_call"),
-            ("tool_result", "function_response"),
-        ]);
-        self.register_event_mapping("gemini", "anthropic", &[
-            ("generate_content_start", "message_start"),
-            ("generate_content_end", "message_stop"),
-            ("text", "content_block_stop"),
-            ("text_delta", "content_block_delta"),
-            ("function_call", "tool_use"),
-            ("function_response", "tool_result"),
-        ]);
+        self.register_event_mapping(
+            "anthropic",
+            "gemini",
+            &[
+                ("message_start", "generate_content_start"),
+                ("message_stop", "generate_content_end"),
+                ("content_block_stop", "text"),
+                ("content_block_delta", "text_delta"),
+                ("tool_use", "function_call"),
+                ("tool_result", "function_response"),
+            ],
+        );
+        self.register_event_mapping(
+            "gemini",
+            "anthropic",
+            &[
+                ("generate_content_start", "message_start"),
+                ("generate_content_end", "message_stop"),
+                ("text", "content_block_stop"),
+                ("text_delta", "content_block_delta"),
+                ("function_call", "tool_use"),
+                ("function_response", "tool_result"),
+            ],
+        );
     }
 }
 
@@ -568,7 +654,10 @@ impl ProjectionMatrix {
 fn build_user_content(wo: &WorkOrder) -> String {
     let mut content = wo.task.clone();
     for snippet in &wo.context.snippets {
-        content.push_str(&format!("\n\n--- {} ---\n{}", snippet.name, snippet.content));
+        content.push_str(&format!(
+            "\n\n--- {} ---\n{}",
+            snippet.name, snippet.content
+        ));
     }
     content
 }

@@ -19,14 +19,74 @@ fn sample_events() -> Vec<AgentEvent> {
     let base = Utc::now();
     let ts = |ms: i64| base + ChronoDuration::milliseconds(ms);
     vec![
-        AgentEvent { ts: ts(0), kind: AgentEventKind::RunStarted { message: "go".into() }, ext: None },
-        AgentEvent { ts: ts(100), kind: AgentEventKind::AssistantMessage { text: "hello".into() }, ext: None },
-        AgentEvent { ts: ts(200), kind: AgentEventKind::ToolCall { tool_name: "grep".into(), tool_use_id: None, parent_tool_use_id: None, input: serde_json::json!({}) }, ext: None },
-        AgentEvent { ts: ts(300), kind: AgentEventKind::ToolResult { tool_name: "grep".into(), tool_use_id: None, output: serde_json::json!("result"), is_error: false }, ext: None },
-        AgentEvent { ts: ts(400), kind: AgentEventKind::ToolCall { tool_name: "edit".into(), tool_use_id: None, parent_tool_use_id: None, input: serde_json::json!({}) }, ext: None },
-        AgentEvent { ts: ts(500), kind: AgentEventKind::ToolResult { tool_name: "edit".into(), tool_use_id: None, output: serde_json::json!("ok"), is_error: false }, ext: None },
-        AgentEvent { ts: ts(600), kind: AgentEventKind::AssistantMessage { text: "done editing".into() }, ext: None },
-        AgentEvent { ts: ts(700), kind: AgentEventKind::RunCompleted { message: "finished".into() }, ext: None },
+        AgentEvent {
+            ts: ts(0),
+            kind: AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: ts(100),
+            kind: AgentEventKind::AssistantMessage {
+                text: "hello".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: ts(200),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "grep".into(),
+                tool_use_id: None,
+                parent_tool_use_id: None,
+                input: serde_json::json!({}),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: ts(300),
+            kind: AgentEventKind::ToolResult {
+                tool_name: "grep".into(),
+                tool_use_id: None,
+                output: serde_json::json!("result"),
+                is_error: false,
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: ts(400),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "edit".into(),
+                tool_use_id: None,
+                parent_tool_use_id: None,
+                input: serde_json::json!({}),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: ts(500),
+            kind: AgentEventKind::ToolResult {
+                tool_name: "edit".into(),
+                tool_use_id: None,
+                output: serde_json::json!("ok"),
+                is_error: false,
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: ts(600),
+            kind: AgentEventKind::AssistantMessage {
+                text: "done editing".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: ts(700),
+            kind: AgentEventKind::RunCompleted {
+                message: "finished".into(),
+            },
+            ext: None,
+        },
     ]
 }
 
@@ -47,18 +107,28 @@ fn default_aggregator_is_empty() {
 #[test]
 fn add_increments_count() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::RunStarted { message: "go".into() }));
+    agg.add(&event(AgentEventKind::RunStarted {
+        message: "go".into(),
+    }));
     assert_eq!(agg.event_count(), 1);
-    agg.add(&event(AgentEventKind::RunCompleted { message: "done".into() }));
+    agg.add(&event(AgentEventKind::RunCompleted {
+        message: "done".into(),
+    }));
     assert_eq!(agg.event_count(), 2);
 }
 
 #[test]
 fn count_by_kind_groups_correctly() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::RunStarted { message: "a".into() }));
-    agg.add(&event(AgentEventKind::Warning { message: "w1".into() }));
-    agg.add(&event(AgentEventKind::Warning { message: "w2".into() }));
+    agg.add(&event(AgentEventKind::RunStarted {
+        message: "a".into(),
+    }));
+    agg.add(&event(AgentEventKind::Warning {
+        message: "w1".into(),
+    }));
+    agg.add(&event(AgentEventKind::Warning {
+        message: "w2".into(),
+    }));
     let counts = agg.count_by_kind();
     assert_eq!(counts.get("run_started"), Some(&1));
     assert_eq!(counts.get("warning"), Some(&2));
@@ -87,7 +157,9 @@ fn last_timestamp_none_when_empty() {
 #[test]
 fn timestamps_present_after_add() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::RunStarted { message: "x".into() }));
+    agg.add(&event(AgentEventKind::RunStarted {
+        message: "x".into(),
+    }));
     assert!(agg.first_timestamp().is_some());
     assert!(agg.last_timestamp().is_some());
 }
@@ -101,7 +173,9 @@ fn duration_ms_none_with_zero_events() {
 #[test]
 fn duration_ms_none_with_one_event() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::RunStarted { message: "x".into() }));
+    agg.add(&event(AgentEventKind::RunStarted {
+        message: "x".into(),
+    }));
     assert!(agg.duration_ms().is_none());
 }
 
@@ -109,8 +183,20 @@ fn duration_ms_none_with_one_event() {
 fn duration_ms_computed_from_events() {
     let base = Utc::now();
     let mut agg = EventAggregator::new();
-    agg.add(&AgentEvent { ts: base, kind: AgentEventKind::RunStarted { message: "go".into() }, ext: None });
-    agg.add(&AgentEvent { ts: base + ChronoDuration::milliseconds(500), kind: AgentEventKind::RunCompleted { message: "done".into() }, ext: None });
+    agg.add(&AgentEvent {
+        ts: base,
+        kind: AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
+        ext: None,
+    });
+    agg.add(&AgentEvent {
+        ts: base + ChronoDuration::milliseconds(500),
+        kind: AgentEventKind::RunCompleted {
+            message: "done".into(),
+        },
+        ext: None,
+    });
     assert_eq!(agg.duration_ms(), Some(500));
 }
 
@@ -119,24 +205,51 @@ fn duration_ms_computed_from_events() {
 #[test]
 fn tool_calls_empty_when_no_tool_events() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::RunStarted { message: "go".into() }));
+    agg.add(&event(AgentEventKind::RunStarted {
+        message: "go".into(),
+    }));
     assert!(agg.tool_calls().is_empty());
 }
 
 #[test]
 fn tool_calls_returns_names_in_order() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::ToolCall { tool_name: "grep".into(), tool_use_id: None, parent_tool_use_id: None, input: serde_json::json!({}) }));
-    agg.add(&event(AgentEventKind::ToolCall { tool_name: "edit".into(), tool_use_id: None, parent_tool_use_id: None, input: serde_json::json!({}) }));
+    agg.add(&event(AgentEventKind::ToolCall {
+        tool_name: "grep".into(),
+        tool_use_id: None,
+        parent_tool_use_id: None,
+        input: serde_json::json!({}),
+    }));
+    agg.add(&event(AgentEventKind::ToolCall {
+        tool_name: "edit".into(),
+        tool_use_id: None,
+        parent_tool_use_id: None,
+        input: serde_json::json!({}),
+    }));
     assert_eq!(agg.tool_calls(), vec!["grep", "edit"]);
 }
 
 #[test]
 fn unique_tool_count_deduplicates() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::ToolCall { tool_name: "grep".into(), tool_use_id: None, parent_tool_use_id: None, input: serde_json::json!({}) }));
-    agg.add(&event(AgentEventKind::ToolCall { tool_name: "grep".into(), tool_use_id: None, parent_tool_use_id: None, input: serde_json::json!({}) }));
-    agg.add(&event(AgentEventKind::ToolCall { tool_name: "edit".into(), tool_use_id: None, parent_tool_use_id: None, input: serde_json::json!({}) }));
+    agg.add(&event(AgentEventKind::ToolCall {
+        tool_name: "grep".into(),
+        tool_use_id: None,
+        parent_tool_use_id: None,
+        input: serde_json::json!({}),
+    }));
+    agg.add(&event(AgentEventKind::ToolCall {
+        tool_name: "grep".into(),
+        tool_use_id: None,
+        parent_tool_use_id: None,
+        input: serde_json::json!({}),
+    }));
+    agg.add(&event(AgentEventKind::ToolCall {
+        tool_name: "edit".into(),
+        tool_use_id: None,
+        parent_tool_use_id: None,
+        input: serde_json::json!({}),
+    }));
     assert_eq!(agg.unique_tool_count(), 2);
 }
 
@@ -151,23 +264,33 @@ fn unique_tool_count_zero_when_empty() {
 #[test]
 fn has_errors_false_when_no_errors() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::RunStarted { message: "go".into() }));
+    agg.add(&event(AgentEventKind::RunStarted {
+        message: "go".into(),
+    }));
     assert!(!agg.has_errors());
 }
 
 #[test]
 fn has_errors_true_when_error_present() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::Error { message: "boom".into() }));
+    agg.add(&event(AgentEventKind::Error {
+        message: "boom".into(),
+    }));
     assert!(agg.has_errors());
 }
 
 #[test]
 fn error_messages_collected() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::Error { message: "e1".into() }));
-    agg.add(&event(AgentEventKind::Warning { message: "w".into() }));
-    agg.add(&event(AgentEventKind::Error { message: "e2".into() }));
+    agg.add(&event(AgentEventKind::Error {
+        message: "e1".into(),
+    }));
+    agg.add(&event(AgentEventKind::Warning {
+        message: "w".into(),
+    }));
+    agg.add(&event(AgentEventKind::Error {
+        message: "e2".into(),
+    }));
     assert_eq!(agg.error_messages(), vec!["e1", "e2"]);
 }
 
@@ -182,9 +305,18 @@ fn error_messages_empty_when_none() {
 #[test]
 fn text_length_sums_assistant_text() {
     let mut agg = EventAggregator::new();
-    agg.add(&event(AgentEventKind::AssistantMessage { text: "hello".into() }));        // 5
-    agg.add(&event(AgentEventKind::AssistantDelta { text: "wor".into() }));             // 3
-    agg.add(&event(AgentEventKind::ToolCall { tool_name: "x".into(), tool_use_id: None, parent_tool_use_id: None, input: serde_json::json!({}) })); // 0
+    agg.add(&event(AgentEventKind::AssistantMessage {
+        text: "hello".into(),
+    })); // 5
+    agg.add(&event(AgentEventKind::AssistantDelta {
+        text: "wor".into(),
+    })); // 3
+    agg.add(&event(AgentEventKind::ToolCall {
+        tool_name: "x".into(),
+        tool_use_id: None,
+        parent_tool_use_id: None,
+        input: serde_json::json!({}),
+    })); // 0
     assert_eq!(agg.text_length(), 8);
 }
 
@@ -241,8 +373,12 @@ fn run_analytics_successful_without_errors() {
 #[test]
 fn run_analytics_not_successful_with_errors() {
     let events = vec![
-        event(AgentEventKind::RunStarted { message: "go".into() }),
-        event(AgentEventKind::Error { message: "oops".into() }),
+        event(AgentEventKind::RunStarted {
+            message: "go".into(),
+        }),
+        event(AgentEventKind::Error {
+            message: "oops".into(),
+        }),
     ];
     let analytics = RunAnalytics::from_events(&events);
     assert!(!analytics.is_successful());

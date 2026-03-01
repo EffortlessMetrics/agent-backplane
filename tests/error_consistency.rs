@@ -43,7 +43,10 @@ fn contract_error_display_debug() {
     let json_err: Result<serde_json::Value, _> = serde_json::from_str("{bad");
     let err = abp_core::ContractError::Json(json_err.unwrap_err());
     assert_display_debug(&err);
-    assert!(err.source().is_some(), "ContractError::Json should have source");
+    assert!(
+        err.source().is_some(),
+        "ContractError::Json should have source"
+    );
 }
 
 // ───────────────────────────────── ErrorCode ─────────────────────────────────
@@ -80,15 +83,18 @@ fn error_info_display_debug_source() {
     assert_display_debug(&plain);
     assert!(plain.source().is_none());
 
-    let with_ctx = ErrorInfo::new(ErrorCode::ReadDenied, "forbidden")
-        .with_context("path", "/etc/shadow");
+    let with_ctx =
+        ErrorInfo::new(ErrorCode::ReadDenied, "forbidden").with_context("path", "/etc/shadow");
     assert_display_debug(&with_ctx);
     assert!(with_ctx.to_string().contains("path=/etc/shadow"));
 
     let inner = std::io::Error::new(std::io::ErrorKind::NotFound, "gone");
     let with_src = ErrorInfo::new(ErrorCode::IoError, "read failed").with_source(inner);
     assert_display_debug(&with_src);
-    assert!(with_src.source().is_some(), "ErrorInfo with_source should chain");
+    assert!(
+        with_src.source().is_some(),
+        "ErrorInfo with_source should chain"
+    );
 }
 
 // ───────────────────────────────── ValidationError ──────────────────────────
@@ -168,10 +174,16 @@ fn protocol_error_source_chains() {
 
     let json_err: Result<serde_json::Value, _> = serde_json::from_str("{bad");
     let err = ProtocolError::Json(json_err.unwrap_err());
-    assert!(err.source().is_some(), "ProtocolError::Json should chain source");
+    assert!(
+        err.source().is_some(),
+        "ProtocolError::Json should chain source"
+    );
 
     let err = ProtocolError::Io(std::io::Error::other("x"));
-    assert!(err.source().is_some(), "ProtocolError::Io should chain source");
+    assert!(
+        err.source().is_some(),
+        "ProtocolError::Io should chain source"
+    );
 
     let err = ProtocolError::Violation("v".into());
     assert!(err.source().is_none());
@@ -207,9 +219,7 @@ fn runtime_error_display_debug() {
     use abp_runtime::RuntimeError;
 
     let variants: Vec<RuntimeError> = vec![
-        RuntimeError::UnknownBackend {
-            name: "foo".into(),
-        },
+        RuntimeError::UnknownBackend { name: "foo".into() },
         RuntimeError::WorkspaceFailed(anyhow::anyhow!("temp dir")),
         RuntimeError::PolicyFailed(anyhow::anyhow!("bad glob")),
         RuntimeError::BackendFailed(anyhow::anyhow!("timeout")),
@@ -230,7 +240,10 @@ fn runtime_error_source_chains() {
     assert!(err.source().is_none());
 
     let err = RuntimeError::WorkspaceFailed(anyhow::anyhow!("boom"));
-    assert!(err.source().is_some(), "WorkspaceFailed should chain source");
+    assert!(
+        err.source().is_some(),
+        "WorkspaceFailed should chain source"
+    );
 
     let err = RuntimeError::BackendFailed(anyhow::anyhow!("fail"));
     assert!(err.source().is_some(), "BackendFailed should chain source");
@@ -262,7 +275,10 @@ fn host_error_display_debug() {
     use abp_host::HostError;
 
     let variants: Vec<HostError> = vec![
-        HostError::Spawn(std::io::Error::new(std::io::ErrorKind::NotFound, "not found")),
+        HostError::Spawn(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "not found",
+        )),
         HostError::Stdout(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "pipe")),
         HostError::Stdin(std::io::Error::new(std::io::ErrorKind::WriteZero, "zero")),
         HostError::Protocol(abp_protocol::ProtocolError::Violation("test".into())),
@@ -393,9 +409,7 @@ fn all_errors_are_dyn_error_compatible() {
         Box::new(abp_core::chain::ChainError::EmptyChain),
         Box::new(abp_protocol::ProtocolError::Violation("v".into())),
         Box::new(abp_protocol::version::VersionError::InvalidFormat),
-        Box::new(abp_runtime::RuntimeError::UnknownBackend {
-            name: "x".into(),
-        }),
+        Box::new(abp_runtime::RuntimeError::UnknownBackend { name: "x".into() }),
         Box::new(abp_runtime::multiplex::MultiplexError::Closed),
         Box::new(abp_host::HostError::Fatal("f".into())),
         Box::new(sidecar_kit::PipelineError::InvalidEvent),
