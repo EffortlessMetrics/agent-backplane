@@ -3,6 +3,47 @@
 version = 4
 
 [[package]]
+name = "abp-backend-core"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "anyhow",
+ "async-trait",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "abp-backend-mock"
+version = "0.1.0"
+dependencies = [
+ "abp-backend-core",
+ "abp-core",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "abp-backend-sidecar"
+version = "0.1.0"
+dependencies = [
+ "abp-backend-core",
+ "abp-core",
+ "abp-host",
+ "anyhow",
+ "async-trait",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "abp-claude-sdk"
 version = "0.1.0"
 dependencies = [
@@ -135,16 +176,9 @@ dependencies = [
 name = "abp-integrations"
 version = "0.1.0"
 dependencies = [
- "abp-core",
- "abp-host",
- "anyhow",
- "async-trait",
- "chrono",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tracing",
- "uuid",
+ "abp-backend-core",
+ "abp-backend-mock",
+ "abp-backend-sidecar",
 ]
 
 [[package]]
