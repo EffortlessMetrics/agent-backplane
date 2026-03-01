@@ -9,7 +9,7 @@ use abp_core::{
     AgentEventKind, CapabilityRequirements, ContextPacket, ExecutionLane, Outcome, PolicyProfile,
     RuntimeConfig, WorkOrder, WorkspaceMode, WorkspaceSpec,
 };
-use abp_host::registry::SidecarRegistry;
+use abp_host::registry::{SidecarConfig, SidecarRegistry};
 use abp_host::{HostError, SidecarClient, SidecarSpec};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
@@ -299,12 +299,16 @@ async fn lifecycle_registry_then_spawn() {
     let py = require_python!();
 
     let mut registry = SidecarRegistry::default();
-    registry.register("mock", mock_spec(&py));
+    let spec = mock_spec(&py);
+    let mut config = SidecarConfig::new("mock", &spec.command);
+    config.args = spec.args.clone();
+    config.env = spec.env.clone();
+    registry.register(config).unwrap();
 
-    let spec = registry
+    let cfg = registry
         .get("mock")
-        .expect("registered sidecar should be retrievable")
-        .clone();
+        .expect("registered sidecar should be retrievable");
+    let spec = cfg.to_spec();
 
     let client = SidecarClient::spawn(spec)
         .await
@@ -369,9 +373,9 @@ fn lifecycle_discover_from_hosts_dir() {
 fn lifecycle_registry_list_sorted() {
     let mut registry = SidecarRegistry::default();
     // Insert in reverse-alphabetical order.
-    registry.register("zeta", SidecarSpec::new("z"));
-    registry.register("alpha", SidecarSpec::new("a"));
-    registry.register("mu", SidecarSpec::new("m"));
+    registry.register(SidecarConfig::new("zeta", "z")).unwrap();
+    registry.register(SidecarConfig::new("alpha", "a")).unwrap();
+    registry.register(SidecarConfig::new("mu", "m")).unwrap();
 
     let names = registry.list();
     assert_eq!(names, vec!["alpha", "mu", "zeta"]);

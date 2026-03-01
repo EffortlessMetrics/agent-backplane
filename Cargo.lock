@@ -399,6 +399,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-sidecar-proto"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-protocol",
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "abp-sidecar-sdk"
 version = "0.1.0"
 dependencies = [
@@ -445,6 +460,7 @@ dependencies = [
  "abp-claude-sdk",
  "abp-cli",
  "abp-codex-sdk",
+ "abp-config",
  "abp-copilot-sdk",
  "abp-core",
  "abp-daemon",
