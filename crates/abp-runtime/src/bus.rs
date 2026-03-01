@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Broadcast-based event bus for decoupled [`AgentEvent`] distribution.
 //!
-//! Unlike [`super::multiplex::EventMultiplexer`], the event bus tracks
+//! Unlike the `EventMultiplexer` from the multiplex module, the event bus tracks
 //! publishing statistics and supports filtered subscriptions.
 
 use abp_core::AgentEvent;

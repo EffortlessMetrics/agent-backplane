@@ -2,11 +2,11 @@
 //! Additional built-in pipeline stages, builder, and execution helpers.
 //!
 //! This module provides:
-//! - [`RateLimitStage`] — per-minute throughput limiter
-//! - [`DeduplicationStage`] — duplicate work order rejection
-//! - [`LoggingStage`] — entry/exit tracing
-//! - [`MetricsStage`] — execution statistics
-//! - [`PipelineBuilder`] / [`StagePipeline`] — ergonomic pipeline assembly and
+//! - `RateLimitStage` — per-minute throughput limiter
+//! - `DeduplicationStage` — duplicate work order rejection
+//! - `LoggingStage` — entry/exit tracing
+//! - `MetricsStage` — execution statistics
+//! - `PipelineBuilder` / `StagePipeline` — ergonomic pipeline assembly and
 //!   per-stage result reporting
 
 use crate::pipeline::PipelineStage;

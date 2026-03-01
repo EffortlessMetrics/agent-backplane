@@ -504,10 +504,8 @@ async fn cmd_ws(ws: WebSocketUpgrade) -> impl IntoResponse {
 async fn handle_ws(mut socket: WebSocket) {
     while let Some(Ok(msg)) = socket.recv().await {
         match msg {
-            Message::Text(text) => {
-                if socket.send(Message::Text(text)).await.is_err() {
-                    break;
-                }
+            Message::Text(text) if socket.send(Message::Text(text)).await.is_err() => {
+                break;
             }
             Message::Close(_) => break,
             _ => {}

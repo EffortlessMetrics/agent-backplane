@@ -3,6 +3,7 @@
 //! unicode in patterns, multi-extension files, and boundary conditions.
 
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
+#[cfg(windows)]
 use std::path::Path;
 
 fn pats(xs: &[&str]) -> Vec<String> {
