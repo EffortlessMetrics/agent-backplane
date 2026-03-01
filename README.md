@@ -273,6 +273,12 @@ Sidecars are external processes (Node/Python/etc.) that speak a JSONL protocol o
 
 All envelopes use `ref_id` to correlate with the run. See [`docs/sidecar_protocol.md`](docs/sidecar_protocol.md) for the full specification.
 
+## SDK Mapping Architecture
+
+ABP includes a full SDK translation layer that converts between vendor-specific API formats and the canonical ABP contract. The projection matrix routes work orders and translates tool names and streaming events across all supported dialects (Claude, Codex, Gemini, Kimi).
+
+See [`docs/sdk_mapping.md`](docs/sdk_mapping.md) for the comprehensive reference covering the dialect pattern, projection matrix, tool mapping tables, capability matrix, and a guide for adding new vendors.
+
 ## What's Next
 
 The current scaffold is designed for incremental extension:
