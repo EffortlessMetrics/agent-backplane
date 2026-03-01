@@ -34,6 +34,7 @@ members = [
   "crates/abp-receipt",
   "crates/abp-protocol",
   "crates/abp-runtime",
+  "crates/abp-sidecar-proto",
   "crates/abp-sidecar-sdk",
   "crates/abp-telemetry",
   "crates/abp-workspace",
@@ -119,6 +120,7 @@ abp-error = { path = "crates/abp-error" }
 abp-capability = { path = "crates/abp-capability" }
 abp-receipt = { path = "crates/abp-receipt" }
 abp-mapping = { path = "crates/abp-mapping" }
+abp-config = { path = "crates/abp-config" }
 abp-claude-sdk = { path = "crates/abp-claude-sdk" }
 abp-gemini-sdk = { path = "crates/abp-gemini-sdk" }
 abp-codex-sdk = { path = "crates/abp-codex-sdk" }
@@ -151,4 +153,20 @@ harness = false
 
 [[bench]]
 name = "projection_bench"
+harness = false
+
+[[bench]]
+name = "ir_lowering"
+harness = false
+
+[[bench]]
+name = "dialect_detection"
+harness = false
+
+[[bench]]
+name = "capability_negotiation"
+harness = false
+
+[[bench]]
+name = "mapping_validation"
 harness = false
