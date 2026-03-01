@@ -50,6 +50,12 @@ Think of the system like a power distribution panel:
 - Multiplexes event stream.
 - Produces canonical receipt.
 
+### `abp-sidecar-sdk` (sidecar registration helpers)
+
+- Shared command discovery for sidecar host runtimes.
+- Shared sidecar host script registration wiring.
+- Keeps vendor SDK microcrates focused on identity/constants only.
+
 ### `abp-cli` / `abp-daemon`
 
 - CLI for local usage.
