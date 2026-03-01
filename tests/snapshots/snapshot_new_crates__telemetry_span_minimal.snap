@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: span
+---
+{
+  "name": "agent.run",
+  "attributes": {}
+}

@@ -1,0 +1,8 @@
+---
+source: tests/module_snapshots.rs
+expression: display
+---
+[
+  "line 1: invalid JSON: expected ident at line 1 column 2",
+  "line 3: invalid JSON: expected value at line 1 column 1"
+]

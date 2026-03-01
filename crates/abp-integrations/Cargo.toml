@@ -5,8 +5,31 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Backend trait and implementations for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "backend", "integration"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-backend-core = { path = "../abp-backend-core" }
 abp-backend-mock = { path = "../abp-backend-mock" }
 abp-backend-sidecar = { path = "../abp-backend-sidecar" }
+abp-core = { path = "../abp-core" }
+anyhow.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+abp-claude-sdk = { path = "../abp-claude-sdk" }
+abp-codex-sdk = { path = "../abp-codex-sdk" }
+abp-gemini-sdk = { path = "../abp-gemini-sdk" }
+abp-kimi-sdk = { path = "../abp-kimi-sdk" }
+abp-openai-sdk = { path = "../abp-openai-sdk" }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+insta.workspace = true
+proptest = { workspace = true }
+serde_json.workspace = true
+tokio = { workspace = true }
+uuid = { workspace = true }

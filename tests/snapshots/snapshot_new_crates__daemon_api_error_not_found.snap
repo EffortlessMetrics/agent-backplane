@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: err
+---
+{
+  "code": "not_found",
+  "message": "run abc-123 not found"
+}

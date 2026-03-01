@@ -1,0 +1,36 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: errors
+---
+[
+  [
+    "ABP_E_FIDELITY_LOSS",
+    "[ABP_E_FIDELITY_LOSS] fidelity loss mapping 'temperature' from openai to gemini: Gemini uses different scaling",
+    "Degraded"
+  ],
+  [
+    "ABP_E_UNSUPPORTED_CAP",
+    "[ABP_E_UNSUPPORTED_CAP] unsupported capability 'logprobs' in dialect claude",
+    "Fatal"
+  ],
+  [
+    "ABP_E_EMULATION_REQUIRED",
+    "[ABP_E_EMULATION_REQUIRED] emulation required for 'json_mode': Emulated via system prompt instruction",
+    "Emulated"
+  ],
+  [
+    "ABP_E_INCOMPATIBLE_MODEL",
+    "[ABP_E_INCOMPATIBLE_MODEL] model 'gpt-4-turbo' not available in dialect claude; try claude-sonnet-4-20250514",
+    "Fatal"
+  ],
+  [
+    "ABP_E_PARAM_NOT_MAPPABLE",
+    "[ABP_E_PARAM_NOT_MAPPABLE] parameter 'seed' (value: 42) not mappable to dialect gemini",
+    "Degraded"
+  ],
+  [
+    "ABP_E_STREAMING_UNSUPPORTED",
+    "[ABP_E_STREAMING_UNSUPPORTED] streaming not supported by dialect mock",
+    "Fatal"
+  ]
+]

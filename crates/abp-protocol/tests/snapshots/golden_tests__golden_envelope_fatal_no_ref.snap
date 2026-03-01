@@ -1,0 +1,9 @@
+---
+source: crates/abp-protocol/tests/golden_tests.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": null,
+  "error": "startup failure"
+}

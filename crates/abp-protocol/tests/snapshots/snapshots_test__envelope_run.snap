@@ -1,0 +1,46 @@
+---
+source: crates/abp-protocol/tests/snapshots_test.rs
+expression: env
+---
+{
+  "t": "run",
+  "id": "run-001",
+  "work_order": {
+    "id": "00000000-0000-0000-0000-000000000000",
+    "task": "Refactor auth module",
+    "lane": "patch_first",
+    "workspace": {
+      "root": "/tmp/ws",
+      "mode": "staged",
+      "include": [
+        "src/**"
+      ],
+      "exclude": [
+        "target/**"
+      ]
+    },
+    "context": {
+      "files": [],
+      "snippets": []
+    },
+    "policy": {
+      "allowed_tools": [],
+      "disallowed_tools": [],
+      "deny_read": [],
+      "deny_write": [],
+      "allow_network": [],
+      "deny_network": [],
+      "require_approval_for": []
+    },
+    "requirements": {
+      "required": []
+    },
+    "config": {
+      "model": "gpt-4",
+      "vendor": {},
+      "env": {},
+      "max_budget_usd": null,
+      "max_turns": null
+    }
+  }
+}

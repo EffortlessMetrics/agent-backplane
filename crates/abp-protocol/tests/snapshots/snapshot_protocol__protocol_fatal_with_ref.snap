@@ -1,0 +1,9 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "error": "sidecar process crashed: exit code 137 (OOM killed)",
+  "ref_id": "run-42",
+  "t": "fatal"
+}

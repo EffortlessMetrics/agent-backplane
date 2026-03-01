@@ -1,0 +1,591 @@
+---
+source: crates/abp-core/tests/golden_tests.rs
+expression: value
+---
+{
+  "$defs": {
+    "AgentEvent": {
+      "description": "A timestamped event emitted by an agent during a run.",
+      "oneOf": [
+        {
+          "description": "The agent run has started.",
+          "properties": {
+            "message": {
+              "description": "Human-readable start message.",
+              "type": "string"
+            },
+            "type": {
+              "const": "run_started",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "message"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "The agent run has completed.",
+          "properties": {
+            "message": {
+              "description": "Human-readable completion message.",
+              "type": "string"
+            },
+            "type": {
+              "const": "run_completed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "message"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Incremental assistant text (streaming token).",
+          "properties": {
+            "text": {
+              "description": "The text fragment.",
+              "type": "string"
+            },
+            "type": {
+              "const": "assistant_delta",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Complete assistant message.",
+          "properties": {
+            "text": {
+              "description": "The full message text.",
+              "type": "string"
+            },
+            "type": {
+              "const": "assistant_message",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A tool invocation by the agent.",
+          "properties": {
+            "input": {
+              "description": "JSON input passed to the tool."
+            },
+            "parent_tool_use_id": {
+              "description": "Identifier of the parent tool use, if nested.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tool_name": {
+              "description": "Name of the tool being called.",
+              "type": "string"
+            },
+            "tool_use_id": {
+              "description": "Unique identifier for this tool use.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "tool_call",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "tool_name",
+            "input"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Result returned from a tool invocation.",
+          "properties": {
+            "is_error": {
+              "description": "Whether the tool reported an error.",
+              "type": "boolean"
+            },
+            "output": {
+              "description": "JSON output from the tool."
+            },
+            "tool_name": {
+              "description": "Name of the tool that produced this result.",
+              "type": "string"
+            },
+            "tool_use_id": {
+              "description": "Identifier correlating to the originating tool call.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "tool_result",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "tool_name",
+            "output",
+            "is_error"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A file was created or modified in the workspace.",
+          "properties": {
+            "path": {
+              "description": "Path to the changed file (relative to workspace root).",
+              "type": "string"
+            },
+            "summary": {
+              "description": "Human-readable summary of the change.",
+              "type": "string"
+            },
+            "type": {
+              "const": "file_changed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "path",
+            "summary"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A shell command was executed.",
+          "properties": {
+            "command": {
+              "description": "The command that was run.",
+              "type": "string"
+            },
+            "exit_code": {
+              "description": "Process exit code, if available.",
+              "format": "int32",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "output_preview": {
+              "description": "Truncated preview of the command output.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "command_executed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "command"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A non-fatal warning emitted during the run.",
+          "properties": {
+            "message": {
+              "description": "Warning message text.",
+              "type": "string"
+            },
+            "type": {
+              "const": "warning",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "message"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A fatal error emitted during the run.",
+          "properties": {
+            "message": {
+              "description": "Error message text.",
+              "type": "string"
+            },
+            "type": {
+              "const": "error",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "message"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "ext": {
+          "additionalProperties": true,
+          "description": "Extension field for passthrough mode raw data.\n\nIn passthrough mode, this contains the original SDK message\nfor lossless reconstruction. The key `raw_message` contains\nthe verbatim SDK message.",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "ts": {
+          "description": "Timestamp when the event was emitted.",
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts"
+      ],
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "description": "Reference to an artifact produced during a run (e.g. a patch file).",
+      "properties": {
+        "kind": {
+          "description": "Artifact type (e.g. `\"patch\"`, `\"log\"`).",
+          "type": "string"
+        },
+        "path": {
+          "description": "Path to the artifact relative to the workspace root.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "path"
+      ],
+      "type": "object"
+    },
+    "BackendIdentity": {
+      "description": "Identifies a backend and its version information.",
+      "properties": {
+        "adapter_version": {
+          "description": "Adapter version (your sidecar wrapper version).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "backend_version": {
+          "description": "Backend runtime version (SDK version, CLI version, etc.).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Stable backend identifier (e.g. `\"mock\"`, `\"sidecar:node\"`).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "ExecutionMode": {
+      "description": "Execution mode for how ABP processes requests.\n\n- Passthrough: Lossless wrapping - ABP acts as observer/recorder only\n- Mapped: Full dialect translation - ABP translates between dialects",
+      "oneOf": [
+        {
+          "const": "passthrough",
+          "description": "Lossless wrapping mode. ABP passes requests directly to the SDK\nwithout modification. Stream is bitwise-equivalent to direct SDK call\nafter removing ABP framing.",
+          "type": "string"
+        },
+        {
+          "const": "mapped",
+          "description": "Full dialect translation mode. ABP translates between different\nagent dialects, potentially modifying requests and responses.",
+          "type": "string"
+        }
+      ]
+    },
+    "Outcome": {
+      "description": "High-level result status of a run.",
+      "oneOf": [
+        {
+          "const": "complete",
+          "description": "The run finished successfully.",
+          "type": "string"
+        },
+        {
+          "const": "partial",
+          "description": "The run produced partial results (e.g. budget exhausted).",
+          "type": "string"
+        },
+        {
+          "const": "failed",
+          "description": "The run failed.",
+          "type": "string"
+        }
+      ]
+    },
+    "RunMetadata": {
+      "description": "Timing and identity metadata for a single run.",
+      "properties": {
+        "contract_version": {
+          "description": "Contract version used for this run.",
+          "type": "string"
+        },
+        "duration_ms": {
+          "description": "Wall-clock duration in milliseconds.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "finished_at": {
+          "description": "Timestamp when the run finished.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "run_id": {
+          "description": "Unique run identifier.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "started_at": {
+          "description": "Timestamp when the run started.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "work_order_id": {
+          "description": "The work order this run fulfilled.",
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "work_order_id",
+        "contract_version",
+        "started_at",
+        "finished_at",
+        "duration_ms"
+      ],
+      "type": "object"
+    },
+    "SupportLevel": {
+      "description": "How well a backend supports a given [`Capability`].",
+      "oneOf": [
+        {
+          "const": "native",
+          "description": "First-class support built into the backend.",
+          "type": "string"
+        },
+        {
+          "const": "emulated",
+          "description": "Support via adapter or polyfill layer.",
+          "type": "string"
+        },
+        {
+          "const": "unsupported",
+          "description": "Capability is not available.",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Supported in principle, but disabled by policy or environment.",
+          "properties": {
+            "restricted": {
+              "properties": {
+                "reason": {
+                  "description": "Human-readable explanation of the restriction.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "reason"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "restricted"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "UsageNormalized": {
+      "description": "Best-effort normalized token/cost counters across different backends.",
+      "properties": {
+        "cache_read_tokens": {
+          "description": "Tokens read from the cache.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "cache_write_tokens": {
+          "description": "Tokens written to the cache.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "estimated_cost_usd": {
+          "description": "Estimated cost in US dollars (best-effort).",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "input_tokens": {
+          "description": "Number of input (prompt) tokens consumed.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "output_tokens": {
+          "description": "Number of output (completion) tokens produced.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "request_units": {
+          "description": "Copilot-style billing.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "VerificationReport": {
+      "description": "Git-based verification data captured after a run completes.",
+      "properties": {
+        "git_diff": {
+          "description": "Output of `git diff` in the workspace, if available.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "git_status": {
+          "description": "Output of `git status --porcelain` in the workspace, if available.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "harness_ok": {
+          "description": "Whether the harness (if any) reported success.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "harness_ok"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "The outcome of a completed run: metadata, usage, trace, and verification.\n\nUse [`Receipt::with_hash`] to compute and attach the canonical SHA-256 hash.",
+  "properties": {
+    "artifacts": {
+      "description": "References to artifacts produced during the run.",
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "type": "array"
+    },
+    "backend": {
+      "$ref": "#/$defs/BackendIdentity",
+      "description": "Backend that executed the work order."
+    },
+    "capabilities": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SupportLevel"
+      },
+      "description": "Capability manifest reported by the backend.",
+      "type": "object"
+    },
+    "meta": {
+      "$ref": "#/$defs/RunMetadata",
+      "description": "Timing and identity metadata for this run."
+    },
+    "mode": {
+      "$ref": "#/$defs/ExecutionMode",
+      "default": "mapped",
+      "description": "Execution mode used for this run."
+    },
+    "outcome": {
+      "$ref": "#/$defs/Outcome",
+      "description": "High-level result status."
+    },
+    "receipt_sha256": {
+      "description": "Hash of the canonical receipt (filled in by the control plane).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "trace": {
+      "description": "Ordered log of events emitted during the run.",
+      "items": {
+        "$ref": "#/$defs/AgentEvent"
+      },
+      "type": "array"
+    },
+    "usage": {
+      "$ref": "#/$defs/UsageNormalized",
+      "description": "Normalized usage fields (best-effort)."
+    },
+    "usage_raw": {
+      "description": "Vendor-specific usage payload as reported."
+    },
+    "verification": {
+      "$ref": "#/$defs/VerificationReport",
+      "description": "Git-based verification data captured after completion."
+    }
+  },
+  "required": [
+    "meta",
+    "backend",
+    "capabilities",
+    "usage_raw",
+    "usage",
+    "trace",
+    "artifacts",
+    "verification",
+    "outcome"
+  ],
+  "title": "Receipt",
+  "type": "object"
+}

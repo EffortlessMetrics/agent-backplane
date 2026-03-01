@@ -5,13 +5,25 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Staged workspace creation with glob filtering for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "workspace", "staging"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }
 abp-glob = { path = "../abp-glob" }
 abp-git = { path = "../abp-git" }
 anyhow.workspace = true
+chrono.workspace = true
+serde.workspace = true
+sha2.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 walkdir.workspace = true
 tempfile.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+proptest = { workspace = true }
+serde_json.workspace = true

@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: max_tokens
+---
+{
+  "type": "message_delta",
+  "delta": {
+    "stop_reason": "max_tokens"
+  }
+}

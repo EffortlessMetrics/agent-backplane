@@ -1,0 +1,10 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: summary
+---
+{
+  "total_spans": 12,
+  "active_spans": 2,
+  "error_spans": 1,
+  "metrics_count": 5
+}

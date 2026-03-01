@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: block
+---
+{
+  "type": "tool_use",
+  "id": "tu_001",
+  "name": "read_file",
+  "input": {
+    "path": "src/main.rs"
+  }
+}

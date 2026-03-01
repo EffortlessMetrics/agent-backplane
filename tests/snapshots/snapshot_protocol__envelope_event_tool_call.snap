@@ -1,0 +1,19 @@
+---
+source: tests/snapshot_protocol.rs
+expression: env
+---
+{
+  "t": "event",
+  "ref_id": "00000000-0000-4000-8000-000000000001",
+  "event": {
+    "ts": "2025-01-15T12:00:00Z",
+    "type": "tool_call",
+    "tool_name": "write_file",
+    "tool_use_id": "tu_001",
+    "parent_tool_use_id": null,
+    "input": {
+      "content": "fn main() {}",
+      "path": "src/main.rs"
+    }
+  }
+}

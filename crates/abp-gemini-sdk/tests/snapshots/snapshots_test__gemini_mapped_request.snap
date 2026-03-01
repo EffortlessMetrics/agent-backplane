@@ -1,0 +1,20 @@
+---
+source: crates/abp-gemini-sdk/tests/snapshots_test.rs
+expression: req
+---
+{
+  "model": "gemini-2.5-flash",
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Migrate to async"
+        }
+      ]
+    }
+  ],
+  "generation_config": {
+    "maxOutputTokens": 4096
+  }
+}

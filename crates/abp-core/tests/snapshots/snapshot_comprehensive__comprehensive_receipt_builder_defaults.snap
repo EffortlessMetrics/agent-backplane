@@ -1,0 +1,39 @@
+---
+source: crates/abp-core/tests/snapshot_comprehensive.rs
+expression: value
+---
+{
+  "artifacts": [],
+  "backend": {
+    "adapter_version": null,
+    "backend_version": null,
+    "id": "test-backend"
+  },
+  "capabilities": {},
+  "meta": {
+    "contract_version": "abp/v0.1",
+    "duration_ms": 0,
+    "finished_at": "2024-06-15T12:30:00Z",
+    "run_id": "[uuid]",
+    "started_at": "2024-06-15T12:30:00Z",
+    "work_order_id": "00000000-0000-0000-0000-000000000000"
+  },
+  "mode": "mapped",
+  "outcome": "complete",
+  "receipt_sha256": null,
+  "trace": [],
+  "usage": {
+    "cache_read_tokens": null,
+    "cache_write_tokens": null,
+    "estimated_cost_usd": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "request_units": null
+  },
+  "usage_raw": {},
+  "verification": {
+    "git_diff": null,
+    "git_status": null,
+    "harness_ok": false
+  }
+}

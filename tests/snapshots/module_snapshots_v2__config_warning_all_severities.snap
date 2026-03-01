@@ -1,0 +1,9 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: display
+---
+[
+  "[Info] config.model: Model name is unusual",
+  "[Warning] policy.allowed_tools: Duplicate tool in allowlist: read_file",
+  "[Error] task: Task description must not be empty"
+]

@@ -1,0 +1,13 @@
+---
+source: tests/module_snapshots.rs
+expression: cfg
+---
+{
+  "working_dir": "/tmp/workspace",
+  "env_vars": {
+    "API_KEY": "sk-test-123",
+    "NODE_ENV": "production"
+  },
+  "timeout": 120000,
+  "inherit_env": false
+}

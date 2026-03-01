@@ -1,0 +1,142 @@
+[package]
+name = "abp-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+abp-core = { path = "../crates/abp-core" }
+abp-protocol = { path = "../crates/abp-protocol" }
+abp-glob = { path = "../crates/abp-glob" }
+abp-policy = { path = "../crates/abp-policy" }
+abp-dialect = { path = "../crates/abp-dialect" }
+abp-capability = { path = "../crates/abp-capability" }
+abp-receipt = { path = "../crates/abp-receipt" }
+serde_json = "1"
+toml = "0.8"
+chrono = "0.4"
+
+[[bin]]
+name = "fuzz_work_order"
+path = "fuzz_targets/fuzz_work_order.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_envelope"
+path = "fuzz_targets/fuzz_envelope.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt"
+path = "fuzz_targets/fuzz_receipt.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_agent_event"
+path = "fuzz_targets/fuzz_agent_event.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_profile"
+path = "fuzz_targets/fuzz_policy_profile.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_jsonl_stream"
+path = "fuzz_targets/fuzz_jsonl_stream.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_validation"
+path = "fuzz_targets/fuzz_validation.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_filter"
+path = "fuzz_targets/fuzz_filter.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_config"
+path = "fuzz_targets/fuzz_config.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_work_order_builder"
+path = "fuzz_targets/fuzz_work_order_builder.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_glob"
+path = "fuzz_targets/fuzz_glob.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_engine"
+path = "fuzz_targets/fuzz_policy_engine.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt_structured"
+path = "fuzz_targets/fuzz_receipt_structured.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_envelope_bytes"
+path = "fuzz_targets/fuzz_envelope_bytes.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_work_order_structured"
+path = "fuzz_targets/fuzz_work_order_structured.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_envelope_deser"
+path = "fuzz_targets/fuzz_envelope_deser.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_work_order_deser"
+path = "fuzz_targets/fuzz_work_order_deser.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt_hash"
+path = "fuzz_targets/fuzz_receipt_hash.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_eval"
+path = "fuzz_targets/fuzz_policy_eval.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_glob_compile"
+path = "fuzz_targets/fuzz_glob_compile.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_ir_lowering"
+path = "fuzz_targets/fuzz_ir_lowering.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_dialect_detection"
+path = "fuzz_targets/fuzz_dialect_detection.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_capability_negotiation"
+path = "fuzz_targets/fuzz_capability_negotiation.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_mapping_validation"
+path = "fuzz_targets/fuzz_mapping_validation.rs"
+doc = false

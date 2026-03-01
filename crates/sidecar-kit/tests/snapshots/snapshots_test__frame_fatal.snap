@@ -1,0 +1,9 @@
+---
+source: crates/sidecar-kit/tests/snapshots_test.rs
+expression: val
+---
+{
+  "error": "something went wrong",
+  "ref_id": "run-001",
+  "t": "fatal"
+}

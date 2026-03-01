@@ -1,0 +1,15 @@
+---
+source: crates/abp-integrations/tests/snapshot_integrations.rs
+expression: result
+---
+{
+  "max_tokens": 4096,
+  "messages": [
+    {
+      "content": "Refactor the auth module",
+      "role": "user"
+    }
+  ],
+  "model": "claude-sonnet-4-20250514",
+  "system": null
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BackplaneConfig",
+  "description": "Top-level configuration for the agent backplane.",
+  "type": "object",
+  "properties": {
+    "backends": {
+      "description": "Named backend definitions.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/BackendConfig"
+      },
+      "default": {}
+    },
+    "default_backend": {
+      "description": "Default backend name used when none is specified on the command line.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "log_level": {
+      "description": "Log level override (e.g. \"debug\", \"info\", \"warn\").",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "receipts_dir": {
+      "description": "Directory for storing receipt files.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "$defs": {
+    "BackendConfig": {
+      "description": "Configuration for a single backend.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "mock"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "args": {
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "string"
+              }
+            },
+            "command": {
+              "type": "string"
+            },
+            "timeout_secs": {
+              "description": "Optional timeout in seconds for the sidecar process.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "const": "sidecar"
+            }
+          },
+          "required": [
+            "type",
+            "command"
+          ]
+        }
+      ]
+    }
+  }
+}

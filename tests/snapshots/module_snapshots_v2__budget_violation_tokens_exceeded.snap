@@ -1,0 +1,5 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: violation.to_string()
+---
+token budget exceeded: used 105000, limit 100000

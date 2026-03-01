@@ -1,0 +1,23 @@
+---
+source: crates/abp-core/tests/snapshot_comprehensive.rs
+expression: event
+---
+{
+  "ts": "2024-06-15T12:30:00Z",
+  "type": "assistant_message",
+  "text": "response from SDK",
+  "ext": {
+    "raw_message": {
+      "content": [
+        {
+          "text": "response from SDK",
+          "type": "text"
+        }
+      ],
+      "id": "msg_xyz",
+      "role": "assistant",
+      "type": "message"
+    },
+    "sdk_version": "2024.6.1"
+  }
+}

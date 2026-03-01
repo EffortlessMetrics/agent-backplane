@@ -1,0 +1,10 @@
+---
+source: tests/module_snapshots.rs
+expression: delays
+---
+[
+  114,
+  159,
+  477,
+  612
+]

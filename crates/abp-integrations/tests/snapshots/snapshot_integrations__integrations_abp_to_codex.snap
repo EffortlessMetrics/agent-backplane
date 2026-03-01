@@ -1,0 +1,15 @@
+---
+source: crates/abp-integrations/tests/snapshot_integrations.rs
+expression: result
+---
+{
+  "input": [
+    {
+      "content": "Fix the login bug",
+      "role": "user",
+      "type": "message"
+    }
+  ],
+  "max_output_tokens": 4096,
+  "model": "codex-mini-latest"
+}

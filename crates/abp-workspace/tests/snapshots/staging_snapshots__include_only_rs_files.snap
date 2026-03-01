@@ -1,0 +1,9 @@
+---
+source: crates/abp-workspace/tests/staging_snapshots.rs
+expression: listing
+---
+[
+  "src/",
+  "src/lib.rs",
+  "src/main.rs"
+]

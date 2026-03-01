@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+#![deny(unsafe_code)]
 use abp_claude_sdk as claude_sdk;
+use abp_cli::commands::{self, SchemaKind};
+use abp_cli::config::BackendConfig;
 use abp_codex_sdk as codex_sdk;
 use abp_copilot_sdk as copilot_sdk;
 use abp_core::{
@@ -19,6 +23,12 @@ use tokio_stream::StreamExt;
 use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 
+/// Exit code for runtime errors.
+const EXIT_RUNTIME_ERROR: i32 = 1;
+/// Exit code for usage / argument errors (clap exits with 2 automatically).
+#[allow(dead_code)]
+const EXIT_USAGE_ERROR: i32 = 2;
+
 #[derive(Parser, Debug)]
 #[command(name = "abp", version, about = "Agent Backplane CLI")]
 struct Cli {
@@ -30,6 +40,7 @@ struct Cli {
     debug: bool,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// List available backends.
@@ -54,9 +65,11 @@ enum Commands {
         #[arg(long, default_value = ".")]
         root: String,
 
+        /// Workspace mode (pass-through or staged).
         #[arg(long, value_enum, default_value_t = WorkspaceModeArg::Staged)]
         workspace_mode: WorkspaceModeArg,
 
+        /// Execution lane.
         #[arg(long, value_enum, default_value_t = LaneArg::PatchFirst)]
         lane: LaneArg,
 
@@ -96,7 +109,51 @@ enum Commands {
         /// Print JSON instead of pretty output.
         #[arg(long)]
         json: bool,
+
+        /// Path to a policy profile JSON file to load.
+        #[arg(long)]
+        policy: Option<PathBuf>,
+
+        /// Write the receipt to this file path.
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Write streamed events as JSONL to this file.
+        #[arg(long)]
+        events: Option<PathBuf>,
     },
+
+    /// Validate a work order JSON file against the schema.
+    Validate {
+        /// Path to the work order JSON file.
+        #[arg()]
+        file: PathBuf,
+    },
+
+    /// Print a JSON schema to stdout.
+    Schema {
+        /// Which schema to print.
+        #[arg(value_enum)]
+        kind: SchemaArg,
+    },
+
+    /// Inspect a receipt file and verify its hash.
+    Inspect {
+        /// Path to the receipt JSON file.
+        #[arg()]
+        file: PathBuf,
+    },
+}
+
+/// Schema kind argument for the `schema` subcommand.
+#[derive(Debug, Clone, ValueEnum)]
+enum SchemaArg {
+    /// WorkOrder schema.
+    WorkOrder,
+    /// Receipt schema.
+    Receipt,
+    /// BackplaneConfig schema.
+    Config,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -130,7 +187,7 @@ impl From<LaneArg> for ExecutionLane {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
     let cli = Cli::parse();
 
     let filter = if cli.debug {
@@ -141,8 +198,11 @@ async fn main() -> Result<()> {
 
     tracing_subscriber::fmt().with_env_filter(filter).init();
 
-    match cli.command {
+    let result = match cli.command {
         Commands::Backends => cmd_backends().await,
+        Commands::Validate { file } => cmd_validate(&file),
+        Commands::Schema { kind } => cmd_schema(kind),
+        Commands::Inspect { file } => cmd_inspect(&file),
         Commands::Run {
             backend,
             task,
@@ -158,6 +218,9 @@ async fn main() -> Result<()> {
             max_turns,
             out,
             json,
+            policy,
+            output,
+            events,
         } => {
             cmd_run(
                 backend,
@@ -174,9 +237,17 @@ async fn main() -> Result<()> {
                 max_turns,
                 out,
                 json,
+                policy,
+                output,
+                events,
             )
             .await
         }
+    };
+
+    if let Err(e) = result {
+        eprintln!("error: {e:#}");
+        std::process::exit(EXIT_RUNTIME_ERROR);
     }
 }
 
@@ -202,6 +273,42 @@ async fn cmd_backends() -> Result<()> {
     Ok(())
 }
 
+fn cmd_validate(file: &std::path::Path) -> Result<()> {
+    commands::validate_work_order_file(file)?;
+    println!("valid");
+    Ok(())
+}
+
+fn cmd_schema(kind: SchemaArg) -> Result<()> {
+    let sk = match kind {
+        SchemaArg::WorkOrder => SchemaKind::WorkOrder,
+        SchemaArg::Receipt => SchemaKind::Receipt,
+        SchemaArg::Config => SchemaKind::Config,
+    };
+    let json = commands::schema_json(sk)?;
+    println!("{json}");
+    Ok(())
+}
+
+fn cmd_inspect(file: &std::path::Path) -> Result<()> {
+    let (receipt, valid) = commands::inspect_receipt_file(file)?;
+    println!("outcome: {}", serde_json::to_value(&receipt.outcome)?);
+    println!("backend: {}", receipt.backend.id);
+    println!("run_id:  {}", receipt.meta.run_id);
+    println!(
+        "sha256:  {}",
+        receipt.receipt_sha256.as_deref().unwrap_or("<none>")
+    );
+    if valid {
+        println!("hash:    VALID");
+    } else {
+        println!("hash:    INVALID");
+        std::process::exit(EXIT_RUNTIME_ERROR);
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 async fn cmd_run(
     backend: String,
     task: String,
@@ -217,6 +324,9 @@ async fn cmd_run(
     max_turns: Option<u32>,
     out: Option<PathBuf>,
     json: bool,
+    policy_path: Option<PathBuf>,
+    output: Option<PathBuf>,
+    events_path: Option<PathBuf>,
 ) -> Result<()> {
     let backend = normalize_backend_name(&backend);
     let mut rt = Runtime::with_default_backends();
@@ -258,44 +368,67 @@ async fn cmd_run(
         spec.args = vec![script.to_string_lossy().into_owned()];
         rt.register_backend("sidecar:python", SidecarBackend::new(spec));
     }
-    if backend == claude_sdk::BACKEND_NAME {
-        if !claude_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {
-            anyhow::bail!(
-                "claude sidecar not available at {} (node not found or script missing)",
-                claude_sdk::sidecar_script(&PathBuf::from(".")).display()
-            );
-        }
+    if backend == claude_sdk::BACKEND_NAME
+        && !claude_sdk::register_default(&mut rt, &PathBuf::from("."), None)?
+    {
+        anyhow::bail!(
+            "claude sidecar not available at {} (node not found or script missing)",
+            claude_sdk::sidecar_script(&PathBuf::from(".")).display()
+        );
     }
-    if backend == copilot_sdk::BACKEND_NAME {
-        if !copilot_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {
-            anyhow::bail!(
-                "copilot sidecar not available at {} (node not found or script missing)",
-                copilot_sdk::sidecar_script(&PathBuf::from(".")).display()
-            );
-        }
+    if backend == copilot_sdk::BACKEND_NAME
+        && !copilot_sdk::register_default(&mut rt, &PathBuf::from("."), None)?
+    {
+        anyhow::bail!(
+            "copilot sidecar not available at {} (node not found or script missing)",
+            copilot_sdk::sidecar_script(&PathBuf::from(".")).display()
+        );
     }
-    if backend == kimi_sdk::BACKEND_NAME {
-        if !kimi_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {
-            anyhow::bail!(
-                "kimi sidecar not available at {} (node not found or script missing)",
-                kimi_sdk::sidecar_script(&PathBuf::from(".")).display()
-            );
-        }
+    if backend == kimi_sdk::BACKEND_NAME
+        && !kimi_sdk::register_default(&mut rt, &PathBuf::from("."), None)?
+    {
+        anyhow::bail!(
+            "kimi sidecar not available at {} (node not found or script missing)",
+            kimi_sdk::sidecar_script(&PathBuf::from(".")).display()
+        );
     }
-    if backend == codex_sdk::BACKEND_NAME {
-        if !codex_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {
-            anyhow::bail!(
-                "codex sidecar not available at {} (node not found or script missing)",
-                codex_sdk::sidecar_script(&PathBuf::from(".")).display()
-            );
-        }
+    if backend == codex_sdk::BACKEND_NAME
+        && !codex_sdk::register_default(&mut rt, &PathBuf::from("."), None)?
+    {
+        anyhow::bail!(
+            "codex sidecar not available at {} (node not found or script missing)",
+            codex_sdk::sidecar_script(&PathBuf::from(".")).display()
+        );
     }
-    if backend == gemini_sdk::BACKEND_NAME {
-        if !gemini_sdk::register_default(&mut rt, &PathBuf::from("."), None)? {
-            anyhow::bail!(
-                "gemini sidecar not available at {} (node not found or script missing)",
-                gemini_sdk::sidecar_script(&PathBuf::from(".")).display()
-            );
+    if backend == gemini_sdk::BACKEND_NAME
+        && !gemini_sdk::register_default(&mut rt, &PathBuf::from("."), None)?
+    {
+        anyhow::bail!(
+            "gemini sidecar not available at {} (node not found or script missing)",
+            gemini_sdk::sidecar_script(&PathBuf::from(".")).display()
+        );
+    }
+
+    // Register backends from backplane.toml (if present).
+    let config_path = std::path::Path::new("backplane.toml");
+    if config_path.exists() {
+        let cfg = abp_cli::config::load_config(Some(config_path))?;
+        if let Err(errors) = abp_cli::config::validate_config(&cfg) {
+            for e in &errors {
+                tracing::warn!("config: {e}");
+            }
+        }
+        for (name, bc) in cfg.backends {
+            match bc {
+                BackendConfig::Mock {} => {
+                    rt.register_backend(&name, abp_integrations::MockBackend);
+                }
+                BackendConfig::Sidecar { command, args, .. } => {
+                    let mut spec = SidecarSpec::new(&command);
+                    spec.args = args;
+                    rt.register_backend(&name, SidecarBackend::new(spec));
+                }
+            }
         }
     }
 
@@ -332,6 +465,15 @@ async fn cmd_run(
         env.insert(key, value);
     }
 
+    let policy = if let Some(ref pp) = policy_path {
+        let content = std::fs::read_to_string(pp)
+            .with_context(|| format!("read policy file '{}'", pp.display()))?;
+        serde_json::from_str::<PolicyProfile>(&content)
+            .with_context(|| format!("parse policy from '{}'", pp.display()))?
+    } else {
+        default_policy()
+    };
+
     let work_order_id = Uuid::new_v4();
     let wo = WorkOrder {
         id: work_order_id,
@@ -344,7 +486,7 @@ async fn cmd_run(
             exclude,
         },
         context: ContextPacket::default(),
-        policy: default_policy(),
+        policy,
         requirements: CapabilityRequirements::default(),
         config: RuntimeConfig {
             model: resolved_model,
@@ -368,6 +510,20 @@ async fn cmd_run(
         eprintln!("---");
     }
 
+    let mut events_file = match events_path {
+        Some(ref ep) => {
+            if let Some(parent) = ep.parent() {
+                std::fs::create_dir_all(parent)
+                    .with_context(|| format!("create events directory {}", parent.display()))?;
+            }
+            Some(
+                std::fs::File::create(ep)
+                    .with_context(|| format!("create events file {}", ep.display()))?,
+            )
+        }
+        None => None,
+    };
+
     let mut events = handle.events;
     while let Some(ev) = events.next().await {
         if json {
@@ -375,11 +531,17 @@ async fn cmd_run(
         } else {
             print_event(&ev);
         }
+        if let Some(ref mut f) = events_file {
+            use std::io::Write;
+            writeln!(f, "{}", serde_json::to_string(&ev)?)?;
+        }
     }
 
     let receipt = handle.receipt.await.context("join receipt task")??;
 
-    let out_path = out.unwrap_or_else(|| {
+    // --output takes precedence over --out for the receipt destination.
+    let effective_out = output.or(out);
+    let out_path = effective_out.unwrap_or_else(|| {
         let mut p = PathBuf::from(".agent-backplane/receipts");
         p.push(format!("{run_id}.json"));
         p
@@ -573,6 +735,7 @@ fn which(bin: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use abp_cli::config::BackplaneConfig;
     use serde_json::json;
 
     #[test]
@@ -622,5 +785,12 @@ mod tests {
     #[test]
     fn backend_vendor_namespace_supports_kimi() {
         assert_eq!(backend_vendor_namespace("sidecar:kimi"), Some("kimi"));
+    }
+
+    #[test]
+    fn parse_example_config() {
+        let content = include_str!("../../../backplane.example.toml");
+        let config: BackplaneConfig = toml::from_str(content).expect("parse example config");
+        assert!(!config.backends.is_empty());
     }
 }

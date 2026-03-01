@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: block
+---
+{
+  "type": "image",
+  "media_type": "image/png",
+  "data": "iVBORw0KGgoAAAANSUhEUg=="
+}

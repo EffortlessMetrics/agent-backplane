@@ -1,0 +1,16 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "event": {
+    "is_error": true,
+    "output": "command not found: foobar",
+    "tool_name": "bash",
+    "tool_use_id": "toolu_02",
+    "ts": "2024-06-15T12:30:00Z",
+    "type": "tool_result"
+  },
+  "ref_id": "run-42",
+  "t": "event"
+}

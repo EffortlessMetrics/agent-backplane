@@ -1,0 +1,19 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: req
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "max_tokens": 16384,
+  "system": "You are an expert Rust developer.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Explain ownership in Rust."
+    }
+  ],
+  "thinking": {
+    "type": "enabled",
+    "budget_tokens": 10000
+  }
+}

@@ -1,0 +1,7 @@
+---
+source: tests/snapshot_protocol.rs
+expression: "BatchItemStatus::Success"
+---
+{
+  "type": "success"
+}

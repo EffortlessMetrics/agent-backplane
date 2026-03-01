@@ -1,0 +1,5 @@
+---
+source: crates/sidecar-kit/tests/snapshots_test.rs
+expression: err.to_string()
+---
+protocol violation: expected hello frame

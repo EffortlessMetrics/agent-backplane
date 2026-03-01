@@ -1,0 +1,42 @@
+name: Mutation Testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Comma-separated crate names to test (default: abp-core,abp-protocol)"
+        required: false
+        default: "abp-core,abp-protocol"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  mutants:
+    name: cargo-mutants (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [abp-core, abp-protocol]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-mutants
+        run: cargo install cargo-mutants --locked
+
+      - name: Run mutation tests
+        run: cargo mutants --package ${{ matrix.package }} --output mutants-out
+        continue-on-error: true
+
+      - name: Upload mutation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-${{ matrix.package }}
+          path: mutants-out/
+          retention-days: 14

@@ -1,0 +1,8 @@
+---
+source: tests/module_snapshots.rs
+expression: counts
+---
+{
+  "tool_call": 1,
+  "tool_result": 1
+}

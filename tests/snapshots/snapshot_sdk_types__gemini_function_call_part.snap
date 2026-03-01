@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: part
+---
+{
+  "functionCall": {
+    "name": "read_file",
+    "args": {
+      "path": "src/lib.rs"
+    }
+  }
+}

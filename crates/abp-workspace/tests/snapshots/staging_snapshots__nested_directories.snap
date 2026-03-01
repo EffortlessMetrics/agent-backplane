@@ -1,0 +1,15 @@
+---
+source: crates/abp-workspace/tests/staging_snapshots.rs
+expression: listing
+---
+[
+  "a/",
+  "a/a.txt",
+  "a/b/",
+  "a/b/b.txt",
+  "a/b/c/",
+  "a/b/c/c.txt",
+  "a/b/c/d/",
+  "a/b/c/d/d.txt",
+  "root.txt"
+]

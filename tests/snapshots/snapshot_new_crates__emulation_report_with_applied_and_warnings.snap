@@ -1,0 +1,26 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: report
+---
+{
+  "applied": [
+    {
+      "capability": "extended_thinking",
+      "strategy": {
+        "type": "system_prompt_injection",
+        "prompt": "Think step by step."
+      }
+    },
+    {
+      "capability": "structured_output_json_schema",
+      "strategy": {
+        "type": "post_processing",
+        "detail": "Validate JSON"
+      }
+    }
+  ],
+  "warnings": [
+    "Capability CodeExecution not emulated: unsafe",
+    "Capability Streaming not emulated: no emulation available"
+  ]
+}

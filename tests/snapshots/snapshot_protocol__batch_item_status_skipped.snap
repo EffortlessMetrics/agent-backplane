@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_protocol.rs
+expression: s
+---
+{
+  "type": "skipped",
+  "reason": "duplicate envelope detected"
+}

@@ -1,9 +1,20 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+#![doc = include_str!("../README.md")]
 //! abp-policy
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! Policy evaluation.
 //!
 //! In v0.1 this is a small “contract utility” crate.
 //! Eventually this becomes the opinionated policy engine.
+
+/// Audit trail for policy decisions.
+pub mod audit;
+/// Composable policy sets, precedence strategies, and validation.
+pub mod compose;
+/// Rule-based access control engine.
+pub mod rules;
 
 use abp_core::PolicyProfile;
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
@@ -12,13 +23,18 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+/// The result of a policy check — allowed or denied with an optional reason.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Decision {
+    /// Whether the action is permitted.
     pub allowed: bool,
+    /// Human-readable reason when denied.
     pub reason: Option<String>,
 }
 
 impl Decision {
+    /// Create a permissive decision with no reason.
+    #[must_use]
     pub fn allow() -> Self {
         Self {
             allowed: true,
@@ -26,6 +42,8 @@ impl Decision {
         }
     }
 
+    /// Create a denial decision with a human-readable reason.
+    #[must_use]
     pub fn deny(reason: impl Into<String>) -> Self {
         Self {
             allowed: false,
@@ -34,6 +52,10 @@ impl Decision {
     }
 }
 
+/// Compiled policy evaluator built from a [`PolicyProfile`].
+///
+/// Enforces tool allow/deny lists and path-based read/write restrictions
+/// using glob pattern matching. Deny rules always take precedence over allow rules.
 #[derive(Debug, Clone)]
 pub struct PolicyEngine {
     tool_rules: IncludeExcludeGlobs,
@@ -42,6 +64,30 @@ pub struct PolicyEngine {
 }
 
 impl PolicyEngine {
+    /// Compile a [`PolicyProfile`] into a reusable engine.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_core::PolicyProfile;
+    /// use abp_policy::PolicyEngine;
+    /// use std::path::Path;
+    ///
+    /// let policy = PolicyProfile {
+    ///     disallowed_tools: vec!["Bash".into()],
+    ///     deny_write: vec!["**/.git/**".into()],
+    ///     ..PolicyProfile::default()
+    /// };
+    /// let engine = PolicyEngine::new(&policy).unwrap();
+    ///
+    /// assert!(!engine.can_use_tool("Bash").allowed);
+    /// assert!(engine.can_use_tool("Read").allowed);
+    /// assert!(!engine.can_write_path(Path::new(".git/config")).allowed);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any glob pattern in the policy is syntactically invalid.
     pub fn new(policy: &PolicyProfile) -> Result<Self> {
         let no_include: &[String] = &[];
         Ok(Self {
@@ -54,6 +100,26 @@ impl PolicyEngine {
         })
     }
 
+    /// Check whether `tool_name` is permitted by the allow/deny tool rules.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_core::PolicyProfile;
+    /// use abp_policy::PolicyEngine;
+    ///
+    /// let policy = PolicyProfile {
+    ///     allowed_tools: vec!["Read".into(), "Grep".into()],
+    ///     disallowed_tools: vec!["Bash".into()],
+    ///     ..PolicyProfile::default()
+    /// };
+    /// let engine = PolicyEngine::new(&policy).unwrap();
+    ///
+    /// assert!(engine.can_use_tool("Read").allowed);
+    /// assert!(!engine.can_use_tool("Bash").allowed);
+    /// assert!(!engine.can_use_tool("Write").allowed); // not in allowlist
+    /// ```
+    #[must_use]
     pub fn can_use_tool(&self, tool_name: &str) -> Decision {
         match self.tool_rules.decide_str(tool_name) {
             MatchDecision::Allowed => Decision::allow(),
@@ -66,6 +132,8 @@ impl PolicyEngine {
         }
     }
 
+    /// Check whether reading `rel_path` is permitted.
+    #[must_use]
     pub fn can_read_path(&self, rel_path: &Path) -> Decision {
         let s = rel_path.to_string_lossy();
         if !self.deny_read.decide_path(rel_path).is_allowed() {
@@ -74,6 +142,8 @@ impl PolicyEngine {
         Decision::allow()
     }
 
+    /// Check whether writing `rel_path` is permitted.
+    #[must_use]
     pub fn can_write_path(&self, rel_path: &Path) -> Decision {
         let s = rel_path.to_string_lossy();
         if !self.deny_write.decide_path(rel_path).is_allowed() {
@@ -142,5 +212,163 @@ mod tests {
 
         let read_allowed = engine.can_read_path(Path::new("src/lib.rs"));
         assert!(read_allowed.allowed);
+    }
+
+    #[test]
+    fn empty_policy_allows_everything() {
+        let engine = PolicyEngine::new(&PolicyProfile::default()).expect("compile policy");
+
+        assert!(engine.can_use_tool("Bash").allowed);
+        assert!(engine.can_use_tool("Read").allowed);
+        assert!(engine.can_use_tool("Write").allowed);
+        assert!(engine.can_read_path(Path::new("any/file.txt")).allowed);
+        assert!(engine.can_write_path(Path::new("any/file.txt")).allowed);
+    }
+
+    #[test]
+    fn glob_patterns_in_tool_rules() {
+        let policy = PolicyProfile {
+            disallowed_tools: vec!["Bash*".to_string()],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).expect("compile policy");
+
+        assert!(!engine.can_use_tool("BashExec").allowed);
+        assert!(!engine.can_use_tool("BashRun").allowed);
+        assert!(engine.can_use_tool("Read").allowed);
+    }
+
+    #[test]
+    fn multiple_deny_read_patterns() {
+        let policy = PolicyProfile {
+            deny_read: vec![
+                "**/.env".to_string(),
+                "**/.env.*".to_string(),
+                "**/id_rsa".to_string(),
+            ],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).expect("compile policy");
+
+        assert!(!engine.can_read_path(Path::new(".env")).allowed);
+        assert!(!engine.can_read_path(Path::new("config/.env")).allowed);
+        assert!(!engine.can_read_path(Path::new(".env.production")).allowed);
+        assert!(!engine.can_read_path(Path::new("home/.ssh/id_rsa")).allowed);
+        assert!(engine.can_read_path(Path::new("src/main.rs")).allowed);
+    }
+
+    #[test]
+    fn path_traversal_in_read() {
+        let policy = PolicyProfile {
+            deny_read: vec!["**/etc/passwd".to_string()],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).expect("compile policy");
+
+        let decision = engine.can_read_path(Path::new("../../etc/passwd"));
+        assert!(!decision.allowed);
+        assert!(decision.reason.unwrap().contains("denied"));
+    }
+
+    #[test]
+    fn path_traversal_in_write() {
+        let policy = PolicyProfile {
+            deny_write: vec!["**/.git/**".to_string()],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).expect("compile policy");
+
+        let decision = engine.can_write_path(Path::new("../.git/config"));
+        assert!(!decision.allowed);
+        assert!(decision.reason.unwrap().contains("denied"));
+    }
+
+    #[test]
+    fn complex_policy_combination() {
+        let policy = PolicyProfile {
+            allowed_tools: vec!["Read".to_string(), "Write".to_string(), "Grep".to_string()],
+            disallowed_tools: vec!["Write".to_string()],
+            deny_read: vec!["**/.env".to_string()],
+            deny_write: vec!["**/locked/**".to_string()],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).expect("compile policy");
+
+        // Write is in allowlist but also in denylist — denylist wins
+        assert!(!engine.can_use_tool("Write").allowed);
+        // Read is in allowlist and not denied
+        assert!(engine.can_use_tool("Read").allowed);
+        // Bash is not in allowlist
+        assert!(!engine.can_use_tool("Bash").allowed);
+        // deny_read blocks .env
+        assert!(!engine.can_read_path(Path::new(".env")).allowed);
+        assert!(engine.can_read_path(Path::new("src/lib.rs")).allowed);
+        // deny_write blocks locked/
+        assert!(!engine.can_write_path(Path::new("locked/data.txt")).allowed);
+        assert!(engine.can_write_path(Path::new("src/lib.rs")).allowed);
+    }
+
+    #[test]
+    fn decision_allow() {
+        let d = super::Decision::allow();
+        assert!(d.allowed);
+        assert!(d.reason.is_none());
+    }
+
+    #[test]
+    fn decision_deny() {
+        let d = super::Decision::deny("not permitted");
+        assert!(!d.allowed);
+        assert_eq!(d.reason.as_deref(), Some("not permitted"));
+    }
+
+    #[test]
+    fn wildcard_allowlist_with_specific_deny() {
+        let policy = PolicyProfile {
+            allowed_tools: vec!["*".to_string()],
+            disallowed_tools: vec!["Bash".to_string()],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).expect("compile policy");
+
+        assert!(!engine.can_use_tool("Bash").allowed);
+        assert!(engine.can_use_tool("Read").allowed);
+        assert!(engine.can_use_tool("Write").allowed);
+    }
+
+    #[test]
+    fn deep_nested_path_deny_write() {
+        let policy = PolicyProfile {
+            deny_write: vec!["secret/**".to_string()],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).expect("compile policy");
+
+        assert!(!engine.can_write_path(Path::new("secret/a/b/c.txt")).allowed);
+        assert!(!engine.can_write_path(Path::new("secret/x.txt")).allowed);
+        assert!(engine.can_write_path(Path::new("public/data.txt")).allowed);
+    }
+
+    #[test]
+    fn allow_and_deny_network_fields() {
+        let policy = PolicyProfile {
+            allow_network: vec!["*.example.com".to_string()],
+            deny_network: vec!["evil.example.com".to_string()],
+            ..PolicyProfile::default()
+        };
+        // Fields are stored correctly — engine compiles without error
+        let _engine = PolicyEngine::new(&policy).expect("compile policy");
+        assert_eq!(policy.allow_network, vec!["*.example.com"]);
+        assert_eq!(policy.deny_network, vec!["evil.example.com"]);
+    }
+
+    #[test]
+    fn require_approval_for_field() {
+        let policy = PolicyProfile {
+            require_approval_for: vec!["Bash".to_string(), "DeleteFile".to_string()],
+            ..PolicyProfile::default()
+        };
+        let _engine = PolicyEngine::new(&policy).expect("compile policy");
+        assert_eq!(policy.require_approval_for, vec!["Bash", "DeleteFile"]);
     }
 }

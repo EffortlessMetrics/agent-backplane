@@ -1,0 +1,9 @@
+---
+source: crates/abp-workspace/tests/staging_snapshots.rs
+expression: listing
+---
+[
+  "real.txt",
+  "sub/",
+  "sub/other.txt"
+]

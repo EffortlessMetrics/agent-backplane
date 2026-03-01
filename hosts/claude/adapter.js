@@ -21,8 +21,14 @@ function safeString(value) {
   if (value == null) {
     return "";
   }
+  if (value instanceof Error) {
+    return value.stack || value.message || String(value);
+  }
   if (typeof value === "string") {
     return value;
+  }
+  if (typeof value === "object" && typeof value.message === "string") {
+    return value.message;
   }
   try {
     return JSON.stringify(value);

@@ -1,0 +1,20 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: json_str
+---
+{
+  "strategies": {
+    "structured_output_json_schema": {
+      "type": "post_processing",
+      "detail": "Validate JSON output"
+    },
+    "extended_thinking": {
+      "type": "system_prompt_injection",
+      "prompt": "Think step by step."
+    },
+    "code_execution": {
+      "type": "disabled",
+      "reason": "unsafe"
+    }
+  }
+}

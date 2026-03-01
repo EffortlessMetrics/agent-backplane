@@ -1,0 +1,192 @@
+---
+source: tests/schema_snapshots.rs
+expression: schema
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CapabilityRequirements",
+  "description": "Set of capabilities the work order requires from its backend.",
+  "type": "object",
+  "properties": {
+    "required": {
+      "description": "List of capability/support-level pairs the backend must satisfy.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilityRequirement"
+      }
+    }
+  },
+  "required": [
+    "required"
+  ],
+  "$defs": {
+    "Capability": {
+      "description": "A discrete feature that a backend may support (tools, hooks, MCP, etc.).\n\n# Examples\n\n```\nuse abp_core::{Capability, SupportLevel, CapabilityManifest};\n\nlet mut manifest = CapabilityManifest::new();\nmanifest.insert(Capability::ToolRead, SupportLevel::Native);\nmanifest.insert(Capability::Streaming, SupportLevel::Emulated);\n\nassert!(manifest.contains_key(&Capability::ToolRead));\n```",
+      "oneOf": [
+        {
+          "description": "Real-time token streaming support.",
+          "type": "string",
+          "const": "streaming"
+        },
+        {
+          "description": "Read file contents from the workspace.",
+          "type": "string",
+          "const": "tool_read"
+        },
+        {
+          "description": "Write new files to the workspace.",
+          "type": "string",
+          "const": "tool_write"
+        },
+        {
+          "description": "Edit existing files in the workspace.",
+          "type": "string",
+          "const": "tool_edit"
+        },
+        {
+          "description": "Execute shell commands.",
+          "type": "string",
+          "const": "tool_bash"
+        },
+        {
+          "description": "Search for files by glob pattern.",
+          "type": "string",
+          "const": "tool_glob"
+        },
+        {
+          "description": "Search file contents by regex pattern.",
+          "type": "string",
+          "const": "tool_grep"
+        },
+        {
+          "description": "Perform web searches.",
+          "type": "string",
+          "const": "tool_web_search"
+        },
+        {
+          "description": "Fetch content from URLs.",
+          "type": "string",
+          "const": "tool_web_fetch"
+        },
+        {
+          "description": "Prompt the user for input.",
+          "type": "string",
+          "const": "tool_ask_user"
+        },
+        {
+          "description": "Pre-tool-use governance hook.",
+          "type": "string",
+          "const": "hooks_pre_tool_use"
+        },
+        {
+          "description": "Post-tool-use governance hook.",
+          "type": "string",
+          "const": "hooks_post_tool_use"
+        },
+        {
+          "description": "Resume a previous session.",
+          "type": "string",
+          "const": "session_resume"
+        },
+        {
+          "description": "Fork a session into parallel branches.",
+          "type": "string",
+          "const": "session_fork"
+        },
+        {
+          "description": "Save and restore execution checkpoints.",
+          "type": "string",
+          "const": "checkpointing"
+        },
+        {
+          "description": "Structured output via JSON Schema.",
+          "type": "string",
+          "const": "structured_output_json_schema"
+        },
+        {
+          "description": "Act as an MCP client.",
+          "type": "string",
+          "const": "mcp_client"
+        },
+        {
+          "description": "Act as an MCP server.",
+          "type": "string",
+          "const": "mcp_server"
+        },
+        {
+          "description": "Generic tool-use capability (function calling).",
+          "type": "string",
+          "const": "tool_use"
+        },
+        {
+          "description": "Extended thinking / chain-of-thought reasoning.",
+          "type": "string",
+          "const": "extended_thinking"
+        },
+        {
+          "description": "Accept images as input.",
+          "type": "string",
+          "const": "image_input"
+        },
+        {
+          "description": "Accept PDF documents as input.",
+          "type": "string",
+          "const": "pdf_input"
+        },
+        {
+          "description": "Execute code in a sandboxed environment.",
+          "type": "string",
+          "const": "code_execution"
+        },
+        {
+          "description": "Return log-probabilities for generated tokens.",
+          "type": "string",
+          "const": "logprobs"
+        },
+        {
+          "description": "Deterministic output via seed parameter.",
+          "type": "string",
+          "const": "seed_determinism"
+        },
+        {
+          "description": "Support custom stop sequences.",
+          "type": "string",
+          "const": "stop_sequences"
+        }
+      ]
+    },
+    "CapabilityRequirement": {
+      "description": "A single capability + minimum support level pair.",
+      "type": "object",
+      "properties": {
+        "capability": {
+          "description": "The capability being required.",
+          "$ref": "#/$defs/Capability"
+        },
+        "min_support": {
+          "description": "Minimum acceptable support level.",
+          "$ref": "#/$defs/MinSupport"
+        }
+      },
+      "required": [
+        "capability",
+        "min_support"
+      ]
+    },
+    "MinSupport": {
+      "description": "Minimum acceptable [`SupportLevel`] threshold.",
+      "oneOf": [
+        {
+          "description": "Only accept native support.",
+          "type": "string",
+          "const": "native"
+        },
+        {
+          "description": "Native or emulated is acceptable.",
+          "type": "string",
+          "const": "emulated"
+        }
+      ]
+    }
+  }
+}

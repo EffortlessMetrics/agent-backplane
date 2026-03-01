@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: end_turn
+---
+{
+  "type": "message_delta",
+  "delta": {
+    "stop_reason": "end_turn"
+  },
+  "usage": {
+    "input_tokens": 200,
+    "output_tokens": 150
+  }
+}

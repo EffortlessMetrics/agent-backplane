@@ -1,0 +1,30 @@
+[package]
+name = "sidecar-kit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Value-based transport layer for sidecar processes speaking JSONL"
+readme = "README.md"
+keywords = ["sidecar", "jsonl", "transport", "process", "ipc"]
+categories = ["development-tools"]
+
+[dependencies]
+abp-core = { path = "../abp-core" }
+chrono = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt", "process", "io-util", "sync", "time"] }
+tokio-stream = "0.1"
+tracing = "0.1"
+
+[dev-dependencies]
+abp-core = { path = "../abp-core" }
+chrono = { workspace = true }
+insta = { workspace = true }
+proptest = { workspace = true }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "test-util", "time"] }
+tokio-stream = "0.1"

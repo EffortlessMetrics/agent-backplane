@@ -1,0 +1,20 @@
+---
+source: crates/abp-integrations/tests/snapshot_integrations.rs
+expression: result
+---
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "Text": "Generate unit tests"
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "generation_config": {
+    "maxOutputTokens": 4096
+  },
+  "model": "gemini-2.5-flash"
+}

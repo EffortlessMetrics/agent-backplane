@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: m
+---
+{
+  "backend_name": "sidecar:claude",
+  "dialect": "claude",
+  "duration_ms": 4500,
+  "events_count": 12,
+  "tokens_in": 1500,
+  "tokens_out": 3200,
+  "tool_calls_count": 5,
+  "errors_count": 1,
+  "emulations_applied": 2
+}

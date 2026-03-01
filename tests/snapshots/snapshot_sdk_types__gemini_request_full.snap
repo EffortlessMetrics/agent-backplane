@@ -1,0 +1,58 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: req
+---
+{
+  "model": "gemini-2.0-flash",
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Hello!"
+        }
+      ]
+    }
+  ],
+  "system_instruction": {
+    "role": "user",
+    "parts": [
+      {
+        "text": "You are a coding assistant."
+      }
+    ]
+  },
+  "generation_config": {
+    "maxOutputTokens": 4096,
+    "temperature": 0.7
+  },
+  "safety_settings": [
+    {
+      "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+      "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+    }
+  ],
+  "tools": [
+    {
+      "functionDeclarations": [
+        {
+          "name": "write_file",
+          "description": "Write to a file",
+          "parameters": {
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    }
+  ],
+  "tool_config": {
+    "functionCallingConfig": {
+      "mode": "AUTO"
+    }
+  }
+}

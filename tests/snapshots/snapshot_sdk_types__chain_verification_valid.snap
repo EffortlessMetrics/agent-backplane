@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: result
+---
+{
+  "valid": true,
+  "errors": [],
+  "chain_length": 2,
+  "total_events": 0,
+  "total_duration_ms": "[duration]"
+}

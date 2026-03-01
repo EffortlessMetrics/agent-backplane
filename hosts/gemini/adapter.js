@@ -350,7 +350,7 @@ function resolveCommandPath(command) {
 
   const pathVar = process.env.PATH;
   if (!pathVar) {
-    return false;
+    return null;
   }
 
   const dirs = pathVar.split(path.delimiter);
@@ -647,7 +647,7 @@ async function runSdkOnce(request, ctx) {
         sdk_version: cachedSdkVersion,
       },
       usage: normalizeUsage(usageRaw),
-      outcome: "Complete",
+      outcome: "complete",
     };
   }
 
@@ -671,7 +671,7 @@ async function runSdkOnce(request, ctx) {
       sdk_version: cachedSdkVersion,
     },
     usage: normalizeUsage(usageRaw),
-    outcome: "Complete",
+    outcome: "complete",
   };
 }
 
@@ -853,7 +853,7 @@ function runFromCommand(command, args, request, ctx, inputMode) {
       resolve({
         usageRaw,
         usage: normalizeUsage(usageRaw),
-        outcome: code === 0 ? "Complete" : "Failed",
+        outcome: code === 0 ? "complete" : "failed",
       });
     });
   });
@@ -943,7 +943,7 @@ async function run(ctx) {
         return {
           usageRaw: { error: safeString(err), transport: "sdk" },
           usage: {},
-          outcome: "Failed",
+          outcome: "failed",
         };
       }
       ctx.emitWarning(`Gemini SDK unavailable, falling back to CLI: ${safeString(err)}`);
@@ -966,7 +966,7 @@ async function run(ctx) {
     return {
       usageRaw: { error: safeString(err), transport: "cli" },
       usage: {},
-      outcome: "Failed",
+      outcome: "failed",
     };
   }
 
@@ -978,7 +978,7 @@ async function run(ctx) {
       return {
         usageRaw: { error: safeString(err), transport: "sdk" },
         usage: {},
-        outcome: "Failed",
+        outcome: "failed",
       };
     }
   }

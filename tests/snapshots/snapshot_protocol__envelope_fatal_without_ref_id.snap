@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_protocol.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": null,
+  "error": "failed to initialize: missing API key"
+}

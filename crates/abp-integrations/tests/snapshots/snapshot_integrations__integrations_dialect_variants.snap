@@ -1,0 +1,13 @@
+---
+source: crates/abp-integrations/tests/snapshot_integrations.rs
+expression: dialects
+---
+[
+  "abp",
+  "claude",
+  "codex",
+  "gemini",
+  "kimi",
+  "mock",
+  "openai"
+]

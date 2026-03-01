@@ -1,0 +1,11 @@
+---
+source: crates/abp-core/tests/golden_tests.rs
+expression: event
+---
+{
+  "ts": "2024-01-01T00:00:00Z",
+  "type": "command_executed",
+  "command": "cargo test",
+  "exit_code": 0,
+  "output_preview": "test result: ok. 42 passed"
+}

@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: err
+---
+{
+  "code": "invalid_request",
+  "message": "missing required field: backend"
+}

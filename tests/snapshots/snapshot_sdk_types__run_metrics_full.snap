@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: metrics
+---
+{
+  "backend_name": "sidecar:claude",
+  "dialect": "claude",
+  "duration_ms": 3456,
+  "events_count": 42,
+  "tokens_in": 1500,
+  "tokens_out": 800,
+  "tool_calls_count": 7,
+  "errors_count": 1,
+  "emulations_applied": 2
+}

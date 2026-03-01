@@ -139,6 +139,30 @@ function getExecutionMode(workOrder) {
   return DEFAULT_MODE;
 }
 
+function getPassthroughRequest(workOrder) {
+  const abp = getVendorNamespace(workOrder, "abp");
+  if (Object.prototype.hasOwnProperty.call(abp, "request")) {
+    return abp.request;
+  }
+  return null;
+}
+
+function promptInputForWorkOrder(workOrder) {
+  const mode = getExecutionMode(workOrder);
+  const rawRequest = mode === "passthrough" ? getPassthroughRequest(workOrder) : null;
+  if (rawRequest == null) {
+    return buildPrompt(workOrder);
+  }
+
+  const text =
+    typeof rawRequest === "string"
+      ? rawRequest
+      : rawRequest && typeof rawRequest.prompt === "string"
+        ? rawRequest.prompt
+        : "";
+  return text && text.trim().length > 0 ? text : safeString(rawRequest);
+}
+
 function buildPrompt(workOrder) {
   let prompt = String(workOrder?.task || "").trim();
   const context = asObject(workOrder?.context);
@@ -196,6 +220,7 @@ function addArtifact(artifacts, kind, artifactPath) {
     path: artifactPath.replace(/\\/g, "/"),
   });
 }
+
 
 function makeEmitter(runId, trace) {
   return function emit(kind, extRawMessage) {
@@ -723,7 +748,7 @@ async function executeTurn(codex, workOrder, codexCfg, emit, artifacts) {
     openToolCalls: new Set(),
   };
 
-  const promptInput = buildPrompt(workOrder);
+  const promptInput = promptInputForWorkOrder(workOrder);
   let streamed;
   try {
     streamed = await thread.runStreamed(promptInput, turnOptions);

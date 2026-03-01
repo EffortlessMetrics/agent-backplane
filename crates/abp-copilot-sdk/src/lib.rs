@@ -1,8 +1,17 @@
-//! Microcrate for wiring the Copilot sidecar into ABP runtimes.
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//! Microcrate for wiring the GitHub Copilot sidecar into ABP runtimes.
+//!
+//! Registers the Copilot sidecar backend and exposes the
+//! [`dialect`] module for translating between ABP contract types and
+//! the GitHub Copilot agent protocol format.
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
 
-use abp_host::SidecarSpec;
-use abp_integrations::SidecarBackend;
+pub mod dialect;
+pub mod lowering;
+
 use abp_runtime::Runtime;
+use abp_sidecar_sdk::{register_sidecar_backend, sidecar_script as resolve_sidecar_script};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
@@ -31,74 +40,45 @@ pub fn register_backend(
     host_root: &Path,
     command_override: Option<&str>,
 ) -> Result<bool> {
-    let command = resolve_command(command_override)
-        .with_context(|| format!("resolve Copilot command for {backend_name}"))?;
-    let command = match command {
-        Some(c) => c,
-        None => return Ok(false),
-    };
-
-    let host_script = sidecar_script(host_root);
-    if !host_script.is_file() {
-        return Ok(false);
-    }
-
-    let mut spec = SidecarSpec::new(command);
-    spec.args = vec![host_script.to_string_lossy().into_owned()];
-    runtime.register_backend(backend_name, SidecarBackend::new(spec));
-    Ok(true)
+    register_sidecar_backend(
+        runtime,
+        backend_name,
+        host_root,
+        HOST_SCRIPT_RELATIVE,
+        command_override,
+        DEFAULT_NODE_COMMAND,
+        "Copilot",
+    )
+    .with_context(|| format!("resolve Copilot command for {backend_name}"))
 }
 
 /// Resolve the host script path for a given runtime root.
 pub fn sidecar_script(host_root: &Path) -> PathBuf {
-    host_root.join(HOST_SCRIPT_RELATIVE)
+    resolve_sidecar_script(host_root, HOST_SCRIPT_RELATIVE)
 }
 
-fn resolve_command(command_override: Option<&str>) -> Result<Option<String>> {
-    if let Some(command) = command_override {
-        let command = command.trim();
-        if !command.is_empty() {
-            if command_exists(command) {
-                return Ok(Some(command.to_string()));
-            }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
 
-            anyhow::bail!("explicit Copilot command '{command}' is not available");
-        }
+    #[test]
+    fn backend_name_is_correct() {
+        assert_eq!(BACKEND_NAME, "sidecar:copilot");
     }
 
-    if command_exists(DEFAULT_NODE_COMMAND) {
-        return Ok(Some(DEFAULT_NODE_COMMAND.to_string()));
+    #[test]
+    fn sidecar_script_returns_correct_path() {
+        let root = Path::new("/fake/root");
+        let script = sidecar_script(root);
+        assert_eq!(script, root.join("hosts/copilot/host.js"));
     }
 
-    Ok(None)
-}
-
-fn command_exists(command: &str) -> bool {
-    let candidate = Path::new(command);
-    let has_path = candidate.components().count() > 1;
-
-    if has_path {
-        return candidate.exists();
+    #[test]
+    fn register_default_with_nonexistent_root_returns_false() {
+        let mut runtime = Runtime::new();
+        let bogus = Path::new("/nonexistent/path/that/does/not/exist");
+        let result = register_default(&mut runtime, bogus, None).unwrap_or(false);
+        assert!(!result);
     }
-
-    std::env::var_os("PATH")
-        .is_some_and(|path| std::env::split_paths(&path).any(|dir| path_has_command(&dir, command)))
-}
-
-fn path_has_command(dir: &Path, command: &str) -> bool {
-    if dir.join(command).exists() {
-        return true;
-    }
-
-    if !cfg!(windows) {
-        return false;
-    }
-
-    for ext in ["", ".exe", ".cmd", ".bat", ".com"] {
-        if dir.join(format!("{command}{ext}")).exists() {
-            return true;
-        }
-    }
-
-    false
 }

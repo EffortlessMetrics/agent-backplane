@@ -1,0 +1,106 @@
+---
+source: crates/abp-core/tests/snapshot_comprehensive.rs
+expression: wo
+---
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "task": "Implement OAuth2 flow with PKCE",
+  "lane": "workspace_first",
+  "workspace": {
+    "root": "/home/dev/project",
+    "mode": "staged",
+    "include": [
+      "src/**/*.rs",
+      "tests/**"
+    ],
+    "exclude": [
+      "target/**",
+      "*.log",
+      ".git/**"
+    ]
+  },
+  "context": {
+    "files": [
+      "src/auth.rs",
+      "Cargo.toml"
+    ],
+    "snippets": [
+      {
+        "name": "auth-spec",
+        "content": "Must support refresh tokens and PKCE challenge"
+      },
+      {
+        "name": "api-docs",
+        "content": "See https://example.com/oauth2/spec"
+      }
+    ]
+  },
+  "policy": {
+    "allowed_tools": [
+      "read",
+      "write",
+      "glob",
+      "grep"
+    ],
+    "disallowed_tools": [
+      "bash",
+      "web_fetch"
+    ],
+    "deny_read": [
+      ".env",
+      "**/*.key",
+      "secrets/**"
+    ],
+    "deny_write": [
+      "Cargo.lock",
+      "LICENSE"
+    ],
+    "allow_network": [
+      "api.example.com",
+      "*.github.com"
+    ],
+    "deny_network": [
+      "evil.com",
+      "*.malware.net"
+    ],
+    "require_approval_for": [
+      "write",
+      "edit",
+      "bash"
+    ]
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "streaming",
+        "min_support": "native"
+      },
+      {
+        "capability": "tool_read",
+        "min_support": "emulated"
+      },
+      {
+        "capability": "tool_write",
+        "min_support": "emulated"
+      }
+    ]
+  },
+  "config": {
+    "model": "claude-sonnet-4-20250514",
+    "vendor": {
+      "abp": {
+        "mode": "mapped",
+        "trace_level": "verbose"
+      },
+      "anthropic": {
+        "max_tokens": 8192
+      }
+    },
+    "env": {
+      "CI": "true",
+      "RUST_LOG": "debug"
+    },
+    "max_budget_usd": 5.0,
+    "max_turns": 25
+  }
+}

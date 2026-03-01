@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: env
+---
+{
+  "t": "event",
+  "ref_id": "run-fixed-001",
+  "event": {
+    "ts": "2025-01-15T12:00:00Z",
+    "type": "assistant_delta",
+    "text": "Hello"
+  }
+}

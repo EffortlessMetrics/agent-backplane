@@ -1,0 +1,20 @@
+[package]
+name = "abp-mapping"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Cross-dialect mapping validation for the Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "mapping", "dialect", "ai"]
+categories = ["development-tools"]
+
+[dependencies]
+abp-dialect = { path = "../abp-dialect" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -1,0 +1,10 @@
+---
+source: crates/abp-protocol/tests/golden_tests.rs
+expression: stream
+---
+{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"test-sidecar","backend_version":"0.1.0","adapter_version":null},"capabilities":{"streaming":"native"},"mode":"mapped"}
+{"t":"run","id":"run-001","work_order":{"id":"00000000-0000-0000-0000-000000000000","task":"Refactor auth module","lane":"patch_first","workspace":{"root":"/tmp/ws","mode":"staged","include":["src/**"],"exclude":["target/**"]},"context":{"files":["README.md"],"snippets":[{"name":"hint","content":"Use JWT"}]},"policy":{"allowed_tools":["read"],"disallowed_tools":["bash"],"deny_read":[".env"],"deny_write":["Cargo.lock"],"allow_network":["api.example.com"],"deny_network":["evil.com"],"require_approval_for":["write"]},"requirements":{"required":[{"capability":"streaming","min_support":"native"}]},"config":{"model":"gpt-4","vendor":{"abp":{"mode":"mapped"}},"env":{"RUST_LOG":"debug"},"max_budget_usd":1.0,"max_turns":10}}}
+{"t":"event","ref_id":"run-001","event":{"ts":"2024-01-01T00:00:00Z","type":"run_started","message":"go"}}
+{"t":"event","ref_id":"run-001","event":{"ts":"2024-01-01T00:00:00Z","type":"assistant_delta","text":"working..."}}
+{"t":"event","ref_id":"run-001","event":{"ts":"2024-01-01T00:00:00Z","type":"run_completed","message":"done"}}
+{"t":"final","ref_id":"run-001","receipt":{"meta":{"run_id":"00000000-0000-0000-0000-000000000000","work_order_id":"00000000-0000-0000-0000-000000000001","contract_version":"abp/v0.1","started_at":"2024-01-01T00:00:00Z","finished_at":"2024-01-01T00:00:00Z","duration_ms":42},"backend":{"id":"mock","backend_version":"1.0","adapter_version":null},"capabilities":{"streaming":"native","tool_read":"emulated"},"mode":"mapped","usage_raw":{"tokens":100},"usage":{"input_tokens":50,"output_tokens":50,"cache_read_tokens":null,"cache_write_tokens":null,"request_units":null,"estimated_cost_usd":null},"trace":[{"ts":"2024-01-01T00:00:00Z","type":"run_started","message":"started"}],"artifacts":[{"kind":"patch","path":"out.patch"}],"verification":{"git_diff":"+line","git_status":"M file.rs","harness_ok":true},"outcome":"complete","receipt_sha256":null}}

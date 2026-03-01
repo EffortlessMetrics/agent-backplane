@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
 //! Sidecar backend implementation for JSONL protocol adapters.
 
 use abp_backend_core::{Backend, ensure_capability_requirements};
@@ -15,10 +17,12 @@ use uuid::Uuid;
 /// A sidecar is an executable that speaks JSONL `abp-protocol` over stdio.
 #[derive(Debug, Clone)]
 pub struct SidecarBackend {
+    /// Specification describing how to spawn the sidecar process.
     pub spec: SidecarSpec,
 }
 
 impl SidecarBackend {
+    /// Creates a new sidecar backend from the given spec.
     pub fn new(spec: SidecarSpec) -> Self {
         Self { spec }
     }

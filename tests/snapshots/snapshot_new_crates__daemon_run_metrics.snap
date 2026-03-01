@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: m
+---
+{
+  "total_runs": 100,
+  "running": 3,
+  "completed": 90,
+  "failed": 7
+}

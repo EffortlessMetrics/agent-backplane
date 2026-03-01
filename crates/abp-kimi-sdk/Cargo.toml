@@ -5,8 +5,20 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Kimi SDK adapter for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "kimi", "moonshot"]
+categories = ["development-tools"]
 
 [dependencies]
+abp-core = { path = "../abp-core" }
 abp-runtime = { path = "../abp-runtime" }
 abp-sidecar-sdk = { path = "../abp-sidecar-sdk" }
 anyhow.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+

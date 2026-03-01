@@ -1,0 +1,70 @@
+---
+source: tests/schema_snapshots.rs
+expression: schema
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PolicyProfile",
+  "description": "Security policy: tool allow/deny lists, path restrictions, network rules.\n\nAn empty profile permits everything (no restrictions).",
+  "type": "object",
+  "properties": {
+    "allow_network": {
+      "description": "Network allowlist (domains or patterns).",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowed_tools": {
+      "description": "Tool allowlist. Empty means \"backend default\".",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "deny_network": {
+      "description": "Network denylist (domains or patterns).",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "deny_read": {
+      "description": "Deny reading paths matching any of these globs.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "deny_write": {
+      "description": "Deny writing/editing paths matching any of these globs.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "disallowed_tools": {
+      "description": "Tool denylist.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "require_approval_for": {
+      "description": "Require explicit approval for these tools.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "allowed_tools",
+    "disallowed_tools",
+    "deny_read",
+    "deny_write",
+    "allow_network",
+    "deny_network",
+    "require_approval_for"
+  ]
+}

@@ -1,0 +1,15 @@
+---
+source: crates/abp-codex-sdk/tests/snapshots_test.rs
+expression: req
+---
+{
+  "model": "codex-mini-latest",
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": "Write unit tests"
+    }
+  ],
+  "max_output_tokens": 4096
+}

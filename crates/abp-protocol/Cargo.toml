@@ -5,9 +5,30 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "JSONL wire protocol for Agent Backplane sidecar communication"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "protocol", "jsonl"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }
+sidecar-kit = { path = "../sidecar-kit" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+uuid.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+insta.workspace = true
+proptest.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "protocol_benches"
+harness = false
+
+[[bench]]
+name = "protocol_bench"
+harness = false

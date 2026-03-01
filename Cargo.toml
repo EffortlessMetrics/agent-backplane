@@ -1,33 +1,53 @@
+[package]
+name = "agent-backplane"
+version.workspace = true
+edition.workspace = true
+publish = false
+
 [workspace]
 resolver = "2"
+exclude = ["fuzz"]
 members = [
-  "crates/abp-glob",
-  "crates/abp-core",
-  "crates/abp-protocol",
-  "crates/abp-host",
-  "crates/abp-git",
-  "crates/abp-workspace",
-  "crates/abp-policy",
   "crates/abp-backend-core",
   "crates/abp-backend-mock",
+  "crates/abp-capability",
   "crates/abp-backend-sidecar",
-  "crates/abp-integrations",
-  "crates/abp-runtime",
-  "crates/abp-cli",
-  "crates/abp-daemon",
-  "crates/abp-sidecar-sdk",
-  "crates/abp-codex-sdk",
-  "crates/abp-copilot-sdk",
-  "crates/abp-gemini-sdk",
   "crates/abp-claude-sdk",
+  "crates/abp-cli",
+  "crates/abp-codex-sdk",
+  "crates/abp-config",
+  "crates/abp-copilot-sdk",
+  "crates/abp-core",
+  "crates/abp-daemon",
+  "crates/abp-emulation",
+  "crates/abp-error",
+  "crates/abp-dialect",
+  "crates/abp-gemini-sdk",
+  "crates/abp-git",
+  "crates/abp-glob",
+  "crates/abp-host",
+  "crates/abp-integrations",
   "crates/abp-kimi-sdk",
+  "crates/abp-mapping",
+  "crates/abp-openai-sdk",
+  "crates/abp-policy",
+  "crates/abp-receipt",
+  "crates/abp-protocol",
+  "crates/abp-runtime",
+  "crates/abp-sidecar-sdk",
+  "crates/abp-telemetry",
+  "crates/abp-workspace",
+  "crates/claude-bridge",
+  "crates/sidecar-kit",
   "xtask",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
 license = "MIT OR Apache-2.0"
+description = "Translation layer between agent SDKs"
 authors = ["Effortless Metrics"]
 repository = "https://github.com/EffortlessMetrics/agent-backplane"
 
@@ -41,6 +61,7 @@ globset = "0.4.18"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 schemars = { version = "1.2.1", features = ["chrono04", "uuid1"] }
+jsonschema = "0.28"
 sha2 = "0.10.9"
 thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "fs"] }
@@ -50,3 +71,84 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
 uuid = { version = "1.21.0", features = ["serde", "v4"] }
 walkdir = "2.5.0"
 tempfile = "3.26.0"
+axum = { version = "0.8.8", features = ["ws"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors"] }
+http-body-util = "0.1"
+tokio-tungstenite = "0.28"
+assert_cmd = "2"
+predicates = "3"
+insta = { version = "1", features = ["json", "redactions"] }
+toml = "0.8"
+proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+cucumber = "0.21"
+
+[dev-dependencies]
+criterion = { workspace = true }
+cucumber = { workspace = true }
+abp-core = { path = "crates/abp-core" }
+abp-protocol = { path = "crates/abp-protocol" }
+abp-host = { path = "crates/abp-host" }
+abp-runtime = { path = "crates/abp-runtime" }
+abp-integrations = { path = "crates/abp-integrations" }
+abp-policy = { path = "crates/abp-policy" }
+abp-glob = { path = "crates/abp-glob" }
+abp-workspace = { path = "crates/abp-workspace" }
+abp-cli = { path = "crates/abp-cli" }
+sidecar-kit = { path = "crates/sidecar-kit" }
+claude-bridge = { path = "crates/claude-bridge" }
+abp-emulation = { path = "crates/abp-emulation" }
+abp-telemetry = { path = "crates/abp-telemetry" }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+uuid = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+chrono = { workspace = true }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+schemars.workspace = true
+jsonschema.workspace = true
+abp-daemon = { path = "crates/abp-daemon" }
+abp-dialect = { path = "crates/abp-dialect" }
+abp-error = { path = "crates/abp-error" }
+abp-capability = { path = "crates/abp-capability" }
+abp-receipt = { path = "crates/abp-receipt" }
+abp-mapping = { path = "crates/abp-mapping" }
+abp-claude-sdk = { path = "crates/abp-claude-sdk" }
+abp-gemini-sdk = { path = "crates/abp-gemini-sdk" }
+abp-codex-sdk = { path = "crates/abp-codex-sdk" }
+abp-kimi-sdk = { path = "crates/abp-kimi-sdk" }
+abp-openai-sdk = { path = "crates/abp-openai-sdk" }
+abp-copilot-sdk = { path = "crates/abp-copilot-sdk" }
+insta = { workspace = true }
+proptest = { workspace = true }
+toml = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+http-body-util = { workspace = true }
+
+[[test]]
+name = "bdd"
+harness = false
+path = "tests/bdd_steps.rs"
+
+[[bench]]
+name = "receipt_hash_bench"
+harness = false
+
+[[bench]]
+name = "serde_roundtrip_bench"
+harness = false
+
+[[bench]]
+name = "policy_eval_bench"
+harness = false
+
+[[bench]]
+name = "projection_bench"
+harness = false

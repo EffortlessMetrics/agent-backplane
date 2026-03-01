@@ -1,0 +1,17 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: s
+---
+{
+  "count": 3,
+  "mean_duration_ms": 200.0,
+  "p50_duration_ms": 200.0,
+  "p99_duration_ms": 298.0,
+  "total_tokens_in": 850,
+  "total_tokens_out": 1700,
+  "error_rate": 0.3333333333333333,
+  "backend_counts": {
+    "mock": 2,
+    "sidecar:claude": 1
+  }
+}

@@ -1,0 +1,457 @@
+---
+source: crates/abp-core/tests/golden_tests.rs
+expression: value
+---
+{
+  "$defs": {
+    "Capability": {
+      "description": "A discrete feature that a backend may support (tools, hooks, MCP, etc.).\n\n# Examples\n\n```\nuse abp_core::{Capability, SupportLevel, CapabilityManifest};\n\nlet mut manifest = CapabilityManifest::new();\nmanifest.insert(Capability::ToolRead, SupportLevel::Native);\nmanifest.insert(Capability::Streaming, SupportLevel::Emulated);\n\nassert!(manifest.contains_key(&Capability::ToolRead));\n```",
+      "oneOf": [
+        {
+          "const": "streaming",
+          "description": "Real-time token streaming support.",
+          "type": "string"
+        },
+        {
+          "const": "tool_read",
+          "description": "Read file contents from the workspace.",
+          "type": "string"
+        },
+        {
+          "const": "tool_write",
+          "description": "Write new files to the workspace.",
+          "type": "string"
+        },
+        {
+          "const": "tool_edit",
+          "description": "Edit existing files in the workspace.",
+          "type": "string"
+        },
+        {
+          "const": "tool_bash",
+          "description": "Execute shell commands.",
+          "type": "string"
+        },
+        {
+          "const": "tool_glob",
+          "description": "Search for files by glob pattern.",
+          "type": "string"
+        },
+        {
+          "const": "tool_grep",
+          "description": "Search file contents by regex pattern.",
+          "type": "string"
+        },
+        {
+          "const": "tool_web_search",
+          "description": "Perform web searches.",
+          "type": "string"
+        },
+        {
+          "const": "tool_web_fetch",
+          "description": "Fetch content from URLs.",
+          "type": "string"
+        },
+        {
+          "const": "tool_ask_user",
+          "description": "Prompt the user for input.",
+          "type": "string"
+        },
+        {
+          "const": "hooks_pre_tool_use",
+          "description": "Pre-tool-use governance hook.",
+          "type": "string"
+        },
+        {
+          "const": "hooks_post_tool_use",
+          "description": "Post-tool-use governance hook.",
+          "type": "string"
+        },
+        {
+          "const": "session_resume",
+          "description": "Resume a previous session.",
+          "type": "string"
+        },
+        {
+          "const": "session_fork",
+          "description": "Fork a session into parallel branches.",
+          "type": "string"
+        },
+        {
+          "const": "checkpointing",
+          "description": "Save and restore execution checkpoints.",
+          "type": "string"
+        },
+        {
+          "const": "structured_output_json_schema",
+          "description": "Structured output via JSON Schema.",
+          "type": "string"
+        },
+        {
+          "const": "mcp_client",
+          "description": "Act as an MCP client.",
+          "type": "string"
+        },
+        {
+          "const": "mcp_server",
+          "description": "Act as an MCP server.",
+          "type": "string"
+        },
+        {
+          "const": "tool_use",
+          "description": "Generic tool-use capability (function calling).",
+          "type": "string"
+        },
+        {
+          "const": "extended_thinking",
+          "description": "Extended thinking / chain-of-thought reasoning.",
+          "type": "string"
+        },
+        {
+          "const": "image_input",
+          "description": "Accept images as input.",
+          "type": "string"
+        },
+        {
+          "const": "pdf_input",
+          "description": "Accept PDF documents as input.",
+          "type": "string"
+        },
+        {
+          "const": "code_execution",
+          "description": "Execute code in a sandboxed environment.",
+          "type": "string"
+        },
+        {
+          "const": "logprobs",
+          "description": "Return log-probabilities for generated tokens.",
+          "type": "string"
+        },
+        {
+          "const": "seed_determinism",
+          "description": "Deterministic output via seed parameter.",
+          "type": "string"
+        },
+        {
+          "const": "stop_sequences",
+          "description": "Support custom stop sequences.",
+          "type": "string"
+        }
+      ]
+    },
+    "CapabilityRequirement": {
+      "description": "A single capability + minimum support level pair.",
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/Capability",
+          "description": "The capability being required."
+        },
+        "min_support": {
+          "$ref": "#/$defs/MinSupport",
+          "description": "Minimum acceptable support level."
+        }
+      },
+      "required": [
+        "capability",
+        "min_support"
+      ],
+      "type": "object"
+    },
+    "CapabilityRequirements": {
+      "description": "Set of capabilities the work order requires from its backend.",
+      "properties": {
+        "required": {
+          "description": "List of capability/support-level pairs the backend must satisfy.",
+          "items": {
+            "$ref": "#/$defs/CapabilityRequirement"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "required"
+      ],
+      "type": "object"
+    },
+    "ContextPacket": {
+      "description": "Pre-loaded context files and snippets attached to a [`WorkOrder`].",
+      "properties": {
+        "files": {
+          "description": "Explicit file paths to include (relative to workspace root).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "snippets": {
+          "description": "Optional snippets (for UIs or preloaded context).",
+          "items": {
+            "$ref": "#/$defs/ContextSnippet"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "files",
+        "snippets"
+      ],
+      "type": "object"
+    },
+    "ContextSnippet": {
+      "description": "A named text fragment included in [`ContextPacket`].",
+      "properties": {
+        "content": {
+          "description": "The snippet text.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable label for the snippet.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "content"
+      ],
+      "type": "object"
+    },
+    "ExecutionLane": {
+      "description": "Strategy for how the agent produces its output.",
+      "oneOf": [
+        {
+          "const": "patch_first",
+          "description": "Agent proposes a patch/diff. No direct mutation of the user's repo.",
+          "type": "string"
+        },
+        {
+          "const": "workspace_first",
+          "description": "Agent can mutate a workspace (often a staged worktree).",
+          "type": "string"
+        }
+      ]
+    },
+    "MinSupport": {
+      "description": "Minimum acceptable [`SupportLevel`] threshold.",
+      "oneOf": [
+        {
+          "const": "native",
+          "description": "Only accept native support.",
+          "type": "string"
+        },
+        {
+          "const": "emulated",
+          "description": "Native or emulated is acceptable.",
+          "type": "string"
+        }
+      ]
+    },
+    "PolicyProfile": {
+      "description": "Security policy: tool allow/deny lists, path restrictions, network rules.\n\nAn empty profile permits everything (no restrictions).",
+      "properties": {
+        "allow_network": {
+          "description": "Network allowlist (domains or patterns).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "allowed_tools": {
+          "description": "Tool allowlist. Empty means \"backend default\".",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deny_network": {
+          "description": "Network denylist (domains or patterns).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deny_read": {
+          "description": "Deny reading paths matching any of these globs.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deny_write": {
+          "description": "Deny writing/editing paths matching any of these globs.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "disallowed_tools": {
+          "description": "Tool denylist.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "require_approval_for": {
+          "description": "Require explicit approval for these tools.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "allowed_tools",
+        "disallowed_tools",
+        "deny_read",
+        "deny_write",
+        "allow_network",
+        "deny_network",
+        "require_approval_for"
+      ],
+      "type": "object"
+    },
+    "RuntimeConfig": {
+      "description": "Runtime-level knobs: model selection, vendor flags, budget caps, etc.",
+      "properties": {
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Environment variables for the runtime.",
+          "type": "object"
+        },
+        "max_budget_usd": {
+          "description": "Hard cap on cost (best-effort).",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max_turns": {
+          "description": "Hard cap on turns/iterations (best-effort).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "model": {
+          "description": "Preferred backend/model identifier.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vendor": {
+          "additionalProperties": true,
+          "description": "Optional vendor-specific flags (passed through adapters).",
+          "type": "object"
+        }
+      },
+      "required": [
+        "vendor",
+        "env"
+      ],
+      "type": "object"
+    },
+    "WorkspaceMode": {
+      "description": "How the runtime treats the workspace before handing it to a backend.",
+      "oneOf": [
+        {
+          "const": "pass_through",
+          "description": "Use the workspace as-is.",
+          "type": "string"
+        },
+        {
+          "const": "staged",
+          "description": "Create a sanitized copy (or worktree) before running tools.",
+          "type": "string"
+        }
+      ]
+    },
+    "WorkspaceSpec": {
+      "description": "Describes the workspace root, staging mode, and include/exclude globs.",
+      "properties": {
+        "exclude": {
+          "description": "Optional exclude globs (evaluated relative to root).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "include": {
+          "description": "Optional include globs (evaluated relative to root).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "$ref": "#/$defs/WorkspaceMode",
+          "description": "How the runtime should treat the workspace."
+        },
+        "root": {
+          "description": "Root folder for the step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "root",
+        "mode",
+        "include",
+        "exclude"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A single unit of work.\n\nThis is intentionally *not* a chat session. Sessions can exist underneath,\nbut the contract is step-oriented.",
+  "properties": {
+    "config": {
+      "$ref": "#/$defs/RuntimeConfig",
+      "description": "Runtime-level knobs (model, budget, vendor flags)."
+    },
+    "context": {
+      "$ref": "#/$defs/ContextPacket",
+      "description": "Pre-loaded context files and snippets."
+    },
+    "id": {
+      "description": "Unique identifier for this work order.",
+      "format": "uuid",
+      "type": "string"
+    },
+    "lane": {
+      "$ref": "#/$defs/ExecutionLane",
+      "description": "Strategy for how the agent produces output."
+    },
+    "policy": {
+      "$ref": "#/$defs/PolicyProfile",
+      "description": "Security policy (tool/path restrictions)."
+    },
+    "requirements": {
+      "$ref": "#/$defs/CapabilityRequirements",
+      "description": "Capability requirements the backend must satisfy."
+    },
+    "task": {
+      "description": "Human intent.",
+      "type": "string"
+    },
+    "workspace": {
+      "$ref": "#/$defs/WorkspaceSpec",
+      "description": "Workspace root, staging mode, and include/exclude globs."
+    }
+  },
+  "required": [
+    "id",
+    "task",
+    "lane",
+    "workspace",
+    "context",
+    "policy",
+    "requirements",
+    "config"
+  ],
+  "title": "WorkOrder",
+  "type": "object"
+}

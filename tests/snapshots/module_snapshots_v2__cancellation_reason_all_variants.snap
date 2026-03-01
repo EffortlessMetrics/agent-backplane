@@ -1,0 +1,11 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: reasons
+---
+[
+  "user_requested",
+  "timeout",
+  "budget_exhausted",
+  "policy_violation",
+  "system_shutdown"
+]

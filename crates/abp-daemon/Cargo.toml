@@ -5,6 +5,14 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "HTTP control-plane daemon for the Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "daemon", "server"]
+categories = ["command-line-utilities"]
+
+[lib]
+name = "abp_daemon"
+path = "src/lib.rs"
 
 [[bin]]
 name = "abp-daemon"
@@ -25,9 +33,20 @@ abp-runtime = { path = "../abp-runtime" }
 chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+schemars.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
-axum = "0.8.8"
+axum = { version = "0.8.8", features = ["ws"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+tempfile = { workspace = true }
+tokio-tungstenite = "0.28"
+futures = { workspace = true }
+proptest = { workspace = true }

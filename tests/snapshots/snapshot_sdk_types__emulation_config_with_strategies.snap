@@ -1,0 +1,20 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: json_str
+---
+{
+  "strategies": {
+    "structured_output_json_schema": {
+      "type": "post_processing",
+      "detail": "Parse and validate JSON from text response"
+    },
+    "extended_thinking": {
+      "type": "system_prompt_injection",
+      "prompt": "Think step by step before answering."
+    },
+    "code_execution": {
+      "type": "disabled",
+      "reason": "Cannot safely emulate sandboxed code execution"
+    }
+  }
+}

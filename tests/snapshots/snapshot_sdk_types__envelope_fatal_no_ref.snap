@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: env_no_ref
+---
+{
+  "t": "fatal",
+  "ref_id": null,
+  "error": "Failed to parse hello envelope: invalid JSON at line 1"
+}

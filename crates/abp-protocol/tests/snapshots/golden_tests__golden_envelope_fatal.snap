@@ -1,0 +1,9 @@
+---
+source: crates/abp-protocol/tests/golden_tests.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": "run-001",
+  "error": "sidecar crashed"
+}

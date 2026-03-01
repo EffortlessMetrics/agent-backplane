@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: resp
+---
+{
+  "status": "ok",
+  "version": "abp/v0.1",
+  "uptime_seconds": 3600,
+  "backends_count": 3
+}

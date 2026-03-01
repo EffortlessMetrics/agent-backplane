@@ -1,0 +1,7 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: config
+---
+{
+  "strategies": {}
+}

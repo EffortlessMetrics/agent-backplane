@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: status
+---
+{
+  "status": "failed",
+  "error": "sidecar crashed with exit code 1"
+}

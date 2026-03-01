@@ -1,0 +1,35 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: health
+---
+{
+  "backends": [
+    {
+      "name": "openai",
+      "status": {
+        "status": "healthy"
+      },
+      "checked_at": "2025-01-15T12:00:00+00:00",
+      "response_time_ms": 45,
+      "details": {}
+    },
+    {
+      "name": "anthropic",
+      "status": {
+        "status": "degraded",
+        "reason": "slow responses"
+      },
+      "checked_at": "2025-01-15T12:00:00+00:00",
+      "response_time_ms": 2500,
+      "details": {
+        "region": "us-east-1"
+      }
+    }
+  ],
+  "overall": {
+    "status": "degraded",
+    "reason": "slow responses"
+  },
+  "uptime_seconds": 3600,
+  "version": "0.1.0"
+}

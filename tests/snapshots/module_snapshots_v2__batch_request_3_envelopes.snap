@@ -1,0 +1,64 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: req
+---
+{
+  "id": "batch-001",
+  "envelopes": [
+    {
+      "t": "hello",
+      "contract_version": "abp/v0.1",
+      "backend": {
+        "id": "test-sidecar",
+        "backend_version": "1.0.0",
+        "adapter_version": null
+      },
+      "capabilities": {},
+      "mode": "mapped"
+    },
+    {
+      "t": "run",
+      "id": "run-001",
+      "work_order": {
+        "id": "[UUID]",
+        "task": "test task",
+        "lane": "patch_first",
+        "workspace": {
+          "root": ".",
+          "mode": "staged",
+          "include": [],
+          "exclude": []
+        },
+        "context": {
+          "files": [],
+          "snippets": []
+        },
+        "policy": {
+          "allowed_tools": [],
+          "disallowed_tools": [],
+          "deny_read": [],
+          "deny_write": [],
+          "allow_network": [],
+          "deny_network": [],
+          "require_approval_for": []
+        },
+        "requirements": {
+          "required": []
+        },
+        "config": {
+          "model": "gpt-4o",
+          "vendor": {},
+          "env": {},
+          "max_budget_usd": null,
+          "max_turns": null
+        }
+      }
+    },
+    {
+      "t": "fatal",
+      "ref_id": "run-001",
+      "error": "out of memory"
+    }
+  ],
+  "created_at": "2025-01-15T12:00:00+00:00"
+}

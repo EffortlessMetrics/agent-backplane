@@ -1,0 +1,19 @@
+---
+source: crates/abp-codex-sdk/tests/snapshots_test.rs
+expression: "CodexConfig::default()"
+---
+{
+  "api_key": "",
+  "base_url": "https://api.openai.com/v1",
+  "model": "codex-mini-latest",
+  "max_output_tokens": 4096,
+  "temperature": null,
+  "sandbox": {
+    "container_image": null,
+    "networking": "none",
+    "file_access": "workspace_only",
+    "timeout_seconds": 300,
+    "memory_mb": 512,
+    "env": {}
+  }
+}

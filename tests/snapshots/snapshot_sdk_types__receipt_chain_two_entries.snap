@@ -1,0 +1,84 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: chain
+---
+{
+  "entries": [
+    {
+      "receipt": {
+        "meta": {
+          "run_id": "[uuid]",
+          "work_order_id": "[uuid]",
+          "contract_version": "abp/v0.1",
+          "started_at": "[timestamp]",
+          "finished_at": "[timestamp]",
+          "duration_ms": 0
+        },
+        "backend": {
+          "id": "mock",
+          "backend_version": null,
+          "adapter_version": null
+        },
+        "capabilities": {},
+        "mode": "mapped",
+        "usage_raw": {},
+        "usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "cache_read_tokens": null,
+          "cache_write_tokens": null,
+          "request_units": null,
+          "estimated_cost_usd": null
+        },
+        "trace": [],
+        "artifacts": [],
+        "verification": {
+          "git_diff": null,
+          "git_status": null,
+          "harness_ok": false
+        },
+        "outcome": "complete",
+        "receipt_sha256": "[hash]"
+      },
+      "parent_id": "[uuid_or_null]"
+    },
+    {
+      "receipt": {
+        "meta": {
+          "run_id": "[uuid]",
+          "work_order_id": "[uuid]",
+          "contract_version": "abp/v0.1",
+          "started_at": "[timestamp]",
+          "finished_at": "[timestamp]",
+          "duration_ms": 0
+        },
+        "backend": {
+          "id": "mock",
+          "backend_version": null,
+          "adapter_version": null
+        },
+        "capabilities": {},
+        "mode": "mapped",
+        "usage_raw": {},
+        "usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "cache_read_tokens": null,
+          "cache_write_tokens": null,
+          "request_units": null,
+          "estimated_cost_usd": null
+        },
+        "trace": [],
+        "artifacts": [],
+        "verification": {
+          "git_diff": null,
+          "git_status": null,
+          "harness_ok": false
+        },
+        "outcome": "complete",
+        "receipt_sha256": "[hash]"
+      },
+      "parent_id": "[uuid_or_null]"
+    }
+  ]
+}

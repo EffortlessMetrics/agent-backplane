@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_protocol.rs
+expression: r
+---
+{
+  "index": 0,
+  "status": {
+    "type": "success"
+  },
+  "envelope": null
+}

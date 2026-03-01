@@ -1,0 +1,22 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: chunk
+---
+{
+  "id": "chatcmpl-fixed-003",
+  "object": "chat.completion.chunk",
+  "created": 1700000000,
+  "model": "gpt-4",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {},
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 50,
+    "completion_tokens": 120,
+    "total_tokens": 170
+  }
+}

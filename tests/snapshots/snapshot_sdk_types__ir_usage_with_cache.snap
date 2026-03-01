@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: usage
+---
+{
+  "input_tokens": 500,
+  "output_tokens": 200,
+  "total_tokens": 700,
+  "cache_read_tokens": 80,
+  "cache_write_tokens": 20
+}

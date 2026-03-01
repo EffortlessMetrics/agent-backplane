@@ -1,0 +1,1 @@
+{"messages":[{"role":"user","content":"fix bug"}],"references":[{"type":"file","path":"src/main.rs"}],"agent_mode":true}

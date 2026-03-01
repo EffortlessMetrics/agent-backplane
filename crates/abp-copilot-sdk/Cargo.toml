@@ -5,9 +5,19 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
+description = "GitHub Copilot sidecar SDK integration for the Agent Backplane"
+keywords = ["agent", "backplane", "copilot", "sdk", "sidecar"]
+categories = ["development-tools"]
 
 [dependencies]
-abp-host = { path = "../abp-host" }
-abp-integrations = { path = "../abp-integrations" }
+abp-core = { path = "../abp-core" }
 abp-runtime = { path = "../abp-runtime" }
+abp-sidecar-sdk = { path = "../abp-sidecar-sdk" }
 anyhow.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+insta.workspace = true

@@ -1,0 +1,25 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: report
+---
+{
+  "applied": [
+    {
+      "capability": "extended_thinking",
+      "strategy": {
+        "type": "system_prompt_injection",
+        "prompt": "Think step by step."
+      }
+    },
+    {
+      "capability": "structured_output_json_schema",
+      "strategy": {
+        "type": "post_processing",
+        "detail": "Validate JSON output"
+      }
+    }
+  ],
+  "warnings": [
+    "Capability CodeExecution not emulated: unsafe"
+  ]
+}

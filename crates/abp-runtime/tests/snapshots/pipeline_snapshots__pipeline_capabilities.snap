@@ -1,0 +1,12 @@
+---
+source: crates/abp-runtime/tests/pipeline_snapshots.rs
+expression: caps_value
+---
+{
+  "streaming": "native",
+  "structured_output_json_schema": "emulated",
+  "tool_bash": "emulated",
+  "tool_edit": "emulated",
+  "tool_read": "emulated",
+  "tool_write": "emulated"
+}

@@ -1,4 +1,19 @@
-# Example configuration (not yet wired into the CLI).
+# Example backplane configuration.
+#
+# Copy this file to `backplane.toml` in the project root and adjust to taste.
+# Environment variables ABP_DEFAULT_BACKEND, ABP_LOG_LEVEL, and
+# ABP_RECEIPTS_DIR override the corresponding keys below.
+
+# Backend used when --backend is not specified on the command line.
+# default_backend = "mock"
+
+# Log verbosity: "error", "warn", "info", "debug", or "trace".
+# default_backend = "info"
+
+# Directory where receipt JSON files are persisted after each run.
+# receipts_dir = "./data/receipts"
+
+# -- Backend definitions -----------------------------------------------------
 
 [backends.mock]
 type = "mock"
@@ -7,8 +22,10 @@ type = "mock"
 type = "sidecar"
 command = "node"
 args = ["path/to/openai-sidecar.js"]
+# timeout_secs = 300
 
 [backends.anthropic]
 type = "sidecar"
 command = "python3"
 args = ["path/to/anthropic-sidecar.py"]
+# timeout_secs = 600

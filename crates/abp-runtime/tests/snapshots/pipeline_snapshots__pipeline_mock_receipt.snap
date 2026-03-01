@@ -1,0 +1,69 @@
+---
+source: crates/abp-runtime/tests/pipeline_snapshots.rs
+expression: value
+---
+{
+  "artifacts": [],
+  "backend": {
+    "adapter_version": "0.1",
+    "backend_version": "0.1",
+    "id": "mock"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "structured_output_json_schema": "emulated",
+    "tool_bash": "emulated",
+    "tool_edit": "emulated",
+    "tool_read": "emulated",
+    "tool_write": "emulated"
+  },
+  "meta": {
+    "contract_version": "abp/v0.1",
+    "duration_ms": "[duration]",
+    "finished_at": "[timestamp]",
+    "run_id": "[uuid]",
+    "started_at": "[timestamp]",
+    "work_order_id": "00000000-0000-0000-0000-000000000000"
+  },
+  "mode": "mapped",
+  "outcome": "complete",
+  "receipt_sha256": "[hash]",
+  "trace": [
+    {
+      "message": "mock backend starting: snapshot test task",
+      "ts": "[timestamp]",
+      "type": "run_started"
+    },
+    {
+      "text": "This is a mock backend. It does not call any real SDK.",
+      "ts": "[timestamp]",
+      "type": "assistant_message"
+    },
+    {
+      "text": "Use --backend sidecar:<name> once you add a sidecar config.",
+      "ts": "[timestamp]",
+      "type": "assistant_message"
+    },
+    {
+      "message": "mock run complete",
+      "ts": "[timestamp]",
+      "type": "run_completed"
+    }
+  ],
+  "usage": {
+    "cache_read_tokens": null,
+    "cache_write_tokens": null,
+    "estimated_cost_usd": 0.0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "request_units": null
+  },
+  "usage_raw": {
+    "note": "mock"
+  },
+  "verification": {
+    "git_diff": "[git_diff]",
+    "git_status": "[git_status]",
+    "harness_ok": true
+  }
+}

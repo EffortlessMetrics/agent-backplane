@@ -1,0 +1,13 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "event": {
+    "message": "rate limit exceeded",
+    "ts": "2024-06-15T12:30:00Z",
+    "type": "error"
+  },
+  "ref_id": "run-42",
+  "t": "event"
+}

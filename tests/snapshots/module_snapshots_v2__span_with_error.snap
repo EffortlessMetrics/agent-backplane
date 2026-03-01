@@ -1,0 +1,16 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: span
+---
+{
+  "id": "span-002",
+  "name": "sidecar_call",
+  "parent_id": "span-001",
+  "start_time": "2025-01-15T12:00:01+00:00",
+  "end_time": "2025-01-15T12:00:02+00:00",
+  "attributes": {},
+  "status": {
+    "type": "error",
+    "message": "sidecar timed out"
+  }
+}

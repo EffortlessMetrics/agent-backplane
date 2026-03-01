@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_protocol.rs
+expression: req
+---
+{
+  "id": "batch-001",
+  "envelopes": [
+    {
+      "t": "fatal",
+      "ref_id": null,
+      "error": "test"
+    }
+  ],
+  "created_at": "2025-01-15T12:00:00Z"
+}

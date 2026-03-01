@@ -1,0 +1,5 @@
+---
+source: crates/abp-core/tests/snapshot_comprehensive.rs
+expression: err.to_string()
+---
+hash mismatch: expected abc123def456, got 000000000000

@@ -1,0 +1,19 @@
+---
+source: crates/abp-kimi-sdk/tests/snapshots_test.rs
+expression: events
+---
+[
+  {
+    "type": "assistant_message",
+    "text": "I'll optimize the queries."
+  },
+  {
+    "type": "tool_call",
+    "tool_name": "web_search",
+    "tool_use_id": "call_1",
+    "parent_tool_use_id": null,
+    "input": {
+      "query": "sql optimization tips"
+    }
+  }
+]

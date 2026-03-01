@@ -5,10 +5,30 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Policy engine with tool/read/write allow/deny checks for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "policy", "security"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }
 abp-glob = { path = "../abp-glob" }
 anyhow.workspace = true
+globset.workspace = true
+chrono.workspace = true
 serde.workspace = true
 schemars.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+proptest = { workspace = true }
+insta.workspace = true
+serde_json.workspace = true
+
+[[bench]]
+name = "policy_eval"
+harness = false
+
+[[bench]]
+name = "policy_benches"
+harness = false

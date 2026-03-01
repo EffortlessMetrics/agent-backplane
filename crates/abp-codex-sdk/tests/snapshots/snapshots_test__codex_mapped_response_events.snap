@@ -1,0 +1,19 @@
+---
+source: crates/abp-codex-sdk/tests/snapshots_test.rs
+expression: events
+---
+[
+  {
+    "type": "assistant_message",
+    "text": "Here are the unit tests."
+  },
+  {
+    "type": "tool_call",
+    "tool_name": "shell",
+    "tool_use_id": "fc_1",
+    "parent_tool_use_id": null,
+    "input": {
+      "command": "cargo test"
+    }
+  }
+]

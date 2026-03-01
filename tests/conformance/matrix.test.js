@@ -34,6 +34,11 @@ function getHostDialect(cell) {
   return cell.dialect;
 }
 
+function findReceipt(messages) {
+  const finalMsg = messages.find((m) => m.t === "final");
+  return finalMsg?.receipt || null;
+}
+
 describe("Dialect×Engine Matrix", () => {
   describe("Matrix Configuration", () => {
     it("should define all four matrix cells", () => {
@@ -160,13 +165,14 @@ describe("Dialect×Engine Matrix", () => {
         const hostDialect = getHostDialect(cell);
         const { messages } = await runSidecarTest(hostDialect, workOrder);
 
-        const receipt = messages.find((m) => m.t === "receipt");
+        const receipt = findReceipt(messages);
         assert(receipt, "Receipt message should be present");
+        assert(receipt.meta, "Receipt should include meta");
 
         // Validate receipt structure
-        assert(receipt.id, "Receipt should have id");
-        assert(receipt.contract_version, "Receipt should have contract_version");
-        assert(receipt.status, "Receipt should have status");
+        assert(receipt.meta.run_id, "Receipt should have run_id");
+        assert(receipt.meta.contract_version, "Receipt should have contract_version");
+        assert(receipt.outcome, "Receipt should have outcome");
       });
 
       it("should respect execution mode", async () => {
@@ -186,13 +192,13 @@ describe("Dialect×Engine Matrix", () => {
         const hostDialect = getHostDialect(cell);
         const { messages } = await runSidecarTest(hostDialect, workOrder);
 
-        const hello = messages.find((m) => m.t === "hello");
-        assert(hello, "Hello message should be present");
+        const receipt = findReceipt(messages);
+        assert(receipt, "Final receipt should be present");
 
-        // Mode should match expected
-        if (hello.mode) {
+        // Effective mode should match expected.
+        if (receipt.mode) {
           assert.strictEqual(
-            hello.mode,
+            receipt.mode,
             cell.mode,
             `Mode should be ${cell.mode}`
           );
@@ -207,14 +213,14 @@ describe("Dialect×Engine Matrix", () => {
         const hostDialect = getHostDialect(cell);
         const { messages } = await runSidecarTest(hostDialect, workOrder);
 
-        const receipt = messages.find((m) => m.t === "receipt");
+        const receipt = findReceipt(messages);
         assert(receipt, "Receipt should be present");
         assert(
-          receipt.contract_version,
+          receipt.meta?.contract_version,
           "Receipt should include contract_version"
         );
         assert(
-          receipt.contract_version.startsWith("abp/"),
+          receipt.meta.contract_version.startsWith("abp/"),
           "Contract version should start with 'abp/'"
         );
       });
@@ -227,7 +233,7 @@ describe("Dialect×Engine Matrix", () => {
         const hostDialect = getHostDialect(cell);
         const { messages } = await runSidecarTest(hostDialect, workOrder);
 
-        const receipt = messages.find((m) => m.t === "receipt");
+        const receipt = findReceipt(messages);
         assert(receipt, "Receipt should be present");
 
         // Backend info should be present
@@ -259,15 +265,15 @@ describe("Cross-Matrix Consistency", () => {
 
   it("should use consistent receipt structure across all cells", () => {
     const requiredFields = [
-      "id",
-      "contract_version",
-      "status",
-      "started_at",
-      "completed_at",
+      "meta.run_id",
+      "meta.contract_version",
+      "outcome",
+      "meta.started_at",
+      "meta.finished_at",
     ];
 
     // This documents the required receipt fields
-    // Actual validation happens in receipt.test.js
+    // Actual validation happens in runtime receipt validation
     assert.strictEqual(requiredFields.length, 5, "Should have 5 required receipt fields");
   });
 });

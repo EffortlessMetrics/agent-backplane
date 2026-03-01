@@ -1,0 +1,29 @@
+---
+source: tests/snapshot_protocol.rs
+expression: resp
+---
+{
+  "request_id": "batch-001",
+  "results": [
+    {
+      "index": 0,
+      "status": {
+        "type": "success"
+      },
+      "envelope": {
+        "t": "fatal",
+        "ref_id": null,
+        "error": "test"
+      }
+    },
+    {
+      "index": 1,
+      "status": {
+        "type": "failed",
+        "error": "decode error"
+      },
+      "envelope": null
+    }
+  ],
+  "total_duration_ms": 42
+}

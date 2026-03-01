@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: fields
+---
+{
+  "logprobs": true,
+  "top_logprobs": 5,
+  "logit_bias": {
+    "198": 5.0,
+    "50256": -100.0
+  },
+  "seed": 42
+}

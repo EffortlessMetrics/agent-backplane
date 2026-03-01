@@ -1,0 +1,35 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: conv
+---
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are a coding assistant."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Explain ownership in Rust."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Ownership is a core concept..."
+        }
+      ]
+    }
+  ]
+}

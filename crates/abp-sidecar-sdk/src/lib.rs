@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
 //! Shared sidecar registration helpers used by vendor SDK microcrates.
 
 use abp_host::SidecarSpec;

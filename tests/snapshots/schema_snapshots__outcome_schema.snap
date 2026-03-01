@@ -1,0 +1,26 @@
+---
+source: tests/schema_snapshots.rs
+expression: schema
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Outcome",
+  "description": "High-level result status of a run.",
+  "oneOf": [
+    {
+      "description": "The run finished successfully.",
+      "type": "string",
+      "const": "complete"
+    },
+    {
+      "description": "The run produced partial results (e.g. budget exhausted).",
+      "type": "string",
+      "const": "partial"
+    },
+    {
+      "description": "The run failed.",
+      "type": "string",
+      "const": "failed"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: err
+---
+{
+  "code": "internal_error",
+  "message": "unexpected database error"
+}

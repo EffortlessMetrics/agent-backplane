@@ -1,0 +1,9 @@
+---
+source: crates/abp-integrations/tests/snapshot_integrations.rs
+expression: identity
+---
+{
+  "id": "mock",
+  "backend_version": "0.1",
+  "adapter_version": "0.1"
+}

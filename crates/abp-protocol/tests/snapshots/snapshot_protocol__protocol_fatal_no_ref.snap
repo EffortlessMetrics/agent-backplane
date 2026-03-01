@@ -1,0 +1,9 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "error": "handshake timeout: no hello received within 5s",
+  "ref_id": null,
+  "t": "fatal"
+}

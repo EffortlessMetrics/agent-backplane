@@ -1,0 +1,14 @@
+---
+source: crates/abp-integrations/tests/snapshot_integrations.rs
+expression: result
+---
+{
+  "max_tokens": 4096,
+  "messages": [
+    {
+      "content": "Translate docs to Chinese",
+      "role": "user"
+    }
+  ],
+  "model": "moonshot-v1-8k"
+}

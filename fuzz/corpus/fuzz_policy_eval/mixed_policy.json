@@ -1,0 +1,1 @@
+{"allowed_tools":["read_file","write_file"],"disallowed_tools":["shell"],"deny_read":["secrets/**","*.key"],"deny_write":["config/**"],"allow_network":[],"deny_network":["*.evil.com"],"require_approval_for":["deploy"],"tool_queries":["read_file","shell","deploy","unknown_tool"],"path_queries":["src/main.rs","secrets/api.key","config/app.toml","/tmp/test"]}

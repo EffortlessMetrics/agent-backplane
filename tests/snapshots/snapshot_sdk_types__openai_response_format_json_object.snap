@@ -1,0 +1,7 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: json_obj
+---
+{
+  "type": "json_object"
+}

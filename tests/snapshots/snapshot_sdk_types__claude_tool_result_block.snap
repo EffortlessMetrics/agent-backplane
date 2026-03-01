@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: tool_result
+---
+{
+  "type": "tool_result",
+  "tool_use_id": "toolu_fixed_001",
+  "content": "fn main() { println!(\"Hello\"); }",
+  "is_error": false
+}

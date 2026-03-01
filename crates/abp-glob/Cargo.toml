@@ -5,7 +5,27 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Include/exclude glob pattern compilation for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "glob", "pattern", "filter"]
+categories = ["development-tools"]
 
 [dependencies]
 anyhow.workspace = true
 globset.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+proptest = { workspace = true }
+
+[[bench]]
+name = "matching"
+harness = false
+
+[[bench]]
+name = "glob_benches"
+harness = false
+
+[[bench]]
+name = "glob_bench"
+harness = false

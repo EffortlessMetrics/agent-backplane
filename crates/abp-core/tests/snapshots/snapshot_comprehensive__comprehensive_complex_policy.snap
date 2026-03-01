@@ -1,0 +1,49 @@
+---
+source: crates/abp-core/tests/snapshot_comprehensive.rs
+expression: policy
+---
+{
+  "allowed_tools": [
+    "read",
+    "write",
+    "edit",
+    "glob",
+    "grep"
+  ],
+  "disallowed_tools": [
+    "bash",
+    "web_search",
+    "web_fetch",
+    "ask_user"
+  ],
+  "deny_read": [
+    ".env",
+    ".env.*",
+    "**/*.key",
+    "**/*.pem",
+    "**/secrets/**",
+    "~/.ssh/**"
+  ],
+  "deny_write": [
+    "Cargo.lock",
+    "package-lock.json",
+    "*.toml",
+    ".github/**"
+  ],
+  "allow_network": [
+    "api.example.com",
+    "*.github.com",
+    "registry.npmjs.org"
+  ],
+  "deny_network": [
+    "*.malware.net",
+    "evil.com",
+    "10.0.0.0/8"
+  ],
+  "require_approval_for": [
+    "write",
+    "edit",
+    "bash",
+    "web_fetch"
+  ]
+}

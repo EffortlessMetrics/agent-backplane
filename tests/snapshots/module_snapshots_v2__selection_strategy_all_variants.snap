@@ -1,0 +1,11 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: strategies
+---
+[
+  "first_match",
+  "best_fit",
+  "least_loaded",
+  "round_robin",
+  "priority"
+]

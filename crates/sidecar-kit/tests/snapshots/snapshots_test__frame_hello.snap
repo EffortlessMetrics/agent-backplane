@@ -1,0 +1,15 @@
+---
+source: crates/sidecar-kit/tests/snapshots_test.rs
+expression: val
+---
+{
+  "backend": {
+    "id": "mock"
+  },
+  "capabilities": {
+    "streaming": "native"
+  },
+  "contract_version": "abp/v0.1",
+  "mode": null,
+  "t": "hello"
+}

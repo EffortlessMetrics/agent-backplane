@@ -1,0 +1,17 @@
+---
+source: crates/abp-workspace/tests/snapshots_test.rs
+expression: spec
+---
+{
+  "root": "/home/user/project",
+  "mode": "staged",
+  "include": [
+    "src/**",
+    "Cargo.toml"
+  ],
+  "exclude": [
+    "target/**",
+    "*.log",
+    ".git/**"
+  ]
+}

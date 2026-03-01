@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_protocol.rs
+expression: r
+---
+{
+  "index": 3,
+  "status": {
+    "type": "failed",
+    "error": "serialization error"
+  },
+  "envelope": null
+}

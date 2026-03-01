@@ -1,0 +1,11 @@
+---
+source: crates/abp-workspace/tests/staging_snapshots.rs
+expression: listing
+---
+[
+  "Cargo.toml",
+  "src/",
+  "src/main.rs",
+  "tests/",
+  "tests/test.rs"
+]

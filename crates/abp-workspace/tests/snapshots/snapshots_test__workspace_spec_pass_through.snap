@@ -1,0 +1,10 @@
+---
+source: crates/abp-workspace/tests/snapshots_test.rs
+expression: spec
+---
+{
+  "root": "/home/user/project",
+  "mode": "pass_through",
+  "include": [],
+  "exclude": []
+}

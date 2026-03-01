@@ -1,0 +1,20 @@
+---
+source: crates/abp-policy/tests/snapshots_test.rs
+expression: policy
+---
+{
+  "allowed_tools": [],
+  "disallowed_tools": [],
+  "deny_read": [
+    ".env",
+    "**/*.key",
+    "secrets/**"
+  ],
+  "deny_write": [
+    "Cargo.lock",
+    "dist/**"
+  ],
+  "allow_network": [],
+  "deny_network": [],
+  "require_approval_for": []
+}

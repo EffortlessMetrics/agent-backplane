@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: cats
+---
+[
+  "protocol",
+  "backend",
+  "capability",
+  "policy",
+  "workspace",
+  "ir",
+  "receipt",
+  "dialect",
+  "config",
+  "internal"
+]

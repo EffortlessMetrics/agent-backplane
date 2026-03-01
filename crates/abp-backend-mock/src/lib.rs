@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
 //! Mock backend implementation used for local testing.
 
 use abp_backend_core::{Backend, ensure_capability_requirements, extract_execution_mode};

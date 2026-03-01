@@ -1,10 +1,21 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+#![doc = include_str!("../README.md")]
 //! abp-host
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! Process supervision + JSONL transport for sidecars.
+
+pub mod health;
+pub mod lifecycle;
+pub mod pool;
+pub mod process;
+pub mod registry;
 
 use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use futures::Stream;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::process::Stdio;
 use thiserror::Error;
@@ -14,15 +25,21 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
 
-#[derive(Debug, Clone)]
+/// Configuration for spawning a sidecar process.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SidecarSpec {
+    /// Executable command to run.
     pub command: String,
+    /// Arguments passed to the command.
     pub args: Vec<String>,
+    /// Environment variables set for the process.
     pub env: BTreeMap<String, String>,
+    /// Working directory for the process.
     pub cwd: Option<String>,
 }
 
 impl SidecarSpec {
+    /// Create a spec with the given command and default (empty) args/env.
     pub fn new(command: impl Into<String>) -> Self {
         Self {
             command: command.into(),
@@ -33,20 +50,30 @@ impl SidecarSpec {
     }
 }
 
-#[derive(Debug, Clone)]
+/// Data extracted from a sidecar's initial `hello` handshake.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SidecarHello {
+    /// Protocol version reported by the sidecar.
+    pub contract_version: String,
+    /// Backend identity metadata from the sidecar.
     pub backend: BackendIdentity,
+    /// Capability manifest advertised by the sidecar.
     pub capabilities: CapabilityManifest,
 }
 
+/// A connected sidecar process that has completed its `hello` handshake.
+///
+/// Use [`SidecarClient::spawn`] to create, then [`SidecarClient::run`] to execute a work order.
 #[derive(Debug)]
 pub struct SidecarClient {
     child: Child,
     stdin: ChildStdin,
     stdout: BufReader<tokio::process::ChildStdout>,
+    /// Handshake data received from the sidecar's initial `hello` message.
     pub hello: SidecarHello,
 }
 
+/// An in-progress sidecar run: provides an event stream, a receipt future, and a wait handle.
 #[derive(Debug)]
 pub struct SidecarRun {
     /// Stream of normalized events.
@@ -59,31 +86,61 @@ pub struct SidecarRun {
     pub wait: tokio::task::JoinHandle<Result<(), HostError>>,
 }
 
+/// Errors from sidecar process management and protocol handling.
 #[derive(Debug, Error)]
 pub enum HostError {
+    /// The sidecar process could not be spawned.
     #[error("failed to spawn sidecar: {0}")]
     Spawn(#[source] std::io::Error),
 
+    /// Reading from the sidecar's stdout failed.
     #[error("failed to read sidecar stdout: {0}")]
     Stdout(#[source] std::io::Error),
 
+    /// Writing to the sidecar's stdin failed.
     #[error("failed to write sidecar stdin: {0}")]
     Stdin(#[source] std::io::Error),
 
+    /// A JSONL protocol-level encoding or decoding error.
     #[error("protocol error: {0}")]
     Protocol(#[from] ProtocolError),
 
+    /// The sidecar sent an unexpected or out-of-order message.
     #[error("sidecar protocol violation: {0}")]
     Violation(String),
 
+    /// The sidecar reported a fatal error via a `fatal` envelope.
     #[error("sidecar fatal error: {0}")]
     Fatal(String),
 
+    /// The sidecar process exited before completing the run.
     #[error("sidecar exited unexpectedly (code={code:?})")]
-    Exited { code: Option<i32> },
+    Exited {
+        /// Process exit code, if available.
+        code: Option<i32>,
+    },
+
+    /// The sidecar process crashed with captured stderr output.
+    #[error("sidecar crashed (exit_code={exit_code:?}, stderr={stderr:?})")]
+    SidecarCrashed {
+        /// Process exit code, if available.
+        exit_code: Option<i32>,
+        /// Captured stderr output from the sidecar.
+        stderr: String,
+    },
+
+    /// A timeout occurred waiting for the sidecar to respond.
+    #[error("sidecar timed out after {duration:?}")]
+    Timeout {
+        /// How long we waited before timing out.
+        duration: std::time::Duration,
+    },
 }
 
 impl SidecarClient {
+    /// Spawn a sidecar process and perform the `hello` handshake.
+    ///
+    /// The sidecar MUST emit a `hello` envelope as its first stdout line.
     pub async fn spawn(spec: SidecarSpec) -> Result<Self, HostError> {
         let mut cmd = Command::new(&spec.command);
         cmd.args(&spec.args)
@@ -147,16 +204,18 @@ impl SidecarClient {
         }
 
         let env = JsonlCodec::decode(line.trim_end())?;
-        let (backend, capabilities) = match env {
+        let (contract_version, backend, capabilities) = match env {
             Envelope::Hello {
+                contract_version,
                 backend,
                 capabilities,
                 ..
-            } => (backend, capabilities),
+            } => (contract_version, backend, capabilities),
             other => {
-                return Err(HostError::Violation(format!(
-                    "expected hello, got {other:?}"
-                )))
+                return Err(HostError::Protocol(ProtocolError::UnexpectedMessage {
+                    expected: "hello".into(),
+                    got: format!("{other:?}"),
+                }));
             }
         };
 
@@ -167,12 +226,16 @@ impl SidecarClient {
             stdin,
             stdout,
             hello: SidecarHello {
+                contract_version,
                 backend,
                 capabilities,
             },
         })
     }
 
+    /// Send a work order and begin streaming events from the sidecar.
+    ///
+    /// Consumes `self` because a single client handles exactly one run.
     pub async fn run(
         mut self,
         run_id: String,
@@ -239,11 +302,11 @@ impl SidecarClient {
                         break;
                     }
                     Ok(Envelope::Fatal { ref_id, error }) => {
-                        if let Some(ref_id) = ref_id {
-                            if ref_id != run_id {
-                                warn!(target: "abp.sidecar", "dropping fatal for other run_id={ref_id}");
-                                continue;
-                            }
+                        if let Some(ref_id) = ref_id
+                            && ref_id != run_id
+                        {
+                            warn!(target: "abp.sidecar", "dropping fatal for other run_id={ref_id}");
+                            continue;
                         }
                         let _ = receipt_tx.send(Err(HostError::Fatal(error.clone())));
                         break;
@@ -279,5 +342,20 @@ impl SidecarClient {
     }
 }
 
+/// Type-erased stream of [`AgentEvent`]s.
 // Convenience: accept a stream of events as a trait object.
 pub type EventStream = dyn Stream<Item = AgentEvent> + Send + Unpin;
+
+// Re-export raw transport types from sidecar-kit for advanced protocol usage.
+/// Low-level cancellation token for sidecar processes.
+pub use sidecar_kit::CancelToken;
+/// Raw process specification for spawning sidecar processes.
+pub use sidecar_kit::ProcessSpec as RawProcessSpec;
+/// Raw run handle from the sidecar-kit transport layer.
+pub use sidecar_kit::RawRun;
+/// Raw sidecar client from the sidecar-kit transport layer.
+pub use sidecar_kit::SidecarClient as RawSidecarClient;
+/// Errors from the sidecar-kit transport layer.
+pub use sidecar_kit::SidecarError;
+/// Raw sidecar process handle from the sidecar-kit transport layer.
+pub use sidecar_kit::SidecarProcess as RawSidecarProcess;

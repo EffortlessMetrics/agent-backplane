@@ -1,0 +1,14 @@
+---
+source: tests/module_snapshots.rs
+expression: event
+---
+{
+  "ts": "[TIMESTAMP]",
+  "type": "tool_call",
+  "tool_name": "read_file",
+  "tool_use_id": "tool-1",
+  "parent_tool_use_id": null,
+  "input": {
+    "path": "src/main.rs"
+  }
+}

@@ -1,0 +1,18 @@
+---
+source: crates/abp-protocol/tests/golden_tests.rs
+expression: env
+---
+{
+  "t": "event",
+  "ref_id": "run-001",
+  "event": {
+    "ts": "2024-01-01T00:00:00Z",
+    "type": "tool_call",
+    "tool_name": "read",
+    "tool_use_id": "tu_1",
+    "parent_tool_use_id": null,
+    "input": {
+      "path": "file.rs"
+    }
+  }
+}

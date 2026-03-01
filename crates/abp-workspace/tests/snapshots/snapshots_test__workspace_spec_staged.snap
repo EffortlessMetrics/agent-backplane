@@ -1,0 +1,10 @@
+---
+source: crates/abp-workspace/tests/snapshots_test.rs
+expression: spec
+---
+{
+  "root": "/tmp/workspace",
+  "mode": "staged",
+  "include": [],
+  "exclude": []
+}

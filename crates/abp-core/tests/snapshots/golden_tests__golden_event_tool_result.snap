@@ -1,0 +1,14 @@
+---
+source: crates/abp-core/tests/golden_tests.rs
+expression: event
+---
+{
+  "ts": "2024-01-01T00:00:00Z",
+  "type": "tool_result",
+  "tool_name": "read",
+  "tool_use_id": "tu_42",
+  "output": {
+    "content": "fn main() {}"
+  },
+  "is_error": false
+}

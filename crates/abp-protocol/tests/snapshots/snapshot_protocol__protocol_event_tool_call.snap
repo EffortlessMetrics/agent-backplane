@@ -1,0 +1,18 @@
+---
+source: crates/abp-protocol/tests/snapshot_protocol.rs
+expression: value
+---
+{
+  "event": {
+    "input": {
+      "path": "src/main.rs"
+    },
+    "parent_tool_use_id": null,
+    "tool_name": "read",
+    "tool_use_id": "toolu_01",
+    "ts": "2024-06-15T12:30:00Z",
+    "type": "tool_call"
+  },
+  "ref_id": "run-42",
+  "t": "event"
+}

@@ -1,0 +1,19 @@
+---
+source: crates/abp-gemini-sdk/tests/snapshots_test.rs
+expression: events
+---
+[
+  {
+    "type": "assistant_message",
+    "text": "I'll migrate the code to async."
+  },
+  {
+    "type": "tool_call",
+    "tool_name": "search",
+    "tool_use_id": null,
+    "parent_tool_use_id": null,
+    "input": {
+      "query": "rust async patterns"
+    }
+  }
+]

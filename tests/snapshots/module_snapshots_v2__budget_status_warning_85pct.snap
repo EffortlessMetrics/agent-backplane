@@ -1,0 +1,5 @@
+---
+source: tests/module_snapshots_v2.rs
+expression: display
+---
+Warning { usage_pct: 85.0 }

@@ -1,0 +1,11 @@
+---
+source: crates/abp-gemini-sdk/tests/snapshots_test.rs
+expression: "GeminiConfig::default()"
+---
+{
+  "api_key": "",
+  "base_url": "https://generativelanguage.googleapis.com/v1beta",
+  "model": "gemini-2.5-flash",
+  "max_output_tokens": 4096,
+  "temperature": null
+}

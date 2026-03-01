@@ -1,0 +1,10 @@
+---
+source: crates/abp-workspace/tests/staging_snapshots.rs
+expression: listing
+---
+[
+  "empty_a/",
+  "empty_b/",
+  "empty_b/nested_empty/",
+  "file.txt"
+]

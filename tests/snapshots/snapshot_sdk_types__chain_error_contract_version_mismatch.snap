@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: err
+---
+{
+  "type": "contract_version_mismatch",
+  "index": 4,
+  "expected": "abp/v0.1",
+  "actual": "abp/v0.2"
+}

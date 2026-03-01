@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: "ErrorCode::BackendTimeout"
+---
+"BACKEND_TIMEOUT"

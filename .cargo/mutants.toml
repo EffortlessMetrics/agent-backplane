@@ -1,0 +1,30 @@
+# cargo-mutants configuration for Agent Backplane
+# https://mutants.rs/config.html
+#
+# Focus on the highest-value crates first: abp-core (contract types) and
+# abp-protocol (wire format).  These are the public API surface whose
+# correctness is critical.
+
+# ── Timeout ──────────────────────────────────────────────────────────
+# Tests run ~5 min total; 3× multiplier gives mutants enough headroom.
+timeout_multiplier = 3.0
+
+# ── Excluded files ───────────────────────────────────────────────────
+# Don't mutate test code — that defeats the purpose.
+exclude_globs = [
+    "**/tests/**",
+    "**/test/**",
+    "**/benches/**",
+    "**/snapshots/**",
+    "fuzz/**",
+    "xtask/**",
+]
+
+# ── Excluded functions ───────────────────────────────────────────────
+# Trivial trait impls that are not worth mutating.
+exclude_re = [
+    "^<.* as (Display|Debug|Default)>::",
+    "^<.* as std::fmt::(Display|Debug)>::fmt$",
+    "^<.* as std::error::Error>::",
+    "^<.* as From<.*>>::from$",
+]

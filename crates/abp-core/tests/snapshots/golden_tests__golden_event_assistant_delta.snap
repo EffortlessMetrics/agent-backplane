@@ -1,0 +1,9 @@
+---
+source: crates/abp-core/tests/golden_tests.rs
+expression: event
+---
+{
+  "ts": "2024-01-01T00:00:00Z",
+  "type": "assistant_delta",
+  "text": "Hello, "
+}

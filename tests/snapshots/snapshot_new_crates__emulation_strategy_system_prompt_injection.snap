@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_new_crates.rs
+expression: s
+---
+{
+  "type": "system_prompt_injection",
+  "prompt": "Think step by step before answering."
+}
