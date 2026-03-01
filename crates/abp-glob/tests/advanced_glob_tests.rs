@@ -368,6 +368,7 @@ fn cyrillic_exclude_pattern() {
 // 8. Windows-style backslash handling via decide_path
 // ===========================================================================
 
+#[cfg(windows)]
 #[test]
 fn backslash_nested_path_via_decide_path() {
     let g =
@@ -387,6 +388,7 @@ fn backslash_nested_path_via_decide_path() {
     );
 }
 
+#[cfg(windows)]
 #[test]
 fn backslash_deeply_nested() {
     let g = IncludeExcludeGlobs::new(&pats(&["**/*.txt"]), &[]).unwrap();

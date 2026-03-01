@@ -96,7 +96,7 @@ impl MessageRouter {
     /// the highest-priority match.
     pub fn add_route(&mut self, route: MessageRoute) {
         self.routes.push(route);
-        self.routes.sort_by(|a, b| b.priority.cmp(&a.priority));
+        self.routes.sort_by_key(|r| std::cmp::Reverse(r.priority));
     }
 
     /// Find the highest-priority route that matches `envelope`, if any.
