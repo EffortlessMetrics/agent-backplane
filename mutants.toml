@@ -1,0 +1,24 @@
+# cargo-mutants configuration for Agent Backplane
+# Run with: cargo mutants --no-shuffle
+
+# ── Timeout per mutation ─────────────────────────────────────────────────
+timeout = 60          # seconds; most crate tests finish well under this
+
+# ── Focus on the core, deterministic crates ──────────────────────────────
+examine_re = [
+  "^crates/abp-core/",
+  "^crates/abp-protocol/",
+  "^crates/abp-glob/",
+  "^crates/abp-policy/",
+  "^crates/abp-workspace/",
+]
+
+# ── Skip test modules, fuzz harnesses, and xtask helpers ─────────────────
+exclude_re = [
+  "#\\[cfg\\(test\\)]",    # inline test modules
+  "^tests/",               # integration tests (not SUT)
+  "^fuzz/",                # fuzz harnesses
+  "^xtask/",               # build tooling
+  "/tests\\.rs$",          # test files inside crates
+  "_test\\.rs$",           # files named *_test.rs
+]
