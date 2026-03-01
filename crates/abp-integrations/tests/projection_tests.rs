@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_core::{AgentEvent, AgentEventKind, WorkOrderBuilder};
 use abp_integrations::projection::{
-    Dialect, ProjectionMatrix, ToolCall, ToolResult, supported_translations, translate,
+    Dialect, Message, MessageRole, ProjectionMatrix, ToolCall, ToolDefinitionIr, ToolResult,
+    TranslationFidelity, supported_translations, translate,
 };
 use chrono::Utc;
 
@@ -340,7 +341,10 @@ fn supported_dialects_list() {
     assert!(dialects.contains(&"openai".to_string()));
     assert!(dialects.contains(&"anthropic".to_string()));
     assert!(dialects.contains(&"gemini".to_string()));
-    assert_eq!(dialects.len(), 4);
+    assert!(dialects.contains(&"codex".to_string()));
+    assert!(dialects.contains(&"kimi".to_string()));
+    assert!(dialects.contains(&"mock".to_string()));
+    assert_eq!(dialects.len(), 7);
 }
 
 // ---------------------------------------------------------------------------
@@ -786,4 +790,505 @@ fn tool_translation_table_accessible() {
     let tt = matrix.tool_translation("abp", "gemini").unwrap();
     assert_eq!(tt.name_map.get("bash").unwrap(), "executeCommand");
     assert_eq!(tt.name_map.get("glob").unwrap(), "searchFiles");
+}
+
+// ---------------------------------------------------------------------------
+// TranslationFidelity / can_translate tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn can_translate_identity_is_lossless() {
+    let matrix = ProjectionMatrix::new();
+    for &d in Dialect::ALL {
+        assert_eq!(
+            matrix.can_translate(d, d),
+            TranslationFidelity::Lossless,
+            "identity should be lossless for {d:?}"
+        );
+    }
+}
+
+#[test]
+fn can_translate_abp_to_vendor_is_lossy_supported() {
+    let matrix = ProjectionMatrix::new();
+    for &d in Dialect::ALL {
+        if d != Dialect::Abp {
+            assert_eq!(
+                matrix.can_translate(Dialect::Abp, d),
+                TranslationFidelity::LossySupported,
+                "ABP->{d:?} should be lossy supported"
+            );
+        }
+    }
+}
+
+#[test]
+fn can_translate_vendor_to_abp_is_lossy_supported() {
+    let matrix = ProjectionMatrix::new();
+    let vendors = [
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+        Dialect::OpenAi,
+    ];
+    for &v in &vendors {
+        assert_eq!(
+            matrix.can_translate(v, Dialect::Abp),
+            TranslationFidelity::LossySupported,
+            "{v:?}->ABP should be lossy supported"
+        );
+    }
+}
+
+#[test]
+fn can_translate_mock_source_is_lossy_supported() {
+    let matrix = ProjectionMatrix::new();
+    for &d in Dialect::ALL {
+        if d != Dialect::Mock {
+            assert_eq!(
+                matrix.can_translate(Dialect::Mock, d),
+                TranslationFidelity::LossySupported,
+            );
+        }
+    }
+}
+
+#[test]
+fn can_translate_mock_target_is_lossy_supported() {
+    let matrix = ProjectionMatrix::new();
+    for &d in Dialect::ALL {
+        if d != Dialect::Mock {
+            assert_eq!(
+                matrix.can_translate(d, Dialect::Mock),
+                TranslationFidelity::LossySupported,
+            );
+        }
+    }
+}
+
+#[test]
+fn can_translate_vendor_to_vendor_is_degraded() {
+    let matrix = ProjectionMatrix::new();
+    let vendors = [
+        Dialect::Claude,
+        Dialect::Codex,
+        Dialect::Gemini,
+        Dialect::Kimi,
+        Dialect::OpenAi,
+    ];
+    for &from in &vendors {
+        for &to in &vendors {
+            if from != to {
+                assert_eq!(
+                    matrix.can_translate(from, to),
+                    TranslationFidelity::Degraded,
+                    "{from:?}->{to:?} should be degraded"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn all_dialect_pairs_have_can_translate_result() {
+    let matrix = ProjectionMatrix::new();
+    for &from in Dialect::ALL {
+        for &to in Dialect::ALL {
+            let fidelity = matrix.can_translate(from, to);
+            // Every pair should return a defined fidelity (not Unsupported
+            // for any currently registered dialect pair).
+            assert_ne!(
+                fidelity,
+                TranslationFidelity::Unsupported,
+                "{from:?}->{to:?} should have a defined translation"
+            );
+        }
+    }
+}
+
+#[test]
+fn translation_fidelity_serde_roundtrip() {
+    let variants = [
+        TranslationFidelity::Lossless,
+        TranslationFidelity::LossySupported,
+        TranslationFidelity::Degraded,
+        TranslationFidelity::Unsupported,
+    ];
+    for v in variants {
+        let json = serde_json::to_string(&v).unwrap();
+        let back: TranslationFidelity = serde_json::from_str(&json).unwrap();
+        assert_eq!(v, back);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// map_messages tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn map_messages_identity_passthrough() {
+    let matrix = ProjectionMatrix::new();
+    let msgs = vec![
+        Message {
+            role: MessageRole::System,
+            content: "You are helpful".into(),
+        },
+        Message {
+            role: MessageRole::User,
+            content: "Hello".into(),
+        },
+    ];
+    let result = matrix
+        .map_messages(Dialect::OpenAi, Dialect::OpenAi, &msgs)
+        .unwrap();
+    assert_eq!(result, msgs);
+}
+
+#[test]
+fn map_messages_system_role_to_claude() {
+    let matrix = ProjectionMatrix::new();
+    let msgs = vec![Message {
+        role: MessageRole::System,
+        content: "Be concise".into(),
+    }];
+    let result = matrix
+        .map_messages(Dialect::OpenAi, Dialect::Claude, &msgs)
+        .unwrap();
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].role, MessageRole::User);
+    assert!(result[0].content.contains("[System]"));
+    assert!(result[0].content.contains("Be concise"));
+}
+
+#[test]
+fn map_messages_system_role_to_gemini() {
+    let matrix = ProjectionMatrix::new();
+    let msgs = vec![Message {
+        role: MessageRole::System,
+        content: "Be helpful".into(),
+    }];
+    let result = matrix
+        .map_messages(Dialect::OpenAi, Dialect::Gemini, &msgs)
+        .unwrap();
+    assert_eq!(result[0].role, MessageRole::User);
+    assert!(result[0].content.starts_with("[System]"));
+}
+
+#[test]
+fn map_messages_user_role_preserved() {
+    let matrix = ProjectionMatrix::new();
+    let msgs = vec![Message {
+        role: MessageRole::User,
+        content: "Hello".into(),
+    }];
+    for &d in Dialect::ALL {
+        let result = matrix.map_messages(Dialect::Abp, d, &msgs).unwrap();
+        assert_eq!(result[0].role, MessageRole::User);
+        assert_eq!(result[0].content, "Hello");
+    }
+}
+
+#[test]
+fn map_messages_assistant_role_preserved() {
+    let matrix = ProjectionMatrix::new();
+    let msgs = vec![Message {
+        role: MessageRole::Assistant,
+        content: "Done!".into(),
+    }];
+    for &d in Dialect::ALL {
+        let result = matrix.map_messages(Dialect::Abp, d, &msgs).unwrap();
+        assert_eq!(result[0].role, MessageRole::Assistant);
+        assert_eq!(result[0].content, "Done!");
+    }
+}
+
+#[test]
+fn map_messages_preserves_content_order() {
+    let matrix = ProjectionMatrix::new();
+    let msgs = vec![
+        Message {
+            role: MessageRole::User,
+            content: "first".into(),
+        },
+        Message {
+            role: MessageRole::Assistant,
+            content: "second".into(),
+        },
+        Message {
+            role: MessageRole::User,
+            content: "third".into(),
+        },
+    ];
+    let result = matrix
+        .map_messages(Dialect::Abp, Dialect::OpenAi, &msgs)
+        .unwrap();
+    assert_eq!(result.len(), 3);
+    assert_eq!(result[0].content, "first");
+    assert_eq!(result[1].content, "second");
+    assert_eq!(result[2].content, "third");
+}
+
+#[test]
+fn map_messages_multiple_with_system() {
+    let matrix = ProjectionMatrix::new();
+    let msgs = vec![
+        Message {
+            role: MessageRole::System,
+            content: "sys".into(),
+        },
+        Message {
+            role: MessageRole::User,
+            content: "hi".into(),
+        },
+        Message {
+            role: MessageRole::Assistant,
+            content: "hello".into(),
+        },
+    ];
+    let result = matrix
+        .map_messages(Dialect::Abp, Dialect::Claude, &msgs)
+        .unwrap();
+    assert_eq!(result.len(), 3);
+    assert_eq!(result[0].role, MessageRole::User); // system → user
+    assert_eq!(result[1].role, MessageRole::User);
+    assert_eq!(result[2].role, MessageRole::Assistant);
+}
+
+// ---------------------------------------------------------------------------
+// map_tool_definitions tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn map_tool_definitions_identity() {
+    let matrix = ProjectionMatrix::new();
+    let tools = vec![ToolDefinitionIr {
+        name: "read_file".into(),
+        description: "Read a file".into(),
+        parameters: serde_json::json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+    }];
+    let result = matrix
+        .map_tool_definitions(Dialect::Abp, Dialect::Abp, &tools)
+        .unwrap();
+    assert_eq!(result, tools);
+}
+
+#[test]
+fn map_tool_definitions_abp_to_openai() {
+    let matrix = ProjectionMatrix::new();
+    let tools = vec![ToolDefinitionIr {
+        name: "read_file".into(),
+        description: "Read a file".into(),
+        parameters: serde_json::json!({}),
+    }];
+    let result = matrix
+        .map_tool_definitions(Dialect::Abp, Dialect::OpenAi, &tools)
+        .unwrap();
+    assert_eq!(result[0].name, "file_read");
+    assert_eq!(result[0].description, "Read a file");
+}
+
+#[test]
+fn map_tool_definitions_roundtrip() {
+    let matrix = ProjectionMatrix::new();
+    let tools = vec![
+        ToolDefinitionIr {
+            name: "bash".into(),
+            description: "Run shell".into(),
+            parameters: serde_json::json!({"type": "object"}),
+        },
+        ToolDefinitionIr {
+            name: "glob".into(),
+            description: "Search files".into(),
+            parameters: serde_json::json!({}),
+        },
+    ];
+    let to_openai = matrix
+        .map_tool_definitions(Dialect::Abp, Dialect::OpenAi, &tools)
+        .unwrap();
+    assert_eq!(to_openai[0].name, "shell");
+    assert_eq!(to_openai[1].name, "file_search");
+
+    let back = matrix
+        .map_tool_definitions(Dialect::OpenAi, Dialect::Abp, &to_openai)
+        .unwrap();
+    assert_eq!(back[0].name, "bash");
+    assert_eq!(back[1].name, "glob");
+}
+
+#[test]
+fn map_tool_definitions_preserves_schema() {
+    let matrix = ProjectionMatrix::new();
+    let schema = serde_json::json!({
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "line": {"type": "integer"}
+        },
+        "required": ["path"]
+    });
+    let tools = vec![ToolDefinitionIr {
+        name: "edit_file".into(),
+        description: "Edit a file".into(),
+        parameters: schema.clone(),
+    }];
+    let result = matrix
+        .map_tool_definitions(Dialect::Abp, Dialect::Claude, &tools)
+        .unwrap();
+    assert_eq!(result[0].parameters, schema);
+}
+
+// ---------------------------------------------------------------------------
+// map_model_name tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn map_model_name_same_dialect() {
+    let matrix = ProjectionMatrix::new();
+    let result = matrix
+        .map_model_name(Dialect::OpenAi, Dialect::OpenAi, "gpt-4o")
+        .unwrap();
+    assert_eq!(result, "gpt-4o");
+}
+
+#[test]
+fn map_model_name_gpt4o_to_claude() {
+    let matrix = ProjectionMatrix::new();
+    let result = matrix
+        .map_model_name(Dialect::OpenAi, Dialect::Claude, "gpt-4o")
+        .unwrap();
+    assert_eq!(result, "claude-sonnet-4-20250514");
+}
+
+#[test]
+fn map_model_name_claude_to_openai() {
+    let matrix = ProjectionMatrix::new();
+    let result = matrix
+        .map_model_name(Dialect::Claude, Dialect::OpenAi, "claude-sonnet-4-20250514")
+        .unwrap();
+    assert_eq!(result, "gpt-4o");
+}
+
+#[test]
+fn map_model_name_gpt4o_to_gemini() {
+    let matrix = ProjectionMatrix::new();
+    let result = matrix
+        .map_model_name(Dialect::OpenAi, Dialect::Gemini, "gpt-4o")
+        .unwrap();
+    assert_eq!(result, "gemini-2.5-flash");
+}
+
+#[test]
+fn map_model_name_unknown_model_fails() {
+    let matrix = ProjectionMatrix::new();
+    let result = matrix.map_model_name(Dialect::OpenAi, Dialect::Claude, "totally-unknown-model");
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(msg.contains("no known mapping"));
+}
+
+#[test]
+fn map_model_name_native_model_passthrough() {
+    let matrix = ProjectionMatrix::new();
+    // A Claude model targeting Claude should pass through unchanged.
+    let result = matrix
+        .map_model_name(Dialect::Claude, Dialect::Claude, "claude-sonnet-4-20250514")
+        .unwrap();
+    assert_eq!(result, "claude-sonnet-4-20250514");
+}
+
+#[test]
+fn map_model_name_to_mock_passthrough() {
+    let matrix = ProjectionMatrix::new();
+    let result = matrix
+        .map_model_name(Dialect::OpenAi, Dialect::Mock, "gpt-4o")
+        .unwrap();
+    assert_eq!(result, "gpt-4o");
+}
+
+#[test]
+fn map_model_name_to_abp_passthrough() {
+    let matrix = ProjectionMatrix::new();
+    let result = matrix
+        .map_model_name(Dialect::Claude, Dialect::Abp, "claude-sonnet-4-20250514")
+        .unwrap();
+    assert_eq!(result, "claude-sonnet-4-20250514");
+}
+
+#[test]
+fn map_model_name_gpt4o_to_codex() {
+    let matrix = ProjectionMatrix::new();
+    let result = matrix
+        .map_model_name(Dialect::OpenAi, Dialect::Codex, "gpt-4o")
+        .unwrap();
+    assert_eq!(result, "codex-mini-latest");
+}
+
+#[test]
+fn map_model_name_gpt4o_to_kimi() {
+    let matrix = ProjectionMatrix::new();
+    let result = matrix
+        .map_model_name(Dialect::OpenAi, Dialect::Kimi, "gpt-4o")
+        .unwrap();
+    assert_eq!(result, "moonshot-v1-8k");
+}
+
+// ---------------------------------------------------------------------------
+// Mock dialect tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn mock_dialect_translation_valid_json() {
+    let wo = sample_work_order();
+    let val = translate(Dialect::Abp, Dialect::Mock, &wo).unwrap();
+    let obj = val.as_object().expect("should be a JSON object");
+    assert!(obj.contains_key("model"), "Mock request must have model");
+    assert!(
+        obj.contains_key("messages"),
+        "Mock request must have messages"
+    );
+}
+
+#[test]
+fn mock_dialect_default_model() {
+    let wo = sample_work_order();
+    let val = translate(Dialect::Abp, Dialect::Mock, &wo).unwrap();
+    let model = val.get("model").and_then(|m| m.as_str()).unwrap();
+    assert_eq!(model, "mock-default");
+}
+
+#[test]
+fn mock_dialect_in_supported_dialects() {
+    let matrix = ProjectionMatrix::new();
+    assert!(matrix.supported_dialects().contains(&"mock".to_string()));
+}
+
+#[test]
+fn codex_kimi_mock_registered() {
+    let matrix = ProjectionMatrix::new();
+    assert!(matrix.has_translation("codex", "mock"));
+    assert!(matrix.has_translation("kimi", "mock"));
+    assert!(matrix.has_translation("mock", "codex"));
+    assert!(matrix.has_translation("mock", "kimi"));
+    assert!(matrix.has_translation("codex", "kimi"));
+    assert!(matrix.has_translation("kimi", "codex"));
+}
+
+#[test]
+fn translate_tool_call_codex_to_anthropic() {
+    let matrix = ProjectionMatrix::new();
+    let call = sample_tool_call("file_read");
+    let translated = matrix
+        .translate_tool_call("codex", "anthropic", &call)
+        .unwrap();
+    assert_eq!(translated.tool_name, "Read");
+}
+
+#[test]
+fn translate_tool_call_kimi_to_openai() {
+    let matrix = ProjectionMatrix::new();
+    let call = sample_tool_call("bash");
+    let translated = matrix.translate_tool_call("kimi", "openai", &call).unwrap();
+    // Kimi uses ABP-canonical names, so bash → shell
+    assert_eq!(translated.tool_name, "shell");
 }

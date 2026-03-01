@@ -57,6 +57,7 @@ fn all_vendor_to_vendor_pairs_unsupported() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::Mock,
         Dialect::OpenAi,
     ];
 
@@ -83,6 +84,7 @@ fn vendor_to_abp_unsupported() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::Mock,
         Dialect::OpenAi,
     ] {
         let result = translate(d, Dialect::Abp, &wo);
@@ -105,6 +107,7 @@ fn custom_model_propagates() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::Mock,
         Dialect::OpenAi,
     ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
@@ -137,6 +140,7 @@ fn snippets_in_all_translations() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::Mock,
         Dialect::OpenAi,
     ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
@@ -165,6 +169,7 @@ fn default_model_fallbacks_nonempty() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::Mock,
         Dialect::OpenAi,
     ] {
         let val = translate(Dialect::Abp, dialect, &wo).unwrap();
@@ -179,12 +184,13 @@ fn default_model_fallbacks_nonempty() {
 
 #[test]
 fn dialect_all_complete() {
-    assert_eq!(Dialect::ALL.len(), 6);
+    assert_eq!(Dialect::ALL.len(), 7);
     assert!(Dialect::ALL.contains(&Dialect::Abp));
     assert!(Dialect::ALL.contains(&Dialect::Claude));
     assert!(Dialect::ALL.contains(&Dialect::Codex));
     assert!(Dialect::ALL.contains(&Dialect::Gemini));
     assert!(Dialect::ALL.contains(&Dialect::Kimi));
+    assert!(Dialect::ALL.contains(&Dialect::Mock));
     assert!(Dialect::ALL.contains(&Dialect::OpenAi));
 }
 
@@ -200,6 +206,7 @@ fn supported_translations_no_cross_vendor() {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::Mock,
         Dialect::OpenAi,
     ];
 
@@ -268,6 +275,7 @@ fn dialect_serde_snake_case() {
         "\"gemini\""
     );
     assert_eq!(serde_json::to_string(&Dialect::Kimi).unwrap(), "\"kimi\"");
+    assert_eq!(serde_json::to_string(&Dialect::Mock).unwrap(), "\"mock\"");
     assert_eq!(
         serde_json::to_string(&Dialect::OpenAi).unwrap(),
         "\"openai\""

@@ -8,5 +8,6 @@ expression: dialects
   "codex",
   "gemini",
   "kimi",
+  "mock",
   "openai"
 ]

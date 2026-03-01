@@ -26,6 +26,8 @@ pub enum Dialect {
     Gemini,
     /// Moonshot Kimi chat completions API.
     Kimi,
+    /// Mock backend for testing and development.
+    Mock,
     /// OpenAI Chat Completions API.
     #[serde(rename = "openai")]
     OpenAi,
@@ -39,6 +41,7 @@ impl Dialect {
         Dialect::Codex,
         Dialect::Gemini,
         Dialect::Kimi,
+        Dialect::Mock,
         Dialect::OpenAi,
     ];
 }
@@ -83,6 +86,58 @@ pub struct ToolResult {
     pub is_error: bool,
 }
 
+/// Describes the expected fidelity of translating between two dialects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TranslationFidelity {
+    /// Lossless passthrough — no information is lost.
+    Lossless,
+    /// Mapped translation with known, documented information loss.
+    LossySupported,
+    /// Emulation layer with significant degradation.
+    Degraded,
+    /// Translation is not possible.
+    Unsupported,
+}
+
+/// Role of a message participant in a conversation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageRole {
+    /// System-level instructions.
+    System,
+    /// User input.
+    User,
+    /// Assistant response.
+    Assistant,
+}
+
+/// Intermediate representation of a conversation message for cross-dialect translation.
+///
+/// Normalizes role and content across vendor APIs so that messages can be
+/// projected from one dialect to another through the ABP IR.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Message {
+    /// The role of the message sender.
+    pub role: MessageRole,
+    /// The text content of the message.
+    pub content: String,
+}
+
+/// Intermediate representation of a tool definition for cross-dialect translation.
+///
+/// Normalizes the different vendor-specific tool definition formats into a
+/// common structure that can be projected into any target dialect.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToolDefinitionIr {
+    /// The tool name in the source dialect.
+    pub name: String,
+    /// Human-readable description of the tool.
+    pub description: String,
+    /// JSON Schema for the tool's input parameters.
+    pub parameters: serde_json::Value,
+}
+
 /// Routes translations between vendor dialects.
 ///
 /// The projection matrix knows which `(source, target)` dialect pairs are
@@ -118,6 +173,9 @@ impl ProjectionMatrix {
                 "openai".into(),
                 "anthropic".into(),
                 "gemini".into(),
+                "codex".into(),
+                "kimi".into(),
+                "mock".into(),
             ],
         };
         matrix.register_builtin_translations();
@@ -301,6 +359,124 @@ impl ProjectionMatrix {
     pub fn event_mapping(&self, from: &str, to: &str) -> Option<&EventMapping> {
         let key = (from.to_string(), to.to_string());
         self.event_mappings.get(&key)
+    }
+
+    /// Query the translation fidelity between two dialects.
+    ///
+    /// Returns [`TranslationFidelity::Lossless`] for identity translations,
+    /// [`TranslationFidelity::LossySupported`] for ABP-to-vendor, vendor-to-ABP,
+    /// or Mock translations, [`TranslationFidelity::Degraded`] for vendor-to-vendor
+    /// translations that go through the ABP IR, and
+    /// [`TranslationFidelity::Unsupported`] for unknown dialect pairs.
+    #[must_use]
+    pub fn can_translate(&self, from: Dialect, to: Dialect) -> TranslationFidelity {
+        if from == to {
+            return TranslationFidelity::Lossless;
+        }
+        if from == Dialect::Mock || to == Dialect::Mock {
+            return TranslationFidelity::LossySupported;
+        }
+        if from == Dialect::Abp || to == Dialect::Abp {
+            return TranslationFidelity::LossySupported;
+        }
+        // Vendor-to-vendor: check if we have translation tables
+        let from_str = dialect_to_str(from);
+        let to_str = dialect_to_str(to);
+        if self.has_translation(from_str, to_str) {
+            return TranslationFidelity::Degraded;
+        }
+        TranslationFidelity::Unsupported
+    }
+
+    /// Map messages from one dialect's role conventions to another.
+    ///
+    /// Claude and Gemini do not support a `System` role natively — system
+    /// messages are folded into user messages with a `[System]` prefix when
+    /// targeting those dialects.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mapping cannot be performed.
+    pub fn map_messages(
+        &self,
+        _from: Dialect,
+        to: Dialect,
+        messages: &[Message],
+    ) -> Result<Vec<Message>> {
+        let mut result = Vec::with_capacity(messages.len());
+        for msg in messages {
+            let mapped = match (to, msg.role) {
+                // Claude and Gemini lack a native system role.
+                (Dialect::Claude | Dialect::Gemini, MessageRole::System) => Message {
+                    role: MessageRole::User,
+                    content: format!("[System] {}", msg.content),
+                },
+                _ => msg.clone(),
+            };
+            result.push(mapped);
+        }
+        Ok(result)
+    }
+
+    /// Map tool definitions from one dialect to another.
+    ///
+    /// Tool names are translated according to the built-in translation tables.
+    /// Descriptions and parameter schemas are preserved as-is since JSON Schema
+    /// is compatible across all supported dialects.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if translation lookup fails.
+    pub fn map_tool_definitions(
+        &self,
+        from: Dialect,
+        to: Dialect,
+        tools: &[ToolDefinitionIr],
+    ) -> Result<Vec<ToolDefinitionIr>> {
+        if from == to {
+            return Ok(tools.to_vec());
+        }
+        let from_str = dialect_to_str(from);
+        let to_str = dialect_to_str(to);
+        let key = (from_str.to_string(), to_str.to_string());
+        let mut result = Vec::with_capacity(tools.len());
+        for tool in tools {
+            let translated_name = self
+                .tool_translations
+                .get(&key)
+                .and_then(|t| t.name_map.get(&tool.name))
+                .cloned()
+                .unwrap_or_else(|| tool.name.clone());
+            result.push(ToolDefinitionIr {
+                name: translated_name,
+                description: tool.description.clone(),
+                parameters: tool.parameters.clone(),
+            });
+        }
+        Ok(result)
+    }
+
+    /// Map a model name from one dialect to another.
+    ///
+    /// If the model already belongs to the target dialect it is returned as-is.
+    /// Otherwise the built-in equivalence table is consulted. Abp and Mock
+    /// targets always return the input model unchanged.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no known mapping exists for the model to the target
+    /// dialect. This fails early rather than silently degrading.
+    pub fn map_model_name(&self, _from: Dialect, to: Dialect, model: &str) -> Result<String> {
+        if to == Dialect::Abp || to == Dialect::Mock {
+            return Ok(model.to_string());
+        }
+        if model_belongs_to(model, to) {
+            return Ok(model.to_string());
+        }
+        if let Some(equivalent) = find_equivalent_model(model, to) {
+            return Ok(equivalent.to_string());
+        }
+        bail!("no known mapping for model {model:?} to dialect {to:?}")
     }
 
     // -----------------------------------------------------------------
@@ -644,6 +820,213 @@ impl ProjectionMatrix {
                 ("function_response", "tool_result"),
             ],
         );
+
+        // Register translations for codex, kimi, and mock dialects.
+        self.register_cross_dialect_translations();
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn register_cross_dialect_translations(&mut self) {
+        // Tool names per dialect, keyed by ABP canonical name.
+        let tool_dialects: &[(&str, &[(&str, &str)])] = &[
+            (
+                "abp",
+                &[
+                    ("read_file", "read_file"),
+                    ("write_file", "write_file"),
+                    ("bash", "bash"),
+                    ("edit_file", "edit_file"),
+                    ("glob", "glob"),
+                ],
+            ),
+            (
+                "openai",
+                &[
+                    ("read_file", "file_read"),
+                    ("write_file", "file_write"),
+                    ("bash", "shell"),
+                    ("edit_file", "apply_diff"),
+                    ("glob", "file_search"),
+                ],
+            ),
+            (
+                "anthropic",
+                &[
+                    ("read_file", "Read"),
+                    ("write_file", "Write"),
+                    ("bash", "Bash"),
+                    ("edit_file", "Edit"),
+                    ("glob", "Glob"),
+                ],
+            ),
+            (
+                "gemini",
+                &[
+                    ("read_file", "readFile"),
+                    ("write_file", "writeFile"),
+                    ("bash", "executeCommand"),
+                    ("edit_file", "editFile"),
+                    ("glob", "searchFiles"),
+                ],
+            ),
+            (
+                "codex",
+                &[
+                    ("read_file", "file_read"),
+                    ("write_file", "file_write"),
+                    ("bash", "shell"),
+                    ("edit_file", "apply_diff"),
+                    ("glob", "file_search"),
+                ],
+            ),
+            (
+                "kimi",
+                &[
+                    ("read_file", "read_file"),
+                    ("write_file", "write_file"),
+                    ("bash", "bash"),
+                    ("edit_file", "edit_file"),
+                    ("glob", "glob"),
+                ],
+            ),
+            (
+                "mock",
+                &[
+                    ("read_file", "read_file"),
+                    ("write_file", "write_file"),
+                    ("bash", "bash"),
+                    ("edit_file", "edit_file"),
+                    ("glob", "glob"),
+                ],
+            ),
+        ];
+
+        for (from_name, from_tools) in tool_dialects {
+            for (to_name, to_tools) in tool_dialects {
+                if from_name == to_name {
+                    continue;
+                }
+                let key = ((*from_name).to_string(), (*to_name).to_string());
+                if self.tool_translations.contains_key(&key) {
+                    continue; // already registered by manual setup
+                }
+                let mappings: Vec<(&str, &str)> = from_tools
+                    .iter()
+                    .filter_map(|(abp_name, from_tool)| {
+                        to_tools
+                            .iter()
+                            .find(|(abp_n, _)| abp_n == abp_name)
+                            .map(|(_, to_tool)| (*from_tool, *to_tool))
+                    })
+                    .filter(|(f, t)| f != t)
+                    .collect();
+                self.register_tool_translation(from_name, to_name, &mappings);
+            }
+        }
+
+        // Event names per dialect, keyed by ABP canonical name.
+        let event_dialects: &[(&str, &[(&str, &str)])] = &[
+            (
+                "abp",
+                &[
+                    ("run_started", "run_started"),
+                    ("run_completed", "run_completed"),
+                    ("assistant_message", "assistant_message"),
+                    ("assistant_delta", "assistant_delta"),
+                    ("tool_call", "tool_call"),
+                    ("tool_result", "tool_result"),
+                ],
+            ),
+            (
+                "openai",
+                &[
+                    ("run_started", "response.created"),
+                    ("run_completed", "response.completed"),
+                    ("assistant_message", "response.output_text.done"),
+                    ("assistant_delta", "response.output_text.delta"),
+                    ("tool_call", "function_call"),
+                    ("tool_result", "function_call_output"),
+                ],
+            ),
+            (
+                "anthropic",
+                &[
+                    ("run_started", "message_start"),
+                    ("run_completed", "message_stop"),
+                    ("assistant_message", "content_block_stop"),
+                    ("assistant_delta", "content_block_delta"),
+                    ("tool_call", "tool_use"),
+                    ("tool_result", "tool_result"),
+                ],
+            ),
+            (
+                "gemini",
+                &[
+                    ("run_started", "generate_content_start"),
+                    ("run_completed", "generate_content_end"),
+                    ("assistant_message", "text"),
+                    ("assistant_delta", "text_delta"),
+                    ("tool_call", "function_call"),
+                    ("tool_result", "function_response"),
+                ],
+            ),
+            (
+                "codex",
+                &[
+                    ("run_started", "response.created"),
+                    ("run_completed", "response.completed"),
+                    ("assistant_message", "response.output_text.done"),
+                    ("assistant_delta", "response.output_text.delta"),
+                    ("tool_call", "function_call"),
+                    ("tool_result", "function_call_output"),
+                ],
+            ),
+            (
+                "kimi",
+                &[
+                    ("run_started", "run_started"),
+                    ("run_completed", "run_completed"),
+                    ("assistant_message", "assistant_message"),
+                    ("assistant_delta", "assistant_delta"),
+                    ("tool_call", "tool_call"),
+                    ("tool_result", "tool_result"),
+                ],
+            ),
+            (
+                "mock",
+                &[
+                    ("run_started", "run_started"),
+                    ("run_completed", "run_completed"),
+                    ("assistant_message", "assistant_message"),
+                    ("assistant_delta", "assistant_delta"),
+                    ("tool_call", "tool_call"),
+                    ("tool_result", "tool_result"),
+                ],
+            ),
+        ];
+
+        for (from_name, from_events) in event_dialects {
+            for (to_name, to_events) in event_dialects {
+                if from_name == to_name {
+                    continue;
+                }
+                let key = ((*from_name).to_string(), (*to_name).to_string());
+                if self.event_mappings.contains_key(&key) {
+                    continue;
+                }
+                let mappings: Vec<(&str, &str)> = from_events
+                    .iter()
+                    .filter_map(|(abp_name, from_event)| {
+                        to_events
+                            .iter()
+                            .find(|(abp_n, _)| abp_n == abp_name)
+                            .map(|(_, to_event)| (*from_event, *to_event))
+                    })
+                    .filter(|(f, t)| f != t)
+                    .collect();
+                self.register_event_mapping(from_name, to_name, &mappings);
+            }
+        }
     }
 }
 
@@ -668,6 +1051,81 @@ fn build_user_content(wo: &WorkOrder) -> String {
 
 fn model_or_default<'a>(wo: &'a WorkOrder, fallback: &'a str) -> &'a str {
     wo.config.model.as_deref().unwrap_or(fallback)
+}
+
+/// Maps a [`Dialect`] enum variant to its string-based registry name.
+fn dialect_to_str(d: Dialect) -> &'static str {
+    match d {
+        Dialect::Abp => "abp",
+        Dialect::Claude => "anthropic",
+        Dialect::Codex => "codex",
+        Dialect::Gemini => "gemini",
+        Dialect::Kimi => "kimi",
+        Dialect::Mock => "mock",
+        Dialect::OpenAi => "openai",
+    }
+}
+
+/// Returns `true` if the model name is native to the given dialect.
+fn model_belongs_to(model: &str, dialect: Dialect) -> bool {
+    match dialect {
+        Dialect::OpenAi => {
+            model.starts_with("gpt-") || model.starts_with("o1") || model.starts_with("o3")
+        }
+        Dialect::Claude => model.starts_with("claude-"),
+        Dialect::Gemini => model.starts_with("gemini-"),
+        Dialect::Codex => model.starts_with("codex-"),
+        Dialect::Kimi => model.starts_with("moonshot-"),
+        Dialect::Mock | Dialect::Abp => true,
+    }
+}
+
+/// Looks up a model in the equivalence table and returns the equivalent
+/// model name for the target dialect, if one exists.
+fn find_equivalent_model(model: &str, target: Dialect) -> Option<&'static str> {
+    // Each row: (openai, claude, gemini, codex, kimi)
+    // Empty string means no known equivalent in that dialect.
+    const GROUPS: &[(&str, &str, &str, &str, &str)] = &[
+        (
+            "gpt-4o",
+            "claude-sonnet-4-20250514",
+            "gemini-2.5-flash",
+            "codex-mini-latest",
+            "moonshot-v1-8k",
+        ),
+        (
+            "gpt-4-turbo",
+            "claude-3-5-haiku-20241022",
+            "gemini-2.0-flash",
+            "",
+            "moonshot-v1-32k",
+        ),
+        (
+            "gpt-4o-mini",
+            "claude-haiku-4-20250514",
+            "gemini-2.0-flash-lite",
+            "",
+            "",
+        ),
+    ];
+
+    for &(openai, claude, gemini, codex, kimi) in GROUPS {
+        let all = [openai, claude, gemini, codex, kimi];
+        if all.contains(&model) {
+            let target_model = match target {
+                Dialect::OpenAi => openai,
+                Dialect::Claude => claude,
+                Dialect::Gemini => gemini,
+                Dialect::Codex => codex,
+                Dialect::Kimi => kimi,
+                Dialect::Abp | Dialect::Mock => "",
+            };
+            if !target_model.is_empty() {
+                return Some(target_model);
+            }
+        }
+    }
+    None
 }
 
 fn wo_to_claude(wo: &WorkOrder) -> serde_json::Value {
@@ -729,6 +1187,16 @@ fn wo_to_openai(wo: &WorkOrder) -> serde_json::Value {
     })
 }
 
+fn wo_to_mock(wo: &WorkOrder) -> serde_json::Value {
+    json!({
+        "model": model_or_default(wo, "mock-default"),
+        "messages": [{
+            "role": "user",
+            "content": build_user_content(wo),
+        }],
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -749,6 +1217,7 @@ pub fn translate(from: Dialect, to: Dialect, wo: &WorkOrder) -> Result<serde_jso
             Dialect::Codex => wo_to_codex(wo),
             Dialect::Gemini => wo_to_gemini(wo),
             Dialect::Kimi => wo_to_kimi(wo),
+            Dialect::Mock => wo_to_mock(wo),
             Dialect::OpenAi => wo_to_openai(wo),
             Dialect::Abp => unreachable!("handled by identity branch"),
         });
