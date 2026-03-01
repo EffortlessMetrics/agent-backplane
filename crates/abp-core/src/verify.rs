@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-#![deny(unsafe_code)]
 
 //! Comprehensive receipt and chain verification.
 //!
 //! This module provides two levels of verification:
 //!
-//! 1. **Individual receipt verification** via [`ReceiptVerifier`] — checks hash
+//! 1. **Individual receipt verification** via `ReceiptVerifier` — checks hash
 //!    integrity, contract version, timestamps, trace ordering, etc.
-//! 2. **Chain verification** via [`verify_chain`] — validates an ordered
-//!    [`ReceiptChain`] with parent→child relationships for multi-step workflows.
+//! 2. **Chain verification** via `verify_chain()` — validates an ordered
+//!    `ReceiptChain` with parent→child relationships for multi-step workflows.
 
 use std::collections::HashSet;
 use std::fmt;

@@ -175,6 +175,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-emulation"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-gemini-sdk"
 version = "0.1.0"
 dependencies = [
@@ -342,6 +351,15 @@ dependencies = [
  "abp-integrations",
  "abp-runtime",
  "anyhow",
+]
+
+[[package]]
+name = "abp-telemetry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]
