@@ -215,6 +215,7 @@ fn forward_slash_paths() {
     assert_eq!(g.decide_str("src/a/b/c.rs"), MatchDecision::Allowed);
 }
 
+#[cfg(windows)]
 #[test]
 fn backslash_via_decide_path() {
     let g = IncludeExcludeGlobs::new(&pats(&["src/**"]), &[]).unwrap();

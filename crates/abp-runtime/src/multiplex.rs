@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Event multiplexer for broadcasting [`AgentEvent`]s to multiple consumers,
-//! and an [`EventRouter`] for dispatching events by kind.
+//! and an `EventRouter` for dispatching events by kind.
 
 use abp_core::AgentEvent;
 use std::collections::HashMap;

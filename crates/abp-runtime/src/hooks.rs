@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Lifecycle hooks for runtime extensibility.
 //!
-//! Register [`LifecycleHook`] implementations with a [`HookRegistry`] to
+//! Register `LifecycleHook` implementations with a `HookRegistry` to
 //! observe and react to work-order lifecycle events (start, event, complete,
 //! error) without modifying the core runtime loop.
 
