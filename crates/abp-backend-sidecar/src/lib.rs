@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Sidecar backend implementation for JSONL protocol adapters.
 
 use abp_backend_core::{Backend, ensure_capability_requirements};

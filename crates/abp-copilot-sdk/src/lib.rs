@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Microcrate for wiring the Copilot sidecar into ABP runtimes.
 
 use abp_host::SidecarSpec;

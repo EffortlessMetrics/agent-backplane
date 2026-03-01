@@ -5,6 +5,7 @@
 //! handshake, event correlation, envelope ordering, error handling, and encoding.
 
 use abp_core::*;
+use abp_protocol::validate::EnvelopeValidator;
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
 use std::collections::BTreeMap;
@@ -924,4 +925,725 @@ fn stream_with_interleaved_garbage_lines() {
     let err_count = results.iter().filter(|r| r.is_err()).count();
     assert_eq!(ok_count, 3);
     assert_eq!(err_count, 2);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 17. Protocol Basics — Run envelope format
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn run_envelope_format_roundtrips() {
+    let wo = make_work_order("conformance task");
+    let run = Envelope::Run {
+        id: "run-fmt".into(),
+        work_order: wo,
+    };
+    let line = JsonlCodec::encode(&run).unwrap();
+    assert!(line.ends_with('\n'));
+
+    let decoded = JsonlCodec::decode(line.trim()).unwrap();
+    if let Envelope::Run { id, work_order } = decoded {
+        assert_eq!(id, "run-fmt");
+        assert_eq!(work_order.task, "conformance task");
+    } else {
+        panic!("expected Run, got {decoded:?}");
+    }
+}
+
+#[test]
+fn run_envelope_discriminator_is_t() {
+    let wo = make_work_order("check tag");
+    let run = Envelope::Run {
+        id: "run-tag".into(),
+        work_order: wo,
+    };
+    let json = serde_json::to_value(&run).unwrap();
+    assert_eq!(json["t"].as_str(), Some("run"));
+    assert!(json.get("type").is_none());
+}
+
+#[test]
+fn run_envelope_preserves_work_order_fields() {
+    let wo = WorkOrderBuilder::new("full fields")
+        .root("/tmp/ws")
+        .model("gpt-4")
+        .max_turns(5)
+        .build();
+    let run = Envelope::Run {
+        id: "run-fields".into(),
+        work_order: wo,
+    };
+    let line = JsonlCodec::encode(&run).unwrap();
+    let decoded = JsonlCodec::decode(line.trim()).unwrap();
+    if let Envelope::Run { work_order, .. } = decoded {
+        assert_eq!(work_order.workspace.root, "/tmp/ws");
+        assert_eq!(work_order.config.model.as_deref(), Some("gpt-4"));
+        assert_eq!(work_order.config.max_turns, Some(5));
+    } else {
+        panic!("expected Run");
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 18. Envelope Validation — Missing required fields
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn missing_discriminator_tag_is_parse_error() {
+    let raw = r#"{"contract_version":"abp/v0.1","backend":{"id":"x"},"capabilities":{}}"#;
+    let result = JsonlCodec::decode(raw);
+    assert!(result.is_err(), "missing 't' field must fail");
+}
+
+#[test]
+fn missing_hello_backend_field_is_parse_error() {
+    let raw = r#"{"t":"hello","contract_version":"abp/v0.1","capabilities":{}}"#;
+    let result = JsonlCodec::decode(raw);
+    assert!(result.is_err(), "missing backend field must fail");
+}
+
+#[test]
+fn missing_event_ref_id_is_parse_error() {
+    let raw = r#"{"t":"event","event":{"ts":"2024-01-01T00:00:00Z","type":"run_started","message":"go"}}"#;
+    let result = JsonlCodec::decode(raw);
+    assert!(result.is_err(), "missing ref_id on event must fail");
+}
+
+#[test]
+fn missing_final_receipt_is_parse_error() {
+    let raw = r#"{"t":"final","ref_id":"run-1"}"#;
+    let result = JsonlCodec::decode(raw);
+    assert!(result.is_err(), "missing receipt on final must fail");
+}
+
+#[test]
+fn missing_fatal_error_is_parse_error() {
+    let raw = r#"{"t":"fatal","ref_id":"run-1"}"#;
+    let result = JsonlCodec::decode(raw);
+    assert!(result.is_err(), "missing error on fatal must fail");
+}
+
+#[test]
+fn missing_run_work_order_is_parse_error() {
+    let raw = r#"{"t":"run","id":"run-1"}"#;
+    let result = JsonlCodec::decode(raw);
+    assert!(result.is_err(), "missing work_order on run must fail");
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 19. Envelope Validation — Extra unknown fields tolerated
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn hello_with_extra_fields_is_tolerated() {
+    let raw = serde_json::json!({
+        "t": "hello",
+        "contract_version": "abp/v0.1",
+        "backend": { "id": "test", "backend_version": null, "adapter_version": null },
+        "capabilities": {},
+        "extra_field": "should be ignored",
+        "another": 42
+    });
+    let env: Result<Envelope, _> = serde_json::from_value(raw);
+    assert!(
+        env.is_ok(),
+        "extra unknown fields should be tolerated on hello"
+    );
+    assert!(matches!(env.unwrap(), Envelope::Hello { .. }));
+}
+
+#[test]
+fn event_with_extra_fields_is_tolerated() {
+    let raw = serde_json::json!({
+        "t": "event",
+        "ref_id": "run-1",
+        "event": {
+            "ts": "2024-01-01T00:00:00Z",
+            "type": "assistant_message",
+            "text": "hi",
+        },
+        "unknown_key": true
+    });
+    let env: Result<Envelope, _> = serde_json::from_value(raw);
+    assert!(
+        env.is_ok(),
+        "extra unknown fields should be tolerated on event"
+    );
+}
+
+#[test]
+fn fatal_with_extra_fields_is_tolerated() {
+    let raw = serde_json::json!({
+        "t": "fatal",
+        "ref_id": "run-1",
+        "error": "boom",
+        "debug_info": { "stack": "..." }
+    });
+    let env: Result<Envelope, _> = serde_json::from_value(raw);
+    assert!(
+        env.is_ok(),
+        "extra unknown fields should be tolerated on fatal"
+    );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 20. Envelope Validation — Empty envelope body
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn empty_json_object_is_parse_error() {
+    let result = JsonlCodec::decode("{}");
+    assert!(result.is_err(), "empty JSON object without 't' must fail");
+}
+
+#[test]
+fn unknown_envelope_type_is_parse_error() {
+    let raw = r#"{"t":"unknown_type","data":"foo"}"#;
+    let result = JsonlCodec::decode(raw);
+    assert!(result.is_err(), "unknown envelope type must fail");
+}
+
+#[test]
+fn empty_string_is_skipped_in_stream() {
+    let reader = BufReader::new("  \n\n  \n".as_bytes());
+    let results: Vec<_> = JsonlCodec::decode_stream(reader).collect();
+    assert!(results.is_empty(), "blank/whitespace lines must be skipped");
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 21. Handshake — Wrong first message type (all variants)
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn first_message_is_run_not_hello() {
+    let wo = make_work_order("should fail");
+    let run = Envelope::Run {
+        id: "run-nohello".into(),
+        work_order: wo,
+    };
+    let line = JsonlCodec::encode(&run).unwrap();
+    let decoded = JsonlCodec::decode(line.trim()).unwrap();
+    assert!(
+        !matches!(decoded, Envelope::Hello { .. }),
+        "Run as first message must not be interpreted as Hello"
+    );
+}
+
+#[test]
+fn first_message_is_final_not_hello() {
+    let final_env = make_final("run-nohello");
+    let line = JsonlCodec::encode(&final_env).unwrap();
+    let decoded = JsonlCodec::decode(line.trim()).unwrap();
+    assert!(
+        !matches!(decoded, Envelope::Hello { .. }),
+        "Final as first message must not be interpreted as Hello"
+    );
+}
+
+#[test]
+fn first_message_is_fatal_not_hello() {
+    let fatal = Envelope::Fatal {
+        ref_id: None,
+        error: "init error".into(),
+    };
+    let line = JsonlCodec::encode(&fatal).unwrap();
+    let decoded = JsonlCodec::decode(line.trim()).unwrap();
+    assert!(
+        !matches!(decoded, Envelope::Hello { .. }),
+        "Fatal as first message must not be interpreted as Hello"
+    );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 22. EnvelopeValidator — single envelope validation
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn validator_hello_valid() {
+    let v = EnvelopeValidator::new();
+    let result = v.validate(&make_hello());
+    assert!(result.valid, "valid hello should pass: {:?}", result.errors);
+}
+
+#[test]
+fn validator_hello_empty_backend_id_fails() {
+    let v = EnvelopeValidator::new();
+    let hello = Envelope::Hello {
+        contract_version: CONTRACT_VERSION.into(),
+        backend: BackendIdentity {
+            id: String::new(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        capabilities: BTreeMap::new(),
+        mode: ExecutionMode::Mapped,
+    };
+    let result = v.validate(&hello);
+    assert!(!result.valid, "empty backend.id should fail validation");
+}
+
+#[test]
+fn validator_hello_invalid_version_fails() {
+    let v = EnvelopeValidator::new();
+    let hello = Envelope::Hello {
+        contract_version: "not-a-version".into(),
+        backend: test_backend(),
+        capabilities: BTreeMap::new(),
+        mode: ExecutionMode::Mapped,
+    };
+    let result = v.validate(&hello);
+    assert!(!result.valid, "unparseable contract_version should fail");
+}
+
+#[test]
+fn validator_event_empty_ref_id_fails() {
+    let v = EnvelopeValidator::new();
+    let event = Envelope::Event {
+        ref_id: String::new(),
+        event: AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            ext: None,
+        },
+    };
+    let result = v.validate(&event);
+    assert!(!result.valid, "empty ref_id on event should fail");
+}
+
+#[test]
+fn validator_final_empty_ref_id_fails() {
+    let v = EnvelopeValidator::new();
+    let final_env = Envelope::Final {
+        ref_id: String::new(),
+        receipt: ReceiptBuilder::new("test").build(),
+    };
+    let result = v.validate(&final_env);
+    assert!(!result.valid, "empty ref_id on final should fail");
+}
+
+#[test]
+fn validator_fatal_empty_error_fails() {
+    let v = EnvelopeValidator::new();
+    let fatal = Envelope::Fatal {
+        ref_id: Some("run-1".into()),
+        error: String::new(),
+    };
+    let result = v.validate(&fatal);
+    assert!(!result.valid, "empty error on fatal should fail");
+}
+
+#[test]
+fn validator_run_empty_id_fails() {
+    let v = EnvelopeValidator::new();
+    let run = Envelope::Run {
+        id: String::new(),
+        work_order: make_work_order("test"),
+    };
+    let result = v.validate(&run);
+    assert!(!result.valid, "empty id on run should fail");
+}
+
+#[test]
+fn validator_run_empty_task_fails() {
+    let v = EnvelopeValidator::new();
+    let run = Envelope::Run {
+        id: "run-1".into(),
+        work_order: make_work_order(""),
+    };
+    let result = v.validate(&run);
+    assert!(!result.valid, "empty task on run should fail");
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 23. EnvelopeValidator — sequence validation
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn validator_sequence_valid_hello_run_events_final() {
+    let v = EnvelopeValidator::new();
+    let run_id = "run-seq";
+    let seq = vec![
+        make_hello(),
+        Envelope::Run {
+            id: run_id.into(),
+            work_order: make_work_order("test"),
+        },
+        make_event(
+            run_id,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
+        make_event(
+            run_id,
+            AgentEventKind::AssistantMessage {
+                text: "done".into(),
+            },
+        ),
+        make_final(run_id),
+    ];
+    let errors = v.validate_sequence(&seq);
+    assert!(
+        errors.is_empty(),
+        "valid sequence should have no errors: {errors:?}"
+    );
+}
+
+#[test]
+fn validator_sequence_missing_hello() {
+    let v = EnvelopeValidator::new();
+    let run_id = "run-nohello";
+    let seq = vec![
+        Envelope::Run {
+            id: run_id.into(),
+            work_order: make_work_order("test"),
+        },
+        make_event(
+            run_id,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
+        make_final(run_id),
+    ];
+    let errors = v.validate_sequence(&seq);
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, abp_protocol::validate::SequenceError::MissingHello)),
+        "should detect missing hello: {errors:?}"
+    );
+}
+
+#[test]
+fn validator_sequence_missing_terminal() {
+    let v = EnvelopeValidator::new();
+    let seq = vec![
+        make_hello(),
+        Envelope::Run {
+            id: "run-noterm".into(),
+            work_order: make_work_order("test"),
+        },
+        make_event(
+            "run-noterm",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
+    ];
+    let errors = v.validate_sequence(&seq);
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, abp_protocol::validate::SequenceError::MissingTerminal)),
+        "should detect missing terminal: {errors:?}"
+    );
+}
+
+#[test]
+fn validator_sequence_ref_id_mismatch() {
+    let v = EnvelopeValidator::new();
+    let seq = vec![
+        make_hello(),
+        Envelope::Run {
+            id: "run-a".into(),
+            work_order: make_work_order("test"),
+        },
+        make_event(
+            "run-b",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
+        make_final("run-a"),
+    ];
+    let errors = v.validate_sequence(&seq);
+    assert!(
+        errors.iter().any(|e| matches!(
+            e,
+            abp_protocol::validate::SequenceError::RefIdMismatch { .. }
+        )),
+        "should detect ref_id mismatch: {errors:?}"
+    );
+}
+
+#[test]
+fn validator_sequence_fatal_ending_is_valid() {
+    let v = EnvelopeValidator::new();
+    let run_id = "run-fatal";
+    let seq = vec![
+        make_hello(),
+        Envelope::Run {
+            id: run_id.into(),
+            work_order: make_work_order("test"),
+        },
+        make_event(
+            run_id,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
+        Envelope::Fatal {
+            ref_id: Some(run_id.into()),
+            error: "crash".into(),
+        },
+    ];
+    let errors = v.validate_sequence(&seq);
+    assert!(
+        errors.is_empty(),
+        "fatal ending should be valid: {errors:?}"
+    );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 24. Edge Cases — Large work order
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn large_work_order_roundtrips() {
+    let large_task = "X".repeat(500_000);
+    let mut wo = make_work_order(&large_task);
+    // Add many context files
+    wo.context.files = (0..1000).map(|i| format!("src/file_{i}.rs")).collect();
+    // Add snippets
+    wo.context.snippets = vec![ContextSnippet {
+        name: "big".into(),
+        content: "Y".repeat(100_000),
+    }];
+
+    let run = Envelope::Run {
+        id: "run-large-wo".into(),
+        work_order: wo,
+    };
+    let line = JsonlCodec::encode(&run).unwrap();
+    let decoded = JsonlCodec::decode(line.trim()).unwrap();
+    if let Envelope::Run { work_order, .. } = decoded {
+        assert_eq!(work_order.task.len(), 500_000);
+        assert_eq!(work_order.context.files.len(), 1000);
+        assert_eq!(work_order.context.snippets[0].content.len(), 100_000);
+    } else {
+        panic!("expected Run");
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 25. Edge Cases — Empty trace in final receipt
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn final_receipt_with_empty_trace_roundtrips() {
+    let receipt = ReceiptBuilder::new("test-empty-trace").build();
+    assert!(receipt.trace.is_empty());
+
+    let final_env = Envelope::Final {
+        ref_id: "run-empty-trace".into(),
+        receipt,
+    };
+    let line = JsonlCodec::encode(&final_env).unwrap();
+    let decoded = JsonlCodec::decode(line.trim()).unwrap();
+    if let Envelope::Final { receipt, .. } = decoded {
+        assert!(
+            receipt.trace.is_empty(),
+            "empty trace must survive round-trip"
+        );
+    } else {
+        panic!("expected Final");
+    }
+}
+
+#[test]
+fn final_receipt_with_empty_trace_hashes_correctly() {
+    let receipt = ReceiptBuilder::new("test-hash")
+        .build()
+        .with_hash()
+        .unwrap();
+    assert!(receipt.trace.is_empty());
+    assert!(receipt.receipt_sha256.is_some());
+    // Verify the hash is valid by recomputing
+    let hash = receipt_hash(&receipt).unwrap();
+    assert_eq!(receipt.receipt_sha256.as_deref(), Some(hash.as_str()));
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 26. Edge Cases — Wrong ref_id on final
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn wrong_ref_id_on_final_is_structurally_valid_but_detectable() {
+    let run_id = "run-correct";
+    let final_env = make_final("run-WRONG");
+    if let Envelope::Final { ref_id, .. } = &final_env {
+        assert_ne!(
+            ref_id, run_id,
+            "wrong ref_id must be detectable by comparison"
+        );
+    } else {
+        panic!("expected Final");
+    }
+}
+
+#[test]
+fn wrong_ref_id_detected_by_validator_sequence() {
+    let v = EnvelopeValidator::new();
+    let seq = vec![
+        make_hello(),
+        Envelope::Run {
+            id: "run-correct".into(),
+            work_order: make_work_order("test"),
+        },
+        make_event(
+            "run-correct",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
+        make_final("run-WRONG"),
+    ];
+    let errors = v.validate_sequence(&seq);
+    assert!(
+        errors.iter().any(|e| matches!(
+            e,
+            abp_protocol::validate::SequenceError::RefIdMismatch { .. }
+        )),
+        "validator should catch final with wrong ref_id: {errors:?}"
+    );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 27. Edge Cases — All AgentEventKind variants in protocol
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn all_agent_event_kinds_roundtrip_through_protocol() {
+    let run_id = "run-all-kinds";
+    let kinds: Vec<AgentEventKind> = vec![
+        AgentEventKind::RunStarted {
+            message: "start".into(),
+        },
+        AgentEventKind::AssistantDelta {
+            text: "chunk".into(),
+        },
+        AgentEventKind::AssistantMessage {
+            text: "full msg".into(),
+        },
+        AgentEventKind::ToolCall {
+            tool_name: "read".into(),
+            tool_use_id: Some("tu-1".into()),
+            parent_tool_use_id: None,
+            input: serde_json::json!({"path": "file.rs"}),
+        },
+        AgentEventKind::ToolResult {
+            tool_name: "read".into(),
+            tool_use_id: Some("tu-1".into()),
+            output: serde_json::json!("content"),
+            is_error: false,
+        },
+        AgentEventKind::FileChanged {
+            path: "src/lib.rs".into(),
+            summary: "edited".into(),
+        },
+        AgentEventKind::CommandExecuted {
+            command: "cargo test".into(),
+            exit_code: Some(0),
+            output_preview: Some("ok".into()),
+        },
+        AgentEventKind::Warning {
+            message: "heads up".into(),
+        },
+        AgentEventKind::Error {
+            message: "bad thing".into(),
+        },
+        AgentEventKind::RunCompleted {
+            message: "done".into(),
+        },
+    ];
+
+    for kind in kinds {
+        let event = make_event(run_id, kind);
+        let line = JsonlCodec::encode(&event).unwrap();
+        let decoded = JsonlCodec::decode(line.trim());
+        assert!(
+            decoded.is_ok(),
+            "event kind must round-trip: {}",
+            line.trim()
+        );
+        assert!(matches!(decoded.unwrap(), Envelope::Event { .. }));
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 28. Edge Cases — Passthrough execution mode
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn hello_passthrough_mode_roundtrips() {
+    let hello = Envelope::hello_with_mode(
+        test_backend(),
+        test_capabilities(),
+        ExecutionMode::Passthrough,
+    );
+    let line = JsonlCodec::encode(&hello).unwrap();
+    let decoded = JsonlCodec::decode(line.trim()).unwrap();
+    if let Envelope::Hello { mode, .. } = decoded {
+        assert_eq!(mode, ExecutionMode::Passthrough);
+    } else {
+        panic!("expected Hello");
+    }
+}
+
+#[test]
+fn hello_missing_mode_defaults_to_mapped() {
+    // When "mode" is absent from JSON, serde default should give Mapped.
+    let raw = serde_json::json!({
+        "t": "hello",
+        "contract_version": "abp/v0.1",
+        "backend": { "id": "test", "backend_version": null, "adapter_version": null },
+        "capabilities": {}
+    });
+    let env: Envelope = serde_json::from_value(raw).unwrap();
+    if let Envelope::Hello { mode, .. } = env {
+        assert_eq!(
+            mode,
+            ExecutionMode::Mapped,
+            "missing mode defaults to Mapped"
+        );
+    } else {
+        panic!("expected Hello");
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 29. Version negotiation helpers
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn compatible_versions_same_major() {
+    assert!(abp_protocol::is_compatible_version("abp/v0.1", "abp/v0.2"));
+    assert!(abp_protocol::is_compatible_version("abp/v0.1", "abp/v0.1"));
+    assert!(abp_protocol::is_compatible_version("abp/v1.0", "abp/v1.5"));
+}
+
+#[test]
+fn incompatible_versions_different_major() {
+    assert!(!abp_protocol::is_compatible_version("abp/v0.1", "abp/v1.0"));
+    assert!(!abp_protocol::is_compatible_version("abp/v2.0", "abp/v0.1"));
+}
+
+#[test]
+fn invalid_version_strings_are_incompatible() {
+    assert!(!abp_protocol::is_compatible_version("garbage", "abp/v0.1"));
+    assert!(!abp_protocol::is_compatible_version("abp/v0.1", "garbage"));
+    assert!(!abp_protocol::is_compatible_version("", ""));
+}
+
+#[test]
+fn parse_version_edge_cases() {
+    assert_eq!(abp_protocol::parse_version("abp/v0.1"), Some((0, 1)));
+    assert_eq!(abp_protocol::parse_version("abp/v10.20"), Some((10, 20)));
+    assert!(abp_protocol::parse_version("v0.1").is_none());
+    assert!(abp_protocol::parse_version("abp/0.1").is_none());
+    assert!(abp_protocol::parse_version("abp/v").is_none());
+    assert!(abp_protocol::parse_version("").is_none());
 }

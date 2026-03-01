@@ -9,10 +9,14 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
 abp-core = { path = "../crates/abp-core" }
 abp-protocol = { path = "../crates/abp-protocol" }
+abp-glob = { path = "../crates/abp-glob" }
+abp-policy = { path = "../crates/abp-policy" }
 serde_json = "1"
 toml = "0.8"
+chrono = "0.4"
 
 [[bin]]
 name = "fuzz_work_order"
@@ -62,4 +66,29 @@ doc = false
 [[bin]]
 name = "fuzz_work_order_builder"
 path = "fuzz_targets/fuzz_work_order_builder.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_glob"
+path = "fuzz_targets/fuzz_glob.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_engine"
+path = "fuzz_targets/fuzz_policy_engine.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt_structured"
+path = "fuzz_targets/fuzz_receipt_structured.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_envelope_bytes"
+path = "fuzz_targets/fuzz_envelope_bytes.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_work_order_structured"
+path = "fuzz_targets/fuzz_work_order_structured.rs"
 doc = false

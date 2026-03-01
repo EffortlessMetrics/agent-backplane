@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! abp-git
 //!
 //! Git repository helpers used by workspace staging and verification.

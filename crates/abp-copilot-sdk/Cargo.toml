@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "GitHub Copilot sidecar SDK integration for the Agent Backplane"
+keywords = ["agent", "backplane", "copilot", "sdk", "sidecar"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-host = { path = "../abp-host" }

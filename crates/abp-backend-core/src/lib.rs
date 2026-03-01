@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Shared backend abstractions and policy helpers.
 
 use abp_core::{

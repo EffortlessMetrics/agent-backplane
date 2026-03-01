@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+description = "Shared sidecar registration helpers for vendor SDK microcrates in the Agent Backplane"
+keywords = ["agent", "backplane", "sidecar", "sdk", "registration"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-host = { path = "../abp-host" }

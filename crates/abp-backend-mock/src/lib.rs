@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Mock backend implementation used for local testing.
 
 use abp_backend_core::{Backend, ensure_capability_requirements, extract_execution_mode};
