@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![deny(unsafe_code)]
 #![warn(missing_docs)]
 //! Capability negotiation between work-order requirements and backend manifests.
 //!

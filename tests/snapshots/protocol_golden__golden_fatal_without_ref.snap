@@ -1,0 +1,9 @@
+---
+source: tests/protocol_golden.rs
+expression: "serde_json::to_value(&env).unwrap()"
+---
+{
+  "error": "missing API key",
+  "ref_id": null,
+  "t": "fatal"
+}

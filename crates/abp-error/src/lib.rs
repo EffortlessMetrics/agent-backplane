@@ -5,6 +5,7 @@
 //! key-value context.  Use the builder returned by [`AbpError::new`] to
 //! construct errors fluently.
 
+#![deny(unsafe_code)]
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};

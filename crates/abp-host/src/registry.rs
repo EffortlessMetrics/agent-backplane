@@ -117,7 +117,7 @@ impl SidecarRegistry {
     /// script and build a registry from them.
     ///
     /// For each child directory, the first matching file from
-    /// [`KNOWN_HOSTS`] becomes the sidecar's command, with the
+    /// the known host scripts list becomes the sidecar's command, with the
     /// directory name used as the sidecar name.
     pub fn from_config_dir(dir: &Path) -> Result<SidecarRegistry> {
         let mut registry = SidecarRegistry::default();

@@ -1,0 +1,42 @@
+---
+source: tests/protocol_golden.rs
+expression: "serde_json::to_value(&env).unwrap()"
+---
+{
+  "id": "00000000-0000-4000-8000-000000000001",
+  "t": "run",
+  "work_order": {
+    "config": {
+      "env": {},
+      "max_budget_usd": null,
+      "max_turns": null,
+      "model": null,
+      "vendor": {}
+    },
+    "context": {
+      "files": [],
+      "snippets": []
+    },
+    "id": "[uuid]",
+    "lane": "patch_first",
+    "policy": {
+      "allow_network": [],
+      "allowed_tools": [],
+      "deny_network": [],
+      "deny_read": [],
+      "deny_write": [],
+      "disallowed_tools": [],
+      "require_approval_for": []
+    },
+    "requirements": {
+      "required": []
+    },
+    "task": "Write a unit test",
+    "workspace": {
+      "exclude": [],
+      "include": [],
+      "mode": "staged",
+      "root": "."
+    }
+  }
+}
