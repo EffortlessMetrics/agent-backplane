@@ -10,6 +10,7 @@ exclude = ["fuzz"]
 members = [
   "crates/abp-backend-core",
   "crates/abp-backend-mock",
+  "crates/abp-capability",
   "crates/abp-backend-sidecar",
   "crates/abp-claude-sdk",
   "crates/abp-cli",
@@ -18,6 +19,7 @@ members = [
   "crates/abp-core",
   "crates/abp-daemon",
   "crates/abp-emulation",
+  "crates/abp-error",
   "crates/abp-dialect",
   "crates/abp-gemini-sdk",
   "crates/abp-git",
@@ -27,6 +29,7 @@ members = [
   "crates/abp-kimi-sdk",
   "crates/abp-openai-sdk",
   "crates/abp-policy",
+  "crates/abp-receipt",
   "crates/abp-protocol",
   "crates/abp-runtime",
   "crates/abp-sidecar-sdk",
@@ -109,11 +112,14 @@ tracing-subscriber.workspace = true
 schemars.workspace = true
 jsonschema.workspace = true
 abp-daemon = { path = "crates/abp-daemon" }
+abp-dialect = { path = "crates/abp-dialect" }
+abp-error = { path = "crates/abp-error" }
 abp-claude-sdk = { path = "crates/abp-claude-sdk" }
 abp-gemini-sdk = { path = "crates/abp-gemini-sdk" }
 abp-codex-sdk = { path = "crates/abp-codex-sdk" }
 abp-kimi-sdk = { path = "crates/abp-kimi-sdk" }
 abp-openai-sdk = { path = "crates/abp-openai-sdk" }
+abp-copilot-sdk = { path = "crates/abp-copilot-sdk" }
 insta = { workspace = true }
 proptest = { workspace = true }
 toml = { workspace = true }
