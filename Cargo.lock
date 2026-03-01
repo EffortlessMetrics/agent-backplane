@@ -91,6 +91,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-git"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
 name = "abp-glob"
 version = "0.1.0"
 dependencies = [
@@ -190,6 +197,7 @@ name = "abp-workspace"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-git",
  "abp-glob",
  "anyhow",
  "tempfile",

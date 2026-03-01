@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 abp-core = { path = "../abp-core" }
 abp-glob = { path = "../abp-glob" }
+abp-git = { path = "../abp-git" }
 anyhow.workspace = true
 tokio.workspace = true
 tracing.workspace = true

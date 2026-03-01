@@ -7,11 +7,11 @@
 //! - Staged: create a sanitized copy (and optionally a synthetic git repo).
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
+use abp_git::{ensure_git_repo, git_diff as git_diff_impl, git_status as git_status_impl};
 use abp_glob::IncludeExcludeGlobs;
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use tempfile::TempDir;
 use tracing::debug;
 use walkdir::WalkDir;
@@ -58,11 +58,11 @@ impl WorkspaceManager {
     }
 
     pub fn git_status(path: &Path) -> Option<String> {
-        run_git(path, &["status", "--porcelain=v1"]).ok()
+        git_status_impl(path)
     }
 
     pub fn git_diff(path: &Path) -> Option<String> {
-        run_git(path, &["diff", "--no-color"]).ok()
+        git_diff_impl(path)
     }
 }
 
@@ -108,48 +108,4 @@ fn copy_workspace(
     }
 
     Ok(())
-}
-
-fn ensure_git_repo(path: &Path) {
-    if path.join(".git").exists() {
-        return;
-    }
-
-    let _ = Command::new("git")
-        .args(["init", "-q"])
-        .current_dir(path)
-        .status();
-
-    // Create an initial commit so diffs are meaningful.
-    let _ = Command::new("git")
-        .args(["add", "-A"])
-        .current_dir(path)
-        .status();
-
-    let _ = Command::new("git")
-        .args([
-            "-c",
-            "user.name=abp",
-            "-c",
-            "user.email=abp@local",
-            "commit",
-            "-qm",
-            "baseline",
-        ])
-        .current_dir(path)
-        .status();
-}
-
-fn run_git(path: &Path, args: &[&str]) -> Result<String> {
-    let out = Command::new("git")
-        .args(args)
-        .current_dir(path)
-        .output()
-        .with_context(|| format!("run git {args:?}"))?;
-
-    if !out.status.success() {
-        anyhow::bail!("git {:?} failed (code={:?})", args, out.status.code());
-    }
-
-    Ok(String::from_utf8_lossy(&out.stdout).to_string())
 }

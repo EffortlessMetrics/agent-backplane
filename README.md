@@ -10,7 +10,8 @@ This repo is a **compilable, runnable scaffold**:
 - A JSONL sidecar protocol (`abp-protocol`)
 - A sidecar host/supervisor (`abp-host`)
 - Shared include/exclude glob matching utilities (`abp-glob`)
-- Workspace staging + git harness utilities (`abp-workspace`)
+- Git harness utilities (`abp-git`)
+- Workspace staging utilities (`abp-workspace`)
 - Policy utilities (`abp-policy`)
 - Backend trait + `mock` + `sidecar` backends (`abp-integrations`)
 - Orchestration runtime (`abp-runtime`)
@@ -85,7 +86,8 @@ If `claude_agent_sdk` is installed and `client_mode=true`, it will use a statefu
 - `crates/abp-protocol`: JSONL envelope + codec
 - `crates/abp-host`: spawn a sidecar process and stream messages
 - `crates/abp-glob`: compile and evaluate include/exclude glob rules
-- `crates/abp-workspace`: staging + git harness utilities
+- `crates/abp-git`: git harness utilities
+- `crates/abp-workspace`: workspace staging utilities
 - `crates/abp-policy`: policy compilation + allow/deny checks
 - `crates/abp-integrations`: backend trait + implementations
 - `crates/abp-runtime`: orchestration (workspace -> backend -> receipt)
