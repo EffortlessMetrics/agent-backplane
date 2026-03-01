@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: block
+---
+{
+  "type": "thinking",
+  "text": "Let me reason through this step by step..."
+}

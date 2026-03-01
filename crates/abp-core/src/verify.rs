@@ -12,6 +12,7 @@
 use std::collections::HashSet;
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{AgentEventKind, CONTRACT_VERSION, Receipt, receipt_hash};
@@ -402,7 +403,8 @@ impl ChainVerifier {
 // ── Chain verification with parent→child relationships ─────────────
 
 /// Errors discovered during [`ReceiptChain`] verification.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum ChainError {
     /// A receipt's stored hash does not match the recomputed hash.
     BrokenHash {
@@ -469,7 +471,7 @@ impl fmt::Display for ChainError {
 impl std::error::Error for ChainError {}
 
 /// A receipt entry in a [`ReceiptChain`] with an optional parent link.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChainEntry {
     /// The receipt for this step in the workflow.
     pub receipt: Receipt,
@@ -509,7 +511,7 @@ pub struct ChainEntry {
 /// let result = verify_chain(&chain);
 /// assert!(result.valid);
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ReceiptChain {
     entries: Vec<ChainEntry>,
 }
@@ -609,7 +611,7 @@ impl ChainBuilder {
 }
 
 /// Aggregated result of verifying a [`ReceiptChain`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChainVerification {
     /// `true` when the chain has no errors.
     pub valid: bool,

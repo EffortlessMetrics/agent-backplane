@@ -12,11 +12,14 @@ use abp_claude_sdk::dialect::{
     ClaudeContentBlock, ClaudeMessage, ClaudeMessageDelta, ClaudeRequest, ClaudeResponse,
     ClaudeStreamDelta, ClaudeStreamEvent, ClaudeUsage, ThinkingConfig,
 };
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
+use abp_core::verify::{ChainBuilder, ChainError, verify_chain};
 use abp_core::{
     AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel, UsageNormalized,
+    ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel, UsageNormalized,
     VerificationReport, WorkOrderBuilder, error::MappingError,
 };
+use abp_emulation::{EmulationConfig, EmulationEntry, EmulationReport, EmulationStrategy};
 use abp_gemini_sdk::dialect::{
     FunctionCallingMode, GeminiContent, GeminiFunctionCallingConfig, GeminiFunctionDeclaration,
     GeminiGenerationConfig, GeminiPart, GeminiRequest, GeminiSafetySetting, GeminiTool,
@@ -34,6 +37,7 @@ use abp_openai_sdk::streaming::{
 };
 use abp_openai_sdk::validation::{ExtendedRequestFields, UnmappableParam, ValidationErrors};
 use abp_protocol::Envelope;
+use abp_telemetry::{MetricsSummary, RunMetrics};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -899,4 +903,300 @@ fn mapping_error_json_roundtrip() {
     let roundtripped: MappingError = serde_json::from_str(&json_str).unwrap();
     assert_eq!(err, roundtripped);
     insta::assert_snapshot!("mapping_error_fidelity_loss_json", json_str);
+}
+
+// ===========================================================================
+// 6. IR type snapshots
+// ===========================================================================
+
+#[test]
+fn ir_content_block_text() {
+    let block = IrContentBlock::Text {
+        text: "Hello, world!".into(),
+    };
+    insta::assert_json_snapshot!("ir_content_block_text", block);
+}
+
+#[test]
+fn ir_content_block_image() {
+    let block = IrContentBlock::Image {
+        media_type: "image/png".into(),
+        data: "iVBORw0KGgoAAAANSUhEUg==".into(),
+    };
+    insta::assert_json_snapshot!("ir_content_block_image", block);
+}
+
+#[test]
+fn ir_content_block_tool_use() {
+    let block = IrContentBlock::ToolUse {
+        id: "tu_001".into(),
+        name: "read_file".into(),
+        input: json!({"path": "src/main.rs"}),
+    };
+    insta::assert_json_snapshot!("ir_content_block_tool_use", block);
+}
+
+#[test]
+fn ir_content_block_tool_result() {
+    let block = IrContentBlock::ToolResult {
+        tool_use_id: "tu_001".into(),
+        content: vec![IrContentBlock::Text {
+            text: "fn main() {}".into(),
+        }],
+        is_error: false,
+    };
+    insta::assert_json_snapshot!("ir_content_block_tool_result", block);
+}
+
+#[test]
+fn ir_content_block_thinking() {
+    let block = IrContentBlock::Thinking {
+        text: "Let me reason through this step by step...".into(),
+    };
+    insta::assert_json_snapshot!("ir_content_block_thinking", block);
+}
+
+#[test]
+fn ir_message_with_metadata() {
+    let mut metadata = BTreeMap::new();
+    metadata.insert("vendor_id".into(), json!("msg_abc123"));
+    let msg = IrMessage {
+        role: IrRole::Assistant,
+        content: vec![
+            IrContentBlock::Text {
+                text: "I'll read that file.".into(),
+            },
+            IrContentBlock::ToolUse {
+                id: "tu_002".into(),
+                name: "read_file".into(),
+                input: json!({"path": "lib.rs"}),
+            },
+        ],
+        metadata,
+    };
+    insta::assert_json_snapshot!("ir_message_with_metadata", msg);
+}
+
+#[test]
+fn ir_conversation_multi_turn() {
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "You are a coding assistant."),
+        IrMessage::text(IrRole::User, "Explain ownership in Rust."),
+        IrMessage::text(IrRole::Assistant, "Ownership is a core concept..."),
+    ]);
+    insta::assert_json_snapshot!("ir_conversation_multi_turn", conv);
+}
+
+#[test]
+fn ir_tool_definition() {
+    let tool = IrToolDefinition {
+        name: "write_file".into(),
+        description: "Write content to a file at the given path.".into(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"}
+            },
+            "required": ["path", "content"]
+        }),
+    };
+    insta::assert_json_snapshot!("ir_tool_definition", tool);
+}
+
+#[test]
+fn ir_usage_with_cache() {
+    let usage = IrUsage::with_cache(500, 200, 80, 20);
+    insta::assert_json_snapshot!("ir_usage_with_cache", usage);
+}
+
+// ===========================================================================
+// 7. Emulation snapshots
+// ===========================================================================
+
+#[test]
+fn emulation_config_with_strategies() {
+    let mut config = EmulationConfig::new();
+    config.set(
+        Capability::ExtendedThinking,
+        EmulationStrategy::SystemPromptInjection {
+            prompt: "Think step by step before answering.".into(),
+        },
+    );
+    config.set(
+        Capability::CodeExecution,
+        EmulationStrategy::Disabled {
+            reason: "Cannot safely emulate sandboxed code execution".into(),
+        },
+    );
+    config.set(
+        Capability::StructuredOutputJsonSchema,
+        EmulationStrategy::PostProcessing {
+            detail: "Parse and validate JSON from text response".into(),
+        },
+    );
+    let json_str = serde_json::to_string_pretty(&config).unwrap();
+    insta::assert_snapshot!("emulation_config_with_strategies", json_str);
+}
+
+#[test]
+fn emulation_report_mixed() {
+    let report = EmulationReport {
+        applied: vec![
+            EmulationEntry {
+                capability: Capability::ExtendedThinking,
+                strategy: EmulationStrategy::SystemPromptInjection {
+                    prompt: "Think step by step.".into(),
+                },
+            },
+            EmulationEntry {
+                capability: Capability::StructuredOutputJsonSchema,
+                strategy: EmulationStrategy::PostProcessing {
+                    detail: "Validate JSON output".into(),
+                },
+            },
+        ],
+        warnings: vec!["Capability CodeExecution not emulated: unsafe".into()],
+    };
+    insta::assert_json_snapshot!("emulation_report_mixed", report);
+}
+
+// ===========================================================================
+// 8. Telemetry metrics snapshots
+// ===========================================================================
+
+#[test]
+fn run_metrics_full() {
+    let metrics = RunMetrics {
+        backend_name: "sidecar:claude".into(),
+        dialect: "claude".into(),
+        duration_ms: 3456,
+        events_count: 42,
+        tokens_in: 1500,
+        tokens_out: 800,
+        tool_calls_count: 7,
+        errors_count: 1,
+        emulations_applied: 2,
+    };
+    insta::assert_json_snapshot!("run_metrics_full", metrics);
+}
+
+#[test]
+fn metrics_summary_aggregated() {
+    let mut backend_counts = BTreeMap::new();
+    backend_counts.insert("sidecar:claude".into(), 5);
+    backend_counts.insert("sidecar:openai".into(), 3);
+    let summary = MetricsSummary {
+        count: 8,
+        mean_duration_ms: 2500.0,
+        p50_duration_ms: 2200.0,
+        p99_duration_ms: 4800.0,
+        total_tokens_in: 12000,
+        total_tokens_out: 6400,
+        error_rate: 0.125,
+        backend_counts,
+    };
+    insta::assert_json_snapshot!("metrics_summary_aggregated", summary);
+}
+
+// ===========================================================================
+// 9. Chain verification snapshots
+// ===========================================================================
+
+#[test]
+fn chain_error_broken_hash() {
+    let err = ChainError::BrokenHash {
+        index: 2,
+        run_id: fixed_uuid(),
+    };
+    insta::assert_json_snapshot!("chain_error_broken_hash", err);
+}
+
+#[test]
+fn chain_error_missing_parent() {
+    let err = ChainError::MissingParent {
+        index: 1,
+        parent_id: fixed_uuid2(),
+    };
+    insta::assert_json_snapshot!("chain_error_missing_parent", err);
+}
+
+#[test]
+fn chain_error_out_of_order() {
+    let err = ChainError::OutOfOrder { index: 3 };
+    insta::assert_json_snapshot!("chain_error_out_of_order", err);
+}
+
+#[test]
+fn chain_error_duplicate_id() {
+    let err = ChainError::DuplicateId { id: fixed_uuid() };
+    insta::assert_json_snapshot!("chain_error_duplicate_id", err);
+}
+
+#[test]
+fn chain_error_contract_version_mismatch() {
+    let err = ChainError::ContractVersionMismatch {
+        index: 4,
+        expected: "abp/v0.1".into(),
+        actual: "abp/v0.2".into(),
+    };
+    insta::assert_json_snapshot!("chain_error_contract_version_mismatch", err);
+}
+
+#[test]
+fn chain_verification_valid() {
+    let r1 = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let parent_id = r1.meta.run_id;
+
+    let r2 = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+
+    let chain = ChainBuilder::new()
+        .push(r1)
+        .push_child(r2, parent_id)
+        .build();
+
+    let result = verify_chain(&chain);
+    insta::assert_json_snapshot!("chain_verification_valid",
+        result,
+        {
+            ".total_duration_ms" => "[duration]",
+        }
+    );
+}
+
+#[test]
+fn receipt_chain_two_entries() {
+    let r1 = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let parent_id = r1.meta.run_id;
+
+    let r2 = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+
+    let chain = ChainBuilder::new()
+        .push(r1)
+        .push_child(r2, parent_id)
+        .build();
+
+    insta::assert_json_snapshot!("receipt_chain_two_entries",
+        chain,
+        {
+            ".entries[].receipt.meta.run_id" => "[uuid]",
+            ".entries[].receipt.meta.work_order_id" => "[uuid]",
+            ".entries[].receipt.meta.started_at" => "[timestamp]",
+            ".entries[].receipt.meta.finished_at" => "[timestamp]",
+            ".entries[].receipt.receipt_sha256" => "[hash]",
+            ".entries[].parent_id" => "[uuid_or_null]",
+        }
+    );
 }

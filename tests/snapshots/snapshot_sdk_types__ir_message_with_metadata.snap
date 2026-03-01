@@ -1,0 +1,24 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: msg
+---
+{
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "I'll read that file."
+    },
+    {
+      "type": "tool_use",
+      "id": "tu_002",
+      "name": "read_file",
+      "input": {
+        "path": "lib.rs"
+      }
+    }
+  ],
+  "metadata": {
+    "vendor_id": "msg_abc123"
+  }
+}

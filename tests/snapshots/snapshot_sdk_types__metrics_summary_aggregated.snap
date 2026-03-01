@@ -1,0 +1,17 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: summary
+---
+{
+  "count": 8,
+  "mean_duration_ms": 2500.0,
+  "p50_duration_ms": 2200.0,
+  "p99_duration_ms": 4800.0,
+  "total_tokens_in": 12000,
+  "total_tokens_out": 6400,
+  "error_rate": 0.125,
+  "backend_counts": {
+    "sidecar:claude": 5,
+    "sidecar:openai": 3
+  }
+}
