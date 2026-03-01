@@ -2,6 +2,7 @@
 #![doc = include_str!("../README.md")]
 //! claude-bridge
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! Standalone Claude SDK bridge built on `sidecar-kit` transport.
 //!
@@ -13,10 +14,15 @@
 //! - **Normalized** (feature `normalized`): `ClaudeBridge::run_normalized()` -- maps
 //!   raw JSON events to typed `AgentEvent` and `Receipt` from `abp-core`.
 
+/// Bridge configuration types.
 pub mod config;
+/// Node.js and host-script discovery helpers.
 pub mod discovery;
+/// Error types for bridge operations.
 pub mod error;
+/// Normalized event mapping (feature-gated).
 pub mod normalized;
+/// Raw passthrough and mapped-mode run functions.
 pub mod raw;
 
 pub use config::ClaudeBridgeConfig;
@@ -30,6 +36,7 @@ pub struct ClaudeBridge {
 }
 
 impl ClaudeBridge {
+    /// Create a new bridge handle from the given configuration.
     pub fn new(config: ClaudeBridgeConfig) -> Self {
         Self { config }
     }

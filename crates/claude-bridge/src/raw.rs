@@ -8,8 +8,11 @@ use crate::{BridgeError, ClaudeBridgeConfig, discovery};
 /// Options for a mapped-mode run.
 #[derive(Debug, Clone, Default)]
 pub struct RunOptions {
+    /// Execution lane (e.g. `"patch_first"`). Defaults to `"patch_first"`.
     pub lane: Option<String>,
+    /// Root directory of the workspace for the run.
     pub workspace_root: Option<String>,
+    /// Additional vendor configuration merged into the work order.
     pub extra_config: Option<Value>,
 }
 

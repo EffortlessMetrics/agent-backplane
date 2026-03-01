@@ -10,9 +10,13 @@ use super::{SidecarError, frame::Frame, process::SidecarProcess, run::RawRun, sp
 /// Parsed `hello` handshake data from a sidecar (value-based).
 #[derive(Debug, Clone)]
 pub struct HelloData {
+    /// ABP contract version reported by the sidecar.
     pub contract_version: String,
+    /// Backend identity as an opaque JSON value.
     pub backend: Value,
+    /// Capabilities advertised by the sidecar.
     pub capabilities: Value,
+    /// Execution mode (e.g. passthrough or mapped).
     pub mode: Value,
 }
 
@@ -32,6 +36,7 @@ impl HelloData {
 /// and provides [`run_raw`](SidecarClient::run_raw) to start a run.
 pub struct SidecarClient {
     process: SidecarProcess,
+    /// Handshake data received from the sidecar.
     pub hello: HelloData,
 }
 

@@ -12,9 +12,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DiagnosticLevel {
+    /// Verbose debugging information.
     Debug,
+    /// Informational message.
     Info,
+    /// Non-fatal warning.
     Warning,
+    /// Error condition.
     Error,
 }
 
@@ -40,10 +44,15 @@ pub struct Diagnostic {
 /// Aggregate counts of diagnostics by level.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiagnosticSummary {
+    /// Number of debug-level diagnostics.
     pub debug_count: usize,
+    /// Number of info-level diagnostics.
     pub info_count: usize,
+    /// Number of warning-level diagnostics.
     pub warning_count: usize,
+    /// Number of error-level diagnostics.
     pub error_count: usize,
+    /// Total number of diagnostics across all levels.
     pub total: usize,
 }
 

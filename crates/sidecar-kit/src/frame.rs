@@ -13,37 +13,61 @@ use super::SidecarError;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum Frame {
+    /// Handshake frame sent by the sidecar on startup.
     Hello {
+        /// ABP contract version.
         contract_version: String,
+        /// Backend identity descriptor.
         backend: Value,
+        /// Capability set advertised by the sidecar.
         capabilities: Value,
+        /// Execution mode.
         #[serde(default)]
         mode: Value,
     },
+    /// Instructs the sidecar to begin a run.
     Run {
+        /// Unique identifier for this run.
         id: String,
+        /// The work order payload.
         work_order: Value,
     },
+    /// Streaming event emitted during a run.
     Event {
+        /// Identifier of the run this event belongs to.
         ref_id: String,
+        /// The event payload.
         event: Value,
     },
+    /// Terminal frame carrying the run receipt.
     Final {
+        /// Identifier of the completed run.
         ref_id: String,
+        /// The receipt payload.
         receipt: Value,
     },
+    /// Unrecoverable error frame from the sidecar.
     Fatal {
+        /// Identifier of the run, if known.
         ref_id: Option<String>,
+        /// Human-readable error description.
         error: String,
     },
+    /// Request to cancel an in-progress run.
     Cancel {
+        /// Identifier of the run to cancel.
         ref_id: String,
+        /// Optional reason for cancellation.
         reason: Option<String>,
     },
+    /// Keep-alive ping frame.
     Ping {
+        /// Monotonic sequence number.
         seq: u64,
     },
+    /// Keep-alive pong response.
     Pong {
+        /// Echoed sequence number from the ping.
         seq: u64,
     },
 }

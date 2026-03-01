@@ -1,4 +1,5 @@
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //! abp-git
 //!
 //! Git repository helpers used by workspace staging and verification.
@@ -7,6 +8,7 @@ use anyhow::{Context, Result};
 use std::path::Path;
 use std::process::Command;
 
+/// Initializes a git repo at `path` with a baseline commit if one does not already exist.
 pub fn ensure_git_repo(path: &Path) {
     if path.join(".git").exists() {
         return;
@@ -37,10 +39,12 @@ pub fn ensure_git_repo(path: &Path) {
         .status();
 }
 
+/// Returns the porcelain v1 status output for the repo at `path`, if available.
 pub fn git_status(path: &Path) -> Option<String> {
     run_git(path, &["status", "--porcelain=v1"]).ok()
 }
 
+/// Returns the unified diff output for the repo at `path`, if available.
 pub fn git_diff(path: &Path) -> Option<String> {
     run_git(path, &["diff", "--no-color"]).ok()
 }

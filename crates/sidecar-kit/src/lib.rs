@@ -2,6 +2,7 @@
 #![doc = include_str!("../README.md")]
 //! sidecar-kit
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //!
 //! Value-based transport layer for sidecar processes speaking JSONL over stdio.
 //!

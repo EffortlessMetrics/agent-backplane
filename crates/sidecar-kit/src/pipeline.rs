@@ -105,6 +105,7 @@ impl EventPipeline {
 pub struct TimestampStage;
 
 impl TimestampStage {
+    /// Create a new `TimestampStage`.
     #[must_use]
     pub fn new() -> Self {
         Self

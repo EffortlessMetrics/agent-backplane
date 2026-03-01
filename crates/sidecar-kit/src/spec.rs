@@ -6,9 +6,13 @@ use std::collections::BTreeMap;
 /// Configuration for spawning a sidecar process (command, args, env, cwd).
 #[derive(Debug, Clone)]
 pub struct ProcessSpec {
+    /// Executable command to run.
     pub command: String,
+    /// Arguments passed to the command.
     pub args: Vec<String>,
+    /// Additional environment variables for the process.
     pub env: BTreeMap<String, String>,
+    /// Optional working directory override.
     pub cwd: Option<String>,
 }
 

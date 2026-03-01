@@ -57,6 +57,7 @@ pub struct Formatter {
 }
 
 impl Formatter {
+    /// Create a new formatter with the given output format.
     #[must_use]
     pub fn new(format: OutputFormat) -> Self {
         Self { format }

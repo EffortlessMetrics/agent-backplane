@@ -266,6 +266,7 @@ impl EventTransformer for FilterTransformer {
 pub struct TimestampTransformer;
 
 impl TimestampTransformer {
+    /// Create a new `TimestampTransformer`.
     #[must_use]
     pub fn new() -> Self {
         Self

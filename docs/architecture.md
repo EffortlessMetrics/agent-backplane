@@ -25,6 +25,7 @@ else exists to faithfully translate SDK semantics into that contract and back ou
 - [Projection Matrix and Dialect Translation](#projection-matrix-and-dialect-translation)
 - [Execution Modes](#execution-modes)
 - [Capability Negotiation](#capability-negotiation)
+- [IR Layer](#ir-layer)
 
 ---
 
@@ -105,16 +106,30 @@ it possible for downstream consumers to depend on only what they need.
 abp-glob ──────────┐
                     ├── abp-policy ──────────┐
 abp-core ──────────┤                         │
-  │                └── abp-workspace ────────┤
-  │                                          │
-  ├── abp-dialect                            │
+  │   │            └── abp-workspace ────────┤
+  │   │                      │               │
+  │   ├── abp-dialect ─── abp-mapping        │
+  │   │                                      │
+  │   ├── abp-error                          │
+  │   │                                      │
+  │   ├── abp-capability                     │
+  │   │                                      │
+  │   ├── abp-emulation                      │
+  │   │                                      │
+  │   └── abp-receipt                        │
+  │         │                                │
+  │         └── abp-telemetry                │
   │                                          │
 abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
                      │              │                abp-backend-sidecar
                  sidecar-kit        │
                      │         abp-integrations ─── abp-runtime ─── abp-cli
-                claude-bridge                                         │
+                claude-bridge                                        │
                                                                  abp-daemon
+
+Supporting crates:
+  abp-git           Standalone git helpers (init, status, diff)
+  abp-sidecar-sdk   Vendor SDK registration helpers
 
 Vendor SDK microcrates (abp-claude-sdk, abp-codex-sdk, abp-openai-sdk,
 abp-gemini-sdk, abp-kimi-sdk, abp-copilot-sdk) depend on abp-core +
@@ -141,6 +156,8 @@ The foundational crate. If you take one dependency, take this one.
 - `ExecutionMode`: `Passthrough` (lossless) vs `Mapped` (dialect translation).
 - `ExecutionLane`: `PatchFirst` (propose changes) vs `WorkspaceFirst` (mutate directly).
 - `CONTRACT_VERSION = "abp/v0.1"`: embedded in all wire messages and receipts.
+- **IR module** (`abp_core::ir`): vendor-neutral intermediate representation
+  for cross-dialect message normalization. See [IR Layer](#ir-layer).
 
 Uses `BTreeMap` throughout for deterministic serialization (critical for
 canonical JSON hashing). All serde enums use `#[serde(rename_all = "snake_case")]`.
@@ -238,9 +255,72 @@ under a single crate. Provides the `BackendRegistry` for runtime lookup.
 
 ### abp-dialect — Dialect Detection
 
-Detects and validates SDK dialects from request metadata. Provides dialect
-identity, version information, and validation helpers used by the projection
-matrix.
+Detects and validates SDK dialects from request metadata. Defines the `Dialect`
+enum (`OpenAi`, `Claude`, `Gemini`, `Codex`, `Kimi`, `Copilot`) and provides:
+
+- `DialectDetector`: inspects JSON values to identify the originating dialect.
+- `DialectValidator`: validates a JSON value conforms to a specific dialect.
+- `Dialect::label()`, `Dialect::all()` for iteration and display.
+
+### abp-error — Unified Error Taxonomy
+
+Stable, machine-readable error codes for all ABP errors. Every error carries
+an `ErrorCode` (SCREAMING_SNAKE_CASE string tag), a human-readable message,
+optional cause chain, and structured context. 20 error codes across 10
+categories. See [error_codes.md](error_codes.md) for the full reference.
+
+### abp-mapping — Cross-Dialect Mapping Validation
+
+Validates feature translation fidelity between dialect pairs. Provides:
+
+- `MappingRule`: source/target dialect + feature + `Fidelity` level.
+- `Fidelity`: `Lossless`, `LossyLabeled { warning }`, `Unsupported { reason }`.
+- `MappingRegistry`: stores and looks up mapping rules.
+- `MappingMatrix`: boolean compatibility matrix derived from the registry.
+- `known_rules()`: pre-populated registry for tool_use, streaming, thinking,
+  and image_input across OpenAI, Claude, Gemini, and Codex.
+
+### abp-capability — Capability Negotiation
+
+Compares `CapabilityManifest` against `CapabilityRequirements` to produce
+structured negotiation results. See [capability_negotiation.md](capability_negotiation.md).
+
+- `negotiate()` → `NegotiationResult` (native / emulatable / unsupported buckets)
+- `generate_report()` → `CompatibilityReport` (human-readable summary)
+
+### abp-emulation — Labeled Emulation
+
+Applies emulation strategies for capabilities not natively supported. Never
+silently degrades — every emulation is explicitly recorded.
+
+- `EmulationEngine`: applies strategies to `IrConversation`.
+- `EmulationStrategy`: `SystemPromptInjection`, `PostProcessing`, `Disabled`.
+- `EmulationConfig`: per-capability strategy overrides.
+
+### abp-receipt — Receipt Building, Chaining, and Diffing
+
+Extended receipt operations beyond core hashing:
+
+- `ReceiptBuilder`: fluent builder for constructing receipts.
+- `ReceiptChain`: append-only, ordered chain of receipts with integrity checks.
+- `diff_receipts()`: structured diff between two receipts.
+- `canonicalize()`, `compute_hash()`, `verify_hash()`: hash utilities.
+
+### abp-telemetry — Metrics Collection
+
+Run-level metrics collection and aggregation:
+
+- `RunMetrics`: per-run timing and usage data.
+- `MetricsCollector`: thread-safe collector with `record()` and `summary()`.
+- `TelemetrySpan`: structured span with attributes, emitted via tracing.
+- `TelemetryExporter` trait + `JsonExporter`: pluggable export.
+
+### abp-git — Git Helpers
+
+Standalone git operations for workspace management:
+
+- `ensure_git_repo()`: initialize a git repo with a baseline commit.
+- `git_status()` / `git_diff()`: capture workspace changes.
 
 ### abp-sidecar-sdk — Vendor Registration Helpers
 
@@ -861,6 +941,75 @@ The full list of capability variants is documented in
 - **Sessions**: resume and fork.
 - **Structured output**: JSON schema enforcement.
 - **MCP**: Model Context Protocol client/server.
+
+See [capability_negotiation.md](capability_negotiation.md) for the full
+negotiation flow, emulation strategies, and decision tree.
+
+---
+
+## IR Layer
+
+The Intermediate Representation (IR) is the vendor-neutral format that sits
+between dialect-specific request types and the internal contract. Dialect
+adapters **lower** vendor-specific formats into the IR and **raise** the IR
+back into the target dialect format.
+
+**Source:** `crates/abp-core/src/ir.rs`
+
+### Core Types
+
+```
+  IrConversation
+  ├── messages: Vec<IrMessage>
+  │   ├── role: IrRole (System | User | Assistant | Tool)
+  │   ├── content: Vec<IrContentBlock>
+  │   │   ├── Text { text }
+  │   │   ├── Image { media_type, data }
+  │   │   ├── ToolUse { id, name, input }
+  │   │   ├── ToolResult { tool_use_id, content, is_error }
+  │   │   └── Thinking { text }
+  │   └── metadata: BTreeMap<String, Value>  (vendor-opaque, carried through)
+  ├── tools: Vec<IrToolDefinition>
+  │   ├── name, description, parameters_schema
+  └── usage: Option<IrUsage>
+      ├── input_tokens, output_tokens
+      ├── cache_creation_tokens, cache_read_tokens
+      └── total_tokens
+```
+
+### Translation Flow
+
+```
+  Vendor Request (e.g. OpenAIRequest)
+        │
+        │  lowering::to_ir()
+        ▼
+  IrConversation  ◄── vendor-neutral
+        │
+        │  (optional) EmulationEngine::apply()
+        │  (optional) capability checks
+        ▼
+  IrConversation  (possibly mutated)
+        │
+        │  lowering::from_ir()
+        ▼
+  Target Format (e.g. ClaudeRequest)
+```
+
+Each vendor SDK crate provides `lowering::to_ir()` and `lowering::from_ir()`
+functions. The IR preserves vendor-opaque metadata in `IrMessage::metadata`
+so it survives round-trip translation.
+
+### Design Principles
+
+- **Vendor-neutral**: the IR captures semantic meaning, not wire format.
+- **Content-block based**: messages contain typed content blocks, not raw
+  strings. This preserves tool calls, images, and thinking blocks.
+- **Deterministic**: uses `BTreeMap` for metadata to ensure canonical
+  serialization.
+- **Lossless where possible**: `Thinking` blocks carry through for backends
+  that support extended reasoning; they are dropped (with a warning) for
+  backends that don't.
 
 ---
 

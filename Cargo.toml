@@ -15,6 +15,7 @@ members = [
   "crates/abp-claude-sdk",
   "crates/abp-cli",
   "crates/abp-codex-sdk",
+  "crates/abp-config",
   "crates/abp-copilot-sdk",
   "crates/abp-core",
   "crates/abp-daemon",
@@ -115,6 +116,9 @@ jsonschema.workspace = true
 abp-daemon = { path = "crates/abp-daemon" }
 abp-dialect = { path = "crates/abp-dialect" }
 abp-error = { path = "crates/abp-error" }
+abp-capability = { path = "crates/abp-capability" }
+abp-receipt = { path = "crates/abp-receipt" }
+abp-mapping = { path = "crates/abp-mapping" }
 abp-claude-sdk = { path = "crates/abp-claude-sdk" }
 abp-gemini-sdk = { path = "crates/abp-gemini-sdk" }
 abp-codex-sdk = { path = "crates/abp-codex-sdk" }

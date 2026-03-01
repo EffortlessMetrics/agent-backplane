@@ -28,11 +28,15 @@ pub struct BackplaneConfig {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "type")]
 pub enum BackendConfig {
+    /// A mock backend that returns synthetic responses.
     #[serde(rename = "mock")]
     Mock {},
+    /// A sidecar process backend that communicates over JSONL stdio.
     #[serde(rename = "sidecar")]
     Sidecar {
+        /// Executable path or command name for the sidecar process.
         command: String,
+        /// Additional command-line arguments passed to the sidecar.
         #[serde(default)]
         args: Vec<String>,
         /// Optional timeout in seconds for the sidecar process.
@@ -44,9 +48,23 @@ pub enum BackendConfig {
 /// Errors found during configuration validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConfigError {
-    InvalidBackend { name: String, reason: String },
-    InvalidTimeout { value: u64 },
-    MissingRequiredField { field: String },
+    /// A backend definition is semantically invalid.
+    InvalidBackend {
+        /// Name of the backend that failed validation.
+        name: String,
+        /// Human-readable explanation of what is wrong.
+        reason: String,
+    },
+    /// A timeout value is out of the allowed range.
+    InvalidTimeout {
+        /// The invalid timeout value in seconds.
+        value: u64,
+    },
+    /// A required configuration field is missing.
+    MissingRequiredField {
+        /// Name of the missing field.
+        field: String,
+    },
 }
 
 impl fmt::Display for ConfigError {

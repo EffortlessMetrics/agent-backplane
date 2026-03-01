@@ -1,4 +1,5 @@
 #![deny(unsafe_code)]
+#![warn(missing_docs)]
 //! Shared backend abstractions and policy helpers.
 
 use abp_core::{
@@ -10,9 +11,12 @@ use async_trait::async_trait;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
+/// A backend that can execute work orders and stream agent events.
 #[async_trait]
 pub trait Backend: Send + Sync {
+    /// Returns the identity metadata for this backend.
     fn identity(&self) -> abp_core::BackendIdentity;
+    /// Returns the capability manifest advertised by this backend.
     fn capabilities(&self) -> CapabilityManifest;
 
     /// Execute a work order.
@@ -26,6 +30,7 @@ pub trait Backend: Send + Sync {
     ) -> Result<abp_core::Receipt>;
 }
 
+/// Checks that all required capabilities are satisfied by the given manifest.
 pub fn ensure_capability_requirements(
     requirements: &CapabilityRequirements,
     capabilities: &CapabilityManifest,
@@ -45,6 +50,7 @@ pub fn ensure_capability_requirements(
     anyhow::bail!("unsatisfied requirements: {}", unsatisfied.join("; "));
 }
 
+/// Extracts the execution mode from a work order's vendor config, defaulting to `Mapped`.
 pub fn extract_execution_mode(work_order: &WorkOrder) -> ExecutionMode {
     let nested = work_order
         .config
@@ -70,6 +76,7 @@ pub fn extract_execution_mode(work_order: &WorkOrder) -> ExecutionMode {
     ExecutionMode::default()
 }
 
+/// Validates that a work order is compatible with passthrough execution mode.
 pub fn validate_passthrough_compatibility(_work_order: &WorkOrder) -> Result<()> {
     Ok(())
 }

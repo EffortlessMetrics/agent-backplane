@@ -14,10 +14,12 @@ allow = [
   "Apache-2.0",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  "0BSD",
   "ISC",
   "Unicode-3.0",
   "Unicode-DFS-2016",
   "Zlib",
+  "BSL-1.0",
 ]
 copyleft = "deny"
 
@@ -28,7 +30,7 @@ license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
 
 [bans]
 multiple-versions = "warn"
-wildcards = "allow"
+wildcards = "deny"
 
 [sources]
 unknown-registry = "warn"

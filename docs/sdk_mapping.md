@@ -388,9 +388,155 @@ Create `hosts/<vendor>/` with an entry-point script that speaks the JSONL sideca
 - Add tool name and event kind mappings
 - Update the main `README.md` crate table
 
+## SDK Surface Area Summary
+
+### OpenAI Chat Completions
+
+| Aspect | Details |
+|--------|---------|
+| **SDK Crate** | `abp-openai-sdk` |
+| **Dialect Version** | `openai/v0.1` |
+| **Default Model** | `gpt-4o` |
+| **API Endpoint** | `POST /v1/chat/completions` |
+| **Key Request Types** | `OpenAIRequest`, `OpenAIMessage`, `OpenAIToolDef`, `OpenAIConfig` |
+| **Key Response Types** | `OpenAIResponse`, `OpenAIToolCall`, `OpenAIFunctionCall` |
+| **Streaming** | SSE with `ChatCompletionChunk` deltas; `ToolCallAccumulator` reassembles fragmented tool calls |
+| **Tool Calling** | `function` type tools with `OpenAIFunctionDef`; supports `ToolChoice` (auto/none/required/specific) |
+| **IR Lowering** | `lowering::to_ir()` / `lowering::from_ir()` for `IrConversation` ↔ `OpenAIMessage` |
+| **Response Format** | `ResponseFormat` enum: `text`, `json_object`, `json_schema` (with `JsonSchemaSpec`) |
+| **Validation** | `validate_for_mapped_mode()` checks `ExtendedRequestFields` for unmappable params |
+| **Canonical Prefix** | `openai/` (e.g. `openai/gpt-4o`) |
+
+### Anthropic Claude
+
+| Aspect | Details |
+|--------|---------|
+| **SDK Crate** | `abp-claude-sdk` |
+| **Dialect Version** | `claude/v0.1` |
+| **Default Model** | `claude-sonnet-4-20250514` |
+| **API Endpoint** | `POST /v1/messages` |
+| **Key Types** | `ClaudeRequest`, `ClaudeResponse`, `ClaudeToolDef` |
+| **Streaming** | SSE with content block events (`message_start`, `content_block_delta`, `message_stop`) |
+| **Tool Calling** | Tool use blocks with `tool_use_id`; `input_schema` field for definitions |
+| **Extended Thinking** | Native support — `Thinking` content blocks |
+| **Canonical Prefix** | `anthropic/` |
+
+### OpenAI Codex
+
+| Aspect | Details |
+|--------|---------|
+| **SDK Crate** | `abp-codex-sdk` |
+| **Dialect Version** | `codex/v0.1` |
+| **Default Model** | `codex-mini-latest` |
+| **API Endpoint** | `POST /v1/responses` (Responses API) |
+| **Key Types** | `CodexRequest`, `CodexResponse`, `CodexToolDef` |
+| **Streaming** | SSE chunks with `response.output_text.delta` events |
+| **Tool Calling** | Function-type tools; schema differs from chat-completions function calling |
+| **Canonical Prefix** | `openai/` |
+
+### Google Gemini
+
+| Aspect | Details |
+|--------|---------|
+| **SDK Crate** | `abp-gemini-sdk` |
+| **Dialect Version** | `gemini/v0.1` |
+| **Default Model** | `gemini-2.5-flash` |
+| **API Endpoint** | `POST /v1beta/models/{model}:generateContent` |
+| **Key Types** | `GeminiRequest`, `GeminiResponse`, `GeminiFunctionDeclaration` |
+| **Streaming** | SSE with `text_delta` / `function_call` events |
+| **Tool Calling** | Function declarations with `parameters` field (camelCase naming) |
+| **Canonical Prefix** | `google/` |
+
+### Moonshot Kimi
+
+| Aspect | Details |
+|--------|---------|
+| **SDK Crate** | `abp-kimi-sdk` |
+| **Dialect Version** | `kimi/v0.1` |
+| **Default Model** | `moonshot-v1-8k` |
+| **API Endpoint** | `POST /v1/chat/completions` (OpenAI-compatible) |
+| **Key Types** | `KimiRequest`, `KimiResponse`, `KimiToolDef` |
+| **Streaming** | Same shape as OpenAI chat-completions chunks |
+| **Tool Calling** | OpenAI-compatible `function` type with `function.parameters` |
+| **Canonical Prefix** | `moonshot/` |
+
+### GitHub Copilot
+
+| Aspect | Details |
+|--------|---------|
+| **SDK Crate** | `abp-copilot-sdk` |
+| **Dialect Version** | `copilot/v0.1` |
+| **Default Model** | `gpt-4o` |
+| **API Endpoint** | Copilot Extensions API |
+| **Key Types** | `CopilotRequest`, `CopilotResponse`, `CopilotMessage`, `CopilotTool`, `CopilotReference` |
+| **Streaming** | SSE (OpenAI-compatible shape) |
+| **Tool Calling** | `CopilotTool` with `CopilotFunctionDef`; supports `CopilotConfirmation` for approval flows |
+| **References** | `CopilotReference` with typed references (`File`, `Repository`, `WebSearch`, `Knowledge`, `Tool`) |
+| **IR Lowering** | `lowering::to_ir()` / `lowering::from_ir()` / `lowering::extract_references()` |
+| **Canonical Prefix** | `copilot/` |
+
+---
+
+## Mapping Fidelity Matrix (Dialect × Feature)
+
+The `abp-mapping` crate tracks fidelity for cross-dialect feature translation.
+Each cell indicates whether the mapping is **lossless**, **lossy (labeled)**,
+or **unsupported**.
+
+### Tool Use
+
+| Source ↓ \ Target → | OpenAI | Claude | Gemini | Codex |
+|---------------------|--------|--------|--------|-------|
+| **OpenAI** | — | ✅ Lossless | ✅ Lossless | ⚠️ Lossy¹ |
+| **Claude** | ✅ Lossless | — | ✅ Lossless | ⚠️ Lossy² |
+| **Gemini** | ✅ Lossless | ✅ Lossless | — | ⚠️ Lossy³ |
+| **Codex** | ⚠️ Lossy | ⚠️ Lossy | ⚠️ Lossy | — |
+
+¹ Codex tool_use schema differs from chat-completions function calling
+² Codex tool_use schema differs from Claude tool_use blocks
+³ Codex tool_use schema differs from Gemini function declarations
+
+### Streaming
+
+| Source ↓ \ Target → | OpenAI | Claude | Gemini | Codex |
+|---------------------|--------|--------|--------|-------|
+| **OpenAI** | — | ✅ Lossless | ✅ Lossless | ✅ Lossless |
+| **Claude** | ✅ Lossless | — | ✅ Lossless | ✅ Lossless |
+| **Gemini** | ✅ Lossless | ✅ Lossless | — | ✅ Lossless |
+| **Codex** | ✅ Lossless | ✅ Lossless | ✅ Lossless | — |
+
+### Thinking / Extended Reasoning
+
+| Source ↓ \ Target → | OpenAI | Claude | Gemini | Codex |
+|---------------------|--------|--------|--------|-------|
+| **OpenAI** | — | ⚠️ Lossy | ⚠️ Lossy | ⚠️ Lossy |
+| **Claude** | ⚠️ Lossy | — | ⚠️ Lossy | ⚠️ Lossy |
+| **Gemini** | ⚠️ Lossy | ⚠️ Lossy | — | ⚠️ Lossy |
+| **Codex** | ⚠️ Lossy | ⚠️ Lossy | ⚠️ Lossy | — |
+
+All thinking/reasoning mappings are lossy because each vendor has different
+semantics: Claude uses thinking blocks, OpenAI uses reasoning_effort, Gemini
+uses thinkingConfig, and Codex uses reasoning_effort with different semantics
+from chat-completions.
+
+### Image Input
+
+| Source ↓ \ Target → | OpenAI | Claude | Gemini | Codex |
+|---------------------|--------|--------|--------|-------|
+| **OpenAI** | — | ✅ Lossless | ✅ Lossless | ❌ Unsupported |
+| **Claude** | ✅ Lossless | — | ✅ Lossless | ❌ Unsupported |
+| **Gemini** | ✅ Lossless | ✅ Lossless | — | ❌ Unsupported |
+| **Codex** | ❌ Unsupported | ❌ Unsupported | ❌ Unsupported | — |
+
+Legend: ✅ Lossless · ⚠️ Lossy (labeled) · ❌ Unsupported · — Identity
+
+---
+
 ## Related Documentation
 
 - [Sidecar Protocol](sidecar_protocol.md) — JSONL wire format specification
 - [Dialect×Engine Matrix](dialect_engine_matrix.md) — passthrough vs mapped routing design
 - [Mapping Matrix (Planning)](03_mapping_matrix.md) — original planning notes for SDK shims
 - [Capabilities](capabilities.md) — capability model reference
+- [Error Codes](error_codes.md) — stable error code taxonomy
+- [Capability Negotiation](capability_negotiation.md) — manifest + requirements negotiation

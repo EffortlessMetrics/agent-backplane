@@ -112,6 +112,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-config"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tempfile",
+ "thiserror 2.0.18",
+ "toml",
+]
+
+[[package]]
 name = "abp-copilot-sdk"
 version = "0.1.0"
 dependencies = [
@@ -431,6 +441,7 @@ dependencies = [
 name = "agent-backplane"
 version = "0.1.0"
 dependencies = [
+ "abp-capability",
  "abp-claude-sdk",
  "abp-cli",
  "abp-codex-sdk",
@@ -445,9 +456,11 @@ dependencies = [
  "abp-host",
  "abp-integrations",
  "abp-kimi-sdk",
+ "abp-mapping",
  "abp-openai-sdk",
  "abp-policy",
  "abp-protocol",
+ "abp-receipt",
  "abp-runtime",
  "abp-telemetry",
  "abp-workspace",

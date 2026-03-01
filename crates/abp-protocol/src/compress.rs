@@ -21,10 +21,10 @@ pub enum CompressionAlgorithm {
     /// No compression — data is passed through unchanged.
     None,
     /// Gzip compression (stub: tags data but does not actually compress).
-    // TODO: Replace stub with real gzip via the `flate2` crate.
+    // Stub — replace with real gzip via the `flate2` crate.
     Gzip,
     /// Zstandard compression (stub: tags data but does not actually compress).
-    // TODO: Replace stub with real zstd via the `zstd` crate.
+    // Stub — replace with real zstd via the `zstd` crate.
     Zstd,
 }
 
@@ -112,7 +112,7 @@ impl MessageCompressor {
         match self.algorithm {
             CompressionAlgorithm::None => Ok(data.to_vec()),
             CompressionAlgorithm::Gzip | CompressionAlgorithm::Zstd => {
-                // TODO: Replace with real compression (flate2 / zstd).
+                // Stub — replace with real compression (flate2 / zstd).
                 let mut out = Vec::with_capacity(1 + data.len());
                 out.push(self.algorithm.tag());
                 out.extend_from_slice(data);
@@ -130,7 +130,7 @@ impl MessageCompressor {
         match self.algorithm {
             CompressionAlgorithm::None => Ok(data.to_vec()),
             CompressionAlgorithm::Gzip | CompressionAlgorithm::Zstd => {
-                // TODO: Replace with real decompression (flate2 / zstd).
+                // Stub — replace with real decompression (flate2 / zstd).
                 if data.is_empty() {
                     return Err(CompressError::TooShort);
                 }

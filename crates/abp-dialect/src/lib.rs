@@ -330,6 +330,8 @@ impl std::fmt::Display for ValidationError {
     }
 }
 
+impl std::error::Error for ValidationError {}
+
 /// Outcome of validating a message against a specific dialect.
 #[derive(Debug, Clone)]
 pub struct ValidationResult {
