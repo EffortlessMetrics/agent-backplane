@@ -94,6 +94,7 @@ fn double_dot_excluded_by_pattern() {
 // 5. Windows-style backslash paths
 // ---------------------------------------------------------------------------
 
+#[cfg(windows)]
 #[test]
 fn backslash_paths_via_decide_path() {
     use std::path::Path;
