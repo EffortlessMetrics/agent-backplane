@@ -108,6 +108,19 @@ cargo run -p abp-cli -- backends
 cargo run -p abp-cli -- run --task "summarize this codebase" --backend gemini \
   --model gemini-2.5-flash --param stream=true --param vertex=false
 
+# Run sidecar backends (requires node installed)
+cargo run -p abp-cli -- run --task "hello from codex sidecar" --backend sidecar:codex
+cargo run -p abp-cli -- run --task "hello from claude sidecar" --backend sidecar:claude
+
+# npm --prefix hosts/copilot install
+cargo run -p abp-cli -- run --task "hello from copilot sidecar" --backend sidecar:copilot
+
+# npm --prefix hosts/kimi install
+cargo run -p abp-cli -- run --task "hello from kimi sidecar" --backend sidecar:kimi
+
+# npm --prefix hosts/gemini install
+cargo run -p abp-cli -- run --task "hello from gemini sidecar" --backend sidecar:gemini
+
 # Start the daemon control plane
 cargo run -p abp-daemon -- --bind 127.0.0.1:8088
 ```
@@ -129,6 +142,11 @@ cargo run -p abp-cli -- run --task "hello" --backend sidecar:gemini    # Gemini
 ```
 
 > **Note:** Some sidecar hosts require `npm install` first (e.g. `npm --prefix hosts/copilot install`).
+
+### Python Claude Client Mode
+
+`hosts/python/host.py` now supports the same `vendor.abp.client_mode` feature flag used by the Claude sidecar adapter.  
+If `claude_agent_sdk` is installed and `client_mode=true`, it will use a stateful SDK client path; otherwise it falls back to `query()` when available (or to deterministic partial fallback if the SDK is missing).
 
 ## Configuration
 
@@ -163,6 +181,33 @@ The HTTP daemon (`abp-daemon`) exposes a REST API for programmatic use:
 | `/run` | POST | Submit a work order (`{ "backend": "mock", "work_order": {...} }`) |
 | `/receipts` | GET | List all receipts |
 | `/receipts/:run_id` | GET | Fetch a specific receipt |
+
+## Project Structure
+
+- `crates/abp-core`: stable Rust types (WorkOrder, Receipt, events, capabilities)
+- `crates/abp-protocol`: JSONL envelope + codec
+- `crates/abp-host`: spawn a sidecar process and stream messages
+- `crates/abp-glob`: compile and evaluate include/exclude glob rules
+- `crates/abp-workspace`: staging + git harness utilities
+- `crates/abp-policy`: policy compilation + allow/deny checks
+- `crates/abp-integrations`: backend trait + implementations
+- `crates/abp-runtime`: orchestration (workspace -> backend -> receipt)
+- `crates/abp-claude-sdk`: Claude sidecar integration microcrate
+- `crates/abp-codex-sdk`: Codex sidecar integration microcrate
+- `crates/abp-gemini-sdk`: Gemini CLI sidecar integration microcrate
+- `crates/abp-kimi-sdk`: Kimi sidecar integration microcrate
+- `crates/sidecar-kit`: value-based JSONL transport layer for sidecar processes
+- `crates/claude-bridge`: standalone Claude SDK bridge built on sidecar-kit
+- `crates/abp-cli`: `abp` CLI
+- `crates/abp-daemon`: HTTP control plane + receipt persistence
+- `hosts/node`: example sidecar (JSONL over stdio)
+- `hosts/python`: example sidecar (JSONL over stdio)
+- `hosts/claude`: Claude-oriented sidecar with pluggable adapter module
+- `hosts/codex`: Codex-oriented sidecar with passthrough/mapped modes
+- `hosts/copilot`: GitHub Copilot sidecar scaffold with Copilot adapter contract
+- `hosts/kimi`: Kimi sidecar with SDK-first adapter and CLI fallback
+- `hosts/gemini`: Gemini CLI sidecar scaffold with runnable adapter contract
+- `contracts/schemas`: generated JSON schemas
 
 ## Testing
 

@@ -608,7 +608,6 @@ fn which(bin: &str) -> Option<PathBuf> {
     None
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

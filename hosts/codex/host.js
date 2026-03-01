@@ -221,6 +221,7 @@ function addArtifact(artifacts, kind, artifactPath) {
   });
 }
 
+
 function makeEmitter(runId, trace) {
   return function emit(kind, extRawMessage) {
     const event = {
