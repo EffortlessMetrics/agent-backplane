@@ -31,6 +31,8 @@ fn snapshot_mapped_response_events() {
                 ],
             },
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
+            citation_metadata: None,
         }],
         usage_metadata: Some(GeminiUsageMetadata {
             prompt_token_count: 90,

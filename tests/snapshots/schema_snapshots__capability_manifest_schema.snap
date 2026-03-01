@@ -1,0 +1,56 @@
+---
+source: tests/schema_snapshots.rs
+expression: schema
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Map_from_Capability_to_SupportLevel",
+  "type": "object",
+  "additionalProperties": {
+    "$ref": "#/$defs/SupportLevel"
+  },
+  "$defs": {
+    "SupportLevel": {
+      "description": "How well a backend supports a given [`Capability`].",
+      "oneOf": [
+        {
+          "description": "First-class support built into the backend.",
+          "type": "string",
+          "const": "native"
+        },
+        {
+          "description": "Support via adapter or polyfill layer.",
+          "type": "string",
+          "const": "emulated"
+        },
+        {
+          "description": "Capability is not available.",
+          "type": "string",
+          "const": "unsupported"
+        },
+        {
+          "description": "Supported in principle, but disabled by policy or environment.",
+          "type": "object",
+          "properties": {
+            "restricted": {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "description": "Human-readable explanation of the restriction.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "reason"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "restricted"
+          ]
+        }
+      ]
+    }
+  }
+}

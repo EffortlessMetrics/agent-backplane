@@ -1,0 +1,245 @@
+---
+source: tests/schema_snapshots.rs
+expression: schema
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentEventKind",
+  "description": "The payload discriminator for [`AgentEvent`].\n\nSerialized with `#[serde(tag = \"type\")]` — note this is different from\nthe protocol envelope which uses `#[serde(tag = \"t\")]`.",
+  "oneOf": [
+    {
+      "description": "The agent run has started.",
+      "type": "object",
+      "properties": {
+        "message": {
+          "description": "Human-readable start message.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "run_started"
+        }
+      },
+      "required": [
+        "type",
+        "message"
+      ]
+    },
+    {
+      "description": "The agent run has completed.",
+      "type": "object",
+      "properties": {
+        "message": {
+          "description": "Human-readable completion message.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "run_completed"
+        }
+      },
+      "required": [
+        "type",
+        "message"
+      ]
+    },
+    {
+      "description": "Incremental assistant text (streaming token).",
+      "type": "object",
+      "properties": {
+        "text": {
+          "description": "The text fragment.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "assistant_delta"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ]
+    },
+    {
+      "description": "Complete assistant message.",
+      "type": "object",
+      "properties": {
+        "text": {
+          "description": "The full message text.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "assistant_message"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ]
+    },
+    {
+      "description": "A tool invocation by the agent.",
+      "type": "object",
+      "properties": {
+        "input": {
+          "description": "JSON input passed to the tool."
+        },
+        "parent_tool_use_id": {
+          "description": "Identifier of the parent tool use, if nested.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tool_name": {
+          "description": "Name of the tool being called.",
+          "type": "string"
+        },
+        "tool_use_id": {
+          "description": "Unique identifier for this tool use.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "const": "tool_call"
+        }
+      },
+      "required": [
+        "type",
+        "tool_name",
+        "input"
+      ]
+    },
+    {
+      "description": "Result returned from a tool invocation.",
+      "type": "object",
+      "properties": {
+        "is_error": {
+          "description": "Whether the tool reported an error.",
+          "type": "boolean"
+        },
+        "output": {
+          "description": "JSON output from the tool."
+        },
+        "tool_name": {
+          "description": "Name of the tool that produced this result.",
+          "type": "string"
+        },
+        "tool_use_id": {
+          "description": "Identifier correlating to the originating tool call.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "const": "tool_result"
+        }
+      },
+      "required": [
+        "type",
+        "tool_name",
+        "output",
+        "is_error"
+      ]
+    },
+    {
+      "description": "A file was created or modified in the workspace.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Path to the changed file (relative to workspace root).",
+          "type": "string"
+        },
+        "summary": {
+          "description": "Human-readable summary of the change.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "file_changed"
+        }
+      },
+      "required": [
+        "type",
+        "path",
+        "summary"
+      ]
+    },
+    {
+      "description": "A shell command was executed.",
+      "type": "object",
+      "properties": {
+        "command": {
+          "description": "The command that was run.",
+          "type": "string"
+        },
+        "exit_code": {
+          "description": "Process exit code, if available.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32"
+        },
+        "output_preview": {
+          "description": "Truncated preview of the command output.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "const": "command_executed"
+        }
+      },
+      "required": [
+        "type",
+        "command"
+      ]
+    },
+    {
+      "description": "A non-fatal warning emitted during the run.",
+      "type": "object",
+      "properties": {
+        "message": {
+          "description": "Warning message text.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "warning"
+        }
+      },
+      "required": [
+        "type",
+        "message"
+      ]
+    },
+    {
+      "description": "A fatal error emitted during the run.",
+      "type": "object",
+      "properties": {
+        "message": {
+          "description": "Error message text.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "error"
+        }
+      },
+      "required": [
+        "type",
+        "message"
+      ]
+    }
+  ]
+}

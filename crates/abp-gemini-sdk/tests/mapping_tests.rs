@@ -75,6 +75,8 @@ fn response_with_text_and_function_call_produces_events() {
                 ],
             },
             finish_reason: None,
+            safety_ratings: None,
+            citation_metadata: None,
         }],
         usage_metadata: None,
     };

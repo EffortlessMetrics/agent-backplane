@@ -195,6 +195,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-openai-sdk"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-host",
+ "abp-integrations",
+ "abp-runtime",
+ "anyhow",
+ "chrono",
+ "insta",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-policy"
 version = "0.1.0"
 dependencies = [

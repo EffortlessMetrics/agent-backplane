@@ -1,0 +1,33 @@
+---
+source: tests/schema_snapshots.rs
+expression: schema
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BackendIdentity",
+  "description": "Identifies a backend and its version information.",
+  "type": "object",
+  "properties": {
+    "adapter_version": {
+      "description": "Adapter version (your sidecar wrapper version).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "backend_version": {
+      "description": "Backend runtime version (SDK version, CLI version, etc.).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "id": {
+      "description": "Stable backend identifier (e.g. `\"mock\"`, `\"sidecar:node\"`).",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}

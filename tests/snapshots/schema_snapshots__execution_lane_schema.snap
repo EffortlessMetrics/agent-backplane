@@ -1,0 +1,21 @@
+---
+source: tests/schema_snapshots.rs
+expression: schema
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecutionLane",
+  "description": "Strategy for how the agent produces its output.",
+  "oneOf": [
+    {
+      "description": "Agent proposes a patch/diff. No direct mutation of the user's repo.",
+      "type": "string",
+      "const": "patch_first"
+    },
+    {
+      "description": "Agent can mutate a workspace (often a staged worktree).",
+      "type": "string",
+      "const": "workspace_first"
+    }
+  ]
+}

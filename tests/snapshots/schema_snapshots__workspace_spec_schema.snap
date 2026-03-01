@@ -1,0 +1,57 @@
+---
+source: tests/schema_snapshots.rs
+expression: schema
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkspaceSpec",
+  "description": "Describes the workspace root, staging mode, and include/exclude globs.",
+  "type": "object",
+  "properties": {
+    "exclude": {
+      "description": "Optional exclude globs (evaluated relative to root).",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "include": {
+      "description": "Optional include globs (evaluated relative to root).",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mode": {
+      "description": "How the runtime should treat the workspace.",
+      "$ref": "#/$defs/WorkspaceMode"
+    },
+    "root": {
+      "description": "Root folder for the step.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "root",
+    "mode",
+    "include",
+    "exclude"
+  ],
+  "$defs": {
+    "WorkspaceMode": {
+      "description": "How the runtime treats the workspace before handing it to a backend.",
+      "oneOf": [
+        {
+          "description": "Use the workspace as-is.",
+          "type": "string",
+          "const": "pass_through"
+        },
+        {
+          "description": "Create a sanitized copy (or worktree) before running tools.",
+          "type": "string",
+          "const": "staged"
+        }
+      ]
+    }
+  }
+}

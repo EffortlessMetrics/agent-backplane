@@ -151,6 +151,12 @@ pub struct GeminiRequest {
     pub system_instruction: Option<GeminiContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub generation_config: Option<GeminiGenerationConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub safety_settings: Option<Vec<GeminiSafetySetting>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<GeminiTool>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_config: Option<GeminiToolConfig>,
 }
 
 /// A content block in the Gemini API format.
@@ -160,11 +166,20 @@ pub struct GeminiContent {
     pub parts: Vec<GeminiPart>,
 }
 
+/// Inline binary data (e.g. images) embedded in a Gemini content block.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiInlineData {
+    pub mime_type: String,
+    pub data: String,
+}
+
 /// A part within a Gemini content block.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GeminiPart {
     Text(String),
+    InlineData(GeminiInlineData),
     FunctionCall {
         name: String,
         args: serde_json::Value,
@@ -176,13 +191,21 @@ pub enum GeminiPart {
 }
 
 /// Generation parameters for the Gemini API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiGenerationConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_k: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_mime_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_schema: Option<serde_json::Value>,
 }
 
 /// Simplified representation of a Gemini generateContent response.
@@ -199,6 +222,10 @@ pub struct GeminiCandidate {
     pub content: GeminiContent,
     #[serde(default)]
     pub finish_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safety_ratings: Option<Vec<GeminiSafetyRating>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub citation_metadata: Option<GeminiCitationMetadata>,
 }
 
 /// Token usage reported by the Gemini API.
@@ -208,6 +235,160 @@ pub struct GeminiUsageMetadata {
     pub prompt_token_count: u64,
     pub candidates_token_count: u64,
     pub total_token_count: u64,
+}
+
+// ---------------------------------------------------------------------------
+// Safety settings
+// ---------------------------------------------------------------------------
+
+/// Harm categories for Gemini safety configuration.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum HarmCategory {
+    HarmCategoryHarassment,
+    HarmCategoryHateSpeech,
+    HarmCategorySexuallyExplicit,
+    HarmCategoryDangerousContent,
+    HarmCategoryCivicIntegrity,
+}
+
+/// Threshold levels for blocking harmful content.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum HarmBlockThreshold {
+    BlockNone,
+    BlockLowAndAbove,
+    BlockMediumAndAbove,
+    BlockOnlyHigh,
+}
+
+/// A safety setting applied to a Gemini request.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiSafetySetting {
+    pub category: HarmCategory,
+    pub threshold: HarmBlockThreshold,
+}
+
+/// Probability rating for a safety category in a response.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum HarmProbability {
+    Negligible,
+    Low,
+    Medium,
+    High,
+}
+
+/// Safety rating returned for a response candidate.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiSafetyRating {
+    pub category: HarmCategory,
+    pub probability: HarmProbability,
+}
+
+// ---------------------------------------------------------------------------
+// Grounding configuration
+// ---------------------------------------------------------------------------
+
+/// Grounding configuration for augmenting generation with Google Search.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiGroundingConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub google_search_retrieval: Option<GoogleSearchRetrieval>,
+}
+
+/// Configuration for Google Search retrieval grounding.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GoogleSearchRetrieval {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dynamic_retrieval_config: Option<DynamicRetrievalConfig>,
+}
+
+/// Dynamic retrieval thresholds for grounding.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DynamicRetrievalConfig {
+    pub mode: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dynamic_threshold: Option<f64>,
+}
+
+// ---------------------------------------------------------------------------
+// Tool configuration
+// ---------------------------------------------------------------------------
+
+/// Wraps function declarations for the Gemini `tools` field.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiTool {
+    pub function_declarations: Vec<GeminiFunctionDeclaration>,
+}
+
+/// Function-calling mode for Gemini requests.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FunctionCallingMode {
+    Auto,
+    Any,
+    None,
+}
+
+/// Controls function-calling behavior for Gemini requests.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiToolConfig {
+    pub function_calling_config: GeminiFunctionCallingConfig,
+}
+
+/// Detailed function-calling configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiFunctionCallingConfig {
+    pub mode: FunctionCallingMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_function_names: Option<Vec<String>>,
+}
+
+// ---------------------------------------------------------------------------
+// Citation metadata
+// ---------------------------------------------------------------------------
+
+/// Citation metadata returned with a candidate.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiCitationMetadata {
+    pub citation_sources: Vec<GeminiCitationSource>,
+}
+
+/// A single citation source.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiCitationSource {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_index: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_index: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uri: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub license: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Streaming
+// ---------------------------------------------------------------------------
+
+/// A single chunk in a streaming Gemini response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeminiStreamChunk {
+    #[serde(default)]
+    pub candidates: Vec<GeminiCandidate>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usage_metadata: Option<GeminiUsageMetadata>,
 }
 
 /// Map an ABP [`WorkOrder`] to a [`GeminiRequest`].
@@ -234,6 +415,7 @@ pub fn map_work_order(wo: &WorkOrder, config: &GeminiConfig) -> GeminiRequest {
         Some(GeminiGenerationConfig {
             max_output_tokens: config.max_output_tokens,
             temperature: config.temperature,
+            ..Default::default()
         })
     } else {
         None
@@ -247,6 +429,9 @@ pub fn map_work_order(wo: &WorkOrder, config: &GeminiConfig) -> GeminiRequest {
         }],
         system_instruction: None,
         generation_config,
+        safety_settings: None,
+        tools: None,
+        tool_config: None,
     }
 }
 
@@ -277,8 +462,8 @@ pub fn map_response(resp: &GeminiResponse) -> Vec<AgentEvent> {
                         ext: None,
                     });
                 }
-                GeminiPart::FunctionResponse { .. } => {
-                    // Function responses are input, not output events.
+                GeminiPart::FunctionResponse { .. } | GeminiPart::InlineData(_) => {
+                    // Function responses and inline data are not output events.
                 }
             }
         }
@@ -287,6 +472,43 @@ pub fn map_response(resp: &GeminiResponse) -> Vec<AgentEvent> {
     events
 }
 
+/// Map a [`GeminiStreamChunk`] to a sequence of ABP [`AgentEvent`]s.
+///
+/// Unlike [`map_response`], text parts are emitted as [`AgentEventKind::AssistantDelta`]
+/// since streaming delivers incremental content.
+pub fn map_stream_chunk(chunk: &GeminiStreamChunk) -> Vec<AgentEvent> {
+    let mut events = Vec::new();
+    let now = Utc::now();
+
+    for candidate in &chunk.candidates {
+        for part in &candidate.content.parts {
+            match part {
+                GeminiPart::Text(text) => {
+                    events.push(AgentEvent {
+                        ts: now,
+                        kind: AgentEventKind::AssistantDelta { text: text.clone() },
+                        ext: None,
+                    });
+                }
+                GeminiPart::FunctionCall { name, args } => {
+                    events.push(AgentEvent {
+                        ts: now,
+                        kind: AgentEventKind::ToolCall {
+                            tool_name: name.clone(),
+                            tool_use_id: None,
+                            parent_tool_use_id: None,
+                            input: args.clone(),
+                        },
+                        ext: None,
+                    });
+                }
+                GeminiPart::FunctionResponse { .. } | GeminiPart::InlineData(_) => {}
+            }
+        }
+    }
+
+    events
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -334,6 +556,8 @@ mod tests {
                     parts: vec![GeminiPart::Text("Here you go.".into())],
                 },
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
+                citation_metadata: None,
             }],
             usage_metadata: None,
         };
@@ -357,6 +581,8 @@ mod tests {
                     }],
                 },
                 finish_reason: None,
+                safety_ratings: None,
+                citation_metadata: None,
             }],
             usage_metadata: None,
         };
