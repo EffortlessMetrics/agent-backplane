@@ -40,7 +40,10 @@ pub struct QueuedRun {
 #[derive(Debug)]
 pub enum QueueError {
     /// The queue has reached its maximum capacity.
-    Full { max: usize },
+    Full {
+        /// Maximum number of items the queue can hold.
+        max: usize,
+    },
     /// A run with the given ID is already enqueued.
     DuplicateId(String),
 }
