@@ -92,3 +92,28 @@ doc = false
 name = "fuzz_work_order_structured"
 path = "fuzz_targets/fuzz_work_order_structured.rs"
 doc = false
+
+[[bin]]
+name = "fuzz_envelope_deser"
+path = "fuzz_targets/fuzz_envelope_deser.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_work_order_deser"
+path = "fuzz_targets/fuzz_work_order_deser.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt_hash"
+path = "fuzz_targets/fuzz_receipt_hash.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_eval"
+path = "fuzz_targets/fuzz_policy_eval.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_glob_compile"
+path = "fuzz_targets/fuzz_glob_compile.rs"
+doc = false
