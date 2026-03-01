@@ -42,6 +42,7 @@ fn snapshot_mapped_response_events() {
             completion_tokens: 30,
             total_tokens: 105,
         }),
+        refs: None,
     };
     let events: Vec<_> = map_response(&resp).into_iter().map(|e| e.kind).collect();
     assert_json_snapshot!("kimi_mapped_response_events", events);

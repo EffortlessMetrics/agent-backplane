@@ -127,6 +127,7 @@ mod codex {
                 },
                 CodexOutputItem::FunctionCall {
                     id: "fc_1".into(),
+                    call_id: None,
                     name: "shell".into(),
                     arguments: r#"{"command":"cargo test"}"#.into(),
                 },
@@ -136,6 +137,7 @@ mod codex {
                 output_tokens: 40,
                 total_tokens: 120,
             }),
+            status: None,
         };
         let events = map_response(&resp);
         assert_eq!(events.len(), 2);
@@ -248,6 +250,8 @@ mod kimi {
         assert!(
             req.messages[0]
                 .content
+                .as_deref()
+                .unwrap_or("")
                 .contains("Refactor the authentication module")
         );
 
@@ -275,6 +279,7 @@ mod kimi {
                 completion_tokens: 35,
                 total_tokens: 105,
             }),
+            refs: None,
         };
         let events = map_response(&resp);
         assert_eq!(events.len(), 2);
@@ -293,8 +298,14 @@ mod kimi {
         let cfg = KimiConfig::default();
         let req = map_work_order(&wo, &cfg);
 
-        assert!(req.messages[0].content.contains("error log"));
-        assert!(req.messages[0].content.contains("panic at auth.rs:42"));
+        assert!(req.messages[0].content.as_deref().unwrap_or("").contains("error log"));
+        assert!(
+            req.messages[0]
+                .content
+                .as_deref()
+                .unwrap_or("")
+                .contains("panic at auth.rs:42")
+        );
     }
 }
 

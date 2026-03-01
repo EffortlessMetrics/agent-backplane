@@ -141,6 +141,46 @@
           "description": "Act as an MCP server.",
           "type": "string",
           "const": "mcp_server"
+        },
+        {
+          "description": "Generic tool-use capability (function calling).",
+          "type": "string",
+          "const": "tool_use"
+        },
+        {
+          "description": "Extended thinking / chain-of-thought reasoning.",
+          "type": "string",
+          "const": "extended_thinking"
+        },
+        {
+          "description": "Accept images as input.",
+          "type": "string",
+          "const": "image_input"
+        },
+        {
+          "description": "Accept PDF documents as input.",
+          "type": "string",
+          "const": "pdf_input"
+        },
+        {
+          "description": "Execute code in a sandboxed environment.",
+          "type": "string",
+          "const": "code_execution"
+        },
+        {
+          "description": "Return log-probabilities for generated tokens.",
+          "type": "string",
+          "const": "logprobs"
+        },
+        {
+          "description": "Deterministic output via seed parameter.",
+          "type": "string",
+          "const": "seed_determinism"
+        },
+        {
+          "description": "Support custom stop sequences.",
+          "type": "string",
+          "const": "stop_sequences"
         }
       ]
     },

@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Moonshot Kimi dialect: config, request/response types, and mapping logic.
 //!
-//! Kimi uses an OpenAI-compatible chat completions API surface.
+//! Kimi uses an OpenAI-compatible chat completions API surface with extensions
+//! for built-in tools (`search_internet`, `browser`), citation references
+//! (`refs`), and the `k1` reasoning mode.
 
 use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// Version string for this dialect adapter.
 pub const DIALECT_VERSION: &str = "kimi/v0.1";
@@ -20,7 +23,13 @@ pub const DEFAULT_MODEL: &str = "moonshot-v1-8k";
 // ---------------------------------------------------------------------------
 
 /// Known Moonshot Kimi model identifiers.
-const KNOWN_MODELS: &[&str] = &["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"];
+const KNOWN_MODELS: &[&str] = &[
+    "moonshot-v1-8k",
+    "moonshot-v1-32k",
+    "moonshot-v1-128k",
+    "kimi-latest",
+    "k1",
+];
 
 /// Map a vendor model name to the ABP canonical form (`moonshot/<model>`).
 #[must_use]
@@ -127,6 +136,72 @@ pub fn tool_def_from_kimi(def: &KimiToolDef) -> CanonicalToolDef {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Kimi built-in tool helpers
+// ---------------------------------------------------------------------------
+
+/// Kimi built-in tool type for `search_internet`.
+///
+/// When included in the tools array with `type: "builtin_function"`, Kimi
+/// performs web search automatically and injects citations into the response.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiBuiltinTool {
+    /// Tool type — `"builtin_function"` for Kimi built-ins.
+    #[serde(rename = "type")]
+    pub tool_type: String,
+    /// The built-in function descriptor.
+    pub function: KimiBuiltinFunction,
+}
+
+/// Descriptor for a Kimi built-in function such as `search_internet` or `browser`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiBuiltinFunction {
+    /// Built-in name (e.g. `"$web_search"`, `"$browser"`).
+    pub name: String,
+}
+
+/// Create a Kimi built-in tool definition for web search.
+#[must_use]
+pub fn builtin_search_internet() -> KimiBuiltinTool {
+    KimiBuiltinTool {
+        tool_type: "builtin_function".into(),
+        function: KimiBuiltinFunction {
+            name: "$web_search".into(),
+        },
+    }
+}
+
+/// Create a Kimi built-in tool definition for browser.
+#[must_use]
+pub fn builtin_browser() -> KimiBuiltinTool {
+    KimiBuiltinTool {
+        tool_type: "builtin_function".into(),
+        function: KimiBuiltinFunction {
+            name: "$browser".into(),
+        },
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Citation / refs
+// ---------------------------------------------------------------------------
+
+/// A citation reference returned by Kimi when `search_internet` is active.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiRef {
+    /// The numeric index of this citation (1-based).
+    pub index: u32,
+    /// URL of the cited source.
+    pub url: String,
+    /// Title of the cited source (may be absent).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Vendor-specific configuration
+// ---------------------------------------------------------------------------
+
 /// Vendor-specific configuration for the Moonshot Kimi API.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiConfig {
@@ -144,6 +219,10 @@ pub struct KimiConfig {
 
     /// Temperature for sampling (0.0–1.0).
     pub temperature: Option<f64>,
+
+    /// Whether to use `k1` reasoning mode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_k1_reasoning: Option<bool>,
 }
 
 impl Default for KimiConfig {
@@ -154,13 +233,19 @@ impl Default for KimiConfig {
             model: "moonshot-v1-8k".into(),
             max_tokens: Some(4096),
             temperature: None,
+            use_k1_reasoning: None,
         }
     }
 }
 
-/// Simplified representation of a Kimi chat completions request.
+// ---------------------------------------------------------------------------
+// Request types
+// ---------------------------------------------------------------------------
+
+/// Kimi chat completions request.
 ///
-/// Kimi follows the OpenAI chat completions shape with minor extensions.
+/// Follows the OpenAI chat completions shape with Kimi-specific extensions
+/// such as built-in tools and the `k1` reasoning mode.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiRequest {
     /// Model identifier (e.g. `moonshot-v1-8k`).
@@ -173,18 +258,80 @@ pub struct KimiRequest {
     /// Sampling temperature.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
+    /// Whether to stream the response via SSE.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stream: Option<bool>,
+    /// Tool definitions (function and built-in).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<KimiTool>>,
+    /// Whether to enable `k1` reasoning mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_search: Option<bool>,
+}
+
+/// A tool entry in a Kimi request — either a user-defined function or a
+/// Kimi built-in function such as `search_internet`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum KimiTool {
+    /// A user-defined function tool.
+    Function {
+        /// The function definition payload.
+        function: KimiFunctionDef,
+    },
+    /// A Kimi built-in function (e.g. `$web_search`, `$browser`).
+    BuiltinFunction {
+        /// The built-in function descriptor.
+        function: KimiBuiltinFunction,
+    },
+}
+
+/// Message roles supported by Kimi.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum KimiRole {
+    /// System prompt.
+    System,
+    /// User message.
+    User,
+    /// Assistant (model) message.
+    Assistant,
+    /// Tool result message.
+    Tool,
+}
+
+impl std::fmt::Display for KimiRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::System => write!(f, "system"),
+            Self::User => write!(f, "user"),
+            Self::Assistant => write!(f, "assistant"),
+            Self::Tool => write!(f, "tool"),
+        }
+    }
 }
 
 /// A single message in the Kimi conversation format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiMessage {
-    /// Message role (`user`, `assistant`, or `system`).
+    /// Message role.
     pub role: String,
     /// Text content of the message.
-    pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    /// Tool call ID this message responds to (only for role=tool).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+    /// Tool calls in an assistant message.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<KimiToolCall>>,
 }
 
-/// Simplified representation of a Kimi chat completions response.
+// ---------------------------------------------------------------------------
+// Response types
+// ---------------------------------------------------------------------------
+
+/// Kimi chat completions response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KimiResponse {
     /// Unique response identifier.
@@ -194,7 +341,11 @@ pub struct KimiResponse {
     /// Completion choices.
     pub choices: Vec<KimiChoice>,
     /// Token usage statistics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usage: Option<KimiUsage>,
+    /// Citation references when `search_internet` was used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refs: Option<Vec<KimiRef>>,
 }
 
 /// A single choice in a Kimi completions response.
@@ -216,11 +367,12 @@ pub struct KimiResponseMessage {
     /// Text content, if any.
     pub content: Option<String>,
     /// Tool calls requested by the model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<KimiToolCall>>,
 }
 
 /// A tool call in a Kimi response (OpenAI-compatible shape).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KimiToolCall {
     /// Unique tool call identifier.
     pub id: String,
@@ -232,7 +384,7 @@ pub struct KimiToolCall {
 }
 
 /// The function payload within a Kimi tool call.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KimiFunctionCall {
     /// Name of the function to invoke.
     pub name: String,
@@ -241,7 +393,7 @@ pub struct KimiFunctionCall {
 }
 
 /// Token usage reported by the Kimi API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KimiUsage {
     /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,
@@ -251,10 +403,92 @@ pub struct KimiUsage {
     pub total_tokens: u64,
 }
 
+// ---------------------------------------------------------------------------
+// Streaming types (SSE / chunked)
+// ---------------------------------------------------------------------------
+
+/// A single SSE chunk from a Kimi streaming response.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiChunk {
+    /// Chunk identifier (same across all chunks in one stream).
+    pub id: String,
+    /// Object type — always `"chat.completion.chunk"`.
+    pub object: String,
+    /// Unix timestamp of creation.
+    pub created: u64,
+    /// Model that produced this chunk.
+    pub model: String,
+    /// Choices with streaming deltas.
+    pub choices: Vec<KimiChunkChoice>,
+    /// Usage info (only present in the final chunk when requested).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usage: Option<KimiUsage>,
+    /// Citation references (may appear in later chunks).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refs: Option<Vec<KimiRef>>,
+}
+
+/// A single choice within a [`KimiChunk`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiChunkChoice {
+    /// Zero-based choice index.
+    pub index: u32,
+    /// The incremental delta for this choice.
+    pub delta: KimiChunkDelta,
+    /// Finish reason — `None` until the stream ends.
+    pub finish_reason: Option<String>,
+}
+
+/// An incremental delta within a streaming chunk choice.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct KimiChunkDelta {
+    /// Role (usually only in the first chunk).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    /// Text content fragment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    /// Incremental tool call fragments.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<KimiChunkToolCall>>,
+}
+
+/// An incremental tool call fragment within a streaming delta.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiChunkToolCall {
+    /// Index of this tool call in the tool_calls array.
+    pub index: u32,
+    /// Tool call ID (only in first fragment).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// Call type (only in first fragment).
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub call_type: Option<String>,
+    /// Incremental function data.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub function: Option<KimiChunkFunctionCall>,
+}
+
+/// Incremental function call data within a streaming tool call fragment.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiChunkFunctionCall {
+    /// Function name (only in first fragment).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// Partial JSON arguments string.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arguments: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Mapping: WorkOrder → KimiRequest
+// ---------------------------------------------------------------------------
+
 /// Map an ABP [`WorkOrder`] to a [`KimiRequest`].
 ///
 /// Uses the work order task as the initial user message and applies
 /// config defaults where the work order does not specify overrides.
+/// Tool definitions from the work order are translated to Kimi format.
 pub fn map_work_order(wo: &WorkOrder, config: &KimiConfig) -> KimiRequest {
     let model = wo
         .config
@@ -263,6 +497,9 @@ pub fn map_work_order(wo: &WorkOrder, config: &KimiConfig) -> KimiRequest {
         .unwrap_or(&config.model)
         .to_string();
 
+    let mut messages = Vec::new();
+
+    // Build user content from task + context snippets
     let mut user_content = wo.task.clone();
     for snippet in &wo.context.snippets {
         user_content.push_str(&format!(
@@ -271,18 +508,36 @@ pub fn map_work_order(wo: &WorkOrder, config: &KimiConfig) -> KimiRequest {
         ));
     }
 
+    messages.push(KimiMessage {
+        role: "user".into(),
+        content: Some(user_content),
+        tool_call_id: None,
+        tool_calls: None,
+    });
+
+    // Enable search if config says so
+    let use_search = config
+        .use_k1_reasoning
+        .and_then(|v| if v { Some(true) } else { None });
+
     KimiRequest {
         model,
-        messages: vec![KimiMessage {
-            role: "user".into(),
-            content: user_content,
-        }],
+        messages,
         max_tokens: config.max_tokens,
         temperature: config.temperature,
+        stream: None,
+        tools: None,
+        use_search,
     }
 }
 
+// ---------------------------------------------------------------------------
+// Mapping: KimiResponse → Vec<AgentEvent>
+// ---------------------------------------------------------------------------
+
 /// Map a [`KimiResponse`] back to a sequence of ABP [`AgentEvent`]s.
+///
+/// Handles assistant text, tool calls, and citation references.
 pub fn map_response(resp: &KimiResponse) -> Vec<AgentEvent> {
     let mut events = Vec::new();
     let now = Utc::now();
@@ -291,10 +546,18 @@ pub fn map_response(resp: &KimiResponse) -> Vec<AgentEvent> {
         if let Some(text) = &choice.message.content
             && !text.is_empty()
         {
+            // Attach citation refs as ext metadata if present
+            let ext = resp.refs.as_ref().map(|refs| {
+                let mut m = BTreeMap::new();
+                let refs_json = serde_json::to_value(refs).unwrap_or(serde_json::Value::Null);
+                m.insert("kimi_refs".into(), refs_json);
+                m
+            });
+
             events.push(AgentEvent {
                 ts: now,
                 kind: AgentEventKind::AssistantMessage { text: text.clone() },
-                ext: None,
+                ext,
             });
         }
 
@@ -317,6 +580,160 @@ pub fn map_response(resp: &KimiResponse) -> Vec<AgentEvent> {
     }
 
     events
+}
+
+// ---------------------------------------------------------------------------
+// Mapping: KimiChunk → Vec<AgentEvent> (streaming)
+// ---------------------------------------------------------------------------
+
+/// Map a single streaming [`KimiChunk`] to zero or more ABP [`AgentEvent`]s.
+///
+/// Text content deltas become [`AgentEventKind::AssistantDelta`]. Tool call
+/// fragments are not emitted individually — use [`ToolCallAccumulator`] to
+/// collect incremental fragments and call [`ToolCallAccumulator::finish`] when
+/// the stream ends.
+pub fn map_stream_event(chunk: &KimiChunk) -> Vec<AgentEvent> {
+    let now = Utc::now();
+    let mut events = Vec::new();
+
+    for choice in &chunk.choices {
+        if let Some(text) = &choice.delta.content
+            && !text.is_empty()
+        {
+            // Attach refs from chunk if present
+            let ext = chunk.refs.as_ref().map(|refs| {
+                let mut m = BTreeMap::new();
+                let refs_json = serde_json::to_value(refs).unwrap_or(serde_json::Value::Null);
+                m.insert("kimi_refs".into(), refs_json);
+                m
+            });
+
+            events.push(AgentEvent {
+                ts: now,
+                kind: AgentEventKind::AssistantDelta { text: text.clone() },
+                ext,
+            });
+        }
+
+        // Emit RunCompleted when stream finishes
+        if let Some(reason) = &choice.finish_reason
+            && !reason.is_empty()
+        {
+            events.push(AgentEvent {
+                ts: now,
+                kind: AgentEventKind::RunCompleted {
+                    message: format!("Kimi stream finished: {reason}"),
+                },
+                ext: None,
+            });
+        }
+    }
+
+    events
+}
+
+// ---------------------------------------------------------------------------
+// Tool call accumulator for streaming
+// ---------------------------------------------------------------------------
+
+/// Accumulates incremental tool call fragments from streaming chunks.
+///
+/// Feed each chunk's tool call fragments via [`feed`](ToolCallAccumulator::feed)
+/// and call [`finish`](ToolCallAccumulator::finish) when the stream ends to
+/// produce complete [`AgentEvent::ToolCall`] events.
+#[derive(Debug, Default)]
+pub struct ToolCallAccumulator {
+    entries: Vec<AccEntry>,
+}
+
+#[derive(Debug)]
+struct AccEntry {
+    id: String,
+    name: String,
+    arguments: String,
+}
+
+impl ToolCallAccumulator {
+    /// Create a new empty accumulator.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Feed incremental tool call fragments from a streaming delta.
+    pub fn feed(&mut self, fragments: &[KimiChunkToolCall]) {
+        for frag in fragments {
+            let idx = frag.index as usize;
+            // Grow the entries vec if needed
+            while self.entries.len() <= idx {
+                self.entries.push(AccEntry {
+                    id: String::new(),
+                    name: String::new(),
+                    arguments: String::new(),
+                });
+            }
+            let entry = &mut self.entries[idx];
+            if let Some(id) = &frag.id {
+                entry.id.clone_from(id);
+            }
+            if let Some(func) = &frag.function {
+                if let Some(name) = &func.name {
+                    entry.name.clone_from(name);
+                }
+                if let Some(args) = &func.arguments {
+                    entry.arguments.push_str(args);
+                }
+            }
+        }
+    }
+
+    /// Consume the accumulator and emit completed [`AgentEvent`]s.
+    pub fn finish(self) -> Vec<AgentEvent> {
+        let now = Utc::now();
+        self.entries
+            .into_iter()
+            .filter(|e| !e.name.is_empty())
+            .map(|e| {
+                let input = serde_json::from_str(&e.arguments)
+                    .unwrap_or(serde_json::Value::String(e.arguments));
+                AgentEvent {
+                    ts: now,
+                    kind: AgentEventKind::ToolCall {
+                        tool_name: e.name,
+                        tool_use_id: Some(e.id),
+                        parent_tool_use_id: None,
+                        input,
+                    },
+                    ext: None,
+                }
+            })
+            .collect()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Usage extraction helper
+// ---------------------------------------------------------------------------
+
+/// Extract token usage from a [`KimiResponse`] as an ABP-compatible map.
+#[must_use]
+pub fn extract_usage(resp: &KimiResponse) -> Option<BTreeMap<String, serde_json::Value>> {
+    resp.usage.as_ref().map(|u| {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "prompt_tokens".into(),
+            serde_json::Value::Number(u.prompt_tokens.into()),
+        );
+        m.insert(
+            "completion_tokens".into(),
+            serde_json::Value::Number(u.completion_tokens.into()),
+        );
+        m.insert(
+            "total_tokens".into(),
+            serde_json::Value::Number(u.total_tokens.into()),
+        );
+        m
+    })
 }
 
 #[cfg(test)]
@@ -343,6 +760,8 @@ mod tests {
         assert!(
             req.messages[0]
                 .content
+                .as_deref()
+                .unwrap_or("")
                 .contains("Optimize database queries")
         );
     }
@@ -373,6 +792,7 @@ mod tests {
                 finish_reason: Some("stop".into()),
             }],
             usage: None,
+            refs: None,
         };
         let events = map_response(&resp);
         assert_eq!(events.len(), 1);
@@ -406,6 +826,7 @@ mod tests {
                 finish_reason: Some("tool_calls".into()),
             }],
             usage: None,
+            refs: None,
         };
         let events = map_response(&resp);
         assert_eq!(events.len(), 1);

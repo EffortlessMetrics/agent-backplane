@@ -559,10 +559,7 @@ pub fn map_response(resp: &ClaudeResponse) -> Vec<AgentEvent> {
                 let mut ext = BTreeMap::new();
                 ext.insert("thinking".into(), serde_json::Value::Bool(true));
                 if let Some(sig) = signature {
-                    ext.insert(
-                        "signature".into(),
-                        serde_json::Value::String(sig.clone()),
-                    );
+                    ext.insert("signature".into(), serde_json::Value::String(sig.clone()));
                 }
                 events.push(AgentEvent {
                     ts: now,
@@ -694,10 +691,7 @@ pub fn to_passthrough_event(event: &ClaudeStreamEvent) -> AgentEvent {
     let raw = serde_json::to_value(event).unwrap_or(serde_json::Value::Null);
     let mut ext = base.ext.unwrap_or_default();
     ext.insert("raw_message".into(), raw);
-    ext.insert(
-        "dialect".into(),
-        serde_json::Value::String("claude".into()),
-    );
+    ext.insert("dialect".into(), serde_json::Value::String("claude".into()));
 
     AgentEvent {
         ts: base.ts,

@@ -157,6 +157,7 @@ fn codex_response_serde_roundtrip() {
             output_tokens: 5,
             total_tokens: 15,
         }),
+        status: None,
     };
     let json = serde_json::to_string(&resp).unwrap();
     let parsed: CodexResponse = serde_json::from_str(&json).unwrap();

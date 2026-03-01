@@ -30,6 +30,7 @@ fn snapshot_mapped_response_events() {
             },
             CodexOutputItem::FunctionCall {
                 id: "fc_1".into(),
+                call_id: None,
                 name: "shell".into(),
                 arguments: r#"{"command":"cargo test"}"#.into(),
             },
@@ -39,6 +40,7 @@ fn snapshot_mapped_response_events() {
             output_tokens: 45,
             total_tokens: 125,
         }),
+        status: None,
     };
     let events: Vec<_> = map_response(&resp).into_iter().map(|e| e.kind).collect();
     assert_json_snapshot!("codex_mapped_response_events", events);

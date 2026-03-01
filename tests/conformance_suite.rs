@@ -9,24 +9,23 @@
 //! 5. Protocol conformance
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
-    Outcome, PolicyProfile, Receipt, ReceiptBuilder, SupportLevel,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    chain::ReceiptChain, receipt_hash,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode, chain::ReceiptChain,
+    receipt_hash,
 };
 use abp_integrations::projection::{
     Dialect, ProjectionMatrix, ToolCall, ToolResult, supported_translations, translate,
 };
 use abp_policy::PolicyEngine;
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use abp_protocol::validate::EnvelopeValidator;
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use abp_runtime::{Runtime, RuntimeError};
 use chrono::Utc;
 use serde_json::json;
 use std::collections::BTreeMap;
-use tokio_stream::StreamExt;
 use std::path::Path;
+use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -249,7 +248,10 @@ fn passthrough_tool_result_identity_preserves_content() {
 fn mapped_abp_to_claude_produces_json() {
     let wo = simple_work_order("translate to claude");
     let result = translate(Dialect::Abp, Dialect::Claude, &wo).unwrap();
-    assert!(result.is_object(), "translation should produce a JSON object");
+    assert!(
+        result.is_object(),
+        "translation should produce a JSON object"
+    );
 }
 
 /// ABP→OpenAI translation produces a JSON value.
@@ -555,9 +557,7 @@ async fn receipt_hash_recomputation_matches() {
 #[test]
 fn receipt_builder_sets_outcome() {
     for outcome in [Outcome::Complete, Outcome::Partial, Outcome::Failed] {
-        let r = ReceiptBuilder::new("test")
-            .outcome(outcome.clone())
-            .build();
+        let r = ReceiptBuilder::new("test").outcome(outcome.clone()).build();
         assert_eq!(r.outcome, outcome);
     }
 }
@@ -702,7 +702,10 @@ fn error_policy_denies_write_path() {
     })
     .unwrap();
     let decision = engine.can_write_path(Path::new(".git/config"));
-    assert!(!decision.allowed, ".git/config should be denied for writing");
+    assert!(
+        !decision.allowed,
+        ".git/config should be denied for writing"
+    );
 }
 
 /// Vendor-to-vendor translation error is not a panic.
@@ -948,9 +951,7 @@ fn protocol_ref_id_correlation() {
             ref_id: run_id.into(),
             event: AgentEvent {
                 ts: Utc::now(),
-                kind: AgentEventKind::AssistantMessage {
-                    text: "msg".into(),
-                },
+                kind: AgentEventKind::AssistantMessage { text: "msg".into() },
                 ext: None,
             },
         },
@@ -976,11 +977,7 @@ fn protocol_validator_accepts_valid_hello() {
     let v = EnvelopeValidator::new();
     let hello = Envelope::hello(test_backend(), test_capabilities());
     let result = v.validate(&hello);
-    assert!(
-        result.valid,
-        "valid Hello should pass: {:?}",
-        result.errors
-    );
+    assert!(result.valid, "valid Hello should pass: {:?}", result.errors);
 }
 
 /// EnvelopeValidator detects sequence errors when Hello is not first.
@@ -1027,9 +1024,7 @@ fn protocol_all_variants_roundtrip() {
             ref_id: "r1".into(),
             event: AgentEvent {
                 ts: Utc::now(),
-                kind: AgentEventKind::AssistantMessage {
-                    text: "hi".into(),
-                },
+                kind: AgentEventKind::AssistantMessage { text: "hi".into() },
                 ext: None,
             },
         },

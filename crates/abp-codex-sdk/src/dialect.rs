@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! OpenAI Codex dialect: config, request/response types, and mapping logic.
+//! OpenAI Codex dialect: config, request/response types, sandboxing, streaming,
+//! and mapping logic between ABP contract types and the Codex/Responses API.
 
 use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// Version string for this dialect adapter.
 pub const DIALECT_VERSION: &str = "codex/v0.1";
@@ -78,7 +80,7 @@ pub fn capability_manifest() -> CapabilityManifest {
 }
 
 // ---------------------------------------------------------------------------
-// Tool-format translation
+// Tool types
 // ---------------------------------------------------------------------------
 
 /// A vendor-agnostic tool definition used as the ABP canonical form.
@@ -92,7 +94,7 @@ pub struct CanonicalToolDef {
     pub parameters_schema: serde_json::Value,
 }
 
-/// OpenAI-style function tool definition.
+/// OpenAI-style function tool definition (legacy format).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CodexToolDef {
     /// Tool type (always `"function"`).
@@ -111,6 +113,28 @@ pub struct CodexFunctionDef {
     pub description: String,
     /// JSON Schema for the function parameters.
     pub parameters: serde_json::Value,
+}
+
+/// A tool available in the Codex/Responses API.
+///
+/// Maps the three built-in tool types that OpenAI supports:
+/// function (custom), code_interpreter, and file_search.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum CodexTool {
+    /// A user-defined function tool.
+    Function {
+        /// The function definition payload.
+        function: CodexFunctionDef,
+    },
+    /// The built-in code interpreter tool for sandboxed execution.
+    CodeInterpreter {},
+    /// The built-in file search tool for retrieval over uploaded files.
+    FileSearch {
+        /// Maximum number of results to return.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_num_results: Option<u32>,
+    },
 }
 
 /// Convert an ABP canonical tool definition to the OpenAI function tool format.
@@ -136,6 +160,136 @@ pub fn tool_def_from_codex(def: &CodexToolDef) -> CanonicalToolDef {
     }
 }
 
+/// Convert a [`CodexTool`] to the ABP canonical form.
+///
+/// Built-in tools (code_interpreter, file_search) are mapped to
+/// canonical definitions with empty parameter schemas.
+#[must_use]
+pub fn codex_tool_to_canonical(tool: &CodexTool) -> CanonicalToolDef {
+    match tool {
+        CodexTool::Function { function } => CanonicalToolDef {
+            name: function.name.clone(),
+            description: function.description.clone(),
+            parameters_schema: function.parameters.clone(),
+        },
+        CodexTool::CodeInterpreter {} => CanonicalToolDef {
+            name: "code_interpreter".into(),
+            description: "Execute code in a sandboxed environment".into(),
+            parameters_schema: serde_json::json!({"type": "object"}),
+        },
+        CodexTool::FileSearch { .. } => CanonicalToolDef {
+            name: "file_search".into(),
+            description: "Search over uploaded files".into(),
+            parameters_schema: serde_json::json!({"type": "object"}),
+        },
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sandbox configuration
+// ---------------------------------------------------------------------------
+
+/// Networking policy for sandboxed execution.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum NetworkAccess {
+    /// No network access allowed.
+    #[default]
+    None,
+    /// Only allow connections to the specified hosts.
+    AllowList(Vec<String>),
+    /// Full network access.
+    Full,
+}
+
+/// File-system access policy for sandboxed execution.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum FileAccess {
+    /// No file access beyond the workspace directory.
+    #[default]
+    WorkspaceOnly,
+    /// Read-only access to paths outside the workspace.
+    ReadOnlyExternal,
+    /// Full file-system access (use with caution).
+    Full,
+}
+
+/// Sandbox configuration for Codex execution environments.
+///
+/// Codex is execution-oriented: it runs code inside containers with
+/// controlled networking and file-system access.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SandboxConfig {
+    /// Container image to use for execution (e.g. `"node:20"`, `"python:3.12"`).
+    pub container_image: Option<String>,
+
+    /// Networking policy for the sandbox.
+    #[serde(default)]
+    pub networking: NetworkAccess,
+
+    /// File-system access policy.
+    #[serde(default)]
+    pub file_access: FileAccess,
+
+    /// Maximum wall-clock time in seconds before the sandbox is killed.
+    pub timeout_seconds: Option<u32>,
+
+    /// Maximum memory in megabytes available to the sandbox.
+    pub memory_mb: Option<u32>,
+
+    /// Environment variables injected into the sandbox.
+    #[serde(default)]
+    pub env: BTreeMap<String, String>,
+}
+
+impl Default for SandboxConfig {
+    fn default() -> Self {
+        Self {
+            container_image: None,
+            networking: NetworkAccess::None,
+            file_access: FileAccess::WorkspaceOnly,
+            timeout_seconds: Some(300),
+            memory_mb: Some(512),
+            env: BTreeMap::new(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Text format
+// ---------------------------------------------------------------------------
+
+/// Output text format configuration for the Responses API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum CodexTextFormat {
+    /// Plain text output (default).
+    Text {},
+    /// JSON object output with an optional schema.
+    JsonObject {},
+    /// JSON Schema-constrained output.
+    JsonSchema {
+        /// Name of the schema.
+        name: String,
+        /// The JSON Schema definition.
+        schema: serde_json::Value,
+        /// Whether to enforce strict schema validation.
+        #[serde(default)]
+        strict: bool,
+    },
+}
+
+impl Default for CodexTextFormat {
+    fn default() -> Self {
+        Self::Text {}
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
 /// Vendor-specific configuration for the OpenAI Codex / Responses API.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodexConfig {
@@ -153,6 +307,10 @@ pub struct CodexConfig {
 
     /// Temperature for sampling (0.0–2.0).
     pub temperature: Option<f64>,
+
+    /// Sandbox configuration for execution environments.
+    #[serde(default)]
+    pub sandbox: SandboxConfig,
 }
 
 impl Default for CodexConfig {
@@ -163,9 +321,14 @@ impl Default for CodexConfig {
             model: "codex-mini-latest".into(),
             max_output_tokens: Some(4096),
             temperature: None,
+            sandbox: SandboxConfig::default(),
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Request types
+// ---------------------------------------------------------------------------
 
 /// Simplified representation of an OpenAI Responses API request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -180,6 +343,12 @@ pub struct CodexRequest {
     /// Sampling temperature.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
+    /// Tools available to the model.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<CodexTool>,
+    /// Output text format.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<CodexTextFormat>,
 }
 
 /// An input item in the Codex Responses API format.
@@ -195,6 +364,10 @@ pub enum CodexInputItem {
     },
 }
 
+// ---------------------------------------------------------------------------
+// Response types
+// ---------------------------------------------------------------------------
+
 /// Simplified representation of an OpenAI Responses API response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodexResponse {
@@ -202,16 +375,22 @@ pub struct CodexResponse {
     pub id: String,
     /// Model used for the completion.
     pub model: String,
-    /// Output items (messages and function calls).
-    pub output: Vec<CodexOutputItem>,
+    /// Output items produced by the model.
+    pub output: Vec<CodexResponseItem>,
     /// Token usage statistics.
     pub usage: Option<CodexUsage>,
+    /// Response status (`completed`, `in_progress`, `failed`, `cancelled`).
+    #[serde(default)]
+    pub status: Option<String>,
 }
 
-/// An output item in the Codex Responses API format.
+/// A response item in the Codex Responses API format.
+///
+/// Models the four output item types: message, function_call,
+/// function_call_output, and reasoning.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum CodexOutputItem {
+pub enum CodexResponseItem {
     /// An assistant message with content parts.
     Message {
         /// Message role.
@@ -223,11 +402,34 @@ pub enum CodexOutputItem {
     FunctionCall {
         /// Unique function call identifier.
         id: String,
+        /// Correlation ID linking the call to a prior request.
+        #[serde(default)]
+        call_id: Option<String>,
         /// Name of the function to invoke.
         name: String,
         /// JSON-encoded arguments.
         arguments: String,
     },
+    /// Output from a previously executed function call.
+    FunctionCallOutput {
+        /// Correlation ID linking back to the function call.
+        call_id: String,
+        /// The output value from the function.
+        output: String,
+    },
+    /// Internal reasoning / chain-of-thought from the model.
+    Reasoning {
+        /// Reasoning text fragments.
+        #[serde(default)]
+        summary: Vec<ReasoningSummary>,
+    },
+}
+
+/// A summary fragment within a reasoning response item.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ReasoningSummary {
+    /// The reasoning text.
+    pub text: String,
 }
 
 /// A content part within a Codex output message.
@@ -251,6 +453,100 @@ pub struct CodexUsage {
     /// Total tokens (input + output).
     pub total_tokens: u64,
 }
+
+// ---------------------------------------------------------------------------
+// Legacy type aliases (backward compatibility)
+// ---------------------------------------------------------------------------
+
+/// Legacy alias for [`CodexResponseItem`].
+pub type CodexOutputItem = CodexResponseItem;
+
+// ---------------------------------------------------------------------------
+// Streaming types
+// ---------------------------------------------------------------------------
+
+/// Server-sent events emitted during a Codex streaming response.
+///
+/// Event names follow the OpenAI convention: `response.created`,
+/// `response.in_progress`, `response.output_item.*`, `response.completed`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum CodexStreamEvent {
+    /// The response object has been created (`response.created`).
+    ResponseCreated {
+        /// The initial (incomplete) response.
+        response: CodexResponse,
+    },
+    /// The response is being processed (`response.in_progress`).
+    ResponseInProgress {
+        /// The in-progress response snapshot.
+        response: CodexResponse,
+    },
+    /// A new output item has been added (`response.output_item.added`).
+    OutputItemAdded {
+        /// Index of the item in the output array.
+        output_index: usize,
+        /// The newly added item.
+        item: CodexResponseItem,
+    },
+    /// An output item is being streamed (`response.output_item.delta`).
+    OutputItemDelta {
+        /// Index of the item in the output array.
+        output_index: usize,
+        /// The partial delta payload.
+        delta: CodexStreamDelta,
+    },
+    /// An output item has been finalized (`response.output_item.done`).
+    OutputItemDone {
+        /// Index of the item in the output array.
+        output_index: usize,
+        /// The finalized item.
+        item: CodexResponseItem,
+    },
+    /// The response has completed successfully (`response.completed`).
+    ResponseCompleted {
+        /// The final response.
+        response: CodexResponse,
+    },
+    /// The response has failed (`response.failed`).
+    ResponseFailed {
+        /// The failed response with error information.
+        response: CodexResponse,
+    },
+    /// An error occurred during streaming.
+    Error {
+        /// Error message.
+        message: String,
+        /// Error code.
+        #[serde(default)]
+        code: Option<String>,
+    },
+}
+
+/// Delta payload for incremental streaming updates.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum CodexStreamDelta {
+    /// Incremental text content.
+    OutputTextDelta {
+        /// The text fragment.
+        text: String,
+    },
+    /// Incremental function call arguments.
+    FunctionCallArgumentsDelta {
+        /// The arguments fragment.
+        delta: String,
+    },
+    /// Incremental reasoning summary.
+    ReasoningSummaryDelta {
+        /// The reasoning fragment.
+        text: String,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Mapping: WorkOrder → CodexRequest
+// ---------------------------------------------------------------------------
 
 /// Map an ABP [`WorkOrder`] to a [`CodexRequest`].
 ///
@@ -280,8 +576,14 @@ pub fn map_work_order(wo: &WorkOrder, config: &CodexConfig) -> CodexRequest {
         }],
         max_output_tokens: config.max_output_tokens,
         temperature: config.temperature,
+        tools: Vec::new(),
+        text: None,
     }
 }
+
+// ---------------------------------------------------------------------------
+// Mapping: CodexResponse → Vec<AgentEvent>
+// ---------------------------------------------------------------------------
 
 /// Map a [`CodexResponse`] back to a sequence of ABP [`AgentEvent`]s.
 pub fn map_response(resp: &CodexResponse) -> Vec<AgentEvent> {
@@ -290,7 +592,7 @@ pub fn map_response(resp: &CodexResponse) -> Vec<AgentEvent> {
 
     for item in &resp.output {
         match item {
-            CodexOutputItem::Message { content, .. } => {
+            CodexResponseItem::Message { content, .. } => {
                 for part in content {
                     match part {
                         CodexContentPart::OutputText { text } => {
@@ -303,10 +605,11 @@ pub fn map_response(resp: &CodexResponse) -> Vec<AgentEvent> {
                     }
                 }
             }
-            CodexOutputItem::FunctionCall {
+            CodexResponseItem::FunctionCall {
                 id,
                 name,
                 arguments,
+                ..
             } => {
                 let input = serde_json::from_str(arguments)
                     .unwrap_or(serde_json::Value::String(arguments.clone()));
@@ -321,10 +624,172 @@ pub fn map_response(resp: &CodexResponse) -> Vec<AgentEvent> {
                     ext: None,
                 });
             }
+            CodexResponseItem::FunctionCallOutput { call_id, output } => {
+                events.push(AgentEvent {
+                    ts: now,
+                    kind: AgentEventKind::ToolResult {
+                        tool_name: "function".into(),
+                        tool_use_id: Some(call_id.clone()),
+                        output: serde_json::Value::String(output.clone()),
+                        is_error: false,
+                    },
+                    ext: None,
+                });
+            }
+            CodexResponseItem::Reasoning { summary } => {
+                let text = summary
+                    .iter()
+                    .map(|s| s.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if !text.is_empty() {
+                    events.push(AgentEvent {
+                        ts: now,
+                        kind: AgentEventKind::AssistantDelta { text },
+                        ext: None,
+                    });
+                }
+            }
         }
     }
 
     events
+}
+
+// ---------------------------------------------------------------------------
+// Mapping: CodexStreamEvent → Vec<AgentEvent>
+// ---------------------------------------------------------------------------
+
+/// Map a [`CodexStreamEvent`] to a sequence of ABP [`AgentEvent`]s.
+///
+/// Some events (like `response.in_progress`) produce no ABP events.
+pub fn map_stream_event(event: &CodexStreamEvent) -> Vec<AgentEvent> {
+    let now = Utc::now();
+
+    match event {
+        CodexStreamEvent::ResponseCreated { .. } => {
+            vec![AgentEvent {
+                ts: now,
+                kind: AgentEventKind::RunStarted {
+                    message: "Codex stream started".into(),
+                },
+                ext: None,
+            }]
+        }
+        CodexStreamEvent::ResponseInProgress { .. } => {
+            // No ABP event for in-progress status updates.
+            vec![]
+        }
+        CodexStreamEvent::OutputItemAdded { item, .. } => map_response_item(item, now),
+        CodexStreamEvent::OutputItemDelta { delta, .. } => match delta {
+            CodexStreamDelta::OutputTextDelta { text } => {
+                vec![AgentEvent {
+                    ts: now,
+                    kind: AgentEventKind::AssistantDelta { text: text.clone() },
+                    ext: None,
+                }]
+            }
+            CodexStreamDelta::FunctionCallArgumentsDelta { .. }
+            | CodexStreamDelta::ReasoningSummaryDelta { .. } => {
+                // Partial function args and reasoning fragments don't map
+                // to a top-level ABP event; they accumulate server-side.
+                vec![]
+            }
+        },
+        CodexStreamEvent::OutputItemDone { item, .. } => map_response_item(item, now),
+        CodexStreamEvent::ResponseCompleted { .. } => {
+            vec![AgentEvent {
+                ts: now,
+                kind: AgentEventKind::RunCompleted {
+                    message: "Codex stream completed".into(),
+                },
+                ext: None,
+            }]
+        }
+        CodexStreamEvent::ResponseFailed { response } => {
+            let message = response
+                .status
+                .as_deref()
+                .unwrap_or("unknown failure")
+                .to_string();
+            vec![AgentEvent {
+                ts: now,
+                kind: AgentEventKind::Error { message },
+                ext: None,
+            }]
+        }
+        CodexStreamEvent::Error { message, .. } => {
+            vec![AgentEvent {
+                ts: now,
+                kind: AgentEventKind::Error {
+                    message: message.clone(),
+                },
+                ext: None,
+            }]
+        }
+    }
+}
+
+/// Helper: map a single [`CodexResponseItem`] to agent events.
+fn map_response_item(item: &CodexResponseItem, ts: chrono::DateTime<Utc>) -> Vec<AgentEvent> {
+    match item {
+        CodexResponseItem::Message { content, .. } => content
+            .iter()
+            .map(|part| match part {
+                CodexContentPart::OutputText { text } => AgentEvent {
+                    ts,
+                    kind: AgentEventKind::AssistantMessage { text: text.clone() },
+                    ext: None,
+                },
+            })
+            .collect(),
+        CodexResponseItem::FunctionCall {
+            id,
+            name,
+            arguments,
+            ..
+        } => {
+            let input = serde_json::from_str(arguments)
+                .unwrap_or(serde_json::Value::String(arguments.clone()));
+            vec![AgentEvent {
+                ts,
+                kind: AgentEventKind::ToolCall {
+                    tool_name: name.clone(),
+                    tool_use_id: Some(id.clone()),
+                    parent_tool_use_id: None,
+                    input,
+                },
+                ext: None,
+            }]
+        }
+        CodexResponseItem::FunctionCallOutput { call_id, output } => {
+            vec![AgentEvent {
+                ts,
+                kind: AgentEventKind::ToolResult {
+                    tool_name: "function".into(),
+                    tool_use_id: Some(call_id.clone()),
+                    output: serde_json::Value::String(output.clone()),
+                    is_error: false,
+                },
+                ext: None,
+            }]
+        }
+        CodexResponseItem::Reasoning { summary } => {
+            let text = summary
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
+            if text.is_empty() {
+                return vec![];
+            }
+            vec![AgentEvent {
+                ts,
+                kind: AgentEventKind::AssistantDelta { text },
+                ext: None,
+            }]
+        }
+    }
 }
 
 #[cfg(test)]
@@ -369,13 +834,14 @@ mod tests {
         let resp = CodexResponse {
             id: "resp_123".into(),
             model: "codex-mini-latest".into(),
-            output: vec![CodexOutputItem::Message {
+            output: vec![CodexResponseItem::Message {
                 role: "assistant".into(),
                 content: vec![CodexContentPart::OutputText {
                     text: "Done!".into(),
                 }],
             }],
             usage: None,
+            status: None,
         };
         let events = map_response(&resp);
         assert_eq!(events.len(), 1);
@@ -390,12 +856,14 @@ mod tests {
         let resp = CodexResponse {
             id: "resp_456".into(),
             model: "codex-mini-latest".into(),
-            output: vec![CodexOutputItem::FunctionCall {
+            output: vec![CodexResponseItem::FunctionCall {
                 id: "fc_1".into(),
+                call_id: None,
                 name: "shell".into(),
                 arguments: r#"{"command":"ls"}"#.into(),
             }],
             usage: None,
+            status: None,
         };
         let events = map_response(&resp);
         assert_eq!(events.len(), 1);

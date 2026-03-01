@@ -170,7 +170,10 @@ fn thinking_block_maps_to_assistant_message_with_ext() {
         }
         other => panic!("expected AssistantMessage, got {other:?}"),
     }
-    let ext = events[0].ext.as_ref().expect("thinking event should have ext");
+    let ext = events[0]
+        .ext
+        .as_ref()
+        .expect("thinking event should have ext");
     assert_eq!(ext.get("thinking"), Some(&serde_json::Value::Bool(true)));
     assert_eq!(
         ext.get("signature"),
@@ -299,7 +302,10 @@ fn tool_result_content_block_maps_to_tool_result() {
             ..
         } => {
             assert_eq!(tool_use_id.as_deref(), Some("toolu_01A"));
-            assert_eq!(output, &serde_json::Value::String("file contents here".into()));
+            assert_eq!(
+                output,
+                &serde_json::Value::String("file contents here".into())
+            );
             assert!(!is_error);
         }
         other => panic!("expected ToolResult, got {other:?}"),
@@ -429,9 +435,7 @@ fn passthrough_roundtrip_error_event() {
 fn passthrough_from_non_passthrough_returns_none() {
     let event = abp_core::AgentEvent {
         ts: chrono::Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: "hi".into() },
         ext: None,
     };
     assert!(from_passthrough_event(&event).is_none());

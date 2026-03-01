@@ -132,17 +132,32 @@ fn error_code_stability() {
     assert_eq!(emulation_required().code(), "ABP_E_EMULATION_REQUIRED");
     assert_eq!(incompatible_model().code(), "ABP_E_INCOMPATIBLE_MODEL");
     assert_eq!(param_not_mappable().code(), "ABP_E_PARAM_NOT_MAPPABLE");
-    assert_eq!(streaming_unsupported().code(), "ABP_E_STREAMING_UNSUPPORTED");
+    assert_eq!(
+        streaming_unsupported().code(),
+        "ABP_E_STREAMING_UNSUPPORTED"
+    );
 }
 
 #[test]
 fn error_code_constants_match() {
     assert_eq!(MappingError::FIDELITY_LOSS_CODE, fidelity_loss().code());
     assert_eq!(MappingError::UNSUPPORTED_CAP_CODE, unsupported_cap().code());
-    assert_eq!(MappingError::EMULATION_REQUIRED_CODE, emulation_required().code());
-    assert_eq!(MappingError::INCOMPATIBLE_MODEL_CODE, incompatible_model().code());
-    assert_eq!(MappingError::PARAM_NOT_MAPPABLE_CODE, param_not_mappable().code());
-    assert_eq!(MappingError::STREAMING_UNSUPPORTED_CODE, streaming_unsupported().code());
+    assert_eq!(
+        MappingError::EMULATION_REQUIRED_CODE,
+        emulation_required().code()
+    );
+    assert_eq!(
+        MappingError::INCOMPATIBLE_MODEL_CODE,
+        incompatible_model().code()
+    );
+    assert_eq!(
+        MappingError::PARAM_NOT_MAPPABLE_CODE,
+        param_not_mappable().code()
+    );
+    assert_eq!(
+        MappingError::STREAMING_UNSUPPORTED_CODE,
+        streaming_unsupported().code()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -234,7 +249,11 @@ fn serde_json_contains_type_tag() {
 
 #[test]
 fn mapping_error_kind_serde_roundtrip() {
-    for kind in [MappingErrorKind::Fatal, MappingErrorKind::Degraded, MappingErrorKind::Emulated] {
+    for kind in [
+        MappingErrorKind::Fatal,
+        MappingErrorKind::Degraded,
+        MappingErrorKind::Emulated,
+    ] {
         let json = serde_json::to_string(&kind).unwrap();
         let back: MappingErrorKind = serde_json::from_str(&json).unwrap();
         assert_eq!(kind, back);
@@ -254,7 +273,9 @@ fn mapping_error_kind_display() {
 
 #[test]
 fn mapping_result_ok() {
-    fn get_result() -> MappingResult<i32> { Ok(42) }
+    fn get_result() -> MappingResult<i32> {
+        Ok(42)
+    }
     let r = get_result();
     assert!(r.is_ok());
     assert_eq!(r.unwrap(), 42);
@@ -262,7 +283,9 @@ fn mapping_result_ok() {
 
 #[test]
 fn mapping_result_err() {
-    fn get_result() -> MappingResult<i32> { Err(streaming_unsupported()) }
+    fn get_result() -> MappingResult<i32> {
+        Err(streaming_unsupported())
+    }
     let r = get_result();
     assert!(r.is_err());
     assert_eq!(r.unwrap_err().code(), "ABP_E_STREAMING_UNSUPPORTED");

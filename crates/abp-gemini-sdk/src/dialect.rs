@@ -231,6 +231,9 @@ pub struct GeminiGenerationConfig {
     /// Top-k sampling parameter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_k: Option<u32>,
+    /// Stop sequences that halt generation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_sequences: Option<Vec<String>>,
     /// MIME type for the response (e.g. `application/json`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_mime_type: Option<String>,
@@ -537,8 +540,20 @@ pub fn map_response(resp: &GeminiResponse) -> Vec<AgentEvent> {
                         ext: None,
                     });
                 }
-                GeminiPart::FunctionResponse { .. } | GeminiPart::InlineData(_) => {
-                    // Function responses and inline data are not output events.
+                GeminiPart::FunctionResponse { name, response } => {
+                    events.push(AgentEvent {
+                        ts: now,
+                        kind: AgentEventKind::ToolResult {
+                            tool_name: name.clone(),
+                            tool_use_id: None,
+                            output: response.clone(),
+                            is_error: false,
+                        },
+                        ext: None,
+                    });
+                }
+                GeminiPart::InlineData(_) => {
+                    // Inline data is not mapped to an output event.
                 }
             }
         }
@@ -577,12 +592,32 @@ pub fn map_stream_chunk(chunk: &GeminiStreamChunk) -> Vec<AgentEvent> {
                         ext: None,
                     });
                 }
-                GeminiPart::FunctionResponse { .. } | GeminiPart::InlineData(_) => {}
+                GeminiPart::FunctionResponse { name, response } => {
+                    events.push(AgentEvent {
+                        ts: now,
+                        kind: AgentEventKind::ToolResult {
+                            tool_name: name.clone(),
+                            tool_use_id: None,
+                            output: response.clone(),
+                            is_error: false,
+                        },
+                        ext: None,
+                    });
+                }
+                GeminiPart::InlineData(_) => {}
             }
         }
     }
 
     events
+}
+
+/// Map a Gemini streaming event to ABP [`AgentEvent`]s.
+///
+/// This is an alias for [`map_stream_chunk`] using the naming convention
+/// expected by callers that work with generic stream-event mappers.
+pub fn map_stream_event(chunk: &GeminiStreamChunk) -> Vec<AgentEvent> {
+    map_stream_chunk(chunk)
 }
 #[cfg(test)]
 mod tests {

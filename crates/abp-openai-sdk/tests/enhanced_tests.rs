@@ -3,9 +3,9 @@
 
 use abp_core::AgentEventKind;
 use abp_openai_sdk::dialect::{
-    CanonicalToolDef, OpenAIFunctionCall, OpenAIToolCall,
-    ToolChoice, ToolChoiceFunctionRef, ToolChoiceMode, from_canonical_model, is_known_model,
-    to_canonical_model, tool_def_from_openai, tool_def_to_openai,
+    CanonicalToolDef, OpenAIFunctionCall, OpenAIToolCall, ToolChoice, ToolChoiceFunctionRef,
+    ToolChoiceMode, from_canonical_model, is_known_model, to_canonical_model, tool_def_from_openai,
+    tool_def_to_openai,
 };
 use abp_openai_sdk::response_format::{JsonSchemaSpec, ResponseFormat};
 use abp_openai_sdk::streaming::{
@@ -554,5 +554,8 @@ fn is_known_model_rejects_empty() {
 #[test]
 fn canonical_model_non_openai_prefix_passthrough() {
     // A model with a different prefix should pass through from_canonical_model
-    assert_eq!(from_canonical_model("anthropic/claude-3"), "anthropic/claude-3");
+    assert_eq!(
+        from_canonical_model("anthropic/claude-3"),
+        "anthropic/claude-3"
+    );
 }

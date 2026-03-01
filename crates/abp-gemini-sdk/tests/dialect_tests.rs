@@ -221,6 +221,7 @@ fn generation_config_custom_fields() {
         temperature: Some(0.7),
         top_p: Some(0.95),
         top_k: Some(40),
+        stop_sequences: Some(vec!["DONE".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(serde_json::json!({"type": "object"})),
     };

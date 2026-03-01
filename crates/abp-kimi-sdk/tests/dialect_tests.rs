@@ -170,6 +170,7 @@ fn kimi_response_serde_roundtrip() {
             completion_tokens: 4,
             total_tokens: 12,
         }),
+        refs: None,
     };
     let json = serde_json::to_string(&resp).unwrap();
     let parsed: KimiResponse = serde_json::from_str(&json).unwrap();

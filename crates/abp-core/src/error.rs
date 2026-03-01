@@ -12,8 +12,8 @@
 //! - **R** — Runtime errors
 //! - **S** — System errors
 
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 

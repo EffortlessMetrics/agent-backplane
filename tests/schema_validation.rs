@@ -275,6 +275,14 @@ fn capability_enum_variants_in_schema() {
         "structured_output_json_schema",
         "mcp_client",
         "mcp_server",
+        "tool_use",
+        "extended_thinking",
+        "image_input",
+        "pdf_input",
+        "code_execution",
+        "logprobs",
+        "seed_determinism",
+        "stop_sequences",
     ];
     for variant in &expected {
         assert!(

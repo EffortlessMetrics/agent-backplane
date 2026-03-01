@@ -300,10 +300,7 @@ fn claude_manifest() -> BTreeMap<Capability, DialectSupportLevel> {
                 detail: "via tool_bash".into(),
             },
         ),
-        (
-            Capability::StopSequences,
-            DialectSupportLevel::Native,
-        ),
+        (Capability::StopSequences, DialectSupportLevel::Native),
         (
             Capability::Logprobs,
             DialectSupportLevel::Unsupported {
@@ -418,10 +415,7 @@ pub fn check_capabilities(
                 .get(&cap)
                 .cloned()
                 .unwrap_or(DialectSupportLevel::Unsupported {
-                    reason: format!(
-                        "capability not recognized by dialect '{}'",
-                        target_dialect
-                    ),
+                    reason: format!("capability not recognized by dialect '{}'", target_dialect),
                 });
             CapabilityReportEntry {
                 capability: cap,

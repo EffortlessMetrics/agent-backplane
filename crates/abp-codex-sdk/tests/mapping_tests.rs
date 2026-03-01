@@ -73,11 +73,13 @@ fn response_with_message_and_function_call_produces_events() {
             },
             CodexOutputItem::FunctionCall {
                 id: "fc_1".into(),
+                call_id: None,
                 name: "shell".into(),
                 arguments: r#"{"command":"cargo test"}"#.into(),
             },
         ],
         usage: None,
+        status: None,
     };
     let events = map_response(&resp);
     assert_eq!(events.len(), 2);

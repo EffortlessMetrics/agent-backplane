@@ -25,6 +25,8 @@ fn work_order_maps_to_correct_kimi_request_fields() {
     assert!(
         req.messages[0]
             .content
+            .as_deref()
+            .unwrap_or("")
             .contains("Optimize database queries")
     );
 }
@@ -53,8 +55,20 @@ fn context_snippets_are_included_in_user_message() {
     let cfg = KimiConfig::default();
     let req = map_work_order(&wo, &cfg);
 
-    assert!(req.messages[0].content.contains("notes.md"));
-    assert!(req.messages[0].content.contains("Important context here."));
+    assert!(
+        req.messages[0]
+            .content
+            .as_deref()
+            .unwrap_or("")
+            .contains("notes.md")
+    );
+    assert!(
+        req.messages[0]
+            .content
+            .as_deref()
+            .unwrap_or("")
+            .contains("Important context here.")
+    );
 }
 
 #[test]
@@ -79,6 +93,7 @@ fn response_with_content_and_tool_calls_produces_events() {
             finish_reason: Some("tool_calls".into()),
         }],
         usage: None,
+        refs: None,
     };
     let events = map_response(&resp);
     assert_eq!(events.len(), 2);

@@ -39,7 +39,11 @@ pub struct ValidationErrors {
 
 impl fmt::Display for ValidationErrors {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "request contains {} unmappable parameter(s)", self.errors.len())?;
+        write!(
+            f,
+            "request contains {} unmappable parameter(s)",
+            self.errors.len()
+        )?;
         for e in &self.errors {
             write!(f, "\n  - {e}")?;
         }
@@ -97,8 +101,7 @@ pub fn validate_for_mapped_mode(fields: &ExtendedRequestFields) -> Result<(), Va
     {
         errors.push(UnmappableParam {
             param: "logit_bias".into(),
-            reason: "token-level logit biases are backend-specific and cannot be mapped"
-                .into(),
+            reason: "token-level logit biases are backend-specific and cannot be mapped".into(),
         });
     }
 

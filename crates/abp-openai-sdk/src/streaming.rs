@@ -125,9 +125,7 @@ pub fn map_chunk(chunk: &ChatCompletionChunk) -> Vec<AgentEvent> {
         {
             events.push(AgentEvent {
                 ts: now,
-                kind: AgentEventKind::AssistantDelta {
-                    text: text.clone(),
-                },
+                kind: AgentEventKind::AssistantDelta { text: text.clone() },
                 ext: None,
             });
         }
