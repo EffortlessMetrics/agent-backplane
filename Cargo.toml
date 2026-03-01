@@ -27,6 +27,7 @@ members = [
   "crates/abp-host",
   "crates/abp-integrations",
   "crates/abp-kimi-sdk",
+  "crates/abp-mapping",
   "crates/abp-openai-sdk",
   "crates/abp-policy",
   "crates/abp-receipt",

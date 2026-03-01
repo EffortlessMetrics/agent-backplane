@@ -292,6 +292,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-mapping"
+version = "0.1.0"
+dependencies = [
+ "abp-dialect",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "abp-openai-sdk"
 version = "0.1.0"
 dependencies = [
