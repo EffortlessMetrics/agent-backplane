@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: auto
+---
+"auto"

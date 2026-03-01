@@ -1,0 +1,23 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: config
+---
+{
+  "maxOutputTokens": 8192,
+  "temperature": 0.9,
+  "topP": 0.95,
+  "topK": 40,
+  "stopSequences": [
+    "END",
+    "STOP"
+  ],
+  "responseMimeType": "application/json",
+  "responseSchema": {
+    "properties": {
+      "result": {
+        "type": "string"
+      }
+    },
+    "type": "object"
+  }
+}

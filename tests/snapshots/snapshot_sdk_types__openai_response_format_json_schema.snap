@@ -1,0 +1,23 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: json_schema
+---
+{
+  "type": "json_schema",
+  "json_schema": {
+    "name": "my_schema",
+    "description": "A test schema",
+    "schema": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "strict": true
+  }
+}

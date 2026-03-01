@@ -106,10 +106,14 @@ dependencies = [
 name = "abp-copilot-sdk"
 version = "0.1.0"
 dependencies = [
- "abp-host",
- "abp-integrations",
+ "abp-core",
  "abp-runtime",
+ "abp-sidecar-sdk",
  "anyhow",
+ "chrono",
+ "insta",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

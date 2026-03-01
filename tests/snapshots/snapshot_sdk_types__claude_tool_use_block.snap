@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: tool_use
+---
+{
+  "type": "tool_use",
+  "id": "toolu_fixed_001",
+  "name": "read_file",
+  "input": {
+    "path": "src/main.rs"
+  }
+}

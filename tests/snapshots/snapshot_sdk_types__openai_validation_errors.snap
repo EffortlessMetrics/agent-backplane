@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: errs
+---
+{
+  "errors": [
+    {
+      "param": "logprobs",
+      "reason": "Not supported in Claude dialect"
+    },
+    {
+      "param": "logit_bias",
+      "reason": "No equivalent in Gemini"
+    }
+  ]
+}

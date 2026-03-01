@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: input_json_delta
+---
+{
+  "type": "content_block_delta",
+  "index": 2,
+  "delta": {
+    "type": "input_json_delta",
+    "partial_json": "{\"path\":"
+  }
+}

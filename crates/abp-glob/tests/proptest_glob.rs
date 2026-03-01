@@ -157,3 +157,122 @@ proptest! {
         prop_assert_eq!(via_str, via_path, "decide_str and decide_path must agree");
     }
 }
+
+// ── 9. Simple filename with no separator ────────────────────────────
+
+proptest! {
+    #[test]
+    fn simple_filename_no_separator(name in path_segment(), ext in "[a-z]{1,3}") {
+        let filename = format!("{name}.{ext}");
+        // Include *.ext should match a bare filename
+        let pattern = format!("*.{ext}");
+        let globs = IncludeExcludeGlobs::new(
+            &[pattern],
+            &Vec::new(),
+        ).unwrap();
+
+        prop_assert_eq!(globs.decide_str(&filename), MatchDecision::Allowed);
+    }
+}
+
+// ── 10. Double-star crosses directory boundaries ────────────────────
+
+proptest! {
+    #[test]
+    fn double_star_crosses_directories(
+        seg1 in path_segment(),
+        seg2 in path_segment(),
+        seg3 in path_segment(),
+    ) {
+        let deep = format!("{seg1}/{seg2}/{seg3}.rs");
+        let globs = IncludeExcludeGlobs::new(
+            &["**/*.rs".to_string()],
+            &Vec::new(),
+        ).unwrap();
+
+        prop_assert_eq!(globs.decide_str(&deep), MatchDecision::Allowed);
+    }
+}
+
+// ── 11. Valid glob patterns never panic on compilation ───────────────
+
+proptest! {
+    #[test]
+    fn valid_glob_compilation_succeeds(seg in path_segment()) {
+        let patterns = vec![
+            format!("{seg}/**"),
+            format!("**/{seg}"),
+            format!("*.{seg}"),
+            format!("{seg}*"),
+        ];
+        for pat in &patterns {
+            let result = IncludeExcludeGlobs::new(std::slice::from_ref(pat), &Vec::new());
+            prop_assert!(result.is_ok(), "pattern {:?} should compile", pat);
+        }
+    }
+}
+
+// ── 12. Inclusion order is commutative ──────────────────────────────
+
+proptest! {
+    #[test]
+    fn inclusion_order_is_commutative(
+        path in relative_path(),
+    ) {
+        let pats_a = vec!["src/**".to_string(), "tests/**".to_string()];
+        let pats_b = vec!["tests/**".to_string(), "src/**".to_string()];
+
+        let globs_a = IncludeExcludeGlobs::new(&pats_a, &Vec::new()).unwrap();
+        let globs_b = IncludeExcludeGlobs::new(&pats_b, &Vec::new()).unwrap();
+
+        prop_assert_eq!(
+            globs_a.decide_str(&path),
+            globs_b.decide_str(&path),
+            "include pattern order should not affect result"
+        );
+    }
+}
+
+// ── 13. Exclude order is commutative ────────────────────────────────
+
+proptest! {
+    #[test]
+    fn exclusion_order_is_commutative(
+        path in relative_path(),
+    ) {
+        let pats_a = vec!["secret/**".to_string(), "private/**".to_string()];
+        let pats_b = vec!["private/**".to_string(), "secret/**".to_string()];
+
+        let globs_a = IncludeExcludeGlobs::new(&Vec::new(), &pats_a).unwrap();
+        let globs_b = IncludeExcludeGlobs::new(&Vec::new(), &pats_b).unwrap();
+
+        prop_assert_eq!(
+            globs_a.decide_str(&path),
+            globs_b.decide_str(&path),
+            "exclude pattern order should not affect result"
+        );
+    }
+}
+
+// ── 14. Include + exclude interaction ───────────────────────────────
+
+proptest! {
+    #[test]
+    fn include_allows_matched_exclude_blocks_rest(
+        seg in path_segment(),
+        rest in relative_path(),
+    ) {
+        let included = format!("src/{seg}/{rest}");
+        let excluded = format!("src/generated/{seg}/{rest}");
+        let outside = format!("docs/{seg}/{rest}");
+
+        let globs = IncludeExcludeGlobs::new(
+            &["src/**".to_string()],
+            &["src/generated/**".to_string()],
+        ).unwrap();
+
+        prop_assert_eq!(globs.decide_str(&included), MatchDecision::Allowed);
+        prop_assert_eq!(globs.decide_str(&excluded), MatchDecision::DeniedByExclude);
+        prop_assert_eq!(globs.decide_str(&outside), MatchDecision::DeniedByMissingInclude);
+    }
+}

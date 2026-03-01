@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: part
+---
+{
+  "functionResponse": {
+    "name": "read_file",
+    "response": {
+      "content": "pub fn main() {}",
+      "size": 17
+    }
+  }
+}

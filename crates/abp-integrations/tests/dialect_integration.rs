@@ -298,7 +298,13 @@ mod kimi {
         let cfg = KimiConfig::default();
         let req = map_work_order(&wo, &cfg);
 
-        assert!(req.messages[0].content.as_deref().unwrap_or("").contains("error log"));
+        assert!(
+            req.messages[0]
+                .content
+                .as_deref()
+                .unwrap_or("")
+                .contains("error log")
+        );
         assert!(
             req.messages[0]
                 .content

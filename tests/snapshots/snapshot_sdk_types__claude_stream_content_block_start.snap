@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: event
+---
+{
+  "type": "content_block_start",
+  "index": 0,
+  "content_block": {
+    "type": "text",
+    "text": ""
+  }
+}

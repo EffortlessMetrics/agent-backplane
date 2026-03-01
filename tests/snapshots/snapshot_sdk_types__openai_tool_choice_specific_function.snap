@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: specific
+---
+{
+  "type": "function",
+  "function": {
+    "name": "read_file"
+  }
+}

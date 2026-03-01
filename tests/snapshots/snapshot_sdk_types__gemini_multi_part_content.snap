@@ -1,0 +1,20 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: content
+---
+{
+  "role": "user",
+  "parts": [
+    {
+      "text": "Analyze this code:"
+    },
+    {
+      "functionResponse": {
+        "name": "read_file",
+        "response": {
+          "content": "fn main() {}"
+        }
+      }
+    }
+  ]
+}

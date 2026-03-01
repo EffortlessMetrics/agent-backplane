@@ -1,0 +1,61 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: json
+---
+{
+  "t": "final",
+  "ref_id": "run-fixed-001",
+  "receipt": {
+    "meta": {
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "work_order_id": "00000000-0000-4000-8000-000000000002",
+      "contract_version": "abp/v0.1",
+      "started_at": "2025-01-15T12:00:00Z",
+      "finished_at": "2025-01-15T12:00:00Z",
+      "duration_ms": 1234
+    },
+    "backend": {
+      "id": "sidecar:test",
+      "backend_version": "1.0.0",
+      "adapter_version": "0.1.0"
+    },
+    "capabilities": {
+      "streaming": "native",
+      "tool_use": "native",
+      "extended_thinking": "emulated"
+    },
+    "mode": "mapped",
+    "usage_raw": {
+      "input_tokens": 100,
+      "output_tokens": 50
+    },
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 50,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "request_units": null,
+      "estimated_cost_usd": 0.001
+    },
+    "trace": [
+      {
+        "ts": "2025-01-15T12:00:00Z",
+        "type": "run_started",
+        "message": "starting"
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "file",
+        "path": "output.txt"
+      }
+    ],
+    "verification": {
+      "git_diff": "diff --git a/file.txt",
+      "git_status": "M file.txt",
+      "harness_ok": true
+    },
+    "outcome": "complete",
+    "receipt_sha256": null
+  }
+}

@@ -1,0 +1,19 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: json
+---
+{
+  "t": "hello",
+  "contract_version": "abp/v0.1",
+  "backend": {
+    "id": "sidecar:node",
+    "backend_version": "1.0.0",
+    "adapter_version": "0.2.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_use": "native",
+    "extended_thinking": "emulated"
+  },
+  "mode": "mapped"
+}

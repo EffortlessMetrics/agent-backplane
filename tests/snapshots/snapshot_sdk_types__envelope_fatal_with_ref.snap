@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: env_with_ref
+---
+{
+  "t": "fatal",
+  "ref_id": "run-fixed-001",
+  "error": "Sidecar process crashed with exit code 137 (OOM killed)"
+}

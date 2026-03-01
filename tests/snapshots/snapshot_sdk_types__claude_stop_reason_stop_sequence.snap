@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: stop_seq
+---
+{
+  "type": "message_delta",
+  "delta": {
+    "stop_reason": "stop_sequence",
+    "stop_sequence": "\n```"
+  }
+}

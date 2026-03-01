@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: val
+---
+{
+  "max_tokens": 4096,
+  "messages": [
+    {
+      "content": "Refactor the auth module",
+      "role": "user"
+    }
+  ],
+  "model": "gpt-4"
+}

@@ -1,0 +1,22 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: roundtripped
+---
+{
+  "id": "msg_fixed_001",
+  "model": "claude-sonnet-4-20250514",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "Here is the answer."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 100,
+    "output_tokens": 42,
+    "cache_creation_input_tokens": 80,
+    "cache_read_input_tokens": 20
+  }
+}

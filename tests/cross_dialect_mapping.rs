@@ -1099,8 +1099,8 @@ fn capability_manifests_have_consistent_tool_capabilities() {
 #[test]
 fn supported_translations_count() {
     let pairs = supported_translations();
-    // 6 identity + 5 ABP-to-vendor = 11.
-    assert_eq!(pairs.len(), 11, "expected 11 supported translation pairs");
+    // 7 identity + 6 ABP-to-vendor = 13 (with Mock dialect).
+    assert_eq!(pairs.len(), 13, "expected 13 supported translation pairs");
 }
 
 #[test]
@@ -1130,9 +1130,9 @@ fn supported_dialects_includes_all_four() {
 
 #[test]
 fn dialect_enum_all_covers_six_variants() {
-    assert_eq!(Dialect::ALL.len(), 6, "should have 6 dialect variants");
+    assert_eq!(Dialect::ALL.len(), 7, "should have 7 dialect variants");
     let names: Vec<_> = Dialect::ALL.iter().map(|d| format!("{d:?}")).collect();
-    for expected in &["Abp", "Claude", "Codex", "Gemini", "Kimi", "OpenAi"] {
+    for expected in &["Abp", "Claude", "Codex", "Gemini", "Kimi", "Mock", "OpenAi"] {
         assert!(
             names.iter().any(|n| n == expected),
             "missing Dialect::{expected}"

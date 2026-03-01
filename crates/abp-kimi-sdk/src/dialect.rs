@@ -640,7 +640,7 @@ pub fn map_stream_event(chunk: &KimiChunk) -> Vec<AgentEvent> {
 ///
 /// Feed each chunk's tool call fragments via [`feed`](ToolCallAccumulator::feed)
 /// and call [`finish`](ToolCallAccumulator::finish) when the stream ends to
-/// produce complete [`AgentEvent::ToolCall`] events.
+/// produce complete `AgentEvent` `ToolCall` events.
 #[derive(Debug, Default)]
 pub struct ToolCallAccumulator {
     entries: Vec<AccEntry>,

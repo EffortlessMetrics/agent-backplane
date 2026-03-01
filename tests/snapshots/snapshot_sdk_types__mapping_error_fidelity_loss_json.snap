@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: json_str
+---
+{
+  "type": "fidelity_loss",
+  "field": "response_format",
+  "source_dialect": "openai",
+  "target_dialect": "claude",
+  "detail": "Claude does not support json_schema response format natively"
+}

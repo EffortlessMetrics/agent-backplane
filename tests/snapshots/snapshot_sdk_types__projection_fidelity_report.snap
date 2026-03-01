@@ -1,0 +1,33 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: report
+---
+{
+  "Abp": [
+    "Abp",
+    "Claude",
+    "Codex",
+    "Gemini",
+    "Kimi",
+    "Mock",
+    "OpenAi"
+  ],
+  "Claude": [
+    "Claude"
+  ],
+  "Codex": [
+    "Codex"
+  ],
+  "Gemini": [
+    "Gemini"
+  ],
+  "Kimi": [
+    "Kimi"
+  ],
+  "Mock": [
+    "Mock"
+  ],
+  "OpenAi": [
+    "OpenAi"
+  ]
+}

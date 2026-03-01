@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_sdk_types.rs
+expression: config
+---
+{
+  "functionCallingConfig": {
+    "mode": "ANY",
+    "allowedFunctionNames": [
+      "read_file",
+      "write_file"
+    ]
+  }
+}
