@@ -181,8 +181,9 @@ impl Runtime {
             .ok_or_else(|| RuntimeError::UnknownBackend {
                 name: backend_name.to_string(),
             })?;
-        ensure_capability_requirements(requirements, &backend.capabilities())
-            .map_err(|e| RuntimeError::CapabilityCheckFailed(e.to_string()))?;
+        ensure_capability_requirements(requirements, &backend.capabilities()).map_err(|e| {
+            RuntimeError::CapabilityCheckFailed(format!("backend '{backend_name}': {e}"))
+        })?;
         Ok(())
     }
 
@@ -213,8 +214,9 @@ impl Runtime {
         // capabilities are only known after handshake (empty default manifest).
         let caps = backend.capabilities();
         if !caps.is_empty() {
-            ensure_capability_requirements(&work_order.requirements, &caps)
-                .map_err(|e| RuntimeError::CapabilityCheckFailed(e.to_string()))?;
+            ensure_capability_requirements(&work_order.requirements, &caps).map_err(|e| {
+                RuntimeError::CapabilityCheckFailed(format!("backend '{backend_name}': {e}"))
+            })?;
         }
 
         let backend_name = backend_name.to_string();
@@ -266,9 +268,11 @@ impl Runtime {
                     res = &mut backend_handle => {
                         let r = match res {
                             Ok(Ok(receipt)) => receipt,
-                            Ok(Err(e)) => return Err(RuntimeError::BackendFailed(e)),
+                            Ok(Err(e)) => return Err(RuntimeError::BackendFailed(
+                                e.context(format!("backend '{backend_name}'")),
+                            )),
                             Err(e) => return Err(RuntimeError::BackendFailed(
-                                anyhow::Error::new(e).context("backend task panicked"),
+                                anyhow::Error::new(e).context(format!("backend '{backend_name}' task panicked")),
                             )),
                         };
                         receipt_opt = Some(r);
@@ -288,10 +292,15 @@ impl Runtime {
             if receipt_opt.is_none() {
                 match backend_handle.await {
                     Ok(Ok(r)) => receipt_opt = Some(r),
-                    Ok(Err(e)) => return Err(RuntimeError::BackendFailed(e)),
+                    Ok(Err(e)) => {
+                        return Err(RuntimeError::BackendFailed(
+                            e.context(format!("backend '{backend_name}'")),
+                        ));
+                    }
                     Err(e) => {
                         return Err(RuntimeError::BackendFailed(
-                            anyhow::Error::new(e).context("backend task panicked"),
+                            anyhow::Error::new(e)
+                                .context(format!("backend '{backend_name}' task panicked")),
                         ));
                     }
                 }

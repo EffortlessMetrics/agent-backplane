@@ -20,6 +20,8 @@ pub mod error;
 pub mod ext;
 /// Event filtering for agent event streams.
 pub mod filter;
+/// Intermediate Representation for cross-dialect message normalization.
+pub mod ir;
 /// Advanced capability negotiation.
 pub mod negotiate;
 /// Event stream combinator utilities.

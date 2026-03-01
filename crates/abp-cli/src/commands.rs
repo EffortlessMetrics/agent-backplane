@@ -25,9 +25,7 @@ pub fn schema_json(kind: SchemaKind) -> Result<String> {
     let value = match kind {
         SchemaKind::WorkOrder => serde_json::to_value(schema_for!(WorkOrder))?,
         SchemaKind::Receipt => serde_json::to_value(schema_for!(Receipt))?,
-        SchemaKind::Config => {
-            serde_json::to_value(schema_for!(crate::config::BackplaneConfig))?
-        }
+        SchemaKind::Config => serde_json::to_value(schema_for!(crate::config::BackplaneConfig))?,
     };
     serde_json::to_string_pretty(&value).context("serialize schema")
 }
@@ -64,8 +62,7 @@ pub fn inspect_receipt_file(path: &Path) -> Result<(Receipt, bool)> {
 
     let valid = match &receipt.receipt_sha256 {
         Some(stored) => {
-            let computed =
-                receipt_hash(&receipt).context("compute receipt hash")?;
+            let computed = receipt_hash(&receipt).context("compute receipt hash")?;
             *stored == computed
         }
         None => false,

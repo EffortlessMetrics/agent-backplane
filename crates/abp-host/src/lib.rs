@@ -119,6 +119,22 @@ pub enum HostError {
         /// Process exit code, if available.
         code: Option<i32>,
     },
+
+    /// The sidecar process crashed with captured stderr output.
+    #[error("sidecar crashed (exit_code={exit_code:?}, stderr={stderr:?})")]
+    SidecarCrashed {
+        /// Process exit code, if available.
+        exit_code: Option<i32>,
+        /// Captured stderr output from the sidecar.
+        stderr: String,
+    },
+
+    /// A timeout occurred waiting for the sidecar to respond.
+    #[error("sidecar timed out after {duration:?}")]
+    Timeout {
+        /// How long we waited before timing out.
+        duration: std::time::Duration,
+    },
 }
 
 impl SidecarClient {

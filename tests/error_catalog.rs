@@ -405,6 +405,13 @@ mod host_error {
             HostError::Violation("v".into()),
             HostError::Fatal("f".into()),
             HostError::Exited { code: Some(0) },
+            HostError::SidecarCrashed {
+                exit_code: Some(1),
+                stderr: "segfault".into(),
+            },
+            HostError::Timeout {
+                duration: std::time::Duration::from_secs(30),
+            },
         ];
         for v in &variants {
             match v {
@@ -415,6 +422,8 @@ mod host_error {
                 HostError::Violation(_) => {}
                 HostError::Fatal(_) => {}
                 HostError::Exited { .. } => {}
+                HostError::SidecarCrashed { .. } => {}
+                HostError::Timeout { .. } => {}
             }
             check_display_debug(v);
         }

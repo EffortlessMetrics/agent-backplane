@@ -285,6 +285,13 @@ fn host_error_display_debug() {
         HostError::Violation("bad state".into()),
         HostError::Fatal("out of memory".into()),
         HostError::Exited { code: Some(1) },
+        HostError::SidecarCrashed {
+            exit_code: Some(137),
+            stderr: "killed".into(),
+        },
+        HostError::Timeout {
+            duration: std::time::Duration::from_secs(30),
+        },
     ];
 
     for v in &variants {

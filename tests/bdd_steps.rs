@@ -9,8 +9,9 @@ use cucumber::{World as _, given, then, when};
 use tokio_stream::StreamExt;
 
 use abp_core::{
-    AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome,
-    PolicyProfile, Receipt, WorkOrderBuilder, WorkspaceMode, receipt_hash,
+    AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
+    MinSupport, Outcome, PolicyProfile, Receipt, SupportLevel, WorkOrderBuilder, WorkspaceMode,
+    receipt_hash,
 };
 use abp_policy::PolicyEngine;
 use abp_runtime::Runtime;
@@ -42,6 +43,8 @@ struct AbpWorld {
     policy_engine: Option<PolicyEngine>,
     // Saved receipts for cross-scenario comparisons
     saved_receipts: HashMap<String, Receipt>,
+    // Capability manifest inspection
+    fetched_manifest: Option<CapabilityManifest>,
 }
 
 // ---------------------------------------------------------------------------
@@ -495,6 +498,186 @@ async fn write_path_allowed(w: &mut AbpWorld, path: String) {
         decision.allowed,
         "writing '{path}' should be allowed, but was denied: {:?}",
         decision.reason
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Given — Multi-capability work orders
+// ---------------------------------------------------------------------------
+
+#[given(
+    expr = "a work order with task {string} that requires native {string} and emulated {string}"
+)]
+async fn work_order_with_two_caps(
+    w: &mut AbpWorld,
+    task: String,
+    native_cap: String,
+    emulated_cap: String,
+) {
+    let wo = WorkOrderBuilder::new(task)
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .requirements(CapabilityRequirements {
+            required: vec![
+                CapabilityRequirement {
+                    capability: parse_capability(&native_cap),
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: parse_capability(&emulated_cap),
+                    min_support: MinSupport::Emulated,
+                },
+            ],
+        })
+        .build();
+    w.work_order = Some(wo);
+}
+
+#[given(expr = "a work order with task {string} that requires native {string} and native {string}")]
+async fn work_order_with_two_native_caps(
+    w: &mut AbpWorld,
+    task: String,
+    cap1: String,
+    cap2: String,
+) {
+    let wo = WorkOrderBuilder::new(task)
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .requirements(CapabilityRequirements {
+            required: vec![
+                CapabilityRequirement {
+                    capability: parse_capability(&cap1),
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: parse_capability(&cap2),
+                    min_support: MinSupport::Native,
+                },
+            ],
+        })
+        .build();
+    w.work_order = Some(wo);
+}
+
+// ---------------------------------------------------------------------------
+// Given — Complex policy profiles
+// ---------------------------------------------------------------------------
+
+#[given(expr = "a policy that denies tool {string}, reading {string}, and writing {string}")]
+async fn policy_deny_tool_read_write(
+    w: &mut AbpWorld,
+    tool: String,
+    read_pattern: String,
+    write_pattern: String,
+) {
+    w.policy_profile = Some(PolicyProfile {
+        disallowed_tools: vec![tool],
+        deny_read: vec![read_pattern],
+        deny_write: vec![write_pattern],
+        ..PolicyProfile::default()
+    });
+}
+
+#[given(expr = "a policy that denies writing {string} and {string}")]
+async fn policy_deny_write_multi(w: &mut AbpWorld, p1: String, p2: String) {
+    w.policy_profile = Some(PolicyProfile {
+        deny_write: vec![p1, p2],
+        ..PolicyProfile::default()
+    });
+}
+
+// ---------------------------------------------------------------------------
+// When — Capability manifest fetch
+// ---------------------------------------------------------------------------
+
+#[when(expr = "the capability manifest is fetched for the {string} backend")]
+async fn fetch_manifest(w: &mut AbpWorld, backend: String) {
+    let rt = &w.runtime.0;
+    if let Some(b) = rt.backend(&backend) {
+        w.fetched_manifest = Some(b.capabilities());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Then — Capability manifest inspection
+// ---------------------------------------------------------------------------
+
+#[then(expr = "the manifest reports {string} as {string}")]
+async fn manifest_reports_level(w: &mut AbpWorld, cap_name: String, expected_level: String) {
+    let manifest = w
+        .fetched_manifest
+        .as_ref()
+        .expect("capability manifest not fetched");
+    let cap = parse_capability(&cap_name);
+    let level = manifest
+        .get(&cap)
+        .unwrap_or_else(|| panic!("capability {cap_name} not in manifest"));
+    let actual = match level {
+        SupportLevel::Native => "native",
+        SupportLevel::Emulated => "emulated",
+        SupportLevel::Unsupported => "unsupported",
+        SupportLevel::Restricted { .. } => "restricted",
+    };
+    assert_eq!(actual, expected_level);
+}
+
+#[then(expr = "the manifest does not include {string}")]
+async fn manifest_excludes(w: &mut AbpWorld, cap_name: String) {
+    let manifest = w
+        .fetched_manifest
+        .as_ref()
+        .expect("capability manifest not fetched");
+    let cap = parse_capability(&cap_name);
+    assert!(
+        !manifest.contains_key(&cap),
+        "capability {cap_name} should not be in manifest"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Then — Receipt trace length
+// ---------------------------------------------------------------------------
+
+#[then(expr = "the receipt trace contains at least {int} events")]
+async fn receipt_trace_min_length(w: &mut AbpWorld, min: usize) {
+    let receipt = w.receipt.as_ref().expect("no receipt");
+    assert!(
+        receipt.trace.len() >= min,
+        "expected at least {min} events, got {}",
+        receipt.trace.len()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Then — Receipt capabilities snapshot
+// ---------------------------------------------------------------------------
+
+#[then(expr = "the receipt capabilities include {string}")]
+async fn receipt_capabilities_include(w: &mut AbpWorld, cap_name: String) {
+    let receipt = w.receipt.as_ref().expect("no receipt");
+    let cap = parse_capability(&cap_name);
+    assert!(
+        receipt.capabilities.contains_key(&cap),
+        "receipt capabilities should include {cap_name}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Then — Policy denial reason
+// ---------------------------------------------------------------------------
+
+#[then(expr = "the tool {string} denial reason contains {string}")]
+async fn tool_denial_reason(w: &mut AbpWorld, tool: String, needle: String) {
+    let engine = w
+        .policy_engine
+        .as_ref()
+        .expect("policy engine not compiled");
+    let decision = engine.can_use_tool(&tool);
+    assert!(!decision.allowed, "tool '{tool}' should be denied");
+    let reason = decision.reason.as_deref().unwrap_or("");
+    let lower_reason = reason.to_lowercase();
+    let lower_needle = needle.to_lowercase();
+    assert!(
+        lower_reason.contains(&lower_needle),
+        "denial reason '{reason}' should contain '{needle}'"
     );
 }
 
