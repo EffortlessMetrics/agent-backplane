@@ -50,6 +50,12 @@ Think of the system like a power distribution panel:
 - Multiplexes event stream.
 - Produces canonical receipt.
 
+### `abp-sidecar-sdk` (sidecar registration helpers)
+
+- Shared command discovery for sidecar host runtimes.
+- Shared sidecar host script registration wiring.
+- Keeps vendor SDK microcrates focused on identity/constants only.
+
 ### `abp-cli` / `abp-daemon`
 
 - CLI for local usage.
@@ -64,6 +70,7 @@ This repo now includes dedicated sidecar scaffolds and registration microcrates 
 - `hosts/copilot`
 - `hosts/kimi`
 - `crates/abp-kimi-sdk`
+- `crates/abp-copilot-sdk`
 
 - `host.js`: protocol binding, policy gatekeeping, artifact capture, receipt assembly.
 - `adapter.js`: default adapter entrypoint that can be replaced by `ABP_COPILOT_ADAPTER_MODULE`.

@@ -12,9 +12,8 @@ categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }
-abp-host = { path = "../abp-host" }
-abp-integrations = { path = "../abp-integrations" }
 abp-runtime = { path = "../abp-runtime" }
+abp-sidecar-sdk = { path = "../abp-sidecar-sdk" }
 anyhow.workspace = true
 chrono.workspace = true
 serde.workspace = true

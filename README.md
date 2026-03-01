@@ -9,6 +9,18 @@ Agent Backplane (ABP) is a **translation layer between agent SDKs**. It provides
 
 **The contract is the product.** Everything else exists to faithfully map SDK semantics into that contract and back out again.
 
+- A Rust microcrate workspace with a stable contract (`abp-core`)
+- A JSONL sidecar protocol (`abp-protocol`)
+- A sidecar host/supervisor (`abp-host`)
+- Shared include/exclude glob matching utilities (`abp-glob`)
+- Git harness utilities (`abp-git`)
+- Workspace staging utilities (`abp-workspace`)
+- Policy utilities (`abp-policy`)
+- Backend trait + `mock` + `sidecar` backends (`abp-integrations`)
+- Orchestration runtime (`abp-runtime`)
+- CLI (`abp`) and an HTTP daemon control plane (`abp-daemon`)
+- Simple Node + Python sidecar examples under `hosts/`
+
 ## Architecture
 
 ```
@@ -188,7 +200,8 @@ The HTTP daemon (`abp-daemon`) exposes a REST API for programmatic use:
 - `crates/abp-protocol`: JSONL envelope + codec
 - `crates/abp-host`: spawn a sidecar process and stream messages
 - `crates/abp-glob`: compile and evaluate include/exclude glob rules
-- `crates/abp-workspace`: staging + git harness utilities
+- `crates/abp-git`: git harness utilities
+- `crates/abp-workspace`: workspace staging utilities
 - `crates/abp-policy`: policy compilation + allow/deny checks
 - `crates/abp-integrations`: backend trait + implementations
 - `crates/abp-runtime`: orchestration (workspace -> backend -> receipt)
@@ -196,6 +209,7 @@ The HTTP daemon (`abp-daemon`) exposes a REST API for programmatic use:
 - `crates/abp-codex-sdk`: Codex sidecar integration microcrate
 - `crates/abp-gemini-sdk`: Gemini CLI sidecar integration microcrate
 - `crates/abp-kimi-sdk`: Kimi sidecar integration microcrate
+- `crates/abp-copilot-sdk`: Copilot sidecar integration microcrate
 - `crates/sidecar-kit`: value-based JSONL transport layer for sidecar processes
 - `crates/claude-bridge`: standalone Claude SDK bridge built on sidecar-kit
 - `crates/abp-cli`: `abp` CLI

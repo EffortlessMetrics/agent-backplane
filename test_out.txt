@@ -1,0 +1,1638 @@
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 8 tests
+test dialect::tests::default_config_has_sensible_values ... ok
+test dialect::tests::map_response_handles_tool_use ... ok
+test dialect::tests::map_response_produces_assistant_message ... ok
+test tests::sidecar_script_returns_correct_path ... ok
+test tests::backend_name_is_correct ... ok
+test dialect::tests::map_work_order_respects_model_override ... ok
+test dialect::tests::map_work_order_uses_task_as_user_message ... ok
+test tests::register_default_with_nonexistent_root_returns_false ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+running 46 tests
+test capability_manifest_mcp_server_unsupported ... ok
+test capability_manifest_has_mcp_client_native ... ok
+test capability_manifest_has_streaming_native ... ok
+test capability_manifest_hooks_native ... ok
+test dialect_version_is_set ... ok
+test default_model_is_sonnet ... ok
+test from_canonical_without_prefix_passes_through ... ok
+test claude_tool_def_serde_roundtrip ... ok
+test content_block_delta_event_roundtrip ... ok
+test image_block_base64_roundtrip ... ok
+test stream_content_block_stop_maps_to_nothing ... ok
+test stream_delta_thinking_roundtrip ... ok
+test stream_delta_input_json_roundtrip ... ok
+test stream_error_maps_to_error_event ... ok
+test stream_event_content_block_start_roundtrip ... ok
+test model_roundtrip_opus ... ok
+test stream_event_error_roundtrip ... ok
+test model_roundtrip_known ... ok
+test stream_event_message_delta_roundtrip ... ok
+test stream_event_content_block_stop_roundtrip ... ok
+test map_tool_result_with_error ... ok
+test stream_input_json_delta_maps_to_nothing ... ok
+test map_tool_result_creates_user_message ... ok
+test stream_message_start_maps_to_run_started ... ok
+test stream_message_stop_maps_to_run_completed ... ok
+test is_known_model_recognises_claude_4 ... ok
+test claude_response_serde_roundtrip ... ok
+test stream_delta_signature_roundtrip ... ok
+test claude_config_serde_roundtrip ... ok
+test stream_ping_maps_to_nothing ... ok
+test stream_text_delta_maps_to_assistant_delta ... ok
+test stream_delta_text_roundtrip ... ok
+test system_block_with_ephemeral_cache_control ... ok
+test image_block_url_roundtrip ... ok
+test thinking_block_without_signature ... ok
+test system_block_without_cache_control ... ok
+test tool_def_roundtrip ... ok
+test tool_result_content_block_roundtrip ... ok
+test tool_result_with_error_flag ... ok
+test thinking_block_roundtrip ... ok
+test is_known_model_recognises_known ... ok
+test stream_event_ping_roundtrip ... ok
+test stream_event_message_stop_roundtrip ... ok
+test unknown_model_roundtrips ... ok
+test usage_with_cache_tokens ... ok
+test usage_without_cache_tokens_omits_fields ... ok
+
+test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 5 tests
+test context_snippets_are_included_in_user_message ... ok
+test response_with_multiple_blocks_produces_multiple_events ... ok
+test default_config_values_are_sensible ... ok
+test work_order_maps_to_correct_claude_request_fields ... ok
+test work_order_falls_back_to_config_model ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 3 tests
+test snapshot_mapped_request ... ok
+test snapshot_mapped_response_events ... ok
+test snapshot_default_config ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.40s
+
+
+running 8 tests
+test config::tests::display_config_errors ... ok
+test config::tests::validate_empty_command_is_invalid ... ok
+test config::tests::validate_valid_config_succeeds ... ok
+test format::tests::truncate_long_string ... ok
+test format::tests::truncate_short_string ... ok
+test format::tests::output_format_from_str_rejects_unknown ... ok
+test format::tests::output_format_display_roundtrips ... ok
+test config::tests::validate_zero_timeout_is_invalid ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 6 tests
+test tests::parse_param_value_parses_jsonish_values ... ok
+test tests::backend_vendor_namespace_supports_kimi ... ok
+test tests::insert_vendor_path_writes_nested_values ... ok
+test tests::normalize_backend_supports_aliases ... ok
+test tests::parse_key_value_requires_equals ... ok
+test tests::parse_example_config ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 37 tests
+test backends_help_shows_description ... ok
+test run_help_shows_run_options ... ok
+test backends_lists_aliases ... ok
+test debug_flag_on_backends_is_accepted ... ok
+test no_subcommand_shows_usage_hint ... ok
+test version_shows_version_string ... ok
+test invalid_workspace_mode_is_rejected ... ok
+test help_exits_zero_and_contains_expected_text ... ok
+test invalid_param_format_fails ... ok
+test run_unknown_backend_fails_gracefully ... ok
+test run_missing_task_fails_with_error ... ok
+test version_short_flag_works ... ok
+test unknown_subcommand_fails_with_helpful_error ... ok
+test help_short_flag_works ... ok
+test backends_lists_mock ... ok
+test double_dash_before_help_fails ... ok
+test receipt_contains_expected_fields ... ok
+test workspace_mode_pass_through_is_accepted ... ok
+test debug_flag_on_run_is_accepted ... ok
+test env_flag_is_forwarded ... ok
+test backends_lists_sidecar_variants ... ok
+test error_cases_use_nonzero_exit_code ... ok
+test run_empty_task_string_is_accepted ... ok
+test invalid_env_format_fails ... ok
+test run_long_task_string_works ... ok
+test run_without_backend_flag_defaults_to_mock ... ok
+test json_flag_emits_valid_json_lines ... ok
+test param_flag_is_forwarded ... ok
+test run_mock_produces_receipt_with_hash ... ok
+test config_file_in_cwd_registers_custom_backend ... ok
+test json_flag_suppresses_pretty_stderr_headers ... ok
+test debug_and_json_flags_together ... ok
+test lane_workspace_first_is_accepted ... ok
+test model_flag_is_accepted ... ok
+test max_budget_and_turns_flags_accepted ... ok
+test include_exclude_globs_accepted ... ok
+test run_mock_prints_run_id_and_backend_to_stderr ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 36.85s
+
+
+running 9 tests
+test debug_flag_is_accepted ... ok
+test unknown_subcommand_gives_error ... ok
+test help_flag_prints_usage ... ok
+test backends_subcommand_lists_backends ... ok
+test version_flag_prints_version ... ok
+test run_missing_required_task_flag ... ok
+test config_file_registers_backends ... ok
+test run_with_json_flag_emits_json ... ok
+test run_with_mock_backend_succeeds ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 50.71s
+
+
+running 4 tests
+test config_schema_is_generated ... ok
+test schema_has_expected_properties ... ok
+test example_config_validates_against_schema ... ok
+test invalid_config_fails_schema_validation ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+
+running 14 tests
+test default_config_is_empty_and_valid ... ok
+test config_roundtrip ... ok
+test merge_preserves_base_only_backends ... ok
+test env_var_overrides ... ok
+test validate_detects_empty_sidecar_command ... ok
+test merge_overlay_wins ... ok
+test load_none_returns_defaults ... ok
+test empty_config_file_uses_defaults ... ok
+test validate_detects_excessive_timeout ... ok
+test realistic_config_scenario ... ok
+test invalid_toml_gives_helpful_error ... ok
+test unknown_fields_are_tolerated ... ok
+test load_valid_toml_config ... ok
+test schema_validates_full_config ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+
+running 17 tests
+test event_text_shows_timestamp_and_kind ... ok
+test receipt_text_contains_outcome_and_duration ... ok
+test event_table_shows_columns ... ok
+test work_order_compact_single_line ... ok
+test work_order_table_shows_model ... ok
+test work_order_text_shows_id_and_task ... ok
+test error_text_prefixed ... ok
+test receipt_compact_single_line ... ok
+test error_compact_bracketed ... ok
+test output_format_rejects_unknown ... ok
+test output_format_roundtrip ... ok
+test receipt_json_is_valid ... ok
+test error_json_wraps_message ... ok
+test event_compact_single_line ... ok
+test event_json_is_valid ... ok
+test receipt_json_pretty_is_multiline ... ok
+test receipt_table_has_aligned_keys ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+
+running 8 tests
+test dialect::tests::default_config_has_sensible_values ... ok
+test dialect::tests::map_response_produces_assistant_message ... ok
+test dialect::tests::map_response_handles_function_call ... ok
+test tests::sidecar_script_returns_correct_path ... ok
+test tests::backend_name_is_correct ... ok
+test dialect::tests::map_work_order_respects_model_override ... ok
+test dialect::tests::map_work_order_uses_task_as_user_message ... ok
+test tests::register_default_with_nonexistent_root_returns_false ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+
+running 14 tests
+test capability_manifest_has_streaming_native ... ok
+test dialect_version_is_set ... ok
+test from_canonical_without_prefix_passes_through ... ok
+test default_model_is_codex ... ok
+test codex_config_serde_roundtrip ... ok
+test capability_manifest_has_tool_bash_native ... ok
+test codex_tool_def_serde_roundtrip ... ok
+test capability_manifest_mcp_unsupported ... ok
+test is_known_model_recognises_known ... ok
+test codex_response_serde_roundtrip ... ok
+test model_roundtrip_gpt4 ... ok
+test model_roundtrip_known ... ok
+test tool_def_roundtrip ... ok
+test unknown_model_roundtrips ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 5 tests
+test default_config_values_are_sensible ... ok
+test response_with_message_and_function_call_produces_events ... ok
+test work_order_falls_back_to_config_model ... ok
+test work_order_maps_to_correct_codex_request_fields ... ok
+test context_snippets_are_included_in_user_message ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 3 tests
+test snapshot_mapped_response_events ... ok
+test snapshot_default_config ... ok
+test snapshot_mapped_request ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.60s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 7 tests
+test filter::tests::include_passes_matching ... ok
+test filter::tests::exclude_passes_non_matching ... ok
+test filter::tests::exclude_rejects_matching ... ok
+test negotiate::tests::support_rank_ordering ... ok
+test validate::tests::display_variants ... ok
+test filter::tests::include_rejects_non_matching ... ok
+test filter::tests::kind_name_matches_serde_rename ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 30 tests
+test add_increments_count ... ok
+test duration_ms_none_with_one_event ... ok
+test average_text_per_event_computed ... ok
+test default_aggregator_is_empty ... ok
+test duration_ms_computed_from_events ... ok
+test average_text_per_event_zero_when_empty ... ok
+test error_messages_collected ... ok
+test duration_ms_none_with_zero_events ... ok
+test tool_calls_returns_names_in_order ... ok
+test last_timestamp_none_when_empty ... ok
+test run_analytics_successful_without_errors ... ok
+test new_aggregator_is_empty ... ok
+test timestamps_present_after_add ... ok
+test tool_calls_empty_when_no_tool_events ... ok
+test text_length_zero_when_empty ... ok
+test error_messages_empty_when_none ... ok
+test tool_usage_ratio_computed ... ok
+test run_analytics_not_successful_with_errors ... ok
+test tool_usage_ratio_zero_when_empty ... ok
+test summary_from_sample_events ... ok
+test run_analytics_summary_matches_aggregator ... ok
+test count_by_kind_empty ... ok
+test first_timestamp_none_when_empty ... ok
+test count_by_kind_groups_correctly ... ok
+test text_length_sums_assistant_text ... ok
+test summary_serializes_to_json ... ok
+test has_errors_false_when_no_errors ... ok
+test has_errors_true_when_error_present ... ok
+test unique_tool_count_deduplicates ... ok
+test unique_tool_count_zero_when_empty ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+
+running 10 tests
+test any_task_produces_valid_work_order ... ok
+test work_order_default_fields_valid ... ok
+test work_order_serializes_to_valid_json ... ok
+test work_order_serde_round_trip ... ok
+test receipt_serializes_to_valid_json ... ok
+test receipt_timestamp_ordering ... ok
+test work_order_builder_all_fields ... ok
+test receipt_serde_round_trip ... ok
+test receipt_with_hash_passes_verification ... ok
+test receipt_trace_events_preserve_count ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+
+running 40 tests
+test receipt_build_without_hash_then_add ... ok
+test receipt_events_list_preserved ... ok
+test receipt_from_work_order_reference ... ok
+test receipt_outcome_failed ... ok
+test wo_minimal_build ... ok
+test receipt_timing_fields ... ok
+test wo_budget_limits ... ok
+test wo_builder_reusability_independent_orders ... ok
+test receipt_full_with_all_fields ... ok
+test wo_context_items_preserved ... ok
+test wo_default_values_correct ... ok
+test receipt_outcome_partial ... ok
+test receipt_serde_roundtrip ... ok
+test wo_model_override ... ok
+test receipt_token_cost_tracking ... ok
+test receipt_produces_valid_receipt ... ok
+test receipt_hash_changes_when_content_changes ... ok
+test wo_serde_roundtrip ... ok
+test wo_policy_profile_attached ... ok
+test receipt_builder_custom_vendor_data ... ok
+test receipt_capabilities_manifest ... ok
+test wo_task_description_preserved ... ok
+test wo_tool_allowlist ... ok
+test receipt_hash_deterministic ... ok
+test wo_env_btreemap_preserved ... ok
+test receipt_hash_is_generated ... ok
+test wo_full_build ... ok
+test wo_workspace_mode_passthrough ... ok
+test wo_workspace_mode_staged_default ... ok
+test receipt_outcome_complete ... ok
+test wo_include_exclude_globs ... ok
+test wo_max_turns ... ok
+test receipt_error_event_in_failed_outcome ... ok
+test receipt_minimal_from_work_order_id ... ok
+test receipt_unique_run_ids ... ok
+test wo_unique_id_generation ... ok
+test wo_vendor_config_passthrough ... ok
+test receipt_default_values_are_sensible ... ok
+test receipt_model_field_via_work_order ... ok
+test receipt_verification_report ... ok
+
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 36 tests
+test capability_serde::all_variants_serialize_to_snake_case ... ok
+test capability_serde::deserialize_from_string ... ok
+test min_support::emulated_does_not_satisfy_native ... ok
+test manifest_lookup::lookup_existing_emulated ... ok
+test manifest_lookup::lookup_existing_native ... ok
+test empty_manifest::empty_manifest_returns_none_for_any_capability ... ok
+test min_support::restricted_satisfies_emulated ... ok
+test manifest_lookup::manifest_serde_round_trip ... ok
+test manifest_ordering::insertion_order_does_not_affect_serialization ... ok
+test min_support::native_satisfies_emulated ... ok
+test min_support::min_support_serde_round_trip ... ok
+test min_support::unsupported_does_not_satisfy_emulated ... ok
+test min_support::emulated_satisfies_emulated ... ok
+test requirement_matching::multiple_requirements_all_satisfied ... ok
+test requirement_matching::multiple_requirements_partial_satisfaction ... ok
+test requirement_matching::single_requirement_not_satisfied_level_too_low ... ok
+test requirement_matching::single_requirement_not_satisfied_missing ... ok
+test empty_manifest::empty_manifest_serializes_to_empty_object ... ok
+test requirement_matching::single_requirement_satisfied ... ok
+test requirements_serde::empty_requirements_round_trip ... ok
+test requirements_serde::json_shape_matches_contract ... ok
+test requirements_serde::round_trip ... ok
+test requirement_matching::restricted_does_not_satisfy_native_requirement ... ok
+test manifest_lookup::lookup_missing_capability ... ok
+test requirement_matching::restricted_satisfies_emulated_requirement ... ok
+test empty_manifest::empty_requirements_default ... ok
+test manifest_in_receipt::manifest_survives_receipt_serialization ... ok
+test requirement_matching::empty_requirements_always_satisfied ... ok
+test capability_serde::all_variants_round_trip ... ok
+test min_support::unsupported_does_not_satisfy_native ... ok
+test capability_serde::unknown_variant_is_rejected ... ok
+test empty_manifest::empty_manifest_has_no_entries ... ok
+test manifest_lookup::lookup_existing_restricted ... ok
+test manifest_lookup::lookup_existing_unsupported ... ok
+test min_support::native_satisfies_native ... ok
+test min_support::restricted_does_not_satisfy_native ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+
+running 23 tests
+test empty_chain_is_empty ... ok
+test empty_chain_last_is_none ... ok
+test chain_error_display ... ok
+test empty_chain_verify_returns_empty_error ... ok
+test duplicate_id_rejected ... ok
+test success_rate_empty ... ok
+test push_multiple_receipts ... ok
+test duration_range_empty ... ok
+test push_single_receipt ... ok
+test success_rate_all_success ... ok
+test duration_range_single ... ok
+test find_by_backend ... ok
+test find_by_id_existing ... ok
+test verify_detects_corrupted_hash ... ok
+test duration_range_multiple ... ok
+test invalid_hash_rejected_on_push ... ok
+test into_iter_chain ... ok
+test single_receipt_last ... ok
+test single_receipt_verify ... ok
+test find_by_id_missing ... ok
+test total_events_across_chain ... ok
+test success_rate_mixed ... ok
+test iterate_chain ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 28 tests
+test default_model_is_gpt4 ... ok
+test apply_defaults_fills_missing ... ok
+test empty_deny_read_glob_is_error ... ok
+test valid_vendor_keys_ok ... ok
+test none_max_turns_ok ... ok
+test positive_budget_ok ... ok
+test apply_defaults_then_validate_passes ... ok
+test empty_deny_write_glob_is_error ... ok
+test whitespace_only_task_is_error ... ok
+test empty_disallowed_tools_glob_is_error ... ok
+test empty_model_is_error ... ok
+test zero_budget_is_error ... ok
+test zero_max_turns_is_error ... ok
+test duplicate_allowed_tools_warning ... ok
+test whitespace_model_is_error ... ok
+test apply_defaults_preserves_existing ... ok
+test positive_max_turns_ok ... ok
+test unique_allowed_tools_ok ... ok
+test negative_budget_is_error ... ok
+test no_model_set_ok ... ok
+test valid_work_order_no_warnings ... ok
+test default_max_budget_is_1 ... ok
+test default_max_turns_is_25 ... ok
+test empty_task_is_error ... ok
+test empty_vendor_key_is_error ... ok
+test valid_model_ok ... ok
+test multiple_errors_reported ... ok
+test valid_policy_globs_ok ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 91 tests
+test agent_event_clone_debug ... ok
+test backend_identity_clone_debug ... ok
+test capability_all_variants_serde ... ok
+test artifact_ref_construction_and_roundtrip ... ok
+test capability_clone_debug_ord ... ok
+test context_packet_clone_debug ... ok
+test agent_event_serde_roundtrip ... ok
+test capability_requirements_default ... ok
+test capability_requirements_serde_roundtrip ... ok
+test canonical_json_deterministic ... ok
+test capability_requirements_clone_debug ... ok
+test agent_event_construction ... ok
+test backend_identity_construction_and_roundtrip ... ok
+test context_packet_default ... ok
+test context_packet_serde_roundtrip ... ok
+test contract_version_prefix ... ok
+test contract_error_debug ... ok
+test event_kind_assistant_delta ... ok
+test event_kind_assistant_message ... ok
+test contract_version_value ... ok
+test event_kind_run_completed ... ok
+test event_kind_command_executed ... ok
+test event_kind_run_started ... ok
+test capability_requirement_construction_and_roundtrip ... ok
+test event_kind_tool_call ... ok
+test event_kind_tool_result ... ok
+test event_kind_warning ... ok
+test execution_lane_clone_debug ... ok
+test execution_mode_clone_debug ... ok
+test execution_mode_default_is_mapped ... ok
+test execution_mode_mapped ... ok
+test execution_mode_passthrough ... ok
+test min_support_clone_debug ... ok
+test event_kind_file_changed ... ok
+test event_kind_error ... ok
+test outcome_complete ... ok
+test outcome_partial ... ok
+test outcome_failed ... ok
+test policy_profile_default ... ok
+test policy_profile_serde_roundtrip ... ok
+test receipt_clone ... ok
+test receipt_construction ... ok
+test receipt_builder_with_hash ... ok
+test receipt_with_hash ... ok
+test receipt_serde_roundtrip ... ok
+test min_support_emulated_serde ... ok
+test policy_profile_clone_debug ... ok
+test run_metadata_serde_roundtrip ... ok
+test runtime_config_clone_debug ... ok
+test receipt_debug ... ok
+test min_support_native_serde ... ok
+test runtime_config_default ... ok
+test runtime_config_serde_roundtrip ... ok
+test run_metadata_clone_debug ... ok
+test outcome_clone_debug ... ok
+test sha256_hex_length ... ok
+test support_level_clone_debug ... ok
+test support_level_restricted ... ok
+test support_level_satisfies ... ok
+test support_level_unsupported ... ok
+test usage_normalized_clone_debug ... ok
+test usage_normalized_default ... ok
+test usage_normalized_serde_roundtrip ... ok
+test verification_report_serde_roundtrip ... ok
+test work_order_builder_all_setters ... ok
+test work_order_builder_debug ... ok
+test work_order_clone ... ok
+test run_metadata_construction ... ok
+test work_order_construction ... ok
+test artifact_ref_clone_debug ... ok
+test work_order_debug ... ok
+test capability_manifest_construction_and_roundtrip ... ok
+test agent_event_with_ext ... ok
+test workspace_mode_pass_through ... ok
+test capability_requirement_clone_debug ... ok
+test verification_report_default ... ok
+test verification_report_clone_debug ... ok
+test context_snippet_clone_debug ... ok
+test workspace_mode_staged ... ok
+test context_snippet_construction_and_roundtrip ... ok
+test workspace_spec_clone_debug ... ok
+test workspace_spec_construction ... ok
+test execution_lane_workspace_first ... ok
+test execution_lane_patch_first ... ok
+test workspace_spec_serde_roundtrip ... ok
+test receipt_builder_all_setters ... ok
+test receipt_builder_debug ... ok
+test support_level_emulated ... ok
+test work_order_serde_roundtrip ... ok
+test support_level_native ... ok
+test workspace_mode_clone_debug ... ok
+
+test result: ok. 91 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+
+running 25 tests
+test outcome_serializes_stably ... ok
+test agent_event_kind_discriminator_is_type ... ok
+test agent_event_assistant_delta_deserializes ... ok
+test agent_event_run_completed_deserializes ... ok
+test agent_event_command_executed_deserializes ... ok
+test agent_event_tool_result_deserializes ... ok
+test agent_event_warning_deserializes ... ok
+test agent_event_run_started_deserializes ... ok
+test min_support_serializes_stably ... ok
+test agent_event_assistant_message_deserializes ... ok
+test work_order_has_required_fields ... ok
+test execution_lane_serializes_stably ... ok
+test workspace_mode_serializes_stably ... ok
+test work_order_fixture_deserializes ... ok
+test execution_mode_serializes_stably ... ok
+test agent_event_tool_call_deserializes ... ok
+test receipt_has_required_fields ... ok
+test receipt_fixture_deserializes ... ok
+test agent_event_error_deserializes ... ok
+test capability_serializes_stably ... ok
+test agent_event_file_changed_deserializes ... ok
+test capability_map_round_trips_with_btreemap ... ok
+test receipt_without_mode_defaults_to_mapped ... ok
+test support_level_serializes_stably ... ok
+test contract_version_is_v0_1 ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 50 tests
+test agent_event_variants::assistant_delta ... ok
+test agent_event_variants::ext_field_round_trips ... ok
+test agent_event_variants::run_started ... ok
+test agent_event_variants::run_completed ... ok
+test agent_event_variants::file_changed ... ok
+test builder::builder_with_defaults ... ok
+test execution_mode::default_is_mapped ... ok
+test agent_event_variants::assistant_message ... ok
+test agent_event_variants::command_executed ... ok
+test capability_ordering::btreemap_is_deterministic ... ok
+test agent_event_variants::tool_call ... ok
+test agent_event_variants::tool_result ... ok
+test capability_ordering::capability_serde_snake_case ... ok
+test receipt_hashing::changing_outcome_changes_hash ... ok
+test context_packet_default::default_has_empty_fields ... ok
+test execution_mode::round_trip ... ok
+test canonical_json_tests::deterministic_for_btreemap ... ok
+test execution_mode::serde_values ... ok
+test execution_lane::patch_first_round_trip ... ok
+test outcome_serde::outcome_values ... ok
+test canonical_json_tests::nested_objects_sorted ... ok
+test execution_lane::workspace_first_round_trip ... ok
+test receipt_hashing::existing_hash_ignored_during_computation ... ok
+test receipt_hashing::hash_is_deterministic ... ok
+test receipt_hashing::with_hash_produces_valid_hash ... ok
+test sha256_hex_tests::hash_is_lowercase_hex ... ok
+test sha256_hex_tests::known_empty_hash ... ok
+test support_level_satisfies::emulated_min_native_level ... ok
+test support_level_satisfies::emulated_min_restricted_level ... ok
+test agent_event_variants::event_type_tag_in_json ... ok
+test agent_event_variants::warning ... ok
+test agent_event_variants::error ... ok
+test context_packet_default::default_round_trips ... ok
+test contract_version::equals_expected ... ok
+test support_level_satisfies::emulated_min_unsupported_level ... ok
+test support_level_satisfies::native_min_emulated_level ... ok
+test builder::builder_produces_valid_work_order ... ok
+test support_level_satisfies::native_min_native_level ... ok
+test policy_profile_default::all_fields_default_to_empty ... ok
+test builder::builder_with_all_fields ... ok
+test support_level_serde::restricted_round_trip ... ok
+test work_order_serde::execution_lane_serde_values ... ok
+test work_order_serde::round_trip_json ... ok
+test receipt_hashing::changing_field_changes_hash ... ok
+test support_level_satisfies::native_min_restricted_level ... ok
+test support_level_satisfies::native_min_unsupported_level ... ok
+test support_level_serde::native_round_trip ... ok
+test work_order_serde::workspace_mode_serde_values ... ok
+test support_level_satisfies::emulated_min_emulated_level ... ok
+test sha256_hex_tests::known_hello_hash ... ok
+
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 16 tests
+test empty_capability_requirements_via_default ... ok
+test empty_capability_requirements_round_trips ... ok
+test with_hash_overwrites_preexisting_hash ... ok
+test nil_uuid_in_receipt_metadata ... ok
+test work_order_empty_task_round_trips ... ok
+test receipt_hash_clears_preexisting_hash ... ok
+test with_hash_idempotent ... ok
+test work_order_with_unknown_fields_succeeds ... ok
+test work_order_missing_task_field_errors ... ok
+test work_order_from_invalid_json_errors ... ok
+test work_order_from_empty_string_errors ... ok
+test work_order_from_truncated_json_errors ... ok
+test receipt_all_optional_none_round_trips ... ok
+test work_order_long_task_round_trips ... ok
+test nil_uuid_work_order_round_trips ... ok
+test work_order_missing_id_field_errors ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+
+running 47 tests
+test agent_event_kind_count ... ok
+test agent_event_kind_serialize_all ... ok
+test capability_clone_eq ... ok
+test capability_count ... ok
+test agent_event_kind_debug ... ok
+test agent_event_kind_clone_eq ... ok
+test execution_lane_debug ... ok
+test execution_lane_count ... ok
+test execution_mode_clone_eq ... ok
+test outcome_count ... ok
+test execution_mode_serialize_all ... ok
+test min_support_clone_eq ... ok
+test min_support_count ... ok
+test outcome_debug ... ok
+test outcome_round_trip ... ok
+test min_support_round_trip ... ok
+test min_support_serialize_all ... ok
+test execution_lane_round_trip ... ok
+test execution_lane_serialize_all ... ok
+test capability_debug ... ok
+test capability_serialize_all ... ok
+test execution_lane_clone_eq ... ok
+test outcome_clone_eq ... ok
+test outcome_serialize_all ... ok
+test support_level_clone_eq ... ok
+test execution_mode_count ... ok
+test min_support_debug ... ok
+test contract_error_count ... ok
+test capability_round_trip ... ok
+test support_level_count ... ok
+test support_level_debug ... ok
+test validation_error_clone_eq ... ok
+test validation_error_count ... ok
+test workspace_mode_debug ... ok
+test workspace_mode_clone_eq ... ok
+test workspace_mode_round_trip ... ok
+test workspace_mode_count ... ok
+test workspace_mode_serialize_all ... ok
+test validation_error_debug ... ok
+test validation_error_display ... ok
+test agent_event_kind_round_trip ... ok
+test execution_mode_debug ... ok
+test execution_mode_round_trip ... ok
+test contract_error_display ... ok
+test contract_error_debug ... ok
+test support_level_round_trip ... ok
+test support_level_serialize_all ... ok
+
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+running 26 tests
+test all_categories_covered ... ok
+test all_codes_follow_naming_convention ... ok
+test all_descriptions_non_empty ... ok
+test category_protocol_non_empty ... ok
+test category_contract_non_empty ... ok
+test category_policy_non_empty ... ok
+test category_runtime_non_empty ... ok
+test category_system_non_empty ... ok
+test code_letter_matches_category ... ok
+test error_info_display_basic ... ok
+test error_info_display_no_context_no_parens ... ok
+test error_info_multiple_context_entries_separated ... ok
+test error_info_with_source ... ok
+test lookup_unknown_code_returns_none ... ok
+test serde_error_code_uses_snake_case ... ok
+test serde_roundtrip_error_code ... ok
+test error_info_display_with_context ... ok
+test error_info_empty_context_by_default ... ok
+test unknown_category_returns_empty ... ok
+test error_info_debug_includes_source ... ok
+test all_error_codes_are_unique ... ok
+test at_least_fifty_codes ... ok
+test error_code_display_shows_code_string ... ok
+test lookup_known_code ... ok
+test error_info_builder_chaining ... ok
+test lookup_roundtrip_all_codes ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+
+running 33 tests
+test duration_secs_conversion ... ok
+test event_count_by_kind_empty ... ok
+test has_capability_present ... ok
+test has_errors_false ... ok
+test is_tool_call_true ... ok
+test is_code_task_positive ... ok
+test is_terminal_other ... ok
+test is_terminal_run_completed ... ok
+test is_tool_call_false ... ok
+test is_code_task_negative ... ok
+test required_capabilities_from_requirements ... ok
+test vendor_config_present ... ok
+test required_capabilities_inferred_bash ... ok
+test task_summary_truncated ... ok
+test text_content_none_for_tool ... ok
+test vendor_config_absent ... ok
+test assistant_messages_filter ... ok
+test has_errors_true ... ok
+test text_content_delta ... ok
+test task_summary_short ... ok
+test tool_budget_remaining_none ... ok
+test total_tool_calls_count ... ok
+test is_code_task_case_insensitive ... ok
+test is_success_complete ... ok
+test tool_budget_remaining_some ... ok
+test text_content_message ... ok
+test tool_calls_filter ... ok
+test is_failure_failed ... ok
+test is_partial_neither ... ok
+test required_capabilities_inferred_from_task ... ok
+test has_capability_absent ... ok
+test task_summary_exact_boundary ... ok
+test event_count_by_kind_mixed ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+
+running 11 tests
+test exclude_all_kinds_passes_nothing ... ok
+test filter_against_all_known_kinds_exclude ... ok
+test filter_mixed_stream_exclude ... ok
+test multiple_include_kinds ... ok
+test filter_mixed_stream_include ... ok
+test filter_against_all_known_kinds_include ... ok
+test empty_exclude_passes_everything ... ok
+test helper_all_event_kinds_covers_every_variant ... ok
+test empty_include_passes_nothing ... ok
+test multiple_exclude_kinds ... ok
+test include_all_kinds_passes_everything ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 5 tests
+test exclude_single_kind_never_matches ... ok
+test all_variants_matchable_by_serde_name ... ok
+test include_single_kind_always_matches ... ok
+test include_and_exclude_same_kind_passes_nothing ... ok
+test filter_is_deterministic ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 7 tests
+test include_filter_passes_matching_events ... ok
+test include_filter_rejects_non_matching_events ... ok
+test empty_include_passes_nothing ... ok
+test exclude_filter_passes_non_matching_events ... ok
+test empty_exclude_passes_everything ... ok
+test exclude_filter_rejects_matching_events ... ok
+test filter_is_case_insensitive ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 25 tests
+test empty_strings_in_receipt_fields ... ok
+test filter_with_empty_kinds_list ... ok
+test empty_strings_in_work_order ... ok
+test max_u32_turns_and_extreme_budget ... ok
+test deeply_nested_json_in_vendor_config ... ok
+test max_u64_duration ... ok
+test empty_backend_id_fails_validation ... ok
+test nested_json_in_task_field ... ok
+test null_bytes_in_task ... ok
+test long_backend_id_in_receipt ... ok
+test receipt_hash_determinism_with_unicode ... ok
+test receipt_with_wrong_contract_version ... ok
+test receipt_with_tampered_hash ... ok
+test zero_width_joiner_in_strings ... ok
+test special_chars_in_tool_names ... ok
+test event_with_large_ext_map ... ok
+test filter_case_insensitivity ... ok
+test long_task_string_in_work_order ... ok
+test receipt_json_with_nan_like_floats ... ok
+test max_u64_token_counts ... ok
+test mixed_unicode_scripts_and_surrogates ... ok
+test rtl_and_bidi_characters ... ok
+test special_chars_in_backend_id ... ok
+test malformed_json_does_not_panic ... ok
+test nested_json_in_backend_id ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 15 tests
+test golden_event_command_executed ... ok
+test golden_event_run_started ... ok
+test golden_event_with_ext ... ok
+test golden_event_error ... ok
+test golden_event_tool_result ... ok
+test golden_event_tool_call ... ok
+test golden_event_assistant_message ... ok
+test golden_event_assistant_delta ... ok
+test golden_full_receipt ... ok
+test golden_event_warning ... ok
+test golden_event_run_completed ... ok
+test golden_event_file_changed ... ok
+test golden_full_work_order ... ok
+test golden_schema_work_order ... ok
+test golden_schema_receipt ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.86s
+
+
+running 36 tests
+test hash_changes_when_contract_version_changes ... ok
+test hash_changes_when_verification_changes ... ok
+test empty_string_hash_treated_same_as_none ... ok
+test hash_changes_when_artifact_added ... ok
+test hash_changes_when_mode_changes ... ok
+test hash_changes_when_run_id_changes ... ok
+test hash_changes_when_work_order_id_changes ... ok
+test none_hash_and_some_hash_produce_same_digest ... ok
+test hash_is_idempotent ... ok
+test hash_is_lowercase_hex ... ok
+test hash_deterministic_after_serde_round_trip ... ok
+test hash_is_64_hex_chars ... ok
+test emoji_in_trace_events_hashes ... ok
+test large_trace_order_matters ... ok
+test minimal_receipt_hashes_successfully ... ok
+test hash_changes_when_duration_changes ... ok
+test hash_changes_when_outcome_changes ... ok
+test receipt_builder_with_hash_consistent ... ok
+test unicode_fields_change_hash ... ok
+test minimal_receipt_with_hash_succeeds ... ok
+test preexisting_hash_does_not_affect_result ... ok
+test preexisting_hash_replaced_by_with_hash ... ok
+test hash_changes_when_trace_added ... ok
+test hash_changes_when_backend_id_changes ... ok
+test hash_changes_when_capabilities_change ... ok
+test hash_changes_when_usage_raw_changes ... ok
+test correct_hash_in_field_still_cleared ... ok
+test unicode_backend_id_hashes ... ok
+test hash_deterministic_across_separate_constructions ... ok
+test unicode_in_verification_hashes ... ok
+test hash_changes_when_usage_normalized_changes ... ok
+test with_hash_chain_is_stable ... ok
+test with_hash_is_idempotent ... ok
+test large_trace_hashes_correctly ... ok
+test with_hash_then_receipt_hash_agree ... ok
+test large_trace_hash_is_deterministic ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+
+running 47 tests
+test receipt_builder_defaults::default_capabilities_empty ... ok
+test receipt_builder_defaults::default_backend_versions_none ... ok
+test contract_version_is_abp_v0_1 ... ok
+test validation_edges::empty_backend_id_rejected ... ok
+test receipt_builder_defaults::zero_duration_when_same_timestamps ... ok
+test receipt_hash_null_field::hash_ignores_receipt_sha256_value ... ok
+test receipt_builder_defaults::default_contract_version_matches_constant ... ok
+test receipt_hash_null_field::with_hash_stores_correct_value ... ok
+test receipt_builder_defaults::default_outcome_is_complete ... ok
+test receipt_hash_null_field::hash_format_exact ... ok
+test receipt_hash_null_field::with_hash_sets_some ... ok
+test receipt_builder_defaults::backend_id_is_stored ... ok
+test receipt_builder_defaults::default_receipt_sha256_is_none ... ok
+test receipt_builder_defaults::default_artifacts_empty ... ok
+test satisfies_boundaries::unsupported_native_false ... ok
+test validation_edges::multiple_errors_accumulated ... ok
+test receipt_builder_defaults::default_trace_empty ... ok
+test sha256_hex_empty_input ... ok
+test receipt_builder_defaults::default_work_order_id_is_nil ... ok
+test satisfies_boundaries::emulated_native_false ... ok
+test satisfies_boundaries::native_emulated_true ... ok
+test receipt_builder_defaults::duration_computed_from_timestamps ... ok
+test sha256_hex_known_input ... ok
+test satisfies_boundaries::emulated_emulated_true ... ok
+test satisfies_boundaries::native_native_true ... ok
+test satisfies_boundaries::restricted_emulated_true ... ok
+test execution_mode_default_is_mapped ... ok
+test canonical_json_produces_string ... ok
+test receipt_builder_defaults::default_mode_is_mapped ... ok
+test validation_edges::inverted_timestamps_rejected ... ok
+test satisfies_boundaries::unsupported_emulated_false ... ok
+test validation_edges::no_hash_passes_validation ... ok
+test satisfies_boundaries::restricted_native_false ... ok
+test validation_edges::tampered_hash_detected ... ok
+test validation_edges::valid_receipt_passes ... ok
+test validation_edges::wrong_contract_version_rejected ... ok
+test work_order_edges::builder_default_config_is_none ... ok
+test work_order_edges::builder_default_globs_empty ... ok
+test work_order_edges::builder_default_lane_is_patch_first ... ok
+test work_order_edges::builder_default_root_is_dot ... ok
+test work_order_edges::builder_default_workspace_mode_is_staged ... ok
+test work_order_edges::builder_empty_task ... ok
+test work_order_edges::builder_include_exclude_preserved ... ok
+test work_order_edges::builder_max_budget_setter ... ok
+test work_order_edges::builder_max_turns_setter ... ok
+test work_order_edges::builder_model_setter ... ok
+test work_order_edges::builder_preserves_task_text ... ok
+
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 24 tests
+test best_match_empty_manifests ... ok
+test best_match_returns_none_when_none_compatible ... ok
+test diff_no_change ... ok
+test diff_removed_capabilities ... ok
+test negotiate_preferred_appear_as_bonus ... ok
+test negotiate_emulated_minimum_accepts_restricted ... ok
+test negotiate_native_minimum_rejects_emulated ... ok
+test negotiate_missing_required_is_unsatisfied ... ok
+test diff_added_capabilities ... ok
+test best_match_all_compatible_picks_best ... ok
+test negotiate_restricted_minimum_rejects_unsupported ... ok
+test negotiate_empty_required_always_compatible ... ok
+test negotiate_emulated_minimum_accepts_native ... ok
+test negotiate_unsupported_minimum_accepts_anything ... ok
+test diff_both_empty ... ok
+test diff_downgrade_detected ... ok
+test diff_mixed_changes ... ok
+test best_match_selects_highest_score ... ok
+test best_match_tie_broken_deterministically ... ok
+test diff_restricted_to_native_is_upgrade ... ok
+test diff_upgrade_detected ... ok
+test negotiate_preferred_below_minimum_not_bonus ... ok
+test negotiate_preferred_missing_not_bonus ... ok
+test negotiate_all_required_satisfied ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 8 tests
+test support_level_satisfies_consistency ... ok
+test execution_mode_round_trip ... ok
+test sha256_hex_length ... ok
+test agent_event_serde_round_trip ... ok
+test work_order_json_round_trip ... ok
+test canonical_json_determinism ... ok
+test receipt_with_hash_idempotence ... ok
+test receipt_hash_determinism ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+
+running 1 test
+test receipt_hash_matches_stored_hash ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 39 tests
+test agent_event_ext_none_omitted_in_serialization ... ok
+test btreemap_capability_manifest_deterministic ... ok
+test btreemap_config_vendor_keys_sorted ... ok
+test agent_event_ext_some_included_in_serialization ... ok
+test cross_version_receipt_missing_mode_defaults ... ok
+test default_context_packet_roundtrips ... ok
+test default_execution_mode_is_mapped ... ok
+test default_verification_report_roundtrips ... ok
+test default_usage_normalized_roundtrips ... ok
+test enum_execution_lane_variants ... ok
+test enum_agent_event_kind_all_variants ... ok
+test enum_execution_mode_variants ... ok
+test enum_support_level_variants ... ok
+test enum_workspace_mode_variants ... ok
+test forward_compat_extra_fields_in_usage_normalized ... ok
+test missing_optional_fields_usage_normalized ... ok
+test enum_agent_event_kind_tag_is_type ... ok
+test missing_optional_fields_backend_identity ... ok
+test missing_optional_fields_runtime_config ... ok
+test default_capability_requirements_roundtrips ... ok
+test forward_compat_extra_fields_in_runtime_config ... ok
+test cross_version_v01_work_order_fixture ... ok
+test btreemap_env_keys_sorted ... ok
+test cross_version_agent_event_with_ext ... ok
+test default_runtime_config_roundtrips ... ok
+test cross_version_v01_receipt_fixture ... ok
+test enum_min_support_variants ... ok
+test enum_outcome_variants ... ok
+test forward_compat_extra_fields_in_verification_report ... ok
+test enum_capability_all_snake_case ... ok
+test forward_compat_extra_fields_in_backend_identity ... ok
+test default_policy_profile_roundtrips ... ok
+test missing_optional_fields_verification_report ... ok
+test null_vs_absent_agent_event_ext ... ok
+test null_vs_absent_backend_identity ... ok
+test null_vs_absent_runtime_config_model ... ok
+test null_vs_absent_usage_normalized ... ok
+test work_order_roundtrips ... ok
+test receipt_roundtrips ... ok
+
+test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 48 tests
+test command_executed_optional_fields_absent ... ok
+test default_values_roundtrip ... ok
+test optional_fields_present ... ok
+test roundtrip_agent_event_kind_assistant_delta ... ok
+test roundtrip_agent_event_kind_file_changed ... ok
+test roundtrip_agent_event_kind_tool_result ... ok
+test roundtrip_agent_event_kind_warning ... ok
+test roundtrip_agent_event_kind_run_started ... ok
+test roundtrip_context_packet ... ok
+test roundtrip_min_support_variants ... ok
+test roundtrip_agent_event ... ok
+test agent_event_ext_none_vs_some ... ok
+test capability_manifest_empty ... ok
+test receipt_with_hash_roundtrips ... ok
+test nested_events_in_receipt_preserve ... ok
+test optional_fields_absent ... ok
+test roundtrip_capability_all_variants ... ok
+test roundtrip_capability_requirement ... ok
+test roundtrip_capability_requirements ... ok
+test roundtrip_agent_event_kind_error ... ok
+test roundtrip_execution_lane_variants ... ok
+test roundtrip_agent_event_kind_run_completed ... ok
+test roundtrip_context_snippet ... ok
+test roundtrip_agent_event_kind_tool_call ... ok
+test roundtrip_capability_manifest ... ok
+test roundtrip_execution_mode_variants ... ok
+test execution_mode_default_is_mapped ... ok
+test roundtrip_agent_event_kind_assistant_message ... ok
+test roundtrip_agent_event_kind_command_executed ... ok
+test roundtrip_artifact_ref ... ok
+test roundtrip_backend_identity ... ok
+test empty_collections_roundtrip ... ok
+test roundtrip_outcome_variants ... ok
+test roundtrip_policy_profile ... ok
+test roundtrip_receipt_full ... ok
+test roundtrip_run_metadata ... ok
+test roundtrip_runtime_config ... ok
+test roundtrip_verification_report ... ok
+test roundtrip_workspace_mode_variants ... ok
+test roundtrip_work_order ... ok
+test roundtrip_workspace_spec ... ok
+test tool_call_optional_ids_absent ... ok
+test tool_result_is_error_true ... ok
+test unknown_fields_ignored_work_order ... ok
+test unknown_fields_ignored_receipt ... ok
+test unknown_fields_ignored_agent_event_kind ... ok
+test roundtrip_support_level_variants ... ok
+test roundtrip_usage_normalized ... ok
+
+test result: ok. 48 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
+
+
+running 72 tests
+test agent_event_extra_fields_tolerated ... ok
+test agent_event_ext_null_vs_absent_vs_some ... ok
+test agent_event_command_executed_null_optionals ... ok
+test agent_event_assistant_message_roundtrip ... ok
+test agent_event_tool_call_null_optionals ... ok
+test capability_requirement_all_combos_roundtrip ... ok
+test artifact_ref_roundtrip ... ok
+test agent_event_with_ext_roundtrip ... ok
+test backend_identity_minimal_missing_optionals ... ok
+test capability_requirement_emulated_roundtrip ... ok
+test agent_event_run_started_roundtrip ... ok
+test backend_identity_full_roundtrip ... ok
+test capability_all_variants_roundtrip ... ok
+test context_snippet_roundtrip ... ok
+test capability_manifest_empty_roundtrip ... ok
+test execution_lane_all_variants_roundtrip ... ok
+test execution_lane_pretty_vs_compact ... ok
+test execution_mode_all_variants_roundtrip ... ok
+test agent_event_warning_roundtrip ... ok
+test agent_event_tool_result_roundtrip ... ok
+test full_work_order_json_fixture_deserializes ... ok
+test min_support_all_variants_roundtrip ... ok
+test capability_requirements_full_roundtrip ... ok
+test context_packet_with_snippets_roundtrip ... ok
+test outcome_pretty_vs_compact ... ok
+test agent_event_assistant_delta_roundtrip ... ok
+test agent_event_run_completed_roundtrip ... ok
+test policy_profile_empty_roundtrip ... ok
+test min_support_pretty_vs_compact ... ok
+test capability_pretty_vs_compact ... ok
+test outcome_all_variants_roundtrip ... ok
+test agent_event_file_changed_roundtrip ... ok
+test capability_manifest_roundtrip ... ok
+test receipt_extra_fields_tolerated ... ok
+test agent_event_error_roundtrip ... ok
+test agent_event_command_executed_roundtrip ... ok
+test agent_event_tool_call_roundtrip ... ok
+test execution_mode_pretty_vs_compact ... ok
+test receipt_full_roundtrip ... ok
+test canonical_json_deterministic_for_work_order ... ok
+test receipt_null_optional_fields ... ok
+test canonical_json_deterministic_for_receipt ... ok
+test receipt_pretty_vs_compact ... ok
+test full_receipt_json_fixture_deserializes ... ok
+test receipt_without_hash_roundtrip ... ok
+test receipt_sha256_null_vs_present ... ok
+test receipt_minimal_roundtrip ... ok
+test run_metadata_roundtrip ... ok
+test receipt_with_hash_roundtrip ... ok
+test receipt_missing_mode_defaults_to_mapped ... ok
+test support_level_native_roundtrip ... ok
+test support_level_emulated_roundtrip ... ok
+test runtime_config_full_roundtrip ... ok
+test support_level_restricted_extra_fields ... ok
+test verification_report_full_roundtrip ... ok
+test work_order_extra_fields_tolerated ... ok
+test workspace_mode_all_variants_roundtrip ... ok
+test workspace_mode_pretty_vs_compact ... ok
+test workspace_spec_roundtrip ... ok
+test work_order_null_optional_config_fields ... ok
+test work_order_minimal_roundtrip ... ok
+test usage_normalized_all_null ... ok
+test work_order_full_roundtrip ... ok
+test usage_normalized_full_roundtrip ... ok
+test work_order_pretty_vs_compact ... ok
+test capability_requirement_extra_fields_tolerated ... ok
+test agent_event_tool_result_error_variant ... ok
+test capability_requirement_native_roundtrip ... ok
+test policy_profile_extra_fields_tolerated ... ok
+test support_level_restricted_roundtrip ... ok
+test policy_profile_full_roundtrip ... ok
+test support_level_unsupported_roundtrip ... ok
+
+test result: ok. 72 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+
+running 25 tests
+test snapshot_event_kind_file_changed ... ok
+test snapshot_event_kind_run_completed ... ok
+test snapshot_minimal_work_order ... ok
+test snapshot_full_work_order_all_fields ... ok
+test snapshot_validation_error_missing_field ... ok
+test snapshot_work_order_builder_defaults ... ok
+test snapshot_receipt_builder_defaults ... ok
+test snapshot_receipt_failed_outcome ... ok
+test snapshot_event_kind_run_started ... ok
+test snapshot_all_capability_variants ... ok
+test snapshot_event_kind_tool_call ... ok
+test snapshot_event_kind_error ... ok
+test snapshot_validation_error_empty_backend ... ok
+test snapshot_event_kind_command_executed ... ok
+test snapshot_validation_error_invalid_hash ... ok
+test snapshot_event_kind_tool_result ... ok
+test snapshot_receipt_partial_outcome ... ok
+test snapshot_complex_policy_profile ... ok
+test snapshot_event_kind_tool_result_error ... ok
+test snapshot_event_with_ext_passthrough ... ok
+test snapshot_validation_error_invalid_outcome ... ok
+test snapshot_event_kind_assistant_message ... ok
+test snapshot_event_kind_assistant_delta ... ok
+test snapshot_full_receipt_with_hash ... ok
+test snapshot_event_kind_warning ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.05s
+
+
+running 14 tests
+test snapshot_agent_event_assistant_delta ... ok
+test snapshot_agent_event_warning ... ok
+test snapshot_capability_manifest ... ok
+test snapshot_agent_event_assistant_message ... ok
+test snapshot_agent_event_command_executed ... ok
+test snapshot_agent_event_run_started ... ok
+test snapshot_agent_event_run_completed ... ok
+test snapshot_agent_event_tool_call ... ok
+test snapshot_agent_event_tool_result ... ok
+test snapshot_agent_event_file_changed ... ok
+test snapshot_policy_profile ... ok
+test snapshot_work_order ... ok
+test snapshot_agent_event_error ... ok
+test snapshot_receipt ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.01s
+
+
+running 20 tests
+test chained_by_kind_and_len ... ok
+test by_kind_returns_matching_events ... ok
+test by_kind_no_match_returns_empty ... ok
+test by_kind_case_insensitive ... ok
+test duration_empty_returns_none ... ok
+test new_empty_stream ... ok
+test first_of_kind_returns_first_match ... ok
+test filter_with_include ... ok
+test iter_yields_all_events ... ok
+test last_of_kind_returns_last_match ... ok
+test new_with_events ... ok
+test filter_with_exclude ... ok
+test duration_single_event_returns_none ... ok
+test into_iterator_ref ... ok
+test duration_with_multiple_events ... ok
+test last_of_kind_returns_none_when_absent ... ok
+test count_by_kind_counts_each_variant ... ok
+test count_by_kind_empty_stream ... ok
+test first_of_kind_returns_none_when_absent ... ok
+test into_iterator_owned ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+
+running 5 tests
+test receipt_without_hash_passes_other_checks ... ok
+test future_started_at_before_finished_at_fails ... ok
+test mock_style_receipt_passes_validation ... ok
+test validation_accumulates_multiple_errors ... ok
+test validation_error_display_messages_are_unique ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 4 tests
+test non_empty_backend_id_passes ... ok
+test contract_version_always_passes ... ok
+test builder_with_hash_always_valid ... ok
+test tamper_after_hash_causes_invalid_hash ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+
+running 7 tests
+test empty_backend_id_fails ... ok
+test mismatched_contract_version_fails ... ok
+test correct_hash_passes ... ok
+test multiple_errors_collected ... ok
+test wrong_hash_fails ... ok
+test started_after_finished_fails ... ok
+test valid_receipt_passes ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+
+running 31 tests
+test chain_out_of_order_fails ... ok
+test chain_report_has_individual_reports ... ok
+test missing_hash_passes ... ok
+test nil_run_id_fails ... ok
+test chain_duplicate_run_ids_fails ... ok
+test report_check_count ... ok
+test present_backend_passes ... ok
+test timestamps_started_after_finished_fails ... ok
+test valid_run_id_passes ... ok
+test valid_work_order_id_passes ... ok
+test trace_duplicate_tool_use_ids_fails ... ok
+test chain_inconsistent_version_fails ... ok
+test empty_chain_passes ... ok
+test trace_order_sequential_passes ... ok
+test empty_contract_version_fails ... ok
+test trace_unique_tool_use_ids_passes ... ok
+test nil_work_order_id_fails ... ok
+test chain_consistent_version_passes ... ok
+test chain_unique_run_ids_passes ... ok
+test empty_backend_fails ... ok
+test trace_empty_passes_order_check ... ok
+test trace_order_out_of_order_fails ... ok
+test chain_invalid_receipt_makes_all_valid_false ... ok
+test single_receipt_chain_passes ... ok
+test chain_ordered_by_timestamp_passes ... ok
+test timestamps_equal_passes ... ok
+test outcome_always_recognized ... ok
+test hash_mismatch_detected ... ok
+test invalid_contract_version_format_fails ... ok
+test valid_receipt_passes_all_checks ... ok
+test valid_contract_version_passes ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+
+running 60 tests
+test all_outcome_variants_snake_case ... ok
+test all_capability_variants_wire_strings ... ok
+test all_min_support_variants_snake_case ... ok
+test all_agent_event_kind_tags ... ok
+test capability_manifest_as_map_in_json ... ok
+test contract_version_is_abp_v0_1 ... ok
+test capability_manifest_ordering_is_discriminant_order ... ok
+test agent_event_kind_uses_type_discriminator_not_t ... ok
+test envelope_expected_wire_shape_hello ... ok
+test empty_strings_are_valid ... ok
+test large_duration_ms_u64_max ... ok
+test hardcoded_agent_event_tool_call_all_fields ... ok
+test envelope_expected_wire_shape_event ... ok
+test large_token_counts ... ok
+test all_workspace_mode_variants_snake_case ... ok
+test envelope_expected_wire_shape_fatal ... ok
+test missing_optionals_backend_identity_versions ... ok
+test deeply_nested_vendor_json ... ok
+test missing_optional_receipt_mode_defaults_to_mapped ... ok
+test null_vs_absent_agent_event_ext ... ok
+test null_vs_absent_model_field ... ok
+test btreemap_vendor_flags_alphabetical ... ok
+test null_vs_absent_receipt_sha256 ... ok
+test policy_profile_all_fields_serialize ... ok
+test missing_optionals_usage_all_absent ... ok
+test missing_optionals_runtime_config_bare_minimum ... ok
+test policy_profile_deserializes_from_hardcoded_json ... ok
+test policy_profile_empty_roundtrip ... ok
+test receipt_hash_nullifies_receipt_sha256_before_hashing ... ok
+test receipt_hash_vector_03_minimal_partial ... ok
+test receipt_hash_vector_04_different_backend ... ok
+test receipt_hash_vector_05_passthrough_mode ... ok
+test receipt_hash_vector_06_with_capabilities ... ok
+test receipt_hash_deterministic_100_iterations ... ok
+test receipt_hash_vector_07_with_usage ... ok
+test receipt_hash_vector_08_with_trace ... ok
+test receipt_hash_vector_09_with_artifacts ... ok
+test receipt_hash_vector_10_with_verification ... ok
+test receipt_json_roundtrip_stable ... ok
+test receipt_with_hash_is_self_consistent ... ok
+test support_level_restricted_serialization ... ok
+test support_level_simple_variants_wire_strings ... ok
+test timestamp_deserializes_various_rfc3339_formats ... ok
+test timestamp_format_rfc3339_in_run_metadata ... ok
+test unicode_in_all_string_fields ... ok
+test unknown_fields_in_agent_event_tolerated ... ok
+test unknown_fields_in_receipt_tolerated ... ok
+test unknown_fields_in_work_order_tolerated ... ok
+test work_order_json_roundtrip_stable ... ok
+test all_execution_lane_variants_snake_case ... ok
+test very_long_task_string ... ok
+test all_execution_mode_variants_snake_case ... ok
+test contract_version_embedded_in_receipt_metadata ... ok
+test hardcoded_receipt_deserializes_all_fields ... ok
+test receipt_hash_vector_01_minimal_complete ... ok
+test contract_version_format_matches_pattern ... ok
+test receipt_hash_vector_02_minimal_failed ... ok
+test hardcoded_work_order_deserializes_all_fields ... ok
+test timestamp_roundtrip_preserves_utc ... ok
+test timestamp_with_fractional_seconds ... ok
+
+test result: ok. 60 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+running 10 tests
+test validation::tests::empty_uuid_rejected ... ok
+test validation::tests::empty_backend_rejected ... ok
+test validation::tests::non_object_config_rejected ... ok
+test validation::tests::invalid_uuid_rejected ... ok
+test validation::tests::nil_uuid_accepted ... ok
+test validation::tests::unknown_backend_rejected ... ok
+test validation::tests::array_config_rejected ... ok
+test validation::tests::valid_backend_accepted ... ok
+test validation::tests::valid_config_accepted ... ok
+test validation::tests::valid_uuid_accepted ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 21 tests
+test capabilities_unknown_backend_404 ... ok
+test capabilities_single_backend ... ok
+test get_run_nonexistent_returns_404 ... ok
+test health_response_has_required_fields ... ok
+test health_returns_ok ... ok
+test ws_without_upgrade_headers_is_rejected ... ok
+test sse_stream_contains_event ... ok
+test sse_events_returns_200_with_correct_content_type ... ok
+test json_endpoints_have_json_content_type ... ok
+test capabilities_returns_all ... ok
+test backends_includes_mock ... ok
+test post_runs_missing_content_type_returns_error ... ok
+test post_runs_invalid_json_returns_error ... ok
+test ws_upgrade_returns_101 ... ok
+test get_receipt_unknown_returns_404 ... ok
+test get_receipt_by_id ... ok
+test post_runs_valid_body_returns_ok_with_run_id ... ok
+test list_runs_returns_array ... ok
+test post_run_legacy_endpoint_still_works ... ok
+test run_with_mock_backend ... ok
+test receipts_list_after_run ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.32s
+
+
+running 6 tests
+test complete_or_fail_unknown_run_errors ... ok
+test run_status_transitions_valid ... ok
+test run_status_serde_round_trip ... ok
+test tracker_insert_retrieve_roundtrip ... ok
+test task_validation_is_deterministic ... ok
+test concurrent_tracker_ops_no_panics ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+
+running 15 tests
+test delete_nonexistent_run_returns_404 ... ok
+test get_run_receipt_for_running_run_returns_404 ... ok
+test schema_unknown_type_returns_404 ... ok
+test schema_work_order_returns_valid_json ... ok
+test get_config_returns_valid_json ... ok
+test validate_empty_task_returns_400 ... ok
+test new_endpoints_have_json_content_type ... ok
+test validate_unknown_backend_returns_400 ... ok
+test schema_receipt_returns_valid_json ... ok
+test validate_valid_work_order_returns_200 ... ok
+test delete_running_run_returns_409 ... ok
+test get_run_receipt_for_completed_run ... ok
+test delete_run_removes_from_list ... ok
+test delete_completed_run_returns_200 ... ok
+test concurrent_requests_dont_corrupt_state has been running for over 60 seconds
+test concurrent_requests_dont_corrupt_state ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 158.58s
+
+
+running 11 tests
+test metrics_content_type_is_json ... ok
+test health_content_type_is_json ... ok
+test health_returns_json_with_required_fields ... ok
+test health_response_completes_quickly ... ok
+test health_status_is_ok_when_running ... ok
+test health_reports_correct_contract_version ... ok
+test backends_lists_registered_backends ... ok
+test backends_returns_json_array ... ok
+test metrics_initially_shows_zero_runs ... ok
+test rapid_health_checks_all_succeed ... ok
+test metrics_update_after_run ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 28.11s
+
+
+running 12 tests
+test rate_limiter_blocks_over_limit ... ok
+test cors_headers_present ... ok
+test rate_limiter_allows_requests_within_limit ... ok
+test multiple_middlewares_compose_correctly ... ok
+test rate_limiter_check_method_works ... ok
+test cors_rejects_disallowed_origin ... ok
+test logger_does_not_panic_on_200 ... ok
+test request_id_available_as_extension ... ok
+test request_id_is_generated ... ok
+test logger_does_not_panic_on_500 ... ok
+test logger_does_not_panic_on_404 ... ok
+test request_id_is_unique_per_request ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 24 tests
+test by_priority_empty_for_missing ... ok
+test by_priority_filters_correctly ... ok
+test clear_empties_the_queue ... ok
+test dequeue_fifo_within_same_priority ... ok
+test enqueue_full_returns_error ... ok
+test dequeue_returns_highest_priority ... ok
+test enqueue_increments_len ... ok
+test dequeue_returns_none_when_empty ... ok
+test peek_does_not_remove ... ok
+test full_drain_order ... ok
+test is_full_when_at_capacity ... ok
+test queue_priority_ordering ... ok
+test queued_run_serialization_roundtrip ... ok
+test remove_by_id ... ok
+test stats_reports_counts ... ok
+test stats_serialization_roundtrip ... ok
+test remove_missing_returns_none ... ok
+test backend_and_metadata_preserved ... ok
+test enqueue_after_dequeue_respects_capacity ... ok
+test enqueue_duplicate_id_returns_error ... ok
+test peek_returns_highest_priority ... ok
+test queue_error_display_duplicate ... ok
+test queue_error_display_full ... ok
+test new_queue_is_empty ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+running 30 tests
+test complete_untracked_run_rejected ... ok
+test event_accumulation_in_receipt_trace ... ok
+test duplicate_start_rejected ... ok
+test empty_tracker_lookup_returns_none ... ok
+test error_details_on_failed_run ... ok
+test empty_tracker_returns_empty_list ... ok
+test concurrent_state_changes ... ok
+test backend_tracking_in_receipt ... ok
+test run_expiry_removes_failed ... ok
+test lifecycle_running_to_failed ... ok
+test list_filtering_by_state ... ok
+test failed_run_preserves_outcome_enum ... ok
+test remove_nonexistent_run_returns_not_found ... ok
+test idempotent_completion_overwrites ... ok
+test invalid_transition_completed_to_running_rejected ... ok
+test fail_untracked_run_rejected ... ok
+test run_metadata_all_fields_preserved ... ok
+test receipt_with_hash_stored_correctly ... ok
+test run_lookup_by_id ... ok
+test lifecycle_running_to_cancelled ... ok
+test single_run_full_lifecycle ... ok
+test run_expiry_removes_completed ... ok
+test stats_computation ... ok
+test run_timing_populated ... ok
+test many_runs_with_mixed_backends ... ok
+test run_expiry_rejects_running ... ok
+test receipt_attached_to_completed_run ... ok
+test lifecycle_running_to_completed ... ok
+test tracker_capacity_100_runs ... ok
+test work_order_id_preserved_in_receipt ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+
+running 5 tests
+test start_run_sets_running_status ... ok
+test get_nonexistent_run_returns_none ... ok
+test fail_run_stores_error ... ok
+test list_runs_shows_all_tracked ... ok
+test complete_run_stores_receipt ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 25 tests
+test empty_body_post_run_returns_error ... ok
+test invalid_json_returns_error_with_message ... ok
+test backends_listing_format ... ok
+test truncated_json_returns_error ... ok
+test validate_whitespace_only_task_rejected ... ok
+test wrong_type_json_returns_error ... ok
+test sse_stream_format_verification ... ok
+test validate_empty_workspace_root_rejected ... ok
+test delete_many_nonexistent_runs_all_404 ... ok
+test schema_work_order_is_valid_json_schema ... ok
+test schema_receipt_deep_structure ... ok
+test config_structure_deep_check ... ok
+test validate_valid_work_order_accepted ... ok
+test websocket_echo_roundtrip ... ok
+test validate_task_exceeding_max_length_rejected ... ok
+test rapid_health_checks_100 ... ok
+test metrics_track_running_state ... ok
+test large_payload_100kb_task ... ok
+test full_run_lifecycle ... ok
+test double_delete_returns_404_on_second ... ok
+test concurrent_mixed_reads_under_load has been running for over 60 seconds
+test concurrent_runs_10_all_complete has been running for over 60 seconds
+test create_5_runs_delete_all_verify_gone has been running for over 60 seconds
+test metrics_structure_after_runs has been running for over 60 seconds
+test receipts_limit_parameter has been running for over 60 seconds
+test concurrent_mixed_reads_under_load ... ok
+test receipts_limit_parameter ... ok
+test metrics_structure_after_runs ... ok

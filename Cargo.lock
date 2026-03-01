@@ -3,13 +3,53 @@
 version = 4
 
 [[package]]
+name = "abp-backend-core"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "anyhow",
+ "async-trait",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "abp-backend-mock"
+version = "0.1.0"
+dependencies = [
+ "abp-backend-core",
+ "abp-core",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "abp-backend-sidecar"
+version = "0.1.0"
+dependencies = [
+ "abp-backend-core",
+ "abp-core",
+ "abp-host",
+ "anyhow",
+ "async-trait",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "abp-claude-sdk"
 version = "0.1.0"
 dependencies = [
  "abp-core",
- "abp-host",
- "abp-integrations",
  "abp-runtime",
+ "abp-sidecar-sdk",
  "anyhow",
  "chrono",
  "insta",
@@ -23,6 +63,7 @@ version = "0.1.0"
 dependencies = [
  "abp-claude-sdk",
  "abp-codex-sdk",
+ "abp-copilot-sdk",
  "abp-core",
  "abp-gemini-sdk",
  "abp-host",
@@ -52,14 +93,23 @@ name = "abp-codex-sdk"
 version = "0.1.0"
 dependencies = [
  "abp-core",
- "abp-host",
- "abp-integrations",
  "abp-runtime",
+ "abp-sidecar-sdk",
  "anyhow",
  "chrono",
  "insta",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "abp-copilot-sdk"
+version = "0.1.0"
+dependencies = [
+ "abp-host",
+ "abp-integrations",
+ "abp-runtime",
+ "anyhow",
 ]
 
 [[package]]
@@ -84,6 +134,7 @@ version = "0.1.0"
 dependencies = [
  "abp-claude-sdk",
  "abp-codex-sdk",
+ "abp-copilot-sdk",
  "abp-core",
  "abp-gemini-sdk",
  "abp-host",
@@ -116,14 +167,20 @@ name = "abp-gemini-sdk"
 version = "0.1.0"
 dependencies = [
  "abp-core",
- "abp-host",
- "abp-integrations",
  "abp-runtime",
+ "abp-sidecar-sdk",
  "anyhow",
  "chrono",
  "insta",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "abp-git"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
 ]
 
 [[package]]
@@ -160,11 +217,13 @@ dependencies = [
 name = "abp-integrations"
 version = "0.1.0"
 dependencies = [
+ "abp-backend-core",
+ "abp-backend-mock",
+ "abp-backend-sidecar",
  "abp-claude-sdk",
  "abp-codex-sdk",
  "abp-core",
  "abp-gemini-sdk",
- "abp-host",
  "abp-kimi-sdk",
  "anyhow",
  "async-trait",
@@ -174,8 +233,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "tokio-stream",
- "tracing",
  "uuid",
 ]
 
@@ -184,9 +241,8 @@ name = "abp-kimi-sdk"
 version = "0.1.0"
 dependencies = [
  "abp-core",
- "abp-host",
- "abp-integrations",
  "abp-runtime",
+ "abp-sidecar-sdk",
  "anyhow",
  "chrono",
  "insta",
@@ -267,10 +323,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-sidecar-sdk"
+version = "0.1.0"
+dependencies = [
+ "abp-host",
+ "abp-integrations",
+ "abp-runtime",
+ "anyhow",
+]
+
+[[package]]
 name = "abp-workspace"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-git",
  "abp-glob",
  "anyhow",
  "chrono",

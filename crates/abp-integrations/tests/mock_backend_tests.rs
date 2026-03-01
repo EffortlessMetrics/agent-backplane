@@ -100,7 +100,7 @@ async fn concurrent_runs_independent() {
 
     let mut seen_ids = std::collections::HashSet::new();
     for h in handles {
-        let receipt = h.await.unwrap();
+        let receipt: abp_core::Receipt = h.await.unwrap();
         assert!(matches!(receipt.outcome, Outcome::Complete));
         assert!(
             seen_ids.insert(receipt.meta.run_id),

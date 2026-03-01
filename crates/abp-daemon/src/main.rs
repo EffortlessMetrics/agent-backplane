@@ -2,6 +2,7 @@
 #![deny(unsafe_code)]
 use abp_claude_sdk as claude_sdk;
 use abp_codex_sdk as codex_sdk;
+use abp_copilot_sdk as copilot_sdk;
 use abp_daemon::{AppState, RunTracker, build_app, hydrate_receipts_from_disk};
 use abp_gemini_sdk as gemini_sdk;
 use abp_host::SidecarSpec;
@@ -106,12 +107,7 @@ fn build_runtime(host_root: &Path) -> Result<Runtime> {
         // Keep startup resilient for deployments that omit that optional backend.
     }
 
-    register_sidecar_backend(
-        &mut runtime,
-        "sidecar:copilot",
-        "node",
-        &host_root.join("hosts/copilot/host.js"),
-    )?;
+    copilot_sdk::register_default(&mut runtime, host_root, None)?;
 
     kimi_sdk::register_default(&mut runtime, host_root, None)?;
 

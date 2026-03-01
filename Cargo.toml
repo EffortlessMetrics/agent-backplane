@@ -8,12 +8,17 @@ publish = false
 resolver = "2"
 exclude = ["fuzz"]
 members = [
-  "crates/abp-cli",
+  "crates/abp-backend-core",
+  "crates/abp-backend-mock",
+  "crates/abp-backend-sidecar",
   "crates/abp-claude-sdk",
+  "crates/abp-cli",
   "crates/abp-codex-sdk",
+  "crates/abp-copilot-sdk",
   "crates/abp-core",
   "crates/abp-daemon",
   "crates/abp-gemini-sdk",
+  "crates/abp-git",
   "crates/abp-glob",
   "crates/abp-host",
   "crates/abp-integrations",
@@ -22,6 +27,7 @@ members = [
   "crates/abp-policy",
   "crates/abp-protocol",
   "crates/abp-runtime",
+  "crates/abp-sidecar-sdk",
   "crates/abp-workspace",
   "crates/claude-bridge",
   "crates/sidecar-kit",
