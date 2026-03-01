@@ -1,0 +1,1 @@
+{"type":"message","model":"claude-3-opus","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn"}

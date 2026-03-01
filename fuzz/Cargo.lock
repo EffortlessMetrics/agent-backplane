@@ -3,6 +3,15 @@
 version = 4
 
 [[package]]
+name = "abp-capability"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-core"
 version = "0.1.0"
 dependencies = [
@@ -16,13 +25,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-dialect"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-fuzz"
 version = "0.0.0"
 dependencies = [
+ "abp-capability",
  "abp-core",
+ "abp-dialect",
  "abp-glob",
  "abp-policy",
  "abp-protocol",
+ "abp-receipt",
  "arbitrary",
  "chrono",
  "libfuzzer-sys",
@@ -60,6 +80,19 @@ dependencies = [
  "serde_json",
  "sidecar-kit",
  "thiserror",
+]
+
+[[package]]
+name = "abp-receipt"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "chrono",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "uuid",
 ]
 
 [[package]]

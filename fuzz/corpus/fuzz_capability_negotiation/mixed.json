@@ -1,0 +1,1 @@
+{"manifest":{"streaming":"native","tool_read":"emulated","tool_write":"unsupported"},"required":[{"capability":"streaming","min_support":"native"},{"capability":"tool_read","min_support":"emulated"},{"capability":"tool_write","min_support":"native"}]}

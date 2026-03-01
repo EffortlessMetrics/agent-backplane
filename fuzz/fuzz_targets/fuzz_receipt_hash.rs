@@ -112,7 +112,7 @@ fuzz_target!(|input: FuzzReceipt| {
 
     // --- Property 3: deterministic ---
     let hash2 = receipt_hash(&receipt);
-    assert_eq!(hash1.ok(), hash2.ok(), "hashing same receipt must be deterministic");
+    assert_eq!(hash1.as_ref().ok(), hash2.as_ref().ok(), "hashing same receipt must be deterministic");
 
     // --- Property 4: with_hash embeds correctly ---
     if let Ok(hashed) = receipt.clone().with_hash() {
@@ -125,4 +125,51 @@ fuzz_target!(|input: FuzzReceipt| {
 
     // --- Property 5: validate never panics ---
     let _ = abp_core::validate::validate_receipt(&receipt);
+
+    // --- Property 6: abp-receipt crate functions agree with abp-core ---
+    let receipt_crate_hash = abp_receipt::compute_hash(&receipt);
+    if let (Ok(core_h), Ok(crate_h)) = (&hash1, &receipt_crate_hash) {
+        assert_eq!(core_h, crate_h, "abp-core and abp-receipt hashes must agree");
+    }
+
+    // --- Property 7: abp-receipt canonicalize never panics ---
+    let _ = abp_receipt::canonicalize(&receipt);
+
+    // --- Property 8: abp-receipt verify_hash is consistent ---
+    // Unhashed receipt (receipt_sha256 is None) should verify as true.
+    assert!(
+        abp_receipt::verify_hash(&receipt),
+        "verify_hash must return true for unhashed receipt"
+    );
+
+    if let Ok(hashed) = receipt.clone().with_hash() {
+        // Hashed receipt must verify.
+        assert!(
+            abp_receipt::verify_hash(&hashed),
+            "verify_hash must return true for correctly hashed receipt"
+        );
+
+        // Tampered hash must fail.
+        let mut tampered = hashed.clone();
+        tampered.receipt_sha256 = Some("deadbeef".into());
+        assert!(
+            !abp_receipt::verify_hash(&tampered),
+            "verify_hash must return false for tampered hash"
+        );
+    }
+
+    // --- Property 9: abp-receipt diff never panics ---
+    let receipt2 = abp_core::ReceiptBuilder::new("fuzz-other")
+        .outcome(Outcome::Complete)
+        .build();
+    let diff = abp_receipt::diff_receipts(&receipt, &receipt2);
+    let _ = diff.len();
+    let _ = diff.is_empty();
+
+    // --- Property 10: abp-receipt ReceiptChain never panics on push ---
+    let mut chain = abp_receipt::ReceiptChain::new();
+    // Push requires hashed receipts; try with_hash first.
+    if let Ok(hashed) = receipt.clone().with_hash() {
+        let _ = chain.push(hashed);
+    }
 });
