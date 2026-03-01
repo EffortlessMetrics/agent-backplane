@@ -29,6 +29,14 @@ fn all_capabilities() -> Vec<Capability> {
         Capability::StructuredOutputJsonSchema,
         Capability::McpClient,
         Capability::McpServer,
+        Capability::ToolUse,
+        Capability::ExtendedThinking,
+        Capability::ImageInput,
+        Capability::PdfInput,
+        Capability::CodeExecution,
+        Capability::Logprobs,
+        Capability::SeedDeterminism,
+        Capability::StopSequences,
     ]
 }
 
@@ -56,6 +64,14 @@ fn expected_wire_names() -> Vec<(&'static str, Capability)> {
         ),
         ("mcp_client", Capability::McpClient),
         ("mcp_server", Capability::McpServer),
+        ("tool_use", Capability::ToolUse),
+        ("extended_thinking", Capability::ExtendedThinking),
+        ("image_input", Capability::ImageInput),
+        ("pdf_input", Capability::PdfInput),
+        ("code_execution", Capability::CodeExecution),
+        ("logprobs", Capability::Logprobs),
+        ("seed_determinism", Capability::SeedDeterminism),
+        ("stop_sequences", Capability::StopSequences),
     ]
 }
 

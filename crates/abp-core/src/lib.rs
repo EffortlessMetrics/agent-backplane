@@ -266,6 +266,23 @@ pub enum Capability {
     McpClient,
     /// Act as an MCP server.
     McpServer,
+
+    /// Generic tool-use capability (function calling).
+    ToolUse,
+    /// Extended thinking / chain-of-thought reasoning.
+    ExtendedThinking,
+    /// Accept images as input.
+    ImageInput,
+    /// Accept PDF documents as input.
+    PdfInput,
+    /// Execute code in a sandboxed environment.
+    CodeExecution,
+    /// Return log-probabilities for generated tokens.
+    Logprobs,
+    /// Deterministic output via seed parameter.
+    SeedDeterminism,
+    /// Support custom stop sequences.
+    StopSequences,
 }
 
 /// How well a backend supports a given [`Capability`].

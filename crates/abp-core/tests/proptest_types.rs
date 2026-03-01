@@ -80,6 +80,14 @@ fn arb_capability() -> impl Strategy<Value = Capability> {
         Just(Capability::StructuredOutputJsonSchema),
         Just(Capability::McpClient),
         Just(Capability::McpServer),
+        Just(Capability::ToolUse),
+        Just(Capability::ExtendedThinking),
+        Just(Capability::ImageInput),
+        Just(Capability::PdfInput),
+        Just(Capability::CodeExecution),
+        Just(Capability::Logprobs),
+        Just(Capability::SeedDeterminism),
+        Just(Capability::StopSequences),
     ]
 }
 

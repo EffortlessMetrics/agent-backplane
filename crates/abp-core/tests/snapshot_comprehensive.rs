@@ -365,6 +365,14 @@ fn snapshot_all_capability_variants() {
                 reason: "experimental".into(),
             },
         ),
+        (Capability::ToolUse, SupportLevel::Native),
+        (Capability::ExtendedThinking, SupportLevel::Native),
+        (Capability::ImageInput, SupportLevel::Native),
+        (Capability::PdfInput, SupportLevel::Emulated),
+        (Capability::CodeExecution, SupportLevel::Emulated),
+        (Capability::Logprobs, SupportLevel::Unsupported),
+        (Capability::SeedDeterminism, SupportLevel::Unsupported),
+        (Capability::StopSequences, SupportLevel::Native),
     ]);
     let value = serde_json::to_value(&manifest).unwrap();
     assert_json_snapshot!("comprehensive_all_capabilities", value);

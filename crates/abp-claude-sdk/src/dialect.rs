@@ -6,6 +6,7 @@ use abp_core::{
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// Version string for this dialect adapter.
 pub const DIALECT_VERSION: &str = "claude/v0.1";
@@ -125,6 +126,30 @@ pub fn tool_def_from_claude(def: &ClaudeToolDef) -> CanonicalToolDef {
     }
 }
 
+/// Configuration for Claude's extended thinking feature.
+///
+/// When enabled, the model may emit `thinking` content blocks containing
+/// its internal reasoning before producing a final response.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ThinkingConfig {
+    /// Discriminator (always `"enabled"`).
+    #[serde(rename = "type")]
+    pub thinking_type: String,
+    /// Maximum number of tokens the model may use for internal reasoning.
+    pub budget_tokens: u32,
+}
+
+impl ThinkingConfig {
+    /// Create a new thinking configuration with the given budget.
+    #[must_use]
+    pub fn new(budget_tokens: u32) -> Self {
+        Self {
+            thinking_type: "enabled".into(),
+            budget_tokens,
+        }
+    }
+}
+
 /// Vendor-specific configuration for the Anthropic Claude API.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClaudeConfig {
@@ -142,6 +167,10 @@ pub struct ClaudeConfig {
 
     /// System prompt override (merged with work order task if set).
     pub system_prompt: Option<String>,
+
+    /// Extended thinking configuration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<ThinkingConfig>,
 }
 
 impl Default for ClaudeConfig {
@@ -152,6 +181,7 @@ impl Default for ClaudeConfig {
             model: "claude-sonnet-4-20250514".into(),
             max_tokens: 4096,
             system_prompt: None,
+            thinking: None,
         }
     }
 }
@@ -167,6 +197,9 @@ pub struct ClaudeRequest {
     pub system: Option<String>,
     /// Conversation messages.
     pub messages: Vec<ClaudeMessage>,
+    /// Extended thinking configuration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<ThinkingConfig>,
 }
 
 /// A single message in the Claude conversation format.
@@ -402,6 +435,47 @@ pub struct ClaudeApiError {
     pub message: String,
 }
 
+// ---------------------------------------------------------------------------
+// Stop reason mapping
+// ---------------------------------------------------------------------------
+
+/// Recognized Claude API stop reasons.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaudeStopReason {
+    /// The model reached a natural stopping point.
+    EndTurn,
+    /// The model wants to use a tool.
+    ToolUse,
+    /// The model hit the `max_tokens` limit.
+    MaxTokens,
+    /// The model emitted a configured stop sequence.
+    StopSequence,
+}
+
+/// Parse a Claude stop reason string into the typed enum.
+#[must_use]
+pub fn parse_stop_reason(s: &str) -> Option<ClaudeStopReason> {
+    match s {
+        "end_turn" => Some(ClaudeStopReason::EndTurn),
+        "tool_use" => Some(ClaudeStopReason::ToolUse),
+        "max_tokens" => Some(ClaudeStopReason::MaxTokens),
+        "stop_sequence" => Some(ClaudeStopReason::StopSequence),
+        _ => None,
+    }
+}
+
+/// Map a [`ClaudeStopReason`] to the canonical ABP stop reason string.
+#[must_use]
+pub fn map_stop_reason(reason: ClaudeStopReason) -> &'static str {
+    match reason {
+        ClaudeStopReason::EndTurn => "end_turn",
+        ClaudeStopReason::ToolUse => "tool_use",
+        ClaudeStopReason::MaxTokens => "max_tokens",
+        ClaudeStopReason::StopSequence => "stop_sequence",
+    }
+}
+
 /// Map an ABP [`WorkOrder`] to a [`ClaudeRequest`].
 ///
 /// Uses the work order task as the initial user message and applies
@@ -432,6 +506,7 @@ pub fn map_work_order(wo: &WorkOrder, config: &ClaudeConfig) -> ClaudeRequest {
             role: "user".into(),
             content: user_content,
         }],
+        thinking: config.thinking.clone(),
     }
 }
 
@@ -477,8 +552,28 @@ pub fn map_response(resp: &ClaudeResponse) -> Vec<AgentEvent> {
                     ext: None,
                 });
             }
-            // Thinking and Image blocks don't map to standard ABP events.
-            ClaudeContentBlock::Thinking { .. } | ClaudeContentBlock::Image { .. } => {}
+            ClaudeContentBlock::Thinking {
+                thinking,
+                signature,
+            } => {
+                let mut ext = BTreeMap::new();
+                ext.insert("thinking".into(), serde_json::Value::Bool(true));
+                if let Some(sig) = signature {
+                    ext.insert(
+                        "signature".into(),
+                        serde_json::Value::String(sig.clone()),
+                    );
+                }
+                events.push(AgentEvent {
+                    ts: now,
+                    kind: AgentEventKind::AssistantMessage {
+                        text: thinking.clone(),
+                    },
+                    ext: Some(ext),
+                });
+            }
+            // Image blocks don't map to standard ABP events.
+            ClaudeContentBlock::Image { .. } => {}
         }
     }
 
@@ -527,8 +622,35 @@ pub fn map_stream_event(event: &ClaudeStreamEvent) -> Vec<AgentEvent> {
                 ext: None,
             }]
         }
-        // Other event types (ping, content_block_start/stop, message_delta) are structural
-        // and don't produce ABP events.
+        ClaudeStreamEvent::ContentBlockDelta {
+            delta: ClaudeStreamDelta::ThinkingDelta { thinking },
+            ..
+        } => {
+            let mut ext = BTreeMap::new();
+            ext.insert("thinking".into(), serde_json::Value::Bool(true));
+            vec![AgentEvent {
+                ts: now,
+                kind: AgentEventKind::AssistantDelta {
+                    text: thinking.clone(),
+                },
+                ext: Some(ext),
+            }]
+        }
+        ClaudeStreamEvent::ContentBlockStart {
+            content_block: ClaudeContentBlock::ToolUse { id, name, input },
+            ..
+        } => vec![AgentEvent {
+            ts: now,
+            kind: AgentEventKind::ToolCall {
+                tool_name: name.clone(),
+                tool_use_id: Some(id.clone()),
+                parent_tool_use_id: None,
+                input: input.clone(),
+            },
+            ext: None,
+        }],
+        // Other event types (ping, content_block_start/stop, message_delta, etc.)
+        // are structural and don't produce ABP events.
         _ => vec![],
     }
 }
@@ -549,6 +671,61 @@ pub fn map_tool_result(tool_use_id: &str, output: &str, is_error: bool) -> Claud
         role: "user".into(),
         content,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Passthrough fidelity helpers
+// ---------------------------------------------------------------------------
+
+/// Wrap a raw [`ClaudeStreamEvent`] in an ABP [`AgentEvent`] for passthrough mode.
+///
+/// The mapped event carries the original event JSON in `ext.raw_message` and a
+/// `"dialect": "claude"` marker so the receiver can reconstruct it losslessly.
+pub fn to_passthrough_event(event: &ClaudeStreamEvent) -> AgentEvent {
+    let mapped = map_stream_event(event);
+    let base = mapped.into_iter().next().unwrap_or_else(|| AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::AssistantDelta {
+            text: String::new(),
+        },
+        ext: None,
+    });
+
+    let raw = serde_json::to_value(event).unwrap_or(serde_json::Value::Null);
+    let mut ext = base.ext.unwrap_or_default();
+    ext.insert("raw_message".into(), raw);
+    ext.insert(
+        "dialect".into(),
+        serde_json::Value::String("claude".into()),
+    );
+
+    AgentEvent {
+        ts: base.ts,
+        kind: base.kind,
+        ext: Some(ext),
+    }
+}
+
+/// Extract the original [`ClaudeStreamEvent`] from a passthrough [`AgentEvent`].
+///
+/// Returns `None` if the event does not contain a `raw_message` extension field
+/// or if deserialization fails.
+pub fn from_passthrough_event(event: &AgentEvent) -> Option<ClaudeStreamEvent> {
+    let ext = event.ext.as_ref()?;
+    let raw = ext.get("raw_message")?;
+    serde_json::from_value(raw.clone()).ok()
+}
+
+/// Verify that a sequence of Claude stream events survives a passthrough roundtrip.
+///
+/// Each event is wrapped into a passthrough [`AgentEvent`] and then extracted back.
+/// Returns `true` if all events roundtrip without loss.
+#[must_use]
+pub fn verify_passthrough_fidelity(events: &[ClaudeStreamEvent]) -> bool {
+    events.iter().all(|e| {
+        let wrapped = to_passthrough_event(e);
+        from_passthrough_event(&wrapped).as_ref() == Some(e)
+    })
 }
 
 #[cfg(test)]

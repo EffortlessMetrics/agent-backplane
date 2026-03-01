@@ -96,6 +96,46 @@ expression: value
           "const": "mcp_server",
           "description": "Act as an MCP server.",
           "type": "string"
+        },
+        {
+          "const": "tool_use",
+          "description": "Generic tool-use capability (function calling).",
+          "type": "string"
+        },
+        {
+          "const": "extended_thinking",
+          "description": "Extended thinking / chain-of-thought reasoning.",
+          "type": "string"
+        },
+        {
+          "const": "image_input",
+          "description": "Accept images as input.",
+          "type": "string"
+        },
+        {
+          "const": "pdf_input",
+          "description": "Accept PDF documents as input.",
+          "type": "string"
+        },
+        {
+          "const": "code_execution",
+          "description": "Execute code in a sandboxed environment.",
+          "type": "string"
+        },
+        {
+          "const": "logprobs",
+          "description": "Return log-probabilities for generated tokens.",
+          "type": "string"
+        },
+        {
+          "const": "seed_determinism",
+          "description": "Deterministic output via seed parameter.",
+          "type": "string"
+        },
+        {
+          "const": "stop_sequences",
+          "description": "Support custom stop sequences.",
+          "type": "string"
         }
       ]
     },

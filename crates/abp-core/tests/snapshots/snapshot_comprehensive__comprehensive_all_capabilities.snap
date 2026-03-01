@@ -4,8 +4,12 @@ expression: value
 ---
 {
   "checkpointing": "native",
+  "code_execution": "emulated",
+  "extended_thinking": "native",
   "hooks_post_tool_use": "native",
   "hooks_pre_tool_use": "native",
+  "image_input": "native",
+  "logprobs": "unsupported",
   "mcp_client": {
     "restricted": {
       "reason": "sandbox only"
@@ -16,8 +20,11 @@ expression: value
       "reason": "experimental"
     }
   },
+  "pdf_input": "emulated",
+  "seed_determinism": "unsupported",
   "session_fork": "unsupported",
   "session_resume": "emulated",
+  "stop_sequences": "native",
   "streaming": "native",
   "structured_output_json_schema": "emulated",
   "tool_ask_user": "unsupported",
@@ -26,6 +33,7 @@ expression: value
   "tool_glob": "native",
   "tool_grep": "native",
   "tool_read": "native",
+  "tool_use": "native",
   "tool_web_fetch": "emulated",
   "tool_web_search": "emulated",
   "tool_write": "emulated"

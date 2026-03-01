@@ -13,6 +13,7 @@
 //! - **S** — System errors
 
 use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use std::collections::BTreeMap;
 use std::fmt;
 
@@ -579,3 +580,165 @@ impl ErrorCatalog {
             .collect()
     }
 }
+
+// ---------------------------------------------------------------------------
+// MappingError — typed error taxonomy for dialect mapping failures
+// ---------------------------------------------------------------------------
+
+/// Categorization of mapping errors by severity.
+///
+/// - **Fatal**: request cannot proceed at all.
+/// - **Degraded**: request proceeds but with known information loss (must be labeled in receipt).
+/// - **Emulated**: behavior is synthetically replicated (must be labeled in receipt).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MappingErrorKind {
+    /// The mapping failure is fatal — the request cannot proceed.
+    Fatal,
+    /// The request proceeds but with known information loss.
+    Degraded,
+    /// The feature is synthetically replicated via emulation.
+    Emulated,
+}
+
+impl fmt::Display for MappingErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Fatal => write!(f, "fatal"),
+            Self::Degraded => write!(f, "degraded"),
+            Self::Emulated => write!(f, "emulated"),
+        }
+    }
+}
+
+/// Typed error for dialect mapping failures.
+///
+/// Each variant carries structured context about what went wrong during
+/// translation between agent dialects. Every variant has a stable error
+/// code (e.g. `ABP_E_FIDELITY_LOSS`) and a [`MappingErrorKind`] that
+/// indicates whether the failure is fatal, degraded, or emulated.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum MappingError {
+    /// A field cannot be faithfully translated between dialects.
+    #[error("[{code}] fidelity loss mapping '{field}' from {source_dialect} to {target_dialect}: {detail}", code = MappingError::FIDELITY_LOSS_CODE)]
+    FidelityLoss {
+        /// The field that could not be faithfully translated.
+        field: String,
+        /// The source dialect.
+        source_dialect: String,
+        /// The target dialect.
+        target_dialect: String,
+        /// Human-readable explanation.
+        detail: String,
+    },
+
+    /// The target dialect does not support a requested capability.
+    #[error("[{code}] unsupported capability '{capability}' in dialect {dialect}", code = MappingError::UNSUPPORTED_CAP_CODE)]
+    UnsupportedCapability {
+        /// The capability that is not supported.
+        capability: String,
+        /// The dialect that lacks support.
+        dialect: String,
+    },
+
+    /// A feature requires emulation (labeled, never silent).
+    #[error("[{code}] emulation required for '{feature}': {detail}", code = MappingError::EMULATION_REQUIRED_CODE)]
+    EmulationRequired {
+        /// The feature being emulated.
+        feature: String,
+        /// Human-readable explanation.
+        detail: String,
+    },
+
+    /// The requested model is not available in the target dialect.
+    #[error("[{code}] model '{requested}' not available in dialect {dialect}{}", suggestion.as_ref().map(|s| format!("; try {s}")).unwrap_or_default(), code = MappingError::INCOMPATIBLE_MODEL_CODE)]
+    IncompatibleModel {
+        /// The model that was requested.
+        requested: String,
+        /// The dialect that does not support the model.
+        dialect: String,
+        /// Optional alternative model suggestion.
+        suggestion: Option<String>,
+    },
+
+    /// A specific parameter cannot be translated to the target dialect.
+    #[error("[{code}] parameter '{parameter}' (value: {value}) not mappable to dialect {dialect}", code = MappingError::PARAM_NOT_MAPPABLE_CODE)]
+    ParameterNotMappable {
+        /// The parameter name.
+        parameter: String,
+        /// The parameter value that cannot be mapped.
+        value: String,
+        /// The target dialect.
+        dialect: String,
+    },
+
+    /// The target dialect does not support streaming.
+    #[error("[{code}] streaming not supported by dialect {dialect}", code = MappingError::STREAMING_UNSUPPORTED_CODE)]
+    StreamingUnsupported {
+        /// The dialect that does not support streaming.
+        dialect: String,
+    },
+}
+
+impl MappingError {
+    /// Stable error code for [`MappingError::FidelityLoss`].
+    pub const FIDELITY_LOSS_CODE: &'static str = "ABP_E_FIDELITY_LOSS";
+    /// Stable error code for [`MappingError::UnsupportedCapability`].
+    pub const UNSUPPORTED_CAP_CODE: &'static str = "ABP_E_UNSUPPORTED_CAP";
+    /// Stable error code for [`MappingError::EmulationRequired`].
+    pub const EMULATION_REQUIRED_CODE: &'static str = "ABP_E_EMULATION_REQUIRED";
+    /// Stable error code for [`MappingError::IncompatibleModel`].
+    pub const INCOMPATIBLE_MODEL_CODE: &'static str = "ABP_E_INCOMPATIBLE_MODEL";
+    /// Stable error code for [`MappingError::ParameterNotMappable`].
+    pub const PARAM_NOT_MAPPABLE_CODE: &'static str = "ABP_E_PARAM_NOT_MAPPABLE";
+    /// Stable error code for [`MappingError::StreamingUnsupported`].
+    pub const STREAMING_UNSUPPORTED_CODE: &'static str = "ABP_E_STREAMING_UNSUPPORTED";
+
+    /// Returns the stable error code string for this variant.
+    #[must_use]
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::FidelityLoss { .. } => Self::FIDELITY_LOSS_CODE,
+            Self::UnsupportedCapability { .. } => Self::UNSUPPORTED_CAP_CODE,
+            Self::EmulationRequired { .. } => Self::EMULATION_REQUIRED_CODE,
+            Self::IncompatibleModel { .. } => Self::INCOMPATIBLE_MODEL_CODE,
+            Self::ParameterNotMappable { .. } => Self::PARAM_NOT_MAPPABLE_CODE,
+            Self::StreamingUnsupported { .. } => Self::STREAMING_UNSUPPORTED_CODE,
+        }
+    }
+
+    /// Returns the [`MappingErrorKind`] categorization for this error.
+    #[must_use]
+    pub fn kind(&self) -> MappingErrorKind {
+        match self {
+            Self::FidelityLoss { .. } => MappingErrorKind::Degraded,
+            Self::UnsupportedCapability { .. } => MappingErrorKind::Fatal,
+            Self::EmulationRequired { .. } => MappingErrorKind::Emulated,
+            Self::IncompatibleModel { .. } => MappingErrorKind::Fatal,
+            Self::ParameterNotMappable { .. } => MappingErrorKind::Degraded,
+            Self::StreamingUnsupported { .. } => MappingErrorKind::Fatal,
+        }
+    }
+
+    /// Returns `true` if this error is fatal (the request cannot proceed).
+    #[must_use]
+    pub fn is_fatal(&self) -> bool {
+        self.kind() == MappingErrorKind::Fatal
+    }
+
+    /// Returns `true` if this error represents degraded operation.
+    #[must_use]
+    pub fn is_degraded(&self) -> bool {
+        self.kind() == MappingErrorKind::Degraded
+    }
+
+    /// Returns `true` if this error represents emulated behavior.
+    #[must_use]
+    pub fn is_emulated(&self) -> bool {
+        self.kind() == MappingErrorKind::Emulated
+    }
+}
+
+/// Convenience result type for mapping operations.
+pub type MappingResult<T> = Result<T, MappingError>;

@@ -7,6 +7,8 @@ use abp_core::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
+use crate::response_format::ResponseFormat;
+
 /// Version string for this dialect adapter.
 pub const DIALECT_VERSION: &str = "openai/v0.1";
 
@@ -110,6 +112,45 @@ pub struct OpenAIFunctionDef {
     pub parameters: serde_json::Value,
 }
 
+// ---------------------------------------------------------------------------
+// Tool choice
+// ---------------------------------------------------------------------------
+
+/// Controls which (if any) tool the model should call.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum ToolChoice {
+    /// A string shorthand: `"none"`, `"auto"`, or `"required"`.
+    Mode(ToolChoiceMode),
+    /// Force a specific function call.
+    Function {
+        /// Must be `"function"`.
+        #[serde(rename = "type")]
+        tool_type: String,
+        /// The function to force.
+        function: ToolChoiceFunctionRef,
+    },
+}
+
+/// String-form tool choice modes.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolChoiceMode {
+    /// Model will not call any tool.
+    None,
+    /// Model decides whether to call a tool.
+    Auto,
+    /// Model must call at least one tool.
+    Required,
+}
+
+/// A reference to a specific function in a [`ToolChoice::Function`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ToolChoiceFunctionRef {
+    /// Name of the function to force.
+    pub name: String,
+}
+
 /// Convert an ABP canonical tool definition to the OpenAI function tool format.
 #[must_use]
 pub fn tool_def_to_openai(def: &CanonicalToolDef) -> OpenAIToolDef {
@@ -182,15 +223,18 @@ pub struct OpenAIRequest {
     /// Tool definitions available to the model.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<OpenAIToolDef>>,
+    /// Controls which tool the model should call.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice: Option<ToolChoice>,
     /// Sampling temperature.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
     /// Maximum tokens to generate.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
-    /// Response format constraint (e.g. JSON mode).
+    /// Response format constraint (e.g. JSON mode, JSON Schema).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub response_format: Option<serde_json::Value>,
+    pub response_format: Option<ResponseFormat>,
 }
 
 /// A single message in the OpenAI Chat Completions format.
@@ -305,6 +349,7 @@ pub fn map_work_order(wo: &WorkOrder, config: &OpenAIConfig) -> OpenAIRequest {
             tool_call_id: None,
         }],
         tools: None,
+        tool_choice: None,
         temperature: config.temperature,
         max_tokens: config.max_tokens,
         response_format: None,
