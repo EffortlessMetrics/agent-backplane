@@ -15,6 +15,7 @@ anyhow.workspace = true
 clap.workspace = true
 abp-core = { path = "../abp-core" }
 abp-codex-sdk = { path = "../abp-codex-sdk" }
+abp-copilot-sdk = { path = "../abp-copilot-sdk" }
 abp-claude-sdk = { path = "../abp-claude-sdk" }
 abp-kimi-sdk = { path = "../abp-kimi-sdk" }
 abp-gemini-sdk = { path = "../abp-gemini-sdk" }

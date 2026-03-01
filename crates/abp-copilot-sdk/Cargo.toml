@@ -1,0 +1,13 @@
+[package]
+name = "abp-copilot-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+abp-host = { path = "../abp-host" }
+abp-integrations = { path = "../abp-integrations" }
+abp-runtime = { path = "../abp-runtime" }
+anyhow.workspace = true

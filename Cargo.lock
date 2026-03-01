@@ -17,6 +17,7 @@ version = "0.1.0"
 dependencies = [
  "abp-claude-sdk",
  "abp-codex-sdk",
+ "abp-copilot-sdk",
  "abp-core",
  "abp-gemini-sdk",
  "abp-host",
@@ -44,6 +45,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-copilot-sdk"
+version = "0.1.0"
+dependencies = [
+ "abp-host",
+ "abp-integrations",
+ "abp-runtime",
+ "anyhow",
+]
+
+[[package]]
 name = "abp-core"
 version = "0.1.0"
 dependencies = [
@@ -62,6 +73,7 @@ version = "0.1.0"
 dependencies = [
  "abp-claude-sdk",
  "abp-codex-sdk",
+ "abp-copilot-sdk",
  "abp-core",
  "abp-gemini-sdk",
  "abp-host",
