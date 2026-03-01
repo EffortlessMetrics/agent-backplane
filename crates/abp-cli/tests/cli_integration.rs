@@ -21,7 +21,10 @@ fn help_exits_zero_and_contains_expected_text() {
         .stdout(predicate::str::contains("Agent Backplane CLI"))
         .stdout(predicate::str::contains("Usage"))
         .stdout(predicate::str::contains("backends"))
-        .stdout(predicate::str::contains("run"));
+        .stdout(predicate::str::contains("run"))
+        .stdout(predicate::str::contains("validate"))
+        .stdout(predicate::str::contains("schema"))
+        .stdout(predicate::str::contains("inspect"));
 }
 
 #[test]
@@ -533,7 +536,10 @@ fn run_help_shows_run_options() {
         .stdout(predicate::str::contains("--task"))
         .stdout(predicate::str::contains("--backend"))
         .stdout(predicate::str::contains("--json"))
-        .stdout(predicate::str::contains("--param"));
+        .stdout(predicate::str::contains("--param"))
+        .stdout(predicate::str::contains("--policy"))
+        .stdout(predicate::str::contains("--output"))
+        .stdout(predicate::str::contains("--events"));
 }
 
 #[test]
