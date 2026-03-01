@@ -6,6 +6,7 @@
 //! - **ABP-to-vendor translations**: convert an ABP [`WorkOrder`] into the
 //!   vendor-specific request JSON for each supported dialect.
 
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{AgentEvent, AgentEventKind, WorkOrder};
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
@@ -1247,4 +1248,691 @@ pub fn supported_translations() -> Vec<(Dialect, Dialect)> {
     }
 
     pairs
+}
+
+// ── IR-based cross-dialect message translation ──────────────────────────
+
+/// Report produced by [`map_via_ir`] describing fidelity and losses
+/// incurred during cross-dialect message translation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TranslationReport {
+    /// Source dialect for the translation.
+    pub source_dialect: Dialect,
+    /// Target dialect for the translation.
+    pub target_dialect: Dialect,
+    /// Number of messages that were mapped.
+    pub messages_mapped: usize,
+    /// Descriptions of information lost during translation.
+    pub losses: Vec<String>,
+    /// Overall fidelity assessment of the translation.
+    pub fidelity: TranslationFidelity,
+}
+
+/// Extended model equivalence table mapping models across vendor dialects.
+///
+/// Each row contains `(openai, claude, gemini, codex, kimi)` equivalents.
+/// An empty string means no known equivalent in that dialect.
+pub const MODEL_EQUIVALENCE_TABLE: &[(&str, &str, &str, &str, &str)] = &[
+    (
+        "gpt-4o",
+        "claude-sonnet-4-20250514",
+        "gemini-2.5-flash",
+        "codex-mini-latest",
+        "moonshot-v1-8k",
+    ),
+    (
+        "gpt-4-turbo",
+        "claude-3-5-haiku-20241022",
+        "gemini-2.0-flash",
+        "",
+        "moonshot-v1-32k",
+    ),
+    (
+        "gpt-4o-mini",
+        "claude-haiku-4-20250514",
+        "gemini-2.0-flash-lite",
+        "",
+        "",
+    ),
+    (
+        "gpt-4.1",
+        "claude-sonnet-4-latest",
+        "gemini-2.5-pro",
+        "",
+        "",
+    ),
+    ("o1", "claude-opus-4-20250514", "gemini-1.5-pro", "", ""),
+    (
+        "o3-mini",
+        "claude-3-5-haiku-latest",
+        "gemini-1.5-flash",
+        "",
+        "",
+    ),
+];
+
+/// Translate a model name from one dialect to another using the
+/// equivalence table.
+///
+/// Returns `None` if the model is not found in the table or the target
+/// dialect has no known equivalent.
+#[must_use]
+pub fn translate_model_name(model: &str, target: Dialect) -> Option<String> {
+    if target == Dialect::Abp || target == Dialect::Mock {
+        return Some(model.to_string());
+    }
+    for &(openai, claude, gemini, codex, kimi) in MODEL_EQUIVALENCE_TABLE {
+        let all = [openai, claude, gemini, codex, kimi];
+        if all.contains(&model) {
+            let target_model = match target {
+                Dialect::OpenAi => openai,
+                Dialect::Claude => claude,
+                Dialect::Gemini => gemini,
+                Dialect::Codex => codex,
+                Dialect::Kimi => kimi,
+                Dialect::Abp | Dialect::Mock => unreachable!(),
+            };
+            if !target_model.is_empty() {
+                return Some(target_model.to_string());
+            }
+            return None;
+        }
+    }
+    None
+}
+
+/// Detect the likely source dialect from a JSON messages array.
+///
+/// Uses structural heuristics:
+/// - **Gemini**: messages contain a `parts` array.
+/// - **OpenAI**: messages contain `tool_calls`, `tool_call_id`, or a
+///   `system`/`tool` role.
+/// - **Claude**: messages have a string `content` field with only
+///   `user`/`assistant` roles.
+///
+/// Returns `None` if the array is empty or detection is ambiguous.
+#[must_use]
+pub fn detect_dialect(messages: &serde_json::Value) -> Option<Dialect> {
+    let arr = messages.as_array()?;
+    let first = arr.first()?;
+
+    if first.get("parts").is_some() {
+        return Some(Dialect::Gemini);
+    }
+
+    for msg in arr {
+        if msg.get("tool_calls").is_some() || msg.get("tool_call_id").is_some() {
+            return Some(Dialect::OpenAi);
+        }
+        let role = msg.get("role").and_then(|r| r.as_str());
+        if role == Some("system") || role == Some("tool") {
+            return Some(Dialect::OpenAi);
+        }
+    }
+
+    Some(Dialect::Claude)
+}
+
+/// Translate messages from one dialect to another via the ABP IR.
+///
+/// Lowers source dialect messages into an [`IrConversation`], then raises
+/// them into the target dialect format.  Returns the mapped messages as a
+/// JSON array along with a [`TranslationReport`].
+///
+/// # Errors
+///
+/// Returns an error if the input is not a JSON array or cannot be parsed
+/// as the given source dialect format.
+pub fn map_via_ir(
+    source: Dialect,
+    target: Dialect,
+    messages: &serde_json::Value,
+) -> Result<(serde_json::Value, TranslationReport)> {
+    if source == target {
+        let count = messages.as_array().map_or(0, Vec::len);
+        return Ok((
+            messages.clone(),
+            TranslationReport {
+                source_dialect: source,
+                target_dialect: target,
+                messages_mapped: count,
+                losses: vec![],
+                fidelity: TranslationFidelity::Lossless,
+            },
+        ));
+    }
+
+    let arr = messages
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("messages must be a JSON array"))?;
+
+    let (conv, mut losses) = ir_lower(source, arr)?;
+    let (output, raise_losses) = ir_raise(target, &conv)?;
+    losses.extend(raise_losses);
+
+    let fidelity = if losses.is_empty() {
+        TranslationFidelity::LossySupported
+    } else {
+        TranslationFidelity::Degraded
+    };
+
+    Ok((
+        output,
+        TranslationReport {
+            source_dialect: source,
+            target_dialect: target,
+            messages_mapped: conv.len(),
+            losses,
+            fidelity,
+        },
+    ))
+}
+
+// ── IR lowering (dialect JSON → IrConversation) ─────────────────────────
+
+fn ir_lower(
+    dialect: Dialect,
+    messages: &[serde_json::Value],
+) -> Result<(IrConversation, Vec<String>)> {
+    match dialect {
+        Dialect::OpenAi | Dialect::Codex | Dialect::Kimi | Dialect::Mock | Dialect::Abp => {
+            Ok(ir_lower_openai(messages))
+        }
+        Dialect::Claude => Ok(ir_lower_claude(messages)),
+        Dialect::Gemini => Ok(ir_lower_gemini(messages)),
+    }
+}
+
+fn ir_lower_openai(messages: &[serde_json::Value]) -> (IrConversation, Vec<String>) {
+    let mut ir_msgs = Vec::new();
+    let losses = Vec::new();
+
+    for msg in messages {
+        let role = match msg.get("role").and_then(|r| r.as_str()) {
+            Some("system") => IrRole::System,
+            Some("assistant") => IrRole::Assistant,
+            Some("tool") => IrRole::Tool,
+            _ => IrRole::User,
+        };
+
+        let mut blocks = Vec::new();
+        if let Some(text) = msg.get("content").and_then(|c| c.as_str())
+            && !text.is_empty()
+        {
+            blocks.push(IrContentBlock::Text {
+                text: text.to_string(),
+            });
+        }
+
+        if let Some(tool_calls) = msg.get("tool_calls").and_then(|tc| tc.as_array()) {
+            for tc in tool_calls {
+                let id = tc
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let name = tc
+                    .get("function")
+                    .and_then(|f| f.get("name"))
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let args_str = tc
+                    .get("function")
+                    .and_then(|f| f.get("arguments"))
+                    .and_then(|a| a.as_str())
+                    .unwrap_or("{}");
+                let input: serde_json::Value = serde_json::from_str(args_str)
+                    .unwrap_or(serde_json::Value::String(args_str.to_string()));
+                blocks.push(IrContentBlock::ToolUse { id, name, input });
+            }
+        }
+
+        if role == IrRole::Tool
+            && let Some(tcid) = msg.get("tool_call_id").and_then(|v| v.as_str())
+        {
+            let content_blocks = msg
+                .get("content")
+                .and_then(|c| c.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| {
+                    vec![IrContentBlock::Text {
+                        text: s.to_string(),
+                    }]
+                })
+                .unwrap_or_default();
+            blocks = vec![IrContentBlock::ToolResult {
+                tool_use_id: tcid.to_string(),
+                content: content_blocks,
+                is_error: false,
+            }];
+        }
+
+        ir_msgs.push(IrMessage::new(role, blocks));
+    }
+
+    (IrConversation::from_messages(ir_msgs), losses)
+}
+
+fn ir_lower_claude(messages: &[serde_json::Value]) -> (IrConversation, Vec<String>) {
+    let mut ir_msgs = Vec::new();
+    let mut losses = Vec::new();
+
+    for msg in messages {
+        let role = match msg.get("role").and_then(|r| r.as_str()) {
+            Some("assistant") => IrRole::Assistant,
+            _ => IrRole::User,
+        };
+
+        let content = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
+
+        if let Ok(blocks) = serde_json::from_str::<Vec<serde_json::Value>>(content)
+            && !blocks.is_empty()
+            && blocks[0].get("type").is_some()
+        {
+            let ir_blocks = claude_blocks_to_ir(&blocks, &mut losses);
+            ir_msgs.push(IrMessage::new(role, ir_blocks));
+            continue;
+        }
+
+        ir_msgs.push(IrMessage::text(role, content));
+    }
+
+    (IrConversation::from_messages(ir_msgs), losses)
+}
+
+fn claude_blocks_to_ir(
+    blocks: &[serde_json::Value],
+    losses: &mut Vec<String>,
+) -> Vec<IrContentBlock> {
+    let mut ir_blocks = Vec::new();
+    for block in blocks {
+        match block.get("type").and_then(|t| t.as_str()) {
+            Some("text") => {
+                if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
+                    ir_blocks.push(IrContentBlock::Text {
+                        text: text.to_string(),
+                    });
+                }
+            }
+            Some("tool_use") => {
+                let id = block
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let name = block
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let input = block.get("input").cloned().unwrap_or(json!({}));
+                ir_blocks.push(IrContentBlock::ToolUse { id, name, input });
+            }
+            Some("tool_result") => {
+                let tool_use_id = block
+                    .get("tool_use_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let inner = block
+                    .get("content")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(|s| {
+                        vec![IrContentBlock::Text {
+                            text: s.to_string(),
+                        }]
+                    })
+                    .unwrap_or_default();
+                let is_error = block
+                    .get("is_error")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                ir_blocks.push(IrContentBlock::ToolResult {
+                    tool_use_id,
+                    content: inner,
+                    is_error,
+                });
+            }
+            Some("thinking") => {
+                if let Some(text) = block.get("thinking").and_then(|t| t.as_str()) {
+                    ir_blocks.push(IrContentBlock::Thinking {
+                        text: text.to_string(),
+                    });
+                }
+                if block.get("signature").is_some() {
+                    losses.push("thinking signature dropped".to_string());
+                }
+            }
+            Some("image") => {
+                if let Some(source) = block.get("source")
+                    && let (Some(mt), Some(d)) = (
+                        source.get("media_type").and_then(|v| v.as_str()),
+                        source.get("data").and_then(|v| v.as_str()),
+                    )
+                {
+                    ir_blocks.push(IrContentBlock::Image {
+                        media_type: mt.to_string(),
+                        data: d.to_string(),
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    ir_blocks
+}
+
+fn ir_lower_gemini(messages: &[serde_json::Value]) -> (IrConversation, Vec<String>) {
+    let mut ir_msgs = Vec::new();
+    let losses = Vec::new();
+
+    for msg in messages {
+        let role = match msg.get("role").and_then(|r| r.as_str()) {
+            Some("model") => IrRole::Assistant,
+            _ => IrRole::User,
+        };
+
+        let mut blocks = Vec::new();
+        if let Some(parts) = msg.get("parts").and_then(|p| p.as_array()) {
+            for part in parts {
+                if let Some(text) = part
+                    .get("text")
+                    .or_else(|| part.get("Text"))
+                    .and_then(|t| t.as_str())
+                {
+                    blocks.push(IrContentBlock::Text {
+                        text: text.to_string(),
+                    });
+                } else if let Some(fc) = part
+                    .get("functionCall")
+                    .or_else(|| part.get("FunctionCall"))
+                {
+                    let name = fc
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let args = fc.get("args").cloned().unwrap_or(json!({}));
+                    blocks.push(IrContentBlock::ToolUse {
+                        id: format!("gemini_{name}"),
+                        name,
+                        input: args,
+                    });
+                } else if let Some(fr) = part
+                    .get("functionResponse")
+                    .or_else(|| part.get("FunctionResponse"))
+                {
+                    let name = fr
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let response = fr.get("response").cloned().unwrap_or(json!(null));
+                    let text = match &response {
+                        serde_json::Value::String(s) => s.clone(),
+                        other => serde_json::to_string(other).unwrap_or_default(),
+                    };
+                    blocks.push(IrContentBlock::ToolResult {
+                        tool_use_id: format!("gemini_{name}"),
+                        content: vec![IrContentBlock::Text { text }],
+                        is_error: false,
+                    });
+                } else if let Some(data) = part.get("inlineData").or_else(|| part.get("InlineData"))
+                {
+                    let mime = data
+                        .get("mimeType")
+                        .or_else(|| data.get("mime_type"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let d = data
+                        .get("data")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    blocks.push(IrContentBlock::Image {
+                        media_type: mime,
+                        data: d,
+                    });
+                }
+            }
+        }
+
+        ir_msgs.push(IrMessage::new(role, blocks));
+    }
+
+    (IrConversation::from_messages(ir_msgs), losses)
+}
+
+// ── IR raising (IrConversation → dialect JSON) ──────────────────────────
+
+fn ir_raise(dialect: Dialect, conv: &IrConversation) -> Result<(serde_json::Value, Vec<String>)> {
+    match dialect {
+        Dialect::OpenAi | Dialect::Codex | Dialect::Kimi | Dialect::Mock | Dialect::Abp => {
+            Ok(ir_raise_openai(conv))
+        }
+        Dialect::Claude => Ok(ir_raise_claude(conv)),
+        Dialect::Gemini => Ok(ir_raise_gemini(conv)),
+    }
+}
+
+fn ir_raise_openai(conv: &IrConversation) -> (serde_json::Value, Vec<String>) {
+    let losses = Vec::new();
+    let messages: Vec<serde_json::Value> = conv.messages.iter().map(ir_msg_to_openai).collect();
+    (serde_json::Value::Array(messages), losses)
+}
+
+fn ir_msg_to_openai(msg: &IrMessage) -> serde_json::Value {
+    let role = match msg.role {
+        IrRole::System => "system",
+        IrRole::User => "user",
+        IrRole::Assistant => "assistant",
+        IrRole::Tool => "tool",
+    };
+
+    if msg.role == IrRole::Tool
+        && let Some(IrContentBlock::ToolResult {
+            tool_use_id,
+            content,
+            ..
+        }) = msg.content.first()
+    {
+        let text: String = content
+            .iter()
+            .filter_map(|b| match b {
+                IrContentBlock::Text { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join("");
+        return json!({
+            "role": role,
+            "content": text,
+            "tool_call_id": tool_use_id,
+        });
+    }
+
+    let mut text_parts = Vec::new();
+    let mut tool_calls = Vec::new();
+
+    for block in &msg.content {
+        match block {
+            IrContentBlock::Text { text } => text_parts.push(text.as_str()),
+            IrContentBlock::ToolUse { id, name, input } => {
+                tool_calls.push(json!({
+                    "id": id,
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "arguments": serde_json::to_string(input).unwrap_or_default(),
+                    }
+                }));
+            }
+            IrContentBlock::Thinking { text } => text_parts.push(text.as_str()),
+            _ => {}
+        }
+    }
+
+    let content = if text_parts.is_empty() {
+        serde_json::Value::Null
+    } else {
+        serde_json::Value::String(text_parts.join(""))
+    };
+
+    let mut obj = json!({ "role": role, "content": content });
+    if !tool_calls.is_empty() {
+        obj["tool_calls"] = serde_json::Value::Array(tool_calls);
+    }
+    obj
+}
+
+fn ir_raise_claude(conv: &IrConversation) -> (serde_json::Value, Vec<String>) {
+    let mut losses = Vec::new();
+    let mut messages = Vec::new();
+
+    for msg in &conv.messages {
+        if msg.role == IrRole::System {
+            losses.push(
+                "system message excluded (Claude uses request-level system field)".to_string(),
+            );
+            continue;
+        }
+        messages.push(ir_msg_to_claude(msg));
+    }
+
+    (serde_json::Value::Array(messages), losses)
+}
+
+fn ir_msg_to_claude(msg: &IrMessage) -> serde_json::Value {
+    let role = match msg.role {
+        IrRole::Assistant => "assistant",
+        _ => "user",
+    };
+
+    let has_structured = msg.content.iter().any(|b| {
+        matches!(
+            b,
+            IrContentBlock::ToolUse { .. }
+                | IrContentBlock::ToolResult { .. }
+                | IrContentBlock::Image { .. }
+                | IrContentBlock::Thinking { .. }
+        )
+    });
+
+    if has_structured {
+        let blocks: Vec<serde_json::Value> = msg.content.iter().map(ir_block_to_claude).collect();
+        let content = serde_json::to_string(&blocks).unwrap_or_default();
+        json!({ "role": role, "content": content })
+    } else {
+        json!({ "role": role, "content": msg.text_content() })
+    }
+}
+
+fn ir_block_to_claude(block: &IrContentBlock) -> serde_json::Value {
+    match block {
+        IrContentBlock::Text { text } => json!({ "type": "text", "text": text }),
+        IrContentBlock::ToolUse { id, name, input } => {
+            json!({ "type": "tool_use", "id": id, "name": name, "input": input })
+        }
+        IrContentBlock::ToolResult {
+            tool_use_id,
+            content,
+            is_error,
+        } => {
+            let text: String = content
+                .iter()
+                .filter_map(|b| match b {
+                    IrContentBlock::Text { text } => Some(text.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join("");
+            let mut obj = json!({
+                "type": "tool_result",
+                "tool_use_id": tool_use_id,
+            });
+            if !text.is_empty() {
+                obj["content"] = serde_json::Value::String(text);
+            }
+            if *is_error {
+                obj["is_error"] = serde_json::Value::Bool(true);
+            }
+            obj
+        }
+        IrContentBlock::Thinking { text } => {
+            json!({ "type": "thinking", "thinking": text })
+        }
+        IrContentBlock::Image { media_type, data } => {
+            json!({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": data,
+                }
+            })
+        }
+    }
+}
+
+fn ir_raise_gemini(conv: &IrConversation) -> (serde_json::Value, Vec<String>) {
+    let mut losses = Vec::new();
+    let mut contents = Vec::new();
+
+    for msg in &conv.messages {
+        if msg.role == IrRole::System {
+            losses.push(
+                "system message excluded (Gemini uses request-level system_instruction)"
+                    .to_string(),
+            );
+            continue;
+        }
+        contents.push(ir_msg_to_gemini(msg));
+    }
+
+    (serde_json::Value::Array(contents), losses)
+}
+
+fn ir_msg_to_gemini(msg: &IrMessage) -> serde_json::Value {
+    let role = match msg.role {
+        IrRole::Assistant => "model",
+        _ => "user",
+    };
+
+    let parts: Vec<serde_json::Value> = msg.content.iter().map(ir_block_to_gemini).collect();
+    json!({ "role": role, "parts": parts })
+}
+
+fn ir_block_to_gemini(block: &IrContentBlock) -> serde_json::Value {
+    match block {
+        IrContentBlock::Text { text } => json!({ "text": text }),
+        IrContentBlock::ToolUse { name, input, .. } => {
+            json!({ "functionCall": { "name": name, "args": input } })
+        }
+        IrContentBlock::ToolResult {
+            tool_use_id,
+            content,
+            ..
+        } => {
+            let name = tool_use_id
+                .strip_prefix("gemini_")
+                .unwrap_or(tool_use_id)
+                .to_string();
+            let text: String = content
+                .iter()
+                .filter_map(|b| match b {
+                    IrContentBlock::Text { text } => Some(text.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join("");
+            json!({ "functionResponse": { "name": name, "response": text } })
+        }
+        IrContentBlock::Thinking { text } => json!({ "text": text }),
+        IrContentBlock::Image { media_type, data } => {
+            json!({ "inlineData": { "mimeType": media_type, "data": data } })
+        }
+    }
 }
