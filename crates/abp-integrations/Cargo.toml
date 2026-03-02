@@ -24,6 +24,7 @@ serde_json.workspace = true
 abp-claude-sdk = { path = "../abp-claude-sdk", version = "0.1.0" }
 abp-codex-sdk = { path = "../abp-codex-sdk", version = "0.1.0" }
 abp-gemini-sdk = { path = "../abp-gemini-sdk", version = "0.1.0" }
+abp-host = { path = "../abp-host", version = "0.1.0" }
 abp-kimi-sdk = { path = "../abp-kimi-sdk", version = "0.1.0" }
 abp-openai-sdk = { path = "../abp-openai-sdk", version = "0.1.0" }
 async-trait = { workspace = true }

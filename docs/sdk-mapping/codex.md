@@ -285,6 +285,112 @@ Codex uses a `status` field instead of per-choice `finish_reason`:
 | `gpt-4o-mini` | 128K | Cost-optimized |
 | `gpt-4.1` | 1M | Latest GPT |
 
+## Configuration
+
+### `SandboxConfig` (Codex-Specific)
+
+Codex supports sandboxed code execution environments:
+
+```jsonc
+{
+  "container_image": "node:20",        // optional, container image
+  "networking": "none",                // "none" | "allow_list" | "full"
+  "file_access": "workspace_only",     // "workspace_only" | "read_only_external" | "full"
+  "timeout_seconds": 300,              // optional, execution timeout
+  "memory_mb": 512,                    // optional, memory limit
+  "env": {                             // optional, environment variables
+    "NODE_ENV": "production"
+  }
+}
+```
+
+#### `NetworkAccess` Enum
+
+| Variant | Description |
+|---------|-------------|
+| `None` | No network access (default) |
+| `AllowList(Vec<String>)` | Allow specific hosts only |
+| `Full` | Unrestricted network access |
+
+#### `FileAccess` Enum
+
+| Variant | Description |
+|---------|-------------|
+| `WorkspaceOnly` | Access to workspace directory only (default) |
+| `ReadOnlyExternal` | Read-only access outside workspace |
+| `Full` | Unrestricted file access |
+
+### `CodexTextFormat` (Structured Output)
+
+| Variant | Fields | Description |
+|---------|--------|-------------|
+| `Text` | — | Plain text output (default) |
+| `JsonObject` | — | JSON object output |
+| `JsonSchema` | `name, schema, strict` | Output constrained to JSON Schema |
+
+### `CodexConfig` Struct
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `api_key` | `String` | `""` | OpenAI API key |
+| `base_url` | `String` | `"https://api.openai.com/v1"` | API base URL |
+| `model` | `String` | `"codex-mini-latest"` | Default model |
+| `max_output_tokens` | `Option<u32>` | `Some(4096)` | Default max output tokens |
+| `temperature` | `Option<f64>` | `None` | Default temperature |
+| `sandbox` | `SandboxConfig` | See defaults above | Sandbox configuration |
+
+## Built-in Tools
+
+Unlike Chat Completions, the Responses API includes built-in tool types alongside standard function tools:
+
+### `CodexTool` Enum
+
+| Variant | Fields | Description |
+|---------|--------|-------------|
+| `Function` | `function: CodexFunctionDef` | Standard function tool |
+| `CodeInterpreter` | — | Sandboxed code execution |
+| `FileSearch` | `max_num_results: Option<u32>` | Vector store file search |
+
+Built-in tools are declared alongside function tools in the `tools` array:
+
+```jsonc
+{
+  "tools": [
+    { "type": "function", "name": "read_file", "description": "...", "parameters": {...} },
+    { "type": "code_interpreter" },
+    { "type": "file_search", "max_num_results": 10 }
+  ]
+}
+```
+
+## Reasoning Support
+
+Codex responses can include reasoning summaries (chain-of-thought):
+
+```jsonc
+{
+  "type": "reasoning",
+  "summary": [
+    { "text": "The user wants to fix a bug in main.rs. Let me analyze the code..." }
+  ]
+}
+```
+
+### `ReasoningSummary` Struct
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `text` | `String` | Reasoning text fragment |
+
+### ABP Mapping
+
+Reasoning output items map to `IrContentBlock::Thinking` in the IR and are preserved in the `AgentEvent` trace. During streaming, reasoning appears as `ReasoningSummaryDelta` events.
+
+| Codex Stream Event | ABP Handling |
+|-------------------|--------------|
+| `ReasoningSummaryDelta` | Logged as thinking content |
+| `Reasoning` output item | → `IrContentBlock::Thinking { text }` |
+
 ## Error Codes
 
 Same as OpenAI Chat Completions (see [`openai.md`](openai.md#error-codes)).
@@ -295,6 +401,55 @@ Same as OpenAI Chat Completions (see [`openai.md`](openai.md#error-codes)).
 | 401 | `authentication_error` | Invalid API key |
 | 429 | `rate_limit_error` | Rate limit exceeded |
 | 500 | `server_error` | Internal server error |
+
+### ABP Shim Error Types (`ShimError`)
+
+| Variant | When |
+|---------|------|
+| `InvalidRequest(String)` | Request validation failed |
+| `Internal(String)` | Internal conversion failure |
+| `Serde(serde_json::Error)` | Serialization error |
+
+### ABP Error Mapping
+
+| Codex Error | ABP `ErrorCode` |
+|------------|-----------------|
+| `invalid_request_error` | `IR_LOWERING_FAILED` or `CONFIG_INVALID` |
+| `authentication_error` | `BACKEND_CRASHED` |
+| `rate_limit_error` | `BACKEND_TIMEOUT` |
+| `server_error` | `BACKEND_CRASHED` |
+
+## Capability Support Matrix
+
+| Capability | Support | Notes |
+|-----------|---------|-------|
+| `Streaming` | ✅ Native | SSE protocol with typed events |
+| `ToolUse` | ✅ Native | Function calls + built-in tools |
+| `ToolRead` | ✅ Native | Via function tools |
+| `ToolWrite` | ✅ Native | Via function tools |
+| `ToolEdit` | ✅ Native | Via function tools |
+| `ToolBash` | ✅ Native | Via function tools |
+| `ToolGlob` | ⚠️ Emulated | Via function tools |
+| `ToolGrep` | ⚠️ Emulated | Via function tools |
+| `ToolWebSearch` | ✅ Native | Built-in `web_search` tool |
+| `StructuredOutputJsonSchema` | ✅ Native | `text.format` with JSON Schema |
+| `HooksPreToolUse` | ⚠️ Emulated | Via event handling |
+| `HooksPostToolUse` | ⚠️ Emulated | Via event handling |
+| `CodeExecution` | ✅ Native | Built-in `code_interpreter` tool |
+| `SessionResume` | ✅ Native | `previous_response_id` chaining |
+| `ExtendedThinking` | ❌ Unsupported | Not available |
+| `ImageInput` | ✅ Native | Via `input_image` items |
+| `McpClient` | ❌ Unsupported | Not available |
+| `McpServer` | ❌ Unsupported | Not available |
+
+## Model Canonicalization
+
+```
+Vendor model:    "codex-mini-latest"
+Canonical form:  "openai/codex-mini-latest"
+```
+
+The `to_canonical_model()` function adds the `openai/` prefix; `from_canonical_model()` strips it.
 
 ## Key Differences from Chat Completions
 
