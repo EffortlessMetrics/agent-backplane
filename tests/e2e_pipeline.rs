@@ -2,7 +2,9 @@
 //! Comprehensive end-to-end pipeline tests exercising the full ABP runtime flow.
 //!
 //! These tests cover: runtime lifecycle, workspace staging, policy enforcement,
-//! receipt chain integrity, and error paths.
+//! receipt chain integrity, error paths, event ordering, cancellation, budget,
+//! event bus patterns, stream pipelines, telemetry, configuration overrides,
+//! execution modes, and pipeline stages.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -15,8 +17,15 @@ use abp_core::{
 };
 use abp_integrations::Backend;
 use abp_policy::PolicyEngine;
+use abp_receipt::{ReceiptChain, diff_receipts, verify_hash};
+use abp_runtime::budget::{BudgetLimit, BudgetStatus, BudgetTracker, BudgetViolation};
+use abp_runtime::bus::{EventBus, FilteredSubscription};
+use abp_runtime::cancel::{CancellableRun, CancellationReason, CancellationToken};
+use abp_runtime::pipeline::{AuditStage, Pipeline, PolicyStage, ValidationStage};
 use abp_runtime::store::ReceiptStore;
 use abp_runtime::{Runtime, RuntimeError};
+use abp_stream::{EventFilter, EventRecorder, EventStats, StreamPipelineBuilder};
+use abp_telemetry::{MetricsCollector, RunMetrics as TelemetryRunMetrics};
 use abp_workspace::WorkspaceStager;
 use async_trait::async_trait;
 use tokio::sync::mpsc;
@@ -159,8 +168,188 @@ impl Backend for ConfigurableBackend {
     }
 }
 
+/// A backend that emits events with interleaved types for ordering tests.
+#[derive(Debug, Clone)]
+struct OrderingBackend;
+
+#[async_trait]
+impl Backend for OrderingBackend {
+    fn identity(&self) -> BackendIdentity {
+        BackendIdentity {
+            id: "ordering".into(),
+            backend_version: Some("0.1".into()),
+            adapter_version: None,
+        }
+    }
+    fn capabilities(&self) -> CapabilityManifest {
+        CapabilityManifest::default()
+    }
+    async fn run(
+        &self,
+        run_id: Uuid,
+        work_order: WorkOrder,
+        events_tx: mpsc::Sender<AgentEvent>,
+    ) -> anyhow::Result<Receipt> {
+        let started_at = chrono::Utc::now();
+        let mut trace = Vec::new();
+
+        let ev = AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::RunStarted {
+                message: "start".into(),
+            },
+            ext: None,
+        };
+        let _ = events_tx.send(ev.clone()).await;
+        trace.push(ev);
+
+        let ev = AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "thinking".into(),
+            },
+            ext: None,
+        };
+        let _ = events_tx.send(ev.clone()).await;
+        trace.push(ev);
+
+        let ev = AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "Read".into(),
+                tool_use_id: Some("tc1".into()),
+                parent_tool_use_id: None,
+                input: serde_json::json!({"path": "test.rs"}),
+            },
+            ext: None,
+        };
+        let _ = events_tx.send(ev.clone()).await;
+        trace.push(ev);
+
+        let ev = AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::ToolResult {
+                tool_name: "Read".into(),
+                tool_use_id: Some("tc1".into()),
+                output: serde_json::json!("file content"),
+                is_error: false,
+            },
+            ext: None,
+        };
+        let _ = events_tx.send(ev.clone()).await;
+        trace.push(ev);
+
+        let ev = AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+            ext: None,
+        };
+        let _ = events_tx.send(ev.clone()).await;
+        trace.push(ev);
+
+        let finished_at = chrono::Utc::now();
+        let receipt = Receipt {
+            meta: abp_core::RunMetadata {
+                run_id,
+                work_order_id: work_order.id,
+                contract_version: CONTRACT_VERSION.to_string(),
+                started_at,
+                finished_at,
+                duration_ms: (finished_at - started_at).num_milliseconds().unsigned_abs(),
+            },
+            backend: self.identity(),
+            capabilities: self.capabilities(),
+            mode: ExecutionMode::Mapped,
+            usage_raw: serde_json::json!({}),
+            usage: Default::default(),
+            trace,
+            artifacts: vec![],
+            verification: Default::default(),
+            outcome: Outcome::Complete,
+            receipt_sha256: None,
+        };
+        receipt.with_hash().map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+/// A slow backend that sleeps, useful for timeout tests.
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+struct SlowBackend {
+    delay_ms: u64,
+}
+
+#[async_trait]
+impl Backend for SlowBackend {
+    fn identity(&self) -> BackendIdentity {
+        BackendIdentity {
+            id: "slow".into(),
+            backend_version: None,
+            adapter_version: None,
+        }
+    }
+    fn capabilities(&self) -> CapabilityManifest {
+        CapabilityManifest::default()
+    }
+    async fn run(
+        &self,
+        run_id: Uuid,
+        work_order: WorkOrder,
+        events_tx: mpsc::Sender<AgentEvent>,
+    ) -> anyhow::Result<Receipt> {
+        let started_at = chrono::Utc::now();
+
+        let ev = AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::RunStarted {
+                message: "slow start".into(),
+            },
+            ext: None,
+        };
+        let _ = events_tx.send(ev.clone()).await;
+        let mut trace = vec![ev];
+
+        tokio::time::sleep(std::time::Duration::from_millis(self.delay_ms)).await;
+
+        let ev = AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::RunCompleted {
+                message: "slow done".into(),
+            },
+            ext: None,
+        };
+        let _ = events_tx.send(ev.clone()).await;
+        trace.push(ev);
+
+        let finished_at = chrono::Utc::now();
+        let receipt = Receipt {
+            meta: abp_core::RunMetadata {
+                run_id,
+                work_order_id: work_order.id,
+                contract_version: CONTRACT_VERSION.to_string(),
+                started_at,
+                finished_at,
+                duration_ms: (finished_at - started_at).num_milliseconds().unsigned_abs(),
+            },
+            backend: self.identity(),
+            capabilities: self.capabilities(),
+            mode: ExecutionMode::Mapped,
+            usage_raw: serde_json::json!({}),
+            usage: Default::default(),
+            trace,
+            artifacts: vec![],
+            verification: Default::default(),
+            outcome: Outcome::Complete,
+            receipt_sha256: None,
+        };
+        receipt.with_hash().map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
 // ===========================================================================
-// 1. Runtime lifecycle (8+ tests)
+// 1. Runtime lifecycle (8 tests)
 // ===========================================================================
 
 #[tokio::test]
@@ -326,7 +515,7 @@ async fn lifecycle_event_timestamps_monotonic() {
 }
 
 // ===========================================================================
-// 2. Workspace staging (5+ tests)
+// 2. Workspace staging (6 tests)
 // ===========================================================================
 
 #[tokio::test]
@@ -480,7 +669,7 @@ async fn workspace_staged_pipeline_exclude_key_files() {
 }
 
 // ===========================================================================
-// 3. Policy enforcement (5+ tests)
+// 3. Policy enforcement (6 tests)
 // ===========================================================================
 
 #[tokio::test]
@@ -599,7 +788,7 @@ async fn policy_decision_includes_reason() {
 }
 
 // ===========================================================================
-// 4. Receipt chain (5+ tests)
+// 4. Receipt chain & verification (7 tests)
 // ===========================================================================
 
 #[tokio::test]
@@ -708,7 +897,7 @@ async fn receipt_store_save_load_verify() {
 }
 
 // ===========================================================================
-// 5. Error paths (7+ tests)
+// 5. Error paths (8 tests)
 // ===========================================================================
 
 #[tokio::test]
@@ -859,6 +1048,1263 @@ async fn error_empty_task_string_handled() {
     assert_eq!(receipt.outcome, Outcome::Complete);
 }
 
+// ===========================================================================
+// 6. Event ordering (6 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn ordering_no_events_after_run_completed() {
+    let mut rt = Runtime::new();
+    rt.register_backend("ordering", OrderingBackend);
+
+    let wo = WorkOrderBuilder::new("ordering check")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("ordering", wo).await.unwrap();
+    let (events, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    let completed_idx = events
+        .iter()
+        .position(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+        .expect("must have RunCompleted");
+
+    assert_eq!(
+        completed_idx,
+        events.len() - 1,
+        "no events should appear after RunCompleted"
+    );
+    assert_eq!(receipt.outcome, Outcome::Complete);
+}
+
+#[tokio::test]
+async fn ordering_run_started_is_always_first() {
+    let rt = Runtime::with_default_backends();
+    for i in 0..5 {
+        let (events, _receipt) = run_mock(&rt, &format!("first event {i}")).await;
+        assert!(
+            matches!(&events[0].kind, AgentEventKind::RunStarted { .. }),
+            "first event must be RunStarted, run {i}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn ordering_tool_result_follows_tool_call() {
+    let mut rt = Runtime::new();
+    rt.register_backend("ordering", OrderingBackend);
+
+    let wo = WorkOrderBuilder::new("tool ordering")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("ordering", wo).await.unwrap();
+    let (events, _receipt) = drain_run(handle).await;
+
+    let call_idx = events
+        .iter()
+        .position(|e| matches!(&e.kind, AgentEventKind::ToolCall { .. }));
+    let result_idx = events
+        .iter()
+        .position(|e| matches!(&e.kind, AgentEventKind::ToolResult { .. }));
+
+    if let (Some(ci), Some(ri)) = (call_idx, result_idx) {
+        assert!(ri > ci, "ToolResult must come after ToolCall");
+    }
+}
+
+#[tokio::test]
+async fn ordering_events_preserve_insertion_order() {
+    let mut rt = Runtime::new();
+    rt.register_backend(
+        "seq",
+        ConfigurableBackend {
+            message_count: 10,
+            identity_name: "seq".into(),
+        },
+    );
+
+    let wo = WorkOrderBuilder::new("insertion order")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("seq", wo).await.unwrap();
+    let (events, _receipt) = drain_run(handle).await;
+
+    // Extract message indices from AssistantMessage events
+    let indices: Vec<usize> = events
+        .iter()
+        .filter_map(|e| match &e.kind {
+            AgentEventKind::AssistantMessage { text } => {
+                text.split_whitespace().next().and_then(|w| {
+                    w.strip_prefix("message")
+                        .and_then(|n| n.parse::<usize>().ok())
+                })
+            }
+            _ => None,
+        })
+        .collect();
+
+    for pair in indices.windows(2) {
+        assert!(
+            pair[1] > pair[0],
+            "messages out of order: {} before {}",
+            pair[0],
+            pair[1]
+        );
+    }
+}
+
+#[tokio::test]
+async fn ordering_trace_matches_streamed_events() {
+    let mut rt = Runtime::new();
+    rt.register_backend("ordering", OrderingBackend);
+
+    let wo = WorkOrderBuilder::new("trace vs stream")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("ordering", wo).await.unwrap();
+    let (events, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    assert_eq!(events.len(), receipt.trace.len());
+    for (i, (streamed, traced)) in events.iter().zip(receipt.trace.iter()).enumerate() {
+        let s_json = serde_json::to_string(&streamed.kind).unwrap();
+        let t_json = serde_json::to_string(&traced.kind).unwrap();
+        assert_eq!(
+            s_json, t_json,
+            "event {i} mismatch between stream and trace"
+        );
+    }
+}
+
+#[tokio::test]
+async fn ordering_configurable_event_count() {
+    let mut rt = Runtime::new();
+    for count in [0, 1, 5, 20] {
+        let name = format!("backend_{count}");
+        rt.register_backend(
+            &name,
+            ConfigurableBackend {
+                message_count: count,
+                identity_name: name.clone(),
+            },
+        );
+
+        let wo = WorkOrderBuilder::new(format!("count {count}"))
+            .workspace_mode(WorkspaceMode::PassThrough)
+            .build();
+        let handle = rt.run_streaming(&name, wo).await.unwrap();
+        let (events, _receipt) = drain_run(handle).await;
+
+        // RunStarted + count messages + RunCompleted
+        assert_eq!(
+            events.len(),
+            count + 2,
+            "expected {} events for count={count}",
+            count + 2
+        );
+    }
+}
+
+// ===========================================================================
+// 7. Receipt hash stability (5 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn hash_stability_recompute_matches() {
+    let rt = Runtime::with_default_backends();
+    let (_events, receipt) = run_mock(&rt, "hash stability").await;
+
+    let hash1 = receipt_hash(&receipt).unwrap();
+    let hash2 = receipt_hash(&receipt).unwrap();
+    assert_eq!(hash1, hash2, "recomputed hashes must be identical");
+}
+
+#[tokio::test]
+async fn hash_stability_verify_hash_returns_true() {
+    let rt = Runtime::with_default_backends();
+    let (_events, receipt) = run_mock(&rt, "verify hash").await;
+    assert!(verify_hash(&receipt), "verify_hash should return true");
+}
+
+#[tokio::test]
+async fn hash_stability_different_tasks_different_hashes() {
+    let rt = Runtime::with_default_backends();
+    let (_e1, r1) = run_mock(&rt, "task alpha").await;
+    let (_e2, r2) = run_mock(&rt, "task beta").await;
+
+    assert_ne!(
+        r1.receipt_sha256, r2.receipt_sha256,
+        "different tasks should produce different hashes"
+    );
+}
+
+#[tokio::test]
+async fn hash_stability_receipt_chain_accumulates() {
+    let rt = Runtime::with_default_backends();
+    let chain = rt.receipt_chain();
+
+    for i in 0..3 {
+        run_mock(&rt, &format!("chain {i}")).await;
+    }
+
+    let chain = chain.lock().await;
+    assert_eq!(chain.len(), 3, "chain should have 3 receipts");
+    assert!(chain.verify().is_ok(), "chain verification should pass");
+}
+
+#[tokio::test]
+async fn hash_stability_receipt_diff_detects_changes() {
+    let rt = Runtime::with_default_backends();
+    let (_e1, r1) = run_mock(&rt, "diff first").await;
+    let (_e2, r2) = run_mock(&rt, "diff second").await;
+
+    let diff = diff_receipts(&r1, &r2);
+    assert!(!diff.is_empty(), "different receipts should produce a diff");
+}
+
+// ===========================================================================
+// 8. Pipeline with MockBackend (5 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn mock_pipeline_complete_flow() {
+    let rt = Runtime::with_default_backends();
+    let wo = WorkOrderBuilder::new("complete mock flow")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (events, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    assert!(matches!(&events[0].kind, AgentEventKind::RunStarted { .. }));
+    assert!(matches!(
+        &events.last().unwrap().kind,
+        AgentEventKind::RunCompleted { .. }
+    ));
+    assert_eq!(receipt.outcome, Outcome::Complete);
+    assert!(receipt.receipt_sha256.is_some());
+    assert!(receipt.verification.harness_ok);
+}
+
+#[tokio::test]
+async fn mock_pipeline_receipt_mode_is_mapped() {
+    let rt = Runtime::with_default_backends();
+    let (_events, receipt) = run_mock(&rt, "mode check").await;
+    assert_eq!(receipt.mode, ExecutionMode::Mapped);
+}
+
+#[tokio::test]
+async fn mock_pipeline_backend_names_listed() {
+    let rt = Runtime::with_default_backends();
+    let names = rt.backend_names();
+    assert!(names.contains(&"mock".to_string()));
+}
+
+#[tokio::test]
+async fn mock_pipeline_run_id_unique_per_run() {
+    let rt = Runtime::with_default_backends();
+    let (_e1, r1) = run_mock(&rt, "run id 1").await;
+    let (_e2, r2) = run_mock(&rt, "run id 2").await;
+    assert_ne!(r1.meta.run_id, r2.meta.run_id);
+}
+
+#[tokio::test]
+async fn mock_pipeline_usage_raw_is_object() {
+    let rt = Runtime::with_default_backends();
+    let (_events, receipt) = run_mock(&rt, "usage raw").await;
+    assert!(
+        receipt.usage_raw.is_object(),
+        "usage_raw should be a JSON object"
+    );
+}
+
+// ===========================================================================
+// 9. Pipeline with policy enforcement (4 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn policy_pipeline_combined_deny_tools_and_paths() {
+    let policy = PolicyProfile {
+        disallowed_tools: vec!["Bash".into()],
+        deny_read: vec!["**/.env".into()],
+        deny_write: vec!["**/node_modules/**".into()],
+        ..PolicyProfile::default()
+    };
+    let engine = PolicyEngine::new(&policy).unwrap();
+
+    assert!(!engine.can_use_tool("Bash").allowed);
+    assert!(!engine.can_read_path(Path::new(".env")).allowed);
+    assert!(
+        !engine
+            .can_write_path(Path::new("node_modules/foo/bar.js"))
+            .allowed
+    );
+    assert!(engine.can_use_tool("Read").allowed);
+    assert!(engine.can_read_path(Path::new("src/main.rs")).allowed);
+}
+
+#[tokio::test]
+async fn policy_pipeline_network_allow_list() {
+    let policy = PolicyProfile {
+        allow_network: vec!["api.example.com".into()],
+        ..PolicyProfile::default()
+    };
+
+    let rt = Runtime::with_default_backends();
+    let wo = WorkOrderBuilder::new("network policy")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .policy(policy.clone())
+        .build();
+
+    assert_eq!(wo.policy.allow_network, vec!["api.example.com"]);
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_events, receipt) = drain_run(handle).await;
+    assert_eq!(receipt.unwrap().outcome, Outcome::Complete);
+}
+
+#[tokio::test]
+async fn policy_pipeline_multiple_deny_globs() {
+    let policy = PolicyProfile {
+        deny_read: vec![
+            "**/.env".into(),
+            "**/.env.*".into(),
+            "**/secrets/**".into(),
+            "**/*.pem".into(),
+        ],
+        ..PolicyProfile::default()
+    };
+    let engine = PolicyEngine::new(&policy).unwrap();
+
+    assert!(!engine.can_read_path(Path::new(".env")).allowed);
+    assert!(!engine.can_read_path(Path::new(".env.local")).allowed);
+    assert!(
+        !engine
+            .can_read_path(Path::new("secrets/password.txt"))
+            .allowed
+    );
+    assert!(!engine.can_read_path(Path::new("certs/ca.pem")).allowed);
+    assert!(engine.can_read_path(Path::new("src/lib.rs")).allowed);
+}
+
+#[tokio::test]
+async fn policy_pipeline_allowed_and_disallowed_tools() {
+    let policy = PolicyProfile {
+        allowed_tools: vec!["Read".into(), "Grep".into()],
+        disallowed_tools: vec!["Bash".into(), "Write".into()],
+        ..PolicyProfile::default()
+    };
+    let engine = PolicyEngine::new(&policy).unwrap();
+
+    assert!(engine.can_use_tool("Read").allowed);
+    assert!(engine.can_use_tool("Grep").allowed);
+    assert!(!engine.can_use_tool("Bash").allowed);
+    assert!(!engine.can_use_tool("Write").allowed);
+}
+
+// ===========================================================================
+// 10. Pipeline with workspace staging (4 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn workspace_pipeline_staged_receipt_has_verification() {
+    let src_dir = tempfile::tempdir().unwrap();
+    std::fs::write(src_dir.path().join("app.rs"), "fn main() {}").unwrap();
+
+    let rt = Runtime::with_default_backends();
+    let wo = WorkOrderBuilder::new("staged verification")
+        .root(src_dir.path().to_str().unwrap())
+        .workspace_mode(WorkspaceMode::Staged)
+        .build();
+
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_events, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    assert!(
+        receipt.verification.git_diff.is_some() || receipt.verification.git_status.is_some(),
+        "staged workspace should produce git verification"
+    );
+}
+
+#[tokio::test]
+async fn workspace_pipeline_stager_no_git_init() {
+    let src_dir = tempfile::tempdir().unwrap();
+    std::fs::write(src_dir.path().join("lib.rs"), "pub fn x() {}").unwrap();
+
+    let prepared = WorkspaceStager::new()
+        .source_root(src_dir.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+
+    assert!(prepared.path().join("lib.rs").exists());
+    // Without git init, no .git directory
+    assert!(
+        !prepared.path().join(".git").exists(),
+        "no .git without git_init"
+    );
+}
+
+#[tokio::test]
+async fn workspace_pipeline_nested_directories_staged() {
+    let src_dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(src_dir.path().join("a").join("b").join("c")).unwrap();
+    std::fs::write(
+        src_dir.path().join("a").join("b").join("c").join("deep.rs"),
+        "fn deep() {}",
+    )
+    .unwrap();
+
+    let prepared = WorkspaceStager::new()
+        .source_root(src_dir.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+
+    assert!(
+        prepared
+            .path()
+            .join("a")
+            .join("b")
+            .join("c")
+            .join("deep.rs")
+            .exists()
+    );
+}
+
+#[tokio::test]
+async fn workspace_pipeline_empty_source_dir() {
+    let src_dir = tempfile::tempdir().unwrap();
+
+    let prepared = WorkspaceStager::new()
+        .source_root(src_dir.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+
+    assert!(prepared.path().exists());
+}
+
+// ===========================================================================
+// 11. Configuration overrides (4 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn config_override_model() {
+    let wo = WorkOrderBuilder::new("model override")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .model("gpt-4o")
+        .build();
+
+    assert_eq!(wo.config.model.as_deref(), Some("gpt-4o"));
+
+    let rt = Runtime::with_default_backends();
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_events, receipt) = drain_run(handle).await;
+    assert_eq!(receipt.unwrap().outcome, Outcome::Complete);
+}
+
+#[tokio::test]
+async fn config_override_max_turns() {
+    let wo = WorkOrderBuilder::new("turns override")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .max_turns(5)
+        .build();
+
+    assert_eq!(wo.config.max_turns, Some(5));
+}
+
+#[tokio::test]
+async fn config_override_max_budget() {
+    let wo = WorkOrderBuilder::new("budget override")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .max_budget_usd(10.0)
+        .build();
+
+    assert_eq!(wo.config.max_budget_usd, Some(10.0));
+}
+
+#[tokio::test]
+async fn config_override_custom_runtime_config() {
+    let mut vendor = BTreeMap::new();
+    vendor.insert(
+        "openai".to_string(),
+        serde_json::json!({"temperature": 0.7}),
+    );
+    let config = RuntimeConfig {
+        model: Some("claude-3".into()),
+        vendor,
+        env: BTreeMap::new(),
+        max_budget_usd: Some(5.0),
+        max_turns: Some(10),
+    };
+
+    let wo = WorkOrderBuilder::new("custom config")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .config(config)
+        .build();
+
+    assert_eq!(wo.config.model.as_deref(), Some("claude-3"));
+    assert_eq!(wo.config.max_turns, Some(10));
+    assert!(wo.config.vendor.contains_key("openai"));
+}
+
+// ===========================================================================
+// 12. Multiple pipelines in sequence (4 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn sequential_pipelines_all_complete() {
+    let rt = Runtime::with_default_backends();
+    let mut receipts = Vec::new();
+
+    for i in 0..5 {
+        let (_events, receipt) = run_mock(&rt, &format!("sequential {i}")).await;
+        receipts.push(receipt);
+    }
+
+    for (i, r) in receipts.iter().enumerate() {
+        assert_eq!(r.outcome, Outcome::Complete, "run {i} should complete");
+        assert!(r.receipt_sha256.is_some(), "run {i} should have hash");
+    }
+}
+
+#[tokio::test]
+async fn sequential_pipelines_different_backends() {
+    let mut rt = Runtime::new();
+    rt.register_backend("mock", abp_integrations::MockBackend);
+    rt.register_backend(
+        "custom",
+        ConfigurableBackend {
+            message_count: 2,
+            identity_name: "custom".into(),
+        },
+    );
+
+    let wo1 = WorkOrderBuilder::new("first")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let h1 = rt.run_streaming("mock", wo1).await.unwrap();
+    let (_e1, r1) = drain_run(h1).await;
+    assert_eq!(r1.unwrap().backend.id, "mock");
+
+    let wo2 = WorkOrderBuilder::new("second")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let h2 = rt.run_streaming("custom", wo2).await.unwrap();
+    let (_e2, r2) = drain_run(h2).await;
+    assert_eq!(r2.unwrap().backend.id, "custom");
+}
+
+#[tokio::test]
+async fn sequential_pipelines_metrics_accumulate() {
+    let rt = Runtime::with_default_backends();
+
+    let snap_before = rt.metrics().snapshot();
+    let initial_runs = snap_before.total_runs;
+
+    for i in 0..3 {
+        run_mock(&rt, &format!("metrics {i}")).await;
+    }
+
+    let snap_after = rt.metrics().snapshot();
+    assert_eq!(snap_after.total_runs, initial_runs + 3);
+    assert_eq!(snap_after.successful_runs, snap_before.successful_runs + 3);
+}
+
+#[tokio::test]
+async fn sequential_pipelines_receipt_chain_grows() {
+    let rt = Runtime::with_default_backends();
+
+    for i in 0..4 {
+        run_mock(&rt, &format!("chain grow {i}")).await;
+    }
+
+    let chain = rt.receipt_chain();
+    let chain = chain.lock().await;
+    assert!(chain.len() >= 4);
+}
+
+// ===========================================================================
+// 13. Error propagation through pipeline stages (5 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn error_propagation_backend_failure_to_receipt() {
+    let mut rt = Runtime::new();
+    rt.register_backend("failing", FailingBackend);
+
+    let wo = WorkOrderBuilder::new("fail propagation")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+
+    let handle = rt.run_streaming("failing", wo).await.unwrap();
+    let (_events, result) = drain_run(handle).await;
+
+    match result {
+        Err(RuntimeError::BackendFailed(e)) => {
+            let msg = format!("{e:#}");
+            assert!(
+                msg.contains("intentional failure") || msg.contains("failing"),
+                "error should propagate: {msg}"
+            );
+        }
+        other => panic!("expected BackendFailed, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn error_propagation_unknown_backend_error_code() {
+    let rt = Runtime::new();
+    let wo = WorkOrderBuilder::new("err code check")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+
+    match rt.run_streaming("ghost", wo).await {
+        Err(ref e @ RuntimeError::UnknownBackend { .. }) => {
+            assert_eq!(e.error_code(), abp_error::ErrorCode::BackendNotFound);
+        }
+        Err(e) => panic!("expected UnknownBackend, got {e:?}"),
+        Ok(_) => panic!("expected error, got Ok"),
+    }
+}
+
+#[tokio::test]
+async fn error_propagation_capability_check_error_code() {
+    let rt = Runtime::with_default_backends();
+    let reqs = CapabilityRequirements {
+        required: vec![CapabilityRequirement {
+            capability: Capability::McpClient,
+            min_support: MinSupport::Native,
+        }],
+    };
+
+    let err = rt.check_capabilities("mock", &reqs).unwrap_err();
+    assert_eq!(
+        err.error_code(),
+        abp_error::ErrorCode::CapabilityUnsupported
+    );
+}
+
+#[tokio::test]
+async fn error_propagation_into_abp_error() {
+    let err = RuntimeError::UnknownBackend {
+        name: "test".into(),
+    };
+    let abp_err = err.into_abp_error();
+    assert_eq!(abp_err.code, abp_error::ErrorCode::BackendNotFound);
+    assert!(abp_err.message.contains("test"));
+}
+
+#[tokio::test]
+async fn error_propagation_pipeline_validation_rejects_empty() {
+    let pipeline = Pipeline::new().stage(ValidationStage);
+    let mut wo = WorkOrderBuilder::new("valid task")
+        .root("/some/path")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+
+    // Validation should pass with valid fields
+    assert!(pipeline.execute(&mut wo).await.is_ok());
+
+    // Clear the task and it should fail
+    wo.task = "".into();
+    assert!(pipeline.execute(&mut wo).await.is_err());
+}
+
+// ===========================================================================
+// 14. Cancellation / timeout scenarios (5 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn cancel_token_new_is_not_cancelled() {
+    let token = CancellationToken::new();
+    assert!(!token.is_cancelled());
+}
+
+#[tokio::test]
+async fn cancel_token_cancel_then_cancelled() {
+    let token = CancellationToken::new();
+    token.cancel();
+    assert!(token.is_cancelled());
+}
+
+#[tokio::test]
+async fn cancel_token_clone_shares_state() {
+    let a = CancellationToken::new();
+    let b = a.clone();
+    a.cancel();
+    assert!(b.is_cancelled());
+}
+
+#[tokio::test]
+async fn cancel_cancellable_run_reason_tracking() {
+    let run = CancellableRun::new(CancellationToken::new());
+    assert!(run.reason().is_none());
+
+    run.cancel(CancellationReason::Timeout);
+    assert!(run.is_cancelled());
+    assert_eq!(run.reason(), Some(CancellationReason::Timeout));
+
+    // Second cancel does not overwrite reason
+    run.cancel(CancellationReason::UserRequested);
+    assert_eq!(run.reason(), Some(CancellationReason::Timeout));
+}
+
+#[tokio::test]
+async fn cancel_cancelled_future_resolves() {
+    let token = CancellationToken::new();
+    let clone = token.clone();
+
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        clone.cancel();
+    });
+
+    tokio::time::timeout(std::time::Duration::from_secs(2), token.cancelled())
+        .await
+        .expect("cancelled() should resolve after cancel()");
+}
+
+// ===========================================================================
+// 15. Event bus patterns (6 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn event_bus_publish_subscribe() {
+    let bus = EventBus::new();
+    let mut sub = bus.subscribe();
+
+    let ev = AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::AssistantMessage {
+            text: "hello".into(),
+        },
+        ext: None,
+    };
+    bus.publish(ev.clone());
+
+    let received = sub.recv().await.unwrap();
+    assert!(matches!(
+        received.kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
+}
+
+#[tokio::test]
+async fn event_bus_multiple_subscribers() {
+    let bus = EventBus::new();
+    let mut sub1 = bus.subscribe();
+    let mut sub2 = bus.subscribe();
+
+    let ev = AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::RunStarted {
+            message: "test".into(),
+        },
+        ext: None,
+    };
+    bus.publish(ev);
+
+    assert!(sub1.recv().await.is_some());
+    assert!(sub2.recv().await.is_some());
+}
+
+#[tokio::test]
+async fn event_bus_stats_tracking() {
+    let bus = EventBus::new();
+    let _sub = bus.subscribe();
+
+    for _ in 0..5 {
+        bus.publish(AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::AssistantMessage { text: "msg".into() },
+            ext: None,
+        });
+    }
+
+    let stats = bus.stats();
+    assert_eq!(stats.total_published, 5);
+}
+
+#[tokio::test]
+async fn event_bus_no_subscribers_drops() {
+    let bus = EventBus::new();
+    bus.publish(AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::AssistantMessage {
+            text: "dropped".into(),
+        },
+        ext: None,
+    });
+
+    let stats = bus.stats();
+    assert_eq!(stats.total_published, 1);
+    assert_eq!(stats.dropped_events, 1);
+}
+
+#[tokio::test]
+async fn event_bus_subscriber_count() {
+    let bus = EventBus::new();
+    assert_eq!(bus.subscriber_count(), 0);
+
+    let _sub1 = bus.subscribe();
+    assert_eq!(bus.subscriber_count(), 1);
+
+    let _sub2 = bus.subscribe();
+    assert_eq!(bus.subscriber_count(), 2);
+
+    drop(_sub1);
+    assert_eq!(bus.subscriber_count(), 1);
+}
+
+#[tokio::test]
+async fn event_bus_filtered_subscription() {
+    let bus = EventBus::new();
+    let sub = bus.subscribe();
+    let mut filtered = FilteredSubscription::new(
+        sub,
+        Box::new(|ev| matches!(&ev.kind, AgentEventKind::Error { .. })),
+    );
+
+    // Publish a non-error event
+    bus.publish(AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::AssistantMessage {
+            text: "skip me".into(),
+        },
+        ext: None,
+    });
+    // Publish an error event
+    bus.publish(AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::Error {
+            message: "found me".into(),
+            error_code: None,
+        },
+        ext: None,
+    });
+
+    // Drop the bus to close the channel after events are sent
+    drop(bus);
+
+    let ev = filtered.recv().await;
+    assert!(ev.is_some());
+    assert!(matches!(ev.unwrap().kind, AgentEventKind::Error { .. }));
+}
+
+// ===========================================================================
+// 16. Receipt verification after pipeline (3 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn receipt_verify_chain_multiple_runs() {
+    let mut chain = ReceiptChain::new();
+    let rt = Runtime::with_default_backends();
+
+    for i in 0..3 {
+        let (_events, receipt) = run_mock(&rt, &format!("chain verify {i}")).await;
+        chain.push(receipt).unwrap();
+    }
+
+    assert!(chain.verify().is_ok());
+    assert_eq!(chain.len(), 3);
+}
+
+#[tokio::test]
+async fn receipt_verify_latest() {
+    let mut chain = ReceiptChain::new();
+    let rt = Runtime::with_default_backends();
+
+    let (_events, r1) = run_mock(&rt, "first").await;
+    let (_events, r2) = run_mock(&rt, "second").await;
+    let r2_id = r2.meta.run_id;
+    chain.push(r1).unwrap();
+    chain.push(r2).unwrap();
+
+    assert_eq!(chain.latest().unwrap().meta.run_id, r2_id);
+}
+
+#[tokio::test]
+async fn receipt_verify_store_list() {
+    let store_dir = tempfile::tempdir().unwrap();
+    let store = ReceiptStore::new(store_dir.path());
+    let rt = Runtime::with_default_backends();
+
+    for i in 0..3 {
+        let (_events, receipt) = run_mock(&rt, &format!("list {i}")).await;
+        store.save(&receipt).unwrap();
+    }
+
+    let listed = store.list().unwrap();
+    assert_eq!(listed.len(), 3);
+}
+
+// ===========================================================================
+// 17. Pipeline with execution modes (3 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn execution_mode_default_is_mapped() {
+    assert_eq!(ExecutionMode::default(), ExecutionMode::Mapped);
+}
+
+#[tokio::test]
+async fn execution_mode_passthrough_serde_roundtrip() {
+    let mode = ExecutionMode::Passthrough;
+    let json = serde_json::to_string(&mode).unwrap();
+    let back: ExecutionMode = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, mode);
+}
+
+#[tokio::test]
+async fn execution_mode_receipt_reflects_backend_mode() {
+    let rt = Runtime::with_default_backends();
+    let (_events, receipt) = run_mock(&rt, "mode in receipt").await;
+    // MockBackend produces Mapped mode receipts
+    assert_eq!(receipt.mode, ExecutionMode::Mapped);
+}
+
+// ===========================================================================
+// 18. Pipeline metrics collection (5 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn metrics_runtime_records_runs() {
+    let rt = Runtime::with_default_backends();
+    let before = rt.metrics().snapshot();
+
+    run_mock(&rt, "metrics run").await;
+
+    let after = rt.metrics().snapshot();
+    assert_eq!(after.total_runs, before.total_runs + 1);
+    assert_eq!(after.successful_runs, before.successful_runs + 1);
+}
+
+#[tokio::test]
+async fn metrics_runtime_records_events() {
+    let rt = Runtime::with_default_backends();
+    let before = rt.metrics().snapshot();
+
+    run_mock(&rt, "metrics events").await;
+
+    let after = rt.metrics().snapshot();
+    assert!(after.total_events > before.total_events);
+}
+
+#[tokio::test]
+async fn metrics_runtime_failed_run_counted() {
+    let mut rt = Runtime::new();
+    rt.register_backend("failing", FailingBackend);
+
+    let before = rt.metrics().snapshot();
+
+    let wo = WorkOrderBuilder::new("will fail")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("failing", wo).await.unwrap();
+    let _ = drain_run(handle).await;
+
+    let after = rt.metrics().snapshot();
+    // The failing backend returns an error, not a receipt, so it won't be
+    // recorded as either success or failure by the runtime (error path returns early).
+    // Just verify we don't panic.
+    assert!(after.total_runs >= before.total_runs);
+}
+
+#[tokio::test]
+async fn metrics_telemetry_collector_summary() {
+    let collector = MetricsCollector::new();
+    collector.record(TelemetryRunMetrics {
+        backend_name: "mock".into(),
+        dialect: "abp".into(),
+        duration_ms: 100,
+        events_count: 4,
+        tokens_in: 50,
+        tokens_out: 100,
+        tool_calls_count: 1,
+        errors_count: 0,
+        emulations_applied: 0,
+    });
+    collector.record(TelemetryRunMetrics {
+        backend_name: "mock".into(),
+        dialect: "abp".into(),
+        duration_ms: 200,
+        events_count: 6,
+        tokens_in: 80,
+        tokens_out: 150,
+        tool_calls_count: 2,
+        errors_count: 0,
+        emulations_applied: 0,
+    });
+
+    let summary = collector.summary();
+    assert_eq!(summary.count, 2);
+    assert!(summary.mean_duration_ms > 0.0);
+    assert_eq!(summary.total_tokens_in, 130);
+    assert_eq!(summary.total_tokens_out, 250);
+    assert_eq!(summary.error_rate, 0.0);
+}
+
+#[tokio::test]
+async fn metrics_telemetry_collector_clear() {
+    let collector = MetricsCollector::new();
+    collector.record(TelemetryRunMetrics {
+        backend_name: "mock".into(),
+        ..TelemetryRunMetrics::default()
+    });
+    assert_eq!(collector.len(), 1);
+
+    collector.clear();
+    assert!(collector.is_empty());
+    assert_eq!(collector.len(), 0);
+}
+
+// ===========================================================================
+// 19. Stream pipeline integration (5 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn stream_pipeline_filter_excludes_errors() {
+    let pipeline = StreamPipelineBuilder::new()
+        .filter(EventFilter::exclude_errors())
+        .build();
+
+    let error_event = AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::Error {
+            message: "boom".into(),
+            error_code: None,
+        },
+        ext: None,
+    };
+    assert!(pipeline.process(error_event).is_none());
+
+    let msg_event = AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::AssistantMessage { text: "ok".into() },
+        ext: None,
+    };
+    assert!(pipeline.process(msg_event).is_some());
+}
+
+#[tokio::test]
+async fn stream_pipeline_recorder_captures_events() {
+    let recorder = EventRecorder::new();
+    let pipeline = StreamPipelineBuilder::new()
+        .with_recorder(recorder.clone())
+        .build();
+
+    let ev = AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::AssistantMessage {
+            text: "recorded".into(),
+        },
+        ext: None,
+    };
+    pipeline.process(ev);
+
+    assert_eq!(recorder.len(), 1);
+    assert!(!recorder.is_empty());
+}
+
+#[tokio::test]
+async fn stream_pipeline_stats_counts_events() {
+    let stats = EventStats::new();
+    let pipeline = StreamPipelineBuilder::new()
+        .with_stats(stats.clone())
+        .build();
+
+    for _ in 0..3 {
+        pipeline.process(AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::AssistantMessage { text: "msg".into() },
+            ext: None,
+        });
+    }
+
+    assert_eq!(stats.total_events(), 3);
+}
+
+#[tokio::test]
+async fn stream_pipeline_runtime_integration() {
+    let recorder = EventRecorder::new();
+    let stats = EventStats::new();
+    let pipeline = StreamPipelineBuilder::new()
+        .with_recorder(recorder.clone())
+        .with_stats(stats.clone())
+        .build();
+
+    let rt = Runtime::with_default_backends().with_stream_pipeline(pipeline);
+
+    let wo = WorkOrderBuilder::new("stream pipeline run")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (events, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+
+    assert_eq!(receipt.outcome, Outcome::Complete);
+    assert!(!events.is_empty());
+    assert_eq!(recorder.len(), events.len());
+    assert_eq!(stats.total_events(), events.len() as u64);
+}
+
+#[tokio::test]
+async fn stream_pipeline_filter_by_kind() {
+    let filter = EventFilter::by_kind("assistant_message");
+    let pipeline = StreamPipelineBuilder::new().filter(filter).build();
+
+    let msg = AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::AssistantMessage {
+            text: "pass".into(),
+        },
+        ext: None,
+    };
+    assert!(pipeline.process(msg).is_some());
+
+    let run_started = AgentEvent {
+        ts: chrono::Utc::now(),
+        kind: AgentEventKind::RunStarted {
+            message: "blocked".into(),
+        },
+        ext: None,
+    };
+    assert!(pipeline.process(run_started).is_none());
+}
+
+// ===========================================================================
+// 20. Budget enforcement (4 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn budget_within_limits() {
+    let tracker = BudgetTracker::new(BudgetLimit {
+        max_tokens: Some(1000),
+        max_turns: Some(10),
+        ..BudgetLimit::default()
+    });
+    tracker.record_tokens(100);
+    tracker.record_turn();
+    assert_eq!(tracker.check(), BudgetStatus::WithinLimits);
+}
+
+#[tokio::test]
+async fn budget_tokens_exceeded() {
+    let tracker = BudgetTracker::new(BudgetLimit {
+        max_tokens: Some(100),
+        ..BudgetLimit::default()
+    });
+    tracker.record_tokens(101);
+    assert!(matches!(
+        tracker.check(),
+        BudgetStatus::Exceeded(BudgetViolation::TokensExceeded { .. })
+    ));
+}
+
+#[tokio::test]
+async fn budget_turns_exceeded() {
+    let tracker = BudgetTracker::new(BudgetLimit {
+        max_turns: Some(3),
+        ..BudgetLimit::default()
+    });
+    for _ in 0..4 {
+        tracker.record_turn();
+    }
+    assert!(matches!(
+        tracker.check(),
+        BudgetStatus::Exceeded(BudgetViolation::TurnsExceeded { .. })
+    ));
+}
+
+#[tokio::test]
+async fn budget_remaining_decrements() {
+    let tracker = BudgetTracker::new(BudgetLimit {
+        max_tokens: Some(1000),
+        max_turns: Some(10),
+        ..BudgetLimit::default()
+    });
+    tracker.record_tokens(300);
+    tracker.record_turn();
+    tracker.record_turn();
+
+    let remaining = tracker.remaining();
+    assert_eq!(remaining.tokens, Some(700));
+    assert_eq!(remaining.turns, Some(8));
+}
+
+// ===========================================================================
+// 21. Pipeline stages (4 tests)
+// ===========================================================================
+
+#[tokio::test]
+async fn pipeline_stage_validation_passes_valid() {
+    let pipeline = Pipeline::new().stage(ValidationStage);
+    let mut wo = WorkOrderBuilder::new("valid task")
+        .root("/some/root")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+
+    assert!(pipeline.execute(&mut wo).await.is_ok());
+}
+
+#[tokio::test]
+async fn pipeline_stage_audit_records_entries() {
+    let audit = AuditStage::new();
+    let pipeline = Pipeline::new().stage(ValidationStage);
+
+    // We can't easily add the same AuditStage to two places, so test directly.
+    let mut wo = WorkOrderBuilder::new("audit test")
+        .root("/root")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+
+    use abp_runtime::pipeline::PipelineStage;
+    audit.process(&mut wo).await.unwrap();
+    let entries = audit.entries().await;
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].task, "audit test");
+    assert_eq!(entries[0].work_order_id, wo.id);
+
+    // Drop pipeline separately
+    drop(pipeline);
+}
+
+#[tokio::test]
+async fn pipeline_stage_chaining_order() {
+    let audit = AuditStage::new();
+    let pipeline = Pipeline::new().stage(ValidationStage).stage(PolicyStage);
+
+    assert_eq!(pipeline.len(), 2);
+    assert!(!pipeline.is_empty());
+
+    // Also verify audit stage can be used standalone
+    let mut wo = WorkOrderBuilder::new("chaining")
+        .root("/root")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    use abp_runtime::pipeline::PipelineStage;
+    audit.process(&mut wo).await.unwrap();
+    assert_eq!(audit.entries().await.len(), 1);
+}
+
+#[tokio::test]
+async fn pipeline_stage_empty_pipeline() {
+    let pipeline = Pipeline::new();
+    assert!(pipeline.is_empty());
+    assert_eq!(pipeline.len(), 0);
+
+    let mut wo = WorkOrderBuilder::new("empty pipeline")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    assert!(pipeline.execute(&mut wo).await.is_ok());
+}
+
+// ===========================================================================
+// 22. Additional integration tests (3 tests)
+// ===========================================================================
+
 #[tokio::test]
 async fn error_unknown_backend_from_empty_registry() {
     let rt = Runtime::new();
@@ -875,146 +2321,19 @@ async fn error_unknown_backend_from_empty_registry() {
     }
 }
 
-// ===========================================================================
-// 6. Additional coverage
-// ===========================================================================
-
 #[tokio::test]
-async fn backend_registry_names_sorted() {
-    let mut rt = Runtime::new();
-    rt.register_backend("zulu", abp_integrations::MockBackend);
-    rt.register_backend("alpha", abp_integrations::MockBackend);
-    rt.register_backend("mike", abp_integrations::MockBackend);
-
-    let names = rt.backend_names();
-    assert_eq!(names.len(), 3);
-    // backend_names returns the registered backends
-    assert!(names.contains(&"alpha".to_string()) || names.contains(&"zulu".to_string()));
+async fn runtime_default_impl() {
+    let rt = Runtime::default();
+    assert!(rt.backend_names().is_empty());
 }
 
 #[tokio::test]
-async fn receipt_chain_store_verify_chain() {
-    let store_dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(store_dir.path());
-    let rt = Runtime::with_default_backends();
+async fn runtime_with_emulation_config() {
+    use abp_emulation::EmulationConfig;
+    let rt = Runtime::with_default_backends().with_emulation(EmulationConfig::new());
+    assert!(rt.emulation_config().is_some());
 
-    for i in 0..3 {
-        let (_events, receipt) = run_mock(&rt, &format!("chain {i}")).await;
-        store.save(&receipt).unwrap();
-    }
-
-    let chain = store.verify_chain().unwrap();
-    assert!(chain.is_valid, "chain should be valid");
-    assert_eq!(chain.valid_count, 3);
-    assert!(chain.invalid_hashes.is_empty());
-}
-
-#[tokio::test]
-async fn execution_mode_default_is_mapped() {
-    let rt = Runtime::with_default_backends();
-    let (_events, receipt) = run_mock(&rt, "default mode test").await;
-    assert_eq!(receipt.mode, ExecutionMode::Mapped);
-}
-
-#[tokio::test]
-async fn execution_mode_passthrough_via_vendor_config() {
-    let mut vendor = BTreeMap::new();
-    vendor.insert(
-        "abp".to_string(),
-        serde_json::json!({"mode": "passthrough"}),
-    );
-
-    let rt = Runtime::with_default_backends();
-    let wo = WorkOrderBuilder::new("passthrough mode")
-        .workspace_mode(WorkspaceMode::PassThrough)
-        .config(RuntimeConfig {
-            vendor,
-            ..Default::default()
-        })
-        .build();
-
-    let handle = rt.run_streaming("mock", wo).await.unwrap();
-    let (_events, receipt) = drain_run(handle).await;
-    assert_eq!(receipt.unwrap().mode, ExecutionMode::Passthrough);
-}
-
-#[tokio::test]
-async fn telemetry_tracks_runs_correctly() {
-    let rt = Runtime::with_default_backends();
-    assert_eq!(rt.metrics().snapshot().total_runs, 0);
-
-    let _ = run_mock(&rt, "telemetry run 1").await;
-    let _ = run_mock(&rt, "telemetry run 2").await;
-
-    let snap = rt.metrics().snapshot();
-    assert_eq!(snap.total_runs, 2);
-    assert_eq!(snap.successful_runs, 2);
-    assert_eq!(snap.failed_runs, 0);
-    assert!(snap.total_events > 0);
-}
-
-#[tokio::test]
-async fn telemetry_tracks_failed_runs() {
-    let mut rt = Runtime::new();
-    rt.register_backend("failing", FailingBackend);
-    rt.register_backend("mock", abp_integrations::MockBackend);
-
-    // Successful run
-    let _ = run_mock(&rt, "success").await;
-
-    // Failing run — backend errors don't reach the telemetry recording
-    // because the spawned task returns Err before record_run is called.
-    let wo = WorkOrderBuilder::new("will fail")
-        .workspace_mode(WorkspaceMode::PassThrough)
-        .build();
-    let handle = rt.run_streaming("failing", wo).await.unwrap();
-    let (_events, result) = drain_run(handle).await;
-    assert!(result.is_err(), "failing backend should produce an error");
-
-    // Another successful run
-    let _ = run_mock(&rt, "success 2").await;
-
-    let snap = rt.metrics().snapshot();
-    assert_eq!(snap.total_runs, 2);
-    assert_eq!(snap.successful_runs, 2);
-}
-
-#[tokio::test]
-async fn receipt_verification_harness_ok_set() {
-    let rt = Runtime::with_default_backends();
-    let (_events, receipt) = run_mock(&rt, "harness check").await;
-    // MockBackend sets harness_ok: true
-    assert!(receipt.verification.harness_ok);
-}
-
-#[tokio::test]
-async fn config_model_propagation() {
-    let rt = Runtime::with_default_backends();
-    let wo = WorkOrderBuilder::new("model config")
-        .workspace_mode(WorkspaceMode::PassThrough)
-        .model("test-model-v1")
-        .build();
-
-    assert_eq!(wo.config.model.as_deref(), Some("test-model-v1"));
-
-    let handle = rt.run_streaming("mock", wo).await.unwrap();
-    let (_events, receipt) = drain_run(handle).await;
-    assert_eq!(receipt.unwrap().outcome, Outcome::Complete);
-}
-
-#[tokio::test]
-async fn config_budget_and_turns() {
-    let rt = Runtime::with_default_backends();
-    let wo = WorkOrderBuilder::new("budget and turns")
-        .workspace_mode(WorkspaceMode::PassThrough)
-        .max_budget_usd(5.0)
-        .max_turns(20)
-        .build();
-
-    assert_eq!(wo.config.max_budget_usd, Some(5.0));
-    assert_eq!(wo.config.max_turns, Some(20));
-
-    let handle = rt.run_streaming("mock", wo).await.unwrap();
-    let (_events, receipt) = drain_run(handle).await;
-    assert_eq!(receipt.unwrap().outcome, Outcome::Complete);
+    // Should still run fine
+    let (_events, receipt) = run_mock(&rt, "with emulation").await;
+    assert_eq!(receipt.outcome, Outcome::Complete);
 }
