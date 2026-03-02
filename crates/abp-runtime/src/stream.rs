@@ -2,7 +2,7 @@
 //! Stream pipeline integration for the ABP runtime.
 //!
 //! Re-exports [`abp_stream`] types and provides helpers for wiring a
-//! [`StreamPipeline`] into the runtime's two-stage event channel.
+//! [`StreamPipeline`](abp_stream::StreamPipeline) into the runtime's two-stage event channel.
 
 pub use abp_stream::{
     EventFilter, EventMultiplexer, EventRecorder, EventStats, EventStream, EventTransform,

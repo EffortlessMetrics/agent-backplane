@@ -11,6 +11,7 @@ pub mod lifecycle;
 pub mod pool;
 pub mod process;
 pub mod registry;
+pub mod retry;
 
 use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
