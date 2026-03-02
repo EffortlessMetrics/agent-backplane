@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_expansion.rs
+expression: report
+---
+{
+  "applied": [],
+  "warnings": [
+    "Capability CodeExecution not emulated: Cannot safely emulate sandboxed code execution"
+  ]
+}

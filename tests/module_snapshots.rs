@@ -188,10 +188,12 @@ fn streaming_codec_encode_batch_snapshot() {
         Envelope::Fatal {
             ref_id: Some("run-1".into()),
             error: "out of memory".into(),
+            error_code: None,
         },
         Envelope::Fatal {
             ref_id: None,
             error: "unknown".into(),
+            error_code: None,
         },
     ];
     let batch = StreamingCodec::encode_batch(&envelopes);

@@ -1,0 +1,10 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": "run-golden",
+  "error": "sidecar process exited",
+  "error_code": "BACKEND_CRASHED"
+}

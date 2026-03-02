@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![deny(unsafe_code)]
 #![warn(missing_docs)]
 //! Capability negotiation between work-order requirements and backend manifests.
 //!
@@ -16,6 +17,18 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 /// How a single capability would be fulfilled after negotiation.
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::SupportLevel;
+///
+/// let level = SupportLevel::Native;
+/// assert!(matches!(level, SupportLevel::Native));
+///
+/// let emulated = SupportLevel::Emulated { strategy: "polyfill".into() };
+/// assert!(matches!(emulated, SupportLevel::Emulated { .. }));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "level", rename_all = "snake_case")]
 pub enum SupportLevel {
@@ -31,6 +44,21 @@ pub enum SupportLevel {
 }
 
 /// Outcome of negotiating a full set of requirements against a manifest.
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::NegotiationResult;
+/// use abp_core::Capability;
+///
+/// let result = NegotiationResult {
+///     native: vec![Capability::Streaming],
+///     emulatable: vec![Capability::ToolRead],
+///     unsupported: vec![],
+/// };
+/// assert!(result.is_compatible());
+/// assert_eq!(result.total(), 2);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NegotiationResult {
     /// Capabilities the manifest supports natively.
@@ -56,6 +84,22 @@ impl NegotiationResult {
 }
 
 /// Human-readable summary of a negotiation outcome.
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::{generate_report, NegotiationResult};
+/// use abp_core::Capability;
+///
+/// let result = NegotiationResult {
+///     native: vec![Capability::Streaming],
+///     emulatable: vec![Capability::ToolRead],
+///     unsupported: vec![],
+/// };
+/// let report = generate_report(&result);
+/// assert!(report.compatible);
+/// assert!(report.summary.contains("fully compatible"));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompatibilityReport {
     /// Whether all required capabilities can be satisfied.
@@ -82,6 +126,19 @@ pub struct CompatibilityReport {
 /// [`SupportLevel::Emulated`] for `CoreSupportLevel::Emulated` and
 /// `CoreSupportLevel::Restricted`, and [`SupportLevel::Unsupported`]
 /// for everything else (including capabilities absent from the manifest).
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::{check_capability, SupportLevel};
+/// use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
+///
+/// let mut manifest = CapabilityManifest::new();
+/// manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
+///
+/// assert_eq!(check_capability(&manifest, &Capability::Streaming), SupportLevel::Native);
+/// assert_eq!(check_capability(&manifest, &Capability::ToolRead), SupportLevel::Unsupported);
+/// ```
 #[must_use]
 pub fn check_capability(manifest: &CapabilityManifest, cap: &Capability) -> SupportLevel {
     match manifest.get(cap) {
@@ -100,6 +157,30 @@ pub fn check_capability(manifest: &CapabilityManifest, cap: &Capability) -> Supp
 ///
 /// Each required capability is classified via [`check_capability`] and placed
 /// into the appropriate bucket of the returned [`NegotiationResult`].
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::negotiate;
+/// use abp_core::{
+///     Capability, CapabilityManifest, CapabilityRequirements,
+///     CapabilityRequirement, MinSupport, SupportLevel as CoreSupportLevel,
+/// };
+///
+/// let mut manifest = CapabilityManifest::new();
+/// manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
+///
+/// let reqs = CapabilityRequirements {
+///     required: vec![CapabilityRequirement {
+///         capability: Capability::Streaming,
+///         min_support: MinSupport::Native,
+///     }],
+/// };
+///
+/// let result = negotiate(&manifest, &reqs);
+/// assert!(result.is_compatible());
+/// assert_eq!(result.native, vec![Capability::Streaming]);
+/// ```
 #[must_use]
 pub fn negotiate(
     manifest: &CapabilityManifest,
@@ -125,6 +206,22 @@ pub fn negotiate(
 }
 
 /// Produce a human-readable [`CompatibilityReport`] from a negotiation result.
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::{generate_report, NegotiationResult};
+/// use abp_core::Capability;
+///
+/// let result = NegotiationResult {
+///     native: vec![Capability::Streaming],
+///     emulatable: vec![],
+///     unsupported: vec![],
+/// };
+/// let report = generate_report(&result);
+/// assert!(report.compatible);
+/// assert_eq!(report.native_count, 1);
+/// ```
 #[must_use]
 pub fn generate_report(result: &NegotiationResult) -> CompatibilityReport {
     let compatible = result.is_compatible();

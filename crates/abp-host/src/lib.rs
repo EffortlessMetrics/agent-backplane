@@ -11,6 +11,7 @@ pub mod lifecycle;
 pub mod pool;
 pub mod process;
 pub mod registry;
+pub mod retry;
 
 use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
@@ -301,7 +302,7 @@ impl SidecarClient {
                         let _ = receipt_tx.send(Ok(receipt));
                         break;
                     }
-                    Ok(Envelope::Fatal { ref_id, error }) => {
+                    Ok(Envelope::Fatal { ref_id, error, .. }) => {
                         if let Some(ref_id) = ref_id
                             && ref_id != run_id
                         {

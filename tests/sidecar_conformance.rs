@@ -276,6 +276,7 @@ fn fatal_terminates_stream() {
         Envelope::Fatal {
             ref_id: Some("run-1".into()),
             error: "out of memory".into(),
+            error_code: None,
         },
     ];
     let buf = encode_stream(&envelopes);
@@ -295,10 +296,11 @@ fn fatal_without_ref_id_is_valid() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "startup crash".into(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&fatal).unwrap();
     let decoded = JsonlCodec::decode(line.trim()).unwrap();
-    if let Envelope::Fatal { ref_id, error } = decoded {
+    if let Envelope::Fatal { ref_id, error, .. } = decoded {
         assert!(ref_id.is_none());
         assert_eq!(error, "startup crash");
     } else {
@@ -355,6 +357,7 @@ fn malformed_oversized_line_still_parses() {
     let fatal = Envelope::Fatal {
         ref_id: Some("run-big".into()),
         error: big_error.clone(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&fatal).unwrap();
     let decoded = JsonlCodec::decode(line.trim()).unwrap();
@@ -1145,6 +1148,7 @@ fn first_message_is_fatal_not_hello() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "init error".into(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&fatal).unwrap();
     let decoded = JsonlCodec::decode(line.trim()).unwrap();
@@ -1229,6 +1233,7 @@ fn validator_fatal_empty_error_fails() {
     let fatal = Envelope::Fatal {
         ref_id: Some("run-1".into()),
         error: String::new(),
+        error_code: None,
     };
     let result = v.validate(&fatal);
     assert!(!result.valid, "empty error on fatal should fail");
@@ -1388,6 +1393,7 @@ fn validator_sequence_fatal_ending_is_valid() {
         Envelope::Fatal {
             ref_id: Some(run_id.into()),
             error: "crash".into(),
+            error_code: None,
         },
     ];
     let errors = v.validate_sequence(&seq);
@@ -1554,6 +1560,7 @@ fn all_agent_event_kinds_roundtrip_through_protocol() {
         },
         AgentEventKind::Error {
             message: "bad thing".into(),
+            error_code: None,
         },
         AgentEventKind::RunCompleted {
             message: "done".into(),

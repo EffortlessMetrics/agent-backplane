@@ -31,12 +31,18 @@ struct Args {
     host_root: PathBuf,
 
     /// Directory to persist receipts.
-    #[arg(long, default_value = ".agent-backplane/receipts")]
-    receipts_dir: PathBuf,
+    #[arg(long)]
+    receipts_dir: Option<PathBuf>,
 
     /// Enable request/response debug logging.
     #[arg(long)]
     debug: bool,
+
+    /// Path to a TOML configuration file.
+    ///
+    /// Falls back to `backplane.toml` in the current directory if present.
+    #[arg(long)]
+    config: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -51,15 +57,36 @@ async fn main() -> Result<()> {
 
     tracing_subscriber::fmt().with_env_filter(filter).init();
 
-    fs::create_dir_all(&args.receipts_dir)
-        .await
-        .with_context(|| format!("create receipts dir {}", args.receipts_dir.display()))?;
+    // Load configuration from --config path, backplane.toml fallback, or defaults.
+    let config_path = args.config.clone().or_else(|| {
+        let p = PathBuf::from("backplane.toml");
+        if p.exists() { Some(p) } else { None }
+    });
+    let config = abp_config::load_config(config_path.as_deref()).unwrap_or_else(|e| {
+        tracing::warn!("failed to load config: {e}");
+        abp_config::BackplaneConfig::default()
+    });
+    if let Ok(warnings) = abp_config::validate_config(&config) {
+        for w in &warnings {
+            tracing::debug!("config: {w}");
+        }
+    }
 
-    let runtime = Arc::new(build_runtime(&args.host_root)?);
+    // Resolve receipts_dir: --receipts-dir flag > config receipts_dir > default.
+    let receipts_dir = args
+        .receipts_dir
+        .or_else(|| config.receipts_dir.as_ref().map(PathBuf::from))
+        .unwrap_or_else(|| PathBuf::from(".agent-backplane/receipts"));
+
+    fs::create_dir_all(&receipts_dir)
+        .await
+        .with_context(|| format!("create receipts dir {}", receipts_dir.display()))?;
+
+    let runtime = Arc::new(build_runtime(&args.host_root, &config)?);
     let state = Arc::new(AppState {
         runtime,
         receipts: Arc::new(RwLock::new(HashMap::new())),
-        receipts_dir: args.receipts_dir.clone(),
+        receipts_dir: receipts_dir.clone(),
         run_tracker: RunTracker::new(),
     });
 
@@ -80,7 +107,7 @@ async fn main() -> Result<()> {
     axum::serve(listener, app).await.context("serve")
 }
 
-fn build_runtime(host_root: &Path) -> Result<Runtime> {
+fn build_runtime(host_root: &Path, config: &abp_config::BackplaneConfig) -> Result<Runtime> {
     let mut runtime = Runtime::new();
     runtime.register_backend("mock", MockBackend);
 
@@ -114,6 +141,20 @@ fn build_runtime(host_root: &Path) -> Result<Runtime> {
     gemini_sdk::register_default(&mut runtime, host_root, None)?;
 
     codex_sdk::register_default(&mut runtime, host_root, None)?;
+
+    // Register backends from loaded configuration.
+    for (name, entry) in &config.backends {
+        match entry {
+            abp_config::BackendEntry::Mock {} => {
+                runtime.register_backend(name, MockBackend);
+            }
+            abp_config::BackendEntry::Sidecar { command, args, .. } => {
+                let mut spec = SidecarSpec::new(command);
+                spec.args = args.clone();
+                runtime.register_backend(name, SidecarBackend::new(spec));
+            }
+        }
+    }
 
     Ok(runtime)
 }

@@ -1,0 +1,30 @@
+---
+source: tests/snapshot_expansion.rs
+expression: "json!({ \"ir_message_count\": ir.len(), \"ir\": ir, \"work_order_task\": wo.task, })"
+---
+{
+  "ir": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Fix the bug in main.rs",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "I'll look at the code.",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      }
+    ]
+  },
+  "ir_message_count": 2,
+  "work_order_task": "Fix the bug in main.rs"
+}

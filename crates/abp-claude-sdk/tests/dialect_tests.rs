@@ -563,7 +563,7 @@ fn stream_error_maps_to_error_event() {
     let agent_events = map_stream_event(&event);
     assert_eq!(agent_events.len(), 1);
     match &agent_events[0].kind {
-        AgentEventKind::Error { message } => {
+        AgentEventKind::Error { message, .. } => {
             assert!(message.contains("rate_limit_error"));
             assert!(message.contains("Too many requests"));
         }

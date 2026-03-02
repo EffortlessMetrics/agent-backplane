@@ -15,6 +15,20 @@ use serde::{Deserialize, Serialize};
 // ── Errors ──────────────────────────────────────────────────────────────
 
 /// Errors that can occur during mapping validation.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::MappingError;
+/// use abp_dialect::Dialect;
+///
+/// let err = MappingError::FeatureUnsupported {
+///     feature: "logprobs".into(),
+///     from: Dialect::Claude,
+///     to: Dialect::Gemini,
+/// };
+/// assert!(err.to_string().contains("logprobs"));
+/// ```
 #[derive(Debug, Clone, thiserror::Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MappingError {
     /// The requested feature is unsupported in the target dialect.
@@ -54,6 +68,19 @@ pub enum MappingError {
 // ── Fidelity ────────────────────────────────────────────────────────────
 
 /// Describes how faithfully a feature maps between dialects.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::Fidelity;
+///
+/// let f = Fidelity::Lossless;
+/// assert!(f.is_lossless());
+/// assert!(!f.is_unsupported());
+///
+/// let u = Fidelity::Unsupported { reason: "not available".into() };
+/// assert!(u.is_unsupported());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Fidelity {
@@ -88,6 +115,21 @@ impl Fidelity {
 // ── MappingRule ─────────────────────────────────────────────────────────
 
 /// A single mapping rule describing how a feature translates between dialects.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::{MappingRule, Fidelity};
+/// use abp_dialect::Dialect;
+///
+/// let rule = MappingRule {
+///     source_dialect: Dialect::OpenAi,
+///     target_dialect: Dialect::Claude,
+///     feature: "streaming".into(),
+///     fidelity: Fidelity::Lossless,
+/// };
+/// assert!(rule.fidelity.is_lossless());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MappingRule {
     /// Source dialect.
@@ -124,6 +166,25 @@ struct RuleKey {
 }
 
 /// Collects [`MappingRule`]s and provides lookup by source, target, and feature.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::{MappingRegistry, MappingRule, Fidelity};
+/// use abp_dialect::Dialect;
+///
+/// let mut reg = MappingRegistry::new();
+/// reg.insert(MappingRule {
+///     source_dialect: Dialect::OpenAi,
+///     target_dialect: Dialect::Claude,
+///     feature: "tool_use".into(),
+///     fidelity: Fidelity::Lossless,
+/// });
+///
+/// assert_eq!(reg.len(), 1);
+/// let rule = reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use");
+/// assert!(rule.is_some());
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct MappingRegistry {
     rules: HashMap<RuleKey, MappingRule>,
@@ -173,6 +234,37 @@ impl MappingRegistry {
     pub fn iter(&self) -> impl Iterator<Item = &MappingRule> {
         self.rules.values()
     }
+
+    /// Ranks target dialects by mapping quality for the given source and features.
+    ///
+    /// Returns `(dialect, lossless_count)` pairs sorted by lossless count descending.
+    /// Dialects where no features are supported (all unsupported or absent) are excluded.
+    #[must_use]
+    pub fn rank_targets(&self, source: Dialect, features: &[&str]) -> Vec<(Dialect, usize)> {
+        let mut results = Vec::new();
+        for &target in Dialect::all() {
+            if target == source {
+                continue;
+            }
+            let mut lossless = 0usize;
+            let mut any_supported = false;
+            for &feat in features {
+                if let Some(rule) = self.lookup(source, target, feat)
+                    && !rule.fidelity.is_unsupported()
+                {
+                    any_supported = true;
+                    if rule.fidelity.is_lossless() {
+                        lossless += 1;
+                    }
+                }
+            }
+            if any_supported {
+                results.push((target, lossless));
+            }
+        }
+        results.sort_by_key(|b| std::cmp::Reverse(b.1));
+        results
+    }
 }
 
 // ── MappingMatrix ───────────────────────────────────────────────────────
@@ -180,6 +272,19 @@ impl MappingRegistry {
 /// 2D lookup table of Dialect×Dialect support status.
 ///
 /// Each cell indicates whether the dialect pair has *any* mapping support.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::MappingMatrix;
+/// use abp_dialect::Dialect;
+///
+/// let mut matrix = MappingMatrix::new();
+/// matrix.set(Dialect::OpenAi, Dialect::Claude, true);
+///
+/// assert!(matrix.is_supported(Dialect::OpenAi, Dialect::Claude));
+/// assert!(!matrix.is_supported(Dialect::Claude, Dialect::OpenAi));
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct MappingMatrix {
     /// `(source, target) -> supported`
@@ -231,6 +336,23 @@ impl MappingMatrix {
 /// Validates a set of features for a source→target dialect mapping.
 ///
 /// Returns a [`MappingValidation`] for each requested feature.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::{validate_mapping, known_rules, Fidelity};
+/// use abp_dialect::Dialect;
+///
+/// let registry = known_rules();
+/// let results = validate_mapping(
+///     &registry,
+///     Dialect::OpenAi,
+///     Dialect::Claude,
+///     &["tool_use".into(), "streaming".into()],
+/// );
+/// assert_eq!(results.len(), 2);
+/// assert!(results[0].fidelity.is_lossless());
+/// ```
 #[must_use]
 pub fn validate_mapping(
     registry: &MappingRegistry,
@@ -319,29 +441,36 @@ pub mod features {
     pub const THINKING: &str = "thinking";
     /// Image input support.
     pub const IMAGE_INPUT: &str = "image_input";
+    /// Code execution / bash tool.
+    pub const CODE_EXEC: &str = "code_exec";
 }
 
 /// Pre-populates a [`MappingRegistry`] with known mapping rules for major
 /// features across OpenAI, Claude, Gemini, and Codex.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::known_rules;
+///
+/// let registry = known_rules();
+/// assert!(!registry.is_empty());
+/// ```
 #[must_use]
 pub fn known_rules() -> MappingRegistry {
     let mut reg = MappingRegistry::new();
 
-    let dialects = [
-        Dialect::OpenAi,
-        Dialect::Claude,
-        Dialect::Gemini,
-        Dialect::Codex,
-    ];
+    let dialects = Dialect::all();
     let feats = [
         features::TOOL_USE,
         features::STREAMING,
         features::THINKING,
         features::IMAGE_INPUT,
+        features::CODE_EXEC,
     ];
 
     // Same-dialect is always lossless for all features.
-    for &d in &dialects {
+    for &d in dialects {
         for &f in &feats {
             reg.insert(MappingRule {
                 source_dialect: d,
@@ -390,6 +519,27 @@ pub fn known_rules() -> MappingRegistry {
         &mut reg,
         Dialect::Gemini,
         Dialect::Codex,
+        features::TOOL_USE,
+        "Codex tool_use schema differs from Gemini function declarations",
+    );
+    insert_pair_lossy(
+        &mut reg,
+        Dialect::Codex,
+        Dialect::OpenAi,
+        features::TOOL_USE,
+        "Codex tool_use schema differs from chat-completions function calling",
+    );
+    insert_pair_lossy(
+        &mut reg,
+        Dialect::Codex,
+        Dialect::Claude,
+        features::TOOL_USE,
+        "Codex tool_use schema differs from Claude tool_use blocks",
+    );
+    insert_pair_lossy(
+        &mut reg,
+        Dialect::Codex,
+        Dialect::Gemini,
         features::TOOL_USE,
         "Codex tool_use schema differs from Gemini function declarations",
     );
@@ -558,6 +708,141 @@ pub fn known_rules() -> MappingRegistry {
         features::IMAGE_INPUT,
         "Codex does not support image inputs",
     );
+
+    // ── Kimi & Copilot: tool_use ────────────────────────────────────
+    // Both are OpenAI-compatible; lossless with most, lossy with Codex.
+    for &nd in &[Dialect::Kimi, Dialect::Copilot] {
+        for &od in &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini] {
+            insert_pair_lossless(&mut reg, nd, od, features::TOOL_USE);
+        }
+        insert_pair_lossy(
+            &mut reg,
+            nd,
+            Dialect::Codex,
+            features::TOOL_USE,
+            "Codex tool_use schema differs from OpenAI-compatible format",
+        );
+        insert_pair_lossy(
+            &mut reg,
+            Dialect::Codex,
+            nd,
+            features::TOOL_USE,
+            "Codex tool_use schema differs from OpenAI-compatible format",
+        );
+    }
+    insert_pair_lossless(
+        &mut reg,
+        Dialect::Kimi,
+        Dialect::Copilot,
+        features::TOOL_USE,
+    );
+
+    // ── Kimi & Copilot: streaming ───────────────────────────────────
+    // All SSE-based; lossless with all dialects.
+    for &nd in &[Dialect::Kimi, Dialect::Copilot] {
+        for &od in &[
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+        ] {
+            insert_pair_lossless(&mut reg, nd, od, features::STREAMING);
+        }
+    }
+    insert_pair_lossless(
+        &mut reg,
+        Dialect::Kimi,
+        Dialect::Copilot,
+        features::STREAMING,
+    );
+
+    // ── Kimi & Copilot: thinking ────────────────────────────────────
+    // Neither has native thinking; all cross-dialect is lossy.
+    for &nd in &[Dialect::Kimi, Dialect::Copilot] {
+        for &od in &[
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+        ] {
+            let w = format!("{} does not have native thinking blocks", nd.label());
+            insert_pair_lossy(&mut reg, nd, od, features::THINKING, &w);
+            insert_pair_lossy(&mut reg, od, nd, features::THINKING, &w);
+        }
+    }
+    insert_pair_lossy(
+        &mut reg,
+        Dialect::Kimi,
+        Dialect::Copilot,
+        features::THINKING,
+        "neither Kimi nor Copilot has native thinking blocks",
+    );
+    insert_pair_lossy(
+        &mut reg,
+        Dialect::Copilot,
+        Dialect::Kimi,
+        features::THINKING,
+        "neither Kimi nor Copilot has native thinking blocks",
+    );
+
+    // ── Kimi & Copilot: image_input ─────────────────────────────────
+    // Neither supports image inputs.
+    for &nd in &[Dialect::Kimi, Dialect::Copilot] {
+        for &od in &[
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+        ] {
+            insert_pair_unsupported(
+                &mut reg,
+                nd,
+                od,
+                features::IMAGE_INPUT,
+                &format!("{} does not support image inputs", nd.label()),
+            );
+        }
+    }
+    insert_pair_unsupported(
+        &mut reg,
+        Dialect::Kimi,
+        Dialect::Copilot,
+        features::IMAGE_INPUT,
+        "neither Kimi nor Copilot supports image inputs",
+    );
+
+    // ── code_exec (all dialects) ────────────────────────────────────
+    // Kimi does not support code execution at all.
+    // All other cross-dialect code_exec is lossy (different execution models).
+    let code_capable = [
+        Dialect::OpenAi,
+        Dialect::Claude,
+        Dialect::Gemini,
+        Dialect::Codex,
+        Dialect::Copilot,
+    ];
+    for i in 0..code_capable.len() {
+        for j in (i + 1)..code_capable.len() {
+            let a = code_capable[i];
+            let b = code_capable[j];
+            let w = format!(
+                "code execution models differ between {} and {}",
+                a.label(),
+                b.label(),
+            );
+            insert_pair_lossy(&mut reg, a, b, features::CODE_EXEC, &w);
+            insert_pair_lossy(&mut reg, b, a, features::CODE_EXEC, &w);
+        }
+    }
+    for &od in &code_capable {
+        insert_pair_unsupported(
+            &mut reg,
+            Dialect::Kimi,
+            od,
+            features::CODE_EXEC,
+            "Kimi does not support code execution",
+        );
+    }
 
     reg
 }

@@ -297,7 +297,13 @@ fn enum_agent_event_kind_all_variants() {
             "command_executed",
         ),
         (AgentEventKind::Warning { message: "".into() }, "warning"),
-        (AgentEventKind::Error { message: "".into() }, "error"),
+        (
+            AgentEventKind::Error {
+                message: "".into(),
+                error_code: None,
+            },
+            "error",
+        ),
     ];
     for (variant, expected_tag) in variants {
         let v = serde_json::to_value(&variant).unwrap();

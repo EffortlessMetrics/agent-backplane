@@ -1,0 +1,30 @@
+---
+source: tests/snapshot_expansion.rs
+expression: "json!({\n    \"ir\": ir, \"work_order_task\": wo.task, \"work_order_model\": wo.config.model,\n})"
+---
+{
+  "ir": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "You are Kimi, a helpful assistant.",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "text": "Summarize this document.",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  },
+  "work_order_model": "moonshot-v1-8k",
+  "work_order_task": "Summarize this document."
+}

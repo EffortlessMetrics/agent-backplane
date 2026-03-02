@@ -103,6 +103,9 @@ pub enum Envelope {
         ref_id: Option<String>,
         /// Human-readable error description.
         error: String,
+        /// Machine-readable error code from the unified taxonomy, if available.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error_code: Option<abp_error::ErrorCode>,
     },
 }
 
@@ -127,9 +130,51 @@ impl Envelope {
             mode,
         }
     }
+
+    /// Create a `Fatal` envelope with an [`ErrorCode`](abp_error::ErrorCode).
+    #[must_use]
+    pub fn fatal_with_code(
+        ref_id: Option<String>,
+        error: impl Into<String>,
+        code: abp_error::ErrorCode,
+    ) -> Self {
+        Self::Fatal {
+            ref_id,
+            error: error.into(),
+            error_code: Some(code),
+        }
+    }
+
+    /// Create a `Fatal` envelope from an [`AbpError`](abp_error::AbpError).
+    #[must_use]
+    pub fn fatal_from_abp_error(ref_id: Option<String>, err: &abp_error::AbpError) -> Self {
+        Self::Fatal {
+            ref_id,
+            error: err.message.clone(),
+            error_code: Some(err.code),
+        }
+    }
+
+    /// Return the [`ErrorCode`](abp_error::ErrorCode) if this envelope carries one.
+    #[must_use]
+    pub fn error_code(&self) -> Option<abp_error::ErrorCode> {
+        match self {
+            Self::Fatal { error_code, .. } => *error_code,
+            _ => None,
+        }
+    }
 }
 
 /// Errors arising from JSONL encoding/decoding or protocol-level violations.
+///
+/// # Examples
+///
+/// ```
+/// use abp_protocol::{JsonlCodec, ProtocolError};
+///
+/// let err = JsonlCodec::decode("not valid json").unwrap_err();
+/// assert!(matches!(err, ProtocolError::Json(_)));
+/// ```
 #[derive(Debug, Error)]
 pub enum ProtocolError {
     /// JSON serialization or deserialization failure.
@@ -152,6 +197,28 @@ pub enum ProtocolError {
         /// The envelope type that was actually received.
         got: String,
     },
+
+    /// An error from the unified ABP error taxonomy.
+    #[error("{0}")]
+    Abp(abp_error::AbpError),
+}
+
+impl From<abp_error::AbpError> for ProtocolError {
+    fn from(err: abp_error::AbpError) -> Self {
+        Self::Abp(err)
+    }
+}
+
+impl ProtocolError {
+    /// Return the [`ErrorCode`](abp_error::ErrorCode) if this error carries one.
+    pub fn error_code(&self) -> Option<abp_error::ErrorCode> {
+        match self {
+            Self::Abp(e) => Some(e.code),
+            Self::Violation(_) => Some(abp_error::ErrorCode::ProtocolInvalidEnvelope),
+            Self::UnexpectedMessage { .. } => Some(abp_error::ErrorCode::ProtocolUnexpectedMessage),
+            _ => None,
+        }
+    }
 }
 
 /// Stateless codec for encoding/decoding [`Envelope`] messages as newline-delimited JSON.
@@ -169,6 +236,7 @@ impl JsonlCodec {
     /// let envelope = Envelope::Fatal {
     ///     ref_id: Some("run-123".into()),
     ///     error: "out of memory".into(),
+    ///     error_code: None,
     /// };
     /// let json = JsonlCodec::encode(&envelope).unwrap();
     /// assert!(json.ends_with('\n'));
@@ -275,6 +343,16 @@ impl JsonlCodec {
 /// Parse a version string of the form `"abp/vMAJOR.MINOR"` into `(MAJOR, MINOR)`.
 ///
 /// Returns `None` if the string does not match the expected format.
+///
+/// # Examples
+///
+/// ```
+/// use abp_protocol::parse_version;
+///
+/// assert_eq!(parse_version("abp/v0.1"), Some((0, 1)));
+/// assert_eq!(parse_version("abp/v2.3"), Some((2, 3)));
+/// assert_eq!(parse_version("invalid"), None);
+/// ```
 #[must_use]
 pub fn parse_version(version: &str) -> Option<(u32, u32)> {
     let rest = version.strip_prefix("abp/v")?;
@@ -289,6 +367,15 @@ pub fn parse_version(version: &str) -> Option<(u32, u32)> {
 /// For example `"abp/v0.1"` and `"abp/v0.2"` are compatible, but
 /// `"abp/v1.0"` and `"abp/v0.1"` are not.  Returns `false` if either
 /// string cannot be parsed.
+///
+/// # Examples
+///
+/// ```
+/// use abp_protocol::is_compatible_version;
+///
+/// assert!(is_compatible_version("abp/v0.1", "abp/v0.2"));
+/// assert!(!is_compatible_version("abp/v1.0", "abp/v0.1"));
+/// ```
 #[must_use]
 pub fn is_compatible_version(their_version: &str, our_version: &str) -> bool {
     match (parse_version(their_version), parse_version(our_version)) {

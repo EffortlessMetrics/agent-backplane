@@ -1,0 +1,100 @@
+---
+source: tests/snapshot_receipts.rs
+expression: json_str
+---
+{
+  "meta": {
+    "run_id": "00000000-0000-4000-8000-000000000001",
+    "work_order_id": "00000000-0000-4000-8000-000000000002",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-01-15T12:00:00Z",
+    "finished_at": "2025-01-15T12:05:00Z",
+    "duration_ms": 300000
+  },
+  "backend": {
+    "id": "sidecar:claude",
+    "backend_version": "3.5.0",
+    "adapter_version": "0.2.1"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_read": "native",
+    "tool_write": "native",
+    "mcp_client": {
+      "restricted": {
+        "reason": "requires explicit opt-in"
+      }
+    },
+    "tool_use": "native",
+    "extended_thinking": "emulated",
+    "code_execution": "unsupported"
+  },
+  "mode": "mapped",
+  "usage_raw": {
+    "cache_creation_input_tokens": 200,
+    "cache_read_input_tokens": 50,
+    "input_tokens": 1500,
+    "output_tokens": 3200
+  },
+  "usage": {
+    "input_tokens": 1500,
+    "output_tokens": 3200,
+    "cache_read_tokens": 50,
+    "cache_write_tokens": 200,
+    "request_units": null,
+    "estimated_cost_usd": 0.042
+  },
+  "trace": [
+    {
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "run_started",
+      "message": "Initializing agent run"
+    },
+    {
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_call",
+      "tool_name": "read_file",
+      "tool_use_id": "tu_001",
+      "parent_tool_use_id": null,
+      "input": {
+        "path": "src/lib.rs"
+      }
+    },
+    {
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_result",
+      "tool_name": "read_file",
+      "tool_use_id": "tu_001",
+      "output": "fn main() {}",
+      "is_error": false
+    },
+    {
+      "ts": "2025-01-15T12:05:00Z",
+      "type": "file_changed",
+      "path": "src/lib.rs",
+      "summary": "added new function"
+    },
+    {
+      "ts": "2025-01-15T12:05:00Z",
+      "type": "run_completed",
+      "message": "Task completed successfully"
+    }
+  ],
+  "artifacts": [
+    {
+      "kind": "file",
+      "path": "src/lib.rs"
+    },
+    {
+      "kind": "patch",
+      "path": "changes.patch"
+    }
+  ],
+  "verification": {
+    "git_diff": "diff --git a/src/lib.rs b/src/lib.rs\n--- a/src/lib.rs\n+++ b/src/lib.rs\n@@ -1 +1,2 @@\n fn main() {}\n+fn helper() {}",
+    "git_status": "M src/lib.rs",
+    "harness_ok": true
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

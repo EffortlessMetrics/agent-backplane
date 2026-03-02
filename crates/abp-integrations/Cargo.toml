@@ -11,21 +11,21 @@ keywords = ["agent", "backplane", "ai", "backend", "integration"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-backend-core = { path = "../abp-backend-core" }
-abp-backend-mock = { path = "../abp-backend-mock" }
-abp-backend-sidecar = { path = "../abp-backend-sidecar" }
-abp-core = { path = "../abp-core" }
+abp-backend-core = { path = "../abp-backend-core", version = "0.1.0" }
+abp-backend-mock = { path = "../abp-backend-mock", version = "0.1.0" }
+abp-backend-sidecar = { path = "../abp-backend-sidecar", version = "0.1.0" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
 anyhow.workspace = true
 chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-abp-claude-sdk = { path = "../abp-claude-sdk" }
-abp-codex-sdk = { path = "../abp-codex-sdk" }
-abp-gemini-sdk = { path = "../abp-gemini-sdk" }
-abp-kimi-sdk = { path = "../abp-kimi-sdk" }
-abp-openai-sdk = { path = "../abp-openai-sdk" }
+abp-claude-sdk = { path = "../abp-claude-sdk", version = "0.1.0" }
+abp-codex-sdk = { path = "../abp-codex-sdk", version = "0.1.0" }
+abp-gemini-sdk = { path = "../abp-gemini-sdk", version = "0.1.0" }
+abp-kimi-sdk = { path = "../abp-kimi-sdk", version = "0.1.0" }
+abp-openai-sdk = { path = "../abp-openai-sdk", version = "0.1.0" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 insta.workspace = true

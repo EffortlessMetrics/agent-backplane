@@ -245,7 +245,10 @@ fn arb_agent_event_kind() -> impl Strategy<Value = AgentEventKind> {
                 }
             }),
         arb_string().prop_map(|message| AgentEventKind::Warning { message }),
-        arb_string().prop_map(|message| AgentEventKind::Error { message }),
+        arb_string().prop_map(|message| AgentEventKind::Error {
+            message,
+            error_code: None
+        }),
     ]
 }
 
@@ -322,8 +325,13 @@ fn arb_envelope() -> impl Strategy<Value = Envelope> {
             .prop_map(|(ref_id, event)| Envelope::Event { ref_id, event }),
         (arb_nonempty_string(), arb_receipt())
             .prop_map(|(ref_id, receipt)| Envelope::Final { ref_id, receipt }),
-        (prop::option::of(arb_nonempty_string()), arb_string())
-            .prop_map(|(ref_id, error)| Envelope::Fatal { ref_id, error }),
+        (prop::option::of(arb_nonempty_string()), arb_string()).prop_map(|(ref_id, error)| {
+            Envelope::Fatal {
+                ref_id,
+                error,
+                error_code: None,
+            }
+        }),
     ]
 }
 
@@ -406,7 +414,7 @@ proptest! {
     /// `ref_id` on the `Fatal` variant (when `Some`) must survive a round-trip.
     #[test]
     fn ref_id_preserved_fatal(ref_id in arb_nonempty_string(), error in arb_string()) {
-        let env = Envelope::Fatal { ref_id: Some(ref_id.clone()), error };
+        let env = Envelope::Fatal { ref_id: Some(ref_id.clone()), error, error_code: None };
         let json_str = serde_json::to_string(&env).unwrap();
         let decoded: Envelope = serde_json::from_str(&json_str).unwrap();
 

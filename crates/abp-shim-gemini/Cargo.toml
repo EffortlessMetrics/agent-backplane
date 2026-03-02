@@ -1,0 +1,22 @@
+[package]
+name = "abp-shim-gemini"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Drop-in Gemini SDK shim that routes through the Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "gemini", "shim"]
+categories = ["development-tools"]
+
+[dependencies]
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-gemini-sdk = { path = "../abp-gemini-sdk", version = "0.1.0" }
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+thiserror.workspace = true
+uuid.workspace = true

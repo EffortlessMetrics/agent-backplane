@@ -427,6 +427,7 @@ fn all_agent_event_kinds() -> Vec<AgentEventKind> {
         },
         AgentEventKind::Error {
             message: "oops".into(),
+            error_code: None,
         },
     ]
 }

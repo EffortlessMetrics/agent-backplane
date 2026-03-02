@@ -31,20 +31,34 @@ faithfully map SDK semantics into that contract and back out.
 abp-glob ──────────┐
                     ├── abp-policy ──────────┐
 abp-core ──────────┤                         │
-  │                └── abp-workspace ────────┤
+  │   │            └── abp-workspace ────────┤
+  │   │                      │               │
+  │   ├── abp-dialect ─── abp-mapping        │
+  │   ├── abp-error                          │
+  │   ├── abp-capability ─── abp-projection  │
+  │   ├── abp-emulation                      │
+  │   ├── abp-receipt                        │
+  │   │     └── abp-telemetry                │
+  │   └── abp-config                         │
   │                                          │
-abp-protocol ─── abp-host ─── abp-integrations ─── abp-runtime ─── abp-cli
-                     │               │                                  │
-                 sidecar-kit    abp-dialect                        abp-daemon
-                     │
-                claude-bridge
+abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
+  │                  │              │                abp-backend-sidecar
+  │              sidecar-kit        │
+  │                  │         abp-integrations ─── abp-runtime ─── abp-cli
+  │             claude-bridge                           │             │
+  │                                                 abp-stream   abp-daemon
+  └── abp-sidecar-proto
+
+SDK shims (drop-in client replacements):
+  abp-shim-openai, abp-shim-claude, abp-shim-gemini
 ```
 
 `abp-core` sits at the bottom — if you take one dependency, take that one. The
 hierarchy above it adds the wire protocol, sidecar supervision, backend trait,
 orchestration, and finally the CLI + HTTP daemon. `sidecar-kit` and
 `claude-bridge` are independent transport crates that speak the same JSONL
-protocol without pulling in the full runtime.
+protocol without pulling in the full runtime. The `abp-shim-*` crates provide
+drop-in SDK replacements that transparently route through ABP.
 
 See [`docs/architecture.md`](docs/architecture.md) for the detailed
 crate-by-crate walkthrough.
@@ -92,9 +106,22 @@ Receipt { status: success, events: [...], receipt_sha256: "ab3f…" }
 | [`abp-backend-sidecar`](crates/abp-backend-sidecar) | Sidecar backend adapter bridging JSONL protocol agents |
 | [`abp-integrations`](crates/abp-integrations) | Backend registry re-exporting mock + sidecar backends |
 | [`abp-dialect`](crates/abp-dialect) | Dialect detection, validation, and metadata |
+| [`abp-projection`](crates/abp-projection) | Projection matrix routing work orders to best-fit backend |
+| [`abp-stream`](crates/abp-stream) | Agent event stream processing, filtering, and multiplexing |
+| [`abp-capability`](crates/abp-capability) | Capability negotiation between requirements and backend manifests |
+| [`abp-error`](crates/abp-error) | Unified error taxonomy with stable machine-readable error codes |
+| [`abp-receipt`](crates/abp-receipt) | Receipt canonicalization, hashing, chain verification, and diffing |
+| [`abp-mapping`](crates/abp-mapping) | Cross-dialect feature mapping validation with fidelity tracking |
+| [`abp-config`](crates/abp-config) | TOML configuration loading, validation, and merging |
+| [`abp-sidecar-proto`](crates/abp-sidecar-proto) | Sidecar-side utilities for ABP JSONL protocol services |
+| [`abp-emulation`](crates/abp-emulation) | Labeled capability emulation engine |
+| [`abp-telemetry`](crates/abp-telemetry) | Structured metrics and telemetry collection |
 | [`abp-runtime`](crates/abp-runtime) | Orchestration — workspace → backend → event multiplexing → hashed receipt |
-| [`abp-cli`](crates/abp-cli) | `abp` binary with `run` and `backends` subcommands |
-| [`abp-daemon`](crates/abp-daemon) | HTTP control-plane API with receipt persistence |
+| [`abp-cli`](crates/abp-cli) | `abp` binary with `run`, `backends`, `validate`, `config`, `receipt` subcommands |
+| [`abp-daemon`](crates/abp-daemon) | HTTP control-plane API with receipt persistence, metrics, validation, and WebSocket |
+| [`abp-shim-openai`](crates/abp-shim-openai) | Drop-in OpenAI SDK shim that routes through ABP |
+| [`abp-shim-claude`](crates/abp-shim-claude) | Drop-in Anthropic Claude SDK shim that routes through ABP |
+| [`abp-shim-gemini`](crates/abp-shim-gemini) | Drop-in Gemini SDK shim that routes through ABP |
 | [`abp-claude-sdk`](crates/abp-claude-sdk) | Anthropic Claude SDK adapter |
 | [`abp-codex-sdk`](crates/abp-codex-sdk) | OpenAI Codex SDK adapter |
 | [`abp-openai-sdk`](crates/abp-openai-sdk) | OpenAI Chat Completions SDK adapter |
@@ -220,11 +247,23 @@ The HTTP daemon (`abp-daemon`) exposes a REST API:
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Health check |
+| `/metrics` | GET | Runtime metrics |
 | `/backends` | GET | List registered backends |
 | `/capabilities` | GET | Query backend capabilities (optional `?backend=<name>`) |
+| `/config` | GET | Current configuration |
+| `/validate` | POST | Validate a WorkOrder or Receipt JSON |
+| `/schema/{schema_type}` | GET | Retrieve a JSON schema |
 | `/run` | POST | Submit a work order |
+| `/runs` | GET | List all runs |
+| `/runs` | POST | Submit a work order (alias) |
+| `/runs/:run_id` | GET | Fetch a specific run |
+| `/runs/:run_id` | DELETE | Delete a run |
+| `/runs/:run_id/receipt` | GET | Fetch the receipt for a run |
+| `/runs/:run_id/cancel` | POST | Cancel an in-progress run |
+| `/runs/:run_id/events` | GET | Stream events for a run |
 | `/receipts` | GET | List all receipts |
 | `/receipts/:run_id` | GET | Fetch a specific receipt |
+| `/ws` | GET | WebSocket connection for real-time events |
 
 ## Testing
 

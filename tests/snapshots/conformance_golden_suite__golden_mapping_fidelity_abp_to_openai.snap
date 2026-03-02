@@ -1,0 +1,9 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: "json!({ \"from\": \"abp\", \"to\": \"openai\", \"fidelity\": fidelity, })"
+---
+{
+  "fidelity": "lossy_supported",
+  "from": "abp",
+  "to": "openai"
+}

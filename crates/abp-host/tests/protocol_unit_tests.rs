@@ -257,12 +257,13 @@ fn envelope_fatal_with_ref_id_roundtrip() {
     let fatal = Envelope::Fatal {
         ref_id: Some("run-42".into()),
         error: "out of memory".into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&fatal).unwrap();
     assert!(encoded.contains(r#""t":"fatal""#));
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
     match decoded {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert_eq!(ref_id, Some("run-42".into()));
             assert_eq!(error, "out of memory");
         }
@@ -275,11 +276,12 @@ fn envelope_fatal_without_ref_id_roundtrip() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "global failure".into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&fatal).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
     match decoded {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert!(ref_id.is_none());
             assert_eq!(error, "global failure");
         }
@@ -564,6 +566,7 @@ fn valid_sequence_with_fatal_instead_of_final() {
         Envelope::Fatal {
             ref_id: Some(run_id.into()),
             error: "catastrophic failure".into(),
+            error_code: None,
         },
     ];
 
@@ -648,6 +651,7 @@ fn decode_stream_multiple_envelopes() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "boom".into(),
+        error_code: None,
     };
     let line1 = JsonlCodec::encode(&hello).unwrap();
     let line2 = JsonlCodec::encode(&fatal).unwrap();
@@ -667,6 +671,7 @@ fn decode_stream_skips_blank_lines() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "err".into(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&fatal).unwrap();
     let input = format!("\n\n{line}\n\n{line}\n");
@@ -696,6 +701,7 @@ fn fatal_tag_is_t() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "boom".into(),
+        error_code: None,
     };
     let v: serde_json::Value = serde_json::to_value(&fatal).unwrap();
     assert_eq!(v["t"], "fatal");
@@ -768,6 +774,7 @@ fn encode_to_writer_produces_valid_jsonl() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "oops".into(),
+        error_code: None,
     };
     JsonlCodec::encode_to_writer(&mut buf, &env).unwrap();
     let s = String::from_utf8(buf).unwrap();
@@ -784,6 +791,7 @@ fn encode_many_to_writer_produces_multiple_lines() {
         Envelope::Fatal {
             ref_id: None,
             error: "boom".into(),
+            error_code: None,
         },
     ];
     JsonlCodec::encode_many_to_writer(&mut buf, &envelopes).unwrap();
@@ -832,6 +840,7 @@ fn sequence_multiple_terminals_detected() {
         Envelope::Fatal {
             ref_id: Some(run_id.into()),
             error: "extra".into(),
+            error_code: None,
         },
     ];
 
@@ -935,6 +944,7 @@ fn validate_fatal_with_empty_error() {
     let fatal = Envelope::Fatal {
         ref_id: Some("run-1".into()),
         error: String::new(),
+        error_code: None,
     };
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&fatal);

@@ -23,6 +23,7 @@ members = [
   "crates/abp-error",
   "crates/abp-dialect",
   "crates/abp-gemini-sdk",
+  "crates/abp-shim-gemini",
   "crates/abp-git",
   "crates/abp-glob",
   "crates/abp-host",
@@ -31,10 +32,18 @@ members = [
   "crates/abp-mapping",
   "crates/abp-openai-sdk",
   "crates/abp-policy",
+  "crates/abp-projection",
   "crates/abp-receipt",
   "crates/abp-protocol",
   "crates/abp-runtime",
+  "crates/abp-shim-claude",
+  "crates/abp-shim-codex",
+  "crates/abp-shim-copilot",
+  "crates/abp-shim-kimi",
+  "crates/abp-shim-openai",
+  "crates/abp-sidecar-proto",
   "crates/abp-sidecar-sdk",
+  "crates/abp-stream",
   "crates/abp-telemetry",
   "crates/abp-workspace",
   "crates/claude-bridge",
@@ -67,7 +76,7 @@ thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "fs"] }
 tokio-stream = "0.1.18"
 tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "json"] }
 uuid = { version = "1.21.0", features = ["serde", "v4"] }
 walkdir = "2.5.0"
 tempfile = "3.26.0"
@@ -87,6 +96,8 @@ cucumber = "0.21"
 [dev-dependencies]
 criterion = { workspace = true }
 cucumber = { workspace = true }
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
 abp-core = { path = "crates/abp-core" }
 abp-protocol = { path = "crates/abp-protocol" }
 abp-host = { path = "crates/abp-host" }
@@ -119,15 +130,25 @@ abp-error = { path = "crates/abp-error" }
 abp-capability = { path = "crates/abp-capability" }
 abp-receipt = { path = "crates/abp-receipt" }
 abp-mapping = { path = "crates/abp-mapping" }
+abp-config = { path = "crates/abp-config" }
 abp-claude-sdk = { path = "crates/abp-claude-sdk" }
 abp-gemini-sdk = { path = "crates/abp-gemini-sdk" }
 abp-codex-sdk = { path = "crates/abp-codex-sdk" }
 abp-kimi-sdk = { path = "crates/abp-kimi-sdk" }
 abp-openai-sdk = { path = "crates/abp-openai-sdk" }
 abp-copilot-sdk = { path = "crates/abp-copilot-sdk" }
+abp-shim-openai = { path = "crates/abp-shim-openai" }
+abp-shim-claude = { path = "crates/abp-shim-claude" }
+abp-shim-gemini = { path = "crates/abp-shim-gemini" }
+abp-shim-codex = { path = "crates/abp-shim-codex" }
+abp-shim-kimi = { path = "crates/abp-shim-kimi" }
+abp-shim-copilot = { path = "crates/abp-shim-copilot" }
+abp-projection = { path = "crates/abp-projection" }
+abp-stream = { path = "crates/abp-stream" }
 insta = { workspace = true }
 proptest = { workspace = true }
 toml = { workspace = true }
+walkdir = { workspace = true }
 axum = { workspace = true }
 tower = { workspace = true }
 http-body-util = { workspace = true }
@@ -151,4 +172,40 @@ harness = false
 
 [[bench]]
 name = "projection_bench"
+harness = false
+
+[[bench]]
+name = "ir_lowering"
+harness = false
+
+[[bench]]
+name = "dialect_detection"
+harness = false
+
+[[bench]]
+name = "capability_negotiation"
+harness = false
+
+[[bench]]
+name = "mapping_validation"
+harness = false
+
+[[bench]]
+name = "receipt_bench"
+harness = false
+
+[[bench]]
+name = "protocol_bench"
+harness = false
+
+[[bench]]
+name = "mapping_bench"
+harness = false
+
+[[bench]]
+name = "policy_bench"
+harness = false
+
+[[bench]]
+name = "capability_bench"
 harness = false

@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_receipts.rs
+expression: format_diff(&diff)
+---
+--- receipt diff (4 changes) ---
+  meta.run_id: 00000000-0000-4000-8000-000000000001 → 00000000-0000-4000-8000-000000000003
+  backend.id: sidecar:node → sidecar:claude
+  backend.backend_version: None → Some("3.5.0")
+  mode: "passthrough" → "mapped"

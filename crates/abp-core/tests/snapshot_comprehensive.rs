@@ -323,6 +323,7 @@ fn snapshot_event_kind_error() {
         ts: fixed_ts(),
         kind: AgentEventKind::Error {
             message: "compilation failed with 3 errors".into(),
+            error_code: None,
         },
         ext: None,
     };

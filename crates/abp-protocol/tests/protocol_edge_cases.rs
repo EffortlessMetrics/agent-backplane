@@ -23,6 +23,7 @@ fn make_fatal(msg: &str) -> Envelope {
     Envelope::Fatal {
         ref_id: None,
         error: msg.into(),
+        error_code: None,
     }
 }
 
@@ -59,6 +60,7 @@ fn large_error_via_writer_stream() {
     let env = Envelope::Fatal {
         ref_id: Some("big-run".into()),
         error: big_error.clone(),
+        error_code: None,
     };
 
     let mut buf = Vec::new();
@@ -180,6 +182,7 @@ fn very_long_jsonl_line() {
     let env = Envelope::Fatal {
         ref_id: Some("long-line".into()),
         error: big.clone(),
+        error_code: None,
     };
 
     let mut buf = Vec::new();
@@ -190,7 +193,7 @@ fn very_long_jsonl_line() {
     let decoded = roundtrip_via_stream(&buf);
     assert_eq!(decoded.len(), 1);
     match &decoded[0] {
-        Envelope::Fatal { error, ref_id } => {
+        Envelope::Fatal { error, ref_id, .. } => {
             assert_eq!(error, &big);
             assert_eq!(ref_id.as_deref(), Some("long-line"));
         }

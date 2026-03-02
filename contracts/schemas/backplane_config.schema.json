@@ -39,6 +39,7 @@
       "description": "Configuration for a single backend.",
       "oneOf": [
         {
+          "description": "A mock backend that returns synthetic responses.",
           "type": "object",
           "properties": {
             "type": {
@@ -51,9 +52,11 @@
           ]
         },
         {
+          "description": "A sidecar process backend that communicates over JSONL stdio.",
           "type": "object",
           "properties": {
             "args": {
+              "description": "Additional command-line arguments passed to the sidecar.",
               "type": "array",
               "default": [],
               "items": {
@@ -61,6 +64,7 @@
               }
             },
             "command": {
+              "description": "Executable path or command name for the sidecar process.",
               "type": "string"
             },
             "timeout_secs": {

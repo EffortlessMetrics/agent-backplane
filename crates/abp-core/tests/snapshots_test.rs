@@ -235,6 +235,7 @@ fn snapshot_agent_event_error() {
         ts: fixed_ts(),
         kind: AgentEventKind::Error {
             message: "boom".into(),
+            error_code: None,
         },
         ext: None,
     };

@@ -1,0 +1,14 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: result
+---
+{
+  "max_tokens": 4096,
+  "messages": [
+    {
+      "content": "Refactor auth module\n\n--- instructions ---\nFocus on error handling",
+      "role": "user"
+    }
+  ],
+  "model": "gpt-4o"
+}

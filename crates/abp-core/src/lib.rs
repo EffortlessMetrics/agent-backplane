@@ -51,6 +51,15 @@ pub const CONTRACT_VERSION: &str = "abp/v0.1";
 ///
 /// This is intentionally *not* a chat session. Sessions can exist underneath,
 /// but the contract is step-oriented.
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::WorkOrderBuilder;
+///
+/// let wo = WorkOrderBuilder::new("Refactor auth module").build();
+/// assert_eq!(wo.task, "Refactor auth module");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkOrder {
     /// Unique identifier for this work order.
@@ -288,6 +297,20 @@ pub enum Capability {
 }
 
 /// How well a backend supports a given [`Capability`].
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::{SupportLevel, MinSupport};
+///
+/// let native = SupportLevel::Native;
+/// assert!(native.satisfies(&MinSupport::Native));
+/// assert!(native.satisfies(&MinSupport::Emulated));
+///
+/// let emulated = SupportLevel::Emulated;
+/// assert!(!emulated.satisfies(&MinSupport::Native));
+/// assert!(emulated.satisfies(&MinSupport::Emulated));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportLevel {
@@ -328,6 +351,15 @@ pub type CapabilityManifest = BTreeMap<Capability, SupportLevel>;
 ///
 /// - Passthrough: Lossless wrapping - ABP acts as observer/recorder only
 /// - Mapped: Full dialect translation - ABP translates between dialects
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::ExecutionMode;
+///
+/// let mode = ExecutionMode::default();
+/// assert_eq!(mode, ExecutionMode::Mapped);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecutionMode {
@@ -343,6 +375,19 @@ pub enum ExecutionMode {
 }
 
 /// Identifies a backend and its version information.
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::BackendIdentity;
+///
+/// let id = BackendIdentity {
+///     id: "sidecar:node".into(),
+///     backend_version: Some("1.0.0".into()),
+///     adapter_version: None,
+/// };
+/// assert_eq!(id.id, "sidecar:node");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BackendIdentity {
     /// Stable backend identifier (e.g. `"mock"`, `"sidecar:node"`).
@@ -358,6 +403,20 @@ pub struct BackendIdentity {
 /// The outcome of a completed run: metadata, usage, trace, and verification.
 ///
 /// Use [`Receipt::with_hash`] to compute and attach the canonical SHA-256 hash.
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::{ReceiptBuilder, Outcome};
+///
+/// let receipt = ReceiptBuilder::new("mock")
+///     .outcome(Outcome::Complete)
+///     .build()
+///     .with_hash()
+///     .unwrap();
+///
+/// assert!(receipt.receipt_sha256.is_some());
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Receipt {
     /// Timing and identity metadata for this run.
@@ -430,6 +489,15 @@ pub struct UsageNormalized {
 }
 
 /// High-level result status of a run.
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::Outcome;
+///
+/// let outcome: Outcome = serde_json::from_str(r#""complete""#).unwrap();
+/// assert_eq!(outcome, Outcome::Complete);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
@@ -462,6 +530,22 @@ pub struct VerificationReport {
 }
 
 /// A timestamped event emitted by an agent during a run.
+///
+/// # Examples
+///
+/// ```
+/// use abp_core::{AgentEvent, AgentEventKind};
+/// use chrono::Utc;
+///
+/// let event = AgentEvent {
+///     ts: Utc::now(),
+///     kind: AgentEventKind::AssistantMessage {
+///         text: "Hello, world!".into(),
+///     },
+///     ext: None,
+/// };
+/// assert!(matches!(event.kind, AgentEventKind::AssistantMessage { .. }));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AgentEvent {
     /// Timestamp when the event was emitted.
@@ -561,6 +645,9 @@ pub enum AgentEventKind {
     Error {
         /// Error message text.
         message: String,
+        /// Machine-readable error code from the unified taxonomy, if available.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error_code: Option<abp_error::ErrorCode>,
     },
 }
 
@@ -578,6 +665,15 @@ pub enum ContractError {
 /// - keys are sorted (serde_json Map is a BTreeMap by default)
 /// - numbers are serialized consistently by serde_json
 ///
+/// # Examples
+///
+/// ```
+/// use abp_core::canonical_json;
+///
+/// let json = canonical_json(&serde_json::json!({"b": 2, "a": 1})).unwrap();
+/// assert!(json.starts_with(r#"{"a":1"#));
+/// ```
+///
 /// # Errors
 ///
 /// Returns [`ContractError::Json`] if the value cannot be serialized.
@@ -587,6 +683,13 @@ pub fn canonical_json<T: Serialize>(value: &T) -> Result<String, ContractError> 
 }
 
 /// Compute the hex-encoded SHA-256 digest of `bytes`.
+///
+/// # Examples
+///
+/// ```
+/// let hex = abp_core::sha256_hex(b"hello");
+/// assert_eq!(hex.len(), 64);
+/// ```
 #[must_use]
 pub fn sha256_hex(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();

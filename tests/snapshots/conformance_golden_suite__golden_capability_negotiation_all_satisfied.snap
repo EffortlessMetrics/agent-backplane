@@ -1,0 +1,15 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: snapshot
+---
+{
+  "bonus": [
+    "extended_thinking"
+  ],
+  "is_compatible": true,
+  "satisfied": [
+    "streaming",
+    "tool_read"
+  ],
+  "unsatisfied": []
+}

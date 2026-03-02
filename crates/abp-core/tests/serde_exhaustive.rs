@@ -462,6 +462,7 @@ fn roundtrip_agent_event_kind_warning() {
 fn roundtrip_agent_event_kind_error() {
     let k = AgentEventKind::Error {
         message: "OOM".into(),
+        error_code: None,
     };
     roundtrip_json(&k);
 }

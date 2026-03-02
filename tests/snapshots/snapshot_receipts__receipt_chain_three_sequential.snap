@@ -1,0 +1,111 @@
+---
+source: tests/snapshot_receipts.rs
+expression: receipts
+---
+[
+  {
+    "meta": {
+      "run_id": "00000000-0000-4000-8000-000000000001",
+      "work_order_id": "00000000-0000-4000-8000-000000000002",
+      "contract_version": "abp/v0.1",
+      "started_at": "2025-01-15T12:00:00Z",
+      "finished_at": "2025-01-15T12:00:00Z",
+      "duration_ms": 0
+    },
+    "backend": {
+      "id": "sidecar:claude",
+      "backend_version": "3.5.0",
+      "adapter_version": null
+    },
+    "capabilities": {},
+    "mode": "mapped",
+    "usage_raw": {},
+    "usage": {
+      "input_tokens": 500,
+      "output_tokens": 1200,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "request_units": null,
+      "estimated_cost_usd": null
+    },
+    "trace": [],
+    "artifacts": [],
+    "verification": {
+      "git_diff": null,
+      "git_status": null,
+      "harness_ok": false
+    },
+    "outcome": "complete",
+    "receipt_sha256": "6d69028e89e8a895230ea9be6f1f8621529904a6d0119fd08576b2ebab146b50"
+  },
+  {
+    "meta": {
+      "run_id": "00000000-0000-4000-8000-000000000003",
+      "work_order_id": "00000000-0000-4000-8000-000000000002",
+      "contract_version": "abp/v0.1",
+      "started_at": "2025-01-15T12:05:00Z",
+      "finished_at": "2025-01-15T12:05:00Z",
+      "duration_ms": 0
+    },
+    "backend": {
+      "id": "sidecar:claude",
+      "backend_version": "3.5.0",
+      "adapter_version": null
+    },
+    "capabilities": {},
+    "mode": "mapped",
+    "usage_raw": {},
+    "usage": {
+      "input_tokens": 800,
+      "output_tokens": 100,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "request_units": null,
+      "estimated_cost_usd": null
+    },
+    "trace": [],
+    "artifacts": [],
+    "verification": {
+      "git_diff": null,
+      "git_status": null,
+      "harness_ok": false
+    },
+    "outcome": "partial",
+    "receipt_sha256": "d1eed779a11e34c99e69cee1a2ca1bb8e41cad4019fc3bb4f7bcc022dad57a71"
+  },
+  {
+    "meta": {
+      "run_id": "00000000-0000-4000-8000-000000000004",
+      "work_order_id": "00000000-0000-4000-8000-000000000002",
+      "contract_version": "abp/v0.1",
+      "started_at": "2025-01-15T12:10:00Z",
+      "finished_at": "2025-01-15T12:10:00Z",
+      "duration_ms": 0
+    },
+    "backend": {
+      "id": "sidecar:claude",
+      "backend_version": "3.5.0",
+      "adapter_version": null
+    },
+    "capabilities": {},
+    "mode": "mapped",
+    "usage_raw": {},
+    "usage": {
+      "input_tokens": 300,
+      "output_tokens": 900,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "request_units": null,
+      "estimated_cost_usd": null
+    },
+    "trace": [],
+    "artifacts": [],
+    "verification": {
+      "git_diff": null,
+      "git_status": null,
+      "harness_ok": false
+    },
+    "outcome": "complete",
+    "receipt_sha256": "0d7a1e4b5a594778d54c016514aaad4518f78b2aa93306b9ce343bb25f6405da"
+  }
+]

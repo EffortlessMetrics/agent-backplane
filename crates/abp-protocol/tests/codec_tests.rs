@@ -25,6 +25,7 @@ fn make_fatal(msg: &str) -> Envelope {
     Envelope::Fatal {
         ref_id: None,
         error: msg.into(),
+        error_code: None,
     }
 }
 
@@ -118,6 +119,7 @@ fn large_payload_roundtrip() {
     let env = Envelope::Fatal {
         ref_id: Some("run-large".into()),
         error: big_text.clone(),
+        error_code: None,
     };
 
     let mut buf = Vec::new();
@@ -128,7 +130,7 @@ fn large_payload_roundtrip() {
     let decoded = iter.next().unwrap().unwrap();
     assert!(iter.next().is_none());
 
-    if let Envelope::Fatal { error, ref_id } = decoded {
+    if let Envelope::Fatal { error, ref_id, .. } = decoded {
         assert_eq!(error, big_text);
         assert_eq!(ref_id.as_deref(), Some("run-large"));
     } else {
@@ -295,10 +297,12 @@ fn streaming_utf8_content() {
         Envelope::Fatal {
             ref_id: None,
             error: "日本語テスト 🚀 émojis & ñ".into(),
+            error_code: None,
         },
         Envelope::Fatal {
             ref_id: Some("ü-ref".into()),
             error: "中文 العربية".into(),
+            error_code: None,
         },
     ];
 
@@ -313,6 +317,6 @@ fn streaming_utf8_content() {
         matches!(&decoded[0], Envelope::Fatal { error, .. } if error == "日本語テスト 🚀 émojis & ñ")
     );
     assert!(
-        matches!(&decoded[1], Envelope::Fatal { error, ref_id } if error == "中文 العربية" && ref_id.as_deref() == Some("ü-ref"))
+        matches!(&decoded[1], Envelope::Fatal { error, ref_id, .. } if error == "中文 العربية" && ref_id.as_deref() == Some("ü-ref"))
     );
 }

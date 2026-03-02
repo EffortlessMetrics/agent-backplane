@@ -150,8 +150,13 @@ impl EventTransformer for RedactTransformer {
             AgentEventKind::Warning { message } => AgentEventKind::Warning {
                 message: self.redact_string(&message),
             },
-            AgentEventKind::Error { message } => AgentEventKind::Error {
+            AgentEventKind::Error {
+                message,
+                error_code,
+                ..
+            } => AgentEventKind::Error {
                 message: self.redact_string(&message),
+                error_code,
             },
         };
         Some(event)

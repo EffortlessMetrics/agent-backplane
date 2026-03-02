@@ -1,0 +1,9 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: "json!({\n    \"code\": code, \"category\": code.category(), \"display\": code.as_str(),\n})"
+---
+{
+  "category": "receipt",
+  "code": "RECEIPT_HASH_MISMATCH",
+  "display": "RECEIPT_HASH_MISMATCH"
+}

@@ -2,7 +2,7 @@
 # Run with: cargo mutants --no-shuffle
 
 # ── Timeout per mutation ─────────────────────────────────────────────────
-timeout = 60          # seconds; most crate tests finish well under this
+timeout = 90          # seconds; allow headroom for slower crates
 
 # ── Focus on the core, deterministic crates ──────────────────────────────
 examine_re = [
@@ -11,7 +11,20 @@ examine_re = [
   "^crates/abp-glob/",
   "^crates/abp-policy/",
   "^crates/abp-workspace/",
+  "^crates/abp-capability/",
+  "^crates/abp-error/",
+  "^crates/abp-receipt/",
+  "^crates/abp-mapping/",
+  "^crates/abp-config/",
+  "^crates/abp-emulation/",
+  "^crates/abp-telemetry/",
+  "^crates/abp-dialect/",
 ]
+
+# ── Interesting mutation targets (public functions that should kill mutants) ──
+# Receipt hashing — hash computation must be exact
+# examine_globs would go here if cargo-mutants supports it; for now we rely
+# on examine_re above to include the right crates.
 
 # ── Skip test modules, fuzz harnesses, and xtask helpers ─────────────────
 exclude_re = [

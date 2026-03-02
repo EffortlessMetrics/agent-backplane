@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_receipts.rs
+expression: format_diff(&diff)
+---
+--- receipt diff (5 changes) ---
+  backend.id: sidecar:claude → sidecar:gemini
+  backend.backend_version: Some("3.5.0") → Some("2.0.0")
+  outcome: Complete → Failed
+  mode: "mapped" → "passthrough"
+  usage_raw: {"input_tokens":500} → {"input_tokens":900}

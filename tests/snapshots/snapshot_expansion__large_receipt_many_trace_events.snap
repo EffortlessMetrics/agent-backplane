@@ -1,0 +1,210 @@
+---
+source: tests/snapshot_expansion.rs
+expression: val
+---
+{
+  "artifacts": [
+    {
+      "kind": "patch",
+      "path": "output.patch"
+    },
+    {
+      "kind": "file",
+      "path": "src/main.rs"
+    }
+  ],
+  "backend": {
+    "adapter_version": "0.3.0",
+    "backend_version": "2.0.0",
+    "id": "test-backend"
+  },
+  "capabilities": {
+    "extended_thinking": "emulated",
+    "streaming": "native",
+    "tool_read": "native",
+    "tool_use": "native",
+    "tool_write": "emulated"
+  },
+  "meta": {
+    "contract_version": "abp/v0.1",
+    "duration_ms": 45000,
+    "finished_at": "2025-01-15T12:05:00Z",
+    "run_id": "00000000-0000-4000-8000-000000000001",
+    "started_at": "2025-01-15T12:00:00Z",
+    "work_order_id": "00000000-0000-4000-8000-000000000002"
+  },
+  "mode": "mapped",
+  "outcome": "complete",
+  "receipt_sha256": null,
+  "trace": [
+    {
+      "message": "Starting large task",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "run_started"
+    },
+    {
+      "input": {
+        "index": 0
+      },
+      "parent_tool_use_id": null,
+      "tool_name": "tool_0",
+      "tool_use_id": "call_000",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_call"
+    },
+    {
+      "is_error": false,
+      "output": "result_0",
+      "tool_name": "tool_0",
+      "tool_use_id": "call_000",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_result"
+    },
+    {
+      "input": {
+        "index": 1
+      },
+      "parent_tool_use_id": null,
+      "tool_name": "tool_1",
+      "tool_use_id": "call_001",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_call"
+    },
+    {
+      "is_error": false,
+      "output": "result_1",
+      "tool_name": "tool_1",
+      "tool_use_id": "call_001",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_result"
+    },
+    {
+      "input": {
+        "index": 2
+      },
+      "parent_tool_use_id": null,
+      "tool_name": "tool_2",
+      "tool_use_id": "call_002",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_call"
+    },
+    {
+      "is_error": false,
+      "output": "result_2",
+      "tool_name": "tool_2",
+      "tool_use_id": "call_002",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_result"
+    },
+    {
+      "input": {
+        "index": 3
+      },
+      "parent_tool_use_id": null,
+      "tool_name": "tool_3",
+      "tool_use_id": "call_003",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_call"
+    },
+    {
+      "is_error": false,
+      "output": "result_3",
+      "tool_name": "tool_3",
+      "tool_use_id": "call_003",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_result"
+    },
+    {
+      "input": {
+        "index": 4
+      },
+      "parent_tool_use_id": null,
+      "tool_name": "tool_4",
+      "tool_use_id": "call_004",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_call"
+    },
+    {
+      "is_error": false,
+      "output": "result_4",
+      "tool_name": "tool_4",
+      "tool_use_id": "call_004",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "tool_result"
+    },
+    {
+      "text": "The ",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "assistant_delta"
+    },
+    {
+      "text": "analysis ",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "assistant_delta"
+    },
+    {
+      "text": "is ",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "assistant_delta"
+    },
+    {
+      "text": "complete. ",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "assistant_delta"
+    },
+    {
+      "text": "Here ",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "assistant_delta"
+    },
+    {
+      "text": "are ",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "assistant_delta"
+    },
+    {
+      "text": "the ",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "assistant_delta"
+    },
+    {
+      "text": "results.",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "assistant_delta"
+    },
+    {
+      "path": "src/main.rs",
+      "summary": "modified file",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "file_changed"
+    },
+    {
+      "message": "Token budget at 85%",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "warning"
+    },
+    {
+      "message": "Task finished successfully",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "run_completed"
+    }
+  ],
+  "usage": {
+    "cache_read_tokens": 1000,
+    "cache_write_tokens": null,
+    "estimated_cost_usd": 0.095,
+    "input_tokens": 8500,
+    "output_tokens": 3200,
+    "request_units": null
+  },
+  "usage_raw": {
+    "cache_read_input_tokens": 1000,
+    "input_tokens": 8500,
+    "output_tokens": 3200
+  },
+  "verification": {
+    "git_diff": "+added line\n-removed line",
+    "git_status": "M src/main.rs",
+    "harness_ok": true
+  }
+}

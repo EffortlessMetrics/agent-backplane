@@ -550,6 +550,7 @@ fn batch_request_with_3_envelopes_snapshot() {
             Envelope::Fatal {
                 ref_id: Some("run-001".into()),
                 error: "out of memory".into(),
+                error_code: None,
             },
         ],
         created_at: "2025-01-15T12:00:00+00:00".into(),

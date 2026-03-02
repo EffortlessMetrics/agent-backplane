@@ -1,0 +1,9 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: "json!({\n    \"code\": code, \"category\": code.category(), \"display\": code.as_str(),\n})"
+---
+{
+  "category": "capability",
+  "code": "CAPABILITY_EMULATION_FAILED",
+  "display": "CAPABILITY_EMULATION_FAILED"
+}

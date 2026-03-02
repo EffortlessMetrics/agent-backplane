@@ -1,0 +1,43 @@
+---
+source: tests/snapshot_expansion.rs
+expression: summary
+---
+[
+  {
+    "error_count": 0,
+    "feature": "tool_use",
+    "fidelity": {
+      "type": "lossless"
+    }
+  },
+  {
+    "error_count": 0,
+    "feature": "streaming",
+    "fidelity": {
+      "type": "lossless"
+    }
+  },
+  {
+    "error_count": 1,
+    "feature": "thinking",
+    "fidelity": {
+      "type": "lossy_labeled",
+      "warning": "OpenAI reasoning_effort maps loosely to Claude thinking budget"
+    }
+  },
+  {
+    "error_count": 0,
+    "feature": "image_input",
+    "fidelity": {
+      "type": "lossless"
+    }
+  },
+  {
+    "error_count": 1,
+    "feature": "code_exec",
+    "fidelity": {
+      "type": "lossy_labeled",
+      "warning": "code execution models differ between OpenAI and Claude"
+    }
+  }
+]

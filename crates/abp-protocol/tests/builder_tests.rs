@@ -182,7 +182,7 @@ fn final_missing_ref_id_returns_error() {
 fn build_fatal_envelope() {
     let env = EnvelopeBuilder::fatal("boom").build().unwrap();
     match env {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert!(ref_id.is_none());
             assert_eq!(error, "boom");
         }
@@ -245,7 +245,7 @@ fn roundtrip_fatal_serialize_deserialize() {
     let decoded = JsonlCodec::decode(json.trim()).unwrap();
 
     match decoded {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert_eq!(ref_id.as_deref(), Some("r-1"));
             assert_eq!(error, "kaboom");
         }

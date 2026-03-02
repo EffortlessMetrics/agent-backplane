@@ -7,6 +7,7 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -102,7 +103,7 @@ impl std::fmt::Display for ConfigWarning {
 // ---------------------------------------------------------------------------
 
 /// Top-level runtime configuration for the Agent Backplane.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 pub struct BackplaneConfig {
     /// Default backend name when none is specified on the command line.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -138,7 +139,7 @@ impl Default for BackplaneConfig {
 }
 
 /// Configuration for a single backend.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(tag = "type")]
 pub enum BackendEntry {
     /// A mock backend (for testing).

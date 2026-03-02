@@ -351,6 +351,7 @@ fn agent_event_serde_roundtrip() {
 fn agent_event_clone_debug() {
     let e = make_agent_event(AgentEventKind::Error {
         message: "err".into(),
+        error_code: None,
     });
     assert_debug(&e);
     let _ = e.clone();
@@ -452,6 +453,7 @@ fn event_kind_warning() {
 fn event_kind_error() {
     let k = AgentEventKind::Error {
         message: "boom".into(),
+        error_code: None,
     };
     let e = make_agent_event(k);
     let _ = roundtrip(&e);

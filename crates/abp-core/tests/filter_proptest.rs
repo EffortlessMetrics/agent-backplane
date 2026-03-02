@@ -60,7 +60,10 @@ fn arb_agent_event_kind() -> impl Strategy<Value = AgentEventKind> {
             output_preview: None,
         }),
         ".*".prop_map(|message| AgentEventKind::Warning { message }),
-        ".*".prop_map(|message| AgentEventKind::Error { message }),
+        ".*".prop_map(|message| AgentEventKind::Error {
+            message,
+            error_code: None
+        }),
     ]
 }
 
@@ -195,6 +198,7 @@ fn kind_from_name(name: &str) -> AgentEventKind {
         },
         "error" => AgentEventKind::Error {
             message: String::new(),
+            error_code: None,
         },
         other => panic!("unknown kind name: {other}"),
     }

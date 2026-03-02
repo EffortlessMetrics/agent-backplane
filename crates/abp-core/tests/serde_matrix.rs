@@ -428,6 +428,7 @@ fn agent_event_warning_roundtrip() {
 fn agent_event_error_roundtrip() {
     let e = make_event(AgentEventKind::Error {
         message: "boom".into(),
+        error_code: None,
     });
     assert_roundtrip(&e);
 }

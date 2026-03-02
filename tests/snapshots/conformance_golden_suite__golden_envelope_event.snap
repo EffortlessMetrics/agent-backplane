@@ -1,0 +1,13 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: env
+---
+{
+  "t": "event",
+  "ref_id": "run-golden",
+  "event": {
+    "ts": "2025-01-15T12:00:00Z",
+    "type": "assistant_message",
+    "text": "Hello from golden test"
+  }
+}

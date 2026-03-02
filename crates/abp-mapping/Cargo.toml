@@ -11,7 +11,7 @@ keywords = ["agent", "backplane", "mapping", "dialect", "ai"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-dialect = { path = "../abp-dialect" }
+abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

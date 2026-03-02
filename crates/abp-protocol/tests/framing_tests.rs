@@ -31,6 +31,7 @@ fn make_fatal(msg: &str) -> Envelope {
     Envelope::Fatal {
         ref_id: None,
         error: msg.into(),
+        error_code: None,
     }
 }
 
@@ -108,6 +109,7 @@ fn very_long_line_1mb_roundtrip() {
     let env = Envelope::Fatal {
         ref_id: Some("run-big".into()),
         error: big.clone(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&env).unwrap();
     assert!(encoded.len() > 1_000_000);
@@ -289,11 +291,12 @@ fn unicode_bmp_characters() {
     let env = Envelope::Fatal {
         ref_id: Some("ñ-日本語-العربية".into()),
         error: "café résumé naïve".into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
     match decoded {
-        Envelope::Fatal { error, ref_id } => {
+        Envelope::Fatal { error, ref_id, .. } => {
             assert_eq!(error, "café résumé naïve");
             assert_eq!(ref_id.as_deref(), Some("ñ-日本語-العربية"));
         }
@@ -401,6 +404,7 @@ fn nested_envelope_in_error_field() {
     let outer = Envelope::Fatal {
         ref_id: None,
         error: inner.trim().to_string(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&outer).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
@@ -420,11 +424,13 @@ fn deeply_nested_envelope_three_levels() {
     let l2 = Envelope::Fatal {
         ref_id: None,
         error: l1.trim().to_string(),
+        error_code: None,
     };
     let l2_enc = JsonlCodec::encode(&l2).unwrap();
     let l3 = Envelope::Fatal {
         ref_id: None,
         error: l2_enc.trim().to_string(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&l3).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
@@ -672,6 +678,7 @@ fn empty_string_error_field() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: String::new(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
@@ -686,6 +693,7 @@ fn empty_string_ref_id() {
     let env = Envelope::Fatal {
         ref_id: Some(String::new()),
         error: "err".into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
@@ -751,6 +759,7 @@ fn backslash_in_error_field() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: r#"path\to\file"#.into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&env).unwrap();
     assert!(encoded.contains(r"path\\to\\file"));

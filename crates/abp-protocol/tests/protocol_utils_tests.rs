@@ -81,6 +81,7 @@ fn make_fatal(ref_id: Option<&str>, error: &str) -> Envelope {
     Envelope::Fatal {
         ref_id: ref_id.map(Into::into),
         error: error.into(),
+        error_code: None,
     }
 }
 
@@ -198,7 +199,7 @@ fn builder_final_missing_ref_id() {
 fn builder_fatal_no_ref_id() {
     let env = EnvelopeBuilder::fatal("crash").build().unwrap();
     match env {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert!(ref_id.is_none());
             assert_eq!(error, "crash");
         }
@@ -214,7 +215,7 @@ fn builder_fatal_with_ref_id_and_code() {
         .build()
         .unwrap();
     match env {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert_eq!(ref_id.as_deref(), Some("run-1"));
             assert_eq!(error, "oom");
         }
@@ -318,6 +319,7 @@ fn validator_fatal_with_empty_error_is_invalid() {
     let env = Envelope::Fatal {
         ref_id: Some("r1".into()),
         error: String::new(),
+        error_code: None,
     };
     let r = v.validate(&env);
     assert!(!r.valid);
@@ -449,6 +451,7 @@ fn stream_parser_unicode_content() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "日本語 🚀 émojis".into(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&env).unwrap();
     let results = parser.push(line.as_bytes());
@@ -467,6 +470,7 @@ fn stream_parser_large_payload() {
     let env = Envelope::Fatal {
         ref_id: Some("big".into()),
         error: big.clone(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&env).unwrap();
     let results = parser.push(line.as_bytes());
@@ -523,7 +527,7 @@ fn roundtrip_fatal() {
     let json = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(json.trim()).unwrap();
     match decoded {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert_eq!(ref_id.as_deref(), Some("rt-fat"));
             assert_eq!(error, "err");
         }

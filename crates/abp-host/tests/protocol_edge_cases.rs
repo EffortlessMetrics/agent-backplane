@@ -673,11 +673,12 @@ fn fatal_detailed_error_round_trips() {
     let fatal = Envelope::Fatal {
         ref_id: Some("run-crash".into()),
         error: detailed_error.into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&fatal).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
     match decoded {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert_eq!(ref_id.as_deref(), Some("run-crash"));
             assert!(error.contains("SIGSEGV"));
             assert!(error.contains("Stack trace"));
@@ -691,6 +692,7 @@ fn fatal_with_unicode_error_message() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "エラー: メモリ不足 💥".into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&fatal).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
@@ -824,6 +826,7 @@ fn sequence_fatal_wrong_ref_id_detected() {
         Envelope::Fatal {
             ref_id: Some("run-MISMATCH".into()),
             error: "boom".into(),
+            error_code: None,
         },
     ];
     let v = EnvelopeValidator::new();
@@ -941,6 +944,7 @@ fn sequence_hello_then_fatal_no_run() {
         Envelope::Fatal {
             ref_id: None,
             error: "startup failure".into(),
+            error_code: None,
         },
     ];
     let v = EnvelopeValidator::new();

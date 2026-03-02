@@ -11,7 +11,7 @@ keywords = ["agent", "backplane", "backend", "ai", "trait"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-core = { path = "../abp-core" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
 anyhow.workspace = true
 async-trait.workspace = true
 serde_json.workspace = true

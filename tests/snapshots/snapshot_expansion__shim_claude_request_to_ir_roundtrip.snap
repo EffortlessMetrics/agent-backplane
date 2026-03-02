@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_expansion.rs
+expression: "json!({ \"task\": wo.task, \"model\": wo.config.model, })"
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "task": "Rust is a systems programming language."
+}

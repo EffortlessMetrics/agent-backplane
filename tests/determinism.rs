@@ -291,10 +291,12 @@ fn envelope_batch_serialization_order_is_preserved() {
         Envelope::Fatal {
             ref_id: Some("run-1".into()),
             error: "timeout".into(),
+            error_code: None,
         },
         Envelope::Fatal {
             ref_id: None,
             error: "oom".into(),
+            error_code: None,
         },
     ];
 
@@ -739,6 +741,7 @@ fn agent_event_kind_tag_is_deterministic() {
         },
         AgentEventKind::Error {
             message: "err".into(),
+            error_code: None,
         },
         AgentEventKind::CommandExecuted {
             command: "ls".into(),

@@ -523,6 +523,7 @@ fn receipt_error_event_in_failed_outcome() {
         ts: now,
         kind: AgentEventKind::Error {
             message: "something went wrong".into(),
+            error_code: None,
         },
         ext: None,
     };
@@ -535,7 +536,7 @@ fn receipt_error_event_in_failed_outcome() {
     assert_eq!(receipt.outcome, Outcome::Failed);
     assert_eq!(receipt.trace.len(), 1);
     match &receipt.trace[0].kind {
-        AgentEventKind::Error { message } => {
+        AgentEventKind::Error { message, .. } => {
             assert_eq!(message, "something went wrong");
         }
         other => panic!("expected Error event, got {:?}", other),

@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_expansion.rs
+expression: report
+---
+{
+  "applied": [
+    {
+      "capability": "structured_output_json_schema",
+      "strategy": {
+        "type": "post_processing",
+        "detail": "Parse and validate JSON from text response"
+      }
+    }
+  ],
+  "warnings": []
+}

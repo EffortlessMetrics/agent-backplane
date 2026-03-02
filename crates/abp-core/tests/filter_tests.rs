@@ -66,6 +66,7 @@ fn empty_exclude_passes_everything() {
     let f = EventFilter::exclude_kinds(&[]);
     let e = event(AgentEventKind::Error {
         message: "bad".into(),
+        error_code: None,
     });
     assert!(f.matches(&e));
 }
@@ -81,5 +82,6 @@ fn filter_is_case_insensitive() {
     })));
     assert!(!f.matches(&event(AgentEventKind::Error {
         message: "no".into(),
+        error_code: None,
     })));
 }

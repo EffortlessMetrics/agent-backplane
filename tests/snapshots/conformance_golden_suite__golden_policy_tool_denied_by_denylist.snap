@@ -1,0 +1,8 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: decision
+---
+{
+  "allowed": false,
+  "reason": "tool 'Bash' is disallowed"
+}

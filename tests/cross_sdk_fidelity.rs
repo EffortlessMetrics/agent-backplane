@@ -993,6 +993,7 @@ fn event_warning_and_error_passthrough_all_dialects() {
             ts: Utc::now(),
             kind: AgentEventKind::Error {
                 message: "Context window exceeded".into(),
+                error_code: None,
             },
             ext: None,
         },
@@ -1007,8 +1008,8 @@ fn event_warning_and_error_passthrough_all_dialects() {
                         AgentEventKind::Warning { message: b },
                     ) => assert_eq!(a, b),
                     (
-                        AgentEventKind::Error { message: a },
-                        AgentEventKind::Error { message: b },
+                        AgentEventKind::Error { message: a, .. },
+                        AgentEventKind::Error { message: b, .. },
                     ) => assert_eq!(a, b),
                     _ => panic!("kind mismatch {from} -> {to}"),
                 }

@@ -80,6 +80,7 @@ fn core_agent_event_kind_all_variants() {
         },
         AgentEventKind::Error {
             message: String::new(),
+            error_code: None,
         },
     ];
     assert_eq!(_variants.len(), 10);
@@ -313,6 +314,7 @@ fn protocol_envelope_all_variants() {
     let _fatal = Envelope::Fatal {
         ref_id: None,
         error: "boom".into(),
+        error_code: None,
     };
 }
 
@@ -322,6 +324,7 @@ fn protocol_jsonl_codec_accessible() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "err".into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&fatal).unwrap();
     assert!(encoded.ends_with('\n'));
@@ -337,10 +340,12 @@ fn protocol_streaming_codec_accessible() {
         Envelope::Fatal {
             ref_id: None,
             error: "a".into(),
+            error_code: None,
         },
         Envelope::Fatal {
             ref_id: None,
             error: "b".into(),
+            error_code: None,
         },
     ];
     let batch = StreamingCodec::encode_batch(&envs);

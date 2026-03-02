@@ -322,7 +322,9 @@ fn validate_protocol_sequence(envelopes: &[Envelope]) -> Vec<ConformanceResult> 
                 ids.push(ref_id.as_str());
             }
             Envelope::Fatal {
-                ref_id: Some(id), ..
+                ref_id: Some(id),
+                error_code: _,
+                ..
             } => ids.push(id.as_str()),
             _ => {}
         }
@@ -456,6 +458,7 @@ fn test_validate_hello_non_hello_envelope() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "boom".into(),
+        error_code: None,
     };
     assert_has_failure(&validate_hello(&fatal), "hello_has_backend");
 }
@@ -714,6 +717,7 @@ fn test_validate_sequence_fatal_ending() {
         Envelope::Fatal {
             ref_id: Some("r".into()),
             error: "crash".into(),
+            error_code: None,
         },
     ];
     assert_all_pass(&validate_protocol_sequence(&seq));

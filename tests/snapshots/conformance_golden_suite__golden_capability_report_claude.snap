@@ -1,0 +1,30 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: report
+---
+{
+  "source_dialect": "abp",
+  "target_dialect": "claude",
+  "entries": [
+    {
+      "capability": "streaming",
+      "support": {
+        "level": "native"
+      }
+    },
+    {
+      "capability": "structured_output_json_schema",
+      "support": {
+        "level": "emulated",
+        "detail": "tool_use with JSON schema"
+      }
+    },
+    {
+      "capability": "logprobs",
+      "support": {
+        "level": "unsupported",
+        "reason": "Claude API does not expose logprobs"
+      }
+    }
+  ]
+}

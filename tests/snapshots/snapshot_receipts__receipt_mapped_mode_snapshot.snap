@@ -1,0 +1,72 @@
+---
+source: tests/snapshot_receipts.rs
+expression: json_str
+---
+{
+  "meta": {
+    "run_id": "00000000-0000-4000-8000-000000000001",
+    "work_order_id": "00000000-0000-4000-8000-000000000002",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-01-15T12:00:00Z",
+    "finished_at": "2025-01-15T12:05:00Z",
+    "duration_ms": 300000
+  },
+  "backend": {
+    "id": "sidecar:claude",
+    "backend_version": "3.5.0",
+    "adapter_version": "0.2.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_use": "native",
+    "extended_thinking": "emulated"
+  },
+  "mode": "mapped",
+  "usage_raw": {
+    "input_tokens": 800,
+    "output_tokens": 1600
+  },
+  "usage": {
+    "input_tokens": 800,
+    "output_tokens": 1600,
+    "cache_read_tokens": null,
+    "cache_write_tokens": null,
+    "request_units": null,
+    "estimated_cost_usd": null
+  },
+  "trace": [
+    {
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "run_started",
+      "message": "mapped run"
+    },
+    {
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "assistant_delta",
+      "text": "I'll help you "
+    },
+    {
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "assistant_delta",
+      "text": "with that task."
+    },
+    {
+      "ts": "2025-01-15T12:05:00Z",
+      "type": "run_completed",
+      "message": "completed"
+    }
+  ],
+  "artifacts": [
+    {
+      "kind": "log",
+      "path": "run.log"
+    }
+  ],
+  "verification": {
+    "git_diff": null,
+    "git_status": null,
+    "harness_ok": false
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

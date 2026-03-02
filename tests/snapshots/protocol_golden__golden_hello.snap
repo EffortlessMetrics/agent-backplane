@@ -1,0 +1,18 @@
+---
+source: tests/protocol_golden.rs
+expression: "serde_json::to_value(&env).unwrap()"
+---
+{
+  "backend": {
+    "adapter_version": null,
+    "backend_version": "3.5.0",
+    "id": "sidecar:claude"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_use": "native"
+  },
+  "contract_version": "abp/v0.1",
+  "mode": "mapped",
+  "t": "hello"
+}

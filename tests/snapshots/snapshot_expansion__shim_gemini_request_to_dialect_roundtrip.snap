@@ -1,0 +1,25 @@
+---
+source: tests/snapshot_expansion.rs
+expression: dialect_req
+---
+{
+  "model": "gemini-2.5-flash",
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Hello Gemini"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Hello!"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+---
+source: tests/snapshot_expansion.rs
+expression: report
+---
+{
+  "applied": [
+    {
+      "capability": "extended_thinking",
+      "strategy": {
+        "type": "system_prompt_injection",
+        "prompt": "Think step by step before answering."
+      }
+    },
+    {
+      "capability": "structured_output_json_schema",
+      "strategy": {
+        "type": "post_processing",
+        "detail": "Parse and validate JSON from text response"
+      }
+    },
+    {
+      "capability": "image_input",
+      "strategy": {
+        "type": "system_prompt_injection",
+        "prompt": "Image inputs have been converted to text descriptions. Process the descriptions as if viewing the original images."
+      }
+    },
+    {
+      "capability": "stop_sequences",
+      "strategy": {
+        "type": "post_processing",
+        "detail": "Truncate response at the first occurrence of any specified stop sequence"
+      }
+    }
+  ],
+  "warnings": [
+    "Capability CodeExecution not emulated: Cannot safely emulate sandboxed code execution",
+    "Capability Logprobs not emulated: No emulation available for Logprobs"
+  ]
+}

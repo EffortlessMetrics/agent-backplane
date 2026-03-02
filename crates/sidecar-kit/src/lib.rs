@@ -23,6 +23,7 @@ pub mod process;
 pub mod run;
 pub mod spec;
 pub mod transform;
+pub mod typed_middleware;
 
 pub use builders::{
     ReceiptBuilder, event_command_executed, event_error, event_file_changed, event_frame,
@@ -47,4 +48,8 @@ pub use spec::ProcessSpec;
 pub use transform::{
     EnrichTransformer, EventTransformer, FilterTransformer, RedactTransformer, ThrottleTransformer,
     TimestampTransformer, TransformerChain,
+};
+pub use typed_middleware::{
+    ErrorRecoveryMiddleware as TypedErrorRecoveryMiddleware, MetricsMiddleware, MiddlewareAction,
+    RateLimitMiddleware, SidecarMiddleware, SidecarMiddlewareChain,
 };

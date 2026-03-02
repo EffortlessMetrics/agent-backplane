@@ -2,7 +2,6 @@
 #![deny(unsafe_code)]
 use abp_claude_sdk as claude_sdk;
 use abp_cli::commands::{self, SchemaKind};
-use abp_cli::config::BackendConfig;
 use abp_codex_sdk as codex_sdk;
 use abp_copilot_sdk as copilot_sdk;
 use abp_core::{
@@ -38,6 +37,12 @@ struct Cli {
     /// Enable debug logging.
     #[arg(long)]
     debug: bool,
+
+    /// Path to a TOML configuration file.
+    ///
+    /// Falls back to `backplane.toml` in the current directory if present.
+    #[arg(long, global = true)]
+    config: Option<PathBuf>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -50,8 +55,8 @@ enum Commands {
     Run {
         /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude | sidecar:copilot | sidecar:kimi | sidecar:gemini | sidecar:codex.
         /// Aliases are also supported: node, python, claude, copilot, kimi, gemini, codex.
-        #[arg(long, default_value = "mock")]
-        backend: String,
+        #[arg(long)]
+        backend: Option<String>,
 
         /// Task to execute.
         #[arg(long)]
@@ -123,9 +128,9 @@ enum Commands {
         events: Option<PathBuf>,
     },
 
-    /// Validate a work order JSON file against the schema.
+    /// Validate a JSON file as a WorkOrder, Receipt, or auto-detect type.
     Validate {
-        /// Path to the work order JSON file.
+        /// Path to the JSON file.
         #[arg()]
         file: PathBuf,
     },
@@ -142,6 +147,51 @@ enum Commands {
         /// Path to the receipt JSON file.
         #[arg()]
         file: PathBuf,
+    },
+
+    /// Load and validate configuration.
+    #[command(name = "config")]
+    ConfigCmd {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+
+    /// Receipt inspection and comparison.
+    #[command(name = "receipt")]
+    ReceiptCmd {
+        #[command(subcommand)]
+        action: ReceiptAction,
+    },
+}
+
+/// Actions for the `config` subcommand.
+#[derive(Subcommand, Debug)]
+enum ConfigAction {
+    /// Check (load and validate) the configuration file.
+    Check {
+        /// Path to a TOML configuration file (overrides --config).
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+}
+
+/// Actions for the `receipt` subcommand.
+#[derive(Subcommand, Debug)]
+enum ReceiptAction {
+    /// Verify a receipt file's hash integrity.
+    Verify {
+        /// Path to the receipt JSON file.
+        #[arg()]
+        file: PathBuf,
+    },
+    /// Diff two receipt files and show changes.
+    Diff {
+        /// First receipt JSON file.
+        #[arg()]
+        file1: PathBuf,
+        /// Second receipt JSON file.
+        #[arg()]
+        file2: PathBuf,
     },
 }
 
@@ -198,11 +248,28 @@ async fn main() {
 
     tracing_subscriber::fmt().with_env_filter(filter).init();
 
+    // Load configuration from --config path, backplane.toml fallback, or defaults.
+    let config_path = cli.config.clone().or_else(|| {
+        let p = PathBuf::from("backplane.toml");
+        if p.exists() { Some(p) } else { None }
+    });
+    let config = abp_config::load_config(config_path.as_deref()).unwrap_or_else(|e| {
+        tracing::warn!("failed to load config: {e}");
+        abp_config::BackplaneConfig::default()
+    });
+    if let Ok(warnings) = abp_config::validate_config(&config) {
+        for w in &warnings {
+            tracing::debug!("config: {w}");
+        }
+    }
+
     let result = match cli.command {
         Commands::Backends => cmd_backends().await,
         Commands::Validate { file } => cmd_validate(&file),
         Commands::Schema { kind } => cmd_schema(kind),
         Commands::Inspect { file } => cmd_inspect(&file),
+        Commands::ConfigCmd { action } => cmd_config(action, config_path),
+        Commands::ReceiptCmd { action } => cmd_receipt(action),
         Commands::Run {
             backend,
             task,
@@ -240,6 +307,7 @@ async fn main() {
                 policy,
                 output,
                 events,
+                &config,
             )
             .await
         }
@@ -274,8 +342,11 @@ async fn cmd_backends() -> Result<()> {
 }
 
 fn cmd_validate(file: &std::path::Path) -> Result<()> {
-    commands::validate_work_order_file(file)?;
-    println!("valid");
+    let detected = commands::validate_file(file)?;
+    match detected {
+        commands::ValidatedType::WorkOrder => println!("valid work_order"),
+        commands::ValidatedType::Receipt => println!("valid receipt"),
+    }
     Ok(())
 }
 
@@ -308,9 +379,49 @@ fn cmd_inspect(file: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
+fn cmd_config(action: ConfigAction, global_config_path: Option<PathBuf>) -> Result<()> {
+    match action {
+        ConfigAction::Check { config } => {
+            let path = config.or(global_config_path);
+            let diagnostics = commands::config_check(path.as_deref())?;
+            for d in &diagnostics {
+                println!("{d}");
+            }
+            if diagnostics.iter().any(|d| d.starts_with("error:")) {
+                std::process::exit(EXIT_RUNTIME_ERROR);
+            }
+            Ok(())
+        }
+    }
+}
+
+fn cmd_receipt(action: ReceiptAction) -> Result<()> {
+    match action {
+        ReceiptAction::Verify { file } => {
+            let (receipt, valid) = commands::verify_receipt_file(&file)?;
+            println!(
+                "sha256: {}",
+                receipt.receipt_sha256.as_deref().unwrap_or("<none>")
+            );
+            if valid {
+                println!("hash: VALID");
+            } else {
+                println!("hash: INVALID");
+                std::process::exit(EXIT_RUNTIME_ERROR);
+            }
+            Ok(())
+        }
+        ReceiptAction::Diff { file1, file2 } => {
+            let diff = commands::receipt_diff(&file1, &file2)?;
+            println!("{diff}");
+            Ok(())
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn cmd_run(
-    backend: String,
+    backend: Option<String>,
     task: String,
     model: Option<String>,
     root: String,
@@ -327,8 +438,14 @@ async fn cmd_run(
     policy_path: Option<PathBuf>,
     output: Option<PathBuf>,
     events_path: Option<PathBuf>,
+    config: &abp_config::BackplaneConfig,
 ) -> Result<()> {
-    let backend = normalize_backend_name(&backend);
+    // Resolve backend: --backend flag > config default_backend > "mock".
+    let backend = normalize_backend_name(
+        &backend
+            .or_else(|| config.default_backend.clone())
+            .unwrap_or_else(|| "mock".to_string()),
+    );
     let mut rt = Runtime::with_default_backends();
 
     // Register built-in sidecars.
@@ -409,25 +526,16 @@ async fn cmd_run(
         );
     }
 
-    // Register backends from backplane.toml (if present).
-    let config_path = std::path::Path::new("backplane.toml");
-    if config_path.exists() {
-        let cfg = abp_cli::config::load_config(Some(config_path))?;
-        if let Err(errors) = abp_cli::config::validate_config(&cfg) {
-            for e in &errors {
-                tracing::warn!("config: {e}");
+    // Register backends from loaded configuration.
+    for (name, entry) in &config.backends {
+        match entry {
+            abp_config::BackendEntry::Mock {} => {
+                rt.register_backend(name, abp_integrations::MockBackend);
             }
-        }
-        for (name, bc) in cfg.backends {
-            match bc {
-                BackendConfig::Mock {} => {
-                    rt.register_backend(&name, abp_integrations::MockBackend);
-                }
-                BackendConfig::Sidecar { command, args, .. } => {
-                    let mut spec = SidecarSpec::new(&command);
-                    spec.args = args;
-                    rt.register_backend(&name, SidecarBackend::new(spec));
-                }
+            abp_config::BackendEntry::Sidecar { command, args, .. } => {
+                let mut spec = SidecarSpec::new(command);
+                spec.args = args.clone();
+                rt.register_backend(name, SidecarBackend::new(spec));
             }
         }
     }
@@ -699,7 +807,7 @@ fn print_event(ev: &abp_core::AgentEvent) {
         }
 
         Warning { message } => eprintln!("[warn] {message}"),
-        Error { message } => eprintln!("[error] {message}"),
+        Error { message, .. } => eprintln!("[error] {message}"),
     }
 }
 
@@ -792,5 +900,55 @@ mod tests {
         let content = include_str!("../../../backplane.example.toml");
         let config: BackplaneConfig = toml::from_str(content).expect("parse example config");
         assert!(!config.backends.is_empty());
+    }
+
+    #[test]
+    fn abp_config_load_none_returns_defaults() {
+        let config = abp_config::load_config(None).unwrap();
+        assert_eq!(config.log_level.as_deref(), Some("info"));
+        assert!(config.backends.is_empty());
+    }
+
+    #[test]
+    fn abp_config_default_backend_fallback() {
+        let config = abp_config::BackplaneConfig::default();
+        let backend = config.default_backend.unwrap_or_else(|| "mock".to_string());
+        assert_eq!(backend, "mock");
+    }
+
+    #[test]
+    fn abp_config_load_from_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("backplane.toml");
+        std::fs::write(
+            &path,
+            r#"
+default_backend = "sidecar:claude"
+log_level = "debug"
+
+[backends.mock]
+type = "mock"
+"#,
+        )
+        .unwrap();
+        let config = abp_config::load_config(Some(&path)).unwrap();
+        assert_eq!(config.default_backend.as_deref(), Some("sidecar:claude"));
+        assert_eq!(config.log_level.as_deref(), Some("debug"));
+        assert_eq!(config.backends.len(), 1);
+    }
+
+    #[test]
+    fn abp_config_validate_detects_issues() {
+        let mut config = abp_config::BackplaneConfig::default();
+        config.backends.insert(
+            "bad".into(),
+            abp_config::BackendEntry::Sidecar {
+                command: "  ".into(),
+                args: vec![],
+                timeout_secs: None,
+            },
+        );
+        let err = abp_config::validate_config(&config).unwrap_err();
+        assert!(err.to_string().contains("command must not be empty"));
     }
 }

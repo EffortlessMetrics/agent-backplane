@@ -1,0 +1,14 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: snapshot
+---
+{
+  "bonus": [],
+  "is_compatible": false,
+  "satisfied": [
+    "streaming"
+  ],
+  "unsatisfied": [
+    "logprobs"
+  ]
+}

@@ -1,0 +1,54 @@
+---
+source: tests/snapshot_expansion.rs
+expression: results
+---
+{
+  "read_env_denied": {
+    "allowed": false,
+    "reason": "read denied for '.env'"
+  },
+  "read_secrets_denied": {
+    "allowed": false,
+    "reason": "read denied for 'config/secrets/key.pem'"
+  },
+  "read_src_allowed": {
+    "allowed": true,
+    "reason": null
+  },
+  "tool_bash_denied": {
+    "allowed": false,
+    "reason": "tool 'Bash' is disallowed"
+  },
+  "tool_delete_denied": {
+    "allowed": false,
+    "reason": "tool 'Delete' is disallowed"
+  },
+  "tool_grep_allowed": {
+    "allowed": true,
+    "reason": null
+  },
+  "tool_read_allowed": {
+    "allowed": true,
+    "reason": null
+  },
+  "tool_unknown_denied": {
+    "allowed": false,
+    "reason": "tool 'SomeUnknown' not in allowlist"
+  },
+  "tool_write_allowed": {
+    "allowed": true,
+    "reason": null
+  },
+  "write_git_denied": {
+    "allowed": false,
+    "reason": "write denied for '.git/config'"
+  },
+  "write_node_modules_denied": {
+    "allowed": false,
+    "reason": "write denied for 'node_modules/pkg/index.js'"
+  },
+  "write_src_allowed": {
+    "allowed": true,
+    "reason": null
+  }
+}

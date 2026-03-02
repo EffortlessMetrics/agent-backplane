@@ -1,0 +1,27 @@
+---
+source: tests/snapshot_expansion.rs
+expression: "json!({ \"chain_length\": chain.len(), \"entries\": serialized, })"
+---
+{
+  "chain_length": 3,
+  "entries": [
+    {
+      "backend_id": "backend-a",
+      "outcome": "complete",
+      "receipt_sha256": "00d10423c31bcd707e4c40038d00bc276cd39ccede36981bd21d245320574619",
+      "run_id": "00000000-0000-4000-8000-000000000001"
+    },
+    {
+      "backend_id": "backend-b",
+      "outcome": "partial",
+      "receipt_sha256": "7fec87550a4ed1ce582892f4636ba6cd842490e98a387a9e9c911d6c03d23010",
+      "run_id": "00000000-0000-4000-8000-000000000002"
+    },
+    {
+      "backend_id": "backend-c",
+      "outcome": "failed",
+      "receipt_sha256": "a1665d7008b038d1a804aa729bbee500f21d8fa6c35bf60a5c71b2e105039893",
+      "run_id": "00000000-0000-4000-8000-000000000003"
+    }
+  ]
+}

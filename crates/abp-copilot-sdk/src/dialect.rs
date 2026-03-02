@@ -482,6 +482,7 @@ pub fn map_response(resp: &CopilotResponse) -> Vec<AgentEvent> {
             ts: now,
             kind: AgentEventKind::Error {
                 message: format!("{}: {}", err.error_type, err.message),
+                error_code: None,
             },
             ext: None,
         });
@@ -572,6 +573,7 @@ pub fn map_stream_event(event: &CopilotStreamEvent) -> Vec<AgentEvent> {
                 ts: now,
                 kind: AgentEventKind::Error {
                     message: format!("{}: {}", err.error_type, err.message),
+                    error_code: None,
                 },
                 ext: None,
             })

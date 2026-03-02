@@ -34,6 +34,7 @@ fn assistant_msg(text: &str) -> AgentEvent {
 fn error_event(msg: &str) -> AgentEvent {
     make_event(AgentEventKind::Error {
         message: msg.into(),
+        error_code: None,
     })
 }
 

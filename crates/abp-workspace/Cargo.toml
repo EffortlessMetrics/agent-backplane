@@ -11,9 +11,9 @@ keywords = ["agent", "backplane", "ai", "workspace", "staging"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-core = { path = "../abp-core" }
-abp-glob = { path = "../abp-glob" }
-abp-git = { path = "../abp-git" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-glob = { path = "../abp-glob", version = "0.1.0" }
+abp-git = { path = "../abp-git", version = "0.1.0" }
 anyhow.workspace = true
 chrono.workspace = true
 serde.workspace = true

@@ -1,0 +1,95 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: transcript
+---
+[
+  {
+    "backend": {
+      "adapter_version": "0.1.0",
+      "backend_version": "1.0.0",
+      "id": "golden-test"
+    },
+    "capabilities": {
+      "streaming": "native",
+      "tool_bash": "unsupported",
+      "tool_read": "native",
+      "tool_write": "emulated"
+    },
+    "contract_version": "abp/v0.1",
+    "mode": "mapped",
+    "t": "hello"
+  },
+  {
+    "id": "run-002",
+    "t": "run",
+    "work_order": {
+      "config": {
+        "env": {},
+        "max_budget_usd": 1.0,
+        "max_turns": 10,
+        "model": "gpt-4o",
+        "vendor": {}
+      },
+      "context": {
+        "files": [
+          "src/main.rs"
+        ],
+        "snippets": [
+          {
+            "content": "Focus on error handling",
+            "name": "instructions"
+          }
+        ]
+      },
+      "id": "a1a2a3a4-a5a6-a7a8-a9aa-abacadaeafb0",
+      "lane": "patch_first",
+      "policy": {
+        "allow_network": [],
+        "allowed_tools": [
+          "Read",
+          "Write"
+        ],
+        "deny_network": [
+          "*.internal"
+        ],
+        "deny_read": [
+          "**/.env"
+        ],
+        "deny_write": [
+          "**/.git/**"
+        ],
+        "disallowed_tools": [
+          "Bash"
+        ],
+        "require_approval_for": [
+          "Delete"
+        ]
+      },
+      "requirements": {
+        "required": [
+          {
+            "capability": "streaming",
+            "min_support": "native"
+          }
+        ]
+      },
+      "task": "Refactor auth module",
+      "workspace": {
+        "exclude": [
+          "target/**"
+        ],
+        "include": [
+          "src/**/*.rs"
+        ],
+        "mode": "staged",
+        "root": "/workspace"
+      }
+    }
+  },
+  {
+    "error": "backend crashed unexpectedly",
+    "error_code": "BACKEND_CRASHED",
+    "ref_id": "run-002",
+    "t": "fatal"
+  }
+]

@@ -1,0 +1,57 @@
+---
+source: tests/snapshot_expansion.rs
+expression: conv
+---
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are a coding assistant. Always explain your reasoning."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "How do I implement a binary search?"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Binary search works by repeatedly dividing the search interval in half."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Can you show me the Rust code?"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Here's a binary search implementation:"
+        },
+        {
+          "type": "text",
+          "text": "fn binary_search(arr: &[i32], target: i32) -> Option<usize> { todo!() }"
+        }
+      ]
+    }
+  ]
+}

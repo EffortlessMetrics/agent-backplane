@@ -169,6 +169,7 @@ fn golden_envelope_fatal() {
     let env = Envelope::Fatal {
         ref_id: Some("run-001".into()),
         error: "sidecar crashed".into(),
+        error_code: None,
     };
     assert_json_snapshot!("golden_envelope_fatal", env);
 }
@@ -178,6 +179,7 @@ fn golden_envelope_fatal_no_ref() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "startup failure".into(),
+        error_code: None,
     };
     assert_json_snapshot!("golden_envelope_fatal_no_ref", env);
 }

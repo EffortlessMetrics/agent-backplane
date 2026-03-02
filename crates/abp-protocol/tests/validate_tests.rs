@@ -72,6 +72,7 @@ fn fatal_env(ref_id: Option<&str>, error: &str) -> Envelope {
     Envelope::Fatal {
         ref_id: ref_id.map(Into::into),
         error: error.into(),
+        error_code: None,
     }
 }
 
@@ -280,6 +281,7 @@ fn fatal_empty_error() {
     let env = Envelope::Fatal {
         ref_id: Some("run-1".into()),
         error: String::new(),
+        error_code: None,
     };
     let r = v.validate(&env);
     assert!(!r.valid);

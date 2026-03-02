@@ -247,7 +247,10 @@ fn arb_agent_event_kind() -> impl Strategy<Value = AgentEventKind> {
                 }
             }),
         arb_string().prop_map(|message| AgentEventKind::Warning { message }),
-        arb_string().prop_map(|message| AgentEventKind::Error { message }),
+        arb_string().prop_map(|message| AgentEventKind::Error {
+            message,
+            error_code: None
+        }),
     ]
 }
 
@@ -322,8 +325,13 @@ fn arb_envelope() -> impl Strategy<Value = Envelope> {
             .prop_map(|(ref_id, event)| Envelope::Event { ref_id, event }),
         (arb_nonempty_string(), arb_receipt())
             .prop_map(|(ref_id, receipt)| Envelope::Final { ref_id, receipt }),
-        (prop::option::of(arb_nonempty_string()), arb_string())
-            .prop_map(|(ref_id, error)| Envelope::Fatal { ref_id, error }),
+        (prop::option::of(arb_nonempty_string()), arb_string()).prop_map(|(ref_id, error)| {
+            Envelope::Fatal {
+                ref_id,
+                error,
+                error_code: None,
+            }
+        }),
     ]
 }
 
@@ -413,7 +421,7 @@ proptest! {
         let run = Envelope::Run { id: "r1".into(), work_order };
         let evt = Envelope::Event { ref_id: "r1".into(), event };
         let fin = Envelope::Final { ref_id: "r1".into(), receipt };
-        let fatal = Envelope::Fatal { ref_id: Some("r1".into()), error: "boom".into() };
+        let fatal = Envelope::Fatal { ref_id: Some("r1".into()), error: "boom".into(), error_code: None};
 
         let envelopes = [hello, run, evt, fin, fatal];
         let mut t_values = Vec::new();

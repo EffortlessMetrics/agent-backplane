@@ -1,0 +1,23 @@
+[package]
+name = "abp-projection"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Projection matrix that routes work orders to the best-fit backend"
+readme = "README.md"
+keywords = ["agent", "backplane", "projection", "routing", "backend"]
+categories = ["development-tools"]
+
+[dependencies]
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-capability = { path = "../abp-capability", version = "0.1.0" }
+abp-mapping = { path = "../abp-mapping", version = "0.1.0" }
+abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

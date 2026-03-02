@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_receipts.rs
+expression: h1
+---
+432f6338ba55fd051d521d89be082d37f52a6a03164a1803f166b69ad94cf828

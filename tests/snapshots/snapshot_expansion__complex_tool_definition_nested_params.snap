@@ -1,0 +1,94 @@
+---
+source: tests/snapshot_expansion.rs
+expression: tool
+---
+{
+  "name": "create_file",
+  "description": "Create a file with nested configuration",
+  "parameters": {
+    "properties": {
+      "content": {
+        "description": "File content",
+        "type": "string"
+      },
+      "options": {
+        "properties": {
+          "encoding": {
+            "enum": [
+              "utf-8",
+              "ascii",
+              "latin-1"
+            ],
+            "type": "string"
+          },
+          "overwrite": {
+            "default": false,
+            "type": "boolean"
+          },
+          "permissions": {
+            "properties": {
+              "group": {
+                "enum": [
+                  "read",
+                  "write"
+                ],
+                "type": "string"
+              },
+              "other": {
+                "enum": [
+                  "read",
+                  "none"
+                ],
+                "type": "string"
+              },
+              "owner": {
+                "enum": [
+                  "read",
+                  "write",
+                  "execute"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "owner"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "encoding"
+        ],
+        "type": "object"
+      },
+      "path": {
+        "description": "File path",
+        "type": "string"
+      },
+      "tags": {
+        "items": {
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "value"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "path",
+      "content",
+      "options"
+    ],
+    "type": "object"
+  }
+}

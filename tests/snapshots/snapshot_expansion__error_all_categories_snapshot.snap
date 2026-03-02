@@ -1,0 +1,46 @@
+---
+source: tests/snapshot_expansion.rs
+expression: snapshot
+---
+[
+  {
+    "category": "protocol",
+    "code": "PROTOCOL_INVALID_ENVELOPE"
+  },
+  {
+    "category": "backend",
+    "code": "BACKEND_NOT_FOUND"
+  },
+  {
+    "category": "capability",
+    "code": "CAPABILITY_UNSUPPORTED"
+  },
+  {
+    "category": "policy",
+    "code": "POLICY_DENIED"
+  },
+  {
+    "category": "workspace",
+    "code": "WORKSPACE_INIT_FAILED"
+  },
+  {
+    "category": "ir",
+    "code": "IR_LOWERING_FAILED"
+  },
+  {
+    "category": "receipt",
+    "code": "RECEIPT_HASH_MISMATCH"
+  },
+  {
+    "category": "dialect",
+    "code": "DIALECT_UNKNOWN"
+  },
+  {
+    "category": "config",
+    "code": "CONFIG_INVALID"
+  },
+  {
+    "category": "internal",
+    "code": "INTERNAL"
+  }
+]

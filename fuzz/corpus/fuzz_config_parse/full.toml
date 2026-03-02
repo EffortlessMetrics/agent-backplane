@@ -1,0 +1,13 @@
+default_backend = "claude"
+workspace_dir = "/tmp/abp"
+log_level = "debug"
+receipts_dir = "/var/abp/receipts"
+
+[backends.mock]
+type = "mock"
+
+[backends.claude]
+type = "sidecar"
+command = "node"
+args = ["hosts/claude/index.js"]
+timeout_secs = 300

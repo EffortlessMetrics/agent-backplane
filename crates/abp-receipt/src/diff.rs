@@ -16,6 +16,18 @@ pub struct FieldDiff {
 }
 
 /// The result of comparing two receipts field by field.
+///
+/// # Examples
+///
+/// ```
+/// use abp_receipt::{diff_receipts, ReceiptBuilder, Outcome};
+///
+/// let a = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+/// let b = a.clone();
+/// let diff = diff_receipts(&a, &b);
+/// assert!(diff.is_empty());
+/// assert_eq!(diff.len(), 0);
+/// ```
 #[derive(Debug, Clone)]
 pub struct ReceiptDiff {
     /// Individual field differences. Empty if the receipts are equivalent.

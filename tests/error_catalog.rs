@@ -301,6 +301,7 @@ mod protocol_error {
                 ProtocolError::Io(_) => {}
                 ProtocolError::Violation(_) => {}
                 ProtocolError::UnexpectedMessage { .. } => {}
+                ProtocolError::Abp(_) => {}
             }
             check_display_debug(v);
         }
@@ -525,6 +526,8 @@ mod runtime_error {
                 RuntimeError::PolicyFailed(_) => {}
                 RuntimeError::BackendFailed(_) => {}
                 RuntimeError::CapabilityCheckFailed(_) => {}
+                RuntimeError::Classified(_) => {}
+                RuntimeError::NoProjectionMatch { .. } => {}
             }
             check_display_debug(v);
         }

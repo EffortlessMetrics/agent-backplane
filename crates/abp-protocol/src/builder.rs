@@ -336,6 +336,7 @@ impl FatalBuilder {
         Ok(Envelope::Fatal {
             ref_id: self.ref_id,
             error: self.message,
+            error_code: None,
         })
     }
 }

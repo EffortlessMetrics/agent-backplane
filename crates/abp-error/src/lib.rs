@@ -5,6 +5,7 @@
 //! key-value context.  Use the builder returned by [`AbpError::new`] to
 //! construct errors fluently.
 
+#![deny(unsafe_code)]
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
@@ -16,6 +17,15 @@ use std::fmt;
 // ---------------------------------------------------------------------------
 
 /// Broad family that an [`ErrorCode`] belongs to.
+///
+/// # Examples
+///
+/// ```
+/// use abp_error::{ErrorCode, ErrorCategory};
+///
+/// assert_eq!(ErrorCode::BackendNotFound.category(), ErrorCategory::Backend);
+/// assert_eq!(ErrorCode::PolicyDenied.category(), ErrorCategory::Policy);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCategory {
@@ -67,7 +77,18 @@ impl fmt::Display for ErrorCategory {
 ///
 /// Each variant serialises to a `SCREAMING_SNAKE_CASE` string that is
 /// guaranteed not to change across patch releases.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+///
+/// # Examples
+///
+/// ```
+/// use abp_error::ErrorCode;
+///
+/// let code = ErrorCode::BackendTimeout;
+/// assert_eq!(code.as_str(), "BACKEND_TIMEOUT");
+/// assert_eq!(code.to_string(), "BACKEND_TIMEOUT");
+/// assert_eq!(code.category().to_string(), "backend");
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ErrorCode {
     // -- Protocol --
@@ -228,6 +249,16 @@ pub struct AbpError {
 
 impl AbpError {
     /// Create a new error with the given code and message.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_error::{AbpError, ErrorCode};
+    ///
+    /// let err = AbpError::new(ErrorCode::Internal, "something broke");
+    /// assert_eq!(err.code, ErrorCode::Internal);
+    /// assert_eq!(err.message, "something broke");
+    /// ```
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -241,6 +272,17 @@ impl AbpError {
     ///
     /// The value is converted via [`serde_json::to_value`]; if serialisation
     /// fails, the entry is silently skipped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abp_error::{AbpError, ErrorCode};
+    ///
+    /// let err = AbpError::new(ErrorCode::BackendTimeout, "timed out")
+    ///     .with_context("backend", "openai")
+    ///     .with_context("timeout_ms", 30_000);
+    /// assert_eq!(err.context.len(), 2);
+    /// ```
     pub fn with_context(mut self, key: impl Into<String>, value: impl Serialize) -> Self {
         if let Ok(v) = serde_json::to_value(value) {
             self.context.insert(key.into(), v);
@@ -301,6 +343,17 @@ impl std::error::Error for AbpError {
 // ---------------------------------------------------------------------------
 
 /// Serialisable snapshot of an [`AbpError`] (without the opaque source).
+///
+/// # Examples
+///
+/// ```
+/// use abp_error::{AbpError, AbpErrorDto, ErrorCode};
+///
+/// let err = AbpError::new(ErrorCode::Internal, "oops");
+/// let dto: AbpErrorDto = (&err).into();
+/// assert_eq!(dto.code, ErrorCode::Internal);
+/// assert_eq!(dto.message, "oops");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AbpErrorDto {
     /// Error code.

@@ -12,9 +12,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-config"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "abp-core"
 version = "0.1.0"
 dependencies = [
+ "abp-error",
  "chrono",
  "schemars",
  "serde",
@@ -33,12 +43,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-error"
+version = "0.1.0"
+dependencies = [
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "abp-fuzz"
 version = "0.0.0"
 dependencies = [
  "abp-capability",
+ "abp-config",
  "abp-core",
  "abp-dialect",
+ "abp-error",
  "abp-glob",
  "abp-policy",
  "abp-protocol",
@@ -76,6 +98,7 @@ name = "abp-protocol"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-error",
  "serde",
  "serde_json",
  "sidecar-kit",

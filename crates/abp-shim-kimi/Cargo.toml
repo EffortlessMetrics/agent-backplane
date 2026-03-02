@@ -1,0 +1,25 @@
+[package]
+name = "abp-shim-kimi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Kimi SDK shim for Agent Backplane — drop-in client that routes through ABP"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "kimi", "shim"]
+categories = ["development-tools"]
+
+[dependencies]
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-kimi-sdk = { path = "../abp-kimi-sdk", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

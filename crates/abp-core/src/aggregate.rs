@@ -128,7 +128,7 @@ impl EventAggregator {
         self.events
             .iter()
             .filter_map(|e| match &e.kind {
-                AgentEventKind::Error { message } => Some(message.as_str()),
+                AgentEventKind::Error { message, .. } => Some(message.as_str()),
                 _ => None,
             })
             .collect()

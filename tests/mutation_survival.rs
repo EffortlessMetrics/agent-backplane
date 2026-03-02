@@ -715,6 +715,7 @@ mod protocol_mutations {
         let env = Envelope::Fatal {
             ref_id: None,
             error: "boom".into(),
+            error_code: None,
         };
         let line = JsonlCodec::encode(&env).unwrap();
         assert!(line.ends_with('\n'));
@@ -740,11 +741,12 @@ mod protocol_mutations {
         let fatal = Envelope::Fatal {
             ref_id: Some("r1".into()),
             error: "oom".into(),
+            error_code: None,
         };
         let line = JsonlCodec::encode(&fatal).unwrap();
         let decoded = JsonlCodec::decode(line.trim()).unwrap();
         match decoded {
-            Envelope::Fatal { ref_id, error } => {
+            Envelope::Fatal { ref_id, error, .. } => {
                 assert_eq!(ref_id.as_deref(), Some("r1"));
                 assert_eq!(error, "oom");
             }
@@ -1020,6 +1022,7 @@ mod protocol_mutations {
         let fatal = Envelope::Fatal {
             ref_id: Some("r1".into()),
             error: "".into(),
+            error_code: None,
         };
         let result = v.validate(&fatal);
         assert!(!result.valid);
@@ -1031,6 +1034,7 @@ mod protocol_mutations {
         let fatal = Envelope::Fatal {
             ref_id: None,
             error: "boom".into(),
+            error_code: None,
         };
         let result = v.validate(&fatal);
         assert!(result.valid); // warning, not error
@@ -1061,6 +1065,7 @@ mod protocol_mutations {
         let fatal = Envelope::Fatal {
             ref_id: None,
             error: "x".into(),
+            error_code: None,
         };
         let hello = Envelope::hello(
             BackendIdentity {

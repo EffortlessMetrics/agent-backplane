@@ -72,6 +72,7 @@ version = "0.1.0"
 dependencies = [
  "abp-claude-sdk",
  "abp-codex-sdk",
+ "abp-config",
  "abp-copilot-sdk",
  "abp-core",
  "abp-gemini-sdk",
@@ -115,6 +116,7 @@ dependencies = [
 name = "abp-config"
 version = "0.1.0"
 dependencies = [
+ "schemars",
  "serde",
  "tempfile",
  "thiserror 2.0.18",
@@ -139,6 +141,7 @@ dependencies = [
 name = "abp-core"
 version = "0.1.0"
 dependencies = [
+ "abp-error",
  "chrono",
  "criterion",
  "insta",
@@ -157,6 +160,7 @@ version = "0.1.0"
 dependencies = [
  "abp-claude-sdk",
  "abp-codex-sdk",
+ "abp-config",
  "abp-copilot-sdk",
  "abp-core",
  "abp-gemini-sdk",
@@ -206,6 +210,7 @@ dependencies = [
 name = "abp-error"
 version = "0.1.0"
 dependencies = [
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -344,10 +349,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-projection"
+version = "0.1.0"
+dependencies = [
+ "abp-capability",
+ "abp-core",
+ "abp-dialect",
+ "abp-mapping",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "abp-protocol"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-error",
  "chrono",
  "criterion",
  "insta",
@@ -377,10 +396,16 @@ dependencies = [
 name = "abp-runtime"
 version = "0.1.0"
 dependencies = [
+ "abp-capability",
  "abp-core",
+ "abp-dialect",
  "abp-emulation",
+ "abp-error",
  "abp-integrations",
  "abp-policy",
+ "abp-projection",
+ "abp-receipt",
+ "abp-stream",
  "abp-workspace",
  "anyhow",
  "async-trait",
@@ -399,6 +424,111 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-shim-claude"
+version = "0.1.0"
+dependencies = [
+ "abp-claude-sdk",
+ "abp-core",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
+name = "abp-shim-codex"
+version = "0.1.0"
+dependencies = [
+ "abp-codex-sdk",
+ "abp-core",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
+name = "abp-shim-copilot"
+version = "0.1.0"
+dependencies = [
+ "abp-copilot-sdk",
+ "abp-core",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
+name = "abp-shim-gemini"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-gemini-sdk",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
+name = "abp-shim-kimi"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-kimi-sdk",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
+name = "abp-shim-openai"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-openai-sdk",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
+name = "abp-sidecar-proto"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-protocol",
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "abp-sidecar-sdk"
 version = "0.1.0"
 dependencies = [
@@ -406,6 +536,16 @@ dependencies = [
  "abp-integrations",
  "abp-runtime",
  "anyhow",
+]
+
+[[package]]
+name = "abp-stream"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "chrono",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -445,6 +585,7 @@ dependencies = [
  "abp-claude-sdk",
  "abp-cli",
  "abp-codex-sdk",
+ "abp-config",
  "abp-copilot-sdk",
  "abp-core",
  "abp-daemon",
@@ -459,12 +600,21 @@ dependencies = [
  "abp-mapping",
  "abp-openai-sdk",
  "abp-policy",
+ "abp-projection",
  "abp-protocol",
  "abp-receipt",
  "abp-runtime",
+ "abp-shim-claude",
+ "abp-shim-codex",
+ "abp-shim-copilot",
+ "abp-shim-gemini",
+ "abp-shim-kimi",
+ "abp-shim-openai",
+ "abp-stream",
  "abp-telemetry",
  "abp-workspace",
  "anyhow",
+ "assert_cmd",
  "async-trait",
  "axum",
  "chrono",
@@ -474,6 +624,7 @@ dependencies = [
  "http-body-util",
  "insta",
  "jsonschema",
+ "predicates",
  "proptest",
  "schemars",
  "serde",
@@ -487,6 +638,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]
@@ -3094,6 +3246,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-serde"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "704b1aeb7be0d0a84fc9828cae51dab5970fee5088f83d1dd7ee6f6246fc6ff1"
+dependencies = [
+ "serde",
+ "tracing-core",
+]
+
+[[package]]
 name = "tracing-subscriber"
 version = "0.3.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3103,12 +3265,15 @@ dependencies = [
  "nu-ansi-term",
  "once_cell",
  "regex-automata",
+ "serde",
+ "serde_json",
  "sharded-slab",
  "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
  "tracing-log",
+ "tracing-serde",
 ]
 
 [[package]]

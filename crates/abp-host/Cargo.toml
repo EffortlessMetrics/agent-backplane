@@ -11,11 +11,12 @@ keywords = ["agent", "backplane", "ai", "sidecar", "process"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-core = { path = "../abp-core" }
-abp-protocol = { path = "../abp-protocol" }
-sidecar-kit = { path = "../sidecar-kit" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-protocol = { path = "../abp-protocol", version = "0.1.0" }
+sidecar-kit = { path = "../sidecar-kit", version = "0.1.0" }
 anyhow.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 futures.workspace = true
 tokio.workspace = true
@@ -24,11 +25,11 @@ chrono.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-abp-core = { path = "../abp-core" }
-abp-protocol = { path = "../abp-protocol" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-protocol = { path = "../abp-protocol", version = "0.1.0" }
 chrono.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 tokio-stream.workspace = true
 uuid = { workspace = true }

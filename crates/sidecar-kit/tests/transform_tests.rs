@@ -40,6 +40,7 @@ fn assistant_message(text: &str) -> AgentEvent {
 fn error_event(msg: &str) -> AgentEvent {
     make_event(AgentEventKind::Error {
         message: msg.to_string(),
+        error_code: None,
     })
 }
 

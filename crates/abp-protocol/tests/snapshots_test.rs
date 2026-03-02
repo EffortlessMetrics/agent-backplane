@@ -150,6 +150,7 @@ fn snapshot_fatal_envelope() {
     let env = Envelope::Fatal {
         ref_id: Some("run-001".into()),
         error: "sidecar crashed".into(),
+        error_code: None,
     };
     assert_json_snapshot!("envelope_fatal", env);
 }
@@ -159,6 +160,7 @@ fn snapshot_fatal_envelope_no_ref() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "startup failure".into(),
+        error_code: None,
     };
     assert_json_snapshot!("envelope_fatal_no_ref", env);
 }
@@ -169,6 +171,7 @@ fn jsonl_codec_round_trip() {
     let env = Envelope::Fatal {
         ref_id: Some("run-001".into()),
         error: "test".into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&env).unwrap();
     assert!(encoded.ends_with('\n'));

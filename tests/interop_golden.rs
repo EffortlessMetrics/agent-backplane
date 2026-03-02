@@ -205,6 +205,7 @@ fn fatal_envelope_matches_golden_json() {
     let fatal = Envelope::Fatal {
         ref_id: Some("run-001".into()),
         error: "out of memory".into(),
+        error_code: None,
     };
     let v = envelope_to_value(&fatal);
 
@@ -217,6 +218,7 @@ fn fatal_envelope_matches_golden_json() {
     let fatal_null = Envelope::Fatal {
         ref_id: None,
         error: "invalid json".into(),
+        error_code: None,
     };
     let v2 = envelope_to_value(&fatal_null);
     assert!(v2["ref_id"].is_null());
@@ -266,6 +268,7 @@ fn envelope_discriminator_is_t_not_type() {
         Envelope::Fatal {
             ref_id: None,
             error: "boom".into(),
+            error_code: None,
         },
     ];
 
@@ -331,7 +334,13 @@ fn agent_event_kinds_match_js_host_strings() {
             "tool_result",
         ),
         (AgentEventKind::Warning { message: "".into() }, "warning"),
-        (AgentEventKind::Error { message: "".into() }, "error"),
+        (
+            AgentEventKind::Error {
+                message: "".into(),
+                error_code: None,
+            },
+            "error",
+        ),
     ];
 
     for (kind, expected_type) in cases {
@@ -553,7 +562,7 @@ fn rust_decodes_js_golden_fatal() {
 
     let env = JsonlCodec::decode(js_fatal).unwrap();
     match env {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert!(ref_id.is_none());
             assert_eq!(error, "invalid json: SyntaxError");
         }

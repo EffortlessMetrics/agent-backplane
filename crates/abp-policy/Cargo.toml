@@ -11,8 +11,8 @@ keywords = ["agent", "backplane", "ai", "policy", "security"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-core = { path = "../abp-core" }
-abp-glob = { path = "../abp-glob" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-glob = { path = "../abp-glob", version = "0.1.0" }
 anyhow.workspace = true
 globset.workspace = true
 chrono.workspace = true

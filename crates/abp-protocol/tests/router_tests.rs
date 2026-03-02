@@ -13,6 +13,7 @@ fn fatal(ref_id: Option<&str>, msg: &str) -> Envelope {
     Envelope::Fatal {
         ref_id: ref_id.map(Into::into),
         error: msg.into(),
+        error_code: None,
     }
 }
 

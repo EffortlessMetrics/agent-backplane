@@ -1,0 +1,38 @@
+---
+source: tests/snapshot_expansion.rs
+expression: "json!({ \"ir\": ir, \"roundtrip_messages\": back, })"
+---
+{
+  "ir": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "You are a coding assistant.",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "text": "Write a hello world in Python",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  },
+  "roundtrip_messages": [
+    {
+      "content": "You are a coding assistant.",
+      "role": "system"
+    },
+    {
+      "content": "Write a hello world in Python",
+      "role": "user"
+    }
+  ]
+}

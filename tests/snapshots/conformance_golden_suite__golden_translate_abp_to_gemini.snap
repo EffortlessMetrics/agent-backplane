@@ -1,0 +1,20 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: result
+---
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "Text": "Refactor auth module\n\n--- instructions ---\nFocus on error handling"
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "generation_config": {
+    "maxOutputTokens": 4096
+  },
+  "model": "gpt-4o"
+}
