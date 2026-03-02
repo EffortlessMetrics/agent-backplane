@@ -1,0 +1,15 @@
+[package]
+name = "abp-rule-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Standalone rule-condition and prioritized rule evaluation engine for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "rules", "policy"]
+categories = ["development-tools"]
+
+[dependencies]
+globset.workspace = true
+serde.workspace = true

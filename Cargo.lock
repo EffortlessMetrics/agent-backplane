@@ -332,10 +332,10 @@ version = "0.1.0"
 dependencies = [
  "abp-core",
  "abp-glob",
+ "abp-rule-engine",
  "anyhow",
  "chrono",
  "criterion",
- "globset",
  "insta",
  "proptest",
  "schemars",
@@ -371,6 +371,14 @@ dependencies = [
  "sha2",
  "thiserror 2.0.18",
  "uuid",
+]
+
+[[package]]
+name = "abp-rule-engine"
+version = "0.1.0"
+dependencies = [
+ "globset",
+ "serde",
 ]
 
 [[package]]
