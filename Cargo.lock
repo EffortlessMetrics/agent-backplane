@@ -53,6 +53,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-change-tracker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-claude-sdk"
 version = "0.1.0"
 dependencies = [
@@ -421,6 +429,7 @@ dependencies = [
 name = "abp-workspace"
 version = "0.1.0"
 dependencies = [
+ "abp-change-tracker",
  "abp-core",
  "abp-git",
  "abp-glob",

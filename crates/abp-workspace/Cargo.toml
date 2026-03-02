@@ -11,6 +11,7 @@ keywords = ["agent", "backplane", "ai", "workspace", "staging"]
 categories = ["development-tools"]
 
 [dependencies]
+abp-change-tracker = { path = "../abp-change-tracker" }
 abp-core = { path = "../abp-core" }
 abp-glob = { path = "../abp-glob" }
 abp-git = { path = "../abp-git" }

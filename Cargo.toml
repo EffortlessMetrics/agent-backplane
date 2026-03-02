@@ -15,6 +15,7 @@ members = [
   "crates/abp-claude-sdk",
   "crates/abp-cli",
   "crates/abp-codex-sdk",
+  "crates/abp-change-tracker",
   "crates/abp-config",
   "crates/abp-copilot-sdk",
   "crates/abp-core",

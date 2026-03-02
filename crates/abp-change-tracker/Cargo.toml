@@ -1,0 +1,17 @@
+[package]
+name = "abp-change-tracker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "File change tracking primitives for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "change", "tracker"]
+categories = ["development-tools"]
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
