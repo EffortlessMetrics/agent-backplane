@@ -96,6 +96,8 @@ cucumber = "0.21"
 [dev-dependencies]
 criterion = { workspace = true }
 cucumber = { workspace = true }
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
 abp-core = { path = "crates/abp-core" }
 abp-protocol = { path = "crates/abp-protocol" }
 abp-host = { path = "crates/abp-host" }
