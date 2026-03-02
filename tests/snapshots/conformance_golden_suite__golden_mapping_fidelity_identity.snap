@@ -1,0 +1,9 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: "json!({ \"from\": \"claude\", \"to\": \"claude\", \"fidelity\": fidelity, })"
+---
+{
+  "fidelity": "lossless",
+  "from": "claude",
+  "to": "claude"
+}

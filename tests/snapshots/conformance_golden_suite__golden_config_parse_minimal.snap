@@ -1,0 +1,11 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: config
+---
+{
+  "backends": {
+    "mock": {
+      "type": "mock"
+    }
+  }
+}

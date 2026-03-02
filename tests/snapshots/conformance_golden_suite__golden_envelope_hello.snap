@@ -1,0 +1,20 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: v
+---
+{
+  "backend": {
+    "adapter_version": "0.1.0",
+    "backend_version": "1.0.0",
+    "id": "golden-test"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_bash": "unsupported",
+    "tool_read": "native",
+    "tool_write": "emulated"
+  },
+  "contract_version": "abp/v0.1",
+  "mode": "mapped",
+  "t": "hello"
+}

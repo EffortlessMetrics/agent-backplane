@@ -1,0 +1,71 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: env
+---
+{
+  "t": "run",
+  "id": "run-golden",
+  "work_order": {
+    "id": "a1a2a3a4-a5a6-a7a8-a9aa-abacadaeafb0",
+    "task": "Refactor auth module",
+    "lane": "patch_first",
+    "workspace": {
+      "root": "/workspace",
+      "mode": "staged",
+      "include": [
+        "src/**/*.rs"
+      ],
+      "exclude": [
+        "target/**"
+      ]
+    },
+    "context": {
+      "files": [
+        "src/main.rs"
+      ],
+      "snippets": [
+        {
+          "name": "instructions",
+          "content": "Focus on error handling"
+        }
+      ]
+    },
+    "policy": {
+      "allowed_tools": [
+        "Read",
+        "Write"
+      ],
+      "disallowed_tools": [
+        "Bash"
+      ],
+      "deny_read": [
+        "**/.env"
+      ],
+      "deny_write": [
+        "**/.git/**"
+      ],
+      "allow_network": [],
+      "deny_network": [
+        "*.internal"
+      ],
+      "require_approval_for": [
+        "Delete"
+      ]
+    },
+    "requirements": {
+      "required": [
+        {
+          "capability": "streaming",
+          "min_support": "native"
+        }
+      ]
+    },
+    "config": {
+      "model": "gpt-4o",
+      "vendor": {},
+      "env": {},
+      "max_budget_usd": 1.0,
+      "max_turns": 10
+    }
+  }
+}

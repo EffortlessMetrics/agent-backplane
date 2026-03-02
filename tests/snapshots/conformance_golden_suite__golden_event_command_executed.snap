@@ -1,0 +1,11 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: e
+---
+{
+  "ts": "2025-01-15T12:00:00Z",
+  "type": "command_executed",
+  "command": "cargo test",
+  "exit_code": 0,
+  "output_preview": "test result: ok"
+}

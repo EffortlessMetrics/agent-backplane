@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Receipt",
-  "description": "The outcome of a completed run: metadata, usage, trace, and verification.\n\nUse [`Receipt::with_hash`] to compute and attach the canonical SHA-256 hash.",
+  "description": "The outcome of a completed run: metadata, usage, trace, and verification.\n\nUse [`Receipt::with_hash`] to compute and attach the canonical SHA-256 hash.\n\n# Examples\n\n```\nuse abp_core::{ReceiptBuilder, Outcome};\n\nlet receipt = ReceiptBuilder::new(\"mock\")\n    .outcome(Outcome::Complete)\n    .build()\n    .with_hash()\n    .unwrap();\n\nassert!(receipt.receipt_sha256.is_some());\n```",
   "type": "object",
   "properties": {
     "artifacts": {
@@ -74,7 +74,7 @@
   ],
   "$defs": {
     "AgentEvent": {
-      "description": "A timestamped event emitted by an agent during a run.",
+      "description": "A timestamped event emitted by an agent during a run.\n\n# Examples\n\n```\nuse abp_core::{AgentEvent, AgentEventKind};\nuse chrono::Utc;\n\nlet event = AgentEvent {\n    ts: Utc::now(),\n    kind: AgentEventKind::AssistantMessage {\n        text: \"Hello, world!\".into(),\n    },\n    ext: None,\n};\nassert!(matches!(event.kind, AgentEventKind::AssistantMessage { .. }));\n```",
       "type": "object",
       "properties": {
         "ext": {
@@ -361,7 +361,7 @@
       ]
     },
     "BackendIdentity": {
-      "description": "Identifies a backend and its version information.",
+      "description": "Identifies a backend and its version information.\n\n# Examples\n\n```\nuse abp_core::BackendIdentity;\n\nlet id = BackendIdentity {\n    id: \"sidecar:node\".into(),\n    backend_version: Some(\"1.0.0\".into()),\n    adapter_version: None,\n};\nassert_eq!(id.id, \"sidecar:node\");\n```",
       "type": "object",
       "properties": {
         "adapter_version": {
@@ -388,7 +388,7 @@
       ]
     },
     "ErrorCode": {
-      "description": "Machine-readable, stable error code.\n\nEach variant serialises to a `SCREAMING_SNAKE_CASE` string that is\nguaranteed not to change across patch releases.",
+      "description": "Machine-readable, stable error code.\n\nEach variant serialises to a `SCREAMING_SNAKE_CASE` string that is\nguaranteed not to change across patch releases.\n\n# Examples\n\n```\nuse abp_error::ErrorCode;\n\nlet code = ErrorCode::BackendTimeout;\nassert_eq!(code.as_str(), \"BACKEND_TIMEOUT\");\nassert_eq!(code.to_string(), \"BACKEND_TIMEOUT\");\nassert_eq!(code.category().to_string(), \"backend\");\n```",
       "oneOf": [
         {
           "description": "Envelope failed to parse or has missing/invalid fields.",
@@ -493,7 +493,7 @@
       ]
     },
     "ExecutionMode": {
-      "description": "Execution mode for how ABP processes requests.\n\n- Passthrough: Lossless wrapping - ABP acts as observer/recorder only\n- Mapped: Full dialect translation - ABP translates between dialects",
+      "description": "Execution mode for how ABP processes requests.\n\n- Passthrough: Lossless wrapping - ABP acts as observer/recorder only\n- Mapped: Full dialect translation - ABP translates between dialects\n\n# Examples\n\n```\nuse abp_core::ExecutionMode;\n\nlet mode = ExecutionMode::default();\nassert_eq!(mode, ExecutionMode::Mapped);\n```",
       "oneOf": [
         {
           "description": "Lossless wrapping mode. ABP passes requests directly to the SDK\nwithout modification. Stream is bitwise-equivalent to direct SDK call\nafter removing ABP framing.",
@@ -508,7 +508,7 @@
       ]
     },
     "Outcome": {
-      "description": "High-level result status of a run.",
+      "description": "High-level result status of a run.\n\n# Examples\n\n```\nuse abp_core::Outcome;\n\nlet outcome: Outcome = serde_json::from_str(r#\"\"complete\"\"#).unwrap();\nassert_eq!(outcome, Outcome::Complete);\n```",
       "oneOf": [
         {
           "description": "The run finished successfully.",
@@ -572,7 +572,7 @@
       ]
     },
     "SupportLevel": {
-      "description": "How well a backend supports a given [`Capability`].",
+      "description": "How well a backend supports a given [`Capability`].\n\n# Examples\n\n```\nuse abp_core::{SupportLevel, MinSupport};\n\nlet native = SupportLevel::Native;\nassert!(native.satisfies(&MinSupport::Native));\nassert!(native.satisfies(&MinSupport::Emulated));\n\nlet emulated = SupportLevel::Emulated;\nassert!(!emulated.satisfies(&MinSupport::Native));\nassert!(emulated.satisfies(&MinSupport::Emulated));\n```",
       "oneOf": [
         {
           "description": "First-class support built into the backend.",

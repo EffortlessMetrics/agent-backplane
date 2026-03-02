@@ -1,0 +1,23 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: config
+---
+{
+  "default_backend": "mock",
+  "workspace_dir": "/tmp/abp",
+  "log_level": "debug",
+  "receipts_dir": "./data/receipts",
+  "backends": {
+    "mock": {
+      "type": "mock"
+    },
+    "openai": {
+      "type": "sidecar",
+      "command": "node",
+      "args": [
+        "openai-sidecar.js"
+      ],
+      "timeout_secs": 300
+    }
+  }
+}

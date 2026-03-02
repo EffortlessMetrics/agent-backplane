@@ -1,0 +1,59 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: conv
+---
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are a helpful assistant."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Refactor auth module"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "I'll read the file first."
+        },
+        {
+          "type": "tool_use",
+          "id": "tu-001",
+          "name": "read_file",
+          "input": {
+            "path": "src/auth.rs"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "tu-001",
+          "content": [
+            {
+              "type": "text",
+              "text": "pub fn login() {}"
+            }
+          ],
+          "is_error": false
+        }
+      ]
+    }
+  ]
+}

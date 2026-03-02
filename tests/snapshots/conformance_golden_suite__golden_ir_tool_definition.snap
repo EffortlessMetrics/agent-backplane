@@ -1,0 +1,20 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: tool
+---
+{
+  "name": "read_file",
+  "description": "Read contents of a file",
+  "parameters": {
+    "properties": {
+      "path": {
+        "description": "File path",
+        "type": "string"
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "type": "object"
+  }
+}

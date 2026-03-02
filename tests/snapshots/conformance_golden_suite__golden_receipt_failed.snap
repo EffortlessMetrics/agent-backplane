@@ -1,0 +1,58 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: v
+---
+{
+  "artifacts": [
+    {
+      "kind": "patch",
+      "path": "output.patch"
+    }
+  ],
+  "backend": {
+    "adapter_version": "0.1.0",
+    "backend_version": "1.0.0",
+    "id": "golden-test"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_bash": "unsupported",
+    "tool_read": "native",
+    "tool_write": "emulated"
+  },
+  "meta": {
+    "contract_version": "abp/v0.1",
+    "duration_ms": 300000,
+    "finished_at": "2025-01-15T12:05:00Z",
+    "run_id": "01020304-0506-0708-090a-0b0c0d0e0f10",
+    "started_at": "2025-01-15T12:00:00Z",
+    "work_order_id": "a1a2a3a4-a5a6-a7a8-a9aa-abacadaeafb0"
+  },
+  "mode": "passthrough",
+  "outcome": "failed",
+  "receipt_sha256": null,
+  "trace": [
+    {
+      "message": "Golden test run",
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "run_started"
+    }
+  ],
+  "usage": {
+    "cache_read_tokens": null,
+    "cache_write_tokens": null,
+    "estimated_cost_usd": 0.0015,
+    "input_tokens": 100,
+    "output_tokens": 50,
+    "request_units": null
+  },
+  "usage_raw": {
+    "completion_tokens": 50,
+    "prompt_tokens": 100
+  },
+  "verification": {
+    "git_diff": "+added line",
+    "git_status": "M src/main.rs",
+    "harness_ok": true
+  }
+}

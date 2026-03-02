@@ -1,0 +1,11 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: usage
+---
+{
+  "input_tokens": 1000,
+  "output_tokens": 500,
+  "total_tokens": 1500,
+  "cache_read_tokens": 200,
+  "cache_write_tokens": 100
+}

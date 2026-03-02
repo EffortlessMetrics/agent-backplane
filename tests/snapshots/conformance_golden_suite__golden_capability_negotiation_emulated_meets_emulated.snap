@@ -1,0 +1,12 @@
+---
+source: tests/conformance_golden_suite.rs
+expression: snapshot
+---
+{
+  "bonus": [],
+  "is_compatible": true,
+  "satisfied": [
+    "tool_write"
+  ],
+  "unsatisfied": []
+}

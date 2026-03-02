@@ -138,6 +138,9 @@ abp-copilot-sdk = { path = "crates/abp-copilot-sdk" }
 abp-shim-openai = { path = "crates/abp-shim-openai" }
 abp-shim-claude = { path = "crates/abp-shim-claude" }
 abp-shim-gemini = { path = "crates/abp-shim-gemini" }
+abp-shim-codex = { path = "crates/abp-shim-codex" }
+abp-shim-kimi = { path = "crates/abp-shim-kimi" }
+abp-shim-copilot = { path = "crates/abp-shim-copilot" }
 abp-projection = { path = "crates/abp-projection" }
 abp-stream = { path = "crates/abp-stream" }
 insta = { workspace = true }

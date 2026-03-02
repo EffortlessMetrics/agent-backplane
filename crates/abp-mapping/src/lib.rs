@@ -262,7 +262,7 @@ impl MappingRegistry {
                 results.push((target, lossless));
             }
         }
-        results.sort_by(|a, b| b.1.cmp(&a.1));
+        results.sort_by_key(|b| std::cmp::Reverse(b.1));
         results
     }
 }
