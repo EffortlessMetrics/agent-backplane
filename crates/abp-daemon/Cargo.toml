@@ -20,6 +20,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+abp-api-versioning = { path = "../abp-api-versioning" }
 clap.workspace = true
 abp-core = { path = "../abp-core" }
 abp-codex-sdk = { path = "../abp-codex-sdk" }

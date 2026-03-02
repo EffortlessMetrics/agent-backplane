@@ -1,0 +1,15 @@
+[package]
+name = "abp-api-versioning"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "API version parsing and negotiation utilities for Agent Backplane"
+
+[lib]
+name = "abp_api_versioning"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true

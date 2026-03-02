@@ -3,6 +3,13 @@
 version = 4
 
 [[package]]
+name = "abp-api-versioning"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "abp-backend-core"
 version = "0.1.0"
 dependencies = [
@@ -155,6 +162,7 @@ dependencies = [
 name = "abp-daemon"
 version = "0.1.0"
 dependencies = [
+ "abp-api-versioning",
  "abp-claude-sdk",
  "abp-codex-sdk",
  "abp-copilot-sdk",

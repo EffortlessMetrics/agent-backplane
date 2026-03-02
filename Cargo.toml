@@ -8,6 +8,7 @@ publish = false
 resolver = "2"
 exclude = ["fuzz"]
 members = [
+  "crates/abp-api-versioning",
   "crates/abp-backend-core",
   "crates/abp-backend-mock",
   "crates/abp-capability",

@@ -10,8 +10,8 @@ pub mod middleware;
 pub mod queue;
 /// Request validation for the daemon API.
 pub mod validation;
-/// API versioning support.
-pub mod versioning;
+/// API versioning support utilities re-exported from `abp-api-versioning`.
+pub use abp_api_versioning as versioning;
 
 use abp_core::{AgentEvent, CapabilityManifest, Receipt, WorkOrder};
 use abp_runtime::Runtime;

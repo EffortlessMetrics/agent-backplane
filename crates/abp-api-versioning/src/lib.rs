@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! API versioning support for the ABP daemon HTTP API.
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
+//! API version parsing, endpoint support tracking, and version negotiation.
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
-
-// ---------------------------------------------------------------------------
-// ApiVersion
-// ---------------------------------------------------------------------------
 
 /// A semantic API version consisting of a major and minor component.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -69,10 +67,6 @@ impl PartialOrd for ApiVersion {
     }
 }
 
-// ---------------------------------------------------------------------------
-// ApiVersionError
-// ---------------------------------------------------------------------------
-
 /// Errors that can occur during version parsing or negotiation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApiVersionError {
@@ -93,10 +87,6 @@ impl fmt::Display for ApiVersionError {
 
 impl std::error::Error for ApiVersionError {}
 
-// ---------------------------------------------------------------------------
-// VersionedEndpoint
-// ---------------------------------------------------------------------------
-
 /// Metadata describing the version range for a single API endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VersionedEndpoint {
@@ -113,10 +103,6 @@ pub struct VersionedEndpoint {
     /// Optional human-readable deprecation message.
     pub deprecated_message: Option<String>,
 }
-
-// ---------------------------------------------------------------------------
-// ApiVersionRegistry
-// ---------------------------------------------------------------------------
 
 /// Registry that tracks which endpoints are available in which API versions.
 #[derive(Debug, Clone)]
@@ -183,10 +169,6 @@ impl ApiVersionRegistry {
             .collect()
     }
 }
-
-// ---------------------------------------------------------------------------
-// VersionNegotiator
-// ---------------------------------------------------------------------------
 
 /// Picks the best supported version given a client request.
 pub struct VersionNegotiator;
