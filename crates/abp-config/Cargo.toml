@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "Configuration loading, validation, and merging for the Agent Backplane"
+readme = "README.md"
 keywords = ["agent", "backplane", "config", "toml", "validation"]
 categories = ["config"]
 

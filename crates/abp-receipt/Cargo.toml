@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "Receipt canonicalization, hashing, chain verification, and diffing for the Agent Backplane"
+readme = "README.md"
 keywords = ["agent", "backplane", "receipt", "hash", "verification"]
 categories = ["development-tools"]
 

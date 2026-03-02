@@ -3,7 +3,12 @@ name = "abp-stream"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
 description = "Agent event stream processing, transformation, and multiplexing"
+readme = "README.md"
+keywords = ["agent", "backplane", "stream", "event", "multiplexing"]
+categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }

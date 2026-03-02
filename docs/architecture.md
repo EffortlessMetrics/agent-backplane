@@ -112,20 +112,26 @@ abp-core ──────────┤                         │
   │   │                                      │
   │   ├── abp-error                          │
   │   │                                      │
-  │   ├── abp-capability                     │
+  │   ├── abp-capability ─── abp-projection  │
   │   │                                      │
   │   ├── abp-emulation                      │
   │   │                                      │
-  │   └── abp-receipt                        │
-  │         │                                │
-  │         └── abp-telemetry                │
+  │   ├── abp-receipt                        │
+  │   │     │                                │
+  │   │     └── abp-telemetry                │
+  │   │                                      │
+  │   └── abp-config                         │
   │                                          │
 abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
-                     │              │                abp-backend-sidecar
-                 sidecar-kit        │
-                     │         abp-integrations ─── abp-runtime ─── abp-cli
-                claude-bridge                                        │
-                                                                 abp-daemon
+  │                  │              │                abp-backend-sidecar
+  │              sidecar-kit        │
+  │                  │         abp-integrations ─── abp-runtime ─── abp-cli
+  │             claude-bridge                           │             │
+  │                                                 abp-stream   abp-daemon
+  └── abp-sidecar-proto
+
+SDK shims (drop-in client replacements):
+  abp-shim-openai, abp-shim-claude, abp-shim-gemini
 
 Supporting crates:
   abp-git           Standalone git helpers (init, status, diff)
@@ -348,6 +354,41 @@ Specialized bridge for the Claude sidecar. Spawns a Node.js host process
 (`hosts/claude/`), handles the JSONL protocol, and converts between ABP types
 and the Claude-specific wire format.
 
+### abp-projection — Backend Selection
+
+Projection matrix that routes work orders to the best-fit backend based on
+capability negotiation. Scores each registered backend against a work order's
+requirements and selects the optimal match.
+
+### abp-stream — Event Stream Processing
+
+Filters, transforms, and multiplexes agent event streams. Provides custom
+predicates for event filtering and transformation pipelines for stream
+processing.
+
+### abp-config — Configuration
+
+Loads, validates, and merges TOML configuration files (`backplane.toml`).
+Supports layered configuration with advisory warnings for deprecated or
+unrecognized keys.
+
+### abp-sidecar-proto — Sidecar Protocol Handler
+
+Sidecar-side utilities for implementing services that speak ABP's JSONL
+protocol. Complements the host-side `abp-host` and `sidecar-kit` crates by
+providing helpers for the sidecar process itself.
+
+### SDK Shims
+
+Drop-in SDK client replacements that transparently route through ABP:
+
+- `abp-shim-openai` — OpenAI SDK shim
+- `abp-shim-claude` — Anthropic Claude SDK shim
+- `abp-shim-gemini` — Gemini SDK shim
+
+These shims allow existing code that uses vendor SDKs to route through ABP's
+intermediate representation without code changes.
+
 ### abp-runtime — Orchestration
 
 The central orchestrator that ties everything together.
@@ -363,14 +404,23 @@ The `abp` binary with subcommands:
 
 - `run`: execute a work order against a named backend.
 - `backends`: list registered backends and their capabilities.
+- `validate`: validate a JSON file as a WorkOrder or Receipt.
+- `schema`: print a JSON schema to stdout.
+- `inspect`: inspect a receipt file and verify its hash.
+- `config check`: load and validate a TOML configuration file.
+- `receipt verify`: verify a receipt file's hash integrity.
+- `receipt diff`: structured diff between two receipt files.
 
 Registers built-in sidecar backends (node, python, claude, copilot, kimi, gemini).
 Must be run from the repo root for sidecar backends (they resolve `hosts/`
 scripts relative to CWD).
 
-### abp-daemon — HTTP Control Plane (Stub)
+### abp-daemon — HTTP Control Plane
 
-Future HTTP API for programmatic access. Currently a stub.
+HTTP API for programmatic access. Exposes routes for health, metrics, backends,
+capabilities, configuration, validation, schema retrieval, run management
+(submit, list, get, cancel, delete), receipt management, event streaming, and
+WebSocket connections.
 
 ---
 

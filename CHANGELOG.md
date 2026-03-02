@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Crates
 
+- **abp-projection** — Projection matrix that routes work orders to the best-fit backend based on capability negotiation
+- **abp-stream** — Agent event stream processing, filtering, transformation, and multiplexing
+- **abp-shim-openai** — Drop-in OpenAI SDK shim that routes through ABP's intermediate representation
+- **abp-shim-claude** — Drop-in Anthropic Claude SDK shim that routes through ABP
+- **abp-shim-gemini** — Drop-in Gemini SDK shim that routes through the Agent Backplane
+- **abp-capability** — Capability negotiation between work-order requirements and backend manifests
+- **abp-error** — Unified error taxonomy with stable machine-readable error codes and context
+- **abp-receipt** — Receipt canonicalization, SHA-256 hashing, chain verification, and field-level diffing
+- **abp-mapping** — Cross-dialect feature mapping validation between AI provider dialects
+- **abp-config** — TOML configuration loading, validation, and merging with advisory warnings
+- **abp-sidecar-proto** — Sidecar-side utilities for implementing services that speak ABP's JSONL protocol
 - **abp-emulation** — Labeled capability emulation engine for missing backend features
 - **abp-telemetry** — Structured metrics and telemetry collection (durations, tokens, error rates)
 - **abp-dialect** — Dialect detection, validation, and metadata for known agent protocols
@@ -28,12 +39,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - IR layer for vendor-neutral intermediate representation of agent events
 - SDK lowering from IR to vendor-specific wire formats
-- Projection matrix for capability mapping across dialects
-- Capability negotiation with native/emulated/unsupported levels
-- Structured error taxonomy with error catalog and consistency checks
-- Receipt chain verification for audit trails
+- Projection matrix for capability mapping across dialects (abp-projection)
+- Drop-in SDK shims for OpenAI, Claude, and Gemini that route through ABP transparently
+- Capability negotiation with native/emulated/unsupported levels (abp-capability)
+- Structured error taxonomy with error catalog and consistency checks (abp-error)
+- Receipt canonicalization, chain verification, and field-level diffing (abp-receipt)
+- Cross-dialect mapping validation with fidelity tracking (abp-mapping)
+- TOML configuration loading and validation with layered merging (abp-config)
+- Sidecar-side protocol handler utilities for building JSONL services (abp-sidecar-proto)
 - Protocol utilities: batch, builder, codec, compress, router, stream, validate, version
 - Emulation engine with system-prompt injection and post-processing strategies
+- Enhanced emulation strategies: per-capability overrides, labeled injection, post-processing
+- Full 6×6 mapping matrix covering OpenAI, Claude, Gemini, Codex, Kimi, and Copilot dialects
+- CLI subcommands: `validate` (JSON file validation), `schema` (print JSON schemas),
+  `inspect` (receipt inspection), `config check` (TOML validation),
+  `receipt verify` (hash integrity), `receipt diff` (structured receipt comparison)
+- Daemon HTTP routes: `/health`, `/metrics`, `/backends`, `/capabilities`, `/config`,
+  `/validate`, `/schema/{type}`, `/run`, `/runs`, `/runs/{id}`, `/runs/{id}/receipt`,
+  `/runs/{id}/cancel`, `/runs/{id}/events`, `/receipts`, `/receipts/{id}`, `/ws`
+- Security hardening: policy engine deny-overrides-allow, network access control,
+  glob-based path restrictions, require-approval-for patterns
 
 ### Testing
 
@@ -44,7 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 20 fuzz targets covering envelopes, receipts, work orders, policies, and globs
 - Conformance suites for contract and sidecar protocol
 - Cross-SDK fidelity and IR roundtrip tests
-- Criterion benchmarks (receipt hash, serde roundtrip, policy eval, projection)
+- Benchmark suite: receipt hash, serde roundtrip, policy eval, projection, IR lowering,
+  dialect detection, capability negotiation, mapping validation, protocol, and more
 
 ## [Unreleased]
 

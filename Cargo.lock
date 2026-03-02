@@ -436,11 +436,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-shim-codex"
+version = "0.1.0"
+dependencies = [
+ "abp-codex-sdk",
+ "abp-core",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
+name = "abp-shim-copilot"
+version = "0.1.0"
+dependencies = [
+ "abp-copilot-sdk",
+ "abp-core",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
 name = "abp-shim-gemini"
 version = "0.1.0"
 dependencies = [
  "abp-core",
  "abp-gemini-sdk",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
+name = "abp-shim-kimi"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-kimi-sdk",
  "chrono",
  "serde",
  "serde_json",
@@ -552,9 +597,14 @@ dependencies = [
  "abp-mapping",
  "abp-openai-sdk",
  "abp-policy",
+ "abp-projection",
  "abp-protocol",
  "abp-receipt",
  "abp-runtime",
+ "abp-shim-claude",
+ "abp-shim-gemini",
+ "abp-shim-openai",
+ "abp-stream",
  "abp-telemetry",
  "abp-workspace",
  "anyhow",

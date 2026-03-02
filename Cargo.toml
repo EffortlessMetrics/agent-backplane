@@ -37,6 +37,9 @@ members = [
   "crates/abp-protocol",
   "crates/abp-runtime",
   "crates/abp-shim-claude",
+  "crates/abp-shim-codex",
+  "crates/abp-shim-copilot",
+  "crates/abp-shim-kimi",
   "crates/abp-shim-openai",
   "crates/abp-sidecar-proto",
   "crates/abp-sidecar-sdk",
@@ -132,6 +135,11 @@ abp-codex-sdk = { path = "crates/abp-codex-sdk" }
 abp-kimi-sdk = { path = "crates/abp-kimi-sdk" }
 abp-openai-sdk = { path = "crates/abp-openai-sdk" }
 abp-copilot-sdk = { path = "crates/abp-copilot-sdk" }
+abp-shim-openai = { path = "crates/abp-shim-openai" }
+abp-shim-claude = { path = "crates/abp-shim-claude" }
+abp-shim-gemini = { path = "crates/abp-shim-gemini" }
+abp-projection = { path = "crates/abp-projection" }
+abp-stream = { path = "crates/abp-stream" }
 insta = { workspace = true }
 proptest = { workspace = true }
 toml = { workspace = true }
