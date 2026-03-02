@@ -203,12 +203,17 @@ macro_rules! spot_check_metadata {
     ($test_name:ident, $crate_dir:literal) => {
         #[test]
         fn $test_name() {
-            let path = workspace_root()
-                .join($crate_dir)
-                .join("Cargo.toml");
+            let path = workspace_root().join($crate_dir).join("Cargo.toml");
             let t = parse_toml(&path);
             let ws = workspace_pkg();
-            for field in ["name", "version", "license", "description", "repository", "edition"] {
+            for field in [
+                "name",
+                "version",
+                "license",
+                "description",
+                "repository",
+                "edition",
+            ] {
                 assert!(
                     field_present(&t, field),
                     "{} is missing field `{field}`",
@@ -229,14 +234,23 @@ spot_check_metadata!(runtime_has_complete_metadata, "crates/abp-runtime");
 spot_check_metadata!(host_has_complete_metadata, "crates/abp-host");
 spot_check_metadata!(glob_has_complete_metadata, "crates/abp-glob");
 spot_check_metadata!(policy_has_complete_metadata, "crates/abp-policy");
-spot_check_metadata!(workspace_crate_has_complete_metadata, "crates/abp-workspace");
-spot_check_metadata!(integrations_has_complete_metadata, "crates/abp-integrations");
+spot_check_metadata!(
+    workspace_crate_has_complete_metadata,
+    "crates/abp-workspace"
+);
+spot_check_metadata!(
+    integrations_has_complete_metadata,
+    "crates/abp-integrations"
+);
 spot_check_metadata!(ir_has_complete_metadata, "crates/abp-ir");
 spot_check_metadata!(error_has_complete_metadata, "crates/abp-error");
 spot_check_metadata!(receipt_has_complete_metadata, "crates/abp-receipt");
 spot_check_metadata!(sidecar_kit_has_complete_metadata, "crates/sidecar-kit");
 spot_check_metadata!(claude_bridge_has_complete_metadata, "crates/claude-bridge");
-spot_check_metadata!(backend_core_has_complete_metadata, "crates/abp-backend-core");
+spot_check_metadata!(
+    backend_core_has_complete_metadata,
+    "crates/abp-backend-core"
+);
 
 // ===========================================================================
 // 3. Edition and rust-version
@@ -259,7 +273,10 @@ fn all_crates_edition_resolves_to_2024() {
     let ws = workspace_pkg();
     for (rel, t) in workspace_members() {
         let edition = resolve_field(&t, &ws, "edition").unwrap_or("unknown");
-        assert_eq!(edition, "2024", "{rel} has edition {edition}, expected 2024");
+        assert_eq!(
+            edition, "2024",
+            "{rel} has edition {edition}, expected 2024"
+        );
     }
 }
 
@@ -312,10 +329,7 @@ fn all_crates_license_resolves_to_expected() {
 fn no_crate_overrides_license_with_wrong_value() {
     for (rel, t) in workspace_members() {
         if let Some(lic) = t["package"].get("license").and_then(|v| v.as_str()) {
-            assert_eq!(
-                lic, EXPECTED_LICENSE,
-                "{rel} overrides license to `{lic}`"
-            );
+            assert_eq!(lic, EXPECTED_LICENSE, "{rel} overrides license to `{lic}`");
         }
     }
 }
@@ -406,9 +420,16 @@ fn workspace_version_is_valid_semver() {
     let ws = workspace_pkg();
     let ver = ws["version"].as_str().unwrap();
     let parts: Vec<&str> = ver.split('.').collect();
-    assert_eq!(parts.len(), 3, "version {ver} is not semver MAJOR.MINOR.PATCH");
+    assert_eq!(
+        parts.len(),
+        3,
+        "version {ver} is not semver MAJOR.MINOR.PATCH"
+    );
     for p in &parts {
-        assert!(p.parse::<u32>().is_ok(), "version component `{p}` is not numeric");
+        assert!(
+            p.parse::<u32>().is_ok(),
+            "version component `{p}` is not numeric"
+        );
     }
 }
 
@@ -418,11 +439,7 @@ fn all_crate_versions_are_semver() {
     for (rel, t) in workspace_members() {
         let ver = resolve_field(&t, &ws, "version").unwrap_or("0.0.0");
         let parts: Vec<&str> = ver.split('.').collect();
-        assert_eq!(
-            parts.len(),
-            3,
-            "{rel} version `{ver}` is not valid semver"
-        );
+        assert_eq!(parts.len(), 3, "{rel} version `{ver}` is not valid semver");
     }
 }
 
@@ -497,7 +514,10 @@ fn protocol_depends_on_core() {
     let path = workspace_root().join("crates/abp-protocol/Cargo.toml");
     let t = parse_toml(&path);
     let deps = internal_deps(&t);
-    assert!(deps.contains(&"abp-core".to_string()), "abp-protocol should depend on abp-core");
+    assert!(
+        deps.contains(&"abp-core".to_string()),
+        "abp-protocol should depend on abp-core"
+    );
 }
 
 #[test]
@@ -505,7 +525,10 @@ fn host_depends_on_protocol() {
     let path = workspace_root().join("crates/abp-host/Cargo.toml");
     let t = parse_toml(&path);
     let deps = internal_deps(&t);
-    assert!(deps.contains(&"abp-protocol".to_string()), "abp-host should depend on abp-protocol");
+    assert!(
+        deps.contains(&"abp-protocol".to_string()),
+        "abp-host should depend on abp-protocol"
+    );
 }
 
 #[test]
@@ -607,7 +630,10 @@ fn all_crate_names_follow_abp_or_are_exceptions() {
     for (rel, t) in workspace_members() {
         let name = pkg_name(&t);
         let ok = name.starts_with("abp-") || NAMING_EXCEPTIONS.contains(&name);
-        assert!(ok, "{rel}: crate `{name}` does not follow abp-* naming and is not an exception");
+        assert!(
+            ok,
+            "{rel}: crate `{name}` does not follow abp-* naming and is not an exception"
+        );
     }
 }
 
@@ -653,7 +679,10 @@ fn no_duplicate_crate_names() {
     let mut seen = HashSet::new();
     for (_rel, t) in workspace_members() {
         let name = pkg_name(&t);
-        assert!(seen.insert(name.to_string()), "duplicate crate name: `{name}`");
+        assert!(
+            seen.insert(name.to_string()),
+            "duplicate crate name: `{name}`"
+        );
     }
 }
 
@@ -661,11 +690,7 @@ fn no_duplicate_crate_names() {
 fn workspace_member_paths_match_crate_names() {
     for (rel, t) in workspace_members() {
         let name = pkg_name(&t);
-        let dir_name = Path::new(&rel)
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap();
+        let dir_name = Path::new(&rel).file_name().unwrap().to_str().unwrap();
         assert_eq!(
             dir_name, name,
             "{rel}: directory `{dir_name}` does not match crate name `{name}`"
@@ -677,10 +702,7 @@ fn workspace_member_paths_match_crate_names() {
 fn xtask_is_not_published() {
     let path = workspace_root().join("xtask/Cargo.toml");
     let t = parse_toml(&path);
-    assert!(
-        is_publish_false(&t),
-        "xtask should have publish = false"
-    );
+    assert!(is_publish_false(&t), "xtask should have publish = false");
 }
 
 #[test]
@@ -696,10 +718,7 @@ fn root_package_is_not_published() {
 #[test]
 fn at_least_40_workspace_members() {
     let count = workspace_members().len();
-    assert!(
-        count >= 40,
-        "expected ≥40 workspace members, found {count}"
-    );
+    assert!(count >= 40, "expected ≥40 workspace members, found {count}");
 }
 
 #[test]
@@ -710,10 +729,7 @@ fn crate_name_lengths_are_reasonable() {
             name.len() <= 64,
             "{rel}: crate name `{name}` exceeds 64 chars (crates.io limit)"
         );
-        assert!(
-            !name.is_empty(),
-            "{rel}: crate name is empty"
-        );
+        assert!(!name.is_empty(), "{rel}: crate name is empty");
     }
 }
 
@@ -880,10 +896,7 @@ fn all_crates_have_readme_file_on_disk() {
             continue;
         }
         let readme = workspace_root().join(&rel).join("README.md");
-        assert!(
-            readme.exists(),
-            "{rel} is missing README.md on disk"
-        );
+        assert!(readme.exists(), "{rel} is missing README.md on disk");
     }
 }
 
@@ -893,10 +906,7 @@ fn readme_files_are_not_empty() {
         let readme = workspace_root().join(&rel).join("README.md");
         if readme.exists() {
             let content = std::fs::read_to_string(&readme).unwrap();
-            assert!(
-                !content.trim().is_empty(),
-                "{rel}/README.md is empty"
-            );
+            assert!(!content.trim().is_empty(), "{rel}/README.md is empty");
         }
     }
 }
@@ -962,7 +972,10 @@ fn publishable_crates_declare_readme_in_cargo_toml() {
 fn workspace_repository_url_is_valid_format() {
     let ws = workspace_pkg();
     let repo = ws["repository"].as_str().unwrap();
-    assert!(repo.starts_with("https://"), "repository URL should use https://");
+    assert!(
+        repo.starts_with("https://"),
+        "repository URL should use https://"
+    );
     assert!(
         repo.contains("github.com"),
         "repository URL should point to github.com"
@@ -1118,7 +1131,10 @@ fn workspace_defines_common_deps() {
     let ws_deps = root["workspace"]
         .get("dependencies")
         .and_then(|d| d.as_table());
-    assert!(ws_deps.is_some(), "workspace should define [workspace.dependencies]");
+    assert!(
+        ws_deps.is_some(),
+        "workspace should define [workspace.dependencies]"
+    );
     let ws_deps = ws_deps.unwrap();
     for expected in ["serde", "serde_json", "tokio", "thiserror"] {
         assert!(
@@ -1131,19 +1147,21 @@ fn workspace_defines_common_deps() {
 #[test]
 fn no_wildcard_versions_in_workspace_deps() {
     let root = root_toml();
-    if let Some(deps) = root["workspace"].get("dependencies").and_then(|d| d.as_table()) {
+    if let Some(deps) = root["workspace"]
+        .get("dependencies")
+        .and_then(|d| d.as_table())
+    {
         for (name, spec) in deps {
             let ver = match spec {
                 toml::Value::String(s) => s.clone(),
-                toml::Value::Table(t) => {
-                    t.get("version").and_then(|v| v.as_str()).unwrap_or("").to_string()
-                }
+                toml::Value::Table(t) => t
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
                 _ => String::new(),
             };
-            assert!(
-                ver != "*",
-                "workspace dep `{name}` uses wildcard version"
-            );
+            assert!(ver != "*", "workspace dep `{name}` uses wildcard version");
         }
     }
 }

@@ -50,10 +50,6 @@ fn uid2() -> Uuid {
     Uuid::parse_str("00000000-0000-4000-8000-000000000002").unwrap()
 }
 
-fn uid3() -> Uuid {
-    Uuid::parse_str("00000000-0000-4000-8000-000000000003").unwrap()
-}
-
 fn mock_backend() -> BackendIdentity {
     BackendIdentity {
         id: "mock".into(),

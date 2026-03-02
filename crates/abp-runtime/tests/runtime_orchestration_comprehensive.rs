@@ -33,9 +33,7 @@ fn passthrough_wo(task: &str) -> WorkOrder {
 }
 
 /// Drain the event stream and return collected events + the receipt.
-async fn drain_run(
-    handle: abp_runtime::RunHandle,
-) -> (Vec<AgentEvent>, abp_core::Receipt) {
+async fn drain_run(handle: abp_runtime::RunHandle) -> (Vec<AgentEvent>, abp_core::Receipt) {
     let events: Vec<_> = handle.events.collect().await;
     let receipt = handle.receipt.await.expect("join").expect("receipt");
     (events, receipt)
@@ -410,7 +408,10 @@ async fn run_streaming_mock_receipt_trace_is_populated() {
     let wo = passthrough_wo("trace check");
     let handle = rt.run_streaming("mock", wo).await.unwrap();
     let (_events, receipt) = drain_run(handle).await;
-    assert!(!receipt.trace.is_empty(), "receipt trace should not be empty");
+    assert!(
+        !receipt.trace.is_empty(),
+        "receipt trace should not be empty"
+    );
 }
 
 #[tokio::test]
@@ -457,9 +458,7 @@ fn unknown_backend_error_contains_name() {
 
 #[test]
 fn unknown_backend_error_code() {
-    let err = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "x".into() };
     assert_eq!(err.error_code(), abp_error::ErrorCode::BackendNotFound);
 }
 
@@ -500,8 +499,7 @@ fn no_projection_match_error_code() {
 
 #[test]
 fn classified_error_preserves_code() {
-    let abp_err =
-        abp_error::AbpError::new(abp_error::ErrorCode::BackendTimeout, "timed out");
+    let abp_err = abp_error::AbpError::new(abp_error::ErrorCode::BackendTimeout, "timed out");
     let rt_err: RuntimeError = abp_err.into();
     assert_eq!(rt_err.error_code(), abp_error::ErrorCode::BackendTimeout);
 }
@@ -523,10 +521,7 @@ fn classified_error_roundtrip_preserves_context() {
     let rt_err: RuntimeError = abp_err.into();
     let back = rt_err.into_abp_error();
     assert_eq!(back.code, abp_error::ErrorCode::ConfigInvalid);
-    assert_eq!(
-        back.context.get("key"),
-        Some(&serde_json::json!("value"))
-    );
+    assert_eq!(back.context.get("key"), Some(&serde_json::json!("value")));
 }
 
 #[test]
@@ -666,7 +661,10 @@ fn receipt_hash_excludes_stored_hash() {
     let mut r_with = r.clone();
     r_with.receipt_sha256 = Some("deadbeef".into());
     let hash_after = abp_core::receipt_hash(&r_with).unwrap();
-    assert_eq!(hash_before, hash_after, "stored hash must not affect computed hash");
+    assert_eq!(
+        hash_before, hash_after,
+        "stored hash must not affect computed hash"
+    );
 }
 
 #[test]
@@ -684,7 +682,8 @@ fn receipt_verify_hash_fails_for_tampered() {
         .outcome(Outcome::Complete)
         .with_hash()
         .unwrap();
-    r.receipt_sha256 = Some("0000000000000000000000000000000000000000000000000000000000000000".into());
+    r.receipt_sha256 =
+        Some("0000000000000000000000000000000000000000000000000000000000000000".into());
     assert!(!abp_receipt::verify_hash(&r));
 }
 
@@ -704,10 +703,16 @@ fn receipt_verify_hash_passes_for_none() {
 async fn receipt_chain_accumulates_across_runs() {
     let rt = Runtime::with_default_backends();
 
-    let h1 = rt.run_streaming("mock", passthrough_wo("run-1")).await.unwrap();
+    let h1 = rt
+        .run_streaming("mock", passthrough_wo("run-1"))
+        .await
+        .unwrap();
     let (_, _r1) = drain_run(h1).await;
 
-    let h2 = rt.run_streaming("mock", passthrough_wo("run-2")).await.unwrap();
+    let h2 = rt
+        .run_streaming("mock", passthrough_wo("run-2"))
+        .await
+        .unwrap();
     let (_, _r2) = drain_run(h2).await;
 
     let chain = rt.receipt_chain();
@@ -718,7 +723,10 @@ async fn receipt_chain_accumulates_across_runs() {
 #[tokio::test]
 async fn receipt_chain_is_verifiable() {
     let rt = Runtime::with_default_backends();
-    let h = rt.run_streaming("mock", passthrough_wo("chain-verify")).await.unwrap();
+    let h = rt
+        .run_streaming("mock", passthrough_wo("chain-verify"))
+        .await
+        .unwrap();
     let (_, _) = drain_run(h).await;
 
     let chain = rt.receipt_chain();
@@ -729,7 +737,10 @@ async fn receipt_chain_is_verifiable() {
 #[tokio::test]
 async fn receipt_chain_latest_returns_last() {
     let rt = Runtime::with_default_backends();
-    let h = rt.run_streaming("mock", passthrough_wo("latest")).await.unwrap();
+    let h = rt
+        .run_streaming("mock", passthrough_wo("latest"))
+        .await
+        .unwrap();
     let (_, receipt) = drain_run(h).await;
 
     let chain = rt.receipt_chain();
@@ -745,8 +756,14 @@ async fn receipt_chain_latest_returns_last() {
 #[tokio::test]
 async fn multiple_runs_produce_different_run_ids() {
     let rt = Runtime::with_default_backends();
-    let h1 = rt.run_streaming("mock", passthrough_wo("run-a")).await.unwrap();
-    let h2 = rt.run_streaming("mock", passthrough_wo("run-b")).await.unwrap();
+    let h1 = rt
+        .run_streaming("mock", passthrough_wo("run-a"))
+        .await
+        .unwrap();
+    let h2 = rt
+        .run_streaming("mock", passthrough_wo("run-b"))
+        .await
+        .unwrap();
     assert_ne!(h1.run_id, h2.run_id);
     let _ = drain_run(h1).await;
     let _ = drain_run(h2).await;
@@ -755,9 +772,15 @@ async fn multiple_runs_produce_different_run_ids() {
 #[tokio::test]
 async fn multiple_runs_produce_different_receipt_hashes() {
     let rt = Runtime::with_default_backends();
-    let h1 = rt.run_streaming("mock", passthrough_wo("hash-a")).await.unwrap();
+    let h1 = rt
+        .run_streaming("mock", passthrough_wo("hash-a"))
+        .await
+        .unwrap();
     let (_, r1) = drain_run(h1).await;
-    let h2 = rt.run_streaming("mock", passthrough_wo("hash-b")).await.unwrap();
+    let h2 = rt
+        .run_streaming("mock", passthrough_wo("hash-b"))
+        .await
+        .unwrap();
     let (_, r2) = drain_run(h2).await;
     assert_ne!(r1.receipt_sha256, r2.receipt_sha256);
 }

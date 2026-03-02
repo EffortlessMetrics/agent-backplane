@@ -328,9 +328,11 @@ fn hello_must_be_first_in_sequence() {
     let validator = EnvelopeValidator::new();
     let seq = vec![make_run("r1"), make_hello(), make_final("r1")];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+    );
 }
 
 #[test]
@@ -451,10 +453,12 @@ fn hello_with_invalid_version_fails_validation() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&hello);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]
@@ -610,15 +614,10 @@ fn event_with_error() {
 #[test]
 fn event_with_extensions() {
     let mut ext = BTreeMap::new();
-    ext.insert(
-        "raw_message".into(),
-        serde_json::json!({"vendor": "test"}),
-    );
+    ext.insert("raw_message".into(), serde_json::json!({"vendor": "test"}));
     let event = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: Some(ext),
     };
     let json = serde_json::to_string(&event).unwrap();
@@ -725,9 +724,11 @@ fn sequence_missing_terminal() {
     let validator = EnvelopeValidator::new();
     let seq = vec![make_hello(), make_run("r1"), make_event("r1")];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -740,9 +741,11 @@ fn sequence_multiple_terminals() {
         make_fatal(Some("r1"), "extra"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MultipleTerminals)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MultipleTerminals))
+    );
 }
 
 #[test]
@@ -755,9 +758,11 @@ fn sequence_ref_id_mismatch() {
         make_final("r1"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -798,9 +803,7 @@ fn lifecycle_starts_uninitialized() {
 #[test]
 fn lifecycle_valid_transition_uninitialized_to_starting() {
     let mut mgr = LifecycleManager::new();
-    assert!(mgr
-        .transition(LifecycleState::Starting, None)
-        .is_ok());
+    assert!(mgr.transition(LifecycleState::Starting, None).is_ok());
     assert_eq!(*mgr.state(), LifecycleState::Starting);
 }
 
@@ -881,9 +884,10 @@ fn lifecycle_failed_from_any_state() {
         for s in path {
             mgr.transition(s, None).unwrap();
         }
-        assert!(mgr
-            .transition(LifecycleState::Failed, Some("crash".into()))
-            .is_ok());
+        assert!(
+            mgr.transition(LifecycleState::Failed, Some("crash".into()))
+                .is_ok()
+        );
         assert_eq!(*mgr.state(), LifecycleState::Failed);
     }
 }
@@ -891,9 +895,7 @@ fn lifecycle_failed_from_any_state() {
 #[test]
 fn lifecycle_invalid_transition_uninitialized_to_ready() {
     let mut mgr = LifecycleManager::new();
-    let err = mgr
-        .transition(LifecycleState::Ready, None)
-        .unwrap_err();
+    let err = mgr.transition(LifecycleState::Ready, None).unwrap_err();
     assert!(matches!(err, LifecycleError::InvalidTransition { .. }));
 }
 
@@ -935,7 +937,10 @@ fn lifecycle_uptime_some_after_ready() {
 
 #[test]
 fn lifecycle_display_states() {
-    assert_eq!(format!("{}", LifecycleState::Uninitialized), "uninitialized");
+    assert_eq!(
+        format!("{}", LifecycleState::Uninitialized),
+        "uninitialized"
+    );
     assert_eq!(format!("{}", LifecycleState::Starting), "starting");
     assert_eq!(format!("{}", LifecycleState::Ready), "ready");
     assert_eq!(format!("{}", LifecycleState::Running), "running");
@@ -1227,9 +1232,7 @@ fn sidecar_config_validate_empty_command() {
 fn sidecar_config_to_spec() {
     let mut config = SidecarConfig::new("test", "node");
     config.args = vec!["host.js".into()];
-    config
-        .env
-        .insert("KEY".into(), "VALUE".into());
+    config.env.insert("KEY".into(), "VALUE".into());
     config.working_dir = Some("/tmp".into());
     let spec = config.to_spec();
     assert_eq!(spec.command, "node");
@@ -1253,7 +1256,10 @@ fn sidecar_config_serde_roundtrip() {
 
 #[test]
 fn host_error_spawn_display() {
-    let err = HostError::Spawn(std::io::Error::new(std::io::ErrorKind::NotFound, "not found"));
+    let err = HostError::Spawn(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "not found",
+    ));
     let msg = format!("{err}");
     assert!(msg.contains("spawn"));
 }
@@ -1414,10 +1420,7 @@ fn retry_metadata_to_receipt_metadata() {
         total_duration: Duration::from_millis(150),
     };
     let receipt_meta = meta.to_receipt_metadata();
-    assert_eq!(
-        receipt_meta["retry_total_attempts"],
-        serde_json::json!(2)
-    );
+    assert_eq!(receipt_meta["retry_total_attempts"], serde_json::json!(2));
     assert!(receipt_meta.contains_key("retry_total_duration_ms"));
 }
 
@@ -1496,13 +1499,7 @@ fn health_monitor_uptime_percentage() {
     let mut monitor = HealthMonitor::new();
     monitor.record_check("s1", HealthStatus::Healthy, None);
     monitor.record_check("s1", HealthStatus::Healthy, None);
-    monitor.record_check(
-        "s1",
-        HealthStatus::Unhealthy {
-            reason: "x".into(),
-        },
-        None,
-    );
+    monitor.record_check("s1", HealthStatus::Unhealthy { reason: "x".into() }, None);
     monitor.record_check("s1", HealthStatus::Healthy, None);
     // 3 out of 4 healthy = 75%
     let pct = monitor.uptime_percentage("s1");

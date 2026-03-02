@@ -387,7 +387,10 @@ fn write_deny_multiple_patterns() {
         ..PolicyProfile::default()
     });
     assert!(!e.can_write_path(Path::new(".git/config")).allowed);
-    assert!(!e.can_write_path(Path::new("node_modules/pkg/index.js")).allowed);
+    assert!(
+        !e.can_write_path(Path::new("node_modules/pkg/index.js"))
+            .allowed
+    );
     assert!(!e.can_write_path(Path::new("Cargo.lock")).allowed);
     assert!(e.can_write_path(Path::new("src/lib.rs")).allowed);
 }
@@ -748,8 +751,14 @@ fn profile_json_roundtrip_preserves_engine_behavior() {
     let e1 = engine(&p);
     let e2 = engine(&p2);
 
-    assert_eq!(e1.can_use_tool("Read").allowed, e2.can_use_tool("Read").allowed);
-    assert_eq!(e1.can_use_tool("Bash").allowed, e2.can_use_tool("Bash").allowed);
+    assert_eq!(
+        e1.can_use_tool("Read").allowed,
+        e2.can_use_tool("Read").allowed
+    );
+    assert_eq!(
+        e1.can_use_tool("Bash").allowed,
+        e2.can_use_tool("Bash").allowed
+    );
     assert_eq!(
         e1.can_read_path(Path::new(".env")).allowed,
         e2.can_read_path(Path::new(".env")).allowed
@@ -898,14 +907,15 @@ fn deny_write_does_not_affect_read() {
 #[test]
 fn many_deny_read_patterns_all_checked() {
     let e = engine(&PolicyProfile {
-        deny_read: sv(&[
-            "*.key", "*.pem", "*.crt", "*.p12", "*.jks", "*.pfx",
-        ]),
+        deny_read: sv(&["*.key", "*.pem", "*.crt", "*.p12", "*.jks", "*.pfx"]),
         ..PolicyProfile::default()
     });
     for ext in &["key", "pem", "crt", "p12", "jks", "pfx"] {
         let path = format!("cert.{ext}");
-        assert!(!e.can_read_path(Path::new(&path)).allowed, "should deny {path}");
+        assert!(
+            !e.can_read_path(Path::new(&path)).allowed,
+            "should deny {path}"
+        );
     }
     assert!(e.can_read_path(Path::new("readme.md")).allowed);
 }
@@ -914,8 +924,11 @@ fn many_deny_read_patterns_all_checked() {
 fn many_deny_write_patterns_all_checked() {
     let e = engine(&PolicyProfile {
         deny_write: sv(&[
-            "**/.git/**", "**/node_modules/**", "**/target/**",
-            "*.lock", "*.log",
+            "**/.git/**",
+            "**/node_modules/**",
+            "**/target/**",
+            "*.lock",
+            "*.log",
         ]),
         ..PolicyProfile::default()
     });
@@ -936,7 +949,10 @@ fn engine_clone_preserves_behavior() {
         ..PolicyProfile::default()
     });
     let e2 = e1.clone();
-    assert_eq!(e1.can_use_tool("Bash").allowed, e2.can_use_tool("Bash").allowed);
+    assert_eq!(
+        e1.can_use_tool("Bash").allowed,
+        e2.can_use_tool("Bash").allowed
+    );
     assert_eq!(
         e1.can_read_path(Path::new(".env")).allowed,
         e2.can_read_path(Path::new(".env")).allowed
@@ -997,8 +1013,14 @@ fn engine_multiple_compilations_same_profile() {
     };
     let e1 = engine(&p);
     let e2 = engine(&p);
-    assert_eq!(e1.can_use_tool("Bash").allowed, e2.can_use_tool("Bash").allowed);
-    assert_eq!(e1.can_use_tool("Read").allowed, e2.can_use_tool("Read").allowed);
+    assert_eq!(
+        e1.can_use_tool("Bash").allowed,
+        e2.can_use_tool("Bash").allowed
+    );
+    assert_eq!(
+        e1.can_use_tool("Read").allowed,
+        e2.can_use_tool("Read").allowed
+    );
 }
 
 #[test]

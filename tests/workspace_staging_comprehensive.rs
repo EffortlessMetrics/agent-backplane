@@ -95,11 +95,7 @@ fn create_fixture(root: &Path) {
     fs::write(root.join("src").join("utils.rs"), "pub fn util() {}").unwrap();
     fs::write(root.join("src").join("data.json"), "{}").unwrap();
     fs::create_dir_all(root.join("tests")).unwrap();
-    fs::write(
-        root.join("tests").join("test_one.rs"),
-        "#[test] fn t() {}",
-    )
-    .unwrap();
+    fs::write(root.join("tests").join("test_one.rs"), "#[test] fn t() {}").unwrap();
 }
 
 /// Helper: create source dir with given files and return TempDir.
@@ -128,11 +124,7 @@ fn creation_copies_all_files_from_flat_source() {
 
 #[test]
 fn creation_copies_nested_files() {
-    let src = make_source(&[
-        ("root.txt", "r"),
-        ("d1/f1.txt", "1"),
-        ("d1/d2/f2.txt", "2"),
-    ]);
+    let src = make_source(&[("root.txt", "r"), ("d1/f1.txt", "1"), ("d1/d2/f2.txt", "2")]);
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     assert_eq!(
         collect_files(ws.path()),
@@ -145,7 +137,10 @@ fn creation_preserves_file_contents() {
     let content = "hello 世界 🚀";
     let src = make_source(&[("uni.txt", content)]);
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert_eq!(fs::read_to_string(ws.path().join("uni.txt")).unwrap(), content);
+    assert_eq!(
+        fs::read_to_string(ws.path().join("uni.txt")).unwrap(),
+        content
+    );
 }
 
 #[test]
@@ -280,11 +275,7 @@ fn glob_multiple_include_patterns() {
 
 #[test]
 fn glob_multiple_exclude_patterns() {
-    let src = make_source(&[
-        ("keep.rs", "x"),
-        ("drop.log", "y"),
-        ("drop.tmp", "z"),
-    ]);
+    let src = make_source(&[("keep.rs", "x"), ("drop.log", "y"), ("drop.tmp", "z")]);
     let ws = WorkspaceManager::prepare(&staged_spec_globs(
         src.path(),
         vec![],
@@ -316,8 +307,7 @@ fn glob_exclude_overrides_include() {
 fn glob_empty_patterns_copies_everything() {
     let src = tempdir().unwrap();
     create_fixture(src.path());
-    let ws =
-        WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec![], vec![])).unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec![], vec![])).unwrap();
     assert_eq!(collect_files(ws.path()), collect_files(src.path()));
 }
 
@@ -498,7 +488,10 @@ fn diff_summary_detects_added_file() {
 
     let summary = diff_workspace(&ws).unwrap();
     assert!(
-        summary.added.iter().any(|p| p.to_string_lossy().contains("new_file.txt")),
+        summary
+            .added
+            .iter()
+            .any(|p| p.to_string_lossy().contains("new_file.txt")),
         "expected new_file.txt in added: {summary:?}"
     );
 }
@@ -511,7 +504,10 @@ fn diff_summary_detects_modified_file() {
 
     let summary = diff_workspace(&ws).unwrap();
     assert!(
-        summary.modified.iter().any(|p| p.to_string_lossy().contains("mod.txt")),
+        summary
+            .modified
+            .iter()
+            .any(|p| p.to_string_lossy().contains("mod.txt")),
         "expected mod.txt in modified: {summary:?}"
     );
 }
@@ -524,7 +520,10 @@ fn diff_summary_detects_deleted_file() {
 
     let summary = diff_workspace(&ws).unwrap();
     assert!(
-        summary.deleted.iter().any(|p| p.to_string_lossy().contains("del.txt")),
+        summary
+            .deleted
+            .iter()
+            .any(|p| p.to_string_lossy().contains("del.txt")),
         "expected del.txt in deleted: {summary:?}"
     );
 }
@@ -783,22 +782,16 @@ fn error_no_source_root_set() {
 #[test]
 fn error_invalid_include_glob() {
     let src = make_source(&[("f.txt", "x")]);
-    let result = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        vec!["[".into()],
-        vec![],
-    ));
+    let result =
+        WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec!["[".into()], vec![]));
     assert!(result.is_err());
 }
 
 #[test]
 fn error_invalid_exclude_glob() {
     let src = make_source(&[("f.txt", "x")]);
-    let result = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        vec![],
-        vec!["[".into()],
-    ));
+    let result =
+        WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec![], vec!["[".into()]));
     assert!(result.is_err());
 }
 
