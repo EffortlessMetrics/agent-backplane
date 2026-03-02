@@ -2,6 +2,7 @@
 //! Request validation for the daemon API.
 
 use abp_core::WorkOrder;
+use abp_json_guard::{JsonGuardLimits, validate_json_object};
 use uuid::Uuid;
 
 /// Validates incoming API requests before processing.
@@ -81,41 +82,16 @@ impl RequestValidator {
     /// Validate a JSON config value. The value must be an object (if present)
     /// and must not contain excessively nested structures.
     pub fn validate_config(config: &serde_json::Value) -> Result<(), Vec<String>> {
-        let mut errors = Vec::new();
-
-        if !config.is_object() {
-            errors.push("config must be a JSON object".into());
-            return Err(errors);
-        }
-
         const MAX_DEPTH: usize = 10;
-        if exceeds_depth(config, MAX_DEPTH) {
-            errors.push(format!(
-                "config exceeds maximum nesting depth of {MAX_DEPTH}"
-            ));
-        }
+        const MAX_SIZE_BYTES: usize = 1_000_000;
 
-        if config.to_string().len() > 1_000_000 {
-            errors.push("config exceeds maximum size of 1MB".into());
-        }
+        let errors = validate_json_object(config, JsonGuardLimits::new(MAX_DEPTH, MAX_SIZE_BYTES));
 
         if errors.is_empty() {
             Ok(())
         } else {
             Err(errors)
         }
-    }
-}
-
-/// Returns `true` if `value` exceeds `max_depth` levels of nesting.
-fn exceeds_depth(value: &serde_json::Value, max_depth: usize) -> bool {
-    if max_depth == 0 {
-        return value.is_object() || value.is_array();
-    }
-    match value {
-        serde_json::Value::Object(map) => map.values().any(|v| exceeds_depth(v, max_depth - 1)),
-        serde_json::Value::Array(arr) => arr.iter().any(|v| exceeds_depth(v, max_depth - 1)),
-        _ => false,
     }
 }
 

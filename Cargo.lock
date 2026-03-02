@@ -162,6 +162,7 @@ dependencies = [
  "abp-gemini-sdk",
  "abp-host",
  "abp-integrations",
+ "abp-json-guard",
  "abp-kimi-sdk",
  "abp-runtime",
  "anyhow",
@@ -285,6 +286,13 @@ dependencies = [
  "serde_json",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "abp-json-guard"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]
