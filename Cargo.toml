@@ -32,6 +32,7 @@ members = [
   "crates/abp-openai-sdk",
   "crates/abp-policy",
   "crates/abp-receipt",
+  "crates/abp-run-queue",
   "crates/abp-protocol",
   "crates/abp-runtime",
   "crates/abp-sidecar-sdk",
