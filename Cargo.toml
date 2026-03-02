@@ -107,6 +107,7 @@ abp-runtime = { path = "crates/abp-runtime" }
 abp-integrations = { path = "crates/abp-integrations" }
 abp-policy = { path = "crates/abp-policy" }
 abp-glob = { path = "crates/abp-glob" }
+abp-git = { path = "crates/abp-git" }
 abp-workspace = { path = "crates/abp-workspace" }
 abp-cli = { path = "crates/abp-cli" }
 sidecar-kit = { path = "crates/sidecar-kit" }
@@ -149,6 +150,7 @@ abp-projection = { path = "crates/abp-projection" }
 abp-stream = { path = "crates/abp-stream" }
 abp-backend-core = { path = "crates/abp-backend-core" }
 abp-backend-mock = { path = "crates/abp-backend-mock" }
+abp-sidecar-sdk = { path = "crates/abp-sidecar-sdk" }
 insta = { workspace = true }
 proptest = { workspace = true }
 sha2 = { workspace = true }
