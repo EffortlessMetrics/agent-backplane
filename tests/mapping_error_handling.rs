@@ -696,7 +696,12 @@ fn partial_failure_lossless_results_always_have_zero_errors() {
 fn very_long_feature_name_handled_gracefully() {
     let reg = known_rules();
     let long_name: String = "x".repeat(10_000);
-    let results = validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, std::slice::from_ref(&long_name));
+    let results = validate_mapping(
+        &reg,
+        Dialect::OpenAi,
+        Dialect::Claude,
+        std::slice::from_ref(&long_name),
+    );
     assert_eq!(results.len(), 1);
     assert!(results[0].fidelity.is_unsupported());
     assert_eq!(results[0].feature, long_name);
@@ -1002,9 +1007,7 @@ fn mapping_error_downcasts_from_dyn_error() {
 
 #[test]
 fn mapping_error_downcast_wrong_type_returns_none() {
-    let err: Box<dyn std::error::Error> = Box::new(std::io::Error::other(
-        "not a mapping error",
-    ));
+    let err: Box<dyn std::error::Error> = Box::new(std::io::Error::other("not a mapping error"));
     let downcasted = err.downcast_ref::<MappingError>();
     assert!(downcasted.is_none());
 }

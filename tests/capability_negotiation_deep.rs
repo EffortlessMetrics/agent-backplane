@@ -2030,10 +2030,7 @@ fn full_pipeline_negotiate_then_emulate_then_fidelity() {
     // 2) Apply emulation for emulatable caps
     let engine = EmulationEngine::with_defaults();
     let mut conv = IrConversation::new().push(IrMessage::text(IrRole::User, "test"));
-    let emu_report = engine.apply(
-        &neg.emulatable.to_vec(),
-        &mut conv,
-    );
+    let emu_report = engine.apply(&neg.emulatable.to_vec(), &mut conv);
 
     // ExtendedThinking has a default emulation strategy (system prompt injection)
     assert_eq!(emu_report.applied.len(), 1);
