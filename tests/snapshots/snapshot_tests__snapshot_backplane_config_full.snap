@@ -1,0 +1,23 @@
+---
+source: tests/snapshot_tests.rs
+expression: cfg
+---
+{
+  "default_backend": "node",
+  "workspace_dir": "/tmp/abp",
+  "log_level": "debug",
+  "receipts_dir": "/tmp/receipts",
+  "backends": {
+    "mock": {
+      "type": "mock"
+    },
+    "node": {
+      "type": "sidecar",
+      "command": "node",
+      "args": [
+        "hosts/node/index.js"
+      ],
+      "timeout_secs": 120
+    }
+  }
+}

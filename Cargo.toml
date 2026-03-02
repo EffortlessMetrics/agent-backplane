@@ -21,12 +21,14 @@ members = [
   "crates/abp-daemon",
   "crates/abp-emulation",
   "crates/abp-error",
+  "crates/abp-error-taxonomy",
   "crates/abp-dialect",
   "crates/abp-gemini-sdk",
   "crates/abp-shim-gemini",
   "crates/abp-git",
   "crates/abp-glob",
   "crates/abp-host",
+  "crates/abp-ir",
   "crates/abp-integrations",
   "crates/abp-kimi-sdk",
   "crates/abp-mapping",
@@ -208,4 +210,32 @@ harness = false
 
 [[bench]]
 name = "capability_bench"
+harness = false
+
+[[bench]]
+name = "receipt_hashing"
+harness = false
+
+[[bench]]
+name = "envelope_serde"
+harness = false
+
+[[bench]]
+name = "ir_roundtrip"
+harness = false
+
+[[bench]]
+name = "glob_matching"
+harness = false
+
+[[bench]]
+name = "policy_check"
+harness = false
+
+[[bench]]
+name = "work_order_serde"
+harness = false
+
+[[bench]]
+name = "projection_matrix"
 harness = false

@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_tests.rs
+expression: msg
+---
+{
+  "role": "system",
+  "content": [
+    {
+      "type": "text",
+      "text": "You are a helpful coding assistant."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_tests.rs
+expression: ws
+---
+{
+  "root": "/projects/app",
+  "mode": "staged",
+  "include": [
+    "src/**",
+    "tests/**"
+  ],
+  "exclude": [
+    "target/**"
+  ]
+}

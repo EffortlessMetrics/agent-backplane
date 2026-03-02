@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_tests.rs
+expression: "BackendEntry::Sidecar\n{ command: \"node\".into(), args: vec![], timeout_secs: None, }"
+---
+{
+  "type": "sidecar",
+  "command": "node",
+  "args": []
+}

@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_tests.rs
+expression: v
+---
+{
+  "git_diff": "diff --git a/x.rs b/x.rs\n+added",
+  "git_status": "M x.rs\nA y.rs",
+  "harness_ok": true
+}

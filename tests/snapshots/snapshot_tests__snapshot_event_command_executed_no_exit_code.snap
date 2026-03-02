@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_tests.rs
+expression: e
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "command_executed",
+  "command": "long-running-job",
+  "exit_code": null,
+  "output_preview": null
+}

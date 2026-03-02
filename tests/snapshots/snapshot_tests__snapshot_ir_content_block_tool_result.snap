@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_tests.rs
+expression: block
+---
+{
+  "type": "tool_result",
+  "tool_use_id": "tu_200",
+  "content": [
+    {
+      "type": "text",
+      "text": "fn main() {}"
+    }
+  ],
+  "is_error": false
+}

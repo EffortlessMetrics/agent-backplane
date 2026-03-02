@@ -1,0 +1,51 @@
+---
+source: tests/snapshot_tests.rs
+expression: wo
+---
+{
+  "id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "task": "needs capabilities",
+  "lane": "patch_first",
+  "workspace": {
+    "root": ".",
+    "mode": "staged",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "tool_bash",
+        "min_support": "native"
+      },
+      {
+        "capability": "extended_thinking",
+        "min_support": "emulated"
+      },
+      {
+        "capability": "image_input",
+        "min_support": "native"
+      }
+    ]
+  },
+  "config": {
+    "model": null,
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

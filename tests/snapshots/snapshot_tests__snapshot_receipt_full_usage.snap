@@ -1,0 +1,46 @@
+---
+source: tests/snapshot_tests.rs
+expression: snap_json(&r)
+---
+{
+  "meta": {
+    "run_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "work_order_id": "11111111-2222-4333-8444-555555555555",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-06-01T10:00:00Z",
+    "finished_at": "2025-06-01T10:05:00Z",
+    "duration_ms": 300000
+  },
+  "backend": {
+    "id": "sidecar:node",
+    "backend_version": "2.1.0",
+    "adapter_version": "0.5.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_use": "emulated"
+  },
+  "mode": "mapped",
+  "usage_raw": {
+    "cached_tokens": 200,
+    "completion_tokens": 500,
+    "prompt_tokens": 1000
+  },
+  "usage": {
+    "input_tokens": 1000,
+    "output_tokens": 500,
+    "cache_read_tokens": 200,
+    "cache_write_tokens": 100,
+    "request_units": 3,
+    "estimated_cost_usd": 0.025
+  },
+  "trace": [],
+  "artifacts": [],
+  "verification": {
+    "git_diff": null,
+    "git_status": null,
+    "harness_ok": false
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

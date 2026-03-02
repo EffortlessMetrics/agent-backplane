@@ -1,0 +1,75 @@
+---
+source: tests/snapshot_tests.rs
+expression: snap_json(&full_receipt())
+---
+{
+  "meta": {
+    "run_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "work_order_id": "11111111-2222-4333-8444-555555555555",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-06-01T10:00:00Z",
+    "finished_at": "2025-06-01T10:05:00Z",
+    "duration_ms": 300000
+  },
+  "backend": {
+    "id": "sidecar:node",
+    "backend_version": "2.1.0",
+    "adapter_version": "0.5.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_read": "native",
+    "tool_write": "native",
+    "tool_edit": "native",
+    "tool_bash": "native",
+    "mcp_client": {
+      "restricted": {
+        "reason": "experimental"
+      }
+    },
+    "tool_use": "emulated",
+    "extended_thinking": "unsupported"
+  },
+  "mode": "mapped",
+  "usage_raw": {
+    "completion_tokens": 200,
+    "prompt_tokens": 500
+  },
+  "usage": {
+    "input_tokens": 500,
+    "output_tokens": 200,
+    "cache_read_tokens": 50,
+    "cache_write_tokens": 10,
+    "request_units": 1,
+    "estimated_cost_usd": 0.005
+  },
+  "trace": [
+    {
+      "ts": "2025-06-01T10:00:00Z",
+      "type": "run_started",
+      "message": "starting run"
+    },
+    {
+      "ts": "2025-06-01T10:05:00Z",
+      "type": "run_completed",
+      "message": "done"
+    }
+  ],
+  "artifacts": [
+    {
+      "kind": "patch",
+      "path": "fix.patch"
+    },
+    {
+      "kind": "log",
+      "path": "run.log"
+    }
+  ],
+  "verification": {
+    "git_diff": "diff --git a/f.txt b/f.txt",
+    "git_status": "M f.txt",
+    "harness_ok": true
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

@@ -939,3 +939,775 @@ proptest! {
         prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// 36. Paths matching an include pattern are always included (no exclude)
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn extension_include_matches_generated_path(
+        seg in path_segment(),
+        ext in file_extension(),
+    ) {
+        let path = format!("{seg}.{ext}");
+        let globs = IncludeExcludeGlobs::new(&[format!("*.{ext}")], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn prefix_slash_doublestar_includes_any_subtree_path(
+        prefix in path_segment(),
+        segs in prop::collection::vec(path_segment(), 1..=4),
+        ext in file_extension(),
+    ) {
+        let path = format!("{prefix}/{}.{ext}", segs.join("/"));
+        let globs = IncludeExcludeGlobs::new(&[format!("{prefix}/**")], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 37. Paths matching an exclude pattern are always excluded
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn extension_exclude_always_denies(
+        seg in path_segment(),
+        ext in file_extension(),
+    ) {
+        let path = format!("{seg}.{ext}");
+        let globs = IncludeExcludeGlobs::new(&[], &[format!("*.{ext}")]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn prefix_exclude_always_denies_subtree(
+        prefix in path_segment(),
+        segs in prop::collection::vec(path_segment(), 1..=4),
+        ext in file_extension(),
+    ) {
+        let path = format!("{prefix}/{}.{ext}", segs.join("/"));
+        let globs = IncludeExcludeGlobs::new(&[], &[format!("{prefix}/**")]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 38. Exclude always wins over include (precedence) — overlapping patterns
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn exclude_wins_same_extension_pattern(
+        segs in prop::collection::vec(path_segment(), 1..=3),
+        ext in file_extension(),
+    ) {
+        let path = format!("{}.{ext}", segs.join("/"));
+        let globs = IncludeExcludeGlobs::new(
+            &[format!("**/*.{ext}")],
+            &[format!("**/*.{ext}")],
+        ).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn exclude_wins_same_prefix_pattern(
+        prefix in path_segment(),
+        rest in relative_path(),
+    ) {
+        let path = format!("{prefix}/{rest}");
+        let globs = IncludeExcludeGlobs::new(
+            &[format!("{prefix}/**")],
+            &[format!("{prefix}/**")],
+        ).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn exclude_wins_broader_include(
+        seg in path_segment(),
+        ext in file_extension(),
+    ) {
+        // Include everything, but exclude a specific extension → denied
+        let path = format!("{seg}.{ext}");
+        let globs = IncludeExcludeGlobs::new(
+            &["**".into()],
+            &[format!("*.{ext}")],
+        ).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 39. Empty include set means include everything (with exclude present)
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn empty_include_with_non_matching_exclude_allows(
+        seg in path_segment(),
+    ) {
+        // No include constraint + exclude only .zzz → .rs paths allowed
+        let path = format!("{seg}.rs");
+        let globs = IncludeExcludeGlobs::new(&[], &["*.zzz".into()]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn empty_include_equivalent_to_doublestar_include(
+        path in relative_path(),
+        exc in glob_vec(0, 2),
+    ) {
+        let g_empty = IncludeExcludeGlobs::new(&[], &exc).unwrap();
+        let g_star = IncludeExcludeGlobs::new(&["**".into()], &exc).unwrap();
+        prop_assert_eq!(g_empty.decide_str(&path), g_star.decide_str(&path));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 40. Empty exclude set means exclude nothing (with include present)
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn empty_exclude_with_matching_include_allows(
+        seg in path_segment(),
+        ext in file_extension(),
+    ) {
+        let path = format!("src/{seg}.{ext}");
+        let globs = IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn empty_exclude_result_always_allowed_or_missing_include(
+        path in relative_path(),
+        inc in glob_vec(1, 3),
+    ) {
+        let globs = IncludeExcludeGlobs::new(&inc, &[]).unwrap();
+        let result = globs.decide_str(&path);
+        prop_assert!(
+            result == MatchDecision::Allowed || result == MatchDecision::DeniedByMissingInclude,
+            "with empty exclude, result must be Allowed or DeniedByMissingInclude, got {:?}",
+            result,
+        );
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 41. Double-star patterns match any depth (stress)
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    #[test]
+    fn doublestar_ext_matches_any_depth(
+        segs in prop::collection::vec(path_segment(), 1..=12),
+        ext in file_extension(),
+    ) {
+        let path = format!("{}.{ext}", segs.join("/"));
+        let globs = IncludeExcludeGlobs::new(&[format!("**/*.{ext}")], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    #[test]
+    fn doublestar_mid_path_matches(
+        prefix in path_segment(),
+        mid in path_segment(),
+        tail in relative_path(),
+    ) {
+        // Pattern: prefix/**/mid/** should match prefix/.../mid/...
+        let path = format!("{prefix}/{mid}/{tail}");
+        let globs = IncludeExcludeGlobs::new(
+            &[format!("{prefix}/**")],
+            &[],
+        ).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 42. Single-star patterns match single segment (extension filtering)
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn single_star_ext_rejects_different_ext(
+        seg in path_segment(),
+        ext1 in file_extension(),
+        ext2 in file_extension(),
+    ) {
+        prop_assume!(ext1 != ext2);
+        let path = format!("{seg}.{ext1}");
+        let globs = IncludeExcludeGlobs::new(&[format!("*.{ext2}")], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByMissingInclude);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn single_star_ext_matches_same_ext(
+        seg in path_segment(),
+        ext in file_extension(),
+    ) {
+        let path = format!("{seg}.{ext}");
+        let globs = IncludeExcludeGlobs::new(&[format!("*.{ext}")], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 43. Compiled globs are deterministic — multiple compilations agree
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    #[test]
+    fn triple_compilation_deterministic(
+        path in relative_path(),
+        inc in glob_vec(0, 3),
+        exc in glob_vec(0, 3),
+    ) {
+        let g1 = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        let g2 = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        let g3 = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        let r1 = g1.decide_str(&path);
+        prop_assert_eq!(r1, g2.decide_str(&path));
+        prop_assert_eq!(r1, g3.decide_str(&path));
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    #[test]
+    fn build_globset_deterministic(pat in simple_glob(), path in relative_path()) {
+        let s1 = build_globset(std::slice::from_ref(&pat)).unwrap().unwrap();
+        let s2 = build_globset(std::slice::from_ref(&pat)).unwrap().unwrap();
+        prop_assert_eq!(s1.is_match(&path), s2.is_match(&path));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 44. Very long paths work correctly
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn very_long_path_include_all(
+        segs in prop::collection::vec(path_segment(), 20..=50),
+        ext in file_extension(),
+    ) {
+        let path = format!("{}.{ext}", segs.join("/"));
+        let globs = IncludeExcludeGlobs::new(&["**".into()], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn very_long_path_exclude_all(
+        segs in prop::collection::vec(path_segment(), 20..=50),
+        ext in file_extension(),
+    ) {
+        let path = format!("{}.{ext}", segs.join("/"));
+        let globs = IncludeExcludeGlobs::new(&[], &["**".into()]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn very_long_path_extension_filter(
+        segs in prop::collection::vec(path_segment(), 20..=50),
+        ext in file_extension(),
+    ) {
+        let path = format!("{}.{ext}", segs.join("/"));
+        let globs = IncludeExcludeGlobs::new(&[format!("**/*.{ext}")], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn very_long_path_prefix_filter(
+        first in path_segment(),
+        segs in prop::collection::vec(path_segment(), 20..=50),
+        ext in file_extension(),
+    ) {
+        let path = format!("{first}/{}.{ext}", segs.join("/"));
+        let globs = IncludeExcludeGlobs::new(&[format!("{first}/**")], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 45. Many patterns compile and match correctly
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn many_include_patterns_compile(
+        pats in prop::collection::vec(simple_glob(), 10..=20),
+        path in relative_path(),
+    ) {
+        let globs = IncludeExcludeGlobs::new(&pats, &[]).unwrap();
+        let result = globs.decide_str(&path);
+        prop_assert!(matches!(
+            result,
+            MatchDecision::Allowed | MatchDecision::DeniedByMissingInclude
+        ));
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn many_exclude_patterns_compile(
+        pats in prop::collection::vec(simple_glob(), 10..=20),
+        path in relative_path(),
+    ) {
+        let globs = IncludeExcludeGlobs::new(&[], &pats).unwrap();
+        let result = globs.decide_str(&path);
+        prop_assert!(matches!(
+            result,
+            MatchDecision::Allowed | MatchDecision::DeniedByExclude
+        ));
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn many_include_and_exclude_patterns_compile(
+        inc in prop::collection::vec(simple_glob(), 5..=10),
+        exc in prop::collection::vec(simple_glob(), 5..=10),
+        path in relative_path(),
+    ) {
+        let globs = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        let result = globs.decide_str(&path);
+        // Must still be a valid variant
+        prop_assert!(matches!(
+            result,
+            MatchDecision::Allowed
+                | MatchDecision::DeniedByExclude
+                | MatchDecision::DeniedByMissingInclude
+        ));
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn many_patterns_deterministic(
+        inc in prop::collection::vec(simple_glob(), 5..=10),
+        exc in prop::collection::vec(simple_glob(), 5..=10),
+        path in relative_path(),
+    ) {
+        let g1 = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        let g2 = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        prop_assert_eq!(g1.decide_str(&path), g2.decide_str(&path));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 46. Complement: !exclude(path) || include(path) semantics
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn allowed_implies_not_excluded(
+        path in relative_path(),
+        inc in glob_vec(0, 3),
+        exc in glob_vec(0, 3),
+    ) {
+        let globs = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        if globs.decide_str(&path).is_allowed() {
+            // Must NOT match exclude
+            let exc_set = build_globset(&exc).unwrap();
+            let exc_matches = exc_set.as_ref().is_some_and(|s| s.is_match(&path));
+            prop_assert!(!exc_matches, "allowed path must not match exclude");
+        }
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn allowed_implies_included(
+        path in relative_path(),
+        inc in glob_vec(0, 3),
+        exc in glob_vec(0, 3),
+    ) {
+        let globs = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        if globs.decide_str(&path).is_allowed() {
+            // Must match include (or include is empty)
+            let inc_set = build_globset(&inc).unwrap();
+            let inc_matches = inc_set.as_ref().is_none_or(|s| s.is_match(&path));
+            prop_assert!(inc_matches, "allowed path must match include (or include empty)");
+        }
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn denied_by_exclude_implies_exclude_matches(
+        path in relative_path(),
+        inc in glob_vec(0, 3),
+        exc in glob_vec(0, 3),
+    ) {
+        let globs = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        if globs.decide_str(&path) == MatchDecision::DeniedByExclude {
+            let exc_set = build_globset(&exc).unwrap();
+            let exc_matches = exc_set.as_ref().is_some_and(|s| s.is_match(&path));
+            prop_assert!(exc_matches, "DeniedByExclude requires exclude match");
+        }
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn denied_by_missing_include_implies_no_include_match(
+        path in relative_path(),
+        inc in glob_vec(1, 3),
+        exc in glob_vec(0, 2),
+    ) {
+        let globs = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        if globs.decide_str(&path) == MatchDecision::DeniedByMissingInclude {
+            let inc_set = build_globset(&inc).unwrap();
+            let inc_matches = inc_set.as_ref().is_some_and(|s| s.is_match(&path));
+            prop_assert!(!inc_matches, "DeniedByMissingInclude requires no include match");
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 47. Unicode in paths and patterns
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    #[test]
+    fn unicode_path_with_extension_include(
+        seg in unicode_segment(),
+        ext in file_extension(),
+    ) {
+        let path = format!("{seg}.{ext}");
+        let globs = IncludeExcludeGlobs::new(&[format!("**/*.{ext}")], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    #[test]
+    fn unicode_path_with_extension_exclude(
+        seg in unicode_segment(),
+        ext in file_extension(),
+    ) {
+        let path = format!("{seg}.{ext}");
+        let globs = IncludeExcludeGlobs::new(&[], &[format!("**/*.{ext}")]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    #[test]
+    fn unicode_exclude_literal_pattern(ext in file_extension()) {
+        let path = format!("über/secret.{ext}");
+        let globs = IncludeExcludeGlobs::new(&[], &["über/**".into()]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    #[test]
+    fn unicode_include_exclude_interaction(
+        seg in unicode_segment(),
+        ext in file_extension(),
+    ) {
+        let path = format!("données/{seg}.{ext}");
+        let globs = IncludeExcludeGlobs::new(
+            &["données/**".into()],
+            &[format!("données/{seg}/**")],
+        ).unwrap();
+        // Path is directly under données, not under données/seg/**, so not excluded
+        // unless seg exactly equals the leaf (which it does for a flat file).
+        // Just verify no panic and result is valid.
+        let result = globs.decide_str(&path);
+        prop_assert!(matches!(
+            result,
+            MatchDecision::Allowed | MatchDecision::DeniedByExclude
+        ));
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    #[test]
+    fn unicode_deep_path_allowed(
+        segs in prop::collection::vec(unicode_segment(), 3..=8),
+        ext in file_extension(),
+    ) {
+        let path = format!("{}.{ext}", segs.join("/"));
+        let globs = IncludeExcludeGlobs::new(&["**".into()], &[]).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::Allowed);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 48. Monotonicity: narrowing include narrows allowed set
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn narrowing_include_never_widens(path in relative_path()) {
+        let wide = IncludeExcludeGlobs::new(&["**".into()], &[]).unwrap();
+        let narrow = IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
+
+        // If narrow allows, wide must also allow.
+        if narrow.decide_str(&path).is_allowed() {
+            prop_assert!(wide.decide_str(&path).is_allowed());
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 49. Removing excludes can only widen allowed set
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn removing_exclude_never_narrows(path in relative_path()) {
+        let with_exc = IncludeExcludeGlobs::new(
+            &["src/**".into()],
+            &["src/gen/**".into()],
+        ).unwrap();
+        let without_exc = IncludeExcludeGlobs::new(
+            &["src/**".into()],
+            &[],
+        ).unwrap();
+
+        // If allowed with exclude, must be allowed without exclude.
+        if with_exc.decide_str(&path).is_allowed() {
+            prop_assert!(without_exc.decide_str(&path).is_allowed());
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 50. Disjoint include and exclude produce expected trichotomy
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn disjoint_include_exclude_trichotomy(
+        seg in path_segment(),
+        ext in file_extension(),
+    ) {
+        let globs = IncludeExcludeGlobs::new(
+            &["src/**".into()],
+            &["logs/**".into()],
+        ).unwrap();
+
+        // In src → Allowed (included, not excluded)
+        let in_src = format!("src/{seg}.{ext}");
+        prop_assert_eq!(globs.decide_str(&in_src), MatchDecision::Allowed);
+
+        // In logs → DeniedByExclude even though not in include
+        let in_logs = format!("logs/{seg}.{ext}");
+        prop_assert_eq!(globs.decide_str(&in_logs), MatchDecision::DeniedByExclude);
+
+        // In docs → DeniedByMissingInclude
+        let in_docs = format!("docs/{seg}.{ext}");
+        prop_assert_eq!(globs.decide_str(&in_docs), MatchDecision::DeniedByMissingInclude);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 51. Decide on same path across multiple globs instances is consistent
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    #[test]
+    fn many_calls_same_path_same_result(
+        path in relative_path(),
+        inc in glob_vec(0, 2),
+        exc in glob_vec(0, 2),
+    ) {
+        let globs = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
+        let expected = globs.decide_str(&path);
+        for _ in 0..10 {
+            prop_assert_eq!(globs.decide_str(&path), expected);
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 52. Build globset with many patterns
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(50))]
+
+    #[test]
+    fn build_globset_many_patterns(
+        pats in prop::collection::vec(simple_glob(), 15..=30),
+    ) {
+        let result = build_globset(&pats);
+        prop_assert!(result.is_ok());
+        prop_assert!(result.unwrap().is_some());
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 53. Exclude check is independent of include list contents
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn exclude_verdict_independent_of_includes(
+        path in relative_path(),
+        inc1 in glob_vec(0, 3),
+        inc2 in glob_vec(0, 3),
+        exc in glob_vec(1, 3),
+    ) {
+        let g1 = IncludeExcludeGlobs::new(&inc1, &exc).unwrap();
+        let g2 = IncludeExcludeGlobs::new(&inc2, &exc).unwrap();
+
+        let r1 = g1.decide_str(&path);
+        let r2 = g2.decide_str(&path);
+
+        // If one says DeniedByExclude, the other must too (exclude is checked first)
+        if r1 == MatchDecision::DeniedByExclude {
+            prop_assert_eq!(r2, MatchDecision::DeniedByExclude);
+        }
+        if r2 == MatchDecision::DeniedByExclude {
+            prop_assert_eq!(r1, MatchDecision::DeniedByExclude);
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 54. Include check is independent of exclude list contents (for non-excluded)
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn include_verdict_stable_across_excludes(
+        path in relative_path(),
+        inc in glob_vec(1, 3),
+    ) {
+        let g_no_exc = IncludeExcludeGlobs::new(&inc, &[]).unwrap();
+        let g_with_exc = IncludeExcludeGlobs::new(&inc, &["zzz_nonexistent/**".into()]).unwrap();
+
+        // Exclude "zzz_nonexistent/**" won't match any generated path, so results should agree
+        prop_assert_eq!(g_no_exc.decide_str(&path), g_with_exc.decide_str(&path));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 55. Doublestar include with extension exclude still filters correctly
+// ═══════════════════════════════════════════════════════════════════════
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    #[test]
+    fn doublestar_include_extension_exclude(
+        segs in prop::collection::vec(path_segment(), 1..=4),
+        ext in file_extension(),
+    ) {
+        let path = format!("{}.{ext}", segs.join("/"));
+        let globs = IncludeExcludeGlobs::new(
+            &["**".into()],
+            &[format!("**/*.{ext}")],
+        ).unwrap();
+        prop_assert_eq!(globs.decide_str(&path), MatchDecision::DeniedByExclude);
+    }
+}

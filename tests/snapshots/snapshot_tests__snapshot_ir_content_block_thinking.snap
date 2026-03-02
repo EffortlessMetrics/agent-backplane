@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_tests.rs
+expression: block
+---
+{
+  "type": "thinking",
+  "text": "Let me reason step by step..."
+}

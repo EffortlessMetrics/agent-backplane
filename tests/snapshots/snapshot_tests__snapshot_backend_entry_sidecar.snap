@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_tests.rs
+expression: "BackendEntry::Sidecar\n{\n    command: \"python3\".into(), args:\n    vec![\"hosts/python/main.py\".into(), \"--verbose\".into()], timeout_secs:\n    Some(60),\n}"
+---
+{
+  "type": "sidecar",
+  "command": "python3",
+  "args": [
+    "hosts/python/main.py",
+    "--verbose"
+  ],
+  "timeout_secs": 60
+}

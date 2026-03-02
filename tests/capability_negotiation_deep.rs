@@ -10,6 +10,7 @@ use abp_capability::{
     CompatibilityReport, NegotiationResult, SupportLevel as CapSupportLevel, check_capability,
     generate_report, negotiate,
 };
+use abp_core::ir::{IrConversation, IrMessage, IrRole};
 use abp_core::negotiate::{
     CapabilityDiff, CapabilityNegotiator, CapabilityReport, CapabilityReportEntry,
     DialectSupportLevel, NegotiationRequest, check_capabilities, dialect_manifest,
@@ -17,6 +18,10 @@ use abp_core::negotiate::{
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
     SupportLevel, WorkOrderBuilder,
+};
+use abp_emulation::{
+    EmulationConfig, EmulationEngine, EmulationStrategy, FidelityLabel, can_emulate,
+    compute_fidelity, default_strategy,
 };
 
 // ===========================================================================
@@ -1240,4 +1245,833 @@ fn negotiate_preserves_requirement_order() {
             Capability::ToolWrite,
         ]
     );
+}
+
+// ===========================================================================
+// Emulation engine integration with capability negotiation
+// ===========================================================================
+
+#[test]
+fn emulation_engine_emulatable_caps_pass_check() {
+    let engine = EmulationEngine::with_defaults();
+    let report = engine.check_missing(&[Capability::ExtendedThinking]);
+    assert_eq!(report.applied.len(), 1);
+    assert!(report.warnings.is_empty());
+}
+
+#[test]
+fn emulation_engine_unemulatable_caps_produce_warnings() {
+    let engine = EmulationEngine::with_defaults();
+    let report = engine.check_missing(&[Capability::Streaming]);
+    assert!(report.applied.is_empty());
+    assert_eq!(report.warnings.len(), 1);
+    assert!(report.warnings[0].contains("not emulated"));
+}
+
+#[test]
+fn emulation_engine_mixed_emulatable_and_disabled() {
+    let engine = EmulationEngine::with_defaults();
+    let report = engine.check_missing(&[
+        Capability::ExtendedThinking,
+        Capability::StructuredOutputJsonSchema,
+        Capability::CodeExecution,
+        Capability::Streaming,
+    ]);
+    // ExtendedThinking + StructuredOutput are emulatable; CodeExecution + Streaming disabled
+    assert_eq!(report.applied.len(), 2);
+    assert_eq!(report.warnings.len(), 2);
+}
+
+#[test]
+fn emulation_engine_apply_injects_system_prompt() {
+    let engine = EmulationEngine::with_defaults();
+    let mut conv = IrConversation::new()
+        .push(IrMessage::text(IrRole::System, "You are helpful."))
+        .push(IrMessage::text(IrRole::User, "Hello"));
+    let report = engine.apply(&[Capability::ExtendedThinking], &mut conv);
+    assert_eq!(report.applied.len(), 1);
+    let sys = conv.system_message().unwrap();
+    assert!(sys.text_content().contains("Think step by step"));
+}
+
+#[test]
+fn emulation_engine_apply_does_not_mutate_for_post_processing() {
+    let original = IrConversation::new().push(IrMessage::text(IrRole::User, "Give me JSON"));
+    let mut conv = original.clone();
+    let engine = EmulationEngine::with_defaults();
+    let report = engine.apply(&[Capability::StructuredOutputJsonSchema], &mut conv);
+    assert_eq!(report.applied.len(), 1);
+    assert_eq!(conv, original);
+}
+
+#[test]
+fn emulation_engine_apply_disabled_no_mutation() {
+    let original = IrConversation::new().push(IrMessage::text(IrRole::User, "Run code"));
+    let mut conv = original.clone();
+    let engine = EmulationEngine::with_defaults();
+    let report = engine.apply(&[Capability::CodeExecution], &mut conv);
+    assert!(report.applied.is_empty());
+    assert_eq!(report.warnings.len(), 1);
+    assert_eq!(conv, original);
+}
+
+#[test]
+fn emulation_config_override_enables_disabled_cap() {
+    let mut config = EmulationConfig::new();
+    config.set(
+        Capability::CodeExecution,
+        EmulationStrategy::SystemPromptInjection {
+            prompt: "Simulate code.".into(),
+        },
+    );
+    let engine = EmulationEngine::new(config);
+    let mut conv = IrConversation::new().push(IrMessage::text(IrRole::User, "Run code"));
+    let report = engine.apply(&[Capability::CodeExecution], &mut conv);
+    assert_eq!(report.applied.len(), 1);
+    assert!(report.warnings.is_empty());
+    assert!(conv.system_message().is_some());
+}
+
+#[test]
+fn emulation_config_override_disables_emulatable_cap() {
+    let mut config = EmulationConfig::new();
+    config.set(
+        Capability::ExtendedThinking,
+        EmulationStrategy::Disabled {
+            reason: "user disabled".into(),
+        },
+    );
+    let engine = EmulationEngine::new(config);
+    let report = engine.check_missing(&[Capability::ExtendedThinking]);
+    assert!(report.applied.is_empty());
+    assert_eq!(report.warnings.len(), 1);
+}
+
+#[test]
+fn emulation_engine_empty_capabilities_empty_report() {
+    let engine = EmulationEngine::with_defaults();
+    let mut conv = IrConversation::new();
+    let report = engine.apply(&[], &mut conv);
+    assert!(report.is_empty());
+}
+
+// ===========================================================================
+// Fidelity labels (compute_fidelity)
+// ===========================================================================
+
+#[test]
+fn fidelity_native_caps_labeled_native() {
+    let report = abp_emulation::EmulationReport::default();
+    let labels = compute_fidelity(&[Capability::Streaming, Capability::ToolRead], &report);
+    assert_eq!(labels.len(), 2);
+    assert_eq!(labels[&Capability::Streaming], FidelityLabel::Native);
+    assert_eq!(labels[&Capability::ToolRead], FidelityLabel::Native);
+}
+
+#[test]
+fn fidelity_emulated_caps_labeled_emulated() {
+    let report = abp_emulation::EmulationReport {
+        applied: vec![abp_emulation::EmulationEntry {
+            capability: Capability::ExtendedThinking,
+            strategy: EmulationStrategy::SystemPromptInjection {
+                prompt: "Think step by step.".into(),
+            },
+        }],
+        warnings: vec![],
+    };
+    let labels = compute_fidelity(&[], &report);
+    assert_eq!(labels.len(), 1);
+    assert!(matches!(
+        labels[&Capability::ExtendedThinking],
+        FidelityLabel::Emulated { .. }
+    ));
+}
+
+#[test]
+fn fidelity_mixed_native_and_emulated() {
+    let engine = EmulationEngine::with_defaults();
+    let mut conv = IrConversation::new().push(IrMessage::text(IrRole::User, "test"));
+    let emu_report = engine.apply(&[Capability::ExtendedThinking], &mut conv);
+    let labels = compute_fidelity(&[Capability::Streaming, Capability::ToolRead], &emu_report);
+    assert_eq!(labels.len(), 3);
+    assert_eq!(labels[&Capability::Streaming], FidelityLabel::Native);
+    assert!(matches!(
+        labels[&Capability::ExtendedThinking],
+        FidelityLabel::Emulated { .. }
+    ));
+}
+
+#[test]
+fn fidelity_empty_inputs_empty_labels() {
+    let report = abp_emulation::EmulationReport::default();
+    let labels = compute_fidelity(&[], &report);
+    assert!(labels.is_empty());
+}
+
+#[test]
+fn fidelity_warnings_not_included_in_labels() {
+    let report = abp_emulation::EmulationReport {
+        applied: vec![],
+        warnings: vec!["CodeExecution not emulated".into()],
+    };
+    let labels = compute_fidelity(&[Capability::Streaming], &report);
+    assert_eq!(labels.len(), 1);
+    assert!(!labels.contains_key(&Capability::CodeExecution));
+}
+
+// ===========================================================================
+// Negotiation determinism
+// ===========================================================================
+
+#[test]
+fn negotiation_deterministic_same_inputs_same_result() {
+    let m = manifest(&[
+        (Capability::Streaming, SupportLevel::Native),
+        (Capability::ToolRead, SupportLevel::Emulated),
+        (Capability::ToolWrite, SupportLevel::Native),
+        (Capability::Logprobs, SupportLevel::Unsupported),
+    ]);
+    let r = reqs_native(&[
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolWrite,
+        Capability::Logprobs,
+    ]);
+    let res1 = negotiate(&m, &r);
+    let res2 = negotiate(&m, &r);
+    assert_eq!(res1, res2);
+}
+
+#[test]
+fn negotiation_deterministic_json_identical() {
+    let m = manifest(&[
+        (Capability::Streaming, SupportLevel::Native),
+        (Capability::ToolBash, SupportLevel::Emulated),
+    ]);
+    let r = reqs_native(&[Capability::Streaming, Capability::ToolBash]);
+    let res1 = negotiate(&m, &r);
+    let res2 = negotiate(&m, &r);
+    let json1 = serde_json::to_string(&res1).unwrap();
+    let json2 = serde_json::to_string(&res2).unwrap();
+    assert_eq!(json1, json2);
+}
+
+#[test]
+fn core_negotiator_deterministic() {
+    let m = manifest(&[
+        (Capability::Streaming, SupportLevel::Native),
+        (Capability::ToolRead, SupportLevel::Emulated),
+    ]);
+    let req = NegotiationRequest {
+        required: vec![Capability::Streaming],
+        preferred: vec![Capability::ToolRead],
+        minimum_support: SupportLevel::Emulated,
+    };
+    let r1 = CapabilityNegotiator::negotiate(&req, &m);
+    let r2 = CapabilityNegotiator::negotiate(&req, &m);
+    assert_eq!(r1.satisfied, r2.satisfied);
+    assert_eq!(r1.bonus, r2.bonus);
+    assert_eq!(r1.is_compatible, r2.is_compatible);
+}
+
+#[test]
+fn report_generation_deterministic() {
+    let result = NegotiationResult {
+        native: vec![Capability::Streaming],
+        emulatable: vec![Capability::ToolRead],
+        unsupported: vec![Capability::Logprobs],
+    };
+    let r1 = generate_report(&result);
+    let r2 = generate_report(&result);
+    assert_eq!(r1, r2);
+    assert_eq!(
+        serde_json::to_string(&r1).unwrap(),
+        serde_json::to_string(&r2).unwrap()
+    );
+}
+
+// ===========================================================================
+// Capability downgrade warnings via CapabilityDiff
+// ===========================================================================
+
+#[test]
+fn diff_downgrade_native_to_emulated() {
+    let old = manifest(&[(Capability::Streaming, SupportLevel::Native)]);
+    let new = manifest(&[(Capability::Streaming, SupportLevel::Emulated)]);
+    let diff = CapabilityDiff::diff(&old, &new);
+    assert_eq!(diff.downgraded.len(), 1);
+    assert_eq!(diff.downgraded[0].0, Capability::Streaming);
+}
+
+#[test]
+fn diff_downgrade_native_to_restricted() {
+    let old = manifest(&[(Capability::ToolBash, SupportLevel::Native)]);
+    let new = manifest(&[(
+        Capability::ToolBash,
+        SupportLevel::Restricted {
+            reason: "sandbox".into(),
+        },
+    )]);
+    let diff = CapabilityDiff::diff(&old, &new);
+    assert_eq!(diff.downgraded.len(), 1);
+}
+
+#[test]
+fn diff_downgrade_native_to_unsupported() {
+    let old = manifest(&[(Capability::Streaming, SupportLevel::Native)]);
+    let new = manifest(&[(Capability::Streaming, SupportLevel::Unsupported)]);
+    let diff = CapabilityDiff::diff(&old, &new);
+    assert_eq!(diff.downgraded.len(), 1);
+}
+
+#[test]
+fn diff_downgrade_emulated_to_unsupported() {
+    let old = manifest(&[(Capability::ToolRead, SupportLevel::Emulated)]);
+    let new = manifest(&[(Capability::ToolRead, SupportLevel::Unsupported)]);
+    let diff = CapabilityDiff::diff(&old, &new);
+    assert_eq!(diff.downgraded.len(), 1);
+}
+
+#[test]
+fn diff_upgrade_unsupported_to_native() {
+    let old = manifest(&[(Capability::Streaming, SupportLevel::Unsupported)]);
+    let new = manifest(&[(Capability::Streaming, SupportLevel::Native)]);
+    let diff = CapabilityDiff::diff(&old, &new);
+    assert_eq!(diff.upgraded.len(), 1);
+}
+
+#[test]
+fn diff_upgrade_restricted_to_native() {
+    let old = manifest(&[(
+        Capability::ToolBash,
+        SupportLevel::Restricted {
+            reason: "old".into(),
+        },
+    )]);
+    let new = manifest(&[(Capability::ToolBash, SupportLevel::Native)]);
+    let diff = CapabilityDiff::diff(&old, &new);
+    assert_eq!(diff.upgraded.len(), 1);
+}
+
+#[test]
+fn diff_multiple_changes_simultaneously() {
+    let old = manifest(&[
+        (Capability::Streaming, SupportLevel::Native),
+        (Capability::ToolRead, SupportLevel::Emulated),
+        (Capability::ToolWrite, SupportLevel::Native),
+    ]);
+    let new = manifest(&[
+        (Capability::Streaming, SupportLevel::Emulated),
+        (Capability::ToolRead, SupportLevel::Native),
+        (Capability::Logprobs, SupportLevel::Native),
+    ]);
+    let diff = CapabilityDiff::diff(&old, &new);
+    assert_eq!(diff.downgraded.len(), 1); // Streaming: Native → Emulated
+    assert_eq!(diff.upgraded.len(), 1); // ToolRead: Emulated → Native
+    assert_eq!(diff.added.len(), 1); // Logprobs
+    assert_eq!(diff.removed.len(), 1); // ToolWrite
+}
+
+#[test]
+fn diff_empty_to_empty() {
+    let old: CapabilityManifest = BTreeMap::new();
+    let new: CapabilityManifest = BTreeMap::new();
+    let diff = CapabilityDiff::diff(&old, &new);
+    assert!(diff.added.is_empty());
+    assert!(diff.removed.is_empty());
+    assert!(diff.upgraded.is_empty());
+    assert!(diff.downgraded.is_empty());
+}
+
+// ===========================================================================
+// Receipt annotations from negotiation
+// ===========================================================================
+
+#[test]
+fn capability_report_metadata_contains_entries() {
+    let report = CapabilityReport {
+        source_dialect: "claude".into(),
+        target_dialect: "openai".into(),
+        entries: vec![
+            CapabilityReportEntry {
+                capability: Capability::Streaming,
+                support: DialectSupportLevel::Native,
+            },
+            CapabilityReportEntry {
+                capability: Capability::Logprobs,
+                support: DialectSupportLevel::Unsupported {
+                    reason: "n/a".into(),
+                },
+            },
+        ],
+    };
+    let metadata = report.to_receipt_metadata();
+    assert!(metadata.is_object());
+    let entries = metadata["entries"].as_array().unwrap();
+    assert_eq!(entries.len(), 2);
+}
+
+#[test]
+fn capability_report_metadata_round_trips() {
+    let report = CapabilityReport {
+        source_dialect: "claude".into(),
+        target_dialect: "gemini".into(),
+        entries: vec![CapabilityReportEntry {
+            capability: Capability::ToolUse,
+            support: DialectSupportLevel::Native,
+        }],
+    };
+    let metadata = report.to_receipt_metadata();
+    let back: CapabilityReport = serde_json::from_value(metadata).unwrap();
+    assert_eq!(back.source_dialect, "claude");
+    assert_eq!(back.target_dialect, "gemini");
+    assert_eq!(back.entries.len(), 1);
+}
+
+#[test]
+fn negotiation_result_annotates_all_categories() {
+    let m = manifest(&[
+        (Capability::Streaming, SupportLevel::Native),
+        (Capability::ToolRead, SupportLevel::Emulated),
+    ]);
+    let r = reqs_native(&[
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::Logprobs,
+    ]);
+    let res = negotiate(&m, &r);
+    let report = generate_report(&res);
+    // Each detail entry should have an associated support level
+    for (name, level) in &report.details {
+        assert!(!name.is_empty());
+        assert!(matches!(
+            level,
+            CapSupportLevel::Native
+                | CapSupportLevel::Emulated { .. }
+                | CapSupportLevel::Unsupported
+        ));
+    }
+    assert_eq!(report.details.len(), 3);
+}
+
+// ===========================================================================
+// default_strategy and can_emulate coverage
+// ===========================================================================
+
+#[test]
+fn default_strategy_extended_thinking_is_prompt_injection() {
+    assert!(matches!(
+        default_strategy(&Capability::ExtendedThinking),
+        EmulationStrategy::SystemPromptInjection { .. }
+    ));
+}
+
+#[test]
+fn default_strategy_structured_output_is_post_processing() {
+    assert!(matches!(
+        default_strategy(&Capability::StructuredOutputJsonSchema),
+        EmulationStrategy::PostProcessing { .. }
+    ));
+}
+
+#[test]
+fn default_strategy_code_execution_is_disabled() {
+    assert!(matches!(
+        default_strategy(&Capability::CodeExecution),
+        EmulationStrategy::Disabled { .. }
+    ));
+}
+
+#[test]
+fn default_strategy_image_input_is_prompt_injection() {
+    assert!(matches!(
+        default_strategy(&Capability::ImageInput),
+        EmulationStrategy::SystemPromptInjection { .. }
+    ));
+}
+
+#[test]
+fn default_strategy_stop_sequences_is_post_processing() {
+    assert!(matches!(
+        default_strategy(&Capability::StopSequences),
+        EmulationStrategy::PostProcessing { .. }
+    ));
+}
+
+#[test]
+fn can_emulate_true_for_emulatable_caps() {
+    assert!(can_emulate(&Capability::ExtendedThinking));
+    assert!(can_emulate(&Capability::StructuredOutputJsonSchema));
+    assert!(can_emulate(&Capability::ImageInput));
+    assert!(can_emulate(&Capability::StopSequences));
+}
+
+#[test]
+fn can_emulate_false_for_disabled_caps() {
+    assert!(!can_emulate(&Capability::CodeExecution));
+    assert!(!can_emulate(&Capability::Streaming));
+    assert!(!can_emulate(&Capability::ToolRead));
+    assert!(!can_emulate(&Capability::ToolUse));
+    assert!(!can_emulate(&Capability::Logprobs));
+}
+
+// ===========================================================================
+// All Capability variants covered
+// ===========================================================================
+
+#[test]
+fn all_capability_variants_have_serde_name() {
+    for cap in &all_capabilities() {
+        let json = serde_json::to_string(cap).unwrap();
+        assert!(
+            json.starts_with('"'),
+            "Capability should serialize to string: {json}"
+        );
+        let back: Capability = serde_json::from_str(&json).unwrap();
+        assert_eq!(&back, cap);
+    }
+}
+
+#[test]
+fn all_capability_variants_in_btreemap_key() {
+    let mut m = CapabilityManifest::new();
+    for cap in &all_capabilities() {
+        m.insert(cap.clone(), SupportLevel::Native);
+    }
+    assert_eq!(m.len(), all_capabilities().len());
+}
+
+#[test]
+fn all_capability_variants_check_returns_value() {
+    let m: CapabilityManifest = all_capabilities()
+        .into_iter()
+        .map(|c| (c, SupportLevel::Native))
+        .collect();
+    for cap in &all_capabilities() {
+        let level = check_capability(&m, cap);
+        assert_eq!(level, CapSupportLevel::Native);
+    }
+}
+
+#[test]
+fn all_capability_variants_missing_check_unsupported() {
+    let m: CapabilityManifest = BTreeMap::new();
+    for cap in &all_capabilities() {
+        let level = check_capability(&m, cap);
+        assert_eq!(level, CapSupportLevel::Unsupported);
+    }
+}
+
+// ===========================================================================
+// Dialect cross-negotiation
+// ===========================================================================
+
+#[test]
+fn claude_to_openai_streaming_native_both() {
+    let wo = WorkOrderBuilder::new("test")
+        .requirements(reqs_native(&[Capability::Streaming]))
+        .build();
+    let report = check_capabilities(&wo, "claude", "openai");
+    assert!(report.all_satisfiable());
+    assert_eq!(report.native_capabilities().len(), 1);
+}
+
+#[test]
+fn openai_to_gemini_extended_thinking_emulated() {
+    let wo = WorkOrderBuilder::new("test")
+        .requirements(reqs_native(&[Capability::ExtendedThinking]))
+        .build();
+    let report = check_capabilities(&wo, "openai", "gemini");
+    assert!(report.all_satisfiable());
+    assert_eq!(report.emulated_capabilities().len(), 1);
+}
+
+#[test]
+fn claude_to_claude_all_caps_satisfiable() {
+    let wo = WorkOrderBuilder::new("test")
+        .requirements(reqs_native(&[
+            Capability::Streaming,
+            Capability::ToolUse,
+            Capability::ExtendedThinking,
+        ]))
+        .build();
+    let report = check_capabilities(&wo, "claude", "claude");
+    assert!(report.all_satisfiable());
+}
+
+#[test]
+fn openai_to_openai_logprobs_native() {
+    let wo = WorkOrderBuilder::new("test")
+        .requirements(reqs_native(&[Capability::Logprobs]))
+        .build();
+    let report = check_capabilities(&wo, "openai", "openai");
+    assert!(report.all_satisfiable());
+    assert_eq!(report.native_capabilities().len(), 1);
+}
+
+#[test]
+fn gemini_pdf_input_native() {
+    let wo = WorkOrderBuilder::new("test")
+        .requirements(reqs_native(&[Capability::PdfInput]))
+        .build();
+    let report = check_capabilities(&wo, "openai", "gemini");
+    assert!(report.all_satisfiable());
+    assert_eq!(report.native_capabilities().len(), 1);
+}
+
+#[test]
+fn openai_pdf_input_unsupported() {
+    let wo = WorkOrderBuilder::new("test")
+        .requirements(reqs_native(&[Capability::PdfInput]))
+        .build();
+    let report = check_capabilities(&wo, "claude", "openai");
+    assert!(!report.all_satisfiable());
+    assert_eq!(report.unsupported_capabilities().len(), 1);
+}
+
+// ===========================================================================
+// Multiple capabilities negotiated simultaneously
+// ===========================================================================
+
+#[test]
+fn negotiate_ten_caps_simultaneously() {
+    let m: CapabilityManifest = vec![
+        (Capability::Streaming, SupportLevel::Native),
+        (Capability::ToolRead, SupportLevel::Native),
+        (Capability::ToolWrite, SupportLevel::Emulated),
+        (Capability::ToolEdit, SupportLevel::Emulated),
+        (Capability::ToolBash, SupportLevel::Native),
+    ]
+    .into_iter()
+    .collect();
+    let r = reqs_native(&[
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolWrite,
+        Capability::ToolEdit,
+        Capability::ToolBash,
+        Capability::ToolGlob,
+        Capability::ToolGrep,
+        Capability::Logprobs,
+        Capability::McpClient,
+        Capability::ExtendedThinking,
+    ]);
+    let res = negotiate(&m, &r);
+    assert_eq!(res.native.len(), 3);
+    assert_eq!(res.emulatable.len(), 2);
+    assert_eq!(res.unsupported.len(), 5);
+    assert_eq!(res.total(), 10);
+    assert!(!res.is_compatible());
+}
+
+#[test]
+fn core_negotiator_many_required_and_preferred() {
+    let m: CapabilityManifest = vec![
+        (Capability::Streaming, SupportLevel::Native),
+        (Capability::ToolRead, SupportLevel::Native),
+        (Capability::ToolWrite, SupportLevel::Native),
+        (Capability::ToolBash, SupportLevel::Emulated),
+        (Capability::ToolEdit, SupportLevel::Native),
+        (Capability::ExtendedThinking, SupportLevel::Native),
+    ]
+    .into_iter()
+    .collect();
+    let req = NegotiationRequest {
+        required: vec![Capability::Streaming, Capability::ToolRead],
+        preferred: vec![
+            Capability::ToolWrite,
+            Capability::ToolBash,
+            Capability::ExtendedThinking,
+            Capability::Logprobs,
+        ],
+        minimum_support: SupportLevel::Emulated,
+    };
+    let res = CapabilityNegotiator::negotiate(&req, &m);
+    assert!(res.is_compatible);
+    assert_eq!(res.satisfied.len(), 2);
+    assert_eq!(res.bonus.len(), 3); // ToolWrite, ToolBash, ExtendedThinking
+}
+
+// ===========================================================================
+// Emulation strategy serde round-trips
+// ===========================================================================
+
+#[test]
+fn emulation_strategy_serde_system_prompt() {
+    let s = EmulationStrategy::SystemPromptInjection {
+        prompt: "Think carefully.".into(),
+    };
+    let json = serde_json::to_string(&s).unwrap();
+    let back: EmulationStrategy = serde_json::from_str(&json).unwrap();
+    assert_eq!(s, back);
+}
+
+#[test]
+fn emulation_strategy_serde_post_processing() {
+    let s = EmulationStrategy::PostProcessing {
+        detail: "validate JSON".into(),
+    };
+    let json = serde_json::to_string(&s).unwrap();
+    let back: EmulationStrategy = serde_json::from_str(&json).unwrap();
+    assert_eq!(s, back);
+}
+
+#[test]
+fn emulation_strategy_serde_disabled() {
+    let s = EmulationStrategy::Disabled {
+        reason: "unsafe".into(),
+    };
+    let json = serde_json::to_string(&s).unwrap();
+    let back: EmulationStrategy = serde_json::from_str(&json).unwrap();
+    assert_eq!(s, back);
+}
+
+#[test]
+fn emulation_config_serde_roundtrip() {
+    let mut config = EmulationConfig::new();
+    config.set(
+        Capability::ExtendedThinking,
+        EmulationStrategy::SystemPromptInjection {
+            prompt: "Think.".into(),
+        },
+    );
+    config.set(
+        Capability::CodeExecution,
+        EmulationStrategy::Disabled {
+            reason: "sandbox".into(),
+        },
+    );
+    let json = serde_json::to_string(&config).unwrap();
+    let back: EmulationConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(config, back);
+}
+
+#[test]
+fn fidelity_label_serde_roundtrip() {
+    let labels = vec![
+        FidelityLabel::Native,
+        FidelityLabel::Emulated {
+            strategy: EmulationStrategy::SystemPromptInjection {
+                prompt: "test".into(),
+            },
+        },
+    ];
+    for label in &labels {
+        let json = serde_json::to_string(label).unwrap();
+        let back: FidelityLabel = serde_json::from_str(&json).unwrap();
+        assert_eq!(&back, label);
+    }
+}
+
+// ===========================================================================
+// Capability discovery from backend hello message (dialect manifest)
+// ===========================================================================
+
+#[test]
+fn claude_manifest_has_tool_use() {
+    let m = dialect_manifest("claude");
+    assert!(m.contains_key(&Capability::ToolUse));
+    assert_eq!(m[&Capability::ToolUse], DialectSupportLevel::Native);
+}
+
+#[test]
+fn openai_manifest_has_structured_output() {
+    let m = dialect_manifest("openai");
+    assert!(m.contains_key(&Capability::StructuredOutputJsonSchema));
+    assert_eq!(
+        m[&Capability::StructuredOutputJsonSchema],
+        DialectSupportLevel::Native
+    );
+}
+
+#[test]
+fn gemini_manifest_has_pdf_input() {
+    let m = dialect_manifest("gemini");
+    assert!(m.contains_key(&Capability::PdfInput));
+    assert_eq!(m[&Capability::PdfInput], DialectSupportLevel::Native);
+}
+
+#[test]
+fn claude_manifest_structured_output_emulated() {
+    let m = dialect_manifest("claude");
+    assert!(matches!(
+        m.get(&Capability::StructuredOutputJsonSchema),
+        Some(DialectSupportLevel::Emulated { .. })
+    ));
+}
+
+#[test]
+fn dialect_manifests_have_streaming() {
+    for dialect in &["claude", "openai", "gemini"] {
+        let m = dialect_manifest(dialect);
+        assert_eq!(
+            m.get(&Capability::Streaming),
+            Some(&DialectSupportLevel::Native),
+            "{dialect} should natively support streaming"
+        );
+    }
+}
+
+// ===========================================================================
+// End-to-end: negotiate → emulation → fidelity pipeline
+// ===========================================================================
+
+#[test]
+fn full_pipeline_negotiate_then_emulate_then_fidelity() {
+    // 1) Negotiate: ToolRead is native, ExtendedThinking is emulated in manifest
+    let m = manifest(&[
+        (Capability::ToolRead, SupportLevel::Native),
+        (Capability::ExtendedThinking, SupportLevel::Emulated),
+    ]);
+    let r = reqs_native(&[Capability::ToolRead, Capability::ExtendedThinking]);
+    let neg = negotiate(&m, &r);
+    assert!(neg.is_compatible());
+
+    // 2) Apply emulation for emulatable caps
+    let engine = EmulationEngine::with_defaults();
+    let mut conv = IrConversation::new().push(IrMessage::text(IrRole::User, "test"));
+    let emu_report = engine.apply(&neg.emulatable.to_vec(), &mut conv);
+
+    // ExtendedThinking has a default emulation strategy (system prompt injection)
+    assert_eq!(emu_report.applied.len(), 1);
+
+    // 3) Compute fidelity labels
+    let labels = compute_fidelity(&neg.native, &emu_report);
+    assert_eq!(labels[&Capability::ToolRead], FidelityLabel::Native);
+    assert!(matches!(
+        labels[&Capability::ExtendedThinking],
+        FidelityLabel::Emulated { .. }
+    ));
+}
+
+#[test]
+fn full_pipeline_incompatible_cap_not_emulatable() {
+    let m: CapabilityManifest = BTreeMap::new();
+    let r = reqs_native(&[Capability::Streaming]);
+    let neg = negotiate(&m, &r);
+    assert!(!neg.is_compatible());
+
+    // Try to emulate the unsupported cap
+    let engine = EmulationEngine::with_defaults();
+    let report = engine.check_missing(&neg.unsupported);
+    // Streaming has no emulation strategy → warning
+    assert!(report.has_unemulatable());
+}
+
+#[test]
+fn full_pipeline_all_native_no_emulation_needed() {
+    let m = manifest(&[
+        (Capability::Streaming, SupportLevel::Native),
+        (Capability::ToolRead, SupportLevel::Native),
+    ]);
+    let r = reqs_native(&[Capability::Streaming, Capability::ToolRead]);
+    let neg = negotiate(&m, &r);
+    assert!(neg.is_compatible());
+    assert!(neg.emulatable.is_empty());
+
+    let labels = compute_fidelity(&neg.native, &abp_emulation::EmulationReport::default());
+    assert_eq!(labels.len(), 2);
+    for label in labels.values() {
+        assert_eq!(label, &FidelityLabel::Native);
+    }
 }

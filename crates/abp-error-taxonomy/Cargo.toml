@@ -1,0 +1,18 @@
+[package]
+name = "abp-error-taxonomy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Deep tests for the ABP error taxonomy"
+keywords = ["agent", "backplane", "error", "taxonomy", "testing"]
+categories = ["development-tools"]
+readme = "README.md"
+
+[dependencies]
+abp-error = { path = "../abp-error" }
+
+[dev-dependencies]
+serde_json.workspace = true
+serde.workspace = true

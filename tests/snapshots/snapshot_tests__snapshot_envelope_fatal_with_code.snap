@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_tests.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": "run-002",
+  "error": "backend timed out",
+  "error_code": "BACKEND_TIMEOUT"
+}

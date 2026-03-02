@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_tests.rs
+expression: "RuntimeConfig::default()"
+---
+{
+  "model": null,
+  "vendor": {},
+  "env": {},
+  "max_budget_usd": null,
+  "max_turns": null
+}

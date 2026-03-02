@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_tests.rs
+expression: cr
+---
+{
+  "capability": "extended_thinking",
+  "min_support": "emulated"
+}

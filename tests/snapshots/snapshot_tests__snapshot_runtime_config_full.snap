@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_tests.rs
+expression: cfg
+---
+{
+  "model": "claude-3.5-sonnet",
+  "vendor": {
+    "max_tokens": 4096,
+    "temperature": 0.5
+  },
+  "env": {
+    "API_KEY": "sk-redacted"
+  },
+  "max_budget_usd": 5.0,
+  "max_turns": 100
+}

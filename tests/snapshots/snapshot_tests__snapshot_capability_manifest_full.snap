@@ -1,0 +1,18 @@
+---
+source: tests/snapshot_tests.rs
+expression: snap_json(&full_caps())
+---
+{
+  "streaming": "native",
+  "tool_read": "native",
+  "tool_write": "native",
+  "tool_edit": "native",
+  "tool_bash": "native",
+  "mcp_client": {
+    "restricted": {
+      "reason": "experimental"
+    }
+  },
+  "tool_use": "emulated",
+  "extended_thinking": "unsupported"
+}

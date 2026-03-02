@@ -1,0 +1,81 @@
+---
+source: tests/snapshot_tests.rs
+expression: env
+---
+{
+  "t": "run",
+  "id": "run-001",
+  "work_order": {
+    "id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "task": "Fix login bug",
+    "lane": "patch_first",
+    "workspace": {
+      "root": "/tmp/ws",
+      "mode": "staged",
+      "include": [
+        "src/**"
+      ],
+      "exclude": [
+        "node_modules/**"
+      ]
+    },
+    "context": {
+      "files": [
+        "README.md"
+      ],
+      "snippets": [
+        {
+          "name": "hint",
+          "content": "check auth module"
+        }
+      ]
+    },
+    "policy": {
+      "allowed_tools": [
+        "read",
+        "write"
+      ],
+      "disallowed_tools": [
+        "bash"
+      ],
+      "deny_read": [
+        ".env"
+      ],
+      "deny_write": [
+        "Cargo.lock"
+      ],
+      "allow_network": [
+        "api.example.com"
+      ],
+      "deny_network": [
+        "*.evil.com"
+      ],
+      "require_approval_for": [
+        "delete"
+      ]
+    },
+    "requirements": {
+      "required": [
+        {
+          "capability": "tool_read",
+          "min_support": "native"
+        },
+        {
+          "capability": "streaming",
+          "min_support": "emulated"
+        }
+      ]
+    },
+    "config": {
+      "model": "gpt-4",
+      "vendor": {
+        "temperature": 0.7
+      },
+      "env": {
+        "LANG": "en"
+      },
+      "max_budget_usd": 1.0,
+      "max_turns": 25
+    }
+  }
+}
