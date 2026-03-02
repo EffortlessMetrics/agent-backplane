@@ -150,9 +150,7 @@ fn runtime_capability_check_no_source() {
 
 #[test]
 fn runtime_no_projection_no_source() {
-    let err = RuntimeError::NoProjectionMatch {
-        reason: "n".into(),
-    };
+    let err = RuntimeError::NoProjectionMatch { reason: "n".into() };
     assert!(err.source().is_none());
 }
 
@@ -197,9 +195,7 @@ fn runtime_error_code_classified() {
 
 #[test]
 fn runtime_error_code_no_projection() {
-    let err = RuntimeError::NoProjectionMatch {
-        reason: "x".into(),
-    };
+    let err = RuntimeError::NoProjectionMatch { reason: "x".into() };
     assert_eq!(err.error_code(), ErrorCode::BackendNotFound);
 }
 
@@ -235,9 +231,7 @@ fn runtime_pattern_match_all_variants() {
         RuntimeError::BackendFailed(anyhow::anyhow!("d")),
         RuntimeError::CapabilityCheckFailed("e".into()),
         RuntimeError::Classified(AbpError::new(ErrorCode::Internal, "f")),
-        RuntimeError::NoProjectionMatch {
-            reason: "g".into(),
-        },
+        RuntimeError::NoProjectionMatch { reason: "g".into() },
     ];
     let mut count = 0;
     for v in &variants {
@@ -267,9 +261,7 @@ fn runtime_error_downcast_from_dyn() {
 #[test]
 fn runtime_error_in_result() {
     fn might_fail(name: &str) -> Result<(), RuntimeError> {
-        Err(RuntimeError::UnknownBackend {
-            name: name.into(),
-        })
+        Err(RuntimeError::UnknownBackend { name: name.into() })
     }
     let res = might_fail("oops");
     assert!(res.is_err());
@@ -366,10 +358,7 @@ fn protocol_unexpected_no_source() {
 #[test]
 fn protocol_violation_error_code() {
     let err = ProtocolError::Violation("x".into());
-    assert_eq!(
-        err.error_code(),
-        Some(ErrorCode::ProtocolInvalidEnvelope)
-    );
+    assert_eq!(err.error_code(), Some(ErrorCode::ProtocolInvalidEnvelope));
 }
 
 #[test]
@@ -378,10 +367,7 @@ fn protocol_unexpected_error_code() {
         expected: "hello".into(),
         got: "event".into(),
     };
-    assert_eq!(
-        err.error_code(),
-        Some(ErrorCode::ProtocolUnexpectedMessage)
-    );
+    assert_eq!(err.error_code(), Some(ErrorCode::ProtocolUnexpectedMessage));
 }
 
 #[test]
@@ -429,8 +415,7 @@ fn protocol_from_abp_error() {
 
 #[test]
 fn protocol_error_downcast() {
-    let err: Box<dyn Error + Send + Sync> =
-        Box::new(ProtocolError::Violation("test".into()));
+    let err: Box<dyn Error + Send + Sync> = Box::new(ProtocolError::Violation("test".into()));
     assert!(err.downcast_ref::<ProtocolError>().is_some());
 }
 
@@ -461,8 +446,8 @@ fn abp_error_display_without_context() {
 
 #[test]
 fn abp_error_display_with_context() {
-    let err = AbpError::new(ErrorCode::BackendTimeout, "timed out")
-        .with_context("timeout_ms", 5000);
+    let err =
+        AbpError::new(ErrorCode::BackendTimeout, "timed out").with_context("timeout_ms", 5000);
     let s = err.to_string();
     assert!(s.starts_with("[BACKEND_TIMEOUT] timed out"));
     assert!(s.contains("timeout_ms"));
@@ -518,8 +503,7 @@ fn abp_error_category_shorthand() {
 
 #[test]
 fn abp_error_dto_roundtrip_no_source() {
-    let err = AbpError::new(ErrorCode::IrInvalid, "bad IR")
-        .with_context("node", "call_tool");
+    let err = AbpError::new(ErrorCode::IrInvalid, "bad IR").with_context("node", "call_tool");
     let dto: AbpErrorDto = (&err).into();
     let json = serde_json::to_string(&dto).unwrap();
     let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
@@ -587,13 +571,28 @@ fn error_category_display() {
 
 #[test]
 fn error_code_categories_correct() {
-    assert_eq!(ErrorCode::ProtocolInvalidEnvelope.category(), ErrorCategory::Protocol);
-    assert_eq!(ErrorCode::BackendNotFound.category(), ErrorCategory::Backend);
-    assert_eq!(ErrorCode::CapabilityUnsupported.category(), ErrorCategory::Capability);
+    assert_eq!(
+        ErrorCode::ProtocolInvalidEnvelope.category(),
+        ErrorCategory::Protocol
+    );
+    assert_eq!(
+        ErrorCode::BackendNotFound.category(),
+        ErrorCategory::Backend
+    );
+    assert_eq!(
+        ErrorCode::CapabilityUnsupported.category(),
+        ErrorCategory::Capability
+    );
     assert_eq!(ErrorCode::PolicyDenied.category(), ErrorCategory::Policy);
-    assert_eq!(ErrorCode::WorkspaceInitFailed.category(), ErrorCategory::Workspace);
+    assert_eq!(
+        ErrorCode::WorkspaceInitFailed.category(),
+        ErrorCategory::Workspace
+    );
     assert_eq!(ErrorCode::IrLoweringFailed.category(), ErrorCategory::Ir);
-    assert_eq!(ErrorCode::ReceiptHashMismatch.category(), ErrorCategory::Receipt);
+    assert_eq!(
+        ErrorCode::ReceiptHashMismatch.category(),
+        ErrorCategory::Receipt
+    );
     assert_eq!(ErrorCode::DialectUnknown.category(), ErrorCategory::Dialect);
     assert_eq!(ErrorCode::ConfigInvalid.category(), ErrorCategory::Config);
     assert_eq!(ErrorCode::Internal.category(), ErrorCategory::Internal);
@@ -635,8 +634,8 @@ fn error_info_display_without_context() {
 
 #[test]
 fn error_info_debug() {
-    let info = ErrorInfo::new(CatalogCode::IoError, "io")
-        .with_source(io::Error::other("underlying"));
+    let info =
+        ErrorInfo::new(CatalogCode::IoError, "io").with_source(io::Error::other("underlying"));
     let dbg = format!("{info:?}");
     assert!(dbg.contains("ErrorInfo"));
     assert!(dbg.contains("underlying"));
@@ -690,10 +689,7 @@ fn error_catalog_lookup_runtime() {
 
 #[test]
 fn error_catalog_lookup_system() {
-    assert_eq!(
-        ErrorCatalog::lookup("ABP-S001"),
-        Some(CatalogCode::IoError)
-    );
+    assert_eq!(ErrorCatalog::lookup("ABP-S001"), Some(CatalogCode::IoError));
 }
 
 #[test]
@@ -729,7 +725,10 @@ fn error_catalog_by_category_system() {
 fn catalog_code_description_non_empty() {
     let all = ErrorCatalog::all();
     for code in &all {
-        assert!(!code.description().is_empty(), "empty description for {code}");
+        assert!(
+            !code.description().is_empty(),
+            "empty description for {code}"
+        );
     }
 }
 
@@ -797,8 +796,7 @@ fn runtime_error_chain_anyhow_context() {
 
 #[test]
 fn protocol_error_to_dyn_error() {
-    let err: Box<dyn Error> =
-        Box::new(ProtocolError::Violation("bad".into()));
+    let err: Box<dyn Error> = Box::new(ProtocolError::Violation("bad".into()));
     assert!(!err.to_string().is_empty());
 }
 
@@ -898,8 +896,7 @@ fn error_info_empty_message() {
 
 #[test]
 fn error_info_unicode_context() {
-    let info = ErrorInfo::new(CatalogCode::IoError, "io")
-        .with_context("パス", "/tmp/テスト");
+    let info = ErrorInfo::new(CatalogCode::IoError, "io").with_context("パス", "/tmp/テスト");
     let s = info.to_string();
     assert!(s.contains("パス"));
     assert!(s.contains("/tmp/テスト"));
@@ -1003,7 +1000,10 @@ fn downcast_runtime_classified_inner() {
 fn abp_error_code_as_str_stability() {
     assert_eq!(ErrorCode::BackendNotFound.as_str(), "BACKEND_NOT_FOUND");
     assert_eq!(ErrorCode::PolicyDenied.as_str(), "POLICY_DENIED");
-    assert_eq!(ErrorCode::WorkspaceStagingFailed.as_str(), "WORKSPACE_STAGING_FAILED");
+    assert_eq!(
+        ErrorCode::WorkspaceStagingFailed.as_str(),
+        "WORKSPACE_STAGING_FAILED"
+    );
     assert_eq!(ErrorCode::Internal.as_str(), "INTERNAL");
 }
 

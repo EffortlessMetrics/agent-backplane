@@ -79,11 +79,7 @@ fn ls_dirs(root: &Path) -> Vec<String> {
                 .unwrap()
                 .to_string_lossy()
                 .replace('\\', "/");
-            if rel.is_empty() {
-                None
-            } else {
-                Some(rel)
-            }
+            if rel.is_empty() { None } else { Some(rel) }
         })
         .collect();
     v.sort();
@@ -122,7 +118,10 @@ fn sd_copy_single_file() {
     let src = tempdir().unwrap();
     fs::write(src.path().join("hello.txt"), "world").unwrap();
     let ws = WorkspaceManager::prepare(&spec(src.path())).unwrap();
-    assert_eq!(fs::read_to_string(ws.path().join("hello.txt")).unwrap(), "world");
+    assert_eq!(
+        fs::read_to_string(ws.path().join("hello.txt")).unwrap(),
+        "world"
+    );
 }
 
 #[test]
@@ -131,7 +130,10 @@ fn sd_copy_preserves_content_exactly() {
     let content = "line1\nline2\r\nline3\ttab";
     fs::write(src.path().join("mixed.txt"), content).unwrap();
     let ws = WorkspaceManager::prepare(&spec(src.path())).unwrap();
-    assert_eq!(fs::read_to_string(ws.path().join("mixed.txt")).unwrap(), content);
+    assert_eq!(
+        fs::read_to_string(ws.path().join("mixed.txt")).unwrap(),
+        content
+    );
 }
 
 #[test]
@@ -185,7 +187,10 @@ fn sd_staged_mutation_does_not_affect_source() {
     fs::write(src.path().join("f.txt"), "original").unwrap();
     let ws = WorkspaceManager::prepare(&spec(src.path())).unwrap();
     fs::write(ws.path().join("f.txt"), "changed").unwrap();
-    assert_eq!(fs::read_to_string(src.path().join("f.txt")).unwrap(), "original");
+    assert_eq!(
+        fs::read_to_string(src.path().join("f.txt")).unwrap(),
+        "original"
+    );
 }
 
 #[test]
@@ -195,7 +200,10 @@ fn sd_copy_preserves_subdirectory_structure() {
     fs::write(src.path().join("a/b/c/deep.txt"), "deep").unwrap();
     let ws = WorkspaceManager::prepare(&spec(src.path())).unwrap();
     assert!(ws.path().join("a/b/c/deep.txt").exists());
-    assert_eq!(fs::read_to_string(ws.path().join("a/b/c/deep.txt")).unwrap(), "deep");
+    assert_eq!(
+        fs::read_to_string(ws.path().join("a/b/c/deep.txt")).unwrap(),
+        "deep"
+    );
 }
 
 #[test]
@@ -228,7 +236,10 @@ fn sd_include_recursive_star_star() {
     seed(src.path());
     let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &["**/*.rs"], &[])).unwrap();
     let files = ls(ws.path());
-    assert!(files.iter().any(|f| f.contains('/')), "should include nested .rs");
+    assert!(
+        files.iter().any(|f| f.contains('/')),
+        "should include nested .rs"
+    );
     for f in &files {
         assert!(f.ends_with(".rs"), "unexpected: {f}");
     }
@@ -327,7 +338,8 @@ fn sd_include_multiple_dirs() {
     fs::write(src.path().join("src/a.rs"), "").unwrap();
     fs::write(src.path().join("tests/b.rs"), "").unwrap();
     fs::write(src.path().join("bench/c.rs"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &["src/**", "tests/**"], &[])).unwrap();
+    let ws =
+        WorkspaceManager::prepare(&spec_globs(src.path(), &["src/**", "tests/**"], &[])).unwrap();
     let files = ls(ws.path());
     assert!(files.contains(&"src/a.rs".to_string()));
     assert!(files.contains(&"tests/b.rs".to_string()));
@@ -391,7 +403,10 @@ fn sd_exclude_multiple_patterns() {
     seed(src.path());
     let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &[], &["*.md", "*.toml"])).unwrap();
     for f in ls(ws.path()) {
-        assert!(!f.ends_with(".md") && !f.ends_with(".toml"), "excluded: {f}");
+        assert!(
+            !f.ends_with(".md") && !f.ends_with(".toml"),
+            "excluded: {f}"
+        );
     }
 }
 
@@ -446,7 +461,11 @@ fn sd_exclude_dotfiles() {
 fn sd_exclude_preserves_other_files() {
     let src = tempdir().unwrap();
     for i in 0..10 {
-        fs::write(src.path().join(format!("file{i}.txt")), format!("content{i}")).unwrap();
+        fs::write(
+            src.path().join(format!("file{i}.txt")),
+            format!("content{i}"),
+        )
+        .unwrap();
     }
     fs::write(src.path().join("remove_me.log"), "log").unwrap();
     let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &[], &["*.log"])).unwrap();
@@ -488,7 +507,8 @@ fn sd_exclude_with_char_class() {
 fn sd_exclude_overrides_include() {
     let src = tempdir().unwrap();
     seed(src.path());
-    let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &["**/*.rs"], &["tests/**"])).unwrap();
+    let ws =
+        WorkspaceManager::prepare(&spec_globs(src.path(), &["**/*.rs"], &["tests/**"])).unwrap();
     let files = ls(ws.path());
     assert!(files.iter().any(|f| f.ends_with(".rs")));
     assert!(!files.iter().any(|f| f.starts_with("tests/")));
@@ -508,7 +528,8 @@ fn sd_include_dir_exclude_subdir() {
     fs::create_dir_all(src.path().join("src/private")).unwrap();
     fs::write(src.path().join("src/lib.rs"), "pub").unwrap();
     fs::write(src.path().join("src/private/secret.rs"), "sec").unwrap();
-    let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &["src/**"], &["src/private/**"])).unwrap();
+    let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &["src/**"], &["src/private/**"]))
+        .unwrap();
     let files = ls(ws.path());
     assert!(files.contains(&"src/lib.rs".to_string()));
     assert!(!files.contains(&"src/private/secret.rs".to_string()));
@@ -520,7 +541,8 @@ fn sd_include_ext_exclude_specific_file() {
     fs::write(src.path().join("main.rs"), "").unwrap();
     fs::write(src.path().join("generated.rs"), "").unwrap();
     fs::write(src.path().join("notes.txt"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &["*.rs"], &["generated.rs"])).unwrap();
+    let ws =
+        WorkspaceManager::prepare(&spec_globs(src.path(), &["*.rs"], &["generated.rs"])).unwrap();
     let files = ls(ws.path());
     assert!(files.contains(&"main.rs".to_string()));
     assert!(!files.contains(&"generated.rs".to_string()));
@@ -536,9 +558,11 @@ fn sd_include_two_dirs_exclude_one() {
     fs::write(src.path().join("src/a.rs"), "").unwrap();
     fs::write(src.path().join("tests/t.rs"), "").unwrap();
     fs::write(src.path().join("bench/b.rs"), "").unwrap();
-    let ws = WorkspaceManager::prepare(
-        &spec_globs(src.path(), &["src/**", "tests/**", "bench/**"], &["bench/**"]),
-    )
+    let ws = WorkspaceManager::prepare(&spec_globs(
+        src.path(),
+        &["src/**", "tests/**", "bench/**"],
+        &["bench/**"],
+    ))
     .unwrap();
     let files = ls(ws.path());
     assert!(files.contains(&"src/a.rs".to_string()));
@@ -552,10 +576,8 @@ fn sd_overlapping_include_exclude_scopes() {
     fs::create_dir_all(src.path().join("src/gen")).unwrap();
     fs::write(src.path().join("src/lib.rs"), "").unwrap();
     fs::write(src.path().join("src/gen/out.rs"), "").unwrap();
-    let ws = WorkspaceManager::prepare(
-        &spec_globs(src.path(), &["src/**"], &["**/gen/**"]),
-    )
-    .unwrap();
+    let ws =
+        WorkspaceManager::prepare(&spec_globs(src.path(), &["src/**"], &["**/gen/**"])).unwrap();
     let files = ls(ws.path());
     assert!(files.contains(&"src/lib.rs".to_string()));
     assert!(!files.iter().any(|f| f.contains("gen/")));
@@ -568,10 +590,8 @@ fn sd_include_multiple_ext_exclude_one_ext() {
     fs::write(src.path().join("b.toml"), "").unwrap();
     fs::write(src.path().join("c.json"), "").unwrap();
     fs::write(src.path().join("d.txt"), "").unwrap();
-    let ws = WorkspaceManager::prepare(
-        &spec_globs(src.path(), &["*.{rs,toml,json}"], &["*.json"]),
-    )
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &["*.{rs,toml,json}"], &["*.json"]))
+        .unwrap();
     let files = ls(ws.path());
     assert!(files.contains(&"a.rs".to_string()));
     assert!(files.contains(&"b.toml".to_string()));
@@ -733,7 +753,10 @@ fn sd_git_author_is_abp() {
     fs::write(src.path().join("f"), "d").unwrap();
     let ws = WorkspaceManager::prepare(&spec(src.path())).unwrap();
     let author = git_cmd(ws.path(), &["log", "--format=%an"]).unwrap();
-    assert!(author.trim().contains("abp"), "author should be abp, got: {author}");
+    assert!(
+        author.trim().contains("abp"),
+        "author should be abp, got: {author}"
+    );
 }
 
 #[test]
@@ -779,7 +802,11 @@ fn sd_large_file_1mb() {
 fn sd_many_files_100() {
     let src = tempdir().unwrap();
     for i in 0..100 {
-        fs::write(src.path().join(format!("f{i:03}.txt")), format!("content{i}")).unwrap();
+        fs::write(
+            src.path().join(format!("f{i:03}.txt")),
+            format!("content{i}"),
+        )
+        .unwrap();
     }
     let ws = WorkspaceStager::new()
         .source_root(src.path())
@@ -849,7 +876,10 @@ fn sd_nested_three_levels() {
     fs::create_dir_all(src.path().join("a/b/c")).unwrap();
     fs::write(src.path().join("a/b/c/leaf.txt"), "leaf").unwrap();
     let ws = WorkspaceManager::prepare(&spec(src.path())).unwrap();
-    assert_eq!(fs::read_to_string(ws.path().join("a/b/c/leaf.txt")).unwrap(), "leaf");
+    assert_eq!(
+        fs::read_to_string(ws.path().join("a/b/c/leaf.txt")).unwrap(),
+        "leaf"
+    );
 }
 
 #[test]
@@ -867,7 +897,10 @@ fn sd_nested_20_levels() {
     for i in 0..20 {
         staged = staged.join(format!("l{i}"));
     }
-    assert_eq!(fs::read_to_string(staged.join("bottom.txt")).unwrap(), "bottom");
+    assert_eq!(
+        fs::read_to_string(staged.join("bottom.txt")).unwrap(),
+        "bottom"
+    );
 }
 
 #[test]
@@ -1129,7 +1162,8 @@ fn sd_glob_include_only_files_without_extension() {
     fs::write(src.path().join("Dockerfile"), "FROM").unwrap();
     fs::write(src.path().join("config.yaml"), "key: val").unwrap();
     // Files without extension match patterns like "Makefile" literally
-    let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &["Makefile", "Dockerfile"], &[])).unwrap();
+    let ws = WorkspaceManager::prepare(&spec_globs(src.path(), &["Makefile", "Dockerfile"], &[]))
+        .unwrap();
     let files = ls(ws.path());
     assert!(files.contains(&"Makefile".to_string()));
     assert!(files.contains(&"Dockerfile".to_string()));
@@ -1193,7 +1227,10 @@ fn sd_drop_cleans_up_temp_dir() {
     let staged_path = ws.path().to_path_buf();
     assert!(staged_path.exists());
     drop(ws);
-    assert!(!staged_path.exists(), "temp dir should be cleaned up on drop");
+    assert!(
+        !staged_path.exists(),
+        "temp dir should be cleaned up on drop"
+    );
 }
 
 #[test]
@@ -1240,8 +1277,14 @@ fn sd_staged_workspace_usable_before_drop() {
         .unwrap();
     // Write and read in staged workspace
     fs::write(ws.path().join("new.txt"), "new").unwrap();
-    assert_eq!(fs::read_to_string(ws.path().join("f.txt")).unwrap(), "hello");
-    assert_eq!(fs::read_to_string(ws.path().join("new.txt")).unwrap(), "new");
+    assert_eq!(
+        fs::read_to_string(ws.path().join("f.txt")).unwrap(),
+        "hello"
+    );
+    assert_eq!(
+        fs::read_to_string(ws.path().join("new.txt")).unwrap(),
+        "new"
+    );
 }
 
 // ===========================================================================
@@ -1326,7 +1369,10 @@ fn sd_concurrent_mutations_isolated() {
 fn sd_stager_default_git_init_on() {
     let src = tempdir().unwrap();
     fs::write(src.path().join("f"), "").unwrap();
-    let ws = WorkspaceStager::new().source_root(src.path()).stage().unwrap();
+    let ws = WorkspaceStager::new()
+        .source_root(src.path())
+        .stage()
+        .unwrap();
     assert!(ws.path().join(".git").exists());
 }
 
@@ -1404,8 +1450,16 @@ fn sd_stager_default_equals_new() {
     // Both should produce equivalent staging with the same source
     let src = tempdir().unwrap();
     fs::write(src.path().join("f"), "").unwrap();
-    let ws1 = s1.source_root(src.path()).with_git_init(false).stage().unwrap();
-    let ws2 = s2.source_root(src.path()).with_git_init(false).stage().unwrap();
+    let ws1 = s1
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+    let ws2 = s2
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
     assert_eq!(ls(ws1.path()), ls(ws2.path()));
 }
 
@@ -1452,7 +1506,10 @@ fn sd_files_with_spaces() {
         .with_git_init(false)
         .stage()
         .unwrap();
-    assert_eq!(fs::read_to_string(ws.path().join("my file.txt")).unwrap(), "spaced");
+    assert_eq!(
+        fs::read_to_string(ws.path().join("my file.txt")).unwrap(),
+        "spaced"
+    );
 }
 
 #[test]
@@ -1496,7 +1553,10 @@ fn sd_unicode_content_preserved() {
         .with_git_init(false)
         .stage()
         .unwrap();
-    assert_eq!(fs::read_to_string(ws.path().join("uni.txt")).unwrap(), content);
+    assert_eq!(
+        fs::read_to_string(ws.path().join("uni.txt")).unwrap(),
+        content
+    );
 }
 
 #[test]

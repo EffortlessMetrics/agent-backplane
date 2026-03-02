@@ -5,15 +5,15 @@
 
 use std::collections::BTreeMap;
 
-use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
-    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-    ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome,
-    PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel,
-    UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
-};
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
+use abp_core::{
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, canonical_json, receipt_hash,
+    sha256_hex,
+};
 use abp_protocol::Envelope;
 use chrono::{TimeZone, Utc};
 use serde_json::Value;
@@ -227,9 +227,7 @@ fn work_order_field_ordering_in_json() {
 fn work_order_with_vendor_config_deterministic() {
     let mut config = RuntimeConfig::default();
     config.vendor.insert("z".into(), serde_json::json!("last"));
-    config
-        .vendor
-        .insert("a".into(), serde_json::json!("first"));
+    config.vendor.insert("a".into(), serde_json::json!("first"));
     config
         .vendor
         .insert("m".into(), serde_json::json!("middle"));
@@ -599,7 +597,10 @@ fn envelope_hello_uses_tag_t() {
     };
     let v: Value = serde_json::to_value(&env).unwrap();
     assert_eq!(v["t"], "hello");
-    assert!(v.get("type").is_none(), "Envelope should use 't', not 'type'");
+    assert!(
+        v.get("type").is_none(),
+        "Envelope should use 't', not 'type'"
+    );
 }
 
 #[test]
@@ -713,7 +714,10 @@ fn envelope_all_variants_roundtrip() {
 
 #[test]
 fn ir_role_snake_case_serialization() {
-    assert_eq!(serde_json::to_string(&IrRole::System).unwrap(), "\"system\"");
+    assert_eq!(
+        serde_json::to_string(&IrRole::System).unwrap(),
+        "\"system\""
+    );
     assert_eq!(serde_json::to_string(&IrRole::User).unwrap(), "\"user\"");
     assert_eq!(
         serde_json::to_string(&IrRole::Assistant).unwrap(),
@@ -756,9 +760,7 @@ fn ir_content_block_tool_use_tag_type() {
 fn ir_content_block_tool_result_tag_type() {
     let block = IrContentBlock::ToolResult {
         tool_use_id: "tu_1".into(),
-        content: vec![IrContentBlock::Text {
-            text: "ok".into(),
-        }],
+        content: vec![IrContentBlock::Text { text: "ok".into() }],
         is_error: false,
     };
     let v: Value = serde_json::to_value(&block).unwrap();
@@ -778,9 +780,7 @@ fn ir_content_block_thinking_tag_type() {
 fn ir_message_canonical_deterministic() {
     let msg = IrMessage {
         role: IrRole::Assistant,
-        content: vec![IrContentBlock::Text {
-            text: "hi".into(),
-        }],
+        content: vec![IrContentBlock::Text { text: "hi".into() }],
         metadata: BTreeMap::new(),
     };
     let json1 = canonical_json(&msg).unwrap();
@@ -792,9 +792,7 @@ fn ir_message_canonical_deterministic() {
 fn ir_message_metadata_skipped_when_empty() {
     let msg = IrMessage {
         role: IrRole::User,
-        content: vec![IrContentBlock::Text {
-            text: "hi".into(),
-        }],
+        content: vec![IrContentBlock::Text { text: "hi".into() }],
         metadata: BTreeMap::new(),
     };
     let json = serde_json::to_string(&msg).unwrap();
@@ -1141,15 +1139,11 @@ fn ir_role_rename_snake_case() {
 fn agent_event_kind_type_tag_snake_case() {
     let cases: Vec<(AgentEventKind, &str)> = vec![
         (
-            AgentEventKind::RunStarted {
-                message: "".into(),
-            },
+            AgentEventKind::RunStarted { message: "".into() },
             "run_started",
         ),
         (
-            AgentEventKind::RunCompleted {
-                message: "".into(),
-            },
+            AgentEventKind::RunCompleted { message: "".into() },
             "run_completed",
         ),
         (
@@ -1193,12 +1187,7 @@ fn agent_event_kind_type_tag_snake_case() {
             },
             "command_executed",
         ),
-        (
-            AgentEventKind::Warning {
-                message: "".into(),
-            },
-            "warning",
-        ),
+        (AgentEventKind::Warning { message: "".into() }, "warning"),
         (
             AgentEventKind::Error {
                 message: "".into(),
@@ -1295,10 +1284,9 @@ fn nested_btreemap_in_vendor_config() {
     inner.insert("a_inner".into(), serde_json::json!(2));
 
     let mut config = RuntimeConfig::default();
-    config.vendor.insert(
-        "z_vendor".into(),
-        Value::Object(inner.clone()),
-    );
+    config
+        .vendor
+        .insert("z_vendor".into(), Value::Object(inner.clone()));
     config
         .vendor
         .insert("a_vendor".into(), Value::Object(inner));
@@ -1341,10 +1329,7 @@ fn deeply_nested_btreemap_three_levels() {
 #[test]
 fn nested_btreemap_in_agent_event_ext() {
     let mut inner = BTreeMap::new();
-    inner.insert(
-        "nested".to_string(),
-        serde_json::json!({"z": 1, "a": 2}),
-    );
+    inner.insert("nested".to_string(), serde_json::json!({"z": 1, "a": 2}));
     inner.insert("top".to_string(), serde_json::json!("value"));
 
     let event = AgentEvent {
@@ -1365,10 +1350,7 @@ fn nested_btreemap_in_agent_event_ext() {
 #[test]
 fn nested_btreemap_in_ir_metadata() {
     let mut meta = BTreeMap::new();
-    meta.insert(
-        "z_meta".into(),
-        serde_json::json!({"b": 2, "a": 1}),
-    );
+    meta.insert("z_meta".into(), serde_json::json!({"b": 2, "a": 1}));
     meta.insert("a_meta".into(), serde_json::json!("simple"));
 
     let msg = IrMessage {
@@ -1504,8 +1486,12 @@ fn unicode_keys_sorted_by_codepoint() {
 #[test]
 fn unicode_keys_in_vendor_config() {
     let mut config = RuntimeConfig::default();
-    config.vendor.insert("日本語".into(), serde_json::json!("ja"));
-    config.vendor.insert("english".into(), serde_json::json!("en"));
+    config
+        .vendor
+        .insert("日本語".into(), serde_json::json!("ja"));
+    config
+        .vendor
+        .insert("english".into(), serde_json::json!("en"));
     config.vendor.insert("中文".into(), serde_json::json!("zh"));
 
     let json1 = canonical_json(&config).unwrap();

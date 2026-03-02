@@ -129,7 +129,9 @@ fn request_default_model() {
 
 #[test]
 fn request_model_override() {
-    let wo = WorkOrderBuilder::new("task").model("gemini-2.5-pro").build();
+    let wo = WorkOrderBuilder::new("task")
+        .model("gemini-2.5-pro")
+        .build();
     let cfg = GeminiConfig::default();
     let req = map_work_order(&wo, &cfg);
     assert_eq!(req.model, "gemini-2.5-pro");
@@ -285,7 +287,10 @@ fn response_multiple_parts_produce_multiple_events() {
     ]);
     let events = map_response(&resp);
     assert_eq!(events.len(), 2);
-    assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
+    assert!(matches!(
+        &events[0].kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
     assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { .. }));
 }
 
@@ -501,8 +506,14 @@ fn mixed_text_and_image_parts() {
     }];
     let conv = lowering::to_ir(&contents, None);
     assert_eq!(conv.messages[0].content.len(), 2);
-    assert!(matches!(&conv.messages[0].content[0], IrContentBlock::Text { .. }));
-    assert!(matches!(&conv.messages[0].content[1], IrContentBlock::Image { .. }));
+    assert!(matches!(
+        &conv.messages[0].content[0],
+        IrContentBlock::Text { .. }
+    ));
+    assert!(matches!(
+        &conv.messages[0].content[1],
+        IrContentBlock::Image { .. }
+    ));
 }
 
 #[test]
@@ -719,7 +730,9 @@ fn function_call_with_nested_args() {
 fn lowering_user_text() {
     let conv = lowering::to_ir(&[user_text("hello")], None);
     assert_eq!(conv.messages[0].role, IrRole::User);
-    assert!(matches!(&conv.messages[0].content[0], IrContentBlock::Text { text } if text == "hello"));
+    assert!(
+        matches!(&conv.messages[0].content[0], IrContentBlock::Text { text } if text == "hello")
+    );
 }
 
 #[test]
@@ -1112,7 +1125,10 @@ fn roundtrip_tool_call_then_response_conversation() {
     let back = lowering::from_ir(&lowering::to_ir(&contents, None));
     assert_eq!(back.len(), 4);
     assert!(matches!(&back[1].parts[0], GeminiPart::FunctionCall { .. }));
-    assert!(matches!(&back[2].parts[0], GeminiPart::FunctionResponse { .. }));
+    assert!(matches!(
+        &back[2].parts[0],
+        GeminiPart::FunctionResponse { .. }
+    ));
 }
 
 #[test]
@@ -1602,12 +1618,18 @@ fn gemini_config_serde() {
 
 #[test]
 fn to_canonical_model_adds_prefix() {
-    assert_eq!(to_canonical_model("gemini-2.5-flash"), "google/gemini-2.5-flash");
+    assert_eq!(
+        to_canonical_model("gemini-2.5-flash"),
+        "google/gemini-2.5-flash"
+    );
 }
 
 #[test]
 fn from_canonical_model_strips_prefix() {
-    assert_eq!(from_canonical_model("google/gemini-2.5-flash"), "gemini-2.5-flash");
+    assert_eq!(
+        from_canonical_model("google/gemini-2.5-flash"),
+        "gemini-2.5-flash"
+    );
 }
 
 #[test]
@@ -1719,8 +1741,12 @@ fn multiple_function_calls_in_one_content() {
     }];
     let conv = lowering::to_ir(&contents, None);
     assert_eq!(conv.messages[0].content.len(), 2);
-    assert!(matches!(&conv.messages[0].content[0], IrContentBlock::ToolUse { name, .. } if name == "search"));
-    assert!(matches!(&conv.messages[0].content[1], IrContentBlock::ToolUse { name, .. } if name == "read"));
+    assert!(
+        matches!(&conv.messages[0].content[0], IrContentBlock::ToolUse { name, .. } if name == "search")
+    );
+    assert!(
+        matches!(&conv.messages[0].content[1], IrContentBlock::ToolUse { name, .. } if name == "read")
+    );
 }
 
 #[test]
@@ -1967,8 +1993,14 @@ fn candidate_with_citation_metadata_serde() {
     let back: GeminiCandidate = serde_json::from_str(&json).unwrap();
     let cm = back.citation_metadata.unwrap();
     assert_eq!(cm.citation_sources.len(), 2);
-    assert_eq!(cm.citation_sources[0].uri.as_deref(), Some("https://example.com"));
-    assert_eq!(cm.citation_sources[1].license.as_deref(), Some("Apache-2.0"));
+    assert_eq!(
+        cm.citation_sources[0].uri.as_deref(),
+        Some("https://example.com")
+    );
+    assert_eq!(
+        cm.citation_sources[1].license.as_deref(),
+        Some("Apache-2.0")
+    );
 }
 
 #[test]

@@ -6,8 +6,8 @@
 use std::collections::BTreeSet;
 
 use abp_core::negotiate::{
-    CapabilityDiff, CapabilityNegotiator, DialectSupportLevel,
-    NegotiationRequest, check_capabilities, dialect_manifest,
+    CapabilityDiff, CapabilityNegotiator, DialectSupportLevel, NegotiationRequest,
+    check_capabilities, dialect_manifest,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -86,7 +86,11 @@ fn cap_set(caps: &[Capability]) -> BTreeSet<Capability> {
 #[test]
 fn all_capability_variants_accounted() {
     let caps = all_capabilities();
-    assert_eq!(caps.len(), 26, "update all_capabilities() if variants added");
+    assert_eq!(
+        caps.len(),
+        26,
+        "update all_capabilities() if variants added"
+    );
 }
 
 #[test]
@@ -335,8 +339,16 @@ fn btreeset_union_overlapping_sets() {
 
 #[test]
 fn btreeset_intersection_overlapping() {
-    let a = cap_set(&[Capability::Streaming, Capability::ToolRead, Capability::ToolEdit]);
-    let b = cap_set(&[Capability::ToolRead, Capability::ToolEdit, Capability::ToolBash]);
+    let a = cap_set(&[
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolEdit,
+    ]);
+    let b = cap_set(&[
+        Capability::ToolRead,
+        Capability::ToolEdit,
+        Capability::ToolBash,
+    ]);
     let i: BTreeSet<_> = a.intersection(&b).cloned().collect();
     assert_eq!(i.len(), 2);
     assert!(i.contains(&Capability::ToolRead));
@@ -353,7 +365,11 @@ fn btreeset_intersection_disjoint() {
 
 #[test]
 fn btreeset_difference() {
-    let a = cap_set(&[Capability::Streaming, Capability::ToolRead, Capability::ToolWrite]);
+    let a = cap_set(&[
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolWrite,
+    ]);
     let b = cap_set(&[Capability::ToolRead]);
     let d: BTreeSet<_> = a.difference(&b).cloned().collect();
     assert_eq!(d.len(), 2);
@@ -380,7 +396,11 @@ fn btreeset_is_subset() {
 
 #[test]
 fn btreeset_is_superset() {
-    let big = cap_set(&[Capability::Streaming, Capability::ToolRead, Capability::ToolWrite]);
+    let big = cap_set(&[
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolWrite,
+    ]);
     let small = cap_set(&[Capability::ToolRead]);
     assert!(big.is_superset(&small));
 }
@@ -982,16 +1002,11 @@ fn capability_report_not_all_satisfiable() {
 #[test]
 fn capability_report_native_filter() {
     let wo = WorkOrderBuilder::new("test")
-        .requirements(reqs_native(&[
-            Capability::Streaming,
-            Capability::Logprobs,
-        ]))
+        .requirements(reqs_native(&[Capability::Streaming, Capability::Logprobs]))
         .build();
     let report = check_capabilities(&wo, "claude", "openai");
     let native = report.native_capabilities();
-    assert!(native
-        .iter()
-        .any(|e| e.capability == Capability::Streaming));
+    assert!(native.iter().any(|e| e.capability == Capability::Streaming));
 }
 
 #[test]

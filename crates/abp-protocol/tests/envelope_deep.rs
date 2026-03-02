@@ -123,8 +123,7 @@ fn hello_contract_version_matches_constant() {
 
 #[test]
 fn hello_with_mode_passthrough_roundtrip() {
-    let env =
-        Envelope::hello_with_mode(mk_backend("p"), mk_caps(), ExecutionMode::Passthrough);
+    let env = Envelope::hello_with_mode(mk_backend("p"), mk_caps(), ExecutionMode::Passthrough);
     match roundtrip(&env) {
         Envelope::Hello { mode, .. } => assert_eq!(mode, ExecutionMode::Passthrough),
         other => panic!("expected Hello, got {other:?}"),
@@ -676,9 +675,7 @@ fn event_error_kind_with_code() {
 fn event_ref_id_preserved_across_roundtrip() {
     let env = Envelope::Event {
         ref_id: "correlation-42".into(),
-        event: mk_event(AgentEventKind::AssistantDelta {
-            text: "x".into(),
-        }),
+        event: mk_event(AgentEventKind::AssistantDelta { text: "x".into() }),
     };
     match roundtrip(&env) {
         Envelope::Event { ref_id, .. } => assert_eq!(ref_id, "correlation-42"),
@@ -694,9 +691,7 @@ fn event_with_ext_field() {
         ref_id: "ext".into(),
         event: AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "hi".into() },
             ext: Some(ext),
         },
     };
@@ -713,9 +708,7 @@ fn event_with_ext_field() {
 fn event_with_ext_none_omitted() {
     let env = Envelope::Event {
         ref_id: "no-ext".into(),
-        event: mk_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        }),
+        event: mk_event(AgentEventKind::AssistantDelta { text: "a".into() }),
     };
     let v = serde_json::to_value(&env).unwrap();
     assert!(v["event"].get("raw_message").is_none());
@@ -881,7 +874,9 @@ fn fatal_with_ref_id_roundtrip() {
     };
     match roundtrip(&env) {
         Envelope::Fatal {
-            ref_id, error, error_code,
+            ref_id,
+            error,
+            error_code,
         } => {
             assert_eq!(ref_id.as_deref(), Some("run-1"));
             assert_eq!(error, "crash");
@@ -935,22 +930,14 @@ fn fatal_error_code_skipped_when_none() {
 
 #[test]
 fn fatal_error_code_present_when_some() {
-    let env = Envelope::fatal_with_code(
-        None,
-        "timeout",
-        abp_error::ErrorCode::BackendTimeout,
-    );
+    let env = Envelope::fatal_with_code(None, "timeout", abp_error::ErrorCode::BackendTimeout);
     let v = serde_json::to_value(&env).unwrap();
     assert_eq!(v["error_code"], "BACKEND_TIMEOUT");
 }
 
 #[test]
 fn fatal_error_code_accessor() {
-    let env = Envelope::fatal_with_code(
-        None,
-        "e",
-        abp_error::ErrorCode::ProtocolInvalidEnvelope,
-    );
+    let env = Envelope::fatal_with_code(None, "e", abp_error::ErrorCode::ProtocolInvalidEnvelope);
     assert_eq!(
         env.error_code(),
         Some(abp_error::ErrorCode::ProtocolInvalidEnvelope)
@@ -965,10 +952,7 @@ fn fatal_error_code_accessor_none_on_other_variants() {
 
 #[test]
 fn fatal_from_abp_error() {
-    let abp_err = abp_error::AbpError::new(
-        abp_error::ErrorCode::PolicyDenied,
-        "denied by policy",
-    );
+    let abp_err = abp_error::AbpError::new(abp_error::ErrorCode::PolicyDenied, "denied by policy");
     let env = Envelope::fatal_from_abp_error(Some("run-x".into()), &abp_err);
     match roundtrip(&env) {
         Envelope::Fatal {
@@ -1031,9 +1015,7 @@ fn each_variant_has_distinct_tag() {
 fn inner_event_uses_type_not_t() {
     let env = Envelope::Event {
         ref_id: "r".into(),
-        event: mk_event(AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        }),
+        event: mk_event(AgentEventKind::AssistantMessage { text: "hi".into() }),
     };
     let v = serde_json::to_value(&env).unwrap();
     assert_eq!(v["event"]["type"], "assistant_message");
@@ -1053,9 +1035,7 @@ fn ref_id_matches_run_id_in_event() {
     };
     let event_env = Envelope::Event {
         ref_id: run_id.into(),
-        event: mk_event(AgentEventKind::AssistantDelta {
-            text: "t".into(),
-        }),
+        event: mk_event(AgentEventKind::AssistantDelta { text: "t".into() }),
     };
     let rv = serde_json::to_value(&run_env).unwrap();
     let ev = serde_json::to_value(&event_env).unwrap();
@@ -1127,12 +1107,17 @@ fn decode_not_json_fails() {
 
 #[test]
 fn decode_truncated_json_fails() {
-    assert!(JsonlCodec::decode(r#"{"t":"hello","contract_version":#).is_err());
+    assert!(
+        JsonlCodec::decode(
+            r#"{"t":"hello","contract_version":#).is_err());
 }
 
 #[test]
 fn decode_missing_tag_field_fails() {
-    assert!(JsonlCodec::decode(r#"{"data":1}"#).is_err());
+    assert!(JsonlCodec::decode(r#"{"data":1}"#
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -1205,7 +1190,8 @@ fn run_missing_work_order_fails() {
 
 #[test]
 fn event_missing_ref_id_fails() {
-    let raw = r#"{"t":"event","event":{"ts":"2025-01-01T00:00:00Z","type":"warning","message":"w"}}"#;
+    let raw =
+        r#"{"t":"event","event":{"ts":"2025-01-01T00:00:00Z","type":"warning","message":"w"}}"#;
     assert!(serde_json::from_str::<Envelope>(raw).is_err());
 }
 
@@ -1679,10 +1665,7 @@ fn protocol_error_json_has_no_error_code() {
 
 #[test]
 fn protocol_error_from_abp_error() {
-    let abp_err = abp_error::AbpError::new(
-        abp_error::ErrorCode::Internal,
-        "internal",
-    );
+    let abp_err = abp_error::AbpError::new(abp_error::ErrorCode::Internal, "internal");
     let err = ProtocolError::from(abp_err);
     assert_eq!(err.error_code(), Some(abp_error::ErrorCode::Internal));
 }
@@ -1782,12 +1765,8 @@ fn all_event_kinds_roundtrip() {
         AgentEventKind::RunCompleted {
             message: "c".into(),
         },
-        AgentEventKind::AssistantDelta {
-            text: "d".into(),
-        },
-        AgentEventKind::AssistantMessage {
-            text: "m".into(),
-        },
+        AgentEventKind::AssistantDelta { text: "d".into() },
+        AgentEventKind::AssistantMessage { text: "m".into() },
         AgentEventKind::ToolCall {
             tool_name: "bash".into(),
             tool_use_id: Some("t1".into()),
@@ -1873,7 +1852,9 @@ fn event_with_unicode_text() {
 fn event_empty_text_roundtrip() {
     let env = Envelope::Event {
         ref_id: "empty".into(),
-        event: mk_event(AgentEventKind::AssistantDelta { text: String::new() }),
+        event: mk_event(AgentEventKind::AssistantDelta {
+            text: String::new(),
+        }),
     };
     match roundtrip(&env) {
         Envelope::Event { event, .. } => match event.kind {
@@ -2026,15 +2007,11 @@ fn event_type_tag_uses_snake_case() {
             "run_completed",
         ),
         (
-            AgentEventKind::AssistantDelta {
-                text: "d".into(),
-            },
+            AgentEventKind::AssistantDelta { text: "d".into() },
             "assistant_delta",
         ),
         (
-            AgentEventKind::AssistantMessage {
-                text: "m".into(),
-            },
+            AgentEventKind::AssistantMessage { text: "m".into() },
             "assistant_message",
         ),
         (

@@ -4,10 +4,9 @@
 use std::collections::BTreeMap;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel,
-    UsageNormalized, VerificationReport, CONTRACT_VERSION, canonical_json, receipt_hash,
-    sha256_hex,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel,
+    UsageNormalized, VerificationReport, canonical_json, receipt_hash, sha256_hex,
 };
 use chrono::{DateTime, TimeZone, Utc};
 use serde_json::{Value, json};
@@ -176,7 +175,10 @@ fn builder_computes_duration_ms() {
 #[test]
 fn builder_zero_duration_when_same_timestamps() {
     let t = fixed_time();
-    let r = ReceiptBuilder::new("b").started_at(t).finished_at(t).build();
+    let r = ReceiptBuilder::new("b")
+        .started_at(t)
+        .finished_at(t)
+        .build();
     assert_eq!(r.meta.duration_ms, 0);
 }
 
@@ -722,9 +724,7 @@ fn receipt_empty_capabilities() {
 
 #[test]
 fn receipt_empty_usage_raw() {
-    let r = ReceiptBuilder::new("b")
-        .usage_raw(json!({}))
-        .build();
+    let r = ReceiptBuilder::new("b").usage_raw(json!({})).build();
     assert!(receipt_hash(&r).is_ok());
 }
 
@@ -756,9 +756,7 @@ fn receipt_empty_backend_versions() {
 
 #[test]
 fn receipt_null_usage_raw() {
-    let r = ReceiptBuilder::new("b")
-        .usage_raw(Value::Null)
-        .build();
+    let r = ReceiptBuilder::new("b").usage_raw(Value::Null).build();
     assert!(receipt_hash(&r).is_ok());
 }
 
@@ -941,9 +939,7 @@ fn receipt_ext_field_on_event() {
     let mut r = minimal_receipt();
     r.trace.push(AgentEvent {
         ts: fixed_time(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: Some(ext),
     });
     assert!(receipt_hash(&r).is_ok());
@@ -1012,16 +1008,12 @@ fn hash_sensitive_to_trace_order() {
     r1.meta.run_id = Uuid::nil();
     r1.trace.push(AgentEvent {
         ts: fixed_time(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "A".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "A".into() },
         ext: None,
     });
     r1.trace.push(AgentEvent {
         ts: fixed_time(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "B".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "B".into() },
         ext: None,
     });
 
@@ -1613,9 +1605,7 @@ fn receipt_with_mixed_event_types_in_trace() {
     });
     r.trace.push(AgentEvent {
         ts: fixed_time(),
-        kind: AgentEventKind::AssistantDelta {
-            text: "tok".into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: "tok".into() },
         ext: None,
     });
     r.trace.push(AgentEvent {
@@ -1730,9 +1720,7 @@ fn builder_full_chain() {
 
 #[test]
 fn builder_backend_id_override() {
-    let r = ReceiptBuilder::new("first")
-        .backend_id("second")
-        .build();
+    let r = ReceiptBuilder::new("first").backend_id("second").build();
     assert_eq!(r.backend.id, "second");
 }
 

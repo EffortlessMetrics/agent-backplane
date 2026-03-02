@@ -370,7 +370,10 @@ fn write_deny_specific_extension() {
         ..Default::default()
     });
     assert!(!e.can_write_path(Path::new("Cargo.lock")).allowed);
-    assert!(!e.can_write_path(Path::new("sub/package-lock.json.lock")).allowed);
+    assert!(
+        !e.can_write_path(Path::new("sub/package-lock.json.lock"))
+            .allowed
+    );
     assert!(e.can_write_path(Path::new("Cargo.toml")).allowed);
 }
 
@@ -680,7 +683,10 @@ fn unicode_paths_in_deny_write() {
         ..Default::default()
     });
     assert!(!e.can_write_path(Path::new("docs/日本語/readme.md")).allowed);
-    assert!(e.can_write_path(Path::new("docs/english/readme.md")).allowed);
+    assert!(
+        e.can_write_path(Path::new("docs/english/readme.md"))
+            .allowed
+    );
 }
 
 #[test]
@@ -725,7 +731,11 @@ fn very_long_tool_name() {
 #[test]
 fn very_long_path_allowed() {
     let e = engine(PolicyProfile::default());
-    let long_path = (0..100).map(|i| format!("dir{i}")).collect::<Vec<_>>().join("/") + "/file.txt";
+    let long_path = (0..100)
+        .map(|i| format!("dir{i}"))
+        .collect::<Vec<_>>()
+        .join("/")
+        + "/file.txt";
     assert!(e.can_read_path(Path::new(&long_path)).allowed);
 }
 
@@ -735,8 +745,11 @@ fn very_long_path_denied() {
         deny_read: vec![s("**/*.secret")],
         ..Default::default()
     });
-    let long_path =
-        (0..100).map(|i| format!("dir{i}")).collect::<Vec<_>>().join("/") + "/file.secret";
+    let long_path = (0..100)
+        .map(|i| format!("dir{i}"))
+        .collect::<Vec<_>>()
+        .join("/")
+        + "/file.secret";
     assert!(!e.can_read_path(Path::new(&long_path)).allowed);
 }
 
@@ -1294,7 +1307,10 @@ fn independent_read_write_deny_lists() {
         ..Default::default()
     });
     // deny_read does not affect write
-    assert!(!e.can_read_path(Path::new("read_only_deny/file.txt")).allowed);
+    assert!(
+        !e.can_read_path(Path::new("read_only_deny/file.txt"))
+            .allowed
+    );
     assert!(
         e.can_write_path(Path::new("read_only_deny/file.txt"))
             .allowed
@@ -1318,10 +1334,7 @@ fn both_read_and_write_denied_for_same_path() {
         ..Default::default()
     });
     assert!(!e.can_read_path(Path::new("protected/file.txt")).allowed);
-    assert!(
-        !e.can_write_path(Path::new("protected/file.txt"))
-            .allowed
-    );
+    assert!(!e.can_write_path(Path::new("protected/file.txt")).allowed);
     assert!(e.can_read_path(Path::new("public/file.txt")).allowed);
     assert!(e.can_write_path(Path::new("public/file.txt")).allowed);
 }

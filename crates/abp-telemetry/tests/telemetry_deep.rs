@@ -9,7 +9,14 @@ use std::thread;
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn make_run(backend: &str, dialect: &str, duration_ms: u64, tokens_in: u64, tokens_out: u64, errors: u64) -> RunMetrics {
+fn make_run(
+    backend: &str,
+    dialect: &str,
+    duration_ms: u64,
+    tokens_in: u64,
+    tokens_out: u64,
+    errors: u64,
+) -> RunMetrics {
     RunMetrics {
         backend_name: backend.to_string(),
         dialect: dialect.to_string(),
@@ -884,7 +891,10 @@ fn span_json_attributes_deterministic_order() {
     let json = serde_json::to_string(&span).unwrap();
     let a_pos = json.find("a_first").unwrap();
     let z_pos = json.find("z_last").unwrap();
-    assert!(a_pos < z_pos, "BTreeMap should serialize in alphabetical order");
+    assert!(
+        a_pos < z_pos,
+        "BTreeMap should serialize in alphabetical order"
+    );
 }
 
 // =========================================================================

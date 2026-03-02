@@ -6,9 +6,9 @@
 use abp_core::config::{ConfigDefaults, ConfigValidator, WarningSeverity};
 use abp_core::ext::WorkOrderExt;
 use abp_core::{
-    Capability, CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet,
-    ExecutionLane, ExecutionMode, MinSupport, PolicyProfile, RuntimeConfig, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    CONTRACT_VERSION, Capability, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, PolicyProfile, RuntimeConfig,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -130,7 +130,10 @@ fn builder_model_overrides_config_model() {
         model: Some("old-model".into()),
         ..Default::default()
     };
-    let wo = WorkOrderBuilder::new("t").config(cfg).model("new-model").build();
+    let wo = WorkOrderBuilder::new("t")
+        .config(cfg)
+        .model("new-model")
+        .build();
     assert_eq!(wo.config.model.as_deref(), Some("new-model"));
 }
 
@@ -816,7 +819,9 @@ fn validator_accepts_tiny_budget() {
 
 #[test]
 fn validator_accepts_large_budget() {
-    let wo = WorkOrderBuilder::new("t").max_budget_usd(999_999.99).build();
+    let wo = WorkOrderBuilder::new("t")
+        .max_budget_usd(999_999.99)
+        .build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
     assert!(warnings.is_empty());
 }
@@ -830,7 +835,10 @@ fn validator_rejects_negative_budget_small() {
 
 #[test]
 fn validator_multiple_errors_at_once() {
-    let mut wo = WorkOrderBuilder::new("  ").max_turns(0).max_budget_usd(-1.0).build();
+    let mut wo = WorkOrderBuilder::new("  ")
+        .max_turns(0)
+        .max_budget_usd(-1.0)
+        .build();
     wo.config.model = Some("  ".into());
     let warnings = ConfigValidator::new().validate_work_order(&wo);
     let error_count = warnings
@@ -1152,9 +1160,7 @@ fn deeply_nested_vendor_value() {
 
 #[test]
 fn float_budget_precision_roundtrip() {
-    let wo = WorkOrderBuilder::new("t")
-        .max_budget_usd(0.1 + 0.2)
-        .build();
+    let wo = WorkOrderBuilder::new("t").max_budget_usd(0.1 + 0.2).build();
     let json = serde_json::to_string(&wo).unwrap();
     let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
     let diff = (wo2.config.max_budget_usd.unwrap() - (0.1_f64 + 0.2)).abs();
@@ -1302,10 +1308,7 @@ fn policy_both_allow_and_deny_tools() {
 fn policy_network_rules_roundtrip() {
     let wo = WorkOrderBuilder::new("t")
         .policy(PolicyProfile {
-            allow_network: vec![
-                "api.github.com".into(),
-                "*.npmjs.org".into(),
-            ],
+            allow_network: vec!["api.github.com".into(), "*.npmjs.org".into()],
             deny_network: vec!["*.evil.com".into(), "localhost".into()],
             ..Default::default()
         })
@@ -1411,7 +1414,12 @@ fn vendor_with_empty_object_value() {
         .build();
     let json = serde_json::to_string(&wo).unwrap();
     let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
-    assert!(wo2.config.vendor["empty_obj"].as_object().unwrap().is_empty());
+    assert!(
+        wo2.config.vendor["empty_obj"]
+            .as_object()
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]
@@ -1426,7 +1434,12 @@ fn vendor_with_empty_array_value() {
         .build();
     let json = serde_json::to_string(&wo).unwrap();
     let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
-    assert!(wo2.config.vendor["empty_arr"].as_array().unwrap().is_empty());
+    assert!(
+        wo2.config.vendor["empty_arr"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]
@@ -1450,7 +1463,14 @@ fn work_order_json_keys_are_expected_top_level() {
     let val = serde_json::to_value(&wo).unwrap();
     let obj = val.as_object().unwrap();
     let expected = [
-        "id", "task", "lane", "workspace", "context", "policy", "requirements", "config",
+        "id",
+        "task",
+        "lane",
+        "workspace",
+        "context",
+        "policy",
+        "requirements",
+        "config",
     ];
     for k in &expected {
         assert!(obj.contains_key(*k), "missing top-level key: {k}");

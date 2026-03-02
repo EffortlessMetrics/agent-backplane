@@ -214,9 +214,7 @@ fn response_with_usage() {
         id: "msg_1".into(),
         model: "claude-sonnet-4-20250514".into(),
         role: "assistant".into(),
-        content: vec![ClaudeContentBlock::Text {
-            text: "ok".into(),
-        }],
+        content: vec![ClaudeContentBlock::Text { text: "ok".into() }],
         stop_reason: Some("end_turn".into()),
         usage: Some(ClaudeUsage {
             input_tokens: 100,
@@ -301,10 +299,7 @@ fn stream_message_start_maps_to_run_started() {
     };
     let events = dialect::map_stream_event(&event);
     assert_eq!(events.len(), 1);
-    assert!(matches!(
-        &events[0].kind,
-        AgentEventKind::RunStarted { .. }
-    ));
+    assert!(matches!(&events[0].kind, AgentEventKind::RunStarted { .. }));
 }
 
 #[test]
@@ -1687,9 +1682,11 @@ fn very_long_content() {
 fn special_chars_in_content() {
     let msgs = vec![claude_msg("user", r#"{"key": "value", "arr": [1,2,3]}"#)];
     let conv = lowering::to_ir(&msgs, None);
-    assert!(conv.messages[0]
-        .text_content()
-        .contains(r#"{"key": "value""#));
+    assert!(
+        conv.messages[0]
+            .text_content()
+            .contains(r#"{"key": "value""#)
+    );
 }
 
 #[test]
@@ -1854,9 +1851,7 @@ fn stop_reason_roundtrip() {
 
 #[test]
 fn map_response_text_event() {
-    let resp = make_response(vec![ClaudeContentBlock::Text {
-        text: "Hi!".into(),
-    }]);
+    let resp = make_response(vec![ClaudeContentBlock::Text { text: "Hi!".into() }]);
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 1);
     match &events[0].kind {
@@ -1939,10 +1934,7 @@ fn map_response_thinking_event_has_ext() {
     }
     let ext = events[0].ext.as_ref().unwrap();
     assert_eq!(ext.get("thinking"), Some(&json!(true)));
-    assert_eq!(
-        ext.get("signature"),
-        Some(&json!("sig_abc"))
-    );
+    assert_eq!(ext.get("signature"), Some(&json!("sig_abc")));
 }
 
 #[test]
@@ -2060,9 +2052,7 @@ fn verify_passthrough_fidelity_all_event_types() {
         },
         ClaudeStreamEvent::ContentBlockDelta {
             index: 0,
-            delta: ClaudeStreamDelta::TextDelta {
-                text: "hi".into(),
-            },
+            delta: ClaudeStreamDelta::TextDelta { text: "hi".into() },
         },
         ClaudeStreamEvent::ContentBlockStop { index: 0 },
         ClaudeStreamEvent::MessageDelta {

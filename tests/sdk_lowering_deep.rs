@@ -10,8 +10,7 @@ use serde_json::json;
 // ─── OpenAI imports ─────────────────────────────────────────────────────
 use abp_openai_sdk::dialect::{
     self as openai_dialect, CanonicalToolDef as OaiCanonical, OpenAIChoice, OpenAIConfig,
-    OpenAIFunctionCall, OpenAIMessage, OpenAIResponse,
-    OpenAIToolCall, OpenAIUsage,
+    OpenAIFunctionCall, OpenAIMessage, OpenAIResponse, OpenAIToolCall, OpenAIUsage,
 };
 use abp_openai_sdk::lowering as openai_lowering;
 use abp_openai_sdk::streaming::{
@@ -31,8 +30,8 @@ use abp_claude_sdk::lowering as claude_lowering;
 // ─── Gemini imports ─────────────────────────────────────────────────────
 use abp_gemini_sdk::dialect::{
     self as gemini_dialect, CanonicalToolDef as GeminiCanonical, GeminiCandidate, GeminiConfig,
-    GeminiContent, GeminiInlineData, GeminiPart, GeminiResponse,
-    GeminiStreamChunk, GeminiUsageMetadata,
+    GeminiContent, GeminiInlineData, GeminiPart, GeminiResponse, GeminiStreamChunk,
+    GeminiUsageMetadata,
 };
 use abp_gemini_sdk::lowering as gemini_lowering;
 

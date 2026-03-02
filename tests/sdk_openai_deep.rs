@@ -18,9 +18,7 @@ use abp_openai_sdk::streaming::{
     ChatCompletionChunk, ChunkChoice, ChunkDelta, ChunkFunctionCall, ChunkToolCall, ChunkUsage,
     ToolCallAccumulator,
 };
-use abp_openai_sdk::validation::{
-    self, ExtendedRequestFields, UnmappableParam, ValidationErrors,
-};
+use abp_openai_sdk::validation::{self, ExtendedRequestFields, UnmappableParam, ValidationErrors};
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{AgentEventKind, WorkOrderBuilder};
@@ -47,10 +45,7 @@ fn tool_result_msg(content: Option<&str>, tool_call_id: &str) -> OpenAIMessage {
     }
 }
 
-fn assistant_with_tool_calls(
-    content: Option<&str>,
-    calls: Vec<OpenAIToolCall>,
-) -> OpenAIMessage {
+fn assistant_with_tool_calls(content: Option<&str>, calls: Vec<OpenAIToolCall>) -> OpenAIMessage {
     OpenAIMessage {
         role: "assistant".into(),
         content: content.map(Into::into),
@@ -170,9 +165,7 @@ fn ir_tool_with_tool_result_maps_to_tool_role() {
         IrRole::Tool,
         vec![IrContentBlock::ToolResult {
             tool_use_id: "c1".into(),
-            content: vec![IrContentBlock::Text {
-                text: "ok".into(),
-            }],
+            content: vec![IrContentBlock::Text { text: "ok".into() }],
             is_error: false,
         }],
     )]);
@@ -322,7 +315,10 @@ fn empty_object_arguments_roundtrip() {
     )];
     let back = lowering::from_ir(&lowering::to_ir(&msgs));
     let args = &back[0].tool_calls.as_ref().unwrap()[0].function.arguments;
-    assert_eq!(serde_json::from_str::<serde_json::Value>(args).unwrap(), json!({}));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(args).unwrap(),
+        json!({})
+    );
 }
 
 // =========================================================================
@@ -407,7 +403,10 @@ fn multi_turn_system_user_assistant() {
 fn multi_turn_with_tool_call_and_result() {
     let msgs = [
         msg("user", Some("Read main.rs")),
-        assistant_with_tool_calls(None, vec![make_tool_call("c1", "read_file", r#"{"path":"main.rs"}"#)]),
+        assistant_with_tool_calls(
+            None,
+            vec![make_tool_call("c1", "read_file", r#"{"path":"main.rs"}"#)],
+        ),
         tool_result_msg(Some("fn main() {}"), "c1"),
         msg("assistant", Some("Done.")),
     ];
@@ -506,7 +505,10 @@ fn special_characters_in_tool_name() {
         vec![make_tool_call("c1", "my-tool_v2.0", "{}")],
     )];
     let back = lowering::from_ir(&lowering::to_ir(&msgs));
-    assert_eq!(back[0].tool_calls.as_ref().unwrap()[0].function.name, "my-tool_v2.0");
+    assert_eq!(
+        back[0].tool_calls.as_ref().unwrap()[0].function.name,
+        "my-tool_v2.0"
+    );
 }
 
 #[test]
@@ -582,10 +584,7 @@ fn request_serde_roundtrip_minimal() {
 fn request_serde_roundtrip_all_fields() {
     let req = OpenAIRequest {
         model: "gpt-4-turbo".into(),
-        messages: vec![
-            msg("system", Some("Be brief")),
-            msg("user", Some("Hello")),
-        ],
+        messages: vec![msg("system", Some("Be brief")), msg("user", Some("Hello"))],
         tools: Some(vec![OpenAIToolDef {
             tool_type: "function".into(),
             function: OpenAIFunctionDef {
@@ -712,7 +711,11 @@ fn response_with_tool_calls_produces_tool_call_events() {
             index: 0,
             message: assistant_with_tool_calls(
                 None,
-                vec![make_tool_call("call_abc", "read_file", r#"{"path":"src/main.rs"}"#)],
+                vec![make_tool_call(
+                    "call_abc",
+                    "read_file",
+                    r#"{"path":"src/main.rs"}"#,
+                )],
             ),
             finish_reason: Some("tool_calls".into()),
         }],
@@ -753,7 +756,10 @@ fn response_text_and_tool_calls_produce_multiple_events() {
     };
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 2);
-    assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
+    assert!(matches!(
+        &events[0].kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
     assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { .. }));
 }
 
@@ -799,10 +805,7 @@ fn response_malformed_tool_args_in_event() {
         model: "gpt-4o".into(),
         choices: vec![OpenAIChoice {
             index: 0,
-            message: assistant_with_tool_calls(
-                None,
-                vec![make_tool_call("c1", "fn", "bad-json")],
-            ),
+            message: assistant_with_tool_calls(None, vec![make_tool_call("c1", "fn", "bad-json")]),
             finish_reason: Some("tool_calls".into()),
         }],
         usage: None,
@@ -1138,8 +1141,14 @@ fn roundtrip_preserves_tool_call_structure() {
     // Assistant message
     assert_eq!(back[1].content.as_deref(), Some("Sure"));
     assert_eq!(back[1].tool_calls.as_ref().unwrap().len(), 2);
-    assert_eq!(back[1].tool_calls.as_ref().unwrap()[0].function.name, "read");
-    assert_eq!(back[1].tool_calls.as_ref().unwrap()[1].function.name, "write");
+    assert_eq!(
+        back[1].tool_calls.as_ref().unwrap()[0].function.name,
+        "read"
+    );
+    assert_eq!(
+        back[1].tool_calls.as_ref().unwrap()[1].function.name,
+        "write"
+    );
     // Tool results
     assert_eq!(back[2].tool_call_id.as_deref(), Some("c1"));
     assert_eq!(back[3].tool_call_id.as_deref(), Some("c2"));
@@ -1181,10 +1190,7 @@ fn message_serde_roundtrip_user() {
 
 #[test]
 fn message_serde_roundtrip_tool_calls() {
-    let m = assistant_with_tool_calls(
-        None,
-        vec![make_tool_call("c1", "fn", r#"{"a":1}"#)],
-    );
+    let m = assistant_with_tool_calls(None, vec![make_tool_call("c1", "fn", r#"{"a":1}"#)]);
     let json = serde_json::to_value(&m).unwrap();
     let parsed: OpenAIMessage = serde_json::from_value(json).unwrap();
     let tc = &parsed.tool_calls.as_ref().unwrap()[0];
@@ -1530,7 +1536,13 @@ fn map_work_order_uses_task_as_user_message() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0].content.as_deref().unwrap().contains("Refactor auth"));
+    assert!(
+        req.messages[0]
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Refactor auth")
+    );
 }
 
 #[test]
@@ -1585,7 +1597,10 @@ fn canonical_model_roundtrip() {
 
 #[test]
 fn from_canonical_no_prefix_passthrough() {
-    assert_eq!(dialect::from_canonical_model("custom-model"), "custom-model");
+    assert_eq!(
+        dialect::from_canonical_model("custom-model"),
+        "custom-model"
+    );
 }
 
 #[test]
@@ -1815,10 +1830,7 @@ fn host_script_relative_correct() {
 
 #[test]
 fn system_message_accessor() {
-    let msgs = [
-        msg("system", Some("instructions")),
-        msg("user", Some("hi")),
-    ];
+    let msgs = [msg("system", Some("instructions")), msg("user", Some("hi"))];
     let conv = lowering::to_ir(&msgs);
     let sys = conv.system_message().unwrap();
     assert_eq!(sys.text_content(), "instructions");
@@ -2065,10 +2077,7 @@ fn conversation_len_and_is_empty() {
 
 #[test]
 fn last_message_accessor() {
-    let msgs = [
-        msg("user", Some("first")),
-        msg("assistant", Some("last")),
-    ];
+    let msgs = [msg("user", Some("first")), msg("assistant", Some("last"))];
     let conv = lowering::to_ir(&msgs);
     assert_eq!(conv.last_message().unwrap().text_content(), "last");
 }

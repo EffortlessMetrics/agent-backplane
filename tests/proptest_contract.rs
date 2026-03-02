@@ -10,15 +10,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use proptest::prelude::*;
 use serde_json::json;
 
-use abp_core::ir::{
-    IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage,
-};
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, RunMetadata, RuntimeConfig,
-    SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
+    WorkspaceMode, WorkspaceSpec,
 };
 use abp_policy::PolicyEngine;
 use abp_receipt::{compute_hash, verify_hash};
@@ -72,19 +70,36 @@ fn arb_json_value() -> BoxedStrategy<serde_json::Value> {
 // -- Enums ----------------------------------------------------------------
 
 fn arb_execution_lane() -> BoxedStrategy<ExecutionLane> {
-    prop_oneof![Just(ExecutionLane::PatchFirst), Just(ExecutionLane::WorkspaceFirst),].boxed()
+    prop_oneof![
+        Just(ExecutionLane::PatchFirst),
+        Just(ExecutionLane::WorkspaceFirst),
+    ]
+    .boxed()
 }
 
 fn arb_workspace_mode() -> BoxedStrategy<WorkspaceMode> {
-    prop_oneof![Just(WorkspaceMode::PassThrough), Just(WorkspaceMode::Staged),].boxed()
+    prop_oneof![
+        Just(WorkspaceMode::PassThrough),
+        Just(WorkspaceMode::Staged),
+    ]
+    .boxed()
 }
 
 fn arb_execution_mode() -> BoxedStrategy<ExecutionMode> {
-    prop_oneof![Just(ExecutionMode::Passthrough), Just(ExecutionMode::Mapped),].boxed()
+    prop_oneof![
+        Just(ExecutionMode::Passthrough),
+        Just(ExecutionMode::Mapped),
+    ]
+    .boxed()
 }
 
 fn arb_outcome() -> BoxedStrategy<Outcome> {
-    prop_oneof![Just(Outcome::Complete), Just(Outcome::Partial), Just(Outcome::Failed),].boxed()
+    prop_oneof![
+        Just(Outcome::Complete),
+        Just(Outcome::Partial),
+        Just(Outcome::Failed),
+    ]
+    .boxed()
 }
 
 fn arb_min_support() -> BoxedStrategy<MinSupport> {
@@ -351,8 +366,10 @@ fn arb_agent_event_kind() -> BoxedStrategy<AgentEventKind> {
             }
         }),
         arb_safe_string().prop_map(|message| AgentEventKind::Warning { message }),
-        arb_safe_string()
-            .prop_map(|message| AgentEventKind::Error { message, error_code: None }),
+        arb_safe_string().prop_map(|message| AgentEventKind::Error {
+            message,
+            error_code: None
+        }),
     ]
     .boxed()
 }
@@ -380,7 +397,17 @@ fn arb_receipt() -> BoxedStrategy<Receipt> {
         arb_outcome(),
     )
         .prop_map(
-            |(meta, backend, capabilities, mode, usage, trace, artifacts, verification, outcome)| {
+            |(
+                meta,
+                backend,
+                capabilities,
+                mode,
+                usage,
+                trace,
+                artifacts,
+                verification,
+                outcome,
+            )| {
                 Receipt {
                     meta,
                     backend,

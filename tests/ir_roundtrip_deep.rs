@@ -21,7 +21,9 @@ use abp_claude_sdk::lowering as claude_ir;
 use abp_gemini_sdk::dialect::{GeminiContent, GeminiInlineData, GeminiPart};
 use abp_gemini_sdk::lowering as gemini_ir;
 
-use abp_codex_sdk::dialect::{CodexContentPart, CodexInputItem, CodexResponseItem, CodexUsage, ReasoningSummary};
+use abp_codex_sdk::dialect::{
+    CodexContentPart, CodexInputItem, CodexResponseItem, CodexUsage, ReasoningSummary,
+};
 use abp_codex_sdk::lowering as codex_ir;
 
 use abp_kimi_sdk::dialect::{KimiFunctionCall, KimiMessage, KimiToolCall, KimiUsage};
@@ -67,7 +69,9 @@ fn construct_text_message_tool() {
 #[test]
 fn construct_message_with_tool_use() {
     let blocks = vec![
-        IrContentBlock::Text { text: "Let me search.".into() },
+        IrContentBlock::Text {
+            text: "Let me search.".into(),
+        },
         IrContentBlock::ToolUse {
             id: "t1".into(),
             name: "web_search".into(),
@@ -105,7 +109,9 @@ fn construct_message_with_image() {
 
 #[test]
 fn construct_message_with_thinking() {
-    let block = IrContentBlock::Thinking { text: "Let me reason step by step.".into() };
+    let block = IrContentBlock::Thinking {
+        text: "Let me reason step by step.".into(),
+    };
     let msg = IrMessage::new(IrRole::Assistant, vec![block]);
     assert!(!msg.is_text_only());
 }
@@ -178,8 +184,7 @@ fn conversation_system_message_accessor() {
 
 #[test]
 fn conversation_no_system_message_returns_none() {
-    let conv = IrConversation::new()
-        .push(IrMessage::text(IrRole::User, "Hi"));
+    let conv = IrConversation::new().push(IrMessage::text(IrRole::User, "Hi"));
     assert!(conv.system_message().is_none());
 }
 
@@ -195,8 +200,7 @@ fn conversation_last_assistant() {
 
 #[test]
 fn conversation_last_message() {
-    let conv = IrConversation::new()
-        .push(IrMessage::text(IrRole::User, "final"));
+    let conv = IrConversation::new().push(IrMessage::text(IrRole::User, "final"));
     assert_eq!(conv.last_message().unwrap().text_content(), "final");
 }
 
@@ -216,23 +220,37 @@ fn conversation_messages_by_role() {
 #[test]
 fn conversation_tool_calls_aggregation() {
     let conv = IrConversation::from_messages(vec![
-        IrMessage::new(IrRole::Assistant, vec![
-            IrContentBlock::ToolUse { id: "t1".into(), name: "a".into(), input: json!({}) },
-        ]),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "t1".into(),
+                name: "a".into(),
+                input: json!({}),
+            }],
+        ),
         IrMessage::text(IrRole::User, "ok"),
-        IrMessage::new(IrRole::Assistant, vec![
-            IrContentBlock::ToolUse { id: "t2".into(), name: "b".into(), input: json!({}) },
-            IrContentBlock::ToolUse { id: "t3".into(), name: "c".into(), input: json!({}) },
-        ]),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::ToolUse {
+                    id: "t2".into(),
+                    name: "b".into(),
+                    input: json!({}),
+                },
+                IrContentBlock::ToolUse {
+                    id: "t3".into(),
+                    name: "c".into(),
+                    input: json!({}),
+                },
+            ],
+        ),
     ]);
     assert_eq!(conv.tool_calls().len(), 3);
 }
 
 #[test]
 fn conversation_empty_tool_calls() {
-    let conv = IrConversation::from_messages(vec![
-        IrMessage::text(IrRole::User, "hello"),
-    ]);
+    let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hello")]);
     assert!(conv.tool_calls().is_empty());
 }
 
@@ -318,7 +336,12 @@ fn usage_merge_associative() {
 
 #[test]
 fn serde_roundtrip_ir_role_all_variants() {
-    for role in [IrRole::System, IrRole::User, IrRole::Assistant, IrRole::Tool] {
+    for role in [
+        IrRole::System,
+        IrRole::User,
+        IrRole::Assistant,
+        IrRole::Tool,
+    ] {
         let json = serde_json::to_string(&role).unwrap();
         let back: IrRole = serde_json::from_str(&json).unwrap();
         assert_eq!(role, back);
@@ -327,7 +350,9 @@ fn serde_roundtrip_ir_role_all_variants() {
 
 #[test]
 fn serde_roundtrip_text_block() {
-    let block = IrContentBlock::Text { text: "hello".into() };
+    let block = IrContentBlock::Text {
+        text: "hello".into(),
+    };
     let json = serde_json::to_string(&block).unwrap();
     let back: IrContentBlock = serde_json::from_str(&json).unwrap();
     assert_eq!(block, back);
@@ -361,7 +386,9 @@ fn serde_roundtrip_tool_use_block() {
 fn serde_roundtrip_tool_result_block() {
     let block = IrContentBlock::ToolResult {
         tool_use_id: "call_123".into(),
-        content: vec![IrContentBlock::Text { text: "found it".into() }],
+        content: vec![IrContentBlock::Text {
+            text: "found it".into(),
+        }],
         is_error: false,
     };
     let json = serde_json::to_string(&block).unwrap();
@@ -373,7 +400,9 @@ fn serde_roundtrip_tool_result_block() {
 fn serde_roundtrip_tool_result_error() {
     let block = IrContentBlock::ToolResult {
         tool_use_id: "call_err".into(),
-        content: vec![IrContentBlock::Text { text: "not found".into() }],
+        content: vec![IrContentBlock::Text {
+            text: "not found".into(),
+        }],
         is_error: true,
     };
     let json = serde_json::to_string(&block).unwrap();
@@ -383,7 +412,9 @@ fn serde_roundtrip_tool_result_error() {
 
 #[test]
 fn serde_roundtrip_thinking_block() {
-    let block = IrContentBlock::Thinking { text: "Reasoning step by step...".into() };
+    let block = IrContentBlock::Thinking {
+        text: "Reasoning step by step...".into(),
+    };
     let json = serde_json::to_string(&block).unwrap();
     let back: IrContentBlock = serde_json::from_str(&json).unwrap();
     assert_eq!(block, back);
@@ -391,14 +422,19 @@ fn serde_roundtrip_thinking_block() {
 
 #[test]
 fn serde_roundtrip_ir_message() {
-    let msg = IrMessage::new(IrRole::Assistant, vec![
-        IrContentBlock::Text { text: "Here you go:".into() },
-        IrContentBlock::ToolUse {
-            id: "t1".into(),
-            name: "ls".into(),
-            input: json!({"dir": "/"}),
-        },
-    ]);
+    let msg = IrMessage::new(
+        IrRole::Assistant,
+        vec![
+            IrContentBlock::Text {
+                text: "Here you go:".into(),
+            },
+            IrContentBlock::ToolUse {
+                id: "t1".into(),
+                name: "ls".into(),
+                input: json!({"dir": "/"}),
+            },
+        ],
+    );
     let json = serde_json::to_string(&msg).unwrap();
     let back: IrMessage = serde_json::from_str(&json).unwrap();
     assert_eq!(msg, back);
@@ -465,8 +501,18 @@ fn openai_user_text_roundtrip() {
 #[test]
 fn openai_system_assistant_roundtrip() {
     let msgs = vec![
-        OpenAIMessage { role: "system".into(), content: Some("instructions".into()), tool_calls: None, tool_call_id: None },
-        OpenAIMessage { role: "assistant".into(), content: Some("ok".into()), tool_calls: None, tool_call_id: None },
+        OpenAIMessage {
+            role: "system".into(),
+            content: Some("instructions".into()),
+            tool_calls: None,
+            tool_call_id: None,
+        },
+        OpenAIMessage {
+            role: "assistant".into(),
+            content: Some("ok".into()),
+            tool_calls: None,
+            tool_call_id: None,
+        },
     ];
     let conv = openai_ir::to_ir(&msgs);
     assert_eq!(conv.messages[0].role, IrRole::System);
@@ -517,8 +563,22 @@ fn openai_multi_tool_call_roundtrip() {
         role: "assistant".into(),
         content: None,
         tool_calls: Some(vec![
-            OpenAIToolCall { id: "c1".into(), call_type: "function".into(), function: OpenAIFunctionCall { name: "a".into(), arguments: "{}".into() } },
-            OpenAIToolCall { id: "c2".into(), call_type: "function".into(), function: OpenAIFunctionCall { name: "b".into(), arguments: "{}".into() } },
+            OpenAIToolCall {
+                id: "c1".into(),
+                call_type: "function".into(),
+                function: OpenAIFunctionCall {
+                    name: "a".into(),
+                    arguments: "{}".into(),
+                },
+            },
+            OpenAIToolCall {
+                id: "c2".into(),
+                call_type: "function".into(),
+                function: OpenAIFunctionCall {
+                    name: "b".into(),
+                    arguments: "{}".into(),
+                },
+            },
         ]),
         tool_call_id: None,
     }];
@@ -536,7 +596,10 @@ fn openai_text_plus_tool_call_roundtrip() {
         tool_calls: Some(vec![OpenAIToolCall {
             id: "c1".into(),
             call_type: "function".into(),
-            function: OpenAIFunctionCall { name: "ls".into(), arguments: "{}".into() },
+            function: OpenAIFunctionCall {
+                name: "ls".into(),
+                arguments: "{}".into(),
+            },
         }]),
         tool_call_id: None,
     }];
@@ -567,7 +630,10 @@ fn openai_malformed_args_kept_as_string() {
         tool_calls: Some(vec![OpenAIToolCall {
             id: "c1".into(),
             call_type: "function".into(),
-            function: OpenAIFunctionCall { name: "f".into(), arguments: "not-json".into() },
+            function: OpenAIFunctionCall {
+                name: "f".into(),
+                arguments: "not-json".into(),
+            },
         }]),
         tool_call_id: None,
     }];
@@ -586,7 +652,10 @@ fn openai_malformed_args_kept_as_string() {
 
 #[test]
 fn claude_user_text_roundtrip() {
-    let msgs = vec![ClaudeMessage { role: "user".into(), content: "Hello".into() }];
+    let msgs = vec![ClaudeMessage {
+        role: "user".into(),
+        content: "Hello".into(),
+    }];
     let conv = claude_ir::to_ir(&msgs, None);
     assert_eq!(conv.messages[0].role, IrRole::User);
     let back = claude_ir::from_ir(&conv);
@@ -595,7 +664,10 @@ fn claude_user_text_roundtrip() {
 
 #[test]
 fn claude_system_prompt_roundtrip() {
-    let msgs = vec![ClaudeMessage { role: "user".into(), content: "Hi".into() }];
+    let msgs = vec![ClaudeMessage {
+        role: "user".into(),
+        content: "Hi".into(),
+    }];
     let conv = claude_ir::to_ir(&msgs, Some("Be helpful"));
     assert_eq!(conv.messages[0].role, IrRole::System);
     let sys = claude_ir::extract_system_prompt(&conv);
@@ -638,7 +710,11 @@ fn claude_tool_result_roundtrip() {
     }];
     let conv = claude_ir::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
-        IrContentBlock::ToolResult { tool_use_id, is_error, .. } => {
+        IrContentBlock::ToolResult {
+            tool_use_id,
+            is_error,
+            ..
+        } => {
             assert_eq!(tool_use_id, "tu_1");
             assert!(!is_error);
         }
@@ -858,8 +934,14 @@ fn gemini_synthesized_id_for_function_call() {
 #[test]
 fn codex_input_to_ir() {
     let items = vec![
-        CodexInputItem::Message { role: "system".into(), content: "Be helpful".into() },
-        CodexInputItem::Message { role: "user".into(), content: "Hello".into() },
+        CodexInputItem::Message {
+            role: "system".into(),
+            content: "Be helpful".into(),
+        },
+        CodexInputItem::Message {
+            role: "user".into(),
+            content: "Hello".into(),
+        },
     ];
     let conv = codex_ir::input_to_ir(&items);
     assert_eq!(conv.len(), 2);
@@ -871,17 +953,17 @@ fn codex_input_to_ir() {
 fn codex_response_message_roundtrip() {
     let items = vec![CodexResponseItem::Message {
         role: "assistant".into(),
-        content: vec![CodexContentPart::OutputText { text: "Done!".into() }],
+        content: vec![CodexContentPart::OutputText {
+            text: "Done!".into(),
+        }],
     }];
     let conv = codex_ir::to_ir(&items);
     let back = codex_ir::from_ir(&conv);
     assert_eq!(back.len(), 1);
     match &back[0] {
-        CodexResponseItem::Message { content, .. } => {
-            match &content[0] {
-                CodexContentPart::OutputText { text } => assert_eq!(text, "Done!"),
-            }
-        }
+        CodexResponseItem::Message { content, .. } => match &content[0] {
+            CodexContentPart::OutputText { text } => assert_eq!(text, "Done!"),
+        },
         other => panic!("expected Message, got {other:?}"),
     }
 }
@@ -925,7 +1007,9 @@ fn codex_function_call_output_roundtrip() {
 #[test]
 fn codex_reasoning_roundtrip() {
     let items = vec![CodexResponseItem::Reasoning {
-        summary: vec![ReasoningSummary { text: "thinking...".into() }],
+        summary: vec![ReasoningSummary {
+            text: "thinking...".into(),
+        }],
     }];
     let conv = codex_ir::to_ir(&items);
     let back = codex_ir::from_ir(&conv);
@@ -939,7 +1023,11 @@ fn codex_reasoning_roundtrip() {
 
 #[test]
 fn codex_usage_to_ir() {
-    let usage = CodexUsage { input_tokens: 100, output_tokens: 50, total_tokens: 150 };
+    let usage = CodexUsage {
+        input_tokens: 100,
+        output_tokens: 50,
+        total_tokens: 150,
+    };
     let ir = codex_ir::usage_to_ir(&usage);
     assert_eq!(ir.input_tokens, 100);
     assert_eq!(ir.output_tokens, 50);
@@ -962,7 +1050,9 @@ fn codex_text_and_tool_use_splits() {
     let conv = IrConversation::from_messages(vec![IrMessage::new(
         IrRole::Assistant,
         vec![
-            IrContentBlock::Text { text: "Checking...".into() },
+            IrContentBlock::Text {
+                text: "Checking...".into(),
+            },
             IrContentBlock::ToolUse {
                 id: "t1".into(),
                 name: "search".into(),
@@ -1003,7 +1093,10 @@ fn kimi_tool_call_roundtrip() {
         tool_calls: Some(vec![KimiToolCall {
             id: "call_1".into(),
             call_type: "function".into(),
-            function: KimiFunctionCall { name: "web_search".into(), arguments: r#"{"q":"test"}"#.into() },
+            function: KimiFunctionCall {
+                name: "web_search".into(),
+                arguments: r#"{"q":"test"}"#.into(),
+            },
         }]),
     }];
     let conv = kimi_ir::to_ir(&msgs);
@@ -1028,7 +1121,11 @@ fn kimi_tool_result_roundtrip() {
 
 #[test]
 fn kimi_usage_to_ir() {
-    let usage = KimiUsage { prompt_tokens: 200, completion_tokens: 80, total_tokens: 280 };
+    let usage = KimiUsage {
+        prompt_tokens: 200,
+        completion_tokens: 80,
+        total_tokens: 280,
+    };
     let ir = kimi_ir::usage_to_ir(&usage);
     assert_eq!(ir.input_tokens, 200);
     assert_eq!(ir.output_tokens, 80);
@@ -1118,7 +1215,9 @@ fn copilot_tool_role_mapped_to_user() {
         IrRole::Tool,
         vec![IrContentBlock::ToolResult {
             tool_use_id: "c1".into(),
-            content: vec![IrContentBlock::Text { text: "result".into() }],
+            content: vec![IrContentBlock::Text {
+                text: "result".into(),
+            }],
             is_error: false,
         }],
     )]);
@@ -1161,7 +1260,9 @@ fn copilot_extract_references_across_messages() {
 fn copilot_thinking_becomes_text() {
     let conv = IrConversation::from_messages(vec![IrMessage::new(
         IrRole::Assistant,
-        vec![IrContentBlock::Thinking { text: "reasoning...".into() }],
+        vec![IrContentBlock::Thinking {
+            text: "reasoning...".into(),
+        }],
     )]);
     let back = copilot_ir::from_ir(&conv);
     assert_eq!(back[0].content, "reasoning...");
@@ -1174,26 +1275,32 @@ fn copilot_thinking_becomes_text() {
 #[test]
 fn tool_call_and_result_ids_match() {
     let conv = IrConversation::from_messages(vec![
-        IrMessage::new(IrRole::Assistant, vec![IrContentBlock::ToolUse {
-            id: "call_abc".into(),
-            name: "read_file".into(),
-            input: json!({"path": "main.rs"}),
-        }]),
-        IrMessage::new(IrRole::Tool, vec![IrContentBlock::ToolResult {
-            tool_use_id: "call_abc".into(),
-            content: vec![IrContentBlock::Text { text: "fn main() {}".into() }],
-            is_error: false,
-        }]),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "call_abc".into(),
+                name: "read_file".into(),
+                input: json!({"path": "main.rs"}),
+            }],
+        ),
+        IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "call_abc".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "fn main() {}".into(),
+                }],
+                is_error: false,
+            }],
+        ),
     ]);
     let calls = conv.tool_calls();
     assert_eq!(calls.len(), 1);
     match calls[0] {
-        IrContentBlock::ToolUse { id, .. } => {
-            match &conv.messages[1].content[0] {
-                IrContentBlock::ToolResult { tool_use_id, .. } => assert_eq!(id, tool_use_id),
-                other => panic!("expected ToolResult, got {other:?}"),
-            }
-        }
+        IrContentBlock::ToolUse { id, .. } => match &conv.messages[1].content[0] {
+            IrContentBlock::ToolResult { tool_use_id, .. } => assert_eq!(id, tool_use_id),
+            other => panic!("expected ToolResult, got {other:?}"),
+        },
         other => panic!("expected ToolUse, got {other:?}"),
     }
 }
@@ -1201,20 +1308,39 @@ fn tool_call_and_result_ids_match() {
 #[test]
 fn multiple_tool_calls_with_matching_results() {
     let conv = IrConversation::from_messages(vec![
-        IrMessage::new(IrRole::Assistant, vec![
-            IrContentBlock::ToolUse { id: "c1".into(), name: "read".into(), input: json!({}) },
-            IrContentBlock::ToolUse { id: "c2".into(), name: "write".into(), input: json!({}) },
-        ]),
-        IrMessage::new(IrRole::Tool, vec![IrContentBlock::ToolResult {
-            tool_use_id: "c1".into(),
-            content: vec![IrContentBlock::Text { text: "data1".into() }],
-            is_error: false,
-        }]),
-        IrMessage::new(IrRole::Tool, vec![IrContentBlock::ToolResult {
-            tool_use_id: "c2".into(),
-            content: vec![IrContentBlock::Text { text: "ok".into() }],
-            is_error: false,
-        }]),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::ToolUse {
+                    id: "c1".into(),
+                    name: "read".into(),
+                    input: json!({}),
+                },
+                IrContentBlock::ToolUse {
+                    id: "c2".into(),
+                    name: "write".into(),
+                    input: json!({}),
+                },
+            ],
+        ),
+        IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "c1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "data1".into(),
+                }],
+                is_error: false,
+            }],
+        ),
+        IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "c2".into(),
+                content: vec![IrContentBlock::Text { text: "ok".into() }],
+                is_error: false,
+            }],
+        ),
     ]);
     assert_eq!(conv.tool_calls().len(), 2);
     assert_eq!(conv.messages_by_role(IrRole::Tool).len(), 2);
@@ -1223,16 +1349,24 @@ fn multiple_tool_calls_with_matching_results() {
 #[test]
 fn tool_result_with_error() {
     let conv = IrConversation::from_messages(vec![
-        IrMessage::new(IrRole::Assistant, vec![IrContentBlock::ToolUse {
-            id: "c1".into(),
-            name: "read_file".into(),
-            input: json!({"path": "nonexistent.txt"}),
-        }]),
-        IrMessage::new(IrRole::Tool, vec![IrContentBlock::ToolResult {
-            tool_use_id: "c1".into(),
-            content: vec![IrContentBlock::Text { text: "File not found".into() }],
-            is_error: true,
-        }]),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "c1".into(),
+                name: "read_file".into(),
+                input: json!({"path": "nonexistent.txt"}),
+            }],
+        ),
+        IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "c1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "File not found".into(),
+                }],
+                is_error: true,
+            }],
+        ),
     ]);
     match &conv.messages[1].content[0] {
         IrContentBlock::ToolResult { is_error, .. } => assert!(is_error),
@@ -1261,8 +1395,12 @@ fn tool_result_nested_content_blocks() {
     let result = IrContentBlock::ToolResult {
         tool_use_id: "c1".into(),
         content: vec![
-            IrContentBlock::Text { text: "Line 1\n".into() },
-            IrContentBlock::Text { text: "Line 2\n".into() },
+            IrContentBlock::Text {
+                text: "Line 1\n".into(),
+            },
+            IrContentBlock::Text {
+                text: "Line 2\n".into(),
+            },
         ],
         is_error: false,
     };
@@ -1289,7 +1427,9 @@ fn tool_use_with_complex_input() {
     let json_str = serde_json::to_string(&block).unwrap();
     let back: IrContentBlock = serde_json::from_str(&json_str).unwrap();
     match back {
-        IrContentBlock::ToolUse { input: back_input, .. } => assert_eq!(back_input, input),
+        IrContentBlock::ToolUse {
+            input: back_input, ..
+        } => assert_eq!(back_input, input),
         other => panic!("expected ToolUse, got {other:?}"),
     }
 }
@@ -1388,7 +1528,9 @@ fn deeply_nested_json_in_tool_input() {
 #[test]
 fn many_content_blocks_in_one_message() {
     let blocks: Vec<IrContentBlock> = (0..50)
-        .map(|i| IrContentBlock::Text { text: format!("Block {i}") })
+        .map(|i| IrContentBlock::Text {
+            text: format!("Block {i}"),
+        })
         .collect();
     let msg = IrMessage::new(IrRole::Assistant, blocks);
     assert_eq!(msg.content.len(), 50);
@@ -1402,7 +1544,11 @@ fn many_content_blocks_in_one_message() {
 fn large_conversation() {
     let msgs: Vec<IrMessage> = (0..200)
         .map(|i| {
-            let role = if i % 2 == 0 { IrRole::User } else { IrRole::Assistant };
+            let role = if i % 2 == 0 {
+                IrRole::User
+            } else {
+                IrRole::Assistant
+            };
             IrMessage::text(role, format!("Message {i}"))
         })
         .collect();
@@ -1418,8 +1564,10 @@ fn large_conversation() {
 fn metadata_with_complex_values() {
     let mut msg = IrMessage::text(IrRole::User, "test");
     msg.metadata.insert("array".into(), json!([1, 2, 3]));
-    msg.metadata.insert("nested".into(), json!({"a": {"b": true}}));
-    msg.metadata.insert("null_val".into(), serde_json::Value::Null);
+    msg.metadata
+        .insert("nested".into(), json!({"a": {"b": true}}));
+    msg.metadata
+        .insert("null_val".into(), serde_json::Value::Null);
     let json = serde_json::to_string(&msg).unwrap();
     let back: IrMessage = serde_json::from_str(&json).unwrap();
     assert_eq!(msg.metadata, back.metadata);
@@ -1442,7 +1590,12 @@ fn property_text_block_roundtrip_identity() {
 
 #[test]
 fn property_all_roles_roundtrip() {
-    for role in [IrRole::System, IrRole::User, IrRole::Assistant, IrRole::Tool] {
+    for role in [
+        IrRole::System,
+        IrRole::User,
+        IrRole::Assistant,
+        IrRole::Tool,
+    ] {
         let msg = IrMessage::text(role, "test");
         let json = serde_json::to_string(&msg).unwrap();
         let back: IrMessage = serde_json::from_str(&json).unwrap();
@@ -1478,19 +1631,29 @@ fn property_conversation_json_roundtrip() {
     let conv = IrConversation::new()
         .push(IrMessage::text(IrRole::System, "sys"))
         .push(IrMessage::text(IrRole::User, "hello"))
-        .push(IrMessage::new(IrRole::Assistant, vec![
-            IrContentBlock::Text { text: "Let me help.".into() },
-            IrContentBlock::ToolUse {
-                id: "t1".into(),
-                name: "search".into(),
-                input: json!({"q": "rust"}),
-            },
-        ]))
-        .push(IrMessage::new(IrRole::Tool, vec![IrContentBlock::ToolResult {
-            tool_use_id: "t1".into(),
-            content: vec![IrContentBlock::Text { text: "results".into() }],
-            is_error: false,
-        }]))
+        .push(IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Text {
+                    text: "Let me help.".into(),
+                },
+                IrContentBlock::ToolUse {
+                    id: "t1".into(),
+                    name: "search".into(),
+                    input: json!({"q": "rust"}),
+                },
+            ],
+        ))
+        .push(IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "t1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "results".into(),
+                }],
+                is_error: false,
+            }],
+        ))
         .push(IrMessage::text(IrRole::Assistant, "Found it."));
     let json = serde_json::to_string(&conv).unwrap();
     let back: IrConversation = serde_json::from_str(&json).unwrap();
@@ -1542,7 +1705,10 @@ fn cross_dialect_user_text_same_ir() {
         tool_calls: None,
         tool_call_id: None,
     }];
-    let claude_msg = vec![ClaudeMessage { role: "user".into(), content: "Hello".into() }];
+    let claude_msg = vec![ClaudeMessage {
+        role: "user".into(),
+        content: "Hello".into(),
+    }];
     let gemini_msg = vec![GeminiContent {
         role: "user".into(),
         parts: vec![GeminiPart::Text("Hello".into())],
@@ -1579,7 +1745,10 @@ fn cross_dialect_assistant_text_same_ir() {
         tool_calls: None,
         tool_call_id: None,
     }];
-    let claude_msg = vec![ClaudeMessage { role: "assistant".into(), content: "Sure!".into() }];
+    let claude_msg = vec![ClaudeMessage {
+        role: "assistant".into(),
+        content: "Sure!".into(),
+    }];
     let gemini_msg = vec![GeminiContent {
         role: "model".into(),
         parts: vec![GeminiPart::Text("Sure!".into())],
@@ -1703,7 +1872,11 @@ fn cross_dialect_tool_result_same_ir_semantics() {
     for ir in [&ir_openai, &ir_kimi] {
         assert_eq!(ir.messages[0].role, IrRole::Tool);
         match &ir.messages[0].content[0] {
-            IrContentBlock::ToolResult { tool_use_id, is_error, .. } => {
+            IrContentBlock::ToolResult {
+                tool_use_id,
+                is_error,
+                ..
+            } => {
                 assert_eq!(tool_use_id, "call_1");
                 assert!(!is_error);
             }
@@ -1752,9 +1925,24 @@ fn cross_dialect_image_same_ir() {
 #[test]
 fn cross_dialect_openai_to_claude_via_ir() {
     let openai_msgs = vec![
-        OpenAIMessage { role: "system".into(), content: Some("Be helpful".into()), tool_calls: None, tool_call_id: None },
-        OpenAIMessage { role: "user".into(), content: Some("Hello".into()), tool_calls: None, tool_call_id: None },
-        OpenAIMessage { role: "assistant".into(), content: Some("Hi!".into()), tool_calls: None, tool_call_id: None },
+        OpenAIMessage {
+            role: "system".into(),
+            content: Some("Be helpful".into()),
+            tool_calls: None,
+            tool_call_id: None,
+        },
+        OpenAIMessage {
+            role: "user".into(),
+            content: Some("Hello".into()),
+            tool_calls: None,
+            tool_call_id: None,
+        },
+        OpenAIMessage {
+            role: "assistant".into(),
+            content: Some("Hi!".into()),
+            tool_calls: None,
+            tool_call_id: None,
+        },
     ];
     let ir = openai_ir::to_ir(&openai_msgs);
 
@@ -1772,8 +1960,14 @@ fn cross_dialect_openai_to_claude_via_ir() {
 #[test]
 fn cross_dialect_claude_to_gemini_via_ir() {
     let claude_msgs = vec![
-        ClaudeMessage { role: "user".into(), content: "What is Rust?".into() },
-        ClaudeMessage { role: "assistant".into(), content: "A systems language.".into() },
+        ClaudeMessage {
+            role: "user".into(),
+            content: "What is Rust?".into(),
+        },
+        ClaudeMessage {
+            role: "assistant".into(),
+            content: "A systems language.".into(),
+        },
     ];
     let ir = claude_ir::to_ir(&claude_msgs, Some("Be concise"));
 
@@ -1792,8 +1986,14 @@ fn cross_dialect_claude_to_gemini_via_ir() {
 #[test]
 fn cross_dialect_gemini_to_openai_via_ir() {
     let gemini_contents = vec![
-        GeminiContent { role: "user".into(), parts: vec![GeminiPart::Text("Hi".into())] },
-        GeminiContent { role: "model".into(), parts: vec![GeminiPart::Text("Hello!".into())] },
+        GeminiContent {
+            role: "user".into(),
+            parts: vec![GeminiPart::Text("Hi".into())],
+        },
+        GeminiContent {
+            role: "model".into(),
+            parts: vec![GeminiPart::Text("Hello!".into())],
+        },
     ];
     let ir = gemini_ir::to_ir(&gemini_contents, None);
     let openai_msgs = openai_ir::from_ir(&ir);
@@ -1809,7 +2009,9 @@ fn cross_dialect_codex_to_kimi_via_ir() {
     let codex_items = vec![
         CodexResponseItem::Message {
             role: "assistant".into(),
-            content: vec![CodexContentPart::OutputText { text: "Here you go.".into() }],
+            content: vec![CodexContentPart::OutputText {
+                text: "Here you go.".into(),
+            }],
         },
         CodexResponseItem::FunctionCall {
             id: "fc_1".into(),
@@ -1837,7 +2039,8 @@ fn metadata_preserved_through_serde() {
     let mut msg = IrMessage::text(IrRole::User, "test");
     msg.metadata.insert("request_id".into(), json!("req-123"));
     msg.metadata.insert("latency_ms".into(), json!(42));
-    msg.metadata.insert("tags".into(), json!(["fast", "cached"]));
+    msg.metadata
+        .insert("tags".into(), json!(["fast", "cached"]));
     let json = serde_json::to_string(&msg).unwrap();
     let back: IrMessage = serde_json::from_str(&json).unwrap();
     assert_eq!(back.metadata["request_id"], json!("req-123"));

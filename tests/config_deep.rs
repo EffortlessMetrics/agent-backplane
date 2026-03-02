@@ -1226,7 +1226,8 @@ fn backends_map_ordering_is_deterministic() {
     let mut cfg = BackplaneConfig::default();
     cfg.backends.insert("z_last".into(), BackendEntry::Mock {});
     cfg.backends.insert("a_first".into(), BackendEntry::Mock {});
-    cfg.backends.insert("m_middle".into(), BackendEntry::Mock {});
+    cfg.backends
+        .insert("m_middle".into(), BackendEntry::Mock {});
     let keys: Vec<_> = cfg.backends.keys().cloned().collect();
     assert_eq!(keys, vec!["a_first", "m_middle", "z_last"]);
 }
@@ -1340,9 +1341,7 @@ fn emoji_in_config_values() {
 fn very_large_number_of_backends() {
     let mut toml_str = String::new();
     for i in 0..200 {
-        toml_str.push_str(&format!(
-            "[backends.mock_{i}]\ntype = \"mock\"\n\n"
-        ));
+        toml_str.push_str(&format!("[backends.mock_{i}]\ntype = \"mock\"\n\n"));
     }
     let cfg = parse_toml(&toml_str).unwrap();
     assert_eq!(cfg.backends.len(), 200);
@@ -1602,7 +1601,10 @@ fn merge_preserves_both_backend_maps_after_collision() {
         merged.backends["shared"],
         BackendEntry::Sidecar { .. }
     ));
-    assert!(matches!(merged.backends["only_base"], BackendEntry::Mock {}));
+    assert!(matches!(
+        merged.backends["only_base"],
+        BackendEntry::Mock {}
+    ));
     assert!(matches!(
         merged.backends["only_overlay"],
         BackendEntry::Mock {}
@@ -1816,7 +1818,9 @@ fn sidecar_timeout_one_above_threshold_warns() {
         },
     );
     let warnings = validate_config(&cfg).unwrap();
-    assert!(warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+    );
 }
