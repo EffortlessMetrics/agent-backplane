@@ -1249,3 +1249,703 @@ fn builder_run_id_deterministic() {
     let r = ReceiptBuilder::new("test").run_id(id).build();
     assert_eq!(r.meta.run_id, id);
 }
+
+// ===========================================================================
+// Receipt construction with all fields
+// ===========================================================================
+
+#[test]
+fn receipt_construction_all_outcome_variants() {
+    for outcome in [Outcome::Complete, Outcome::Partial, Outcome::Failed] {
+        let r = ReceiptBuilder::new("test")
+            .outcome(outcome.clone())
+            .build();
+        assert_eq!(r.outcome, outcome);
+    }
+}
+
+#[test]
+fn receipt_construction_with_capabilities() {
+    use abp_core::{Capability, SupportLevel};
+    let mut caps = abp_core::CapabilityManifest::new();
+    caps.insert(Capability::ToolRead, SupportLevel::Native);
+    caps.insert(Capability::Streaming, SupportLevel::Emulated);
+    let r = ReceiptBuilder::new("caps-test").capabilities(caps.clone()).build();
+    assert_eq!(r.capabilities.len(), 2);
+    assert!(r.capabilities.contains_key(&Capability::ToolRead));
+    assert!(r.capabilities.contains_key(&Capability::Streaming));
+}
+
+#[test]
+fn receipt_construction_execution_mode_passthrough() {
+    use abp_core::ExecutionMode;
+    let r = ReceiptBuilder::new("test")
+        .mode(ExecutionMode::Passthrough)
+        .build();
+    assert_eq!(r.mode, ExecutionMode::Passthrough);
+}
+
+#[test]
+fn receipt_construction_execution_mode_mapped_default() {
+    use abp_core::ExecutionMode;
+    let r = ReceiptBuilder::new("test").build();
+    assert_eq!(r.mode, ExecutionMode::Mapped);
+}
+
+#[test]
+fn receipt_construction_with_work_order_id() {
+    let wo_id = Uuid::new_v4();
+    let r = ReceiptBuilder::new("test").work_order_id(wo_id).build();
+    assert_eq!(r.meta.work_order_id, wo_id);
+}
+
+#[test]
+fn receipt_construction_complex_usage_raw() {
+    let raw = serde_json::json!({
+        "prompt_tokens": 1500,
+        "completion_tokens": 800,
+        "model": "gpt-4",
+        "nested": { "cache_hit": true, "details": [1, 2, 3] }
+    });
+    let r = ReceiptBuilder::new("test").usage_raw(raw.clone()).build();
+    assert_eq!(r.usage_raw, raw);
+}
+
+#[test]
+fn receipt_construction_all_usage_normalized_fields() {
+    let usage = UsageNormalized {
+        input_tokens: Some(1000),
+        output_tokens: Some(500),
+        cache_read_tokens: Some(200),
+        cache_write_tokens: Some(100),
+        request_units: Some(42),
+        estimated_cost_usd: Some(0.05),
+    };
+    let r = ReceiptBuilder::new("test").usage(usage).build();
+    assert_eq!(r.usage.input_tokens, Some(1000));
+    assert_eq!(r.usage.output_tokens, Some(500));
+    assert_eq!(r.usage.cache_read_tokens, Some(200));
+    assert_eq!(r.usage.cache_write_tokens, Some(100));
+    assert_eq!(r.usage.request_units, Some(42));
+    assert!((r.usage.estimated_cost_usd.unwrap() - 0.05).abs() < f64::EPSILON);
+}
+
+#[test]
+fn receipt_construction_verification_report_all_fields() {
+    let vr = VerificationReport {
+        git_diff: Some("diff --git a/foo.rs b/foo.rs".into()),
+        git_status: Some("M foo.rs".into()),
+        harness_ok: true,
+    };
+    let r = ReceiptBuilder::new("test").verification(vr).build();
+    assert!(r.verification.harness_ok);
+    assert_eq!(
+        r.verification.git_diff.as_deref(),
+        Some("diff --git a/foo.rs b/foo.rs")
+    );
+    assert_eq!(r.verification.git_status.as_deref(), Some("M foo.rs"));
+}
+
+#[test]
+fn receipt_construction_multiple_artifacts() {
+    let r = ReceiptBuilder::new("test")
+        .add_artifact(ArtifactRef {
+            kind: "patch".into(),
+            path: "a.patch".into(),
+        })
+        .add_artifact(ArtifactRef {
+            kind: "log".into(),
+            path: "build.log".into(),
+        })
+        .add_artifact(ArtifactRef {
+            kind: "diff".into(),
+            path: "changes.diff".into(),
+        })
+        .build();
+    assert_eq!(r.artifacts.len(), 3);
+    assert_eq!(r.artifacts[0].kind, "patch");
+    assert_eq!(r.artifacts[2].path, "changes.diff");
+}
+
+#[test]
+fn receipt_construction_contract_version() {
+    let r = ReceiptBuilder::new("test").build();
+    assert_eq!(r.meta.contract_version, abp_core::CONTRACT_VERSION);
+}
+
+// ===========================================================================
+// receipt_hash() determinism
+// ===========================================================================
+
+#[test]
+fn receipt_hash_deterministic_repeated() {
+    let r = plain_receipt_at("determinism-test", 0);
+    let hashes: Vec<_> = (0..10).map(|_| receipt_hash(&r).unwrap()).collect();
+    for h in &hashes {
+        assert_eq!(h, &hashes[0]);
+    }
+}
+
+#[test]
+fn receipt_hash_deterministic_for_clone() {
+    let r = plain_receipt_at("clone-test", 0);
+    let cloned = r.clone();
+    assert_eq!(receipt_hash(&r).unwrap(), receipt_hash(&cloned).unwrap());
+}
+
+#[test]
+fn receipt_hash_differs_for_different_backend() {
+    let r1 = plain_receipt_at("backend-a", 0);
+    let r2 = plain_receipt_at("backend-b", 0);
+    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
+}
+
+#[test]
+fn receipt_hash_differs_for_different_timing() {
+    let r1 = plain_receipt_at("m", 0);
+    let r2 = plain_receipt_at("m", 100);
+    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
+}
+
+// ===========================================================================
+// with_hash() produces valid SHA-256
+// ===========================================================================
+
+#[test]
+fn with_hash_hex_characters_only() {
+    let r = ReceiptBuilder::new("hex-test").build().with_hash().unwrap();
+    let hash = r.receipt_sha256.unwrap();
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+}
+
+#[test]
+fn with_hash_is_lowercase_hex() {
+    let r = ReceiptBuilder::new("case-test").build().with_hash().unwrap();
+    let hash = r.receipt_sha256.unwrap();
+    assert_eq!(hash, hash.to_lowercase());
+}
+
+#[test]
+fn with_hash_exactly_64_chars() {
+    let r = ReceiptBuilder::new("len-test").build().with_hash().unwrap();
+    assert_eq!(r.receipt_sha256.as_ref().unwrap().len(), 64);
+}
+
+#[test]
+fn with_hash_on_receipt_struct_directly() {
+    let r = plain_receipt_at("direct", 0).with_hash().unwrap();
+    assert!(r.receipt_sha256.is_some());
+    assert!(verify_hash(&r));
+}
+
+// ===========================================================================
+// receipt_hash() nulls receipt_sha256 before hashing (self-referential)
+// ===========================================================================
+
+#[test]
+fn receipt_hash_ignores_existing_hash_value() {
+    let mut r = plain_receipt_at("m", 0);
+    let h1 = receipt_hash(&r).unwrap();
+    r.receipt_sha256 = Some("some_arbitrary_value".into());
+    let h2 = receipt_hash(&r).unwrap();
+    assert_eq!(h1, h2);
+}
+
+#[test]
+fn receipt_hash_with_correct_hash_set_equals_without() {
+    let r = plain_receipt_at("m", 0);
+    let h_none = receipt_hash(&r).unwrap();
+    let mut r_with = r.clone();
+    r_with.receipt_sha256 = Some(h_none.clone());
+    let h_with = receipt_hash(&r_with).unwrap();
+    assert_eq!(h_none, h_with);
+}
+
+#[test]
+fn canonicalize_always_nulls_regardless_of_input() {
+    let mut r = hashed_receipt_at("m", 0, Outcome::Complete);
+    let c1 = canonicalize(&r).unwrap();
+    r.receipt_sha256 = Some("different_value".into());
+    let c2 = canonicalize(&r).unwrap();
+    r.receipt_sha256 = None;
+    let c3 = canonicalize(&r).unwrap();
+    assert_eq!(c1, c2);
+    assert_eq!(c2, c3);
+}
+
+// ===========================================================================
+// Receipt serde roundtrip preserves all fields
+// ===========================================================================
+
+#[test]
+fn serde_roundtrip_preserves_usage_normalized() {
+    let r = ReceiptBuilder::new("usage-rt")
+        .usage(UsageNormalized {
+            input_tokens: Some(100),
+            output_tokens: Some(200),
+            cache_read_tokens: Some(50),
+            cache_write_tokens: Some(25),
+            request_units: Some(10),
+            estimated_cost_usd: Some(0.123),
+        })
+        .build();
+    let json = serde_json::to_string(&r).unwrap();
+    let deser: Receipt = serde_json::from_str(&json).unwrap();
+    assert_eq!(deser.usage.input_tokens, Some(100));
+    assert_eq!(deser.usage.output_tokens, Some(200));
+    assert_eq!(deser.usage.cache_read_tokens, Some(50));
+    assert_eq!(deser.usage.cache_write_tokens, Some(25));
+    assert_eq!(deser.usage.request_units, Some(10));
+    assert!((deser.usage.estimated_cost_usd.unwrap() - 0.123).abs() < f64::EPSILON);
+}
+
+#[test]
+fn serde_roundtrip_preserves_execution_mode() {
+    use abp_core::ExecutionMode;
+    for mode in [ExecutionMode::Passthrough, ExecutionMode::Mapped] {
+        let r = ReceiptBuilder::new("mode-rt").mode(mode).build();
+        let json = serde_json::to_string(&r).unwrap();
+        let deser: Receipt = serde_json::from_str(&json).unwrap();
+        assert_eq!(deser.mode, mode);
+    }
+}
+
+#[test]
+fn serde_roundtrip_preserves_artifacts() {
+    let r = ReceiptBuilder::new("art-rt")
+        .add_artifact(ArtifactRef {
+            kind: "patch".into(),
+            path: "fix.patch".into(),
+        })
+        .add_artifact(ArtifactRef {
+            kind: "log".into(),
+            path: "out.log".into(),
+        })
+        .build();
+    let json = serde_json::to_string(&r).unwrap();
+    let deser: Receipt = serde_json::from_str(&json).unwrap();
+    assert_eq!(deser.artifacts.len(), 2);
+    assert_eq!(deser.artifacts[0].kind, "patch");
+    assert_eq!(deser.artifacts[1].path, "out.log");
+}
+
+#[test]
+fn serde_roundtrip_preserves_verification_report() {
+    let r = ReceiptBuilder::new("vr-rt")
+        .verification(VerificationReport {
+            git_diff: Some("diff data".into()),
+            git_status: Some("M file.rs".into()),
+            harness_ok: true,
+        })
+        .build();
+    let json = serde_json::to_string(&r).unwrap();
+    let deser: Receipt = serde_json::from_str(&json).unwrap();
+    assert_eq!(deser.verification.git_diff.as_deref(), Some("diff data"));
+    assert_eq!(
+        deser.verification.git_status.as_deref(),
+        Some("M file.rs")
+    );
+    assert!(deser.verification.harness_ok);
+}
+
+#[test]
+fn serde_roundtrip_preserves_backend_identity() {
+    let r = ReceiptBuilder::new("backend-rt")
+        .backend_version("2.0.0")
+        .adapter_version("1.5.0")
+        .build();
+    let json = serde_json::to_string(&r).unwrap();
+    let deser: Receipt = serde_json::from_str(&json).unwrap();
+    assert_eq!(deser.backend.id, "backend-rt");
+    assert_eq!(deser.backend.backend_version.as_deref(), Some("2.0.0"));
+    assert_eq!(deser.backend.adapter_version.as_deref(), Some("1.5.0"));
+}
+
+// ===========================================================================
+// BTreeMap ordering for deterministic JSON
+// ===========================================================================
+
+#[test]
+fn canonical_json_keys_sorted() {
+    let r = plain_receipt_at("btree-test", 0);
+    let json = canonicalize(&r).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    if let serde_json::Value::Object(map) = v {
+        let keys: Vec<_> = map.keys().cloned().collect();
+        let mut sorted = keys.clone();
+        sorted.sort();
+        assert_eq!(keys, sorted);
+    } else {
+        panic!("expected object");
+    }
+}
+
+#[test]
+fn btreemap_vendor_fields_deterministic_order() {
+    use std::collections::BTreeMap;
+    let mut vendor = BTreeMap::new();
+    vendor.insert("zebra".to_string(), serde_json::json!(1));
+    vendor.insert("alpha".to_string(), serde_json::json!(2));
+    vendor.insert("middle".to_string(), serde_json::json!(3));
+    let r = ReceiptBuilder::new("vendor-order")
+        .usage_raw(serde_json::json!(vendor))
+        .build();
+    let json = serde_json::to_string(&r).unwrap();
+    let alpha_pos = json.find("\"alpha\"").unwrap();
+    let middle_pos = json.find("\"middle\"").unwrap();
+    let zebra_pos = json.find("\"zebra\"").unwrap();
+    assert!(alpha_pos < middle_pos);
+    assert!(middle_pos < zebra_pos);
+}
+
+#[test]
+fn capabilities_serialized_deterministic_order() {
+    use abp_core::{Capability, SupportLevel};
+    let mut caps = abp_core::CapabilityManifest::new();
+    caps.insert(Capability::ToolWrite, SupportLevel::Native);
+    caps.insert(Capability::Streaming, SupportLevel::Native);
+    caps.insert(Capability::ToolRead, SupportLevel::Native);
+    let r = ReceiptBuilder::new("caps-order").capabilities(caps).build();
+    let json1 = serde_json::to_string(&r).unwrap();
+    let json2 = serde_json::to_string(&r).unwrap();
+    assert_eq!(json1, json2);
+}
+
+// ===========================================================================
+// Receipt with events, metrics, timing data
+// ===========================================================================
+
+#[test]
+fn receipt_with_tool_call_event() {
+    let r = ReceiptBuilder::new("events")
+        .add_trace_event(AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "read_file".into(),
+                tool_use_id: Some("tu_1".into()),
+                parent_tool_use_id: None,
+                input: serde_json::json!({"path": "/src/main.rs"}),
+            },
+            ext: None,
+        })
+        .with_hash()
+        .unwrap();
+    assert_eq!(r.trace.len(), 1);
+    assert!(verify_hash(&r));
+}
+
+#[test]
+fn receipt_with_tool_result_event() {
+    let r = ReceiptBuilder::new("events")
+        .add_trace_event(AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::ToolResult {
+                tool_name: "read_file".into(),
+                tool_use_id: Some("tu_1".into()),
+                output: serde_json::json!({"content": "fn main() {}"}),
+                is_error: false,
+            },
+            ext: None,
+        })
+        .with_hash()
+        .unwrap();
+    assert!(verify_hash(&r));
+}
+
+#[test]
+fn receipt_with_file_changed_event() {
+    let r = ReceiptBuilder::new("events")
+        .add_trace_event(AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::FileChanged {
+                path: "src/lib.rs".into(),
+                summary: "Added error handling".into(),
+            },
+            ext: None,
+        })
+        .with_hash()
+        .unwrap();
+    assert!(verify_hash(&r));
+}
+
+#[test]
+fn receipt_with_command_executed_event() {
+    let r = ReceiptBuilder::new("events")
+        .add_trace_event(AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::CommandExecuted {
+                command: "cargo test".into(),
+                exit_code: Some(0),
+                output_preview: Some("test result: ok".into()),
+            },
+            ext: None,
+        })
+        .with_hash()
+        .unwrap();
+    assert!(verify_hash(&r));
+}
+
+#[test]
+fn receipt_with_warning_and_error_events() {
+    let r = ReceiptBuilder::new("events")
+        .add_trace_event(AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::Warning {
+                message: "deprecated API".into(),
+            },
+            ext: None,
+        })
+        .add_trace_event(AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::Error {
+                message: "compilation failed".into(),
+                error_code: None,
+            },
+            ext: None,
+        })
+        .with_hash()
+        .unwrap();
+    assert_eq!(r.trace.len(), 2);
+    assert!(verify_hash(&r));
+}
+
+#[test]
+fn receipt_with_all_event_types_roundtrip() {
+    let events = vec![
+        AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::RunStarted {
+                message: "start".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::AssistantDelta {
+                text: "Hello".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "Hello world".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+            ext: None,
+        },
+    ];
+    let mut builder = ReceiptBuilder::new("all-events")
+        .started_at(base_time())
+        .finished_at(time_offset(10));
+    for e in events {
+        builder = builder.add_trace_event(e);
+    }
+    let r = builder.with_hash().unwrap();
+    let json = serde_json::to_string(&r).unwrap();
+    let deser: Receipt = serde_json::from_str(&json).unwrap();
+    assert_eq!(deser.trace.len(), 4);
+    assert!(verify_hash(&deser));
+}
+
+#[test]
+fn receipt_duration_ms_computed_correctly() {
+    let start = base_time();
+    let finish = start + Duration::milliseconds(1234);
+    let r = ReceiptBuilder::new("timing")
+        .started_at(start)
+        .finished_at(finish)
+        .build();
+    assert_eq!(r.meta.duration_ms, 1234);
+}
+
+#[test]
+fn receipt_zero_duration() {
+    let t = base_time();
+    let r = ReceiptBuilder::new("zero-dur")
+        .started_at(t)
+        .finished_at(t)
+        .build();
+    assert_eq!(r.meta.duration_ms, 0);
+}
+
+// ===========================================================================
+// Edge cases: empty events, null optional fields, very large receipts
+// ===========================================================================
+
+#[test]
+fn receipt_empty_trace_hashes_ok() {
+    let r = ReceiptBuilder::new("empty-trace").build();
+    assert!(r.trace.is_empty());
+    let h = receipt_hash(&r).unwrap();
+    assert_eq!(h.len(), 64);
+}
+
+#[test]
+fn receipt_empty_artifacts_hashes_ok() {
+    let r = ReceiptBuilder::new("empty-art").build();
+    assert!(r.artifacts.is_empty());
+    assert!(receipt_hash(&r).is_ok());
+}
+
+#[test]
+fn receipt_all_usage_fields_none() {
+    let r = ReceiptBuilder::new("null-usage")
+        .usage(UsageNormalized::default())
+        .build();
+    assert!(r.usage.input_tokens.is_none());
+    assert!(r.usage.output_tokens.is_none());
+    assert!(r.usage.cache_read_tokens.is_none());
+    assert!(r.usage.cache_write_tokens.is_none());
+    assert!(r.usage.request_units.is_none());
+    assert!(r.usage.estimated_cost_usd.is_none());
+    assert!(receipt_hash(&r).is_ok());
+}
+
+#[test]
+fn receipt_none_backend_versions() {
+    let r = ReceiptBuilder::new("no-versions").build();
+    assert!(r.backend.backend_version.is_none());
+    assert!(r.backend.adapter_version.is_none());
+    assert!(receipt_hash(&r).is_ok());
+}
+
+#[test]
+fn receipt_none_verification_fields() {
+    let r = ReceiptBuilder::new("no-verify").build();
+    assert!(r.verification.git_diff.is_none());
+    assert!(r.verification.git_status.is_none());
+    assert!(!r.verification.harness_ok);
+    assert!(receipt_hash(&r).is_ok());
+}
+
+#[test]
+fn receipt_very_large_usage_raw() {
+    let mut big = serde_json::Map::new();
+    for i in 0..500 {
+        big.insert(format!("key_{i:04}"), serde_json::json!(i));
+    }
+    let r = ReceiptBuilder::new("large-raw")
+        .usage_raw(serde_json::Value::Object(big))
+        .with_hash()
+        .unwrap();
+    assert!(verify_hash(&r));
+}
+
+#[test]
+fn receipt_many_artifacts() {
+    let mut builder = ReceiptBuilder::new("many-art");
+    for i in 0..100 {
+        builder = builder.add_artifact(ArtifactRef {
+            kind: "file".into(),
+            path: format!("artifact_{i}.txt"),
+        });
+    }
+    let r = builder.with_hash().unwrap();
+    assert_eq!(r.artifacts.len(), 100);
+    assert!(verify_hash(&r));
+}
+
+#[test]
+fn receipt_event_with_ext_field() {
+    use std::collections::BTreeMap;
+    let mut ext = BTreeMap::new();
+    ext.insert(
+        "raw_message".to_string(),
+        serde_json::json!({"vendor_field": "data"}),
+    );
+    let r = ReceiptBuilder::new("ext-test")
+        .add_trace_event(AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "hello".into(),
+            },
+            ext: Some(ext),
+        })
+        .with_hash()
+        .unwrap();
+    let json = serde_json::to_string(&r).unwrap();
+    let deser: Receipt = serde_json::from_str(&json).unwrap();
+    assert!(deser.trace[0].ext.is_some());
+    assert!(verify_hash(&deser));
+}
+
+#[test]
+fn diff_detects_outcome_change() {
+    let r1 = ReceiptBuilder::new("diff-test")
+        .outcome(Outcome::Complete)
+        .started_at(base_time())
+        .finished_at(time_offset(1))
+        .build();
+    let mut r2 = r1.clone();
+    r2.outcome = Outcome::Failed;
+    let d = diff_receipts(&r1, &r2);
+    assert!(!d.is_empty());
+    assert!(d.changes.iter().any(|c| c.field == "outcome"));
+}
+
+#[test]
+fn diff_detects_backend_id_change() {
+    let r1 = ReceiptBuilder::new("a")
+        .started_at(base_time())
+        .finished_at(time_offset(1))
+        .build();
+    let mut r2 = r1.clone();
+    r2.backend.id = "b".into();
+    let d = diff_receipts(&r1, &r2);
+    assert!(d.changes.iter().any(|c| c.field == "backend.id"));
+}
+
+#[test]
+fn diff_identical_receipts_empty() {
+    let r = plain_receipt_at("identical", 0);
+    let d = diff_receipts(&r, &r);
+    assert!(d.is_empty());
+    assert_eq!(d.len(), 0);
+}
+
+#[test]
+fn file_store_save_and_verify_all_event_types() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = ReceiptStore::new(dir.path());
+    let r = ReceiptBuilder::new("full-events")
+        .started_at(base_time())
+        .finished_at(time_offset(5))
+        .add_trace_event(AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            ext: None,
+        })
+        .add_trace_event(AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "write".into(),
+                tool_use_id: None,
+                parent_tool_use_id: None,
+                input: serde_json::json!({}),
+            },
+            ext: None,
+        })
+        .add_trace_event(AgentEvent {
+            ts: base_time(),
+            kind: AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+            ext: None,
+        })
+        .with_hash()
+        .unwrap();
+    let id = r.meta.run_id;
+    store.save(&r).unwrap();
+    let loaded = store.load(id).unwrap();
+    assert_eq!(loaded.trace.len(), 3);
+    assert!(verify_hash(&loaded));
+}
