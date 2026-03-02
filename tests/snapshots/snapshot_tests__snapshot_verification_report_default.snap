@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_tests.rs
+expression: "VerificationReport::default()"
+---
+{
+  "git_diff": null,
+  "git_status": null,
+  "harness_ok": false
+}

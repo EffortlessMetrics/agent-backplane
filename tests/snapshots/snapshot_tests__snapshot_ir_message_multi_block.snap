@@ -1,0 +1,26 @@
+---
+source: tests/snapshot_tests.rs
+expression: msg
+---
+{
+  "role": "assistant",
+  "content": [
+    {
+      "type": "thinking",
+      "text": "Analyzing the code..."
+    },
+    {
+      "type": "text",
+      "text": "I found the issue."
+    },
+    {
+      "type": "tool_use",
+      "id": "tu_400",
+      "name": "edit_file",
+      "input": {
+        "content": "fixed",
+        "path": "lib.rs"
+      }
+    }
+  ]
+}

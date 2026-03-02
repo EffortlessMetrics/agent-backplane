@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_tests.rs
+expression: r
+---
+{
+  "native": [
+    "streaming",
+    "tool_use"
+  ],
+  "emulatable": [],
+  "unsupported": []
+}

@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_tests.rs
+expression: "SupportLevel::Restricted { reason: \"requires opt-in\".into() }"
+---
+{
+  "restricted": {
+    "reason": "requires opt-in"
+  }
+}

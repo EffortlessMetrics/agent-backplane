@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_tests.rs
+expression: e
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "file_changed",
+  "path": "src/lib.rs",
+  "summary": "Added helper function"
+}

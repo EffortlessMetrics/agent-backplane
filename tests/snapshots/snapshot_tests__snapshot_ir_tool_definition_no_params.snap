@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_tests.rs
+expression: td
+---
+{
+  "name": "list_files",
+  "description": "List files in the workspace",
+  "parameters": {
+    "properties": {},
+    "type": "object"
+  }
+}

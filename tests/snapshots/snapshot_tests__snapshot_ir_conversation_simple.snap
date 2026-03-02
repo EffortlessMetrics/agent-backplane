@@ -1,0 +1,35 @@
+---
+source: tests/snapshot_tests.rs
+expression: conv
+---
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are helpful."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Hi"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Hello!"
+        }
+      ]
+    }
+  ]
+}

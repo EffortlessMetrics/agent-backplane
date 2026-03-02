@@ -1,0 +1,20 @@
+---
+source: tests/snapshot_tests.rs
+expression: cp
+---
+{
+  "files": [
+    "src/main.rs",
+    "Cargo.toml"
+  ],
+  "snippets": [
+    {
+      "name": "error_log",
+      "content": "thread 'main' panicked"
+    },
+    {
+      "name": "spec",
+      "content": "must handle auth"
+    }
+  ]
+}

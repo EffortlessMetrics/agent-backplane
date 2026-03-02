@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_tests.rs
+expression: msg
+---
+{
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello, assistant!"
+    }
+  ]
+}

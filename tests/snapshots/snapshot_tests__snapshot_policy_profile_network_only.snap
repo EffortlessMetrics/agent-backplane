@@ -1,0 +1,17 @@
+---
+source: tests/snapshot_tests.rs
+expression: p
+---
+{
+  "allowed_tools": [],
+  "disallowed_tools": [],
+  "deny_read": [],
+  "deny_write": [],
+  "allow_network": [
+    "*.github.com"
+  ],
+  "deny_network": [
+    "*"
+  ],
+  "require_approval_for": []
+}

@@ -1,0 +1,53 @@
+---
+source: tests/snapshot_tests.rs
+expression: wo
+---
+{
+  "id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "task": "Refactor",
+  "lane": "workspace_first",
+  "workspace": {
+    "root": ".",
+    "mode": "pass_through",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [
+      "grep",
+      "glob",
+      "read"
+    ],
+    "disallowed_tools": [
+      "bash",
+      "write"
+    ],
+    "deny_read": [
+      "secrets/**"
+    ],
+    "deny_write": [
+      "**/*.lock"
+    ],
+    "allow_network": [],
+    "deny_network": [
+      "*"
+    ],
+    "require_approval_for": [
+      "edit"
+    ]
+  },
+  "requirements": {
+    "required": []
+  },
+  "config": {
+    "model": null,
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

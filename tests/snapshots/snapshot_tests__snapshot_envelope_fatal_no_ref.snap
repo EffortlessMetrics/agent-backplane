@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_tests.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": null,
+  "error": "handshake failed",
+  "error_code": "PROTOCOL_VERSION_MISMATCH"
+}

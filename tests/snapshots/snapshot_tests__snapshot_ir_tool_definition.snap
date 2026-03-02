@@ -1,0 +1,20 @@
+---
+source: tests/snapshot_tests.rs
+expression: td
+---
+{
+  "name": "read_file",
+  "description": "Read the contents of a file",
+  "parameters": {
+    "properties": {
+      "path": {
+        "description": "File path",
+        "type": "string"
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "type": "object"
+  }
+}

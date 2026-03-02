@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_tests.rs
+expression: msg
+---
+{
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "with metadata"
+    }
+  ],
+  "metadata": {
+    "vendor_id": "msg-abc123"
+  }
+}

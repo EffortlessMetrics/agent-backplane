@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_tests.rs
+expression: e
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "assistant_delta",
+  "text": "Hello"
+}
