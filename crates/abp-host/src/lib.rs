@@ -301,7 +301,7 @@ impl SidecarClient {
                         let _ = receipt_tx.send(Ok(receipt));
                         break;
                     }
-                    Ok(Envelope::Fatal { ref_id, error }) => {
+                    Ok(Envelope::Fatal { ref_id, error, .. }) => {
                         if let Some(ref_id) = ref_id
                             && ref_id != run_id
                         {

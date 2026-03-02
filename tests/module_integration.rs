@@ -713,6 +713,7 @@ fn event_stream_filter_aggregate_pipeline() {
         }),
         make_event(AgentEventKind::Error {
             message: "oops".into(),
+            error_code: None,
         }),
         make_event(AgentEventKind::RunCompleted {
             message: "done".into(),

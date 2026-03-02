@@ -17,8 +17,8 @@ impl StreamingCodec {
     /// ```
     /// # use abp_protocol::{Envelope, codec::StreamingCodec};
     /// let envelopes = vec![
-    ///     Envelope::Fatal { ref_id: None, error: "err1".into() },
-    ///     Envelope::Fatal { ref_id: None, error: "err2".into() },
+    ///     Envelope::Fatal { ref_id: None, error: "err1".into(), error_code: None},
+    ///     Envelope::Fatal { ref_id: None, error: "err2".into(), error_code: None},
     /// ];
     /// let batch = StreamingCodec::encode_batch(&envelopes);
     /// assert_eq!(batch.lines().count(), 2);

@@ -263,6 +263,7 @@ fn chained_by_kind_and_len() {
         }),
         event(AgentEventKind::Error {
             message: "fail".into(),
+            error_code: None,
         }),
     ];
     let s = EventStream::new(events);

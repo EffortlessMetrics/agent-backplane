@@ -18,6 +18,7 @@
 //! let line = JsonlCodec::encode(&Envelope::Fatal {
 //!     ref_id: None,
 //!     error: "boom".into(),
+//!     error_code: None,
 //! }).unwrap();
 //! let (first, second) = line.as_bytes().split_at(10);
 //!

@@ -446,7 +446,7 @@ fn stream_errors_map_to_error_events() {
     let events = map_stream_event(&event);
     assert_eq!(events.len(), 1);
     match &events[0].kind {
-        AgentEventKind::Error { message } => {
+        AgentEventKind::Error { message, .. } => {
             assert!(message.contains("Unauthorized"));
         }
         other => panic!("expected Error, got {other:?}"),

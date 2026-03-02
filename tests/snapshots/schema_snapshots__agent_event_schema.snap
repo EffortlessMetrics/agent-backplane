@@ -243,6 +243,17 @@ expression: schema
       "description": "A fatal error emitted during the run.",
       "type": "object",
       "properties": {
+        "error_code": {
+          "description": "Machine-readable error code from the unified taxonomy, if available.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorCode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "message": {
           "description": "Error message text.",
           "type": "string"
@@ -260,5 +271,112 @@ expression: schema
   ],
   "required": [
     "ts"
-  ]
+  ],
+  "$defs": {
+    "ErrorCode": {
+      "description": "Machine-readable, stable error code.\n\nEach variant serialises to a `SCREAMING_SNAKE_CASE` string that is\nguaranteed not to change across patch releases.",
+      "oneOf": [
+        {
+          "description": "Envelope failed to parse or has missing/invalid fields.",
+          "type": "string",
+          "const": "PROTOCOL_INVALID_ENVELOPE"
+        },
+        {
+          "description": "Message arrived in wrong order (e.g. event before hello).",
+          "type": "string",
+          "const": "PROTOCOL_UNEXPECTED_MESSAGE"
+        },
+        {
+          "description": "Contract version mismatch between host and sidecar.",
+          "type": "string",
+          "const": "PROTOCOL_VERSION_MISMATCH"
+        },
+        {
+          "description": "Requested backend name does not exist.",
+          "type": "string",
+          "const": "BACKEND_NOT_FOUND"
+        },
+        {
+          "description": "Backend did not respond within the configured timeout.",
+          "type": "string",
+          "const": "BACKEND_TIMEOUT"
+        },
+        {
+          "description": "Backend process exited unexpectedly.",
+          "type": "string",
+          "const": "BACKEND_CRASHED"
+        },
+        {
+          "description": "A required capability is not supported by the backend.",
+          "type": "string",
+          "const": "CAPABILITY_UNSUPPORTED"
+        },
+        {
+          "description": "Capability emulation layer failed.",
+          "type": "string",
+          "const": "CAPABILITY_EMULATION_FAILED"
+        },
+        {
+          "description": "A policy rule denied the operation.",
+          "type": "string",
+          "const": "POLICY_DENIED"
+        },
+        {
+          "description": "Policy definition itself is malformed.",
+          "type": "string",
+          "const": "POLICY_INVALID"
+        },
+        {
+          "description": "Failed to initialise the staged workspace.",
+          "type": "string",
+          "const": "WORKSPACE_INIT_FAILED"
+        },
+        {
+          "description": "Failed to copy / stage files into the workspace.",
+          "type": "string",
+          "const": "WORKSPACE_STAGING_FAILED"
+        },
+        {
+          "description": "IR lowering (high-level → wire) failed.",
+          "type": "string",
+          "const": "IR_LOWERING_FAILED"
+        },
+        {
+          "description": "IR structure is invalid or inconsistent.",
+          "type": "string",
+          "const": "IR_INVALID"
+        },
+        {
+          "description": "Computed receipt hash does not match the declared hash.",
+          "type": "string",
+          "const": "RECEIPT_HASH_MISMATCH"
+        },
+        {
+          "description": "Receipt chain has a gap or out-of-order entry.",
+          "type": "string",
+          "const": "RECEIPT_CHAIN_BROKEN"
+        },
+        {
+          "description": "Dialect identifier is not recognised.",
+          "type": "string",
+          "const": "DIALECT_UNKNOWN"
+        },
+        {
+          "description": "Mapping between dialects failed.",
+          "type": "string",
+          "const": "DIALECT_MAPPING_FAILED"
+        },
+        {
+          "description": "Configuration file or value is invalid.",
+          "type": "string",
+          "const": "CONFIG_INVALID"
+        },
+        {
+          "description": "Catch-all for unexpected internal errors.",
+          "type": "string",
+          "const": "INTERNAL"
+        }
+      ]
+    }
+  }
 }

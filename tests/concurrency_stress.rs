@@ -270,6 +270,7 @@ async fn stress_100_concurrent_event_filter_applications() {
             ts: chrono::Utc::now(),
             kind: AgentEventKind::Error {
                 message: "oops".into(),
+                error_code: None,
             },
             ext: None,
         },

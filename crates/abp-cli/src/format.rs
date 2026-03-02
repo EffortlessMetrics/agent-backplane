@@ -179,7 +179,7 @@ fn event_brief(kind: &AgentEventKind) -> String {
             None => truncate(command, 40),
         },
         AgentEventKind::Warning { message } => truncate(message, 60),
-        AgentEventKind::Error { message } => truncate(message, 60),
+        AgentEventKind::Error { message, .. } => truncate(message, 60),
     }
 }
 

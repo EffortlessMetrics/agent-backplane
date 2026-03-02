@@ -206,6 +206,7 @@ fn snapshot_envelope_event_error() {
             ts: fixed_ts(),
             kind: AgentEventKind::Error {
                 message: "rate limit exceeded".into(),
+                error_code: None,
             },
             ext: None,
         },
@@ -221,6 +222,7 @@ fn snapshot_envelope_fatal_with_ref() {
     let env = Envelope::Fatal {
         ref_id: Some("run-42".into()),
         error: "sidecar process crashed: exit code 137 (OOM killed)".into(),
+        error_code: None,
     };
     let value = serde_json::to_value(&env).unwrap();
     assert_json_snapshot!("protocol_fatal_with_ref", value);
@@ -233,6 +235,7 @@ fn snapshot_envelope_fatal_no_ref() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "handshake timeout: no hello received within 5s".into(),
+        error_code: None,
     };
     let value = serde_json::to_value(&env).unwrap();
     assert_json_snapshot!("protocol_fatal_no_ref", value);
@@ -276,6 +279,7 @@ fn snapshot_jsonl_batch_three_envelopes() {
         Envelope::Fatal {
             ref_id: Some("run-1".into()),
             error: "boom".into(),
+            error_code: None,
         },
     ];
 

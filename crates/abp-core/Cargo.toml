@@ -11,6 +11,7 @@ keywords = ["agent", "backplane", "ai", "contract", "sdk"]
 categories = ["development-tools"]
 
 [dependencies]
+abp-error = { path = "../abp-error" }
 chrono.workspace = true
 schemars.workspace = true
 serde.workspace = true

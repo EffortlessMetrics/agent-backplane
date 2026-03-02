@@ -268,6 +268,7 @@ impl Backend for ErrorMidStreamBackend {
             &tx,
             AgentEventKind::Error {
                 message: "transient failure".into(),
+                error_code: None,
             },
         )
         .await;

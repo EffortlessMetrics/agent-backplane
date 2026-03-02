@@ -105,6 +105,7 @@ impl Backend for FailureOutcomeBackend {
             ts: chrono::Utc::now(),
             kind: AgentEventKind::Error {
                 message: "something went wrong".into(),
+                error_code: None,
             },
             ext: None,
         };

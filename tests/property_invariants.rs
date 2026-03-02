@@ -100,7 +100,10 @@ fn arb_agent_event_kind() -> impl Strategy<Value = AgentEventKind> {
         arb_safe_string().prop_map(|t| AgentEventKind::AssistantDelta { text: t }),
         arb_safe_string().prop_map(|t| AgentEventKind::AssistantMessage { text: t }),
         arb_safe_string().prop_map(|m| AgentEventKind::Warning { message: m }),
-        arb_safe_string().prop_map(|m| AgentEventKind::Error { message: m }),
+        arb_safe_string().prop_map(|m| AgentEventKind::Error {
+            message: m,
+            error_code: None
+        }),
         (arb_safe_string(), arb_safe_string()).prop_map(|(p, su)| AgentEventKind::FileChanged {
             path: p,
             summary: su,
@@ -206,6 +209,7 @@ fn arb_envelope() -> impl Strategy<Value = Envelope> {
         (arb_safe_string(), arb_safe_string()).prop_map(|(ref_id, error)| Envelope::Fatal {
             ref_id: Some(ref_id),
             error,
+            error_code: None,
         }),
     ]
 }

@@ -103,6 +103,9 @@ pub enum Envelope {
         ref_id: Option<String>,
         /// Human-readable error description.
         error: String,
+        /// Machine-readable error code from the unified taxonomy, if available.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error_code: Option<abp_error::ErrorCode>,
     },
 }
 
@@ -125,6 +128,39 @@ impl Envelope {
             backend,
             capabilities,
             mode,
+        }
+    }
+
+    /// Create a `Fatal` envelope with an [`ErrorCode`](abp_error::ErrorCode).
+    #[must_use]
+    pub fn fatal_with_code(
+        ref_id: Option<String>,
+        error: impl Into<String>,
+        code: abp_error::ErrorCode,
+    ) -> Self {
+        Self::Fatal {
+            ref_id,
+            error: error.into(),
+            error_code: Some(code),
+        }
+    }
+
+    /// Create a `Fatal` envelope from an [`AbpError`](abp_error::AbpError).
+    #[must_use]
+    pub fn fatal_from_abp_error(ref_id: Option<String>, err: &abp_error::AbpError) -> Self {
+        Self::Fatal {
+            ref_id,
+            error: err.message.clone(),
+            error_code: Some(err.code),
+        }
+    }
+
+    /// Return the [`ErrorCode`](abp_error::ErrorCode) if this envelope carries one.
+    #[must_use]
+    pub fn error_code(&self) -> Option<abp_error::ErrorCode> {
+        match self {
+            Self::Fatal { error_code, .. } => *error_code,
+            _ => None,
         }
     }
 }
@@ -152,6 +188,28 @@ pub enum ProtocolError {
         /// The envelope type that was actually received.
         got: String,
     },
+
+    /// An error from the unified ABP error taxonomy.
+    #[error("{0}")]
+    Abp(abp_error::AbpError),
+}
+
+impl From<abp_error::AbpError> for ProtocolError {
+    fn from(err: abp_error::AbpError) -> Self {
+        Self::Abp(err)
+    }
+}
+
+impl ProtocolError {
+    /// Return the [`ErrorCode`](abp_error::ErrorCode) if this error carries one.
+    pub fn error_code(&self) -> Option<abp_error::ErrorCode> {
+        match self {
+            Self::Abp(e) => Some(e.code),
+            Self::Violation(_) => Some(abp_error::ErrorCode::ProtocolInvalidEnvelope),
+            Self::UnexpectedMessage { .. } => Some(abp_error::ErrorCode::ProtocolUnexpectedMessage),
+            _ => None,
+        }
+    }
 }
 
 /// Stateless codec for encoding/decoding [`Envelope`] messages as newline-delimited JSON.
@@ -169,6 +227,7 @@ impl JsonlCodec {
     /// let envelope = Envelope::Fatal {
     ///     ref_id: Some("run-123".into()),
     ///     error: "out of memory".into(),
+    ///     error_code: None,
     /// };
     /// let json = JsonlCodec::encode(&envelope).unwrap();
     /// assert!(json.ends_with('\n'));

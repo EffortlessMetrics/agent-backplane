@@ -247,6 +247,7 @@ fn protocol_error_exhaustive_variants() {
             ProtocolError::Io(_) => {}
             ProtocolError::Violation(_) => {}
             ProtocolError::UnexpectedMessage { .. } => {}
+            ProtocolError::Abp(_) => {}
         }
     }
 }
@@ -338,6 +339,7 @@ fn runtime_error_exhaustive_variants() {
             RuntimeError::PolicyFailed(_) => {}
             RuntimeError::BackendFailed(_) => {}
             RuntimeError::CapabilityCheckFailed(_) => {}
+            RuntimeError::Classified(_) => {}
         }
     }
 }

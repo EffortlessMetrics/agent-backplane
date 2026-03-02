@@ -803,6 +803,7 @@ fn protocol_envelope_t_values() {
     let fatal = Envelope::Fatal {
         ref_id: Some("run-1".into()),
         error: "boom".into(),
+        error_code: None,
     };
     let json = serde_json::to_value(&fatal).unwrap();
     assert_eq!(json["t"], "fatal");
@@ -885,6 +886,7 @@ fn protocol_fatal_contains_error_info() {
     let fatal = Envelope::Fatal {
         ref_id: Some("run-1".into()),
         error: "something went wrong".into(),
+        error_code: None,
     };
     let json = serde_json::to_value(&fatal).unwrap();
     assert_eq!(json["error"].as_str().unwrap(), "something went wrong");
@@ -897,6 +899,7 @@ fn protocol_fatal_null_ref_id() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "early failure".into(),
+        error_code: None,
     };
     let json = serde_json::to_value(&fatal).unwrap();
     assert!(
@@ -1039,6 +1042,7 @@ fn protocol_all_variants_roundtrip() {
         Envelope::Fatal {
             ref_id: Some("r1".into()),
             error: "boom".into(),
+            error_code: None,
         },
     ];
 
@@ -1072,6 +1076,7 @@ fn handshake_hello_must_be_first_line() {
     let fin = Envelope::Fatal {
         ref_id: Some("r1".into()),
         error: "done".into(),
+        error_code: None,
     };
     let errors = v.validate_sequence(&[run, hello, fin]);
     assert!(
@@ -1482,6 +1487,7 @@ fn event_error_includes_message() {
             ts: Utc::now(),
             kind: AgentEventKind::Error {
                 message: "something failed badly".into(),
+                error_code: None,
             },
             ext: None,
         },
@@ -1489,7 +1495,7 @@ fn event_error_includes_message() {
     let line = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(line.trim()).unwrap();
     if let Envelope::Event { event, .. } = decoded {
-        if let AgentEventKind::Error { message } = &event.kind {
+        if let AgentEventKind::Error { message, .. } = &event.kind {
             assert_eq!(message, "something failed badly");
         } else {
             panic!("expected Error event, got {:?}", event.kind);
@@ -1784,6 +1790,7 @@ fn receipt_fatal_terminates_run() {
         Envelope::Fatal {
             ref_id: Some("r1".into()),
             error: "crashed".into(),
+            error_code: None,
         },
     ];
     let errors = v.validate_sequence(&envelopes);
@@ -1800,10 +1807,11 @@ fn receipt_fatal_with_and_without_ref_id() {
     let with = Envelope::Fatal {
         ref_id: Some("r1".into()),
         error: "boom".into(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&with).unwrap();
     let decoded = JsonlCodec::decode(line.trim()).unwrap();
-    if let Envelope::Fatal { ref_id, error } = decoded {
+    if let Envelope::Fatal { ref_id, error, .. } = decoded {
         assert_eq!(ref_id.as_deref(), Some("r1"));
         assert_eq!(error, "boom");
     } else {
@@ -1814,10 +1822,11 @@ fn receipt_fatal_with_and_without_ref_id() {
     let without = Envelope::Fatal {
         ref_id: None,
         error: "early crash".into(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&without).unwrap();
     let decoded = JsonlCodec::decode(line.trim()).unwrap();
-    if let Envelope::Fatal { ref_id, error } = decoded {
+    if let Envelope::Fatal { ref_id, error, .. } = decoded {
         assert!(ref_id.is_none(), "ref_id should be None");
         assert_eq!(error, "early crash");
     } else {

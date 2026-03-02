@@ -59,6 +59,11 @@ expression: value
     "request_units": null
   },
   "usage_raw": {
+    "capability_negotiation": {
+      "emulatable": [],
+      "native": [],
+      "unsupported": []
+    },
     "note": "mock"
   },
   "verification": {

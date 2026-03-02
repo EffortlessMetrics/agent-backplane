@@ -15,6 +15,7 @@ name = "abp"
 path = "src/main.rs"
 
 [dependencies]
+abp-config = { path = "../abp-config" }
 abp-core = { path = "../abp-core" }
 abp-codex-sdk = { path = "../abp-codex-sdk" }
 abp-copilot-sdk = { path = "../abp-copilot-sdk" }

@@ -277,6 +277,7 @@ fn event_with_error_kind() {
         ref_id: "r1".into(),
         event: test_agent_event(AgentEventKind::Error {
             message: "oops".into(),
+            error_code: None,
         }),
     };
     let json = serde_json::to_value(&env).unwrap();
@@ -345,6 +346,7 @@ fn fatal_serialize_has_correct_tag() {
     let env = Envelope::Fatal {
         ref_id: Some("run-1".into()),
         error: "something broke".into(),
+        error_code: None,
     };
     let json = serde_json::to_value(&env).unwrap();
     assert_eq!(json["t"], "fatal");
@@ -355,10 +357,11 @@ fn fatal_with_ref_id() {
     let env = Envelope::Fatal {
         ref_id: Some("run-1".into()),
         error: "crash".into(),
+        error_code: None,
     };
     let s = serde_json::to_string(&env).unwrap();
     let back: Envelope = serde_json::from_str(&s).unwrap();
-    if let Envelope::Fatal { ref_id, error } = back {
+    if let Envelope::Fatal { ref_id, error, .. } = back {
         assert_eq!(ref_id.as_deref(), Some("run-1"));
         assert_eq!(error, "crash");
     } else {
@@ -371,10 +374,11 @@ fn fatal_without_ref_id() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "early failure".into(),
+        error_code: None,
     };
     let s = serde_json::to_string(&env).unwrap();
     let back: Envelope = serde_json::from_str(&s).unwrap();
-    if let Envelope::Fatal { ref_id, error } = back {
+    if let Envelope::Fatal { ref_id, error, .. } = back {
         assert!(ref_id.is_none());
         assert_eq!(error, "early failure");
     } else {
@@ -560,10 +564,11 @@ fn roundtrip_fatal() {
     let env = Envelope::Fatal {
         ref_id: Some("r1".into()),
         error: "boom".into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim_end()).unwrap();
-    if let Envelope::Fatal { ref_id, error } = decoded {
+    if let Envelope::Fatal { ref_id, error, .. } = decoded {
         assert_eq!(ref_id.as_deref(), Some("r1"));
         assert_eq!(error, "boom");
     } else {
@@ -638,7 +643,7 @@ fn wire_format_hello_from_fixed_json() {
 fn wire_format_fatal_from_fixed_json() {
     let json = r#"{"t":"fatal","ref_id":"abc-123","error":"sidecar crashed"}"#;
     let env: Envelope = serde_json::from_str(json).unwrap();
-    if let Envelope::Fatal { ref_id, error } = env {
+    if let Envelope::Fatal { ref_id, error, .. } = env {
         assert_eq!(ref_id.as_deref(), Some("abc-123"));
         assert_eq!(error, "sidecar crashed");
     } else {

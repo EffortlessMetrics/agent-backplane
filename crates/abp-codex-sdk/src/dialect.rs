@@ -714,7 +714,10 @@ pub fn map_stream_event(event: &CodexStreamEvent) -> Vec<AgentEvent> {
                 .to_string();
             vec![AgentEvent {
                 ts: now,
-                kind: AgentEventKind::Error { message },
+                kind: AgentEventKind::Error {
+                    message,
+                    error_code: None,
+                },
                 ext: None,
             }]
         }
@@ -723,6 +726,7 @@ pub fn map_stream_event(event: &CodexStreamEvent) -> Vec<AgentEvent> {
                 ts: now,
                 kind: AgentEventKind::Error {
                     message: message.clone(),
+                    error_code: None,
                 },
                 ext: None,
             }]

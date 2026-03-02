@@ -275,6 +275,7 @@ fn has_errors_true_when_error_present() {
     let mut agg = EventAggregator::new();
     agg.add(&event(AgentEventKind::Error {
         message: "boom".into(),
+        error_code: None,
     }));
     assert!(agg.has_errors());
 }
@@ -284,12 +285,14 @@ fn error_messages_collected() {
     let mut agg = EventAggregator::new();
     agg.add(&event(AgentEventKind::Error {
         message: "e1".into(),
+        error_code: None,
     }));
     agg.add(&event(AgentEventKind::Warning {
         message: "w".into(),
     }));
     agg.add(&event(AgentEventKind::Error {
         message: "e2".into(),
+        error_code: None,
     }));
     assert_eq!(agg.error_messages(), vec!["e1", "e2"]);
 }
@@ -378,6 +381,7 @@ fn run_analytics_not_successful_with_errors() {
         }),
         event(AgentEventKind::Error {
             message: "oops".into(),
+            error_code: None,
         }),
     ];
     let analytics = RunAnalytics::from_events(&events);

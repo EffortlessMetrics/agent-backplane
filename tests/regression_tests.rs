@@ -184,6 +184,7 @@ fn envelope_tag_is_t_not_type() {
     let envelope = Envelope::Fatal {
         ref_id: None,
         error: "boom".into(),
+        error_code: None,
     };
     let json = JsonlCodec::encode(&envelope).unwrap();
     assert!(
@@ -283,6 +284,7 @@ fn fatal_envelope_has_error() {
     let fatal = Envelope::Fatal {
         ref_id: Some("run-1".into()),
         error: "out of memory".into(),
+        error_code: None,
     };
     let json = JsonlCodec::encode(&fatal).unwrap();
     let v: serde_json::Value = serde_json::from_str(json.trim()).unwrap();
@@ -480,6 +482,7 @@ fn event_filter_matches_each_kind() {
             "error",
             AgentEventKind::Error {
                 message: "err".into(),
+                error_code: None,
             },
         ),
     ];
@@ -607,12 +610,13 @@ fn envelope_jsonl_roundtrip() {
     let original = Envelope::Fatal {
         ref_id: Some("ref-1".into()),
         error: "test error".into(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&original).unwrap();
     assert!(encoded.ends_with('\n'));
     let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
     match decoded {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert_eq!(ref_id.as_deref(), Some("ref-1"));
             assert_eq!(error, "test error");
         }

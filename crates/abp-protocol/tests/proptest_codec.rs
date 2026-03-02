@@ -122,7 +122,10 @@ fn arb_agent_event() -> impl Strategy<Value = AgentEvent> {
             arb_string().prop_map(|message| AgentEventKind::RunStarted { message }),
             arb_string().prop_map(|text| AgentEventKind::AssistantDelta { text }),
             arb_string().prop_map(|message| AgentEventKind::Warning { message }),
-            arb_string().prop_map(|message| AgentEventKind::Error { message }),
+            arb_string().prop_map(|message| AgentEventKind::Error {
+                message,
+                error_code: None
+            }),
         ],
     )
         .prop_map(|(ts, kind)| AgentEvent {
@@ -190,8 +193,13 @@ fn arb_envelope() -> impl Strategy<Value = Envelope> {
             .prop_map(|(ref_id, event)| Envelope::Event { ref_id, event }),
         (arb_nonempty_string(), arb_receipt())
             .prop_map(|(ref_id, receipt)| Envelope::Final { ref_id, receipt }),
-        (prop::option::of(arb_nonempty_string()), arb_string())
-            .prop_map(|(ref_id, error)| Envelope::Fatal { ref_id, error }),
+        (prop::option::of(arb_nonempty_string()), arb_string()).prop_map(|(ref_id, error)| {
+            Envelope::Fatal {
+                ref_id,
+                error,
+                error_code: None,
+            }
+        }),
     ]
 }
 

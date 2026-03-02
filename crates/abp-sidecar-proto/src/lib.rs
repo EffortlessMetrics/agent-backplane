@@ -145,6 +145,7 @@ impl EventSender {
         let envelope = Envelope::Fatal {
             ref_id: Some(self.ref_id.clone()),
             error: error.into(),
+            error_code: None,
         };
         self.tx
             .send(envelope)
@@ -203,6 +204,7 @@ pub async fn send_fatal(
     let envelope = Envelope::Fatal {
         ref_id,
         error: error.into(),
+        error_code: None,
     };
     write_envelope(writer, &envelope).await
 }
@@ -343,6 +345,7 @@ impl<H: SidecarHandler> SidecarServer<H> {
             let fatal = Envelope::Fatal {
                 ref_id: Some(run_id),
                 error: e.to_string(),
+                error_code: None,
             };
             write_envelope(writer, &fatal).await?;
         }
@@ -632,7 +635,7 @@ mod tests {
         let line = drain_duplex(r).await;
         let env = JsonlCodec::decode(line.trim()).unwrap();
         match env {
-            Envelope::Fatal { ref_id, error } => {
+            Envelope::Fatal { ref_id, error, .. } => {
                 assert_eq!(ref_id, Some("run-1".into()));
                 assert_eq!(error, "crash");
             }

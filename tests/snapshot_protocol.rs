@@ -239,6 +239,7 @@ fn envelope_event_error() {
             ts: fixed_ts(),
             kind: AgentEventKind::Error {
                 message: "rate limit exceeded".into(),
+                error_code: None,
             },
             ext: None,
         },
@@ -345,6 +346,7 @@ fn envelope_fatal_with_ref_id() {
     let env = Envelope::Fatal {
         ref_id: Some(fixed_uuid().to_string()),
         error: "sidecar process exited with code 137 (OOM killed)".into(),
+        error_code: None,
     };
     insta::assert_json_snapshot!(env);
 }
@@ -354,6 +356,7 @@ fn envelope_fatal_without_ref_id() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "failed to initialize: missing API key".into(),
+        error_code: None,
     };
     insta::assert_json_snapshot!(env);
 }
@@ -388,6 +391,7 @@ fn batch_request_snapshot() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "test".into(),
+        error_code: None,
     };
     let req = BatchRequest {
         id: "batch-001".into(),
@@ -408,6 +412,7 @@ fn batch_response_snapshot() {
                 envelope: Some(Envelope::Fatal {
                     ref_id: None,
                     error: "test".into(),
+                    error_code: None,
                 }),
             },
             BatchResult {

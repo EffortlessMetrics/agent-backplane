@@ -194,6 +194,7 @@ fn core_to_protocol_event_kinds_preserved_in_envelope() {
         },
         AgentEventKind::Error {
             message: "err".into(),
+            error_code: None,
         },
         AgentEventKind::RunCompleted {
             message: "done".into(),
@@ -309,12 +310,13 @@ fn protocol_fatal_envelope_roundtrip() {
     let fatal = Envelope::Fatal {
         ref_id: Some("run-42".into()),
         error: "out of memory".into(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&fatal).unwrap();
     let decoded = JsonlCodec::decode(line.trim()).unwrap();
 
     match decoded {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert_eq!(ref_id.as_deref(), Some("run-42"));
             assert_eq!(error, "out of memory");
         }

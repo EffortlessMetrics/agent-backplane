@@ -285,6 +285,7 @@ mod agent_event_variants {
     fn error() {
         round_trip(AgentEventKind::Error {
             message: "boom".into(),
+            error_code: None,
         });
     }
 

@@ -68,7 +68,7 @@ impl fmt::Display for ErrorCategory {
 ///
 /// Each variant serialises to a `SCREAMING_SNAKE_CASE` string that is
 /// guaranteed not to change across patch releases.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ErrorCode {
     // -- Protocol --

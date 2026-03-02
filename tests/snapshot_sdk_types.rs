@@ -735,6 +735,7 @@ fn envelope_event_all_kinds() {
                 ts: fixed_ts(),
                 kind: AgentEventKind::Error {
                     message: "Connection timeout".into(),
+                    error_code: None,
                 },
                 ext: None,
             },
@@ -766,10 +767,12 @@ fn envelope_fatal_with_error() {
     let env_with_ref = Envelope::Fatal {
         ref_id: Some("run-fixed-001".into()),
         error: "Sidecar process crashed with exit code 137 (OOM killed)".into(),
+        error_code: None,
     };
     let env_no_ref = Envelope::Fatal {
         ref_id: None,
         error: "Failed to parse hello envelope: invalid JSON at line 1".into(),
+        error_code: None,
     };
     insta::assert_json_snapshot!("envelope_fatal_with_ref", env_with_ref);
     insta::assert_json_snapshot!("envelope_fatal_no_ref", env_no_ref);

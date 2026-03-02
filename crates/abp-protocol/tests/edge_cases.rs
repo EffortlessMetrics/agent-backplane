@@ -84,6 +84,7 @@ fn encode_decode_large_fatal_payload() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: large_error.clone(),
+        error_code: None,
     };
     let encoded = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim_end()).unwrap();
@@ -136,6 +137,7 @@ fn multi_line_jsonl_stream_parsed_line_by_line() {
     let env2 = Envelope::Fatal {
         ref_id: None,
         error: "boom".into(),
+        error_code: None,
     };
     let line1 = JsonlCodec::encode(&env1).unwrap();
     let line2 = JsonlCodec::encode(&env2).unwrap();

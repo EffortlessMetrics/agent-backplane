@@ -1072,6 +1072,7 @@ fn all_agent_event_kinds_validate_in_receipt() {
             ts: now,
             kind: AgentEventKind::Error {
                 message: "oops".into(),
+                error_code: None,
             },
             ext: None,
         },

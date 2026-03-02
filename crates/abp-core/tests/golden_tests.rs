@@ -316,6 +316,7 @@ fn golden_event_error() {
         ts: fixed_ts(),
         kind: AgentEventKind::Error {
             message: "backend returned 500".into(),
+            error_code: None,
         },
         ext: None,
     };

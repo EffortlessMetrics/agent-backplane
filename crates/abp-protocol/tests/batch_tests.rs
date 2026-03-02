@@ -16,6 +16,7 @@ fn fatal_envelope(msg: &str) -> Envelope {
     Envelope::Fatal {
         ref_id: None,
         error: msg.into(),
+        error_code: None,
     }
 }
 

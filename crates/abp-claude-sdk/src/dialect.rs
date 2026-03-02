@@ -615,6 +615,7 @@ pub fn map_stream_event(event: &ClaudeStreamEvent) -> Vec<AgentEvent> {
                 ts: now,
                 kind: AgentEventKind::Error {
                     message: format!("{}: {}", error.error_type, error.message),
+                    error_code: None,
                 },
                 ext: None,
             }]

@@ -72,6 +72,7 @@ version = "0.1.0"
 dependencies = [
  "abp-claude-sdk",
  "abp-codex-sdk",
+ "abp-config",
  "abp-copilot-sdk",
  "abp-core",
  "abp-gemini-sdk",
@@ -139,6 +140,7 @@ dependencies = [
 name = "abp-core"
 version = "0.1.0"
 dependencies = [
+ "abp-error",
  "chrono",
  "criterion",
  "insta",
@@ -157,6 +159,7 @@ version = "0.1.0"
 dependencies = [
  "abp-claude-sdk",
  "abp-codex-sdk",
+ "abp-config",
  "abp-copilot-sdk",
  "abp-core",
  "abp-gemini-sdk",
@@ -206,6 +209,7 @@ dependencies = [
 name = "abp-error"
 version = "0.1.0"
 dependencies = [
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -348,6 +352,7 @@ name = "abp-protocol"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-error",
  "chrono",
  "criterion",
  "insta",
@@ -377,10 +382,13 @@ dependencies = [
 name = "abp-runtime"
 version = "0.1.0"
 dependencies = [
+ "abp-capability",
  "abp-core",
  "abp-emulation",
+ "abp-error",
  "abp-integrations",
  "abp-policy",
+ "abp-receipt",
  "abp-workspace",
  "anyhow",
  "async-trait",

@@ -628,7 +628,7 @@ fn stream_response_failed_produces_error_event() {
     };
     let events = map_stream_event(&event);
     assert_eq!(events.len(), 1);
-    if let AgentEventKind::Error { message } = &events[0].kind {
+    if let AgentEventKind::Error { message, .. } = &events[0].kind {
         assert!(message.contains("rate_limit_exceeded"));
     } else {
         panic!("expected Error event");
@@ -643,7 +643,7 @@ fn stream_error_produces_error_event() {
     };
     let events = map_stream_event(&event);
     assert_eq!(events.len(), 1);
-    if let AgentEventKind::Error { message } = &events[0].kind {
+    if let AgentEventKind::Error { message, .. } = &events[0].kind {
         assert_eq!(message, "server error");
     } else {
         panic!("expected Error event");

@@ -59,6 +59,7 @@ fn fatal_envelope() -> Envelope {
     Envelope::Fatal {
         ref_id: Some("run-001".into()),
         error: "something went wrong".into(),
+        error_code: None,
     }
 }
 

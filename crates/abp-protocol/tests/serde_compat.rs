@@ -52,6 +52,7 @@ fn envelope_discriminator_is_t() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "boom".into(),
+        error_code: None,
     };
     let v = serde_json::to_value(&env).unwrap();
     assert!(
@@ -80,6 +81,7 @@ fn envelope_tag_values_are_snake_case() {
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "x".into(),
+        error_code: None,
     };
     let v = serde_json::to_value(&fatal).unwrap();
     assert_eq!(v["t"], "fatal");
@@ -148,6 +150,7 @@ fn roundtrip_fatal() {
     let env = Envelope::Fatal {
         ref_id: Some("run-1".into()),
         error: "something broke".into(),
+        error_code: None,
     };
     let json_str = serde_json::to_string(&env).unwrap();
     let back: Envelope = serde_json::from_str(&json_str).unwrap();
@@ -159,11 +162,12 @@ fn roundtrip_fatal_null_ref() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "no ref".into(),
+        error_code: None,
     };
     let json_str = serde_json::to_string(&env).unwrap();
     let back: Envelope = serde_json::from_str(&json_str).unwrap();
     match back {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert!(ref_id.is_none());
             assert_eq!(error, "no ref");
         }
@@ -221,7 +225,7 @@ fn minimal_fatal() {
     let json = r#"{"t":"fatal","error":"x"}"#;
     let env: Envelope = serde_json::from_str(json).unwrap();
     match env {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert!(ref_id.is_none());
             assert_eq!(error, "x");
         }
@@ -296,6 +300,7 @@ fn jsonl_codec_preserves_tag_field() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "test".into(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&env).unwrap();
     assert!(line.contains("\"t\":\"fatal\""), "encoded line: {line}");

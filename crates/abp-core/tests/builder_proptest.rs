@@ -50,7 +50,10 @@ fn arb_agent_event_kind() -> impl Strategy<Value = AgentEventKind> {
         ".*".prop_map(|text| AgentEventKind::AssistantDelta { text }),
         ".*".prop_map(|text| AgentEventKind::AssistantMessage { text }),
         ".*".prop_map(|message| AgentEventKind::Warning { message }),
-        ".*".prop_map(|message| AgentEventKind::Error { message }),
+        ".*".prop_map(|message| AgentEventKind::Error {
+            message,
+            error_code: None
+        }),
     ]
 }
 

@@ -56,6 +56,7 @@ fn all_event_kinds() -> Vec<AgentEvent> {
         }),
         event(AgentEventKind::Error {
             message: "boom".into(),
+            error_code: None,
         }),
     ]
 }
@@ -90,6 +91,7 @@ fn filter_mixed_stream_include() {
         event(AgentEventKind::AssistantMessage { text: "hi".into() }),
         event(AgentEventKind::Error {
             message: "oops".into(),
+            error_code: None,
         }),
         event(AgentEventKind::Warning {
             message: "hmm".into(),
@@ -116,6 +118,7 @@ fn filter_mixed_stream_exclude() {
         }),
         event(AgentEventKind::Error {
             message: "e".into(),
+            error_code: None,
         }),
         event(AgentEventKind::RunCompleted {
             message: "done".into(),

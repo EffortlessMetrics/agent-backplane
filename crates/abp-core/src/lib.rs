@@ -561,6 +561,9 @@ pub enum AgentEventKind {
     Error {
         /// Error message text.
         message: String,
+        /// Machine-readable error code from the unified taxonomy, if available.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error_code: Option<abp_error::ErrorCode>,
     },
 }
 

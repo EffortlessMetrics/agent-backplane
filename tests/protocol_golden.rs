@@ -206,6 +206,7 @@ fn golden_serialize_fatal_with_ref() {
     let env = Envelope::Fatal {
         ref_id: Some(uuid1().to_string()),
         error: "out of memory".into(),
+        error_code: None,
     };
     insta::assert_json_snapshot!("golden_fatal_with_ref", serde_json::to_value(&env).unwrap());
 }
@@ -215,6 +216,7 @@ fn golden_serialize_fatal_without_ref() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "missing API key".into(),
+        error_code: None,
     };
     insta::assert_json_snapshot!(
         "golden_fatal_without_ref",
@@ -303,7 +305,7 @@ fn golden_deserialize_fatal() {
     let line = r#"{"t":"fatal","ref_id":null,"error":"boom"}"#;
     let env = JsonlCodec::decode(line).unwrap();
     match env {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert!(ref_id.is_none());
             assert_eq!(error, "boom");
         }
@@ -316,7 +318,7 @@ fn golden_deserialize_fatal_with_ref() {
     let line = r#"{"t":"fatal","ref_id":"run-99","error":"timeout"}"#;
     let env = JsonlCodec::decode(line).unwrap();
     match env {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert_eq!(ref_id.as_deref(), Some("run-99"));
             assert_eq!(error, "timeout");
         }
@@ -397,6 +399,7 @@ fn roundtrip_event_all_kinds() {
         },
         AgentEventKind::Error {
             message: "oops".into(),
+            error_code: None,
         },
     ];
 
@@ -425,6 +428,7 @@ fn roundtrip_fatal_with_ref() {
     roundtrip(&Envelope::Fatal {
         ref_id: Some("r1".into()),
         error: "err".into(),
+        error_code: None,
     });
 }
 
@@ -433,6 +437,7 @@ fn roundtrip_fatal_without_ref() {
     roundtrip(&Envelope::Fatal {
         ref_id: None,
         error: "err".into(),
+        error_code: None,
     });
 }
 
@@ -577,6 +582,7 @@ fn jsonl_multi_line_parse() {
     let fatal = Envelope::Fatal {
         ref_id: Some("r1".into()),
         error: "crash".into(),
+        error_code: None,
     };
 
     let mut buf = Vec::new();
@@ -605,11 +611,13 @@ fn jsonl_blank_lines_skipped() {
         serde_json::to_string(&Envelope::Fatal {
             ref_id: None,
             error: "a".into(),
+            error_code: None,
         })
         .unwrap(),
         serde_json::to_string(&Envelope::Fatal {
             ref_id: None,
             error: "b".into(),
+            error_code: None,
         })
         .unwrap(),
     );
@@ -625,6 +633,7 @@ fn jsonl_encode_produces_newline_terminated() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "x".into(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&env).unwrap();
     assert!(line.ends_with('\n'));
@@ -728,7 +737,7 @@ fn field_order_fatal_reversed() {
     let line = r#"{"error":"boom","ref_id":"r1","t":"fatal"}"#;
     let env = JsonlCodec::decode(line).unwrap();
     match env {
-        Envelope::Fatal { ref_id, error } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert_eq!(ref_id.as_deref(), Some("r1"));
             assert_eq!(error, "boom");
         }
@@ -779,6 +788,7 @@ fn unicode_in_error_message() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "エラー: 接続失敗 🔥".into(),
+        error_code: None,
     };
     roundtrip(&env);
     let json = serde_json::to_string(&env).unwrap();

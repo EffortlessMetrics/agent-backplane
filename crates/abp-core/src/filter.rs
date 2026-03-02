@@ -164,6 +164,7 @@ mod tests {
         let f = EventFilter::exclude_kinds(&["error"]);
         let e = event(AgentEventKind::Error {
             message: "bad".into(),
+            error_code: None,
         });
         assert!(!f.matches(&e));
     }
