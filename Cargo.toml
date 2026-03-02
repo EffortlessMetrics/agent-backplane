@@ -149,6 +149,7 @@ abp-projection = { path = "crates/abp-projection" }
 abp-stream = { path = "crates/abp-stream" }
 insta = { workspace = true }
 proptest = { workspace = true }
+sha2 = { workspace = true }
 toml = { workspace = true }
 walkdir = { workspace = true }
 axum = { workspace = true }
