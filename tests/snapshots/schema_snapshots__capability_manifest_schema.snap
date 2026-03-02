@@ -11,7 +11,7 @@ expression: schema
   },
   "$defs": {
     "SupportLevel": {
-      "description": "How well a backend supports a given [`Capability`].",
+      "description": "How well a backend supports a given [`Capability`].\n\n# Examples\n\n```\nuse abp_core::{SupportLevel, MinSupport};\n\nlet native = SupportLevel::Native;\nassert!(native.satisfies(&MinSupport::Native));\nassert!(native.satisfies(&MinSupport::Emulated));\n\nlet emulated = SupportLevel::Emulated;\nassert!(!emulated.satisfies(&MinSupport::Native));\nassert!(emulated.satisfies(&MinSupport::Emulated));\n```",
       "oneOf": [
         {
           "description": "First-class support built into the backend.",

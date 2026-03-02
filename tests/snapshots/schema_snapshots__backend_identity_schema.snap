@@ -5,7 +5,7 @@ expression: schema
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "BackendIdentity",
-  "description": "Identifies a backend and its version information.",
+  "description": "Identifies a backend and its version information.\n\n# Examples\n\n```\nuse abp_core::BackendIdentity;\n\nlet id = BackendIdentity {\n    id: \"sidecar:node\".into(),\n    backend_version: Some(\"1.0.0\".into()),\n    adapter_version: None,\n};\nassert_eq!(id.id, \"sidecar:node\");\n```",
   "type": "object",
   "properties": {
     "adapter_version": {

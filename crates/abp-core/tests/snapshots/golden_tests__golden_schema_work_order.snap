@@ -406,7 +406,7 @@ expression: value
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "A single unit of work.\n\nThis is intentionally *not* a chat session. Sessions can exist underneath,\nbut the contract is step-oriented.",
+  "description": "A single unit of work.\n\nThis is intentionally *not* a chat session. Sessions can exist underneath,\nbut the contract is step-oriented.\n\n# Examples\n\n```\nuse abp_core::WorkOrderBuilder;\n\nlet wo = WorkOrderBuilder::new(\"Refactor auth module\").build();\nassert_eq!(wo.task, \"Refactor auth module\");\n```",
   "properties": {
     "config": {
       "$ref": "#/$defs/RuntimeConfig",

@@ -5,7 +5,7 @@ expression: schema
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Outcome",
-  "description": "High-level result status of a run.",
+  "description": "High-level result status of a run.\n\n# Examples\n\n```\nuse abp_core::Outcome;\n\nlet outcome: Outcome = serde_json::from_str(r#\"\"complete\"\"#).unwrap();\nassert_eq!(outcome, Outcome::Complete);\n```",
   "oneOf": [
     {
       "description": "The run finished successfully.",

@@ -255,7 +255,7 @@ expression: schema
   ],
   "$defs": {
     "ErrorCode": {
-      "description": "Machine-readable, stable error code.\n\nEach variant serialises to a `SCREAMING_SNAKE_CASE` string that is\nguaranteed not to change across patch releases.",
+      "description": "Machine-readable, stable error code.\n\nEach variant serialises to a `SCREAMING_SNAKE_CASE` string that is\nguaranteed not to change across patch releases.\n\n# Examples\n\n```\nuse abp_error::ErrorCode;\n\nlet code = ErrorCode::BackendTimeout;\nassert_eq!(code.as_str(), \"BACKEND_TIMEOUT\");\nassert_eq!(code.to_string(), \"BACKEND_TIMEOUT\");\nassert_eq!(code.category().to_string(), \"backend\");\n```",
       "oneOf": [
         {
           "description": "Envelope failed to parse or has missing/invalid fields.",
