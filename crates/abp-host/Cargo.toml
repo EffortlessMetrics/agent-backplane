@@ -12,6 +12,7 @@ categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }
+abp-duration-serde = { path = "../abp-duration-serde" }
 abp-protocol = { path = "../abp-protocol" }
 sidecar-kit = { path = "../sidecar-kit" }
 anyhow.workspace = true
@@ -25,6 +26,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 abp-core = { path = "../abp-core" }
+abp-duration-serde = { path = "../abp-duration-serde" }
 abp-protocol = { path = "../abp-protocol" }
 chrono.workspace = true
 serde_json.workspace = true

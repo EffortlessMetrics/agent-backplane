@@ -5,6 +5,7 @@
 //! configurable limits and reports when any dimension is exceeded or
 //! approaching its cap.
 
+use abp_duration_serde::option_duration_millis as optional_duration_ms;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering::Relaxed};
@@ -29,24 +30,6 @@ pub struct BudgetLimit {
         with = "optional_duration_ms"
     )]
     pub max_duration: Option<Duration>,
-}
-
-/// Serde helper: serialize/deserialize `Option<Duration>` as milliseconds.
-mod optional_duration_ms {
-    use serde::{Deserialize, Deserializer, Serializer};
-    use std::time::Duration;
-
-    pub fn serialize<S: Serializer>(v: &Option<Duration>, s: S) -> Result<S::Ok, S::Error> {
-        match v {
-            Some(d) => s.serialize_u64(d.as_millis() as u64),
-            None => s.serialize_none(),
-        }
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Duration>, D::Error> {
-        let ms: Option<u64> = Option::deserialize(d)?;
-        Ok(ms.map(Duration::from_millis))
-    }
 }
 
 /// Thread-safe budget tracker backed by atomic counters.

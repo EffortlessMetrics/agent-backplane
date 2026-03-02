@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Health monitoring for sidecar processes.
 
+use abp_duration_serde::option_duration_millis;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -44,24 +45,6 @@ pub struct HealthCheck {
     pub response_time: Option<Duration>,
     /// Number of consecutive failures recorded.
     pub consecutive_failures: u32,
-}
-
-/// Serde helper for `Option<Duration>` as milliseconds.
-mod option_duration_millis {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use std::time::Duration;
-
-    pub fn serialize<S: Serializer>(val: &Option<Duration>, ser: S) -> Result<S::Ok, S::Error> {
-        match val {
-            Some(d) => d.as_millis().serialize(ser),
-            None => ser.serialize_none(),
-        }
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<Option<Duration>, D::Error> {
-        let opt: Option<u64> = Option::deserialize(de)?;
-        Ok(opt.map(Duration::from_millis))
-    }
 }
 
 /// Aggregated health report across all monitored sidecars.

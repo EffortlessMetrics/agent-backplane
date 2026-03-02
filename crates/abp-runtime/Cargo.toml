@@ -12,6 +12,7 @@ categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core" }
+abp-duration-serde = { path = "../abp-duration-serde" }
 abp-emulation = { path = "../abp-emulation" }
 abp-integrations = { path = "../abp-integrations" }
 abp-policy = { path = "../abp-policy" }

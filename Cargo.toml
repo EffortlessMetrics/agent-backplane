@@ -22,6 +22,7 @@ members = [
   "crates/abp-emulation",
   "crates/abp-error",
   "crates/abp-dialect",
+  "crates/abp-duration-serde",
   "crates/abp-gemini-sdk",
   "crates/abp-git",
   "crates/abp-glob",
@@ -115,6 +116,7 @@ schemars.workspace = true
 jsonschema.workspace = true
 abp-daemon = { path = "crates/abp-daemon" }
 abp-dialect = { path = "crates/abp-dialect" }
+abp-duration-serde = { path = "crates/abp-duration-serde" }
 abp-error = { path = "crates/abp-error" }
 abp-capability = { path = "crates/abp-capability" }
 abp-receipt = { path = "crates/abp-receipt" }

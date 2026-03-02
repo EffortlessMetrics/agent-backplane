@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Retry policies and timeout configuration for resilient backend execution.
 
+use abp_duration_serde::{duration_millis, option_duration_millis};
 use serde::{Deserialize, Serialize};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::Duration;
@@ -135,39 +136,6 @@ fn jitter(attempt: u32) -> f64 {
     // Map to [0, 1) then scale to [0.75, 1.25].
     let unit = (bits as f64) / (u64::MAX as f64);
     0.75 + unit * 0.5
-}
-
-// --- serde helpers for Duration as milliseconds -----------------------------
-
-mod duration_millis {
-    use serde::{self, Deserialize, Deserializer, Serializer};
-    use std::time::Duration;
-
-    pub fn serialize<S: Serializer>(d: &Duration, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_u64(d.as_millis() as u64)
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Duration, D::Error> {
-        let ms = u64::deserialize(d)?;
-        Ok(Duration::from_millis(ms))
-    }
-}
-
-mod option_duration_millis {
-    use serde::{self, Deserialize, Deserializer, Serializer};
-    use std::time::Duration;
-
-    pub fn serialize<S: Serializer>(val: &Option<Duration>, s: S) -> Result<S::Ok, S::Error> {
-        match val {
-            Some(d) => s.serialize_some(&(d.as_millis() as u64)),
-            None => s.serialize_none(),
-        }
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Duration>, D::Error> {
-        let opt: Option<u64> = Option::deserialize(d)?;
-        Ok(opt.map(Duration::from_millis))
-    }
 }
 
 #[cfg(test)]
