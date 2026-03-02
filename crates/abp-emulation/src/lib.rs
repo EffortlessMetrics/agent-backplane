@@ -35,6 +35,100 @@ pub enum EmulationStrategy {
     },
 }
 
+// ── Named Strategies ────────────────────────────────────────────────────
+
+/// Pre-configured strategy: emulate JSON schema output via prompt engineering.
+///
+/// Instructs the model to produce valid JSON matching a requested schema.
+#[must_use]
+pub fn emulate_structured_output() -> EmulationStrategy {
+    EmulationStrategy::SystemPromptInjection {
+        prompt: "You MUST respond with valid JSON matching the requested schema. \
+                 Do not include any text outside the JSON object."
+            .into(),
+    }
+}
+
+/// Pre-configured strategy: emulate code execution by reasoning through code.
+///
+/// The model simulates execution rather than running code in a sandbox.
+#[must_use]
+pub fn emulate_code_execution() -> EmulationStrategy {
+    EmulationStrategy::SystemPromptInjection {
+        prompt: "When asked to execute code, reason through the code step by step \
+                 and produce the expected output. Do not actually execute code."
+            .into(),
+    }
+}
+
+/// Pre-configured strategy: emulate extended thinking via chain-of-thought prompting.
+#[must_use]
+pub fn emulate_extended_thinking() -> EmulationStrategy {
+    EmulationStrategy::SystemPromptInjection {
+        prompt: "Think step by step before answering. Show your reasoning process.".into(),
+    }
+}
+
+/// Pre-configured strategy: handle image inputs on text-only backends.
+///
+/// Converts image inputs to text descriptions as a fallback.
+#[must_use]
+pub fn emulate_image_input() -> EmulationStrategy {
+    EmulationStrategy::SystemPromptInjection {
+        prompt: "Image inputs have been converted to text descriptions. \
+                 Process the descriptions as if viewing the original images."
+            .into(),
+    }
+}
+
+/// Pre-configured strategy: emulate stop sequences via post-processing truncation.
+#[must_use]
+pub fn emulate_stop_sequences() -> EmulationStrategy {
+    EmulationStrategy::PostProcessing {
+        detail: "Truncate response at the first occurrence of any specified stop sequence".into(),
+    }
+}
+
+// ── Fidelity ────────────────────────────────────────────────────────────
+
+/// How a capability is fulfilled — natively by the backend or via emulation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "fidelity", rename_all = "snake_case")]
+pub enum FidelityLabel {
+    /// Backend supports this capability natively — no transformation needed.
+    Native,
+    /// Capability is provided through an emulation strategy.
+    Emulated {
+        /// The strategy used for emulation.
+        strategy: EmulationStrategy,
+    },
+}
+
+/// Compute per-capability fidelity labels from native support and emulation results.
+///
+/// Capabilities in `native` get [`FidelityLabel::Native`]; capabilities in
+/// `report.applied` get [`FidelityLabel::Emulated`]. Capabilities that appear
+/// only in `report.warnings` are omitted (they could not be provided at all).
+#[must_use]
+pub fn compute_fidelity(
+    native: &[Capability],
+    report: &EmulationReport,
+) -> BTreeMap<Capability, FidelityLabel> {
+    let mut labels = BTreeMap::new();
+    for cap in native {
+        labels.insert(cap.clone(), FidelityLabel::Native);
+    }
+    for entry in &report.applied {
+        labels.insert(
+            entry.capability.clone(),
+            FidelityLabel::Emulated {
+                strategy: entry.strategy.clone(),
+            },
+        );
+    }
+    labels
+}
+
 // ── Config ──────────────────────────────────────────────────────────────
 
 /// Per-capability emulation overrides.
@@ -79,6 +173,8 @@ pub fn default_strategy(capability: &Capability) -> EmulationStrategy {
         Capability::CodeExecution => EmulationStrategy::Disabled {
             reason: "Cannot safely emulate sandboxed code execution".into(),
         },
+        Capability::ImageInput => emulate_image_input(),
+        Capability::StopSequences => emulate_stop_sequences(),
         other => EmulationStrategy::Disabled {
             reason: format!("No emulation available for {other:?}"),
         },

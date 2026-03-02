@@ -438,6 +438,8 @@ async fn new_endpoints_have_json_content_type() {
     check("/config").await;
     check("/schema/work_order").await;
     check("/schema/receipt").await;
+    check("/schema/capability_requirements").await;
+    check("/schema/backplane_config").await;
 }
 
 // ---------------------------------------------------------------------------
@@ -460,6 +462,64 @@ async fn schema_unknown_type_returns_404() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+// ---------------------------------------------------------------------------
+// 13. GET schema/capability_requirements returns valid JSON schema
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn schema_capability_requirements_returns_valid_json() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/schema/capability_requirements")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert!(
+        json.get("$schema").is_some() || json.get("type").is_some(),
+        "expected a JSON schema document, got: {json}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 14. GET schema/backplane_config returns valid JSON schema
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn schema_backplane_config_returns_valid_json() {
+    let tmp = tempfile::tempdir().unwrap();
+    let app = build_app(test_state(tmp.path()));
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/schema/backplane_config")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert!(
+        json.get("$schema").is_some() || json.get("type").is_some(),
+        "expected a JSON schema document, got: {json}"
+    );
 }
 
 // ---------------------------------------------------------------------------

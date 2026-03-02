@@ -128,9 +128,9 @@ enum Commands {
         events: Option<PathBuf>,
     },
 
-    /// Validate a work order JSON file against the schema.
+    /// Validate a JSON file as a WorkOrder, Receipt, or auto-detect type.
     Validate {
-        /// Path to the work order JSON file.
+        /// Path to the JSON file.
         #[arg()]
         file: PathBuf,
     },
@@ -147,6 +147,51 @@ enum Commands {
         /// Path to the receipt JSON file.
         #[arg()]
         file: PathBuf,
+    },
+
+    /// Load and validate configuration.
+    #[command(name = "config")]
+    ConfigCmd {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+
+    /// Receipt inspection and comparison.
+    #[command(name = "receipt")]
+    ReceiptCmd {
+        #[command(subcommand)]
+        action: ReceiptAction,
+    },
+}
+
+/// Actions for the `config` subcommand.
+#[derive(Subcommand, Debug)]
+enum ConfigAction {
+    /// Check (load and validate) the configuration file.
+    Check {
+        /// Path to a TOML configuration file (overrides --config).
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+}
+
+/// Actions for the `receipt` subcommand.
+#[derive(Subcommand, Debug)]
+enum ReceiptAction {
+    /// Verify a receipt file's hash integrity.
+    Verify {
+        /// Path to the receipt JSON file.
+        #[arg()]
+        file: PathBuf,
+    },
+    /// Diff two receipt files and show changes.
+    Diff {
+        /// First receipt JSON file.
+        #[arg()]
+        file1: PathBuf,
+        /// Second receipt JSON file.
+        #[arg()]
+        file2: PathBuf,
     },
 }
 
@@ -223,6 +268,8 @@ async fn main() {
         Commands::Validate { file } => cmd_validate(&file),
         Commands::Schema { kind } => cmd_schema(kind),
         Commands::Inspect { file } => cmd_inspect(&file),
+        Commands::ConfigCmd { action } => cmd_config(action, config_path),
+        Commands::ReceiptCmd { action } => cmd_receipt(action),
         Commands::Run {
             backend,
             task,
@@ -295,8 +342,11 @@ async fn cmd_backends() -> Result<()> {
 }
 
 fn cmd_validate(file: &std::path::Path) -> Result<()> {
-    commands::validate_work_order_file(file)?;
-    println!("valid");
+    let detected = commands::validate_file(file)?;
+    match detected {
+        commands::ValidatedType::WorkOrder => println!("valid work_order"),
+        commands::ValidatedType::Receipt => println!("valid receipt"),
+    }
     Ok(())
 }
 
@@ -327,6 +377,46 @@ fn cmd_inspect(file: &std::path::Path) -> Result<()> {
         std::process::exit(EXIT_RUNTIME_ERROR);
     }
     Ok(())
+}
+
+fn cmd_config(action: ConfigAction, global_config_path: Option<PathBuf>) -> Result<()> {
+    match action {
+        ConfigAction::Check { config } => {
+            let path = config.or(global_config_path);
+            let diagnostics = commands::config_check(path.as_deref())?;
+            for d in &diagnostics {
+                println!("{d}");
+            }
+            if diagnostics.iter().any(|d| d.starts_with("error:")) {
+                std::process::exit(EXIT_RUNTIME_ERROR);
+            }
+            Ok(())
+        }
+    }
+}
+
+fn cmd_receipt(action: ReceiptAction) -> Result<()> {
+    match action {
+        ReceiptAction::Verify { file } => {
+            let (receipt, valid) = commands::verify_receipt_file(&file)?;
+            println!(
+                "sha256: {}",
+                receipt.receipt_sha256.as_deref().unwrap_or("<none>")
+            );
+            if valid {
+                println!("hash: VALID");
+            } else {
+                println!("hash: INVALID");
+                std::process::exit(EXIT_RUNTIME_ERROR);
+            }
+            Ok(())
+        }
+        ReceiptAction::Diff { file1, file2 } => {
+            let diff = commands::receipt_diff(&file1, &file2)?;
+            println!("{diff}");
+            Ok(())
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

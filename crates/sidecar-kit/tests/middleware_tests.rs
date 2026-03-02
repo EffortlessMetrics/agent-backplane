@@ -383,3 +383,270 @@ fn custom_middleware_integrates_with_chain() {
     assert_eq!(result["text"], "[bot] world");
     assert_eq!(result["message"], "X");
 }
+
+// =========================================================================
+// Typed SidecarMiddleware tests
+// =========================================================================
+
+mod typed {
+    use abp_core::{AgentEvent, AgentEventKind};
+    use chrono::Utc;
+    use sidecar_kit::typed_middleware::{
+        ErrorRecoveryMiddleware, FilterMiddleware as TypedFilter,
+        LoggingMiddleware as TypedLogging, MetricsMiddleware, MiddlewareAction,
+        RateLimitMiddleware, SidecarMiddleware, SidecarMiddlewareChain,
+    };
+
+    fn make_event(kind: AgentEventKind) -> AgentEvent {
+        AgentEvent {
+            ts: Utc::now(),
+            kind,
+            ext: None,
+        }
+    }
+
+    fn run_started() -> AgentEvent {
+        make_event(AgentEventKind::RunStarted {
+            message: "go".into(),
+        })
+    }
+
+    fn assistant_msg() -> AgentEvent {
+        make_event(AgentEventKind::AssistantMessage {
+            text: "hello".into(),
+        })
+    }
+
+    fn error_event() -> AgentEvent {
+        make_event(AgentEventKind::Error {
+            message: "boom".into(),
+            error_code: None,
+        })
+    }
+
+    // ── Chain executes middlewares in order ──────────────────────────
+
+    /// Middleware that tags the event ext with an order marker.
+    struct OrderMarker {
+        label: String,
+    }
+
+    impl SidecarMiddleware for OrderMarker {
+        fn on_event(&self, event: &mut AgentEvent) -> MiddlewareAction {
+            let ext = event.ext.get_or_insert_with(Default::default);
+            let list = ext
+                .entry("order".to_string())
+                .or_insert_with(|| serde_json::json!([]));
+            if let Some(arr) = list.as_array_mut() {
+                arr.push(serde_json::json!(self.label));
+            }
+            MiddlewareAction::Continue
+        }
+    }
+
+    #[test]
+    fn chain_executes_middlewares_in_order() {
+        let chain = SidecarMiddlewareChain::new()
+            .with(OrderMarker {
+                label: "first".into(),
+            })
+            .with(OrderMarker {
+                label: "second".into(),
+            })
+            .with(OrderMarker {
+                label: "third".into(),
+            });
+
+        let mut event = run_started();
+        let action = chain.process(&mut event);
+        assert_eq!(action, MiddlewareAction::Continue);
+        let order = event.ext.unwrap()["order"].as_array().unwrap().clone();
+        assert_eq!(order, vec!["first", "second", "third"]);
+    }
+
+    // ── Skip action prevents further processing ─────────────────────
+
+    struct SkipAll;
+    impl SidecarMiddleware for SkipAll {
+        fn on_event(&self, _event: &mut AgentEvent) -> MiddlewareAction {
+            MiddlewareAction::Skip
+        }
+    }
+
+    #[test]
+    fn skip_action_prevents_further_processing() {
+        let chain = SidecarMiddlewareChain::new()
+            .with(OrderMarker {
+                label: "first".into(),
+            })
+            .with(SkipAll)
+            .with(OrderMarker {
+                label: "unreachable".into(),
+            });
+
+        let mut event = run_started();
+        let action = chain.process(&mut event);
+        assert_eq!(action, MiddlewareAction::Skip);
+        let order = event.ext.unwrap()["order"].as_array().unwrap().clone();
+        assert_eq!(order.len(), 1);
+        assert_eq!(order[0], "first");
+    }
+
+    // ── Error action generates error ────────────────────────────────
+
+    #[test]
+    fn error_action_short_circuits_chain() {
+        struct ErrorMw;
+        impl SidecarMiddleware for ErrorMw {
+            fn on_event(&self, _event: &mut AgentEvent) -> MiddlewareAction {
+                MiddlewareAction::Error("failed".into())
+            }
+        }
+
+        let chain = SidecarMiddlewareChain::new()
+            .with(ErrorMw)
+            .with(OrderMarker {
+                label: "unreachable".into(),
+            });
+
+        let mut event = run_started();
+        let action = chain.process(&mut event);
+        assert_eq!(action, MiddlewareAction::Error("failed".into()));
+        assert!(event.ext.is_none());
+    }
+
+    // ── Logging middleware emits tracing events ─────────────────────
+
+    #[test]
+    fn logging_middleware_emits_tracing_events() {
+        let mw = TypedLogging::new();
+        let mut event = assistant_msg();
+        let action = mw.on_event(&mut event);
+        assert_eq!(action, MiddlewareAction::Continue);
+        // Event should be unchanged (logging is non-mutating).
+        assert!(matches!(
+            event.kind,
+            AgentEventKind::AssistantMessage { .. }
+        ));
+    }
+
+    // ── Rate limiter limits throughput ───────────────────────────────
+
+    #[test]
+    fn rate_limiter_limits_throughput() {
+        let limiter = RateLimitMiddleware::new(3);
+        let mut passed = 0;
+        let mut skipped = 0;
+        for _ in 0..10 {
+            let mut event = run_started();
+            match limiter.on_event(&mut event) {
+                MiddlewareAction::Continue => passed += 1,
+                MiddlewareAction::Skip => skipped += 1,
+                _ => panic!("unexpected action"),
+            }
+        }
+        assert_eq!(passed, 3);
+        assert_eq!(skipped, 7);
+    }
+
+    // ── Filter drops matching events ────────────────────────────────
+
+    #[test]
+    fn filter_drops_matching_events() {
+        let filter = TypedFilter::new(|event: &AgentEvent| {
+            matches!(event.kind, AgentEventKind::Error { .. })
+        });
+
+        let mut ev = error_event();
+        assert_eq!(filter.on_event(&mut ev), MiddlewareAction::Skip);
+
+        let mut ev2 = run_started();
+        assert_eq!(filter.on_event(&mut ev2), MiddlewareAction::Continue);
+    }
+
+    // ── Error recovery catches panics ───────────────────────────────
+
+    struct PanickingMiddleware;
+    impl SidecarMiddleware for PanickingMiddleware {
+        fn on_event(&self, _event: &mut AgentEvent) -> MiddlewareAction {
+            panic!("oh no");
+        }
+    }
+
+    #[test]
+    fn error_recovery_catches_panics() {
+        let recovery = ErrorRecoveryMiddleware::wrap(PanickingMiddleware);
+        let mut event = run_started();
+        let action = recovery.on_event(&mut event);
+        assert_eq!(action, MiddlewareAction::Error("oh no".into()));
+    }
+
+    // ── Empty chain passes everything through ───────────────────────
+
+    #[test]
+    fn empty_chain_passes_everything_through() {
+        let chain = SidecarMiddlewareChain::new();
+        assert!(chain.is_empty());
+        let mut event = assistant_msg();
+        let action = chain.process(&mut event);
+        assert_eq!(action, MiddlewareAction::Continue);
+    }
+
+    // ── Multiple chains compose correctly ───────────────────────────
+
+    /// Adapter that runs a sub-chain as a single middleware.
+    struct SubChain(SidecarMiddlewareChain);
+    impl SidecarMiddleware for SubChain {
+        fn on_event(&self, event: &mut AgentEvent) -> MiddlewareAction {
+            self.0.process(event)
+        }
+    }
+
+    #[test]
+    fn multiple_chains_compose_correctly() {
+        let inner = SidecarMiddlewareChain::new()
+            .with(OrderMarker {
+                label: "inner_1".into(),
+            })
+            .with(OrderMarker {
+                label: "inner_2".into(),
+            });
+
+        let outer = SidecarMiddlewareChain::new()
+            .with(OrderMarker {
+                label: "outer_before".into(),
+            })
+            .with(SubChain(inner))
+            .with(OrderMarker {
+                label: "outer_after".into(),
+            });
+
+        let mut event = run_started();
+        let action = outer.process(&mut event);
+        assert_eq!(action, MiddlewareAction::Continue);
+        let order = event.ext.unwrap()["order"].as_array().unwrap().clone();
+        assert_eq!(
+            order,
+            vec!["outer_before", "inner_1", "inner_2", "outer_after"]
+        );
+    }
+
+    // ── Metrics middleware counts events by type ─────────────────────
+
+    #[test]
+    fn metrics_counts_events_by_type() {
+        let metrics = MetricsMiddleware::new();
+        let mut e1 = run_started();
+        let mut e2 = run_started();
+        let mut e3 = error_event();
+        metrics.on_event(&mut e1);
+        metrics.on_event(&mut e2);
+        metrics.on_event(&mut e3);
+
+        let counts = metrics.counts();
+        assert_eq!(counts["run_started"], 2);
+        assert_eq!(counts["error"], 1);
+        assert_eq!(metrics.total(), 3);
+        assert_eq!(metrics.timings().len(), 3);
+    }
+}

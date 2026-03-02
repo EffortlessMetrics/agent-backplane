@@ -13,7 +13,7 @@ pub mod validation;
 /// API versioning support.
 pub mod versioning;
 
-use abp_core::{AgentEvent, CapabilityManifest, Receipt, WorkOrder};
+use abp_core::{AgentEvent, CapabilityManifest, CapabilityRequirements, Receipt, WorkOrder};
 use abp_runtime::Runtime;
 use axum::{
     Json, Router,
@@ -553,6 +553,8 @@ async fn cmd_schema(
     let schema = match schema_type.as_str() {
         "work_order" => schemars::schema_for!(WorkOrder),
         "receipt" => schemars::schema_for!(Receipt),
+        "capability_requirements" => schemars::schema_for!(CapabilityRequirements),
+        "backplane_config" => schemars::schema_for!(abp_config::BackplaneConfig),
         _ => {
             return Err(ApiError::new(
                 StatusCode::NOT_FOUND,

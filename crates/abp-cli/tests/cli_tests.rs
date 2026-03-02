@@ -189,7 +189,7 @@ fn validate_valid_work_order_succeeds() {
         .args(["validate", path.to_str().unwrap()])
         .assert()
         .success()
-        .stdout(contains("valid"));
+        .stdout(contains("valid work_order"));
 }
 
 #[test]
@@ -458,7 +458,9 @@ fn help_lists_new_subcommands() {
         .success()
         .stdout(contains("validate"))
         .stdout(contains("schema"))
-        .stdout(contains("inspect"));
+        .stdout(contains("inspect"))
+        .stdout(contains("config"))
+        .stdout(contains("receipt"));
 }
 
 #[test]
@@ -467,7 +469,7 @@ fn validate_help_shows_usage() {
         .args(["validate", "--help"])
         .assert()
         .success()
-        .stdout(contains("work order"));
+        .stdout(contains("JSON file"));
 }
 
 #[test]
@@ -509,4 +511,264 @@ fn usage_error_exits_with_code_2() {
     let output = abp().output().expect("execute abp");
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(2));
+}
+
+// ── Validate auto-detect ────────────────────────────────────────────
+
+#[test]
+fn validate_receipt_file_succeeds() {
+    let receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("receipt.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&receipt).unwrap()).unwrap();
+
+    abp()
+        .args(["validate", path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(contains("valid receipt"));
+}
+
+// ── Config check subcommand ─────────────────────────────────────────
+
+#[test]
+fn config_check_with_valid_toml() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config_path = tmp.path().join("backplane.toml");
+    std::fs::write(
+        &config_path,
+        r#"
+default_backend = "mock"
+log_level = "info"
+
+[backends.mock]
+type = "mock"
+"#,
+    )
+    .unwrap();
+
+    abp()
+        .args(["config", "check", "--config", config_path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(contains("ok"));
+}
+
+#[test]
+fn config_check_with_invalid_toml() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config_path = tmp.path().join("bad.toml");
+    std::fs::write(&config_path, "not [valid toml =").unwrap();
+
+    abp()
+        .args(["config", "check", "--config", config_path.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stdout(contains("error"));
+}
+
+#[test]
+fn config_check_with_missing_file() {
+    abp()
+        .args(["config", "check", "--config", "/nonexistent/backplane.toml"])
+        .assert()
+        .failure()
+        .stdout(contains("error"));
+}
+
+#[test]
+fn config_check_defaults_without_flag() {
+    let tmp = tempfile::tempdir().unwrap();
+    // Run from a directory with no backplane.toml; should use defaults.
+    abp()
+        .current_dir(tmp.path())
+        .args(["config", "check"])
+        .assert()
+        .success()
+        .stdout(contains("ok"));
+}
+
+#[test]
+fn config_check_help_shows_usage() {
+    abp()
+        .args(["config", "check", "--help"])
+        .assert()
+        .success()
+        .stdout(contains("config"));
+}
+
+// ── Receipt verify subcommand ───────────────────────────────────────
+
+#[test]
+fn receipt_verify_valid_hash() {
+    let receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("receipt.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&receipt).unwrap()).unwrap();
+
+    abp()
+        .args(["receipt", "verify", path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(contains("VALID"));
+}
+
+#[test]
+fn receipt_verify_invalid_hash() {
+    let mut receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    receipt.receipt_sha256 = Some("tampered".into());
+
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("receipt.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&receipt).unwrap()).unwrap();
+
+    abp()
+        .args(["receipt", "verify", path.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stdout(contains("INVALID"));
+}
+
+#[test]
+fn receipt_verify_missing_file() {
+    abp()
+        .args(["receipt", "verify", "/nonexistent/receipt.json"])
+        .assert()
+        .failure();
+}
+
+// ── Receipt diff subcommand ─────────────────────────────────────────
+
+#[test]
+fn receipt_diff_identical_receipts() {
+    let receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+
+    let tmp = tempfile::tempdir().unwrap();
+    let p1 = tmp.path().join("r1.json");
+    let p2 = tmp.path().join("r2.json");
+    let json = serde_json::to_string_pretty(&receipt).unwrap();
+    std::fs::write(&p1, &json).unwrap();
+    std::fs::write(&p2, &json).unwrap();
+
+    abp()
+        .args([
+            "receipt",
+            "diff",
+            p1.to_str().unwrap(),
+            p2.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(contains("no differences"));
+}
+
+#[test]
+fn receipt_diff_different_receipts() {
+    let r1 = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let r2 = abp_core::ReceiptBuilder::new("other-backend")
+        .outcome(abp_core::Outcome::Failed)
+        .with_hash()
+        .unwrap();
+
+    let tmp = tempfile::tempdir().unwrap();
+    let p1 = tmp.path().join("r1.json");
+    let p2 = tmp.path().join("r2.json");
+    std::fs::write(&p1, serde_json::to_string_pretty(&r1).unwrap()).unwrap();
+    std::fs::write(&p2, serde_json::to_string_pretty(&r2).unwrap()).unwrap();
+
+    abp()
+        .args([
+            "receipt",
+            "diff",
+            p1.to_str().unwrap(),
+            p2.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(contains("outcome"))
+        .stdout(contains("backend"));
+}
+
+#[test]
+fn receipt_diff_missing_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let p1 = tmp.path().join("r1.json");
+    let receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .build();
+    std::fs::write(&p1, serde_json::to_string_pretty(&receipt).unwrap()).unwrap();
+
+    abp()
+        .args([
+            "receipt",
+            "diff",
+            p1.to_str().unwrap(),
+            "/nonexistent/r2.json",
+        ])
+        .assert()
+        .failure();
+}
+
+// ── Schema contains expected fields ─────────────────────────────────
+
+#[test]
+fn schema_work_order_contains_task_field() {
+    let output = abp()
+        .args(["schema", "work-order"])
+        .output()
+        .expect("execute abp");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("task"),
+        "work_order schema should mention 'task'"
+    );
+}
+
+#[test]
+fn schema_receipt_contains_outcome_field() {
+    let output = abp()
+        .args(["schema", "receipt"])
+        .output()
+        .expect("execute abp");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("outcome"),
+        "receipt schema should mention 'outcome'"
+    );
+}
+
+#[test]
+fn schema_config_contains_backends_field() {
+    let output = abp()
+        .args(["schema", "config"])
+        .output()
+        .expect("execute abp");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("backends"),
+        "config schema should mention 'backends'"
+    );
 }
