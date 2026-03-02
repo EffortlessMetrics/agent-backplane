@@ -1,0 +1,14 @@
+[package]
+name = "abp-retry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Retry policies and timeout configuration for resilient Agent Backplane execution"
+readme = "README.md"
+keywords = ["agent", "backplane", "retry", "backoff", "timeout"]
+categories = ["development-tools"]
+
+[dependencies]
+serde.workspace = true
