@@ -1,0 +1,14 @@
+[package]
+name = "abp-stream"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Agent event stream processing, transformation, and multiplexing"
+
+[dependencies]
+abp-core = { path = "../abp-core" }
+tokio = { workspace = true }
+
+[dev-dependencies]
+chrono = { workspace = true }
+serde_json = { workspace = true }

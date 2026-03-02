@@ -349,6 +349,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-projection"
+version = "0.1.0"
+dependencies = [
+ "abp-capability",
+ "abp-core",
+ "abp-dialect",
+ "abp-mapping",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "abp-protocol"
 version = "0.1.0"
 dependencies = [
@@ -408,6 +421,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-shim-claude"
+version = "0.1.0"
+dependencies = [
+ "abp-claude-sdk",
+ "abp-core",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
+name = "abp-shim-gemini"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-gemini-sdk",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
+name = "abp-shim-openai"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-openai-sdk",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
 name = "abp-sidecar-proto"
 version = "0.1.0"
 dependencies = [
@@ -430,6 +488,16 @@ dependencies = [
  "abp-integrations",
  "abp-runtime",
  "anyhow",
+]
+
+[[package]]
+name = "abp-stream"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "chrono",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
