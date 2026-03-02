@@ -862,3 +862,204 @@ fn debug_format_includes_source_when_present() {
     assert!(dbg.contains("source"), "debug missing source: {dbg}");
     assert!(dbg.contains("inner"), "debug missing source msg: {dbg}");
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 15. HTTP status code mapping (conceptual classification)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Maps an ErrorCode to the HTTP status code family that would be used in an
+/// API gateway or REST surface.  This tests the *classification* is sensible.
+fn http_status_class(code: &ErrorCode) -> u16 {
+    match code.category() {
+        ErrorCategory::Policy => 403,
+        ErrorCategory::Backend => match code {
+            ErrorCode::BackendNotFound => 404,
+            ErrorCode::BackendTimeout => 504,
+            ErrorCode::BackendCrashed => 502,
+            _ => 500,
+        },
+        ErrorCategory::Config => 400,
+        ErrorCategory::Protocol => 400,
+        ErrorCategory::Capability => 501,
+        ErrorCategory::Ir => 422,
+        ErrorCategory::Receipt => 409,
+        ErrorCategory::Dialect => 400,
+        ErrorCategory::Workspace => 500,
+        ErrorCategory::Internal => 500,
+    }
+}
+
+#[test]
+fn http_status_backend_not_found_is_404() {
+    assert_eq!(http_status_class(&ErrorCode::BackendNotFound), 404);
+}
+
+#[test]
+fn http_status_backend_timeout_is_504() {
+    assert_eq!(http_status_class(&ErrorCode::BackendTimeout), 504);
+}
+
+#[test]
+fn http_status_policy_denied_is_403() {
+    assert_eq!(http_status_class(&ErrorCode::PolicyDenied), 403);
+}
+
+#[test]
+fn http_status_internal_is_500() {
+    assert_eq!(http_status_class(&ErrorCode::Internal), 500);
+}
+
+#[test]
+fn http_status_every_code_maps_to_valid_status() {
+    for code in ALL_CODES {
+        let status = http_status_class(code);
+        assert!(
+            (400..=599).contains(&status),
+            "code {code:?} mapped to non-error HTTP status {status}"
+        );
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 16. Error aggregation
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn aggregate_errors_by_category() {
+    let errors: Vec<AbpError> = vec![
+        AbpError::new(ErrorCode::BackendTimeout, "timeout 1"),
+        AbpError::new(ErrorCode::BackendCrashed, "crash 1"),
+        AbpError::new(ErrorCode::PolicyDenied, "denied 1"),
+        AbpError::new(ErrorCode::Internal, "internal 1"),
+        AbpError::new(ErrorCode::BackendNotFound, "not found"),
+    ];
+    let mut by_cat: BTreeMap<String, usize> = BTreeMap::new();
+    for e in &errors {
+        *by_cat.entry(e.category().to_string()).or_insert(0) += 1;
+    }
+    assert_eq!(by_cat["backend"], 3);
+    assert_eq!(by_cat["policy"], 1);
+    assert_eq!(by_cat["internal"], 1);
+}
+
+#[test]
+fn aggregate_error_dtos_roundtrip() {
+    let errors: Vec<AbpError> = ALL_CODES
+        .iter()
+        .map(|c| AbpError::new(*c, format!("msg for {c}")))
+        .collect();
+    let dtos: Vec<AbpErrorDto> = errors.iter().map(AbpErrorDto::from).collect();
+    let json = serde_json::to_string(&dtos).unwrap();
+    let back: Vec<AbpErrorDto> = serde_json::from_str(&json).unwrap();
+    assert_eq!(dtos.len(), back.len());
+    for (a, b) in dtos.iter().zip(back.iter()) {
+        assert_eq!(a, b);
+    }
+}
+
+#[test]
+fn aggregate_unique_categories_from_error_set() {
+    let errors: Vec<AbpError> = ALL_CODES.iter().map(|c| AbpError::new(*c, "x")).collect();
+    let cats: HashSet<ErrorCategory> = errors.iter().map(|e| e.category()).collect();
+    assert_eq!(cats.len(), ALL_CATEGORIES.len());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 17. Context enrichment edge cases
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn context_with_boolean_value() {
+    let err = AbpError::new(ErrorCode::Internal, "test").with_context("retryable", true);
+    assert_eq!(err.context["retryable"], serde_json::json!(true));
+}
+
+#[test]
+fn context_with_null_value() {
+    let err =
+        AbpError::new(ErrorCode::Internal, "test").with_context("extra", serde_json::Value::Null);
+    assert_eq!(err.context["extra"], serde_json::Value::Null);
+}
+
+#[test]
+fn context_with_float_value() {
+    let err = AbpError::new(ErrorCode::BackendTimeout, "slow").with_context("latency_s", 1.5);
+    assert_eq!(err.context["latency_s"], serde_json::json!(1.5));
+}
+
+#[test]
+fn context_with_array_value() {
+    let err = AbpError::new(ErrorCode::Internal, "multi")
+        .with_context("tags", serde_json::json!(["a", "b", "c"]));
+    assert_eq!(err.context["tags"], serde_json::json!(["a", "b", "c"]));
+}
+
+#[test]
+fn context_enrichment_preserves_insertion_order_via_btree() {
+    let err = AbpError::new(ErrorCode::Internal, "ordered")
+        .with_context("z_last", 1)
+        .with_context("a_first", 2)
+        .with_context("m_mid", 3);
+    let keys: Vec<&String> = err.context.keys().collect();
+    assert_eq!(keys, vec!["a_first", "m_mid", "z_last"]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 18. Cross-SDK error mapping roundtrips
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn runtime_no_projection_match_maps_to_backend_not_found() {
+    let rt = RuntimeError::NoProjectionMatch {
+        reason: "no matching backend".into(),
+    };
+    assert_eq!(rt.error_code(), ErrorCode::BackendNotFound);
+}
+
+#[test]
+fn runtime_all_variants_have_error_code() {
+    let variants: Vec<RuntimeError> = vec![
+        RuntimeError::UnknownBackend {
+            name: "test".into(),
+        },
+        RuntimeError::WorkspaceFailed(anyhow::anyhow!("ws")),
+        RuntimeError::PolicyFailed(anyhow::anyhow!("pol")),
+        RuntimeError::BackendFailed(anyhow::anyhow!("be")),
+        RuntimeError::CapabilityCheckFailed("cap".into()),
+        RuntimeError::NoProjectionMatch {
+            reason: "none".into(),
+        },
+        RuntimeError::Classified(AbpError::new(ErrorCode::Internal, "classified")),
+    ];
+    for v in &variants {
+        // Should not panic — every variant has a mapping.
+        let _ = v.error_code();
+    }
+}
+
+#[test]
+fn runtime_into_abp_error_preserves_classified_context() {
+    let original = AbpError::new(ErrorCode::DialectMappingFailed, "mapping failed")
+        .with_context("from", "openai")
+        .with_context("to", "anthropic");
+    let rt: RuntimeError = original.into();
+    let recovered = rt.into_abp_error();
+    assert_eq!(recovered.code, ErrorCode::DialectMappingFailed);
+    assert_eq!(recovered.context["from"], serde_json::json!("openai"));
+    assert_eq!(recovered.context["to"], serde_json::json!("anthropic"));
+}
+
+#[test]
+fn protocol_error_violation_maps_to_invalid_envelope() {
+    let pe = ProtocolError::Violation("bad frame".into());
+    assert_eq!(pe.error_code(), Some(ErrorCode::ProtocolInvalidEnvelope));
+}
+
+#[test]
+fn protocol_error_unexpected_message_maps_correctly() {
+    let pe = ProtocolError::UnexpectedMessage {
+        expected: "hello".into(),
+        got: "event".into(),
+    };
+    assert_eq!(pe.error_code(), Some(ErrorCode::ProtocolUnexpectedMessage));
+}
