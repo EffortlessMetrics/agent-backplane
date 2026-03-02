@@ -1,0 +1,1 @@
+{"allowed_tools":["read_file","write_file"],"disallowed_tools":["shell"],"deny_read":["secrets/**"],"deny_write":["config/**"],"allow_network":[],"deny_network":["*.evil.com"],"require_approval_for":["deploy"]}

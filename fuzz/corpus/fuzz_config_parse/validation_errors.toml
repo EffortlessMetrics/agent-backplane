@@ -1,0 +1,6 @@
+log_level = "banana"
+
+[backends.""]
+type = "sidecar"
+command = ""
+timeout_secs = 999999

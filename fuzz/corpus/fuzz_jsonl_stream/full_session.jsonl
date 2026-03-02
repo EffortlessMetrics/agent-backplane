@@ -1,0 +1,3 @@
+{"t":"hello","contract_version":"abp/v0.1","backend":"mock","capabilities":[],"mode":"mapped"}
+{"t":"event","ref_id":"r1","event":{"ts":"2025-01-01T00:00:00Z","type":"assistant_delta","text":"hi"}}
+{"t":"final","ref_id":"r1","receipt":{"meta":{"id":"r-1","work_order_id":"wo-1","contract_version":"abp/v0.1","created":"2025-01-01T00:00:00Z"},"backend":"mock","capabilities":[],"mode":"mapped","usage_raw":null,"usage":{"input_tokens":10,"output_tokens":20},"trace":[],"artifacts":[],"verification":{"harness_ok":true},"outcome":"complete","receipt_sha256":null}}

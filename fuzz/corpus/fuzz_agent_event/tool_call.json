@@ -1,0 +1,1 @@
+{"ts":"2025-01-01T00:00:00Z","type":"tool_call","tool_name":"read_file","tool_use_id":"t1","input":{"path":"foo.rs"}}

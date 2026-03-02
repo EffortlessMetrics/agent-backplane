@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_receipts.rs
+expression: format_diff(&diff)
+---
+(no differences)

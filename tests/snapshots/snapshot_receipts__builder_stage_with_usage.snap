@@ -1,0 +1,46 @@
+---
+source: tests/snapshot_receipts.rs
+expression: json_str
+---
+{
+  "meta": {
+    "run_id": "00000000-0000-4000-8000-000000000001",
+    "work_order_id": "00000000-0000-4000-8000-000000000002",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-01-15T12:00:00Z",
+    "finished_at": "2025-01-15T12:00:00Z",
+    "duration_ms": 0
+  },
+  "backend": {
+    "id": "sidecar:node",
+    "backend_version": "1.0.0",
+    "adapter_version": "0.1.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_use": "native",
+    "extended_thinking": "emulated"
+  },
+  "mode": "mapped",
+  "usage_raw": {
+    "input_tokens": 500,
+    "output_tokens": 1000
+  },
+  "usage": {
+    "input_tokens": 500,
+    "output_tokens": 1000,
+    "cache_read_tokens": null,
+    "cache_write_tokens": null,
+    "request_units": null,
+    "estimated_cost_usd": null
+  },
+  "trace": [],
+  "artifacts": [],
+  "verification": {
+    "git_diff": null,
+    "git_status": null,
+    "harness_ok": false
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}
