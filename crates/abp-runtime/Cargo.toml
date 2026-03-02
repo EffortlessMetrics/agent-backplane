@@ -16,6 +16,7 @@ abp-emulation = { path = "../abp-emulation" }
 abp-integrations = { path = "../abp-integrations" }
 abp-policy = { path = "../abp-policy" }
 abp-workspace = { path = "../abp-workspace" }
+abp-serde-duration = { path = "../abp-serde-duration" }
 serde.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true

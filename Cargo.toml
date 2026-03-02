@@ -35,6 +35,7 @@ members = [
   "crates/abp-protocol",
   "crates/abp-runtime",
   "crates/abp-sidecar-sdk",
+  "crates/abp-serde-duration",
   "crates/abp-telemetry",
   "crates/abp-workspace",
   "crates/claude-bridge",
@@ -100,6 +101,7 @@ sidecar-kit = { path = "crates/sidecar-kit" }
 claude-bridge = { path = "crates/claude-bridge" }
 abp-emulation = { path = "crates/abp-emulation" }
 abp-telemetry = { path = "crates/abp-telemetry" }
+abp-serde-duration = { path = "crates/abp-serde-duration" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 tempfile = { workspace = true }

@@ -249,6 +249,7 @@ version = "0.1.0"
 dependencies = [
  "abp-core",
  "abp-protocol",
+ "abp-serde-duration",
  "anyhow",
  "chrono",
  "futures",
@@ -381,6 +382,7 @@ dependencies = [
  "abp-emulation",
  "abp-integrations",
  "abp-policy",
+ "abp-serde-duration",
  "abp-workspace",
  "anyhow",
  "async-trait",
@@ -396,6 +398,14 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "abp-serde-duration"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -462,6 +472,7 @@ dependencies = [
  "abp-protocol",
  "abp-receipt",
  "abp-runtime",
+ "abp-serde-duration",
  "abp-telemetry",
  "abp-workspace",
  "anyhow",

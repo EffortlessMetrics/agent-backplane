@@ -11,10 +11,10 @@ pub struct RetryPolicy {
     /// Maximum number of retry attempts (0 means no retries).
     pub max_retries: u32,
     /// Base delay before the first retry.
-    #[serde(with = "duration_millis")]
+    #[serde(with = "abp_serde_duration::duration_millis")]
     pub initial_backoff: Duration,
     /// Upper bound on any single backoff delay.
-    #[serde(with = "duration_millis")]
+    #[serde(with = "abp_serde_duration::duration_millis")]
     pub max_backoff: Duration,
     /// Multiplicative factor applied to the backoff on each attempt.
     pub backoff_multiplier: f64,
@@ -113,14 +113,14 @@ pub struct TimeoutConfig {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "option_duration_millis"
+        with = "abp_serde_duration::option_duration_millis"
     )]
     pub run_timeout: Option<Duration>,
     /// Maximum silence between consecutive events. `None` means no limit.
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "option_duration_millis"
+        with = "abp_serde_duration::option_duration_millis"
     )]
     pub event_timeout: Option<Duration>,
 }
@@ -135,39 +135,6 @@ fn jitter(attempt: u32) -> f64 {
     // Map to [0, 1) then scale to [0.75, 1.25].
     let unit = (bits as f64) / (u64::MAX as f64);
     0.75 + unit * 0.5
-}
-
-// --- serde helpers for Duration as milliseconds -----------------------------
-
-mod duration_millis {
-    use serde::{self, Deserialize, Deserializer, Serializer};
-    use std::time::Duration;
-
-    pub fn serialize<S: Serializer>(d: &Duration, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_u64(d.as_millis() as u64)
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Duration, D::Error> {
-        let ms = u64::deserialize(d)?;
-        Ok(Duration::from_millis(ms))
-    }
-}
-
-mod option_duration_millis {
-    use serde::{self, Deserialize, Deserializer, Serializer};
-    use std::time::Duration;
-
-    pub fn serialize<S: Serializer>(val: &Option<Duration>, s: S) -> Result<S::Ok, S::Error> {
-        match val {
-            Some(d) => s.serialize_some(&(d.as_millis() as u64)),
-            None => s.serialize_none(),
-        }
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Duration>, D::Error> {
-        let opt: Option<u64> = Option::deserialize(d)?;
-        Ok(opt.map(Duration::from_millis))
-    }
 }
 
 #[cfg(test)]
