@@ -3,8 +3,8 @@
 
 use abp_core::{AgentEventKind, ContextPacket, ContextSnippet, WorkOrderBuilder};
 use abp_gemini_sdk::dialect::{
-    GeminiCandidate, GeminiConfig, GeminiContent, GeminiPart, GeminiResponse, map_response,
-    map_work_order,
+    map_response, map_work_order, GeminiCandidate, GeminiConfig, GeminiContent, GeminiPart,
+    GeminiResponse,
 };
 
 #[test]

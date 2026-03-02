@@ -5,10 +5,10 @@
 //! and protocol state machine logic using pure Rust code paths (no process spawning).
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
-    Receipt, RunMetadata, RuntimeConfig, UsageNormalized, VerificationReport, WorkOrder,
-    WorkspaceMode, WorkspaceSpec,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, CapabilityRequirements,
+    ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, RunMetadata,
+    RuntimeConfig, UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec,
+    CONTRACT_VERSION,
 };
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
@@ -325,12 +325,10 @@ fn validate_hello_with_invalid_version() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&hello);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
 }
 
 #[test]
@@ -447,11 +445,9 @@ fn sequence_missing_hello() {
 
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&sequence);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingHello))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingHello)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -475,11 +471,9 @@ fn sequence_hello_not_first() {
 
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&sequence);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 })));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -504,11 +498,9 @@ fn sequence_missing_terminal() {
 
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&sequence);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingTerminal)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -808,16 +800,12 @@ fn encode_many_to_writer_produces_multiple_lines() {
 fn empty_sequence_has_errors() {
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&[]);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingHello))
-    );
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingHello)));
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingTerminal)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -846,11 +834,9 @@ fn sequence_multiple_terminals_detected() {
 
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&sequence);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MultipleTerminals))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MultipleTerminals)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -879,11 +865,9 @@ fn sequence_event_before_run_is_out_of_order() {
 
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&sequence);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::OutOfOrderEvents)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════

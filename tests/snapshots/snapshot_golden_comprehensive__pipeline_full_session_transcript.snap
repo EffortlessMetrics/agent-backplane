@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: output
+---
+{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"sidecar:node","backend_version":"3.0.0","adapter_version":"1.2.0"},"capabilities":{"streaming":"native","tool_use":"emulated"},"mode":"mapped"}
+{"t":"run","id":"session-001","work_order":{"id":"00000000-0000-4000-8000-000000000002","task":"Hello world","lane":"patch_first","workspace":{"root":".","mode":"pass_through","include":[],"exclude":[]},"context":{"files":[],"snippets":[]},"policy":{"allowed_tools":[],"disallowed_tools":[],"deny_read":[],"deny_write":[],"allow_network":[],"deny_network":[],"require_approval_for":[]},"requirements":{"required":[]},"config":{"model":null,"vendor":{},"env":{},"max_budget_usd":null,"max_turns":null}}}
+{"t":"event","ref_id":"session-001","event":{"ts":"2025-07-01T12:00:00Z","type":"run_started","message":"started"}}
+{"t":"event","ref_id":"session-001","event":{"ts":"2025-07-01T12:00:00Z","type":"assistant_message","text":"Done"}}
+{"t":"event","ref_id":"session-001","event":{"ts":"2025-07-01T12:05:00Z","type":"run_completed","message":"complete"}}
+{"t":"final","ref_id":"session-001","receipt":{"meta":{"run_id":"00000000-0000-4000-8000-000000000003","work_order_id":"00000000-0000-4000-8000-000000000001","contract_version":"abp/v0.1","started_at":"2025-07-01T12:00:00Z","finished_at":"2025-07-01T12:00:00Z","duration_ms":0},"backend":{"id":"mock","backend_version":null,"adapter_version":null},"capabilities":{},"mode":"mapped","usage_raw":{},"usage":{"input_tokens":null,"output_tokens":null,"cache_read_tokens":null,"cache_write_tokens":null,"request_units":null,"estimated_cost_usd":null},"trace":[],"artifacts":[],"verification":{"git_diff":null,"git_status":null,"harness_ok":false},"outcome":"complete","receipt_sha256":null}}

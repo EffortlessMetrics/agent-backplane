@@ -4,12 +4,12 @@
 //! `ReceiptChain` (in-memory ordered chain).
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, Outcome, Receipt, UsageNormalized, VerificationReport,
-    receipt_hash,
+    receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, Outcome, Receipt, UsageNormalized,
+    VerificationReport,
 };
 use abp_receipt::{
-    ChainError, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash, diff_receipts,
-    verify_hash,
+    canonicalize, compute_hash, diff_receipts, verify_hash, ChainError, ReceiptBuilder,
+    ReceiptChain,
 };
 use abp_runtime::store::ReceiptStore;
 use chrono::{DateTime, Duration, TimeZone, Utc};
@@ -1257,9 +1257,7 @@ fn builder_run_id_deterministic() {
 #[test]
 fn receipt_construction_all_outcome_variants() {
     for outcome in [Outcome::Complete, Outcome::Partial, Outcome::Failed] {
-        let r = ReceiptBuilder::new("test")
-            .outcome(outcome.clone())
-            .build();
+        let r = ReceiptBuilder::new("test").outcome(outcome.clone()).build();
         assert_eq!(r.outcome, outcome);
     }
 }
@@ -1270,7 +1268,9 @@ fn receipt_construction_with_capabilities() {
     let mut caps = abp_core::CapabilityManifest::new();
     caps.insert(Capability::ToolRead, SupportLevel::Native);
     caps.insert(Capability::Streaming, SupportLevel::Emulated);
-    let r = ReceiptBuilder::new("caps-test").capabilities(caps.clone()).build();
+    let r = ReceiptBuilder::new("caps-test")
+        .capabilities(caps.clone())
+        .build();
     assert_eq!(r.capabilities.len(), 2);
     assert!(r.capabilities.contains_key(&Capability::ToolRead));
     assert!(r.capabilities.contains_key(&Capability::Streaming));
@@ -1420,7 +1420,10 @@ fn with_hash_hex_characters_only() {
 
 #[test]
 fn with_hash_is_lowercase_hex() {
-    let r = ReceiptBuilder::new("case-test").build().with_hash().unwrap();
+    let r = ReceiptBuilder::new("case-test")
+        .build()
+        .with_hash()
+        .unwrap();
     let hash = r.receipt_sha256.unwrap();
     assert_eq!(hash, hash.to_lowercase());
 }
@@ -1541,10 +1544,7 @@ fn serde_roundtrip_preserves_verification_report() {
     let json = serde_json::to_string(&r).unwrap();
     let deser: Receipt = serde_json::from_str(&json).unwrap();
     assert_eq!(deser.verification.git_diff.as_deref(), Some("diff data"));
-    assert_eq!(
-        deser.verification.git_status.as_deref(),
-        Some("M file.rs")
-    );
+    assert_eq!(deser.verification.git_status.as_deref(), Some("M file.rs"));
     assert!(deser.verification.harness_ok);
 }
 

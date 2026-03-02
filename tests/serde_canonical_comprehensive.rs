@@ -17,12 +17,12 @@ use std::collections::BTreeMap;
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
-    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, canonical_json, receipt_hash,
-    sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
+    ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel,
+    UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
+    CONTRACT_VERSION,
 };
 use abp_protocol::{Envelope, JsonlCodec};
 use chrono::{TimeZone, Utc};
@@ -148,10 +148,7 @@ fn btreemap_env_keys_alphabetical() {
     config.env.insert("EDITOR".into(), "vim".into());
 
     let v: Value = serde_json::to_value(&config).unwrap();
-    assert_eq!(
-        sorted_keys(&v["env"]),
-        vec!["EDITOR", "HOME", "PATH"]
-    );
+    assert_eq!(sorted_keys(&v["env"]), vec!["EDITOR", "HOME", "PATH"]);
 }
 
 #[test]
@@ -228,7 +225,9 @@ fn btreemap_empty_maps_serialize_as_empty_object() {
 #[test]
 fn btreemap_single_entry_consistent() {
     let mut config = RuntimeConfig::default();
-    config.vendor.insert("only".into(), serde_json::json!("one"));
+    config
+        .vendor
+        .insert("only".into(), serde_json::json!("one"));
 
     let json1 = serde_json::to_string(&config).unwrap();
     let json2 = serde_json::to_string(&config).unwrap();
@@ -471,7 +470,10 @@ fn command_executed_optional_fields_null() {
 
 #[test]
 fn ir_message_empty_metadata_omitted() {
-    let msg = IrMessage::new(IrRole::User, vec![IrContentBlock::Text { text: "hi".into() }]);
+    let msg = IrMessage::new(
+        IrRole::User,
+        vec![IrContentBlock::Text { text: "hi".into() }],
+    );
     let json = serde_json::to_string(&msg).unwrap();
     // metadata uses skip_serializing_if = "BTreeMap::is_empty"
     assert!(!json.contains("\"metadata\""));
@@ -777,7 +779,10 @@ fn envelope_hello_nested_keys_sorted_canonical() {
     let json = canonical_json(&env).unwrap();
     let v: Value = serde_json::from_str(&json).unwrap();
     let top_keys = sorted_keys(&v);
-    assert!(is_sorted(&top_keys), "envelope keys not sorted: {top_keys:?}");
+    assert!(
+        is_sorted(&top_keys),
+        "envelope keys not sorted: {top_keys:?}"
+    );
 }
 
 #[test]
@@ -824,9 +829,7 @@ fn trace_events_maintain_insertion_order() {
             event(AgentEventKind::RunStarted {
                 message: "1".into(),
             }),
-            event(AgentEventKind::AssistantMessage {
-                text: "2".into(),
-            }),
+            event(AgentEventKind::AssistantMessage { text: "2".into() }),
             event(AgentEventKind::RunCompleted {
                 message: "3".into(),
             }),
@@ -934,9 +937,7 @@ fn ir_content_blocks_order_preserved() {
     let msg = IrMessage::new(
         IrRole::Assistant,
         vec![
-            IrContentBlock::Thinking {
-                text: "hmm".into(),
-            },
+            IrContentBlock::Thinking { text: "hmm".into() },
             IrContentBlock::Text {
                 text: "hello".into(),
             },
@@ -1253,10 +1254,7 @@ fn ir_role_rename_all_snake_case() {
         serde_json::to_string(&IrRole::System).unwrap(),
         r#""system""#
     );
-    assert_eq!(
-        serde_json::to_string(&IrRole::User).unwrap(),
-        r#""user""#
-    );
+    assert_eq!(serde_json::to_string(&IrRole::User).unwrap(), r#""user""#);
     assert_eq!(
         serde_json::to_string(&IrRole::Assistant).unwrap(),
         r#""assistant""#
@@ -1283,12 +1281,8 @@ fn agent_event_kind_all_variants_use_type_tag() {
         AgentEventKind::RunCompleted {
             message: "c".into(),
         },
-        AgentEventKind::AssistantDelta {
-            text: "d".into(),
-        },
-        AgentEventKind::AssistantMessage {
-            text: "m".into(),
-        },
+        AgentEventKind::AssistantDelta { text: "d".into() },
+        AgentEventKind::AssistantMessage { text: "m".into() },
         AgentEventKind::ToolCall {
             tool_name: "t".into(),
             tool_use_id: None,
@@ -1357,9 +1351,7 @@ fn envelope_run_uses_t_tag() {
 fn envelope_event_uses_t_tag() {
     let env = Envelope::Event {
         ref_id: "run-1".into(),
-        event: event(AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        }),
+        event: event(AgentEventKind::AssistantMessage { text: "hi".into() }),
     };
     let json = JsonlCodec::encode(&env).unwrap();
     assert!(json.contains(r#""t":"event""#));
@@ -1404,11 +1396,8 @@ fn envelope_fatal_error_code_skipped_when_none() {
 
 #[test]
 fn envelope_fatal_error_code_present_when_some() {
-    let env = Envelope::fatal_with_code(
-        None,
-        "boom",
-        abp_error::ErrorCode::ProtocolInvalidEnvelope,
-    );
+    let env =
+        Envelope::fatal_with_code(None, "boom", abp_error::ErrorCode::ProtocolInvalidEnvelope);
     let json = JsonlCodec::encode(&env).unwrap();
     assert!(json.contains("error_code"));
 }
@@ -1555,7 +1544,9 @@ fn jsonl_codec_adds_trailing_newline() {
 #[test]
 fn sha256_hex_all_lowercase() {
     let h = sha256_hex(b"test");
-    assert!(h.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()));
+    assert!(h
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()));
 }
 
 #[test]

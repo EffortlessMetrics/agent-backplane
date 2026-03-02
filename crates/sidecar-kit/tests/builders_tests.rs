@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Tests for the builders module and new middleware utilities.
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use sidecar_kit::builders::{
-    ReceiptBuilder, event_command_executed, event_error, event_file_changed, event_frame,
-    event_run_completed, event_run_started, event_text_delta, event_text_message, event_tool_call,
-    event_tool_result, event_warning, fatal_frame, hello_frame,
+    event_command_executed, event_error, event_file_changed, event_frame, event_run_completed,
+    event_run_started, event_text_delta, event_text_message, event_tool_call, event_tool_result,
+    event_warning, fatal_frame, hello_frame, ReceiptBuilder,
 };
 use sidecar_kit::middleware::{ErrorWrapMiddleware, EventMiddleware, TimingMiddleware};
 use sidecar_kit::{Frame, JsonlCodec, MiddlewareChain};

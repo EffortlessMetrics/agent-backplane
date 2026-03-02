@@ -13,7 +13,6 @@ use abp_capability::{
 use abp_core::negotiate::{
     CapabilityDiff, CapabilityNegotiator, CapabilityReport as DialectCapabilityReport,
     CapabilityReportEntry, DialectSupportLevel, NegotiationRequest,
-
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -267,17 +266,13 @@ fn core_support_unsupported_never_satisfies() {
 
 #[test]
 fn core_support_restricted_satisfies_emulated() {
-    let r = CoreSupportLevel::Restricted {
-        reason: "x".into(),
-    };
+    let r = CoreSupportLevel::Restricted { reason: "x".into() };
     assert!(r.satisfies(&MinSupport::Emulated));
 }
 
 #[test]
 fn core_support_restricted_does_not_satisfy_native() {
-    let r = CoreSupportLevel::Restricted {
-        reason: "x".into(),
-    };
+    let r = CoreSupportLevel::Restricted { reason: "x".into() };
     assert!(!r.satisfies(&MinSupport::Native));
 }
 
@@ -372,7 +367,10 @@ fn negotiate_empty_requirements() {
 
 #[test]
 fn negotiate_empty_manifest_empty_requirements() {
-    let res = negotiate(&CapabilityManifest::new(), &CapabilityRequirements::default());
+    let res = negotiate(
+        &CapabilityManifest::new(),
+        &CapabilityRequirements::default(),
+    );
     assert!(res.is_compatible());
     assert_eq!(res.total(), 0);
 }
@@ -513,12 +511,7 @@ fn check_capability_all_core_variants() {
         (CoreSupportLevel::Native, true),
         (CoreSupportLevel::Emulated, true),
         (CoreSupportLevel::Unsupported, false),
-        (
-            CoreSupportLevel::Restricted {
-                reason: "x".into(),
-            },
-            true,
-        ),
+        (CoreSupportLevel::Restricted { reason: "x".into() }, true),
     ];
     for (level, should_be_supported) in cases {
         let m = manifest(&[(Capability::Streaming, level)]);
@@ -1330,7 +1323,10 @@ fn negotiation_result_is_compatible_false() {
 
 #[test]
 fn edge_empty_manifest_empty_reqs() {
-    let res = negotiate(&CapabilityManifest::new(), &CapabilityRequirements::default());
+    let res = negotiate(
+        &CapabilityManifest::new(),
+        &CapabilityRequirements::default(),
+    );
     assert!(res.is_compatible());
     assert_eq!(res.total(), 0);
 }
@@ -1521,7 +1517,11 @@ fn edge_negotiator_mixed_required_and_preferred() {
     ]);
     let req = NegotiationRequest {
         required: vec![Capability::Streaming],
-        preferred: vec![Capability::Logprobs, Capability::ToolRead, Capability::ToolWrite],
+        preferred: vec![
+            Capability::Logprobs,
+            Capability::ToolRead,
+            Capability::ToolWrite,
+        ],
         minimum_support: CoreSupportLevel::Native,
     };
     let res = CapabilityNegotiator::negotiate(&req, &m);

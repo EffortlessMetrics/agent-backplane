@@ -8,19 +8,19 @@
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CapabilityManifest, ContextPacket,
-    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
-    WorkOrderBuilder, CONTRACT_VERSION, canonical_json, receipt_hash, sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    BackendIdentity, CapabilityManifest, ContextPacket, ContextSnippet, ExecutionLane,
+    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, SupportLevel,
+    UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_mapping::{
-    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, known_rules,
-    validate_mapping,
+    known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix, MappingRegistry,
+    MappingRule,
 };
 use abp_policy::PolicyEngine;
-use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -35,7 +35,10 @@ fn given_work_order_when_policy_allows_all_tools_then_all_tool_checks_pass() {
     let engine = PolicyEngine::new(&policy).unwrap();
 
     for tool in &["Bash", "Read", "Write", "Grep", "WebSearch"] {
-        assert!(engine.can_use_tool(tool).allowed, "{tool} should be allowed");
+        assert!(
+            engine.can_use_tool(tool).allowed,
+            "{tool} should be allowed"
+        );
     }
 }
 
@@ -263,7 +266,9 @@ fn given_copilot_dialect_request_when_detected_then_copilot_returned() {
 fn given_non_object_json_when_detect_called_then_none_returned() {
     // Scenario: Non-object JSON returns None.
     let detector = DialectDetector::new();
-    assert!(detector.detect(&serde_json::json!("just a string")).is_none());
+    assert!(detector
+        .detect(&serde_json::json!("just a string"))
+        .is_none());
     assert!(detector.detect(&serde_json::json!(42)).is_none());
     assert!(detector.detect(&serde_json::json!([])).is_none());
 }
@@ -365,8 +370,18 @@ fn given_mapping_openai_to_codex_image_input_when_lookup_then_unsupported() {
 fn given_streaming_feature_when_mapped_across_all_pairs_then_lossless() {
     // Scenario: Streaming is lossless between all major dialect pairs.
     let registry = known_rules();
-    for &a in &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini, Dialect::Codex] {
-        for &b in &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini, Dialect::Codex] {
+    for &a in &[
+        Dialect::OpenAi,
+        Dialect::Claude,
+        Dialect::Gemini,
+        Dialect::Codex,
+    ] {
+        for &b in &[
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+        ] {
             let rule = registry.lookup(a, b, "streaming").unwrap();
             assert!(
                 rule.fidelity.is_lossless(),
@@ -381,7 +396,13 @@ fn given_same_dialect_mapping_when_any_feature_then_lossless() {
     // Scenario: Same-dialect mapping is always lossless.
     let registry = known_rules();
     for &d in Dialect::all() {
-        for feat in &["tool_use", "streaming", "thinking", "image_input", "code_exec"] {
+        for feat in &[
+            "tool_use",
+            "streaming",
+            "thinking",
+            "image_input",
+            "code_exec",
+        ] {
             let rule = registry.lookup(d, d, feat).unwrap();
             assert!(
                 rule.fidelity.is_lossless(),
@@ -493,12 +514,7 @@ fn given_validate_mapping_with_unsupported_feature_when_called_then_error_return
 fn given_validate_mapping_with_empty_feature_name_then_error() {
     // Scenario: Empty feature names are rejected.
     let registry = known_rules();
-    let results = validate_mapping(
-        &registry,
-        Dialect::OpenAi,
-        Dialect::Claude,
-        &["".into()],
-    );
+    let results = validate_mapping(&registry, Dialect::OpenAi, Dialect::Claude, &["".into()]);
     assert_eq!(results.len(), 1);
     assert!(!results[0].errors.is_empty());
 }
@@ -733,8 +749,7 @@ fn given_decode_stream_when_multiple_lines_then_all_decoded() {
     // Scenario: decode_stream handles multiple JSONL lines.
     let input = format!(
         "{}\n{}\n",
-        r#"{"t":"fatal","ref_id":null,"error":"a"}"#,
-        r#"{"t":"fatal","ref_id":null,"error":"b"}"#,
+        r#"{"t":"fatal","ref_id":null,"error":"a"}"#, r#"{"t":"fatal","ref_id":null,"error":"b"}"#,
     );
     let reader = std::io::BufReader::new(input.as_bytes());
     let envelopes: Vec<_> = JsonlCodec::decode_stream(reader)
@@ -748,8 +763,7 @@ fn given_decode_stream_with_blank_lines_when_decoded_then_blanks_skipped() {
     // Scenario: Blank lines in JSONL are skipped.
     let input = format!(
         "{}\n\n{}\n",
-        r#"{"t":"fatal","ref_id":null,"error":"a"}"#,
-        r#"{"t":"fatal","ref_id":null,"error":"b"}"#,
+        r#"{"t":"fatal","ref_id":null,"error":"a"}"#, r#"{"t":"fatal","ref_id":null,"error":"b"}"#,
     );
     let reader = std::io::BufReader::new(input.as_bytes());
     let envelopes: Vec<_> = JsonlCodec::decode_stream(reader)
@@ -825,18 +839,14 @@ fn given_work_order_builder_when_built_then_task_set() {
 #[test]
 fn given_work_order_builder_when_model_set_then_config_reflects() {
     // Scenario: Setting model on builder propagates to config.
-    let wo = WorkOrderBuilder::new("task")
-        .model("gpt-4")
-        .build();
+    let wo = WorkOrderBuilder::new("task").model("gpt-4").build();
     assert_eq!(wo.config.model.as_deref(), Some("gpt-4"));
 }
 
 #[test]
 fn given_work_order_builder_when_max_turns_set_then_config_reflects() {
     // Scenario: Setting max_turns propagates to config.
-    let wo = WorkOrderBuilder::new("task")
-        .max_turns(10)
-        .build();
+    let wo = WorkOrderBuilder::new("task").max_turns(10).build();
     assert_eq!(wo.config.max_turns, Some(10));
 }
 
@@ -852,9 +862,7 @@ fn given_work_order_builder_when_lane_set_then_reflected() {
 #[test]
 fn given_work_order_builder_when_workspace_root_set_then_reflected() {
     // Scenario: Workspace root is configured via builder.
-    let wo = WorkOrderBuilder::new("task")
-        .root("/tmp/workspace")
-        .build();
+    let wo = WorkOrderBuilder::new("task").root("/tmp/workspace").build();
     assert_eq!(wo.workspace.root, "/tmp/workspace");
 }
 
@@ -872,9 +880,7 @@ fn given_work_order_builder_when_policy_set_then_reflected() {
 #[test]
 fn given_work_order_builder_when_budget_set_then_reflected() {
     // Scenario: Max budget can be set via builder.
-    let wo = WorkOrderBuilder::new("task")
-        .max_budget_usd(5.0)
-        .build();
+    let wo = WorkOrderBuilder::new("task").max_budget_usd(5.0).build();
     assert_eq!(wo.config.max_budget_usd, Some(5.0));
 }
 
@@ -928,9 +934,7 @@ fn given_receipt_builder_when_built_then_backend_id_set() {
 #[test]
 fn given_receipt_builder_when_outcome_set_then_reflected() {
     // Scenario: Outcome can be set to Failed.
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Failed)
-        .build();
+    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
     assert_eq!(receipt.outcome, Outcome::Failed);
 }
 
@@ -944,9 +948,7 @@ fn given_receipt_builder_when_trace_event_added_then_in_trace() {
         },
         ext: None,
     };
-    let receipt = ReceiptBuilder::new("mock")
-        .add_trace_event(event)
-        .build();
+    let receipt = ReceiptBuilder::new("mock").add_trace_event(event).build();
     assert_eq!(receipt.trace.len(), 1);
 }
 
@@ -957,9 +959,7 @@ fn given_receipt_builder_when_artifact_added_then_in_artifacts() {
         kind: "patch".into(),
         path: "output.patch".into(),
     };
-    let receipt = ReceiptBuilder::new("mock")
-        .add_artifact(artifact)
-        .build();
+    let receipt = ReceiptBuilder::new("mock").add_artifact(artifact).build();
     assert_eq!(receipt.artifacts.len(), 1);
     assert_eq!(receipt.artifacts[0].kind, "patch");
 }
@@ -1064,16 +1064,14 @@ fn given_no_glob_patterns_when_any_path_checked_then_allowed() {
 #[test]
 fn given_include_pattern_when_matching_path_then_allowed() {
     // Scenario: Included paths pass.
-    let globs =
-        IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
+    let globs = IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
     assert_eq!(globs.decide_str("src/lib.rs"), MatchDecision::Allowed);
 }
 
 #[test]
 fn given_include_pattern_when_non_matching_path_then_denied() {
     // Scenario: Non-included paths are denied.
-    let globs =
-        IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
+    let globs = IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
     assert_eq!(
         globs.decide_str("README.md"),
         MatchDecision::DeniedByMissingInclude
@@ -1083,11 +1081,7 @@ fn given_include_pattern_when_non_matching_path_then_denied() {
 #[test]
 fn given_exclude_pattern_when_matching_path_then_denied() {
     // Scenario: Excluded paths are denied even when included.
-    let globs = IncludeExcludeGlobs::new(
-        &["src/**".into()],
-        &["src/generated/**".into()],
-    )
-    .unwrap();
+    let globs = IncludeExcludeGlobs::new(&["src/**".into()], &["src/generated/**".into()]).unwrap();
     assert_eq!(
         globs.decide_str("src/generated/out.rs"),
         MatchDecision::DeniedByExclude
@@ -1097,13 +1091,9 @@ fn given_exclude_pattern_when_matching_path_then_denied() {
 #[test]
 fn given_exclude_only_when_non_matching_path_then_allowed() {
     // Scenario: Exclude-only lets non-matching paths through.
-    let globs =
-        IncludeExcludeGlobs::new(&[], &["*.log".into()]).unwrap();
+    let globs = IncludeExcludeGlobs::new(&[], &["*.log".into()]).unwrap();
     assert_eq!(globs.decide_str("src/main.rs"), MatchDecision::Allowed);
-    assert_eq!(
-        globs.decide_str("app.log"),
-        MatchDecision::DeniedByExclude
-    );
+    assert_eq!(globs.decide_str("app.log"), MatchDecision::DeniedByExclude);
 }
 
 #[test]
@@ -1154,7 +1144,9 @@ fn given_tool_call_event_when_serialized_then_roundtrips() {
     };
     let json = serde_json::to_string(&event).unwrap();
     let event2: AgentEvent = serde_json::from_str(&json).unwrap();
-    assert!(matches!(event2.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "Read"));
+    assert!(
+        matches!(event2.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "Read")
+    );
 }
 
 #[test]
@@ -1170,7 +1162,9 @@ fn given_file_changed_event_when_serialized_then_roundtrips() {
     };
     let json = serde_json::to_string(&event).unwrap();
     let event2: AgentEvent = serde_json::from_str(&json).unwrap();
-    assert!(matches!(event2.kind, AgentEventKind::FileChanged { path, .. } if path == "src/main.rs"));
+    assert!(
+        matches!(event2.kind, AgentEventKind::FileChanged { path, .. } if path == "src/main.rs")
+    );
 }
 
 #[test]
@@ -1350,9 +1344,7 @@ fn given_kimi_code_exec_to_any_when_mapped_then_unsupported() {
         Dialect::Codex,
         Dialect::Copilot,
     ] {
-        let rule = registry
-            .lookup(Dialect::Kimi, target, "code_exec")
-            .unwrap();
+        let rule = registry.lookup(Dialect::Kimi, target, "code_exec").unwrap();
         assert!(
             rule.fidelity.is_unsupported(),
             "Kimi->{}:code_exec should be unsupported",

@@ -6,8 +6,8 @@ use std::path::Path;
 use abp_core::PolicyProfile;
 use abp_policy::audit::{AuditSummary, PolicyAuditor, PolicyDecision as AuditDecision};
 use abp_policy::compose::{
-    ComposedEngine, PolicyDecision as ComposeDecision, PolicyPrecedence, PolicySet, PolicyValidator,
-    WarningKind,
+    ComposedEngine, PolicyDecision as ComposeDecision, PolicyPrecedence, PolicySet,
+    PolicyValidator, WarningKind,
 };
 use abp_policy::rules::{Rule, RuleCondition, RuleEffect, RuleEngine};
 use abp_policy::{Decision, PolicyEngine};
@@ -511,7 +511,10 @@ fn write_deny_multiple_patterns() {
     };
     let e = engine(&p);
     assert!(!e.can_write_path(Path::new(".git/config")).allowed);
-    assert!(!e.can_write_path(Path::new("node_modules/pkg/index.js")).allowed);
+    assert!(
+        !e.can_write_path(Path::new("node_modules/pkg/index.js"))
+            .allowed
+    );
     assert!(!e.can_write_path(Path::new("yarn.lock")).allowed);
     assert!(e.can_write_path(Path::new("src/main.rs")).allowed);
 }
@@ -1182,9 +1185,7 @@ fn validator_detects_empty_glob() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::EmptyGlob));
+    assert!(warnings.iter().any(|w| w.kind == WarningKind::EmptyGlob));
 }
 
 #[test]
@@ -1312,8 +1313,10 @@ fn rule_condition_never() {
 
 #[test]
 fn rule_condition_and() {
-    let cond =
-        RuleCondition::And(vec![RuleCondition::Always, RuleCondition::Pattern(s("*.rs"))]);
+    let cond = RuleCondition::And(vec![
+        RuleCondition::Always,
+        RuleCondition::Pattern(s("*.rs")),
+    ]);
     assert!(cond.matches("main.rs"));
     assert!(!cond.matches("main.py"));
 }
@@ -1477,9 +1480,7 @@ fn edge_path_with_dots() {
 
 #[test]
 fn edge_composed_serde() {
-    let d = ComposeDecision::Allow {
-        reason: s("ok"),
-    };
+    let d = ComposeDecision::Allow { reason: s("ok") };
     let json = serde_json::to_string(&d).unwrap();
     let d2: ComposeDecision = serde_json::from_str(&json).unwrap();
     assert!(d2.is_allow());

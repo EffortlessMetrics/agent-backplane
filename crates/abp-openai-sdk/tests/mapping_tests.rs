@@ -3,8 +3,8 @@
 
 use abp_core::{AgentEventKind, ContextPacket, ContextSnippet, WorkOrderBuilder};
 use abp_openai_sdk::dialect::{
-    OpenAIChoice, OpenAIConfig, OpenAIFunctionCall, OpenAIMessage, OpenAIResponse, OpenAIToolCall,
-    map_response, map_work_order,
+    map_response, map_work_order, OpenAIChoice, OpenAIConfig, OpenAIFunctionCall, OpenAIMessage,
+    OpenAIResponse, OpenAIToolCall,
 };
 
 #[test]
@@ -22,13 +22,11 @@ fn work_order_maps_to_correct_openai_request_fields() {
     assert_eq!(req.max_tokens, Some(8192));
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(
-        req.messages[0]
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("Fix the login bug")
-    );
+    assert!(req.messages[0]
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("Fix the login bug"));
 }
 
 #[test]

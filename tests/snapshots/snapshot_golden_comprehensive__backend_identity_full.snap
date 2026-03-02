@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: backend_id()
+---
+{
+  "id": "sidecar:node",
+  "backend_version": "3.0.0",
+  "adapter_version": "1.2.0"
+}

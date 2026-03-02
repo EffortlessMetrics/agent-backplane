@@ -13,11 +13,11 @@ use serde_json::json;
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
-    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-    RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
-    WorkspaceMode, WorkspaceSpec, canonical_json, receipt_hash, sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
+    ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized,
+    VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_dialect::{Dialect, DialectDetector};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
@@ -413,7 +413,17 @@ fn arb_receipt() -> BoxedStrategy<Receipt> {
         arb_outcome(),
     )
         .prop_map(
-            |(meta, backend, capabilities, mode, usage, trace, artifacts, verification, outcome)| {
+            |(
+                meta,
+                backend,
+                capabilities,
+                mode,
+                usage,
+                trace,
+                artifacts,
+                verification,
+                outcome,
+            )| {
                 Receipt {
                     meta,
                     backend,

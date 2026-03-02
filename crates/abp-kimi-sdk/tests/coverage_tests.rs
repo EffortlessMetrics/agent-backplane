@@ -4,10 +4,10 @@
 
 use abp_core::{AgentEventKind, WorkOrderBuilder};
 use abp_kimi_sdk::dialect::{
-    KimiBuiltinFunction, KimiBuiltinTool, KimiChoice, KimiChunk, KimiChunkDelta, KimiConfig,
-    KimiFunctionCall, KimiFunctionDef, KimiMessage, KimiRequest, KimiResponse, KimiResponseMessage,
-    KimiRole, KimiTool, KimiToolCall, KimiToolDef, ToolCallAccumulator, from_canonical_model,
-    map_response, map_stream_event, map_work_order,
+    from_canonical_model, map_response, map_stream_event, map_work_order, KimiBuiltinFunction,
+    KimiBuiltinTool, KimiChoice, KimiChunk, KimiChunkDelta, KimiConfig, KimiFunctionCall,
+    KimiFunctionDef, KimiMessage, KimiRequest, KimiResponse, KimiResponseMessage, KimiRole,
+    KimiTool, KimiToolCall, KimiToolDef, ToolCallAccumulator,
 };
 
 // ---------------------------------------------------------------------------

@@ -278,7 +278,10 @@ fn builder_requirements() {
     let reqs = streaming_requirement();
     let wo = WorkOrderBuilder::new("t").requirements(reqs).build();
     assert_eq!(wo.requirements.required.len(), 1);
-    assert_eq!(wo.requirements.required[0].capability, Capability::Streaming);
+    assert_eq!(
+        wo.requirements.required[0].capability,
+        Capability::Streaming
+    );
 }
 
 #[test]
@@ -450,7 +453,10 @@ fn serde_roundtrip_full() {
     assert_eq!(de.context.files, wo.context.files);
     assert_eq!(de.context.snippets.len(), wo.context.snippets.len());
     assert_eq!(de.policy.allowed_tools, wo.policy.allowed_tools);
-    assert_eq!(de.requirements.required.len(), wo.requirements.required.len());
+    assert_eq!(
+        de.requirements.required.len(),
+        wo.requirements.required.len()
+    );
     assert_eq!(de.config.model, wo.config.model);
     assert_eq!(de.config.max_turns, wo.config.max_turns);
     assert_eq!(de.config.max_budget_usd, wo.config.max_budget_usd);
@@ -973,8 +979,9 @@ fn validation_minimal_has_no_errors() {
 fn validation_empty_task_is_error() {
     let wo = WorkOrderBuilder::new("").build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings.iter().any(|w| w.field == "task"
-        && matches!(w.severity, WarningSeverity::Error)));
+    assert!(warnings
+        .iter()
+        .any(|w| w.field == "task" && matches!(w.severity, WarningSeverity::Error)));
 }
 
 #[test]
@@ -990,8 +997,7 @@ fn validation_zero_max_turns_is_error() {
     let warnings = ConfigValidator::new().validate_work_order(&wo);
     assert!(warnings
         .iter()
-        .any(|w| w.field == "config.max_turns"
-            && matches!(w.severity, WarningSeverity::Error)));
+        .any(|w| w.field == "config.max_turns" && matches!(w.severity, WarningSeverity::Error)));
 }
 
 #[test]
@@ -1005,28 +1011,23 @@ fn validation_positive_max_turns_ok() {
 fn validation_zero_budget_is_error() {
     let wo = WorkOrderBuilder::new("t").max_budget_usd(0.0).build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.max_budget_usd"
-            && matches!(w.severity, WarningSeverity::Error)));
+    assert!(warnings.iter().any(
+        |w| w.field == "config.max_budget_usd" && matches!(w.severity, WarningSeverity::Error)
+    ));
 }
 
 #[test]
 fn validation_negative_budget_is_error() {
     let wo = WorkOrderBuilder::new("t").max_budget_usd(-1.0).build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.max_budget_usd"));
+    assert!(warnings.iter().any(|w| w.field == "config.max_budget_usd"));
 }
 
 #[test]
 fn validation_positive_budget_ok() {
     let wo = WorkOrderBuilder::new("t").max_budget_usd(0.01).build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(!warnings
-        .iter()
-        .any(|w| w.field == "config.max_budget_usd"));
+    assert!(!warnings.iter().any(|w| w.field == "config.max_budget_usd"));
 }
 
 #[test]
@@ -1037,10 +1038,9 @@ fn validation_duplicate_tools_warning() {
     };
     let wo = WorkOrderBuilder::new("t").policy(policy).build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.allowed_tools"
-            && matches!(w.severity, WarningSeverity::Warning)));
+    assert!(warnings.iter().any(
+        |w| w.field == "policy.allowed_tools" && matches!(w.severity, WarningSeverity::Warning)
+    ));
 }
 
 #[test]
@@ -1051,9 +1051,7 @@ fn validation_no_duplicate_tools_no_warning() {
     };
     let wo = WorkOrderBuilder::new("t").policy(policy).build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(!warnings
-        .iter()
-        .any(|w| w.field == "policy.allowed_tools"));
+    assert!(!warnings.iter().any(|w| w.field == "policy.allowed_tools"));
 }
 
 #[test]
@@ -1193,7 +1191,10 @@ fn config_defaults_apply_max_turns() {
     let mut wo = WorkOrderBuilder::new("t").build();
     assert!(wo.config.max_turns.is_none());
     ConfigDefaults::apply_defaults(&mut wo);
-    assert_eq!(wo.config.max_turns, Some(ConfigDefaults::default_max_turns()));
+    assert_eq!(
+        wo.config.max_turns,
+        Some(ConfigDefaults::default_max_turns())
+    );
 }
 
 #[test]
@@ -1375,7 +1376,9 @@ fn edge_empty_snippet_content() {
 
 #[test]
 fn edge_large_budget() {
-    let wo = WorkOrderBuilder::new("t").max_budget_usd(999_999.99).build();
+    let wo = WorkOrderBuilder::new("t")
+        .max_budget_usd(999_999.99)
+        .build();
     assert_eq!(wo.config.max_budget_usd, Some(999_999.99));
 }
 
@@ -1627,7 +1630,10 @@ fn validation_accumulates_multiple_errors() {
         .filter(|w| matches!(w.severity, WarningSeverity::Error))
         .count();
     // task, model, max_turns, max_budget_usd, deny_read, deny_write = 6
-    assert!(error_count >= 5, "expected at least 5 errors, got {error_count}");
+    assert!(
+        error_count >= 5,
+        "expected at least 5 errors, got {error_count}"
+    );
 }
 
 // ===========================================================================

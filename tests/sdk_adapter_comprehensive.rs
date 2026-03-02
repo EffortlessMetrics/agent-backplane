@@ -228,7 +228,11 @@ mod request_construction {
         let req = openai_dialect::map_work_order(&wo, &cfg);
         assert_eq!(req.messages.len(), 1);
         assert_eq!(req.messages[0].role, "user");
-        assert!(req.messages[0].content.as_deref().unwrap().contains("Write tests"));
+        assert!(req.messages[0]
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Write tests"));
     }
 
     #[test]
@@ -291,7 +295,9 @@ mod request_construction {
 
     #[test]
     fn claude_request_respects_work_order_model() {
-        let wo = WorkOrderBuilder::new("task").model("claude-opus-4-20250514").build();
+        let wo = WorkOrderBuilder::new("task")
+            .model("claude-opus-4-20250514")
+            .build();
         let cfg = ClaudeConfig::default();
         let req = claude_dialect::map_work_order(&wo, &cfg);
         assert_eq!(req.model, "claude-opus-4-20250514");
@@ -366,7 +372,9 @@ mod request_construction {
 
     #[test]
     fn gemini_request_respects_work_order_model() {
-        let wo = WorkOrderBuilder::new("task").model("gemini-2.5-pro").build();
+        let wo = WorkOrderBuilder::new("task")
+            .model("gemini-2.5-pro")
+            .build();
         let cfg = GeminiConfig::default();
         let req = gemini_dialect::map_work_order(&wo, &cfg);
         assert_eq!(req.model, "gemini-2.5-pro");
@@ -426,7 +434,9 @@ mod response_parsing {
         };
         let events = openai_dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { text } if text == "Hello world"));
+        assert!(
+            matches!(&events[0].kind, AgentEventKind::AssistantMessage { text } if text == "Hello world")
+        );
     }
 
     #[test]
@@ -457,7 +467,12 @@ mod response_parsing {
         let events = openai_dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
         match &events[0].kind {
-            AgentEventKind::ToolCall { tool_name, tool_use_id, input, .. } => {
+            AgentEventKind::ToolCall {
+                tool_name,
+                tool_use_id,
+                input,
+                ..
+            } => {
                 assert_eq!(tool_name, "read_file");
                 assert_eq!(tool_use_id.as_deref(), Some("call_1"));
                 assert_eq!(input, &json!({"path": "lib.rs"}));
@@ -541,13 +556,17 @@ mod response_parsing {
             id: "msg_1".into(),
             model: "claude-sonnet-4-20250514".into(),
             role: "assistant".into(),
-            content: vec![ClaudeContentBlock::Text { text: "Hi there".into() }],
+            content: vec![ClaudeContentBlock::Text {
+                text: "Hi there".into(),
+            }],
             stop_reason: Some("end_turn".into()),
             usage: None,
         };
         let events = claude_dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { text } if text == "Hi there"));
+        assert!(
+            matches!(&events[0].kind, AgentEventKind::AssistantMessage { text } if text == "Hi there")
+        );
     }
 
     #[test]
@@ -567,7 +586,12 @@ mod response_parsing {
         let events = claude_dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
         match &events[0].kind {
-            AgentEventKind::ToolCall { tool_name, tool_use_id, input, .. } => {
+            AgentEventKind::ToolCall {
+                tool_name,
+                tool_use_id,
+                input,
+                ..
+            } => {
                 assert_eq!(tool_name, "bash");
                 assert_eq!(tool_use_id.as_deref(), Some("tu_1"));
                 assert_eq!(input, &json!({"command": "ls"}));
@@ -593,7 +617,11 @@ mod response_parsing {
         let events = claude_dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
         match &events[0].kind {
-            AgentEventKind::ToolResult { tool_use_id, is_error, .. } => {
+            AgentEventKind::ToolResult {
+                tool_use_id,
+                is_error,
+                ..
+            } => {
                 assert_eq!(tool_use_id.as_deref(), Some("tu_1"));
                 assert!(!is_error);
             }
@@ -670,7 +698,9 @@ mod response_parsing {
         };
         let events = gemini_dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { text } if text == "Result"));
+        assert!(
+            matches!(&events[0].kind, AgentEventKind::AssistantMessage { text } if text == "Result")
+        );
     }
 
     #[test]
@@ -693,7 +723,11 @@ mod response_parsing {
         let events = gemini_dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
         match &events[0].kind {
-            AgentEventKind::ToolCall { tool_name, tool_use_id, .. } => {
+            AgentEventKind::ToolCall {
+                tool_name,
+                tool_use_id,
+                ..
+            } => {
                 assert_eq!(tool_name, "search");
                 assert!(tool_use_id.is_none()); // Gemini has no per-call IDs
             }
@@ -793,7 +827,9 @@ mod streaming {
         };
         let events = abp_openai_sdk::streaming::map_chunk(&chunk);
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantDelta { text } if text == "Hello"));
+        assert!(
+            matches!(&events[0].kind, AgentEventKind::AssistantDelta { text } if text == "Hello")
+        );
     }
 
     #[test]
@@ -842,7 +878,12 @@ mod streaming {
         let events = acc.finish();
         assert_eq!(events.len(), 1);
         match &events[0].kind {
-            AgentEventKind::ToolCall { tool_name, tool_use_id, input, .. } => {
+            AgentEventKind::ToolCall {
+                tool_name,
+                tool_use_id,
+                input,
+                ..
+            } => {
                 assert_eq!(tool_name, "search");
                 assert_eq!(tool_use_id.as_deref(), Some("call_1"));
                 assert_eq!(input, &json!({"q": "rust"}));
@@ -945,25 +986,34 @@ mod streaming {
         let event = ClaudeStreamEvent::MessageStop {};
         let events = claude_dialect::map_stream_event(&event);
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0].kind, AgentEventKind::RunCompleted { .. }));
+        assert!(matches!(
+            &events[0].kind,
+            AgentEventKind::RunCompleted { .. }
+        ));
     }
 
     #[test]
     fn claude_stream_text_delta() {
         let event = ClaudeStreamEvent::ContentBlockDelta {
             index: 0,
-            delta: ClaudeStreamDelta::TextDelta { text: "chunk".into() },
+            delta: ClaudeStreamDelta::TextDelta {
+                text: "chunk".into(),
+            },
         };
         let events = claude_dialect::map_stream_event(&event);
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantDelta { text } if text == "chunk"));
+        assert!(
+            matches!(&events[0].kind, AgentEventKind::AssistantDelta { text } if text == "chunk")
+        );
     }
 
     #[test]
     fn claude_stream_thinking_delta_has_ext() {
         let event = ClaudeStreamEvent::ContentBlockDelta {
             index: 0,
-            delta: ClaudeStreamDelta::ThinkingDelta { thinking: "hmm".into() },
+            delta: ClaudeStreamDelta::ThinkingDelta {
+                thinking: "hmm".into(),
+            },
         };
         let events = claude_dialect::map_stream_event(&event);
         assert_eq!(events.len(), 1);
@@ -1030,7 +1080,11 @@ mod streaming {
         let events = claude_dialect::map_stream_event(&event);
         assert_eq!(events.len(), 1);
         match &events[0].kind {
-            AgentEventKind::ToolCall { tool_name, tool_use_id, .. } => {
+            AgentEventKind::ToolCall {
+                tool_name,
+                tool_use_id,
+                ..
+            } => {
                 assert_eq!(tool_name, "glob");
                 assert_eq!(tool_use_id.as_deref(), Some("tu_5"));
             }
@@ -1056,7 +1110,9 @@ mod streaming {
         };
         let events = gemini_dialect::map_stream_chunk(&chunk);
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantDelta { text } if text == "partial"));
+        assert!(
+            matches!(&events[0].kind, AgentEventKind::AssistantDelta { text } if text == "partial")
+        );
     }
 
     #[test]
@@ -1078,7 +1134,9 @@ mod streaming {
         };
         let events = gemini_dialect::map_stream_chunk(&chunk);
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "ls"));
+        assert!(
+            matches!(&events[0].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "ls")
+        );
     }
 
     #[test]
@@ -1125,8 +1183,14 @@ mod error_types {
     fn validation_errors_display() {
         let errs = ValidationErrors {
             errors: vec![
-                UnmappableParam { param: "a".into(), reason: "r1".into() },
-                UnmappableParam { param: "b".into(), reason: "r2".into() },
+                UnmappableParam {
+                    param: "a".into(),
+                    reason: "r1".into(),
+                },
+                UnmappableParam {
+                    param: "b".into(),
+                    reason: "r2".into(),
+                },
             ],
         };
         let msg = format!("{errs}");
@@ -1213,22 +1277,34 @@ mod error_types {
 
     #[test]
     fn claude_parse_stop_reason_end_turn() {
-        assert_eq!(parse_stop_reason("end_turn"), Some(ClaudeStopReason::EndTurn));
+        assert_eq!(
+            parse_stop_reason("end_turn"),
+            Some(ClaudeStopReason::EndTurn)
+        );
     }
 
     #[test]
     fn claude_parse_stop_reason_tool_use() {
-        assert_eq!(parse_stop_reason("tool_use"), Some(ClaudeStopReason::ToolUse));
+        assert_eq!(
+            parse_stop_reason("tool_use"),
+            Some(ClaudeStopReason::ToolUse)
+        );
     }
 
     #[test]
     fn claude_parse_stop_reason_max_tokens() {
-        assert_eq!(parse_stop_reason("max_tokens"), Some(ClaudeStopReason::MaxTokens));
+        assert_eq!(
+            parse_stop_reason("max_tokens"),
+            Some(ClaudeStopReason::MaxTokens)
+        );
     }
 
     #[test]
     fn claude_parse_stop_reason_stop_sequence() {
-        assert_eq!(parse_stop_reason("stop_sequence"), Some(ClaudeStopReason::StopSequence));
+        assert_eq!(
+            parse_stop_reason("stop_sequence"),
+            Some(ClaudeStopReason::StopSequence)
+        );
     }
 
     #[test]
@@ -1281,13 +1357,22 @@ mod model_definitions {
 
     #[test]
     fn openai_canonical_model_mapping() {
-        assert_eq!(abp_openai_sdk::dialect::to_canonical_model("gpt-4o"), "openai/gpt-4o");
-        assert_eq!(abp_openai_sdk::dialect::from_canonical_model("openai/gpt-4o"), "gpt-4o");
+        assert_eq!(
+            abp_openai_sdk::dialect::to_canonical_model("gpt-4o"),
+            "openai/gpt-4o"
+        );
+        assert_eq!(
+            abp_openai_sdk::dialect::from_canonical_model("openai/gpt-4o"),
+            "gpt-4o"
+        );
     }
 
     #[test]
     fn openai_from_canonical_no_prefix_passthrough() {
-        assert_eq!(abp_openai_sdk::dialect::from_canonical_model("gpt-4o"), "gpt-4o");
+        assert_eq!(
+            abp_openai_sdk::dialect::from_canonical_model("gpt-4o"),
+            "gpt-4o"
+        );
     }
 
     // ── Claude Models ───────────────────────────────────────────────────
@@ -1299,14 +1384,23 @@ mod model_definitions {
 
     #[test]
     fn claude_default_model() {
-        assert_eq!(abp_claude_sdk::dialect::DEFAULT_MODEL, "claude-sonnet-4-20250514");
+        assert_eq!(
+            abp_claude_sdk::dialect::DEFAULT_MODEL,
+            "claude-sonnet-4-20250514"
+        );
     }
 
     #[test]
     fn claude_known_models() {
-        assert!(abp_claude_sdk::dialect::is_known_model("claude-sonnet-4-20250514"));
-        assert!(abp_claude_sdk::dialect::is_known_model("claude-opus-4-20250514"));
-        assert!(abp_claude_sdk::dialect::is_known_model("claude-haiku-3-5-20241022"));
+        assert!(abp_claude_sdk::dialect::is_known_model(
+            "claude-sonnet-4-20250514"
+        ));
+        assert!(abp_claude_sdk::dialect::is_known_model(
+            "claude-opus-4-20250514"
+        ));
+        assert!(abp_claude_sdk::dialect::is_known_model(
+            "claude-haiku-3-5-20241022"
+        ));
         assert!(!abp_claude_sdk::dialect::is_known_model("claude-2"));
     }
 
@@ -1352,13 +1446,22 @@ mod model_definitions {
 
     #[test]
     fn gemini_canonical_model_mapping() {
-        assert_eq!(abp_gemini_sdk::dialect::to_canonical_model("gemini-2.5-flash"), "google/gemini-2.5-flash");
-        assert_eq!(abp_gemini_sdk::dialect::from_canonical_model("google/gemini-2.5-flash"), "gemini-2.5-flash");
+        assert_eq!(
+            abp_gemini_sdk::dialect::to_canonical_model("gemini-2.5-flash"),
+            "google/gemini-2.5-flash"
+        );
+        assert_eq!(
+            abp_gemini_sdk::dialect::from_canonical_model("google/gemini-2.5-flash"),
+            "gemini-2.5-flash"
+        );
     }
 
     #[test]
     fn gemini_from_canonical_no_prefix_passthrough() {
-        assert_eq!(abp_gemini_sdk::dialect::from_canonical_model("gemini-2.5-flash"), "gemini-2.5-flash");
+        assert_eq!(
+            abp_gemini_sdk::dialect::from_canonical_model("gemini-2.5-flash"),
+            "gemini-2.5-flash"
+        );
     }
 
     // ── Capability Manifests ────────────────────────────────────────────
@@ -1367,35 +1470,50 @@ mod model_definitions {
     fn openai_capability_manifest_has_streaming() {
         use abp_core::{Capability, SupportLevel};
         let m = abp_openai_sdk::dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::Streaming),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn claude_capability_manifest_has_native_tool_read() {
         use abp_core::{Capability, SupportLevel};
         let m = abp_claude_sdk::dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::ToolRead), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::ToolRead),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn gemini_capability_manifest_glob_unsupported() {
         use abp_core::{Capability, SupportLevel};
         let m = abp_gemini_sdk::dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::ToolGlob), Some(SupportLevel::Unsupported)));
+        assert!(matches!(
+            m.get(&Capability::ToolGlob),
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
     fn openai_mcp_unsupported() {
         use abp_core::{Capability, SupportLevel};
         let m = abp_openai_sdk::dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::McpClient), Some(SupportLevel::Unsupported)));
+        assert!(matches!(
+            m.get(&Capability::McpClient),
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
     fn claude_mcp_client_native() {
         use abp_core::{Capability, SupportLevel};
         let m = abp_claude_sdk::dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::McpClient), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::McpClient),
+            Some(SupportLevel::Native)
+        ));
     }
 }
 
@@ -1475,12 +1593,23 @@ mod cross_sdk_compatibility {
     #[test]
     fn system_prompt_all_sdks_ir_convergence() {
         let openai_msgs = vec![
-            OpenAIMessage { role: "system".into(), content: Some("Be helpful".into()), tool_calls: None, tool_call_id: None },
-            OpenAIMessage { role: "user".into(), content: Some("hi".into()), tool_calls: None, tool_call_id: None },
+            OpenAIMessage {
+                role: "system".into(),
+                content: Some("Be helpful".into()),
+                tool_calls: None,
+                tool_call_id: None,
+            },
+            OpenAIMessage {
+                role: "user".into(),
+                content: Some("hi".into()),
+                tool_calls: None,
+                tool_call_id: None,
+            },
         ];
-        let claude_msgs = vec![
-            ClaudeMessage { role: "user".into(), content: "hi".into() },
-        ];
+        let claude_msgs = vec![ClaudeMessage {
+            role: "user".into(),
+            content: "hi".into(),
+        }];
         let gemini_sys = GeminiContent {
             role: "user".into(),
             parts: vec![GeminiPart::Text("Be helpful".into())],
@@ -1535,10 +1664,21 @@ mod cross_sdk_compatibility {
         let ir_claude = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
 
         // Both produce ToolUse with same name and input
-        match (&ir_openai.messages[0].content[0], &ir_claude.messages[0].content[0]) {
+        match (
+            &ir_openai.messages[0].content[0],
+            &ir_claude.messages[0].content[0],
+        ) {
             (
-                IrContentBlock::ToolUse { name: n1, input: i1, .. },
-                IrContentBlock::ToolUse { name: n2, input: i2, .. },
+                IrContentBlock::ToolUse {
+                    name: n1,
+                    input: i1,
+                    ..
+                },
+                IrContentBlock::ToolUse {
+                    name: n2,
+                    input: i2,
+                    ..
+                },
             ) => {
                 assert_eq!(n1, n2);
                 assert_eq!(i1, i2);
@@ -1569,10 +1709,17 @@ mod cross_sdk_compatibility {
         let ir_claude = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
 
         // Both produce ToolResult with same tool_use_id
-        match (&ir_openai.messages[0].content[0], &ir_claude.messages[0].content[0]) {
+        match (
+            &ir_openai.messages[0].content[0],
+            &ir_claude.messages[0].content[0],
+        ) {
             (
-                IrContentBlock::ToolResult { tool_use_id: id1, .. },
-                IrContentBlock::ToolResult { tool_use_id: id2, .. },
+                IrContentBlock::ToolResult {
+                    tool_use_id: id1, ..
+                },
+                IrContentBlock::ToolResult {
+                    tool_use_id: id2, ..
+                },
             ) => {
                 assert_eq!(id1, id2);
             }
@@ -1723,7 +1870,10 @@ mod edge_cases {
 
     #[test]
     fn claude_empty_system_prompt_not_added() {
-        let msgs = vec![ClaudeMessage { role: "user".into(), content: "hi".into() }];
+        let msgs = vec![ClaudeMessage {
+            role: "user".into(),
+            content: "hi".into(),
+        }];
         let conv = abp_claude_sdk::lowering::to_ir(&msgs, Some(""));
         assert_eq!(conv.messages.len(), 1);
         assert_eq!(conv.messages[0].role, IrRole::User);
@@ -1733,7 +1883,10 @@ mod edge_cases {
 
     #[test]
     fn gemini_empty_system_instruction_not_added() {
-        let sys = GeminiContent { role: "user".into(), parts: vec![] };
+        let sys = GeminiContent {
+            role: "user".into(),
+            parts: vec![],
+        };
         let contents = vec![GeminiContent {
             role: "user".into(),
             parts: vec![GeminiPart::Text("hi".into())],
@@ -1760,7 +1913,10 @@ mod edge_cases {
 
     #[test]
     fn claude_unknown_role_defaults_to_user() {
-        let msgs = vec![ClaudeMessage { role: "custom".into(), content: "hello".into() }];
+        let msgs = vec![ClaudeMessage {
+            role: "custom".into(),
+            content: "hello".into(),
+        }];
         let conv = abp_claude_sdk::lowering::to_ir(&msgs, None);
         assert_eq!(conv.messages[0].role, IrRole::User);
     }
@@ -1811,7 +1967,9 @@ mod edge_cases {
     fn claude_passthrough_roundtrip_text_delta() {
         let event = ClaudeStreamEvent::ContentBlockDelta {
             index: 0,
-            delta: ClaudeStreamDelta::TextDelta { text: "hello".into() },
+            delta: ClaudeStreamDelta::TextDelta {
+                text: "hello".into(),
+            },
         };
         let wrapped = to_passthrough_event(&event);
         let ext = wrapped.ext.as_ref().unwrap();
@@ -1852,7 +2010,9 @@ mod edge_cases {
         use chrono::Utc;
         let event = AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantDelta { text: "plain".into() },
+            kind: AgentEventKind::AssistantDelta {
+                text: "plain".into(),
+            },
             ext: None,
         };
         assert!(from_passthrough_event(&event).is_none());
@@ -1866,7 +2026,11 @@ mod edge_cases {
         assert_eq!(msg.role, "user");
         let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
         match &blocks[0] {
-            ClaudeContentBlock::ToolResult { tool_use_id, content, is_error } => {
+            ClaudeContentBlock::ToolResult {
+                tool_use_id,
+                content,
+                is_error,
+            } => {
                 assert_eq!(tool_use_id, "tu_1");
                 assert_eq!(content.as_deref(), Some("output data"));
                 assert!(is_error.is_none());
@@ -1922,7 +2086,9 @@ mod edge_cases {
 
     #[test]
     fn gemini_tool_config_serde() {
-        use abp_gemini_sdk::dialect::{FunctionCallingMode, GeminiFunctionCallingConfig, GeminiToolConfig};
+        use abp_gemini_sdk::dialect::{
+            FunctionCallingMode, GeminiFunctionCallingConfig, GeminiToolConfig,
+        };
         let config = GeminiToolConfig {
             function_calling_config: GeminiFunctionCallingConfig {
                 mode: FunctionCallingMode::Auto,
@@ -1951,7 +2117,9 @@ mod edge_cases {
 
     #[test]
     fn gemini_grounding_config_serde() {
-        use abp_gemini_sdk::dialect::{DynamicRetrievalConfig, GeminiGroundingConfig, GoogleSearchRetrieval};
+        use abp_gemini_sdk::dialect::{
+            DynamicRetrievalConfig, GeminiGroundingConfig, GoogleSearchRetrieval,
+        };
         let cfg = GeminiGroundingConfig {
             google_search_retrieval: Some(GoogleSearchRetrieval {
                 dynamic_retrieval_config: Some(DynamicRetrievalConfig {
@@ -1961,9 +2129,11 @@ mod edge_cases {
             }),
         };
         let json = serde_json::to_value(&cfg).unwrap();
-        assert!(json["googleSearchRetrieval"]["dynamicRetrievalConfig"]["dynamicThreshold"]
-            .as_f64()
-            .is_some());
+        assert!(
+            json["googleSearchRetrieval"]["dynamicRetrievalConfig"]["dynamicThreshold"]
+                .as_f64()
+                .is_some()
+        );
     }
 
     // ── Claude system block serde ───────────────────────────────────────
@@ -2032,7 +2202,9 @@ mod edge_cases {
         use abp_openai_sdk::dialect::{ToolChoice, ToolChoiceFunctionRef};
         let tc = ToolChoice::Function {
             tool_type: "function".into(),
-            function: ToolChoiceFunctionRef { name: "my_func".into() },
+            function: ToolChoiceFunctionRef {
+                name: "my_func".into(),
+            },
         };
         let json = serde_json::to_value(&tc).unwrap();
         assert_eq!(json["type"], "function");
@@ -2062,14 +2234,15 @@ mod edge_cases {
             IrMessage::text(IrRole::System, "instructions"),
             IrMessage::text(IrRole::User, "go"),
         ]);
-        assert_eq!(abp_claude_sdk::lowering::extract_system_prompt(&conv).as_deref(), Some("instructions"));
+        assert_eq!(
+            abp_claude_sdk::lowering::extract_system_prompt(&conv).as_deref(),
+            Some("instructions")
+        );
     }
 
     #[test]
     fn claude_extract_system_prompt_none_when_absent() {
-        let conv = IrConversation::from_messages(vec![
-            IrMessage::text(IrRole::User, "hi"),
-        ]);
+        let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hi")]);
         assert!(abp_claude_sdk::lowering::extract_system_prompt(&conv).is_none());
     }
 
@@ -2078,9 +2251,15 @@ mod edge_cases {
     #[test]
     fn gemini_harm_probability_serde() {
         use abp_gemini_sdk::dialect::HarmProbability;
-        assert_eq!(serde_json::to_value(HarmProbability::Negligible).unwrap(), "NEGLIGIBLE");
+        assert_eq!(
+            serde_json::to_value(HarmProbability::Negligible).unwrap(),
+            "NEGLIGIBLE"
+        );
         assert_eq!(serde_json::to_value(HarmProbability::Low).unwrap(), "LOW");
-        assert_eq!(serde_json::to_value(HarmProbability::Medium).unwrap(), "MEDIUM");
+        assert_eq!(
+            serde_json::to_value(HarmProbability::Medium).unwrap(),
+            "MEDIUM"
+        );
         assert_eq!(serde_json::to_value(HarmProbability::High).unwrap(), "HIGH");
     }
 
@@ -2117,7 +2296,10 @@ mod edge_cases {
             model: "claude-sonnet-4-20250514".into(),
             max_tokens: 4096,
             system: Some("be helpful".into()),
-            messages: vec![ClaudeMessage { role: "user".into(), content: "hi".into() }],
+            messages: vec![ClaudeMessage {
+                role: "user".into(),
+                content: "hi".into(),
+            }],
             thinking: None,
         };
         let json = serde_json::to_string(&req).unwrap();

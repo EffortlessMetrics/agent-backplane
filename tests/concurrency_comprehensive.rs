@@ -251,7 +251,9 @@ fn receipt_hash_deterministic_across_threads() {
 
 #[test]
 fn receipt_with_hash_deterministic_across_threads() {
-    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     let expected = receipt_hash(&receipt).unwrap();
 
     let handles: Vec<_> = (0..10)
@@ -357,7 +359,10 @@ fn concurrent_write_path_checks() {
         .map(|_| {
             let e = Arc::clone(&engine);
             thread::spawn(move || {
-                assert!(!e.can_write_path(std::path::Path::new(".git/config")).allowed);
+                assert!(
+                    !e.can_write_path(std::path::Path::new(".git/config"))
+                        .allowed
+                );
                 assert!(e.can_write_path(std::path::Path::new("src/lib.rs")).allowed);
             })
         })
@@ -1061,9 +1066,7 @@ fn shared_readonly_policy_engine_many_reads() {
 #[test]
 fn shared_readonly_globs_many_paths() {
     let globs = Arc::new(make_globs());
-    let paths: Vec<String> = (0..20)
-        .map(|i| format!("src/mod{i}/file.rs"))
-        .collect();
+    let paths: Vec<String> = (0..20).map(|i| format!("src/mod{i}/file.rs")).collect();
 
     let handles: Vec<_> = paths
         .into_iter()
@@ -1179,8 +1182,8 @@ fn concurrent_telemetry_span_creation() {
     let handles: Vec<_> = (0..10)
         .map(|i| {
             thread::spawn(move || {
-                let span = TelemetrySpan::new(format!("op-{i}"))
-                    .with_attribute("thread", format!("{i}"));
+                let span =
+                    TelemetrySpan::new(format!("op-{i}")).with_attribute("thread", format!("{i}"));
                 assert_eq!(span.attributes["thread"], format!("{i}"));
             })
         })

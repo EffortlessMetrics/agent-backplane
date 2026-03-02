@@ -27,11 +27,9 @@ fn compile_100_include_and_100_exclude_patterns() {
     // Matches include, not excluded.
     assert!(globs.decide_str("src/module_42/lib.rs").is_allowed());
     // Matches include AND exclude → denied.
-    assert!(
-        !globs
-            .decide_str("src/module_42/generated/out.rs")
-            .is_allowed()
-    );
+    assert!(!globs
+        .decide_str("src/module_42/generated/out.rs")
+        .is_allowed());
     // Matches no include → denied.
     assert!(!globs.decide_str("other/file.txt").is_allowed());
     // Verify boundary modules.
@@ -88,30 +86,22 @@ fn complex_nested_double_star_patterns() {
     let globs = IncludeExcludeGlobs::new(&includes, &excludes).expect("compile");
 
     // Deep nesting that matches.
-    assert!(
-        globs
-            .decide_str("workspace/crate_a/src/module/tests/integration/test_foo.rs")
-            .is_allowed()
-    );
-    assert!(
-        globs
-            .decide_str("benches/criterion/bench_main.rs")
-            .is_allowed()
-    );
+    assert!(globs
+        .decide_str("workspace/crate_a/src/module/tests/integration/test_foo.rs")
+        .is_allowed());
+    assert!(globs
+        .decide_str("benches/criterion/bench_main.rs")
+        .is_allowed());
 
     // Deep nesting that does NOT match includes.
-    assert!(
-        !globs
-            .decide_str("workspace/crate_a/src/module/lib.rs")
-            .is_allowed()
-    );
+    assert!(!globs
+        .decide_str("workspace/crate_a/src/module/lib.rs")
+        .is_allowed());
 
     // Matches include but also matches exclude.
-    assert!(
-        !globs
-            .decide_str("target/debug/build/src/tests/gen.rs")
-            .is_allowed()
-    );
+    assert!(!globs
+        .decide_str("target/debug/build/src/tests/gen.rs")
+        .is_allowed());
 }
 
 // ---------------------------------------------------------------------------
@@ -502,11 +492,9 @@ fn real_world_gitignore_patterns() {
     assert!(globs.decide_str("src/main.rs").is_allowed());
     assert!(globs.decide_str("Cargo.toml").is_allowed());
     assert!(globs.decide_str("docs/README.md").is_allowed());
-    assert!(
-        globs
-            .decide_str("tests/integration/test_api.py")
-            .is_allowed()
-    );
+    assert!(globs
+        .decide_str("tests/integration/test_api.py")
+        .is_allowed());
 
     // Denied.
     assert_eq!(

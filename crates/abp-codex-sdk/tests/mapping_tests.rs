@@ -2,8 +2,8 @@
 //! Integration tests for the Codex SDK dialect mapping.
 
 use abp_codex_sdk::dialect::{
-    CodexConfig, CodexContentPart, CodexInputItem, CodexOutputItem, CodexResponse, map_response,
-    map_work_order,
+    map_response, map_work_order, CodexConfig, CodexContentPart, CodexInputItem, CodexOutputItem,
+    CodexResponse,
 };
 use abp_core::{AgentEventKind, ContextPacket, ContextSnippet, WorkOrderBuilder};
 

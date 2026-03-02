@@ -210,8 +210,8 @@ fn dialect_ne_different_variants() {
 
 #[test]
 fn dialect_hash_consistent() {
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     for &d in Dialect::all() {
         let mut h1 = DefaultHasher::new();
         let mut h2 = DefaultHasher::new();
@@ -223,8 +223,8 @@ fn dialect_hash_consistent() {
 
 #[test]
 fn dialect_hash_differs_between_variants() {
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     let hashes: Vec<u64> = Dialect::all()
         .iter()
         .map(|d| {
@@ -1021,8 +1021,16 @@ fn confidence_is_in_zero_one_range() {
     for p in &payloads {
         let results = detector().detect_all(p);
         for r in &results {
-            assert!(r.confidence > 0.0, "confidence must be >0, got {}", r.confidence);
-            assert!(r.confidence <= 1.0, "confidence must be <=1, got {}", r.confidence);
+            assert!(
+                r.confidence > 0.0,
+                "confidence must be >0, got {}",
+                r.confidence
+            );
+            assert!(
+                r.confidence <= 1.0,
+                "confidence must be <=1, got {}",
+                r.confidence
+            );
         }
     }
 }
@@ -1489,7 +1497,10 @@ fn detector_default_works() {
 #[test]
 fn validator_default_works() {
     let v = DialectValidator::default();
-    let r = v.validate(&json!({"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]}), Dialect::OpenAi);
+    let r = v.validate(
+        &json!({"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]}),
+        Dialect::OpenAi,
+    );
     assert!(r.valid);
 }
 
@@ -1580,8 +1591,10 @@ fn cross_claude_vs_gemini_responses() {
 
 #[test]
 fn cross_codex_vs_openai() {
-    let codex = json!({"object": "response", "status": "completed", "items": [{"type": "message"}]});
-    let openai = json!({"model": "gpt-4", "choices": [{"message": {"role": "assistant", "content": "hi"}}]});
+    let codex =
+        json!({"object": "response", "status": "completed", "items": [{"type": "message"}]});
+    let openai =
+        json!({"model": "gpt-4", "choices": [{"message": {"role": "assistant", "content": "hi"}}]});
     assert_eq!(detect(&codex).0, Dialect::Codex);
     assert_eq!(detect(&openai).0, Dialect::OpenAi);
 }
@@ -1597,7 +1610,8 @@ fn cross_kimi_vs_openai() {
 
 #[test]
 fn cross_copilot_vs_openai() {
-    let copilot = json!({"messages": [{"role": "user", "content": "fix"}], "references": [{"type": "file"}]});
+    let copilot =
+        json!({"messages": [{"role": "user", "content": "fix"}], "references": [{"type": "file"}]});
     let openai = json!({"model": "gpt-4", "messages": [{"role": "user", "content": "fix"}]});
     assert_eq!(detect(&copilot).0, Dialect::Copilot);
     assert_eq!(detect(&openai).0, Dialect::OpenAi);

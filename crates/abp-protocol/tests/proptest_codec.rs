@@ -3,7 +3,7 @@
 //! compatibility in `abp-protocol`.
 
 use abp_core::*;
-use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
 use chrono::DateTime;
 use proptest::prelude::*;
 use std::io::BufReader;

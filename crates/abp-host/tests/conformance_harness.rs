@@ -9,10 +9,10 @@ use std::collections::HashSet;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, ReceiptBuilder, receipt_hash,
+    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode,
+    ReceiptBuilder, CONTRACT_VERSION,
 };
-use abp_protocol::{Envelope, JsonlCodec, parse_version};
+use abp_protocol::{parse_version, Envelope, JsonlCodec};
 use chrono::{DateTime, Utc};
 
 // =========================================================================

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the emulation engine.
 
-use abp_core::Capability;
 use abp_core::ir::{IrConversation, IrMessage, IrRole};
+use abp_core::Capability;
 use abp_emulation::*;
 
 // ── Factory function output tests ──────────────────────────────────────

@@ -55,7 +55,10 @@ fn decision_clone() {
 #[test]
 fn decision_eq_same_variant() {
     assert_eq!(MatchDecision::Allowed, MatchDecision::Allowed);
-    assert_eq!(MatchDecision::DeniedByExclude, MatchDecision::DeniedByExclude);
+    assert_eq!(
+        MatchDecision::DeniedByExclude,
+        MatchDecision::DeniedByExclude
+    );
     assert_eq!(
         MatchDecision::DeniedByMissingInclude,
         MatchDecision::DeniedByMissingInclude
@@ -65,7 +68,10 @@ fn decision_eq_same_variant() {
 #[test]
 fn decision_ne_different_variants() {
     assert_ne!(MatchDecision::Allowed, MatchDecision::DeniedByExclude);
-    assert_ne!(MatchDecision::Allowed, MatchDecision::DeniedByMissingInclude);
+    assert_ne!(
+        MatchDecision::Allowed,
+        MatchDecision::DeniedByMissingInclude
+    );
     assert_ne!(
         MatchDecision::DeniedByExclude,
         MatchDecision::DeniedByMissingInclude
@@ -144,11 +150,8 @@ fn new_many_include_patterns() {
 
 #[test]
 fn new_many_exclude_patterns() {
-    let g = IncludeExcludeGlobs::new(
-        &empty(),
-        &p(&["*.log", "*.tmp", "*.bak", "target/**"]),
-    )
-    .unwrap();
+    let g =
+        IncludeExcludeGlobs::new(&empty(), &p(&["*.log", "*.tmp", "*.bak", "target/**"])).unwrap();
     assert_eq!(g.decide_str("app.log"), MatchDecision::DeniedByExclude);
     assert_eq!(g.decide_str("data.tmp"), MatchDecision::DeniedByExclude);
     assert_eq!(g.decide_str("old.bak"), MatchDecision::DeniedByExclude);
@@ -194,10 +197,7 @@ fn invalid_among_valid_exclude() {
 #[test]
 fn exclude_overrides_include_exact_overlap() {
     let g = IncludeExcludeGlobs::new(&p(&["src/**"]), &p(&["src/**"])).unwrap();
-    assert_eq!(
-        g.decide_str("src/lib.rs"),
-        MatchDecision::DeniedByExclude
-    );
+    assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::DeniedByExclude);
 }
 
 #[test]
@@ -212,19 +212,12 @@ fn exclude_overrides_include_subset() {
 
 #[test]
 fn exclude_on_deeply_nested_path() {
-    let g = IncludeExcludeGlobs::new(
-        &p(&["project/**"]),
-        &p(&["project/vendor/**"]),
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&p(&["project/**"]), &p(&["project/vendor/**"])).unwrap();
     assert_eq!(
         g.decide_str("project/vendor/lib/deep/file.js"),
         MatchDecision::DeniedByExclude
     );
-    assert_eq!(
-        g.decide_str("project/src/app.js"),
-        MatchDecision::Allowed
-    );
+    assert_eq!(g.decide_str("project/src/app.js"), MatchDecision::Allowed);
 }
 
 // ===========================================================================
@@ -382,11 +375,7 @@ fn decide_path_matches_decide_str_for_missing_include() {
 
 #[test]
 fn decide_path_batch_consistency() {
-    let g = IncludeExcludeGlobs::new(
-        &p(&["src/**", "tests/**"]),
-        &p(&["src/gen/**"]),
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&p(&["src/**", "tests/**"]), &p(&["src/gen/**"])).unwrap();
     for c in &[
         "src/lib.rs",
         "src/gen/out.rs",
@@ -434,16 +423,16 @@ fn dot_file_matched_by_star() {
 #[test]
 fn hidden_directory_with_doublestar() {
     let g = IncludeExcludeGlobs::new(&p(&["**"]), &empty()).unwrap();
-    assert_eq!(g.decide_str(".config/settings.json"), MatchDecision::Allowed);
+    assert_eq!(
+        g.decide_str(".config/settings.json"),
+        MatchDecision::Allowed
+    );
 }
 
 #[test]
 fn exclude_hidden_directory() {
     let g = IncludeExcludeGlobs::new(&empty(), &p(&[".git/**"])).unwrap();
-    assert_eq!(
-        g.decide_str(".git/HEAD"),
-        MatchDecision::DeniedByExclude
-    );
+    assert_eq!(g.decide_str(".git/HEAD"), MatchDecision::DeniedByExclude);
     assert_eq!(
         g.decide_str(".git/objects/abc123"),
         MatchDecision::DeniedByExclude
@@ -479,10 +468,7 @@ fn path_with_spaces() {
 #[test]
 fn path_with_unicode() {
     let g = IncludeExcludeGlobs::new(&p(&["données/**"]), &empty()).unwrap();
-    assert_eq!(
-        g.decide_str("données/fichier.txt"),
-        MatchDecision::Allowed
-    );
+    assert_eq!(g.decide_str("données/fichier.txt"), MatchDecision::Allowed);
     assert_eq!(
         g.decide_str("other/file.txt"),
         MatchDecision::DeniedByMissingInclude
@@ -666,7 +652,8 @@ fn compose_layered_glob_sets() {
     let layer1 = IncludeExcludeGlobs::new(&p(&["**"]), &p(&["*.log"])).unwrap();
     let layer2 = IncludeExcludeGlobs::new(&p(&["**"]), &p(&["*.tmp"])).unwrap();
 
-    let check = |path: &str| layer1.decide_str(path).is_allowed() && layer2.decide_str(path).is_allowed();
+    let check =
+        |path: &str| layer1.decide_str(path).is_allowed() && layer2.decide_str(path).is_allowed();
 
     assert!(check("src/main.rs"));
     assert!(!check("app.log"));
@@ -726,10 +713,7 @@ fn extension_exact_match() {
         g.decide_str("lib.rsx"),
         MatchDecision::DeniedByMissingInclude
     );
-    assert_eq!(
-        g.decide_str("lib.r"),
-        MatchDecision::DeniedByMissingInclude
-    );
+    assert_eq!(g.decide_str("lib.r"), MatchDecision::DeniedByMissingInclude);
 }
 
 #[test]
@@ -803,10 +787,12 @@ fn suffix_pattern() {
 #[test]
 fn no_include_no_exclude_allows_everything() {
     let g = IncludeExcludeGlobs::new(&empty(), &empty()).unwrap();
-    for path in &[
-        "a", "b/c", "d/e/f.txt", ".hidden", "target/debug/bin", "",
-    ] {
-        assert_eq!(g.decide_str(path), MatchDecision::Allowed, "failed for {path}");
+    for path in &["a", "b/c", "d/e/f.txt", ".hidden", "target/debug/bin", ""] {
+        assert_eq!(
+            g.decide_str(path),
+            MatchDecision::Allowed,
+            "failed for {path}"
+        );
     }
 }
 
@@ -814,7 +800,11 @@ fn no_include_no_exclude_allows_everything() {
 fn double_star_include_allows_everything() {
     let g = IncludeExcludeGlobs::new(&p(&["**"]), &empty()).unwrap();
     for path in &["a", "b/c", "d/e/f.txt", ".hidden"] {
-        assert_eq!(g.decide_str(path), MatchDecision::Allowed, "failed for {path}");
+        assert_eq!(
+            g.decide_str(path),
+            MatchDecision::Allowed,
+            "failed for {path}"
+        );
     }
 }
 
@@ -951,10 +941,7 @@ fn security_sensitive_file_exclusion() {
         g.decide_str("certs/server.key"),
         MatchDecision::DeniedByExclude
     );
-    assert_eq!(
-        g.decide_str("ssl/cert.pem"),
-        MatchDecision::DeniedByExclude
-    );
+    assert_eq!(g.decide_str("ssl/cert.pem"), MatchDecision::DeniedByExclude);
     assert_eq!(
         g.decide_str("config/app.env"),
         MatchDecision::DeniedByExclude
@@ -1009,11 +996,7 @@ fn exclude_everything_with_doublestar() {
 
 #[test]
 fn include_specific_file_exclude_its_directory() {
-    let g = IncludeExcludeGlobs::new(
-        &p(&["config/**"]),
-        &p(&["config/secrets/**"]),
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&p(&["config/**"]), &p(&["config/secrets/**"])).unwrap();
     assert_eq!(g.decide_str("config/app.toml"), MatchDecision::Allowed);
     assert_eq!(
         g.decide_str("config/secrets/db.toml"),
@@ -1051,11 +1034,7 @@ fn empty_brace_alternation() {
 
 #[test]
 fn more_specific_exclude_wins_over_broad_include() {
-    let g = IncludeExcludeGlobs::new(
-        &p(&["**"]),
-        &p(&["src/internal/private.rs"]),
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&p(&["**"]), &p(&["src/internal/private.rs"])).unwrap();
     assert_eq!(
         g.decide_str("src/internal/private.rs"),
         MatchDecision::DeniedByExclude
@@ -1068,11 +1047,7 @@ fn more_specific_exclude_wins_over_broad_include() {
 
 #[test]
 fn broad_exclude_blocks_specific_include() {
-    let g = IncludeExcludeGlobs::new(
-        &p(&["src/internal/private.rs"]),
-        &p(&["**"]),
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&p(&["src/internal/private.rs"]), &p(&["**"])).unwrap();
     // Exclude takes precedence regardless of specificity
     assert_eq!(
         g.decide_str("src/internal/private.rs"),
@@ -1086,11 +1061,7 @@ fn broad_exclude_blocks_specific_include() {
 
 #[test]
 fn is_allowed_with_complex_rules() {
-    let g = IncludeExcludeGlobs::new(
-        &p(&["src/**", "tests/**"]),
-        &p(&["src/gen/**"]),
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&p(&["src/**", "tests/**"]), &p(&["src/gen/**"])).unwrap();
     assert!(g.decide_str("src/lib.rs").is_allowed());
     assert!(g.decide_str("tests/it.rs").is_allowed());
     assert!(!g.decide_str("src/gen/out.rs").is_allowed());
@@ -1162,11 +1133,7 @@ fn same_pattern_in_include_and_exclude() {
 
 #[test]
 fn batch_check_many_paths() {
-    let g = IncludeExcludeGlobs::new(
-        &p(&["src/**", "tests/**"]),
-        &p(&["src/gen/**"]),
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&p(&["src/**", "tests/**"]), &p(&["src/gen/**"])).unwrap();
 
     let allowed: Vec<&str> = vec![
         "src/lib.rs",
@@ -1264,11 +1231,7 @@ fn nested_brace_with_extension() {
 
 #[test]
 fn exclude_specific_extension_in_subtree() {
-    let g = IncludeExcludeGlobs::new(
-        &p(&["project/**"]),
-        &p(&["project/**/*.test.js"]),
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&p(&["project/**"]), &p(&["project/**/*.test.js"])).unwrap();
     assert_eq!(g.decide_str("project/src/app.js"), MatchDecision::Allowed);
     assert_eq!(
         g.decide_str("project/src/app.test.js"),

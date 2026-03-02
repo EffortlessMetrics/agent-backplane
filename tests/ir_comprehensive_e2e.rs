@@ -4,11 +4,8 @@
 //! Covers construction, manipulation, serialization roundtrips, cross-dialect
 //! representation, and edge cases for all IR types.
 
-use abp_core::ir::{
-    IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage,
-};
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use serde_json::json;
-
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
@@ -47,7 +44,9 @@ fn sample_image_block() -> IrContentBlock {
     }
 }
 
-fn serde_roundtrip<T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug>(
+fn serde_roundtrip<
+    T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+>(
     val: &T,
 ) {
     let json = serde_json::to_string(val).expect("serialize");
@@ -95,14 +94,22 @@ mod role {
 
     #[test]
     fn serde_roundtrip_all_roles() {
-        for role in [IrRole::System, IrRole::User, IrRole::Assistant, IrRole::Tool] {
+        for role in [
+            IrRole::System,
+            IrRole::User,
+            IrRole::Assistant,
+            IrRole::Tool,
+        ] {
             serde_roundtrip(&role);
         }
     }
 
     #[test]
     fn serde_snake_case_names() {
-        assert_eq!(serde_json::to_string(&IrRole::System).unwrap(), "\"system\"");
+        assert_eq!(
+            serde_json::to_string(&IrRole::System).unwrap(),
+            "\"system\""
+        );
         assert_eq!(serde_json::to_string(&IrRole::User).unwrap(), "\"user\"");
         assert_eq!(
             serde_json::to_string(&IrRole::Assistant).unwrap(),
@@ -241,17 +248,13 @@ mod content_block {
 
     #[test]
     fn serde_thinking_roundtrip() {
-        serde_roundtrip(&IrContentBlock::Thinking {
-            text: "hmm".into(),
-        });
+        serde_roundtrip(&IrContentBlock::Thinking { text: "hmm".into() });
     }
 
     #[test]
     fn text_tagged_as_type_text() {
-        let v: serde_json::Value = serde_json::to_value(IrContentBlock::Text {
-            text: "hi".into(),
-        })
-        .unwrap();
+        let v: serde_json::Value =
+            serde_json::to_value(IrContentBlock::Text { text: "hi".into() }).unwrap();
         assert_eq!(v["type"], "text");
     }
 
@@ -263,8 +266,7 @@ mod content_block {
 
     #[test]
     fn tool_use_tagged_as_type_tool_use() {
-        let v =
-            serde_json::to_value(tool_use_block("x", "y", json!({}))).unwrap();
+        let v = serde_json::to_value(tool_use_block("x", "y", json!({}))).unwrap();
         assert_eq!(v["type"], "tool_use");
     }
 
@@ -276,10 +278,7 @@ mod content_block {
 
     #[test]
     fn thinking_tagged_as_type_thinking() {
-        let v = serde_json::to_value(IrContentBlock::Thinking {
-            text: "t".into(),
-        })
-        .unwrap();
+        let v = serde_json::to_value(IrContentBlock::Thinking { text: "t".into() }).unwrap();
         assert_eq!(v["type"], "thinking");
     }
 
@@ -309,7 +308,9 @@ mod content_block {
 
     #[test]
     fn empty_text_block() {
-        let b = IrContentBlock::Text { text: String::new() };
+        let b = IrContentBlock::Text {
+            text: String::new(),
+        };
         serde_roundtrip(&b);
     }
 
@@ -422,9 +423,7 @@ mod message {
                 IrContentBlock::Text { text: "a".into() },
                 tool_use_block("1", "tool_a", json!({})),
                 tool_use_block("2", "tool_b", json!({})),
-                IrContentBlock::Thinking {
-                    text: "hmm".into(),
-                },
+                IrContentBlock::Thinking { text: "hmm".into() },
             ],
         );
         let tool_uses = m.tool_use_blocks();
@@ -446,8 +445,7 @@ mod message {
     #[test]
     fn metadata_can_be_set() {
         let mut m = IrMessage::text(IrRole::User, "test");
-        m.metadata
-            .insert("vendor".to_string(), json!("anthropic"));
+        m.metadata.insert("vendor".to_string(), json!("anthropic"));
         assert_eq!(m.metadata["vendor"], "anthropic");
     }
 
@@ -475,8 +473,7 @@ mod message {
     fn serde_roundtrip_message_with_metadata() {
         let mut m = IrMessage::text(IrRole::System, "sys");
         m.metadata.insert("model".to_string(), json!("gpt-4"));
-        m.metadata
-            .insert("temp".to_string(), json!(0.7));
+        m.metadata.insert("temp".to_string(), json!(0.7));
         serde_roundtrip(&m);
     }
 
@@ -499,7 +496,12 @@ mod message {
 
     #[test]
     fn message_for_all_roles() {
-        for role in [IrRole::System, IrRole::User, IrRole::Assistant, IrRole::Tool] {
+        for role in [
+            IrRole::System,
+            IrRole::User,
+            IrRole::Assistant,
+            IrRole::Tool,
+        ] {
             let m = IrMessage::text(role, "msg");
             assert_eq!(m.role, role);
             serde_roundtrip(&m);
@@ -724,10 +726,7 @@ mod conversation {
         let c = IrConversation::new()
             .push(IrMessage::text(IrRole::System, "instructions"))
             .push(IrMessage::text(IrRole::User, "hi"));
-        assert_eq!(
-            c.system_message().unwrap().text_content(),
-            "instructions"
-        );
+        assert_eq!(c.system_message().unwrap().text_content(), "instructions");
     }
 
     #[test]
@@ -847,8 +846,7 @@ mod conversation {
 
     #[test]
     fn direct_messages_field_access() {
-        let c = IrConversation::new()
-            .push(IrMessage::text(IrRole::User, "hi"));
+        let c = IrConversation::new().push(IrMessage::text(IrRole::User, "hi"));
         assert_eq!(c.messages.len(), 1);
         assert_eq!(c.messages[0].role, IrRole::User);
     }
@@ -1057,7 +1055,10 @@ mod serialization {
         let json = serde_json::to_string(&m).unwrap();
         let alpha_pos = json.find("alpha").unwrap();
         let zebra_pos = json.find("zebra").unwrap();
-        assert!(alpha_pos < zebra_pos, "BTreeMap should order keys alphabetically");
+        assert!(
+            alpha_pos < zebra_pos,
+            "BTreeMap should order keys alphabetically"
+        );
     }
 
     #[test]
@@ -1246,10 +1247,7 @@ mod cross_dialect {
                     sample_image_block(),
                 ],
             ))
-            .push(IrMessage::text(
-                IrRole::Assistant,
-                "I see a cat.",
-            ));
+            .push(IrMessage::text(IrRole::Assistant, "I see a cat."));
 
         let user_msg = &c.messages[0];
         assert!(!user_msg.is_text_only());
@@ -1259,11 +1257,10 @@ mod cross_dialect {
     #[test]
     fn ir_preserves_tool_error_status() {
         // All dialects distinguish success/error tool results
-        let c = IrConversation::new()
-            .push(IrMessage::new(
-                IrRole::Tool,
-                vec![tool_result_block("t1", "Permission denied", true)],
-            ));
+        let c = IrConversation::new().push(IrMessage::new(
+            IrRole::Tool,
+            vec![tool_result_block("t1", "Permission denied", true)],
+        ));
         if let IrContentBlock::ToolResult { is_error, .. } = &c.messages[0].content[0] {
             assert!(is_error);
         } else {
@@ -1371,8 +1368,7 @@ mod edge_cases {
     fn large_metadata_map() {
         let mut m = IrMessage::text(IrRole::User, "test");
         for i in 0..100 {
-            m.metadata
-                .insert(format!("key_{i}"), json!(i));
+            m.metadata.insert(format!("key_{i}"), json!(i));
         }
         assert_eq!(m.metadata.len(), 100);
         serde_roundtrip(&m);
@@ -1425,7 +1421,13 @@ mod edge_cases {
 
     #[test]
     fn image_various_media_types() {
-        for mime in ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"] {
+        for mime in [
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/webp",
+            "image/svg+xml",
+        ] {
             let b = IrContentBlock::Image {
                 media_type: mime.into(),
                 data: "base64data".into(),
@@ -1471,7 +1473,12 @@ mod edge_cases {
                 vec![tool_result_block("t1", "result", false)],
             ));
         assert_eq!(c.len(), 4);
-        for role in [IrRole::System, IrRole::User, IrRole::Assistant, IrRole::Tool] {
+        for role in [
+            IrRole::System,
+            IrRole::User,
+            IrRole::Assistant,
+            IrRole::Tool,
+        ] {
             assert_eq!(c.messages_by_role(role).len(), 1);
         }
     }
@@ -1551,8 +1558,14 @@ mod integration {
     #[test]
     fn full_agentic_loop() {
         let c = IrConversation::new()
-            .push(IrMessage::text(IrRole::System, "You are a coding assistant."))
-            .push(IrMessage::text(IrRole::User, "Read main.rs and fix the bug"))
+            .push(IrMessage::text(
+                IrRole::System,
+                "You are a coding assistant.",
+            ))
+            .push(IrMessage::text(
+                IrRole::User,
+                "Read main.rs and fix the bug",
+            ))
             // Turn 1: assistant reads file
             .push(IrMessage::new(
                 IrRole::Assistant,
@@ -1590,8 +1603,14 @@ mod integration {
 
         assert_eq!(c.len(), 7);
         assert_eq!(c.tool_calls().len(), 2);
-        assert_eq!(c.system_message().unwrap().text_content(), "You are a coding assistant.");
-        assert_eq!(c.last_assistant().unwrap().text_content(), "Done! I fixed the bug.");
+        assert_eq!(
+            c.system_message().unwrap().text_content(),
+            "You are a coding assistant."
+        );
+        assert_eq!(
+            c.last_assistant().unwrap().text_content(),
+            "Done! I fixed the bug."
+        );
         assert_eq!(c.messages_by_role(IrRole::Tool).len(), 2);
     }
 

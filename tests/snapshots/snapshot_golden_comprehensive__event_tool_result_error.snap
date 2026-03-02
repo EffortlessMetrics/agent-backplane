@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: e
+---
+{
+  "ts": "2025-07-01T12:00:00Z",
+  "type": "tool_result",
+  "tool_name": "read_file",
+  "tool_use_id": "tu_003",
+  "output": {
+    "error": "file not found"
+  },
+  "is_error": true
+}

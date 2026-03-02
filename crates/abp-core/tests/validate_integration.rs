@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use abp_core::validate::{ValidationError, validate_receipt};
+use abp_core::validate::{validate_receipt, ValidationError};
 use abp_core::*;
 use chrono::{TimeZone, Utc};
 

@@ -2,11 +2,11 @@
 //! Comprehensive tests for the projection matrix (dialect × engine routing).
 
 use abp_core::{
-    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-    MinSupport, RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
+    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
+    RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
-use abp_mapping::{known_rules, features, Fidelity, MappingRegistry, MappingRule};
+use abp_mapping::{features, known_rules, Fidelity, MappingRegistry, MappingRule};
 use abp_projection::{ProjectionError, ProjectionMatrix};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -41,8 +41,7 @@ fn empty_work_order() -> WorkOrder {
 
 fn passthrough_work_order(reqs: CapabilityRequirements, dialect: &str) -> WorkOrder {
     let mut config = RuntimeConfig::default();
-    let abp_config =
-        serde_json::json!({ "mode": "passthrough", "source_dialect": dialect });
+    let abp_config = serde_json::json!({ "mode": "passthrough", "source_dialect": dialect });
     config.vendor.insert("abp".into(), abp_config);
     WorkOrderBuilder::new("passthrough task")
         .requirements(reqs)
@@ -1069,7 +1068,11 @@ mod route_ranking {
         }
         let wo = work_order(require_caps(&[Capability::Streaming]));
         let result = pm.project(&wo).unwrap();
-        let scores: Vec<f64> = result.fallback_chain.iter().map(|e| e.score.total).collect();
+        let scores: Vec<f64> = result
+            .fallback_chain
+            .iter()
+            .map(|e| e.score.total)
+            .collect();
         for w in scores.windows(2) {
             assert!(w[0] >= w[1], "not sorted descending: {:?}", scores);
         }
@@ -1118,7 +1121,10 @@ mod route_ranking {
         let wo = work_order(require_caps(&[Capability::Streaming, Capability::ToolRead]));
         let result = pm.project(&wo).unwrap();
         assert_eq!(result.selected_backend, "full");
-        assert!(result.fallback_chain.iter().any(|e| e.backend_id == "partial"));
+        assert!(result
+            .fallback_chain
+            .iter()
+            .any(|e| e.backend_id == "partial"));
     }
 
     #[test]
@@ -1473,21 +1479,15 @@ mod edge_cases {
         let e2 = ProjectionError::EmptyMatrix;
         assert_eq!(e1, e2);
 
-        let e3 = ProjectionError::NoSuitableBackend {
-            reason: "a".into(),
-        };
-        let e4 = ProjectionError::NoSuitableBackend {
-            reason: "a".into(),
-        };
+        let e3 = ProjectionError::NoSuitableBackend { reason: "a".into() };
+        let e4 = ProjectionError::NoSuitableBackend { reason: "a".into() };
         assert_eq!(e3, e4);
     }
 
     #[test]
     fn error_inequality() {
         let e1 = ProjectionError::EmptyMatrix;
-        let e2 = ProjectionError::NoSuitableBackend {
-            reason: "x".into(),
-        };
+        let e2 = ProjectionError::NoSuitableBackend { reason: "x".into() };
         assert_ne!(e1, e2);
     }
 
@@ -1758,9 +1758,7 @@ mod edge_cases {
         pm.register_backend("be", CapabilityManifest::new(), Dialect::OpenAi, 50);
         let wo = empty_work_order();
         let result = pm.project(&wo).unwrap();
-        assert!(
-            (result.fidelity_score.capability_coverage - 1.0).abs() < f64::EPSILON,
-        );
+        assert!((result.fidelity_score.capability_coverage - 1.0).abs() < f64::EPSILON,);
     }
 
     #[test]

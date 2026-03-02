@@ -3,8 +3,8 @@
 //! CapabilityReport, check_capabilities, and receipt metadata integration.
 
 use abp_core::negotiate::{
-    CapabilityReport, CapabilityReportEntry, DialectSupportLevel, check_capabilities,
-    dialect_manifest,
+    check_capabilities, dialect_manifest, CapabilityReport, CapabilityReportEntry,
+    DialectSupportLevel,
 };
 use abp_core::{
     Capability, CapabilityRequirement, CapabilityRequirements, MinSupport, WorkOrderBuilder,

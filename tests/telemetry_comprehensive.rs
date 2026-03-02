@@ -859,7 +859,10 @@ fn json_exporter_multiple_backends() {
 fn json_exporter_output_is_pretty_printed() {
     let s = MetricsSummary::default();
     let json = JsonExporter.export(&s).unwrap();
-    assert!(json.contains('\n'), "pretty-printed JSON should contain newlines");
+    assert!(
+        json.contains('\n'),
+        "pretty-printed JSON should contain newlines"
+    );
 }
 
 #[test]

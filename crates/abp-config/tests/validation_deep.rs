@@ -2,8 +2,8 @@
 //! Deep validation tests for `abp-config`.
 
 use abp_config::{
-    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, merge_configs, parse_toml,
-    validate_config,
+    merge_configs, parse_toml, validate_config, BackendEntry, BackplaneConfig, ConfigError,
+    ConfigWarning,
 };
 use std::collections::BTreeMap;
 
@@ -121,11 +121,9 @@ fn empty_sidecar_command_is_error() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
 }
 
 // ===========================================================================
@@ -144,11 +142,9 @@ fn whitespace_only_command_is_error() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
 }
 
 #[test]
@@ -163,11 +159,9 @@ fn tab_only_command_is_error() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
 }
 
 #[test]
@@ -182,11 +176,9 @@ fn newline_only_command_is_error() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
 }
 
 // ===========================================================================
@@ -344,11 +336,9 @@ fn empty_command_and_zero_timeout_both_reported() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
     assert!(reasons.iter().any(|r| r.contains("out of range")));
 }
 
@@ -680,11 +670,9 @@ fn merge_introduces_bad_backend() {
     };
     let merged = merge_configs(base, overlay);
     let reasons = validation_reasons(validate_config(&merged).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
 }
 
 #[test]

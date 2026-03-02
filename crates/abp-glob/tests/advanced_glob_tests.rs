@@ -416,10 +416,9 @@ fn hundred_include_hundred_exclude_patterns() {
     // Matching include but not exclude.
     assert!(g.decide_str("project/module_50/src/lib.rs").is_allowed());
     // Matching both → exclude wins.
-    assert!(
-        !g.decide_str("project/module_50/generated/output.rs")
-            .is_allowed()
-    );
+    assert!(!g
+        .decide_str("project/module_50/generated/output.rs")
+        .is_allowed());
     // No include match.
     assert!(!g.decide_str("other/file.rs").is_allowed());
 }

@@ -2,8 +2,8 @@
 //! Edge-case tests for [`ReceiptStore`].
 
 use abp_core::{
-    BackendIdentity, CONTRACT_VERSION, ExecutionMode, Outcome, Receipt, RunMetadata,
-    UsageNormalized, VerificationReport,
+    BackendIdentity, ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized,
+    VerificationReport, CONTRACT_VERSION,
 };
 use abp_runtime::store::ReceiptStore;
 use chrono::{TimeZone, Utc};

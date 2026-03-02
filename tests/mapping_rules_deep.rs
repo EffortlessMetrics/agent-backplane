@@ -190,9 +190,7 @@ mod rule_construction {
             Fidelity::LossyLabeled {
                 warning: "w".into(),
             },
-            Fidelity::Unsupported {
-                reason: "r".into(),
-            },
+            Fidelity::Unsupported { reason: "r".into() },
         ];
         for v in &variants {
             let json = serde_json::to_string(v).unwrap();
@@ -656,7 +654,9 @@ mod cross_dialect {
     fn image_to_codex_unsupported() {
         let reg = known_rules();
         for &src in &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini] {
-            let rule = reg.lookup(src, Dialect::Codex, features::IMAGE_INPUT).unwrap();
+            let rule = reg
+                .lookup(src, Dialect::Codex, features::IMAGE_INPUT)
+                .unwrap();
             assert!(
                 rule.fidelity.is_unsupported(),
                 "image {} -> Codex should be unsupported",
@@ -701,7 +701,9 @@ mod cross_dialect {
             Dialect::Gemini,
             Dialect::Codex,
         ] {
-            let rule = reg.lookup(Dialect::Kimi, tgt, features::IMAGE_INPUT).unwrap();
+            let rule = reg
+                .lookup(Dialect::Kimi, tgt, features::IMAGE_INPUT)
+                .unwrap();
             assert!(
                 rule.fidelity.is_unsupported(),
                 "image Kimi -> {} should be unsupported",
@@ -966,8 +968,7 @@ mod error_handling {
     #[test]
     fn validate_empty_feature_gives_invalid_input_error() {
         let reg = known_rules();
-        let results =
-            validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &["".into()]);
+        let results = validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &["".into()]);
         assert_eq!(results.len(), 1);
         assert!(results[0].fidelity.is_unsupported());
         assert!(matches!(
@@ -1039,8 +1040,7 @@ mod error_handling {
     #[test]
     fn validate_empty_feature_list() {
         let reg = known_rules();
-        let results =
-            validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &[]);
+        let results = validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &[]);
         assert!(results.is_empty());
     }
 
@@ -1121,7 +1121,9 @@ mod registry_lookup {
     #[test]
     fn lookup_missing_rule() {
         let reg = MappingRegistry::new();
-        assert!(reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use").is_none());
+        assert!(reg
+            .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+            .is_none());
     }
 
     #[test]
@@ -1133,7 +1135,9 @@ mod registry_lookup {
             feature: "tool_use".into(),
             fidelity: Fidelity::Lossless,
         });
-        assert!(reg.lookup(Dialect::Claude, Dialect::Claude, "tool_use").is_none());
+        assert!(reg
+            .lookup(Dialect::Claude, Dialect::Claude, "tool_use")
+            .is_none());
     }
 
     #[test]
@@ -1145,7 +1149,9 @@ mod registry_lookup {
             feature: "tool_use".into(),
             fidelity: Fidelity::Lossless,
         });
-        assert!(reg.lookup(Dialect::OpenAi, Dialect::Gemini, "tool_use").is_none());
+        assert!(reg
+            .lookup(Dialect::OpenAi, Dialect::Gemini, "tool_use")
+            .is_none());
     }
 
     #[test]
@@ -1157,7 +1163,9 @@ mod registry_lookup {
             feature: "tool_use".into(),
             fidelity: Fidelity::Lossless,
         });
-        assert!(reg.lookup(Dialect::OpenAi, Dialect::Claude, "streaming").is_none());
+        assert!(reg
+            .lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
+            .is_none());
     }
 
     #[test]
@@ -1265,8 +1273,7 @@ mod registry_lookup {
     #[test]
     fn rank_targets_basic() {
         let reg = known_rules();
-        let ranked =
-            reg.rank_targets(Dialect::OpenAi, &[features::TOOL_USE, features::STREAMING]);
+        let ranked = reg.rank_targets(Dialect::OpenAi, &[features::TOOL_USE, features::STREAMING]);
         assert!(!ranked.is_empty());
         // Claude should be in the results since both are lossless
         assert!(ranked.iter().any(|(d, _)| *d == Dialect::Claude));
@@ -1284,7 +1291,11 @@ mod registry_lookup {
         let reg = known_rules();
         let ranked = reg.rank_targets(
             Dialect::OpenAi,
-            &[features::TOOL_USE, features::STREAMING, features::IMAGE_INPUT],
+            &[
+                features::TOOL_USE,
+                features::STREAMING,
+                features::IMAGE_INPUT,
+            ],
         );
         for w in ranked.windows(2) {
             assert!(w[0].1 >= w[1].1, "should be sorted by lossless count desc");
@@ -1388,10 +1399,7 @@ mod composition {
         for &a in &core {
             for &b in &core {
                 if a != b {
-                    assert!(
-                        matrix.is_supported(a, b),
-                        "{a} -> {b} should be supported"
-                    );
+                    assert!(matrix.is_supported(a, b), "{a} -> {b} should be supported");
                 }
             }
         }
@@ -1402,10 +1410,8 @@ mod composition {
         let reg = known_rules();
         let matrix = MappingMatrix::from_registry(&reg);
         // If matrix says supported, at least one feature must validate without unsupported
-        let features_list: Vec<String> = vec![
-            features::TOOL_USE.into(),
-            features::STREAMING.into(),
-        ];
+        let features_list: Vec<String> =
+            vec![features::TOOL_USE.into(), features::STREAMING.into()];
         for &src in Dialect::all() {
             for &tgt in Dialect::all() {
                 if src == tgt {
@@ -1413,9 +1419,7 @@ mod composition {
                 }
                 if matrix.is_supported(src, tgt) {
                     let results = validate_mapping(&reg, src, tgt, &features_list);
-                    let any_not_unsupported = results
-                        .iter()
-                        .any(|r| !r.fidelity.is_unsupported());
+                    let any_not_unsupported = results.iter().any(|r| !r.fidelity.is_unsupported());
                     assert!(
                         any_not_unsupported,
                         "matrix says {src}->{tgt} supported but all features unsupported"
@@ -1436,10 +1440,9 @@ mod composition {
             fidelity: Fidelity::Lossless,
         });
         assert_eq!(reg.len(), initial_len + 1);
-        assert!(
-            reg.lookup(Dialect::OpenAi, Dialect::Claude, "custom_feature")
-                .is_some()
-        );
+        assert!(reg
+            .lookup(Dialect::OpenAi, Dialect::Claude, "custom_feature")
+            .is_some());
     }
 
     #[test]
@@ -1450,9 +1453,9 @@ mod composition {
             Dialect::Claude,
             Dialect::Codex,
             &[
-                features::STREAMING.into(),    // lossless
-                features::THINKING.into(),     // lossy
-                features::IMAGE_INPUT.into(),  // unsupported
+                features::STREAMING.into(),   // lossless
+                features::THINKING.into(),    // lossy
+                features::IMAGE_INPUT.into(), // unsupported
             ],
         );
         assert!(results[0].fidelity.is_lossless());
@@ -1571,7 +1574,11 @@ mod edge_cases {
     #[test]
     fn roundtrip_fidelity_openai_gemini() {
         let reg = known_rules();
-        for &f in &[features::TOOL_USE, features::STREAMING, features::IMAGE_INPUT] {
+        for &f in &[
+            features::TOOL_USE,
+            features::STREAMING,
+            features::IMAGE_INPUT,
+        ] {
             let forward = reg.lookup(Dialect::OpenAi, Dialect::Gemini, f).unwrap();
             let backward = reg.lookup(Dialect::Gemini, Dialect::OpenAi, f).unwrap();
             if forward.fidelity.is_lossless() {
@@ -1583,7 +1590,11 @@ mod edge_cases {
     #[test]
     fn roundtrip_fidelity_claude_gemini() {
         let reg = known_rules();
-        for &f in &[features::TOOL_USE, features::STREAMING, features::IMAGE_INPUT] {
+        for &f in &[
+            features::TOOL_USE,
+            features::STREAMING,
+            features::IMAGE_INPUT,
+        ] {
             let forward = reg.lookup(Dialect::Claude, Dialect::Gemini, f).unwrap();
             let backward = reg.lookup(Dialect::Gemini, Dialect::Claude, f).unwrap();
             if forward.fidelity.is_lossless() {
@@ -1653,8 +1664,7 @@ mod edge_cases {
     fn validate_many_unknown_features() {
         let reg = known_rules();
         let features: Vec<String> = (0..20).map(|i| format!("unknown_{i}")).collect();
-        let results =
-            validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &features);
+        let results = validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &features);
         assert_eq!(results.len(), 20);
         for r in &results {
             assert!(r.fidelity.is_unsupported());
@@ -1863,10 +1873,7 @@ mod edge_cases {
         for &a in Dialect::all() {
             for &b in Dialect::all() {
                 let rule = reg.lookup(a, b, features::STREAMING);
-                assert!(
-                    rule.is_some(),
-                    "streaming rule should exist for {a} -> {b}"
-                );
+                assert!(rule.is_some(), "streaming rule should exist for {a} -> {b}");
             }
         }
     }
@@ -1930,10 +1937,7 @@ mod edge_cases {
     #[test]
     fn rank_targets_includes_kimi_copilot() {
         let reg = known_rules();
-        let ranked = reg.rank_targets(
-            Dialect::OpenAi,
-            &[features::TOOL_USE, features::STREAMING],
-        );
+        let ranked = reg.rank_targets(Dialect::OpenAi, &[features::TOOL_USE, features::STREAMING]);
         // Kimi and Copilot should appear since they have lossless tool_use+streaming to OpenAI
         let dialects: Vec<Dialect> = ranked.iter().map(|(d, _)| *d).collect();
         assert!(dialects.contains(&Dialect::Kimi));

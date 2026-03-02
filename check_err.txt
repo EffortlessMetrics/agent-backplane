@@ -1,0 +1,18 @@
+    Blocking waiting for file lock on package cache
+    Checking agent-backplane v0.1.0 (H:\Code\Rust\agent-backplane)
+warning: function `event_run_started` is never used
+  --> tests\sdk_conformance_matrix.rs:53:4
+   |
+53 | fn event_run_started() -> AgentEvent {
+   |    ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `event_run_completed` is never used
+  --> tests\sdk_conformance_matrix.rs:63:4
+   |
+63 | fn event_run_completed() -> AgentEvent {
+   |    ^^^^^^^^^^^^^^^^^^^
+
+warning: `agent-backplane` (test "sdk_conformance_matrix") generated 2 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.72s

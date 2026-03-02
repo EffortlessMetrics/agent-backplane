@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: "Dialect::all()"
+---
+[
+  "open_ai",
+  "claude",
+  "gemini",
+  "codex",
+  "kimi",
+  "copilot"
+]

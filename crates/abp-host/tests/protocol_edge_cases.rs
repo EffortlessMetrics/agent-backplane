@@ -6,9 +6,9 @@
 //! spawning required.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel, UsageNormalized,
-    VerificationReport, WorkOrder,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
+    Outcome, Receipt, RunMetadata, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
+    CONTRACT_VERSION,
 };
 use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
@@ -197,12 +197,10 @@ fn hello_unparseable_version_fails_validation() {
     let v = EnvelopeValidator::new();
     let result = v.validate(&hello);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -611,11 +609,9 @@ fn sequence_no_terminal_after_events() {
     ];
     let v = EnvelopeValidator::new();
     let errors = v.validate_sequence(&sequence);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingTerminal)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════

@@ -4,14 +4,14 @@
 
 use abp_core::AgentEventKind;
 use abp_openai_sdk::dialect::{
-    OpenAIChoice, OpenAIConfig, OpenAIFunctionCall, OpenAIFunctionDef, OpenAIMessage,
-    OpenAIRequest, OpenAIResponse, OpenAIToolCall, OpenAIToolDef, OpenAIUsage, ToolChoice,
-    ToolChoiceFunctionRef, ToolChoiceMode, map_response, map_work_order,
+    map_response, map_work_order, OpenAIChoice, OpenAIConfig, OpenAIFunctionCall,
+    OpenAIFunctionDef, OpenAIMessage, OpenAIRequest, OpenAIResponse, OpenAIToolCall, OpenAIToolDef,
+    OpenAIUsage, ToolChoice, ToolChoiceFunctionRef, ToolChoiceMode,
 };
 use abp_openai_sdk::response_format::ResponseFormat;
 use abp_openai_sdk::streaming::{
-    ChatCompletionChunk, ChunkChoice, ChunkDelta, ChunkFunctionCall, ChunkToolCall,
-    ToolCallAccumulator, map_chunk,
+    map_chunk, ChatCompletionChunk, ChunkChoice, ChunkDelta, ChunkFunctionCall, ChunkToolCall,
+    ToolCallAccumulator,
 };
 
 // ---------------------------------------------------------------------------

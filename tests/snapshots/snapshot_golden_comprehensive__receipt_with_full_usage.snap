@@ -1,0 +1,43 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: r
+---
+{
+  "meta": {
+    "run_id": "00000000-0000-4000-8000-000000000003",
+    "work_order_id": "00000000-0000-4000-8000-000000000001",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-07-01T12:00:00Z",
+    "finished_at": "2025-07-01T12:00:00Z",
+    "duration_ms": 0
+  },
+  "backend": {
+    "id": "mock",
+    "backend_version": null,
+    "adapter_version": null
+  },
+  "capabilities": {},
+  "mode": "mapped",
+  "usage_raw": {
+    "completion_tokens": 2000,
+    "prompt_tokens": 5000,
+    "total_tokens": 7000
+  },
+  "usage": {
+    "input_tokens": 5000,
+    "output_tokens": 2000,
+    "cache_read_tokens": 500,
+    "cache_write_tokens": 100,
+    "request_units": 10,
+    "estimated_cost_usd": 0.123
+  },
+  "trace": [],
+  "artifacts": [],
+  "verification": {
+    "git_diff": null,
+    "git_status": null,
+    "harness_ok": false
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

@@ -72,7 +72,11 @@ mod work_order_policy_dispatch {
         let wo = WorkOrderBuilder::new("test task").policy(policy).build();
         let engine = PolicyEngine::new(&wo.policy).unwrap();
         assert!(!engine.can_write_path(Path::new(".git/config")).allowed);
-        assert!(!engine.can_write_path(Path::new("node_modules/pkg/index.js")).allowed);
+        assert!(
+            !engine
+                .can_write_path(Path::new("node_modules/pkg/index.js"))
+                .allowed
+        );
         assert!(engine.can_write_path(Path::new("src/main.rs")).allowed);
     }
 
@@ -495,9 +499,7 @@ mod protocol_receipt_hash {
         let r1 = ReceiptBuilder::new("mock")
             .outcome(Outcome::Complete)
             .build();
-        let r2 = ReceiptBuilder::new("mock")
-            .outcome(Outcome::Failed)
-            .build();
+        let r2 = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
         let h1 = abp_core::receipt_hash(&r1).unwrap();
         let h2 = abp_core::receipt_hash(&r2).unwrap();
         assert_ne!(h1, h2);
@@ -555,14 +557,10 @@ mod protocol_receipt_hash {
     fn receipt_builder_with_trace_events() {
         let event = AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "Hi".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "Hi".into() },
             ext: None,
         };
-        let receipt = ReceiptBuilder::new("mock")
-            .add_trace_event(event)
-            .build();
+        let receipt = ReceiptBuilder::new("mock").add_trace_event(event).build();
         assert_eq!(receipt.trace.len(), 1);
     }
 
@@ -669,9 +667,7 @@ mod full_pipeline {
             },
             AgentEvent {
                 ts: Utc::now(),
-                kind: AgentEventKind::AssistantDelta {
-                    text: "fn ".into(),
-                },
+                kind: AgentEventKind::AssistantDelta { text: "fn ".into() },
                 ext: None,
             },
             AgentEvent {
@@ -1074,10 +1070,7 @@ mod contract_version {
 
     #[test]
     fn protocol_version_parsing() {
-        assert_eq!(
-            abp_protocol::parse_version(CONTRACT_VERSION),
-            Some((0, 1))
-        );
+        assert_eq!(abp_protocol::parse_version(CONTRACT_VERSION), Some((0, 1)));
     }
 
     #[test]
@@ -1239,10 +1232,8 @@ mod mapping_registry_integration {
     #[test]
     fn rank_targets_from_openai() {
         let registry = known_rules();
-        let ranked = registry.rank_targets(
-            Dialect::OpenAi,
-            &[features::TOOL_USE, features::STREAMING],
-        );
+        let ranked =
+            registry.rank_targets(Dialect::OpenAi, &[features::TOOL_USE, features::STREAMING]);
         assert!(!ranked.is_empty());
         // First result should have the most lossless features
         assert!(ranked[0].1 >= ranked.last().unwrap().1);
@@ -1260,14 +1251,8 @@ mod mapping_registry_integration {
             warning: "w".into()
         }
         .is_unsupported());
-        assert!(!Fidelity::Unsupported {
-            reason: "r".into()
-        }
-        .is_lossless());
-        assert!(Fidelity::Unsupported {
-            reason: "r".into()
-        }
-        .is_unsupported());
+        assert!(!Fidelity::Unsupported { reason: "r".into() }.is_lossless());
+        assert!(Fidelity::Unsupported { reason: "r".into() }.is_unsupported());
     }
 
     #[test]
@@ -1315,10 +1300,7 @@ mod glob_policy_integration {
         for &p in test_paths {
             let policy_allows = engine.can_write_path(Path::new(p)).allowed;
             let glob_allows = globs.decide_str(p).is_allowed();
-            assert_eq!(
-                policy_allows, glob_allows,
-                "mismatch for path: {p}"
-            );
+            assert_eq!(policy_allows, glob_allows, "mismatch for path: {p}");
         }
     }
 
@@ -1337,10 +1319,7 @@ mod glob_policy_integration {
         let engine = PolicyEngine::new(&wo.policy).unwrap();
 
         // In workspace scope
-        assert_eq!(
-            ws_globs.decide_str("src/lib.rs"),
-            MatchDecision::Allowed
-        );
+        assert_eq!(ws_globs.decide_str("src/lib.rs"), MatchDecision::Allowed);
         // Policy allows writes
         assert!(engine.can_write_path(Path::new("src/lib.rs")).allowed);
 
@@ -1349,9 +1328,11 @@ mod glob_policy_integration {
             ws_globs.decide_str("src/secret/key.pem"),
             MatchDecision::Allowed
         );
-        assert!(!engine
-            .can_write_path(Path::new("src/secret/key.pem"))
-            .allowed);
+        assert!(
+            !engine
+                .can_write_path(Path::new("src/secret/key.pem"))
+                .allowed
+        );
     }
 
     #[test]
@@ -1486,9 +1467,7 @@ mod canonical_json_and_hashing {
             },
             ext: None,
         };
-        let receipt = ReceiptBuilder::new("mock")
-            .add_trace_event(event)
-            .build();
+        let receipt = ReceiptBuilder::new("mock").add_trace_event(event).build();
         let hash = abp_core::receipt_hash(&receipt).unwrap();
         assert_eq!(hash.len(), 64);
     }

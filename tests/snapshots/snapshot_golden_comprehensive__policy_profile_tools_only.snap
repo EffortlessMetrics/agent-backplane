@@ -1,0 +1,18 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: p
+---
+{
+  "allowed_tools": [
+    "read",
+    "write"
+  ],
+  "disallowed_tools": [
+    "bash"
+  ],
+  "deny_read": [],
+  "deny_write": [],
+  "allow_network": [],
+  "deny_network": [],
+  "require_approval_for": []
+}

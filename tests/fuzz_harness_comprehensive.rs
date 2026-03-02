@@ -73,7 +73,9 @@ fn evil_strings() -> Vec<String> {
 }
 
 fn make_receipt() -> Receipt {
-    ReceiptBuilder::new("fuzz-backend").outcome(Outcome::Complete).build()
+    ReceiptBuilder::new("fuzz-backend")
+        .outcome(Outcome::Complete)
+        .build()
 }
 
 fn make_work_order(task: &str) -> WorkOrder {
@@ -279,7 +281,9 @@ fn envelope_unicode_ref_id() {
 fn receipt_unicode_git_diff() {
     let r = ReceiptBuilder::new("test")
         .verification(VerificationReport {
-            git_diff: Some(format!("diff with {EMOJI_FAMILY} and {COMBINING_DIACRITICAL}")),
+            git_diff: Some(format!(
+                "diff with {EMOJI_FAMILY} and {COMBINING_DIACRITICAL}"
+            )),
             git_status: None,
             harness_ok: true,
         })
@@ -452,9 +456,7 @@ fn agent_event_ext_deeply_nested() {
     ext.insert("raw_message".into(), deep.clone());
     let event = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: Some(ext),
     };
     let json = serde_json::to_string(&event).unwrap();
@@ -913,16 +915,16 @@ fn concurrent_work_order_serialization() {
 
 #[test]
 fn concurrent_glob_matching() {
-    let globs = IncludeExcludeGlobs::new(
-        &["src/**".into(), "tests/**".into()],
-        &["*.log".into()],
-    )
-    .unwrap();
+    let globs =
+        IncludeExcludeGlobs::new(&["src/**".into(), "tests/**".into()], &["*.log".into()]).unwrap();
     // IncludeExcludeGlobs does not implement Send, so use std::sync::Arc is not needed.
     // Test sequential rapid access instead.
     for _ in 0..1000 {
         assert_eq!(globs.decide_str("src/main.rs"), MatchDecision::Allowed);
-        assert_eq!(globs.decide_str("build.log"), MatchDecision::DeniedByExclude);
+        assert_eq!(
+            globs.decide_str("build.log"),
+            MatchDecision::DeniedByExclude
+        );
     }
 }
 
@@ -1044,9 +1046,7 @@ fn agent_event_kind_all_variants_roundtrip() {
         },
         AgentEvent {
             ts: now,
-            kind: AgentEventKind::AssistantMessage {
-                text: "msg".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "msg".into() },
             ext: None,
         },
         AgentEvent {
@@ -1127,7 +1127,10 @@ fn glob_invalid_pattern_bracket() {
 #[test]
 fn glob_unicode_path_matching() {
     let g = IncludeExcludeGlobs::new(&["**/*.rs".into()], &[]).unwrap();
-    assert_eq!(g.decide_str("src/données/fichier.rs"), MatchDecision::Allowed);
+    assert_eq!(
+        g.decide_str("src/données/fichier.rs"),
+        MatchDecision::Allowed
+    );
     assert_eq!(
         g.decide_str("src/données/fichier.txt"),
         MatchDecision::DeniedByMissingInclude
@@ -1153,7 +1156,10 @@ fn glob_extremely_long_path() {
 #[test]
 fn glob_special_chars_in_path() {
     let g = IncludeExcludeGlobs::new(&[], &[]).unwrap();
-    assert_eq!(g.decide_str("path with spaces/file.rs"), MatchDecision::Allowed);
+    assert_eq!(
+        g.decide_str("path with spaces/file.rs"),
+        MatchDecision::Allowed
+    );
     assert_eq!(g.decide_str("path\twith\ttabs"), MatchDecision::Allowed);
 }
 
@@ -1165,13 +1171,12 @@ fn glob_empty_string_path_with_includes() {
 
 #[test]
 fn glob_exclude_takes_precedence() {
-    let g = IncludeExcludeGlobs::new(
-        &["**/*".into()],
-        &["**/*.secret".into()],
-    )
-    .unwrap();
+    let g = IncludeExcludeGlobs::new(&["**/*".into()], &["**/*.secret".into()]).unwrap();
     assert_eq!(g.decide_str("src/main.rs"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("keys/api.secret"), MatchDecision::DeniedByExclude);
+    assert_eq!(
+        g.decide_str("keys/api.secret"),
+        MatchDecision::DeniedByExclude
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1413,9 +1418,7 @@ fn receipt_hash_different_outcomes_differ() {
     let r1 = ReceiptBuilder::new("test")
         .outcome(Outcome::Complete)
         .build();
-    let r2 = ReceiptBuilder::new("test")
-        .outcome(Outcome::Failed)
-        .build();
+    let r2 = ReceiptBuilder::new("test").outcome(Outcome::Failed).build();
     let h1 = abp_core::receipt_hash(&r1).unwrap();
     let h2 = abp_core::receipt_hash(&r2).unwrap();
     assert_ne!(h1, h2);
@@ -1702,9 +1705,7 @@ fn tool_result_is_error_flag() {
         let json = serde_json::to_string(&event).unwrap();
         let rt: AgentEvent = serde_json::from_str(&json).unwrap();
         match rt.kind {
-            AgentEventKind::ToolResult {
-                is_error: flag, ..
-            } => assert_eq!(flag, is_err),
+            AgentEventKind::ToolResult { is_error: flag, .. } => assert_eq!(flag, is_err),
             _ => panic!("expected ToolResult"),
         }
     }
@@ -1760,18 +1761,8 @@ fn support_level_satisfies_matrix() {
     assert!(SupportLevel::Emulated.satisfies(&MinSupport::Emulated));
     assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Native));
     assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
-    assert!(
-        SupportLevel::Restricted {
-            reason: "x".into()
-        }
-        .satisfies(&MinSupport::Emulated)
-    );
-    assert!(
-        !SupportLevel::Restricted {
-            reason: "x".into()
-        }
-        .satisfies(&MinSupport::Native)
-    );
+    assert!(SupportLevel::Restricted { reason: "x".into() }.satisfies(&MinSupport::Emulated));
+    assert!(!SupportLevel::Restricted { reason: "x".into() }.satisfies(&MinSupport::Native));
 }
 
 // ═══════════════════════════════════════════════════════════════════════

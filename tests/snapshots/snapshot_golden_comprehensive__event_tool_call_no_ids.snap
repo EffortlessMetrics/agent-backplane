@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: e
+---
+{
+  "ts": "2025-07-01T12:00:00Z",
+  "type": "tool_call",
+  "tool_name": "bash",
+  "tool_use_id": null,
+  "parent_tool_use_id": null,
+  "input": {
+    "command": "cargo test"
+  }
+}

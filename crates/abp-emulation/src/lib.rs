@@ -7,8 +7,8 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
-use abp_core::Capability;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+use abp_core::Capability;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

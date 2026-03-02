@@ -11,12 +11,11 @@
 
 mod core_types_accessible {
     use abp_core::{
-        AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability,
-        CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
-        ContextSnippet, ContractError, ExecutionLane, ExecutionMode, MinSupport, Outcome,
-        PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel,
-        UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-        WorkspaceSpec,
+        AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
+        CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet,
+        ContractError, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+        ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized,
+        VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
     };
 
     #[test]
@@ -173,9 +172,7 @@ mod core_constants {
 // ==========================================================================
 
 mod core_constructors {
-    use abp_core::{
-        ExecutionLane, Outcome, ReceiptBuilder, WorkOrderBuilder, WorkspaceMode,
-    };
+    use abp_core::{ExecutionLane, Outcome, ReceiptBuilder, WorkOrderBuilder, WorkspaceMode};
 
     #[test]
     fn work_order_builder_new() {
@@ -241,9 +238,7 @@ mod core_constructors {
 
     #[test]
     fn receipt_builder_outcome() {
-        let r = ReceiptBuilder::new("mock")
-            .outcome(Outcome::Failed)
-            .build();
+        let r = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
         assert_eq!(r.outcome, Outcome::Failed);
     }
 
@@ -265,9 +260,7 @@ mod core_constructors {
 // ==========================================================================
 
 mod core_traits {
-    use abp_core::{
-        ExecutionMode, Outcome, ReceiptBuilder, WorkOrderBuilder,
-    };
+    use abp_core::{ExecutionMode, Outcome, ReceiptBuilder, WorkOrderBuilder};
 
     #[test]
     fn work_order_clone_debug() {
@@ -324,8 +317,7 @@ mod core_traits {
 
 mod core_enum_variants {
     use abp_core::{
-        Capability, ExecutionLane, ExecutionMode, MinSupport, Outcome, SupportLevel,
-        WorkspaceMode,
+        Capability, ExecutionLane, ExecutionMode, MinSupport, Outcome, SupportLevel, WorkspaceMode,
     };
 
     #[test]
@@ -390,9 +382,7 @@ mod core_enum_variants {
             SupportLevel::Native,
             SupportLevel::Emulated,
             SupportLevel::Unsupported,
-            SupportLevel::Restricted {
-                reason: "r".into(),
-            },
+            SupportLevel::Restricted { reason: "r".into() },
         ];
         for l in &levels {
             match l {
@@ -472,7 +462,7 @@ mod core_enum_variants {
 // ==========================================================================
 
 mod core_functions {
-    use abp_core::{canonical_json, receipt_hash, sha256_hex, ReceiptBuilder, Outcome};
+    use abp_core::{canonical_json, receipt_hash, sha256_hex, Outcome, ReceiptBuilder};
 
     #[test]
     fn canonical_json_works() {
@@ -488,14 +478,18 @@ mod core_functions {
 
     #[test]
     fn receipt_hash_works() {
-        let r = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+        let r = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .build();
         let h = receipt_hash(&r).unwrap();
         assert_eq!(h.len(), 64);
     }
 
     #[test]
     fn receipt_hash_is_deterministic() {
-        let r = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+        let r = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .build();
         let h1 = receipt_hash(&r).unwrap();
         let h2 = receipt_hash(&r).unwrap();
         assert_eq!(h1, h2);
@@ -560,9 +554,8 @@ mod core_errors {
 
     #[test]
     fn contract_error_display() {
-        let err = ContractError::Json(
-            serde_json::from_str::<serde_json::Value>("invalid").unwrap_err(),
-        );
+        let err =
+            ContractError::Json(serde_json::from_str::<serde_json::Value>("invalid").unwrap_err());
         let msg = format!("{err}");
         assert!(!msg.is_empty());
     }
@@ -584,12 +577,8 @@ mod core_agent_event_kind {
             AgentEventKind::RunCompleted {
                 message: "c".into(),
             },
-            AgentEventKind::AssistantDelta {
-                text: "d".into(),
-            },
-            AgentEventKind::AssistantMessage {
-                text: "m".into(),
-            },
+            AgentEventKind::AssistantDelta { text: "d".into() },
+            AgentEventKind::AssistantMessage { text: "m".into() },
             AgentEventKind::ToolCall {
                 tool_name: "Read".into(),
                 tool_use_id: None,
@@ -1163,8 +1152,7 @@ mod policy_traits {
 
     #[test]
     fn policy_engine_clone_debug() {
-        let engine =
-            abp_policy::PolicyEngine::new(&abp_core::PolicyProfile::default()).unwrap();
+        let engine = abp_policy::PolicyEngine::new(&abp_core::PolicyProfile::default()).unwrap();
         let cloned = engine.clone();
         let _ = format!("{:?}", cloned);
     }
@@ -1297,7 +1285,8 @@ mod dialect_constructors {
     #[test]
     fn dialect_detector_detect_all() {
         let detector = DialectDetector::new();
-        let val = serde_json::json!({"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]});
+        let val =
+            serde_json::json!({"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]});
         let results = detector.detect_all(&val);
         assert!(!results.is_empty());
     }
@@ -1311,7 +1300,8 @@ mod dialect_constructors {
     #[test]
     fn dialect_validator_validate() {
         let v = DialectValidator::new();
-        let val = serde_json::json!({"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]});
+        let val =
+            serde_json::json!({"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]});
         let result = v.validate(&val, abp_dialect::Dialect::OpenAi);
         assert!(result.valid);
     }
@@ -1319,7 +1309,10 @@ mod dialect_constructors {
     #[test]
     fn dialect_validator_validate_invalid() {
         let v = DialectValidator::new();
-        let result = v.validate(&serde_json::json!("not an object"), abp_dialect::Dialect::OpenAi);
+        let result = v.validate(
+            &serde_json::json!("not an object"),
+            abp_dialect::Dialect::OpenAi,
+        );
         assert!(!result.valid);
         assert!(!result.errors.is_empty());
     }
@@ -1376,8 +1369,7 @@ mod dialect_traits {
 
 mod mapping_types {
     use abp_mapping::{
-        Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule,
-        MappingValidation,
+        Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
     };
 
     #[test]
@@ -1418,8 +1410,7 @@ mod mapping_types {
 mod mapping_constructors {
     use abp_dialect::Dialect;
     use abp_mapping::{
-        Fidelity, MappingMatrix, MappingRegistry, MappingRule, known_rules,
-        validate_mapping,
+        known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
     };
 
     #[test]
@@ -1506,18 +1497,12 @@ mod mapping_constructors {
     #[test]
     fn fidelity_is_lossless() {
         assert!(Fidelity::Lossless.is_lossless());
-        assert!(!Fidelity::Unsupported {
-            reason: "x".into()
-        }
-        .is_lossless());
+        assert!(!Fidelity::Unsupported { reason: "x".into() }.is_lossless());
     }
 
     #[test]
     fn fidelity_is_unsupported() {
-        assert!(Fidelity::Unsupported {
-            reason: "x".into()
-        }
-        .is_unsupported());
+        assert!(Fidelity::Unsupported { reason: "x".into() }.is_unsupported());
         assert!(!Fidelity::Lossless.is_unsupported());
     }
 }
@@ -1537,9 +1522,7 @@ mod mapping_enum_variants {
             Fidelity::LossyLabeled {
                 warning: "w".into(),
             },
-            Fidelity::Unsupported {
-                reason: "r".into(),
-            },
+            Fidelity::Unsupported { reason: "r".into() },
         ];
         for v in &variants {
             match v {
@@ -1566,9 +1549,7 @@ mod mapping_enum_variants {
                 from: Dialect::OpenAi,
                 to: Dialect::Claude,
             },
-            MappingError::InvalidInput {
-                reason: "r".into(),
-            },
+            MappingError::InvalidInput { reason: "r".into() },
         ];
         for e in &errs {
             match e {
@@ -1625,9 +1606,7 @@ mod mapping_traits {
 
     #[test]
     fn mapping_error_clone_debug_eq_serde() {
-        let e = MappingError::InvalidInput {
-            reason: "x".into(),
-        };
+        let e = MappingError::InvalidInput { reason: "x".into() };
         let cloned = e.clone();
         assert_eq!(e, cloned);
         let _ = format!("{:?}", cloned);
@@ -1713,11 +1692,11 @@ mod capability_types {
 
 mod capability_constructors {
     use abp_capability::{
-        NegotiationResult, SupportLevel, check_capability, generate_report, negotiate,
+        check_capability, generate_report, negotiate, NegotiationResult, SupportLevel,
     };
     use abp_core::{
-        Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-        MinSupport, SupportLevel as CoreSupportLevel,
+        Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
+        SupportLevel as CoreSupportLevel,
     };
 
     #[test]
@@ -1831,7 +1810,7 @@ mod capability_enum_variants {
 // ==========================================================================
 
 mod capability_traits {
-    use abp_capability::{NegotiationResult, SupportLevel, generate_report};
+    use abp_capability::{generate_report, NegotiationResult, SupportLevel};
     use abp_core::Capability;
 
     #[test]

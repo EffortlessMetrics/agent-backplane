@@ -236,11 +236,9 @@ fn validator_detects_empty_glob_in_allowed_tools() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::EmptyGlob && w.message.contains("allowed_tools"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::EmptyGlob && w.message.contains("allowed_tools")));
 }
 
 #[test]
@@ -250,11 +248,9 @@ fn validator_detects_empty_glob_in_deny_read() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::EmptyGlob && w.message.contains("deny_read"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::EmptyGlob && w.message.contains("deny_read")));
 }
 
 // ── PolicyValidator – overlapping allow/deny ─────────────────────────────
@@ -267,11 +263,9 @@ fn validator_detects_tool_overlap() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny && w.message.contains("tool"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::OverlappingAllowDeny && w.message.contains("tool")));
 }
 
 #[test]
@@ -282,11 +276,9 @@ fn validator_detects_network_overlap() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny && w.message.contains("network"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::OverlappingAllowDeny && w.message.contains("network")));
 }
 
 // ── PolicyValidator – unreachable rules ──────────────────────────────────
@@ -299,11 +291,9 @@ fn validator_detects_unreachable_allowed_tool() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("Read"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("Read")));
 }
 
 #[test]
@@ -313,11 +303,9 @@ fn validator_detects_catchall_deny_read() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read")));
 }
 
 #[test]
@@ -327,11 +315,9 @@ fn validator_detects_catchall_deny_write() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_write"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_write")));
 }
 
 // ── PolicyValidator – clean profile ──────────────────────────────────────

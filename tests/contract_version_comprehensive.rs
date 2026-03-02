@@ -27,7 +27,11 @@ fn make_hello() -> Envelope {
 }
 
 fn make_hello_with_mode(mode: ExecutionMode) -> Envelope {
-    Envelope::hello_with_mode(make_backend("test-sidecar"), CapabilityManifest::new(), mode)
+    Envelope::hello_with_mode(
+        make_backend("test-sidecar"),
+        CapabilityManifest::new(),
+        mode,
+    )
 }
 
 // =========================================================================
@@ -240,7 +244,9 @@ fn hello_decode_empty_version_string_accepted() {
 
 #[test]
 fn receipt_builder_sets_contract_version() {
-    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
 }
 
@@ -256,14 +262,18 @@ fn receipt_with_hash_preserves_contract_version() {
 
 #[test]
 fn receipt_serialized_contains_contract_version() {
-    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     let json = serde_json::to_string(&receipt).unwrap();
     assert!(json.contains(CONTRACT_VERSION));
 }
 
 #[test]
 fn receipt_deserialized_preserves_contract_version() {
-    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     let json = serde_json::to_string(&receipt).unwrap();
     let deserialized: abp_core::Receipt = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.meta.contract_version, CONTRACT_VERSION);
@@ -647,7 +657,9 @@ fn protocol_hello_uses_core_contract_version() {
 
 #[test]
 fn receipt_builder_uses_core_contract_version() {
-    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     assert_eq!(receipt.meta.contract_version, abp_core::CONTRACT_VERSION);
 }
 
@@ -695,7 +707,9 @@ fn hello_with_mode_field_defaults_to_mapped() {
 
 #[test]
 fn receipt_serialization_includes_contract_version_path() {
-    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     let val: serde_json::Value = serde_json::to_value(&receipt).unwrap();
     let cv = val
         .get("meta")
@@ -720,7 +734,9 @@ fn run_metadata_json_contains_contract_version() {
 
 #[test]
 fn final_envelope_round_trips_with_receipt_version() {
-    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     let env = Envelope::Final {
         ref_id: "run-1".into(),
         receipt,

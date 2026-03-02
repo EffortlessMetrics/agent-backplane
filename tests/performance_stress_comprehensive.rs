@@ -6,9 +6,9 @@ use std::path::Path;
 use std::time::Instant;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, Outcome, Receipt, ReceiptBuilder,
-    WorkOrder, WorkOrderBuilder, CONTRACT_VERSION, ExecutionLane, ExecutionMode, PolicyProfile,
-    VerificationReport, canonical_json, receipt_hash, sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
+    VerificationReport, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_dialect::{Dialect, DialectDetector};
 use abp_glob::IncludeExcludeGlobs;
@@ -732,7 +732,10 @@ fn perf_receipt_artifacts_1000() {
 fn perf_concurrent_serialize_many_work_orders() {
     let orders: Vec<_> = (0..500).map(make_work_order).collect();
     let start = Instant::now();
-    let results: Vec<_> = orders.iter().map(|wo| serde_json::to_string(wo).unwrap()).collect();
+    let results: Vec<_> = orders
+        .iter()
+        .map(|wo| serde_json::to_string(wo).unwrap())
+        .collect();
     let elapsed = start.elapsed();
     assert_eq!(results.len(), 500);
     assert!(elapsed.as_secs_f64() < 1.0, "took {elapsed:?}");
@@ -848,11 +851,7 @@ fn mem_policy_engine_create_drop_loop() {
 #[test]
 fn mem_glob_create_match_drop_loop() {
     for _ in 0..1_000 {
-        let globs = IncludeExcludeGlobs::new(
-            &["src/**".into()],
-            &["target/**".into()],
-        )
-        .unwrap();
+        let globs = IncludeExcludeGlobs::new(&["src/**".into()], &["target/**".into()]).unwrap();
         let _ = globs.decide_str("src/lib.rs");
         let _ = globs.decide_str("target/debug/bin");
     }
@@ -928,11 +927,9 @@ fn stress_rapid_policy_compile_check_cycles() {
 fn stress_rapid_glob_compile_match_cycles() {
     let start = Instant::now();
     for i in 0..500 {
-        let globs = IncludeExcludeGlobs::new(
-            &[format!("dir_{i}/**")],
-            &[format!("dir_{i}/tmp/**")],
-        )
-        .unwrap();
+        let globs =
+            IncludeExcludeGlobs::new(&[format!("dir_{i}/**")], &[format!("dir_{i}/tmp/**")])
+                .unwrap();
         for j in 0..20 {
             let _ = globs.decide_str(&format!("dir_{i}/file_{j}.rs"));
         }

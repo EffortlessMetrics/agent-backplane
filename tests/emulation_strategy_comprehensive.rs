@@ -90,23 +90,15 @@ fn strategy_clone_equality() {
 
 #[test]
 fn strategy_variants_not_equal() {
-    let a = EmulationStrategy::SystemPromptInjection {
-        prompt: "a".into(),
-    };
-    let b = EmulationStrategy::PostProcessing {
-        detail: "a".into(),
-    };
+    let a = EmulationStrategy::SystemPromptInjection { prompt: "a".into() };
+    let b = EmulationStrategy::PostProcessing { detail: "a".into() };
     assert_ne!(a, b);
 }
 
 #[test]
 fn strategy_same_variant_different_data() {
-    let a = EmulationStrategy::SystemPromptInjection {
-        prompt: "x".into(),
-    };
-    let b = EmulationStrategy::SystemPromptInjection {
-        prompt: "y".into(),
-    };
+    let a = EmulationStrategy::SystemPromptInjection { prompt: "x".into() };
+    let b = EmulationStrategy::SystemPromptInjection { prompt: "y".into() };
     assert_ne!(a, b);
 }
 
@@ -392,9 +384,7 @@ fn fidelity_label_clone_eq() {
 fn fidelity_label_native_not_eq_emulated() {
     let a = FidelityLabel::Native;
     let b = FidelityLabel::Emulated {
-        strategy: EmulationStrategy::Disabled {
-            reason: "x".into(),
-        },
+        strategy: EmulationStrategy::Disabled { reason: "x".into() },
     };
     assert_ne!(a, b);
 }
@@ -503,7 +493,9 @@ fn config_set_inserts_strategy() {
         },
     );
     assert_eq!(config.strategies.len(), 1);
-    assert!(config.strategies.contains_key(&Capability::ExtendedThinking));
+    assert!(config
+        .strategies
+        .contains_key(&Capability::ExtendedThinking));
 }
 
 #[test]
@@ -533,21 +525,15 @@ fn config_set_multiple_capabilities() {
     let mut config = EmulationConfig::new();
     config.set(
         Capability::ExtendedThinking,
-        EmulationStrategy::Disabled {
-            reason: "a".into(),
-        },
+        EmulationStrategy::Disabled { reason: "a".into() },
     );
     config.set(
         Capability::CodeExecution,
-        EmulationStrategy::SystemPromptInjection {
-            prompt: "b".into(),
-        },
+        EmulationStrategy::SystemPromptInjection { prompt: "b".into() },
     );
     config.set(
         Capability::Streaming,
-        EmulationStrategy::PostProcessing {
-            detail: "c".into(),
-        },
+        EmulationStrategy::PostProcessing { detail: "c".into() },
     );
     assert_eq!(config.strategies.len(), 3);
 }
@@ -557,9 +543,7 @@ fn config_clone_equality() {
     let mut config = EmulationConfig::new();
     config.set(
         Capability::Streaming,
-        EmulationStrategy::Disabled {
-            reason: "x".into(),
-        },
+        EmulationStrategy::Disabled { reason: "x".into() },
     );
     let config2 = config.clone();
     assert_eq!(config, config2);
@@ -723,7 +707,9 @@ fn apply_system_prompt_injection_creates_system_message() {
     let engine = EmulationEngine::with_defaults();
     engine.apply(&[Capability::ExtendedThinking], &mut conv);
     assert_eq!(conv.messages[0].role, IrRole::System);
-    assert!(conv.messages[0].text_content().contains("Think step by step"));
+    assert!(conv.messages[0]
+        .text_content()
+        .contains("Think step by step"));
 }
 
 #[test]
@@ -1050,10 +1036,7 @@ fn serde_roundtrip_emulation_report_full() {
                 },
             },
         ],
-        warnings: vec![
-            "CodeExecution disabled".into(),
-            "Streaming disabled".into(),
-        ],
+        warnings: vec!["CodeExecution disabled".into(), "Streaming disabled".into()],
     };
     let json = serde_json::to_string(&report).unwrap();
     let decoded: EmulationReport = serde_json::from_str(&json).unwrap();
@@ -1140,9 +1123,7 @@ fn serde_fidelity_label_tagged_with_fidelity_field() {
 #[test]
 fn serde_fidelity_label_emulated_tagged() {
     let label = FidelityLabel::Emulated {
-        strategy: EmulationStrategy::Disabled {
-            reason: "x".into(),
-        },
+        strategy: EmulationStrategy::Disabled { reason: "x".into() },
     };
     let json = serde_json::to_string(&label).unwrap();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -1272,9 +1253,7 @@ fn report_debug_impl() {
 fn entry_debug_impl() {
     let entry = EmulationEntry {
         capability: Capability::Streaming,
-        strategy: EmulationStrategy::Disabled {
-            reason: "x".into(),
-        },
+        strategy: EmulationStrategy::Disabled { reason: "x".into() },
     };
     let debug = format!("{entry:?}");
     assert!(debug.contains("EmulationEntry"));
@@ -1550,30 +1529,22 @@ fn config_deterministic_serialization() {
     let mut config1 = EmulationConfig::new();
     config1.set(
         Capability::ExtendedThinking,
-        EmulationStrategy::SystemPromptInjection {
-            prompt: "a".into(),
-        },
+        EmulationStrategy::SystemPromptInjection { prompt: "a".into() },
     );
     config1.set(
         Capability::CodeExecution,
-        EmulationStrategy::Disabled {
-            reason: "b".into(),
-        },
+        EmulationStrategy::Disabled { reason: "b".into() },
     );
 
     let mut config2 = EmulationConfig::new();
     // Insert in reverse order — BTreeMap should produce same JSON
     config2.set(
         Capability::CodeExecution,
-        EmulationStrategy::Disabled {
-            reason: "b".into(),
-        },
+        EmulationStrategy::Disabled { reason: "b".into() },
     );
     config2.set(
         Capability::ExtendedThinking,
-        EmulationStrategy::SystemPromptInjection {
-            prompt: "a".into(),
-        },
+        EmulationStrategy::SystemPromptInjection { prompt: "a".into() },
     );
 
     let json1 = serde_json::to_string(&config1).unwrap();

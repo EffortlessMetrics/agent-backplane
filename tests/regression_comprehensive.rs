@@ -5,15 +5,15 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
-    RuntimeConfig, WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION, canonical_json,
-    receipt_hash, sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    BackendIdentity, Capability, CapabilityManifest, ContextPacket, ExecutionLane, ExecutionMode,
+    Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig, WorkOrder, WorkOrderBuilder,
+    WorkspaceMode, CONTRACT_VERSION,
 };
 use abp_dialect::DialectDetector;
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_policy::PolicyEngine;
-use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -72,8 +72,12 @@ fn receipt_hash_differs_for_different_outcomes() {
 
 #[test]
 fn receipt_hash_differs_for_different_backends() {
-    let r1 = ReceiptBuilder::new("mock-a").work_order_id(Uuid::nil()).build();
-    let r2 = ReceiptBuilder::new("mock-b").work_order_id(Uuid::nil()).build();
+    let r1 = ReceiptBuilder::new("mock-a")
+        .work_order_id(Uuid::nil())
+        .build();
+    let r2 = ReceiptBuilder::new("mock-b")
+        .work_order_id(Uuid::nil())
+        .build();
     assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
 }
 
@@ -111,15 +115,24 @@ fn envelope_uses_t_tag_in_json() {
         error_code: None,
     };
     let json = JsonlCodec::encode(&env).unwrap();
-    assert!(json.contains(r#""t":"fatal""#), "should use 't' tag: {json}");
-    assert!(!json.contains(r#""type":"fatal""#), "must not use 'type' tag");
+    assert!(
+        json.contains(r#""t":"fatal""#),
+        "should use 't' tag: {json}"
+    );
+    assert!(
+        !json.contains(r#""type":"fatal""#),
+        "must not use 'type' tag"
+    );
 }
 
 #[test]
 fn envelope_decode_rejects_type_tag() {
     let bad = r#"{"type":"fatal","ref_id":null,"error":"boom"}"#;
     let result = JsonlCodec::decode(bad);
-    assert!(result.is_err(), "envelope with 'type' instead of 't' must fail");
+    assert!(
+        result.is_err(),
+        "envelope with 'type' instead of 't' must fail"
+    );
 }
 
 #[test]
@@ -140,9 +153,7 @@ fn envelope_hello_encodes_t_hello() {
 fn envelope_event_encodes_t_event() {
     let event = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: None,
     };
     let env = Envelope::Event {
@@ -178,10 +189,18 @@ fn envelope_final_encodes_t_final() {
 #[test]
 fn envelope_roundtrip_all_variants() {
     let hello = Envelope::hello(
-        BackendIdentity { id: "x".into(), backend_version: None, adapter_version: None },
+        BackendIdentity {
+            id: "x".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
         CapabilityManifest::new(),
     );
-    let fatal = Envelope::Fatal { ref_id: Some("r".into()), error: "e".into(), error_code: None };
+    let fatal = Envelope::Fatal {
+        ref_id: Some("r".into()),
+        error: "e".into(),
+        error_code: None,
+    };
     for env in [hello, fatal] {
         let encoded = JsonlCodec::encode(&env).unwrap();
         let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
@@ -202,7 +221,11 @@ fn envelope_decode_random_json_object_fails() {
 
 #[test]
 fn envelope_ends_with_newline() {
-    let env = Envelope::Fatal { ref_id: None, error: "x".into(), error_code: None };
+    let env = Envelope::Fatal {
+        ref_id: None,
+        error: "x".into(),
+        error_code: None,
+    };
     let encoded = JsonlCodec::encode(&env).unwrap();
     assert!(encoded.ends_with('\n'));
 }
@@ -328,8 +351,14 @@ fn btreemap_ordering_in_capabilities() {
     let streaming_pos = json.find("streaming").unwrap();
     let tool_read_pos = json.find("tool_read").unwrap();
     let tool_write_pos = json.find("tool_write").unwrap();
-    assert!(streaming_pos < tool_read_pos, "streaming should come before tool_read");
-    assert!(tool_read_pos < tool_write_pos, "tool_read should come before tool_write");
+    assert!(
+        streaming_pos < tool_read_pos,
+        "streaming should come before tool_read"
+    );
+    assert!(
+        tool_read_pos < tool_write_pos,
+        "tool_read should come before tool_write"
+    );
 }
 
 #[test]
@@ -408,17 +437,20 @@ fn exclude_only_denies_matches() {
 fn include_only_gates_matches() {
     let g = IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
     assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("README.md"), MatchDecision::DeniedByMissingInclude);
+    assert_eq!(
+        g.decide_str("README.md"),
+        MatchDecision::DeniedByMissingInclude
+    );
 }
 
 #[test]
 fn exclude_overrides_include() {
-    let g = IncludeExcludeGlobs::new(
-        &["src/**".into()],
-        &["src/generated/**".into()],
-    ).unwrap();
+    let g = IncludeExcludeGlobs::new(&["src/**".into()], &["src/generated/**".into()]).unwrap();
     assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::Allowed);
-    assert_eq!(g.decide_str("src/generated/out.rs"), MatchDecision::DeniedByExclude);
+    assert_eq!(
+        g.decide_str("src/generated/out.rs"),
+        MatchDecision::DeniedByExclude
+    );
 }
 
 #[test]
@@ -463,7 +495,10 @@ fn with_hash_nulls_field_before_hashing() {
     let base = make_receipt();
     let mut with_bogus = base.clone();
     with_bogus.receipt_sha256 = Some("bogus".into());
-    assert_eq!(receipt_hash(&base).unwrap(), receipt_hash(&with_bogus).unwrap());
+    assert_eq!(
+        receipt_hash(&base).unwrap(),
+        receipt_hash(&with_bogus).unwrap()
+    );
 }
 
 #[test]
@@ -514,10 +549,17 @@ fn contract_version_in_receipt_metadata() {
 #[test]
 fn contract_version_in_hello_envelope() {
     let env = Envelope::hello(
-        BackendIdentity { id: "test".into(), backend_version: None, adapter_version: None },
+        BackendIdentity {
+            id: "test".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
         CapabilityManifest::new(),
     );
-    if let Envelope::Hello { contract_version, .. } = env {
+    if let Envelope::Hello {
+        contract_version, ..
+    } = env
+    {
         assert_eq!(contract_version, "abp/v0.1");
     } else {
         panic!("expected Hello variant");
@@ -815,7 +857,9 @@ fn agent_event_roundtrip() {
     };
     let json = serde_json::to_string(&event).unwrap();
     let event2: AgentEvent = serde_json::from_str(&json).unwrap();
-    assert!(matches!(event2.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "Read"));
+    assert!(
+        matches!(event2.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "Read")
+    );
 }
 
 #[test]
@@ -856,19 +900,22 @@ fn receipt_builder_defaults() {
 fn receipt_builder_with_trace() {
     let event = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::RunStarted { message: "go".into() },
+        kind: AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
         ext: None,
     };
-    let r = ReceiptBuilder::new("mock")
-        .add_trace_event(event)
-        .build();
+    let r = ReceiptBuilder::new("mock").add_trace_event(event).build();
     assert_eq!(r.trace.len(), 1);
 }
 
 #[test]
 fn receipt_builder_with_artifact() {
     let r = ReceiptBuilder::new("mock")
-        .add_artifact(ArtifactRef { kind: "patch".into(), path: "out.patch".into() })
+        .add_artifact(ArtifactRef {
+            kind: "patch".into(),
+            path: "out.patch".into(),
+        })
         .build();
     assert_eq!(r.artifacts.len(), 1);
     assert_eq!(r.artifacts[0].kind, "patch");
@@ -887,13 +934,20 @@ fn envelope_fatal_with_code() {
         "timeout",
         abp_error::ErrorCode::ProtocolInvalidEnvelope,
     );
-    assert_eq!(env.error_code(), Some(abp_error::ErrorCode::ProtocolInvalidEnvelope));
+    assert_eq!(
+        env.error_code(),
+        Some(abp_error::ErrorCode::ProtocolInvalidEnvelope)
+    );
 }
 
 #[test]
 fn envelope_error_code_none_for_non_fatal() {
     let env = Envelope::hello(
-        BackendIdentity { id: "x".into(), backend_version: None, adapter_version: None },
+        BackendIdentity {
+            id: "x".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
         CapabilityManifest::new(),
     );
     assert!(env.error_code().is_none());

@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: r1.receipt_sha256
+---
+"41b2cfa67b3642e50fce21c0a10ba90717c75ca5d62d9eac7a0f33fb4234c97e"

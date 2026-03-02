@@ -7,9 +7,7 @@
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
 use abp_workspace::diff::{diff_workspace, DiffSummary};
-use abp_workspace::ops::{
-    FileOperation, OperationFilter, OperationLog, OperationSummary,
-};
+use abp_workspace::ops::{FileOperation, OperationFilter, OperationLog, OperationSummary};
 use abp_workspace::snapshot::{self, SnapshotDiff};
 use abp_workspace::template::{TemplateRegistry, WorkspaceTemplate};
 use abp_workspace::tracker::{ChangeKind, ChangeTracker, FileChange};
@@ -210,9 +208,14 @@ fn staging_preserves_file_content() {
 fn staging_preserves_subdirectory_structure() {
     let src = tempdir().unwrap();
     fs::create_dir_all(src.path().join("a").join("b").join("c")).unwrap();
-    fs::write(src.path().join("a").join("b").join("c").join("deep.txt"), "deep").unwrap();
+    fs::write(
+        src.path().join("a").join("b").join("c").join("deep.txt"),
+        "deep",
+    )
+    .unwrap();
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let content = fs::read_to_string(ws.path().join("a").join("b").join("c").join("deep.txt")).unwrap();
+    let content =
+        fs::read_to_string(ws.path().join("a").join("b").join("c").join("deep.txt")).unwrap();
     assert_eq!(content, "deep");
 }
 
@@ -239,14 +242,21 @@ fn staging_preserves_utf8_content() {
     let unicode = "こんにちは世界 🌍 données";
     fs::write(src.path().join("unicode.txt"), unicode).unwrap();
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert_eq!(fs::read_to_string(ws.path().join("unicode.txt")).unwrap(), unicode);
+    assert_eq!(
+        fs::read_to_string(ws.path().join("unicode.txt")).unwrap(),
+        unicode
+    );
 }
 
 #[test]
 fn staging_multiple_files_same_dir() {
     let src = tempdir().unwrap();
     for i in 0..10 {
-        fs::write(src.path().join(format!("file_{i}.txt")), format!("content {i}")).unwrap();
+        fs::write(
+            src.path().join(format!("file_{i}.txt")),
+            format!("content {i}"),
+        )
+        .unwrap();
     }
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     assert_eq!(collect_files(ws.path()).len(), 10);
@@ -329,7 +339,9 @@ fn multiple_exclude_patterns() {
     let spec = staged_spec_globs(src.path(), vec![], vec!["*.md".into(), "*.json".into()]);
     let ws = WorkspaceManager::prepare(&spec).unwrap();
     let files = collect_files(ws.path());
-    assert!(!files.iter().any(|f| f.ends_with(".md") || f.ends_with(".json")));
+    assert!(!files
+        .iter()
+        .any(|f| f.ends_with(".md") || f.ends_with(".json")));
 }
 
 #[test]
@@ -357,7 +369,11 @@ fn empty_globs_copies_everything() {
 fn double_star_glob_matches_deep_paths() {
     let src = tempdir().unwrap();
     fs::create_dir_all(src.path().join("a").join("b").join("c")).unwrap();
-    fs::write(src.path().join("a").join("b").join("c").join("deep.rs"), "deep").unwrap();
+    fs::write(
+        src.path().join("a").join("b").join("c").join("deep.rs"),
+        "deep",
+    )
+    .unwrap();
     fs::write(src.path().join("top.rs"), "top").unwrap();
     let spec = staged_spec_globs(src.path(), vec!["**/*.rs".into()], vec![]);
     let ws = WorkspaceManager::prepare(&spec).unwrap();
@@ -396,7 +412,10 @@ fn staged_workspace_has_baseline_commit() {
     create_fixture(src.path());
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     let log = git(ws.path(), &["log", "--oneline"]);
-    assert!(log.contains("baseline"), "expected baseline commit, got: {log}");
+    assert!(
+        log.contains("baseline"),
+        "expected baseline commit, got: {log}"
+    );
 }
 
 #[test]
@@ -484,10 +503,24 @@ fn staged_git_is_fresh_repo() {
     let src = tempdir().unwrap();
     // Create source with its own git history
     create_fixture(src.path());
-    let _ = Command::new("git").args(["init", "-q"]).current_dir(src.path()).status();
-    let _ = Command::new("git").args(["add", "-A"]).current_dir(src.path()).status();
     let _ = Command::new("git")
-        .args(["-c", "user.name=test", "-c", "user.email=t@t", "commit", "-qm", "source commit"])
+        .args(["init", "-q"])
+        .current_dir(src.path())
+        .status();
+    let _ = Command::new("git")
+        .args(["add", "-A"])
+        .current_dir(src.path())
+        .status();
+    let _ = Command::new("git")
+        .args([
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-qm",
+            "source commit",
+        ])
         .current_dir(src.path())
         .status();
 
@@ -504,14 +537,24 @@ fn git_objects_not_leaked_from_source() {
     create_fixture(src.path());
     fs::create_dir_all(src.path().join(".git").join("objects").join("ab")).unwrap();
     fs::write(
-        src.path().join(".git").join("objects").join("ab").join("cdef"),
+        src.path()
+            .join(".git")
+            .join("objects")
+            .join("ab")
+            .join("cdef"),
         "fake object",
     )
     .unwrap();
 
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     // Check the staged .git/objects/ab/cdef does NOT exist
-    assert!(!ws.path().join(".git").join("objects").join("ab").join("cdef").exists());
+    assert!(!ws
+        .path()
+        .join(".git")
+        .join("objects")
+        .join("ab")
+        .join("cdef")
+        .exists());
 }
 
 // ===========================================================================
@@ -524,7 +567,11 @@ fn diff_after_file_modification() {
     create_fixture(src.path());
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
 
-    fs::write(ws.path().join("main.rs"), "fn main() { println!(\"modified\"); }").unwrap();
+    fs::write(
+        ws.path().join("main.rs"),
+        "fn main() { println!(\"modified\"); }",
+    )
+    .unwrap();
 
     let status = WorkspaceManager::git_status(ws.path()).unwrap();
     assert!(!status.trim().is_empty());
@@ -660,7 +707,10 @@ fn staged_workspace_cleaned_on_drop() {
         assert!(ws_path.exists());
     }
     // After drop, the temp dir should be gone
-    assert!(!ws_path.exists(), "staged workspace not cleaned up after drop");
+    assert!(
+        !ws_path.exists(),
+        "staged workspace not cleaned up after drop"
+    );
 }
 
 #[test]
@@ -795,8 +845,14 @@ fn staging_mixed_binary_and_text() {
     fs::write(src.path().join("binary.bin"), [0u8, 1, 2, 255, 128]).unwrap();
 
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert_eq!(fs::read_to_string(ws.path().join("text.txt")).unwrap(), "hello");
-    assert_eq!(fs::read(ws.path().join("binary.bin")).unwrap(), &[0, 1, 2, 255, 128]);
+    assert_eq!(
+        fs::read_to_string(ws.path().join("text.txt")).unwrap(),
+        "hello"
+    );
+    assert_eq!(
+        fs::read(ws.path().join("binary.bin")).unwrap(),
+        &[0, 1, 2, 255, 128]
+    );
 }
 
 // ===========================================================================
@@ -1082,8 +1138,14 @@ fn template_apply_creates_files() {
     let target = tempdir().unwrap();
     let written = tpl.apply(target.path()).unwrap();
     assert_eq!(written, 2);
-    assert_eq!(fs::read_to_string(target.path().join("a.txt")).unwrap(), "hello");
-    assert_eq!(fs::read_to_string(target.path().join("sub").join("b.txt")).unwrap(), "world");
+    assert_eq!(
+        fs::read_to_string(target.path().join("a.txt")).unwrap(),
+        "hello"
+    );
+    assert_eq!(
+        fs::read_to_string(target.path().join("sub").join("b.txt")).unwrap(),
+        "world"
+    );
 }
 
 #[test]
@@ -1143,9 +1205,16 @@ fn template_registry_multiple() {
 #[test]
 fn operation_log_record_and_query() {
     let mut log = OperationLog::new();
-    log.record(FileOperation::Read { path: "a.txt".into() });
-    log.record(FileOperation::Write { path: "b.txt".into(), size: 100 });
-    log.record(FileOperation::Delete { path: "c.txt".into() });
+    log.record(FileOperation::Read {
+        path: "a.txt".into(),
+    });
+    log.record(FileOperation::Write {
+        path: "b.txt".into(),
+        size: 100,
+    });
+    log.record(FileOperation::Delete {
+        path: "c.txt".into(),
+    });
 
     assert_eq!(log.operations().len(), 3);
     assert_eq!(log.reads(), vec!["a.txt"]);
@@ -1156,8 +1225,13 @@ fn operation_log_record_and_query() {
 #[test]
 fn operation_log_affected_paths() {
     let mut log = OperationLog::new();
-    log.record(FileOperation::Read { path: "a.txt".into() });
-    log.record(FileOperation::Write { path: "a.txt".into(), size: 50 });
+    log.record(FileOperation::Read {
+        path: "a.txt".into(),
+    });
+    log.record(FileOperation::Write {
+        path: "a.txt".into(),
+        size: 50,
+    });
     let paths = log.affected_paths();
     assert_eq!(paths.len(), 1); // Deduplicated
     assert!(paths.contains("a.txt"));
@@ -1167,10 +1241,19 @@ fn operation_log_affected_paths() {
 fn operation_log_summary() {
     let mut log = OperationLog::new();
     log.record(FileOperation::Read { path: "a".into() });
-    log.record(FileOperation::Write { path: "b".into(), size: 200 });
+    log.record(FileOperation::Write {
+        path: "b".into(),
+        size: 200,
+    });
     log.record(FileOperation::Delete { path: "c".into() });
-    log.record(FileOperation::Move { from: "d".into(), to: "e".into() });
-    log.record(FileOperation::Copy { from: "f".into(), to: "g".into() });
+    log.record(FileOperation::Move {
+        from: "d".into(),
+        to: "e".into(),
+    });
+    log.record(FileOperation::Copy {
+        from: "f".into(),
+        to: "g".into(),
+    });
     log.record(FileOperation::CreateDir { path: "h".into() });
 
     let s = log.summary();
@@ -1229,9 +1312,16 @@ fn operation_filter_operations() {
     f.add_denied_path("*.log");
 
     let ops = vec![
-        FileOperation::Read { path: "src/main.rs".into() },
-        FileOperation::Write { path: "app.log".into(), size: 100 },
-        FileOperation::Read { path: "test.rs".into() },
+        FileOperation::Read {
+            path: "src/main.rs".into(),
+        },
+        FileOperation::Write {
+            path: "app.log".into(),
+            size: 100,
+        },
+        FileOperation::Read {
+            path: "test.rs".into(),
+        },
     ];
 
     let filtered = f.filter_operations(&ops);
@@ -1240,13 +1330,21 @@ fn operation_filter_operations() {
 
 #[test]
 fn file_operation_paths() {
-    let read = FileOperation::Read { path: "a.txt".into() };
+    let read = FileOperation::Read {
+        path: "a.txt".into(),
+    };
     assert_eq!(read.paths(), vec!["a.txt"]);
 
-    let mv = FileOperation::Move { from: "x".into(), to: "y".into() };
+    let mv = FileOperation::Move {
+        from: "x".into(),
+        to: "y".into(),
+    };
     assert_eq!(mv.paths(), vec!["x", "y"]);
 
-    let cp = FileOperation::Copy { from: "a".into(), to: "b".into() };
+    let cp = FileOperation::Copy {
+        from: "a".into(),
+        to: "b".into(),
+    };
     assert_eq!(cp.paths(), vec!["a", "b"]);
 }
 
@@ -1296,7 +1394,9 @@ fn change_tracker_summary() {
     });
     tracker.record(FileChange {
         path: "ren.rs".into(),
-        kind: ChangeKind::Renamed { from: "old.rs".into() },
+        kind: ChangeKind::Renamed {
+            from: "old.rs".into(),
+        },
         size_before: Some(50),
         size_after: Some(50),
         content_hash: None,
@@ -1511,8 +1611,14 @@ fn stager_stage_restaging_same_source() {
     let src = tempdir().unwrap();
     create_fixture(src.path());
 
-    let ws1 = WorkspaceStager::new().source_root(src.path()).stage().unwrap();
-    let ws2 = WorkspaceStager::new().source_root(src.path()).stage().unwrap();
+    let ws1 = WorkspaceStager::new()
+        .source_root(src.path())
+        .stage()
+        .unwrap();
+    let ws2 = WorkspaceStager::new()
+        .source_root(src.path())
+        .stage()
+        .unwrap();
 
     assert_ne!(ws1.path(), ws2.path());
     assert_eq!(collect_files(ws1.path()), collect_files(ws2.path()));
@@ -1526,7 +1632,11 @@ fn diff_workspace_with_subdirectory_changes() {
 
     fs::write(ws.path().join("src").join("utils.rs"), "// rewritten\n").unwrap();
     fs::create_dir_all(ws.path().join("src").join("new_mod")).unwrap();
-    fs::write(ws.path().join("src").join("new_mod").join("mod.rs"), "pub mod sub;\n").unwrap();
+    fs::write(
+        ws.path().join("src").join("new_mod").join("mod.rs"),
+        "pub mod sub;\n",
+    )
+    .unwrap();
 
     let summary = diff_workspace(&ws).unwrap();
     assert!(!summary.is_empty());

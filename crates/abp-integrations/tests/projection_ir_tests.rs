@@ -2,8 +2,8 @@
 //! Integration tests for IR-based projection matrix translation.
 
 use abp_integrations::projection::{
-    Dialect, MODEL_EQUIVALENCE_TABLE, TranslationFidelity, detect_dialect, map_via_ir,
-    translate_model_name,
+    detect_dialect, map_via_ir, translate_model_name, Dialect, TranslationFidelity,
+    MODEL_EQUIVALENCE_TABLE,
 };
 use serde_json::json;
 

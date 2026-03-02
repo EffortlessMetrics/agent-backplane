@@ -69,7 +69,12 @@ fn collect_files(base: &Path) -> Vec<PathBuf> {
 
 #[test]
 fn spec_passthrough_preserves_root() {
-    let spec = make_spec(Path::new("/some/path"), WorkspaceMode::PassThrough, &[], &[]);
+    let spec = make_spec(
+        Path::new("/some/path"),
+        WorkspaceMode::PassThrough,
+        &[],
+        &[],
+    );
     assert_eq!(spec.root, "/some/path");
     assert!(matches!(spec.mode, WorkspaceMode::PassThrough));
 }
@@ -118,11 +123,7 @@ fn spec_multiple_globs() {
 
 #[test]
 fn staged_copies_all_files_no_globs() {
-    let src = make_source(&[
-        ("a.txt", "aaa"),
-        ("b.txt", "bbb"),
-        ("sub/c.txt", "ccc"),
-    ]);
+    let src = make_source(&[("a.txt", "aaa"), ("b.txt", "bbb"), ("sub/c.txt", "ccc")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .with_git_init(false)
@@ -182,10 +183,7 @@ fn staged_exclude_filters_files() {
 
 #[test]
 fn staged_exclude_overrides_include() {
-    let src = make_source(&[
-        ("src/lib.rs", "code"),
-        ("src/generated/out.rs", "gen"),
-    ]);
+    let src = make_source(&[("src/lib.rs", "code"), ("src/generated/out.rs", "gen")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .include(patterns(&["src/**"]))
@@ -199,10 +197,7 @@ fn staged_exclude_overrides_include() {
 
 #[test]
 fn staged_preserves_directory_structure() {
-    let src = make_source(&[
-        ("a/b/c/d.txt", "deep"),
-        ("x/y.txt", "shallow"),
-    ]);
+    let src = make_source(&[("a/b/c/d.txt", "deep"), ("x/y.txt", "shallow")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .with_git_init(false)
@@ -254,10 +249,7 @@ fn staged_multiple_exclude_patterns() {
 
 #[test]
 fn staged_wildcard_include_allows_all() {
-    let src = make_source(&[
-        ("a.txt", "a"),
-        ("b/c.txt", "c"),
-    ]);
+    let src = make_source(&[("a.txt", "a"), ("b/c.txt", "c")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .include(patterns(&["**"]))
@@ -270,11 +262,7 @@ fn staged_wildcard_include_allows_all() {
 
 #[test]
 fn staged_extension_include() {
-    let src = make_source(&[
-        ("lib.rs", "rs"),
-        ("lib.py", "py"),
-        ("lib.js", "js"),
-    ]);
+    let src = make_source(&[("lib.rs", "rs"), ("lib.py", "py"), ("lib.js", "js")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .include(patterns(&["*.rs"]))
@@ -406,9 +394,7 @@ fn staged_git_detects_deletion() {
     fs::remove_file(ws.path().join("to_delete.txt")).unwrap();
     let status = WorkspaceManager::git_status(ws.path());
     assert!(
-        status
-            .as_ref()
-            .is_some_and(|s| s.contains("to_delete.txt")),
+        status.as_ref().is_some_and(|s| s.contains("to_delete.txt")),
         "git status should show deletion"
     );
 }
@@ -512,10 +498,7 @@ fn include_only_rs_exclude_tests() {
 
 #[test]
 fn exclude_all_matches_nothing_copied() {
-    let src = make_source(&[
-        ("a.txt", "a"),
-        ("b.txt", "b"),
-    ]);
+    let src = make_source(&[("a.txt", "a"), ("b.txt", "b")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .exclude(patterns(&["**"]))
@@ -528,10 +511,7 @@ fn exclude_all_matches_nothing_copied() {
 
 #[test]
 fn include_all_exclude_none() {
-    let src = make_source(&[
-        ("a.txt", "a"),
-        ("sub/b.txt", "b"),
-    ]);
+    let src = make_source(&[("a.txt", "a"), ("sub/b.txt", "b")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .include(patterns(&["**"]))
@@ -545,10 +525,7 @@ fn include_all_exclude_none() {
 
 #[test]
 fn exclude_specific_file_by_name() {
-    let src = make_source(&[
-        ("keep.txt", "keep"),
-        ("secret.key", "secret"),
-    ]);
+    let src = make_source(&[("keep.txt", "keep"), ("secret.key", "secret")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .exclude(patterns(&["secret.key"]))
@@ -738,10 +715,7 @@ fn deeply_nested_directory_structure() {
         .with_git_init(false)
         .stage()
         .unwrap();
-    assert!(file_exists(
-        ws.path(),
-        &format!("{deep}/deep.txt")
-    ));
+    assert!(file_exists(ws.path(), &format!("{deep}/deep.txt")));
     assert_eq!(
         read_file(ws.path(), &format!("{deep}/deep.txt")),
         "deep content"
@@ -769,10 +743,7 @@ fn special_characters_in_file_names() {
 
 #[test]
 fn unicode_file_names() {
-    let src = make_source(&[
-        ("données.txt", "french"),
-        ("日本語.txt", "japanese"),
-    ]);
+    let src = make_source(&[("données.txt", "french"), ("日本語.txt", "japanese")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .with_git_init(false)
@@ -798,7 +769,11 @@ fn empty_file_copied() {
 fn many_files_in_single_directory() {
     let src_dir = tempfile::tempdir().unwrap();
     for i in 0..100 {
-        fs::write(src_dir.path().join(format!("file_{i}.txt")), format!("content_{i}")).unwrap();
+        fs::write(
+            src_dir.path().join(format!("file_{i}.txt")),
+            format!("content_{i}"),
+        )
+        .unwrap();
     }
     let ws = WorkspaceStager::new()
         .source_root(src_dir.path())
@@ -813,12 +788,10 @@ fn many_files_in_single_directory() {
 fn stager_missing_source_root_errors() {
     let result = WorkspaceStager::new().stage();
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("source_root is required")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("source_root is required"));
 }
 
 #[test]
@@ -827,12 +800,7 @@ fn stager_nonexistent_source_errors() {
         .source_root("/absolutely/nonexistent/path/12345")
         .stage();
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("does not exist")
-    );
+    assert!(result.unwrap_err().to_string().contains("does not exist"));
 }
 
 #[test]
@@ -877,10 +845,7 @@ fn manager_staged_returns_different_path() {
 
 #[test]
 fn manager_staged_copies_files() {
-    let src = make_source(&[
-        ("a.txt", "aaa"),
-        ("dir/b.txt", "bbb"),
-    ]);
+    let src = make_source(&[("a.txt", "aaa"), ("dir/b.txt", "bbb")]);
     let spec = make_spec(src.path(), WorkspaceMode::Staged, &[], &[]);
     let ws = WorkspaceManager::prepare(&spec).unwrap();
     assert!(file_exists(ws.path(), "a.txt"));
@@ -890,10 +855,7 @@ fn manager_staged_copies_files() {
 
 #[test]
 fn manager_staged_with_include() {
-    let src = make_source(&[
-        ("src/main.rs", "main"),
-        ("readme.md", "readme"),
-    ]);
+    let src = make_source(&[("src/main.rs", "main"), ("readme.md", "readme")]);
     let spec = make_spec(src.path(), WorkspaceMode::Staged, &["src/**"], &[]);
     let ws = WorkspaceManager::prepare(&spec).unwrap();
     assert!(file_exists(ws.path(), "src/main.rs"));
@@ -902,10 +864,7 @@ fn manager_staged_with_include() {
 
 #[test]
 fn manager_staged_with_exclude() {
-    let src = make_source(&[
-        ("src/main.rs", "main"),
-        ("target/out", "out"),
-    ]);
+    let src = make_source(&[("src/main.rs", "main"), ("target/out", "out")]);
     let spec = make_spec(src.path(), WorkspaceMode::Staged, &[], &["target/**"]);
     let ws = WorkspaceManager::prepare(&spec).unwrap();
     assert!(file_exists(ws.path(), "src/main.rs"));
@@ -996,11 +955,8 @@ fn glob_exclude_only() {
 
 #[test]
 fn glob_exclude_takes_precedence() {
-    let rules = IncludeExcludeGlobs::new(
-        &patterns(&["src/**"]),
-        &patterns(&["src/secret/**"]),
-    )
-    .unwrap();
+    let rules =
+        IncludeExcludeGlobs::new(&patterns(&["src/**"]), &patterns(&["src/secret/**"])).unwrap();
     assert!(rules.decide_str("src/lib.rs").is_allowed());
     assert!(!rules.decide_str("src/secret/key.pem").is_allowed());
 }
@@ -1082,10 +1038,7 @@ fn staged_dotfiles_included_by_default() {
 
 #[test]
 fn staged_exclude_dotfiles() {
-    let src = make_source(&[
-        (".env", "secret"),
-        ("src/main.rs", "code"),
-    ]);
+    let src = make_source(&[(".env", "secret"), ("src/main.rs", "code")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .exclude(patterns(&[".env"]))
@@ -1111,10 +1064,7 @@ fn staged_exclude_node_modules_pattern() {
         .unwrap();
     assert!(file_exists(ws.path(), "src/index.js"));
     assert!(!file_exists(ws.path(), "node_modules/pkg/index.js"));
-    assert!(!file_exists(
-        ws.path(),
-        "node_modules/.package-lock.json"
-    ));
+    assert!(!file_exists(ws.path(), "node_modules/.package-lock.json"));
 }
 
 #[test]
@@ -1212,11 +1162,7 @@ fn git_diff_on_non_git_dir_returns_none() {
 
 #[test]
 fn staging_produces_same_file_set() {
-    let src = make_source(&[
-        ("a.txt", "a"),
-        ("b/c.txt", "c"),
-        ("d/e/f.txt", "f"),
-    ]);
+    let src = make_source(&[("a.txt", "a"), ("b/c.txt", "c"), ("d/e/f.txt", "f")]);
     let ws1 = WorkspaceStager::new()
         .source_root(src.path())
         .with_git_init(false)
@@ -1234,10 +1180,7 @@ fn staging_produces_same_file_set() {
 
 #[test]
 fn staging_preserves_all_content() {
-    let src = make_source(&[
-        ("a.txt", "alpha"),
-        ("b/c.txt", "charlie"),
-    ]);
+    let src = make_source(&[("a.txt", "alpha"), ("b/c.txt", "charlie")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .with_git_init(false)
@@ -1314,10 +1257,7 @@ fn realistic_node_project_staging() {
 
 #[test]
 fn staged_with_git_then_modify_and_diff() {
-    let src = make_source(&[
-        ("file1.txt", "original1\n"),
-        ("file2.txt", "original2\n"),
-    ]);
+    let src = make_source(&[("file1.txt", "original1\n"), ("file2.txt", "original2\n")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .stage()
