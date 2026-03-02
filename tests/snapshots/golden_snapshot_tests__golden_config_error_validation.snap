@@ -1,0 +1,5 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: err.to_string()
+---
+config validation failed: ["invalid log_level 'verbose'", "backend 'x': command empty"]

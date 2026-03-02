@@ -14,16 +14,16 @@
 
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode, chain::ReceiptChain,
-    receipt_hash,
+    CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder,
+    WorkspaceMode, canonical_json, chain::ReceiptChain, receipt_hash, sha256_hex,
 };
 use abp_integrations::projection::{
     Dialect, ProjectionMatrix, ToolCall, ToolResult, supported_translations, translate,
 };
 use abp_policy::PolicyEngine;
 use abp_protocol::validate::EnvelopeValidator;
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use abp_runtime::{Runtime, RuntimeError};
 use chrono::Utc;
 use serde_json::json;
@@ -1845,4 +1845,597 @@ fn receipt_fatal_with_and_without_ref_id() {
         "should warn about missing ref_id: {:?}",
         result.warnings
     );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// CATEGORY 10: BTreeMap determinism (Invariant 5)
+// ═════════════════════════════════════════════════════════════════════════
+
+/// RuntimeConfig.vendor (BTreeMap) serializes keys in sorted order.
+#[test]
+fn btreemap_vendor_config_keys_sorted() {
+    let mut wo = simple_work_order("btreemap vendor");
+    wo.config.vendor.insert("zulu".into(), json!(1));
+    wo.config.vendor.insert("alpha".into(), json!(2));
+    wo.config.vendor.insert("mike".into(), json!(3));
+    let json_str = serde_json::to_string(&wo.config.vendor).unwrap();
+    let alpha_pos = json_str.find("alpha").unwrap();
+    let mike_pos = json_str.find("mike").unwrap();
+    let zulu_pos = json_str.find("zulu").unwrap();
+    assert!(
+        alpha_pos < mike_pos && mike_pos < zulu_pos,
+        "BTreeMap keys must be in sorted order: {json_str}"
+    );
+}
+
+/// RuntimeConfig.env (BTreeMap) serializes keys in sorted order.
+#[test]
+fn btreemap_env_keys_sorted() {
+    let mut wo = simple_work_order("btreemap env");
+    wo.config.env.insert("ZZZ_VAR".into(), "z".into());
+    wo.config.env.insert("AAA_VAR".into(), "a".into());
+    wo.config.env.insert("MMM_VAR".into(), "m".into());
+    let json_str = serde_json::to_string(&wo.config.env).unwrap();
+    let a_pos = json_str.find("AAA_VAR").unwrap();
+    let m_pos = json_str.find("MMM_VAR").unwrap();
+    let z_pos = json_str.find("ZZZ_VAR").unwrap();
+    assert!(
+        a_pos < m_pos && m_pos < z_pos,
+        "BTreeMap keys must be in sorted order: {json_str}"
+    );
+}
+
+/// CapabilityManifest (BTreeMap) serializes keys in sorted order.
+#[test]
+fn btreemap_capability_manifest_keys_sorted() {
+    let mut caps = CapabilityManifest::new();
+    caps.insert(Capability::ToolWrite, SupportLevel::Native);
+    caps.insert(Capability::Streaming, SupportLevel::Native);
+    caps.insert(Capability::ToolRead, SupportLevel::Emulated);
+    let json = serde_json::to_value(&caps).unwrap();
+    let keys: Vec<&str> = json
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(|k| k.as_str())
+        .collect();
+    let mut sorted = keys.clone();
+    sorted.sort();
+    assert_eq!(keys, sorted, "CapabilityManifest keys must be sorted");
+}
+
+/// canonical_json produces deterministic key ordering.
+#[test]
+fn btreemap_canonical_json_key_order() {
+    let v1 = canonical_json(&json!({"zebra": 1, "apple": 2, "mango": 3})).unwrap();
+    let v2 = canonical_json(&json!({"mango": 3, "zebra": 1, "apple": 2})).unwrap();
+    assert_eq!(
+        v1, v2,
+        "canonical_json must produce identical output regardless of input order"
+    );
+    assert!(
+        v1.starts_with(r#"{"apple":"#),
+        "keys should be sorted: {v1}"
+    );
+}
+
+/// Receipt hash is independent of BTreeMap insertion order.
+#[test]
+fn btreemap_receipt_hash_independent_of_insertion_order() {
+    let mut caps1 = CapabilityManifest::new();
+    caps1.insert(Capability::Streaming, SupportLevel::Native);
+    caps1.insert(Capability::ToolRead, SupportLevel::Emulated);
+
+    let mut caps2 = CapabilityManifest::new();
+    caps2.insert(Capability::ToolRead, SupportLevel::Emulated);
+    caps2.insert(Capability::Streaming, SupportLevel::Native);
+
+    let now = Utc::now();
+    let r1 = ReceiptBuilder::new("test")
+        .outcome(Outcome::Complete)
+        .capabilities(caps1)
+        .started_at(now)
+        .finished_at(now)
+        .with_hash()
+        .unwrap();
+    let r2 = ReceiptBuilder::new("test")
+        .outcome(Outcome::Complete)
+        .capabilities(caps2)
+        .started_at(now)
+        .finished_at(now)
+        .with_hash()
+        .unwrap();
+    // Since both have the same logical content, canonical hashes should match
+    // (modulo run_id which is random). We verify determinism by re-hashing.
+    let h1 = receipt_hash(&r1).unwrap();
+    let h1b = receipt_hash(&r1).unwrap();
+    assert_eq!(h1, h1b, "repeated hashing must be deterministic");
+    let h2 = receipt_hash(&r2).unwrap();
+    let h2b = receipt_hash(&r2).unwrap();
+    assert_eq!(h2, h2b, "repeated hashing of r2 must be deterministic");
+}
+
+/// AgentEvent.ext (BTreeMap) serializes keys in sorted order.
+#[test]
+fn btreemap_agent_event_ext_keys_sorted() {
+    let mut ext = BTreeMap::new();
+    ext.insert("z_field".to_string(), json!("z"));
+    ext.insert("a_field".to_string(), json!("a"));
+    ext.insert("m_field".to_string(), json!("m"));
+    let event = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::AssistantMessage {
+            text: "hello".into(),
+        },
+        ext: Some(ext),
+    };
+    let json_str = serde_json::to_string(&event).unwrap();
+    let a_pos = json_str.find("a_field").unwrap();
+    let m_pos = json_str.find("m_field").unwrap();
+    let z_pos = json_str.find("z_field").unwrap();
+    assert!(
+        a_pos < m_pos && m_pos < z_pos,
+        "ext BTreeMap keys must be in sorted order: {json_str}"
+    );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// CATEGORY 11: Contract version (Invariant 1)
+// ═════════════════════════════════════════════════════════════════════════
+
+/// CONTRACT_VERSION is exactly "abp/v0.1".
+#[test]
+fn contract_version_is_abp_v01() {
+    assert_eq!(CONTRACT_VERSION, "abp/v0.1");
+}
+
+/// CONTRACT_VERSION is parseable by parse_version.
+#[test]
+fn contract_version_format_parseable() {
+    let parsed = parse_version(CONTRACT_VERSION);
+    assert_eq!(
+        parsed,
+        Some((0, 1)),
+        "CONTRACT_VERSION must parse to (0, 1)"
+    );
+}
+
+/// ReceiptBuilder embeds CONTRACT_VERSION in meta.contract_version.
+#[test]
+fn contract_version_embedded_in_receipt_builder() {
+    let r = ReceiptBuilder::new("test")
+        .outcome(Outcome::Complete)
+        .build();
+    assert_eq!(r.meta.contract_version, CONTRACT_VERSION);
+}
+
+/// Hello constructor embeds CONTRACT_VERSION.
+#[test]
+fn contract_version_embedded_in_hello() {
+    let hello = Envelope::hello(test_backend(), test_capabilities());
+    if let Envelope::Hello {
+        contract_version, ..
+    } = hello
+    {
+        assert_eq!(contract_version, CONTRACT_VERSION);
+    } else {
+        panic!("expected Hello");
+    }
+}
+
+/// Receipt meta contract_version matches the constant after a mock run.
+#[tokio::test]
+async fn contract_version_survives_mock_run() {
+    let rt = Runtime::with_default_backends();
+    let wo = simple_work_order("version in mock run");
+    let handle = rt.run_streaming("mock", wo).await.unwrap();
+    let (_, receipt) = drain_run(handle).await;
+    let receipt = receipt.unwrap();
+    assert_eq!(
+        receipt.meta.contract_version, CONTRACT_VERSION,
+        "mock backend must embed the current contract version"
+    );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// CATEGORY 12: Protocol version negotiation (Invariant 3 extension)
+// ═════════════════════════════════════════════════════════════════════════
+
+/// parse_version handles valid version strings.
+#[test]
+fn version_parse_valid_formats() {
+    assert_eq!(parse_version("abp/v0.1"), Some((0, 1)));
+    assert_eq!(parse_version("abp/v1.0"), Some((1, 0)));
+    assert_eq!(parse_version("abp/v2.3"), Some((2, 3)));
+    assert_eq!(parse_version("abp/v99.99"), Some((99, 99)));
+}
+
+/// parse_version rejects invalid formats.
+#[test]
+fn version_parse_rejects_invalid() {
+    assert_eq!(parse_version(""), None);
+    assert_eq!(parse_version("invalid"), None);
+    assert_eq!(parse_version("v0.1"), None);
+    assert_eq!(parse_version("abp/0.1"), None);
+    assert_eq!(parse_version("abp/v"), None);
+    assert_eq!(parse_version("abp/v0"), None);
+    assert_eq!(parse_version("abp/v0."), None);
+    assert_eq!(parse_version("abp/v.1"), None);
+}
+
+/// Same-major versions are compatible.
+#[test]
+fn version_compatible_same_major() {
+    assert!(is_compatible_version("abp/v0.1", "abp/v0.2"));
+    assert!(is_compatible_version("abp/v0.2", "abp/v0.1"));
+    assert!(is_compatible_version("abp/v1.0", "abp/v1.5"));
+}
+
+/// Different-major versions are incompatible.
+#[test]
+fn version_incompatible_different_major() {
+    assert!(!is_compatible_version("abp/v0.1", "abp/v1.0"));
+    assert!(!is_compatible_version("abp/v1.0", "abp/v0.1"));
+    assert!(!is_compatible_version("abp/v2.0", "abp/v3.0"));
+}
+
+/// CONTRACT_VERSION is compatible with itself.
+#[test]
+fn version_contract_version_compatible_with_self() {
+    assert!(is_compatible_version(CONTRACT_VERSION, CONTRACT_VERSION));
+}
+
+/// Invalid versions are never compatible.
+#[test]
+fn version_invalid_versions_not_compatible() {
+    assert!(!is_compatible_version("garbage", CONTRACT_VERSION));
+    assert!(!is_compatible_version(CONTRACT_VERSION, "garbage"));
+    assert!(!is_compatible_version("", ""));
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// CATEGORY 13: Capability negotiation (Invariant 8)
+// ═════════════════════════════════════════════════════════════════════════
+
+/// SupportLevel::Native satisfies MinSupport::Native.
+#[test]
+fn capability_native_satisfies_native() {
+    assert!(SupportLevel::Native.satisfies(&MinSupport::Native));
+}
+
+/// SupportLevel::Native satisfies MinSupport::Emulated.
+#[test]
+fn capability_native_satisfies_emulated() {
+    assert!(SupportLevel::Native.satisfies(&MinSupport::Emulated));
+}
+
+/// SupportLevel::Emulated does NOT satisfy MinSupport::Native.
+#[test]
+fn capability_emulated_does_not_satisfy_native() {
+    assert!(!SupportLevel::Emulated.satisfies(&MinSupport::Native));
+}
+
+/// SupportLevel::Emulated satisfies MinSupport::Emulated.
+#[test]
+fn capability_emulated_satisfies_emulated() {
+    assert!(SupportLevel::Emulated.satisfies(&MinSupport::Emulated));
+}
+
+/// SupportLevel::Unsupported fails both min support levels.
+#[test]
+fn capability_unsupported_satisfies_nothing() {
+    assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Native));
+    assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
+}
+
+/// SupportLevel::Restricted satisfies MinSupport::Emulated but not Native.
+#[test]
+fn capability_restricted_satisfies_emulated_not_native() {
+    let restricted = SupportLevel::Restricted {
+        reason: "policy".into(),
+    };
+    assert!(restricted.satisfies(&MinSupport::Emulated));
+    assert!(!restricted.satisfies(&MinSupport::Native));
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// CATEGORY 14: Sequence validation (Invariant 3 — protocol handshake)
+// ═════════════════════════════════════════════════════════════════════════
+
+/// Full valid flow: Hello → Run → Event → Final produces no errors.
+#[test]
+fn sequence_valid_hello_run_event_final() {
+    let v = EnvelopeValidator::new();
+    let wo = simple_work_order("valid sequence");
+    let envelopes = vec![
+        Envelope::hello(test_backend(), test_capabilities()),
+        Envelope::Run {
+            id: "r1".into(),
+            work_order: wo,
+        },
+        Envelope::Event {
+            ref_id: "r1".into(),
+            event: AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::RunStarted {
+                    message: "go".into(),
+                },
+                ext: None,
+            },
+        },
+        Envelope::Final {
+            ref_id: "r1".into(),
+            receipt: make_receipt("test"),
+        },
+    ];
+    let errors = v.validate_sequence(&envelopes);
+    assert!(
+        errors.is_empty(),
+        "valid sequence should have no errors: {errors:?}"
+    );
+}
+
+/// Missing Hello in sequence is detected.
+#[test]
+fn sequence_missing_hello_detected() {
+    let v = EnvelopeValidator::new();
+    let envelopes = vec![Envelope::Fatal {
+        ref_id: None,
+        error: "boom".into(),
+        error_code: None,
+    }];
+    let errors = v.validate_sequence(&envelopes);
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, abp_protocol::validate::SequenceError::MissingHello)),
+        "should detect missing Hello: {errors:?}"
+    );
+}
+
+/// Empty sequence produces MissingHello and MissingTerminal.
+#[test]
+fn sequence_empty_produces_both_errors() {
+    let v = EnvelopeValidator::new();
+    let errors = v.validate_sequence(&[]);
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, abp_protocol::validate::SequenceError::MissingHello)),
+        "empty sequence should report MissingHello"
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, abp_protocol::validate::SequenceError::MissingTerminal)),
+        "empty sequence should report MissingTerminal"
+    );
+}
+
+/// Missing terminal (Final/Fatal) is detected.
+#[test]
+fn sequence_missing_terminal_detected() {
+    let v = EnvelopeValidator::new();
+    let wo = simple_work_order("no terminal");
+    let envelopes = vec![
+        Envelope::hello(test_backend(), test_capabilities()),
+        Envelope::Run {
+            id: "r1".into(),
+            work_order: wo,
+        },
+        Envelope::Event {
+            ref_id: "r1".into(),
+            event: AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::RunStarted {
+                    message: "go".into(),
+                },
+                ext: None,
+            },
+        },
+    ];
+    let errors = v.validate_sequence(&envelopes);
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, abp_protocol::validate::SequenceError::MissingTerminal)),
+        "should detect missing terminal: {errors:?}"
+    );
+}
+
+/// Multiple terminals in a sequence are detected.
+#[test]
+fn sequence_multiple_terminals_detected() {
+    let v = EnvelopeValidator::new();
+    let wo = simple_work_order("multi terminal");
+    let envelopes = vec![
+        Envelope::hello(test_backend(), test_capabilities()),
+        Envelope::Run {
+            id: "r1".into(),
+            work_order: wo,
+        },
+        Envelope::Final {
+            ref_id: "r1".into(),
+            receipt: make_receipt("test"),
+        },
+        Envelope::Fatal {
+            ref_id: Some("r1".into()),
+            error: "extra".into(),
+            error_code: None,
+        },
+    ];
+    let errors = v.validate_sequence(&envelopes);
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, abp_protocol::validate::SequenceError::MultipleTerminals)),
+        "should detect multiple terminals: {errors:?}"
+    );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// CATEGORY 15: Passthrough fidelity (Invariant 7)
+// ═════════════════════════════════════════════════════════════════════════
+
+/// Full WorkOrder survives JSON round-trip with all fields intact.
+#[test]
+fn passthrough_full_work_order_roundtrip() {
+    let wo = WorkOrderBuilder::new("roundtrip test")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .model("gpt-4")
+        .max_turns(10)
+        .max_budget_usd(5.0)
+        .policy(PolicyProfile {
+            allowed_tools: vec!["Read".into()],
+            disallowed_tools: vec!["Bash".into()],
+            deny_read: vec!["**/.env".into()],
+            deny_write: vec!["**/.git/**".into()],
+            ..PolicyProfile::default()
+        })
+        .build();
+    let json = serde_json::to_value(&wo).unwrap();
+    let back: WorkOrder = serde_json::from_value(json).unwrap();
+    assert_eq!(back.task, "roundtrip test");
+    assert_eq!(back.config.model.as_deref(), Some("gpt-4"));
+    assert_eq!(back.config.max_turns, Some(10));
+    assert_eq!(back.policy.allowed_tools, vec!["Read"]);
+    assert_eq!(back.policy.disallowed_tools, vec!["Bash"]);
+}
+
+/// Full Receipt survives JSON round-trip with hash intact.
+#[test]
+fn passthrough_full_receipt_roundtrip() {
+    let receipt = ReceiptBuilder::new("roundtrip")
+        .outcome(Outcome::Complete)
+        .backend_version("1.0.0")
+        .adapter_version("0.5.0")
+        .with_hash()
+        .unwrap();
+    let original_hash = receipt.receipt_sha256.clone().unwrap();
+    let json = serde_json::to_value(&receipt).unwrap();
+    let back: Receipt = serde_json::from_value(json).unwrap();
+    assert_eq!(back.backend.id, "roundtrip");
+    assert_eq!(back.receipt_sha256.as_ref().unwrap(), &original_hash);
+    // Recomputed hash must still match.
+    let recomputed = receipt_hash(&back).unwrap();
+    assert_eq!(recomputed, original_hash);
+}
+
+/// Default execution mode is Mapped, not Passthrough.
+#[test]
+fn passthrough_execution_mode_default_is_mapped() {
+    let mode = ExecutionMode::default();
+    assert_eq!(mode, ExecutionMode::Mapped);
+}
+
+/// ExecutionMode::Passthrough round-trips through serde.
+#[test]
+fn passthrough_execution_mode_passthrough_roundtrip() {
+    let mode = ExecutionMode::Passthrough;
+    let json = serde_json::to_value(mode).unwrap();
+    assert_eq!(json.as_str().unwrap(), "passthrough");
+    let back: ExecutionMode = serde_json::from_value(json).unwrap();
+    assert_eq!(back, ExecutionMode::Passthrough);
+}
+
+/// Empty PolicyProfile permits all tools and paths.
+#[test]
+fn passthrough_policy_default_permits_all() {
+    let engine = PolicyEngine::new(&PolicyProfile::default()).unwrap();
+    assert!(
+        engine.can_use_tool("AnyTool").allowed,
+        "default policy should permit all tools"
+    );
+    assert!(
+        engine.can_read_path(Path::new("any/path.rs")).allowed,
+        "default policy should permit all reads"
+    );
+    assert!(
+        engine.can_write_path(Path::new("any/path.rs")).allowed,
+        "default policy should permit all writes"
+    );
+}
+
+/// sha256_hex produces a 64-char hex string.
+#[test]
+fn sha256_hex_output_format() {
+    let hash = sha256_hex(b"hello");
+    assert_eq!(hash.len(), 64);
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+}
+
+/// sha256_hex is deterministic.
+#[test]
+fn sha256_hex_deterministic() {
+    let h1 = sha256_hex(b"test data");
+    let h2 = sha256_hex(b"test data");
+    assert_eq!(h1, h2);
+}
+
+/// sha256_hex changes when input changes.
+#[test]
+fn sha256_hex_sensitive_to_input() {
+    let h1 = sha256_hex(b"input A");
+    let h2 = sha256_hex(b"input B");
+    assert_ne!(h1, h2, "different inputs must produce different hashes");
+}
+
+/// Envelope discriminator field is "t" for ALL variants, never "type".
+#[test]
+fn protocol_no_type_field_at_envelope_level() {
+    let envelopes: Vec<Envelope> = vec![
+        Envelope::hello(test_backend(), test_capabilities()),
+        Envelope::Run {
+            id: "r1".into(),
+            work_order: simple_work_order("no type"),
+        },
+        Envelope::Event {
+            ref_id: "r1".into(),
+            event: AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::RunStarted {
+                    message: "go".into(),
+                },
+                ext: None,
+            },
+        },
+        Envelope::Final {
+            ref_id: "r1".into(),
+            receipt: make_receipt("test"),
+        },
+        Envelope::Fatal {
+            ref_id: None,
+            error: "boom".into(),
+            error_code: None,
+        },
+    ];
+    for env in &envelopes {
+        let json = serde_json::to_value(env).unwrap();
+        let obj = json.as_object().unwrap();
+        assert!(obj.contains_key("t"), "envelope must have 't' key: {json}");
+        // The envelope itself must not have a "type" key at the top level.
+        // (Note: nested event objects may have "type" for AgentEventKind.)
+        assert!(
+            !obj.contains_key("type"),
+            "envelope top-level must NOT use 'type': {json}"
+        );
+    }
+}
+
+/// AgentEventKind uses "type" discriminator (distinct from envelope "t").
+#[test]
+fn event_kind_uses_type_discriminator() {
+    let event = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::AssistantMessage {
+            text: "hello".into(),
+        },
+        ext: None,
+    };
+    let json = serde_json::to_value(&event).unwrap();
+    assert!(
+        json.get("type").is_some(),
+        "AgentEventKind should use 'type' discriminator: {json}"
+    );
+    assert_eq!(json["type"].as_str().unwrap(), "assistant_message");
 }

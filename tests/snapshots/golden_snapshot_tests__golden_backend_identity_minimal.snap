@@ -1,0 +1,9 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: b
+---
+{
+  "id": "mock",
+  "backend_version": null,
+  "adapter_version": null
+}

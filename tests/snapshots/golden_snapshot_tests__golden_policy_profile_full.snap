@@ -1,0 +1,34 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: p
+---
+{
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Edit"
+  ],
+  "disallowed_tools": [
+    "Bash",
+    "WebSearch"
+  ],
+  "deny_read": [
+    "**/.env",
+    "**/secrets/**"
+  ],
+  "deny_write": [
+    "**/.git/**",
+    "**/node_modules/**"
+  ],
+  "allow_network": [
+    "api.github.com",
+    "crates.io"
+  ],
+  "deny_network": [
+    "*.evil.com"
+  ],
+  "require_approval_for": [
+    "Bash",
+    "Write"
+  ]
+}

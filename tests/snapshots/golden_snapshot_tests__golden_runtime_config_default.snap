@@ -1,0 +1,11 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: c
+---
+{
+  "model": null,
+  "vendor": {},
+  "env": {},
+  "max_budget_usd": null,
+  "max_turns": null
+}

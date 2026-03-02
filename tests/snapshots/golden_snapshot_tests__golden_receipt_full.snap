@@ -1,0 +1,62 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: json
+---
+{
+  "meta": {
+    "run_id": "00000000-0000-0000-0000-000000000002",
+    "work_order_id": "00000000-0000-0000-0000-000000000001",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-01-15T12:00:00Z",
+    "finished_at": "2025-01-15T12:05:00Z",
+    "duration_ms": 300000
+  },
+  "backend": {
+    "id": "sidecar:node",
+    "backend_version": "1.2.3",
+    "adapter_version": "0.1.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_read": "native",
+    "tool_write": "emulated"
+  },
+  "mode": "mapped",
+  "usage_raw": {
+    "completion_tokens": 800,
+    "prompt_tokens": 1500
+  },
+  "usage": {
+    "input_tokens": 1500,
+    "output_tokens": 800,
+    "cache_read_tokens": 200,
+    "cache_write_tokens": 50,
+    "request_units": null,
+    "estimated_cost_usd": 0.0125
+  },
+  "trace": [
+    {
+      "ts": "2025-01-15T12:00:00Z",
+      "type": "run_started",
+      "message": "Starting refactor"
+    },
+    {
+      "ts": "2025-01-15T12:05:00Z",
+      "type": "run_completed",
+      "message": "Refactor done"
+    }
+  ],
+  "artifacts": [
+    {
+      "kind": "patch",
+      "path": "output/changes.patch"
+    }
+  ],
+  "verification": {
+    "git_diff": "+added line\n-removed line",
+    "git_status": "M src/auth.rs",
+    "harness_ok": true
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

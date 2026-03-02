@@ -1,0 +1,42 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: wo
+---
+{
+  "id": "[uuid]",
+  "task": "Fix the login bug",
+  "lane": "patch_first",
+  "workspace": {
+    "root": "/tmp/ws",
+    "mode": "pass_through",
+    "include": [
+      "**/*.py"
+    ],
+    "exclude": [
+      "__pycache__/**"
+    ]
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": []
+  },
+  "config": {
+    "model": null,
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

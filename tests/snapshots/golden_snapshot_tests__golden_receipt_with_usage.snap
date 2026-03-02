@@ -1,0 +1,41 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: r
+---
+{
+  "meta": {
+    "run_id": "00000000-0000-0000-0000-000000000002",
+    "work_order_id": "00000000-0000-0000-0000-000000000001",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-01-15T12:00:00Z",
+    "finished_at": "2025-01-15T12:05:00Z",
+    "duration_ms": 300000
+  },
+  "backend": {
+    "id": "mock",
+    "backend_version": null,
+    "adapter_version": null
+  },
+  "capabilities": {},
+  "mode": "mapped",
+  "usage_raw": {
+    "total_tokens": 3000
+  },
+  "usage": {
+    "input_tokens": 2000,
+    "output_tokens": 1000,
+    "cache_read_tokens": null,
+    "cache_write_tokens": null,
+    "request_units": 5,
+    "estimated_cost_usd": 0.05
+  },
+  "trace": [],
+  "artifacts": [],
+  "verification": {
+    "git_diff": null,
+    "git_status": null,
+    "harness_ok": false
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

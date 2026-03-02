@@ -1,0 +1,16 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: display
+---
+[
+    "protocol",
+    "backend",
+    "capability",
+    "policy",
+    "workspace",
+    "ir",
+    "receipt",
+    "dialect",
+    "config",
+    "internal",
+]

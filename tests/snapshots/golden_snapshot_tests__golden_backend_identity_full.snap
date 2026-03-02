@@ -1,0 +1,9 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: b
+---
+{
+  "id": "sidecar:claude",
+  "backend_version": "3.5",
+  "adapter_version": "0.2.0"
+}

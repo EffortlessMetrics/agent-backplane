@@ -1,0 +1,16 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: cond
+---
+{
+  "and": [
+    {
+      "pattern": "Read*"
+    },
+    {
+      "not": {
+        "pattern": "*.secret"
+      }
+    }
+  ]
+}

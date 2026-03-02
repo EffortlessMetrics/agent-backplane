@@ -1,0 +1,21 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: schema
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecutionMode",
+  "description": "Execution mode for how ABP processes requests.\n\n- Passthrough: Lossless wrapping - ABP acts as observer/recorder only\n- Mapped: Full dialect translation - ABP translates between dialects\n\n# Examples\n\n```\nuse abp_core::ExecutionMode;\n\nlet mode = ExecutionMode::default();\nassert_eq!(mode, ExecutionMode::Mapped);\n```",
+  "oneOf": [
+    {
+      "description": "Lossless wrapping mode. ABP passes requests directly to the SDK\nwithout modification. Stream is bitwise-equivalent to direct SDK call\nafter removing ABP framing.",
+      "type": "string",
+      "const": "passthrough"
+    },
+    {
+      "description": "Full dialect translation mode. ABP translates between different\nagent dialects, potentially modifying requests and responses.",
+      "type": "string",
+      "const": "mapped"
+    }
+  ]
+}

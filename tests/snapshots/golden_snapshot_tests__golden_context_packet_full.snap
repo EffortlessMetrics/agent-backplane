@@ -1,0 +1,20 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: c
+---
+{
+  "files": [
+    "src/main.rs",
+    "Cargo.toml"
+  ],
+  "snippets": [
+    {
+      "name": "arch",
+      "content": "This is a Rust workspace"
+    },
+    {
+      "name": "style",
+      "content": "Use snake_case"
+    }
+  ]
+}

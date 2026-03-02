@@ -1,0 +1,5 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: line.trim()
+---
+{"t":"fatal","ref_id":"run-001","error":"process killed"}

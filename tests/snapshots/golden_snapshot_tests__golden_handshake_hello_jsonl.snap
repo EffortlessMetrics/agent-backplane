@@ -1,0 +1,5 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: line.trim()
+---
+{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"sidecar:node","backend_version":"1.0.0","adapter_version":null},"capabilities":{"streaming":"native"},"mode":"mapped"}

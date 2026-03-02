@@ -1,0 +1,17 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: c
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "vendor": {
+    "temperature": 0.5,
+    "top_p": 0.9
+  },
+  "env": {
+    "HOME": "/home/user",
+    "RUST_LOG": "debug"
+  },
+  "max_budget_usd": 25.0,
+  "max_turns": 100
+}

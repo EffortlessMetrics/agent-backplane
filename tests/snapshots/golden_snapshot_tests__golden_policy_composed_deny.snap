@@ -1,0 +1,8 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: d
+---
+{
+  "type": "deny",
+  "reason": "matched denylist"
+}

@@ -700,7 +700,10 @@ fn f01_env_overrides_default_backend() {
     let mut cfg = BackplaneConfig::default();
     apply_env_overrides(&mut cfg);
     // Race-tolerant: parallel tests may set this env var too
-    assert!(cfg.default_backend.is_some(), "default_backend should be set from env");
+    assert!(
+        cfg.default_backend.is_some(),
+        "default_backend should be set from env"
+    );
 }
 
 #[test]
@@ -716,7 +719,10 @@ fn f03_env_overrides_receipts_dir() {
     let _g = EnvGuard::new(&[("ABP_RECEIPTS_DIR", "/env/receipts")]);
     let mut cfg = BackplaneConfig::default();
     apply_env_overrides(&mut cfg);
-    assert!(cfg.receipts_dir.is_some(), "receipts_dir should be set from env");
+    assert!(
+        cfg.receipts_dir.is_some(),
+        "receipts_dir should be set from env"
+    );
 }
 
 #[test]
@@ -765,7 +771,10 @@ fn f07_env_overrides_multiple_at_once() {
     let mut cfg = BackplaneConfig::default();
     apply_env_overrides(&mut cfg);
     // In parallel test runs, env vars may race. Just verify all fields are set.
-    assert!(cfg.default_backend.is_some(), "default_backend should be set");
+    assert!(
+        cfg.default_backend.is_some(),
+        "default_backend should be set"
+    );
     assert!(cfg.log_level.is_some(), "log_level should be set");
     assert!(cfg.receipts_dir.is_some(), "receipts_dir should be set");
     assert!(cfg.workspace_dir.is_some(), "workspace_dir should be set");
@@ -776,7 +785,10 @@ fn f08_load_config_none_applies_env() {
     let _g = EnvGuard::new(&[("ABP_DEFAULT_BACKEND", "env_loaded")]);
     let cfg = load_config(None).unwrap();
     // In parallel test runs, another test may set ABP_DEFAULT_BACKEND
-    assert!(cfg.default_backend.is_some(), "default_backend should be set from env");
+    assert!(
+        cfg.default_backend.is_some(),
+        "default_backend should be set from env"
+    );
 }
 
 // ===========================================================================
