@@ -3,8 +3,8 @@
 
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix, MappingRegistry,
-    MappingRule, MappingValidation,
+    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
+    features, known_rules, validate_mapping,
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -81,9 +81,10 @@ fn registry_lookup_existing() {
 #[test]
 fn registry_lookup_missing_returns_none() {
     let reg = MappingRegistry::new();
-    assert!(reg
-        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-        .is_none());
+    assert!(
+        reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+            .is_none()
+    );
 }
 
 #[test]
@@ -96,9 +97,10 @@ fn registry_lookup_wrong_direction() {
         Fidelity::Lossless,
     ));
     // Reverse direction should not match.
-    assert!(reg
-        .lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
-        .is_none());
+    assert!(
+        reg.lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
+            .is_none()
+    );
 }
 
 #[test]
@@ -110,9 +112,10 @@ fn registry_lookup_wrong_feature() {
         "tool_use",
         Fidelity::Lossless,
     ));
-    assert!(reg
-        .lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
-        .is_none());
+    assert!(
+        reg.lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
+            .is_none()
+    );
 }
 
 #[test]
@@ -133,11 +136,12 @@ fn registry_insert_replaces_same_key() {
         },
     ));
     assert_eq!(reg.len(), 1);
-    assert!(!reg
-        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-        .unwrap()
-        .fidelity
-        .is_lossless());
+    assert!(
+        !reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+            .unwrap()
+            .fidelity
+            .is_lossless()
+    );
 }
 
 #[test]
@@ -354,10 +358,12 @@ fn validate_lossy_feature_produces_fidelity_loss_error() {
     );
     assert_eq!(results.len(), 1);
     assert!(!results[0].fidelity.is_lossless());
-    assert!(results[0]
-        .errors
-        .iter()
-        .any(|e| matches!(e, MappingError::FidelityLoss { .. })));
+    assert!(
+        results[0]
+            .errors
+            .iter()
+            .any(|e| matches!(e, MappingError::FidelityLoss { .. }))
+    );
 }
 
 #[test]
@@ -371,10 +377,12 @@ fn validate_unsupported_feature_produces_error() {
     );
     assert_eq!(results.len(), 1);
     assert!(results[0].fidelity.is_unsupported());
-    assert!(results[0]
-        .errors
-        .iter()
-        .any(|e| matches!(e, MappingError::FeatureUnsupported { .. })));
+    assert!(
+        results[0]
+            .errors
+            .iter()
+            .any(|e| matches!(e, MappingError::FeatureUnsupported { .. }))
+    );
 }
 
 #[test]
@@ -401,10 +409,12 @@ fn validate_empty_feature_name_returns_invalid_input() {
     let reg = known_rules();
     let results = validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &["".into()]);
     assert_eq!(results.len(), 1);
-    assert!(results[0]
-        .errors
-        .iter()
-        .any(|e| matches!(e, MappingError::InvalidInput { .. })));
+    assert!(
+        results[0]
+            .errors
+            .iter()
+            .any(|e| matches!(e, MappingError::InvalidInput { .. }))
+    );
 }
 
 #[test]
@@ -471,12 +481,7 @@ fn validate_streaming_all_core_pairs_lossless() {
 fn validate_image_input_codex_always_unsupported() {
     let reg = known_rules();
     for &src in &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini] {
-        let results = validate_mapping(
-            &reg,
-            src,
-            Dialect::Codex,
-            &[features::IMAGE_INPUT.into()],
-        );
+        let results = validate_mapping(&reg, src, Dialect::Codex, &[features::IMAGE_INPUT.into()]);
         assert!(
             results[0].fidelity.is_unsupported(),
             "image_input {src} -> Codex should be unsupported"
@@ -488,12 +493,7 @@ fn validate_image_input_codex_always_unsupported() {
 fn validate_codex_image_to_others_unsupported() {
     let reg = known_rules();
     for &tgt in &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini] {
-        let results = validate_mapping(
-            &reg,
-            Dialect::Codex,
-            tgt,
-            &[features::IMAGE_INPUT.into()],
-        );
+        let results = validate_mapping(&reg, Dialect::Codex, tgt, &[features::IMAGE_INPUT.into()]);
         assert!(
             results[0].fidelity.is_unsupported(),
             "image_input Codex -> {tgt} should be unsupported"
@@ -573,12 +573,7 @@ fn fidelity_lossy_warning_preserved_in_validation() {
             warning: "mapped to system message".into(),
         },
     ));
-    let results = validate_mapping(
-        &reg,
-        Dialect::Claude,
-        Dialect::OpenAi,
-        &["thinking".into()],
-    );
+    let results = validate_mapping(&reg, Dialect::Claude, Dialect::OpenAi, &["thinking".into()]);
     match &results[0].fidelity {
         Fidelity::LossyLabeled { warning } => {
             assert!(warning.contains("mapped to system message"));
@@ -625,10 +620,7 @@ fn known_rules_thinking_cross_dialect_always_lossy() {
                 continue;
             }
             let rule = reg.lookup(a, b, features::THINKING);
-            assert!(
-                rule.is_some(),
-                "thinking rule missing for {a} -> {b}"
-            );
+            assert!(rule.is_some(), "thinking rule missing for {a} -> {b}");
             assert!(
                 !rule.unwrap().fidelity.is_lossless(),
                 "thinking {a} -> {b} should not be lossless"
@@ -653,10 +645,7 @@ fn known_rules_code_exec_cross_dialect_lossy_for_code_capable() {
                 continue;
             }
             let rule = reg.lookup(a, b, features::CODE_EXEC);
-            assert!(
-                rule.is_some(),
-                "code_exec rule missing for {a} -> {b}"
-            );
+            assert!(rule.is_some(), "code_exec rule missing for {a} -> {b}");
             assert!(
                 !rule.unwrap().fidelity.is_lossless(),
                 "code_exec {a} -> {b} should be lossy"
@@ -676,10 +665,7 @@ fn known_rules_kimi_code_exec_unsupported() {
         Dialect::Copilot,
     ] {
         let rule = reg.lookup(Dialect::Kimi, tgt, features::CODE_EXEC);
-        assert!(
-            rule.is_some(),
-            "code_exec Kimi -> {tgt} rule should exist"
-        );
+        assert!(rule.is_some(), "code_exec Kimi -> {tgt} rule should exist");
         assert!(
             rule.unwrap().fidelity.is_unsupported(),
             "code_exec Kimi -> {tgt} should be unsupported"
@@ -1044,10 +1030,7 @@ fn known_rules_same_dialect_lossless_for_all() {
     for &d in all_dialects() {
         for f in all_features() {
             let rule = reg.lookup(d, d, f);
-            assert!(
-                rule.is_some(),
-                "self-rule missing for {d} -> {d} {f}"
-            );
+            assert!(rule.is_some(), "self-rule missing for {d} -> {d} {f}");
             assert!(
                 rule.unwrap().fidelity.is_lossless(),
                 "{d} -> {d} {f} should be lossless"
@@ -1169,7 +1152,11 @@ fn rank_targets_sorted_by_lossless_count_descending() {
     let reg = known_rules();
     let ranked = reg.rank_targets(
         Dialect::OpenAi,
-        &[features::TOOL_USE, features::STREAMING, features::IMAGE_INPUT],
+        &[
+            features::TOOL_USE,
+            features::STREAMING,
+            features::IMAGE_INPUT,
+        ],
     );
     for w in ranked.windows(2) {
         assert!(w[0].1 >= w[1].1);
@@ -1468,11 +1455,7 @@ fn validate_all_core_pairs_all_features_no_panic() {
     for &a in all_dialects() {
         for &b in all_dialects() {
             let results = validate_mapping(&reg, a, b, &feats);
-            assert_eq!(
-                results.len(),
-                feats.len(),
-                "wrong count for {a} -> {b}"
-            );
+            assert_eq!(results.len(), feats.len(), "wrong count for {a} -> {b}");
         }
     }
 }

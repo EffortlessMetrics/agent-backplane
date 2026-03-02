@@ -464,7 +464,10 @@ mod check_write {
             ..Default::default()
         });
         assert!(!e.can_write_path(Path::new(".git/config")).allowed);
-        assert!(!e.can_write_path(Path::new("node_modules/pkg/index.js")).allowed);
+        assert!(
+            !e.can_write_path(Path::new("node_modules/pkg/index.js"))
+                .allowed
+        );
         assert!(!e.can_write_path(Path::new("Cargo.lock")).allowed);
         assert!(e.can_write_path(Path::new("src/main.rs")).allowed);
     }
@@ -928,14 +931,24 @@ mod rules {
     #[test]
     fn always_condition() {
         let mut eng = RuleEngine::new();
-        eng.add_rule(make_rule("deny-all", RuleCondition::Always, RuleEffect::Deny, 10));
+        eng.add_rule(make_rule(
+            "deny-all",
+            RuleCondition::Always,
+            RuleEffect::Deny,
+            10,
+        ));
         assert_eq!(eng.evaluate("anything"), RuleEffect::Deny);
     }
 
     #[test]
     fn never_condition() {
         let mut eng = RuleEngine::new();
-        eng.add_rule(make_rule("never", RuleCondition::Never, RuleEffect::Deny, 10));
+        eng.add_rule(make_rule(
+            "never",
+            RuleCondition::Never,
+            RuleEffect::Deny,
+            10,
+        ));
         assert_eq!(eng.evaluate("anything"), RuleEffect::Allow);
     }
 
@@ -994,18 +1007,8 @@ mod rules {
     #[test]
     fn evaluate_all_returns_all_rules() {
         let mut eng = RuleEngine::new();
-        eng.add_rule(make_rule(
-            "r1",
-            RuleCondition::Always,
-            RuleEffect::Allow,
-            1,
-        ));
-        eng.add_rule(make_rule(
-            "r2",
-            RuleCondition::Never,
-            RuleEffect::Deny,
-            10,
-        ));
+        eng.add_rule(make_rule("r1", RuleCondition::Always, RuleEffect::Allow, 1));
+        eng.add_rule(make_rule("r2", RuleCondition::Never, RuleEffect::Deny, 10));
         let results = eng.evaluate_all("test");
         assert_eq!(results.len(), 2);
         assert!(results[0].matched);
@@ -1057,12 +1060,7 @@ mod rules {
     #[test]
     fn log_effect() {
         let mut eng = RuleEngine::new();
-        eng.add_rule(make_rule(
-            "log",
-            RuleCondition::Always,
-            RuleEffect::Log,
-            10,
-        ));
+        eng.add_rule(make_rule("log", RuleCondition::Always, RuleEffect::Log, 10));
         assert_eq!(eng.evaluate("anything"), RuleEffect::Log);
     }
 
@@ -1163,7 +1161,10 @@ mod edge_cases {
             deny_read: s(&["very/deep/nested/path/**"]),
             ..Default::default()
         });
-        assert!(!e.can_read_path(Path::new("very/deep/nested/path/file.txt")).allowed);
+        assert!(
+            !e.can_read_path(Path::new("very/deep/nested/path/file.txt"))
+                .allowed
+        );
         assert!(e.can_read_path(Path::new("very/deep/other.txt")).allowed);
     }
 
@@ -1287,9 +1288,10 @@ mod validator {
             ..Default::default()
         };
         let w = PolicyValidator::validate(&p);
-        assert!(w
-            .iter()
-            .any(|x| x.kind == WarningKind::OverlappingAllowDeny));
+        assert!(
+            w.iter()
+                .any(|x| x.kind == WarningKind::OverlappingAllowDeny)
+        );
     }
 
     #[test]
@@ -1300,9 +1302,10 @@ mod validator {
             ..Default::default()
         };
         let w = PolicyValidator::validate(&p);
-        assert!(w
-            .iter()
-            .any(|x| x.kind == WarningKind::OverlappingAllowDeny));
+        assert!(
+            w.iter()
+                .any(|x| x.kind == WarningKind::OverlappingAllowDeny)
+        );
     }
 
     #[test]

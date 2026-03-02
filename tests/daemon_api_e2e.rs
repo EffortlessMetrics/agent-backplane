@@ -20,10 +20,10 @@ use abp_daemon::api::{
 use abp_daemon::middleware::{CorsConfig, RateLimiter, RequestId};
 use abp_daemon::queue::{QueueError, QueuePriority, QueueStats, QueuedRun, RunQueue};
 use abp_daemon::validation::RequestValidator;
-use abp_daemon::versioning::{ApiVersion, ApiVersionError, ApiVersionRegistry, VersionNegotiator, VersionedEndpoint};
-use abp_daemon::{
-    AppState, BackendInfo, RunMetrics, RunRequest, RunStatus, RunTracker, build_app,
+use abp_daemon::versioning::{
+    ApiVersion, ApiVersionError, ApiVersionRegistry, VersionNegotiator, VersionedEndpoint,
 };
+use abp_daemon::{AppState, BackendInfo, RunMetrics, RunRequest, RunStatus, RunTracker, build_app};
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;
 use axum::body::Body;
@@ -151,7 +151,12 @@ async fn build_app_returns_router() {
     let app = build_app(state);
     // Router responds to /health
     let resp = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -238,7 +243,12 @@ async fn capabilities_endpoint_returns_backend_info() {
     let tmp = tempfile::tempdir().unwrap();
     let app = build_app(test_state(tmp.path()));
     let resp = app
-        .oneshot(Request::builder().uri("/capabilities").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/capabilities")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -821,8 +831,10 @@ fn queue_new_is_empty() {
 #[test]
 fn queue_enqueue_and_dequeue_fifo() {
     let mut q = RunQueue::new(10);
-    q.enqueue(make_queued_run("a", QueuePriority::Normal)).unwrap();
-    q.enqueue(make_queued_run("b", QueuePriority::Normal)).unwrap();
+    q.enqueue(make_queued_run("a", QueuePriority::Normal))
+        .unwrap();
+    q.enqueue(make_queued_run("b", QueuePriority::Normal))
+        .unwrap();
     assert_eq!(q.len(), 2);
     assert_eq!(q.dequeue().unwrap().id, "a");
     assert_eq!(q.dequeue().unwrap().id, "b");
@@ -832,10 +844,14 @@ fn queue_enqueue_and_dequeue_fifo() {
 #[test]
 fn queue_priority_ordering() {
     let mut q = RunQueue::new(10);
-    q.enqueue(make_queued_run("low", QueuePriority::Low)).unwrap();
-    q.enqueue(make_queued_run("crit", QueuePriority::Critical)).unwrap();
-    q.enqueue(make_queued_run("high", QueuePriority::High)).unwrap();
-    q.enqueue(make_queued_run("norm", QueuePriority::Normal)).unwrap();
+    q.enqueue(make_queued_run("low", QueuePriority::Low))
+        .unwrap();
+    q.enqueue(make_queued_run("crit", QueuePriority::Critical))
+        .unwrap();
+    q.enqueue(make_queued_run("high", QueuePriority::High))
+        .unwrap();
+    q.enqueue(make_queued_run("norm", QueuePriority::Normal))
+        .unwrap();
     assert_eq!(q.dequeue().unwrap().id, "crit");
     assert_eq!(q.dequeue().unwrap().id, "high");
     assert_eq!(q.dequeue().unwrap().id, "norm");
@@ -845,25 +861,33 @@ fn queue_priority_ordering() {
 #[test]
 fn queue_full_rejects_enqueue() {
     let mut q = RunQueue::new(2);
-    q.enqueue(make_queued_run("a", QueuePriority::Normal)).unwrap();
-    q.enqueue(make_queued_run("b", QueuePriority::Normal)).unwrap();
+    q.enqueue(make_queued_run("a", QueuePriority::Normal))
+        .unwrap();
+    q.enqueue(make_queued_run("b", QueuePriority::Normal))
+        .unwrap();
     assert!(q.is_full());
-    let err = q.enqueue(make_queued_run("c", QueuePriority::Normal)).unwrap_err();
+    let err = q
+        .enqueue(make_queued_run("c", QueuePriority::Normal))
+        .unwrap_err();
     assert!(matches!(err, QueueError::Full { max: 2 }));
 }
 
 #[test]
 fn queue_duplicate_id_rejected() {
     let mut q = RunQueue::new(10);
-    q.enqueue(make_queued_run("dup", QueuePriority::Normal)).unwrap();
-    let err = q.enqueue(make_queued_run("dup", QueuePriority::High)).unwrap_err();
+    q.enqueue(make_queued_run("dup", QueuePriority::Normal))
+        .unwrap();
+    let err = q
+        .enqueue(make_queued_run("dup", QueuePriority::High))
+        .unwrap_err();
     assert!(matches!(err, QueueError::DuplicateId(_)));
 }
 
 #[test]
 fn queue_peek_does_not_remove() {
     let mut q = RunQueue::new(10);
-    q.enqueue(make_queued_run("a", QueuePriority::Normal)).unwrap();
+    q.enqueue(make_queued_run("a", QueuePriority::Normal))
+        .unwrap();
     assert_eq!(q.peek().unwrap().id, "a");
     assert_eq!(q.len(), 1);
 }
@@ -877,8 +901,10 @@ fn queue_peek_empty_returns_none() {
 #[test]
 fn queue_remove_by_id() {
     let mut q = RunQueue::new(10);
-    q.enqueue(make_queued_run("a", QueuePriority::Normal)).unwrap();
-    q.enqueue(make_queued_run("b", QueuePriority::Normal)).unwrap();
+    q.enqueue(make_queued_run("a", QueuePriority::Normal))
+        .unwrap();
+    q.enqueue(make_queued_run("b", QueuePriority::Normal))
+        .unwrap();
     let removed = q.remove("a").unwrap();
     assert_eq!(removed.id, "a");
     assert_eq!(q.len(), 1);
@@ -893,8 +919,10 @@ fn queue_remove_nonexistent_returns_none() {
 #[test]
 fn queue_clear() {
     let mut q = RunQueue::new(10);
-    q.enqueue(make_queued_run("a", QueuePriority::Normal)).unwrap();
-    q.enqueue(make_queued_run("b", QueuePriority::Normal)).unwrap();
+    q.enqueue(make_queued_run("a", QueuePriority::Normal))
+        .unwrap();
+    q.enqueue(make_queued_run("b", QueuePriority::Normal))
+        .unwrap();
     q.clear();
     assert!(q.is_empty());
 }
@@ -902,9 +930,12 @@ fn queue_clear() {
 #[test]
 fn queue_by_priority_filter() {
     let mut q = RunQueue::new(10);
-    q.enqueue(make_queued_run("h1", QueuePriority::High)).unwrap();
-    q.enqueue(make_queued_run("n1", QueuePriority::Normal)).unwrap();
-    q.enqueue(make_queued_run("h2", QueuePriority::High)).unwrap();
+    q.enqueue(make_queued_run("h1", QueuePriority::High))
+        .unwrap();
+    q.enqueue(make_queued_run("n1", QueuePriority::Normal))
+        .unwrap();
+    q.enqueue(make_queued_run("h2", QueuePriority::High))
+        .unwrap();
     let high = q.by_priority(QueuePriority::High);
     assert_eq!(high.len(), 2);
     let normal = q.by_priority(QueuePriority::Normal);
@@ -914,9 +945,11 @@ fn queue_by_priority_filter() {
 #[test]
 fn queue_stats_snapshot() {
     let mut q = RunQueue::new(100);
-    q.enqueue(make_queued_run("a", QueuePriority::High)).unwrap();
+    q.enqueue(make_queued_run("a", QueuePriority::High))
+        .unwrap();
     q.enqueue(make_queued_run("b", QueuePriority::Low)).unwrap();
-    q.enqueue(make_queued_run("c", QueuePriority::High)).unwrap();
+    q.enqueue(make_queued_run("c", QueuePriority::High))
+        .unwrap();
     let stats = q.stats();
     assert_eq!(stats.total, 3);
     assert_eq!(stats.max, 100);
@@ -936,12 +969,17 @@ fn queue_stats_empty() {
 #[test]
 fn queue_capacity_one() {
     let mut q = RunQueue::new(1);
-    q.enqueue(make_queued_run("a", QueuePriority::Normal)).unwrap();
+    q.enqueue(make_queued_run("a", QueuePriority::Normal))
+        .unwrap();
     assert!(q.is_full());
-    assert!(q.enqueue(make_queued_run("b", QueuePriority::Normal)).is_err());
+    assert!(
+        q.enqueue(make_queued_run("b", QueuePriority::Normal))
+            .is_err()
+    );
     q.dequeue();
     assert!(!q.is_full());
-    q.enqueue(make_queued_run("c", QueuePriority::Normal)).unwrap();
+    q.enqueue(make_queued_run("c", QueuePriority::Normal))
+        .unwrap();
     assert_eq!(q.len(), 1);
 }
 
@@ -962,7 +1000,10 @@ async fn rate_limiter_rejects_over_limit() {
     let limiter = RateLimiter::new(2, Duration::from_secs(60));
     limiter.check().await.unwrap();
     limiter.check().await.unwrap();
-    assert_eq!(limiter.check().await.unwrap_err(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(
+        limiter.check().await.unwrap_err(),
+        StatusCode::TOO_MANY_REQUESTS
+    );
 }
 
 #[tokio::test]
@@ -1330,7 +1371,10 @@ fn api_version_serde_roundtrip() {
 fn api_version_error_display() {
     let err = ApiVersionError::InvalidFormat("bad".into());
     assert!(err.to_string().contains("bad"));
-    let err = ApiVersionError::UnsupportedVersion(ApiVersion { major: 99, minor: 0 });
+    let err = ApiVersionError::UnsupportedVersion(ApiVersion {
+        major: 99,
+        minor: 0,
+    });
     assert!(err.to_string().contains("99"));
 }
 
@@ -1528,7 +1572,12 @@ async fn run_tracker_complete_untracked_fails() {
 #[tokio::test]
 async fn run_tracker_fail_untracked_fails() {
     let tracker = RunTracker::new();
-    assert!(tracker.fail_run(Uuid::new_v4(), "err".into()).await.is_err());
+    assert!(
+        tracker
+            .fail_run(Uuid::new_v4(), "err".into())
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -1576,7 +1625,10 @@ async fn run_tracker_remove_running_fails() {
 #[tokio::test]
 async fn run_tracker_remove_nonexistent_fails() {
     let tracker = RunTracker::new();
-    assert_eq!(tracker.remove_run(Uuid::new_v4()).await.unwrap_err(), "not found");
+    assert_eq!(
+        tracker.remove_run(Uuid::new_v4()).await.unwrap_err(),
+        "not found"
+    );
 }
 
 #[tokio::test]

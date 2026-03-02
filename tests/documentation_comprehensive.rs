@@ -9,11 +9,11 @@ use std::io::BufReader;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet,
-    ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
-    RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_policy::{Decision, PolicyEngine};
@@ -216,9 +216,7 @@ fn doc_receipt_builder_trace_events() {
         },
         ext: None,
     };
-    let receipt = ReceiptBuilder::new("mock")
-        .add_trace_event(event)
-        .build();
+    let receipt = ReceiptBuilder::new("mock").add_trace_event(event).build();
     assert_eq!(receipt.trace.len(), 1);
 }
 
@@ -405,12 +403,8 @@ fn doc_agent_event_kinds() {
         AgentEventKind::RunCompleted {
             message: "done".into(),
         },
-        AgentEventKind::AssistantDelta {
-            text: "tok".into(),
-        },
-        AgentEventKind::AssistantMessage {
-            text: "msg".into(),
-        },
+        AgentEventKind::AssistantDelta { text: "tok".into() },
+        AgentEventKind::AssistantMessage { text: "msg".into() },
         AgentEventKind::ToolCall {
             tool_name: "Read".into(),
             tool_use_id: None,
@@ -447,9 +441,7 @@ fn doc_agent_event_kinds() {
 fn doc_agent_event_serde_tag_type() {
     let event = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: None,
     };
     let json = serde_json::to_string(&event).unwrap();
@@ -737,10 +729,7 @@ fn doc_envelope_builder_fatal() {
         .ref_id("run-1")
         .build()
         .unwrap();
-    if let Envelope::Fatal {
-        ref_id, error, ..
-    } = &env
-    {
+    if let Envelope::Fatal { ref_id, error, .. } = &env {
         assert_eq!(ref_id.as_deref(), Some("run-1"));
         assert_eq!(error, "something broke");
     } else {
@@ -876,10 +865,12 @@ fn doc_validator_hello_empty_backend_id() {
     let v = EnvelopeValidator::new();
     let result = v.validate(&hello);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id"))
+    );
 }
 
 #[test]
@@ -897,10 +888,12 @@ fn doc_validator_hello_invalid_version() {
     let v = EnvelopeValidator::new();
     let result = v.validate(&hello);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]
@@ -925,9 +918,7 @@ fn doc_validator_sequence_valid() {
             ref_id: run_id.clone(),
             event: AgentEvent {
                 ts: Utc::now(),
-                kind: AgentEventKind::AssistantMessage {
-                    text: "hi".into(),
-                },
+                kind: AgentEventKind::AssistantMessage { text: "hi".into() },
                 ext: None,
             },
         },
@@ -1073,8 +1064,7 @@ fn doc_glob_match_decision_is_allowed() {
 
 #[test]
 fn doc_glob_decide_path_consistency() {
-    let globs =
-        IncludeExcludeGlobs::new(&["src/**".into()], &["src/secret/**".into()]).unwrap();
+    let globs = IncludeExcludeGlobs::new(&["src/**".into()], &["src/secret/**".into()]).unwrap();
     let cases = &["src/lib.rs", "src/secret/key.pem", "README.md"];
     for &c in cases {
         assert_eq!(globs.decide_str(c), globs.decide_path(Path::new(c)));
@@ -1260,10 +1250,7 @@ fn doc_fatal_envelope_error_handling() {
         error: "backend crashed".into(),
         error_code: None,
     };
-    if let Envelope::Fatal {
-        ref_id, error, ..
-    } = &fatal
-    {
+    if let Envelope::Fatal { ref_id, error, .. } = &fatal {
         assert_eq!(ref_id.as_deref(), Some("run-1"));
         assert_eq!(error, "backend crashed");
     }
@@ -1317,12 +1304,10 @@ fn doc_workspace_spec_serde() {
 
 #[test]
 fn doc_execution_lane_serde() {
-    let patch: ExecutionLane =
-        serde_json::from_str(r#""patch_first""#).unwrap();
+    let patch: ExecutionLane = serde_json::from_str(r#""patch_first""#).unwrap();
     assert!(matches!(patch, ExecutionLane::PatchFirst));
 
-    let ws: ExecutionLane =
-        serde_json::from_str(r#""workspace_first""#).unwrap();
+    let ws: ExecutionLane = serde_json::from_str(r#""workspace_first""#).unwrap();
     assert!(matches!(ws, ExecutionLane::WorkspaceFirst));
 }
 
@@ -1375,15 +1360,10 @@ fn doc_capability_requirements_default_empty() {
 #[test]
 fn doc_agent_event_ext_field() {
     let mut ext = BTreeMap::new();
-    ext.insert(
-        "raw_message".into(),
-        serde_json::json!({"original": true}),
-    );
+    ext.insert("raw_message".into(), serde_json::json!({"original": true}));
     let event = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: Some(ext),
     };
     let json = serde_json::to_string(&event).unwrap();
@@ -1392,9 +1372,7 @@ fn doc_agent_event_ext_field() {
     // ext is skipped when None
     let event2 = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: None,
     };
     let json2 = serde_json::to_string(&event2).unwrap();

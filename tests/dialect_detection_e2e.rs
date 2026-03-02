@@ -324,7 +324,10 @@ fn serde_in_json_object() {
 fn serde_in_json_array() {
     let arr = json!(["open_ai", "gemini", "kimi"]);
     let dialects: Vec<Dialect> = serde_json::from_value(arr).unwrap();
-    assert_eq!(dialects, vec![Dialect::OpenAi, Dialect::Gemini, Dialect::Kimi]);
+    assert_eq!(
+        dialects,
+        vec![Dialect::OpenAi, Dialect::Gemini, Dialect::Kimi]
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -772,7 +775,11 @@ fn detect_none_for_empty_object() {
 
 #[test]
 fn detect_none_for_unknown_keys() {
-    assert!(detector().detect(&json!({"foo": "bar", "baz": 1})).is_none());
+    assert!(
+        detector()
+            .detect(&json!({"foo": "bar", "baz": 1}))
+            .is_none()
+    );
 }
 
 #[test]

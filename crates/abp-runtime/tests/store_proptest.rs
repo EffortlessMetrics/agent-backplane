@@ -2,8 +2,8 @@
 //! Property-based tests for [`ReceiptStore`].
 
 use abp_core::{
-    BackendIdentity, CapabilityManifest, ExecutionMode, Outcome, Receipt, RunMetadata,
-    UsageNormalized, VerificationReport, CONTRACT_VERSION,
+    BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Outcome, Receipt,
+    RunMetadata, UsageNormalized, VerificationReport,
 };
 use abp_runtime::store::ReceiptStore;
 use chrono::{TimeZone, Utc};

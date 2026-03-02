@@ -704,8 +704,8 @@ mod metadata_queries {
     #[test]
     fn custom_backend_metadata_in_registry() {
         let mut reg = BackendRegistry::default();
-        let b = CustomBackend::new("my-backend")
-            .with_cap(Capability::Streaming, SupportLevel::Native);
+        let b =
+            CustomBackend::new("my-backend").with_cap(Capability::Streaming, SupportLevel::Native);
         reg.register("my-backend", b);
         let retrieved = reg.get("my-backend").unwrap();
         assert_eq!(retrieved.identity().id, "my-backend");
@@ -936,7 +936,10 @@ mod thread_safety {
             hashes.insert(receipt.receipt_sha256.unwrap());
         }
         // Different runs should produce different hashes (different timestamps)
-        assert!(hashes.len() > 1, "expected diverse hashes from concurrent runs");
+        assert!(
+            hashes.len() > 1,
+            "expected diverse hashes from concurrent runs"
+        );
     }
 }
 
@@ -981,7 +984,10 @@ mod edge_cases {
     fn register_50_backends() {
         let mut reg = BackendRegistry::default();
         for i in 0..50 {
-            reg.register(format!("backend-{i:03}"), CustomBackend::new(&format!("b{i}")));
+            reg.register(
+                format!("backend-{i:03}"),
+                CustomBackend::new(&format!("b{i}")),
+            );
         }
         assert_eq!(reg.list().len(), 50);
     }
@@ -1081,19 +1087,19 @@ mod execution_mode {
     #[test]
     fn passthrough_from_flat_vendor_config() {
         let mut wo = simple_work_order("test");
-        wo.config.vendor.insert(
-            "abp.mode".to_string(),
-            serde_json::json!("passthrough"),
-        );
+        wo.config
+            .vendor
+            .insert("abp.mode".to_string(), serde_json::json!("passthrough"));
         assert_eq!(extract_execution_mode(&wo), ExecutionMode::Passthrough);
     }
 
     #[test]
     fn invalid_mode_falls_back_to_default() {
         let mut wo = simple_work_order("test");
-        wo.config
-            .vendor
-            .insert("abp".to_string(), serde_json::json!({"mode": "invalid_xyz"}));
+        wo.config.vendor.insert(
+            "abp".to_string(),
+            serde_json::json!({"mode": "invalid_xyz"}),
+        );
         assert_eq!(extract_execution_mode(&wo), ExecutionMode::Mapped);
     }
 

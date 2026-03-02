@@ -53,8 +53,7 @@ fuzz_target!(|data: &[u8]| {
 
         // Serde round-trip.
         let json = serde_json::to_string(&code).expect("ErrorCode must serialize");
-        let rt: ErrorCode =
-            serde_json::from_str(&json).expect("ErrorCode round-trip must succeed");
+        let rt: ErrorCode = serde_json::from_str(&json).expect("ErrorCode round-trip must succeed");
         assert_eq!(code, rt);
     }
 

@@ -208,7 +208,10 @@ mod envelope_serde {
         match decoded {
             Envelope::Event { ref_id, event } => {
                 assert_eq!(ref_id, "run-1");
-                assert!(matches!(event.kind, AgentEventKind::AssistantMessage { .. }));
+                assert!(matches!(
+                    event.kind,
+                    AgentEventKind::AssistantMessage { .. }
+                ));
             }
             _ => panic!("expected Event"),
         }
@@ -449,7 +452,9 @@ mod envelope_serde {
         let decoded = JsonlCodec::decode(json.trim()).unwrap();
         match decoded {
             Envelope::Fatal {
-                ref_id, error, error_code,
+                ref_id,
+                error,
+                error_code,
             } => {
                 assert_eq!(ref_id.as_deref(), Some("run-1"));
                 assert_eq!(error, "out of memory");
@@ -734,7 +739,11 @@ mod batch_processing {
             .collect();
         let req = make_batch_request(envs);
         let errors = processor.validate_batch(&req);
-        assert!(errors.iter().any(|e| matches!(e, BatchValidationError::TooManyItems { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, BatchValidationError::TooManyItems { .. }))
+        );
     }
 
     #[test]
@@ -856,9 +865,11 @@ mod sequence_validation {
         let (id, run) = make_run();
         let seq = vec![run, make_hello(), make_final_envelope(&id)];
         let errors = validator.validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+        );
     }
 
     #[test]
@@ -886,9 +897,11 @@ mod sequence_validation {
             make_final_envelope(&id),
         ];
         let errors = validator.validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+        );
     }
 
     #[test]
@@ -897,9 +910,11 @@ mod sequence_validation {
         let (_id, run) = make_run();
         let seq = vec![make_hello(), run, make_final_envelope("wrong-ref")];
         let errors = validator.validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+        );
     }
 
     #[test]
@@ -973,10 +988,9 @@ mod envelope_validation {
         };
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "contract_version")));
+        assert!(result.errors.iter().any(
+            |e| matches!(e, ValidationError::EmptyField { field } if field == "contract_version")
+        ));
     }
 
     #[test]
@@ -994,10 +1008,12 @@ mod envelope_validation {
         };
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+        assert!(
+            result
+                .errors
+                .iter()
+                .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+        );
     }
 
     #[test]
@@ -1032,10 +1048,12 @@ mod envelope_validation {
         };
         let result = validator.validate(&env);
         assert!(result.valid);
-        assert!(result
-            .warnings
-            .iter()
-            .any(|w| matches!(w, ValidationWarning::MissingOptionalField { .. })));
+        assert!(
+            result
+                .warnings
+                .iter()
+                .any(|w| matches!(w, ValidationWarning::MissingOptionalField { .. }))
+        );
     }
 
     #[test]
@@ -1065,9 +1083,7 @@ mod envelope_validation {
         let validator = EnvelopeValidator::new();
         let env = Envelope::Event {
             ref_id: String::new(),
-            event: make_event(AgentEventKind::AssistantMessage {
-                text: "msg".into(),
-            }),
+            event: make_event(AgentEventKind::AssistantMessage { text: "msg".into() }),
         };
         let result = validator.validate(&env);
         assert!(!result.valid);
@@ -1102,17 +1118,14 @@ mod envelope_validation {
         let env = make_fatal(None, "error msg");
         let result = validator.validate(&env);
         assert!(result.valid);
-        assert!(result
-            .warnings
-            .iter()
-            .any(|w| matches!(w, ValidationWarning::MissingOptionalField { field } if field == "ref_id")));
+        assert!(result.warnings.iter().any(
+            |w| matches!(w, ValidationWarning::MissingOptionalField { field } if field == "ref_id")
+        ));
     }
 
     #[test]
     fn validation_result_display() {
-        let err = ValidationError::MissingField {
-            field: "x".into(),
-        };
+        let err = ValidationError::MissingField { field: "x".into() };
         assert!(format!("{err}").contains("x"));
         let err = ValidationError::InvalidVersion {
             version: "bad".into(),
@@ -1366,7 +1379,10 @@ mod stream_parser {
     #[test]
     fn max_line_length_enforcement() {
         let mut parser = StreamParser::with_max_line_len(50);
-        let long_line = format!("{{\"t\":\"fatal\",\"ref_id\":null,\"error\":\"{}\"}}\n", "x".repeat(100));
+        let long_line = format!(
+            "{{\"t\":\"fatal\",\"ref_id\":null,\"error\":\"{}\"}}\n",
+            "x".repeat(100)
+        );
         let results = parser.push(long_line.as_bytes());
         assert_eq!(results.len(), 1);
         assert!(results[0].is_err());
@@ -1713,9 +1729,7 @@ mod builder_tests {
 
     #[test]
     fn event_builder() {
-        let event = make_event(AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        });
+        let event = make_event(AgentEventKind::AssistantMessage { text: "hi".into() });
         let env = EnvelopeBuilder::event(event)
             .ref_id("run-1")
             .build()
@@ -1728,9 +1742,7 @@ mod builder_tests {
 
     #[test]
     fn event_builder_missing_ref_id_fails() {
-        let event = make_event(AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        });
+        let event = make_event(AgentEventKind::AssistantMessage { text: "hi".into() });
         assert!(EnvelopeBuilder::event(event).build().is_err());
     }
 
@@ -1760,9 +1772,7 @@ mod builder_tests {
             .build()
             .unwrap();
         match env {
-            Envelope::Fatal {
-                ref_id, error, ..
-            } => {
+            Envelope::Fatal { ref_id, error, .. } => {
                 assert_eq!(ref_id.as_deref(), Some("run-1"));
                 assert_eq!(error, "boom");
             }
@@ -1892,9 +1902,7 @@ mod edge_cases {
             ref_id: "r1".into(),
             event: AgentEvent {
                 ts: Utc::now(),
-                kind: AgentEventKind::AssistantMessage {
-                    text: "hi".into(),
-                },
+                kind: AgentEventKind::AssistantMessage { text: "hi".into() },
                 ext: Some(ext),
             },
         };
@@ -2001,10 +2009,7 @@ mod edge_cases {
         assert_eq!(decoded.len(), seq.len());
         // Verify variant types match
         for (orig, dec) in seq.iter().zip(decoded.iter()) {
-            assert_eq!(
-                std::mem::discriminant(orig),
-                std::mem::discriminant(dec)
-            );
+            assert_eq!(std::mem::discriminant(orig), std::mem::discriminant(dec));
         }
     }
 

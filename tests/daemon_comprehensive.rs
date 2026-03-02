@@ -24,8 +24,8 @@ use abp_daemon::versioning::{
     ApiVersion, ApiVersionError, ApiVersionRegistry, VersionNegotiator, VersionedEndpoint,
 };
 use abp_daemon::{
-    build_app, AppState, BackendInfo, RunMetrics, RunRequest, RunResponse,
-    RunStatus as TrackerRunStatus, RunTracker,
+    AppState, BackendInfo, RunMetrics, RunRequest, RunResponse, RunStatus as TrackerRunStatus,
+    RunTracker, build_app,
 };
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;
@@ -411,7 +411,12 @@ async fn health_content_type_is_json() {
         )
         .await
         .unwrap();
-    let ct = resp.headers().get("content-type").unwrap().to_str().unwrap();
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(ct.contains("application/json"));
 }
 
@@ -1359,8 +1364,8 @@ fn api_error_stable_codes() {
 
 #[test]
 fn api_error_with_details() {
-    let err = ApiErrorType::invalid_request("bad field")
-        .with_details(serde_json::json!({"field": "id"}));
+    let err =
+        ApiErrorType::invalid_request("bad field").with_details(serde_json::json!({"field": "id"}));
     let json = serde_json::to_value(&err).unwrap();
     assert_eq!(json["details"]["field"], "id");
 }
@@ -1804,12 +1809,10 @@ fn queue_is_full() {
 #[test]
 fn queue_stats() {
     let mut q = RunQueue::new(10);
-    q.enqueue(make_queued_run("a", QueuePriority::Low))
-        .unwrap();
+    q.enqueue(make_queued_run("a", QueuePriority::Low)).unwrap();
     q.enqueue(make_queued_run("b", QueuePriority::High))
         .unwrap();
-    q.enqueue(make_queued_run("c", QueuePriority::Low))
-        .unwrap();
+    q.enqueue(make_queued_run("c", QueuePriority::Low)).unwrap();
     let stats = q.stats();
     assert_eq!(stats.total, 3);
     assert_eq!(stats.max, 10);
@@ -2150,7 +2153,10 @@ fn version_negotiator_no_compatible() {
 fn version_error_display() {
     let e = ApiVersionError::InvalidFormat("bad".into());
     assert!(format!("{e}").contains("bad"));
-    let e2 = ApiVersionError::UnsupportedVersion(ApiVersion { major: 99, minor: 0 });
+    let e2 = ApiVersionError::UnsupportedVersion(ApiVersion {
+        major: 99,
+        minor: 0,
+    });
     assert!(format!("{e2}").contains("99"));
 }
 

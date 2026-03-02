@@ -11,9 +11,7 @@
 //! Target: 100+ tests across all 6 shims.
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
-use abp_core::{
-    AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, UsageNormalized,
-};
+use abp_core::{AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, UsageNormalized};
 use chrono::Utc;
 use serde_json::json;
 
@@ -148,7 +146,12 @@ fn build_receipt(events: Vec<AgentEvent>) -> abp_core::Receipt {
         .outcome(Outcome::Complete)
         .usage(test_usage())
         .add_trace_event(evt_run_started())
-        .add_trace_event(events.into_iter().next().unwrap_or_else(|| evt_msg("hello")))
+        .add_trace_event(
+            events
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| evt_msg("hello")),
+        )
         .add_trace_event(evt_run_completed())
         .build()
 }
@@ -198,10 +201,7 @@ mod openai_roundtrip {
 
     #[test]
     fn assistant_message_roundtrip() {
-        let msgs = vec![
-            Message::user("What is 2+2?"),
-            Message::assistant("4"),
-        ];
+        let msgs = vec![Message::user("What is 2+2?"), Message::assistant("4")];
         let ir = messages_to_ir(&msgs);
         assert_eq!(ir.len(), 2);
         assert_eq!(ir.messages[1].role, IrRole::Assistant);
@@ -425,10 +425,7 @@ mod openai_roundtrip {
             .messages(vec![Message::user("x")])
             .build();
         let wo = request_to_work_order(&req);
-        assert_eq!(
-            wo.config.model.as_deref(),
-            Some("gpt-4-turbo-2024-04-09")
-        );
+        assert_eq!(wo.config.model.as_deref(), Some("gpt-4-turbo-2024-04-09"));
     }
 
     #[test]
@@ -531,7 +528,9 @@ mod claude_roundtrip {
         };
         let ir = content_block_to_ir(&block);
         let back = content_block_from_ir(&ir);
-        assert!(matches!(back, ContentBlock::ToolResult { tool_use_id, .. } if tool_use_id == "tool-1"));
+        assert!(
+            matches!(back, ContentBlock::ToolResult { tool_use_id, .. } if tool_use_id == "tool-1")
+        );
     }
 
     #[test]
@@ -645,8 +644,16 @@ mod claude_roundtrip {
         let req = make_request("claude-sonnet-4-20250514", "Hello");
         let stream = client.create_stream(req).await.unwrap();
         let events = stream.collect_all().await;
-        assert!(events.iter().any(|e| matches!(e, StreamEvent::MessageStart { .. })));
-        assert!(events.iter().any(|e| matches!(e, StreamEvent::MessageStop {})));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, StreamEvent::MessageStart { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, StreamEvent::MessageStop {}))
+        );
     }
 
     // ── Error handling ──
@@ -717,8 +724,7 @@ mod gemini_roundtrip {
     use abp_shim_gemini::*;
 
     fn make_request(model: &str, text: &str) -> GenerateContentRequest {
-        GenerateContentRequest::new(model)
-            .add_content(Content::user(vec![Part::text(text)]))
+        GenerateContentRequest::new(model).add_content(Content::user(vec![Part::text(text)]))
     }
 
     // ── Message construction roundtrips ──
@@ -781,7 +787,10 @@ mod gemini_roundtrip {
                 max_output_tokens: Some(4096),
                 ..Default::default()
             });
-        assert_eq!(req.generation_config.as_ref().unwrap().temperature, Some(0.9));
+        assert_eq!(
+            req.generation_config.as_ref().unwrap().temperature,
+            Some(0.9)
+        );
     }
 
     // ── Usage conversion ──
@@ -873,10 +882,8 @@ mod gemini_roundtrip {
     fn ir_lowering_from_dialect() {
         let req = make_request("gemini-2.5-flash", "What is Rust?");
         let dialect = to_dialect_request(&req);
-        let ir = abp_gemini_sdk::lowering::to_ir(
-            &dialect.contents,
-            dialect.system_instruction.as_ref(),
-        );
+        let ir =
+            abp_gemini_sdk::lowering::to_ir(&dialect.contents, dialect.system_instruction.as_ref());
         assert!(!ir.is_empty());
         assert_eq!(ir.messages[0].role, IrRole::User);
         assert_eq!(ir.messages[0].text_content(), "What is Rust?");
@@ -888,10 +895,8 @@ mod gemini_roundtrip {
             .system_instruction(Content::user(vec![Part::text("You are helpful.")]))
             .add_content(Content::user(vec![Part::text("Hi")]));
         let dialect = to_dialect_request(&req);
-        let ir = abp_gemini_sdk::lowering::to_ir(
-            &dialect.contents,
-            dialect.system_instruction.as_ref(),
-        );
+        let ir =
+            abp_gemini_sdk::lowering::to_ir(&dialect.contents, dialect.system_instruction.as_ref());
         let sys = ir.system_message().expect("should have system");
         assert_eq!(sys.text_content(), "You are helpful.");
     }
@@ -1111,10 +1116,7 @@ mod kimi_roundtrip {
 
     #[test]
     fn assistant_message_roundtrip() {
-        let msgs = vec![
-            Message::user("What is 1+1?"),
-            Message::assistant("2"),
-        ];
+        let msgs = vec![Message::user("What is 1+1?"), Message::assistant("2")];
         let ir = messages_to_ir(&msgs);
         assert_eq!(ir.messages[1].role, IrRole::Assistant);
         let back = ir_to_messages(&ir);
@@ -1169,7 +1171,10 @@ mod kimi_roundtrip {
         let resp = receipt_to_response(&receipt, "moonshot-v1-8k");
         assert_eq!(resp.model, "moonshot-v1-8k");
         assert_eq!(resp.choices.len(), 1);
-        assert_eq!(resp.choices[0].message.content.as_deref(), Some("Hi from Kimi"));
+        assert_eq!(
+            resp.choices[0].message.content.as_deref(),
+            Some("Hi from Kimi")
+        );
     }
 
     #[test]
@@ -1512,9 +1517,7 @@ mod cross_shim {
 
     #[test]
     fn kimi_to_openai_message_roundtrip() {
-        let kimi_msgs = vec![
-            abp_shim_kimi::Message::user("What is Rust?"),
-        ];
+        let kimi_msgs = vec![abp_shim_kimi::Message::user("What is Rust?")];
         let ir = abp_shim_kimi::messages_to_ir(&kimi_msgs);
         let oai_msgs = abp_shim_openai::ir_to_messages(&ir);
         assert_eq!(oai_msgs.len(), 1);
@@ -1523,9 +1526,7 @@ mod cross_shim {
 
     #[test]
     fn openai_to_copilot_message_roundtrip() {
-        let oai_msgs = vec![
-            abp_shim_openai::Message::user("explain traits"),
-        ];
+        let oai_msgs = vec![abp_shim_openai::Message::user("explain traits")];
         let ir = abp_shim_openai::messages_to_ir(&oai_msgs);
         let copilot_msgs = abp_shim_copilot::ir_to_messages(&ir);
         assert_eq!(copilot_msgs.len(), 1);
@@ -1550,8 +1551,22 @@ mod cross_shim {
         let oai = abp_shim_openai::receipt_to_response(&receipt, "gpt-4o");
         let kimi = abp_shim_kimi::receipt_to_response(&receipt, "moonshot-v1-8k");
         // Both should contain the same text
-        assert!(oai.choices[0].message.content.as_deref().unwrap().contains("response"));
-        assert!(kimi.choices[0].message.content.as_deref().unwrap().contains("response"));
+        assert!(
+            oai.choices[0]
+                .message
+                .content
+                .as_deref()
+                .unwrap()
+                .contains("response")
+        );
+        assert!(
+            kimi.choices[0]
+                .message
+                .content
+                .as_deref()
+                .unwrap()
+                .contains("response")
+        );
     }
 
     #[test]
@@ -1560,8 +1575,7 @@ mod cross_shim {
         let claude_resp =
             abp_shim_claude::response_from_events(&events, "claude-sonnet-4-20250514", None);
         let codex_receipt = abp_shim_codex::mock_receipt(vec![evt_msg("cross-shim output")]);
-        let codex_resp =
-            abp_shim_codex::receipt_to_response(&codex_receipt, "codex-mini-latest");
+        let codex_resp = abp_shim_codex::receipt_to_response(&codex_receipt, "codex-mini-latest");
         assert!(!claude_resp.content.is_empty());
         assert!(!codex_resp.output.is_empty());
     }
@@ -1709,10 +1723,7 @@ mod event_edge_cases {
 
     #[test]
     fn kimi_response_from_receipt_with_error_event() {
-        let receipt = build_receipt_multi(vec![
-            evt_error("timeout"),
-            evt_msg("partial output"),
-        ]);
+        let receipt = build_receipt_multi(vec![evt_error("timeout"), evt_msg("partial output")]);
         let resp = abp_shim_kimi::receipt_to_response(&receipt, "moonshot-v1-8k");
         assert!(!resp.choices.is_empty());
     }
@@ -1732,8 +1743,7 @@ mod serde_fidelity {
             .messages(vec![abp_shim_openai::Message::user("test")])
             .build();
         let json = serde_json::to_string(&req).unwrap();
-        let back: abp_shim_openai::ChatCompletionRequest =
-            serde_json::from_str(&json).unwrap();
+        let back: abp_shim_openai::ChatCompletionRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(back.model, "gpt-4o");
         assert_eq!(back.messages.len(), 1);
     }
@@ -1743,8 +1753,7 @@ mod serde_fidelity {
         let receipt = abp_shim_openai::mock_receipt(vec![evt_msg("hello")]);
         let resp = abp_shim_openai::receipt_to_response(&receipt, "gpt-4o");
         let json = serde_json::to_string(&resp).unwrap();
-        let back: abp_shim_openai::ChatCompletionResponse =
-            serde_json::from_str(&json).unwrap();
+        let back: abp_shim_openai::ChatCompletionResponse = serde_json::from_str(&json).unwrap();
         assert_eq!(back.model, "gpt-4o");
     }
 

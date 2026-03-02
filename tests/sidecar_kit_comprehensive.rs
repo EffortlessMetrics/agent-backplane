@@ -1438,15 +1438,9 @@ mod transform_tests {
     #[test]
     fn throttle_transformer_allows_up_to_max() {
         let tt = ThrottleTransformer::new(2);
-        let ev1 = make_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        });
-        let ev2 = make_event(AgentEventKind::AssistantDelta {
-            text: "b".into(),
-        });
-        let ev3 = make_event(AgentEventKind::AssistantDelta {
-            text: "c".into(),
-        });
+        let ev1 = make_event(AgentEventKind::AssistantDelta { text: "a".into() });
+        let ev2 = make_event(AgentEventKind::AssistantDelta { text: "b".into() });
+        let ev3 = make_event(AgentEventKind::AssistantDelta { text: "c".into() });
 
         assert!(tt.transform(ev1).is_some());
         assert!(tt.transform(ev2).is_some());
@@ -1456,15 +1450,9 @@ mod transform_tests {
     #[test]
     fn throttle_transformer_independent_per_kind() {
         let tt = ThrottleTransformer::new(1);
-        let delta = make_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        });
-        let msg = make_event(AgentEventKind::AssistantMessage {
-            text: "b".into(),
-        });
-        let delta2 = make_event(AgentEventKind::AssistantDelta {
-            text: "c".into(),
-        });
+        let delta = make_event(AgentEventKind::AssistantDelta { text: "a".into() });
+        let msg = make_event(AgentEventKind::AssistantMessage { text: "b".into() });
+        let delta2 = make_event(AgentEventKind::AssistantDelta { text: "c".into() });
 
         assert!(tt.transform(delta).is_some());
         assert!(tt.transform(msg).is_some());
@@ -1484,9 +1472,7 @@ mod transform_tests {
         meta.insert("version".into(), "1.0".into());
         let et = EnrichTransformer::new(meta);
 
-        let ev = make_event(AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        });
+        let ev = make_event(AgentEventKind::AssistantDelta { text: "hi".into() });
         let result = et.transform(ev).unwrap();
         let ext = result.ext.unwrap();
         assert_eq!(ext["env"], json!("test"));
@@ -1503,9 +1489,7 @@ mod transform_tests {
         existing_ext.insert("old_key".into(), json!("old_val"));
         let ev = AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "hi".into() },
             ext: Some(existing_ext),
         };
 
@@ -1526,9 +1510,7 @@ mod transform_tests {
         let ft = FilterTransformer::new(Box::new(|ev: &AgentEvent| {
             matches!(&ev.kind, AgentEventKind::AssistantDelta { .. })
         }));
-        let ev = make_event(AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        });
+        let ev = make_event(AgentEventKind::AssistantDelta { text: "hi".into() });
         assert!(ft.transform(ev).is_some());
     }
 
@@ -1554,9 +1536,7 @@ mod transform_tests {
         let tt = TimestampTransformer::new();
         let ev = AgentEvent {
             ts: Utc.timestamp_opt(0, 0).unwrap(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "hi".into() },
             ext: None,
         };
         let result = tt.transform(ev).unwrap();
@@ -1569,9 +1549,7 @@ mod transform_tests {
         let now = Utc::now();
         let ev = AgentEvent {
             ts: now,
-            kind: AgentEventKind::AssistantDelta {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "hi".into() },
             ext: None,
         };
         let result = tt.transform(ev).unwrap();
@@ -1587,9 +1565,7 @@ mod transform_tests {
     #[test]
     fn transformer_chain_empty_passthrough() {
         let chain = TransformerChain::new();
-        let ev = make_event(AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        });
+        let ev = make_event(AgentEventKind::AssistantDelta { text: "hi".into() });
         let result = chain.process(ev);
         assert!(result.is_some());
     }
@@ -1623,9 +1599,7 @@ mod transform_tests {
             .with(Box::new(ThrottleTransformer::new(0)))
             .with(Box::new(TimestampTransformer::new()));
 
-        let ev = make_event(AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        });
+        let ev = make_event(AgentEventKind::AssistantDelta { text: "hi".into() });
         assert!(chain.process(ev).is_none());
     }
 
@@ -1634,15 +1608,9 @@ mod transform_tests {
         let chain = TransformerChain::new().with(Box::new(ThrottleTransformer::new(1)));
 
         let events = vec![
-            make_event(AgentEventKind::AssistantDelta {
-                text: "a".into(),
-            }),
-            make_event(AgentEventKind::AssistantDelta {
-                text: "b".into(),
-            }),
-            make_event(AgentEventKind::AssistantDelta {
-                text: "c".into(),
-            }),
+            make_event(AgentEventKind::AssistantDelta { text: "a".into() }),
+            make_event(AgentEventKind::AssistantDelta { text: "b".into() }),
+            make_event(AgentEventKind::AssistantDelta { text: "c".into() }),
         ];
         let results = chain.process_batch(events);
         assert_eq!(results.len(), 1);
@@ -1651,9 +1619,7 @@ mod transform_tests {
     #[test]
     fn transformer_chain_default() {
         let chain = TransformerChain::default();
-        let ev = make_event(AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        });
+        let ev = make_event(AgentEventKind::AssistantDelta { text: "hi".into() });
         assert!(chain.process(ev).is_some());
     }
 }
@@ -1716,9 +1682,7 @@ mod typed_middleware_tests {
     #[test]
     fn metrics_middleware_counts_events() {
         let mw = MetricsMiddleware::new();
-        let mut ev = make_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        });
+        let mut ev = make_event(AgentEventKind::AssistantDelta { text: "a".into() });
         let action = mw.on_event(&mut ev);
         assert_eq!(action, MiddlewareAction::Continue);
         assert_eq!(mw.total(), 1);
@@ -1728,9 +1692,7 @@ mod typed_middleware_tests {
     #[test]
     fn metrics_middleware_multiple_kinds() {
         let mw = MetricsMiddleware::new();
-        let mut delta = make_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        });
+        let mut delta = make_event(AgentEventKind::AssistantDelta { text: "a".into() });
         let mut warn = make_event(AgentEventKind::Warning {
             message: "w".into(),
         });
@@ -1744,9 +1706,7 @@ mod typed_middleware_tests {
     #[test]
     fn metrics_middleware_timings_recorded() {
         let mw = MetricsMiddleware::new();
-        let mut ev = make_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        });
+        let mut ev = make_event(AgentEventKind::AssistantDelta { text: "a".into() });
         mw.on_event(&mut ev);
         assert_eq!(mw.timings().len(), 1);
     }
@@ -1773,9 +1733,7 @@ mod typed_middleware_tests {
     #[test]
     fn sidecar_middleware_chain_process_continue() {
         let chain = SidecarMiddlewareChain::new().with(MetricsMiddleware::new());
-        let mut ev = make_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        });
+        let mut ev = make_event(AgentEventKind::AssistantDelta { text: "a".into() });
         let action = chain.process(&mut ev);
         assert_eq!(action, MiddlewareAction::Continue);
         assert_eq!(chain.len(), 1);
@@ -1808,30 +1766,22 @@ mod typed_middleware_tests {
         let mw = TypedFilterMiddleware::new(|ev: &AgentEvent| {
             matches!(&ev.kind, AgentEventKind::Warning { .. })
         });
-        let mut ev = make_event(AgentEventKind::AssistantDelta {
-            text: "ok".into(),
-        });
+        let mut ev = make_event(AgentEventKind::AssistantDelta { text: "ok".into() });
         assert_eq!(mw.on_event(&mut ev), MiddlewareAction::Continue);
     }
 
     #[test]
     fn rate_limit_middleware_allows_within_limit() {
         let mw = RateLimitMiddleware::new(100);
-        let mut ev = make_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        });
+        let mut ev = make_event(AgentEventKind::AssistantDelta { text: "a".into() });
         assert_eq!(mw.on_event(&mut ev), MiddlewareAction::Continue);
     }
 
     #[test]
     fn rate_limit_middleware_skips_over_limit() {
         let mw = RateLimitMiddleware::new(1);
-        let mut ev1 = make_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        });
-        let mut ev2 = make_event(AgentEventKind::AssistantDelta {
-            text: "b".into(),
-        });
+        let mut ev1 = make_event(AgentEventKind::AssistantDelta { text: "a".into() });
+        let mut ev2 = make_event(AgentEventKind::AssistantDelta { text: "b".into() });
         assert_eq!(mw.on_event(&mut ev1), MiddlewareAction::Continue);
         assert_eq!(mw.on_event(&mut ev2), MiddlewareAction::Skip);
     }
@@ -1839,9 +1789,7 @@ mod typed_middleware_tests {
     #[test]
     fn error_recovery_continues_on_normal() {
         let mw = TypedErrorRecoveryMiddleware::wrap(MetricsMiddleware::new());
-        let mut ev = make_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        });
+        let mut ev = make_event(AgentEventKind::AssistantDelta { text: "a".into() });
         assert_eq!(mw.on_event(&mut ev), MiddlewareAction::Continue);
     }
 
@@ -1853,9 +1801,7 @@ mod typed_middleware_tests {
             .with(TypedFilterMiddleware::new(|_| true)) // drops all
             .with(MetricsMiddleware::new());
 
-        let mut ev = make_event(AgentEventKind::AssistantDelta {
-            text: "a".into(),
-        });
+        let mut ev = make_event(AgentEventKind::AssistantDelta { text: "a".into() });
         assert_eq!(chain.process(&mut ev), MiddlewareAction::Skip);
     }
 }

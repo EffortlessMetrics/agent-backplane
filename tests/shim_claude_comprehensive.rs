@@ -7,10 +7,11 @@ use abp_claude_sdk::dialect::{
 };
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_shim_claude::{
-    content_block_from_ir, content_block_to_ir, message_to_ir, request_to_claude,
-    request_to_work_order, response_from_claude, response_from_events, stream_event_from_claude,
-    AnthropicClient, ApiError, ContentBlock, EventStream, ImageSource, Message, MessageDeltaPayload,
-    MessageRequest, MessageResponse, Role, ShimError, StreamDelta, StreamEvent, Usage,
+    AnthropicClient, ApiError, ContentBlock, EventStream, ImageSource, Message,
+    MessageDeltaPayload, MessageRequest, MessageResponse, Role, ShimError, StreamDelta,
+    StreamEvent, Usage, content_block_from_ir, content_block_to_ir, message_to_ir,
+    request_to_claude, request_to_work_order, response_from_claude, response_from_events,
+    stream_event_from_claude,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -129,21 +130,23 @@ fn client_default_impl_matches_new() {
 #[test]
 fn client_debug_does_not_expose_handler() {
     let mut client = AnthropicClient::new();
-    client.set_handler(Box::new(|_| Ok(MessageResponse {
-        id: "test".into(),
-        response_type: "message".into(),
-        role: "assistant".into(),
-        content: vec![],
-        model: "test".into(),
-        stop_reason: None,
-        stop_sequence: None,
-        usage: Usage {
-            input_tokens: 0,
-            output_tokens: 0,
-            cache_creation_input_tokens: None,
-            cache_read_input_tokens: None,
-        },
-    })));
+    client.set_handler(Box::new(|_| {
+        Ok(MessageResponse {
+            id: "test".into(),
+            response_type: "message".into(),
+            role: "assistant".into(),
+            content: vec![],
+            model: "test".into(),
+            stop_reason: None,
+            stop_sequence: None,
+            usage: Usage {
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_creation_input_tokens: None,
+                cache_read_input_tokens: None,
+            },
+        })
+    }));
     let dbg = format!("{client:?}");
     assert!(dbg.contains("AnthropicClient"));
 }
@@ -504,8 +507,7 @@ fn tool_use_message_conversion() {
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "user");
     // ToolResult is structured so serialized as JSON
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude_msg.content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msg.content).unwrap();
     assert_eq!(blocks.len(), 1);
 }
 
@@ -607,9 +609,7 @@ fn thinking_event_without_signature() {
     )];
     let resp = response_from_events(&events, "test", None);
     match &resp.content[0] {
-        ContentBlock::Thinking {
-            signature, ..
-        } => assert!(signature.is_none()),
+        ContentBlock::Thinking { signature, .. } => assert!(signature.is_none()),
         other => panic!("expected Thinking, got {other:?}"),
     }
 }
@@ -803,8 +803,7 @@ fn mixed_content_message_to_ir() {
     };
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "user");
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude_msg.content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msg.content).unwrap();
     assert_eq!(blocks.len(), 2);
 }
 
@@ -820,7 +819,10 @@ async fn streaming_produces_canonical_event_sequence() {
 
     assert!(events.len() >= 5);
     assert!(matches!(&events[0], StreamEvent::MessageStart { .. }));
-    assert!(matches!(events.last().unwrap(), StreamEvent::MessageStop {}));
+    assert!(matches!(
+        events.last().unwrap(),
+        StreamEvent::MessageStop {}
+    ));
 }
 
 #[tokio::test]
@@ -926,10 +928,7 @@ async fn event_stream_collects_all() {
 
 #[tokio::test]
 async fn event_stream_via_stream_ext() {
-    let mut stream = EventStream::from_vec(vec![
-        StreamEvent::Ping {},
-        StreamEvent::MessageStop {},
-    ]);
+    let mut stream = EventStream::from_vec(vec![StreamEvent::Ping {}, StreamEvent::MessageStop {}]);
     let first = StreamExt::next(&mut stream).await;
     assert!(first.is_some());
     assert!(matches!(first.unwrap(), StreamEvent::Ping {}));
@@ -943,10 +942,7 @@ async fn event_stream_via_stream_ext() {
 async fn custom_stream_handler() {
     let mut client = AnthropicClient::new();
     client.set_stream_handler(Box::new(|_| {
-        Ok(vec![
-            StreamEvent::Ping {},
-            StreamEvent::MessageStop {},
-        ])
+        Ok(vec![StreamEvent::Ping {}, StreamEvent::MessageStop {}])
     }));
     let stream = client.create_stream(simple_request("Z")).await.unwrap();
     let events = stream.collect_all().await;
@@ -1144,10 +1140,11 @@ async fn custom_handler_internal_error() {
 #[tokio::test]
 async fn custom_stream_handler_error() {
     let mut client = AnthropicClient::new();
-    client.set_stream_handler(Box::new(|_| {
-        Err(ShimError::InvalidRequest("nope".into()))
-    }));
-    let err = client.create_stream(simple_request("test")).await.unwrap_err();
+    client.set_stream_handler(Box::new(|_| Err(ShimError::InvalidRequest("nope".into()))));
+    let err = client
+        .create_stream(simple_request("test"))
+        .await
+        .unwrap_err();
     assert!(matches!(err, ShimError::InvalidRequest(_)));
 }
 
@@ -1951,13 +1948,18 @@ async fn full_streaming_roundtrip() {
     // First event is MessageStart
     assert!(matches!(&events[0], StreamEvent::MessageStart { .. }));
     // Last event is MessageStop
-    assert!(matches!(events.last().unwrap(), StreamEvent::MessageStop {}));
+    assert!(matches!(
+        events.last().unwrap(),
+        StreamEvent::MessageStop {}
+    ));
 }
 
 #[test]
 fn large_content_block_roundtrip() {
     let big_text = "x".repeat(100_000);
-    let block = ContentBlock::Text { text: big_text.clone() };
+    let block = ContentBlock::Text {
+        text: big_text.clone(),
+    };
     let ir = content_block_to_ir(&block);
     let back = content_block_from_ir(&ir);
     match back {
@@ -1970,7 +1972,11 @@ fn large_content_block_roundtrip() {
 fn many_messages_conversion() {
     let messages: Vec<Message> = (0..100)
         .map(|i| Message {
-            role: if i % 2 == 0 { Role::User } else { Role::Assistant },
+            role: if i % 2 == 0 {
+                Role::User
+            } else {
+                Role::Assistant
+            },
             content: vec![ContentBlock::Text {
                 text: format!("Message {i}"),
             }],

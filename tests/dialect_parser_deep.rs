@@ -2,7 +2,7 @@
 //! Comprehensive tests for dialect detection and parsing functionality.
 
 use abp_dialect::{Dialect, DialectDetector, DialectValidator, ValidationError};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashSet;
 
 // ── Helpers ─────────────────────────────────────────────────────────────

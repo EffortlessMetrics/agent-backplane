@@ -48,9 +48,7 @@ fn event_env(ref_id: &str, text: &str) -> Envelope {
         ref_id: ref_id.into(),
         event: AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantMessage {
-                text: text.into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: text.into() },
             ext: None,
         },
     }
@@ -182,7 +180,10 @@ mod construction {
         let env = fatal_env(Some("run-1"), "boom");
         match env {
             Envelope::Fatal {
-                ref_id, error, error_code, ..
+                ref_id,
+                error,
+                error_code,
+                ..
             } => {
                 assert_eq!(ref_id.as_deref(), Some("run-1"));
                 assert_eq!(error, "boom");
@@ -375,12 +376,8 @@ mod serde_roundtrip {
             AgentEventKind::RunCompleted {
                 message: "done".into(),
             },
-            AgentEventKind::AssistantDelta {
-                text: "tok".into(),
-            },
-            AgentEventKind::AssistantMessage {
-                text: "msg".into(),
-            },
+            AgentEventKind::AssistantDelta { text: "tok".into() },
+            AgentEventKind::AssistantMessage { text: "msg".into() },
             AgentEventKind::ToolCall {
                 tool_name: "read".into(),
                 tool_use_id: Some("t1".into()),
@@ -1010,9 +1007,8 @@ mod malformed_input {
 
     #[test]
     fn nested_invalid_json() {
-        let err =
-            JsonlCodec::decode(r#"{"t":"fatal","ref_id":null,"error":{"nested":"object"}}"#)
-                .unwrap_err();
+        let err = JsonlCodec::decode(r#"{"t":"fatal","ref_id":null,"error":{"nested":"object"}}"#)
+            .unwrap_err();
         assert!(matches!(err, ProtocolError::Json(_)));
     }
 }
@@ -1362,10 +1358,7 @@ mod edge_cases {
     fn ext_field_present_roundtrips() {
         use std::collections::BTreeMap;
         let mut ext = BTreeMap::new();
-        ext.insert(
-            "raw_message".into(),
-            serde_json::json!({"original": true}),
-        );
+        ext.insert("raw_message".into(), serde_json::json!({"original": true}));
         let env = Envelope::Event {
             ref_id: "r1".into(),
             event: AgentEvent {

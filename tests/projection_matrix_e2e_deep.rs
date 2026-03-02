@@ -56,8 +56,7 @@ fn wo_empty() -> WorkOrder {
 
 fn passthrough_wo(reqs: CapabilityRequirements, source_dialect: &str) -> WorkOrder {
     let mut config = RuntimeConfig::default();
-    let abp_config =
-        serde_json::json!({ "mode": "passthrough", "source_dialect": source_dialect });
+    let abp_config = serde_json::json!({ "mode": "passthrough", "source_dialect": source_dialect });
     config.vendor.insert("abp".into(), abp_config);
     WorkOrderBuilder::new("passthrough task")
         .requirements(reqs)
@@ -299,9 +298,7 @@ fn scoring_partial_coverage() {
 fn scoring_empty_requirements_perfect_coverage() {
     let mut pm = ProjectionMatrix::new();
     pm.register_backend("any", manifest(&[]), Dialect::OpenAi, 50);
-    let result = pm
-        .project(&wo(CapabilityRequirements::default()))
-        .unwrap();
+    let result = pm.project(&wo(CapabilityRequirements::default())).unwrap();
     assert!((result.fidelity_score.capability_coverage - 1.0).abs() < f64::EPSILON);
 }
 
@@ -528,7 +525,11 @@ fn bestfit_result_has_correct_emulation_list() {
         ])))
         .unwrap();
     assert_eq!(result.required_emulations.len(), 2);
-    let emu_caps: Vec<_> = result.required_emulations.iter().map(|e| &e.capability).collect();
+    let emu_caps: Vec<_> = result
+        .required_emulations
+        .iter()
+        .map(|e| &e.capability)
+        .collect();
     assert!(emu_caps.contains(&&Capability::ToolRead));
     assert!(emu_caps.contains(&&Capability::ToolWrite));
 }
@@ -778,7 +779,11 @@ fn fallback_sorted_descending_by_score() {
         );
     }
     let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
-    let scores: Vec<f64> = result.fallback_chain.iter().map(|e| e.score.total).collect();
+    let scores: Vec<f64> = result
+        .fallback_chain
+        .iter()
+        .map(|e| e.score.total)
+        .collect();
     for w in scores.windows(2) {
         assert!(w[0] >= w[1], "fallback not descending: {:?}", scores);
     }
@@ -806,7 +811,12 @@ fn fallback_includes_incompatible_backends() {
         .project(&wo(require(&[Capability::Streaming, Capability::ToolRead])))
         .unwrap();
     assert_eq!(result.selected_backend, "full");
-    assert!(result.fallback_chain.iter().any(|e| e.backend_id == "partial"));
+    assert!(
+        result
+            .fallback_chain
+            .iter()
+            .any(|e| e.backend_id == "partial")
+    );
 }
 
 #[test]
@@ -1023,7 +1033,9 @@ fn serde_empty_fallback_chain() {
 #[test]
 fn edge_empty_matrix_error() {
     let pm = ProjectionMatrix::new();
-    let err = pm.project(&wo(require(&[Capability::Streaming]))).unwrap_err();
+    let err = pm
+        .project(&wo(require(&[Capability::Streaming])))
+        .unwrap_err();
     assert!(matches!(err, ProjectionError::EmptyMatrix));
 }
 
@@ -1068,9 +1080,7 @@ fn edge_all_unsupported_fails() {
 fn edge_empty_manifest_no_reqs_succeeds() {
     let mut pm = ProjectionMatrix::new();
     pm.register_backend("empty", CapabilityManifest::new(), Dialect::OpenAi, 50);
-    let result = pm
-        .project(&wo(CapabilityRequirements::default()))
-        .unwrap();
+    let result = pm.project(&wo(CapabilityRequirements::default())).unwrap();
     assert_eq!(result.selected_backend, "empty");
 }
 
@@ -1143,9 +1153,7 @@ fn edge_restricted_capability_treated_as_emulatable() {
         Dialect::OpenAi,
         50,
     );
-    let result = pm
-        .project(&wo(require(&[Capability::Streaming])))
-        .unwrap();
+    let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
     assert_eq!(result.selected_backend, "restricted");
     assert_eq!(result.required_emulations.len(), 1);
 }
@@ -1232,7 +1240,11 @@ fn edge_all_same_score_alphabetical() {
     }
     let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
     assert_eq!(result.selected_backend, "alpha");
-    let fb_ids: Vec<_> = result.fallback_chain.iter().map(|e| &e.backend_id).collect();
+    let fb_ids: Vec<_> = result
+        .fallback_chain
+        .iter()
+        .map(|e| &e.backend_id)
+        .collect();
     assert_eq!(fb_ids, &["beta", "gamma", "zeta"]);
 }
 
@@ -1681,7 +1693,9 @@ fn edge_scoring_deterministic_across_runs() {
         50,
     );
     let w = wo(require(&[Capability::Streaming]));
-    let results: Vec<_> = (0..10).map(|_| pm.project(&w).unwrap().selected_backend.clone()).collect();
+    let results: Vec<_> = (0..10)
+        .map(|_| pm.project(&w).unwrap().selected_backend.clone())
+        .collect();
     assert!(results.windows(2).all(|w| w[0] == w[1]));
 }
 

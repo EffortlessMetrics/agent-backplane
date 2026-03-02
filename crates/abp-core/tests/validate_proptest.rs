@@ -2,7 +2,7 @@
 
 //! Property-based tests for receipt validation.
 
-use abp_core::validate::{validate_receipt, ValidationError};
+use abp_core::validate::{ValidationError, validate_receipt};
 use abp_core::*;
 use proptest::prelude::*;
 

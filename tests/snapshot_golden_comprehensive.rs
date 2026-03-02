@@ -13,11 +13,11 @@ use serde_json::json;
 use uuid::Uuid;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet,
-    ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
-    RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_dialect::Dialect;
 use abp_protocol::{Envelope, JsonlCodec};
@@ -754,7 +754,10 @@ fn event_error_with_code() {
 #[test]
 fn event_with_ext_passthrough() {
     let mut ext = BTreeMap::new();
-    ext.insert("raw_message".into(), json!({"role": "assistant", "content": "hello"}));
+    ext.insert(
+        "raw_message".into(),
+        json!({"role": "assistant", "content": "hello"}),
+    );
     ext.insert("vendor_id".into(), json!("msg_abc123"));
     let e = AgentEvent {
         ts: ts(),
@@ -787,40 +790,27 @@ fn event_with_empty_ext() {
 
 #[test]
 fn envelope_hello_default_mode() {
-    let env = Envelope::hello(
-        backend_id(),
-        small_caps(),
-    );
+    let env = Envelope::hello(backend_id(), small_caps());
     let v = serde_json::to_value(env).unwrap();
     insta::assert_json_snapshot!(v);
 }
 
 #[test]
 fn envelope_hello_passthrough_mode() {
-    let env = Envelope::hello_with_mode(
-        backend_id(),
-        small_caps(),
-        ExecutionMode::Passthrough,
-    );
+    let env = Envelope::hello_with_mode(backend_id(), small_caps(), ExecutionMode::Passthrough);
     let v = serde_json::to_value(env).unwrap();
     insta::assert_json_snapshot!(v);
 }
 
 #[test]
 fn envelope_hello_empty_caps() {
-    let env = Envelope::hello(
-        minimal_backend(),
-        BTreeMap::new(),
-    );
+    let env = Envelope::hello(minimal_backend(), BTreeMap::new());
     insta::assert_json_snapshot!(env);
 }
 
 #[test]
 fn envelope_hello_full_caps() {
-    let env = Envelope::hello(
-        backend_id(),
-        full_caps(),
-    );
+    let env = Envelope::hello(backend_id(), full_caps());
     let v = serde_json::to_value(env).unwrap();
     insta::assert_json_snapshot!(v);
 }

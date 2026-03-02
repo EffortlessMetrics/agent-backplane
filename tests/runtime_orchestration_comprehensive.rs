@@ -12,11 +12,10 @@
 //! 8. Edge cases: empty work orders, concurrent runs
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
-    SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    CONTRACT_VERSION,
+    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, SupportLevel,
+    UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
 use abp_integrations::{Backend, MockBackend};
 use abp_runtime::multiplex::{EventMultiplexer, EventRouter};
@@ -544,9 +543,7 @@ fn multiplexer_broadcast_fails_without_subscribers() {
     let mux = EventMultiplexer::new(16);
     let ev = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: None,
     };
     let result = mux.broadcast(ev);
@@ -844,7 +841,11 @@ async fn run_streaming_two_runs_chain_grows() {
 async fn run_streaming_unknown_backend_error() {
     let rt = Runtime::new();
     let wo = simple_work_order("error test");
-    let err = rt.run_streaming("nonexistent", wo).await.err().expect("expected error");
+    let err = rt
+        .run_streaming("nonexistent", wo)
+        .await
+        .err()
+        .expect("expected error");
     assert!(
         matches!(err, RuntimeError::UnknownBackend { .. }),
         "expected UnknownBackend, got {err:?}"
@@ -855,7 +856,11 @@ async fn run_streaming_unknown_backend_error() {
 async fn run_streaming_unknown_backend_name_in_error() {
     let rt = Runtime::new();
     let wo = simple_work_order("name test");
-    let err = rt.run_streaming("my-missing-backend", wo).await.err().expect("expected error");
+    let err = rt
+        .run_streaming("my-missing-backend", wo)
+        .await
+        .err()
+        .expect("expected error");
     let msg = err.to_string();
     assert!(
         msg.contains("my-missing-backend"),
@@ -870,10 +875,7 @@ async fn run_streaming_failing_backend_returns_error() {
     let wo = simple_work_order("fail test");
     let handle = rt.run_streaming("failing", wo).await.unwrap();
     let result = handle.receipt.await.unwrap();
-    assert!(
-        result.is_err(),
-        "expected error from failing backend"
-    );
+    assert!(result.is_err(), "expected error from failing backend");
 }
 
 #[tokio::test]
@@ -891,9 +893,7 @@ async fn run_streaming_failing_backend_error_variant() {
 
 #[test]
 fn runtime_error_unknown_backend_display() {
-    let err = RuntimeError::UnknownBackend {
-        name: "foo".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "foo".into() };
     assert_eq!(err.to_string(), "unknown backend: foo");
 }
 
@@ -931,19 +931,14 @@ fn runtime_error_no_projection_match_display() {
 
 #[test]
 fn runtime_error_error_code_unknown() {
-    let err = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "x".into() };
     assert_eq!(err.error_code(), abp_error::ErrorCode::BackendNotFound);
 }
 
 #[test]
 fn runtime_error_error_code_workspace() {
     let err = RuntimeError::WorkspaceFailed(anyhow::anyhow!("err"));
-    assert_eq!(
-        err.error_code(),
-        abp_error::ErrorCode::WorkspaceInitFailed
-    );
+    assert_eq!(err.error_code(), abp_error::ErrorCode::WorkspaceInitFailed);
 }
 
 #[test]
@@ -1528,9 +1523,7 @@ fn agent_event_run_completed() {
 fn agent_event_assistant_delta() {
     let ev = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: "tok".into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: "tok".into() },
         ext: None,
     };
     assert!(matches!(ev.kind, AgentEventKind::AssistantDelta { .. }));
@@ -1629,10 +1622,7 @@ fn agent_event_serde_roundtrip() {
     };
     let json = serde_json::to_string(&ev).unwrap();
     let back: AgentEvent = serde_json::from_str(&json).unwrap();
-    assert!(matches!(
-        back.kind,
-        AgentEventKind::AssistantMessage { .. }
-    ));
+    assert!(matches!(back.kind, AgentEventKind::AssistantMessage { .. }));
 }
 
 // ===========================================================================
@@ -1739,17 +1729,13 @@ fn receipt_builder_add_artifact() {
 
 #[test]
 fn receipt_builder_backend_version() {
-    let r = ReceiptBuilder::new("test")
-        .backend_version("2.0")
-        .build();
+    let r = ReceiptBuilder::new("test").backend_version("2.0").build();
     assert_eq!(r.backend.backend_version.as_deref(), Some("2.0"));
 }
 
 #[test]
 fn receipt_builder_adapter_version() {
-    let r = ReceiptBuilder::new("test")
-        .adapter_version("1.5")
-        .build();
+    let r = ReceiptBuilder::new("test").adapter_version("1.5").build();
     assert_eq!(r.backend.adapter_version.as_deref(), Some("1.5"));
 }
 

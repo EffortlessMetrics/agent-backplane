@@ -15,9 +15,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
-    MinSupport, Outcome, SupportLevel, WorkOrder, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
+    SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_integrations::capability::CapabilityMatrix;
 use abp_integrations::health::{HealthChecker, HealthStatus};
@@ -171,8 +171,14 @@ fn t014_backend_identity_version_strings() {
 #[test]
 fn t015_backend_capabilities_support_levels() {
     let caps = MockBackend.capabilities();
-    assert!(matches!(caps.get(&Capability::Streaming), Some(SupportLevel::Native)));
-    assert!(matches!(caps.get(&Capability::ToolRead), Some(SupportLevel::Emulated)));
+    assert!(matches!(
+        caps.get(&Capability::Streaming),
+        Some(SupportLevel::Native)
+    ));
+    assert!(matches!(
+        caps.get(&Capability::ToolRead),
+        Some(SupportLevel::Emulated)
+    ));
 }
 
 // ===========================================================================
@@ -230,31 +236,46 @@ fn t023_mock_backend_has_structured_output() {
 #[test]
 fn t024_mock_backend_streaming_is_native() {
     let caps = MockBackend.capabilities();
-    assert!(matches!(caps.get(&Capability::Streaming), Some(SupportLevel::Native)));
+    assert!(matches!(
+        caps.get(&Capability::Streaming),
+        Some(SupportLevel::Native)
+    ));
 }
 
 #[test]
 fn t025_mock_backend_tool_read_is_emulated() {
     let caps = MockBackend.capabilities();
-    assert!(matches!(caps.get(&Capability::ToolRead), Some(SupportLevel::Emulated)));
+    assert!(matches!(
+        caps.get(&Capability::ToolRead),
+        Some(SupportLevel::Emulated)
+    ));
 }
 
 #[test]
 fn t026_mock_backend_tool_write_is_emulated() {
     let caps = MockBackend.capabilities();
-    assert!(matches!(caps.get(&Capability::ToolWrite), Some(SupportLevel::Emulated)));
+    assert!(matches!(
+        caps.get(&Capability::ToolWrite),
+        Some(SupportLevel::Emulated)
+    ));
 }
 
 #[test]
 fn t027_mock_backend_tool_edit_is_emulated() {
     let caps = MockBackend.capabilities();
-    assert!(matches!(caps.get(&Capability::ToolEdit), Some(SupportLevel::Emulated)));
+    assert!(matches!(
+        caps.get(&Capability::ToolEdit),
+        Some(SupportLevel::Emulated)
+    ));
 }
 
 #[test]
 fn t028_mock_backend_tool_bash_is_emulated() {
     let caps = MockBackend.capabilities();
-    assert!(matches!(caps.get(&Capability::ToolBash), Some(SupportLevel::Emulated)));
+    assert!(matches!(
+        caps.get(&Capability::ToolBash),
+        Some(SupportLevel::Emulated)
+    ));
 }
 
 #[test]
@@ -276,13 +297,21 @@ fn t030_mock_backend_no_unsupported_cap() {
 #[tokio::test]
 async fn t031_mock_streams_run_started() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. }))
+    );
 }
 
 #[tokio::test]
 async fn t032_mock_streams_run_completed() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+    );
 }
 
 #[tokio::test]
@@ -413,9 +442,18 @@ async fn t045_mock_events_order_structure() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
     // RunStarted, AssistantMessage, AssistantMessage, RunCompleted
     assert!(matches!(&events[0].kind, AgentEventKind::RunStarted { .. }));
-    assert!(matches!(&events[1].kind, AgentEventKind::AssistantMessage { .. }));
-    assert!(matches!(&events[2].kind, AgentEventKind::AssistantMessage { .. }));
-    assert!(matches!(&events[3].kind, AgentEventKind::RunCompleted { .. }));
+    assert!(matches!(
+        &events[1].kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
+    assert!(matches!(
+        &events[2].kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
+    assert!(matches!(
+        &events[3].kind,
+        AgentEventKind::RunCompleted { .. }
+    ));
 }
 
 #[tokio::test]
@@ -431,25 +469,41 @@ async fn t046_mock_second_assistant_msg_mentions_sidecar() {
 #[tokio::test]
 async fn t047_mock_no_tool_call_events() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(!events.iter().any(|e| matches!(&e.kind, AgentEventKind::ToolCall { .. })));
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::ToolCall { .. }))
+    );
 }
 
 #[tokio::test]
 async fn t048_mock_no_error_events() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(!events.iter().any(|e| matches!(&e.kind, AgentEventKind::Error { .. })));
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::Error { .. }))
+    );
 }
 
 #[tokio::test]
 async fn t049_mock_no_warning_events() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(!events.iter().any(|e| matches!(&e.kind, AgentEventKind::Warning { .. })));
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::Warning { .. }))
+    );
 }
 
 #[tokio::test]
 async fn t050_mock_no_file_changed_events() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(!events.iter().any(|e| matches!(&e.kind, AgentEventKind::FileChanged { .. })));
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::FileChanged { .. }))
+    );
 }
 
 // ===========================================================================
@@ -636,7 +690,11 @@ fn t075_selector_select_all_empty() {
 fn t076_selector_select_all_matches() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(mock_candidate("a", vec![Capability::Streaming], 0));
-    sel.add_candidate(mock_candidate("b", vec![Capability::Streaming, Capability::ToolRead], 1));
+    sel.add_candidate(mock_candidate(
+        "b",
+        vec![Capability::Streaming, Capability::ToolRead],
+        1,
+    ));
     let matches = sel.select_all(&[Capability::Streaming]);
     assert_eq!(matches.len(), 2);
 }
@@ -686,7 +744,9 @@ fn t081_selector_best_fit_prefers_more_caps() {
         vec![Capability::Streaming, Capability::ToolRead],
         1,
     ));
-    let chosen = sel.select(&[Capability::Streaming, Capability::ToolRead]).unwrap();
+    let chosen = sel
+        .select(&[Capability::Streaming, Capability::ToolRead])
+        .unwrap();
     assert_eq!(chosen.name, "broad");
 }
 
@@ -815,7 +875,11 @@ fn t095_selector_multiple_capabilities_required() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(mock_candidate(
         "full",
-        vec![Capability::Streaming, Capability::ToolRead, Capability::ToolWrite],
+        vec![
+            Capability::Streaming,
+            Capability::ToolRead,
+            Capability::ToolWrite,
+        ],
         0,
     ));
     sel.add_candidate(mock_candidate("partial", vec![Capability::Streaming], 1));
@@ -1059,7 +1123,11 @@ fn t119_capability_matrix_best_backend() {
     matrix.register("partial", vec![Capability::Streaming]);
     matrix.register(
         "full",
-        vec![Capability::Streaming, Capability::ToolRead, Capability::ToolWrite],
+        vec![
+            Capability::Streaming,
+            Capability::ToolRead,
+            Capability::ToolWrite,
+        ],
     );
     let best = matrix
         .best_backend(&[Capability::Streaming, Capability::ToolRead])

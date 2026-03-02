@@ -6,7 +6,7 @@ use std::io::BufReader;
 
 use abp_core::*;
 use abp_protocol::codec::StreamingCodec;
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
+use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec};
 
 // ── helpers ──────────────────────────────────────────────────────────

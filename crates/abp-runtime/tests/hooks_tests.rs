@@ -5,11 +5,11 @@ use abp_core::{
     AgentEvent, AgentEventKind, CapabilityRequirements, ContextPacket, ExecutionLane, Outcome,
     PolicyProfile, ReceiptBuilder, RuntimeConfig, WorkOrder, WorkspaceMode, WorkspaceSpec,
 };
-use abp_runtime::hooks::{HookRegistry, LifecycleHook, LoggingHook, MetricsHook, ValidationHook};
 use abp_runtime::RuntimeError;
+use abp_runtime::hooks::{HookRegistry, LifecycleHook, LoggingHook, MetricsHook, ValidationHook};
 use std::sync::{
-    atomic::{AtomicU32, Ordering},
     Arc,
+    atomic::{AtomicU32, Ordering},
 };
 
 // ---------------------------------------------------------------------------

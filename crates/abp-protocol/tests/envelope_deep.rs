@@ -1107,15 +1107,17 @@ fn decode_not_json_fails() {
 
 #[test]
 fn decode_truncated_json_fails() {
-    assert!(JsonlCodec::decode(
-        r#"{"t":"hello","contract_version":#).is_err());
+    assert!(
+        JsonlCodec::decode(
+            r#"{"t":"hello","contract_version":#).is_err());
 }
 
 #[test]
 fn decode_missing_tag_field_fails() {
     assert!(JsonlCodec::decode(r#"{"data":1}"#
-    )
-    .is_err());
+        )
+        .is_err()
+    );
 }
 
 #[test]

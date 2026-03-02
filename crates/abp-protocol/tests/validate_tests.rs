@@ -7,10 +7,10 @@ use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, Outcome,
     ReceiptBuilder, SupportLevel, WorkOrderBuilder,
 };
+use abp_protocol::Envelope;
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::Envelope;
 use chrono::Utc;
 
 // ---------------------------------------------------------------------------
@@ -155,16 +155,18 @@ fn hello_warns_on_missing_optional_backend_fields() {
     };
     let r = v.validate(&env);
     assert!(r.valid);
-    assert!(r
-        .warnings
-        .contains(&ValidationWarning::MissingOptionalField {
-            field: "backend.backend_version".into(),
-        }));
-    assert!(r
-        .warnings
-        .contains(&ValidationWarning::MissingOptionalField {
-            field: "backend.adapter_version".into(),
-        }));
+    assert!(
+        r.warnings
+            .contains(&ValidationWarning::MissingOptionalField {
+                field: "backend.backend_version".into(),
+            })
+    );
+    assert!(
+        r.warnings
+            .contains(&ValidationWarning::MissingOptionalField {
+                field: "backend.adapter_version".into(),
+            })
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -188,9 +190,10 @@ fn run_empty_id() {
     };
     let r = v.validate(&env);
     assert!(!r.valid);
-    assert!(r
-        .errors
-        .contains(&ValidationError::EmptyField { field: "id".into() }));
+    assert!(
+        r.errors
+            .contains(&ValidationError::EmptyField { field: "id".into() })
+    );
 }
 
 #[test]
@@ -292,11 +295,12 @@ fn fatal_warns_on_missing_ref_id() {
     let v = EnvelopeValidator::new();
     let r = v.validate(&fatal_env(None, "crash"));
     assert!(r.valid);
-    assert!(r
-        .warnings
-        .contains(&ValidationWarning::MissingOptionalField {
-            field: "ref_id".into(),
-        }));
+    assert!(
+        r.warnings
+            .contains(&ValidationWarning::MissingOptionalField {
+                field: "ref_id".into(),
+            })
+    );
 }
 
 // ---------------------------------------------------------------------------

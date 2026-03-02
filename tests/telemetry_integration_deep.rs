@@ -37,7 +37,17 @@ fn make_run(
 }
 
 fn quick_run(backend: &str, duration_ms: u64, errors: u64) -> RunMetrics {
-    make_run(backend, "test_dialect", duration_ms, 5, 100, 200, 3, errors, 0)
+    make_run(
+        backend,
+        "test_dialect",
+        duration_ms,
+        5,
+        100,
+        200,
+        3,
+        errors,
+        0,
+    )
 }
 
 /// Custom exporter that uppercases the JSON output.

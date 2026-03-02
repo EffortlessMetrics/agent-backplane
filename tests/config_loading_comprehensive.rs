@@ -126,7 +126,10 @@ fn default_config_warns_about_receipts_dir() {
 #[test]
 fn full_config_has_no_warnings() {
     let w = validate_config(&full_config()).unwrap();
-    assert!(w.is_empty(), "fully-specified config should have no warnings: {w:?}");
+    assert!(
+        w.is_empty(),
+        "fully-specified config should have no warnings: {w:?}"
+    );
 }
 
 #[test]
@@ -343,74 +346,110 @@ fn toml_serialization_includes_set_fields() {
 
 #[test]
 fn valid_log_level_error() {
-    let cfg = BackplaneConfig { log_level: Some("error".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("error".into()),
+        ..full_config()
+    };
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn valid_log_level_warn() {
-    let cfg = BackplaneConfig { log_level: Some("warn".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("warn".into()),
+        ..full_config()
+    };
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn valid_log_level_info() {
-    let cfg = BackplaneConfig { log_level: Some("info".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("info".into()),
+        ..full_config()
+    };
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn valid_log_level_debug() {
-    let cfg = BackplaneConfig { log_level: Some("debug".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("debug".into()),
+        ..full_config()
+    };
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn valid_log_level_trace() {
-    let cfg = BackplaneConfig { log_level: Some("trace".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("trace".into()),
+        ..full_config()
+    };
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn none_log_level_is_valid() {
-    let cfg = BackplaneConfig { log_level: None, ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: None,
+        ..full_config()
+    };
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn invalid_log_level_verbose() {
-    let cfg = BackplaneConfig { log_level: Some("verbose".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("verbose".into()),
+        ..full_config()
+    };
     let r = reasons(validate_config(&cfg).unwrap_err());
     assert!(r.iter().any(|r| r.contains("invalid log_level")));
 }
 
 #[test]
 fn invalid_log_level_uppercase_info() {
-    let cfg = BackplaneConfig { log_level: Some("INFO".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("INFO".into()),
+        ..full_config()
+    };
     assert!(validate_config(&cfg).is_err());
 }
 
 #[test]
 fn invalid_log_level_mixed_case() {
-    let cfg = BackplaneConfig { log_level: Some("Debug".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("Debug".into()),
+        ..full_config()
+    };
     assert!(validate_config(&cfg).is_err());
 }
 
 #[test]
 fn invalid_log_level_empty_string() {
-    let cfg = BackplaneConfig { log_level: Some(String::new()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some(String::new()),
+        ..full_config()
+    };
     assert!(validate_config(&cfg).is_err());
 }
 
 #[test]
 fn invalid_log_level_whitespace() {
-    let cfg = BackplaneConfig { log_level: Some("  ".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("  ".into()),
+        ..full_config()
+    };
     assert!(validate_config(&cfg).is_err());
 }
 
 #[test]
 fn invalid_log_level_numeric() {
-    let cfg = BackplaneConfig { log_level: Some("0".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("0".into()),
+        ..full_config()
+    };
     assert!(validate_config(&cfg).is_err());
 }
 
@@ -433,7 +472,8 @@ fn validation_whitespace_only_sidecar_command() {
 #[test]
 fn validation_tab_only_sidecar_command() {
     let mut cfg = full_config();
-    cfg.backends.insert("bad".into(), sidecar("\t\t", &[], None));
+    cfg.backends
+        .insert("bad".into(), sidecar("\t\t", &[], None));
     let r = reasons(validate_config(&cfg).unwrap_err());
     assert!(r.iter().any(|r| r.contains("command must not be empty")));
 }
@@ -441,7 +481,8 @@ fn validation_tab_only_sidecar_command() {
 #[test]
 fn validation_zero_timeout() {
     let mut cfg = full_config();
-    cfg.backends.insert("bad".into(), sidecar("node", &[], Some(0)));
+    cfg.backends
+        .insert("bad".into(), sidecar("node", &[], Some(0)));
     let r = reasons(validate_config(&cfg).unwrap_err());
     assert!(r.iter().any(|r| r.contains("out of range")));
 }
@@ -449,7 +490,8 @@ fn validation_zero_timeout() {
 #[test]
 fn validation_timeout_exceeds_max() {
     let mut cfg = full_config();
-    cfg.backends.insert("bad".into(), sidecar("node", &[], Some(86_401)));
+    cfg.backends
+        .insert("bad".into(), sidecar("node", &[], Some(86_401)));
     let r = reasons(validate_config(&cfg).unwrap_err());
     assert!(r.iter().any(|r| r.contains("out of range")));
 }
@@ -457,21 +499,24 @@ fn validation_timeout_exceeds_max() {
 #[test]
 fn validation_timeout_u64_max() {
     let mut cfg = full_config();
-    cfg.backends.insert("bad".into(), sidecar("node", &[], Some(u64::MAX)));
+    cfg.backends
+        .insert("bad".into(), sidecar("node", &[], Some(u64::MAX)));
     assert!(validate_config(&cfg).is_err());
 }
 
 #[test]
 fn validation_timeout_boundary_1_is_valid() {
     let mut cfg = full_config();
-    cfg.backends.insert("ok".into(), sidecar("node", &[], Some(1)));
+    cfg.backends
+        .insert("ok".into(), sidecar("node", &[], Some(1)));
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn validation_timeout_boundary_86400_is_valid() {
     let mut cfg = full_config();
-    cfg.backends.insert("ok".into(), sidecar("node", &[], Some(86_400)));
+    cfg.backends
+        .insert("ok".into(), sidecar("node", &[], Some(86_400)));
     validate_config(&cfg).unwrap();
 }
 
@@ -490,7 +535,8 @@ fn validation_collects_multiple_errors() {
         ..full_config()
     };
     cfg.backends.insert("a".into(), sidecar("", &[], Some(0)));
-    cfg.backends.insert("b".into(), sidecar("  ", &[], Some(100_000)));
+    cfg.backends
+        .insert("b".into(), sidecar("  ", &[], Some(100_000)));
     let r = reasons(validate_config(&cfg).unwrap_err());
     // log_level + 2 empty commands + 2 timeout errors = >= 5
     assert!(r.len() >= 5, "expected >= 5 errors, got {}: {r:?}", r.len());
@@ -506,7 +552,10 @@ fn validation_is_idempotent_valid() {
 
 #[test]
 fn validation_is_idempotent_invalid() {
-    let cfg = BackplaneConfig { log_level: Some("bad".into()), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("bad".into()),
+        ..full_config()
+    };
     let r1 = reasons(validate_config(&cfg).unwrap_err());
     let r2 = reasons(validate_config(&cfg).unwrap_err());
     assert_eq!(r1, r2);
@@ -535,7 +584,11 @@ fn sidecar_with_args_parses() {
     "#;
     let cfg = parse_toml(toml).unwrap();
     match &cfg.backends["node"] {
-        BackendEntry::Sidecar { command, args, timeout_secs } => {
+        BackendEntry::Sidecar {
+            command,
+            args,
+            timeout_secs,
+        } => {
             assert_eq!(command, "node");
             assert_eq!(args, &["--experimental", "host.js"]);
             assert_eq!(*timeout_secs, Some(120));
@@ -576,8 +629,10 @@ fn sidecar_default_timeout_none() {
 fn mix_of_mock_and_sidecar() {
     let mut cfg = full_config();
     cfg.backends.insert("m".into(), BackendEntry::Mock {});
-    cfg.backends.insert("s1".into(), sidecar("node", &[], Some(60)));
-    cfg.backends.insert("s2".into(), sidecar("python", &["host.py"], None));
+    cfg.backends
+        .insert("s1".into(), sidecar("node", &[], Some(60)));
+    cfg.backends
+        .insert("s2".into(), sidecar("python", &["host.py"], None));
     validate_config(&cfg).unwrap();
 }
 
@@ -585,7 +640,8 @@ fn mix_of_mock_and_sidecar() {
 fn many_backends_all_valid() {
     let mut cfg = full_config();
     for i in 0..50 {
-        cfg.backends.insert(format!("mock_{i}"), BackendEntry::Mock {});
+        cfg.backends
+            .insert(format!("mock_{i}"), BackendEntry::Mock {});
     }
     validate_config(&cfg).unwrap();
 }
@@ -593,7 +649,8 @@ fn many_backends_all_valid() {
 #[test]
 fn one_bad_sidecar_among_good_backends() {
     let mut cfg = full_config();
-    cfg.backends.insert("good".into(), sidecar("node", &[], Some(60)));
+    cfg.backends
+        .insert("good".into(), sidecar("node", &[], Some(60)));
     cfg.backends.insert("broken".into(), sidecar("", &[], None));
     let r = reasons(validate_config(&cfg).unwrap_err());
     assert!(r.iter().any(|r| r.contains("broken")));
@@ -672,7 +729,10 @@ fn both_optional_fields_missing_produces_two_warnings() {
         ..Default::default()
     };
     let w = validate_config(&cfg).unwrap();
-    let count = w.iter().filter(|w| matches!(w, ConfigWarning::MissingOptionalField { .. })).count();
+    let count = w
+        .iter()
+        .filter(|w| matches!(w, ConfigWarning::MissingOptionalField { .. }))
+        .count();
     assert_eq!(count, 2);
 }
 
@@ -721,7 +781,8 @@ fn setting_receipts_dir_removes_its_warning() {
 #[test]
 fn large_timeout_produces_warning() {
     let mut cfg = full_config();
-    cfg.backends.insert("big".into(), sidecar("node", &[], Some(3_601)));
+    cfg.backends
+        .insert("big".into(), sidecar("node", &[], Some(3_601)));
     let w = validate_config(&cfg).unwrap();
     assert!(w.iter().any(|w| matches!(
         w,
@@ -732,7 +793,8 @@ fn large_timeout_produces_warning() {
 #[test]
 fn exactly_at_threshold_no_large_warning() {
     let mut cfg = full_config();
-    cfg.backends.insert("exact".into(), sidecar("node", &[], Some(3_600)));
+    cfg.backends
+        .insert("exact".into(), sidecar("node", &[], Some(3_600)));
     let w = validate_config(&cfg).unwrap();
     assert!(!w.iter().any(|w| matches!(
         w,
@@ -743,7 +805,8 @@ fn exactly_at_threshold_no_large_warning() {
 #[test]
 fn just_below_threshold_no_large_warning() {
     let mut cfg = full_config();
-    cfg.backends.insert("below".into(), sidecar("node", &[], Some(3_599)));
+    cfg.backends
+        .insert("below".into(), sidecar("node", &[], Some(3_599)));
     let w = validate_config(&cfg).unwrap();
     assert!(!w.iter().any(|w| matches!(
         w,
@@ -754,17 +817,23 @@ fn just_below_threshold_no_large_warning() {
 #[test]
 fn multiple_large_timeouts_produce_multiple_warnings() {
     let mut cfg = full_config();
-    cfg.backends.insert("big1".into(), sidecar("node", &[], Some(7_200)));
-    cfg.backends.insert("big2".into(), sidecar("python", &[], Some(43_200)));
+    cfg.backends
+        .insert("big1".into(), sidecar("node", &[], Some(7_200)));
+    cfg.backends
+        .insert("big2".into(), sidecar("python", &[], Some(43_200)));
     let w = validate_config(&cfg).unwrap();
-    let count = w.iter().filter(|w| matches!(w, ConfigWarning::LargeTimeout { .. })).count();
+    let count = w
+        .iter()
+        .filter(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+        .count();
     assert_eq!(count, 2);
 }
 
 #[test]
 fn large_timeout_at_max_is_warning_not_error() {
     let mut cfg = full_config();
-    cfg.backends.insert("maxed".into(), sidecar("node", &[], Some(86_400)));
+    cfg.backends
+        .insert("maxed".into(), sidecar("node", &[], Some(86_400)));
     let w = validate_config(&cfg).unwrap();
     assert!(w.iter().any(|w| matches!(
         w,
@@ -807,7 +876,10 @@ fn config_warning_display_missing_optional() {
 
 #[test]
 fn config_warning_display_large_timeout() {
-    let w = ConfigWarning::LargeTimeout { backend: "sc".into(), secs: 9999 };
+    let w = ConfigWarning::LargeTimeout {
+        backend: "sc".into(),
+        secs: 9999,
+    };
     let s = w.to_string();
     assert!(s.contains("sc"));
     assert!(s.contains("9999"));
@@ -815,7 +887,10 @@ fn config_warning_display_large_timeout() {
 
 #[test]
 fn config_warning_clone_eq() {
-    let w = ConfigWarning::LargeTimeout { backend: "x".into(), secs: 5000 };
+    let w = ConfigWarning::LargeTimeout {
+        backend: "x".into(),
+        secs: 5000,
+    };
     assert_eq!(w, w.clone());
 }
 
@@ -825,58 +900,130 @@ fn config_warning_clone_eq() {
 
 #[test]
 fn merge_overlay_overrides_default_backend() {
-    let base = BackplaneConfig { default_backend: Some("a".into()), ..Default::default() };
-    let overlay = BackplaneConfig { default_backend: Some("b".into()), ..Default::default() };
-    assert_eq!(merge_configs(base, overlay).default_backend.as_deref(), Some("b"));
+    let base = BackplaneConfig {
+        default_backend: Some("a".into()),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        default_backend: Some("b".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        merge_configs(base, overlay).default_backend.as_deref(),
+        Some("b")
+    );
 }
 
 #[test]
 fn merge_overlay_none_keeps_base_default_backend() {
-    let base = BackplaneConfig { default_backend: Some("a".into()), ..Default::default() };
-    let overlay = BackplaneConfig { default_backend: None, ..Default::default() };
-    assert_eq!(merge_configs(base, overlay).default_backend.as_deref(), Some("a"));
+    let base = BackplaneConfig {
+        default_backend: Some("a".into()),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        default_backend: None,
+        ..Default::default()
+    };
+    assert_eq!(
+        merge_configs(base, overlay).default_backend.as_deref(),
+        Some("a")
+    );
 }
 
 #[test]
 fn merge_overlay_overrides_workspace_dir() {
-    let base = BackplaneConfig { workspace_dir: Some("/old".into()), ..Default::default() };
-    let overlay = BackplaneConfig { workspace_dir: Some("/new".into()), ..Default::default() };
-    assert_eq!(merge_configs(base, overlay).workspace_dir.as_deref(), Some("/new"));
+    let base = BackplaneConfig {
+        workspace_dir: Some("/old".into()),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        workspace_dir: Some("/new".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        merge_configs(base, overlay).workspace_dir.as_deref(),
+        Some("/new")
+    );
 }
 
 #[test]
 fn merge_overlay_none_keeps_base_workspace_dir() {
-    let base = BackplaneConfig { workspace_dir: Some("/ws".into()), ..Default::default() };
-    let overlay = BackplaneConfig { workspace_dir: None, ..Default::default() };
-    assert_eq!(merge_configs(base, overlay).workspace_dir.as_deref(), Some("/ws"));
+    let base = BackplaneConfig {
+        workspace_dir: Some("/ws".into()),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        workspace_dir: None,
+        ..Default::default()
+    };
+    assert_eq!(
+        merge_configs(base, overlay).workspace_dir.as_deref(),
+        Some("/ws")
+    );
 }
 
 #[test]
 fn merge_overlay_overrides_log_level() {
-    let base = BackplaneConfig { log_level: Some("info".into()), ..Default::default() };
-    let overlay = BackplaneConfig { log_level: Some("debug".into()), ..Default::default() };
-    assert_eq!(merge_configs(base, overlay).log_level.as_deref(), Some("debug"));
+    let base = BackplaneConfig {
+        log_level: Some("info".into()),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        log_level: Some("debug".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        merge_configs(base, overlay).log_level.as_deref(),
+        Some("debug")
+    );
 }
 
 #[test]
 fn merge_overlay_none_keeps_base_log_level() {
-    let base = BackplaneConfig { log_level: Some("warn".into()), ..Default::default() };
-    let overlay = BackplaneConfig { log_level: None, ..Default::default() };
-    assert_eq!(merge_configs(base, overlay).log_level.as_deref(), Some("warn"));
+    let base = BackplaneConfig {
+        log_level: Some("warn".into()),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        log_level: None,
+        ..Default::default()
+    };
+    assert_eq!(
+        merge_configs(base, overlay).log_level.as_deref(),
+        Some("warn")
+    );
 }
 
 #[test]
 fn merge_overlay_overrides_receipts_dir() {
-    let base = BackplaneConfig { receipts_dir: Some("/old".into()), ..Default::default() };
-    let overlay = BackplaneConfig { receipts_dir: Some("/new".into()), ..Default::default() };
-    assert_eq!(merge_configs(base, overlay).receipts_dir.as_deref(), Some("/new"));
+    let base = BackplaneConfig {
+        receipts_dir: Some("/old".into()),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        receipts_dir: Some("/new".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        merge_configs(base, overlay).receipts_dir.as_deref(),
+        Some("/new")
+    );
 }
 
 #[test]
 fn merge_overlay_none_keeps_base_receipts_dir() {
-    let base = BackplaneConfig { receipts_dir: Some("/r".into()), ..Default::default() };
-    let overlay = BackplaneConfig { receipts_dir: None, ..Default::default() };
-    assert_eq!(merge_configs(base, overlay).receipts_dir.as_deref(), Some("/r"));
+    let base = BackplaneConfig {
+        receipts_dir: Some("/r".into()),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        receipts_dir: None,
+        ..Default::default()
+    };
+    assert_eq!(
+        merge_configs(base, overlay).receipts_dir.as_deref(),
+        Some("/r")
+    );
 }
 
 #[test]
@@ -941,9 +1088,18 @@ fn merge_two_defaults_is_default() {
 
 #[test]
 fn merge_chain_three_configs() {
-    let a = BackplaneConfig { default_backend: Some("a".into()), ..Default::default() };
-    let b = BackplaneConfig { workspace_dir: Some("/b".into()), ..Default::default() };
-    let c = BackplaneConfig { receipts_dir: Some("/c".into()), ..Default::default() };
+    let a = BackplaneConfig {
+        default_backend: Some("a".into()),
+        ..Default::default()
+    };
+    let b = BackplaneConfig {
+        workspace_dir: Some("/b".into()),
+        ..Default::default()
+    };
+    let c = BackplaneConfig {
+        receipts_dir: Some("/c".into()),
+        ..Default::default()
+    };
     let m = merge_configs(merge_configs(a, b), c);
     assert_eq!(m.default_backend.as_deref(), Some("a"));
     assert_eq!(m.workspace_dir.as_deref(), Some("/b"));
@@ -953,7 +1109,10 @@ fn merge_chain_three_configs() {
 #[test]
 fn merge_valid_configs_still_valid() {
     let base = full_config();
-    let overlay = BackplaneConfig { log_level: Some("debug".into()), ..Default::default() };
+    let overlay = BackplaneConfig {
+        log_level: Some("debug".into()),
+        ..Default::default()
+    };
     let m = merge_configs(base, overlay);
     validate_config(&m).unwrap();
 }
@@ -961,7 +1120,10 @@ fn merge_valid_configs_still_valid() {
 #[test]
 fn merge_introduces_invalid_log_level() {
     let base = full_config();
-    let overlay = BackplaneConfig { log_level: Some("banana".into()), ..Default::default() };
+    let overlay = BackplaneConfig {
+        log_level: Some("banana".into()),
+        ..Default::default()
+    };
     let m = merge_configs(base, overlay);
     assert!(validate_config(&m).is_err());
 }
@@ -1033,30 +1195,36 @@ fn extra_fields_in_backend_silently_ignored() {
 #[test]
 fn very_long_backend_name_is_valid() {
     let mut cfg = full_config();
-    cfg.backends.insert("a".repeat(10_000), BackendEntry::Mock {});
+    cfg.backends
+        .insert("a".repeat(10_000), BackendEntry::Mock {});
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn very_long_command_is_valid() {
     let mut cfg = full_config();
-    cfg.backends.insert("long".into(), sidecar(&"x".repeat(100_000), &[], None));
+    cfg.backends
+        .insert("long".into(), sidecar(&"x".repeat(100_000), &[], None));
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn unicode_in_command() {
     let mut cfg = full_config();
-    cfg.backends.insert("uni".into(), sidecar("nöde", &["日本語"], None));
+    cfg.backends
+        .insert("uni".into(), sidecar("nöde", &["日本語"], None));
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn special_chars_in_backend_name() {
     let mut cfg = full_config();
-    cfg.backends.insert("my-backend_v2.0".into(), BackendEntry::Mock {});
-    cfg.backends.insert("backend/slashes".into(), BackendEntry::Mock {});
-    cfg.backends.insert("backend spaces".into(), BackendEntry::Mock {});
+    cfg.backends
+        .insert("my-backend_v2.0".into(), BackendEntry::Mock {});
+    cfg.backends
+        .insert("backend/slashes".into(), BackendEntry::Mock {});
+    cfg.backends
+        .insert("backend spaces".into(), BackendEntry::Mock {});
     validate_config(&cfg).unwrap();
 }
 
@@ -1082,50 +1250,69 @@ fn windows_style_paths() {
 
 #[test]
 fn empty_workspace_dir_string_accepted() {
-    let cfg = BackplaneConfig { workspace_dir: Some(String::new()), ..full_config() };
+    let cfg = BackplaneConfig {
+        workspace_dir: Some(String::new()),
+        ..full_config()
+    };
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn empty_receipts_dir_string_accepted() {
-    let cfg = BackplaneConfig { receipts_dir: Some(String::new()), ..full_config() };
+    let cfg = BackplaneConfig {
+        receipts_dir: Some(String::new()),
+        ..full_config()
+    };
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn config_with_no_backends_is_valid() {
-    let cfg = BackplaneConfig { backends: BTreeMap::new(), ..full_config() };
+    let cfg = BackplaneConfig {
+        backends: BTreeMap::new(),
+        ..full_config()
+    };
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn sidecar_command_with_leading_spaces_is_valid() {
     let mut cfg = full_config();
-    cfg.backends.insert("sp".into(), sidecar("  node", &[], None));
+    cfg.backends
+        .insert("sp".into(), sidecar("  node", &[], None));
     validate_config(&cfg).unwrap();
 }
 
 #[test]
 fn very_long_log_level_is_invalid() {
-    let cfg = BackplaneConfig { log_level: Some("x".repeat(1_000)), ..full_config() };
+    let cfg = BackplaneConfig {
+        log_level: Some("x".repeat(1_000)),
+        ..full_config()
+    };
     assert!(validate_config(&cfg).is_err());
 }
 
 #[test]
 fn config_error_display_file_not_found() {
-    let e = ConfigError::FileNotFound { path: "/missing.toml".into() };
+    let e = ConfigError::FileNotFound {
+        path: "/missing.toml".into(),
+    };
     assert!(e.to_string().contains("/missing.toml"));
 }
 
 #[test]
 fn config_error_display_parse_error() {
-    let e = ConfigError::ParseError { reason: "bad syntax".into() };
+    let e = ConfigError::ParseError {
+        reason: "bad syntax".into(),
+    };
     assert!(e.to_string().contains("bad syntax"));
 }
 
 #[test]
 fn config_error_display_validation_error() {
-    let e = ConfigError::ValidationError { reasons: vec!["reason1".into(), "reason2".into()] };
+    let e = ConfigError::ValidationError {
+        reasons: vec!["reason1".into(), "reason2".into()],
+    };
     let s = e.to_string();
     assert!(s.contains("reason1"));
     assert!(s.contains("reason2"));
@@ -1133,7 +1320,9 @@ fn config_error_display_validation_error() {
 
 #[test]
 fn config_error_display_merge_conflict() {
-    let e = ConfigError::MergeConflict { reason: "conflict!".into() };
+    let e = ConfigError::MergeConflict {
+        reason: "conflict!".into(),
+    };
     assert!(e.to_string().contains("conflict!"));
 }
 

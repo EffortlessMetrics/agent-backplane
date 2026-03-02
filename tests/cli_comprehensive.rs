@@ -192,10 +192,7 @@ fn receipt_verify_help_shows_usage() {
 
 #[test]
 fn receipt_diff_help_shows_usage() {
-    abp()
-        .args(["receipt", "diff", "--help"])
-        .assert()
-        .success();
+    abp().args(["receipt", "diff", "--help"]).assert().success();
 }
 
 // ===========================================================================
@@ -300,7 +297,9 @@ fn backends_lists_sidecar_codex() {
 fn backends_lists_short_aliases() {
     let output = abp().arg("backends").output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    for alias in &["node", "python", "claude", "copilot", "kimi", "gemini", "codex"] {
+    for alias in &[
+        "node", "python", "claude", "copilot", "kimi", "gemini", "codex",
+    ] {
         assert!(
             stdout.lines().any(|l| l.trim() == *alias),
             "expected alias '{alias}' in backends output"
@@ -916,10 +915,7 @@ fn validate_rejects_unknown_schema() {
 
 #[test]
 fn schema_work_order_is_valid_json() {
-    let output = abp()
-        .args(["schema", "work-order"])
-        .output()
-        .unwrap();
+    let output = abp().args(["schema", "work-order"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let _: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON schema");
@@ -927,10 +923,7 @@ fn schema_work_order_is_valid_json() {
 
 #[test]
 fn schema_work_order_has_properties() {
-    let output = abp()
-        .args(["schema", "work-order"])
-        .output()
-        .unwrap();
+    let output = abp().args(["schema", "work-order"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert!(v.get("properties").is_some() || v.get("$defs").is_some());
@@ -938,20 +931,14 @@ fn schema_work_order_has_properties() {
 
 #[test]
 fn schema_work_order_mentions_task() {
-    let output = abp()
-        .args(["schema", "work-order"])
-        .output()
-        .unwrap();
+    let output = abp().args(["schema", "work-order"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("task"));
 }
 
 #[test]
 fn schema_receipt_is_valid_json() {
-    let output = abp()
-        .args(["schema", "receipt"])
-        .output()
-        .unwrap();
+    let output = abp().args(["schema", "receipt"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let _: serde_json::Value = serde_json::from_str(&stdout).unwrap();
@@ -959,20 +946,14 @@ fn schema_receipt_is_valid_json() {
 
 #[test]
 fn schema_receipt_mentions_outcome() {
-    let output = abp()
-        .args(["schema", "receipt"])
-        .output()
-        .unwrap();
+    let output = abp().args(["schema", "receipt"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("outcome"));
 }
 
 #[test]
 fn schema_config_is_valid_json() {
-    let output = abp()
-        .args(["schema", "config"])
-        .output()
-        .unwrap();
+    let output = abp().args(["schema", "config"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let _: serde_json::Value = serde_json::from_str(&stdout).unwrap();
@@ -980,10 +961,7 @@ fn schema_config_is_valid_json() {
 
 #[test]
 fn schema_config_mentions_backends() {
-    let output = abp()
-        .args(["schema", "config"])
-        .output()
-        .unwrap();
+    let output = abp().args(["schema", "config"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("backends"));
 }
@@ -1274,10 +1252,7 @@ type = "mock"
 
 #[test]
 fn debug_flag_is_accepted_before_subcommand() {
-    abp()
-        .args(["--debug", "backends"])
-        .assert()
-        .success();
+    abp().args(["--debug", "backends"]).assert().success();
 }
 
 // ===========================================================================
@@ -1835,18 +1810,12 @@ fn validate_receipt_without_hash_still_detects_type() {
 
 #[test]
 fn schema_work_order_output_is_not_empty() {
-    let output = abp()
-        .args(["schema", "work-order"])
-        .output()
-        .unwrap();
+    let output = abp().args(["schema", "work-order"]).output().unwrap();
     assert!(!output.stdout.is_empty());
 }
 
 #[test]
 fn schema_receipt_output_is_not_empty() {
-    let output = abp()
-        .args(["schema", "receipt"])
-        .output()
-        .unwrap();
+    let output = abp().args(["schema", "receipt"]).output().unwrap();
     assert!(!output.stdout.is_empty());
 }

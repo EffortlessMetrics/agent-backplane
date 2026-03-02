@@ -351,7 +351,14 @@ fn receipt_top_level_type_is_object() {
 fn work_order_has_all_required_fields() {
     let required = get_required(&wo_schema());
     for f in &[
-        "id", "task", "lane", "workspace", "context", "policy", "requirements", "config",
+        "id",
+        "task",
+        "lane",
+        "workspace",
+        "context",
+        "policy",
+        "requirements",
+        "config",
     ] {
         assert!(required.contains(&f.to_string()), "missing required: {f}");
     }
@@ -553,9 +560,7 @@ fn valid_receipt_partial_outcome_passes_schema() {
 
 #[test]
 fn valid_receipt_failed_outcome_passes_schema() {
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Failed)
-        .build();
+    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
     let v = serde_json::to_value(receipt).unwrap();
     assert_valid(&receipt_schema(), &v);
 }
@@ -902,9 +907,7 @@ fn event_with_ext_field_validates() {
     ext.insert("raw_message".into(), json!({"vendor": "data"}));
     let v = serde_json::to_value(AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: Some(ext),
     })
     .unwrap();
@@ -962,9 +965,7 @@ fn envelope_event_roundtrips_json() {
         ref_id: "run-1".into(),
         event: AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "hi".into() },
             ext: None,
         },
     };
@@ -1091,18 +1092,20 @@ fn backplane_config_schema_is_deterministic() {
 
 #[test]
 fn on_disk_work_order_schema_matches_generated() {
-    let on_disk: Value =
-        serde_json::from_str(&std::fs::read_to_string("contracts/schemas/work_order.schema.json").unwrap())
-            .unwrap();
+    let on_disk: Value = serde_json::from_str(
+        &std::fs::read_to_string("contracts/schemas/work_order.schema.json").unwrap(),
+    )
+    .unwrap();
     let generated = wo_schema();
     assert_eq!(on_disk, generated, "on-disk schema drifted from code");
 }
 
 #[test]
 fn on_disk_receipt_schema_matches_generated() {
-    let on_disk: Value =
-        serde_json::from_str(&std::fs::read_to_string("contracts/schemas/receipt.schema.json").unwrap())
-            .unwrap();
+    let on_disk: Value = serde_json::from_str(
+        &std::fs::read_to_string("contracts/schemas/receipt.schema.json").unwrap(),
+    )
+    .unwrap();
     let generated = receipt_schema();
     assert_eq!(on_disk, generated, "on-disk schema drifted from code");
 }
@@ -1195,10 +1198,7 @@ fn receipt_with_capabilities_passes() {
 fn outcome_enum_values_are_snake_case() {
     let s = schema_value::<Outcome>();
     let one_of = s["oneOf"].as_array().expect("Outcome uses oneOf");
-    let vals: Vec<&str> = one_of
-        .iter()
-        .filter_map(|v| v["const"].as_str())
-        .collect();
+    let vals: Vec<&str> = one_of.iter().filter_map(|v| v["const"].as_str()).collect();
     assert!(vals.contains(&"complete"));
     assert!(vals.contains(&"partial"));
     assert!(vals.contains(&"failed"));
@@ -1208,10 +1208,7 @@ fn outcome_enum_values_are_snake_case() {
 fn execution_lane_enum_values() {
     let s = schema_value::<ExecutionLane>();
     let one_of = s["oneOf"].as_array().expect("ExecutionLane uses oneOf");
-    let vals: Vec<&str> = one_of
-        .iter()
-        .filter_map(|v| v["const"].as_str())
-        .collect();
+    let vals: Vec<&str> = one_of.iter().filter_map(|v| v["const"].as_str()).collect();
     assert!(vals.contains(&"patch_first"));
     assert!(vals.contains(&"workspace_first"));
 }
@@ -1220,10 +1217,7 @@ fn execution_lane_enum_values() {
 fn workspace_mode_enum_values() {
     let s = schema_value::<WorkspaceMode>();
     let one_of = s["oneOf"].as_array().expect("WorkspaceMode uses oneOf");
-    let vals: Vec<&str> = one_of
-        .iter()
-        .filter_map(|v| v["const"].as_str())
-        .collect();
+    let vals: Vec<&str> = one_of.iter().filter_map(|v| v["const"].as_str()).collect();
     assert!(vals.contains(&"pass_through"));
     assert!(vals.contains(&"staged"));
 }
@@ -1232,10 +1226,7 @@ fn workspace_mode_enum_values() {
 fn execution_mode_enum_values() {
     let s = schema_value::<ExecutionMode>();
     let one_of = s["oneOf"].as_array().expect("ExecutionMode uses oneOf");
-    let vals: Vec<&str> = one_of
-        .iter()
-        .filter_map(|v| v["const"].as_str())
-        .collect();
+    let vals: Vec<&str> = one_of.iter().filter_map(|v| v["const"].as_str()).collect();
     assert!(vals.contains(&"passthrough"));
     assert!(vals.contains(&"mapped"));
 }
@@ -1244,10 +1235,7 @@ fn execution_mode_enum_values() {
 fn min_support_enum_values() {
     let s = schema_value::<MinSupport>();
     let one_of = s["oneOf"].as_array().expect("MinSupport uses oneOf");
-    let vals: Vec<&str> = one_of
-        .iter()
-        .filter_map(|v| v["const"].as_str())
-        .collect();
+    let vals: Vec<&str> = one_of.iter().filter_map(|v| v["const"].as_str()).collect();
     assert!(vals.contains(&"native"));
     assert!(vals.contains(&"emulated"));
 }
@@ -1256,10 +1244,7 @@ fn min_support_enum_values() {
 fn capability_has_all_known_variants() {
     let s = schema_value::<Capability>();
     let one_of = s["oneOf"].as_array().expect("Capability uses oneOf");
-    let vals: Vec<&str> = one_of
-        .iter()
-        .filter_map(|v| v["const"].as_str())
-        .collect();
+    let vals: Vec<&str> = one_of.iter().filter_map(|v| v["const"].as_str()).collect();
     for expected in &[
         "streaming",
         "tool_read",
@@ -1303,17 +1288,17 @@ fn support_level_restricted_variant_is_object() {
                 .and_then(|p| p.get("restricted"))
                 .is_some()
     });
-    assert!(has_restricted, "SupportLevel should have Restricted object variant");
+    assert!(
+        has_restricted,
+        "SupportLevel should have Restricted object variant"
+    );
 }
 
 #[test]
 fn ir_role_enum_values() {
     let s = schema_value::<IrRole>();
     let one_of = s["oneOf"].as_array().expect("IrRole uses oneOf");
-    let vals: Vec<&str> = one_of
-        .iter()
-        .filter_map(|v| v["const"].as_str())
-        .collect();
+    let vals: Vec<&str> = one_of.iter().filter_map(|v| v["const"].as_str()).collect();
     assert!(vals.contains(&"system"));
     assert!(vals.contains(&"user"));
     assert!(vals.contains(&"assistant"));

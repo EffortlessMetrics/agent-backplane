@@ -2,7 +2,7 @@
 //! Integration tests for the Claude SDK dialect mapping.
 
 use abp_claude_sdk::dialect::{
-    map_response, map_work_order, ClaudeConfig, ClaudeContentBlock, ClaudeResponse,
+    ClaudeConfig, ClaudeContentBlock, ClaudeResponse, map_response, map_work_order,
 };
 use abp_core::{AgentEventKind, ContextPacket, ContextSnippet, WorkOrderBuilder};
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Tests for `abp_workspace::diff` module.
 
-use abp_workspace::diff::{diff_workspace, DiffSummary};
 use abp_workspace::WorkspaceStager;
+use abp_workspace::diff::{DiffSummary, diff_workspace};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::tempdir;
@@ -269,9 +269,11 @@ fn nested_directory_additions() {
 
     let summary = diff_workspace(&ws).unwrap();
 
-    assert!(summary
-        .added
-        .contains(&PathBuf::from("sub/deep/nested.txt")));
+    assert!(
+        summary
+            .added
+            .contains(&PathBuf::from("sub/deep/nested.txt"))
+    );
     assert_eq!(summary.total_additions, 1);
 }
 

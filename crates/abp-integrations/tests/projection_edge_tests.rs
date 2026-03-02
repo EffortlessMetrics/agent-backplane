@@ -2,7 +2,7 @@
 //! Edge-case tests for ProjectionMatrix and dialect translation.
 
 use abp_core::{ContextPacket, ContextSnippet, WorkOrderBuilder};
-use abp_integrations::projection::{supported_translations, translate, Dialect, ProjectionMatrix};
+use abp_integrations::projection::{Dialect, ProjectionMatrix, supported_translations, translate};
 
 fn sample_wo() -> abp_core::WorkOrder {
     WorkOrderBuilder::new("test task").build()

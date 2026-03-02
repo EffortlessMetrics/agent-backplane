@@ -24,9 +24,7 @@ use abp_runtime::cancel::{CancellableRun, CancellationReason, CancellationToken}
 use abp_runtime::hooks::{HookRegistry, LifecycleHook, LoggingHook, MetricsHook, ValidationHook};
 use abp_runtime::multiplex::{EventMultiplexer, EventRouter, MultiplexError};
 use abp_runtime::observe::{ObservabilitySummary, RuntimeObserver, SpanStatus, TraceCollector};
-use abp_runtime::pipeline::{
-    AuditStage, Pipeline, PipelineStage, PolicyStage, ValidationStage,
-};
+use abp_runtime::pipeline::{AuditStage, Pipeline, PipelineStage, PolicyStage, ValidationStage};
 use abp_runtime::registry::BackendRegistry;
 use abp_runtime::retry::{RetryPolicy, TimeoutConfig};
 use abp_runtime::stages::{
@@ -247,7 +245,9 @@ async fn pipeline_empty_executes_ok() {
 
 #[tokio::test]
 async fn pipeline_builder_pattern() {
-    let p = Pipeline::new().stage(ValidationStage).stage(AuditStage::new());
+    let p = Pipeline::new()
+        .stage(ValidationStage)
+        .stage(AuditStage::new());
     assert_eq!(p.len(), 2);
 }
 
@@ -503,9 +503,7 @@ fn event_router_routes_by_kind() {
             counter_clone.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }),
     );
-    let ev = make_event(AgentEventKind::AssistantMessage {
-        text: "hi".into(),
-    });
+    let ev = make_event(AgentEventKind::AssistantMessage { text: "hi".into() });
     router.route(&ev);
     assert_eq!(counter.load(std::sync::atomic::Ordering::Relaxed), 1);
 }
@@ -771,9 +769,7 @@ async fn run_streaming_unknown_backend_error() {
 
 #[test]
 fn runtime_error_unknown_backend_display() {
-    let err = RuntimeError::UnknownBackend {
-        name: "foo".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "foo".into() };
     assert!(err.to_string().contains("foo"));
 }
 
@@ -804,10 +800,7 @@ fn runtime_error_capability_check_failed_display() {
 #[test]
 fn runtime_error_has_error_codes() {
     assert_eq!(
-        RuntimeError::UnknownBackend {
-            name: "x".into()
-        }
-        .error_code(),
+        RuntimeError::UnknownBackend { name: "x".into() }.error_code(),
         abp_error::ErrorCode::BackendNotFound
     );
     assert_eq!(
@@ -840,8 +833,7 @@ fn runtime_error_into_abp_error_preserves_code() {
 
 #[test]
 fn classified_error_roundtrip() {
-    let abp_err =
-        abp_error::AbpError::new(abp_error::ErrorCode::BackendTimeout, "timed out");
+    let abp_err = abp_error::AbpError::new(abp_error::ErrorCode::BackendTimeout, "timed out");
     let rt_err: RuntimeError = abp_err.into();
     assert_eq!(rt_err.error_code(), abp_error::ErrorCode::BackendTimeout);
 }
@@ -1317,10 +1309,7 @@ fn trace_collector_set_status() {
             message: "fail".into(),
         },
     );
-    assert!(matches!(
-        tc.spans()[0].status,
-        SpanStatus::Error { .. }
-    ));
+    assert!(matches!(tc.spans()[0].status, SpanStatus::Error { .. }));
 }
 
 #[test]

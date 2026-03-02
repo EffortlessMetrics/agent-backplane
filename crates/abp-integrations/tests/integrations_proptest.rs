@@ -4,7 +4,7 @@
 use abp_core::*;
 use abp_integrations::projection::{Dialect, ProjectionMatrix};
 use abp_integrations::{
-    ensure_capability_requirements, extract_execution_mode, Backend, MockBackend,
+    Backend, MockBackend, ensure_capability_requirements, extract_execution_mode,
 };
 use proptest::prelude::*;
 use uuid::Uuid;

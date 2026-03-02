@@ -9,19 +9,18 @@ use serde_json::json;
 use tokio_stream::StreamExt;
 
 use abp_shim_kimi::{
-    events_to_stream_chunks, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
-    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    response_to_ir, KimiClient, KimiRequestBuilder, Message, ProcessFn, ShimError, Usage,
+    KimiClient, KimiRequestBuilder, Message, ProcessFn, ShimError, Usage, events_to_stream_chunks,
+    ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt, mock_receipt_with_usage,
+    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
 };
 
 use abp_kimi_sdk::dialect::{
-    self, builtin_browser, builtin_search_internet, capability_manifest, extract_usage,
-    from_canonical_model, is_known_model, map_response, map_stream_event, map_work_order,
-    to_canonical_model, tool_def_from_kimi, tool_def_to_kimi, CanonicalToolDef,
-    KimiChoice, KimiChunk, KimiChunkChoice, KimiChunkDelta, KimiChunkFunctionCall,
-    KimiChunkToolCall, KimiConfig, KimiFunctionCall, KimiMessage, KimiRef, KimiRequest,
-    KimiResponse, KimiResponseMessage, KimiRole, KimiTool, KimiToolCall, KimiUsage,
-    ToolCallAccumulator, DIALECT_VERSION, DEFAULT_MODEL,
+    self, CanonicalToolDef, DEFAULT_MODEL, DIALECT_VERSION, KimiChoice, KimiChunk, KimiChunkChoice,
+    KimiChunkDelta, KimiChunkFunctionCall, KimiChunkToolCall, KimiConfig, KimiFunctionCall,
+    KimiMessage, KimiRef, KimiRequest, KimiResponse, KimiResponseMessage, KimiRole, KimiTool,
+    KimiToolCall, KimiUsage, ToolCallAccumulator, builtin_browser, builtin_search_internet,
+    capability_manifest, extract_usage, from_canonical_model, is_known_model, map_response,
+    map_stream_event, map_work_order, to_canonical_model, tool_def_from_kimi, tool_def_to_kimi,
 };
 use abp_kimi_sdk::lowering;
 
@@ -46,9 +45,7 @@ fn _make_processor_with_usage(events: Vec<AgentEvent>, usage: UsageNormalized) -
 fn assistant_event(text: &str) -> AgentEvent {
     AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: text.into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: text.into() },
         ext: None,
     }
 }
@@ -56,9 +53,7 @@ fn assistant_event(text: &str) -> AgentEvent {
 fn delta_event(text: &str) -> AgentEvent {
     AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: text.into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: text.into() },
         ext: None,
     }
 }
@@ -246,10 +241,7 @@ fn request_to_ir_simple_user() {
 #[test]
 fn request_to_ir_system_and_user() {
     let req = KimiRequestBuilder::new()
-        .messages(vec![
-            Message::system("Be concise."),
-            Message::user("Hello"),
-        ])
+        .messages(vec![Message::system("Be concise."), Message::user("Hello")])
         .build();
     let conv = request_to_ir(&req);
     assert_eq!(conv.len(), 2);
@@ -488,7 +480,11 @@ fn receipt_to_response_basic() {
 
 #[test]
 fn receipt_to_response_tool_calls() {
-    let events = vec![tool_call_event("web_search", "call_abc", json!({"q": "rust"}))];
+    let events = vec![tool_call_event(
+        "web_search",
+        "call_abc",
+        json!({"q": "rust"}),
+    )];
     let receipt = mock_receipt(events);
     let resp = receipt_to_response(&receipt, "moonshot-v1-8k");
     assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("tool_calls"));
@@ -717,12 +713,20 @@ fn map_work_order_includes_user_task() {
     let req = map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0].content.as_deref().unwrap().contains("Optimize DB"));
+    assert!(
+        req.messages[0]
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Optimize DB")
+    );
 }
 
 #[test]
 fn map_work_order_respects_model_override() {
-    let wo = WorkOrderBuilder::new("task").model("moonshot-v1-128k").build();
+    let wo = WorkOrderBuilder::new("task")
+        .model("moonshot-v1-128k")
+        .build();
     let cfg = KimiConfig::default();
     let req = map_work_order(&wo, &cfg);
     assert_eq!(req.model, "moonshot-v1-128k");
@@ -1123,12 +1127,18 @@ fn accumulator_entry_without_name_skipped() {
 
 #[test]
 fn to_canonical_model_prefixes_moonshot() {
-    assert_eq!(to_canonical_model("moonshot-v1-8k"), "moonshot/moonshot-v1-8k");
+    assert_eq!(
+        to_canonical_model("moonshot-v1-8k"),
+        "moonshot/moonshot-v1-8k"
+    );
 }
 
 #[test]
 fn from_canonical_model_strips_prefix() {
-    assert_eq!(from_canonical_model("moonshot/moonshot-v1-8k"), "moonshot-v1-8k");
+    assert_eq!(
+        from_canonical_model("moonshot/moonshot-v1-8k"),
+        "moonshot-v1-8k"
+    );
 }
 
 #[test]
@@ -1427,7 +1437,12 @@ fn kimi_role_display() {
 
 #[test]
 fn kimi_role_serde_roundtrip() {
-    for role in [KimiRole::System, KimiRole::User, KimiRole::Assistant, KimiRole::Tool] {
+    for role in [
+        KimiRole::System,
+        KimiRole::User,
+        KimiRole::Assistant,
+        KimiRole::Tool,
+    ] {
         let json = serde_json::to_string(&role).unwrap();
         let back: KimiRole = serde_json::from_str(&json).unwrap();
         assert_eq!(back, role);

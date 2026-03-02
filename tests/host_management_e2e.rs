@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, Outcome, Receipt,
-    ReceiptBuilder, SupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    Outcome, Receipt, ReceiptBuilder, SupportLevel, WorkOrderBuilder,
 };
 use abp_host::health::{HealthMonitor, HealthStatus};
 use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
@@ -161,7 +161,10 @@ fn process_config_with_working_dir() {
         working_dir: Some(PathBuf::from("/tmp")),
         ..ProcessConfig::default()
     };
-    assert_eq!(config.working_dir.as_deref(), Some(std::path::Path::new("/tmp")));
+    assert_eq!(
+        config.working_dir.as_deref(),
+        Some(std::path::Path::new("/tmp"))
+    );
 }
 
 #[test]
@@ -575,7 +578,10 @@ fn protocol_handshake_sequence_encode_decode() {
 
 #[test]
 fn host_error_spawn_display() {
-    let err = HostError::Spawn(std::io::Error::new(std::io::ErrorKind::NotFound, "not found"));
+    let err = HostError::Spawn(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "not found",
+    ));
     let msg = err.to_string();
     assert!(msg.contains("spawn"));
 }
@@ -716,7 +722,8 @@ fn registry_register_duplicate_fails() {
 fn registry_list_returns_sorted_names() {
     let mut reg = SidecarRegistry::default();
     reg.register(SidecarConfig::new("zeta", "node")).unwrap();
-    reg.register(SidecarConfig::new("alpha", "python3")).unwrap();
+    reg.register(SidecarConfig::new("alpha", "python3"))
+        .unwrap();
     reg.register(SidecarConfig::new("middle", "bash")).unwrap();
     let names = reg.list();
     assert_eq!(names, vec!["alpha", "middle", "zeta"]);
@@ -1099,7 +1106,11 @@ fn health_monitor_new_is_empty() {
 #[test]
 fn health_monitor_record_healthy() {
     let mut monitor = HealthMonitor::new();
-    monitor.record_check("sc1", HealthStatus::Healthy, Some(Duration::from_millis(50)));
+    monitor.record_check(
+        "sc1",
+        HealthStatus::Healthy,
+        Some(Duration::from_millis(50)),
+    );
     assert_eq!(monitor.total_checks(), 1);
     let check = monitor.get_status("sc1").unwrap();
     assert!(matches!(check.status, HealthStatus::Healthy));
@@ -1614,10 +1625,7 @@ fn retry_metadata_to_receipt_metadata_no_failures() {
         total_duration: Duration::from_millis(100),
     };
     let map = meta.to_receipt_metadata();
-    assert_eq!(
-        map.get("retry_total_attempts"),
-        Some(&serde_json::json!(1))
-    );
+    assert_eq!(map.get("retry_total_attempts"), Some(&serde_json::json!(1)));
     assert!(!map.contains_key("retry_failed_attempts"));
 }
 
@@ -1645,7 +1653,12 @@ async fn retry_async_succeeds_first_attempt() {
         overall_timeout: Duration::from_secs(5),
         jitter_factor: 0.0,
     };
-    let result = retry::retry_async(&config, || async { Ok::<_, HostError>(42) }, retry::is_retryable).await;
+    let result = retry::retry_async(
+        &config,
+        || async { Ok::<_, HostError>(42) },
+        retry::is_retryable,
+    )
+    .await;
     let outcome = result.unwrap();
     assert_eq!(outcome.value, 42);
     assert_eq!(outcome.metadata.total_attempts, 1);
@@ -1705,7 +1718,9 @@ fn jsonl_large_message_roundtrip() {
         ref_id: "run-1".into(),
         event: AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantMessage { text: big_text.clone() },
+            kind: AgentEventKind::AssistantMessage {
+                text: big_text.clone(),
+            },
             ext: None,
         },
     };
@@ -1837,7 +1852,9 @@ fn receipt_builder_creates_valid_receipt() {
 
 #[test]
 fn protocol_error_display_json() {
-    let err: ProtocolError = serde_json::from_str::<Envelope>("bad json").unwrap_err().into();
+    let err: ProtocolError = serde_json::from_str::<Envelope>("bad json")
+        .unwrap_err()
+        .into();
     let msg = err.to_string();
     assert!(msg.contains("JSON"));
 }
@@ -1866,8 +1883,11 @@ fn lifecycle_full_happy_path() {
         .unwrap();
     mgr.transition(LifecycleState::Ready, Some("handshake done".into()))
         .unwrap();
-    mgr.transition(LifecycleState::Running, Some("processing work order".into()))
-        .unwrap();
+    mgr.transition(
+        LifecycleState::Running,
+        Some("processing work order".into()),
+    )
+    .unwrap();
     mgr.transition(LifecycleState::Ready, Some("work complete".into()))
         .unwrap();
     mgr.transition(LifecycleState::Stopping, Some("shutting down".into()))

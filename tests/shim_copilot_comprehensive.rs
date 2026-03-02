@@ -9,9 +9,9 @@ use abp_copilot_sdk::dialect::{
 use abp_core::ir::{IrConversation, IrMessage, IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, UsageNormalized};
 use abp_shim_copilot::{
-    events_to_stream_events, ir_to_messages, ir_usage_to_tuple, messages_to_ir, mock_receipt,
-    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    response_to_ir, CopilotClient, CopilotRequestBuilder, Message, ShimError,
+    CopilotClient, CopilotRequestBuilder, Message, ShimError, events_to_stream_events,
+    ir_to_messages, ir_usage_to_tuple, messages_to_ir, mock_receipt, mock_receipt_with_usage,
+    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -26,9 +26,7 @@ fn make_processor(events: Vec<AgentEvent>) -> abp_shim_copilot::ProcessFn {
 fn agent_msg(text: &str) -> AgentEvent {
     AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: text.into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: text.into() },
         ext: None,
     }
 }
@@ -36,9 +34,7 @@ fn agent_msg(text: &str) -> AgentEvent {
 fn agent_delta(text: &str) -> AgentEvent {
     AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: text.into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: text.into() },
         ext: None,
     }
 }
@@ -119,8 +115,7 @@ fn client_debug_includes_model() {
 
 #[test]
 fn client_with_processor_returns_self() {
-    let client = CopilotClient::new("gpt-4o")
-        .with_processor(make_processor(vec![agent_msg("hi")]));
+    let client = CopilotClient::new("gpt-4o").with_processor(make_processor(vec![agent_msg("hi")]));
     assert_eq!(client.model(), "gpt-4o");
 }
 
@@ -371,9 +366,7 @@ fn request_to_ir_preserves_references_as_metadata() {
 fn request_to_ir_preserves_name_as_metadata() {
     let mut msg = Message::user("hello");
     msg.name = Some("alice".into());
-    let req = CopilotRequestBuilder::new()
-        .messages(vec![msg])
-        .build();
+    let req = CopilotRequestBuilder::new().messages(vec![msg]).build();
     let conv = request_to_ir(&req);
     assert_eq!(
         conv.messages[0]
@@ -605,7 +598,10 @@ fn stream_events_starts_with_references() {
 fn stream_events_ends_with_done() {
     let events = vec![agent_msg("hi")];
     let stream = events_to_stream_events(&events, "gpt-4o");
-    assert!(matches!(stream.last().unwrap(), CopilotStreamEvent::Done {}));
+    assert!(matches!(
+        stream.last().unwrap(),
+        CopilotStreamEvent::Done {}
+    ));
 }
 
 #[test]
@@ -632,7 +628,10 @@ fn stream_events_assistant_message_becomes_delta() {
 fn stream_events_tool_call_mapped() {
     let events = vec![agent_tool_call("search", Some("c1"), json!({"q": "rust"}))];
     let stream = events_to_stream_events(&events, "gpt-4o");
-    assert!(matches!(&stream[1], CopilotStreamEvent::FunctionCall { .. }));
+    assert!(matches!(
+        &stream[1],
+        CopilotStreamEvent::FunctionCall { .. }
+    ));
     if let CopilotStreamEvent::FunctionCall { function_call } = &stream[1] {
         assert_eq!(function_call.name, "search");
         assert_eq!(function_call.id.as_deref(), Some("c1"));
@@ -643,7 +642,10 @@ fn stream_events_tool_call_mapped() {
 fn stream_events_error_mapped() {
     let events = vec![agent_error("boom", None)];
     let stream = events_to_stream_events(&events, "gpt-4o");
-    assert!(matches!(&stream[1], CopilotStreamEvent::CopilotErrors { .. }));
+    assert!(matches!(
+        &stream[1],
+        CopilotStreamEvent::CopilotErrors { .. }
+    ));
     if let CopilotStreamEvent::CopilotErrors { errors } = &stream[1] {
         assert_eq!(errors.len(), 1);
         assert!(errors[0].message.contains("boom"));
@@ -713,10 +715,7 @@ async fn client_create_with_system_message() {
     let client = CopilotClient::new("gpt-4o")
         .with_processor(make_processor(vec![agent_msg("concise reply")]));
     let req = CopilotRequestBuilder::new()
-        .messages(vec![
-            Message::system("Be concise."),
-            Message::user("Hello"),
-        ])
+        .messages(vec![Message::system("Be concise."), Message::user("Hello")])
         .build();
     let resp = client.create(req).await.unwrap();
     assert_eq!(resp.message, "concise reply");
@@ -724,8 +723,7 @@ async fn client_create_with_system_message() {
 
 #[tokio::test]
 async fn client_create_multi_turn() {
-    let client = CopilotClient::new("gpt-4o")
-        .with_processor(make_processor(vec![agent_msg("4")]));
+    let client = CopilotClient::new("gpt-4o").with_processor(make_processor(vec![agent_msg("4")]));
     let req = CopilotRequestBuilder::new()
         .messages(vec![
             Message::user("2+2?"),
@@ -739,8 +737,10 @@ async fn client_create_multi_turn() {
 
 #[tokio::test]
 async fn client_create_with_errors() {
-    let client = CopilotClient::new("gpt-4o")
-        .with_processor(make_processor(vec![agent_error("context window exceeded", None)]));
+    let client = CopilotClient::new("gpt-4o").with_processor(make_processor(vec![agent_error(
+        "context window exceeded",
+        None,
+    )]));
     let req = CopilotRequestBuilder::new()
         .messages(vec![Message::user("test")])
         .build();
@@ -750,9 +750,12 @@ async fn client_create_with_errors() {
 
 #[tokio::test]
 async fn client_create_with_tool_call() {
-    let client = CopilotClient::new("gpt-4o").with_processor(make_processor(vec![
-        agent_tool_call("read_file", Some("c1"), json!({"path": "main.rs"})),
-    ]));
+    let client =
+        CopilotClient::new("gpt-4o").with_processor(make_processor(vec![agent_tool_call(
+            "read_file",
+            Some("c1"),
+            json!({"path": "main.rs"}),
+        )]));
     let req = CopilotRequestBuilder::new()
         .messages(vec![Message::user("read main.rs")])
         .build();
@@ -778,8 +781,7 @@ async fn client_stream_basic() {
 
 #[tokio::test]
 async fn client_stream_empty_response() {
-    let client =
-        CopilotClient::new("gpt-4o").with_processor(make_processor(vec![]));
+    let client = CopilotClient::new("gpt-4o").with_processor(make_processor(vec![]));
     let req = CopilotRequestBuilder::new()
         .messages(vec![Message::user("Hi")])
         .build();
@@ -790,15 +792,22 @@ async fn client_stream_empty_response() {
 
 #[tokio::test]
 async fn client_stream_contains_function_call() {
-    let client = CopilotClient::new("gpt-4o").with_processor(make_processor(vec![
-        agent_tool_call("search", Some("c1"), json!({"q": "test"})),
-    ]));
+    let client =
+        CopilotClient::new("gpt-4o").with_processor(make_processor(vec![agent_tool_call(
+            "search",
+            Some("c1"),
+            json!({"q": "test"}),
+        )]));
     let req = CopilotRequestBuilder::new()
         .messages(vec![Message::user("search")])
         .build();
     let stream = client.create_stream(req).await.unwrap();
     let chunks: Vec<CopilotStreamEvent> = stream.collect().await;
-    assert!(chunks.iter().any(|c| matches!(c, CopilotStreamEvent::FunctionCall { .. })));
+    assert!(
+        chunks
+            .iter()
+            .any(|c| matches!(c, CopilotStreamEvent::FunctionCall { .. }))
+    );
 }
 
 #[tokio::test]
@@ -810,9 +819,11 @@ async fn client_stream_contains_errors() {
         .build();
     let stream = client.create_stream(req).await.unwrap();
     let chunks: Vec<CopilotStreamEvent> = stream.collect().await;
-    assert!(chunks
-        .iter()
-        .any(|c| matches!(c, CopilotStreamEvent::CopilotErrors { .. })));
+    assert!(
+        chunks
+            .iter()
+            .any(|c| matches!(c, CopilotStreamEvent::CopilotErrors { .. }))
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1003,12 +1014,18 @@ fn mock_receipt_preserves_events() {
 
 #[test]
 fn canonical_model_prefix() {
-    assert_eq!(copilot_dialect::to_canonical_model("gpt-4o"), "copilot/gpt-4o");
+    assert_eq!(
+        copilot_dialect::to_canonical_model("gpt-4o"),
+        "copilot/gpt-4o"
+    );
 }
 
 #[test]
 fn from_canonical_model_strips_prefix() {
-    assert_eq!(copilot_dialect::from_canonical_model("copilot/gpt-4o"), "gpt-4o");
+    assert_eq!(
+        copilot_dialect::from_canonical_model("copilot/gpt-4o"),
+        "gpt-4o"
+    );
 }
 
 #[test]
@@ -1141,7 +1158,9 @@ fn map_work_order_uses_task_as_user_message() {
 
 #[test]
 fn map_work_order_respects_model_override() {
-    let wo = abp_core::WorkOrderBuilder::new("test").model("o1-mini").build();
+    let wo = abp_core::WorkOrderBuilder::new("test")
+        .model("o1-mini")
+        .build();
     let cfg = CopilotConfig::default();
     let req = copilot_dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.model, "o1-mini");
@@ -1336,9 +1355,7 @@ fn map_stream_errors() {
 
 #[test]
 fn map_stream_empty_references() {
-    let event = CopilotStreamEvent::CopilotReferences {
-        references: vec![],
-    };
+    let event = CopilotStreamEvent::CopilotReferences { references: vec![] };
     let mapped = copilot_dialect::map_stream_event(&event);
     assert!(mapped.is_empty());
 }
@@ -1350,10 +1367,7 @@ fn map_stream_nonempty_references() {
     };
     let mapped = copilot_dialect::map_stream_event(&event);
     assert_eq!(mapped.len(), 1);
-    assert!(matches!(
-        &mapped[0].kind,
-        AgentEventKind::RunStarted { .. }
-    ));
+    assert!(matches!(&mapped[0].kind, AgentEventKind::RunStarted { .. }));
 }
 
 #[test]
@@ -1385,10 +1399,7 @@ fn passthrough_roundtrip_text_delta() {
     assert!(wrapped.ext.is_some());
     let ext = wrapped.ext.as_ref().unwrap();
     assert!(ext.contains_key("raw_message"));
-    assert_eq!(
-        ext.get("dialect").and_then(|v| v.as_str()),
-        Some("copilot")
-    );
+    assert_eq!(ext.get("dialect").and_then(|v| v.as_str()), Some("copilot"));
     let restored = copilot_dialect::from_passthrough_event(&wrapped).unwrap();
     assert_eq!(restored, event);
 }
@@ -1434,9 +1445,7 @@ fn passthrough_fidelity_full_stream() {
 fn from_passthrough_event_no_ext_returns_none() {
     let event = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: "hi".into() },
         ext: None,
     };
     assert!(copilot_dialect::from_passthrough_event(&event).is_none());
@@ -1448,9 +1457,7 @@ fn from_passthrough_event_no_raw_message_returns_none() {
     ext.insert("dialect".into(), json!("copilot"));
     let event = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: "hi".into() },
         ext: Some(ext),
     };
     assert!(copilot_dialect::from_passthrough_event(&event).is_none());
@@ -1622,9 +1629,7 @@ fn copilot_response_serde_roundtrip() {
 
 #[test]
 fn stream_event_text_delta_serde() {
-    let event = CopilotStreamEvent::TextDelta {
-        text: "hi".into(),
-    };
+    let event = CopilotStreamEvent::TextDelta { text: "hi".into() };
     let json = serde_json::to_string(&event).unwrap();
     let back: CopilotStreamEvent = serde_json::from_str(&json).unwrap();
     assert_eq!(back, event);
@@ -1730,7 +1735,13 @@ fn delta_then_full_message() {
 
 #[test]
 fn multiple_models_in_requests() {
-    for model in &["gpt-4o", "gpt-4-turbo", "o3-mini", "claude-sonnet-4", "gpt-4o-mini"] {
+    for model in &[
+        "gpt-4o",
+        "gpt-4-turbo",
+        "o3-mini",
+        "claude-sonnet-4",
+        "gpt-4o-mini",
+    ] {
         let req = CopilotRequestBuilder::new()
             .model(*model)
             .messages(vec![Message::user("test")])
@@ -1742,8 +1753,7 @@ fn multiple_models_in_requests() {
 
 #[tokio::test]
 async fn concurrent_client_requests() {
-    let client = CopilotClient::new("gpt-4o")
-        .with_processor(make_processor(vec![agent_msg("ok")]));
+    let client = CopilotClient::new("gpt-4o").with_processor(make_processor(vec![agent_msg("ok")]));
 
     let mut handles = Vec::new();
     for _ in 0..5 {

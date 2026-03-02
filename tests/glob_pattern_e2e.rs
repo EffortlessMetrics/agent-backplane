@@ -6,7 +6,7 @@
 
 use std::path::Path;
 
-use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
+use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
 
 // ---------------------------------------------------------------------------
 // Helpers

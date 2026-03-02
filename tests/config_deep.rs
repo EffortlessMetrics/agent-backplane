@@ -586,7 +586,7 @@ fn env_overrides_replace_existing_values() {
     // If race occurred, the original value is preserved (env var was cleared
     // before apply_env_overrides read it).
     match cfg.default_backend.as_deref() {
-        Some("env_backend") => {} // happy path: env override applied
+        Some("env_backend") => {}  // happy path: env override applied
         Some("file_backend") => {} // race: env var cleared before read
         Some(_) => {}              // race: overwritten by parallel test
         None => {}                 // race: cleared by parallel test

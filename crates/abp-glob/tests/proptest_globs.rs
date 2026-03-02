@@ -4,7 +4,7 @@
 //! Covers invariants around include/exclude semantics, pattern ordering,
 //! idempotency, unicode paths, deeply nested paths, and error handling.
 
-use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
+use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
 use proptest::prelude::*;
 
 // ═══════════════════════════════════════════════════════════════════════

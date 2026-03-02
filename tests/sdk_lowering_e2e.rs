@@ -757,9 +757,7 @@ mod ir_to_claude {
             IrRole::Tool,
             vec![IrContentBlock::ToolResult {
                 tool_use_id: "t1".into(),
-                content: vec![IrContentBlock::Text {
-                    text: "ok".into(),
-                }],
+                content: vec![IrContentBlock::Text { text: "ok".into() }],
                 is_error: false,
             }],
         )]);
@@ -782,9 +780,7 @@ mod ir_to_claude {
     fn thinking_preserved() {
         let conv = IrConversation::from_messages(vec![IrMessage::new(
             IrRole::Assistant,
-            vec![IrContentBlock::Thinking {
-                text: "hmm".into(),
-            }],
+            vec![IrContentBlock::Thinking { text: "hmm".into() }],
         )]);
         let msgs = claude::from_ir(&conv);
         let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msgs[0].content).unwrap();
@@ -1241,11 +1237,9 @@ mod cross_sdk_roundtrip {
         let codex_items = codex::from_ir(&ir);
         assert_eq!(codex_items.len(), 1);
         match &codex_items[0] {
-            CodexResponseItem::Message { content, .. } => {
-                match &content[0] {
-                    CodexContentPart::OutputText { text } => assert_eq!(text, "Done!"),
-                }
-            }
+            CodexResponseItem::Message { content, .. } => match &content[0] {
+                CodexContentPart::OutputText { text } => assert_eq!(text, "Done!"),
+            },
             other => panic!("expected Message, got {other:?}"),
         }
     }
@@ -1413,8 +1407,16 @@ mod cross_sdk_roundtrip {
         ];
         let ir = claude::to_ir(&[claude_blocks("assistant", blocks)], None);
         let codex_items = codex::from_ir(&ir);
-        assert!(codex_items.iter().any(|i| matches!(i, CodexResponseItem::Reasoning { .. })));
-        assert!(codex_items.iter().any(|i| matches!(i, CodexResponseItem::Message { .. })));
+        assert!(
+            codex_items
+                .iter()
+                .any(|i| matches!(i, CodexResponseItem::Reasoning { .. }))
+        );
+        assert!(
+            codex_items
+                .iter()
+                .any(|i| matches!(i, CodexResponseItem::Message { .. }))
+        );
     }
 
     #[test]
@@ -1516,8 +1518,7 @@ mod fidelity_tracking {
             other => panic!("expected Thinking, got {other:?}"),
         }
         let back = claude::from_ir(&ir);
-        let back_blocks: Vec<ClaudeContentBlock> =
-            serde_json::from_str(&back[0].content).unwrap();
+        let back_blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
         match &back_blocks[0] {
             ClaudeContentBlock::Thinking { signature, .. } => {
                 assert!(signature.is_none()); // signature lost
@@ -1659,7 +1660,9 @@ mod fidelity_tracking {
             },
         });
 
-        let tool_rule = reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use").unwrap();
+        let tool_rule = reg
+            .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+            .unwrap();
         assert!(tool_rule.fidelity.is_lossless());
 
         let think_rule = reg
@@ -1917,8 +1920,7 @@ mod edge_cases {
         let ir = claude::to_ir(&[claude_blocks("assistant", blocks)], None);
         assert_eq!(ir.messages[0].content.len(), 2);
         let back = claude::from_ir(&ir);
-        let back_blocks: Vec<ClaudeContentBlock> =
-            serde_json::from_str(&back[0].content).unwrap();
+        let back_blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
         assert_eq!(back_blocks.len(), 2);
     }
 
@@ -1949,8 +1951,7 @@ mod edge_cases {
             other => panic!("expected ToolResult, got {other:?}"),
         }
         let back = claude::from_ir(&ir);
-        let back_blocks: Vec<ClaudeContentBlock> =
-            serde_json::from_str(&back[0].content).unwrap();
+        let back_blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
         match &back_blocks[0] {
             ClaudeContentBlock::ToolResult { is_error, .. } => {
                 assert_eq!(*is_error, Some(true));
@@ -2222,9 +2223,18 @@ mod edge_cases {
         assert_eq!(ir.len(), 5);
         let back = codex::from_ir(&ir);
         // Reasoning, message, function_call, function_call_output, message
-        assert!(back.iter().any(|i| matches!(i, CodexResponseItem::Reasoning { .. })));
-        assert!(back.iter().any(|i| matches!(i, CodexResponseItem::FunctionCall { .. })));
-        assert!(back.iter().any(|i| matches!(i, CodexResponseItem::FunctionCallOutput { .. })));
+        assert!(
+            back.iter()
+                .any(|i| matches!(i, CodexResponseItem::Reasoning { .. }))
+        );
+        assert!(
+            back.iter()
+                .any(|i| matches!(i, CodexResponseItem::FunctionCall { .. }))
+        );
+        assert!(
+            back.iter()
+                .any(|i| matches!(i, CodexResponseItem::FunctionCallOutput { .. }))
+        );
     }
 
     // ── OpenAI text + tool call in same message ─────────────────────

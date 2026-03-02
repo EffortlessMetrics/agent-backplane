@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use crate::filter::EventFilter;
-use crate::{filter::kind_name, AgentEvent};
+use crate::{AgentEvent, filter::kind_name};
 
 /// A wrapper around a `Vec<AgentEvent>` providing combinator utilities.
 #[derive(Debug, Clone)]

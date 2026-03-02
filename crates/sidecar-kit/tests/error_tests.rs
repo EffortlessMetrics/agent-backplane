@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Comprehensive error-path tests for sidecar-kit.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::{Frame, JsonlCodec, SidecarError};
 use std::error::Error as StdError;
 

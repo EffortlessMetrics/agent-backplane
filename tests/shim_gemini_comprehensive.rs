@@ -9,12 +9,11 @@ use serde_json::json;
 use tokio_stream::StreamExt;
 
 use abp_shim_gemini::{
-    from_dialect_response, from_dialect_stream_chunk, gen_config_from_dialect,
-    to_dialect_request, usage_from_ir, usage_to_ir,
     Candidate, Content, FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration,
-    GenerateContentRequest, GenerateContentResponse, GenerationConfig, GeminiClient, GeminiError,
+    GeminiClient, GeminiError, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
     HarmBlockThreshold, HarmCategory, Part, SafetySetting, StreamEvent, ToolConfig,
-    ToolDeclaration, UsageMetadata,
+    ToolDeclaration, UsageMetadata, from_dialect_response, from_dialect_stream_chunk,
+    gen_config_from_dialect, to_dialect_request, usage_from_ir, usage_to_ir,
 };
 
 use abp_gemini_sdk::dialect::{
@@ -133,7 +132,10 @@ fn request_builder_chaining() {
 fn simple_text_to_ir() {
     let req = simple_user_request("Hello world");
     let dialect_req = to_dialect_request(&req);
-    let ir = lowering::to_ir(&dialect_req.contents, dialect_req.system_instruction.as_ref());
+    let ir = lowering::to_ir(
+        &dialect_req.contents,
+        dialect_req.system_instruction.as_ref(),
+    );
     assert_eq!(ir.len(), 1);
     assert_eq!(ir.messages[0].role, IrRole::User);
     assert_eq!(ir.messages[0].text_content(), "Hello world");
@@ -146,7 +148,10 @@ fn multi_turn_to_ir() {
         .add_content(Content::model(vec![Part::text("A1")]))
         .add_content(Content::user(vec![Part::text("Q2")]));
     let dialect_req = to_dialect_request(&req);
-    let ir = lowering::to_ir(&dialect_req.contents, dialect_req.system_instruction.as_ref());
+    let ir = lowering::to_ir(
+        &dialect_req.contents,
+        dialect_req.system_instruction.as_ref(),
+    );
     assert_eq!(ir.len(), 3);
     assert_eq!(ir.messages[0].role, IrRole::User);
     assert_eq!(ir.messages[1].role, IrRole::Assistant);
@@ -159,7 +164,10 @@ fn system_instruction_becomes_system_role_in_ir() {
         .system_instruction(Content::user(vec![Part::text("Be concise")]))
         .add_content(Content::user(vec![Part::text("Hello")]));
     let dialect_req = to_dialect_request(&req);
-    let ir = lowering::to_ir(&dialect_req.contents, dialect_req.system_instruction.as_ref());
+    let ir = lowering::to_ir(
+        &dialect_req.contents,
+        dialect_req.system_instruction.as_ref(),
+    );
     assert_eq!(ir.messages[0].role, IrRole::System);
     assert_eq!(ir.messages[0].text_content(), "Be concise");
     assert_eq!(ir.messages[1].role, IrRole::User);
@@ -169,7 +177,10 @@ fn system_instruction_becomes_system_role_in_ir() {
 fn empty_request_to_ir() {
     let req = GenerateContentRequest::new("gemini-2.5-flash");
     let dialect_req = to_dialect_request(&req);
-    let ir = lowering::to_ir(&dialect_req.contents, dialect_req.system_instruction.as_ref());
+    let ir = lowering::to_ir(
+        &dialect_req.contents,
+        dialect_req.system_instruction.as_ref(),
+    );
     assert!(ir.is_empty());
 }
 
@@ -681,8 +692,14 @@ fn mixed_text_and_function_call_in_content() {
     }];
     let ir = lowering::to_ir(&contents, None);
     assert_eq!(ir.messages[0].content.len(), 2);
-    assert!(matches!(ir.messages[0].content[0], IrContentBlock::Text { .. }));
-    assert!(matches!(ir.messages[0].content[1], IrContentBlock::ToolUse { .. }));
+    assert!(matches!(
+        ir.messages[0].content[0],
+        IrContentBlock::Text { .. }
+    ));
+    assert!(matches!(
+        ir.messages[0].content[1],
+        IrContentBlock::ToolUse { .. }
+    ));
 }
 
 #[test]
@@ -1241,10 +1258,7 @@ fn usage_roundtrip() {
     let ir = usage_to_ir(&original);
     let back = usage_from_ir(&ir);
     assert_eq!(back.prompt_token_count, original.prompt_token_count);
-    assert_eq!(
-        back.candidates_token_count,
-        original.candidates_token_count
-    );
+    assert_eq!(back.candidates_token_count, original.candidates_token_count);
     assert_eq!(back.total_token_count, original.total_token_count);
 }
 

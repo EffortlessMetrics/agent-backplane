@@ -33,9 +33,7 @@ use chrono::Utc;
 fn event_assistant(text: &str) -> AgentEvent {
     AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: text.into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: text.into() },
         ext: None,
     }
 }
@@ -43,9 +41,7 @@ fn event_assistant(text: &str) -> AgentEvent {
 fn event_delta(text: &str) -> AgentEvent {
     AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: text.into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: text.into() },
         ext: None,
     }
 }
@@ -353,9 +349,7 @@ mod claude {
                 },
                 Message {
                     role: Role::Assistant,
-                    content: vec![ContentBlock::Text {
-                        text: "4".into(),
-                    }],
+                    content: vec![ContentBlock::Text { text: "4".into() }],
                 },
                 Message {
                     role: Role::User,
@@ -447,7 +441,11 @@ mod claude {
     fn response_from_events_with_tool_call() {
         let events = vec![event_tool_call()];
         let resp = response_from_events(&events, "claude-sonnet-4-20250514", None);
-        assert!(resp.content.iter().any(|b| matches!(b, ContentBlock::ToolUse { .. })));
+        assert!(
+            resp.content
+                .iter()
+                .any(|b| matches!(b, ContentBlock::ToolUse { .. }))
+        );
     }
 
     #[test]
@@ -1239,10 +1237,9 @@ mod cross_shim {
         assert!(!wo.task.is_empty(), "claude task empty");
 
         // Gemini (uses internal pipeline, test via client)
-        let req = abp_shim_gemini::GenerateContentRequest::new("gemini-2.5-flash")
-            .add_content(abp_shim_gemini::Content::user(vec![
-                abp_shim_gemini::Part::text("Hello"),
-            ]));
+        let req = abp_shim_gemini::GenerateContentRequest::new("gemini-2.5-flash").add_content(
+            abp_shim_gemini::Content::user(vec![abp_shim_gemini::Part::text("Hello")]),
+        );
         let dialect = abp_shim_gemini::to_dialect_request(&req);
         assert_eq!(dialect.model, "gemini-2.5-flash");
 
@@ -1287,9 +1284,7 @@ mod cross_shim {
             max_tokens: 1024,
             messages: vec![abp_shim_claude::Message {
                 role: abp_shim_claude::Role::User,
-                content: vec![abp_shim_claude::ContentBlock::Text {
-                    text: "Hi".into(),
-                }],
+                content: vec![abp_shim_claude::ContentBlock::Text { text: "Hi".into() }],
             }],
             system: None,
             temperature: None,
@@ -1367,8 +1362,7 @@ mod cross_shim {
         let openai_stream = abp_shim_openai::events_to_stream_events(&events, "gpt-4o");
         assert!(!openai_stream.is_empty(), "openai stream empty");
 
-        let codex_stream =
-            abp_shim_codex::events_to_stream_events(&events, "codex-mini-latest");
+        let codex_stream = abp_shim_codex::events_to_stream_events(&events, "codex-mini-latest");
         assert!(!codex_stream.is_empty(), "codex stream empty");
 
         let kimi_stream = abp_shim_kimi::events_to_stream_chunks(&events, "moonshot-v1-8k");

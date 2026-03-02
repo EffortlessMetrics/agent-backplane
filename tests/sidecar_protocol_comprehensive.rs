@@ -194,7 +194,10 @@ fn fatal_envelope_with_ref_id() {
     let env = make_fatal(Some("run-err"), "crash");
     match &env {
         Envelope::Fatal {
-            ref_id, error, error_code, ..
+            ref_id,
+            error,
+            error_code,
+            ..
         } => {
             assert_eq!(ref_id, &Some("run-err".into()));
             assert_eq!(error, "crash");
@@ -383,9 +386,7 @@ fn roundtrip_run_completed() {
 
 #[test]
 fn roundtrip_assistant_delta() {
-    roundtrip_event_kind(AgentEventKind::AssistantDelta {
-        text: "tok".into(),
-    });
+    roundtrip_event_kind(AgentEventKind::AssistantDelta { text: "tok".into() });
 }
 
 #[test]
@@ -614,11 +615,9 @@ fn validate_hello_empty_backend_id() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .contains(&ValidationError::EmptyField {
-            field: "backend.id".into()
-        }));
+    assert!(result.errors.contains(&ValidationError::EmptyField {
+        field: "backend.id".into()
+    }));
 }
 
 #[test]
@@ -632,11 +631,9 @@ fn validate_hello_empty_contract_version() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .contains(&ValidationError::EmptyField {
-            field: "contract_version".into()
-        }));
+    assert!(result.errors.contains(&ValidationError::EmptyField {
+        field: "contract_version".into()
+    }));
 }
 
 #[test]
@@ -696,11 +693,11 @@ fn validate_run_empty_id() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .contains(&ValidationError::EmptyField {
-            field: "id".into()
-        }));
+    assert!(
+        result
+            .errors
+            .contains(&ValidationError::EmptyField { field: "id".into() })
+    );
 }
 
 #[test]
@@ -735,11 +732,9 @@ fn validate_event_empty_ref_id() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .contains(&ValidationError::EmptyField {
-            field: "ref_id".into()
-        }));
+    assert!(result.errors.contains(&ValidationError::EmptyField {
+        field: "ref_id".into()
+    }));
 }
 
 #[test]
@@ -777,11 +772,9 @@ fn validate_fatal_empty_error() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .contains(&ValidationError::EmptyField {
-            field: "error".into()
-        }));
+    assert!(result.errors.contains(&ValidationError::EmptyField {
+        field: "error".into()
+    }));
 }
 
 #[test]
@@ -1415,9 +1408,7 @@ fn event_with_ext_roundtrips() {
     ext.insert("vendor_key".to_string(), serde_json::json!("val"));
     let event = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: "hi".into() },
         ext: Some(ext),
     };
     let env = Envelope::Event {
@@ -1528,7 +1519,12 @@ fn batch_processor_processes_valid_envelopes() {
     let response = processor.process(request);
     assert_eq!(response.request_id, "batch-1");
     assert_eq!(response.results.len(), 2);
-    assert!(response.results.iter().all(|r| r.status == BatchItemStatus::Success));
+    assert!(
+        response
+            .results
+            .iter()
+            .all(|r| r.status == BatchItemStatus::Success)
+    );
 }
 
 #[test]
@@ -1874,11 +1870,7 @@ fn error_code_none_for_final() {
 
 #[test]
 fn error_code_some_for_fatal_with_code() {
-    let env = Envelope::fatal_with_code(
-        None,
-        "err",
-        abp_error::ErrorCode::ProtocolInvalidEnvelope,
-    );
+    let env = Envelope::fatal_with_code(None, "err", abp_error::ErrorCode::ProtocolInvalidEnvelope);
     assert!(env.error_code().is_some());
 }
 

@@ -53,25 +53,97 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
 
 /// Expected (ErrorCode, &str, ErrorCategory) triples for every variant.
 const CODE_TABLE: &[(ErrorCode, &str, ErrorCategory)] = &[
-    (ErrorCode::ProtocolInvalidEnvelope, "PROTOCOL_INVALID_ENVELOPE", ErrorCategory::Protocol),
-    (ErrorCode::ProtocolUnexpectedMessage, "PROTOCOL_UNEXPECTED_MESSAGE", ErrorCategory::Protocol),
-    (ErrorCode::ProtocolVersionMismatch, "PROTOCOL_VERSION_MISMATCH", ErrorCategory::Protocol),
-    (ErrorCode::BackendNotFound, "BACKEND_NOT_FOUND", ErrorCategory::Backend),
-    (ErrorCode::BackendTimeout, "BACKEND_TIMEOUT", ErrorCategory::Backend),
-    (ErrorCode::BackendCrashed, "BACKEND_CRASHED", ErrorCategory::Backend),
-    (ErrorCode::CapabilityUnsupported, "CAPABILITY_UNSUPPORTED", ErrorCategory::Capability),
-    (ErrorCode::CapabilityEmulationFailed, "CAPABILITY_EMULATION_FAILED", ErrorCategory::Capability),
-    (ErrorCode::PolicyDenied, "POLICY_DENIED", ErrorCategory::Policy),
-    (ErrorCode::PolicyInvalid, "POLICY_INVALID", ErrorCategory::Policy),
-    (ErrorCode::WorkspaceInitFailed, "WORKSPACE_INIT_FAILED", ErrorCategory::Workspace),
-    (ErrorCode::WorkspaceStagingFailed, "WORKSPACE_STAGING_FAILED", ErrorCategory::Workspace),
-    (ErrorCode::IrLoweringFailed, "IR_LOWERING_FAILED", ErrorCategory::Ir),
+    (
+        ErrorCode::ProtocolInvalidEnvelope,
+        "PROTOCOL_INVALID_ENVELOPE",
+        ErrorCategory::Protocol,
+    ),
+    (
+        ErrorCode::ProtocolUnexpectedMessage,
+        "PROTOCOL_UNEXPECTED_MESSAGE",
+        ErrorCategory::Protocol,
+    ),
+    (
+        ErrorCode::ProtocolVersionMismatch,
+        "PROTOCOL_VERSION_MISMATCH",
+        ErrorCategory::Protocol,
+    ),
+    (
+        ErrorCode::BackendNotFound,
+        "BACKEND_NOT_FOUND",
+        ErrorCategory::Backend,
+    ),
+    (
+        ErrorCode::BackendTimeout,
+        "BACKEND_TIMEOUT",
+        ErrorCategory::Backend,
+    ),
+    (
+        ErrorCode::BackendCrashed,
+        "BACKEND_CRASHED",
+        ErrorCategory::Backend,
+    ),
+    (
+        ErrorCode::CapabilityUnsupported,
+        "CAPABILITY_UNSUPPORTED",
+        ErrorCategory::Capability,
+    ),
+    (
+        ErrorCode::CapabilityEmulationFailed,
+        "CAPABILITY_EMULATION_FAILED",
+        ErrorCategory::Capability,
+    ),
+    (
+        ErrorCode::PolicyDenied,
+        "POLICY_DENIED",
+        ErrorCategory::Policy,
+    ),
+    (
+        ErrorCode::PolicyInvalid,
+        "POLICY_INVALID",
+        ErrorCategory::Policy,
+    ),
+    (
+        ErrorCode::WorkspaceInitFailed,
+        "WORKSPACE_INIT_FAILED",
+        ErrorCategory::Workspace,
+    ),
+    (
+        ErrorCode::WorkspaceStagingFailed,
+        "WORKSPACE_STAGING_FAILED",
+        ErrorCategory::Workspace,
+    ),
+    (
+        ErrorCode::IrLoweringFailed,
+        "IR_LOWERING_FAILED",
+        ErrorCategory::Ir,
+    ),
     (ErrorCode::IrInvalid, "IR_INVALID", ErrorCategory::Ir),
-    (ErrorCode::ReceiptHashMismatch, "RECEIPT_HASH_MISMATCH", ErrorCategory::Receipt),
-    (ErrorCode::ReceiptChainBroken, "RECEIPT_CHAIN_BROKEN", ErrorCategory::Receipt),
-    (ErrorCode::DialectUnknown, "DIALECT_UNKNOWN", ErrorCategory::Dialect),
-    (ErrorCode::DialectMappingFailed, "DIALECT_MAPPING_FAILED", ErrorCategory::Dialect),
-    (ErrorCode::ConfigInvalid, "CONFIG_INVALID", ErrorCategory::Config),
+    (
+        ErrorCode::ReceiptHashMismatch,
+        "RECEIPT_HASH_MISMATCH",
+        ErrorCategory::Receipt,
+    ),
+    (
+        ErrorCode::ReceiptChainBroken,
+        "RECEIPT_CHAIN_BROKEN",
+        ErrorCategory::Receipt,
+    ),
+    (
+        ErrorCode::DialectUnknown,
+        "DIALECT_UNKNOWN",
+        ErrorCategory::Dialect,
+    ),
+    (
+        ErrorCode::DialectMappingFailed,
+        "DIALECT_MAPPING_FAILED",
+        ErrorCategory::Dialect,
+    ),
+    (
+        ErrorCode::ConfigInvalid,
+        "CONFIG_INVALID",
+        ErrorCategory::Config,
+    ),
     (ErrorCode::Internal, "INTERNAL", ErrorCategory::Internal),
 ];
 
@@ -102,7 +174,11 @@ fn error_code_display_equals_as_str() {
 fn error_code_as_str_values_are_unique() {
     let mut seen = HashSet::new();
     for code in ALL_CODES {
-        assert!(seen.insert(code.as_str()), "duplicate as_str: {}", code.as_str());
+        assert!(
+            seen.insert(code.as_str()),
+            "duplicate as_str: {}",
+            code.as_str()
+        );
     }
 }
 
@@ -186,8 +262,8 @@ fn error_code_debug_not_empty() {
 
 #[test]
 fn error_code_hash_consistent() {
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     for code in ALL_CODES {
         let mut h1 = DefaultHasher::new();
         code.hash(&mut h1);
@@ -209,7 +285,11 @@ fn error_category_count_is_10() {
 #[test]
 fn error_code_category_matches_table() {
     for &(code, _, expected_cat) in CODE_TABLE {
-        assert_eq!(code.category(), expected_cat, "category mismatch for {code:?}");
+        assert_eq!(
+            code.category(),
+            expected_cat,
+            "category mismatch for {code:?}"
+        );
     }
 }
 
@@ -227,7 +307,11 @@ fn protocol_codes_map_to_protocol() {
 
 #[test]
 fn backend_codes_map_to_backend() {
-    let codes = [ErrorCode::BackendNotFound, ErrorCode::BackendTimeout, ErrorCode::BackendCrashed];
+    let codes = [
+        ErrorCode::BackendNotFound,
+        ErrorCode::BackendTimeout,
+        ErrorCode::BackendCrashed,
+    ];
     for code in codes {
         assert_eq!(code.category(), ErrorCategory::Backend);
     }
@@ -235,7 +319,10 @@ fn backend_codes_map_to_backend() {
 
 #[test]
 fn capability_codes_map_to_capability() {
-    let codes = [ErrorCode::CapabilityUnsupported, ErrorCode::CapabilityEmulationFailed];
+    let codes = [
+        ErrorCode::CapabilityUnsupported,
+        ErrorCode::CapabilityEmulationFailed,
+    ];
     for code in codes {
         assert_eq!(code.category(), ErrorCategory::Capability);
     }
@@ -251,7 +338,10 @@ fn policy_codes_map_to_policy() {
 
 #[test]
 fn workspace_codes_map_to_workspace() {
-    let codes = [ErrorCode::WorkspaceInitFailed, ErrorCode::WorkspaceStagingFailed];
+    let codes = [
+        ErrorCode::WorkspaceInitFailed,
+        ErrorCode::WorkspaceStagingFailed,
+    ];
     for code in codes {
         assert_eq!(code.category(), ErrorCategory::Workspace);
     }
@@ -267,7 +357,10 @@ fn ir_codes_map_to_ir() {
 
 #[test]
 fn receipt_codes_map_to_receipt() {
-    let codes = [ErrorCode::ReceiptHashMismatch, ErrorCode::ReceiptChainBroken];
+    let codes = [
+        ErrorCode::ReceiptHashMismatch,
+        ErrorCode::ReceiptChainBroken,
+    ];
     for code in codes {
         assert_eq!(code.category(), ErrorCategory::Receipt);
     }
@@ -295,7 +388,10 @@ fn internal_code_maps_to_internal() {
 fn every_category_is_reachable() {
     let reachable: HashSet<ErrorCategory> = ALL_CODES.iter().map(|c| c.category()).collect();
     for cat in ALL_CATEGORIES {
-        assert!(reachable.contains(cat), "category {cat:?} unreachable from any ErrorCode");
+        assert!(
+            reachable.contains(cat),
+            "category {cat:?} unreachable from any ErrorCode"
+        );
     }
 }
 
@@ -333,9 +429,18 @@ fn error_category_serde_roundtrip_all() {
 
 #[test]
 fn error_category_serialize_snake_case() {
-    assert_eq!(serde_json::to_string(&ErrorCategory::Protocol).unwrap(), "\"protocol\"");
-    assert_eq!(serde_json::to_string(&ErrorCategory::Backend).unwrap(), "\"backend\"");
-    assert_eq!(serde_json::to_string(&ErrorCategory::Internal).unwrap(), "\"internal\"");
+    assert_eq!(
+        serde_json::to_string(&ErrorCategory::Protocol).unwrap(),
+        "\"protocol\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ErrorCategory::Backend).unwrap(),
+        "\"backend\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ErrorCategory::Internal).unwrap(),
+        "\"internal\""
+    );
 }
 
 #[test]
@@ -361,8 +466,8 @@ fn error_category_debug_not_empty() {
 
 #[test]
 fn error_category_hash_consistent() {
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     for cat in ALL_CATEGORIES {
         let mut h1 = DefaultHasher::new();
         cat.hash(&mut h1);
@@ -400,8 +505,7 @@ fn abp_error_display_without_context() {
 
 #[test]
 fn abp_error_display_with_single_context() {
-    let err = AbpError::new(ErrorCode::BackendTimeout, "slow")
-        .with_context("timeout_ms", 5000);
+    let err = AbpError::new(ErrorCode::BackendTimeout, "slow").with_context("timeout_ms", 5000);
     let s = err.to_string();
     assert!(s.starts_with("[BACKEND_TIMEOUT] slow"));
     assert!(s.contains("timeout_ms"));
@@ -512,15 +616,14 @@ fn with_context_bool_value() {
 
 #[test]
 fn with_context_null_value() {
-    let err = AbpError::new(ErrorCode::Internal, "x")
-        .with_context("nothing", serde_json::Value::Null);
+    let err =
+        AbpError::new(ErrorCode::Internal, "x").with_context("nothing", serde_json::Value::Null);
     assert_eq!(err.context["nothing"], json!(null));
 }
 
 #[test]
 fn with_context_array_value() {
-    let err = AbpError::new(ErrorCode::Internal, "x")
-        .with_context("tags", vec!["a", "b"]);
+    let err = AbpError::new(ErrorCode::Internal, "x").with_context("tags", vec!["a", "b"]);
     assert_eq!(err.context["tags"], json!(["a", "b"]));
 }
 
@@ -618,8 +721,8 @@ fn abp_error_is_send_sync() {
 
 #[test]
 fn dto_from_abp_error_ref() {
-    let err = AbpError::new(ErrorCode::ConfigInvalid, "bad config")
-        .with_context("file", "config.toml");
+    let err =
+        AbpError::new(ErrorCode::ConfigInvalid, "bad config").with_context("file", "config.toml");
     let dto: AbpErrorDto = (&err).into();
     assert_eq!(dto.code, ErrorCode::ConfigInvalid);
     assert_eq!(dto.message, "bad config");

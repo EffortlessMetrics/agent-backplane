@@ -26,11 +26,11 @@ use abp_openai_sdk::streaming::{
 };
 use abp_openai_sdk::validation::{self, ExtendedRequestFields};
 use abp_shim_openai::{
+    ChatCompletionRequest, ChatCompletionResponse, Choice, Delta, FunctionCall, Message,
+    OpenAiClient, ProcessFn, Role, ShimError, StreamChoice, StreamEvent, Tool, ToolCall, Usage,
     events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
     mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    tools_to_ir, ChatCompletionRequest, ChatCompletionResponse, Choice, Delta, FunctionCall,
-    Message, OpenAiClient, ProcessFn, Role, ShimError, StreamChoice, StreamEvent, Tool, ToolCall,
-    Usage,
+    tools_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -220,10 +220,7 @@ fn request_to_ir_simple_user_message() {
 #[test]
 fn request_to_ir_system_and_user() {
     let req = ChatCompletionRequest::builder()
-        .messages(vec![
-            Message::system("Be concise."),
-            Message::user("Hi"),
-        ])
+        .messages(vec![Message::system("Be concise."), Message::user("Hi")])
         .build();
     let conv = request_to_ir(&req);
     assert_eq!(conv.len(), 2);
@@ -273,9 +270,7 @@ fn request_to_ir_with_tool_result() {
 
 #[test]
 fn request_to_ir_empty_messages() {
-    let req = ChatCompletionRequest::builder()
-        .messages(vec![])
-        .build();
+    let req = ChatCompletionRequest::builder().messages(vec![]).build();
     let conv = request_to_ir(&req);
     assert!(conv.is_empty());
 }
@@ -286,7 +281,10 @@ fn request_to_ir_preserves_system_content() {
         .messages(vec![Message::system("You are helpful.")])
         .build();
     let conv = request_to_ir(&req);
-    assert_eq!(conv.system_message().unwrap().text_content(), "You are helpful.");
+    assert_eq!(
+        conv.system_message().unwrap().text_content(),
+        "You are helpful."
+    );
 }
 
 // ── lowering module direct tests ────────────────────────────────────────
@@ -522,9 +520,7 @@ fn ir_to_messages_tool_result() {
         IrRole::Tool,
         vec![IrContentBlock::ToolResult {
             tool_use_id: "call_1".into(),
-            content: vec![IrContentBlock::Text {
-                text: "ok".into(),
-            }],
+            content: vec![IrContentBlock::Text { text: "ok".into() }],
             is_error: false,
         }],
     )]);
@@ -598,7 +594,11 @@ fn tool_function_constructor() {
 
 #[test]
 fn tools_to_ir_single() {
-    let tools = vec![Tool::function("read", "Read file", json!({"type": "object"}))];
+    let tools = vec![Tool::function(
+        "read",
+        "Read file",
+        json!({"type": "object"}),
+    )];
     let ir = tools_to_ir(&tools);
     assert_eq!(ir.len(), 1);
     assert_eq!(ir[0].name, "read");
@@ -706,10 +706,7 @@ fn tool_choice_deserialization_function() {
 
 #[test]
 fn events_to_stream_events_text_deltas() {
-    let events = vec![
-        assistant_delta_event("Hel"),
-        assistant_delta_event("lo!"),
-    ];
+    let events = vec![assistant_delta_event("Hel"), assistant_delta_event("lo!")];
     let stream = events_to_stream_events(&events, "gpt-4o");
     // 2 deltas + 1 final stop chunk
     assert_eq!(stream.len(), 3);
@@ -733,7 +730,10 @@ fn events_to_stream_events_tool_call() {
     let stream = events_to_stream_events(&events, "gpt-4o");
     assert_eq!(stream.len(), 2); // tool chunk + stop
     let tc = &stream[0].choices[0].delta.tool_calls.as_ref().unwrap()[0];
-    assert_eq!(tc.function.as_ref().unwrap().name.as_deref(), Some("search"));
+    assert_eq!(
+        tc.function.as_ref().unwrap().name.as_deref(),
+        Some("search")
+    );
 }
 
 #[test]
@@ -766,8 +766,14 @@ fn events_to_stream_events_assistant_message_as_chunk() {
     let events = vec![assistant_msg_event("Hello!")];
     let stream = events_to_stream_events(&events, "gpt-4o");
     assert_eq!(stream.len(), 2); // message chunk + stop
-    assert_eq!(stream[0].choices[0].delta.content.as_deref(), Some("Hello!"));
-    assert_eq!(stream[0].choices[0].delta.role.as_deref(), Some("assistant"));
+    assert_eq!(
+        stream[0].choices[0].delta.content.as_deref(),
+        Some("Hello!")
+    );
+    assert_eq!(
+        stream[0].choices[0].delta.role.as_deref(),
+        Some("assistant")
+    );
 }
 
 #[tokio::test]
@@ -782,7 +788,12 @@ async fn streaming_completion_collects_all_chunks() {
         .messages(vec![Message::user("test")])
         .stream(true)
         .build();
-    let stream = client.chat().completions().create_stream(req).await.unwrap();
+    let stream = client
+        .chat()
+        .completions()
+        .create_stream(req)
+        .await
+        .unwrap();
     let chunks: Vec<StreamEvent> = stream.collect().await;
     assert_eq!(chunks.len(), 4); // 3 deltas + stop
 }
@@ -1332,7 +1343,10 @@ fn work_order_has_stop_sequences() {
         .stop(vec!["END".into(), "STOP".into()])
         .build();
     let wo = request_to_work_order(&req);
-    assert_eq!(wo.config.vendor.get("stop").unwrap(), &json!(["END", "STOP"]));
+    assert_eq!(
+        wo.config.vendor.get("stop").unwrap(),
+        &json!(["END", "STOP"])
+    );
 }
 
 #[test]
@@ -1405,12 +1419,14 @@ fn receipt_to_response_error_event() {
     let events = vec![error_event("quota exceeded")];
     let receipt = mock_receipt(events);
     let resp = receipt_to_response(&receipt, "gpt-4o");
-    assert!(resp.choices[0]
-        .message
-        .content
-        .as_deref()
-        .unwrap()
-        .contains("quota exceeded"));
+    assert!(
+        resp.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("quota exceeded")
+    );
 }
 
 #[test]
@@ -1638,7 +1654,13 @@ fn sdk_dialect_map_work_order_basic() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0].content.as_deref().unwrap().contains("Refactor auth"));
+    assert!(
+        req.messages[0]
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Refactor auth")
+    );
 }
 
 #[test]
@@ -1949,10 +1971,7 @@ fn multi_turn_with_tool_use_flow() {
 
 #[test]
 fn conversation_system_message_accessor() {
-    let messages = vec![
-        Message::system("instructions"),
-        Message::user("hi"),
-    ];
+    let messages = vec![Message::system("instructions"), Message::user("hi")];
     let conv = messages_to_ir(&messages);
     let sys = conv.system_message().unwrap();
     assert_eq!(sys.text_content(), "instructions");

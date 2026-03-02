@@ -6,8 +6,8 @@
 //! values because parallel tests may set `ABP_*` variables concurrently.
 
 use abp_config::{
-    apply_env_overrides, load_config, merge_configs, parse_toml, validate_config, BackendEntry,
-    BackplaneConfig, ConfigError, ConfigWarning,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
+    merge_configs, parse_toml, validate_config,
 };
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -645,7 +645,10 @@ fn validate_full_config_no_errors() {
 fn validate_default_config_passes() {
     let cfg = BackplaneConfig::default();
     let warnings = validate_config(&cfg).unwrap();
-    assert!(!warnings.is_empty(), "default should have advisory warnings");
+    assert!(
+        !warnings.is_empty(),
+        "default should have advisory warnings"
+    );
 }
 
 #[test]
@@ -717,7 +720,11 @@ fn validate_empty_sidecar_command() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons.iter().any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 #[test]
@@ -732,7 +739,11 @@ fn validate_whitespace_only_sidecar_command() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons.iter().any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 #[test]
@@ -954,8 +965,7 @@ fn validate_both_optional_missing_two_warnings() {
 fn validate_mock_backend_always_valid() {
     let mut cfg = full_config();
     for i in 0..5 {
-        cfg.backends
-            .insert(format!("m{i}"), BackendEntry::Mock {});
+        cfg.backends.insert(format!("m{i}"), BackendEntry::Mock {});
     }
     validate_config(&cfg).unwrap();
 }
@@ -1310,8 +1320,7 @@ fn validate_idempotent_with_warnings() {
 #[test]
 fn unicode_in_backend_name() {
     let mut cfg = full_config();
-    cfg.backends
-        .insert("日本語".into(), BackendEntry::Mock {});
+    cfg.backends.insert("日本語".into(), BackendEntry::Mock {});
     validate_config(&cfg).unwrap();
 }
 
@@ -1512,9 +1521,7 @@ fn backend_entry_debug_trait() {
 
 #[test]
 fn config_error_debug_trait() {
-    let err = ConfigError::FileNotFound {
-        path: "/x".into(),
-    };
+    let err = ConfigError::FileNotFound { path: "/x".into() };
     let dbg = format!("{err:?}");
     assert!(dbg.contains("FileNotFound"));
 }

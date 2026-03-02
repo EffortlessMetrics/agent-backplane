@@ -25,7 +25,11 @@ fn make_event(kind: AgentEventKind) -> AgentEvent {
 }
 
 fn make_event_with_ts(kind: AgentEventKind, ts: chrono::DateTime<Utc>) -> AgentEvent {
-    AgentEvent { ts, kind, ext: None }
+    AgentEvent {
+        ts,
+        kind,
+        ext: None,
+    }
 }
 
 fn delta(text: &str) -> AgentEvent {
@@ -490,10 +494,7 @@ fn filter_all_ten_event_kinds() {
 
     for (kind, ev) in kinds.iter().zip(events.iter()) {
         let f = EventFilter::by_kind(kind);
-        assert!(
-            f.matches(ev),
-            "Expected by_kind({kind}) to match its event"
-        );
+        assert!(f.matches(ev), "Expected by_kind({kind}) to match its event");
         // Should not match the next kind (wrapping)
     }
 }
@@ -522,9 +523,9 @@ fn filter_by_kind_each_rejects_others() {
 
 #[test]
 fn filter_pattern_matching_on_tool_name() {
-    let f = EventFilter::new(|ev| {
-        matches!(&ev.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name.starts_with("read"))
-    });
+    let f = EventFilter::new(
+        |ev| matches!(&ev.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name.starts_with("read")),
+    );
     assert!(f.matches(&tool_call("read_file")));
     assert!(f.matches(&tool_call("read_dir")));
     assert!(!f.matches(&tool_call("write_file")));
@@ -532,9 +533,9 @@ fn filter_pattern_matching_on_tool_name() {
 
 #[test]
 fn filter_pattern_matching_on_file_path() {
-    let f = EventFilter::new(|ev| {
-        matches!(&ev.kind, AgentEventKind::FileChanged { path, .. } if path.ends_with(".rs"))
-    });
+    let f = EventFilter::new(
+        |ev| matches!(&ev.kind, AgentEventKind::FileChanged { path, .. } if path.ends_with(".rs")),
+    );
     assert!(f.matches(&file_changed("src/main.rs")));
     assert!(!f.matches(&file_changed("readme.md")));
 }
@@ -542,7 +543,13 @@ fn filter_pattern_matching_on_file_path() {
 #[test]
 fn filter_pattern_command_exit_code() {
     let f = EventFilter::new(|ev| {
-        matches!(&ev.kind, AgentEventKind::CommandExecuted { exit_code: Some(0), .. })
+        matches!(
+            &ev.kind,
+            AgentEventKind::CommandExecuted {
+                exit_code: Some(0),
+                ..
+            }
+        )
     });
     assert!(f.matches(&command_executed("ls", Some(0))));
     assert!(!f.matches(&command_executed("fail", Some(1))));
@@ -709,10 +716,7 @@ async fn backpressure_pipe_respects_output_capacity() {
     let (tx_out, mut rx_out) = mpsc::channel(2);
 
     for i in 0..5 {
-        tx_in
-            .send(delta(&format!("msg-{i}")))
-            .await
-            .unwrap();
+        tx_in.send(delta(&format!("msg-{i}"))).await.unwrap();
     }
     drop(tx_in);
 
@@ -736,10 +740,7 @@ async fn backpressure_pipe_stops_when_receiver_dropped() {
 
     // Send many events
     for i in 0..100 {
-        tx_in
-            .send(delta(&format!("msg-{i}")))
-            .await
-            .unwrap();
+        tx_in.send(delta(&format!("msg-{i}"))).await.unwrap();
     }
     drop(tx_in);
 
@@ -758,7 +759,13 @@ async fn backpressure_pipe_stops_when_receiver_dropped() {
 #[test]
 fn error_filter_only_errors() {
     let f = EventFilter::errors_only();
-    let events = [delta("a"), error("e1"), warning("w"), error("e2"), tool_call("t")];
+    let events = [
+        delta("a"),
+        error("e1"),
+        warning("w"),
+        error("e2"),
+        tool_call("t"),
+    ];
     let matched: Vec<_> = events.iter().filter(|ev| f.matches(ev)).collect();
     assert_eq!(matched.len(), 2);
 }
@@ -766,7 +773,13 @@ fn error_filter_only_errors() {
 #[test]
 fn error_filter_exclude_all_errors() {
     let f = EventFilter::exclude_errors();
-    let events = [delta("a"), error("e1"), warning("w"), error("e2"), tool_call("t")];
+    let events = [
+        delta("a"),
+        error("e1"),
+        warning("w"),
+        error("e2"),
+        tool_call("t"),
+    ];
     let matched: Vec<_> = events.iter().filter(|ev| f.matches(ev)).collect();
     assert_eq!(matched.len(), 3);
 }
@@ -788,7 +801,9 @@ async fn stream_collect_filtered_no_errors() {
     let events = vec![delta("a"), error("e1"), delta("b"), error("e2")];
     let rx = send_events(events, 16).await;
     let stream = EventStream::new(rx);
-    let filtered = stream.collect_filtered(&EventFilter::exclude_errors()).await;
+    let filtered = stream
+        .collect_filtered(&EventFilter::exclude_errors())
+        .await;
     assert_eq!(filtered.len(), 2);
     for ev in &filtered {
         assert!(!matches!(ev.kind, AgentEventKind::Error { .. }));
@@ -812,9 +827,9 @@ fn pipeline_error_stats_through_filter() {
 #[test]
 fn error_filter_combined_with_custom() {
     // Accept errors only if they contain "critical"
-    let f = EventFilter::new(|ev| {
-        matches!(&ev.kind, AgentEventKind::Error { message, .. } if message.contains("critical"))
-    });
+    let f = EventFilter::new(
+        |ev| matches!(&ev.kind, AgentEventKind::Error { message, .. } if message.contains("critical")),
+    );
     assert!(f.matches(&error("critical failure")));
     assert!(!f.matches(&error("minor issue")));
     assert!(!f.matches(&delta("critical text")));
@@ -1041,9 +1056,9 @@ fn stats_count_for_unknown_kind_is_zero() {
 #[test]
 fn stats_delta_bytes_accumulate() {
     let s = EventStats::new();
-    s.observe(&delta("abc"));    // 3
-    s.observe(&delta("de"));     // 2
-    s.observe(&delta("f"));      // 1
+    s.observe(&delta("abc")); // 3
+    s.observe(&delta("de")); // 2
+    s.observe(&delta("f")); // 1
     assert_eq!(s.total_delta_bytes(), 6);
 }
 
@@ -1306,9 +1321,7 @@ async fn multiplexer_mixed_event_types() {
     .unwrap();
     drop(tx2);
 
-    let events = EventMultiplexer::new(vec![rx1, rx2])
-        .collect_sorted()
-        .await;
+    let events = EventMultiplexer::new(vec![rx1, rx2]).collect_sorted().await;
     assert_eq!(events.len(), 4);
     assert!(matches!(events[0].kind, AgentEventKind::RunStarted { .. }));
     assert!(matches!(
@@ -1429,9 +1442,9 @@ fn filter_tool_result_error_flag() {
 
 #[test]
 fn filter_warning_message_contains() {
-    let f = EventFilter::new(|ev| {
-        matches!(&ev.kind, AgentEventKind::Warning { message } if message.contains("deprecated"))
-    });
+    let f = EventFilter::new(
+        |ev| matches!(&ev.kind, AgentEventKind::Warning { message } if message.contains("deprecated")),
+    );
     assert!(f.matches(&warning("use of deprecated API")));
     assert!(!f.matches(&warning("all good")));
 }
@@ -1465,7 +1478,9 @@ fn pipeline_multiple_transforms_sequential() {
         }))
         .build();
     let result = p.process(delta("x")).unwrap();
-    assert!(matches!(&result.kind, AgentEventKind::AssistantDelta { text } if text == "x-first-second"));
+    assert!(
+        matches!(&result.kind, AgentEventKind::AssistantDelta { text } if text == "x-first-second")
+    );
 }
 
 #[test]
@@ -1499,9 +1514,7 @@ async fn multiplexer_same_timestamps_stable() {
     drop(tx1);
     drop(tx2);
 
-    let events = EventMultiplexer::new(vec![rx1, rx2])
-        .collect_sorted()
-        .await;
+    let events = EventMultiplexer::new(vec![rx1, rx2]).collect_sorted().await;
     assert_eq!(events.len(), 2);
     // Both have same timestamp — just verify no crash and count is correct
     assert_eq!(events[0].ts, events[1].ts);
@@ -1540,9 +1553,9 @@ async fn stream_pipe_with_identity_pipeline() {
 
 #[test]
 fn filter_by_kind_command_with_exit_code() {
-    let f = EventFilter::new(|ev| {
-        matches!(&ev.kind, AgentEventKind::CommandExecuted { exit_code: Some(code), .. } if *code != 0)
-    });
+    let f = EventFilter::new(
+        |ev| matches!(&ev.kind, AgentEventKind::CommandExecuted { exit_code: Some(code), .. } if *code != 0),
+    );
     assert!(f.matches(&command_executed("fail", Some(1))));
     assert!(!f.matches(&command_executed("ok", Some(0))));
     assert!(!f.matches(&command_executed("unknown", None)));

@@ -20,7 +20,10 @@ fuzz_target!(|data: &[u8]| {
             // JSON round-trip must not panic.
             if let Ok(json) = serde_json::to_string(&wo) {
                 let rt = serde_json::from_str::<abp_core::WorkOrder>(&json);
-                assert!(rt.is_ok(), "JSON round-trip must succeed for valid WorkOrder");
+                assert!(
+                    rt.is_ok(),
+                    "JSON round-trip must succeed for valid WorkOrder"
+                );
             }
 
             // canonical_json must not panic on any valid WorkOrder.

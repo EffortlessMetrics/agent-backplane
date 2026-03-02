@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Deep tests for the ABP emulation engine.
 
-use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::Capability;
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_emulation::*;
 
 // ── Helpers ────────────────────────────────────────────────────────────

@@ -3,12 +3,12 @@
 //! serialization round-trips, and edge cases.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, Capability, ExecutionMode, SupportLevel,
-    UsageNormalized, VerificationReport, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, CONTRACT_VERSION, Capability, ExecutionMode,
+    SupportLevel, UsageNormalized, VerificationReport,
 };
 use abp_receipt::{
-    canonicalize, compute_hash, diff_receipts, verify_hash, ChainError, Outcome, Receipt,
-    ReceiptBuilder, ReceiptChain,
+    ChainError, Outcome, Receipt, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash,
+    diff_receipts, verify_hash,
 };
 use chrono::{DateTime, TimeZone, Utc};
 use std::collections::BTreeMap;
@@ -134,17 +134,13 @@ mod builder_patterns {
 
     #[test]
     fn builder_sets_backend_version() {
-        let r = ReceiptBuilder::new("mock")
-            .backend_version("2.0.0")
-            .build();
+        let r = ReceiptBuilder::new("mock").backend_version("2.0.0").build();
         assert_eq!(r.backend.backend_version.as_deref(), Some("2.0.0"));
     }
 
     #[test]
     fn builder_sets_adapter_version() {
-        let r = ReceiptBuilder::new("mock")
-            .adapter_version("0.5.0")
-            .build();
+        let r = ReceiptBuilder::new("mock").adapter_version("0.5.0").build();
         assert_eq!(r.backend.adapter_version.as_deref(), Some("0.5.0"));
     }
 
@@ -244,9 +240,7 @@ mod builder_patterns {
     fn builder_adds_trace_event() {
         let event = AgentEvent {
             ts: t0(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
             ext: None,
         };
         let r = ReceiptBuilder::new("mock").add_trace_event(event).build();
@@ -355,9 +349,7 @@ mod builder_patterns {
 
     #[test]
     fn builder_overrides_backend_id() {
-        let r = ReceiptBuilder::new("first")
-            .backend_id("second")
-            .build();
+        let r = ReceiptBuilder::new("first").backend_id("second").build();
         assert_eq!(r.backend.id, "second");
     }
 
@@ -436,7 +428,8 @@ mod canonical_hashing {
     #[test]
     fn verify_hash_rejects_tampered() {
         let mut r = minimal_receipt().with_hash().unwrap();
-        r.receipt_sha256 = Some("0000000000000000000000000000000000000000000000000000000000000000".into());
+        r.receipt_sha256 =
+            Some("0000000000000000000000000000000000000000000000000000000000000000".into());
         assert!(!verify_hash(&r));
     }
 
@@ -597,9 +590,7 @@ mod hash_stability {
         let mut r = minimal_receipt();
         r.trace.push(AgentEvent {
             ts: t0(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
             ext: None,
         });
         assert_ne!(compute_hash(&r).unwrap(), base_hash());
@@ -849,11 +840,7 @@ mod receipt_diffing {
         let mut b = minimal_receipt();
         b.meta.work_order_id = fixed_uuid(999);
         let diff = diff_receipts(&a, &b);
-        assert!(
-            diff.changes
-                .iter()
-                .any(|d| d.field == "meta.work_order_id")
-        );
+        assert!(diff.changes.iter().any(|d| d.field == "meta.work_order_id"));
     }
 
     #[test]
@@ -955,9 +942,7 @@ mod receipt_diffing {
         let mut b = minimal_receipt();
         b.trace.push(AgentEvent {
             ts: t0(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "x".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "x".into() },
             ext: None,
         });
         let diff = diff_receipts(&a, &b);
@@ -1463,9 +1448,7 @@ mod edge_cases {
         );
         let event = AgentEvent {
             ts: t0(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
             ext: Some(ext),
         };
         let r = ReceiptBuilder::new("mock")
@@ -1669,9 +1652,7 @@ mod edge_cases {
             },
             AgentEvent {
                 ts: t0(),
-                kind: AgentEventKind::AssistantDelta {
-                    text: "tok".into(),
-                },
+                kind: AgentEventKind::AssistantDelta { text: "tok".into() },
                 ext: None,
             },
             AgentEvent {

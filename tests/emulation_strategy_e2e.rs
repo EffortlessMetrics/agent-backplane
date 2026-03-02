@@ -248,8 +248,7 @@ fn spi_preserves_tool_use_blocks() {
 #[test]
 fn spi_preserves_message_metadata() {
     let mut msg = IrMessage::text(IrRole::User, "Hi");
-    msg.metadata
-        .insert("key".into(), serde_json::json!("val"));
+    msg.metadata.insert("key".into(), serde_json::json!("val"));
     let mut conv = IrConversation::new().push(msg);
 
     let engine = EmulationEngine::with_defaults();
@@ -866,8 +865,14 @@ fn fidelity_btreemap_deterministic_serialization() {
     let mut conv2 = user_only_conv();
     let engine = EmulationEngine::with_defaults();
 
-    let r1 = engine.apply(&[Capability::ExtendedThinking, Capability::ImageInput], &mut conv1);
-    let r2 = engine.apply(&[Capability::ExtendedThinking, Capability::ImageInput], &mut conv2);
+    let r1 = engine.apply(
+        &[Capability::ExtendedThinking, Capability::ImageInput],
+        &mut conv1,
+    );
+    let r2 = engine.apply(
+        &[Capability::ExtendedThinking, Capability::ImageInput],
+        &mut conv2,
+    );
 
     let l1 = compute_fidelity(&[Capability::Streaming], &r1);
     let l2 = compute_fidelity(&[Capability::Streaming], &r2);
@@ -1133,9 +1138,7 @@ fn edge_conversation_with_thinking_block_preserved() {
     let asst = IrMessage::new(
         IrRole::Assistant,
         vec![
-            IrContentBlock::Thinking {
-                text: "hmm".into(),
-            },
+            IrContentBlock::Thinking { text: "hmm".into() },
             IrContentBlock::Text {
                 text: "answer".into(),
             },
@@ -1200,20 +1203,26 @@ fn edge_strategy_serde_roundtrip_all_variants() {
 
 #[test]
 fn edge_strategy_json_type_tags() {
-    let spi = EmulationStrategy::SystemPromptInjection {
-        prompt: "x".into(),
-    };
-    assert!(serde_json::to_string(&spi).unwrap().contains("\"type\":\"system_prompt_injection\""));
+    let spi = EmulationStrategy::SystemPromptInjection { prompt: "x".into() };
+    assert!(
+        serde_json::to_string(&spi)
+            .unwrap()
+            .contains("\"type\":\"system_prompt_injection\"")
+    );
 
-    let pp = EmulationStrategy::PostProcessing {
-        detail: "x".into(),
-    };
-    assert!(serde_json::to_string(&pp).unwrap().contains("\"type\":\"post_processing\""));
+    let pp = EmulationStrategy::PostProcessing { detail: "x".into() };
+    assert!(
+        serde_json::to_string(&pp)
+            .unwrap()
+            .contains("\"type\":\"post_processing\"")
+    );
 
-    let dis = EmulationStrategy::Disabled {
-        reason: "x".into(),
-    };
-    assert!(serde_json::to_string(&dis).unwrap().contains("\"type\":\"disabled\""));
+    let dis = EmulationStrategy::Disabled { reason: "x".into() };
+    assert!(
+        serde_json::to_string(&dis)
+            .unwrap()
+            .contains("\"type\":\"disabled\"")
+    );
 }
 
 #[test]
@@ -1221,14 +1230,10 @@ fn edge_fidelity_label_serde_roundtrip() {
     let labels = vec![
         FidelityLabel::Native,
         FidelityLabel::Emulated {
-            strategy: EmulationStrategy::SystemPromptInjection {
-                prompt: "t".into(),
-            },
+            strategy: EmulationStrategy::SystemPromptInjection { prompt: "t".into() },
         },
         FidelityLabel::Emulated {
-            strategy: EmulationStrategy::PostProcessing {
-                detail: "d".into(),
-            },
+            strategy: EmulationStrategy::PostProcessing { detail: "d".into() },
         },
     ];
     for l in &labels {
@@ -1247,9 +1252,7 @@ fn edge_fidelity_native_json_tag() {
 #[test]
 fn edge_fidelity_emulated_json_tag() {
     let label = FidelityLabel::Emulated {
-        strategy: EmulationStrategy::Disabled {
-            reason: "r".into(),
-        },
+        strategy: EmulationStrategy::Disabled { reason: "r".into() },
     };
     let json = serde_json::to_string(&label).unwrap();
     assert!(json.contains("\"fidelity\":\"emulated\""));
@@ -1325,9 +1328,7 @@ fn edge_report_with_only_applied_not_empty() {
     let report = EmulationReport {
         applied: vec![EmulationEntry {
             capability: Capability::ExtendedThinking,
-            strategy: EmulationStrategy::SystemPromptInjection {
-                prompt: "t".into(),
-            },
+            strategy: EmulationStrategy::SystemPromptInjection { prompt: "t".into() },
         }],
         warnings: vec![],
     };
@@ -1478,15 +1479,11 @@ fn edge_config_btreemap_deterministic() {
     let mut config = EmulationConfig::new();
     config.set(
         Capability::ToolUse,
-        EmulationStrategy::Disabled {
-            reason: "a".into(),
-        },
+        EmulationStrategy::Disabled { reason: "a".into() },
     );
     config.set(
         Capability::Streaming,
-        EmulationStrategy::Disabled {
-            reason: "b".into(),
-        },
+        EmulationStrategy::Disabled { reason: "b".into() },
     );
 
     let j1 = serde_json::to_string(&config).unwrap();

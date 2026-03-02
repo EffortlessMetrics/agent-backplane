@@ -2,11 +2,11 @@
 //! Comprehensive tests for the `abp-shim-codex` crate.
 
 use abp_codex_sdk::dialect::{
-    self, capability_manifest, codex_tool_to_canonical, from_canonical_model, is_known_model,
-    map_response, map_stream_event, map_work_order, to_canonical_model, tool_def_from_codex,
-    tool_def_to_codex, CanonicalToolDef, CodexConfig, CodexContentPart, CodexInputItem,
-    CodexRequest, CodexResponse, CodexResponseItem, CodexStreamDelta, CodexStreamEvent,
-    CodexUsage, FileAccess, NetworkAccess, ReasoningSummary,
+    self, CanonicalToolDef, CodexConfig, CodexContentPart, CodexInputItem, CodexRequest,
+    CodexResponse, CodexResponseItem, CodexStreamDelta, CodexStreamEvent, CodexUsage, FileAccess,
+    NetworkAccess, ReasoningSummary, capability_manifest, codex_tool_to_canonical,
+    from_canonical_model, is_known_model, map_response, map_stream_event, map_work_order,
+    to_canonical_model, tool_def_from_codex, tool_def_to_codex,
 };
 use abp_codex_sdk::lowering;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
@@ -14,11 +14,10 @@ use abp_core::{
     AgentEvent, AgentEventKind, Capability, SupportLevel, UsageNormalized, WorkOrderBuilder,
 };
 use abp_shim_codex::{
-    codex_message, events_to_stream_events, ir_to_response_items, ir_usage_to_usage,
-    mock_receipt, mock_receipt_with_usage, receipt_to_response, request_to_ir,
-    request_to_work_order, response_to_ir, CodexClient, CodexFunctionDef, CodexRequestBuilder,
-    CodexShimRequest, CodexTextFormat, CodexTool, ProcessFn, SandboxConfig,
-    ShimError, Usage,
+    CodexClient, CodexFunctionDef, CodexRequestBuilder, CodexShimRequest, CodexTextFormat,
+    CodexTool, ProcessFn, SandboxConfig, ShimError, Usage, codex_message, events_to_stream_events,
+    ir_to_response_items, ir_usage_to_usage, mock_receipt, mock_receipt_with_usage,
+    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -46,9 +45,7 @@ fn _ensure_make_processor_with_usage_used() {
 fn assistant_event(text: &str) -> AgentEvent {
     AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: text.into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: text.into() },
         ext: None,
     }
 }
@@ -56,9 +53,7 @@ fn assistant_event(text: &str) -> AgentEvent {
 fn delta_event(text: &str) -> AgentEvent {
     AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: text.into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: text.into() },
         ext: None,
     }
 }
@@ -424,7 +419,10 @@ fn t31_receipt_to_response_tool_call() {
     let resp = receipt_to_response(&receipt, "m");
     match &resp.output[0] {
         CodexResponseItem::FunctionCall {
-            id, name, arguments, ..
+            id,
+            name,
+            arguments,
+            ..
         } => {
             assert_eq!(id, "fc_1");
             assert_eq!(name, "shell");
@@ -614,9 +612,7 @@ fn t43_ir_to_response_items_tool_use_block() {
 fn t44_ir_to_response_items_thinking_block() {
     let conv = IrConversation::from_messages(vec![IrMessage::new(
         IrRole::Assistant,
-        vec![IrContentBlock::Thinking {
-            text: "hmm".into(),
-        }],
+        vec![IrContentBlock::Thinking { text: "hmm".into() }],
     )]);
     let items = ir_to_response_items(&conv);
     assert_eq!(items.len(), 1);
@@ -735,7 +731,10 @@ fn t49_empty_response_roundtrip() {
 fn t50_stream_events_bookends() {
     let events = vec![delta_event("hi")];
     let stream = events_to_stream_events(&events, "m");
-    assert!(matches!(&stream[0], CodexStreamEvent::ResponseCreated { .. }));
+    assert!(matches!(
+        &stream[0],
+        CodexStreamEvent::ResponseCreated { .. }
+    ));
     assert!(matches!(
         stream.last().unwrap(),
         CodexStreamEvent::ResponseCompleted { .. }
@@ -835,12 +834,18 @@ async fn t58_client_create_stream_collects() {
 
 #[test]
 fn t59_to_canonical_model() {
-    assert_eq!(to_canonical_model("codex-mini-latest"), "openai/codex-mini-latest");
+    assert_eq!(
+        to_canonical_model("codex-mini-latest"),
+        "openai/codex-mini-latest"
+    );
 }
 
 #[test]
 fn t60_from_canonical_model_strips_prefix() {
-    assert_eq!(from_canonical_model("openai/codex-mini-latest"), "codex-mini-latest");
+    assert_eq!(
+        from_canonical_model("openai/codex-mini-latest"),
+        "codex-mini-latest"
+    );
 }
 
 #[test]
@@ -964,9 +969,7 @@ fn t73_map_response_assistant() {
         model: "m".into(),
         output: vec![CodexResponseItem::Message {
             role: "assistant".into(),
-            content: vec![CodexContentPart::OutputText {
-                text: "ok".into(),
-            }],
+            content: vec![CodexContentPart::OutputText { text: "ok".into() }],
         }],
         usage: None,
         status: None,
@@ -1010,10 +1013,7 @@ fn t75_map_response_function_call_output() {
         status: None,
     };
     let events = map_response(&resp);
-    assert!(matches!(
-        &events[0].kind,
-        AgentEventKind::ToolResult { .. }
-    ));
+    assert!(matches!(&events[0].kind, AgentEventKind::ToolResult { .. }));
 }
 
 #[test]
@@ -1067,10 +1067,7 @@ fn t78_map_stream_created() {
     };
     let events = map_stream_event(&evt);
     assert_eq!(events.len(), 1);
-    assert!(matches!(
-        &events[0].kind,
-        AgentEventKind::RunStarted { .. }
-    ));
+    assert!(matches!(&events[0].kind, AgentEventKind::RunStarted { .. }));
 }
 
 #[test]
@@ -1126,9 +1123,7 @@ fn t81_map_stream_text_delta() {
 fn t82_map_stream_function_args_delta_empty() {
     let evt = CodexStreamEvent::OutputItemDelta {
         output_index: 0,
-        delta: CodexStreamDelta::FunctionCallArgumentsDelta {
-            delta: "{".into(),
-        },
+        delta: CodexStreamDelta::FunctionCallArgumentsDelta { delta: "{".into() },
     };
     let events = map_stream_event(&evt);
     assert!(events.is_empty());
@@ -1357,7 +1352,8 @@ fn t102_multiline_content() {
 
 #[test]
 fn t103_special_characters_in_tool_args() {
-    let input = json!({"path": "file with spaces.rs", "content": "fn main() { println!(\"hello\"); }"});
+    let input =
+        json!({"path": "file with spaces.rs", "content": "fn main() { println!(\"hello\"); }"});
     let events = vec![tool_call_event("write", "fc_1", input.clone())];
     let receipt = mock_receipt(events);
     let resp = receipt_to_response(&receipt, "m");
@@ -1372,8 +1368,7 @@ fn t103_special_characters_in_tool_args() {
 
 #[tokio::test]
 async fn t104_multiple_requests_same_client() {
-    let c = CodexClient::new("m")
-        .with_processor(make_processor(vec![assistant_event("ok")]));
+    let c = CodexClient::new("m").with_processor(make_processor(vec![assistant_event("ok")]));
     let req1 = CodexRequestBuilder::new()
         .input(vec![codex_message("user", "a")])
         .build();
@@ -1391,10 +1386,7 @@ fn t105_mock_receipt_has_valid_metadata() {
     let receipt = mock_receipt(vec![]);
     assert!(!receipt.meta.run_id.is_nil());
     assert!(!receipt.meta.work_order_id.is_nil());
-    assert_eq!(
-        receipt.meta.contract_version,
-        abp_core::CONTRACT_VERSION
-    );
+    assert_eq!(receipt.meta.contract_version, abp_core::CONTRACT_VERSION);
 }
 
 #[test]
@@ -1445,11 +1437,7 @@ fn t108_codex_response_serde_roundtrip() {
 
 #[test]
 fn t109_stream_event_output_indices() {
-    let events = vec![
-        delta_event("a"),
-        delta_event("b"),
-        assistant_event("c"),
-    ];
+    let events = vec![delta_event("a"), delta_event("b"), assistant_event("c")];
     let stream = events_to_stream_events(&events, "m");
     // created, delta(idx=0), delta(idx=1), done(idx=2), completed
     match &stream[1] {
@@ -1582,9 +1570,7 @@ fn t120_map_stream_output_item_added() {
         output_index: 0,
         item: CodexResponseItem::Message {
             role: "assistant".into(),
-            content: vec![CodexContentPart::OutputText {
-                text: "hi".into(),
-            }],
+            content: vec![CodexContentPart::OutputText { text: "hi".into() }],
         },
     };
     let events = map_stream_event(&evt);

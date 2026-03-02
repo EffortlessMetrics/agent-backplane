@@ -7,7 +7,7 @@
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
 use abp_dialect::Dialect;
-use abp_mapping::{features, known_rules, validate_mapping, MappingMatrix};
+use abp_mapping::{MappingMatrix, features, known_rules, validate_mapping};
 
 // SDK lowering modules
 use abp_claude_sdk::dialect::ClaudeMessage;
@@ -308,11 +308,7 @@ mod cross_dialect {
         let rt = cross_dialect_roundtrip(&ir, Dialect::OpenAi, Dialect::Claude);
         // User and assistant text must survive
         assert!(rt.messages.iter().any(|m| m.text_content() == "Hello"));
-        assert!(
-            rt.messages
-                .iter()
-                .any(|m| m.text_content() == "Hi there!")
-        );
+        assert!(rt.messages.iter().any(|m| m.text_content() == "Hi there!"));
     }
 
     #[test]
@@ -349,11 +345,7 @@ mod cross_dialect {
     fn claude_to_openai_text() {
         let ir = simple_text_ir();
         let rt = cross_dialect_roundtrip(&ir, Dialect::Claude, Dialect::OpenAi);
-        assert!(
-            rt.messages
-                .iter()
-                .any(|m| m.text_content() == "Hi there!")
-        );
+        assert!(rt.messages.iter().any(|m| m.text_content() == "Hi there!"));
     }
 
     #[test]
@@ -544,10 +536,7 @@ mod tool_use_cross {
         let ir = tool_use_ir();
         let rt = cross_dialect_roundtrip(&ir, Dialect::OpenAi, Dialect::Gemini);
         let calls = rt.tool_calls();
-        assert!(
-            !calls.is_empty(),
-            "tool calls should survive OpenAI→Gemini"
-        );
+        assert!(!calls.is_empty(), "tool calls should survive OpenAI→Gemini");
     }
 
     #[test]
@@ -563,10 +552,7 @@ mod tool_use_cross {
         let ir = tool_use_ir();
         let rt = cross_dialect_roundtrip(&ir, Dialect::Claude, Dialect::OpenAi);
         let calls = rt.tool_calls();
-        assert!(
-            !calls.is_empty(),
-            "tool calls should survive Claude→OpenAI"
-        );
+        assert!(!calls.is_empty(), "tool calls should survive Claude→OpenAI");
     }
 
     #[test]
@@ -574,10 +560,7 @@ mod tool_use_cross {
         let ir = tool_use_ir();
         let rt = cross_dialect_roundtrip(&ir, Dialect::Claude, Dialect::Gemini);
         let calls = rt.tool_calls();
-        assert!(
-            !calls.is_empty(),
-            "tool calls should survive Claude→Gemini"
-        );
+        assert!(!calls.is_empty(), "tool calls should survive Claude→Gemini");
     }
 
     #[test]
@@ -585,10 +568,7 @@ mod tool_use_cross {
         let ir = tool_use_ir();
         let rt = cross_dialect_roundtrip(&ir, Dialect::Gemini, Dialect::OpenAi);
         let calls = rt.tool_calls();
-        assert!(
-            !calls.is_empty(),
-            "tool calls should survive Gemini→OpenAI"
-        );
+        assert!(!calls.is_empty(), "tool calls should survive Gemini→OpenAI");
     }
 
     #[test]
@@ -596,10 +576,7 @@ mod tool_use_cross {
         let ir = tool_use_ir();
         let rt = cross_dialect_roundtrip(&ir, Dialect::Gemini, Dialect::Claude);
         let calls = rt.tool_calls();
-        assert!(
-            !calls.is_empty(),
-            "tool calls should survive Gemini→Claude"
-        );
+        assert!(!calls.is_empty(), "tool calls should survive Gemini→Claude");
     }
 
     #[test]
@@ -721,7 +698,10 @@ mod image_cross {
         let ir = image_ir();
         let rt = roundtrip_through_dialect(&ir, Dialect::Gemini);
         assert!(
-            rt.messages.iter().any(|m| m.content.iter().any(|b| matches!(b, IrContentBlock::Image { .. }))),
+            rt.messages.iter().any(|m| m
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::Image { .. }))),
             "image should survive Gemini roundtrip"
         );
     }
@@ -823,10 +803,7 @@ mod mapping_registry {
         for &d in Dialect::all() {
             for &f in &feats {
                 let rule = reg.lookup(d, d, f);
-                assert!(
-                    rule.is_some(),
-                    "missing same-dialect rule for {d} / {f}"
-                );
+                assert!(rule.is_some(), "missing same-dialect rule for {d} / {f}");
                 assert!(
                     rule.unwrap().fidelity.is_lossless(),
                     "same-dialect rule for {d} / {f} should be lossless"
@@ -923,12 +900,7 @@ mod mapping_registry {
     #[test]
     fn validate_empty_feature_name() {
         let reg = known_rules();
-        let results = validate_mapping(
-            &reg,
-            Dialect::OpenAi,
-            Dialect::Claude,
-            &["".into()],
-        );
+        let results = validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &["".into()]);
         assert_eq!(results.len(), 1);
         assert!(results[0].fidelity.is_unsupported());
         assert!(!results[0].errors.is_empty());
@@ -937,10 +909,7 @@ mod mapping_registry {
     #[test]
     fn rank_targets_returns_results() {
         let reg = known_rules();
-        let ranked = reg.rank_targets(
-            Dialect::OpenAi,
-            &[features::TOOL_USE, features::STREAMING],
-        );
+        let ranked = reg.rank_targets(Dialect::OpenAi, &[features::TOOL_USE, features::STREAMING]);
         assert!(!ranked.is_empty());
         // First result should have the highest lossless count
         let (_, first_count) = ranked[0];
@@ -1086,12 +1055,10 @@ mod native_construction {
 
     #[test]
     fn codex_input_to_ir() {
-        let items = vec![
-            CodexInputItem::Message {
-                role: "user".into(),
-                content: "Write hello world".into(),
-            },
-        ];
+        let items = vec![CodexInputItem::Message {
+            role: "user".into(),
+            content: "Write hello world".into(),
+        }];
         let ir = codex_lower::input_to_ir(&items);
         assert_eq!(ir.len(), 1);
         assert_eq!(ir.messages[0].text_content(), "Write hello world");
@@ -1371,10 +1338,7 @@ mod edge_cases {
         let mut msgs = Vec::new();
         for i in 0..50 {
             msgs.push(IrMessage::text(IrRole::User, format!("Message {i}")));
-            msgs.push(IrMessage::text(
-                IrRole::Assistant,
-                format!("Response {i}"),
-            ));
+            msgs.push(IrMessage::text(IrRole::Assistant, format!("Response {i}")));
         }
         let ir = IrConversation::from_messages(msgs);
         assert_eq!(ir.len(), 100);
@@ -1469,11 +1433,7 @@ mod full_matrix {
         let reg = known_rules();
         // For each feature, if A→B has a rule, check that rule exists
         for rule in reg.iter() {
-            let reverse = reg.lookup(
-                rule.target_dialect,
-                rule.source_dialect,
-                &rule.feature,
-            );
+            let reverse = reg.lookup(rule.target_dialect, rule.source_dialect, &rule.feature);
             // Same-dialect reverse is always itself, skip
             if rule.source_dialect == rule.target_dialect {
                 continue;

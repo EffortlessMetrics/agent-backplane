@@ -7,8 +7,8 @@
 use std::collections::BTreeMap;
 
 use abp_capability::{
-    check_capability, generate_report, negotiate, CompatibilityReport, NegotiationResult,
-    SupportLevel as CapSupportLevel,
+    CompatibilityReport, NegotiationResult, SupportLevel as CapSupportLevel, check_capability,
+    generate_report, negotiate,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -56,7 +56,9 @@ fn require_emulated(caps: &[Capability]) -> CapabilityRequirements {
 }
 
 fn wo_with_reqs(reqs: CapabilityRequirements) -> abp_core::WorkOrder {
-    WorkOrderBuilder::new("test task").requirements(reqs).build()
+    WorkOrderBuilder::new("test task")
+        .requirements(reqs)
+        .build()
 }
 
 fn passthrough_wo(reqs: CapabilityRequirements) -> abp_core::WorkOrder {
@@ -466,12 +468,7 @@ fn check_cap_every_core_variant() {
         (SupportLevel::Native, true),
         (SupportLevel::Emulated, true),
         (SupportLevel::Unsupported, false),
-        (
-            SupportLevel::Restricted {
-                reason: "x".into(),
-            },
-            true,
-        ),
+        (SupportLevel::Restricted { reason: "x".into() }, true),
     ];
     for (core_level, should_satisfy) in cases {
         let m = manifest(&[(Capability::Streaming, core_level)]);
@@ -756,7 +753,11 @@ fn project_fallback_chain_descending_score() {
     }
     let wo = wo_with_reqs(require_emulated(&[Capability::Streaming]));
     let result = pm.project(&wo).unwrap();
-    let scores: Vec<f64> = result.fallback_chain.iter().map(|e| e.score.total).collect();
+    let scores: Vec<f64> = result
+        .fallback_chain
+        .iter()
+        .map(|e| e.score.total)
+        .collect();
     for w in scores.windows(2) {
         assert!(w[0] >= w[1], "fallback chain not sorted descending");
     }

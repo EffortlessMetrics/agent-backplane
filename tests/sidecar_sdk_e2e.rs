@@ -6,13 +6,6 @@ use std::collections::BTreeMap;
 use abp_core::{AgentEvent, AgentEventKind};
 use chrono::Utc;
 use serde_json::{Value, json};
-use sidecar_kit::{
-    CancelToken, EventPipeline, Frame, JsonlCodec, MiddlewareChain, PipelineError, ProcessSpec,
-    ReceiptBuilder, RedactStage, SidecarError, TimestampStage, ValidateStage,
-    event_command_executed, event_error, event_file_changed, event_frame, event_run_completed,
-    event_run_started, event_text_delta, event_text_message, event_tool_call, event_tool_result,
-    event_warning, fatal_frame, hello_frame,
-};
 use sidecar_kit::diagnostics::{
     Diagnostic, DiagnosticCollector, DiagnosticLevel, DiagnosticSummary, SidecarDiagnostics,
 };
@@ -21,12 +14,19 @@ use sidecar_kit::middleware::{
 };
 use sidecar_kit::pipeline::PipelineStage;
 use sidecar_kit::transform::{
-    EnrichTransformer, EventTransformer, FilterTransformer, RedactTransformer,
-    ThrottleTransformer, TimestampTransformer, TransformerChain,
+    EnrichTransformer, EventTransformer, FilterTransformer, RedactTransformer, ThrottleTransformer,
+    TimestampTransformer, TransformerChain,
 };
 use sidecar_kit::typed_middleware::{
     ErrorRecoveryMiddleware, MetricsMiddleware, MiddlewareAction, RateLimitMiddleware,
     SidecarMiddleware, SidecarMiddlewareChain,
+};
+use sidecar_kit::{
+    CancelToken, EventPipeline, Frame, JsonlCodec, MiddlewareChain, PipelineError, ProcessSpec,
+    ReceiptBuilder, RedactStage, SidecarError, TimestampStage, ValidateStage,
+    event_command_executed, event_error, event_file_changed, event_frame, event_run_completed,
+    event_run_started, event_text_delta, event_text_message, event_tool_call, event_tool_result,
+    event_warning, fatal_frame, hello_frame,
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -547,7 +547,9 @@ fn receipt_builder_usage_tokens() {
 #[test]
 fn receipt_builder_usage_raw() {
     let raw = json!({"prompt_tokens": 200, "completion_tokens": 80});
-    let receipt = ReceiptBuilder::new("r1", "b").usage_raw(raw.clone()).build();
+    let receipt = ReceiptBuilder::new("r1", "b")
+        .usage_raw(raw.clone())
+        .build();
     assert_eq!(receipt["usage_raw"], raw);
 }
 
@@ -929,9 +931,7 @@ fn enrich_transformer_merges_with_existing_ext() {
     existing_ext.insert("old_key".into(), json!("old_val"));
     let ev = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: "hi".into() },
         ext: Some(existing_ext),
     };
     let result = t.transform(ev).unwrap();
@@ -1130,9 +1130,7 @@ fn error_recovery_middleware_catches_panic() {
 
 #[test]
 fn error_recovery_middleware_passes_through_normal() {
-    let m = ErrorRecoveryMiddleware::wrap(
-        sidecar_kit::typed_middleware::LoggingMiddleware::new(),
-    );
+    let m = ErrorRecoveryMiddleware::wrap(sidecar_kit::typed_middleware::LoggingMiddleware::new());
     let mut ev = make_delta("x");
     assert_eq!(m.on_event(&mut ev), MiddlewareAction::Continue);
 }
@@ -1486,7 +1484,8 @@ fn frame_final_tag() {
 
 #[test]
 fn decode_frame_from_raw_json() {
-    let raw = r#"{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"test"},"capabilities":{}}"#;
+    let raw =
+        r#"{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"test"},"capabilities":{}}"#;
     let frame = JsonlCodec::decode(raw).unwrap();
     assert!(matches!(frame, Frame::Hello { .. }));
 }

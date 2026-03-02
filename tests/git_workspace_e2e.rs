@@ -816,7 +816,11 @@ fn large_diff_output() {
     let modified: String = (0..500).map(|i| format!("changed {i}\n")).collect();
     fs::write(dir.path().join("big.txt"), &modified).unwrap();
     let diff = git_diff(dir.path()).unwrap();
-    assert!(diff.len() > 1000, "expected large diff, got {} bytes", diff.len());
+    assert!(
+        diff.len() > 1000,
+        "expected large diff, got {} bytes",
+        diff.len()
+    );
 }
 
 #[test]
@@ -1097,7 +1101,10 @@ fn gitignore_respected_in_status() {
     ensure_git_repo(dir.path());
     fs::write(dir.path().join("test.ignored"), "ignored").unwrap();
     let status = git_status(dir.path()).unwrap();
-    assert!(!status.contains("test.ignored"), "ignored files should not appear: {status}");
+    assert!(
+        !status.contains("test.ignored"),
+        "ignored files should not appear: {status}"
+    );
 }
 
 #[test]
@@ -1167,7 +1174,14 @@ fn workspace_stager_preserves_nested_structure() {
         .source_root(src.path())
         .stage()
         .unwrap();
-    assert!(ws.path().join("a").join("b").join("c").join("deep.txt").exists());
+    assert!(
+        ws.path()
+            .join("a")
+            .join("b")
+            .join("c")
+            .join("deep.txt")
+            .exists()
+    );
 }
 
 #[test]
