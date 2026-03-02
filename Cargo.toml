@@ -147,6 +147,8 @@ abp-shim-kimi = { path = "crates/abp-shim-kimi" }
 abp-shim-copilot = { path = "crates/abp-shim-copilot" }
 abp-projection = { path = "crates/abp-projection" }
 abp-stream = { path = "crates/abp-stream" }
+abp-backend-core = { path = "crates/abp-backend-core" }
+abp-backend-mock = { path = "crates/abp-backend-mock" }
 insta = { workspace = true }
 proptest = { workspace = true }
 sha2 = { workspace = true }

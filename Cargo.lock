@@ -602,6 +602,8 @@ dependencies = [
 name = "agent-backplane"
 version = "0.1.0"
 dependencies = [
+ "abp-backend-core",
+ "abp-backend-mock",
  "abp-capability",
  "abp-claude-sdk",
  "abp-cli",
