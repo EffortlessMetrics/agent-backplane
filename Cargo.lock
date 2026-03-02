@@ -163,6 +163,7 @@ dependencies = [
  "abp-host",
  "abp-integrations",
  "abp-kimi-sdk",
+ "abp-request-validation",
  "abp-runtime",
  "anyhow",
  "axum",
@@ -370,6 +371,15 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror 2.0.18",
+ "uuid",
+]
+
+[[package]]
+name = "abp-request-validation"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "serde_json",
  "uuid",
 ]
 

@@ -1,0 +1,17 @@
+[package]
+name = "abp-request-validation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Reusable request validation primitives for Agent Backplane APIs"
+
+[lib]
+name = "abp_request_validation"
+path = "src/lib.rs"
+
+[dependencies]
+abp-core = { path = "../abp-core" }
+serde_json.workspace = true
+uuid.workspace = true
