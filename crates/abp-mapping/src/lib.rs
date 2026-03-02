@@ -15,6 +15,20 @@ use serde::{Deserialize, Serialize};
 // ── Errors ──────────────────────────────────────────────────────────────
 
 /// Errors that can occur during mapping validation.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::MappingError;
+/// use abp_dialect::Dialect;
+///
+/// let err = MappingError::FeatureUnsupported {
+///     feature: "logprobs".into(),
+///     from: Dialect::Claude,
+///     to: Dialect::Gemini,
+/// };
+/// assert!(err.to_string().contains("logprobs"));
+/// ```
 #[derive(Debug, Clone, thiserror::Error, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MappingError {
     /// The requested feature is unsupported in the target dialect.
@@ -54,6 +68,19 @@ pub enum MappingError {
 // ── Fidelity ────────────────────────────────────────────────────────────
 
 /// Describes how faithfully a feature maps between dialects.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::Fidelity;
+///
+/// let f = Fidelity::Lossless;
+/// assert!(f.is_lossless());
+/// assert!(!f.is_unsupported());
+///
+/// let u = Fidelity::Unsupported { reason: "not available".into() };
+/// assert!(u.is_unsupported());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Fidelity {
@@ -88,6 +115,21 @@ impl Fidelity {
 // ── MappingRule ─────────────────────────────────────────────────────────
 
 /// A single mapping rule describing how a feature translates between dialects.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::{MappingRule, Fidelity};
+/// use abp_dialect::Dialect;
+///
+/// let rule = MappingRule {
+///     source_dialect: Dialect::OpenAi,
+///     target_dialect: Dialect::Claude,
+///     feature: "streaming".into(),
+///     fidelity: Fidelity::Lossless,
+/// };
+/// assert!(rule.fidelity.is_lossless());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MappingRule {
     /// Source dialect.
@@ -124,6 +166,25 @@ struct RuleKey {
 }
 
 /// Collects [`MappingRule`]s and provides lookup by source, target, and feature.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::{MappingRegistry, MappingRule, Fidelity};
+/// use abp_dialect::Dialect;
+///
+/// let mut reg = MappingRegistry::new();
+/// reg.insert(MappingRule {
+///     source_dialect: Dialect::OpenAi,
+///     target_dialect: Dialect::Claude,
+///     feature: "tool_use".into(),
+///     fidelity: Fidelity::Lossless,
+/// });
+///
+/// assert_eq!(reg.len(), 1);
+/// let rule = reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use");
+/// assert!(rule.is_some());
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct MappingRegistry {
     rules: HashMap<RuleKey, MappingRule>,
@@ -180,6 +241,19 @@ impl MappingRegistry {
 /// 2D lookup table of Dialect×Dialect support status.
 ///
 /// Each cell indicates whether the dialect pair has *any* mapping support.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::MappingMatrix;
+/// use abp_dialect::Dialect;
+///
+/// let mut matrix = MappingMatrix::new();
+/// matrix.set(Dialect::OpenAi, Dialect::Claude, true);
+///
+/// assert!(matrix.is_supported(Dialect::OpenAi, Dialect::Claude));
+/// assert!(!matrix.is_supported(Dialect::Claude, Dialect::OpenAi));
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct MappingMatrix {
     /// `(source, target) -> supported`
@@ -231,6 +305,23 @@ impl MappingMatrix {
 /// Validates a set of features for a source→target dialect mapping.
 ///
 /// Returns a [`MappingValidation`] for each requested feature.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::{validate_mapping, known_rules, Fidelity};
+/// use abp_dialect::Dialect;
+///
+/// let registry = known_rules();
+/// let results = validate_mapping(
+///     &registry,
+///     Dialect::OpenAi,
+///     Dialect::Claude,
+///     &["tool_use".into(), "streaming".into()],
+/// );
+/// assert_eq!(results.len(), 2);
+/// assert!(results[0].fidelity.is_lossless());
+/// ```
 #[must_use]
 pub fn validate_mapping(
     registry: &MappingRegistry,
@@ -323,6 +414,15 @@ pub mod features {
 
 /// Pre-populates a [`MappingRegistry`] with known mapping rules for major
 /// features across OpenAI, Claude, Gemini, and Codex.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::known_rules;
+///
+/// let registry = known_rules();
+/// assert!(!registry.is_empty());
+/// ```
 #[must_use]
 pub fn known_rules() -> MappingRegistry {
     let mut reg = MappingRegistry::new();

@@ -68,7 +68,7 @@ thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "fs"] }
 tokio-stream = "0.1.18"
 tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "json"] }
 uuid = { version = "1.21.0", features = ["serde", "v4"] }
 walkdir = "2.5.0"
 tempfile = "3.26.0"
@@ -130,6 +130,7 @@ abp-copilot-sdk = { path = "crates/abp-copilot-sdk" }
 insta = { workspace = true }
 proptest = { workspace = true }
 toml = { workspace = true }
+walkdir = { workspace = true }
 axum = { workspace = true }
 tower = { workspace = true }
 http-body-util = { workspace = true }

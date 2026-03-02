@@ -166,6 +166,15 @@ impl Envelope {
 }
 
 /// Errors arising from JSONL encoding/decoding or protocol-level violations.
+///
+/// # Examples
+///
+/// ```
+/// use abp_protocol::{JsonlCodec, ProtocolError};
+///
+/// let err = JsonlCodec::decode("not valid json").unwrap_err();
+/// assert!(matches!(err, ProtocolError::Json(_)));
+/// ```
 #[derive(Debug, Error)]
 pub enum ProtocolError {
     /// JSON serialization or deserialization failure.
@@ -334,6 +343,16 @@ impl JsonlCodec {
 /// Parse a version string of the form `"abp/vMAJOR.MINOR"` into `(MAJOR, MINOR)`.
 ///
 /// Returns `None` if the string does not match the expected format.
+///
+/// # Examples
+///
+/// ```
+/// use abp_protocol::parse_version;
+///
+/// assert_eq!(parse_version("abp/v0.1"), Some((0, 1)));
+/// assert_eq!(parse_version("abp/v2.3"), Some((2, 3)));
+/// assert_eq!(parse_version("invalid"), None);
+/// ```
 #[must_use]
 pub fn parse_version(version: &str) -> Option<(u32, u32)> {
     let rest = version.strip_prefix("abp/v")?;
@@ -348,6 +367,15 @@ pub fn parse_version(version: &str) -> Option<(u32, u32)> {
 /// For example `"abp/v0.1"` and `"abp/v0.2"` are compatible, but
 /// `"abp/v1.0"` and `"abp/v0.1"` are not.  Returns `false` if either
 /// string cannot be parsed.
+///
+/// # Examples
+///
+/// ```
+/// use abp_protocol::is_compatible_version;
+///
+/// assert!(is_compatible_version("abp/v0.1", "abp/v0.2"));
+/// assert!(!is_compatible_version("abp/v1.0", "abp/v0.1"));
+/// ```
 #[must_use]
 pub fn is_compatible_version(their_version: &str, our_version: &str) -> bool {
     match (parse_version(their_version), parse_version(our_version)) {
