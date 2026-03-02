@@ -823,6 +823,10 @@ async fn stream_pipe_1000_events_through_pipeline() {
     });
 
     let stream = EventStream::new(rx_in);
+    let piper = tokio::spawn(async move {
+        stream.pipe(&pipeline, tx_out).await;
+    });
+
     let consumer = tokio::spawn(async move {
         let mut count = 0;
         while rx_out.recv().await.is_some() {
@@ -832,9 +836,7 @@ async fn stream_pipe_1000_events_through_pipeline() {
     });
 
     sender.await.unwrap();
-    // pipe blocks until tx_in is dropped (sender task completed drops tx_in)
-    stream.pipe(&pipeline, tx_out).await;
-
+    piper.await.unwrap();
     let count = consumer.await.unwrap();
     assert_eq!(count, 1000);
     assert_eq!(stats.total_events(), 1000);
@@ -1173,6 +1175,11 @@ async fn stream_pipe_concurrent_producer_consumer() {
         }
     });
 
+    let stream = EventStream::new(rx_in);
+    let piper = tokio::spawn(async move {
+        stream.pipe(&pipeline, tx_out).await;
+    });
+
     // Consumer
     let consumer = tokio::spawn(async move {
         let mut count = 0;
@@ -1183,9 +1190,7 @@ async fn stream_pipe_concurrent_producer_consumer() {
     });
 
     producer.await.unwrap();
-    let stream = EventStream::new(rx_in);
-    stream.pipe(&pipeline, tx_out).await;
-
+    piper.await.unwrap();
     let count = consumer.await.unwrap();
     assert_eq!(count, 40); // 50 total - 10 errors
     assert_eq!(recorder.len(), 40);

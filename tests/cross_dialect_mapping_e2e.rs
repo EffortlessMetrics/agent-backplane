@@ -10,8 +10,7 @@ use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefi
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_dialect::Dialect;
 use abp_mapping::{
-    Fidelity, MappingError, MappingMatrix, MappingRule, features, known_rules,
-    validate_mapping,
+    Fidelity, MappingError, MappingMatrix, MappingRule, features, known_rules, validate_mapping,
 };
 use chrono::Utc;
 use serde_json::json;
