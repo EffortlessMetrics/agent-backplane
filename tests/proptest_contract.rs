@@ -1091,9 +1091,11 @@ proptest! {
     fn btreemap_env_deterministic(
         pairs in prop::collection::vec((arb_short_string(), arb_safe_string()), 0..10),
     ) {
-        let m1: BTreeMap<String, String> = pairs.iter().cloned().collect();
+        // Deduplicate keys first — BTreeMap insertion order matters for dupes
+        let deduped: BTreeMap<String, String> = pairs.iter().cloned().collect();
+        let m1 = deduped.clone();
         let mut m2 = BTreeMap::new();
-        for (k, v) in pairs.iter().rev() {
+        for (k, v) in deduped.iter().rev() {
             m2.insert(k.clone(), v.clone());
         }
         prop_assert_eq!(
@@ -1107,9 +1109,11 @@ proptest! {
     fn btreemap_json_value_deterministic(
         pairs in prop::collection::vec((arb_short_string(), arb_json_value()), 0..8),
     ) {
-        let m1: BTreeMap<String, serde_json::Value> = pairs.iter().cloned().collect();
+        // Deduplicate keys first to avoid insert-order-dependent values
+        let deduped: BTreeMap<String, serde_json::Value> = pairs.iter().cloned().collect();
+        let m1 = deduped.clone();
         let mut m2: BTreeMap<String, serde_json::Value> = BTreeMap::new();
-        for (k, v) in pairs.iter().rev() {
+        for (k, v) in deduped.iter().rev() {
             m2.insert(k.clone(), v.clone());
         }
         prop_assert_eq!(
