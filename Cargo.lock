@@ -112,6 +112,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-compress"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "abp-config"
 version = "0.1.0"
 dependencies = [
@@ -347,6 +356,7 @@ dependencies = [
 name = "abp-protocol"
 version = "0.1.0"
 dependencies = [
+ "abp-compress",
  "abp-core",
  "chrono",
  "criterion",

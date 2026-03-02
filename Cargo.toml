@@ -16,6 +16,7 @@ members = [
   "crates/abp-cli",
   "crates/abp-codex-sdk",
   "crates/abp-config",
+  "crates/abp-compress",
   "crates/abp-copilot-sdk",
   "crates/abp-core",
   "crates/abp-daemon",
