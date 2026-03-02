@@ -8,9 +8,9 @@ use std::io::BufReader;
 use serde_json::json;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
-    Outcome, Receipt, RunMetadata, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel, UsageNormalized,
+    VerificationReport, WorkOrderBuilder,
 };
 use abp_protocol::codec::StreamingCodec;
 use abp_protocol::stream::StreamParser;
@@ -49,12 +49,14 @@ fn sample_receipt() -> Receipt {
         },
         backend: backend(),
         capabilities: caps(),
-        outcome: Outcome::Success,
+        mode: ExecutionMode::default(),
+        usage_raw: serde_json::Value::Null,
         usage: UsageNormalized::default(),
+        trace: Vec::new(),
         artifacts: Vec::new(),
-        event_count: 0,
-        receipt_sha256: None,
         verification: VerificationReport::default(),
+        outcome: Outcome::Complete,
+        receipt_sha256: None,
     }
 }
 
@@ -404,13 +406,11 @@ mod hello_envelope_version {
         let validator = EnvelopeValidator::new();
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(
-            result.errors.iter().any(|e| matches!(
-                e,
-                abp_protocol::validate::ValidationError::EmptyField { field }
-                if field == "contract_version"
-            )),
-        );
+        assert!(result.errors.iter().any(|e| matches!(
+            e,
+            abp_protocol::validate::ValidationError::EmptyField { field }
+            if field == "contract_version"
+        )),);
     }
 
     #[test]
@@ -420,12 +420,10 @@ mod hello_envelope_version {
         let validator = EnvelopeValidator::new();
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(
-            result.errors.iter().any(|e| matches!(
-                e,
-                abp_protocol::validate::ValidationError::InvalidVersion { .. }
-            )),
-        );
+        assert!(result.errors.iter().any(|e| matches!(
+            e,
+            abp_protocol::validate::ValidationError::InvalidVersion { .. }
+        )),);
     }
 
     #[test]
@@ -542,10 +540,11 @@ mod forward_compat {
             Envelope::Event {
                 ref_id: "run-1".into(),
                 event: AgentEvent {
-                    timestamp: chrono::Utc::now(),
-                    event: AgentEventKind::Log {
-                        message: "hello".into(),
+                    ts: chrono::Utc::now(),
+                    kind: AgentEventKind::AssistantDelta {
+                        text: "hello".into(),
                     },
+                    ext: None,
                 },
             },
             Envelope::Final {
@@ -563,8 +562,16 @@ mod forward_compat {
             let encoded = JsonlCodec::encode(original).unwrap();
             let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
             // Verify discriminant survives roundtrip
-            let orig_tag = format!("{original:?}").split('{').next().unwrap().to_string();
-            let dec_tag = format!("{decoded:?}").split('{').next().unwrap().to_string();
+            let orig_tag = format!("{original:?}")
+                .split('{')
+                .next()
+                .unwrap()
+                .to_string();
+            let dec_tag = format!("{decoded:?}")
+                .split('{')
+                .next()
+                .unwrap()
+                .to_string();
             assert_eq!(orig_tag, dec_tag, "variant tag must survive roundtrip");
         }
     }
@@ -675,7 +682,9 @@ mod stream_parser_robustness {
         let long_line = format!("{}\n", "a".repeat(100));
         let results = parser.push(long_line.as_bytes());
         assert_eq!(results.len(), 1);
-        assert!(matches!(&results[0], Err(ProtocolError::Violation(msg)) if msg.contains("exceeds")));
+        assert!(
+            matches!(&results[0], Err(ProtocolError::Violation(msg)) if msg.contains("exceeds"))
+        );
     }
 
     #[test]
@@ -922,21 +931,18 @@ mod serde_compat {
 
     #[test]
     fn unknown_event_kind_is_error() {
-        // An event envelope with an unknown event type should fail deserialization
+        // An event envelope with an unknown event type should fail deserialization.
+        // AgentEventKind uses #[serde(tag = "type")] and is flattened into AgentEvent.
         let line = json!({
             "t": "event",
             "ref_id": "run-1",
             "event": {
-                "timestamp": "2025-01-01T00:00:00Z",
-                "event": {
-                    "type": "future_event_type",
-                    "data": "something"
-                }
+                "ts": "2025-01-01T00:00:00Z",
+                "type": "future_event_type",
+                "data": "something"
             }
         });
         let result = JsonlCodec::decode(&serde_json::to_string(&line).unwrap());
-        // Unknown event types should cause a parse error since AgentEventKind
-        // is a tagged enum
         assert!(
             result.is_err(),
             "unknown event kind should cause parse error"
@@ -948,13 +954,13 @@ mod serde_compat {
         let env = Envelope::fatal_with_code(
             Some("run-1".into()),
             "timeout",
-            abp_error::ErrorCode::ProtocolTimeout,
+            abp_error::ErrorCode::ProtocolVersionMismatch,
         );
         let encoded = JsonlCodec::encode(&env).unwrap();
         let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
         assert_eq!(
             decoded.error_code(),
-            Some(abp_error::ErrorCode::ProtocolTimeout)
+            Some(abp_error::ErrorCode::ProtocolVersionMismatch)
         );
     }
 }
@@ -1022,10 +1028,9 @@ mod validator_sequence {
             Envelope::Event {
                 ref_id: "run-1".into(),
                 event: AgentEvent {
-                    timestamp: chrono::Utc::now(),
-                    event: AgentEventKind::Log {
-                        message: "hi".into(),
-                    },
+                    ts: chrono::Utc::now(),
+                    kind: AgentEventKind::AssistantDelta { text: "hi".into() },
+                    ext: None,
                 },
             },
             Envelope::Final {
@@ -1035,7 +1040,10 @@ mod validator_sequence {
         ];
         let v = EnvelopeValidator::new();
         let errors = v.validate_sequence(&seq);
-        assert!(errors.is_empty(), "valid sequence should have no errors: {errors:?}");
+        assert!(
+            errors.is_empty(),
+            "valid sequence should have no errors: {errors:?}"
+        );
     }
 
     #[test]

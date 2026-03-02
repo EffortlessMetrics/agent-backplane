@@ -234,6 +234,37 @@ impl MappingRegistry {
     pub fn iter(&self) -> impl Iterator<Item = &MappingRule> {
         self.rules.values()
     }
+
+    /// Ranks target dialects by mapping quality for the given source and features.
+    ///
+    /// Returns `(dialect, lossless_count)` pairs sorted by lossless count descending.
+    /// Dialects where no features are supported (all unsupported or absent) are excluded.
+    #[must_use]
+    pub fn rank_targets(&self, source: Dialect, features: &[&str]) -> Vec<(Dialect, usize)> {
+        let mut results = Vec::new();
+        for &target in Dialect::all() {
+            if target == source {
+                continue;
+            }
+            let mut lossless = 0usize;
+            let mut any_supported = false;
+            for &feat in features {
+                if let Some(rule) = self.lookup(source, target, feat)
+                    && !rule.fidelity.is_unsupported()
+                {
+                    any_supported = true;
+                    if rule.fidelity.is_lossless() {
+                        lossless += 1;
+                    }
+                }
+            }
+            if any_supported {
+                results.push((target, lossless));
+            }
+        }
+        results.sort_by(|a, b| b.1.cmp(&a.1));
+        results
+    }
 }
 
 // ── MappingMatrix ───────────────────────────────────────────────────────
@@ -410,6 +441,8 @@ pub mod features {
     pub const THINKING: &str = "thinking";
     /// Image input support.
     pub const IMAGE_INPUT: &str = "image_input";
+    /// Code execution / bash tool.
+    pub const CODE_EXEC: &str = "code_exec";
 }
 
 /// Pre-populates a [`MappingRegistry`] with known mapping rules for major
@@ -427,21 +460,17 @@ pub mod features {
 pub fn known_rules() -> MappingRegistry {
     let mut reg = MappingRegistry::new();
 
-    let dialects = [
-        Dialect::OpenAi,
-        Dialect::Claude,
-        Dialect::Gemini,
-        Dialect::Codex,
-    ];
+    let dialects = Dialect::all();
     let feats = [
         features::TOOL_USE,
         features::STREAMING,
         features::THINKING,
         features::IMAGE_INPUT,
+        features::CODE_EXEC,
     ];
 
     // Same-dialect is always lossless for all features.
-    for &d in &dialects {
+    for &d in dialects {
         for &f in &feats {
             reg.insert(MappingRule {
                 source_dialect: d,
@@ -490,6 +519,27 @@ pub fn known_rules() -> MappingRegistry {
         &mut reg,
         Dialect::Gemini,
         Dialect::Codex,
+        features::TOOL_USE,
+        "Codex tool_use schema differs from Gemini function declarations",
+    );
+    insert_pair_lossy(
+        &mut reg,
+        Dialect::Codex,
+        Dialect::OpenAi,
+        features::TOOL_USE,
+        "Codex tool_use schema differs from chat-completions function calling",
+    );
+    insert_pair_lossy(
+        &mut reg,
+        Dialect::Codex,
+        Dialect::Claude,
+        features::TOOL_USE,
+        "Codex tool_use schema differs from Claude tool_use blocks",
+    );
+    insert_pair_lossy(
+        &mut reg,
+        Dialect::Codex,
+        Dialect::Gemini,
         features::TOOL_USE,
         "Codex tool_use schema differs from Gemini function declarations",
     );
@@ -658,6 +708,141 @@ pub fn known_rules() -> MappingRegistry {
         features::IMAGE_INPUT,
         "Codex does not support image inputs",
     );
+
+    // ── Kimi & Copilot: tool_use ────────────────────────────────────
+    // Both are OpenAI-compatible; lossless with most, lossy with Codex.
+    for &nd in &[Dialect::Kimi, Dialect::Copilot] {
+        for &od in &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini] {
+            insert_pair_lossless(&mut reg, nd, od, features::TOOL_USE);
+        }
+        insert_pair_lossy(
+            &mut reg,
+            nd,
+            Dialect::Codex,
+            features::TOOL_USE,
+            "Codex tool_use schema differs from OpenAI-compatible format",
+        );
+        insert_pair_lossy(
+            &mut reg,
+            Dialect::Codex,
+            nd,
+            features::TOOL_USE,
+            "Codex tool_use schema differs from OpenAI-compatible format",
+        );
+    }
+    insert_pair_lossless(
+        &mut reg,
+        Dialect::Kimi,
+        Dialect::Copilot,
+        features::TOOL_USE,
+    );
+
+    // ── Kimi & Copilot: streaming ───────────────────────────────────
+    // All SSE-based; lossless with all dialects.
+    for &nd in &[Dialect::Kimi, Dialect::Copilot] {
+        for &od in &[
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+        ] {
+            insert_pair_lossless(&mut reg, nd, od, features::STREAMING);
+        }
+    }
+    insert_pair_lossless(
+        &mut reg,
+        Dialect::Kimi,
+        Dialect::Copilot,
+        features::STREAMING,
+    );
+
+    // ── Kimi & Copilot: thinking ────────────────────────────────────
+    // Neither has native thinking; all cross-dialect is lossy.
+    for &nd in &[Dialect::Kimi, Dialect::Copilot] {
+        for &od in &[
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+        ] {
+            let w = format!("{} does not have native thinking blocks", nd.label());
+            insert_pair_lossy(&mut reg, nd, od, features::THINKING, &w);
+            insert_pair_lossy(&mut reg, od, nd, features::THINKING, &w);
+        }
+    }
+    insert_pair_lossy(
+        &mut reg,
+        Dialect::Kimi,
+        Dialect::Copilot,
+        features::THINKING,
+        "neither Kimi nor Copilot has native thinking blocks",
+    );
+    insert_pair_lossy(
+        &mut reg,
+        Dialect::Copilot,
+        Dialect::Kimi,
+        features::THINKING,
+        "neither Kimi nor Copilot has native thinking blocks",
+    );
+
+    // ── Kimi & Copilot: image_input ─────────────────────────────────
+    // Neither supports image inputs.
+    for &nd in &[Dialect::Kimi, Dialect::Copilot] {
+        for &od in &[
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+        ] {
+            insert_pair_unsupported(
+                &mut reg,
+                nd,
+                od,
+                features::IMAGE_INPUT,
+                &format!("{} does not support image inputs", nd.label()),
+            );
+        }
+    }
+    insert_pair_unsupported(
+        &mut reg,
+        Dialect::Kimi,
+        Dialect::Copilot,
+        features::IMAGE_INPUT,
+        "neither Kimi nor Copilot supports image inputs",
+    );
+
+    // ── code_exec (all dialects) ────────────────────────────────────
+    // Kimi does not support code execution at all.
+    // All other cross-dialect code_exec is lossy (different execution models).
+    let code_capable = [
+        Dialect::OpenAi,
+        Dialect::Claude,
+        Dialect::Gemini,
+        Dialect::Codex,
+        Dialect::Copilot,
+    ];
+    for i in 0..code_capable.len() {
+        for j in (i + 1)..code_capable.len() {
+            let a = code_capable[i];
+            let b = code_capable[j];
+            let w = format!(
+                "code execution models differ between {} and {}",
+                a.label(),
+                b.label(),
+            );
+            insert_pair_lossy(&mut reg, a, b, features::CODE_EXEC, &w);
+            insert_pair_lossy(&mut reg, b, a, features::CODE_EXEC, &w);
+        }
+    }
+    for &od in &code_capable {
+        insert_pair_unsupported(
+            &mut reg,
+            Dialect::Kimi,
+            od,
+            features::CODE_EXEC,
+            "Kimi does not support code execution",
+        );
+    }
 
     reg
 }

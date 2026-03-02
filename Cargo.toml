@@ -171,3 +171,23 @@ harness = false
 [[bench]]
 name = "mapping_validation"
 harness = false
+
+[[bench]]
+name = "receipt_bench"
+harness = false
+
+[[bench]]
+name = "protocol_bench"
+harness = false
+
+[[bench]]
+name = "mapping_bench"
+harness = false
+
+[[bench]]
+name = "policy_bench"
+harness = false
+
+[[bench]]
+name = "capability_bench"
+harness = false
