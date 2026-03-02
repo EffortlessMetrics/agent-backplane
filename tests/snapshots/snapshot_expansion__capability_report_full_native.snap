@@ -1,0 +1,31 @@
+---
+source: tests/snapshot_expansion.rs
+expression: report
+---
+{
+  "compatible": true,
+  "native_count": 3,
+  "emulated_count": 0,
+  "unsupported_count": 0,
+  "summary": "3 native, 0 emulatable, 0 unsupported — fully compatible",
+  "details": [
+    [
+      "Streaming",
+      {
+        "level": "native"
+      }
+    ],
+    [
+      "ToolUse",
+      {
+        "level": "native"
+      }
+    ],
+    [
+      "ExtendedThinking",
+      {
+        "level": "native"
+      }
+    ]
+  ]
+}

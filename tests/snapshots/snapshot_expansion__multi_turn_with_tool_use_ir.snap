@@ -1,0 +1,55 @@
+---
+source: tests/snapshot_expansion.rs
+expression: conv
+---
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Read the main.rs file"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "call_001",
+          "name": "read_file",
+          "input": {
+            "path": "src/main.rs"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call_001",
+          "content": [
+            {
+              "type": "text",
+              "text": "fn main() { println!(\"Hello\"); }"
+            }
+          ],
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "The main.rs file contains a simple Hello World program."
+        }
+      ]
+    }
+  ]
+}

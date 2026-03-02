@@ -1,0 +1,70 @@
+---
+source: tests/snapshot_expansion.rs
+expression: tools
+---
+[
+  {
+    "name": "read_file",
+    "description": "Read a file",
+    "parameters": {
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "write_file",
+    "description": "Write content to a file",
+    "parameters": {
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "execute_command",
+    "description": "Run a shell command with arguments",
+    "parameters": {
+      "properties": {
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "command": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "type": "object"
+    }
+  }
+]

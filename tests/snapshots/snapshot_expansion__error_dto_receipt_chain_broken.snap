@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_expansion.rs
+expression: dto
+---
+{
+  "code": "RECEIPT_CHAIN_BROKEN",
+  "message": "Receipt chain has a gap at position 2",
+  "context": {
+    "actual_parent_hash": null,
+    "chain_length": 5,
+    "expected_parent_hash": "sha256:abc123...",
+    "gap_position": 2
+  }
+}

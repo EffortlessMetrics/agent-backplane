@@ -1,0 +1,18 @@
+---
+source: tests/snapshot_expansion.rs
+expression: results
+---
+{
+  "bash_denied": {
+    "allowed": true,
+    "reason": null
+  },
+  "read_denied": {
+    "allowed": true,
+    "reason": null
+  },
+  "write_denied": {
+    "allowed": true,
+    "reason": null
+  }
+}

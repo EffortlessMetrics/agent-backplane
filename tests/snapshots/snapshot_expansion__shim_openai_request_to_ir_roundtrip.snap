@@ -1,0 +1,38 @@
+---
+source: tests/snapshot_expansion.rs
+expression: "json!({ \"ir\": ir, \"roundtrip_messages\": back, })"
+---
+{
+  "ir": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "You are helpful.",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "text": "Explain Rust traits.",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  },
+  "roundtrip_messages": [
+    {
+      "content": "You are helpful.",
+      "role": "system"
+    },
+    {
+      "content": "Explain Rust traits.",
+      "role": "user"
+    }
+  ]
+}

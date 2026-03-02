@@ -1,0 +1,42 @@
+---
+source: tests/snapshot_expansion.rs
+expression: coverage
+---
+{
+  "Claude->Claude": true,
+  "Claude->Codex": true,
+  "Claude->Copilot": true,
+  "Claude->Gemini": true,
+  "Claude->Kimi": true,
+  "Claude->OpenAi": true,
+  "Codex->Claude": true,
+  "Codex->Codex": true,
+  "Codex->Copilot": true,
+  "Codex->Gemini": true,
+  "Codex->Kimi": true,
+  "Codex->OpenAi": true,
+  "Copilot->Claude": true,
+  "Copilot->Codex": true,
+  "Copilot->Copilot": true,
+  "Copilot->Gemini": true,
+  "Copilot->Kimi": true,
+  "Copilot->OpenAi": true,
+  "Gemini->Claude": true,
+  "Gemini->Codex": true,
+  "Gemini->Copilot": true,
+  "Gemini->Gemini": true,
+  "Gemini->Kimi": true,
+  "Gemini->OpenAi": true,
+  "Kimi->Claude": true,
+  "Kimi->Codex": true,
+  "Kimi->Copilot": true,
+  "Kimi->Gemini": true,
+  "Kimi->Kimi": true,
+  "Kimi->OpenAi": true,
+  "OpenAi->Claude": true,
+  "OpenAi->Codex": true,
+  "OpenAi->Copilot": true,
+  "OpenAi->Gemini": true,
+  "OpenAi->Kimi": true,
+  "OpenAi->OpenAi": true
+}

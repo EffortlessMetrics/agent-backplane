@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_expansion.rs
+expression: report
+---
+{
+  "applied": [
+    {
+      "capability": "extended_thinking",
+      "strategy": {
+        "type": "system_prompt_injection",
+        "prompt": "Think step by step before answering."
+      }
+    }
+  ],
+  "warnings": []
+}

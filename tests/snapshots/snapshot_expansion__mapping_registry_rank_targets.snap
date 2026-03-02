@@ -1,0 +1,26 @@
+---
+source: tests/snapshot_expansion.rs
+expression: snapshot
+---
+[
+  {
+    "dialect": "Claude",
+    "lossless_count": 3
+  },
+  {
+    "dialect": "Gemini",
+    "lossless_count": 3
+  },
+  {
+    "dialect": "Kimi",
+    "lossless_count": 2
+  },
+  {
+    "dialect": "Copilot",
+    "lossless_count": 2
+  },
+  {
+    "dialect": "Codex",
+    "lossless_count": 1
+  }
+]

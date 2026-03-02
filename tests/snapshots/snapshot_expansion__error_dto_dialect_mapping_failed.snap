@@ -1,0 +1,17 @@
+---
+source: tests/snapshot_expansion.rs
+expression: dto
+---
+{
+  "code": "DIALECT_MAPPING_FAILED",
+  "message": "Cannot map extended_thinking from Claude to OpenAI",
+  "context": {
+    "feature": "extended_thinking",
+    "fidelity": {
+      "reason": "OpenAI has no thinking API",
+      "type": "unsupported"
+    },
+    "source_dialect": "claude",
+    "target_dialect": "openai"
+  }
+}

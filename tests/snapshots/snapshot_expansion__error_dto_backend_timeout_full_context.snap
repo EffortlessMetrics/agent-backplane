@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_expansion.rs
+expression: dto
+---
+{
+  "code": "BACKEND_TIMEOUT",
+  "message": "Backend did not respond within 30s",
+  "context": {
+    "attempt": 3,
+    "backend_id": "sidecar:claude",
+    "timeout_ms": 30000,
+    "work_order_id": "wo-abc-123"
+  }
+}

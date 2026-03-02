@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_expansion.rs
+expression: dto
+---
+{
+  "code": "POLICY_DENIED",
+  "message": "Write access denied by policy",
+  "context": {
+    "path": ".git/config",
+    "policy_rule": "deny_write: **/.git/**",
+    "tool": "write_file"
+  }
+}

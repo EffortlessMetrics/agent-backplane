@@ -1,0 +1,25 @@
+---
+source: tests/snapshot_expansion.rs
+expression: report
+---
+{
+  "applied": [
+    {
+      "capability": "code_execution",
+      "strategy": {
+        "type": "system_prompt_injection",
+        "prompt": "Simulate code execution by reasoning step-by-step."
+      }
+    },
+    {
+      "capability": "extended_thinking",
+      "strategy": {
+        "type": "system_prompt_injection",
+        "prompt": "Think step by step before answering."
+      }
+    }
+  ],
+  "warnings": [
+    "Capability Logprobs not emulated: Logprobs cannot be emulated."
+  ]
+}
