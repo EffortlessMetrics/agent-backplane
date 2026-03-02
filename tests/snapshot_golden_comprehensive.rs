@@ -158,7 +158,7 @@ fn wo_context_snippet_structure() {
         content: "Look at auth module".into(),
     };
     assert_eq!(
-        serde_json::to_value(&s).unwrap(),
+        serde_json::to_value(s).unwrap(),
         json!({"name": "hint", "content": "Look at auth module"}),
     );
 }
@@ -195,7 +195,7 @@ fn wo_runtime_config_full() {
         max_turns: Some(25),
     };
     assert_eq!(
-        serde_json::to_value(&rc).unwrap(),
+        serde_json::to_value(rc).unwrap(),
         json!({
             "model": "gpt-4o",
             "vendor": {"temperature": 0.7},
@@ -221,7 +221,7 @@ fn wo_capability_requirement_single() {
         min_support: MinSupport::Native,
     };
     assert_eq!(
-        serde_json::to_value(&req).unwrap(),
+        serde_json::to_value(req).unwrap(),
         json!({"capability": "tool_read", "min_support": "native"}),
     );
 }
@@ -235,7 +235,7 @@ fn wo_workspace_spec_structure() {
         exclude: vec!["target/**".into()],
     };
     assert_eq!(
-        serde_json::to_value(&spec).unwrap(),
+        serde_json::to_value(spec).unwrap(),
         json!({
             "root": "/tmp/ws",
             "mode": "staged",
@@ -248,7 +248,7 @@ fn wo_workspace_spec_structure() {
 #[test]
 fn wo_minimal_structure_json() {
     let wo = minimal_work_order();
-    let v = serde_json::to_value(&wo).unwrap();
+    let v = serde_json::to_value(wo).unwrap();
     assert_eq!(v["id"], "00000000-0000-4000-8000-000000000001");
     assert_eq!(v["task"], "Hello world");
     assert_eq!(v["lane"], "patch_first");
@@ -313,7 +313,7 @@ fn receipt_usage_normalized_full() {
         estimated_cost_usd: Some(0.015),
     };
     assert_eq!(
-        serde_json::to_value(&u).unwrap(),
+        serde_json::to_value(u).unwrap(),
         json!({
             "input_tokens": 1200,
             "output_tokens": 800,
@@ -341,7 +341,7 @@ fn receipt_verification_report_full() {
         harness_ok: true,
     };
     assert_eq!(
-        serde_json::to_value(&vr).unwrap(),
+        serde_json::to_value(vr).unwrap(),
         json!({
             "git_diff": "diff --git a/f.rs b/f.rs",
             "git_status": "M f.rs",
@@ -357,7 +357,7 @@ fn receipt_artifact_ref_structure() {
         path: "output.patch".into(),
     };
     assert_eq!(
-        serde_json::to_value(&a).unwrap(),
+        serde_json::to_value(a).unwrap(),
         json!({"kind": "patch", "path": "output.patch"}),
     );
 }
@@ -373,7 +373,7 @@ fn receipt_run_metadata_structure() {
         duration_ms: 300_000,
     };
     assert_eq!(
-        serde_json::to_value(&meta).unwrap(),
+        serde_json::to_value(meta).unwrap(),
         json!({
             "run_id": "00000000-0000-4000-8000-000000000001",
             "work_order_id": "00000000-0000-4000-8000-000000000002",
@@ -408,7 +408,7 @@ fn receipt_backend_identity_minimal() {
 #[test]
 fn receipt_minimal_top_level_keys() {
     let r = minimal_receipt();
-    let v = serde_json::to_value(&r).unwrap();
+    let v = serde_json::to_value(r).unwrap();
     let obj = v.as_object().unwrap();
     let keys: Vec<&String> = obj.keys().collect();
     // Verify all expected top-level keys exist
@@ -446,7 +446,7 @@ fn event_run_started() {
         ext: None,
     };
     assert_eq!(
-        serde_json::to_value(&e).unwrap(),
+        serde_json::to_value(e).unwrap(),
         json!({
             "ts": "2025-07-01T12:00:00Z",
             "type": "run_started",
@@ -465,7 +465,7 @@ fn event_run_completed() {
         ext: None,
     };
     assert_eq!(
-        serde_json::to_value(&e).unwrap(),
+        serde_json::to_value(e).unwrap(),
         json!({
             "ts": "2025-07-01T12:00:00Z",
             "type": "run_completed",
@@ -484,7 +484,7 @@ fn event_assistant_delta() {
         ext: None,
     };
     assert_eq!(
-        serde_json::to_value(&e).unwrap(),
+        serde_json::to_value(e).unwrap(),
         json!({
             "ts": "2025-07-01T12:00:00Z",
             "type": "assistant_delta",
@@ -503,7 +503,7 @@ fn event_assistant_message() {
         ext: None,
     };
     assert_eq!(
-        serde_json::to_value(&e).unwrap(),
+        serde_json::to_value(e).unwrap(),
         json!({
             "ts": "2025-07-01T12:00:00Z",
             "type": "assistant_message",
@@ -525,7 +525,7 @@ fn event_tool_call_with_ids() {
         ext: None,
     };
     assert_eq!(
-        serde_json::to_value(&e).unwrap(),
+        serde_json::to_value(e).unwrap(),
         json!({
             "ts": "2025-07-01T12:00:00Z",
             "type": "tool_call",
@@ -549,7 +549,7 @@ fn event_tool_call_no_ids() {
         },
         ext: None,
     };
-    let v = serde_json::to_value(&e).unwrap();
+    let v = serde_json::to_value(e).unwrap();
     assert_eq!(v["tool_use_id"], json!(null));
     assert_eq!(v["parent_tool_use_id"], json!(null));
 }
@@ -567,7 +567,7 @@ fn event_tool_result_success() {
         ext: None,
     };
     assert_eq!(
-        serde_json::to_value(&e).unwrap(),
+        serde_json::to_value(e).unwrap(),
         json!({
             "ts": "2025-07-01T12:00:00Z",
             "type": "tool_result",
@@ -591,7 +591,7 @@ fn event_tool_result_error() {
         },
         ext: None,
     };
-    let v = serde_json::to_value(&e).unwrap();
+    let v = serde_json::to_value(e).unwrap();
     assert_eq!(v["is_error"], true);
     assert_eq!(v["type"], "tool_result");
 }
@@ -607,7 +607,7 @@ fn event_file_changed() {
         ext: None,
     };
     assert_eq!(
-        serde_json::to_value(&e).unwrap(),
+        serde_json::to_value(e).unwrap(),
         json!({
             "ts": "2025-07-01T12:00:00Z",
             "type": "file_changed",
@@ -629,7 +629,7 @@ fn event_command_executed() {
         ext: None,
     };
     assert_eq!(
-        serde_json::to_value(&e).unwrap(),
+        serde_json::to_value(e).unwrap(),
         json!({
             "ts": "2025-07-01T12:00:00Z",
             "type": "command_executed",
@@ -651,7 +651,7 @@ fn event_command_no_exit_code() {
         },
         ext: None,
     };
-    let v = serde_json::to_value(&e).unwrap();
+    let v = serde_json::to_value(e).unwrap();
     assert_eq!(v["exit_code"], json!(null));
     assert_eq!(v["output_preview"], json!(null));
 }
@@ -666,7 +666,7 @@ fn event_warning() {
         ext: None,
     };
     assert_eq!(
-        serde_json::to_value(&e).unwrap(),
+        serde_json::to_value(e).unwrap(),
         json!({
             "ts": "2025-07-01T12:00:00Z",
             "type": "warning",
@@ -685,7 +685,7 @@ fn event_error_no_code() {
         },
         ext: None,
     };
-    let v = serde_json::to_value(&e).unwrap();
+    let v = serde_json::to_value(e).unwrap();
     assert_eq!(v["type"], "error");
     assert_eq!(v["message"], "Unexpected failure");
     // error_code is skip_serializing_if None
@@ -702,7 +702,7 @@ fn event_error_with_code() {
         },
         ext: None,
     };
-    let v = serde_json::to_value(&e).unwrap();
+    let v = serde_json::to_value(e).unwrap();
     assert_eq!(v["type"], "error");
     assert_eq!(v["error_code"], "BACKEND_TIMEOUT");
 }
@@ -730,7 +730,7 @@ fn event_with_ext_passthrough() {
         kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: Some(ext),
     };
-    let v = serde_json::to_value(&e).unwrap();
+    let v = serde_json::to_value(e).unwrap();
     assert_eq!(v["ext"]["raw_message"], json!({"role": "assistant"}));
     assert_eq!(v["ext"]["vendor_id"], "msg_abc");
 }
@@ -743,7 +743,7 @@ fn event_with_ext_passthrough() {
 fn envelope_hello_mapped() {
     let env = Envelope::hello(mock_backend(), BTreeMap::new());
     assert_eq!(
-        serde_json::to_value(&env).unwrap(),
+        serde_json::to_value(env).unwrap(),
         json!({
             "t": "hello",
             "contract_version": "abp/v0.1",
@@ -758,7 +758,7 @@ fn envelope_hello_mapped() {
 fn envelope_hello_passthrough() {
     let env =
         Envelope::hello_with_mode(mock_backend(), BTreeMap::new(), ExecutionMode::Passthrough);
-    let v = serde_json::to_value(&env).unwrap();
+    let v = serde_json::to_value(env).unwrap();
     assert_eq!(v["mode"], "passthrough");
 }
 
@@ -768,7 +768,7 @@ fn envelope_hello_with_capabilities() {
     caps.insert(Capability::Streaming, SupportLevel::Native);
     caps.insert(Capability::ToolUse, SupportLevel::Emulated);
     let env = Envelope::hello(mock_backend(), caps);
-    let v = serde_json::to_value(&env).unwrap();
+    let v = serde_json::to_value(env).unwrap();
     assert_eq!(v["capabilities"]["streaming"], "native");
     assert_eq!(v["capabilities"]["tool_use"], "emulated");
 }
@@ -779,7 +779,7 @@ fn envelope_run_structure() {
         id: "run-001".into(),
         work_order: minimal_work_order(),
     };
-    let v = serde_json::to_value(&env).unwrap();
+    let v = serde_json::to_value(env).unwrap();
     assert_eq!(v["t"], "run");
     assert_eq!(v["id"], "run-001");
     assert_eq!(v["work_order"]["task"], "Hello world");
@@ -797,7 +797,7 @@ fn envelope_event_structure() {
             ext: None,
         },
     };
-    let v = serde_json::to_value(&env).unwrap();
+    let v = serde_json::to_value(env).unwrap();
     assert_eq!(v["t"], "event");
     assert_eq!(v["ref_id"], "run-001");
     assert_eq!(v["event"]["type"], "assistant_message");
@@ -810,7 +810,7 @@ fn envelope_final_structure() {
         ref_id: "run-001".into(),
         receipt: minimal_receipt(),
     };
-    let v = serde_json::to_value(&env).unwrap();
+    let v = serde_json::to_value(env).unwrap();
     assert_eq!(v["t"], "final");
     assert_eq!(v["ref_id"], "run-001");
     assert_eq!(v["receipt"]["outcome"], "complete");
@@ -823,7 +823,7 @@ fn envelope_fatal_with_ref() {
         error: "Backend crashed".into(),
         error_code: None,
     };
-    let v = serde_json::to_value(&env).unwrap();
+    let v = serde_json::to_value(env).unwrap();
     assert_eq!(v["t"], "fatal");
     assert_eq!(v["ref_id"], "run-001");
     assert_eq!(v["error"], "Backend crashed");
@@ -838,7 +838,7 @@ fn envelope_fatal_no_ref() {
         error: "Handshake timeout".into(),
         error_code: None,
     };
-    let v = serde_json::to_value(&env).unwrap();
+    let v = serde_json::to_value(env).unwrap();
     assert_eq!(v["ref_id"], json!(null));
 }
 
@@ -849,7 +849,7 @@ fn envelope_fatal_with_error_code() {
         "Backend not found",
         abp_error::ErrorCode::BackendNotFound,
     );
-    let v = serde_json::to_value(&env).unwrap();
+    let v = serde_json::to_value(env).unwrap();
     assert_eq!(v["error_code"], "BACKEND_NOT_FOUND");
 }
 
@@ -954,7 +954,7 @@ fn ir_content_text() {
         text: "hello".into(),
     };
     assert_eq!(
-        serde_json::to_value(&block).unwrap(),
+        serde_json::to_value(block).unwrap(),
         json!({"type": "text", "text": "hello"}),
     );
 }
@@ -966,7 +966,7 @@ fn ir_content_image() {
         data: "aGVsbG8=".into(),
     };
     assert_eq!(
-        serde_json::to_value(&block).unwrap(),
+        serde_json::to_value(block).unwrap(),
         json!({"type": "image", "media_type": "image/png", "data": "aGVsbG8="}),
     );
 }
@@ -979,7 +979,7 @@ fn ir_content_tool_use() {
         input: json!({"path": "file.rs"}),
     };
     assert_eq!(
-        serde_json::to_value(&block).unwrap(),
+        serde_json::to_value(block).unwrap(),
         json!({
             "type": "tool_use",
             "id": "tu_001",
@@ -999,7 +999,7 @@ fn ir_content_tool_result() {
         is_error: false,
     };
     assert_eq!(
-        serde_json::to_value(&block).unwrap(),
+        serde_json::to_value(block).unwrap(),
         json!({
             "type": "tool_result",
             "tool_use_id": "tu_001",
@@ -1015,7 +1015,7 @@ fn ir_content_thinking() {
         text: "Let me think...".into(),
     };
     assert_eq!(
-        serde_json::to_value(&block).unwrap(),
+        serde_json::to_value(block).unwrap(),
         json!({"type": "thinking", "text": "Let me think..."}),
     );
 }
@@ -1024,7 +1024,7 @@ fn ir_content_thinking() {
 fn ir_message_text_only() {
     let msg = IrMessage::text(IrRole::User, "hello");
     assert_eq!(
-        serde_json::to_value(&msg).unwrap(),
+        serde_json::to_value(msg).unwrap(),
         json!({
             "role": "user",
             "content": [{"type": "text", "text": "hello"}],
@@ -1037,7 +1037,7 @@ fn ir_message_with_metadata() {
     let mut msg = IrMessage::text(IrRole::Assistant, "hi");
     msg.metadata.insert("source".into(), json!("test"));
     assert_eq!(
-        serde_json::to_value(&msg).unwrap(),
+        serde_json::to_value(msg).unwrap(),
         json!({
             "role": "assistant",
             "content": [{"type": "text", "text": "hi"}],
@@ -1066,7 +1066,7 @@ fn ir_conversation_with_messages() {
     let conv = IrConversation::new()
         .push(IrMessage::text(IrRole::System, "You are helpful."))
         .push(IrMessage::text(IrRole::User, "Hi"));
-    let v = serde_json::to_value(&conv).unwrap();
+    let v = serde_json::to_value(conv).unwrap();
     assert_eq!(v["messages"].as_array().unwrap().len(), 2);
     assert_eq!(v["messages"][0]["role"], "system");
     assert_eq!(v["messages"][1]["role"], "user");
@@ -1080,7 +1080,7 @@ fn ir_tool_definition() {
         parameters: json!({"type": "object", "properties": {"path": {"type": "string"}}}),
     };
     assert_eq!(
-        serde_json::to_value(&td).unwrap(),
+        serde_json::to_value(td).unwrap(),
         json!({
             "name": "read_file",
             "description": "Read file contents",
@@ -1313,7 +1313,7 @@ fn support_level_restricted_json() {
         reason: "experimental".into(),
     };
     assert_eq!(
-        serde_json::to_value(&sl).unwrap(),
+        serde_json::to_value(sl).unwrap(),
         json!({"restricted": {"reason": "experimental"}}),
     );
 }
@@ -1344,7 +1344,7 @@ fn capability_manifest_with_restricted() {
             reason: "beta".into(),
         },
     );
-    let v = serde_json::to_value(&m).unwrap();
+    let v = serde_json::to_value(m).unwrap();
     assert_eq!(v["streaming"], "native");
     assert_eq!(v["mcp_client"], json!({"restricted": {"reason": "beta"}}),);
 }
@@ -1401,7 +1401,7 @@ fn policy_profile_full() {
         require_approval_for: vec!["execute".into()],
     };
     assert_eq!(
-        serde_json::to_value(&p).unwrap(),
+        serde_json::to_value(p).unwrap(),
         json!({
             "allowed_tools": ["read", "write"],
             "disallowed_tools": ["bash"],
@@ -1421,7 +1421,7 @@ fn policy_profile_tools_only() {
         disallowed_tools: vec!["bash".into()],
         ..Default::default()
     };
-    let v = serde_json::to_value(&p).unwrap();
+    let v = serde_json::to_value(p).unwrap();
     assert_eq!(v["allowed_tools"], json!(["read", "glob"]));
     assert_eq!(v["disallowed_tools"], json!(["bash"]));
     assert_eq!(v["deny_read"], json!([]));
@@ -1434,7 +1434,7 @@ fn policy_profile_paths_only() {
         deny_write: vec!["Cargo.lock".into()],
         ..Default::default()
     };
-    let v = serde_json::to_value(&p).unwrap();
+    let v = serde_json::to_value(p).unwrap();
     assert_eq!(v["deny_read"], json!([".env", "secrets/**"]));
     assert_eq!(v["deny_write"], json!(["Cargo.lock"]));
     assert_eq!(v["allowed_tools"], json!([]));
