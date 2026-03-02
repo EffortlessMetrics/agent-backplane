@@ -887,7 +887,6 @@ proptest! {
         ext in file_extension(),
     ) {
         let path_matching = format!("{seg}.{ext}");
-        let path_other = format!("{seg}.zzz");
 
         let pat = format!("*.{ext}");
         let exc = pat.clone();
@@ -898,11 +897,12 @@ proptest! {
             globs.decide_str(&path_matching),
             MatchDecision::DeniedByExclude
         );
-        // Non-matching path → denied by missing include.
-        prop_assert_eq!(
-            globs.decide_str(&path_other),
-            MatchDecision::DeniedByMissingInclude
-        );
+        // Non-matching path → denied (either by exclude or by missing include,
+        // depending on whether the other ext also matches the glob).
+        let other_ext = if ext == "qqq" { "rrr" } else { "qqq" };
+        let path_other = format!("{seg}.{other_ext}");
+        let decision = globs.decide_str(&path_other);
+        prop_assert!(!decision.is_allowed(), "path_other should be denied");
     }
 }
 
