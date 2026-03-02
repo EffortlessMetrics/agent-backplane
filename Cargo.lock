@@ -218,6 +218,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-error-taxonomy"
+version = "0.1.0"
+dependencies = [
+ "abp-error",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-gemini-sdk"
 version = "0.1.0"
 dependencies = [
