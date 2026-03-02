@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Intermediate Representation types and property-based tests for the Agent Backplane"
 keywords = ["agent", "backplane", "ir", "intermediate", "representation"]
 categories = ["development-tools"]
+readme = "README.md"
 
 [dependencies]
 abp-core = { path = "../abp-core", version = "0.1.0" }
