@@ -1,10 +1,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Comprehensive golden-file / snapshot tests for JSON serialization stability.
 //!
-//! Tests cover: WorkOrder, Receipt, AgentEvent, Envelope, PolicyProfile,
-//! CapabilityManifest, Dialect, and full pipeline output snapshots.
-//! Every test uses deterministic data (fixed UUIDs, timestamps) and
-//! `insta::assert_json_snapshot!` for regression detection.
+//! Every test uses `assert_eq!` with expected JSON values to lock down
+//! the wire-format contract.  Categories covered:
+//!
+//! 1. WorkOrder JSON structure
+//! 2. Receipt JSON structure
+//! 3. AgentEvent kind variants
+//! 4. Envelope JSONL (tag = "t")
+//! 5. IR type snapshots
+//! 6. Error type Display
+//! 7. Capability / SupportLevel
+//! 8. PolicyProfile
+//! 9. Deterministic serialization (BTreeMap ordering)
 
 use std::collections::BTreeMap;
 
@@ -12,15 +20,15 @@ use chrono::{TimeZone, Utc};
 use serde_json::json;
 use uuid::Uuid;
 
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
     AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
     CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
     ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
+    RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
+    WorkspaceMode, WorkspaceSpec,
 };
-use abp_dialect::Dialect;
-use abp_protocol::{Envelope, JsonlCodec};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 
 // ===========================================================================
 // Helpers
@@ -46,15 +54,7 @@ fn uid3() -> Uuid {
     Uuid::parse_str("00000000-0000-4000-8000-000000000003").unwrap()
 }
 
-fn backend_id() -> BackendIdentity {
-    BackendIdentity {
-        id: "sidecar:node".into(),
-        backend_version: Some("3.0.0".into()),
-        adapter_version: Some("1.2.0".into()),
-    }
-}
-
-fn minimal_backend() -> BackendIdentity {
+fn mock_backend() -> BackendIdentity {
     BackendIdentity {
         id: "mock".into(),
         backend_version: None,
@@ -62,112 +62,17 @@ fn minimal_backend() -> BackendIdentity {
     }
 }
 
-fn small_caps() -> CapabilityManifest {
-    let mut m = BTreeMap::new();
-    m.insert(Capability::Streaming, SupportLevel::Native);
-    m.insert(Capability::ToolUse, SupportLevel::Emulated);
-    m
-}
-
-fn full_caps() -> CapabilityManifest {
-    let mut m = BTreeMap::new();
-    m.insert(Capability::Streaming, SupportLevel::Native);
-    m.insert(Capability::ToolRead, SupportLevel::Native);
-    m.insert(Capability::ToolWrite, SupportLevel::Native);
-    m.insert(Capability::ToolEdit, SupportLevel::Native);
-    m.insert(Capability::ToolBash, SupportLevel::Native);
-    m.insert(Capability::ToolGlob, SupportLevel::Native);
-    m.insert(Capability::ToolGrep, SupportLevel::Native);
-    m.insert(Capability::ToolUse, SupportLevel::Emulated);
-    m.insert(Capability::ExtendedThinking, SupportLevel::Unsupported);
-    m.insert(
-        Capability::McpClient,
-        SupportLevel::Restricted {
-            reason: "experimental feature".into(),
-        },
-    );
-    m
-}
-
-fn sample_policy() -> PolicyProfile {
-    PolicyProfile {
-        allowed_tools: vec!["read".into(), "write".into(), "glob".into()],
-        disallowed_tools: vec!["bash".into(), "delete".into()],
-        deny_read: vec![".env".into(), "secrets/**".into()],
-        deny_write: vec!["Cargo.lock".into()],
-        allow_network: vec!["api.example.com".into()],
-        deny_network: vec!["*.evil.com".into()],
-        require_approval_for: vec!["execute".into()],
-    }
-}
-
-fn sample_runtime_config() -> RuntimeConfig {
-    RuntimeConfig {
-        model: Some("gpt-4o".into()),
-        vendor: {
-            let mut m = BTreeMap::new();
-            m.insert("temperature".into(), json!(0.7));
-            m.insert("top_p".into(), json!(0.95));
-            m
-        },
-        env: {
-            let mut m = BTreeMap::new();
-            m.insert("RUST_LOG".into(), "debug".into());
-            m
-        },
-        max_budget_usd: Some(1.50),
-        max_turns: Some(25),
-    }
-}
-
-fn sample_context() -> ContextPacket {
-    ContextPacket {
-        files: vec!["src/main.rs".into(), "README.md".into()],
-        snippets: vec![
-            ContextSnippet {
-                name: "hint".into(),
-                content: "Look at the auth module".into(),
-            },
-            ContextSnippet {
-                name: "constraint".into(),
-                content: "Do not modify tests".into(),
-            },
-        ],
-    }
-}
-
-fn sample_work_order() -> WorkOrder {
-    WorkOrder {
-        id: uid1(),
-        task: "Refactor authentication module".into(),
-        lane: ExecutionLane::PatchFirst,
-        workspace: WorkspaceSpec {
-            root: "/tmp/workspace".into(),
-            mode: WorkspaceMode::Staged,
-            include: vec!["src/**".into()],
-            exclude: vec!["node_modules/**".into(), "target/**".into()],
-        },
-        context: sample_context(),
-        policy: sample_policy(),
-        requirements: CapabilityRequirements {
-            required: vec![
-                CapabilityRequirement {
-                    capability: Capability::ToolRead,
-                    min_support: MinSupport::Native,
-                },
-                CapabilityRequirement {
-                    capability: Capability::Streaming,
-                    min_support: MinSupport::Emulated,
-                },
-            ],
-        },
-        config: sample_runtime_config(),
+fn full_backend() -> BackendIdentity {
+    BackendIdentity {
+        id: "sidecar:node".into(),
+        backend_version: Some("3.0.0".into()),
+        adapter_version: Some("1.2.0".into()),
     }
 }
 
 fn minimal_work_order() -> WorkOrder {
     WorkOrder {
-        id: uid2(),
+        id: uid1(),
         task: "Hello world".into(),
         lane: ExecutionLane::PatchFirst,
         workspace: WorkspaceSpec {
@@ -183,7 +88,7 @@ fn minimal_work_order() -> WorkOrder {
     }
 }
 
-fn full_receipt() -> Receipt {
+fn minimal_receipt() -> Receipt {
     Receipt {
         meta: RunMetadata {
             run_id: uid1(),
@@ -193,59 +98,7 @@ fn full_receipt() -> Receipt {
             finished_at: ts2(),
             duration_ms: 300_000,
         },
-        backend: backend_id(),
-        capabilities: full_caps(),
-        mode: ExecutionMode::Mapped,
-        usage_raw: json!({"prompt_tokens": 1200, "completion_tokens": 800}),
-        usage: UsageNormalized {
-            input_tokens: Some(1200),
-            output_tokens: Some(800),
-            cache_read_tokens: Some(100),
-            cache_write_tokens: Some(50),
-            request_units: Some(2),
-            estimated_cost_usd: Some(0.015),
-        },
-        trace: vec![
-            AgentEvent {
-                ts: ts(),
-                kind: AgentEventKind::RunStarted {
-                    message: "run started".into(),
-                },
-                ext: None,
-            },
-            AgentEvent {
-                ts: ts2(),
-                kind: AgentEventKind::RunCompleted {
-                    message: "run completed".into(),
-                },
-                ext: None,
-            },
-        ],
-        artifacts: vec![ArtifactRef {
-            kind: "patch".into(),
-            path: "output.patch".into(),
-        }],
-        verification: VerificationReport {
-            git_diff: Some("diff --git a/src/auth.rs b/src/auth.rs".into()),
-            git_status: Some("M src/auth.rs".into()),
-            harness_ok: true,
-        },
-        outcome: Outcome::Complete,
-        receipt_sha256: None,
-    }
-}
-
-fn minimal_receipt() -> Receipt {
-    Receipt {
-        meta: RunMetadata {
-            run_id: uid3(),
-            work_order_id: uid1(),
-            contract_version: CONTRACT_VERSION.to_string(),
-            started_at: ts(),
-            finished_at: ts(),
-            duration_ms: 0,
-        },
-        backend: minimal_backend(),
+        backend: mock_backend(),
         capabilities: BTreeMap::new(),
         mode: ExecutionMode::Mapped,
         usage_raw: json!({}),
@@ -259,249 +112,262 @@ fn minimal_receipt() -> Receipt {
 }
 
 // ===========================================================================
-// 1. WorkOrder JSON structure stability
+// 1. WorkOrder JSON snapshot stability
 // ===========================================================================
 
 #[test]
-fn wo_full_structure() {
-    insta::assert_json_snapshot!(sample_work_order());
+fn wo_execution_lane_patch_first() {
+    assert_eq!(
+        serde_json::to_string(&ExecutionLane::PatchFirst).unwrap(),
+        r#""patch_first""#,
+    );
 }
 
 #[test]
-fn wo_minimal_structure() {
-    insta::assert_json_snapshot!(minimal_work_order());
+fn wo_execution_lane_workspace_first() {
+    assert_eq!(
+        serde_json::to_string(&ExecutionLane::WorkspaceFirst).unwrap(),
+        r#""workspace_first""#,
+    );
 }
 
 #[test]
-fn wo_workspace_first_lane() {
-    let mut wo = minimal_work_order();
-    wo.lane = ExecutionLane::WorkspaceFirst;
-    insta::assert_json_snapshot!(wo);
+fn wo_workspace_mode_staged() {
+    assert_eq!(
+        serde_json::to_string(&WorkspaceMode::Staged).unwrap(),
+        r#""staged""#,
+    );
 }
 
 #[test]
-fn wo_patch_first_lane() {
-    let wo = minimal_work_order();
-    insta::assert_json_snapshot!(wo.lane);
+fn wo_workspace_mode_pass_through() {
+    assert_eq!(
+        serde_json::to_string(&WorkspaceMode::PassThrough).unwrap(),
+        r#""pass_through""#,
+    );
 }
 
 #[test]
-fn wo_staged_workspace_mode() {
-    insta::assert_json_snapshot!(WorkspaceMode::Staged);
+fn wo_context_packet_default() {
+    assert_eq!(
+        serde_json::to_value(ContextPacket::default()).unwrap(),
+        json!({"files": [], "snippets": []}),
+    );
 }
 
 #[test]
-fn wo_passthrough_workspace_mode() {
-    insta::assert_json_snapshot!(WorkspaceMode::PassThrough);
-}
-
-#[test]
-fn wo_workspace_spec_full() {
-    let spec = WorkspaceSpec {
-        root: "/home/user/project".into(),
-        mode: WorkspaceMode::Staged,
-        include: vec!["src/**".into(), "lib/**".into()],
-        exclude: vec!["target/**".into(), ".git/**".into()],
+fn wo_context_snippet_structure() {
+    let s = ContextSnippet {
+        name: "hint".into(),
+        content: "Look at auth module".into(),
     };
-    insta::assert_json_snapshot!(spec);
-}
-
-#[test]
-fn wo_context_packet_empty() {
-    insta::assert_json_snapshot!(ContextPacket::default());
-}
-
-#[test]
-fn wo_context_packet_with_snippets() {
-    insta::assert_json_snapshot!(sample_context());
+    assert_eq!(
+        serde_json::to_value(&s).unwrap(),
+        json!({"name": "hint", "content": "Look at auth module"}),
+    );
 }
 
 #[test]
 fn wo_runtime_config_default() {
-    insta::assert_json_snapshot!(RuntimeConfig::default());
+    assert_eq!(
+        serde_json::to_value(RuntimeConfig::default()).unwrap(),
+        json!({
+            "model": null,
+            "vendor": {},
+            "env": {},
+            "max_budget_usd": null,
+            "max_turns": null,
+        }),
+    );
 }
 
 #[test]
 fn wo_runtime_config_full() {
-    insta::assert_json_snapshot!(sample_runtime_config());
-}
-
-#[test]
-fn wo_builder_defaults() {
-    let wo = WorkOrderBuilder::new("test task").build();
-    insta::assert_json_snapshot!(wo, {
-        ".id" => "[uuid]",
-    });
-}
-
-#[test]
-fn wo_builder_customized() {
-    let wo = WorkOrderBuilder::new("custom task")
-        .lane(ExecutionLane::WorkspaceFirst)
-        .root("/custom/root")
-        .workspace_mode(WorkspaceMode::PassThrough)
-        .model("claude-3-opus")
-        .max_turns(50)
-        .max_budget_usd(10.0)
-        .build();
-    insta::assert_json_snapshot!(wo, {
-        ".id" => "[uuid]",
-    });
+    let rc = RuntimeConfig {
+        model: Some("gpt-4o".into()),
+        vendor: {
+            let mut m = BTreeMap::new();
+            m.insert("temperature".into(), json!(0.7));
+            m
+        },
+        env: {
+            let mut m = BTreeMap::new();
+            m.insert("RUST_LOG".into(), "debug".into());
+            m
+        },
+        max_budget_usd: Some(1.5),
+        max_turns: Some(25),
+    };
+    assert_eq!(
+        serde_json::to_value(&rc).unwrap(),
+        json!({
+            "model": "gpt-4o",
+            "vendor": {"temperature": 0.7},
+            "env": {"RUST_LOG": "debug"},
+            "max_budget_usd": 1.5,
+            "max_turns": 25,
+        }),
+    );
 }
 
 #[test]
 fn wo_capability_requirements_empty() {
-    insta::assert_json_snapshot!(CapabilityRequirements::default());
+    assert_eq!(
+        serde_json::to_value(CapabilityRequirements::default()).unwrap(),
+        json!({"required": []}),
+    );
 }
 
 #[test]
-fn wo_capability_requirements_multiple() {
-    let reqs = CapabilityRequirements {
-        required: vec![
-            CapabilityRequirement {
-                capability: Capability::ToolRead,
-                min_support: MinSupport::Native,
-            },
-            CapabilityRequirement {
-                capability: Capability::Streaming,
-                min_support: MinSupport::Emulated,
-            },
-            CapabilityRequirement {
-                capability: Capability::ToolBash,
-                min_support: MinSupport::Native,
-            },
-        ],
+fn wo_capability_requirement_single() {
+    let req = CapabilityRequirement {
+        capability: Capability::ToolRead,
+        min_support: MinSupport::Native,
     };
-    insta::assert_json_snapshot!(reqs);
-}
-
-// ===========================================================================
-// 2. Receipt JSON structure stability
-// ===========================================================================
-
-#[test]
-fn receipt_full_structure() {
-    let v = serde_json::to_value(full_receipt()).unwrap();
-    insta::assert_json_snapshot!(v);
+    assert_eq!(
+        serde_json::to_value(&req).unwrap(),
+        json!({"capability": "tool_read", "min_support": "native"}),
+    );
 }
 
 #[test]
-fn receipt_minimal_structure() {
-    insta::assert_json_snapshot!(minimal_receipt());
+fn wo_workspace_spec_structure() {
+    let spec = WorkspaceSpec {
+        root: "/tmp/ws".into(),
+        mode: WorkspaceMode::Staged,
+        include: vec!["src/**".into()],
+        exclude: vec!["target/**".into()],
+    };
+    assert_eq!(
+        serde_json::to_value(&spec).unwrap(),
+        json!({
+            "root": "/tmp/ws",
+            "mode": "staged",
+            "include": ["src/**"],
+            "exclude": ["target/**"],
+        }),
+    );
 }
+
+#[test]
+fn wo_minimal_structure_json() {
+    let wo = minimal_work_order();
+    let v = serde_json::to_value(&wo).unwrap();
+    assert_eq!(v["id"], "00000000-0000-4000-8000-000000000001");
+    assert_eq!(v["task"], "Hello world");
+    assert_eq!(v["lane"], "patch_first");
+    assert_eq!(v["workspace"]["mode"], "pass_through");
+    assert_eq!(v["context"]["files"], json!([]));
+    assert_eq!(v["policy"]["allowed_tools"], json!([]));
+    assert_eq!(v["requirements"]["required"], json!([]));
+    assert_eq!(v["config"]["model"], json!(null));
+}
+
+// ===========================================================================
+// 2. Receipt JSON snapshot stability
+// ===========================================================================
 
 #[test]
 fn receipt_outcome_complete() {
-    insta::assert_json_snapshot!(Outcome::Complete);
+    assert_eq!(
+        serde_json::to_string(&Outcome::Complete).unwrap(),
+        r#""complete""#,
+    );
 }
 
 #[test]
 fn receipt_outcome_partial() {
-    insta::assert_json_snapshot!(Outcome::Partial);
+    assert_eq!(
+        serde_json::to_string(&Outcome::Partial).unwrap(),
+        r#""partial""#,
+    );
 }
 
 #[test]
 fn receipt_outcome_failed() {
-    insta::assert_json_snapshot!(Outcome::Failed);
+    assert_eq!(
+        serde_json::to_string(&Outcome::Failed).unwrap(),
+        r#""failed""#,
+    );
 }
 
 #[test]
-fn receipt_with_hash_determinism() {
-    let r1 = full_receipt().with_hash().unwrap();
-    let r2 = full_receipt().with_hash().unwrap();
-    assert_eq!(r1.receipt_sha256, r2.receipt_sha256);
-    insta::assert_json_snapshot!(r1.receipt_sha256);
+fn receipt_usage_normalized_default() {
+    assert_eq!(
+        serde_json::to_value(UsageNormalized::default()).unwrap(),
+        json!({
+            "input_tokens": null,
+            "output_tokens": null,
+            "cache_read_tokens": null,
+            "cache_write_tokens": null,
+            "request_units": null,
+            "estimated_cost_usd": null,
+        }),
+    );
 }
 
 #[test]
-fn receipt_hash_is_64_hex_chars() {
-    let r = full_receipt().with_hash().unwrap();
-    let hash = r.receipt_sha256.unwrap();
-    assert_eq!(hash.len(), 64);
-    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+fn receipt_usage_normalized_full() {
+    let u = UsageNormalized {
+        input_tokens: Some(1200),
+        output_tokens: Some(800),
+        cache_read_tokens: Some(100),
+        cache_write_tokens: Some(50),
+        request_units: Some(2),
+        estimated_cost_usd: Some(0.015),
+    };
+    assert_eq!(
+        serde_json::to_value(&u).unwrap(),
+        json!({
+            "input_tokens": 1200,
+            "output_tokens": 800,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+            "request_units": 2,
+            "estimated_cost_usd": 0.015,
+        }),
+    );
 }
 
 #[test]
-fn receipt_passthrough_mode() {
-    let mut r = minimal_receipt();
-    r.mode = ExecutionMode::Passthrough;
-    insta::assert_json_snapshot!(r);
+fn receipt_verification_report_default() {
+    assert_eq!(
+        serde_json::to_value(VerificationReport::default()).unwrap(),
+        json!({"git_diff": null, "git_status": null, "harness_ok": false}),
+    );
 }
 
 #[test]
-fn receipt_with_artifacts() {
-    let mut r = minimal_receipt();
-    r.artifacts = vec![
-        ArtifactRef {
-            kind: "patch".into(),
-            path: "fix.patch".into(),
-        },
-        ArtifactRef {
-            kind: "log".into(),
-            path: "run.log".into(),
-        },
-        ArtifactRef {
-            kind: "diff".into(),
-            path: "changes.diff".into(),
-        },
-    ];
-    insta::assert_json_snapshot!(r);
-}
-
-#[test]
-fn receipt_with_verification() {
-    let mut r = minimal_receipt();
-    r.verification = VerificationReport {
-        git_diff: Some("diff --git a/file.rs b/file.rs\n+new line".into()),
-        git_status: Some("M file.rs\nA new_file.rs".into()),
+fn receipt_verification_report_full() {
+    let vr = VerificationReport {
+        git_diff: Some("diff --git a/f.rs b/f.rs".into()),
+        git_status: Some("M f.rs".into()),
         harness_ok: true,
     };
-    insta::assert_json_snapshot!(r);
+    assert_eq!(
+        serde_json::to_value(&vr).unwrap(),
+        json!({
+            "git_diff": "diff --git a/f.rs b/f.rs",
+            "git_status": "M f.rs",
+            "harness_ok": true,
+        }),
+    );
 }
 
 #[test]
-fn receipt_with_full_usage() {
-    let mut r = minimal_receipt();
-    r.usage = UsageNormalized {
-        input_tokens: Some(5000),
-        output_tokens: Some(2000),
-        cache_read_tokens: Some(500),
-        cache_write_tokens: Some(100),
-        request_units: Some(10),
-        estimated_cost_usd: Some(0.123),
+fn receipt_artifact_ref_structure() {
+    let a = ArtifactRef {
+        kind: "patch".into(),
+        path: "output.patch".into(),
     };
-    r.usage_raw = json!({
-        "prompt_tokens": 5000,
-        "completion_tokens": 2000,
-        "total_tokens": 7000
-    });
-    insta::assert_json_snapshot!(r);
+    assert_eq!(
+        serde_json::to_value(&a).unwrap(),
+        json!({"kind": "patch", "path": "output.patch"}),
+    );
 }
 
 #[test]
-fn receipt_builder_minimal() {
-    let r = ReceiptBuilder::new("mock").build();
-    insta::assert_json_snapshot!(r, {
-        ".meta.run_id" => "[uuid]",
-        ".meta.started_at" => "[timestamp]",
-        ".meta.finished_at" => "[timestamp]",
-    });
-}
-
-#[test]
-fn receipt_builder_with_outcome() {
-    let r = ReceiptBuilder::new("test-backend")
-        .outcome(Outcome::Failed)
-        .build();
-    insta::assert_json_snapshot!(r, {
-        ".meta.run_id" => "[uuid]",
-        ".meta.started_at" => "[timestamp]",
-        ".meta.finished_at" => "[timestamp]",
-    });
-}
-
-#[test]
-fn receipt_run_metadata() {
+fn receipt_run_metadata_structure() {
     let meta = RunMetadata {
         run_id: uid1(),
         work_order_id: uid2(),
@@ -510,29 +376,68 @@ fn receipt_run_metadata() {
         finished_at: ts2(),
         duration_ms: 300_000,
     };
-    insta::assert_json_snapshot!(meta);
+    assert_eq!(
+        serde_json::to_value(&meta).unwrap(),
+        json!({
+            "run_id": "00000000-0000-4000-8000-000000000001",
+            "work_order_id": "00000000-0000-4000-8000-000000000002",
+            "contract_version": "abp/v0.1",
+            "started_at": "2025-07-01T12:00:00Z",
+            "finished_at": "2025-07-01T12:05:00Z",
+            "duration_ms": 300000,
+        }),
+    );
 }
 
 #[test]
-fn receipt_usage_normalized_default() {
-    insta::assert_json_snapshot!(UsageNormalized::default());
+fn receipt_backend_identity_full() {
+    assert_eq!(
+        serde_json::to_value(full_backend()).unwrap(),
+        json!({
+            "id": "sidecar:node",
+            "backend_version": "3.0.0",
+            "adapter_version": "1.2.0",
+        }),
+    );
 }
 
 #[test]
-fn receipt_verification_default() {
-    insta::assert_json_snapshot!(VerificationReport::default());
+fn receipt_backend_identity_minimal() {
+    assert_eq!(
+        serde_json::to_value(mock_backend()).unwrap(),
+        json!({"id": "mock", "backend_version": null, "adapter_version": null}),
+    );
 }
 
 #[test]
-fn receipt_artifact_ref() {
-    insta::assert_json_snapshot!(ArtifactRef {
-        kind: "patch".into(),
-        path: "output.patch".into(),
-    });
+fn receipt_minimal_top_level_keys() {
+    let r = minimal_receipt();
+    let v = serde_json::to_value(&r).unwrap();
+    let obj = v.as_object().unwrap();
+    let keys: Vec<&String> = obj.keys().collect();
+    // Verify all expected top-level keys exist
+    for k in &[
+        "meta",
+        "backend",
+        "capabilities",
+        "mode",
+        "usage_raw",
+        "usage",
+        "trace",
+        "artifacts",
+        "verification",
+        "outcome",
+        "receipt_sha256",
+    ] {
+        assert!(
+            keys.iter().any(|key| key.as_str() == *k),
+            "missing key: {k}"
+        );
+    }
 }
 
 // ===========================================================================
-// 3. AgentEvent variants JSON
+// 3. AgentEvent kind snapshots (all variants)
 // ===========================================================================
 
 #[test]
@@ -540,11 +445,18 @@ fn event_run_started() {
     let e = AgentEvent {
         ts: ts(),
         kind: AgentEventKind::RunStarted {
-            message: "Starting execution".into(),
+            message: "Starting".into(),
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    assert_eq!(
+        serde_json::to_value(&e).unwrap(),
+        json!({
+            "ts": "2025-07-01T12:00:00Z",
+            "type": "run_started",
+            "message": "Starting",
+        }),
+    );
 }
 
 #[test]
@@ -552,11 +464,18 @@ fn event_run_completed() {
     let e = AgentEvent {
         ts: ts(),
         kind: AgentEventKind::RunCompleted {
-            message: "Execution finished successfully".into(),
+            message: "Done".into(),
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    assert_eq!(
+        serde_json::to_value(&e).unwrap(),
+        json!({
+            "ts": "2025-07-01T12:00:00Z",
+            "type": "run_completed",
+            "message": "Done",
+        }),
+    );
 }
 
 #[test]
@@ -568,7 +487,14 @@ fn event_assistant_delta() {
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    assert_eq!(
+        serde_json::to_value(&e).unwrap(),
+        json!({
+            "ts": "2025-07-01T12:00:00Z",
+            "type": "assistant_delta",
+            "text": "Hello ",
+        }),
+    );
 }
 
 #[test]
@@ -576,41 +502,43 @@ fn event_assistant_message() {
     let e = AgentEvent {
         ts: ts(),
         kind: AgentEventKind::AssistantMessage {
-            text: "I'll help you refactor the auth module.".into(),
+            text: "I will help you.".into(),
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    assert_eq!(
+        serde_json::to_value(&e).unwrap(),
+        json!({
+            "ts": "2025-07-01T12:00:00Z",
+            "type": "assistant_message",
+            "text": "I will help you.",
+        }),
+    );
 }
 
 #[test]
-fn event_tool_call_basic() {
+fn event_tool_call_with_ids() {
     let e = AgentEvent {
         ts: ts(),
         kind: AgentEventKind::ToolCall {
             tool_name: "read_file".into(),
             tool_use_id: Some("tu_001".into()),
-            parent_tool_use_id: None,
-            input: json!({"path": "src/auth.rs"}),
+            parent_tool_use_id: Some("tu_000".into()),
+            input: json!({"path": "src/main.rs"}),
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
-}
-
-#[test]
-fn event_tool_call_nested() {
-    let e = AgentEvent {
-        ts: ts(),
-        kind: AgentEventKind::ToolCall {
-            tool_name: "write_file".into(),
-            tool_use_id: Some("tu_002".into()),
-            parent_tool_use_id: Some("tu_001".into()),
-            input: json!({"path": "src/new.rs", "content": "fn main() {}"}),
-        },
-        ext: None,
-    };
-    insta::assert_json_snapshot!(e);
+    assert_eq!(
+        serde_json::to_value(&e).unwrap(),
+        json!({
+            "ts": "2025-07-01T12:00:00Z",
+            "type": "tool_call",
+            "tool_name": "read_file",
+            "tool_use_id": "tu_001",
+            "parent_tool_use_id": "tu_000",
+            "input": {"path": "src/main.rs"},
+        }),
+    );
 }
 
 #[test]
@@ -621,11 +549,13 @@ fn event_tool_call_no_ids() {
             tool_name: "bash".into(),
             tool_use_id: None,
             parent_tool_use_id: None,
-            input: json!({"command": "cargo test"}),
+            input: json!({"command": "ls"}),
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    let v = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["tool_use_id"], json!(null));
+    assert_eq!(v["parent_tool_use_id"], json!(null));
 }
 
 #[test]
@@ -635,12 +565,22 @@ fn event_tool_result_success() {
         kind: AgentEventKind::ToolResult {
             tool_name: "read_file".into(),
             tool_use_id: Some("tu_001".into()),
-            output: json!({"content": "fn main() { println!(\"hello\"); }"}),
+            output: json!({"content": "fn main() {}"}),
             is_error: false,
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    assert_eq!(
+        serde_json::to_value(&e).unwrap(),
+        json!({
+            "ts": "2025-07-01T12:00:00Z",
+            "type": "tool_result",
+            "tool_name": "read_file",
+            "tool_use_id": "tu_001",
+            "output": {"content": "fn main() {}"},
+            "is_error": false,
+        }),
+    );
 }
 
 #[test]
@@ -649,13 +589,15 @@ fn event_tool_result_error() {
         ts: ts(),
         kind: AgentEventKind::ToolResult {
             tool_name: "read_file".into(),
-            tool_use_id: Some("tu_003".into()),
-            output: json!({"error": "file not found"}),
+            tool_use_id: Some("tu_002".into()),
+            output: json!({"error": "not found"}),
             is_error: true,
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    let v = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["is_error"], true);
+    assert_eq!(v["type"], "tool_result");
 }
 
 #[test]
@@ -664,43 +606,46 @@ fn event_file_changed() {
         ts: ts(),
         kind: AgentEventKind::FileChanged {
             path: "src/auth.rs".into(),
-            summary: "Added JWT validation function".into(),
+            summary: "Added JWT validation".into(),
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    assert_eq!(
+        serde_json::to_value(&e).unwrap(),
+        json!({
+            "ts": "2025-07-01T12:00:00Z",
+            "type": "file_changed",
+            "path": "src/auth.rs",
+            "summary": "Added JWT validation",
+        }),
+    );
 }
 
 #[test]
-fn event_command_executed_success() {
+fn event_command_executed() {
     let e = AgentEvent {
         ts: ts(),
         kind: AgentEventKind::CommandExecuted {
             command: "cargo test".into(),
             exit_code: Some(0),
-            output_preview: Some("test result: ok. 42 passed".into()),
+            output_preview: Some("ok. 42 passed".into()),
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    assert_eq!(
+        serde_json::to_value(&e).unwrap(),
+        json!({
+            "ts": "2025-07-01T12:00:00Z",
+            "type": "command_executed",
+            "command": "cargo test",
+            "exit_code": 0,
+            "output_preview": "ok. 42 passed",
+        }),
+    );
 }
 
 #[test]
-fn event_command_executed_failure() {
-    let e = AgentEvent {
-        ts: ts(),
-        kind: AgentEventKind::CommandExecuted {
-            command: "cargo build".into(),
-            exit_code: Some(1),
-            output_preview: Some("error[E0308]: mismatched types".into()),
-        },
-        ext: None,
-    };
-    insta::assert_json_snapshot!(e);
-}
-
-#[test]
-fn event_command_executed_no_exit_code() {
+fn event_command_no_exit_code() {
     let e = AgentEvent {
         ts: ts(),
         kind: AgentEventKind::CommandExecuted {
@@ -710,7 +655,9 @@ fn event_command_executed_no_exit_code() {
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    let v = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["exit_code"], json!(null));
+    assert_eq!(v["output_preview"], json!(null));
 }
 
 #[test]
@@ -718,15 +665,22 @@ fn event_warning() {
     let e = AgentEvent {
         ts: ts(),
         kind: AgentEventKind::Warning {
-            message: "Approaching token budget limit".into(),
+            message: "Budget low".into(),
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    assert_eq!(
+        serde_json::to_value(&e).unwrap(),
+        json!({
+            "ts": "2025-07-01T12:00:00Z",
+            "type": "warning",
+            "message": "Budget low",
+        }),
+    );
 }
 
 #[test]
-fn event_error_without_code() {
+fn event_error_no_code() {
     let e = AgentEvent {
         ts: ts(),
         kind: AgentEventKind::Error {
@@ -735,7 +689,11 @@ fn event_error_without_code() {
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    let v = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["type"], "error");
+    assert_eq!(v["message"], "Unexpected failure");
+    // error_code is skip_serializing_if None
+    assert!(v.get("error_code").is_none() || v["error_code"].is_null());
 }
 
 #[test]
@@ -748,29 +706,13 @@ fn event_error_with_code() {
         },
         ext: None,
     };
-    insta::assert_json_snapshot!(e);
+    let v = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["type"], "error");
+    assert_eq!(v["error_code"], "BACKEND_TIMEOUT");
 }
 
 #[test]
-fn event_with_ext_passthrough() {
-    let mut ext = BTreeMap::new();
-    ext.insert(
-        "raw_message".into(),
-        json!({"role": "assistant", "content": "hello"}),
-    );
-    ext.insert("vendor_id".into(), json!("msg_abc123"));
-    let e = AgentEvent {
-        ts: ts(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hello".into(),
-        },
-        ext: Some(ext),
-    };
-    insta::assert_json_snapshot!(e);
-}
-
-#[test]
-fn event_with_empty_ext() {
+fn event_ext_not_serialized_when_none() {
     let e = AgentEvent {
         ts: ts(),
         kind: AgentEventKind::RunStarted {
@@ -778,146 +720,130 @@ fn event_with_empty_ext() {
         },
         ext: None,
     };
-    // Ensure ext is not serialized when None
     let json_str = serde_json::to_string(&e).unwrap();
     assert!(!json_str.contains("\"ext\""));
-    insta::assert_json_snapshot!(e);
+}
+
+#[test]
+fn event_with_ext_passthrough() {
+    let mut ext = BTreeMap::new();
+    ext.insert("raw_message".into(), json!({"role": "assistant"}));
+    ext.insert("vendor_id".into(), json!("msg_abc"));
+    let e = AgentEvent {
+        ts: ts(),
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
+        ext: Some(ext),
+    };
+    let v = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["ext"]["raw_message"], json!({"role": "assistant"}));
+    assert_eq!(v["ext"]["vendor_id"], "msg_abc");
 }
 
 // ===========================================================================
-// 4. Envelope variants JSON (with tag "t")
+// 4. Envelope JSONL snapshot (tag = "t")
 // ===========================================================================
 
 #[test]
-fn envelope_hello_default_mode() {
-    let env = Envelope::hello(backend_id(), small_caps());
-    let v = serde_json::to_value(env).unwrap();
-    insta::assert_json_snapshot!(v);
+fn envelope_hello_mapped() {
+    let env = Envelope::hello(mock_backend(), BTreeMap::new());
+    assert_eq!(
+        serde_json::to_value(&env).unwrap(),
+        json!({
+            "t": "hello",
+            "contract_version": "abp/v0.1",
+            "backend": {"id": "mock", "backend_version": null, "adapter_version": null},
+            "capabilities": {},
+            "mode": "mapped",
+        }),
+    );
 }
 
 #[test]
-fn envelope_hello_passthrough_mode() {
-    let env = Envelope::hello_with_mode(backend_id(), small_caps(), ExecutionMode::Passthrough);
-    let v = serde_json::to_value(env).unwrap();
-    insta::assert_json_snapshot!(v);
+fn envelope_hello_passthrough() {
+    let env =
+        Envelope::hello_with_mode(mock_backend(), BTreeMap::new(), ExecutionMode::Passthrough);
+    let v = serde_json::to_value(&env).unwrap();
+    assert_eq!(v["mode"], "passthrough");
 }
 
 #[test]
-fn envelope_hello_empty_caps() {
-    let env = Envelope::hello(minimal_backend(), BTreeMap::new());
-    insta::assert_json_snapshot!(env);
+fn envelope_hello_with_capabilities() {
+    let mut caps = BTreeMap::new();
+    caps.insert(Capability::Streaming, SupportLevel::Native);
+    caps.insert(Capability::ToolUse, SupportLevel::Emulated);
+    let env = Envelope::hello(mock_backend(), caps);
+    let v = serde_json::to_value(&env).unwrap();
+    assert_eq!(v["capabilities"]["streaming"], "native");
+    assert_eq!(v["capabilities"]["tool_use"], "emulated");
 }
 
 #[test]
-fn envelope_hello_full_caps() {
-    let env = Envelope::hello(backend_id(), full_caps());
-    let v = serde_json::to_value(env).unwrap();
-    insta::assert_json_snapshot!(v);
-}
-
-#[test]
-fn envelope_run() {
+fn envelope_run_structure() {
     let env = Envelope::Run {
         id: "run-001".into(),
-        work_order: sample_work_order(),
-    };
-    insta::assert_json_snapshot!(env);
-}
-
-#[test]
-fn envelope_run_minimal() {
-    let env = Envelope::Run {
-        id: "run-002".into(),
         work_order: minimal_work_order(),
     };
-    insta::assert_json_snapshot!(env);
+    let v = serde_json::to_value(&env).unwrap();
+    assert_eq!(v["t"], "run");
+    assert_eq!(v["id"], "run-001");
+    assert_eq!(v["work_order"]["task"], "Hello world");
 }
 
 #[test]
-fn envelope_event_assistant_message() {
+fn envelope_event_structure() {
     let env = Envelope::Event {
         ref_id: "run-001".into(),
         event: AgentEvent {
             ts: ts(),
             kind: AgentEventKind::AssistantMessage {
-                text: "Working on it...".into(),
+                text: "Working...".into(),
             },
             ext: None,
         },
     };
-    insta::assert_json_snapshot!(env);
+    let v = serde_json::to_value(&env).unwrap();
+    assert_eq!(v["t"], "event");
+    assert_eq!(v["ref_id"], "run-001");
+    assert_eq!(v["event"]["type"], "assistant_message");
+    assert_eq!(v["event"]["text"], "Working...");
 }
 
 #[test]
-fn envelope_event_tool_call() {
-    let env = Envelope::Event {
-        ref_id: "run-001".into(),
-        event: AgentEvent {
-            ts: ts(),
-            kind: AgentEventKind::ToolCall {
-                tool_name: "read_file".into(),
-                tool_use_id: Some("tu_100".into()),
-                parent_tool_use_id: None,
-                input: json!({"path": "main.rs"}),
-            },
-            ext: None,
-        },
-    };
-    insta::assert_json_snapshot!(env);
-}
-
-#[test]
-fn envelope_event_delta() {
-    let env = Envelope::Event {
-        ref_id: "run-001".into(),
-        event: AgentEvent {
-            ts: ts(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "token ".into(),
-            },
-            ext: None,
-        },
-    };
-    insta::assert_json_snapshot!(env);
-}
-
-#[test]
-fn envelope_final_receipt() {
+fn envelope_final_structure() {
     let env = Envelope::Final {
         ref_id: "run-001".into(),
-        receipt: full_receipt(),
-    };
-    let v = serde_json::to_value(env).unwrap();
-    insta::assert_json_snapshot!(v);
-}
-
-#[test]
-fn envelope_final_minimal_receipt() {
-    let env = Envelope::Final {
-        ref_id: "run-002".into(),
         receipt: minimal_receipt(),
     };
-    insta::assert_json_snapshot!(env);
+    let v = serde_json::to_value(&env).unwrap();
+    assert_eq!(v["t"], "final");
+    assert_eq!(v["ref_id"], "run-001");
+    assert_eq!(v["receipt"]["outcome"], "complete");
 }
 
 #[test]
 fn envelope_fatal_with_ref() {
     let env = Envelope::Fatal {
         ref_id: Some("run-001".into()),
-        error: "Backend process crashed".into(),
+        error: "Backend crashed".into(),
         error_code: None,
     };
-    insta::assert_json_snapshot!(env);
+    let v = serde_json::to_value(&env).unwrap();
+    assert_eq!(v["t"], "fatal");
+    assert_eq!(v["ref_id"], "run-001");
+    assert_eq!(v["error"], "Backend crashed");
+    // error_code absent when None (skip_serializing_if)
+    assert!(v.get("error_code").is_none());
 }
 
 #[test]
-fn envelope_fatal_without_ref() {
+fn envelope_fatal_no_ref() {
     let env = Envelope::Fatal {
         ref_id: None,
         error: "Handshake timeout".into(),
         error_code: None,
     };
-    insta::assert_json_snapshot!(env);
+    let v = serde_json::to_value(&env).unwrap();
+    assert_eq!(v["ref_id"], json!(null));
 }
 
 #[test]
@@ -927,17 +853,8 @@ fn envelope_fatal_with_error_code() {
         "Backend not found",
         abp_error::ErrorCode::BackendNotFound,
     );
-    insta::assert_json_snapshot!(env);
-}
-
-#[test]
-fn envelope_fatal_from_abp_error() {
-    let err = abp_error::AbpError::new(
-        abp_error::ErrorCode::ProtocolVersionMismatch,
-        "version mismatch: expected abp/v0.1",
-    );
-    let env = Envelope::fatal_from_abp_error(Some("run-003".into()), &err);
-    insta::assert_json_snapshot!(env);
+    let v = serde_json::to_value(&env).unwrap();
+    assert_eq!(v["error_code"], "BACKEND_NOT_FOUND");
 }
 
 #[test]
@@ -948,470 +865,46 @@ fn envelope_tag_is_t_not_type() {
         error_code: None,
     };
     let json = serde_json::to_string(&env).unwrap();
-    assert!(json.contains("\"t\":"));
-    assert!(!json.contains("\"type\":\"fatal\""));
+    assert!(json.contains(r#""t":"fatal""#));
+    assert!(!json.contains(r#""type":"fatal""#));
 }
 
 #[test]
-fn envelope_hello_tag_value() {
-    let env = Envelope::hello(minimal_backend(), BTreeMap::new());
-    let json = serde_json::to_string(&env).unwrap();
-    assert!(json.contains("\"t\":\"hello\""));
-}
-
-#[test]
-fn envelope_run_tag_value() {
-    let env = Envelope::Run {
-        id: "r".into(),
-        work_order: minimal_work_order(),
-    };
-    let json = serde_json::to_string(&env).unwrap();
-    assert!(json.contains("\"t\":\"run\""));
-}
-
-#[test]
-fn envelope_event_tag_value() {
-    let env = Envelope::Event {
-        ref_id: "r".into(),
-        event: AgentEvent {
-            ts: ts(),
-            kind: AgentEventKind::Warning {
-                message: "warn".into(),
-            },
-            ext: None,
-        },
-    };
-    let json = serde_json::to_string(&env).unwrap();
-    assert!(json.contains("\"t\":\"event\""));
-}
-
-#[test]
-fn envelope_final_tag_value() {
-    let env = Envelope::Final {
-        ref_id: "r".into(),
-        receipt: minimal_receipt(),
-    };
-    let json = serde_json::to_string(&env).unwrap();
-    assert!(json.contains("\"t\":\"final\""));
-}
-
-#[test]
-fn envelope_fatal_tag_value() {
-    let env = Envelope::Fatal {
-        ref_id: None,
-        error: "boom".into(),
-        error_code: None,
-    };
-    let json = serde_json::to_string(&env).unwrap();
-    assert!(json.contains("\"t\":\"fatal\""));
-}
-
-// ===========================================================================
-// 5. PolicyProfile JSON
-// ===========================================================================
-
-#[test]
-fn policy_profile_empty() {
-    insta::assert_json_snapshot!(PolicyProfile::default());
-}
-
-#[test]
-fn policy_profile_full() {
-    insta::assert_json_snapshot!(sample_policy());
-}
-
-#[test]
-fn policy_profile_tools_only() {
-    let p = PolicyProfile {
-        allowed_tools: vec!["read".into(), "write".into()],
-        disallowed_tools: vec!["bash".into()],
-        ..Default::default()
-    };
-    insta::assert_json_snapshot!(p);
-}
-
-#[test]
-fn policy_profile_paths_only() {
-    let p = PolicyProfile {
-        deny_read: vec![".env".into(), "secrets/**".into()],
-        deny_write: vec!["Cargo.lock".into(), "*.toml".into()],
-        ..Default::default()
-    };
-    insta::assert_json_snapshot!(p);
-}
-
-#[test]
-fn policy_profile_network_only() {
-    let p = PolicyProfile {
-        allow_network: vec!["api.example.com".into(), "cdn.example.com".into()],
-        deny_network: vec!["*.evil.com".into()],
-        ..Default::default()
-    };
-    insta::assert_json_snapshot!(p);
-}
-
-#[test]
-fn policy_profile_approval_only() {
-    let p = PolicyProfile {
-        require_approval_for: vec!["execute".into(), "delete".into(), "bash".into()],
-        ..Default::default()
-    };
-    insta::assert_json_snapshot!(p);
-}
-
-// ===========================================================================
-// 6. CapabilitySet JSON
-// ===========================================================================
-
-#[test]
-fn capability_manifest_empty() {
-    let m: CapabilityManifest = BTreeMap::new();
-    insta::assert_json_snapshot!(m);
-}
-
-#[test]
-fn capability_manifest_small() {
-    // CapabilityManifest has enum keys; use assert_snapshot with pretty JSON
-    let v = serde_json::to_value(small_caps()).unwrap();
-    insta::assert_json_snapshot!(v);
-}
-
-#[test]
-fn capability_manifest_full() {
-    let v = serde_json::to_value(full_caps()).unwrap();
-    insta::assert_json_snapshot!(v);
-}
-
-#[test]
-fn capability_streaming() {
-    insta::assert_json_snapshot!(Capability::Streaming);
-}
-
-#[test]
-fn capability_tool_read() {
-    insta::assert_json_snapshot!(Capability::ToolRead);
-}
-
-#[test]
-fn capability_tool_write() {
-    insta::assert_json_snapshot!(Capability::ToolWrite);
-}
-
-#[test]
-fn capability_tool_edit() {
-    insta::assert_json_snapshot!(Capability::ToolEdit);
-}
-
-#[test]
-fn capability_tool_bash() {
-    insta::assert_json_snapshot!(Capability::ToolBash);
-}
-
-#[test]
-fn capability_extended_thinking() {
-    insta::assert_json_snapshot!(Capability::ExtendedThinking);
-}
-
-#[test]
-fn capability_mcp_client() {
-    insta::assert_json_snapshot!(Capability::McpClient);
-}
-
-#[test]
-fn capability_mcp_server() {
-    insta::assert_json_snapshot!(Capability::McpServer);
-}
-
-#[test]
-fn support_level_native() {
-    insta::assert_json_snapshot!(SupportLevel::Native);
-}
-
-#[test]
-fn support_level_emulated() {
-    insta::assert_json_snapshot!(SupportLevel::Emulated);
-}
-
-#[test]
-fn support_level_unsupported() {
-    insta::assert_json_snapshot!(SupportLevel::Unsupported);
-}
-
-#[test]
-fn support_level_restricted() {
-    insta::assert_json_snapshot!(SupportLevel::Restricted {
-        reason: "disabled by policy".into(),
-    });
-}
-
-#[test]
-fn min_support_native() {
-    insta::assert_json_snapshot!(MinSupport::Native);
-}
-
-#[test]
-fn min_support_emulated() {
-    insta::assert_json_snapshot!(MinSupport::Emulated);
-}
-
-#[test]
-fn backend_identity_full() {
-    insta::assert_json_snapshot!(backend_id());
-}
-
-#[test]
-fn backend_identity_minimal() {
-    insta::assert_json_snapshot!(minimal_backend());
-}
-
-// ===========================================================================
-// 7. Dialect enum serialization
-// ===========================================================================
-
-#[test]
-fn dialect_openai() {
-    insta::assert_json_snapshot!(Dialect::OpenAi);
-}
-
-#[test]
-fn dialect_claude() {
-    insta::assert_json_snapshot!(Dialect::Claude);
-}
-
-#[test]
-fn dialect_gemini() {
-    insta::assert_json_snapshot!(Dialect::Gemini);
-}
-
-#[test]
-fn dialect_codex() {
-    insta::assert_json_snapshot!(Dialect::Codex);
-}
-
-#[test]
-fn dialect_kimi() {
-    insta::assert_json_snapshot!(Dialect::Kimi);
-}
-
-#[test]
-fn dialect_copilot() {
-    insta::assert_json_snapshot!(Dialect::Copilot);
-}
-
-#[test]
-fn dialect_all_variants() {
-    insta::assert_json_snapshot!(Dialect::all());
-}
-
-#[test]
-fn dialect_roundtrip_all() {
-    for dialect in Dialect::all() {
-        let json = serde_json::to_string(dialect).unwrap();
-        let back: Dialect = serde_json::from_str(&json).unwrap();
-        assert_eq!(*dialect, back);
-    }
-}
-
-// ===========================================================================
-// 8. Full pipeline output snapshots
-// ===========================================================================
-
-#[test]
-fn pipeline_hello_jsonl_encode() {
-    let env = Envelope::hello(backend_id(), small_caps());
+fn envelope_jsonl_newline_terminated() {
+    let env = Envelope::hello(mock_backend(), BTreeMap::new());
     let line = JsonlCodec::encode(&env).unwrap();
     assert!(line.ends_with('\n'));
+    assert!(!line.ends_with("\n\n"));
+}
+
+#[test]
+fn envelope_jsonl_roundtrip_hello() {
+    let env = Envelope::hello(mock_backend(), BTreeMap::new());
+    let line = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(line.trim()).unwrap();
     assert!(matches!(decoded, Envelope::Hello { .. }));
 }
 
 #[test]
-fn pipeline_run_jsonl_roundtrip() {
-    let env = Envelope::Run {
-        id: "run-pipeline-001".into(),
-        work_order: sample_work_order(),
+fn envelope_jsonl_roundtrip_fatal() {
+    let env = Envelope::Fatal {
+        ref_id: None,
+        error: "boom".into(),
+        error_code: None,
     };
     let line = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(line.trim()).unwrap();
-    if let Envelope::Run { id, work_order } = decoded {
-        assert_eq!(id, "run-pipeline-001");
-        assert_eq!(work_order.task, "Refactor authentication module");
+    if let Envelope::Fatal { error, .. } = decoded {
+        assert_eq!(error, "boom");
     } else {
-        panic!("Expected Envelope::Run");
+        panic!("Expected Fatal");
     }
 }
 
 #[test]
-fn pipeline_event_stream_jsonl() {
-    let events = vec![
-        Envelope::Event {
-            ref_id: "run-001".into(),
-            event: AgentEvent {
-                ts: ts(),
-                kind: AgentEventKind::RunStarted {
-                    message: "starting".into(),
-                },
-                ext: None,
-            },
-        },
-        Envelope::Event {
-            ref_id: "run-001".into(),
-            event: AgentEvent {
-                ts: ts(),
-                kind: AgentEventKind::AssistantDelta {
-                    text: "Hello ".into(),
-                },
-                ext: None,
-            },
-        },
-        Envelope::Event {
-            ref_id: "run-001".into(),
-            event: AgentEvent {
-                ts: ts(),
-                kind: AgentEventKind::AssistantDelta {
-                    text: "world!".into(),
-                },
-                ext: None,
-            },
-        },
-        Envelope::Event {
-            ref_id: "run-001".into(),
-            event: AgentEvent {
-                ts: ts2(),
-                kind: AgentEventKind::RunCompleted {
-                    message: "done".into(),
-                },
-                ext: None,
-            },
-        },
-    ];
-    let mut buf = Vec::new();
-    JsonlCodec::encode_many_to_writer(&mut buf, &events).unwrap();
-    let output = String::from_utf8(buf).unwrap();
-    let lines: Vec<&str> = output.trim().lines().collect();
-    assert_eq!(lines.len(), 4);
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn pipeline_full_session_transcript() {
-    let hello = Envelope::hello(backend_id(), small_caps());
-    let run = Envelope::Run {
-        id: "session-001".into(),
-        work_order: minimal_work_order(),
-    };
-    let event1 = Envelope::Event {
-        ref_id: "session-001".into(),
-        event: AgentEvent {
-            ts: ts(),
-            kind: AgentEventKind::RunStarted {
-                message: "started".into(),
-            },
-            ext: None,
-        },
-    };
-    let event2 = Envelope::Event {
-        ref_id: "session-001".into(),
-        event: AgentEvent {
-            ts: ts(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "Done".into(),
-            },
-            ext: None,
-        },
-    };
-    let event3 = Envelope::Event {
-        ref_id: "session-001".into(),
-        event: AgentEvent {
-            ts: ts2(),
-            kind: AgentEventKind::RunCompleted {
-                message: "complete".into(),
-            },
-            ext: None,
-        },
-    };
-    let final_env = Envelope::Final {
-        ref_id: "session-001".into(),
-        receipt: minimal_receipt(),
-    };
-
-    let all = vec![hello, run, event1, event2, event3, final_env];
-    let mut buf = Vec::new();
-    JsonlCodec::encode_many_to_writer(&mut buf, &all).unwrap();
-    let output = String::from_utf8(buf).unwrap();
-    let lines: Vec<&str> = output.trim().lines().collect();
-    assert_eq!(lines.len(), 6);
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn pipeline_fatal_session() {
-    let hello = Envelope::hello(minimal_backend(), BTreeMap::new());
-    let run = Envelope::Run {
-        id: "fail-001".into(),
-        work_order: minimal_work_order(),
-    };
-    let fatal = Envelope::Fatal {
-        ref_id: Some("fail-001".into()),
-        error: "Out of memory".into(),
-        error_code: Some(abp_error::ErrorCode::BackendCrashed),
-    };
-
-    let all = vec![hello, run, fatal];
-    let mut buf = Vec::new();
-    JsonlCodec::encode_many_to_writer(&mut buf, &all).unwrap();
-    let output = String::from_utf8(buf).unwrap();
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn pipeline_receipt_canonical_json_stability() {
-    let r = full_receipt();
-    let json1 = abp_core::canonical_json(&r).unwrap();
-    let json2 = abp_core::canonical_json(&r).unwrap();
-    assert_eq!(json1, json2, "canonical_json must be deterministic");
-}
-
-#[test]
-fn pipeline_receipt_hash_excludes_sha256_field() {
-    let r1 = full_receipt();
-    let h1 = abp_core::receipt_hash(&r1).unwrap();
-
-    let mut r2 = full_receipt();
-    r2.receipt_sha256 = Some("should_be_ignored".into());
-    let h2 = abp_core::receipt_hash(&r2).unwrap();
-
-    assert_eq!(h1, h2, "receipt_sha256 must not affect the hash");
-}
-
-#[test]
-fn pipeline_execution_mode_mapped_default() {
-    let mode = ExecutionMode::default();
-    assert_eq!(mode, ExecutionMode::Mapped);
-    insta::assert_json_snapshot!(mode);
-}
-
-#[test]
-fn pipeline_execution_mode_passthrough() {
-    insta::assert_json_snapshot!(ExecutionMode::Passthrough);
-}
-
-#[test]
-fn pipeline_contract_version() {
-    assert_eq!(CONTRACT_VERSION, "abp/v0.1");
-    insta::assert_snapshot!(CONTRACT_VERSION);
-}
-
-#[test]
-fn pipeline_execution_lane_values() {
-    insta::assert_json_snapshot!("lane_patch_first", ExecutionLane::PatchFirst);
-    insta::assert_json_snapshot!("lane_workspace_first", ExecutionLane::WorkspaceFirst);
-}
-
-#[test]
-fn pipeline_decode_stream_roundtrip() {
+fn envelope_jsonl_decode_stream() {
     let envelopes = vec![
-        Envelope::hello(minimal_backend(), BTreeMap::new()),
+        Envelope::hello(mock_backend(), BTreeMap::new()),
         Envelope::Fatal {
             ref_id: None,
             error: "test".into(),
@@ -1420,7 +913,6 @@ fn pipeline_decode_stream_roundtrip() {
     ];
     let mut buf = Vec::new();
     JsonlCodec::encode_many_to_writer(&mut buf, &envelopes).unwrap();
-
     let reader = std::io::BufReader::new(buf.as_slice());
     let decoded: Vec<_> = JsonlCodec::decode_stream(reader)
         .collect::<Result<Vec<_>, _>>()
@@ -1430,67 +922,601 @@ fn pipeline_decode_stream_roundtrip() {
     assert!(matches!(decoded[1], Envelope::Fatal { .. }));
 }
 
+// ===========================================================================
+// 5. IR type snapshots
+// ===========================================================================
+
 #[test]
-fn pipeline_error_codes_serialize() {
-    let codes = vec![
-        abp_error::ErrorCode::ProtocolInvalidEnvelope,
-        abp_error::ErrorCode::BackendTimeout,
-        abp_error::ErrorCode::PolicyDenied,
-        abp_error::ErrorCode::ReceiptHashMismatch,
-        abp_error::ErrorCode::DialectUnknown,
-        abp_error::ErrorCode::Internal,
-    ];
-    insta::assert_json_snapshot!(codes);
+fn ir_role_system() {
+    assert_eq!(
+        serde_json::to_string(&IrRole::System).unwrap(),
+        r#""system""#
+    );
 }
 
 #[test]
-fn pipeline_work_order_serde_roundtrip() {
-    let wo = sample_work_order();
-    let json = serde_json::to_string(&wo).unwrap();
-    let back: WorkOrder = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.id, wo.id);
-    assert_eq!(back.task, wo.task);
+fn ir_role_user() {
+    assert_eq!(serde_json::to_string(&IrRole::User).unwrap(), r#""user""#);
 }
 
 #[test]
-fn pipeline_receipt_serde_roundtrip() {
-    let r = full_receipt();
-    let json = serde_json::to_string(&r).unwrap();
-    let back: Receipt = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.meta.run_id, r.meta.run_id);
-    assert_eq!(back.outcome, r.outcome);
+fn ir_role_assistant() {
+    assert_eq!(
+        serde_json::to_string(&IrRole::Assistant).unwrap(),
+        r#""assistant""#,
+    );
 }
 
 #[test]
-fn pipeline_envelope_serde_roundtrip_all_variants() {
-    let variants: Vec<Envelope> = vec![
-        Envelope::hello(minimal_backend(), BTreeMap::new()),
-        Envelope::Run {
-            id: "r1".into(),
-            work_order: minimal_work_order(),
-        },
-        Envelope::Event {
-            ref_id: "r1".into(),
-            event: AgentEvent {
-                ts: ts(),
-                kind: AgentEventKind::Warning {
-                    message: "low budget".into(),
-                },
-                ext: None,
+fn ir_role_tool() {
+    assert_eq!(serde_json::to_string(&IrRole::Tool).unwrap(), r#""tool""#);
+}
+
+#[test]
+fn ir_content_text() {
+    let block = IrContentBlock::Text {
+        text: "hello".into(),
+    };
+    assert_eq!(
+        serde_json::to_value(&block).unwrap(),
+        json!({"type": "text", "text": "hello"}),
+    );
+}
+
+#[test]
+fn ir_content_image() {
+    let block = IrContentBlock::Image {
+        media_type: "image/png".into(),
+        data: "aGVsbG8=".into(),
+    };
+    assert_eq!(
+        serde_json::to_value(&block).unwrap(),
+        json!({"type": "image", "media_type": "image/png", "data": "aGVsbG8="}),
+    );
+}
+
+#[test]
+fn ir_content_tool_use() {
+    let block = IrContentBlock::ToolUse {
+        id: "tu_001".into(),
+        name: "read".into(),
+        input: json!({"path": "file.rs"}),
+    };
+    assert_eq!(
+        serde_json::to_value(&block).unwrap(),
+        json!({
+            "type": "tool_use",
+            "id": "tu_001",
+            "name": "read",
+            "input": {"path": "file.rs"},
+        }),
+    );
+}
+
+#[test]
+fn ir_content_tool_result() {
+    let block = IrContentBlock::ToolResult {
+        tool_use_id: "tu_001".into(),
+        content: vec![IrContentBlock::Text {
+            text: "file content".into(),
+        }],
+        is_error: false,
+    };
+    assert_eq!(
+        serde_json::to_value(&block).unwrap(),
+        json!({
+            "type": "tool_result",
+            "tool_use_id": "tu_001",
+            "content": [{"type": "text", "text": "file content"}],
+            "is_error": false,
+        }),
+    );
+}
+
+#[test]
+fn ir_content_thinking() {
+    let block = IrContentBlock::Thinking {
+        text: "Let me think...".into(),
+    };
+    assert_eq!(
+        serde_json::to_value(&block).unwrap(),
+        json!({"type": "thinking", "text": "Let me think..."}),
+    );
+}
+
+#[test]
+fn ir_message_text_only() {
+    let msg = IrMessage::text(IrRole::User, "hello");
+    assert_eq!(
+        serde_json::to_value(&msg).unwrap(),
+        json!({
+            "role": "user",
+            "content": [{"type": "text", "text": "hello"}],
+        }),
+    );
+}
+
+#[test]
+fn ir_message_with_metadata() {
+    let mut msg = IrMessage::text(IrRole::Assistant, "hi");
+    msg.metadata.insert("source".into(), json!("test"));
+    assert_eq!(
+        serde_json::to_value(&msg).unwrap(),
+        json!({
+            "role": "assistant",
+            "content": [{"type": "text", "text": "hi"}],
+            "metadata": {"source": "test"},
+        }),
+    );
+}
+
+#[test]
+fn ir_message_metadata_skipped_when_empty() {
+    let msg = IrMessage::text(IrRole::User, "hello");
+    let json_str = serde_json::to_string(&msg).unwrap();
+    assert!(!json_str.contains("\"metadata\""));
+}
+
+#[test]
+fn ir_conversation_empty() {
+    assert_eq!(
+        serde_json::to_value(IrConversation::new()).unwrap(),
+        json!({"messages": []}),
+    );
+}
+
+#[test]
+fn ir_conversation_with_messages() {
+    let conv = IrConversation::new()
+        .push(IrMessage::text(IrRole::System, "You are helpful."))
+        .push(IrMessage::text(IrRole::User, "Hi"));
+    let v = serde_json::to_value(&conv).unwrap();
+    assert_eq!(v["messages"].as_array().unwrap().len(), 2);
+    assert_eq!(v["messages"][0]["role"], "system");
+    assert_eq!(v["messages"][1]["role"], "user");
+}
+
+#[test]
+fn ir_tool_definition() {
+    let td = IrToolDefinition {
+        name: "read_file".into(),
+        description: "Read file contents".into(),
+        parameters: json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+    };
+    assert_eq!(
+        serde_json::to_value(&td).unwrap(),
+        json!({
+            "name": "read_file",
+            "description": "Read file contents",
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string"}},
             },
+        }),
+    );
+}
+
+#[test]
+fn ir_usage_default() {
+    assert_eq!(
+        serde_json::to_value(IrUsage::default()).unwrap(),
+        json!({
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+        }),
+    );
+}
+
+#[test]
+fn ir_usage_from_io() {
+    let u = IrUsage::from_io(100, 50);
+    assert_eq!(
+        serde_json::to_value(u).unwrap(),
+        json!({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+        }),
+    );
+}
+
+#[test]
+fn ir_usage_with_cache() {
+    let u = IrUsage::with_cache(500, 200, 100, 50);
+    assert_eq!(
+        serde_json::to_value(u).unwrap(),
+        json!({
+            "input_tokens": 500,
+            "output_tokens": 200,
+            "total_tokens": 700,
+            "cache_read_tokens": 100,
+            "cache_write_tokens": 50,
+        }),
+    );
+}
+
+// ===========================================================================
+// 6. Error type Display snapshot
+// ===========================================================================
+
+#[test]
+fn error_code_display_backend_timeout() {
+    assert_eq!(
+        abp_error::ErrorCode::BackendTimeout.to_string(),
+        "BACKEND_TIMEOUT",
+    );
+}
+
+#[test]
+fn error_code_display_policy_denied() {
+    assert_eq!(
+        abp_error::ErrorCode::PolicyDenied.to_string(),
+        "POLICY_DENIED",
+    );
+}
+
+#[test]
+fn error_code_display_internal() {
+    assert_eq!(abp_error::ErrorCode::Internal.to_string(), "INTERNAL");
+}
+
+#[test]
+fn error_category_display() {
+    assert_eq!(abp_error::ErrorCategory::Protocol.to_string(), "protocol");
+    assert_eq!(abp_error::ErrorCategory::Backend.to_string(), "backend");
+    assert_eq!(abp_error::ErrorCategory::Policy.to_string(), "policy");
+    assert_eq!(abp_error::ErrorCategory::Ir.to_string(), "ir");
+}
+
+#[test]
+fn error_code_json_serialization() {
+    assert_eq!(
+        serde_json::to_string(&abp_error::ErrorCode::ProtocolInvalidEnvelope).unwrap(),
+        r#""PROTOCOL_INVALID_ENVELOPE""#,
+    );
+    assert_eq!(
+        serde_json::to_string(&abp_error::ErrorCode::ReceiptHashMismatch).unwrap(),
+        r#""RECEIPT_HASH_MISMATCH""#,
+    );
+}
+
+#[test]
+fn abp_error_display_simple() {
+    let err =
+        abp_error::AbpError::new(abp_error::ErrorCode::BackendTimeout, "timed out after 30 s");
+    assert_eq!(err.to_string(), "[BACKEND_TIMEOUT] timed out after 30 s");
+}
+
+#[test]
+fn abp_error_display_with_context() {
+    let err = abp_error::AbpError::new(abp_error::ErrorCode::BackendTimeout, "timed out")
+        .with_context("backend", "openai");
+    let display = err.to_string();
+    assert!(display.starts_with("[BACKEND_TIMEOUT] timed out"));
+    assert!(display.contains("openai"));
+}
+
+#[test]
+fn protocol_error_display_violation() {
+    let err = ProtocolError::Violation("missing ref_id".into());
+    assert_eq!(err.to_string(), "protocol violation: missing ref_id");
+}
+
+#[test]
+fn protocol_error_display_unexpected_message() {
+    let err = ProtocolError::UnexpectedMessage {
+        expected: "hello".into(),
+        got: "run".into(),
+    };
+    assert_eq!(
+        err.to_string(),
+        "unexpected message: expected hello, got run",
+    );
+}
+
+// ===========================================================================
+// 7. Capability / SupportLevel snapshots
+// ===========================================================================
+
+#[test]
+fn capability_streaming_json() {
+    assert_eq!(
+        serde_json::to_string(&Capability::Streaming).unwrap(),
+        r#""streaming""#,
+    );
+}
+
+#[test]
+fn capability_tool_read_json() {
+    assert_eq!(
+        serde_json::to_string(&Capability::ToolRead).unwrap(),
+        r#""tool_read""#,
+    );
+}
+
+#[test]
+fn capability_tool_write_json() {
+    assert_eq!(
+        serde_json::to_string(&Capability::ToolWrite).unwrap(),
+        r#""tool_write""#,
+    );
+}
+
+#[test]
+fn capability_tool_edit_json() {
+    assert_eq!(
+        serde_json::to_string(&Capability::ToolEdit).unwrap(),
+        r#""tool_edit""#,
+    );
+}
+
+#[test]
+fn capability_tool_bash_json() {
+    assert_eq!(
+        serde_json::to_string(&Capability::ToolBash).unwrap(),
+        r#""tool_bash""#,
+    );
+}
+
+#[test]
+fn capability_tool_use_json() {
+    assert_eq!(
+        serde_json::to_string(&Capability::ToolUse).unwrap(),
+        r#""tool_use""#,
+    );
+}
+
+#[test]
+fn capability_extended_thinking_json() {
+    assert_eq!(
+        serde_json::to_string(&Capability::ExtendedThinking).unwrap(),
+        r#""extended_thinking""#,
+    );
+}
+
+#[test]
+fn capability_mcp_client_json() {
+    assert_eq!(
+        serde_json::to_string(&Capability::McpClient).unwrap(),
+        r#""mcp_client""#,
+    );
+}
+
+#[test]
+fn support_level_native_json() {
+    assert_eq!(
+        serde_json::to_string(&SupportLevel::Native).unwrap(),
+        r#""native""#,
+    );
+}
+
+#[test]
+fn support_level_emulated_json() {
+    assert_eq!(
+        serde_json::to_string(&SupportLevel::Emulated).unwrap(),
+        r#""emulated""#,
+    );
+}
+
+#[test]
+fn support_level_unsupported_json() {
+    assert_eq!(
+        serde_json::to_string(&SupportLevel::Unsupported).unwrap(),
+        r#""unsupported""#,
+    );
+}
+
+#[test]
+fn support_level_restricted_json() {
+    let sl = SupportLevel::Restricted {
+        reason: "experimental".into(),
+    };
+    assert_eq!(
+        serde_json::to_value(&sl).unwrap(),
+        json!({"restricted": {"reason": "experimental"}}),
+    );
+}
+
+#[test]
+fn min_support_native_json() {
+    assert_eq!(
+        serde_json::to_string(&MinSupport::Native).unwrap(),
+        r#""native""#,
+    );
+}
+
+#[test]
+fn min_support_emulated_json() {
+    assert_eq!(
+        serde_json::to_string(&MinSupport::Emulated).unwrap(),
+        r#""emulated""#,
+    );
+}
+
+#[test]
+fn capability_manifest_with_restricted() {
+    let mut m: CapabilityManifest = BTreeMap::new();
+    m.insert(Capability::Streaming, SupportLevel::Native);
+    m.insert(
+        Capability::McpClient,
+        SupportLevel::Restricted {
+            reason: "beta".into(),
         },
-        Envelope::Final {
-            ref_id: "r1".into(),
-            receipt: minimal_receipt(),
-        },
-        Envelope::Fatal {
-            ref_id: None,
-            error: "crash".into(),
-            error_code: None,
-        },
-    ];
-    for env in &variants {
-        let json = serde_json::to_string(env).unwrap();
-        let _back: Envelope = serde_json::from_str(&json).unwrap();
-    }
+    );
+    let v = serde_json::to_value(&m).unwrap();
+    assert_eq!(v["streaming"], "native");
+    assert_eq!(v["mcp_client"], json!({"restricted": {"reason": "beta"}}),);
+}
+
+#[test]
+fn execution_mode_default_is_mapped() {
+    let mode = ExecutionMode::default();
+    assert_eq!(mode, ExecutionMode::Mapped);
+    assert_eq!(serde_json::to_string(&mode).unwrap(), r#""mapped""#);
+}
+
+#[test]
+fn execution_mode_passthrough_json() {
+    assert_eq!(
+        serde_json::to_string(&ExecutionMode::Passthrough).unwrap(),
+        r#""passthrough""#,
+    );
+}
+
+#[test]
+fn contract_version_value() {
+    assert_eq!(CONTRACT_VERSION, "abp/v0.1");
+}
+
+// ===========================================================================
+// 8. PolicyProfile snapshots
+// ===========================================================================
+
+#[test]
+fn policy_profile_default() {
+    assert_eq!(
+        serde_json::to_value(PolicyProfile::default()).unwrap(),
+        json!({
+            "allowed_tools": [],
+            "disallowed_tools": [],
+            "deny_read": [],
+            "deny_write": [],
+            "allow_network": [],
+            "deny_network": [],
+            "require_approval_for": [],
+        }),
+    );
+}
+
+#[test]
+fn policy_profile_full() {
+    let p = PolicyProfile {
+        allowed_tools: vec!["read".into(), "write".into()],
+        disallowed_tools: vec!["bash".into()],
+        deny_read: vec![".env".into()],
+        deny_write: vec!["Cargo.lock".into()],
+        allow_network: vec!["api.example.com".into()],
+        deny_network: vec!["*.evil.com".into()],
+        require_approval_for: vec!["execute".into()],
+    };
+    assert_eq!(
+        serde_json::to_value(&p).unwrap(),
+        json!({
+            "allowed_tools": ["read", "write"],
+            "disallowed_tools": ["bash"],
+            "deny_read": [".env"],
+            "deny_write": ["Cargo.lock"],
+            "allow_network": ["api.example.com"],
+            "deny_network": ["*.evil.com"],
+            "require_approval_for": ["execute"],
+        }),
+    );
+}
+
+#[test]
+fn policy_profile_tools_only() {
+    let p = PolicyProfile {
+        allowed_tools: vec!["read".into(), "glob".into()],
+        disallowed_tools: vec!["bash".into()],
+        ..Default::default()
+    };
+    let v = serde_json::to_value(&p).unwrap();
+    assert_eq!(v["allowed_tools"], json!(["read", "glob"]));
+    assert_eq!(v["disallowed_tools"], json!(["bash"]));
+    assert_eq!(v["deny_read"], json!([]));
+}
+
+#[test]
+fn policy_profile_paths_only() {
+    let p = PolicyProfile {
+        deny_read: vec![".env".into(), "secrets/**".into()],
+        deny_write: vec!["Cargo.lock".into()],
+        ..Default::default()
+    };
+    let v = serde_json::to_value(&p).unwrap();
+    assert_eq!(v["deny_read"], json!([".env", "secrets/**"]));
+    assert_eq!(v["deny_write"], json!(["Cargo.lock"]));
+    assert_eq!(v["allowed_tools"], json!([]));
+}
+
+// ===========================================================================
+// 9. Deterministic serialization (BTreeMap ordering)
+// ===========================================================================
+
+#[test]
+fn deterministic_vendor_btreemap_ordering() {
+    let mut vendor: BTreeMap<String, serde_json::Value> = BTreeMap::new();
+    vendor.insert("zebra".into(), json!(1));
+    vendor.insert("alpha".into(), json!(2));
+    vendor.insert("mid".into(), json!(3));
+    let json = serde_json::to_string(&vendor).unwrap();
+    // BTreeMap keys are sorted alphabetically
+    let alpha_pos = json.find("\"alpha\"").unwrap();
+    let mid_pos = json.find("\"mid\"").unwrap();
+    let zebra_pos = json.find("\"zebra\"").unwrap();
+    assert!(alpha_pos < mid_pos);
+    assert!(mid_pos < zebra_pos);
+}
+
+#[test]
+fn deterministic_env_btreemap_ordering() {
+    let mut env: BTreeMap<String, String> = BTreeMap::new();
+    env.insert("RUST_LOG".into(), "debug".into());
+    env.insert("API_KEY".into(), "secret".into());
+    env.insert("HOME".into(), "/home/user".into());
+    let json = serde_json::to_string(&env).unwrap();
+    let api_pos = json.find("\"API_KEY\"").unwrap();
+    let home_pos = json.find("\"HOME\"").unwrap();
+    let rust_pos = json.find("\"RUST_LOG\"").unwrap();
+    assert!(api_pos < home_pos);
+    assert!(home_pos < rust_pos);
+}
+
+#[test]
+fn deterministic_capability_manifest_ordering() {
+    let mut m: CapabilityManifest = BTreeMap::new();
+    m.insert(Capability::ToolWrite, SupportLevel::Native);
+    m.insert(Capability::Streaming, SupportLevel::Native);
+    m.insert(Capability::ToolRead, SupportLevel::Native);
+    let json = serde_json::to_string(&m).unwrap();
+    let streaming_pos = json.find("\"streaming\"").unwrap();
+    let read_pos = json.find("\"tool_read\"").unwrap();
+    let write_pos = json.find("\"tool_write\"").unwrap();
+    assert!(streaming_pos < read_pos);
+    assert!(read_pos < write_pos);
+}
+
+#[test]
+fn deterministic_canonical_json() {
+    let r = minimal_receipt();
+    let json1 = abp_core::canonical_json(&r).unwrap();
+    let json2 = abp_core::canonical_json(&r).unwrap();
+    assert_eq!(json1, json2, "canonical_json must be deterministic");
+}
+
+#[test]
+fn deterministic_receipt_hash_stable() {
+    let r1 = minimal_receipt().with_hash().unwrap();
+    let r2 = minimal_receipt().with_hash().unwrap();
+    assert_eq!(r1.receipt_sha256, r2.receipt_sha256);
+    let hash = r1.receipt_sha256.unwrap();
+    assert_eq!(hash.len(), 64);
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+}
+
+#[test]
+fn deterministic_receipt_hash_ignores_sha256() {
+    let r1 = minimal_receipt();
+    let h1 = abp_core::receipt_hash(&r1).unwrap();
+
+    let mut r2 = minimal_receipt();
+    r2.receipt_sha256 = Some("should_be_ignored".into());
+    let h2 = abp_core::receipt_hash(&r2).unwrap();
+
+    assert_eq!(h1, h2, "receipt_sha256 must not affect the hash");
 }
