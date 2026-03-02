@@ -11,6 +11,7 @@ keywords = ["agent", "backplane", "ai", "claude", "anthropic"]
 categories = ["development-tools"]
 
 [dependencies]
+abp-tooling = { path = "../abp-tooling" }
 abp-core = { path = "../abp-core" }
 abp-runtime = { path = "../abp-runtime" }
 abp-sidecar-sdk = { path = "../abp-sidecar-sdk" }

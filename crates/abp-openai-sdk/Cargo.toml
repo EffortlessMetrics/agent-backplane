@@ -11,6 +11,7 @@ keywords = ["agent", "backplane", "ai", "openai", "gpt"]
 categories = ["development-tools"]
 
 [dependencies]
+abp-tooling = { path = "../abp-tooling" }
 abp-core = { path = "../abp-core" }
 abp-host = { path = "../abp-host" }
 abp-integrations = { path = "../abp-integrations" }

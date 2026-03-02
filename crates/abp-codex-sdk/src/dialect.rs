@@ -5,6 +5,7 @@
 use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
+pub use abp_tooling::CanonicalToolDef;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -82,17 +83,6 @@ pub fn capability_manifest() -> CapabilityManifest {
 // ---------------------------------------------------------------------------
 // Tool types
 // ---------------------------------------------------------------------------
-
-/// A vendor-agnostic tool definition used as the ABP canonical form.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct CanonicalToolDef {
-    /// Tool name.
-    pub name: String,
-    /// Human-readable description of the tool.
-    pub description: String,
-    /// JSON Schema describing the tool's parameters.
-    pub parameters_schema: serde_json::Value,
-}
 
 /// OpenAI-style function tool definition (legacy format).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
