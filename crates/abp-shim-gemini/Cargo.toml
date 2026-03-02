@@ -11,8 +11,8 @@ keywords = ["agent", "backplane", "ai", "gemini", "shim"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-core = { path = "../abp-core" }
-abp-gemini-sdk = { path = "../abp-gemini-sdk" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-gemini-sdk = { path = "../abp-gemini-sdk", version = "0.1.0" }
 chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true

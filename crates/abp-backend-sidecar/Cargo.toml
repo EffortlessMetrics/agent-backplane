@@ -11,9 +11,9 @@ keywords = ["agent", "backplane", "sidecar", "backend", "jsonl"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-backend-core = { path = "../abp-backend-core" }
-abp-core = { path = "../abp-core" }
-abp-host = { path = "../abp-host" }
+abp-backend-core = { path = "../abp-backend-core", version = "0.1.0" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-host = { path = "../abp-host", version = "0.1.0" }
 anyhow.workspace = true
 async-trait.workspace = true
 tokio.workspace = true

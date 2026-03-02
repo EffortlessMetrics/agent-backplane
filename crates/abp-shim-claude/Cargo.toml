@@ -11,8 +11,8 @@ keywords = ["agent", "backplane", "ai", "claude", "shim"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-core = { path = "../abp-core" }
-abp-claude-sdk = { path = "../abp-claude-sdk" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-claude-sdk = { path = "../abp-claude-sdk", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

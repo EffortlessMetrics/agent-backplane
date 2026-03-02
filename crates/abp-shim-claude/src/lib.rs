@@ -599,10 +599,8 @@ pub fn response_from_events(
                 });
                 stop_reason = Some("tool_use".to_string());
             }
-            AgentEventKind::RunCompleted { .. } => {
-                if stop_reason.is_none() {
-                    stop_reason = Some("end_turn".to_string());
-                }
+            AgentEventKind::RunCompleted { .. } if stop_reason.is_none() => {
+                stop_reason = Some("end_turn".to_string());
             }
             _ => {}
         }

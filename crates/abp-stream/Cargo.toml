@@ -11,7 +11,7 @@ keywords = ["agent", "backplane", "stream", "event", "multiplexing"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-core = { path = "../abp-core" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
 tokio = { workspace = true }
 
 [dev-dependencies]

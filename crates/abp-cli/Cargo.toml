@@ -15,16 +15,16 @@ name = "abp"
 path = "src/main.rs"
 
 [dependencies]
-abp-config = { path = "../abp-config" }
-abp-core = { path = "../abp-core" }
-abp-codex-sdk = { path = "../abp-codex-sdk" }
-abp-copilot-sdk = { path = "../abp-copilot-sdk" }
-abp-claude-sdk = { path = "../abp-claude-sdk" }
-abp-kimi-sdk = { path = "../abp-kimi-sdk" }
-abp-gemini-sdk = { path = "../abp-gemini-sdk" }
-abp-host = { path = "../abp-host" }
-abp-integrations = { path = "../abp-integrations" }
-abp-runtime = { path = "../abp-runtime" }
+abp-config = { path = "../abp-config", version = "0.1.0" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-codex-sdk = { path = "../abp-codex-sdk", version = "0.1.0" }
+abp-copilot-sdk = { path = "../abp-copilot-sdk", version = "0.1.0" }
+abp-claude-sdk = { path = "../abp-claude-sdk", version = "0.1.0" }
+abp-kimi-sdk = { path = "../abp-kimi-sdk", version = "0.1.0" }
+abp-gemini-sdk = { path = "../abp-gemini-sdk", version = "0.1.0" }
+abp-host = { path = "../abp-host", version = "0.1.0" }
+abp-integrations = { path = "../abp-integrations", version = "0.1.0" }
+abp-runtime = { path = "../abp-runtime", version = "0.1.0" }
 anyhow.workspace = true
 chrono.workspace = true
 clap.workspace = true

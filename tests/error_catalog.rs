@@ -527,6 +527,7 @@ mod runtime_error {
                 RuntimeError::BackendFailed(_) => {}
                 RuntimeError::CapabilityCheckFailed(_) => {}
                 RuntimeError::Classified(_) => {}
+                RuntimeError::NoProjectionMatch { .. } => {}
             }
             check_display_debug(v);
         }

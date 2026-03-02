@@ -11,9 +11,9 @@ keywords = ["agent", "backplane", "ai", "protocol", "jsonl"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-core = { path = "../abp-core" }
-abp-error = { path = "../abp-error" }
-sidecar-kit = { path = "../sidecar-kit" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-error = { path = "../abp-error", version = "0.1.0" }
+sidecar-kit = { path = "../sidecar-kit", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

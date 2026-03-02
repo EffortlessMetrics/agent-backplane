@@ -35,6 +35,8 @@ pub mod retry;
 pub mod stages;
 /// Receipt persistence and retrieval.
 pub mod store;
+/// Stream pipeline integration for event filtering, transformation, and recording.
+pub mod stream;
 /// Telemetry and metrics collection.
 pub mod telemetry;
 
@@ -55,6 +57,9 @@ use uuid::Uuid;
 
 /// Re-export of [`registry::BackendRegistry`] for convenience.
 pub use registry::BackendRegistry;
+
+/// Re-export projection types for callers that use projection-based routing.
+pub use abp_projection::{self, ProjectionMatrix, ProjectionResult, ProjectionScore};
 
 /// Re-export receipt chain and builder from `abp-receipt`.
 pub use abp_receipt::{self, ReceiptChain as ReceiptChainType};
@@ -88,6 +93,13 @@ pub enum RuntimeError {
     /// An error from the unified ABP error taxonomy.
     #[error("{0}")]
     Classified(#[from] abp_error::AbpError),
+
+    /// The projection matrix could not find a suitable backend.
+    #[error("projection failed: {reason}")]
+    NoProjectionMatch {
+        /// Human-readable explanation.
+        reason: String,
+    },
 }
 
 impl RuntimeError {
@@ -103,6 +115,7 @@ impl RuntimeError {
             Self::BackendFailed(_) => abp_error::ErrorCode::BackendCrashed,
             Self::CapabilityCheckFailed(_) => abp_error::ErrorCode::CapabilityUnsupported,
             Self::Classified(e) => e.code,
+            Self::NoProjectionMatch { .. } => abp_error::ErrorCode::BackendNotFound,
         }
     }
 
@@ -131,6 +144,8 @@ pub struct Runtime {
     metrics: Arc<RunMetrics>,
     emulation: Option<EmulationConfig>,
     receipt_chain: Arc<Mutex<ReceiptChain>>,
+    projection: Option<ProjectionMatrix>,
+    stream_pipeline: Option<abp_stream::StreamPipeline>,
 }
 
 /// Handle to a running work order: provides a run id, event stream, and receipt future.
@@ -158,6 +173,8 @@ impl Runtime {
             metrics: Arc::new(RunMetrics::new()),
             emulation: None,
             receipt_chain: Arc::new(Mutex::new(ReceiptChain::new())),
+            projection: None,
+            stream_pipeline: None,
         }
     }
 
@@ -218,6 +235,105 @@ impl Runtime {
     #[must_use]
     pub fn emulation_config(&self) -> Option<&EmulationConfig> {
         self.emulation.as_ref()
+    }
+
+    /// Set a [`ProjectionMatrix`] for capability-aware backend selection.
+    ///
+    /// When a projection matrix is configured, [`select_backend`](Self::select_backend)
+    /// can rank registered backends and [`run_projected`](Self::run_projected) can
+    /// execute a work order against the best-fit backend automatically.
+    #[must_use]
+    pub fn with_projection(mut self, matrix: ProjectionMatrix) -> Self {
+        self.projection = Some(matrix);
+        self
+    }
+
+    /// Return the current projection matrix, if any.
+    #[must_use]
+    pub fn projection(&self) -> Option<&ProjectionMatrix> {
+        self.projection.as_ref()
+    }
+
+    /// Return a mutable reference to the projection matrix, if any.
+    pub fn projection_mut(&mut self) -> Option<&mut ProjectionMatrix> {
+        self.projection.as_mut()
+    }
+
+    /// Attach a [`StreamPipeline`](abp_stream::StreamPipeline) that every event
+    /// passes through before being forwarded to the caller.
+    ///
+    /// The pipeline can filter, transform, record, and collect statistics on
+    /// events in-flight.
+    #[must_use]
+    pub fn with_stream_pipeline(mut self, pipeline: abp_stream::StreamPipeline) -> Self {
+        self.stream_pipeline = Some(pipeline);
+        self
+    }
+
+    /// Return the current stream pipeline, if any.
+    #[must_use]
+    pub fn stream_pipeline(&self) -> Option<&abp_stream::StreamPipeline> {
+        self.stream_pipeline.as_ref()
+    }
+
+    /// Use the projection matrix to select the best backend for a work order.
+    ///
+    /// Returns a [`ProjectionResult`] containing the selected backend name,
+    /// its composite score, any required emulations, and a fallback chain.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::NoProjectionMatch`] if the projection matrix
+    /// is not configured or no backend satisfies the work order.
+    /// Returns [`RuntimeError::UnknownBackend`] if the selected backend is
+    /// not registered in the runtime's [`BackendRegistry`].
+    pub fn select_backend(&self, work_order: &WorkOrder) -> Result<ProjectionResult, RuntimeError> {
+        let matrix = self
+            .projection
+            .as_ref()
+            .ok_or_else(|| RuntimeError::NoProjectionMatch {
+                reason: "no projection matrix configured".into(),
+            })?;
+
+        let result = matrix
+            .project(work_order)
+            .map_err(|e| RuntimeError::NoProjectionMatch {
+                reason: e.to_string(),
+            })?;
+
+        // Verify the selected backend is actually registered in the runtime.
+        if !self.backends.contains(&result.selected_backend) {
+            return Err(RuntimeError::UnknownBackend {
+                name: result.selected_backend.clone(),
+            });
+        }
+
+        Ok(result)
+    }
+
+    /// Execute a work order using the projection matrix to select the best backend.
+    ///
+    /// This is a convenience wrapper around [`select_backend`](Self::select_backend)
+    /// followed by [`run_streaming`](Self::run_streaming). The projection result
+    /// metadata is recorded in the receipt's `usage_raw`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::NoProjectionMatch`] if no suitable backend is found,
+    /// or any error that [`run_streaming`](Self::run_streaming) can return.
+    pub async fn run_projected(&self, work_order: WorkOrder) -> Result<RunHandle, RuntimeError> {
+        let projection_result = self.select_backend(&work_order)?;
+
+        info!(
+            target: "abp.runtime",
+            selected = %projection_result.selected_backend,
+            score = %projection_result.fidelity_score.total,
+            fallbacks = projection_result.fallback_chain.len(),
+            "projection selected backend"
+        );
+
+        self.run_streaming(&projection_result.selected_backend, work_order)
+            .await
     }
 
     /// Return a reference to the shared receipt chain.
@@ -331,6 +447,7 @@ impl Runtime {
         let (to_caller_tx, to_caller_rx) = mpsc::channel::<AgentEvent>(256);
 
         let receipt_chain = Arc::clone(&self.receipt_chain);
+        let pipeline = self.stream_pipeline.clone();
 
         let receipt = tokio::spawn(async move {
             let run_start = std::time::Instant::now();
@@ -417,8 +534,10 @@ impl Runtime {
                     ev = from_backend_rx.recv() => {
                         match ev {
                             Some(ev) => {
-                                trace.push(ev.clone());
-                                let _ = to_caller_tx.send(ev).await;
+                                if let Some(ev) = stream::apply_pipeline(pipeline.as_ref(), ev) {
+                                    trace.push(ev.clone());
+                                    let _ = to_caller_tx.send(ev).await;
+                                }
                             }
                             None => break,
                         }
@@ -441,8 +560,10 @@ impl Runtime {
 
             // Drain any remaining events (best-effort).
             while let Some(ev) = from_backend_rx.recv().await {
-                trace.push(ev.clone());
-                let _ = to_caller_tx.send(ev).await;
+                if let Some(ev) = stream::apply_pipeline(pipeline.as_ref(), ev) {
+                    trace.push(ev.clone());
+                    let _ = to_caller_tx.send(ev).await;
+                }
             }
 
             // If the channel closed before the select polled the backend handle,
@@ -644,5 +765,209 @@ mod tests {
             back.context.get("file"),
             Some(&serde_json::json!("backplane.toml"))
         );
+    }
+
+    // -- projection integration tests --
+
+    mod projection {
+        use super::*;
+        use abp_core::{
+            Capability, CapabilityRequirement, MinSupport, SupportLevel, WorkOrderBuilder,
+        };
+        use abp_dialect::Dialect;
+
+        fn mock_manifest() -> abp_core::CapabilityManifest {
+            let mut m = abp_core::CapabilityManifest::default();
+            m.insert(Capability::Streaming, SupportLevel::Native);
+            m.insert(Capability::ToolRead, SupportLevel::Emulated);
+            m.insert(Capability::ToolWrite, SupportLevel::Emulated);
+            m.insert(Capability::ToolEdit, SupportLevel::Emulated);
+            m.insert(Capability::ToolBash, SupportLevel::Emulated);
+            m.insert(
+                Capability::StructuredOutputJsonSchema,
+                SupportLevel::Emulated,
+            );
+            m
+        }
+
+        #[test]
+        fn select_backend_without_projection_returns_error() {
+            let rt = Runtime::with_default_backends();
+            let wo = WorkOrderBuilder::new("test").build();
+            let err = rt.select_backend(&wo).unwrap_err();
+            assert!(
+                matches!(err, RuntimeError::NoProjectionMatch { .. }),
+                "expected NoProjectionMatch, got {err:?}"
+            );
+        }
+
+        #[test]
+        fn select_backend_picks_registered_backend() {
+            let mut matrix = ProjectionMatrix::new();
+            matrix.register_backend("mock", mock_manifest(), Dialect::OpenAi, 50);
+
+            let rt = Runtime::with_default_backends().with_projection(matrix);
+            // Ensure the mock backend is in the registry (it already is from with_default_backends).
+            let wo = WorkOrderBuilder::new("test")
+                .requirements(CapabilityRequirements {
+                    required: vec![CapabilityRequirement {
+                        capability: Capability::Streaming,
+                        min_support: MinSupport::Native,
+                    }],
+                })
+                .build();
+            let result = rt.select_backend(&wo).unwrap();
+            assert_eq!(result.selected_backend, "mock");
+            assert!(result.fidelity_score.total > 0.0);
+        }
+
+        #[test]
+        fn select_backend_fails_when_projected_backend_not_in_registry() {
+            let mut matrix = ProjectionMatrix::new();
+            // Register a backend in projection that is NOT in the runtime registry.
+            matrix.register_backend("nonexistent", mock_manifest(), Dialect::OpenAi, 50);
+
+            let rt = Runtime::new().with_projection(matrix);
+            let wo = WorkOrderBuilder::new("test").build();
+            let err = rt.select_backend(&wo).unwrap_err();
+            assert!(
+                matches!(err, RuntimeError::UnknownBackend { .. }),
+                "expected UnknownBackend, got {err:?}"
+            );
+        }
+
+        #[test]
+        fn select_backend_prefers_higher_capability_coverage() {
+            let mut strong_manifest = abp_core::CapabilityManifest::default();
+            strong_manifest.insert(Capability::Streaming, SupportLevel::Native);
+            strong_manifest.insert(Capability::ToolRead, SupportLevel::Native);
+            strong_manifest.insert(Capability::ToolWrite, SupportLevel::Native);
+
+            let mut weak_manifest = abp_core::CapabilityManifest::default();
+            weak_manifest.insert(Capability::Streaming, SupportLevel::Native);
+
+            let mut matrix = ProjectionMatrix::new();
+            matrix.register_backend("strong", strong_manifest, Dialect::OpenAi, 50);
+            matrix.register_backend("weak", weak_manifest, Dialect::Claude, 50);
+
+            let mut rt = Runtime::new().with_projection(matrix);
+            rt.register_backend("strong", abp_integrations::MockBackend);
+            rt.register_backend("weak", abp_integrations::MockBackend);
+
+            let wo = WorkOrderBuilder::new("test")
+                .requirements(CapabilityRequirements {
+                    required: vec![
+                        CapabilityRequirement {
+                            capability: Capability::Streaming,
+                            min_support: MinSupport::Native,
+                        },
+                        CapabilityRequirement {
+                            capability: Capability::ToolRead,
+                            min_support: MinSupport::Emulated,
+                        },
+                        CapabilityRequirement {
+                            capability: Capability::ToolWrite,
+                            min_support: MinSupport::Emulated,
+                        },
+                    ],
+                })
+                .build();
+
+            let result = rt.select_backend(&wo).unwrap();
+            assert_eq!(result.selected_backend, "strong");
+            assert!(!result.fallback_chain.is_empty());
+        }
+
+        #[test]
+        fn select_backend_prefers_higher_priority() {
+            let manifest = mock_manifest();
+
+            let mut matrix = ProjectionMatrix::new();
+            matrix.register_backend("low-prio", manifest.clone(), Dialect::OpenAi, 10);
+            matrix.register_backend("high-prio", manifest, Dialect::OpenAi, 90);
+
+            let mut rt = Runtime::new().with_projection(matrix);
+            rt.register_backend("low-prio", abp_integrations::MockBackend);
+            rt.register_backend("high-prio", abp_integrations::MockBackend);
+
+            let wo = WorkOrderBuilder::new("test").build();
+            let result = rt.select_backend(&wo).unwrap();
+            assert_eq!(result.selected_backend, "high-prio");
+        }
+
+        #[test]
+        fn with_projection_builder_sets_and_retrieves() {
+            let matrix = ProjectionMatrix::new();
+            let rt = Runtime::new().with_projection(matrix);
+            assert!(rt.projection().is_some());
+        }
+
+        #[test]
+        fn projection_mut_allows_modification() {
+            let mut rt = Runtime::new().with_projection(ProjectionMatrix::new());
+            let pm = rt.projection_mut().unwrap();
+            pm.register_backend("added", mock_manifest(), Dialect::OpenAi, 50);
+            assert_eq!(pm.backend_count(), 1);
+        }
+
+        #[test]
+        fn no_projection_match_error_has_correct_code() {
+            let err = RuntimeError::NoProjectionMatch {
+                reason: "empty".into(),
+            };
+            assert_eq!(err.error_code(), abp_error::ErrorCode::BackendNotFound);
+        }
+
+        #[tokio::test]
+        async fn run_projected_selects_and_executes() {
+            let mut matrix = ProjectionMatrix::new();
+            matrix.register_backend("mock", mock_manifest(), Dialect::OpenAi, 50);
+
+            let rt = Runtime::with_default_backends().with_projection(matrix);
+            let wo = WorkOrderBuilder::new("hello projection").build();
+            let handle = rt.run_projected(wo).await.unwrap();
+            let receipt = handle.receipt.await.unwrap().unwrap();
+            assert_eq!(receipt.backend.id, "mock");
+        }
+
+        #[tokio::test]
+        async fn run_projected_fails_without_matrix() {
+            let rt = Runtime::with_default_backends();
+            let wo = WorkOrderBuilder::new("no matrix").build();
+            let result = rt.run_projected(wo).await;
+            assert!(
+                matches!(result, Err(RuntimeError::NoProjectionMatch { .. })),
+                "expected NoProjectionMatch error"
+            );
+        }
+
+        #[test]
+        fn select_backend_returns_fallback_chain() {
+            let manifest = mock_manifest();
+
+            let mut matrix = ProjectionMatrix::new();
+            matrix.register_backend("alpha", manifest.clone(), Dialect::OpenAi, 80);
+            matrix.register_backend("beta", manifest.clone(), Dialect::Claude, 60);
+            matrix.register_backend("gamma", manifest, Dialect::Gemini, 40);
+
+            let mut rt = Runtime::new().with_projection(matrix);
+            rt.register_backend("alpha", abp_integrations::MockBackend);
+            rt.register_backend("beta", abp_integrations::MockBackend);
+            rt.register_backend("gamma", abp_integrations::MockBackend);
+
+            let wo = WorkOrderBuilder::new("test").build();
+            let result = rt.select_backend(&wo).unwrap();
+            // The selected backend should be the highest priority.
+            assert_eq!(result.selected_backend, "alpha");
+            // Fallback chain should contain the other two.
+            assert_eq!(result.fallback_chain.len(), 2);
+            let fb_ids: Vec<_> = result
+                .fallback_chain
+                .iter()
+                .map(|f| f.backend_id.as_str())
+                .collect();
+            assert!(fb_ids.contains(&"beta"));
+            assert!(fb_ids.contains(&"gamma"));
+        }
     }
 }

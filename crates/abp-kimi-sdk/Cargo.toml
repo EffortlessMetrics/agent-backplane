@@ -11,9 +11,9 @@ keywords = ["agent", "backplane", "ai", "kimi", "moonshot"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-core = { path = "../abp-core" }
-abp-runtime = { path = "../abp-runtime" }
-abp-sidecar-sdk = { path = "../abp-sidecar-sdk" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-runtime = { path = "../abp-runtime", version = "0.1.0" }
+abp-sidecar-sdk = { path = "../abp-sidecar-sdk", version = "0.1.0" }
 anyhow.workspace = true
 chrono.workspace = true
 serde.workspace = true

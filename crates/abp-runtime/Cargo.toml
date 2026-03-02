@@ -11,14 +11,16 @@ keywords = ["agent", "backplane", "ai", "runtime", "orchestration"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-capability = { path = "../abp-capability" }
-abp-core = { path = "../abp-core" }
-abp-emulation = { path = "../abp-emulation" }
-abp-error = { path = "../abp-error" }
-abp-integrations = { path = "../abp-integrations" }
-abp-policy = { path = "../abp-policy" }
-abp-receipt = { path = "../abp-receipt" }
-abp-workspace = { path = "../abp-workspace" }
+abp-capability = { path = "../abp-capability", version = "0.1.0" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-emulation = { path = "../abp-emulation", version = "0.1.0" }
+abp-error = { path = "../abp-error", version = "0.1.0" }
+abp-integrations = { path = "../abp-integrations", version = "0.1.0" }
+abp-projection = { path = "../abp-projection", version = "0.1.0" }
+abp-policy = { path = "../abp-policy", version = "0.1.0" }
+abp-receipt = { path = "../abp-receipt", version = "0.1.0" }
+abp-stream = { path = "../abp-stream", version = "0.1.0" }
+abp-workspace = { path = "../abp-workspace", version = "0.1.0" }
 serde.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
@@ -31,8 +33,10 @@ tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-abp-core = { path = "../abp-core" }
-abp-receipt = { path = "../abp-receipt" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
+abp-projection = { path = "../abp-projection", version = "0.1.0" }
+abp-receipt = { path = "../abp-receipt", version = "0.1.0" }
 chrono.workspace = true
 tempfile.workspace = true
 insta.workspace = true

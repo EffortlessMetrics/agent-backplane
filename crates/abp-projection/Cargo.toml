@@ -11,10 +11,10 @@ keywords = ["agent", "backplane", "projection", "routing", "backend"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-core = { path = "../abp-core" }
-abp-capability = { path = "../abp-capability" }
-abp-mapping = { path = "../abp-mapping" }
-abp-dialect = { path = "../abp-dialect" }
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-capability = { path = "../abp-capability", version = "0.1.0" }
+abp-mapping = { path = "../abp-mapping", version = "0.1.0" }
+abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

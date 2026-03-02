@@ -340,6 +340,7 @@ fn runtime_error_exhaustive_variants() {
             RuntimeError::BackendFailed(_) => {}
             RuntimeError::CapabilityCheckFailed(_) => {}
             RuntimeError::Classified(_) => {}
+            RuntimeError::NoProjectionMatch { .. } => {}
         }
     }
 }
