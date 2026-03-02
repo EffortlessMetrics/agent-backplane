@@ -27,6 +27,7 @@ members = [
   "crates/abp-git",
   "crates/abp-glob",
   "crates/abp-host",
+  "crates/abp-ir",
   "crates/abp-integrations",
   "crates/abp-kimi-sdk",
   "crates/abp-mapping",

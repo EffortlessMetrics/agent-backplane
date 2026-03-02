@@ -294,6 +294,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-ir"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "proptest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-kimi-sdk"
 version = "0.1.0"
 dependencies = [
