@@ -226,7 +226,7 @@ fn feature_same_dialect_always_lossless() {
             features::IMAGE_INPUT,
             features::CODE_EXEC,
         ] {
-            let rule = reg.lookup(d, d, f).expect(&format!("{d} self {f}"));
+            let rule = reg.lookup(d, d, f).unwrap_or_else(|| panic!("{d} self {f}"));
             assert!(rule.fidelity.is_lossless(), "{d}->{d} {f} not lossless");
         }
     }
