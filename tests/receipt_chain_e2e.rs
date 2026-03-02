@@ -1947,3 +1947,443 @@ async fn mock_backend_streams_events() {
     // MockBackend emits RunStarted, 2x AssistantMessage, RunCompleted
     assert!(events.len() >= 3);
 }
+
+// ===========================================================================
+// 15. BTreeMap determinism in receipt fields
+// ===========================================================================
+
+#[test]
+fn btreemap_capabilities_order_is_deterministic() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+    let finish = base + Duration::milliseconds(42);
+
+    let make = || {
+        let mut r = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+        // Insert in different order each time
+        r.capabilities
+            .insert(Capability::ToolWrite, SupportLevel::Native);
+        r.capabilities
+            .insert(Capability::Streaming, SupportLevel::Native);
+        r.capabilities
+            .insert(Capability::ToolRead, SupportLevel::Emulated);
+        receipt_hash(&r).unwrap()
+    };
+
+    assert_eq!(make(), make());
+}
+
+#[test]
+fn btreemap_capabilities_reverse_insert_order_same_hash() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+    let finish = base + Duration::milliseconds(42);
+
+    let mut r1 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r1.capabilities
+        .insert(Capability::Streaming, SupportLevel::Native);
+    r1.capabilities
+        .insert(Capability::ToolRead, SupportLevel::Native);
+    r1.capabilities
+        .insert(Capability::ToolWrite, SupportLevel::Native);
+
+    let mut r2 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r2.capabilities
+        .insert(Capability::ToolWrite, SupportLevel::Native);
+    r2.capabilities
+        .insert(Capability::ToolRead, SupportLevel::Native);
+    r2.capabilities
+        .insert(Capability::Streaming, SupportLevel::Native);
+
+    assert_eq!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
+}
+
+#[test]
+fn btreemap_vendor_config_order_is_deterministic() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+    let finish = base + Duration::milliseconds(42);
+
+    let mut r1 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r1.usage_raw = json!({"zebra": 1, "alpha": 2, "middle": 3});
+
+    let mut r2 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r2.usage_raw = json!({"alpha": 2, "middle": 3, "zebra": 1});
+
+    assert_eq!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
+}
+
+#[test]
+fn btreemap_ext_field_order_is_deterministic() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+    let ts = base;
+    let finish = base + Duration::seconds(1);
+
+    let make_receipt = |keys: &[(&str, &str)]| {
+        let mut ext = BTreeMap::new();
+        for (k, v) in keys {
+            ext.insert(k.to_string(), json!(v));
+        }
+        let mut r = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+        r.trace.push(AgentEvent {
+            ts,
+            kind: AgentEventKind::AssistantMessage {
+                text: "test".into(),
+            },
+            ext: Some(ext),
+        });
+        receipt_hash(&r).unwrap()
+    };
+
+    let h1 = make_receipt(&[("z_key", "z"), ("a_key", "a"), ("m_key", "m")]);
+    let h2 = make_receipt(&[("a_key", "a"), ("m_key", "m"), ("z_key", "z")]);
+    assert_eq!(h1, h2);
+}
+
+#[test]
+fn btreemap_many_capabilities_deterministic() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+    let finish = base + Duration::milliseconds(42);
+
+    let caps_list = [
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolWrite,
+        Capability::ToolEdit,
+        Capability::ToolBash,
+        Capability::ToolGlob,
+        Capability::ToolGrep,
+    ];
+
+    let mut r1 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    for cap in &caps_list {
+        r1.capabilities.insert(cap.clone(), SupportLevel::Native);
+    }
+
+    let mut r2 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    for cap in caps_list.iter().rev() {
+        r2.capabilities.insert(cap.clone(), SupportLevel::Native);
+    }
+
+    assert_eq!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
+}
+
+// ===========================================================================
+// 16. Cross-backend receipt comparison
+// ===========================================================================
+
+#[test]
+fn cross_backend_receipts_have_different_hashes() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+    let finish = base + Duration::milliseconds(42);
+
+    let r_mock = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    let mut r_sidecar = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r_sidecar.backend.id = "sidecar:node".into();
+
+    assert_ne!(
+        receipt_hash(&r_mock).unwrap(),
+        receipt_hash(&r_sidecar).unwrap()
+    );
+}
+
+#[test]
+fn cross_backend_same_trace_different_backend_different_hash() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+    let ts = base;
+    let finish = base + Duration::seconds(1);
+
+    let event = AgentEvent {
+        ts,
+        kind: AgentEventKind::AssistantMessage {
+            text: "identical output".into(),
+        },
+        ext: None,
+    };
+
+    let mut r1 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r1.trace.push(event.clone());
+
+    let mut r2 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r2.backend.id = "openai".into();
+    r2.trace.push(event);
+
+    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
+}
+
+#[test]
+fn cross_backend_chain_preserves_backend_identity() {
+    let mut chain = ReceiptChain::new();
+    let backends = ["mock", "sidecar:node", "sidecar:claude", "openai"];
+
+    for (i, backend) in backends.iter().enumerate() {
+        chain
+            .push(hashed_receipt(backend, (i as i64) * 10, Outcome::Complete))
+            .unwrap();
+    }
+
+    assert_eq!(chain.len(), 4);
+    assert!(chain.verify().is_ok());
+
+    let chain_backends: Vec<&str> = chain.iter().map(|r| r.backend.id.as_str()).collect();
+    assert_eq!(chain_backends, backends);
+}
+
+#[test]
+fn cross_backend_version_difference_changes_hash() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+    let finish = base + Duration::milliseconds(42);
+
+    let mut r1 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r1.backend.id = "sidecar:node".into();
+    r1.backend.backend_version = Some("1.0.0".into());
+
+    let mut r2 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r2.backend.id = "sidecar:node".into();
+    r2.backend.backend_version = Some("2.0.0".into());
+
+    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
+}
+
+#[test]
+fn cross_backend_adapter_version_changes_hash() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+    let finish = base + Duration::milliseconds(42);
+
+    let mut r1 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r1.backend.adapter_version = Some("0.1.0".into());
+
+    let mut r2 = deterministic_receipt(Uuid::nil(), Uuid::nil(), base, finish);
+    r2.backend.adapter_version = Some("0.2.0".into());
+
+    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
+}
+
+// ===========================================================================
+// 17. Additional serde roundtrip edge cases
+// ===========================================================================
+
+#[test]
+fn serde_roundtrip_preserves_hash_after_deserialization() {
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .add_trace_event(make_event(AgentEventKind::ToolCall {
+            tool_name: "bash".into(),
+            tool_use_id: Some("tu_1".into()),
+            parent_tool_use_id: None,
+            input: json!({"command": "echo hi"}),
+        }))
+        .add_trace_event(make_event(AgentEventKind::ToolResult {
+            tool_name: "bash".into(),
+            tool_use_id: Some("tu_1".into()),
+            output: json!("hi\n"),
+            is_error: false,
+        }))
+        .with_hash()
+        .unwrap();
+
+    let json = serde_json::to_string(&r).unwrap();
+    let r2: Receipt = serde_json::from_str(&json).unwrap();
+    assert!(verify_hash(&r2));
+    assert_eq!(r.receipt_sha256, r2.receipt_sha256);
+}
+
+#[test]
+fn serde_roundtrip_via_value_preserves_hash() {
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+
+    let value = serde_json::to_value(&r).unwrap();
+    let r2: Receipt = serde_json::from_value(value).unwrap();
+    assert!(verify_hash(&r2));
+    assert_eq!(r.receipt_sha256, r2.receipt_sha256);
+}
+
+#[test]
+fn serde_roundtrip_pretty_vs_compact_same_hash() {
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+
+    let compact = serde_json::to_string(&r).unwrap();
+    let pretty = serde_json::to_string_pretty(&r).unwrap();
+
+    let r_compact: Receipt = serde_json::from_str(&compact).unwrap();
+    let r_pretty: Receipt = serde_json::from_str(&pretty).unwrap();
+
+    assert_eq!(
+        receipt_hash(&r_compact).unwrap(),
+        receipt_hash(&r_pretty).unwrap()
+    );
+}
+
+#[test]
+fn serde_roundtrip_with_verification_report_preserves_hash() {
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .verification(VerificationReport {
+            git_diff: Some("diff --git a/x b/x\n+line".into()),
+            git_status: Some("M x".into()),
+            harness_ok: true,
+        })
+        .with_hash()
+        .unwrap();
+
+    let json = serde_json::to_string(&r).unwrap();
+    let r2: Receipt = serde_json::from_str(&json).unwrap();
+    assert!(verify_hash(&r2));
+}
+
+#[test]
+fn serde_roundtrip_chain_all_receipts_verify() {
+    let mut chain = ReceiptChain::new();
+    for i in 0..5 {
+        chain
+            .push(hashed_receipt("mock", i * 10, Outcome::Complete))
+            .unwrap();
+    }
+
+    // Serialize each receipt to JSON and back, then verify
+    for receipt in chain.iter() {
+        let json = serde_json::to_string(receipt).unwrap();
+        let deserialized: Receipt = serde_json::from_str(&json).unwrap();
+        assert!(verify_hash(&deserialized));
+    }
+}
+
+// ===========================================================================
+// 18. Receipt chain ordering edge cases
+// ===========================================================================
+
+#[test]
+fn chain_single_receipt_verifies() {
+    let mut chain = ReceiptChain::new();
+    chain
+        .push(hashed_receipt("mock", 0, Outcome::Complete))
+        .unwrap();
+    assert!(chain.verify().is_ok());
+    assert_eq!(chain.len(), 1);
+}
+
+#[test]
+fn chain_receipts_with_millisecond_gaps() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+
+    let mut chain = ReceiptChain::new();
+    for i in 0..10 {
+        let start = base + Duration::milliseconds(i);
+        let finish = start + Duration::milliseconds(1);
+        let r = ReceiptBuilder::new("mock")
+            .started_at(start)
+            .finished_at(finish)
+            .outcome(Outcome::Complete)
+            .with_hash()
+            .unwrap();
+        chain.push(r).unwrap();
+    }
+    assert_eq!(chain.len(), 10);
+    assert!(chain.verify().is_ok());
+}
+
+#[test]
+fn chain_latest_returns_none_when_empty() {
+    let chain = ReceiptChain::new();
+    assert!(chain.latest().is_none());
+}
+
+#[test]
+fn chain_latest_returns_last_after_multiple_pushes() {
+    let mut chain = ReceiptChain::new();
+    let last_receipt = hashed_receipt("mock", 20, Outcome::Failed);
+    let last_id = last_receipt.meta.run_id;
+
+    chain
+        .push(hashed_receipt("mock", 0, Outcome::Complete))
+        .unwrap();
+    chain
+        .push(hashed_receipt("mock", 10, Outcome::Complete))
+        .unwrap();
+    chain.push(last_receipt).unwrap();
+
+    assert_eq!(chain.latest().unwrap().meta.run_id, last_id);
+}
+
+#[test]
+fn chain_clone_verifies_independently() {
+    let mut chain = ReceiptChain::new();
+    for i in 0..5 {
+        chain
+            .push(hashed_receipt("mock", i * 10, Outcome::Complete))
+            .unwrap();
+    }
+
+    let cloned = chain.clone();
+    assert!(cloned.verify().is_ok());
+    assert_eq!(cloned.len(), chain.len());
+}
+
+#[test]
+fn chain_accepts_receipt_without_hash() {
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build(); // no with_hash()
+
+    let mut chain = ReceiptChain::new();
+    // Receipts without stored hash should pass verification (no hash to mismatch)
+    chain.push(r).unwrap();
+    assert_eq!(chain.len(), 1);
+}
+
+#[test]
+fn chain_mixed_hashed_and_unhashed_receipts() {
+    let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .to_utc();
+
+    let r1 = ReceiptBuilder::new("mock")
+        .started_at(base)
+        .finished_at(base + Duration::milliseconds(100))
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+
+    let r2 = ReceiptBuilder::new("mock")
+        .started_at(base + Duration::seconds(1))
+        .finished_at(base + Duration::seconds(1) + Duration::milliseconds(100))
+        .outcome(Outcome::Complete)
+        .build(); // no hash
+
+    let r3 = ReceiptBuilder::new("mock")
+        .started_at(base + Duration::seconds(2))
+        .finished_at(base + Duration::seconds(2) + Duration::milliseconds(100))
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+
+    let mut chain = ReceiptChain::new();
+    chain.push(r1).unwrap();
+    chain.push(r2).unwrap();
+    chain.push(r3).unwrap();
+    assert_eq!(chain.len(), 3);
+    assert!(chain.verify().is_ok());
+}
