@@ -71,6 +71,7 @@ name = "abp-cli"
 version = "0.1.0"
 dependencies = [
  "abp-claude-sdk",
+ "abp-cli-params",
  "abp-codex-sdk",
  "abp-copilot-sdk",
  "abp-core",
@@ -95,6 +96,14 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "abp-cli-params"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde_json",
 ]
 
 [[package]]

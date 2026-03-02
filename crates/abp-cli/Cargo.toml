@@ -24,6 +24,7 @@ abp-gemini-sdk = { path = "../abp-gemini-sdk" }
 abp-host = { path = "../abp-host" }
 abp-integrations = { path = "../abp-integrations" }
 abp-runtime = { path = "../abp-runtime" }
+abp-cli-params = { path = "../abp-cli-params" }
 anyhow.workspace = true
 chrono.workspace = true
 clap.workspace = true
