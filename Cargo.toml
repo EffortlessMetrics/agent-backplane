@@ -30,6 +30,7 @@ members = [
   "crates/abp-kimi-sdk",
   "crates/abp-mapping",
   "crates/abp-openai-sdk",
+  "crates/abp-queue",
   "crates/abp-policy",
   "crates/abp-receipt",
   "crates/abp-protocol",

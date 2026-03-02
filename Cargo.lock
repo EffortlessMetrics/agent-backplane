@@ -163,6 +163,7 @@ dependencies = [
  "abp-host",
  "abp-integrations",
  "abp-kimi-sdk",
+ "abp-queue",
  "abp-runtime",
  "anyhow",
  "axum",
@@ -357,6 +358,14 @@ dependencies = [
  "sidecar-kit",
  "thiserror 2.0.18",
  "uuid",
+]
+
+[[package]]
+name = "abp-queue"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

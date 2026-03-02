@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-use abp_daemon::queue::{QueueError, QueuePriority, QueueStats, QueuedRun, RunQueue};
+use abp_queue::{QueueError, QueuePriority, QueueStats, QueuedRun, RunQueue};
 use std::collections::BTreeMap;
 
 fn make_run(id: &str, priority: QueuePriority) -> QueuedRun {
