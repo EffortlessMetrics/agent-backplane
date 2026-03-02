@@ -33,6 +33,7 @@ members = [
   "crates/abp-policy",
   "crates/abp-receipt",
   "crates/abp-protocol",
+  "crates/abp-retry",
   "crates/abp-runtime",
   "crates/abp-sidecar-sdk",
   "crates/abp-telemetry",

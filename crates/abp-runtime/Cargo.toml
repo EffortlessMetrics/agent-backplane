@@ -15,6 +15,7 @@ abp-core = { path = "../abp-core" }
 abp-emulation = { path = "../abp-emulation" }
 abp-integrations = { path = "../abp-integrations" }
 abp-policy = { path = "../abp-policy" }
+abp-retry = { path = "../abp-retry" }
 abp-workspace = { path = "../abp-workspace" }
 serde.workspace = true
 anyhow.workspace = true
