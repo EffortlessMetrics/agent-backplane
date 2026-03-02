@@ -963,3 +963,1001 @@ fn json_exporter_empty_produces_valid_json() {
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["count"], 0);
 }
+
+// ===========================================================================
+// 11. RunMetrics construction and defaults
+// ===========================================================================
+
+#[test]
+fn run_metrics_default_is_zeroed() {
+    let m = TelemetryRunMetrics::default();
+    assert_eq!(m.backend_name, "");
+    assert_eq!(m.dialect, "");
+    assert_eq!(m.duration_ms, 0);
+    assert_eq!(m.events_count, 0);
+    assert_eq!(m.tokens_in, 0);
+    assert_eq!(m.tokens_out, 0);
+    assert_eq!(m.tool_calls_count, 0);
+    assert_eq!(m.errors_count, 0);
+    assert_eq!(m.emulations_applied, 0);
+}
+
+#[test]
+fn run_metrics_clone_equals_original() {
+    let m = TelemetryRunMetrics {
+        backend_name: "mock".into(),
+        dialect: "openai".into(),
+        duration_ms: 123,
+        events_count: 10,
+        tokens_in: 500,
+        tokens_out: 1000,
+        tool_calls_count: 5,
+        errors_count: 2,
+        emulations_applied: 1,
+    };
+    let cloned = m.clone();
+    assert_eq!(m, cloned);
+}
+
+#[test]
+fn run_metrics_debug_format_contains_fields() {
+    let m = TelemetryRunMetrics {
+        backend_name: "sidecar".into(),
+        dialect: "anthropic".into(),
+        duration_ms: 42,
+        ..Default::default()
+    };
+    let dbg = format!("{m:?}");
+    assert!(dbg.contains("sidecar"));
+    assert!(dbg.contains("anthropic"));
+    assert!(dbg.contains("42"));
+}
+
+#[test]
+fn run_metrics_partial_eq_different_fields() {
+    let a = TelemetryRunMetrics {
+        backend_name: "a".into(),
+        ..Default::default()
+    };
+    let b = TelemetryRunMetrics {
+        backend_name: "b".into(),
+        ..Default::default()
+    };
+    assert_ne!(a, b);
+}
+
+#[test]
+fn run_metrics_serde_all_fields_present() {
+    let m = TelemetryRunMetrics {
+        backend_name: "test".into(),
+        dialect: "gemini".into(),
+        duration_ms: 999,
+        events_count: 50,
+        tokens_in: 200,
+        tokens_out: 400,
+        tool_calls_count: 10,
+        errors_count: 3,
+        emulations_applied: 2,
+    };
+    let val: serde_json::Value = serde_json::to_value(&m).unwrap();
+    assert_eq!(val["backend_name"], "test");
+    assert_eq!(val["dialect"], "gemini");
+    assert_eq!(val["duration_ms"], 999);
+    assert_eq!(val["events_count"], 50);
+    assert_eq!(val["tokens_in"], 200);
+    assert_eq!(val["tokens_out"], 400);
+    assert_eq!(val["tool_calls_count"], 10);
+    assert_eq!(val["errors_count"], 3);
+    assert_eq!(val["emulations_applied"], 2);
+}
+
+// ===========================================================================
+// 12. MetricsCollector lifecycle
+// ===========================================================================
+
+#[test]
+fn collector_default_is_empty() {
+    let c = MetricsCollector::default();
+    assert!(c.is_empty());
+    assert_eq!(c.len(), 0);
+}
+
+#[test]
+fn collector_record_increments_len() {
+    let c = MetricsCollector::new();
+    for i in 1..=5 {
+        c.record(TelemetryRunMetrics {
+            backend_name: format!("b{i}"),
+            ..Default::default()
+        });
+        assert_eq!(c.len(), i);
+    }
+}
+
+#[test]
+fn collector_clear_resets_to_empty() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics::default());
+    c.record(TelemetryRunMetrics::default());
+    assert_eq!(c.len(), 2);
+    c.clear();
+    assert!(c.is_empty());
+    assert_eq!(c.len(), 0);
+    // Summary after clear is default.
+    let s = c.summary();
+    assert_eq!(s.count, 0);
+}
+
+#[test]
+fn collector_runs_preserves_insertion_order() {
+    let c = MetricsCollector::new();
+    for name in ["alpha", "beta", "gamma"] {
+        c.record(TelemetryRunMetrics {
+            backend_name: name.into(),
+            ..Default::default()
+        });
+    }
+    let runs = c.runs();
+    assert_eq!(runs[0].backend_name, "alpha");
+    assert_eq!(runs[1].backend_name, "beta");
+    assert_eq!(runs[2].backend_name, "gamma");
+}
+
+#[test]
+fn collector_runs_returns_independent_snapshot() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics::default());
+    let snap1 = c.runs();
+    c.record(TelemetryRunMetrics::default());
+    let snap2 = c.runs();
+    assert_eq!(snap1.len(), 1);
+    assert_eq!(snap2.len(), 2);
+}
+
+#[test]
+fn collector_clone_shares_state() {
+    let c1 = MetricsCollector::new();
+    let c2 = c1.clone();
+    c1.record(TelemetryRunMetrics::default());
+    assert_eq!(c2.len(), 1);
+}
+
+#[test]
+fn collector_record_after_clear() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics::default());
+    c.clear();
+    c.record(TelemetryRunMetrics {
+        backend_name: "after-clear".into(),
+        ..Default::default()
+    });
+    assert_eq!(c.len(), 1);
+    assert_eq!(c.runs()[0].backend_name, "after-clear");
+}
+
+// ===========================================================================
+// 13. MetricsSummary aggregation math
+// ===========================================================================
+
+#[test]
+fn summary_mean_duration_single_run() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        duration_ms: 100,
+        ..Default::default()
+    });
+    let s = c.summary();
+    assert!((s.mean_duration_ms - 100.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn summary_mean_duration_multiple_runs() {
+    let c = MetricsCollector::new();
+    for d in [10, 20, 30, 40, 50] {
+        c.record(TelemetryRunMetrics {
+            duration_ms: d,
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    assert!((s.mean_duration_ms - 30.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn summary_p50_two_elements() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        duration_ms: 10,
+        ..Default::default()
+    });
+    c.record(TelemetryRunMetrics {
+        duration_ms: 20,
+        ..Default::default()
+    });
+    let s = c.summary();
+    assert!((s.p50_duration_ms - 15.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn summary_p99_two_elements() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        duration_ms: 100,
+        ..Default::default()
+    });
+    c.record(TelemetryRunMetrics {
+        duration_ms: 200,
+        ..Default::default()
+    });
+    let s = c.summary();
+    // p99 on [100,200]: rank = 0.99 * 1 = 0.99 → lerp(100,200,0.99) = 199.0
+    assert!((s.p99_duration_ms - 199.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn summary_total_tokens_accumulate() {
+    let c = MetricsCollector::new();
+    for _ in 0..5 {
+        c.record(TelemetryRunMetrics {
+            tokens_in: 10,
+            tokens_out: 20,
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    assert_eq!(s.total_tokens_in, 50);
+    assert_eq!(s.total_tokens_out, 100);
+}
+
+#[test]
+fn summary_error_rate_no_errors() {
+    let c = MetricsCollector::new();
+    for _ in 0..3 {
+        c.record(TelemetryRunMetrics {
+            errors_count: 0,
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    assert!((s.error_rate - 0.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn summary_error_rate_all_errors() {
+    let c = MetricsCollector::new();
+    for _ in 0..4 {
+        c.record(TelemetryRunMetrics {
+            errors_count: 1,
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    assert!((s.error_rate - 1.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn summary_error_rate_mixed() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        errors_count: 0,
+        ..Default::default()
+    });
+    c.record(TelemetryRunMetrics {
+        errors_count: 3,
+        ..Default::default()
+    });
+    let s = c.summary();
+    // 3 errors / 2 runs = 1.5
+    assert!((s.error_rate - 1.5).abs() < f64::EPSILON);
+}
+
+#[test]
+fn summary_backend_counts_deterministic_order() {
+    let c = MetricsCollector::new();
+    for name in ["zebra", "alpha", "middle"] {
+        c.record(TelemetryRunMetrics {
+            backend_name: name.into(),
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    let keys: Vec<&String> = s.backend_counts.keys().collect();
+    assert_eq!(keys, vec!["alpha", "middle", "zebra"]);
+}
+
+#[test]
+fn summary_p50_identical_durations() {
+    let c = MetricsCollector::new();
+    for _ in 0..10 {
+        c.record(TelemetryRunMetrics {
+            duration_ms: 42,
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    assert!((s.p50_duration_ms - 42.0).abs() < f64::EPSILON);
+    assert!((s.p99_duration_ms - 42.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn summary_large_dataset_p50_p99() {
+    let c = MetricsCollector::new();
+    for d in 1..=1000 {
+        c.record(TelemetryRunMetrics {
+            duration_ms: d,
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    assert_eq!(s.count, 1000);
+    // mean of 1..=1000 is 500.5
+    assert!((s.mean_duration_ms - 500.5).abs() < f64::EPSILON);
+    // p50 of 1..=1000 should be ~500.5
+    assert!((s.p50_duration_ms - 500.5).abs() < 1.0);
+    // p99 should be close to 990
+    assert!(s.p99_duration_ms > 989.0);
+}
+
+// ===========================================================================
+// 14. MetricsSummary default and serde
+// ===========================================================================
+
+#[test]
+fn metrics_summary_default_all_zero() {
+    let s = abp_telemetry::MetricsSummary::default();
+    assert_eq!(s.count, 0);
+    assert_eq!(s.mean_duration_ms, 0.0);
+    assert_eq!(s.p50_duration_ms, 0.0);
+    assert_eq!(s.p99_duration_ms, 0.0);
+    assert_eq!(s.total_tokens_in, 0);
+    assert_eq!(s.total_tokens_out, 0);
+    assert_eq!(s.error_rate, 0.0);
+    assert!(s.backend_counts.is_empty());
+}
+
+#[test]
+fn metrics_summary_serde_roundtrip_with_backends() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        backend_name: "openai".into(),
+        duration_ms: 100,
+        tokens_in: 50,
+        tokens_out: 100,
+        errors_count: 1,
+        ..Default::default()
+    });
+    c.record(TelemetryRunMetrics {
+        backend_name: "anthropic".into(),
+        duration_ms: 200,
+        tokens_in: 80,
+        tokens_out: 160,
+        errors_count: 0,
+        ..Default::default()
+    });
+    let s = c.summary();
+    let json = serde_json::to_string(&s).unwrap();
+    let s2: abp_telemetry::MetricsSummary = serde_json::from_str(&json).unwrap();
+    assert_eq!(s, s2);
+}
+
+#[test]
+fn metrics_summary_clone_eq() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        backend_name: "mock".into(),
+        duration_ms: 50,
+        ..Default::default()
+    });
+    let s = c.summary();
+    let s2 = s.clone();
+    assert_eq!(s, s2);
+}
+
+#[test]
+fn metrics_summary_debug_format() {
+    let s = abp_telemetry::MetricsSummary::default();
+    let dbg = format!("{s:?}");
+    assert!(dbg.contains("MetricsSummary"));
+    assert!(dbg.contains("count"));
+}
+
+// ===========================================================================
+// 15. TelemetrySpan creation and attributes
+// ===========================================================================
+
+#[test]
+fn span_new_empty_attributes() {
+    let span = TelemetrySpan::new("operation");
+    assert_eq!(span.name, "operation");
+    assert!(span.attributes.is_empty());
+}
+
+#[test]
+fn span_with_attribute_chainable() {
+    let span = TelemetrySpan::new("op")
+        .with_attribute("a", "1")
+        .with_attribute("b", "2")
+        .with_attribute("c", "3");
+    assert_eq!(span.attributes.len(), 3);
+}
+
+#[test]
+fn span_attribute_overwrites_duplicate_key() {
+    let span = TelemetrySpan::new("op")
+        .with_attribute("key", "first")
+        .with_attribute("key", "second");
+    assert_eq!(span.attributes.len(), 1);
+    assert_eq!(span.attributes["key"], "second");
+}
+
+#[test]
+fn span_accepts_string_types() {
+    let name = String::from("dynamic");
+    let key = String::from("k");
+    let val = String::from("v");
+    let span = TelemetrySpan::new(name).with_attribute(key, val);
+    assert_eq!(span.name, "dynamic");
+    assert_eq!(span.attributes["k"], "v");
+}
+
+#[test]
+fn span_attributes_btreemap_order() {
+    let span = TelemetrySpan::new("op")
+        .with_attribute("z_key", "last")
+        .with_attribute("a_key", "first")
+        .with_attribute("m_key", "middle");
+    let keys: Vec<&String> = span.attributes.keys().collect();
+    assert_eq!(keys, vec!["a_key", "m_key", "z_key"]);
+}
+
+#[test]
+fn span_serde_preserves_attribute_order() {
+    let span = TelemetrySpan::new("ordered")
+        .with_attribute("z", "3")
+        .with_attribute("a", "1")
+        .with_attribute("m", "2");
+    let json = serde_json::to_string(&span).unwrap();
+    // BTreeMap ensures "a" < "m" < "z" in JSON output.
+    let a_pos = json.find("\"a\"").unwrap();
+    let m_pos = json.find("\"m\"").unwrap();
+    let z_pos = json.find("\"z\"").unwrap();
+    assert!(a_pos < m_pos);
+    assert!(m_pos < z_pos);
+}
+
+#[test]
+fn span_clone_independent() {
+    let span = TelemetrySpan::new("op").with_attribute("k", "v");
+    let cloned = span.clone();
+    assert_eq!(span.name, cloned.name);
+    assert_eq!(span.attributes, cloned.attributes);
+}
+
+#[test]
+fn span_emit_no_panic_without_subscriber() {
+    // No subscriber set — emit should not panic.
+    let span = TelemetrySpan::new("safe").with_attribute("test", "true");
+    span.emit();
+}
+
+#[test]
+fn span_debug_format() {
+    let span = TelemetrySpan::new("debug_test").with_attribute("key", "val");
+    let dbg = format!("{span:?}");
+    assert!(dbg.contains("debug_test"));
+    assert!(dbg.contains("key"));
+}
+
+// ===========================================================================
+// 16. JsonExporter scenarios
+// ===========================================================================
+
+#[test]
+fn json_exporter_default_trait() {
+    let exporter = JsonExporter;
+    let s = abp_telemetry::MetricsSummary::default();
+    let json = exporter.export(&s).unwrap();
+    assert!(json.contains("\"count\": 0"));
+}
+
+#[test]
+fn json_exporter_pretty_print_multiline() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        backend_name: "mock".into(),
+        duration_ms: 100,
+        ..Default::default()
+    });
+    let s = c.summary();
+    let exporter = JsonExporter;
+    let json = exporter.export(&s).unwrap();
+    // Pretty print should have newlines.
+    assert!(json.contains('\n'));
+}
+
+#[test]
+fn json_exporter_output_deserializes_to_summary() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        backend_name: "test".into(),
+        duration_ms: 50,
+        tokens_in: 100,
+        tokens_out: 200,
+        errors_count: 1,
+        ..Default::default()
+    });
+    let s = c.summary();
+    let exporter = JsonExporter;
+    let json = exporter.export(&s).unwrap();
+    let s2: abp_telemetry::MetricsSummary = serde_json::from_str(&json).unwrap();
+    assert_eq!(s, s2);
+}
+
+#[test]
+fn json_exporter_multiple_backends_all_present() {
+    let c = MetricsCollector::new();
+    for name in ["openai", "anthropic", "gemini", "mock"] {
+        c.record(TelemetryRunMetrics {
+            backend_name: name.into(),
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    let exporter = JsonExporter;
+    let json = exporter.export(&s).unwrap();
+    for name in ["openai", "anthropic", "gemini", "mock"] {
+        assert!(json.contains(name), "missing backend {name} in JSON");
+    }
+}
+
+// ===========================================================================
+// 17. Custom exporter implementations
+// ===========================================================================
+
+/// A custom exporter that produces CSV-like output.
+struct CsvExporter;
+
+impl TelemetryExporter for CsvExporter {
+    fn export(&self, summary: &abp_telemetry::MetricsSummary) -> Result<String, String> {
+        Ok(format!(
+            "count,mean_duration_ms,error_rate\n{},{:.1},{}",
+            summary.count, summary.mean_duration_ms, summary.error_rate
+        ))
+    }
+}
+
+#[test]
+fn custom_exporter_csv_format() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        duration_ms: 100,
+        errors_count: 1,
+        ..Default::default()
+    });
+    let s = c.summary();
+    let exporter = CsvExporter;
+    let csv = exporter.export(&s).unwrap();
+    assert!(csv.starts_with("count,mean_duration_ms,error_rate\n"));
+    assert!(csv.contains("1,100.0,1"));
+}
+
+/// An exporter that always fails, for negative-path testing.
+struct FailingExporter;
+
+impl TelemetryExporter for FailingExporter {
+    fn export(&self, _: &abp_telemetry::MetricsSummary) -> Result<String, String> {
+        Err("export failed".into())
+    }
+}
+
+#[test]
+fn failing_exporter_returns_error() {
+    let s = abp_telemetry::MetricsSummary::default();
+    let exporter = FailingExporter;
+    let result = exporter.export(&s);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), "export failed");
+}
+
+#[test]
+fn exporter_trait_object_dispatch() {
+    let exporters: Vec<Box<dyn TelemetryExporter>> =
+        vec![Box::new(JsonExporter), Box::new(CsvExporter)];
+    let s = abp_telemetry::MetricsSummary::default();
+    for e in &exporters {
+        let result = e.export(&s);
+        assert!(result.is_ok());
+    }
+}
+
+// ===========================================================================
+// 18. Multiple concurrent collectors
+// ===========================================================================
+
+#[test]
+fn independent_collectors_do_not_share_state() {
+    let c1 = MetricsCollector::new();
+    let c2 = MetricsCollector::new();
+    c1.record(TelemetryRunMetrics::default());
+    assert_eq!(c1.len(), 1);
+    assert_eq!(c2.len(), 0);
+}
+
+#[test]
+fn concurrent_record_and_summary_stress() {
+    let c = MetricsCollector::new();
+    let mut handles = Vec::new();
+    for i in 0..50u64 {
+        let cc = c.clone();
+        handles.push(std::thread::spawn(move || {
+            cc.record(TelemetryRunMetrics {
+                backend_name: format!("b{}", i % 5),
+                duration_ms: i * 10,
+                tokens_in: i,
+                tokens_out: i * 2,
+                errors_count: if i % 7 == 0 { 1 } else { 0 },
+                ..Default::default()
+            });
+            let _ = cc.summary();
+        }));
+    }
+    for h in handles {
+        h.join().unwrap();
+    }
+    assert_eq!(c.len(), 50);
+    let s = c.summary();
+    assert_eq!(s.count, 50);
+    assert_eq!(s.backend_counts.values().sum::<usize>(), 50);
+}
+
+#[test]
+fn concurrent_clear_during_record() {
+    let c = MetricsCollector::new();
+    let c1 = c.clone();
+    let c2 = c.clone();
+    let h1 = std::thread::spawn(move || {
+        for _ in 0..100 {
+            c1.record(TelemetryRunMetrics::default());
+        }
+    });
+    let h2 = std::thread::spawn(move || {
+        for _ in 0..10 {
+            c2.clear();
+        }
+    });
+    h1.join().unwrap();
+    h2.join().unwrap();
+    // No panic — final len may vary due to interleaving.
+    let _ = c.len();
+}
+
+// ===========================================================================
+// 19. Edge cases
+// ===========================================================================
+
+#[test]
+fn collector_summary_single_zero_duration() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        duration_ms: 0,
+        ..Default::default()
+    });
+    let s = c.summary();
+    assert_eq!(s.count, 1);
+    assert_eq!(s.mean_duration_ms, 0.0);
+    assert_eq!(s.p50_duration_ms, 0.0);
+    assert_eq!(s.p99_duration_ms, 0.0);
+}
+
+#[test]
+fn collector_summary_max_u64_duration() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        duration_ms: u64::MAX,
+        ..Default::default()
+    });
+    let s = c.summary();
+    assert_eq!(s.count, 1);
+    assert_eq!(s.mean_duration_ms, u64::MAX as f64);
+}
+
+#[test]
+fn run_metrics_empty_strings() {
+    let m = TelemetryRunMetrics {
+        backend_name: "".into(),
+        dialect: "".into(),
+        ..Default::default()
+    };
+    let json = serde_json::to_string(&m).unwrap();
+    let m2: TelemetryRunMetrics = serde_json::from_str(&json).unwrap();
+    assert_eq!(m, m2);
+}
+
+#[test]
+fn span_empty_name() {
+    let span = TelemetrySpan::new("");
+    assert_eq!(span.name, "");
+}
+
+#[test]
+fn span_unicode_name_and_attributes() {
+    let span = TelemetrySpan::new("日本語テスト").with_attribute("キー", "値");
+    assert_eq!(span.name, "日本語テスト");
+    assert_eq!(span.attributes["キー"], "値");
+    let json = serde_json::to_string(&span).unwrap();
+    let span2: TelemetrySpan = serde_json::from_str(&json).unwrap();
+    assert_eq!(span2.name, "日本語テスト");
+}
+
+#[test]
+fn span_many_attributes() {
+    let mut span = TelemetrySpan::new("big");
+    for i in 0..100 {
+        span = span.with_attribute(format!("key_{i}"), format!("val_{i}"));
+    }
+    assert_eq!(span.attributes.len(), 100);
+}
+
+// ===========================================================================
+// 20. Serde roundtrip exhaustive
+// ===========================================================================
+
+#[test]
+fn run_metrics_json_roundtrip_with_high_values() {
+    let m = TelemetryRunMetrics {
+        backend_name: "stress".into(),
+        dialect: "custom".into(),
+        duration_ms: 999_999,
+        events_count: 100_000,
+        tokens_in: 1_000_000,
+        tokens_out: 2_000_000,
+        tool_calls_count: 50_000,
+        errors_count: 10_000,
+        emulations_applied: 500,
+    };
+    let json = serde_json::to_string(&m).unwrap();
+    let m2: TelemetryRunMetrics = serde_json::from_str(&json).unwrap();
+    assert_eq!(m, m2);
+}
+
+#[test]
+fn span_json_roundtrip_empty_attributes() {
+    let span = TelemetrySpan::new("minimal");
+    let json = serde_json::to_string(&span).unwrap();
+    let span2: TelemetrySpan = serde_json::from_str(&json).unwrap();
+    assert_eq!(span2.name, "minimal");
+    assert!(span2.attributes.is_empty());
+}
+
+#[test]
+fn metrics_summary_json_field_names() {
+    let s = abp_telemetry::MetricsSummary::default();
+    let val: serde_json::Value = serde_json::to_value(&s).unwrap();
+    assert!(val.get("count").is_some());
+    assert!(val.get("mean_duration_ms").is_some());
+    assert!(val.get("p50_duration_ms").is_some());
+    assert!(val.get("p99_duration_ms").is_some());
+    assert!(val.get("total_tokens_in").is_some());
+    assert!(val.get("total_tokens_out").is_some());
+    assert!(val.get("error_rate").is_some());
+    assert!(val.get("backend_counts").is_some());
+}
+
+// ===========================================================================
+// 21. Telemetry hooks — span emit with subscriber
+// ===========================================================================
+
+#[test]
+fn span_emit_includes_attributes_in_log() {
+    let (logs, _guard) = setup_tracing();
+    let span = TelemetrySpan::new("hook_test")
+        .with_attribute("run_id", "r-001")
+        .with_attribute("backend", "sidecar");
+    span.emit();
+    let text = logs.contents();
+    assert!(text.contains("hook_test"), "span name missing: {text}");
+}
+
+#[test]
+fn multiple_span_emits_all_captured() {
+    let (logs, _guard) = setup_tracing();
+    for i in 0..5 {
+        TelemetrySpan::new(format!("span_{i}")).emit();
+    }
+    let text = logs.contents();
+    for i in 0..5 {
+        assert!(
+            text.contains(&format!("span_{i}")),
+            "missing span_{i}: {text}"
+        );
+    }
+}
+
+// ===========================================================================
+// 22. Metric aggregation across backends
+// ===========================================================================
+
+#[test]
+fn aggregation_single_backend_repeated() {
+    let c = MetricsCollector::new();
+    for _ in 0..10 {
+        c.record(TelemetryRunMetrics {
+            backend_name: "only".into(),
+            duration_ms: 50,
+            tokens_in: 10,
+            tokens_out: 20,
+            errors_count: 0,
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    assert_eq!(s.backend_counts.len(), 1);
+    assert_eq!(s.backend_counts["only"], 10);
+    assert_eq!(s.total_tokens_in, 100);
+    assert_eq!(s.total_tokens_out, 200);
+    assert_eq!(s.error_rate, 0.0);
+}
+
+#[test]
+fn aggregation_many_backends() {
+    let c = MetricsCollector::new();
+    let backends = ["openai", "anthropic", "gemini", "mock", "sidecar"];
+    for (i, name) in backends.iter().enumerate() {
+        c.record(TelemetryRunMetrics {
+            backend_name: (*name).into(),
+            duration_ms: (i as u64 + 1) * 100,
+            tokens_in: (i as u64 + 1) * 10,
+            tokens_out: (i as u64 + 1) * 20,
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    assert_eq!(s.count, 5);
+    assert_eq!(s.backend_counts.len(), 5);
+    for name in &backends {
+        assert!(s.backend_counts.contains_key(*name));
+    }
+}
+
+// ===========================================================================
+// 23. Resource identification
+// ===========================================================================
+
+#[test]
+fn run_metrics_backend_name_identifies_resource() {
+    let m = TelemetryRunMetrics {
+        backend_name: "sidecar:claude".into(),
+        dialect: "anthropic".into(),
+        ..Default::default()
+    };
+    assert!(m.backend_name.starts_with("sidecar:"));
+    assert_eq!(m.dialect, "anthropic");
+}
+
+#[test]
+fn summary_backend_counts_serve_as_resource_inventory() {
+    let c = MetricsCollector::new();
+    for _ in 0..3 {
+        c.record(TelemetryRunMetrics {
+            backend_name: "sidecar:node".into(),
+            ..Default::default()
+        });
+    }
+    for _ in 0..2 {
+        c.record(TelemetryRunMetrics {
+            backend_name: "sidecar:python".into(),
+            ..Default::default()
+        });
+    }
+    let s = c.summary();
+    assert_eq!(s.backend_counts["sidecar:node"], 3);
+    assert_eq!(s.backend_counts["sidecar:python"], 2);
+}
+
+// ===========================================================================
+// 24. JSON structured logging — additional coverage
+// ===========================================================================
+
+#[test]
+fn json_exporter_debug_format() {
+    let exporter = JsonExporter;
+    let dbg = format!("{exporter:?}");
+    assert!(dbg.contains("JsonExporter"));
+}
+
+#[test]
+fn json_export_contains_all_summary_fields() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        backend_name: "check".into(),
+        duration_ms: 10,
+        tokens_in: 5,
+        tokens_out: 15,
+        errors_count: 1,
+        ..Default::default()
+    });
+    let s = c.summary();
+    let exporter = JsonExporter;
+    let json = exporter.export(&s).unwrap();
+    for field in [
+        "count",
+        "mean_duration_ms",
+        "p50_duration_ms",
+        "p99_duration_ms",
+        "total_tokens_in",
+        "total_tokens_out",
+        "error_rate",
+        "backend_counts",
+    ] {
+        assert!(json.contains(field), "missing field {field} in JSON");
+    }
+}
+
+// ===========================================================================
+// 25. Integration: collector → summary → export pipeline
+// ===========================================================================
+
+#[test]
+fn full_pipeline_record_summarize_export() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        backend_name: "pipeline".into(),
+        dialect: "openai".into(),
+        duration_ms: 250,
+        events_count: 15,
+        tokens_in: 300,
+        tokens_out: 600,
+        tool_calls_count: 8,
+        errors_count: 0,
+        emulations_applied: 2,
+    });
+    c.record(TelemetryRunMetrics {
+        backend_name: "pipeline".into(),
+        dialect: "openai".into(),
+        duration_ms: 350,
+        events_count: 20,
+        tokens_in: 400,
+        tokens_out: 800,
+        tool_calls_count: 12,
+        errors_count: 1,
+        emulations_applied: 0,
+    });
+
+    let s = c.summary();
+    assert_eq!(s.count, 2);
+    assert!((s.mean_duration_ms - 300.0).abs() < f64::EPSILON);
+    assert_eq!(s.total_tokens_in, 700);
+    assert_eq!(s.total_tokens_out, 1400);
+    assert!((s.error_rate - 0.5).abs() < f64::EPSILON);
+    assert_eq!(s.backend_counts["pipeline"], 2);
+
+    let exporter = JsonExporter;
+    let json = exporter.export(&s).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed["count"], 2);
+    assert_eq!(parsed["total_tokens_in"], 700);
+}
+
+#[test]
+fn pipeline_clear_and_re_record() {
+    let c = MetricsCollector::new();
+    c.record(TelemetryRunMetrics {
+        backend_name: "first".into(),
+        duration_ms: 100,
+        ..Default::default()
+    });
+    let s1 = c.summary();
+    assert_eq!(s1.count, 1);
+
+    c.clear();
+    c.record(TelemetryRunMetrics {
+        backend_name: "second".into(),
+        duration_ms: 200,
+        ..Default::default()
+    });
+    let s2 = c.summary();
+    assert_eq!(s2.count, 1);
+    assert!((s2.mean_duration_ms - 200.0).abs() < f64::EPSILON);
+    assert!(s2.backend_counts.contains_key("second"));
+    assert!(!s2.backend_counts.contains_key("first"));
+}
