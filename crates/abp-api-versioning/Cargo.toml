@@ -1,0 +1,18 @@
+[package]
+name = "abp-api-versioning"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Shared API version parsing and negotiation primitives for Agent Backplane components"
+readme = "README.md"
+keywords = ["agent", "backplane", "api", "versioning"]
+categories = ["web-programming", "api-bindings"]
+
+[lib]
+name = "abp_api_versioning"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true

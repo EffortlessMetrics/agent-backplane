@@ -22,6 +22,7 @@ path = "src/main.rs"
 anyhow.workspace = true
 clap.workspace = true
 abp-core = { path = "../abp-core" }
+abp-api-versioning = { path = "../abp-api-versioning" }
 abp-codex-sdk = { path = "../abp-codex-sdk" }
 abp-copilot-sdk = { path = "../abp-copilot-sdk" }
 abp-claude-sdk = { path = "../abp-claude-sdk" }
