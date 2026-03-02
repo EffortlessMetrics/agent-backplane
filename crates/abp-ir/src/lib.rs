@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![warn(missing_docs)]
 //! Re-exports of the cross-dialect IR types from [`abp_core::ir`].
 //!
 //! This crate provides a focused entry point for the intermediate
