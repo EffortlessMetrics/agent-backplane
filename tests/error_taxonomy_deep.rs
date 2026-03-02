@@ -1063,3 +1063,99 @@ fn protocol_error_unexpected_message_maps_correctly() {
     };
     assert_eq!(pe.error_code(), Some(ErrorCode::ProtocolUnexpectedMessage));
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 19. Additional edge cases for 100+ coverage
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn abp_error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<AbpError>();
+}
+
+#[test]
+fn protocol_error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<ProtocolError>();
+}
+
+#[test]
+fn runtime_error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<RuntimeError>();
+}
+
+#[test]
+fn abp_error_dto_clone() {
+    let dto = AbpErrorDto {
+        code: ErrorCode::Internal,
+        message: "msg".into(),
+        context: BTreeMap::new(),
+        source_message: Some("src".into()),
+    };
+    let cloned = dto.clone();
+    assert_eq!(dto, cloned);
+}
+
+#[test]
+fn error_code_hashset_dedup() {
+    let mut set = HashSet::new();
+    set.insert(ErrorCode::BackendTimeout);
+    set.insert(ErrorCode::BackendTimeout);
+    assert_eq!(set.len(), 1);
+}
+
+#[test]
+fn error_category_hashset_dedup() {
+    let mut set = HashSet::new();
+    set.insert(ErrorCategory::Protocol);
+    set.insert(ErrorCategory::Protocol);
+    assert_eq!(set.len(), 1);
+}
+
+#[test]
+fn abp_error_debug_omits_empty_context() {
+    let err = AbpError::new(ErrorCode::Internal, "simple");
+    let dbg = format!("{err:?}");
+    assert!(!dbg.contains("context"));
+}
+
+#[test]
+fn abp_error_debug_shows_nonempty_context() {
+    let err = AbpError::new(ErrorCode::Internal, "x").with_context("k", "v");
+    let dbg = format!("{err:?}");
+    assert!(dbg.contains("context"));
+}
+
+#[test]
+fn runtime_error_classified_display_matches_inner() {
+    let abp = AbpError::new(ErrorCode::ReceiptHashMismatch, "hash mismatch");
+    let expected = abp.to_string();
+    let rt = RuntimeError::Classified(AbpError::new(
+        ErrorCode::ReceiptHashMismatch,
+        "hash mismatch",
+    ));
+    assert_eq!(rt.to_string(), expected);
+}
+
+#[test]
+fn abp_error_context_overwrite_preserves_count() {
+    let err = AbpError::new(ErrorCode::Internal, "x")
+        .with_context("key", "first")
+        .with_context("key", "second");
+    assert_eq!(err.context.len(), 1);
+    assert_eq!(err.context["key"], serde_json::json!("second"));
+}
+
+#[test]
+fn all_error_codes_serialize_to_screaming_snake() {
+    for code in ALL_CODES {
+        let json = serde_json::to_string(code).unwrap();
+        let inner = json.trim_matches('"');
+        assert!(
+            inner.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
+            "{inner} is not SCREAMING_SNAKE_CASE"
+        );
+    }
+}
