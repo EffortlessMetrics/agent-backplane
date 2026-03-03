@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use abp_core::{AgentEvent, AgentEventKind};
 use chrono::{TimeZone, Utc};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::*;
 
 // ═══════════════════════════════════════════════════════════════════════

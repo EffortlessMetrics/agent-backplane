@@ -18,25 +18,20 @@
 use std::collections::BTreeMap;
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
-use abp_core::{
-    AgentEvent, AgentEventKind, Outcome, UsageNormalized, WorkOrderBuilder, CONTRACT_VERSION,
-};
+use abp_core::{AgentEvent, AgentEventKind, CONTRACT_VERSION, UsageNormalized, WorkOrderBuilder};
 use abp_dialect::Dialect;
 use abp_kimi_sdk::dialect::{
     self, CanonicalToolDef, KimiBuiltinFunction, KimiBuiltinTool, KimiChoice, KimiChunk,
     KimiChunkChoice, KimiChunkDelta, KimiChunkFunctionCall, KimiChunkToolCall, KimiConfig,
     KimiFunctionCall, KimiFunctionDef, KimiMessage, KimiRef, KimiRequest, KimiResponse,
-    KimiResponseMessage, KimiRole, KimiTool, KimiToolCall, KimiToolDef, KimiUsage,
-    ToolCallAccumulator,
+    KimiResponseMessage, KimiRole, KimiTool, KimiToolCall, KimiUsage, ToolCallAccumulator,
 };
 use abp_kimi_sdk::lowering;
-use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingError, MappingRegistry, MappingRule,
-};
+use abp_mapping::{Fidelity, MappingError, features, known_rules, validate_mapping};
 use abp_shim_kimi::{
-    events_to_stream_chunks, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
-    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    response_to_ir, KimiClient, KimiRequestBuilder, Message, ProcessFn, Usage,
+    KimiClient, KimiRequestBuilder, Message, ProcessFn, events_to_stream_chunks, ir_to_messages,
+    ir_usage_to_usage, messages_to_ir, mock_receipt, mock_receipt_with_usage, receipt_to_response,
+    request_to_work_order, response_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;
