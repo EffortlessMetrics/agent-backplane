@@ -537,14 +537,15 @@ fn error_code_as_str_stable() {
         ErrorCode::ProtocolInvalidEnvelope.as_str(),
         "protocol_invalid_envelope"
     );
-    assert_eq!(ErrorCode::Internal.as_str(), "INTERNAL");
+    assert_eq!(ErrorCode::Internal.as_str(), "internal");
 }
 
 #[test]
-fn error_code_display_matches_as_str() {
+fn error_code_display_matches_message() {
     use abp_error::ErrorCode;
     let code = ErrorCode::PolicyDenied;
-    assert_eq!(code.to_string(), code.as_str());
+    // Display uses .message() (human-readable), not .as_str() (snake_case code)
+    assert_eq!(code.to_string(), code.message());
 }
 
 #[test]
