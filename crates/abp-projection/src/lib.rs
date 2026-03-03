@@ -93,6 +93,61 @@ pub struct RequiredEmulation {
     pub strategy: String,
 }
 
+// ── Routing types ───────────────────────────────────────────────────────
+
+/// A single hop in a routing path between dialects.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoutingHop {
+    /// Source dialect of this hop.
+    pub from: Dialect,
+    /// Target dialect of this hop.
+    pub to: Dialect,
+    /// Mapper hint for this hop (e.g. `"openai_to_claude"`).
+    pub mapper_hint: Option<String>,
+}
+
+/// A resolved path from source to target dialect, possibly through intermediates.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RoutingPath {
+    /// Ordered list of hops from source to target.
+    pub hops: Vec<RoutingHop>,
+    /// Total cost: 0 for identity, 1 for direct, 2+ for multi-hop.
+    pub cost: u32,
+    /// Estimated fidelity for the full path in `[0.0, 1.0]`.
+    pub fidelity: f64,
+}
+
+impl RoutingPath {
+    /// Returns `true` if this is a direct (single-hop) path.
+    #[must_use]
+    pub fn is_direct(&self) -> bool {
+        self.hops.len() <= 1
+    }
+
+    /// Returns `true` if this is a multi-hop path.
+    #[must_use]
+    pub fn is_multi_hop(&self) -> bool {
+        self.hops.len() > 1
+    }
+}
+
+/// Score indicating how well a mapper preserves fidelity for a dialect pair.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompatibilityScore {
+    /// Source dialect.
+    pub source: Dialect,
+    /// Target dialect.
+    pub target: Dialect,
+    /// Overall fidelity rating in `[0.0, 1.0]`.
+    pub fidelity: f64,
+    /// Number of features that map losslessly.
+    pub lossless_features: usize,
+    /// Number of features that map with some loss.
+    pub lossy_features: usize,
+    /// Number of features unsupported in the mapping.
+    pub unsupported_features: usize,
+}
+
 // ── Dialect projection types ────────────────────────────────────────────
 
 /// Describes how a dialect pair should be projected.
@@ -268,6 +323,170 @@ impl ProjectionMatrix {
             ProjectionMode::Unsupported => None,
             ProjectionMode::Passthrough => Some(Box::new(IdentityMapper)),
             ProjectionMode::Mapped => resolve_mapper_for_pair(source, target),
+        }
+    }
+
+    /// Finds the best routing path from `source` to `target`.
+    ///
+    /// Tries direct mapping first (cost 1), then multi-hop through one
+    /// intermediate dialect (cost 2). Returns `None` if no path exists.
+    #[must_use]
+    pub fn find_route(&self, source: Dialect, target: Dialect) -> Option<RoutingPath> {
+        if source == target {
+            return Some(RoutingPath {
+                hops: vec![],
+                cost: 0,
+                fidelity: 1.0,
+            });
+        }
+
+        // Try direct mapping.
+        if let Some(entry) = self.lookup(source, target) {
+            if entry.mode != ProjectionMode::Unsupported {
+                let fidelity = self.route_hop_fidelity(source, target);
+                return Some(RoutingPath {
+                    hops: vec![RoutingHop {
+                        from: source,
+                        to: target,
+                        mapper_hint: entry.mapper_hint.clone(),
+                    }],
+                    cost: 1,
+                    fidelity,
+                });
+            }
+        }
+
+        // Multi-hop: try all intermediate dialects, pick lowest cost / highest fidelity.
+        let mut best: Option<RoutingPath> = None;
+
+        for &mid in Dialect::all() {
+            if mid == source || mid == target {
+                continue;
+            }
+
+            let hop1_ok = self
+                .lookup(source, mid)
+                .is_some_and(|e| e.mode != ProjectionMode::Unsupported);
+            let hop2_ok = self
+                .lookup(mid, target)
+                .is_some_and(|e| e.mode != ProjectionMode::Unsupported);
+
+            if hop1_ok && hop2_ok {
+                let f1 = self.route_hop_fidelity(source, mid);
+                let f2 = self.route_hop_fidelity(mid, target);
+                let combined = f1 * f2;
+
+                let entry1 = self.lookup(source, mid).unwrap();
+                let entry2 = self.lookup(mid, target).unwrap();
+
+                let path = RoutingPath {
+                    hops: vec![
+                        RoutingHop {
+                            from: source,
+                            to: mid,
+                            mapper_hint: entry1.mapper_hint.clone(),
+                        },
+                        RoutingHop {
+                            from: mid,
+                            to: target,
+                            mapper_hint: entry2.mapper_hint.clone(),
+                        },
+                    ],
+                    cost: 2,
+                    fidelity: combined,
+                };
+
+                best = Some(match best {
+                    None => path,
+                    Some(prev) if path.fidelity > prev.fidelity => path,
+                    Some(prev) => prev,
+                });
+            }
+        }
+
+        best
+    }
+
+    /// Compute per-hop fidelity based on the mapping registry.
+    fn route_hop_fidelity(&self, source: Dialect, target: Dialect) -> f64 {
+        self.mapping_fidelity(Some(source), target)
+    }
+
+    /// Removes a dialect pair entry from the matrix.
+    ///
+    /// Returns the removed entry, or `None` if no entry existed.
+    pub fn remove(&mut self, source: Dialect, target: Dialect) -> Option<ProjectionEntry> {
+        let pair = DialectPair::new(source, target);
+        self.dialect_entries.remove(&pair)
+    }
+
+    /// Removes a backend from the matrix by id.
+    ///
+    /// Returns `true` if the backend was present.
+    pub fn remove_backend(&mut self, id: &str) -> bool {
+        self.backends.remove(id).is_some()
+    }
+
+    /// Compute a compatibility score for a specific dialect pair.
+    ///
+    /// Evaluates all configured mapping features and summarises lossless,
+    /// lossy, and unsupported counts.
+    #[must_use]
+    pub fn compatibility_score(&self, source: Dialect, target: Dialect) -> CompatibilityScore {
+        if source == target {
+            let feat_count = self.mapping_features.len();
+            return CompatibilityScore {
+                source,
+                target,
+                fidelity: 1.0,
+                lossless_features: feat_count,
+                lossy_features: 0,
+                unsupported_features: 0,
+            };
+        }
+
+        if self.mapping_features.is_empty() {
+            let fidelity = self.mapping_fidelity(Some(source), target);
+            return CompatibilityScore {
+                source,
+                target,
+                fidelity,
+                lossless_features: 0,
+                lossy_features: 0,
+                unsupported_features: 0,
+            };
+        }
+
+        let validations = abp_mapping::validate_mapping(
+            &self.mapping_registry,
+            source,
+            target,
+            &self.mapping_features,
+        );
+
+        let mut lossless = 0usize;
+        let mut lossy = 0usize;
+        let mut unsupported = 0usize;
+
+        for v in &validations {
+            if v.fidelity.is_lossless() {
+                lossless += 1;
+            } else if v.fidelity.is_unsupported() {
+                unsupported += 1;
+            } else {
+                lossy += 1;
+            }
+        }
+
+        let fidelity = self.mapping_fidelity(Some(source), target);
+
+        CompatibilityScore {
+            source,
+            target,
+            fidelity,
+            lossless_features: lossless,
+            lossy_features: lossy,
+            unsupported_features: unsupported,
         }
     }
 
