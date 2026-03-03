@@ -10,20 +10,41 @@
 //! requests, responses, and events between different agent-SDK dialects
 //! (OpenAI, Claude, Gemini, Codex, Kimi, Copilot).
 //!
-//! ## Implementations
+//! ## JSON-level mappers
 //!
 //! - [`IdentityMapper`] — passthrough mapper that performs no transformation.
 //! - [`OpenAiToClaudeMapper`] — maps OpenAI chat-completions format to Claude messages API.
 //! - [`ClaudeToOpenAiMapper`] — maps Claude messages API format to OpenAI chat-completions.
+//!
+//! ## IR-level mappers
+//!
+//! - [`IrMapper`] — trait for IR-level cross-dialect translation.
+//! - [`IrIdentityMapper`] — passthrough IR mapper.
+//! - [`OpenAiClaudeIrMapper`] — bidirectional OpenAI ↔ Claude IR mapper.
+//! - [`OpenAiGeminiIrMapper`] — bidirectional OpenAI ↔ Gemini IR mapper.
+//! - [`MapError`] — typed errors for IR mapping failures.
+//! - [`default_ir_mapper`] — factory for resolving IR mappers by dialect pair.
 
 mod claude_to_openai;
 mod error;
+mod factory;
 mod identity;
+mod ir_identity;
+mod ir_mapper;
+mod ir_openai_claude;
+mod ir_openai_gemini;
+mod map_error;
 mod openai_to_claude;
 
 pub use claude_to_openai::ClaudeToOpenAiMapper;
 pub use error::MappingError;
+pub use factory::{default_ir_mapper, supported_ir_pairs};
 pub use identity::IdentityMapper;
+pub use ir_identity::IrIdentityMapper;
+pub use ir_mapper::IrMapper;
+pub use ir_openai_claude::OpenAiClaudeIrMapper;
+pub use ir_openai_gemini::OpenAiGeminiIrMapper;
+pub use map_error::MapError;
 pub use openai_to_claude::OpenAiToClaudeMapper;
 
 use abp_core::AgentEvent;
@@ -89,6 +110,9 @@ pub trait Mapper: Send + Sync {
     /// The target dialect this mapper writes to.
     fn target_dialect(&self) -> Dialect;
 }
+
+#[cfg(test)]
+mod ir_tests;
 
 #[cfg(test)]
 mod tests {
