@@ -6,13 +6,10 @@
 
 use std::collections::BTreeMap;
 
-use abp_core::{
-    AgentEventKind, Outcome, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder,
-};
+use abp_core::{AgentEventKind, Outcome, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder};
 
 use crate::dialect::{
-    GeminiCandidate, GeminiContent, GeminiPart, GeminiRequest, GeminiResponse,
-    GeminiUsageMetadata,
+    GeminiCandidate, GeminiContent, GeminiPart, GeminiRequest, GeminiResponse, GeminiUsageMetadata,
 };
 
 // ---------------------------------------------------------------------------
@@ -174,8 +171,8 @@ impl From<Receipt> for GeminiResponse {
 mod tests {
     use super::*;
     use crate::dialect::{
-        GeminiGenerationConfig, GeminiSafetySetting, GeminiTool,
-        GeminiFunctionDeclaration, HarmBlockThreshold, HarmCategory,
+        GeminiFunctionDeclaration, GeminiGenerationConfig, GeminiSafetySetting, GeminiTool,
+        HarmBlockThreshold, HarmCategory,
     };
     use abp_core::{Outcome, ReceiptBuilder};
 
@@ -454,9 +451,7 @@ mod tests {
             .work_order_id(wo.id)
             .add_trace_event(abp_core::AgentEvent {
                 ts: chrono::Utc::now(),
-                kind: AgentEventKind::AssistantMessage {
-                    text: "Hi!".into(),
-                },
+                kind: AgentEventKind::AssistantMessage { text: "Hi!".into() },
                 ext: None,
             })
             .build();

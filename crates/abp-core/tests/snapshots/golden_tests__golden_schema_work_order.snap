@@ -136,6 +136,81 @@ expression: value
           "const": "stop_sequences",
           "description": "Support custom stop sequences.",
           "type": "string"
+        },
+        {
+          "const": "function_calling",
+          "description": "Legacy function-calling style (distinct from tool_use in some SDKs).",
+          "type": "string"
+        },
+        {
+          "const": "vision",
+          "description": "Accept images as input (vision models).",
+          "type": "string"
+        },
+        {
+          "const": "audio",
+          "description": "Accept audio as input.",
+          "type": "string"
+        },
+        {
+          "const": "json_mode",
+          "description": "Constrain output to valid JSON.",
+          "type": "string"
+        },
+        {
+          "const": "system_message",
+          "description": "Support system-level prompt messages.",
+          "type": "string"
+        },
+        {
+          "const": "temperature",
+          "description": "Temperature sampling parameter.",
+          "type": "string"
+        },
+        {
+          "const": "top_p",
+          "description": "Top-p (nucleus) sampling parameter.",
+          "type": "string"
+        },
+        {
+          "const": "top_k",
+          "description": "Top-k sampling parameter.",
+          "type": "string"
+        },
+        {
+          "const": "max_tokens",
+          "description": "Maximum token limit parameter.",
+          "type": "string"
+        },
+        {
+          "const": "frequency_penalty",
+          "description": "Frequency penalty parameter.",
+          "type": "string"
+        },
+        {
+          "const": "presence_penalty",
+          "description": "Presence penalty parameter.",
+          "type": "string"
+        },
+        {
+          "const": "cache_control",
+          "description": "Prompt caching / cache-control hints.",
+          "type": "string"
+        },
+        {
+          "const": "batch_mode",
+          "description": "Batch request API support.",
+          "type": "string"
+        },
+        {
+          "const": "embeddings",
+          "description": "Text embedding generation.",
+          "type": "string"
+        },
+        {
+          "const": "image_generation",
+          "description": "Image generation (e.g. DALL-E).",
+          "type": "string"
         }
       ]
     },
