@@ -9,20 +9,20 @@
 
 use std::collections::BTreeMap;
 
-use abp_capability::{NegotiationResult, check_capability, generate_report, negotiate};
+use abp_capability::{check_capability, generate_report, negotiate, NegotiationResult};
 use abp_core::{
+    ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage},
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement,
     CapabilityRequirements, ExecutionMode, MinSupport, SupportLevel,
-    ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage},
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_emulation::{
-    EmulationConfig, EmulationEngine, EmulationStrategy, FidelityLabel, can_emulate,
-    compute_fidelity,
+    can_emulate, compute_fidelity, EmulationConfig, EmulationEngine, EmulationStrategy,
+    FidelityLabel,
 };
-use abp_mapping::{Fidelity, MappingError, MappingMatrix, features, known_rules, validate_mapping};
+use abp_mapping::{features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix};
 use abp_projection::{ProjectionError, ProjectionMatrix};
-use abp_stream::{EventFilter, EventRecorder, EventStats, EventTransform, event_kind_name};
+use abp_stream::{event_kind_name, EventFilter, EventRecorder, EventStats, EventTransform};
 use chrono::Utc;
 use serde_json::json;
 

@@ -3,8 +3,8 @@
 
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_mapping::{
-    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, features, known_rules,
-    validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
+    MappingRegistry, MappingRule,
 };
 use serde_json::json;
 
@@ -478,10 +478,9 @@ fn registry_insert_and_lookup() {
         feature: "tool_use".into(),
         fidelity: Fidelity::Lossless,
     });
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-            .is_some()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+        .is_some());
 }
 
 #[test]
@@ -508,12 +507,11 @@ fn registry_insert_replaces() {
         },
     });
     assert_eq!(reg.len(), 1);
-    assert!(
-        !reg.lookup(Dialect::OpenAi, Dialect::Claude, "f")
-            .unwrap()
-            .fidelity
-            .is_lossless()
-    );
+    assert!(!reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "f")
+        .unwrap()
+        .fidelity
+        .is_lossless());
 }
 
 #[test]

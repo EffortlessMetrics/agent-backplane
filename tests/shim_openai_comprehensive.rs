@@ -26,11 +26,11 @@ use abp_openai_sdk::streaming::{
 };
 use abp_openai_sdk::validation::{self, ExtendedRequestFields};
 use abp_shim_openai::{
-    ChatCompletionRequest, ChatCompletionResponse, Choice, Delta, FunctionCall, Message,
-    OpenAiClient, ProcessFn, Role, ShimError, StreamChoice, StreamEvent, Tool, ToolCall, Usage,
     events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
     mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    tools_to_ir,
+    tools_to_ir, ChatCompletionRequest, ChatCompletionResponse, Choice, Delta, FunctionCall,
+    Message, OpenAiClient, ProcessFn, Role, ShimError, StreamChoice, StreamEvent, Tool, ToolCall,
+    Usage,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -1419,14 +1419,12 @@ fn receipt_to_response_error_event() {
     let events = vec![error_event("quota exceeded")];
     let receipt = mock_receipt(events);
     let resp = receipt_to_response(&receipt, "gpt-4o");
-    assert!(
-        resp.choices[0]
-            .message
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("quota exceeded")
-    );
+    assert!(resp.choices[0]
+        .message
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("quota exceeded"));
 }
 
 #[test]
@@ -1654,13 +1652,11 @@ fn sdk_dialect_map_work_order_basic() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(
-        req.messages[0]
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("Refactor auth")
-    );
+    assert!(req.messages[0]
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("Refactor auth"));
 }
 
 #[test]

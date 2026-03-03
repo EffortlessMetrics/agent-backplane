@@ -2,13 +2,13 @@
 //! Comprehensive receipt creation, hashing, and chain tests (80+).
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel,
-    UsageNormalized, VerificationReport, canonical_json, receipt_hash, sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    BackendIdentity, Capability, CapabilityManifest, ExecutionMode, Outcome, Receipt, RunMetadata,
+    SupportLevel, UsageNormalized, VerificationReport, CONTRACT_VERSION,
 };
 use abp_receipt::{
-    ChainError, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash, diff_receipts,
-    verify_hash,
+    canonicalize, compute_hash, diff_receipts, verify_hash, ChainError, ReceiptBuilder,
+    ReceiptChain,
 };
 use chrono::{TimeZone, Utc};
 use std::collections::BTreeMap;

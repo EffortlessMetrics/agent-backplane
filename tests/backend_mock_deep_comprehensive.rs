@@ -11,10 +11,10 @@ use std::sync::Arc;
 
 use abp_backend_mock::MockBackend;
 use abp_core::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityManifest,
+    receipt_hash, AgentEvent, AgentEventKind, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
     ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, RuntimeConfig, SupportLevel,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, receipt_hash,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_integrations::Backend;
 use serde_json::json;
@@ -31,10 +31,7 @@ fn wo(task: &str) -> WorkOrder {
 
 async fn run_collect(task: &str) -> (Receipt, Vec<AgentEvent>) {
     let (tx, mut rx) = mpsc::channel(64);
-    let receipt = MockBackend
-        .run(Uuid::new_v4(), wo(task), tx)
-        .await
-        .unwrap();
+    let receipt = MockBackend.run(Uuid::new_v4(), wo(task), tx).await.unwrap();
     let mut events = Vec::new();
     while let Ok(ev) = rx.try_recv() {
         events.push(ev);
@@ -44,10 +41,7 @@ async fn run_collect(task: &str) -> (Receipt, Vec<AgentEvent>) {
 
 async fn run_receipt(task: &str) -> Receipt {
     let (tx, _rx) = mpsc::channel(64);
-    MockBackend
-        .run(Uuid::new_v4(), wo(task), tx)
-        .await
-        .unwrap()
+    MockBackend.run(Uuid::new_v4(), wo(task), tx).await.unwrap()
 }
 
 fn manual_wo(task: &str) -> WorkOrder {
@@ -327,10 +321,7 @@ async fn t30_events_arrive_in_order_via_channel() {
 
     let events = handle.await.unwrap();
     assert_eq!(events.len(), 4);
-    assert!(matches!(
-        &events[0].kind,
-        AgentEventKind::RunStarted { .. }
-    ));
+    assert!(matches!(&events[0].kind, AgentEventKind::RunStarted { .. }));
     assert!(matches!(
         &events[3].kind,
         AgentEventKind::RunCompleted { .. }
@@ -466,10 +457,7 @@ async fn t47_receipt_work_order_id_propagated() {
     let order = wo("prop");
     let wo_id = order.id;
     let (tx, _rx) = mpsc::channel(16);
-    let r = MockBackend
-        .run(Uuid::new_v4(), order, tx)
-        .await
-        .unwrap();
+    let r = MockBackend.run(Uuid::new_v4(), order, tx).await.unwrap();
     assert_eq!(r.meta.work_order_id, wo_id);
 }
 
@@ -915,9 +903,7 @@ async fn t85_with_model_config() {
 
 #[tokio::test]
 async fn t86_with_max_budget() {
-    let order = WorkOrderBuilder::new("budget")
-        .max_budget_usd(1.50)
-        .build();
+    let order = WorkOrderBuilder::new("budget").max_budget_usd(1.50).build();
     let (tx, _) = mpsc::channel(16);
     let r = MockBackend.run(Uuid::new_v4(), order, tx).await.unwrap();
     assert_eq!(r.outcome, Outcome::Complete);
@@ -972,9 +958,7 @@ async fn t90_with_include_exclude_globs() {
 #[tokio::test]
 async fn t91_with_env_vars_in_config() {
     let mut config = RuntimeConfig::default();
-    config
-        .env
-        .insert("MY_VAR".into(), "hello".into());
+    config.env.insert("MY_VAR".into(), "hello".into());
     let order = WorkOrderBuilder::new("env").config(config).build();
     let (tx, _) = mpsc::channel(16);
     let r = MockBackend.run(Uuid::new_v4(), order, tx).await.unwrap();
@@ -1062,9 +1046,7 @@ async fn t98_invalid_mode_falls_back_to_mapped() {
 #[tokio::test]
 async fn t99_no_abp_vendor_key_defaults_mapped() {
     let mut config = RuntimeConfig::default();
-    config
-        .vendor
-        .insert("other".into(), json!("foo"));
+    config.vendor.insert("other".into(), json!("foo"));
     let order = WorkOrderBuilder::new("no-abp").config(config).build();
     let (tx, _) = mpsc::channel(16);
     let r = MockBackend.run(Uuid::new_v4(), order, tx).await.unwrap();
@@ -1091,9 +1073,7 @@ async fn t101_policy_with_allowed_tools() {
         allowed_tools: vec!["read".into(), "write".into()],
         ..Default::default()
     };
-    let order = WorkOrderBuilder::new("allow")
-        .policy(policy)
-        .build();
+    let order = WorkOrderBuilder::new("allow").policy(policy).build();
     let (tx, _) = mpsc::channel(16);
     let r = MockBackend.run(Uuid::new_v4(), order, tx).await.unwrap();
     assert_eq!(r.outcome, Outcome::Complete);
@@ -1105,9 +1085,7 @@ async fn t102_policy_with_disallowed_tools() {
         disallowed_tools: vec!["bash".into()],
         ..Default::default()
     };
-    let order = WorkOrderBuilder::new("deny")
-        .policy(policy)
-        .build();
+    let order = WorkOrderBuilder::new("deny").policy(policy).build();
     let (tx, _) = mpsc::channel(16);
     let r = MockBackend.run(Uuid::new_v4(), order, tx).await.unwrap();
     assert_eq!(r.outcome, Outcome::Complete);
@@ -1119,9 +1097,7 @@ async fn t103_policy_with_deny_read_globs() {
         deny_read: vec!["/etc/**".into()],
         ..Default::default()
     };
-    let order = WorkOrderBuilder::new("deny-read")
-        .policy(policy)
-        .build();
+    let order = WorkOrderBuilder::new("deny-read").policy(policy).build();
     let (tx, _) = mpsc::channel(16);
     let r = MockBackend.run(Uuid::new_v4(), order, tx).await.unwrap();
     assert_eq!(r.outcome, Outcome::Complete);
@@ -1133,9 +1109,7 @@ async fn t104_policy_with_deny_write_globs() {
         deny_write: vec!["*.lock".into()],
         ..Default::default()
     };
-    let order = WorkOrderBuilder::new("deny-write")
-        .policy(policy)
-        .build();
+    let order = WorkOrderBuilder::new("deny-write").policy(policy).build();
     let (tx, _) = mpsc::channel(16);
     let r = MockBackend.run(Uuid::new_v4(), order, tx).await.unwrap();
     assert_eq!(r.outcome, Outcome::Complete);
@@ -1148,9 +1122,7 @@ async fn t105_policy_with_network_rules() {
         deny_network: vec!["evil.com".into()],
         ..Default::default()
     };
-    let order = WorkOrderBuilder::new("net")
-        .policy(policy)
-        .build();
+    let order = WorkOrderBuilder::new("net").policy(policy).build();
     let (tx, _) = mpsc::channel(16);
     let r = MockBackend.run(Uuid::new_v4(), order, tx).await.unwrap();
     assert_eq!(r.outcome, Outcome::Complete);
@@ -1162,9 +1134,7 @@ async fn t106_policy_with_approval_required() {
         require_approval_for: vec!["bash".into(), "write".into()],
         ..Default::default()
     };
-    let order = WorkOrderBuilder::new("approval")
-        .policy(policy)
-        .build();
+    let order = WorkOrderBuilder::new("approval").policy(policy).build();
     let (tx, _) = mpsc::channel(16);
     let r = MockBackend.run(Uuid::new_v4(), order, tx).await.unwrap();
     assert_eq!(r.outcome, Outcome::Complete);
@@ -1182,9 +1152,7 @@ async fn t107_satisfied_emulated_requirement() {
             min_support: MinSupport::Emulated,
         }],
     };
-    let order = WorkOrderBuilder::new("ok-emu")
-        .requirements(reqs)
-        .build();
+    let order = WorkOrderBuilder::new("ok-emu").requirements(reqs).build();
     let (tx, _) = mpsc::channel(16);
     let r = MockBackend.run(Uuid::new_v4(), order, tx).await;
     assert!(r.is_ok());
@@ -1198,9 +1166,7 @@ async fn t108_satisfied_native_streaming() {
             min_support: MinSupport::Native,
         }],
     };
-    let order = WorkOrderBuilder::new("ok-nat")
-        .requirements(reqs)
-        .build();
+    let order = WorkOrderBuilder::new("ok-nat").requirements(reqs).build();
     let (tx, _) = mpsc::channel(16);
     assert!(MockBackend.run(Uuid::new_v4(), order, tx).await.is_ok());
 }
@@ -1213,9 +1179,7 @@ async fn t109_unsatisfied_native_requirement_on_emulated() {
             min_support: MinSupport::Native,
         }],
     };
-    let order = WorkOrderBuilder::new("fail-nat")
-        .requirements(reqs)
-        .build();
+    let order = WorkOrderBuilder::new("fail-nat").requirements(reqs).build();
     let (tx, _) = mpsc::channel(16);
     let result = MockBackend.run(Uuid::new_v4(), order, tx).await;
     assert!(result.is_err());
@@ -1244,9 +1208,7 @@ async fn t111_error_message_contains_capability_name() {
             min_support: MinSupport::Emulated,
         }],
     };
-    let order = WorkOrderBuilder::new("err-msg")
-        .requirements(reqs)
-        .build();
+    let order = WorkOrderBuilder::new("err-msg").requirements(reqs).build();
     let (tx, _) = mpsc::channel(16);
     let err = MockBackend
         .run(Uuid::new_v4(), order, tx)
@@ -1274,9 +1236,7 @@ async fn t112_multiple_requirements_all_satisfied() {
             },
         ],
     };
-    let order = WorkOrderBuilder::new("multi-ok")
-        .requirements(reqs)
-        .build();
+    let order = WorkOrderBuilder::new("multi-ok").requirements(reqs).build();
     let (tx, _) = mpsc::channel(16);
     assert!(MockBackend.run(Uuid::new_v4(), order, tx).await.is_ok());
 }
@@ -1320,9 +1280,7 @@ async fn t115_native_requirement_on_tool_write_emulated_fails() {
             min_support: MinSupport::Native,
         }],
     };
-    let order = WorkOrderBuilder::new("tw-nat")
-        .requirements(reqs)
-        .build();
+    let order = WorkOrderBuilder::new("tw-nat").requirements(reqs).build();
     let (tx, _) = mpsc::channel(16);
     assert!(MockBackend.run(Uuid::new_v4(), order, tx).await.is_err());
 }
@@ -1335,9 +1293,7 @@ async fn t116_native_requirement_on_tool_bash_emulated_fails() {
             min_support: MinSupport::Native,
         }],
     };
-    let order = WorkOrderBuilder::new("tb-nat")
-        .requirements(reqs)
-        .build();
+    let order = WorkOrderBuilder::new("tb-nat").requirements(reqs).build();
     let (tx, _) = mpsc::channel(16);
     assert!(MockBackend.run(Uuid::new_v4(), order, tx).await.is_err());
 }
@@ -1423,7 +1379,13 @@ async fn t123_event_kind_names_in_trace() {
     let kinds: Vec<String> = r
         .trace
         .iter()
-        .map(|ev| format!("{:?}", ev.kind).split_whitespace().next().unwrap().to_string())
+        .map(|ev| {
+            format!("{:?}", ev.kind)
+                .split_whitespace()
+                .next()
+                .unwrap()
+                .to_string()
+        })
         .collect();
     assert!(kinds[0].contains("RunStarted"));
     assert!(kinds[1].contains("AssistantMessage"));
@@ -1474,14 +1436,20 @@ async fn t128_newlines_in_task() {
 #[tokio::test]
 async fn t129_nil_uuid_run_id() {
     let (tx, _) = mpsc::channel(16);
-    let r = MockBackend.run(Uuid::nil(), wo("nil-run"), tx).await.unwrap();
+    let r = MockBackend
+        .run(Uuid::nil(), wo("nil-run"), tx)
+        .await
+        .unwrap();
     assert_eq!(r.meta.run_id, Uuid::nil());
 }
 
 #[tokio::test]
 async fn t130_max_uuid_run_id() {
     let (tx, _) = mpsc::channel(16);
-    let r = MockBackend.run(Uuid::max(), wo("max-run"), tx).await.unwrap();
+    let r = MockBackend
+        .run(Uuid::max(), wo("max-run"), tx)
+        .await
+        .unwrap();
     assert_eq!(r.meta.run_id, Uuid::max());
 }
 
@@ -1596,10 +1564,7 @@ async fn t142_empty_root() {
 #[tokio::test]
 async fn t143_complex_include_exclude() {
     let order = WorkOrderBuilder::new("complex-globs")
-        .include(vec![
-            "src/**/*.rs".into(),
-            "tests/**/*.rs".into(),
-        ])
+        .include(vec!["src/**/*.rs".into(), "tests/**/*.rs".into()])
         .exclude(vec![
             "target/**".into(),
             "**/*.lock".into(),

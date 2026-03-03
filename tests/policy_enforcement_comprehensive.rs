@@ -1196,11 +1196,9 @@ fn validator_detects_overlapping_tool_allow_deny() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
 }
 
 #[test]
@@ -1211,11 +1209,9 @@ fn validator_detects_wildcard_deny_unreachable() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule));
 }
 
 #[test]
@@ -1225,11 +1221,9 @@ fn validator_detects_deny_read_catch_all() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule));
 }
 
 #[test]
@@ -1239,11 +1233,9 @@ fn validator_detects_deny_write_catch_all() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule));
 }
 
 #[test]

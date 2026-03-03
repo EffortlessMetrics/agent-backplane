@@ -18,12 +18,12 @@ use abp_codex_sdk::dialect::{
 use abp_codex_sdk::lowering;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, Outcome, ReceiptBuilder,
-    SupportLevel, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, Capability, Outcome, ReceiptBuilder, SupportLevel,
+    WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_dialect::Dialect;
 use abp_mapping::{
-    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
 };
 use chrono::Utc;
 use serde_json::json;

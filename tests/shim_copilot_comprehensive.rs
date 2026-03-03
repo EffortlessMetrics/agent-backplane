@@ -9,9 +9,9 @@ use abp_copilot_sdk::dialect::{
 use abp_core::ir::{IrConversation, IrMessage, IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, UsageNormalized};
 use abp_shim_copilot::{
-    CopilotClient, CopilotRequestBuilder, Message, ShimError, events_to_stream_events,
-    ir_to_messages, ir_usage_to_tuple, messages_to_ir, mock_receipt, mock_receipt_with_usage,
-    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
+    events_to_stream_events, ir_to_messages, ir_usage_to_tuple, messages_to_ir, mock_receipt,
+    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
+    response_to_ir, CopilotClient, CopilotRequestBuilder, Message, ShimError,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -803,11 +803,9 @@ async fn client_stream_contains_function_call() {
         .build();
     let stream = client.create_stream(req).await.unwrap();
     let chunks: Vec<CopilotStreamEvent> = stream.collect().await;
-    assert!(
-        chunks
-            .iter()
-            .any(|c| matches!(c, CopilotStreamEvent::FunctionCall { .. }))
-    );
+    assert!(chunks
+        .iter()
+        .any(|c| matches!(c, CopilotStreamEvent::FunctionCall { .. })));
 }
 
 #[tokio::test]
@@ -819,11 +817,9 @@ async fn client_stream_contains_errors() {
         .build();
     let stream = client.create_stream(req).await.unwrap();
     let chunks: Vec<CopilotStreamEvent> = stream.collect().await;
-    assert!(
-        chunks
-            .iter()
-            .any(|c| matches!(c, CopilotStreamEvent::CopilotErrors { .. }))
-    );
+    assert!(chunks
+        .iter()
+        .any(|c| matches!(c, CopilotStreamEvent::CopilotErrors { .. })));
 }
 
 // ═══════════════════════════════════════════════════════════════════════

@@ -462,7 +462,7 @@ mod core_enum_variants {
 // ==========================================================================
 
 mod core_functions {
-    use abp_core::{Outcome, ReceiptBuilder, canonical_json, receipt_hash, sha256_hex};
+    use abp_core::{canonical_json, receipt_hash, sha256_hex, Outcome, ReceiptBuilder};
 
     #[test]
     fn canonical_json_works() {
@@ -961,7 +961,7 @@ mod glob_types {
 // ==========================================================================
 
 mod glob_constructors {
-    use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
+    use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
     use std::path::Path;
 
     #[test]
@@ -1410,7 +1410,7 @@ mod mapping_types {
 mod mapping_constructors {
     use abp_dialect::Dialect;
     use abp_mapping::{
-        Fidelity, MappingMatrix, MappingRegistry, MappingRule, known_rules, validate_mapping,
+        known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
     };
 
     #[test]
@@ -1692,7 +1692,7 @@ mod capability_types {
 
 mod capability_constructors {
     use abp_capability::{
-        NegotiationResult, SupportLevel, check_capability, generate_report, negotiate,
+        check_capability, generate_report, negotiate, NegotiationResult, SupportLevel,
     };
     use abp_core::{
         Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -1810,7 +1810,7 @@ mod capability_enum_variants {
 // ==========================================================================
 
 mod capability_traits {
-    use abp_capability::{NegotiationResult, SupportLevel, generate_report};
+    use abp_capability::{generate_report, NegotiationResult, SupportLevel};
     use abp_core::Capability;
 
     #[test]

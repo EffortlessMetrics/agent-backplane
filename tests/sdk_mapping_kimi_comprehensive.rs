@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, Outcome, UsageNormalized, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, Outcome, UsageNormalized, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_dialect::Dialect;
 use abp_kimi_sdk::dialect::{
@@ -31,12 +31,12 @@ use abp_kimi_sdk::dialect::{
 };
 use abp_kimi_sdk::lowering;
 use abp_mapping::{
-    Fidelity, MappingError, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingError, MappingRegistry, MappingRule,
 };
 use abp_shim_kimi::{
-    KimiClient, KimiRequestBuilder, Message, ProcessFn, Usage, events_to_stream_chunks,
-    ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt, mock_receipt_with_usage,
-    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
+    events_to_stream_chunks, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
+    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
+    response_to_ir, KimiClient, KimiRequestBuilder, Message, ProcessFn, Usage,
 };
 use chrono::Utc;
 use serde_json::json;

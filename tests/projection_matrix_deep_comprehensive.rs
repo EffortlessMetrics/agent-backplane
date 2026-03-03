@@ -11,8 +11,8 @@ use abp_core::{
 };
 use abp_dialect::Dialect;
 use abp_mapping::{
-    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
-    features, known_rules, validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
+    MappingRegistry, MappingRule, MappingValidation,
 };
 use abp_projection::{ProjectionError, ProjectionMatrix, ProjectionScore};
 
@@ -243,10 +243,9 @@ fn lookup_hit_returns_correct_rule() {
 #[test]
 fn lookup_miss_returns_none() {
     let reg = MappingRegistry::new();
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+        .is_none());
 }
 
 #[test]
@@ -258,10 +257,9 @@ fn lookup_wrong_direction_returns_none() {
         "tool_use",
         Fidelity::Lossless,
     ));
-    assert!(
-        reg.lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
+        .is_none());
 }
 
 #[test]
@@ -273,10 +271,9 @@ fn lookup_wrong_feature_returns_none() {
         "tool_use",
         Fidelity::Lossless,
     ));
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
+        .is_none());
 }
 
 #[test]
@@ -1219,10 +1216,9 @@ fn add_custom_feature_to_known_rules() {
         Fidelity::Lossless,
     ));
     assert_eq!(reg.len(), before + 1);
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "custom_feature")
-            .is_some()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "custom_feature")
+        .is_some());
 }
 
 #[test]
@@ -1263,14 +1259,12 @@ fn large_registry_insert_and_lookup() {
     }
     assert_eq!(reg.len(), 1000);
     // Lookup should succeed for any inserted feature.
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "feat_999")
-            .is_some()
-    );
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "feat_0")
-            .is_some()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "feat_999")
+        .is_some());
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "feat_0")
+        .is_some());
 }
 
 #[test]
@@ -1603,12 +1597,10 @@ fn validate_lossy_feature_has_fidelity_loss_error() {
         &[features::THINKING.into()],
     );
     assert!(!results[0].fidelity.is_lossless());
-    assert!(
-        results[0]
-            .errors
-            .iter()
-            .any(|e| matches!(e, MappingError::FidelityLoss { .. }))
-    );
+    assert!(results[0]
+        .errors
+        .iter()
+        .any(|e| matches!(e, MappingError::FidelityLoss { .. })));
 }
 
 #[test]

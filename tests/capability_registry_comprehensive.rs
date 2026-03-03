@@ -11,18 +11,17 @@
 use std::collections::BTreeMap;
 
 use abp_capability::{
-    CompatibilityReport, NegotiationResult as AbpCapNegotiationResult, SupportLevel,
-    check_capability, generate_report, negotiate,
+    check_capability, generate_report, negotiate, CompatibilityReport,
+    NegotiationResult as AbpCapNegotiationResult, SupportLevel,
 };
 use abp_core::negotiate::{
-    CapabilityDiff, CapabilityNegotiator, CapabilityReport as DialectCapabilityReport,
-    CapabilityReportEntry, DialectSupportLevel, NegotiationRequest,
-    NegotiationResult as CoreNegotiationResult, check_capabilities, dialect_manifest,
+    check_capabilities, dialect_manifest, CapabilityDiff, CapabilityNegotiator,
+    CapabilityReport as DialectCapabilityReport, CapabilityReportEntry, DialectSupportLevel,
+    NegotiationRequest, NegotiationResult as CoreNegotiationResult,
 };
 use abp_core::{
-    CONTRACT_VERSION, Capability, CapabilityManifest, CapabilityRequirement,
-    CapabilityRequirements, MinSupport, Outcome, ReceiptBuilder, SupportLevel as CoreSupportLevel,
-    WorkOrderBuilder,
+    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
+    Outcome, ReceiptBuilder, SupportLevel as CoreSupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use serde_json;
 

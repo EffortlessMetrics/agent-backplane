@@ -5,9 +5,9 @@ use std::sync::Arc;
 use std::thread;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig,
-    UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, receipt_hash,
+    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode,
+    Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, UsageNormalized,
+    VerificationReport, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};

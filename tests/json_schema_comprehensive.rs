@@ -14,16 +14,16 @@
 use abp_cli::config::{BackendConfig, BackplaneConfig};
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
-    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
+    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata,
+    RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder,
+    WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_error::ErrorCode;
 use chrono::Utc;
 use schemars::schema_for;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 // ── helpers ──────────────────────────────────────────────────────────────

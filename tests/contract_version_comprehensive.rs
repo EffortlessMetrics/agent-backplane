@@ -2,11 +2,11 @@
 //! Comprehensive tests for contract versioning and compatibility.
 
 use abp_core::{
-    BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Outcome, ReceiptBuilder,
-    RunMetadata, WorkOrderBuilder,
+    BackendIdentity, CapabilityManifest, ExecutionMode, Outcome, ReceiptBuilder, RunMetadata,
+    WorkOrderBuilder, CONTRACT_VERSION,
 };
-use abp_protocol::version::{ProtocolVersion, VersionError, VersionRange, negotiate_version};
-use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
+use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionError, VersionRange};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
 use chrono::Utc;
 use uuid::Uuid;
 

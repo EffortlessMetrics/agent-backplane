@@ -9,18 +9,19 @@ use serde_json::json;
 use tokio_stream::StreamExt;
 
 use abp_shim_kimi::{
-    KimiClient, KimiRequestBuilder, Message, ProcessFn, ShimError, Usage, events_to_stream_chunks,
-    ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt, mock_receipt_with_usage,
-    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
+    events_to_stream_chunks, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
+    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
+    response_to_ir, KimiClient, KimiRequestBuilder, Message, ProcessFn, ShimError, Usage,
 };
 
 use abp_kimi_sdk::dialect::{
-    self, CanonicalToolDef, DEFAULT_MODEL, DIALECT_VERSION, KimiChoice, KimiChunk, KimiChunkChoice,
-    KimiChunkDelta, KimiChunkFunctionCall, KimiChunkToolCall, KimiConfig, KimiFunctionCall,
-    KimiMessage, KimiRef, KimiRequest, KimiResponse, KimiResponseMessage, KimiRole, KimiTool,
-    KimiToolCall, KimiUsage, ToolCallAccumulator, builtin_browser, builtin_search_internet,
-    capability_manifest, extract_usage, from_canonical_model, is_known_model, map_response,
-    map_stream_event, map_work_order, to_canonical_model, tool_def_from_kimi, tool_def_to_kimi,
+    self, builtin_browser, builtin_search_internet, capability_manifest, extract_usage,
+    from_canonical_model, is_known_model, map_response, map_stream_event, map_work_order,
+    to_canonical_model, tool_def_from_kimi, tool_def_to_kimi, CanonicalToolDef, KimiChoice,
+    KimiChunk, KimiChunkChoice, KimiChunkDelta, KimiChunkFunctionCall, KimiChunkToolCall,
+    KimiConfig, KimiFunctionCall, KimiMessage, KimiRef, KimiRequest, KimiResponse,
+    KimiResponseMessage, KimiRole, KimiTool, KimiToolCall, KimiUsage, ToolCallAccumulator,
+    DEFAULT_MODEL, DIALECT_VERSION,
 };
 use abp_kimi_sdk::lowering;
 
@@ -713,13 +714,11 @@ fn map_work_order_includes_user_task() {
     let req = map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(
-        req.messages[0]
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("Optimize DB")
-    );
+    assert!(req.messages[0]
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("Optimize DB"));
 }
 
 #[test]
