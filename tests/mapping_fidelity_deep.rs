@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::collapsible_if)]
 //! Deep fidelity tests for the mapping layer, focusing on SDK-specific semantic preservation.
 //!
 //! Covers:

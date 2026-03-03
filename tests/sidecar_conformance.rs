@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::collapsible_if)]
 //! Sidecar protocol conformance test suite.
 //!
 //! Validates that JSONL protocol streams conform to the ABP sidecar contract:

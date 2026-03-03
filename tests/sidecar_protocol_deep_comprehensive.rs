@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-#![allow(clippy::useless_vec, clippy::needless_borrows_for_generic_args)]
+#![allow(
+    clippy::useless_vec,
+    clippy::needless_borrows_for_generic_args,
+    clippy::collapsible_if
+)]
 //! Deep comprehensive tests for the JSONL sidecar protocol.
 //!
 //! Covers every Envelope variant, tag discriminator "t", ref_id correlation,

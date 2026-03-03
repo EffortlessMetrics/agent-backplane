@@ -1,3 +1,4 @@
+#![allow(clippy::collapsible_if)]
 //! Comprehensive crates.io publish-readiness tests for the Agent Backplane workspace.
 //!
 //! 80+ tests verifying metadata, licensing, versioning, dependency hygiene,
