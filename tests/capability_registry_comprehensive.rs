@@ -8,8 +8,6 @@
 //! profile merging, dialect defaults, feature gating, degradation detection,
 //! empty/minimal profiles, and capability versioning.
 
-use std::collections::BTreeMap;
-
 use abp_capability::{
     check_capability, generate_report, negotiate, CompatibilityReport,
     NegotiationResult as AbpCapNegotiationResult, SupportLevel,
@@ -17,7 +15,7 @@ use abp_capability::{
 use abp_core::negotiate::{
     check_capabilities, dialect_manifest, CapabilityDiff, CapabilityNegotiator,
     CapabilityReport as DialectCapabilityReport, CapabilityReportEntry, DialectSupportLevel,
-    NegotiationRequest, NegotiationResult as CoreNegotiationResult,
+    NegotiationRequest,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -759,7 +757,6 @@ mod parallel_tool_calls {
 // ===========================================================================
 
 mod context_window {
-    use super::*;
 
     fn context_token_min(a: Option<u64>, b: Option<u64>) -> Option<u64> {
         match (a, b) {
