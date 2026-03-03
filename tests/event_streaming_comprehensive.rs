@@ -23,6 +23,7 @@ fn make_event(kind: AgentEventKind) -> AgentEvent {
     }
 }
 
+#[allow(dead_code)]
 fn make_event_at(kind: AgentEventKind, offset_ms: i64) -> AgentEvent {
     AgentEvent {
         ts: Utc::now() + Duration::milliseconds(offset_ms),
