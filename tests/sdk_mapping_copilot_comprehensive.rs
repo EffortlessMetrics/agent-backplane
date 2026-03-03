@@ -1542,7 +1542,9 @@ fn passthrough_function_call_roundtrip() {
             id: Some("fc_99".into()),
         },
     };
-    assert!(dialect::verify_passthrough_fidelity(std::slice::from_ref(&event)));
+    assert!(dialect::verify_passthrough_fidelity(std::slice::from_ref(
+        &event
+    )));
 }
 
 #[test]

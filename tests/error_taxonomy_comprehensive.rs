@@ -2251,9 +2251,7 @@ fn abp_error_into_runtime_error() {
 
 #[test]
 fn runtime_error_into_daemon_error() {
-    let re = RuntimeError::UnknownBackend {
-        name: "foo".into(),
-    };
+    let re = RuntimeError::UnknownBackend { name: "foo".into() };
     let de: DaemonError = re.into();
     assert!(matches!(de, DaemonError::Runtime(_)));
 }
@@ -2391,9 +2389,8 @@ fn projection_error_all_variants_roundtrip() {
 #[test]
 fn abp_error_dto_full_roundtrip_all_categories() {
     for code in ALL_CODES {
-        let err =
-            AbpError::new(*code, format!("test message for {}", code.as_str()))
-                .with_context("test_key", "test_value");
+        let err = AbpError::new(*code, format!("test message for {}", code.as_str()))
+            .with_context("test_key", "test_value");
         let dto: AbpErrorDto = (&err).into();
         let json = serde_json::to_string(&dto).unwrap();
         let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
