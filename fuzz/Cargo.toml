@@ -19,9 +19,15 @@ abp-capability = { path = "../crates/abp-capability" }
 abp-receipt = { path = "../crates/abp-receipt" }
 abp-config = { path = "../crates/abp-config" }
 abp-error = { path = "../crates/abp-error" }
+serde = "1"
 serde_json = "1"
 toml = "0.8"
 chrono = "0.4"
+
+[[bin]]
+name = "fuzz_jsonl_parse"
+path = "fuzz_targets/fuzz_jsonl_parse.rs"
+doc = false
 
 [[bin]]
 name = "fuzz_work_order"
