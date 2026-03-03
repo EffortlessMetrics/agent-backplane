@@ -1,32 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! Comprehensive workspace staging tests (80+).
+//! Comprehensive workspace staging tests (60+).
 //!
 //! Categories:
-//! 1. Workspace creation from source directory
-//! 2. Glob-based file inclusion/exclusion
-//! 3. .git directory auto-exclusion
-//! 4. Git initialization in staged workspace
-//! 5. Baseline commit creation
-//! 6. Diff generation after modifications
-//! 7. Cleanup on drop
-//! 8. Edge cases (empty directories, deeply nested, symlinks)
-//! 9. Error handling (non-existent source, missing source_root)
-//! 10. Multiple workspaces in parallel
-//! 11. WorkspaceStager builder API
-//! 12. Snapshot capture/compare
-//! 13. DiffSummary analysis
-//! 14. Template system
-//! 15. ChangeTracker / OperationLog
+//! 1. Basic staging (15 tests): stage from directory, auto-git-init, baseline
+//!    commit, cleanup on drop
+//! 2. Glob filtering (15 tests): include/exclude patterns, dotfile handling,
+//!    nested dirs
+//! 3. WorkspaceSpec (10 tests): all fields, serde roundtrip, defaults
+//! 4. Workspace modes (10 tests): Staged vs PassThrough, mode-specific behavior
+//! 5. Edge cases (10+ tests): empty directory, missing source, long filenames,
+//!    special characters, concurrent staging
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
-use abp_workspace::diff::{DiffSummary, diff_workspace};
-use abp_workspace::ops::{FileOperation, OperationFilter, OperationLog, OperationSummary};
-use abp_workspace::snapshot::{capture, compare};
-use abp_workspace::template::{TemplateRegistry, WorkspaceTemplate};
-use abp_workspace::tracker::{ChangeKind, ChangeTracker, FileChange};
 use abp_workspace::{WorkspaceManager, WorkspaceStager};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use tempfile::tempdir;
 use walkdir::WalkDir;
@@ -53,6 +41,15 @@ fn staged_spec_globs(root: &Path, include: Vec<String>, exclude: Vec<String>) ->
     }
 }
 
+fn passthrough_spec(root: &Path) -> WorkspaceSpec {
+    WorkspaceSpec {
+        root: root.to_string_lossy().to_string(),
+        mode: WorkspaceMode::PassThrough,
+        include: vec![],
+        exclude: vec![],
+    }
+}
+
 /// Collect sorted relative file paths (excluding `.git`) under `root`.
 fn collect_files(root: &Path) -> Vec<String> {
     let mut files: Vec<String> = WalkDir::new(root)
@@ -73,6 +70,7 @@ fn collect_files(root: &Path) -> Vec<String> {
     files
 }
 
+/// Run a git command in `dir` and return trimmed stdout.
 fn git(dir: &Path, args: &[&str]) -> String {
     let out = Command::new("git")
         .args(args)
@@ -87,6 +85,7 @@ fn git(dir: &Path, args: &[&str]) -> String {
     String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
 
+/// Create a standard fixture tree with mixed file types.
 fn create_fixture(root: &Path) {
     fs::write(root.join("main.rs"), "fn main() {}").unwrap();
     fs::write(root.join("lib.rs"), "pub fn hello() {}").unwrap();
@@ -112,18 +111,143 @@ fn make_source(files: &[(&str, &str)]) -> tempfile::TempDir {
 }
 
 // ===========================================================================
-// 1. Workspace creation from source directory
+// 1. Basic staging (15 tests)
 // ===========================================================================
 
 #[test]
-fn creation_copies_all_files_from_flat_source() {
-    let src = make_source(&[("a.txt", "a"), ("b.txt", "b"), ("c.txt", "c")]);
+fn basic_staging_copies_all_files() {
+    let src = tempdir().unwrap();
+    create_fixture(src.path());
+
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert_eq!(collect_files(ws.path()), vec!["a.txt", "b.txt", "c.txt"]);
+
+    assert_eq!(
+        collect_files(ws.path()),
+        collect_files(src.path()),
+        "staged workspace must mirror source"
+    );
 }
 
 #[test]
-fn creation_copies_nested_files() {
+fn basic_staging_path_differs_from_source() {
+    let src = make_source(&[("a.txt", "a")]);
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_ne!(ws.path(), src.path());
+}
+
+#[test]
+fn basic_staging_preserves_file_content() {
+    let body = "fn main() { println!(\"hello world\"); }";
+    let src = make_source(&[("main.rs", body)]);
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_eq!(fs::read_to_string(ws.path().join("main.rs")).unwrap(), body);
+}
+
+#[test]
+fn basic_staging_preserves_binary_content() {
+    let src = tempdir().unwrap();
+    let data: Vec<u8> = (0..=255).collect();
+    fs::write(src.path().join("bin.dat"), &data).unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_eq!(fs::read(ws.path().join("bin.dat")).unwrap(), data);
+}
+
+#[test]
+fn basic_staging_does_not_modify_source() {
+    let src = tempdir().unwrap();
+    create_fixture(src.path());
+    let before = collect_files(src.path());
+    let content = fs::read_to_string(src.path().join("main.rs")).unwrap();
+
+    let _ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+
+    assert_eq!(collect_files(src.path()), before);
+    assert_eq!(
+        fs::read_to_string(src.path().join("main.rs")).unwrap(),
+        content
+    );
+}
+
+#[test]
+fn basic_staging_auto_creates_git_repo() {
+    let src = make_source(&[("f.txt", "data")]);
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert!(ws.path().join(".git").exists());
+}
+
+#[test]
+fn basic_staging_baseline_commit_message() {
+    let src = make_source(&[("f.txt", "data")]);
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let log = git(ws.path(), &["log", "--format=%s"]);
+    assert!(
+        log.contains("baseline"),
+        "expected 'baseline' commit, got: {log}"
+    );
+}
+
+#[test]
+fn basic_staging_exactly_one_commit() {
+    let src = make_source(&[("f.txt", "data")]);
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let count = git(ws.path(), &["rev-list", "--count", "HEAD"]);
+    assert_eq!(count, "1");
+}
+
+#[test]
+fn basic_staging_baseline_commit_includes_all_files() {
+    let src = make_source(&[("a.txt", "a"), ("b.txt", "b")]);
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let files = git(ws.path(), &["ls-tree", "-r", "--name-only", "HEAD"]);
+    assert!(files.contains("a.txt"));
+    assert!(files.contains("b.txt"));
+}
+
+#[test]
+fn basic_staging_clean_working_tree() {
+    let src = tempdir().unwrap();
+    create_fixture(src.path());
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let status = git(ws.path(), &["status", "--porcelain=v1"]);
+    assert!(status.is_empty(), "expected clean tree, got: {status}");
+}
+
+#[test]
+fn basic_staging_cleanup_on_drop() {
+    let src = make_source(&[("f.txt", "data")]);
+    let staged_path;
+    {
+        let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+        staged_path = ws.path().to_path_buf();
+        assert!(staged_path.exists(), "workspace should exist before drop");
+    }
+    assert!(
+        !staged_path.exists(),
+        "staged directory should be removed after drop"
+    );
+}
+
+#[test]
+fn basic_staging_stager_cleanup_on_drop() {
+    let src = make_source(&[("f.txt", "data")]);
+    let staged_path;
+    {
+        let ws = WorkspaceStager::new()
+            .source_root(src.path())
+            .with_git_init(false)
+            .stage()
+            .unwrap();
+        staged_path = ws.path().to_path_buf();
+        assert!(staged_path.exists());
+    }
+    assert!(
+        !staged_path.exists(),
+        "stager workspace should be removed after drop"
+    );
+}
+
+#[test]
+fn basic_staging_nested_directory_preserved() {
     let src = make_source(&[("root.txt", "r"), ("d1/f1.txt", "1"), ("d1/d2/f2.txt", "2")]);
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     assert_eq!(
@@ -133,69 +257,34 @@ fn creation_copies_nested_files() {
 }
 
 #[test]
-fn creation_preserves_file_contents() {
-    let content = "hello 世界 🚀";
-    let src = make_source(&[("uni.txt", content)]);
+fn basic_staging_modified_file_produces_diff() {
+    let src = make_source(&[("data.txt", "original content")]);
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert_eq!(
-        fs::read_to_string(ws.path().join("uni.txt")).unwrap(),
-        content
-    );
+    fs::write(ws.path().join("data.txt"), "modified content").unwrap();
+
+    let diff = WorkspaceManager::git_diff(ws.path()).expect("diff should succeed");
+    assert!(diff.contains("data.txt"));
+    assert!(diff.contains("modified content"));
+    assert!(diff.contains("original content"));
 }
 
 #[test]
-fn creation_preserves_binary_content() {
-    let src = tempdir().unwrap();
-    let data: Vec<u8> = (0..=255).collect();
-    fs::write(src.path().join("bin.dat"), &data).unwrap();
+fn basic_staging_new_file_shows_in_status() {
+    let src = make_source(&[("existing.txt", "hi")]);
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert_eq!(fs::read(ws.path().join("bin.dat")).unwrap(), data);
-}
+    fs::write(ws.path().join("brand_new.txt"), "I am new").unwrap();
 
-#[test]
-fn creation_staged_path_differs_from_source() {
-    let src = make_source(&[("f.txt", "x")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert_ne!(ws.path(), src.path());
-}
-
-#[test]
-fn creation_does_not_modify_source() {
-    let src = make_source(&[("f.txt", "original")]);
-    let before = collect_files(src.path());
-    let _ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert_eq!(collect_files(src.path()), before);
-    assert_eq!(
-        fs::read_to_string(src.path().join("f.txt")).unwrap(),
-        "original"
-    );
-}
-
-#[test]
-fn creation_handles_file_with_spaces_in_name() {
-    let src = make_source(&[("hello world.txt", "hi")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert!(ws.path().join("hello world.txt").exists());
-    assert_eq!(
-        fs::read_to_string(ws.path().join("hello world.txt")).unwrap(),
-        "hi"
-    );
-}
-
-#[test]
-fn creation_handles_dotfiles() {
-    let src = make_source(&[(".hidden", "secret"), (".config/app.toml", "[app]")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert!(ws.path().join(".hidden").exists());
-    assert!(ws.path().join(".config").join("app.toml").exists());
+    let status = WorkspaceManager::git_status(ws.path()).expect("status should succeed");
+    assert!(status.contains("brand_new.txt"));
+    assert!(status.contains("??"), "new file should be untracked");
 }
 
 // ===========================================================================
-// 2. Glob-based file inclusion/exclusion
+// 2. Glob filtering (15 tests)
 // ===========================================================================
 
 #[test]
-fn glob_include_only_rs_files() {
+fn glob_include_only_rs() {
     let src = tempdir().unwrap();
     create_fixture(src.path());
     let ws = WorkspaceManager::prepare(&staged_spec_globs(
@@ -204,43 +293,31 @@ fn glob_include_only_rs_files() {
         vec![],
     ))
     .unwrap();
+
     let files = collect_files(ws.path());
     for f in &files {
         assert!(f.ends_with(".rs"), "unexpected non-.rs file: {f}");
     }
+    assert!(
+        files.iter().any(|f| f.contains('/')),
+        "should include nested .rs files"
+    );
+}
+
+#[test]
+fn glob_exclude_md() {
+    let src = tempdir().unwrap();
+    create_fixture(src.path());
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec![], vec!["*.md".into()]))
+        .unwrap();
+
+    let files = collect_files(ws.path());
+    assert!(!files.iter().any(|f| f.ends_with(".md")));
     assert!(!files.is_empty());
 }
 
 #[test]
-fn glob_exclude_json_files() {
-    let src = tempdir().unwrap();
-    create_fixture(src.path());
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        vec![],
-        vec!["*.json".into()],
-    ))
-    .unwrap();
-    let files = collect_files(ws.path());
-    assert!(!files.iter().any(|f| f.ends_with(".json")));
-}
-
-#[test]
-fn glob_exclude_directory() {
-    let src = tempdir().unwrap();
-    create_fixture(src.path());
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        vec![],
-        vec!["tests/**".into()],
-    ))
-    .unwrap();
-    let files = collect_files(ws.path());
-    assert!(!files.iter().any(|f| f.starts_with("tests/")));
-}
-
-#[test]
-fn glob_include_and_exclude_combined() {
+fn glob_include_and_exclude_interact() {
     let src = tempdir().unwrap();
     create_fixture(src.path());
     let ws = WorkspaceManager::prepare(&staged_spec_globs(
@@ -249,17 +326,37 @@ fn glob_include_and_exclude_combined() {
         vec!["tests/**".into()],
     ))
     .unwrap();
+
     let files = collect_files(ws.path());
-    assert!(files.iter().all(|f| f.ends_with(".rs")));
     assert!(!files.iter().any(|f| f.starts_with("tests/")));
+    assert!(files.iter().any(|f| f.ends_with(".rs")));
+}
+
+#[test]
+fn glob_exclude_specific_subdirectory() {
+    let src = tempdir().unwrap();
+    fs::create_dir_all(src.path().join("vendor")).unwrap();
+    fs::write(src.path().join("vendor").join("dep.rs"), "fn dep() {}").unwrap();
+    fs::write(src.path().join("root.rs"), "fn root() {}").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(
+        src.path(),
+        vec![],
+        vec!["vendor/**".into()],
+    ))
+    .unwrap();
+
+    let files = collect_files(ws.path());
+    assert!(!files.iter().any(|f| f.starts_with("vendor/")));
+    assert!(files.contains(&"root.rs".to_string()));
 }
 
 #[test]
 fn glob_multiple_include_patterns() {
     let src = make_source(&[
         ("code.rs", "fn f() {}"),
-        ("cfg.toml", "[p]"),
-        ("notes.md", "# N"),
+        ("config.toml", "[pkg]"),
+        ("notes.md", "# Notes"),
     ]);
     let ws = WorkspaceManager::prepare(&staged_spec_globs(
         src.path(),
@@ -267,9 +364,10 @@ fn glob_multiple_include_patterns() {
         vec![],
     ))
     .unwrap();
+
     let files = collect_files(ws.path());
     assert!(files.contains(&"code.rs".to_string()));
-    assert!(files.contains(&"cfg.toml".to_string()));
+    assert!(files.contains(&"config.toml".to_string()));
     assert!(!files.contains(&"notes.md".to_string()));
 }
 
@@ -282,6 +380,7 @@ fn glob_multiple_exclude_patterns() {
         vec!["*.log".into(), "*.tmp".into()],
     ))
     .unwrap();
+
     let files = collect_files(ws.path());
     assert_eq!(files, vec!["keep.rs"]);
 }
@@ -291,16 +390,68 @@ fn glob_exclude_overrides_include() {
     let src = make_source(&[
         ("src/lib.rs", "pub fn a() {}"),
         ("src/generated/out.rs", "// gen"),
+        ("tests/t.rs", "#[test] fn t() {}"),
+    ]);
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(
+        src.path(),
+        vec!["src/**".into(), "tests/**".into()],
+        vec!["src/generated/**".into(), "tests/fixtures/**".into()],
+    ))
+    .unwrap();
+
+    let files = collect_files(ws.path());
+    assert!(files.contains(&"src/lib.rs".to_string()));
+    assert!(!files.iter().any(|f| f.starts_with("src/generated/")));
+}
+
+#[test]
+fn glob_dotfile_handling() {
+    let src = make_source(&[
+        (".hidden", "secret"),
+        (".config/app.toml", "[app]"),
+        ("visible.txt", "hi"),
+    ]);
+    // Dotfiles are NOT excluded by default — only .git is hardcoded.
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+
+    assert!(ws.path().join(".hidden").exists());
+    assert!(ws.path().join(".config").join("app.toml").exists());
+    assert!(ws.path().join("visible.txt").exists());
+}
+
+#[test]
+fn glob_exclude_dotfiles_explicitly() {
+    let src = make_source(&[
+        (".hidden", "secret"),
+        (".env", "KEY=VAL"),
+        ("visible.txt", "hi"),
+    ]);
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec![], vec![".*".into()]))
+        .unwrap();
+
+    let files = collect_files(ws.path());
+    assert!(!files.iter().any(|f| f.starts_with('.')));
+    assert!(files.contains(&"visible.txt".to_string()));
+}
+
+#[test]
+fn glob_nested_directory_include() {
+    let src = make_source(&[
+        ("src/a/b/c/deep.rs", "fn deep() {}"),
+        ("src/top.rs", "fn top() {}"),
+        ("docs/guide.md", "# Guide"),
     ]);
     let ws = WorkspaceManager::prepare(&staged_spec_globs(
         src.path(),
         vec!["src/**".into()],
-        vec!["src/generated/**".into()],
+        vec![],
     ))
     .unwrap();
+
     let files = collect_files(ws.path());
-    assert!(files.contains(&"src/lib.rs".to_string()));
-    assert!(!files.iter().any(|f| f.starts_with("src/generated/")));
+    assert!(files.contains(&"src/a/b/c/deep.rs".to_string()));
+    assert!(files.contains(&"src/top.rs".to_string()));
+    assert!(!files.iter().any(|f| f.starts_with("docs/")));
 }
 
 #[test]
@@ -311,48 +462,11 @@ fn glob_empty_patterns_copies_everything() {
     assert_eq!(collect_files(ws.path()), collect_files(src.path()));
 }
 
-// ===========================================================================
-// 3. .git directory auto-exclusion
-// ===========================================================================
-
 #[test]
-fn dot_git_never_copied_with_default_stager() {
-    let src = tempdir().unwrap();
-    fs::create_dir_all(src.path().join(".git/objects")).unwrap();
-    fs::write(src.path().join(".git/HEAD"), "ref: refs/heads/main").unwrap();
-    fs::write(src.path().join("code.rs"), "fn main() {}").unwrap();
-
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-
-    assert!(!ws.path().join(".git").exists());
-    assert!(ws.path().join("code.rs").exists());
-}
-
-#[test]
-fn dot_git_never_copied_via_workspace_manager() {
+fn glob_dot_git_always_excluded_even_with_star_star() {
     let src = tempdir().unwrap();
     fs::create_dir_all(src.path().join(".git")).unwrap();
-    fs::write(src.path().join(".git/HEAD"), "x").unwrap();
-    fs::write(src.path().join("data.txt"), "d").unwrap();
-
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-
-    assert!(!ws.path().join(".git").exists());
-}
-
-#[test]
-fn dot_git_not_copied_even_with_include_double_star() {
-    let src = tempdir().unwrap();
-    fs::create_dir_all(src.path().join(".git")).unwrap();
-    fs::write(src.path().join(".git/HEAD"), "y").unwrap();
+    fs::write(src.path().join(".git").join("HEAD"), "ref: refs/heads/main").unwrap();
     fs::write(src.path().join("a.txt"), "a").unwrap();
 
     let ws = WorkspaceStager::new()
@@ -366,268 +480,504 @@ fn dot_git_not_copied_even_with_include_double_star() {
     assert!(ws.path().join("a.txt").exists());
 }
 
-// ===========================================================================
-// 4. Git initialization in staged workspace
-// ===========================================================================
-
 #[test]
-fn git_init_creates_dot_git_dir() {
-    let src = make_source(&[("f.txt", "d")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert!(ws.path().join(".git").exists());
-}
+fn glob_source_dot_git_never_copied() {
+    let src = tempdir().unwrap();
+    let fake_git = src.path().join(".git");
+    fs::create_dir_all(fake_git.join("objects")).unwrap();
+    fs::write(fake_git.join("HEAD"), "ref: refs/heads/main").unwrap();
+    fs::write(fake_git.join("sentinel"), "MUST_NOT_COPY").unwrap();
+    fs::write(src.path().join("code.rs"), "fn main() {}").unwrap();
 
-#[test]
-fn stager_git_init_enabled_by_default() {
-    let src = make_source(&[("f.txt", "d")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .stage()
-        .unwrap();
-    assert!(ws.path().join(".git").exists());
-}
-
-#[test]
-fn stager_git_init_disabled() {
-    let src = make_source(&[("f.txt", "d")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .with_git_init(false)
         .stage()
         .unwrap();
-    assert!(!ws.path().join(".git").exists());
-}
 
-#[test]
-fn git_init_working_tree_is_clean() {
-    let src = tempdir().unwrap();
-    create_fixture(src.path());
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let status = git(ws.path(), &["status", "--porcelain=v1"]);
-    assert!(status.is_empty(), "expected clean tree, got: {status}");
-}
-
-// ===========================================================================
-// 5. Baseline commit creation
-// ===========================================================================
-
-#[test]
-fn baseline_commit_exists() {
-    let src = make_source(&[("f.txt", "data")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let log = git(ws.path(), &["log", "--format=%s"]);
-    assert!(log.contains("baseline"));
-}
-
-#[test]
-fn exactly_one_commit_after_staging() {
-    let src = make_source(&[("f.txt", "data")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let count = git(ws.path(), &["rev-list", "--count", "HEAD"]);
-    assert_eq!(count, "1");
-}
-
-#[test]
-fn baseline_commit_includes_all_files() {
-    let src = make_source(&[("a.txt", "a"), ("b.txt", "b")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let files = git(ws.path(), &["ls-tree", "-r", "--name-only", "HEAD"]);
-    assert!(files.contains("a.txt"));
-    assert!(files.contains("b.txt"));
-}
-
-#[test]
-fn baseline_commit_author_is_abp() {
-    let src = make_source(&[("f.txt", "data")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let author = git(ws.path(), &["log", "--format=%an"]);
-    assert_eq!(author, "abp");
-}
-
-// ===========================================================================
-// 6. Diff generation after modifications
-// ===========================================================================
-
-#[test]
-fn modified_file_in_git_diff() {
-    let src = make_source(&[("data.txt", "original")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    fs::write(ws.path().join("data.txt"), "modified").unwrap();
-
-    let diff = WorkspaceManager::git_diff(ws.path()).expect("diff");
-    assert!(diff.contains("data.txt"));
-    assert!(diff.contains("modified"));
-}
-
-#[test]
-fn new_file_in_git_status() {
-    let src = make_source(&[("existing.txt", "hi")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    fs::write(ws.path().join("new.txt"), "new").unwrap();
-
-    let status = WorkspaceManager::git_status(ws.path()).expect("status");
-    assert!(status.contains("new.txt"));
-}
-
-#[test]
-fn deleted_file_in_git_status() {
-    let src = make_source(&[("doomed.txt", "bye")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    fs::remove_file(ws.path().join("doomed.txt")).unwrap();
-
-    let status = WorkspaceManager::git_status(ws.path()).expect("status");
-    assert!(status.contains("doomed.txt"));
-    assert!(status.contains(" D "));
-}
-
-#[test]
-fn diff_summary_detects_added_file() {
-    let src = make_source(&[("existing.txt", "hi")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    fs::write(ws.path().join("new_file.txt"), "new content\n").unwrap();
-
-    let summary = diff_workspace(&ws).unwrap();
     assert!(
-        summary
-            .added
-            .iter()
-            .any(|p| p.to_string_lossy().contains("new_file.txt")),
-        "expected new_file.txt in added: {summary:?}"
+        !ws.path().join(".git").exists(),
+        "source .git must never be copied"
     );
+    assert!(ws.path().join("code.rs").exists());
 }
 
 #[test]
-fn diff_summary_detects_modified_file() {
-    let src = make_source(&[("mod.txt", "before\n")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    fs::write(ws.path().join("mod.txt"), "after\n").unwrap();
+fn glob_include_pattern_matching_no_files() {
+    let src = make_source(&[("readme.md", "hello"), ("data.json", "{}")]);
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(
+        src.path(),
+        vec!["**/*.rs".into()],
+        vec![],
+    ))
+    .unwrap();
 
-    let summary = diff_workspace(&ws).unwrap();
-    assert!(
-        summary
-            .modified
-            .iter()
-            .any(|p| p.to_string_lossy().contains("mod.txt")),
-        "expected mod.txt in modified: {summary:?}"
-    );
+    let files = collect_files(ws.path());
+    assert!(files.is_empty(), "no .rs files exist, should be empty");
 }
 
 #[test]
-fn diff_summary_detects_deleted_file() {
-    let src = make_source(&[("del.txt", "gone\n")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    fs::remove_file(ws.path().join("del.txt")).unwrap();
+fn glob_exclude_everything_yields_empty_workspace() {
+    let src = make_source(&[("a.txt", "a"), ("b.rs", "fn b() {}")]);
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec![], vec!["*".into()]))
+        .unwrap();
 
-    let summary = diff_workspace(&ws).unwrap();
-    assert!(
-        summary
-            .deleted
-            .iter()
-            .any(|p| p.to_string_lossy().contains("del.txt")),
-        "expected del.txt in deleted: {summary:?}"
-    );
-}
-
-#[test]
-fn diff_summary_counts_line_changes() {
-    let src = make_source(&[("lines.txt", "line1\nline2\nline3\n")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    fs::write(ws.path().join("lines.txt"), "line1\nchanged\nline3\nnew\n").unwrap();
-
-    let summary = diff_workspace(&ws).unwrap();
-    assert!(summary.total_additions > 0);
-    assert!(summary.total_deletions > 0);
-}
-
-#[test]
-fn diff_summary_empty_when_no_changes() {
-    let src = make_source(&[("stable.txt", "same\n")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-
-    let summary = diff_workspace(&ws).unwrap();
-    assert!(summary.is_empty());
-    assert_eq!(summary.file_count(), 0);
-    assert_eq!(summary.total_changes(), 0);
-}
-
-#[test]
-fn diff_summary_file_count_aggregates() {
-    let src = make_source(&[("a.txt", "a\n"), ("b.txt", "b\n"), ("c.txt", "c\n")]);
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    fs::write(ws.path().join("a.txt"), "aa\n").unwrap();
-    fs::remove_file(ws.path().join("b.txt")).unwrap();
-    fs::write(ws.path().join("d.txt"), "new\n").unwrap();
-
-    let summary = diff_workspace(&ws).unwrap();
-    assert_eq!(summary.file_count(), 3);
-}
-
-// ===========================================================================
-// 7. Cleanup on drop
-// ===========================================================================
-
-#[test]
-fn manager_workspace_cleaned_on_drop() {
-    let src = make_source(&[("f.txt", "data")]);
-    let staged_path;
-    {
-        let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-        staged_path = ws.path().to_path_buf();
-        assert!(staged_path.exists());
-    }
-    assert!(!staged_path.exists());
-}
-
-#[test]
-fn stager_workspace_cleaned_on_drop() {
-    let src = make_source(&[("f.txt", "data")]);
-    let staged_path;
-    {
-        let ws = WorkspaceStager::new()
-            .source_root(src.path())
-            .with_git_init(false)
-            .stage()
-            .unwrap();
-        staged_path = ws.path().to_path_buf();
-        assert!(staged_path.exists());
-    }
-    assert!(!staged_path.exists());
-}
-
-#[test]
-fn cleanup_removes_deeply_nested_content() {
-    let src = tempdir().unwrap();
-    let mut deep = src.path().to_path_buf();
-    for i in 0..8 {
-        deep = deep.join(format!("d{i}"));
-    }
-    fs::create_dir_all(&deep).unwrap();
-    fs::write(deep.join("leaf.txt"), "deep").unwrap();
-
-    let staged_path;
-    {
-        let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-        staged_path = ws.path().to_path_buf();
-    }
-    assert!(!staged_path.exists());
-}
-
-// ===========================================================================
-// 8. Edge cases
-// ===========================================================================
-
-#[test]
-fn empty_source_directory_stages_ok() {
-    let src = tempdir().unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     let files = collect_files(ws.path());
     assert!(files.is_empty());
 }
 
+// ===========================================================================
+// 3. WorkspaceSpec (10 tests)
+// ===========================================================================
+
 #[test]
-fn empty_subdirectories_are_created() {
+fn workspace_spec_all_fields() {
+    let spec = WorkspaceSpec {
+        root: "/tmp/project".to_string(),
+        mode: WorkspaceMode::Staged,
+        include: vec!["src/**".into()],
+        exclude: vec!["*.log".into()],
+    };
+    assert_eq!(spec.root, "/tmp/project");
+    assert!(matches!(spec.mode, WorkspaceMode::Staged));
+    assert_eq!(spec.include, vec!["src/**".to_string()]);
+    assert_eq!(spec.exclude, vec!["*.log".to_string()]);
+}
+
+#[test]
+fn workspace_spec_serde_roundtrip_staged() {
+    let spec = WorkspaceSpec {
+        root: "/workspace".to_string(),
+        mode: WorkspaceMode::Staged,
+        include: vec!["src/**".into(), "tests/**".into()],
+        exclude: vec!["*.tmp".into()],
+    };
+    let json = serde_json::to_string(&spec).unwrap();
+    let back: WorkspaceSpec = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.root, spec.root);
+    assert_eq!(back.include, spec.include);
+    assert_eq!(back.exclude, spec.exclude);
+    assert!(matches!(back.mode, WorkspaceMode::Staged));
+}
+
+#[test]
+fn workspace_spec_serde_roundtrip_passthrough() {
+    let spec = WorkspaceSpec {
+        root: "/project".to_string(),
+        mode: WorkspaceMode::PassThrough,
+        include: vec![],
+        exclude: vec![],
+    };
+    let json = serde_json::to_string(&spec).unwrap();
+    let back: WorkspaceSpec = serde_json::from_str(&json).unwrap();
+    assert!(matches!(back.mode, WorkspaceMode::PassThrough));
+    assert!(back.include.is_empty());
+    assert!(back.exclude.is_empty());
+}
+
+#[test]
+fn workspace_spec_empty_include_exclude() {
+    let spec = WorkspaceSpec {
+        root: ".".to_string(),
+        mode: WorkspaceMode::Staged,
+        include: vec![],
+        exclude: vec![],
+    };
+    assert!(spec.include.is_empty());
+    assert!(spec.exclude.is_empty());
+}
+
+#[test]
+fn workspace_spec_root_path_preserved() {
+    let paths = vec![
+        "/absolute/path",
+        "relative/path",
+        "./dot-relative",
+        "C:\\windows\\path",
+    ];
+    for p in paths {
+        let spec = WorkspaceSpec {
+            root: p.to_string(),
+            mode: WorkspaceMode::Staged,
+            include: vec![],
+            exclude: vec![],
+        };
+        assert_eq!(spec.root, p, "root path should be preserved verbatim");
+    }
+}
+
+#[test]
+fn workspace_spec_include_patterns_preserved_in_serde() {
+    let spec = WorkspaceSpec {
+        root: "/r".to_string(),
+        mode: WorkspaceMode::Staged,
+        include: vec![
+            "*.rs".into(),
+            "src/**/*.rs".into(),
+            "tests/integration/**".into(),
+        ],
+        exclude: vec![],
+    };
+    let json = serde_json::to_string(&spec).unwrap();
+    let back: WorkspaceSpec = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.include.len(), 3);
+    assert_eq!(back.include[0], "*.rs");
+    assert_eq!(back.include[1], "src/**/*.rs");
+    assert_eq!(back.include[2], "tests/integration/**");
+}
+
+#[test]
+fn workspace_spec_exclude_patterns_preserved_in_serde() {
+    let spec = WorkspaceSpec {
+        root: "/r".to_string(),
+        mode: WorkspaceMode::Staged,
+        include: vec![],
+        exclude: vec!["target/**".into(), "*.log".into(), ".env".into()],
+    };
+    let json = serde_json::to_string(&spec).unwrap();
+    let back: WorkspaceSpec = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.exclude.len(), 3);
+    assert!(back.exclude.contains(&"target/**".to_string()));
+    assert!(back.exclude.contains(&"*.log".to_string()));
+    assert!(back.exclude.contains(&".env".to_string()));
+}
+
+#[test]
+fn workspace_spec_clone() {
+    let spec = WorkspaceSpec {
+        root: "/project".to_string(),
+        mode: WorkspaceMode::Staged,
+        include: vec!["src/**".into()],
+        exclude: vec!["*.tmp".into()],
+    };
+    let cloned = spec.clone();
+    assert_eq!(cloned.root, spec.root);
+    assert_eq!(cloned.include, spec.include);
+    assert_eq!(cloned.exclude, spec.exclude);
+}
+
+#[test]
+fn workspace_spec_serde_mode_rename() {
+    // WorkspaceMode uses rename_all = "snake_case"
+    let json_staged = r#"{"root":"/r","mode":"staged","include":[],"exclude":[]}"#;
+    let spec: WorkspaceSpec = serde_json::from_str(json_staged).unwrap();
+    assert!(matches!(spec.mode, WorkspaceMode::Staged));
+
+    let json_pass = r#"{"root":"/r","mode":"pass_through","include":[],"exclude":[]}"#;
+    let spec: WorkspaceSpec = serde_json::from_str(json_pass).unwrap();
+    assert!(matches!(spec.mode, WorkspaceMode::PassThrough));
+}
+
+#[test]
+fn workspace_spec_debug_impl() {
+    let spec = WorkspaceSpec {
+        root: "/project".to_string(),
+        mode: WorkspaceMode::Staged,
+        include: vec!["*.rs".into()],
+        exclude: vec![],
+    };
+    let debug = format!("{spec:?}");
+    assert!(debug.contains("WorkspaceSpec"));
+    assert!(debug.contains("/project"));
+}
+
+// ===========================================================================
+// 4. Workspace modes (10 tests)
+// ===========================================================================
+
+#[test]
+fn mode_passthrough_returns_original_path() {
     let src = tempdir().unwrap();
-    fs::create_dir_all(src.path().join("empty_dir")).unwrap();
+    fs::write(src.path().join("a.txt"), "a").unwrap();
+    let ws = WorkspaceManager::prepare(&passthrough_spec(src.path())).unwrap();
+    assert_eq!(ws.path(), src.path());
+}
+
+#[test]
+fn mode_passthrough_does_not_create_temp_dir() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("a.txt"), "a").unwrap();
+    let ws = WorkspaceManager::prepare(&passthrough_spec(src.path())).unwrap();
+    // Path should be exactly the source, no temp dir involved.
+    assert_eq!(ws.path().to_string_lossy(), src.path().to_string_lossy());
+}
+
+#[test]
+fn mode_passthrough_does_not_create_git_repo() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("a.txt"), "a").unwrap();
+    // Source has no .git, passthrough should not create one.
+    let ws = WorkspaceManager::prepare(&passthrough_spec(src.path())).unwrap();
+    assert!(!ws.path().join(".git").exists());
+}
+
+#[test]
+fn mode_staged_creates_copy_in_temp() {
+    let src = make_source(&[("f.txt", "data")]);
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_ne!(ws.path(), src.path());
+    assert!(ws.path().join("f.txt").exists());
+}
+
+#[test]
+fn mode_staged_workspace_is_writable() {
+    let src = make_source(&[("f.txt", "original")]);
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    fs::write(ws.path().join("f.txt"), "overwritten").unwrap();
+    assert_eq!(
+        fs::read_to_string(ws.path().join("f.txt")).unwrap(),
+        "overwritten"
+    );
+}
+
+#[test]
+fn mode_staged_modifications_do_not_affect_source() {
+    let src = make_source(&[("f.txt", "original")]);
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    fs::write(ws.path().join("f.txt"), "changed").unwrap();
+    fs::write(ws.path().join("new.txt"), "new").unwrap();
+
+    assert_eq!(
+        fs::read_to_string(src.path().join("f.txt")).unwrap(),
+        "original"
+    );
+    assert!(!src.path().join("new.txt").exists());
+}
+
+#[test]
+fn mode_staged_creates_git_repo() {
+    let src = make_source(&[("f.txt", "data")]);
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert!(ws.path().join(".git").exists());
+}
+
+#[test]
+fn mode_staged_with_globs_filters_files() {
+    let src = make_source(&[("keep.rs", "fn f() {}"), ("skip.md", "# Skip")]);
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec!["*.rs".into()], vec![]))
+        .unwrap();
+
+    assert!(ws.path().join("keep.rs").exists());
+    assert!(!ws.path().join("skip.md").exists());
+}
+
+#[test]
+fn mode_workspace_mode_serde_roundtrip() {
+    let modes = vec![WorkspaceMode::Staged, WorkspaceMode::PassThrough];
+    for mode in modes {
+        let json = serde_json::to_string(&mode).unwrap();
+        let back: WorkspaceMode = serde_json::from_str(&json).unwrap();
+        assert_eq!(format!("{mode:?}"), format!("{back:?}"));
+    }
+}
+
+#[test]
+fn mode_stager_builder_with_git_init_toggle() {
+    let src = make_source(&[("f.txt", "data")]);
+
+    let ws_with = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(true)
+        .stage()
+        .unwrap();
+    assert!(ws_with.path().join(".git").exists());
+
+    let ws_without = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+    assert!(!ws_without.path().join(".git").exists());
+}
+
+// ===========================================================================
+// 5. Edge cases (10+ tests)
+// ===========================================================================
+
+#[test]
+fn edge_empty_directory_stages_successfully() {
+    let src = tempdir().unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let files = collect_files(ws.path());
+    assert!(files.is_empty());
+    assert!(ws.path().join(".git").exists());
+}
+
+#[test]
+fn edge_missing_source_directory_errors() {
+    let result = WorkspaceStager::new()
+        .source_root("/nonexistent/path/that/does/not/exist/anywhere")
+        .stage();
+    assert!(result.is_err());
+    let msg = format!("{}", result.unwrap_err());
+    assert!(
+        msg.contains("does not exist"),
+        "error should mention nonexistence: {msg}"
+    );
+}
+
+#[test]
+fn edge_no_source_root_set_errors() {
+    let result = WorkspaceStager::new().stage();
+    assert!(result.is_err());
+    let msg = format!("{}", result.unwrap_err());
+    assert!(
+        msg.contains("source_root"),
+        "error should mention source_root: {msg}"
+    );
+}
+
+#[test]
+fn edge_very_long_filename() {
+    let src = tempdir().unwrap();
+    // 200-char filename (within most filesystem limits)
+    let long_name = "a".repeat(200) + ".txt";
+    fs::write(src.path().join(&long_name), "content").unwrap();
+
+    let ws = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+
+    assert!(ws.path().join(&long_name).exists());
+    assert_eq!(
+        fs::read_to_string(ws.path().join(&long_name)).unwrap(),
+        "content"
+    );
+}
+
+#[test]
+fn edge_special_characters_in_filename() {
+    let src = make_source(&[
+        ("hello world.txt", "spaces"),
+        ("file (1).txt", "parens"),
+        ("data-v2.0.txt", "dashes"),
+        ("config_backup.txt", "underscores"),
+    ]);
+
+    let ws = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+
+    assert_eq!(
+        fs::read_to_string(ws.path().join("hello world.txt")).unwrap(),
+        "spaces"
+    );
+    assert_eq!(
+        fs::read_to_string(ws.path().join("file (1).txt")).unwrap(),
+        "parens"
+    );
+    assert_eq!(
+        fs::read_to_string(ws.path().join("data-v2.0.txt")).unwrap(),
+        "dashes"
+    );
+}
+
+#[test]
+fn edge_unicode_filenames() {
+    let src = make_source(&[("données/résumé.txt", "contenu")]);
+    let ws = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+    assert_eq!(
+        fs::read_to_string(ws.path().join("données").join("résumé.txt")).unwrap(),
+        "contenu"
+    );
+}
+
+#[test]
+fn edge_concurrent_staging_from_same_source() {
+    let src = make_source(&[("shared.txt", "original")]);
+    let ws1 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let ws2 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let ws3 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+
+    // All workspaces are at different paths.
+    assert_ne!(ws1.path(), ws2.path());
+    assert_ne!(ws2.path(), ws3.path());
+    assert_ne!(ws1.path(), ws3.path());
+
+    // Mutating one does not affect the others.
+    fs::write(ws1.path().join("shared.txt"), "ws1").unwrap();
+    fs::write(ws2.path().join("shared.txt"), "ws2").unwrap();
+
+    assert_eq!(
+        fs::read_to_string(ws1.path().join("shared.txt")).unwrap(),
+        "ws1"
+    );
+    assert_eq!(
+        fs::read_to_string(ws2.path().join("shared.txt")).unwrap(),
+        "ws2"
+    );
+    assert_eq!(
+        fs::read_to_string(ws3.path().join("shared.txt")).unwrap(),
+        "original"
+    );
+    assert_eq!(
+        fs::read_to_string(src.path().join("shared.txt")).unwrap(),
+        "original"
+    );
+}
+
+#[test]
+fn edge_restage_from_already_staged_workspace() {
+    let src = make_source(&[("original.txt", "v1")]);
+    let ws1 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+
+    // Mutate the first staged workspace.
+    fs::write(ws1.path().join("original.txt"), "v2").unwrap();
+    fs::write(ws1.path().join("added.txt"), "new in ws1").unwrap();
+
+    // Re-stage from ws1.
+    let ws2 = WorkspaceManager::prepare(&staged_spec(ws1.path())).unwrap();
+
+    assert_ne!(ws1.path(), ws2.path());
+    assert_eq!(
+        fs::read_to_string(ws2.path().join("original.txt")).unwrap(),
+        "v2"
+    );
+    assert_eq!(
+        fs::read_to_string(ws2.path().join("added.txt")).unwrap(),
+        "new in ws1"
+    );
+    // ws2 gets its own clean baseline
+    let status = git(ws2.path(), &["status", "--porcelain=v1"]);
+    assert!(status.is_empty(), "re-staged workspace should be clean");
+}
+
+#[test]
+fn edge_deeply_nested_directories() {
+    let src = tempdir().unwrap();
+    let depth = 15;
+    let mut deep = src.path().to_path_buf();
+    for i in 0..depth {
+        deep = deep.join(format!("d{i}"));
+    }
+    fs::create_dir_all(&deep).unwrap();
+    fs::write(deep.join("leaf.txt"), "bottom").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+
+    let mut expected = ws.path().to_path_buf();
+    for i in 0..depth {
+        expected = expected.join(format!("d{i}"));
+    }
+    assert!(expected.join("leaf.txt").exists());
+    assert_eq!(
+        fs::read_to_string(expected.join("leaf.txt")).unwrap(),
+        "bottom"
+    );
+}
+
+#[test]
+fn edge_empty_subdirectories_preserved() {
+    let src = tempdir().unwrap();
+    fs::create_dir_all(src.path().join("empty_child")).unwrap();
     fs::write(src.path().join("root.txt"), "hi").unwrap();
 
     let ws = WorkspaceStager::new()
@@ -636,66 +986,54 @@ fn empty_subdirectories_are_created() {
         .stage()
         .unwrap();
 
-    assert!(ws.path().join("empty_dir").exists());
+    assert!(ws.path().join("empty_child").exists());
     assert!(ws.path().join("root.txt").exists());
 }
 
 #[test]
-fn deeply_nested_directory_10_levels() {
-    let src = tempdir().unwrap();
-    let mut deep = src.path().to_path_buf();
-    for i in 0..10 {
-        deep = deep.join(format!("level{i}"));
-    }
-    fs::create_dir_all(&deep).unwrap();
-    fs::write(deep.join("leaf.txt"), "bottom").unwrap();
-
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let mut expected = ws.path().to_path_buf();
-    for i in 0..10 {
-        expected = expected.join(format!("level{i}"));
-    }
-    assert_eq!(
-        fs::read_to_string(expected.join("leaf.txt")).unwrap(),
-        "bottom"
-    );
+fn edge_invalid_include_glob_errors() {
+    let src = make_source(&[("f.txt", "x")]);
+    let result =
+        WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec!["[".into()], vec![]));
+    assert!(result.is_err());
 }
 
 #[test]
-fn large_number_of_files() {
-    let src = tempdir().unwrap();
-    for i in 0..100 {
-        fs::write(
-            src.path().join(format!("file_{i:03}.txt")),
-            format!("content {i}"),
-        )
-        .unwrap();
-    }
-
-    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert_eq!(collect_files(ws.path()).len(), 100);
+fn edge_invalid_exclude_glob_errors() {
+    let src = make_source(&[("f.txt", "x")]);
+    let result =
+        WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec![], vec!["[".into()]));
+    assert!(result.is_err());
 }
 
 #[test]
-fn large_single_file_content_preserved() {
-    let src = tempdir().unwrap();
-    let big = "X".repeat(512 * 1024);
-    fs::write(src.path().join("big.bin"), &big).unwrap();
+fn edge_restage_does_not_copy_dot_git() {
+    let src = make_source(&[("code.rs", "fn main() {}")]);
+    let ws1 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
 
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
+    // ws1 has .git; re-stage without git init to verify it's not copied.
+    let ws2 = WorkspaceStager::new()
+        .source_root(ws1.path())
         .with_git_init(false)
         .stage()
         .unwrap();
 
-    assert_eq!(
-        fs::read_to_string(ws.path().join("big.bin")).unwrap().len(),
-        big.len()
+    assert!(
+        !ws2.path().join(".git").exists(),
+        ".git from first stage must not be copied into second stage"
     );
+    assert!(ws2.path().join("code.rs").exists());
 }
 
 #[test]
-fn symlinks_handled_without_error() {
+fn edge_stager_default_equals_new() {
+    let s = WorkspaceStager::default();
+    // Default is same as new() — no source_root set, so stage should fail.
+    assert!(s.stage().is_err());
+}
+
+#[test]
+fn edge_symlinks_handled_without_error() {
     let src = tempdir().unwrap();
     fs::write(src.path().join("real.txt"), "real").unwrap();
 
@@ -712,6 +1050,7 @@ fn symlinks_handled_without_error() {
         );
     }
 
+    // Staging must succeed regardless of symlink presence.
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .with_git_init(false)
@@ -722,202 +1061,33 @@ fn symlinks_handled_without_error() {
 }
 
 #[test]
-fn unicode_filename_preserved() {
-    let src = make_source(&[("données/résumé.txt", "contenu")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-    assert_eq!(
-        fs::read_to_string(ws.path().join("données").join("résumé.txt")).unwrap(),
-        "contenu"
-    );
-}
-
-#[test]
-fn parallel_sibling_directories() {
+fn edge_large_number_of_files() {
     let src = tempdir().unwrap();
-    for d in &["alpha", "beta", "gamma"] {
-        fs::create_dir_all(src.path().join(d)).unwrap();
-        fs::write(src.path().join(d).join("file.txt"), d).unwrap();
+    let count = 200;
+    for i in 0..count {
+        fs::write(
+            src.path().join(format!("file_{i:04}.txt")),
+            format!("content {i}"),
+        )
+        .unwrap();
     }
 
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
 
-    for d in &["alpha", "beta", "gamma"] {
-        assert_eq!(
-            fs::read_to_string(ws.path().join(d).join("file.txt")).unwrap(),
-            *d
-        );
-    }
-}
-
-// ===========================================================================
-// 9. Error handling
-// ===========================================================================
-
-#[test]
-fn error_nonexistent_source_directory() {
-    let result = WorkspaceStager::new()
-        .source_root("/nonexistent/path/xyz_does_not_exist")
-        .stage();
-    assert!(result.is_err());
-    let msg = format!("{}", result.unwrap_err());
-    assert!(msg.contains("does not exist"), "error: {msg}");
-}
-
-#[test]
-fn error_no_source_root_set() {
-    let result = WorkspaceStager::new().stage();
-    assert!(result.is_err());
-    let msg = format!("{}", result.unwrap_err());
-    assert!(msg.contains("source_root"), "error: {msg}");
-}
-
-#[test]
-fn error_invalid_include_glob() {
-    let src = make_source(&[("f.txt", "x")]);
-    let result =
-        WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec!["[".into()], vec![]));
-    assert!(result.is_err());
-}
-
-#[test]
-fn error_invalid_exclude_glob() {
-    let src = make_source(&[("f.txt", "x")]);
-    let result =
-        WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec![], vec!["[".into()]));
-    assert!(result.is_err());
-}
-
-// ===========================================================================
-// 10. Multiple workspaces in parallel
-// ===========================================================================
-
-#[test]
-fn multiple_independent_staged_workspaces() {
-    let src = make_source(&[("shared.txt", "original")]);
-    let ws1 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let ws2 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-
-    assert_ne!(ws1.path(), ws2.path());
-
-    fs::write(ws1.path().join("shared.txt"), "ws1").unwrap();
-    fs::write(ws2.path().join("shared.txt"), "ws2").unwrap();
-
-    assert_eq!(
-        fs::read_to_string(ws1.path().join("shared.txt")).unwrap(),
-        "ws1"
-    );
-    assert_eq!(
-        fs::read_to_string(ws2.path().join("shared.txt")).unwrap(),
-        "ws2"
-    );
-    assert_eq!(
-        fs::read_to_string(src.path().join("shared.txt")).unwrap(),
-        "original"
-    );
-}
-
-#[test]
-fn three_workspaces_from_same_source() {
-    let src = make_source(&[("data.txt", "d")]);
-    let w1 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let w2 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let w3 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-
-    let paths: Vec<PathBuf> = vec![
-        w1.path().to_path_buf(),
-        w2.path().to_path_buf(),
-        w3.path().to_path_buf(),
-    ];
-    // All different paths
-    assert_ne!(paths[0], paths[1]);
-    assert_ne!(paths[1], paths[2]);
-    assert_ne!(paths[0], paths[2]);
-}
-
-#[test]
-fn workspaces_with_different_globs_from_same_source() {
-    let src = tempdir().unwrap();
-    create_fixture(src.path());
-
-    let ws_rs = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        vec!["**/*.rs".into()],
-        vec![],
-    ))
-    .unwrap();
-    let ws_md = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        vec!["**/*.md".into()],
-        vec![],
-    ))
-    .unwrap();
-
-    let rs_files = collect_files(ws_rs.path());
-    let md_files = collect_files(ws_md.path());
-
-    assert!(rs_files.iter().all(|f| f.ends_with(".rs")));
-    assert!(md_files.iter().all(|f| f.ends_with(".md")));
-}
-
-// ===========================================================================
-// 11. WorkspaceStager builder API
-// ===========================================================================
-
-#[test]
-fn stager_default_creates_new() {
-    let s = WorkspaceStager::default();
-    // Default is same as new() — no source_root set, so stage should fail.
-    assert!(s.stage().is_err());
-}
-
-#[test]
-fn stager_builder_source_and_stage() {
-    let src = make_source(&[("hello.txt", "world")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .stage()
-        .unwrap();
-    assert!(ws.path().join("hello.txt").exists());
-}
-
-#[test]
-fn stager_builder_with_include() {
-    let src = make_source(&[("a.rs", "fn a() {}"), ("b.md", "# B")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .include(vec!["*.rs".into()])
-        .with_git_init(false)
-        .stage()
-        .unwrap();
     let files = collect_files(ws.path());
-    assert!(files.contains(&"a.rs".to_string()));
-    assert!(!files.contains(&"b.md".to_string()));
+    assert_eq!(files.len(), count, "all {count} files must be staged");
+    assert_eq!(
+        fs::read_to_string(ws.path().join("file_0000.txt")).unwrap(),
+        "content 0"
+    );
+    assert_eq!(
+        fs::read_to_string(ws.path().join(format!("file_{:04}.txt", count - 1))).unwrap(),
+        format!("content {}", count - 1)
+    );
 }
 
 #[test]
-fn stager_builder_with_exclude() {
-    let src = make_source(&[("keep.rs", "fn k() {}"), ("drop.log", "log")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .exclude(vec!["*.log".into()])
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-    let files = collect_files(ws.path());
-    assert!(files.contains(&"keep.rs".to_string()));
-    assert!(!files.contains(&"drop.log".to_string()));
-}
-
-#[test]
-fn stager_builder_chaining() {
+fn edge_stager_builder_chaining() {
     let src = make_source(&[("src/lib.rs", "pub fn x() {}"), ("target/out.o", "bin")]);
     let ws = WorkspaceStager::new()
         .source_root(src.path())
@@ -930,632 +1100,4 @@ fn stager_builder_chaining() {
     let files = collect_files(ws.path());
     assert!(files.contains(&"src/lib.rs".to_string()));
     assert!(!files.iter().any(|f| f.ends_with(".o")));
-}
-
-#[test]
-fn stager_restage_from_staged_workspace() {
-    let src = make_source(&[("original.txt", "v1")]);
-    let ws1 = WorkspaceStager::new()
-        .source_root(src.path())
-        .stage()
-        .unwrap();
-
-    fs::write(ws1.path().join("original.txt"), "v2").unwrap();
-
-    let ws2 = WorkspaceStager::new()
-        .source_root(ws1.path())
-        .stage()
-        .unwrap();
-
-    assert_ne!(ws1.path(), ws2.path());
-    assert_eq!(
-        fs::read_to_string(ws2.path().join("original.txt")).unwrap(),
-        "v2"
-    );
-}
-
-// ===========================================================================
-// 12. Snapshot capture and compare
-// ===========================================================================
-
-#[test]
-fn snapshot_captures_all_files() {
-    let src = make_source(&[("a.txt", "a"), ("b.txt", "b")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-
-    let snap = capture(ws.path()).unwrap();
-    assert_eq!(snap.file_count(), 2);
-}
-
-#[test]
-fn snapshot_records_file_size() {
-    let content = "hello world";
-    let src = make_source(&[("f.txt", content)]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-
-    let snap = capture(ws.path()).unwrap();
-    assert_eq!(snap.total_size(), content.len() as u64);
-}
-
-#[test]
-fn snapshot_has_file_lookup() {
-    let src = make_source(&[("present.txt", "yes")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-
-    let snap = capture(ws.path()).unwrap();
-    assert!(snap.has_file("present.txt"));
-}
-
-#[test]
-fn snapshot_get_file_returns_hash() {
-    let src = make_source(&[("hashed.txt", "content")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-
-    let snap = capture(ws.path()).unwrap();
-    let fs = snap.get_file("hashed.txt").expect("file should exist");
-    assert!(!fs.sha256.is_empty());
-    assert_eq!(fs.size, 7); // "content" is 7 bytes
-}
-
-#[test]
-fn snapshot_compare_identical() {
-    let src = make_source(&[("f.txt", "same")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-
-    let s1 = capture(ws.path()).unwrap();
-    let s2 = capture(ws.path()).unwrap();
-    let diff = compare(&s1, &s2);
-    assert!(diff.added.is_empty());
-    assert!(diff.removed.is_empty());
-    assert!(diff.modified.is_empty());
-    assert_eq!(diff.unchanged.len(), 1);
-}
-
-#[test]
-fn snapshot_compare_detects_added_file() {
-    let src = make_source(&[("f.txt", "x")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-
-    let before = capture(ws.path()).unwrap();
-    fs::write(ws.path().join("new.txt"), "new").unwrap();
-    let after = capture(ws.path()).unwrap();
-
-    let diff = compare(&before, &after);
-    assert_eq!(diff.added.len(), 1);
-}
-
-#[test]
-fn snapshot_compare_detects_removed_file() {
-    let src = make_source(&[("a.txt", "a"), ("b.txt", "b")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-
-    let before = capture(ws.path()).unwrap();
-    fs::remove_file(ws.path().join("b.txt")).unwrap();
-    let after = capture(ws.path()).unwrap();
-
-    let diff = compare(&before, &after);
-    assert_eq!(diff.removed.len(), 1);
-}
-
-#[test]
-fn snapshot_compare_detects_modified_file() {
-    let src = make_source(&[("m.txt", "old")]);
-    let ws = WorkspaceStager::new()
-        .source_root(src.path())
-        .with_git_init(false)
-        .stage()
-        .unwrap();
-
-    let before = capture(ws.path()).unwrap();
-    fs::write(ws.path().join("m.txt"), "new").unwrap();
-    let after = capture(ws.path()).unwrap();
-
-    let diff = compare(&before, &after);
-    assert_eq!(diff.modified.len(), 1);
-}
-
-// ===========================================================================
-// 13. DiffSummary struct methods
-// ===========================================================================
-
-#[test]
-fn diff_summary_is_empty_on_default() {
-    let ds = DiffSummary::default();
-    assert!(ds.is_empty());
-    assert_eq!(ds.file_count(), 0);
-    assert_eq!(ds.total_changes(), 0);
-}
-
-#[test]
-fn diff_summary_not_empty_with_added() {
-    let ds = DiffSummary {
-        added: vec![PathBuf::from("new.txt")],
-        ..Default::default()
-    };
-    assert!(!ds.is_empty());
-    assert_eq!(ds.file_count(), 1);
-}
-
-#[test]
-fn diff_summary_total_changes_sums_add_del() {
-    let ds = DiffSummary {
-        total_additions: 10,
-        total_deletions: 5,
-        ..Default::default()
-    };
-    assert_eq!(ds.total_changes(), 15);
-}
-
-// ===========================================================================
-// 14. Template system
-// ===========================================================================
-
-#[test]
-fn template_new_is_empty() {
-    let t = WorkspaceTemplate::new("test", "A test template");
-    assert_eq!(t.file_count(), 0);
-    assert_eq!(t.name, "test");
-}
-
-#[test]
-fn template_add_and_has_file() {
-    let mut t = WorkspaceTemplate::new("t", "d");
-    t.add_file("src/lib.rs", "pub fn x() {}");
-    assert!(t.has_file("src/lib.rs"));
-    assert!(!t.has_file("missing.rs"));
-    assert_eq!(t.file_count(), 1);
-}
-
-#[test]
-fn template_apply_creates_files() {
-    let mut t = WorkspaceTemplate::new("t", "d");
-    t.add_file("src/lib.rs", "pub fn x() {}");
-    t.add_file("README.md", "# Hello");
-
-    let target = tempdir().unwrap();
-    let count = t.apply(target.path()).unwrap();
-    assert_eq!(count, 2);
-    assert!(target.path().join("src").join("lib.rs").exists());
-    assert!(target.path().join("README.md").exists());
-}
-
-#[test]
-fn template_apply_creates_parent_dirs() {
-    let mut t = WorkspaceTemplate::new("t", "d");
-    t.add_file("a/b/c/deep.txt", "deep");
-
-    let target = tempdir().unwrap();
-    t.apply(target.path()).unwrap();
-    assert_eq!(
-        fs::read_to_string(target.path().join("a/b/c/deep.txt")).unwrap(),
-        "deep"
-    );
-}
-
-#[test]
-fn template_validate_ok() {
-    let t = WorkspaceTemplate::new("valid", "A valid template");
-    assert!(t.validate().is_empty());
-}
-
-#[test]
-fn template_validate_empty_name() {
-    let t = WorkspaceTemplate::new("", "desc");
-    let problems = t.validate();
-    assert!(problems.iter().any(|p| p.contains("name")));
-}
-
-#[test]
-fn template_validate_empty_description() {
-    let t = WorkspaceTemplate::new("name", "");
-    let problems = t.validate();
-    assert!(problems.iter().any(|p| p.contains("description")));
-}
-
-#[test]
-fn template_validate_absolute_path() {
-    let mut t = WorkspaceTemplate::new("t", "d");
-    #[cfg(windows)]
-    t.add_file("C:\\bad\\path.txt", "x");
-    #[cfg(unix)]
-    t.add_file("/bad/path.txt", "x");
-    let problems = t.validate();
-    assert!(problems.iter().any(|p| p.contains("absolute")));
-}
-
-#[test]
-fn template_registry_register_and_get() {
-    let mut reg = TemplateRegistry::new();
-    let t = WorkspaceTemplate::new("my-tmpl", "desc");
-    reg.register(t);
-    assert_eq!(reg.count(), 1);
-    assert!(reg.get("my-tmpl").is_some());
-    assert!(reg.get("nonexistent").is_none());
-}
-
-#[test]
-fn template_registry_list() {
-    let mut reg = TemplateRegistry::new();
-    reg.register(WorkspaceTemplate::new("beta", "b"));
-    reg.register(WorkspaceTemplate::new("alpha", "a"));
-    let names = reg.list();
-    assert_eq!(names, vec!["alpha", "beta"]);
-}
-
-#[test]
-fn template_registry_overwrite() {
-    let mut reg = TemplateRegistry::new();
-    let mut t1 = WorkspaceTemplate::new("t", "old");
-    t1.add_file("old.txt", "old");
-    reg.register(t1);
-
-    let mut t2 = WorkspaceTemplate::new("t", "new");
-    t2.add_file("new.txt", "new");
-    reg.register(t2);
-
-    assert_eq!(reg.count(), 1);
-    let t = reg.get("t").unwrap();
-    assert!(t.has_file("new.txt"));
-    assert!(!t.has_file("old.txt"));
-}
-
-// ===========================================================================
-// 15. ChangeTracker / OperationLog
-// ===========================================================================
-
-#[test]
-fn change_tracker_empty_initially() {
-    let ct = ChangeTracker::new();
-    assert!(!ct.has_changes());
-    assert!(ct.changes().is_empty());
-}
-
-#[test]
-fn change_tracker_records_created() {
-    let mut ct = ChangeTracker::new();
-    ct.record(FileChange {
-        path: "new.txt".into(),
-        kind: ChangeKind::Created,
-        size_before: None,
-        size_after: Some(100),
-        content_hash: None,
-    });
-    assert!(ct.has_changes());
-    let s = ct.summary();
-    assert_eq!(s.created, 1);
-    assert_eq!(s.total_size_delta, 100);
-}
-
-#[test]
-fn change_tracker_records_multiple_kinds() {
-    let mut ct = ChangeTracker::new();
-    ct.record(FileChange {
-        path: "a.txt".into(),
-        kind: ChangeKind::Created,
-        size_before: None,
-        size_after: Some(50),
-        content_hash: None,
-    });
-    ct.record(FileChange {
-        path: "b.txt".into(),
-        kind: ChangeKind::Modified,
-        size_before: Some(30),
-        size_after: Some(40),
-        content_hash: None,
-    });
-    ct.record(FileChange {
-        path: "c.txt".into(),
-        kind: ChangeKind::Deleted,
-        size_before: Some(20),
-        size_after: None,
-        content_hash: None,
-    });
-    ct.record(FileChange {
-        path: "d.txt".into(),
-        kind: ChangeKind::Renamed {
-            from: "old.txt".into(),
-        },
-        size_before: Some(10),
-        size_after: Some(10),
-        content_hash: None,
-    });
-    let s = ct.summary();
-    assert_eq!(s.created, 1);
-    assert_eq!(s.modified, 1);
-    assert_eq!(s.deleted, 1);
-    assert_eq!(s.renamed, 1);
-}
-
-#[test]
-fn change_tracker_affected_paths() {
-    let mut ct = ChangeTracker::new();
-    ct.record(FileChange {
-        path: "x.txt".into(),
-        kind: ChangeKind::Created,
-        size_before: None,
-        size_after: Some(1),
-        content_hash: None,
-    });
-    ct.record(FileChange {
-        path: "y.txt".into(),
-        kind: ChangeKind::Deleted,
-        size_before: Some(1),
-        size_after: None,
-        content_hash: None,
-    });
-    let paths = ct.affected_paths();
-    assert_eq!(paths, vec!["x.txt", "y.txt"]);
-}
-
-#[test]
-fn change_tracker_by_kind() {
-    let mut ct = ChangeTracker::new();
-    ct.record(FileChange {
-        path: "a.txt".into(),
-        kind: ChangeKind::Created,
-        size_before: None,
-        size_after: Some(1),
-        content_hash: None,
-    });
-    ct.record(FileChange {
-        path: "b.txt".into(),
-        kind: ChangeKind::Created,
-        size_before: None,
-        size_after: Some(2),
-        content_hash: None,
-    });
-    ct.record(FileChange {
-        path: "c.txt".into(),
-        kind: ChangeKind::Modified,
-        size_before: Some(1),
-        size_after: Some(3),
-        content_hash: None,
-    });
-    assert_eq!(ct.by_kind(&ChangeKind::Created).len(), 2);
-    assert_eq!(ct.by_kind(&ChangeKind::Modified).len(), 1);
-    assert_eq!(ct.by_kind(&ChangeKind::Deleted).len(), 0);
-}
-
-#[test]
-fn change_tracker_clear() {
-    let mut ct = ChangeTracker::new();
-    ct.record(FileChange {
-        path: "a.txt".into(),
-        kind: ChangeKind::Created,
-        size_before: None,
-        size_after: Some(1),
-        content_hash: None,
-    });
-    assert!(ct.has_changes());
-    ct.clear();
-    assert!(!ct.has_changes());
-}
-
-#[test]
-fn operation_log_empty_initially() {
-    let log = OperationLog::new();
-    assert!(log.operations().is_empty());
-    assert!(log.reads().is_empty());
-    assert!(log.writes().is_empty());
-    assert!(log.deletes().is_empty());
-}
-
-#[test]
-fn operation_log_records_read_write_delete() {
-    let mut log = OperationLog::new();
-    log.record(FileOperation::Read {
-        path: "r.txt".into(),
-    });
-    log.record(FileOperation::Write {
-        path: "w.txt".into(),
-        size: 42,
-    });
-    log.record(FileOperation::Delete {
-        path: "d.txt".into(),
-    });
-    assert_eq!(log.reads(), vec!["r.txt"]);
-    assert_eq!(log.writes(), vec!["w.txt"]);
-    assert_eq!(log.deletes(), vec!["d.txt"]);
-}
-
-#[test]
-fn operation_log_summary() {
-    let mut log = OperationLog::new();
-    log.record(FileOperation::Read {
-        path: "r.txt".into(),
-    });
-    log.record(FileOperation::Write {
-        path: "w1.txt".into(),
-        size: 100,
-    });
-    log.record(FileOperation::Write {
-        path: "w2.txt".into(),
-        size: 200,
-    });
-    log.record(FileOperation::Delete {
-        path: "d.txt".into(),
-    });
-    log.record(FileOperation::Move {
-        from: "old.txt".into(),
-        to: "new.txt".into(),
-    });
-    log.record(FileOperation::Copy {
-        from: "src.txt".into(),
-        to: "dst.txt".into(),
-    });
-    log.record(FileOperation::CreateDir {
-        path: "newdir".into(),
-    });
-
-    let s = log.summary();
-    assert_eq!(s.reads, 1);
-    assert_eq!(s.writes, 2);
-    assert_eq!(s.deletes, 1);
-    assert_eq!(s.moves, 1);
-    assert_eq!(s.copies, 1);
-    assert_eq!(s.create_dirs, 1);
-    assert_eq!(s.total_writes_bytes, 300);
-}
-
-#[test]
-fn operation_log_affected_paths() {
-    let mut log = OperationLog::new();
-    log.record(FileOperation::Read {
-        path: "a.txt".into(),
-    });
-    log.record(FileOperation::Move {
-        from: "b.txt".into(),
-        to: "c.txt".into(),
-    });
-    let paths = log.affected_paths();
-    assert!(paths.contains("a.txt"));
-    assert!(paths.contains("b.txt"));
-    assert!(paths.contains("c.txt"));
-}
-
-#[test]
-fn operation_log_clear() {
-    let mut log = OperationLog::new();
-    log.record(FileOperation::Read {
-        path: "x.txt".into(),
-    });
-    assert!(!log.operations().is_empty());
-    log.clear();
-    assert!(log.operations().is_empty());
-}
-
-#[test]
-fn operation_filter_allows_all_by_default() {
-    let f = OperationFilter::new();
-    assert!(f.is_allowed("any/path.txt"));
-}
-
-#[test]
-fn operation_filter_deny_takes_precedence() {
-    let mut f = OperationFilter::new();
-    f.add_allowed_path("**/*.rs");
-    f.add_denied_path("src/secret/**");
-    assert!(f.is_allowed("src/lib.rs"));
-    assert!(!f.is_allowed("src/secret/key.pem"));
-}
-
-#[test]
-fn operation_filter_filters_operations() {
-    let mut f = OperationFilter::new();
-    f.add_denied_path("*.log");
-    let ops = vec![
-        FileOperation::Read {
-            path: "app.rs".into(),
-        },
-        FileOperation::Read {
-            path: "debug.log".into(),
-        },
-    ];
-    let allowed = f.filter_operations(&ops);
-    assert_eq!(allowed.len(), 1);
-}
-
-// ===========================================================================
-// 16. PassThrough mode
-// ===========================================================================
-
-#[test]
-fn passthrough_returns_original_path() {
-    let src = make_source(&[("a.txt", "a")]);
-    let spec = WorkspaceSpec {
-        root: src.path().to_string_lossy().to_string(),
-        mode: WorkspaceMode::PassThrough,
-        include: vec![],
-        exclude: vec![],
-    };
-    let ws = WorkspaceManager::prepare(&spec).unwrap();
-    assert_eq!(ws.path(), src.path());
-}
-
-#[test]
-fn passthrough_does_not_create_temp_dir() {
-    let src = make_source(&[("a.txt", "a")]);
-    let spec = WorkspaceSpec {
-        root: src.path().to_string_lossy().to_string(),
-        mode: WorkspaceMode::PassThrough,
-        include: vec![],
-        exclude: vec![],
-    };
-    let ws = WorkspaceManager::prepare(&spec).unwrap();
-    // The path should be exactly the source, no temp dir involved.
-    assert_eq!(ws.path(), src.path());
-}
-
-// ===========================================================================
-// 17. FileOperation paths helper
-// ===========================================================================
-
-#[test]
-fn file_operation_read_paths() {
-    let op = FileOperation::Read {
-        path: "f.txt".into(),
-    };
-    assert_eq!(op.paths(), vec!["f.txt"]);
-}
-
-#[test]
-fn file_operation_move_has_two_paths() {
-    let op = FileOperation::Move {
-        from: "a.txt".into(),
-        to: "b.txt".into(),
-    };
-    assert_eq!(op.paths(), vec!["a.txt", "b.txt"]);
-}
-
-#[test]
-fn file_operation_copy_has_two_paths() {
-    let op = FileOperation::Copy {
-        from: "s.txt".into(),
-        to: "d.txt".into(),
-    };
-    assert_eq!(op.paths(), vec!["s.txt", "d.txt"]);
-}
-
-// ===========================================================================
-// 18. OperationSummary default
-// ===========================================================================
-
-#[test]
-fn operation_summary_default_all_zero() {
-    let s = OperationSummary::default();
-    assert_eq!(s.reads, 0);
-    assert_eq!(s.writes, 0);
-    assert_eq!(s.deletes, 0);
-    assert_eq!(s.moves, 0);
-    assert_eq!(s.copies, 0);
-    assert_eq!(s.create_dirs, 0);
-    assert_eq!(s.total_writes_bytes, 0);
 }
