@@ -7,6 +7,15 @@
 //!
 //! Dialect detection, validation, and metadata for the Agent Backplane.
 
+/// Request fingerprinting for dialect identification.
+///
+/// Provides [`DialectFingerprint`] definitions and free functions
+/// ([`detect_dialect`](detect::detect_dialect),
+/// [`detect_from_headers`](detect::detect_from_headers)) that examine
+/// raw JSON requests and HTTP headers to identify which SDK dialect
+/// produced them.
+pub mod detect;
+
 /// Intermediate representation types for cross-dialect translation.
 ///
 /// Provides dialect-agnostic request/response wrappers (`IrRequest`,

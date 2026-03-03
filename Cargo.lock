@@ -9,6 +9,8 @@ dependencies = [
  "abp-core",
  "anyhow",
  "async-trait",
+ "chrono",
+ "serde",
  "serde_json",
  "tokio",
  "uuid",

@@ -3,6 +3,14 @@
 #![warn(missing_docs)]
 //! Shared backend abstractions and policy helpers.
 
+pub mod health;
+pub mod metadata;
+pub mod registry;
+
+pub use health::{BackendHealth, HealthStatus};
+pub use metadata::{BackendMetadata, RateLimit};
+pub use registry::BackendRegistry;
+
 use abp_core::{
     AgentEvent, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
     WorkOrder,
