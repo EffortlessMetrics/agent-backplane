@@ -157,6 +157,8 @@ abp-sidecar-sdk = { path = "crates/abp-sidecar-sdk" }
 insta = { workspace = true }
 proptest = { workspace = true }
 sha2 = { workspace = true }
+flate2 = { workspace = true }
+zstd = { workspace = true }
 toml = { workspace = true }
 walkdir = { workspace = true }
 axum = { workspace = true }
