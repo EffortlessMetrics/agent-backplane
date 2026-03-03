@@ -463,7 +463,7 @@ fn rank_targets_multiple_features() {
     let ranked = reg.rank_targets(Dialect::Claude, &["tool_use", "streaming"]);
     assert!(!ranked.is_empty());
     // Each entry should have lossless count <= number of features queried.
-    for (_, count) in &ranked {
+    for count in ranked.values() {
         assert!(*count <= 2);
     }
 }

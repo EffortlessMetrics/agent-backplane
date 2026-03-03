@@ -1043,7 +1043,7 @@ mod unix_permissions {
             .stage()
             .unwrap();
 
-        for (_, name) in &modes {
+        for name in modes.values() {
             assert!(ws.path().join(name).exists());
         }
     }

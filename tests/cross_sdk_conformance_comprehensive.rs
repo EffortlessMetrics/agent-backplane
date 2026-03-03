@@ -1559,7 +1559,7 @@ fn fidelity_labels_native_for_supported_caps() {
     let report = abp_emulation::EmulationReport::default();
     let labels = compute_fidelity(&native_caps, &report);
     assert_eq!(labels.len(), 2);
-    for (_, label) in &labels {
+    for label in labels.values() {
         assert!(matches!(label, FidelityLabel::Native));
     }
 }

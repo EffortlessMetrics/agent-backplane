@@ -1792,7 +1792,7 @@ fn only_mock_backends_config() {
     "#;
     let c = parse_toml(t).unwrap();
     assert_eq!(c.backends.len(), 3);
-    for (_, v) in &c.backends {
+    for v in c.backends.values() {
         assert!(matches!(v, BackendEntry::Mock {}));
     }
 }
@@ -1811,7 +1811,7 @@ fn only_sidecar_backends_config() {
     "#;
     let c = parse_toml(t).unwrap();
     assert_eq!(c.backends.len(), 2);
-    for (_, v) in &c.backends {
+    for v in c.backends.values() {
         assert!(matches!(v, BackendEntry::Sidecar { .. }));
     }
 }

@@ -6,7 +6,6 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-publish = false
 description = "Deep tests for the ABP error taxonomy"
 keywords = ["agent", "backplane", "error", "taxonomy", "testing"]
 categories = ["development-tools"]
