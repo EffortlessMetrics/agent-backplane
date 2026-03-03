@@ -1557,3 +1557,1046 @@ fn health_monitor_uptime_unknown_sidecar() {
     let monitor = HealthMonitor::new();
     assert!((monitor.uptime_percentage("nonexistent") - 0.0).abs() < f64::EPSILON);
 }
+
+// ===========================================================================
+// 11. JSONL Envelope Types — Extended
+// ===========================================================================
+
+#[test]
+fn run_envelope_roundtrip() {
+    let run = make_run("run-42");
+    let encoded = JsonlCodec::encode(&run).unwrap();
+    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
+    match decoded {
+        Envelope::Run { id, work_order } => {
+            assert_eq!(id, "run-42");
+            assert_eq!(work_order.task, "hello world");
+        }
+        _ => panic!("expected Run"),
+    }
+}
+
+#[test]
+fn run_envelope_t_tag() {
+    let run = make_run("r1");
+    let json = JsonlCodec::encode(&run).unwrap();
+    assert!(json.contains(r#""t":"run""#));
+}
+
+#[test]
+fn event_envelope_t_tag() {
+    let event = make_event("r1");
+    let json = JsonlCodec::encode(&event).unwrap();
+    assert!(json.contains(r#""t":"event""#));
+}
+
+#[test]
+fn final_envelope_t_tag() {
+    let f = make_final("r1");
+    let json = JsonlCodec::encode(&f).unwrap();
+    assert!(json.contains(r#""t":"final""#));
+}
+
+#[test]
+fn fatal_envelope_t_tag() {
+    let f = make_fatal(Some("r1"), "boom");
+    let json = JsonlCodec::encode(&f).unwrap();
+    assert!(json.contains(r#""t":"fatal""#));
+}
+
+#[test]
+fn envelope_encode_ends_with_newline() {
+    for env in [make_hello(), make_run("r1"), make_event("r1"), make_final("r1")] {
+        let encoded = JsonlCodec::encode(&env).unwrap();
+        assert!(encoded.ends_with('\n'), "envelope must end with newline");
+    }
+}
+
+#[test]
+fn unknown_envelope_type_fails_decode() {
+    let line = r#"{"t":"unknown_type","data":"test"}"#;
+    let result = JsonlCodec::decode(line);
+    assert!(result.is_err());
+}
+
+#[test]
+fn invalid_json_fails_decode() {
+    let result = JsonlCodec::decode("not valid json at all");
+    assert!(result.is_err());
+}
+
+#[test]
+fn empty_json_object_fails_decode() {
+    let result = JsonlCodec::decode("{}");
+    assert!(result.is_err());
+}
+
+#[test]
+fn json_missing_t_field_fails_decode() {
+    let result = JsonlCodec::decode(r#"{"ref_id":"r1","error":"boom"}"#);
+    assert!(result.is_err());
+}
+
+#[test]
+fn fatal_with_error_code_roundtrip() {
+    let env = Envelope::fatal_with_code(
+        Some("r1".into()),
+        "rate limited",
+        abp_error::ErrorCode::ProtocolInvalidEnvelope,
+    );
+    let json = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+    assert!(decoded.error_code().is_some());
+}
+
+#[test]
+fn envelope_error_code_on_non_fatal_is_none() {
+    let hello = make_hello();
+    assert!(hello.error_code().is_none());
+    let run = make_run("r1");
+    assert!(run.error_code().is_none());
+    let event = make_event("r1");
+    assert!(event.error_code().is_none());
+}
+
+#[test]
+fn fatal_without_error_code_returns_none() {
+    let f = make_fatal(Some("r1"), "boom");
+    assert!(f.error_code().is_none());
+}
+
+#[test]
+fn decode_stream_multiple_envelopes() {
+    let mut buf = String::new();
+    buf.push_str(&JsonlCodec::encode(&make_fatal(None, "err1")).unwrap());
+    buf.push_str(&JsonlCodec::encode(&make_fatal(None, "err2")).unwrap());
+    let reader = std::io::BufReader::new(buf.as_bytes());
+    let envelopes: Vec<_> = JsonlCodec::decode_stream(reader)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(envelopes.len(), 2);
+}
+
+#[test]
+fn decode_stream_skips_blank_lines() {
+    let line = JsonlCodec::encode(&make_fatal(None, "err")).unwrap();
+    let input = format!("\n\n{}\n\n", line.trim());
+    let reader = std::io::BufReader::new(input.as_bytes());
+    let envelopes: Vec<_> = JsonlCodec::decode_stream(reader)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(envelopes.len(), 1);
+}
+
+#[test]
+fn encode_to_writer_works() {
+    let mut buf = Vec::new();
+    let env = make_fatal(None, "test");
+    abp_protocol::JsonlCodec::encode_to_writer(&mut buf, &env).unwrap();
+    let s = String::from_utf8(buf).unwrap();
+    assert!(s.ends_with('\n'));
+    assert!(s.contains("fatal"));
+}
+
+#[test]
+fn encode_many_to_writer_works() {
+    let mut buf = Vec::new();
+    let envs = [make_fatal(None, "a"), make_fatal(None, "b")];
+    abp_protocol::JsonlCodec::encode_many_to_writer(&mut buf, &envs).unwrap();
+    let s = String::from_utf8(buf).unwrap();
+    let lines: Vec<_> = s.lines().collect();
+    assert_eq!(lines.len(), 2);
+}
+
+// ===========================================================================
+// 12. Protocol Handshake — Extended
+// ===========================================================================
+
+#[test]
+fn hello_with_empty_capabilities() {
+    let hello = Envelope::hello(
+        test_identity(),
+        CapabilityManifest::new(),
+    );
+    match &hello {
+        Envelope::Hello { capabilities, .. } => {
+            assert!(capabilities.is_empty());
+        }
+        _ => panic!("expected Hello"),
+    }
+}
+
+#[test]
+fn hello_with_multiple_capabilities() {
+    let mut caps = CapabilityManifest::new();
+    caps.insert(Capability::Streaming, SupportLevel::Native);
+    caps.insert(Capability::ToolRead, SupportLevel::Native);
+    caps.insert(Capability::ToolWrite, SupportLevel::Emulated);
+    caps.insert(Capability::ToolBash, SupportLevel::Unsupported);
+    let hello = Envelope::hello(test_identity(), caps);
+    match &hello {
+        Envelope::Hello { capabilities, .. } => {
+            assert_eq!(capabilities.len(), 4);
+        }
+        _ => panic!("expected Hello"),
+    }
+}
+
+#[test]
+fn hello_missing_backend_version_warns() {
+    let hello = Envelope::Hello {
+        contract_version: CONTRACT_VERSION.into(),
+        backend: BackendIdentity {
+            id: "test".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        capabilities: CapabilityManifest::new(),
+        mode: ExecutionMode::default(),
+    };
+    let validator = EnvelopeValidator::new();
+    let result = validator.validate(&hello);
+    assert!(result.valid); // warnings don't invalidate
+    assert!(!result.warnings.is_empty());
+}
+
+#[test]
+fn hello_sequence_missing_hello_error() {
+    let validator = EnvelopeValidator::new();
+    let seq = vec![make_run("r1"), make_final("r1")];
+    let errors = validator.validate_sequence(&seq);
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
+}
+
+#[test]
+fn hello_empty_sequence_errors() {
+    let validator = EnvelopeValidator::new();
+    let errors = validator.validate_sequence(&[]);
+    assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingHello)));
+    assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingTerminal)));
+}
+
+#[test]
+fn hello_contract_version_matches_constant() {
+    let hello = make_hello();
+    let json = JsonlCodec::encode(&hello).unwrap();
+    assert!(json.contains(CONTRACT_VERSION));
+}
+
+#[test]
+fn hello_with_mode_passthrough_serde_roundtrip() {
+    let hello = Envelope::hello_with_mode(
+        test_identity(),
+        test_capabilities(),
+        ExecutionMode::Passthrough,
+    );
+    let json = JsonlCodec::encode(&hello).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+    match decoded {
+        Envelope::Hello { mode, .. } => assert_eq!(mode, ExecutionMode::Passthrough),
+        _ => panic!("expected Hello"),
+    }
+}
+
+#[test]
+fn protocol_version_ordering() {
+    let v01 = ProtocolVersion::parse("abp/v0.1").unwrap();
+    let v02 = ProtocolVersion::parse("abp/v0.2").unwrap();
+    let v10 = ProtocolVersion::parse("abp/v1.0").unwrap();
+    assert!(v01 < v02);
+    assert!(v02 < v10);
+}
+
+#[test]
+fn protocol_version_serde_roundtrip() {
+    let v = ProtocolVersion::parse("abp/v0.1").unwrap();
+    let json = serde_json::to_string(&v).unwrap();
+    let decoded: ProtocolVersion = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded, v);
+}
+
+#[test]
+fn version_error_display_messages() {
+    use abp_protocol::version::VersionError;
+    let invalid_format = VersionError::InvalidFormat;
+    assert!(format!("{invalid_format}").contains("invalid version format"));
+    let invalid_major = VersionError::InvalidMajor;
+    assert!(format!("{invalid_major}").contains("major"));
+}
+
+// ===========================================================================
+// 13. Run Lifecycle — Extended
+// ===========================================================================
+
+#[test]
+fn run_preserves_work_order_fields() {
+    let wo = test_work_order();
+    let id = wo.id;
+    let run = Envelope::Run {
+        id: "r1".into(),
+        work_order: wo,
+    };
+    let encoded = JsonlCodec::encode(&run).unwrap();
+    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
+    match decoded {
+        Envelope::Run { work_order, .. } => {
+            assert_eq!(work_order.id, id);
+            assert_eq!(work_order.task, "hello world");
+            assert!(matches!(work_order.lane, ExecutionLane::PatchFirst));
+            assert!(matches!(work_order.workspace.mode, WorkspaceMode::PassThrough));
+        }
+        _ => panic!("expected Run"),
+    }
+}
+
+#[test]
+fn run_with_complex_work_order() {
+    let wo = WorkOrder {
+        id: Uuid::new_v4(),
+        task: "Refactor authentication module with multi-factor support".into(),
+        lane: ExecutionLane::WorkspaceFirst,
+        workspace: WorkspaceSpec {
+            root: "/home/user/project".into(),
+            mode: WorkspaceMode::Staged,
+            include: vec!["src/**/*.rs".into(), "tests/**/*.rs".into()],
+            exclude: vec!["target/**".into()],
+        },
+        context: ContextPacket {
+            files: vec!["src/auth.rs".into(), "src/main.rs".into()],
+            snippets: vec![ContextSnippet {
+                name: "requirements".into(),
+                content: "Must support TOTP and WebAuthn".into(),
+            }],
+        },
+        policy: PolicyProfile {
+            allowed_tools: vec!["read_file".into(), "write_file".into()],
+            disallowed_tools: vec!["bash".into()],
+            deny_read: vec!["**/.env".into()],
+            deny_write: vec!["**/secrets/**".into()],
+            allow_network: vec![],
+            deny_network: vec!["*.internal.corp".into()],
+            require_approval_for: vec!["write_file".into()],
+        },
+        requirements: CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::ToolRead,
+                min_support: MinSupport::Native,
+            }],
+        },
+        config: RuntimeConfig {
+            model: Some("claude-sonnet-4-20250514".into()),
+            vendor: BTreeMap::new(),
+            env: BTreeMap::new(),
+            max_budget_usd: Some(1.0),
+            max_turns: Some(10),
+        },
+    };
+
+    let run = Envelope::Run {
+        id: "complex-run".into(),
+        work_order: wo,
+    };
+    let encoded = JsonlCodec::encode(&run).unwrap();
+    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
+    match decoded {
+        Envelope::Run { id, work_order } => {
+            assert_eq!(id, "complex-run");
+            assert_eq!(work_order.context.files.len(), 2);
+            assert_eq!(work_order.context.snippets.len(), 1);
+            assert_eq!(work_order.policy.allowed_tools.len(), 2);
+            assert_eq!(work_order.config.max_turns, Some(10));
+        }
+        _ => panic!("expected Run"),
+    }
+}
+
+#[test]
+fn run_empty_task_fails_validation() {
+    let mut wo = test_work_order();
+    wo.task = String::new();
+    let run = Envelope::Run {
+        id: "r1".into(),
+        work_order: wo,
+    };
+    let validator = EnvelopeValidator::new();
+    let result = validator.validate(&run);
+    assert!(!result.valid);
+}
+
+#[test]
+fn run_empty_id_fails_validation() {
+    let run = Envelope::Run {
+        id: String::new(),
+        work_order: test_work_order(),
+    };
+    let validator = EnvelopeValidator::new();
+    let result = validator.validate(&run);
+    assert!(!result.valid);
+}
+
+#[test]
+fn ref_id_correlation_across_events_and_final() {
+    let run_id = "correlated-run-123";
+    let seq = vec![
+        make_hello(),
+        make_run(run_id),
+        make_event(run_id),
+        make_event(run_id),
+        make_final(run_id),
+    ];
+    let validator = EnvelopeValidator::new();
+    let errors = validator.validate_sequence(&seq);
+    assert!(errors.is_empty());
+}
+
+#[test]
+fn ref_id_mismatch_in_final_detected() {
+    let validator = EnvelopeValidator::new();
+    let seq = vec![
+        make_hello(),
+        make_run("run-1"),
+        make_event("run-1"),
+        make_final("run-2"), // wrong ref_id
+    ];
+    let errors = validator.validate_sequence(&seq);
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
+}
+
+#[test]
+fn event_before_run_is_out_of_order() {
+    let validator = EnvelopeValidator::new();
+    let seq = vec![
+        make_hello(),
+        make_event("r1"), // before Run
+        make_run("r1"),
+        make_final("r1"),
+    ];
+    let errors = validator.validate_sequence(&seq);
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
+    );
+}
+
+#[test]
+fn receipt_in_final_preserves_outcome() {
+    let receipt = test_receipt(Uuid::nil());
+    let env = Envelope::Final {
+        ref_id: "r1".into(),
+        receipt: receipt.clone(),
+    };
+    let encoded = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
+    match decoded {
+        Envelope::Final { receipt, .. } => {
+            assert_eq!(receipt.outcome, Outcome::Complete);
+            assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
+        }
+        _ => panic!("expected Final"),
+    }
+}
+
+#[test]
+fn receipt_partial_outcome_roundtrip() {
+    let mut receipt = test_receipt(Uuid::nil());
+    receipt.outcome = Outcome::Partial;
+    let env = Envelope::Final {
+        ref_id: "r1".into(),
+        receipt,
+    };
+    let encoded = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
+    match decoded {
+        Envelope::Final { receipt, .. } => assert_eq!(receipt.outcome, Outcome::Partial),
+        _ => panic!("expected Final"),
+    }
+}
+
+#[test]
+fn receipt_failed_outcome_roundtrip() {
+    let mut receipt = test_receipt(Uuid::nil());
+    receipt.outcome = Outcome::Failed;
+    let env = Envelope::Final {
+        ref_id: "r1".into(),
+        receipt,
+    };
+    let encoded = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
+    match decoded {
+        Envelope::Final { receipt, .. } => assert_eq!(receipt.outcome, Outcome::Failed),
+        _ => panic!("expected Final"),
+    }
+}
+
+// ===========================================================================
+// 14. Error Handling — Extended
+// ===========================================================================
+
+#[test]
+fn protocol_error_json_variant() {
+    let err = JsonlCodec::decode("{{bad json").unwrap_err();
+    assert!(matches!(err, ProtocolError::Json(_)));
+    assert!(format!("{err}").contains("JSON"));
+}
+
+#[test]
+fn protocol_error_violation_variant() {
+    let err = ProtocolError::Violation("test violation".into());
+    assert!(format!("{err}").contains("test violation"));
+}
+
+#[test]
+fn protocol_error_unexpected_message_variant() {
+    let err = ProtocolError::UnexpectedMessage {
+        expected: "hello".into(),
+        got: "run".into(),
+    };
+    let msg = format!("{err}");
+    assert!(msg.contains("hello"));
+    assert!(msg.contains("run"));
+}
+
+#[test]
+fn protocol_error_code_for_violation() {
+    let err = ProtocolError::Violation("bad".into());
+    assert_eq!(
+        err.error_code(),
+        Some(abp_error::ErrorCode::ProtocolInvalidEnvelope)
+    );
+}
+
+#[test]
+fn protocol_error_code_for_unexpected_message() {
+    let err = ProtocolError::UnexpectedMessage {
+        expected: "hello".into(),
+        got: "run".into(),
+    };
+    assert_eq!(
+        err.error_code(),
+        Some(abp_error::ErrorCode::ProtocolUnexpectedMessage)
+    );
+}
+
+#[test]
+fn protocol_error_code_for_json_is_none() {
+    let err = JsonlCodec::decode("not json").unwrap_err();
+    assert!(err.error_code().is_none());
+}
+
+#[test]
+fn host_error_from_protocol_error() {
+    let proto_err = ProtocolError::Violation("bad data".into());
+    let host_err = HostError::Protocol(proto_err);
+    let msg = format!("{host_err}");
+    assert!(msg.contains("protocol"));
+    assert!(msg.contains("bad data"));
+}
+
+#[test]
+fn host_error_exited_without_code() {
+    let err = HostError::Exited { code: None };
+    let msg = format!("{err}");
+    assert!(msg.contains("exited"));
+    assert!(msg.contains("None"));
+}
+
+#[test]
+fn host_error_stdin_display() {
+    let err = HostError::Stdin(std::io::Error::new(
+        std::io::ErrorKind::BrokenPipe,
+        "pipe broken",
+    ));
+    let msg = format!("{err}");
+    assert!(msg.contains("stdin"));
+}
+
+#[test]
+fn host_error_stdout_display() {
+    let err = HostError::Stdout(std::io::Error::new(
+        std::io::ErrorKind::UnexpectedEof,
+        "eof",
+    ));
+    let msg = format!("{err}");
+    assert!(msg.contains("stdout"));
+}
+
+#[test]
+fn is_retryable_stdout_error() {
+    let err = HostError::Stdout(std::io::Error::new(
+        std::io::ErrorKind::UnexpectedEof,
+        "eof",
+    ));
+    assert!(is_retryable(&err));
+}
+
+#[test]
+fn not_retryable_stdin_error() {
+    let err = HostError::Stdin(std::io::Error::new(
+        std::io::ErrorKind::BrokenPipe,
+        "pipe broken",
+    ));
+    assert!(!is_retryable(&err));
+}
+
+#[test]
+fn fatal_envelope_terminates_valid_sequence() {
+    let validator = EnvelopeValidator::new();
+    let seq = vec![
+        make_hello(),
+        make_run("r1"),
+        make_event("r1"),
+        make_fatal(Some("r1"), "OOM"),
+    ];
+    let errors = validator.validate_sequence(&seq);
+    assert!(errors.is_empty());
+}
+
+#[test]
+fn fatal_with_none_ref_id_warns_validation() {
+    let env = Envelope::Fatal {
+        ref_id: None,
+        error: "startup crash".into(),
+        error_code: None,
+    };
+    let validator = EnvelopeValidator::new();
+    let result = validator.validate(&env);
+    assert!(result.valid); // ref_id is optional on fatal
+    assert!(!result.warnings.is_empty());
+}
+
+// ===========================================================================
+// 15. SidecarConfig — Extended
+// ===========================================================================
+
+#[test]
+fn sidecar_config_with_env_vars() {
+    let mut config = SidecarConfig::new("my-sidecar", "node");
+    config.env.insert("NODE_ENV".into(), "production".into());
+    config.env.insert("PORT".into(), "3000".into());
+    let spec = config.to_spec();
+    assert_eq!(spec.env.len(), 2);
+    assert_eq!(spec.env["NODE_ENV"], "production");
+}
+
+#[test]
+fn sidecar_config_with_working_dir() {
+    let mut config = SidecarConfig::new("test", "python");
+    config.working_dir = Some("/opt/sidecar".into());
+    let spec = config.to_spec();
+    assert_eq!(spec.cwd.as_deref(), Some("/opt/sidecar"));
+}
+
+#[test]
+fn sidecar_config_with_args() {
+    let mut config = SidecarConfig::new("test", "node");
+    config.args = vec!["host.js".into(), "--port".into(), "8080".into()];
+    let spec = config.to_spec();
+    assert_eq!(spec.args.len(), 3);
+    assert_eq!(spec.args[2], "8080");
+}
+
+#[test]
+fn sidecar_config_validate_valid() {
+    let config = SidecarConfig::new("ok", "python");
+    assert!(config.validate().is_ok());
+}
+
+#[test]
+fn sidecar_config_full_serde_roundtrip() {
+    let mut config = SidecarConfig::new("full-test", "node");
+    config.args = vec!["host.js".into()];
+    config.env.insert("K".into(), "V".into());
+    config.working_dir = Some("/tmp/work".into());
+    let json = serde_json::to_string(&config).unwrap();
+    let decoded: SidecarConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.name, "full-test");
+    assert_eq!(decoded.args, vec!["host.js"]);
+    assert_eq!(decoded.env["K"], "V");
+    assert_eq!(decoded.working_dir, Some("/tmp/work".into()));
+}
+
+#[test]
+fn sidecar_config_default_fields() {
+    let json = r#"{"name":"test","command":"node"}"#;
+    let config: SidecarConfig = serde_json::from_str(json).unwrap();
+    assert!(config.args.is_empty());
+    assert!(config.env.is_empty());
+    assert!(config.working_dir.is_none());
+}
+
+// ===========================================================================
+// 16. Multi-Sidecar Scenarios — Extended
+// ===========================================================================
+
+#[test]
+fn registry_multiple_sidecars_lookup() {
+    let mut reg = SidecarRegistry::default();
+    reg.register(SidecarConfig::new("node-sc", "node")).unwrap();
+    reg.register(SidecarConfig::new("python-sc", "python")).unwrap();
+    reg.register(SidecarConfig::new("bash-sc", "bash")).unwrap();
+    assert_eq!(reg.list().len(), 3);
+    assert!(reg.get("node-sc").is_some());
+    assert!(reg.get("python-sc").is_some());
+    assert!(reg.get("bash-sc").is_some());
+    assert!(reg.get("nonexistent").is_none());
+}
+
+#[test]
+fn registry_sidecar_selection_by_name() {
+    let mut reg = SidecarRegistry::default();
+    let mut node_config = SidecarConfig::new("node-sc", "node");
+    node_config.args = vec!["host.js".into()];
+    let mut python_config = SidecarConfig::new("python-sc", "python");
+    python_config.args = vec!["host.py".into()];
+    reg.register(node_config).unwrap();
+    reg.register(python_config).unwrap();
+
+    let selected = reg.get("python-sc").unwrap();
+    assert_eq!(selected.command, "python");
+    assert_eq!(selected.args, vec!["host.py"]);
+}
+
+#[test]
+fn registry_remove_then_re_register() {
+    let mut reg = SidecarRegistry::default();
+    reg.register(SidecarConfig::new("test", "node")).unwrap();
+    reg.remove("test");
+    reg.register(SidecarConfig::new("test", "python")).unwrap();
+    let config = reg.get("test").unwrap();
+    assert_eq!(config.command, "python");
+}
+
+#[test]
+fn pool_multiple_entries_lifecycle() {
+    let config = PoolConfig {
+        max_size: 10,
+        ..PoolConfig::default()
+    };
+    let pool = SidecarPool::new(config);
+    pool.add("s1");
+    pool.add("s2");
+    pool.add("s3");
+
+    // Acquire all
+    let e1 = pool.acquire().unwrap();
+    let e2 = pool.acquire().unwrap();
+    let e3 = pool.acquire().unwrap();
+    assert!(pool.acquire().is_none()); // all busy
+
+    // Release one
+    pool.release(&e1.id);
+    assert_eq!(pool.idle_count(), 1);
+
+    // Mark one failed
+    pool.mark_failed(&e2.id);
+    let stats = pool.stats();
+    assert_eq!(stats.busy, 1);
+    assert_eq!(stats.idle, 1);
+    assert_eq!(stats.failed, 1);
+
+    // Acquire the released one
+    let e4 = pool.acquire().unwrap();
+    assert_eq!(e4.id, e1.id);
+
+    // Drain the last busy one
+    pool.drain(&e3.id);
+    let stats = pool.stats();
+    assert_eq!(stats.draining, 1);
+}
+
+#[test]
+fn pool_config_serde_roundtrip() {
+    let config = PoolConfig {
+        min_size: 2,
+        max_size: 8,
+        idle_timeout: Duration::from_secs(120),
+        health_check_interval: Duration::from_secs(15),
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let decoded: PoolConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.min_size, 2);
+    assert_eq!(decoded.max_size, 8);
+    assert_eq!(decoded.idle_timeout, Duration::from_secs(120));
+}
+
+#[test]
+fn pool_stats_serde_roundtrip() {
+    let stats = PoolStats {
+        total: 5,
+        idle: 2,
+        busy: 2,
+        draining: 1,
+        failed: 0,
+    };
+    let json = serde_json::to_string(&stats).unwrap();
+    let decoded: PoolStats = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded, stats);
+}
+
+#[test]
+fn pool_remove_nonexistent_returns_none() {
+    let pool = SidecarPool::new(PoolConfig::default());
+    assert!(pool.remove("ghost").is_none());
+}
+
+// ===========================================================================
+// 17. Lifecycle State Machine — Extended
+// ===========================================================================
+
+#[test]
+fn lifecycle_state_serde_roundtrip() {
+    let states = vec![
+        LifecycleState::Uninitialized,
+        LifecycleState::Starting,
+        LifecycleState::Ready,
+        LifecycleState::Running,
+        LifecycleState::Stopping,
+        LifecycleState::Stopped,
+        LifecycleState::Failed,
+    ];
+    for state in states {
+        let json = serde_json::to_string(&state).unwrap();
+        let decoded: LifecycleState = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, state);
+    }
+}
+
+#[test]
+fn lifecycle_invalid_transition_starting_to_running() {
+    let mut mgr = LifecycleManager::new();
+    mgr.transition(LifecycleState::Starting, None).unwrap();
+    let err = mgr.transition(LifecycleState::Running, None).unwrap_err();
+    assert!(matches!(err, LifecycleError::InvalidTransition { .. }));
+}
+
+#[test]
+fn lifecycle_invalid_transition_stopped_to_ready() {
+    let mut mgr = LifecycleManager::new();
+    mgr.transition(LifecycleState::Starting, None).unwrap();
+    mgr.transition(LifecycleState::Ready, None).unwrap();
+    mgr.transition(LifecycleState::Stopping, None).unwrap();
+    mgr.transition(LifecycleState::Stopped, None).unwrap();
+    let err = mgr.transition(LifecycleState::Ready, None).unwrap_err();
+    assert!(matches!(err, LifecycleError::InvalidTransition { .. }));
+}
+
+#[test]
+fn lifecycle_full_happy_path() {
+    let mut mgr = LifecycleManager::new();
+    mgr.transition(LifecycleState::Starting, Some("boot".into())).unwrap();
+    mgr.transition(LifecycleState::Ready, Some("handshake done".into())).unwrap();
+    mgr.transition(LifecycleState::Running, Some("work order received".into())).unwrap();
+    mgr.transition(LifecycleState::Ready, Some("run complete".into())).unwrap();
+    mgr.transition(LifecycleState::Running, Some("second run".into())).unwrap();
+    mgr.transition(LifecycleState::Stopping, Some("shutdown".into())).unwrap();
+    mgr.transition(LifecycleState::Stopped, Some("clean exit".into())).unwrap();
+    assert_eq!(*mgr.state(), LifecycleState::Stopped);
+    assert_eq!(mgr.history().len(), 7);
+}
+
+#[test]
+fn lifecycle_error_display() {
+    let err = LifecycleError::InvalidTransition {
+        from: LifecycleState::Uninitialized,
+        to: LifecycleState::Running,
+    };
+    let msg = format!("{err}");
+    assert!(msg.contains("invalid lifecycle transition"));
+    assert!(msg.contains("uninitialized"));
+    assert!(msg.contains("running"));
+
+    let err2 = LifecycleError::AlreadyInState(LifecycleState::Ready);
+    let msg2 = format!("{err2}");
+    assert!(msg2.contains("already in state"));
+    assert!(msg2.contains("ready"));
+}
+
+// ===========================================================================
+// 18. Health Monitoring — Extended
+// ===========================================================================
+
+#[test]
+fn health_status_serde_roundtrip() {
+    let statuses = vec![
+        HealthStatus::Healthy,
+        HealthStatus::Degraded { reason: "slow".into() },
+        HealthStatus::Unhealthy { reason: "down".into() },
+        HealthStatus::Unknown,
+    ];
+    for status in statuses {
+        let json = serde_json::to_string(&status).unwrap();
+        let decoded: HealthStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, status);
+    }
+}
+
+#[test]
+fn health_monitor_multiple_sidecars() {
+    let mut monitor = HealthMonitor::new();
+    monitor.record_check("s1", HealthStatus::Healthy, Some(Duration::from_millis(5)));
+    monitor.record_check("s2", HealthStatus::Healthy, Some(Duration::from_millis(10)));
+    monitor.record_check("s3", HealthStatus::Degraded { reason: "slow".into() }, None);
+    assert_eq!(monitor.total_checks(), 3);
+    assert!(!monitor.all_healthy());
+    let report = monitor.generate_report();
+    assert!(matches!(report.overall, HealthStatus::Degraded { .. }));
+}
+
+#[test]
+fn health_report_serde_roundtrip() {
+    let mut monitor = HealthMonitor::new();
+    monitor.record_check("s1", HealthStatus::Healthy, None);
+    let report = monitor.generate_report();
+    let json = serde_json::to_string(&report).unwrap();
+    let decoded: abp_host::health::HealthReport = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.checks.len(), 1);
+}
+
+// ===========================================================================
+// 19. Retry — Extended
+// ===========================================================================
+
+#[test]
+fn retry_config_serde_custom_values() {
+    let config = RetryConfig {
+        max_retries: 5,
+        base_delay: Duration::from_millis(200),
+        max_delay: Duration::from_secs(30),
+        overall_timeout: Duration::from_secs(120),
+        jitter_factor: 0.3,
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let decoded: RetryConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.max_retries, 5);
+    assert_eq!(decoded.base_delay, Duration::from_millis(200));
+    assert!((decoded.jitter_factor - 0.3).abs() < f64::EPSILON);
+}
+
+#[test]
+fn retry_metadata_with_failed_attempts() {
+    use abp_host::retry::RetryAttempt;
+    let meta = RetryMetadata {
+        total_attempts: 3,
+        failed_attempts: vec![
+            RetryAttempt { attempt: 0, error: "spawn failed".into(), delay: Duration::from_millis(100) },
+            RetryAttempt { attempt: 1, error: "timeout".into(), delay: Duration::from_millis(200) },
+        ],
+        total_duration: Duration::from_millis(500),
+    };
+    let receipt_meta = meta.to_receipt_metadata();
+    assert_eq!(receipt_meta["retry_total_attempts"], serde_json::json!(3));
+    assert!(receipt_meta.contains_key("retry_failed_attempts"));
+}
+
+#[test]
+fn compute_delay_zero_jitter_is_deterministic() {
+    let config = RetryConfig {
+        base_delay: Duration::from_millis(50),
+        max_delay: Duration::from_secs(60),
+        jitter_factor: 0.0,
+        ..RetryConfig::default()
+    };
+    let d0a = compute_delay(&config, 0);
+    let d0b = compute_delay(&config, 0);
+    assert_eq!(d0a, d0b);
+    assert_eq!(d0a, Duration::from_millis(50));
+}
+
+// ===========================================================================
+// 20. Process Status — Extended
+// ===========================================================================
+
+#[test]
+fn process_status_serde_roundtrip() {
+    let statuses = vec![
+        ProcessStatus::NotStarted,
+        ProcessStatus::Running { pid: 42 },
+        ProcessStatus::Exited { code: 0 },
+        ProcessStatus::Killed,
+        ProcessStatus::TimedOut,
+    ];
+    for status in &statuses {
+        let json = serde_json::to_string(status).unwrap();
+        let decoded: ProcessStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(&decoded, status);
+    }
+}
+
+#[test]
+fn process_info_running_then_exited() {
+    let spec = SidecarSpec::new("node");
+    let mut info = ProcessInfo::new(spec, ProcessConfig::default());
+    assert!(!info.is_running());
+    assert!(!info.is_terminated());
+
+    info.status = ProcessStatus::Running { pid: 999 };
+    info.started_at = Some(Utc::now());
+    assert!(info.is_running());
+    assert!(!info.is_terminated());
+
+    info.status = ProcessStatus::Exited { code: 0 };
+    info.ended_at = Some(Utc::now());
+    assert!(!info.is_running());
+    assert!(info.is_terminated());
+}
+
+#[test]
+fn process_config_with_all_fields() {
+    let mut env_vars = BTreeMap::new();
+    env_vars.insert("LOG".into(), "debug".into());
+    let config = ProcessConfig {
+        working_dir: Some("/opt/sidecar".into()),
+        env_vars,
+        timeout: Some(Duration::from_secs(60)),
+        inherit_env: false,
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let decoded: ProcessConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.working_dir, Some("/opt/sidecar".into()));
+    assert_eq!(decoded.env_vars["LOG"], "debug");
+    assert_eq!(decoded.timeout, Some(Duration::from_secs(60)));
+    assert!(!decoded.inherit_env);
+}
+
+// ===========================================================================
+// 21. SidecarHello — Extended
+// ===========================================================================
+
+#[test]
+fn sidecar_hello_serde_roundtrip() {
+    let hello = SidecarHello {
+        contract_version: CONTRACT_VERSION.into(),
+        backend: test_identity(),
+        capabilities: test_capabilities(),
+    };
+    let json = serde_json::to_string(&hello).unwrap();
+    let decoded: SidecarHello = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.contract_version, CONTRACT_VERSION);
+    assert_eq!(decoded.backend.id, "test-sidecar");
+    assert!(decoded.capabilities.contains_key(&Capability::Streaming));
+}
+
+#[test]
+fn sidecar_hello_empty_capabilities_roundtrip() {
+    let hello = SidecarHello {
+        contract_version: CONTRACT_VERSION.into(),
+        backend: BackendIdentity {
+            id: "minimal".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        capabilities: CapabilityManifest::new(),
+    };
+    let json = serde_json::to_string(&hello).unwrap();
+    let decoded: SidecarHello = serde_json::from_str(&json).unwrap();
+    assert!(decoded.capabilities.is_empty());
+}

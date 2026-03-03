@@ -373,11 +373,10 @@ fn check_capability_restricted_returns_emulated_with_reason() {
     )]);
     let level = check_capability(&manifest, &Capability::ToolBash);
     match level {
-        CapSupportLevel::Emulated { method } => {
-            assert!(method.contains("restricted"));
-            assert!(method.contains("policy"));
+        CapSupportLevel::Restricted { reason } => {
+            assert!(reason.contains("policy"));
         }
-        other => panic!("expected Emulated, got {other:?}"),
+        other => panic!("expected Restricted, got {other:?}"),
     }
 }
 
@@ -387,7 +386,7 @@ fn check_capability_missing_returns_unsupported() {
     assert_eq!(
         check_capability(&manifest, &Capability::Streaming),
         CapSupportLevel::Unsupported {
-            reason: "unsupported".into()
+            reason: "not declared in manifest".into()
         }
     );
 }
@@ -398,7 +397,7 @@ fn check_capability_explicit_unsupported_returns_unsupported() {
     assert_eq!(
         check_capability(&manifest, &Capability::Logprobs),
         CapSupportLevel::Unsupported {
-            reason: "unsupported".into()
+            reason: "explicitly marked unsupported".into()
         }
     );
 }
