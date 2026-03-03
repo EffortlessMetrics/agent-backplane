@@ -461,7 +461,7 @@ mod tool_availability {
         assert_eq!(
             check_capability(&m, &Capability::ToolWrite),
             SupportLevel::Unsupported {
-                reason: "unsupported".into()
+                reason: "not declared in manifest".into()
             }
         );
     }
@@ -472,7 +472,7 @@ mod tool_availability {
         assert_eq!(
             check_capability(&m, &Capability::ToolBash),
             SupportLevel::Unsupported {
-                reason: "unsupported".into()
+                reason: "explicitly marked unsupported".into()
             }
         );
     }
@@ -490,7 +490,7 @@ mod tool_availability {
     }
 
     #[test]
-    fn restricted_tool_shown_as_emulated() {
+    fn restricted_tool_shown_as_restricted() {
         let m = mk_manifest(&[(
             Capability::ToolBash,
             CoreSupportLevel::Restricted {
@@ -498,9 +498,9 @@ mod tool_availability {
             },
         )]);
         let level = check_capability(&m, &Capability::ToolBash);
-        assert!(matches!(level, SupportLevel::Emulated { .. }));
-        if let SupportLevel::Emulated { method } = level {
-            assert!(method.contains("restricted"));
+        assert!(matches!(level, SupportLevel::Restricted { .. }));
+        if let SupportLevel::Restricted { reason } = level {
+            assert!(reason.contains("sandboxed"));
         }
     }
 
@@ -1720,7 +1720,7 @@ mod report_generation {
         );
         let report = generate_report(&result);
         assert!(report.summary.contains("2 native"));
-        assert!(report.summary.contains("1 emulatable"));
+        assert!(report.summary.contains("1 emulated"));
         assert!(report.summary.contains("0 unsupported"));
     }
 }
@@ -1861,5 +1861,696 @@ mod integration {
         assert!(wo.requirements.required.is_empty());
         let res = negotiate(&CapabilityManifest::new(), &wo.requirements);
         assert!(res.is_compatible());
+    }
+}
+
+// ===========================================================================
+// Module 19: Registry population (15 tests)
+// ===========================================================================
+
+mod registry_population {
+    use super::*;
+    use abp_capability::{
+        CapabilityRegistry, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
+        gemini_15_pro_manifest, kimi_manifest, openai_gpt4o_manifest,
+    };
+
+    #[test]
+    fn with_defaults_has_six_entries() {
+        let reg = CapabilityRegistry::with_defaults();
+        assert_eq!(reg.len(), 6);
+        assert!(!reg.is_empty());
+    }
+
+    #[test]
+    fn with_defaults_contains_all_backend_names() {
+        let reg = CapabilityRegistry::with_defaults();
+        for name in [
+            "openai/gpt-4o",
+            "anthropic/claude-3.5-sonnet",
+            "google/gemini-1.5-pro",
+            "moonshot/kimi",
+            "openai/codex",
+            "github/copilot",
+        ] {
+            assert!(reg.contains(name), "missing backend: {name}");
+        }
+    }
+
+    #[test]
+    fn names_returns_sorted_list() {
+        let reg = CapabilityRegistry::with_defaults();
+        let names = reg.names();
+        assert_eq!(names.len(), 6);
+        // BTreeMap iteration is sorted
+        let mut sorted = names.clone();
+        sorted.sort();
+        assert_eq!(names, sorted);
+    }
+
+    #[test]
+    fn openai_manifest_streaming_and_tool_use_native() {
+        let m = openai_gpt4o_manifest();
+        assert!(matches!(
+            m.get(&Capability::Streaming),
+            Some(CoreSupportLevel::Native)
+        ));
+        assert!(matches!(
+            m.get(&Capability::ToolUse),
+            Some(CoreSupportLevel::Native)
+        ));
+    }
+
+    #[test]
+    fn openai_manifest_extended_thinking_unsupported() {
+        let m = openai_gpt4o_manifest();
+        assert!(matches!(
+            m.get(&Capability::ExtendedThinking),
+            Some(CoreSupportLevel::Unsupported)
+        ));
+    }
+
+    #[test]
+    fn claude_manifest_extended_thinking_and_cache_control_native() {
+        let m = claude_35_sonnet_manifest();
+        assert!(matches!(
+            m.get(&Capability::ExtendedThinking),
+            Some(CoreSupportLevel::Native)
+        ));
+        assert!(matches!(
+            m.get(&Capability::CacheControl),
+            Some(CoreSupportLevel::Native)
+        ));
+    }
+
+    #[test]
+    fn claude_manifest_function_calling_emulated() {
+        let m = claude_35_sonnet_manifest();
+        assert!(matches!(
+            m.get(&Capability::FunctionCalling),
+            Some(CoreSupportLevel::Emulated)
+        ));
+    }
+
+    #[test]
+    fn gemini_manifest_code_execution_and_pdf_native() {
+        let m = gemini_15_pro_manifest();
+        assert!(matches!(
+            m.get(&Capability::CodeExecution),
+            Some(CoreSupportLevel::Native)
+        ));
+        assert!(matches!(
+            m.get(&Capability::PdfInput),
+            Some(CoreSupportLevel::Native)
+        ));
+    }
+
+    #[test]
+    fn gemini_manifest_batch_mode_unsupported() {
+        let m = gemini_15_pro_manifest();
+        assert!(matches!(
+            m.get(&Capability::BatchMode),
+            Some(CoreSupportLevel::Unsupported)
+        ));
+    }
+
+    #[test]
+    fn kimi_manifest_image_input_native_audio_unsupported() {
+        let m = kimi_manifest();
+        assert!(matches!(
+            m.get(&Capability::ImageInput),
+            Some(CoreSupportLevel::Native)
+        ));
+        assert!(matches!(
+            m.get(&Capability::Audio),
+            Some(CoreSupportLevel::Unsupported)
+        ));
+    }
+
+    #[test]
+    fn codex_manifest_tool_suite_native() {
+        let m = codex_manifest();
+        for cap in [
+            Capability::ToolRead,
+            Capability::ToolWrite,
+            Capability::ToolEdit,
+            Capability::ToolBash,
+            Capability::ToolGlob,
+            Capability::ToolGrep,
+        ] {
+            assert!(
+                matches!(m.get(&cap), Some(CoreSupportLevel::Native)),
+                "codex should have {cap:?} native"
+            );
+        }
+    }
+
+    #[test]
+    fn copilot_manifest_web_tools_native() {
+        let m = copilot_manifest();
+        assert!(matches!(
+            m.get(&Capability::ToolWebSearch),
+            Some(CoreSupportLevel::Native)
+        ));
+        assert!(matches!(
+            m.get(&Capability::ToolWebFetch),
+            Some(CoreSupportLevel::Native)
+        ));
+        assert!(matches!(
+            m.get(&Capability::ToolAskUser),
+            Some(CoreSupportLevel::Native)
+        ));
+    }
+
+    #[test]
+    fn copilot_manifest_vision_emulated() {
+        let m = copilot_manifest();
+        assert!(matches!(
+            m.get(&Capability::Vision),
+            Some(CoreSupportLevel::Emulated)
+        ));
+    }
+
+    #[test]
+    fn register_custom_backend() {
+        let mut reg = CapabilityRegistry::new();
+        assert!(reg.is_empty());
+        reg.register(
+            "custom/model",
+            mk_manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]),
+        );
+        assert_eq!(reg.len(), 1);
+        assert!(reg.contains("custom/model"));
+        assert!(reg.get("custom/model").is_some());
+    }
+
+    #[test]
+    fn unregister_returns_correct_bool() {
+        let mut reg = CapabilityRegistry::with_defaults();
+        assert!(reg.unregister("openai/gpt-4o"));
+        assert_eq!(reg.len(), 5);
+        assert!(!reg.unregister("openai/gpt-4o"));
+    }
+}
+
+// ===========================================================================
+// Module 20: Negotiation workflows (15 tests)
+// ===========================================================================
+
+mod negotiation_workflows {
+    use super::*;
+    use abp_capability::{CapabilityRegistry, EmulationStrategy, negotiate_capabilities};
+
+    fn reg() -> CapabilityRegistry {
+        CapabilityRegistry::with_defaults()
+    }
+
+    #[test]
+    fn negotiate_native_capability_by_name() {
+        let result = reg()
+            .negotiate_by_name("openai/gpt-4o", &[Capability::Streaming])
+            .unwrap();
+        assert!(result.is_viable());
+        assert_eq!(result.native, vec![Capability::Streaming]);
+        assert!(result.emulated.is_empty());
+    }
+
+    #[test]
+    fn negotiate_unsupported_returns_reason() {
+        let result = reg()
+            .negotiate_by_name("openai/gpt-4o", &[Capability::ExtendedThinking])
+            .unwrap();
+        assert!(!result.is_viable());
+        let (cap, _reason) = &result.unsupported[0];
+        assert_eq!(cap, &Capability::ExtendedThinking);
+    }
+
+    #[test]
+    fn negotiate_emulated_includes_strategy() {
+        let result = reg()
+            .negotiate_by_name("openai/gpt-4o", &[Capability::CodeExecution])
+            .unwrap();
+        assert!(result.is_viable());
+        assert_eq!(result.emulated.len(), 1);
+        let (_cap, strategy) = &result.emulated[0];
+        assert!(matches!(
+            strategy,
+            EmulationStrategy::ClientSide
+                | EmulationStrategy::ServerFallback
+                | EmulationStrategy::Approximate
+        ));
+    }
+
+    #[test]
+    fn negotiate_mixed_native_emulated_is_viable() {
+        let result = reg()
+            .negotiate_by_name(
+                "openai/gpt-4o",
+                &[Capability::Streaming, Capability::CodeExecution],
+            )
+            .unwrap();
+        assert!(result.is_viable());
+        assert_eq!(result.native.len(), 1);
+        assert_eq!(result.emulated.len(), 1);
+        assert_eq!(result.total(), 2);
+    }
+
+    #[test]
+    fn negotiate_mixed_with_unsupported_not_viable() {
+        let result = reg()
+            .negotiate_by_name(
+                "openai/gpt-4o",
+                &[Capability::Streaming, Capability::ExtendedThinking],
+            )
+            .unwrap();
+        assert!(!result.is_viable());
+        assert!(!result.is_compatible());
+    }
+
+    #[test]
+    fn negotiate_unknown_backend_is_none() {
+        assert!(
+            reg()
+                .negotiate_by_name("nonexistent", &[Capability::Streaming])
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn negotiate_claude_function_calling_emulated() {
+        let result = reg()
+            .negotiate_by_name(
+                "anthropic/claude-3.5-sonnet",
+                &[Capability::FunctionCalling],
+            )
+            .unwrap();
+        assert!(result.is_viable());
+        assert_eq!(result.emulated_caps(), vec![Capability::FunctionCalling]);
+    }
+
+    #[test]
+    fn negotiate_gemini_batch_mode_unsupported() {
+        let result = reg()
+            .negotiate_by_name("google/gemini-1.5-pro", &[Capability::BatchMode])
+            .unwrap();
+        assert!(!result.is_viable());
+        assert_eq!(result.unsupported_caps(), vec![Capability::BatchMode]);
+    }
+
+    #[test]
+    fn negotiate_copilot_structured_output_emulated() {
+        let result = reg()
+            .negotiate_by_name("github/copilot", &[Capability::StructuredOutputJsonSchema])
+            .unwrap();
+        assert!(result.is_viable());
+        assert_eq!(
+            result.emulated_caps(),
+            vec![Capability::StructuredOutputJsonSchema]
+        );
+    }
+
+    #[test]
+    fn negotiate_kimi_audio_unsupported() {
+        let result = reg()
+            .negotiate_by_name("moonshot/kimi", &[Capability::Audio])
+            .unwrap();
+        assert!(!result.is_viable());
+    }
+
+    #[test]
+    fn negotiate_codex_vision_emulated() {
+        let result = reg()
+            .negotiate_by_name("openai/codex", &[Capability::Vision])
+            .unwrap();
+        assert!(result.is_viable());
+        assert_eq!(result.emulated_caps(), vec![Capability::Vision]);
+    }
+
+    #[test]
+    fn negotiate_report_compatible() {
+        let result = reg()
+            .negotiate_by_name(
+                "openai/gpt-4o",
+                &[Capability::Streaming, Capability::ToolUse],
+            )
+            .unwrap();
+        let report = generate_report(&result);
+        assert!(report.compatible);
+        assert_eq!(report.native_count, 2);
+        assert!(report.summary.contains("fully compatible"));
+    }
+
+    #[test]
+    fn negotiate_report_incompatible() {
+        let result = reg()
+            .negotiate_by_name("openai/gpt-4o", &[Capability::ExtendedThinking])
+            .unwrap();
+        let report = generate_report(&result);
+        assert!(!report.compatible);
+        assert!(report.summary.contains("incompatible"));
+    }
+
+    #[test]
+    fn warnings_for_approximate_emulation() {
+        let manifest = mk_manifest(&[(Capability::Vision, CoreSupportLevel::Emulated)]);
+        let result = negotiate_capabilities(&[Capability::Vision], &manifest);
+        let warnings = result.warnings();
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].1.has_fidelity_loss());
+    }
+
+    #[test]
+    fn is_viable_and_is_compatible_are_equivalent() {
+        let result = AbpCapNegotiationResult::from_simple(
+            vec![Capability::Streaming],
+            vec![Capability::ToolUse],
+            vec![],
+        );
+        assert_eq!(result.is_viable(), result.is_compatible());
+        assert!(result.is_viable());
+    }
+}
+
+// ===========================================================================
+// Module 21: Cross-SDK capability comparison (15 tests)
+// ===========================================================================
+
+mod cross_sdk_comparison {
+    use super::*;
+    use abp_capability::CapabilityRegistry;
+
+    fn reg() -> CapabilityRegistry {
+        CapabilityRegistry::with_defaults()
+    }
+
+    #[test]
+    fn compare_openai_vs_claude_audio_gap() {
+        let result = reg()
+            .compare("openai/gpt-4o", "anthropic/claude-3.5-sonnet")
+            .unwrap();
+        // OpenAI has Audio native; Claude has it unsupported
+        assert!(result.unsupported_caps().contains(&Capability::Audio));
+    }
+
+    #[test]
+    fn compare_claude_vs_openai_extended_thinking_gap() {
+        let result = reg()
+            .compare("anthropic/claude-3.5-sonnet", "openai/gpt-4o")
+            .unwrap();
+        // Claude has ExtendedThinking native; OpenAI has it unsupported
+        assert!(
+            result
+                .unsupported_caps()
+                .contains(&Capability::ExtendedThinking)
+        );
+    }
+
+    #[test]
+    fn compare_openai_vs_gemini_batch_mode_gap() {
+        let result = reg()
+            .compare("openai/gpt-4o", "google/gemini-1.5-pro")
+            .unwrap();
+        // OpenAI has BatchMode native; Gemini has it unsupported
+        assert!(result.unsupported_caps().contains(&Capability::BatchMode));
+    }
+
+    #[test]
+    fn compare_gemini_vs_openai_cache_control() {
+        let result = reg()
+            .compare("google/gemini-1.5-pro", "openai/gpt-4o")
+            .unwrap();
+        // Gemini has CacheControl native; OpenAI has it unsupported
+        assert!(
+            result
+                .unsupported_caps()
+                .contains(&Capability::CacheControl)
+        );
+    }
+
+    #[test]
+    fn compare_claude_vs_gemini_extended_thinking_gap() {
+        let result = reg()
+            .compare("anthropic/claude-3.5-sonnet", "google/gemini-1.5-pro")
+            .unwrap();
+        assert!(
+            result
+                .unsupported_caps()
+                .contains(&Capability::ExtendedThinking)
+        );
+    }
+
+    #[test]
+    fn compare_gemini_vs_claude_audio_gap() {
+        let result = reg()
+            .compare("google/gemini-1.5-pro", "anthropic/claude-3.5-sonnet")
+            .unwrap();
+        assert!(result.unsupported_caps().contains(&Capability::Audio));
+    }
+
+    #[test]
+    fn compare_codex_vs_copilot_streaming() {
+        let result = reg().compare("openai/codex", "github/copilot").unwrap();
+        assert!(result.native.contains(&Capability::Streaming));
+    }
+
+    #[test]
+    fn compare_copilot_vs_codex_web_tools_gap() {
+        let result = reg().compare("github/copilot", "openai/codex").unwrap();
+        assert!(
+            result
+                .unsupported_caps()
+                .contains(&Capability::ToolWebSearch)
+        );
+    }
+
+    #[test]
+    fn compare_openai_vs_kimi_audio_gap() {
+        let result = reg().compare("openai/gpt-4o", "moonshot/kimi").unwrap();
+        assert!(result.unsupported_caps().contains(&Capability::Audio));
+    }
+
+    #[test]
+    fn compare_codex_vs_kimi_tool_read_gap() {
+        let result = reg().compare("openai/codex", "moonshot/kimi").unwrap();
+        assert!(result.unsupported_caps().contains(&Capability::ToolRead));
+    }
+
+    #[test]
+    fn compare_same_backend_fully_viable() {
+        let result = reg().compare("openai/gpt-4o", "openai/gpt-4o").unwrap();
+        assert!(result.is_viable());
+        assert!(result.unsupported.is_empty());
+    }
+
+    #[test]
+    fn compare_nonexistent_source_none() {
+        assert!(reg().compare("fake", "openai/gpt-4o").is_none());
+    }
+
+    #[test]
+    fn compare_nonexistent_target_none() {
+        assert!(reg().compare("openai/gpt-4o", "fake").is_none());
+    }
+
+    #[test]
+    fn query_streaming_all_native() {
+        let r = reg();
+        let results = r.query_capability(&Capability::Streaming);
+        assert_eq!(results.len(), 6);
+        for (name, level) in &results {
+            assert!(
+                matches!(level, SupportLevel::Native),
+                "{name} should have native streaming"
+            );
+        }
+    }
+
+    #[test]
+    fn query_extended_thinking_only_one_native() {
+        let r = reg();
+        let results = r.query_capability(&Capability::ExtendedThinking);
+        let native_count = results
+            .iter()
+            .filter(|(_, l)| matches!(l, SupportLevel::Native))
+            .count();
+        assert_eq!(native_count, 1);
+    }
+}
+
+// ===========================================================================
+// Module 22: Edge cases (15 tests)
+// ===========================================================================
+
+mod edge_cases {
+    use super::*;
+    use abp_capability::{CapabilityRegistry, EmulationStrategy, negotiate_capabilities};
+
+    #[test]
+    fn negotiate_empty_requirements_viable() {
+        let reg = CapabilityRegistry::with_defaults();
+        let result = reg.negotiate_by_name("openai/gpt-4o", &[]).unwrap();
+        assert!(result.is_viable());
+        assert_eq!(result.total(), 0);
+    }
+
+    #[test]
+    fn negotiate_all_native_no_emulated_or_unsupported() {
+        let manifest = mk_manifest(&[
+            (Capability::Streaming, CoreSupportLevel::Native),
+            (Capability::ToolUse, CoreSupportLevel::Native),
+        ]);
+        let result =
+            negotiate_capabilities(&[Capability::Streaming, Capability::ToolUse], &manifest);
+        assert!(result.is_viable());
+        assert_eq!(result.native.len(), 2);
+        assert!(result.emulated.is_empty());
+        assert!(result.unsupported.is_empty());
+    }
+
+    #[test]
+    fn negotiate_all_unsupported_against_empty_manifest() {
+        let manifest: CapabilityManifest = CapabilityManifest::new();
+        let result = negotiate_capabilities(
+            &[
+                Capability::Streaming,
+                Capability::ToolUse,
+                Capability::Vision,
+            ],
+            &manifest,
+        );
+        assert!(!result.is_viable());
+        assert!(result.native.is_empty());
+        assert!(result.emulated.is_empty());
+        assert_eq!(result.unsupported.len(), 3);
+    }
+
+    #[test]
+    fn negotiate_mixed_emulated_and_unsupported() {
+        let manifest = mk_manifest(&[
+            (Capability::Streaming, CoreSupportLevel::Emulated),
+            (Capability::ToolUse, CoreSupportLevel::Unsupported),
+        ]);
+        let result =
+            negotiate_capabilities(&[Capability::Streaming, Capability::ToolUse], &manifest);
+        assert!(!result.is_viable());
+        assert_eq!(result.emulated.len(), 1);
+        assert_eq!(result.unsupported.len(), 1);
+    }
+
+    #[test]
+    fn negotiate_absent_capability_unsupported_reason() {
+        let manifest: CapabilityManifest = CapabilityManifest::new();
+        let result = negotiate_capabilities(&[Capability::Streaming], &manifest);
+        assert!(!result.is_viable());
+        assert!(result.unsupported[0].1.contains("not declared"));
+    }
+
+    #[test]
+    fn negotiate_explicitly_unsupported_capability_reason() {
+        let manifest = mk_manifest(&[(Capability::Audio, CoreSupportLevel::Unsupported)]);
+        let result = negotiate_capabilities(&[Capability::Audio], &manifest);
+        assert!(!result.is_viable());
+        assert!(result.unsupported[0].1.contains("explicitly marked"));
+    }
+
+    #[test]
+    fn negotiate_duplicate_capabilities_counted_twice() {
+        let manifest = mk_manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let result =
+            negotiate_capabilities(&[Capability::Streaming, Capability::Streaming], &manifest);
+        assert!(result.is_viable());
+        assert_eq!(result.native.len(), 2);
+        assert_eq!(result.total(), 2);
+    }
+
+    #[test]
+    fn check_capability_native_level() {
+        let manifest = mk_manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let level = check_capability(&manifest, &Capability::Streaming);
+        assert!(matches!(level, SupportLevel::Native));
+    }
+
+    #[test]
+    fn check_capability_emulated_level() {
+        let manifest = mk_manifest(&[(Capability::Vision, CoreSupportLevel::Emulated)]);
+        let level = check_capability(&manifest, &Capability::Vision);
+        assert!(matches!(level, SupportLevel::Emulated { .. }));
+    }
+
+    #[test]
+    fn check_capability_restricted_level() {
+        let manifest = mk_manifest(&[(
+            Capability::ToolBash,
+            CoreSupportLevel::Restricted {
+                reason: "sandbox only".into(),
+            },
+        )]);
+        let level = check_capability(&manifest, &Capability::ToolBash);
+        match level {
+            SupportLevel::Restricted { reason } => assert!(reason.contains("sandbox")),
+            other => panic!("expected Restricted, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn check_capability_absent_is_unsupported() {
+        let manifest: CapabilityManifest = CapabilityManifest::new();
+        let level = check_capability(&manifest, &Capability::Streaming);
+        match level {
+            SupportLevel::Unsupported { reason } => assert!(reason.contains("not declared")),
+            other => panic!("expected Unsupported, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn registry_overwrite_manifest() {
+        let mut reg = CapabilityRegistry::new();
+        reg.register(
+            "b",
+            mk_manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]),
+        );
+        reg.register(
+            "b",
+            mk_manifest(&[(Capability::Streaming, CoreSupportLevel::Unsupported)]),
+        );
+        let m = reg.get("b").unwrap();
+        assert!(matches!(
+            m.get(&Capability::Streaming),
+            Some(CoreSupportLevel::Unsupported)
+        ));
+    }
+
+    #[test]
+    fn from_simple_sets_default_emulation_and_reason() {
+        let result = AbpCapNegotiationResult::from_simple(
+            vec![Capability::Streaming],
+            vec![Capability::ToolUse],
+            vec![Capability::Audio],
+        );
+        assert_eq!(result.emulated[0].1, EmulationStrategy::ClientSide);
+        assert_eq!(result.unsupported[0].1, "not available");
+    }
+
+    #[test]
+    fn negotiate_restricted_goes_to_emulated_bucket() {
+        let manifest = mk_manifest(&[(
+            Capability::ToolBash,
+            CoreSupportLevel::Restricted {
+                reason: "sandbox".into(),
+            },
+        )]);
+        let result = negotiate_capabilities(&[Capability::ToolBash], &manifest);
+        assert!(result.is_viable());
+        assert_eq!(result.emulated.len(), 1);
+        assert_eq!(result.emulated[0].0, Capability::ToolBash);
+    }
+
+    #[test]
+    fn empty_registry_is_empty() {
+        let reg = CapabilityRegistry::new();
+        assert!(reg.is_empty());
+        assert_eq!(reg.len(), 0);
+        assert!(reg.names().is_empty());
+        assert!(reg.get("anything").is_none());
     }
 }

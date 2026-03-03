@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_regression.rs
+expression: "make_event(AgentEventKind::Error\n{\n    message: \"backend returned 500\".into(), error_code:\n    Some(ErrorCode::BackendUnavailable),\n})"
+---
+{
+  "ts": "2024-01-01T00:00:00Z",
+  "type": "error",
+  "message": "backend returned 500",
+  "error_code": "backend_unavailable"
+}

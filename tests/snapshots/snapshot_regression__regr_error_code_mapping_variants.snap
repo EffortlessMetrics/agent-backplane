@@ -1,0 +1,26 @@
+---
+source: tests/snapshot_regression.rs
+expression: codes
+---
+[
+  {
+    "code": "mapping_unsupported_capability",
+    "message": "required capability is not supported by the target dialect",
+    "str": "mapping_unsupported_capability"
+  },
+  {
+    "code": "mapping_dialect_mismatch",
+    "message": "source and target dialects are incompatible",
+    "str": "mapping_dialect_mismatch"
+  },
+  {
+    "code": "mapping_lossy_conversion",
+    "message": "translation succeeded but information was lost",
+    "str": "mapping_lossy_conversion"
+  },
+  {
+    "code": "mapping_unmappable_tool",
+    "message": "tool call cannot be represented in the target dialect",
+    "str": "mapping_unmappable_tool"
+  }
+]

@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_regression.rs
+expression: "make_event(AgentEventKind::ToolResult\n{\n    tool_name: \"read\".into(), tool_use_id: Some(\"tu_42\".into()), output:\n    json!({\"content\": \"fn main() {}\"}), is_error: false,\n})"
+---
+{
+  "ts": "2024-01-01T00:00:00Z",
+  "type": "tool_result",
+  "tool_name": "read",
+  "tool_use_id": "tu_42",
+  "output": {
+    "content": "fn main() {}"
+  },
+  "is_error": false
+}

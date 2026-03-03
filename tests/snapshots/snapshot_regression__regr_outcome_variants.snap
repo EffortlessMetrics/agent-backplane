@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_regression.rs
+expression: "json!({\n    \"complete\": Outcome::Complete, \"partial\": Outcome::Partial, \"failed\":\n    Outcome::Failed,\n})"
+---
+{
+  "complete": "complete",
+  "failed": "failed",
+  "partial": "partial"
+}

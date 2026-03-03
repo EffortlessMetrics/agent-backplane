@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_regression.rs
+expression: result.to_string()
+---
+1 native, 1 emulated, 1 unsupported — not viable

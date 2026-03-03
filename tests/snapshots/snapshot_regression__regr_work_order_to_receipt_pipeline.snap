@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_regression.rs
+expression: "json!({\n    \"work_order_id\": wo.id, \"receipt_work_order_id\":\n    hashed.meta.work_order_id, \"outcome\": hashed.outcome, \"has_hash\":\n    hashed.receipt_sha256.is_some(), \"contract_version\":\n    hashed.meta.contract_version,\n})"
+---
+{
+  "contract_version": "abp/v0.1",
+  "has_hash": true,
+  "outcome": "complete",
+  "receipt_work_order_id": "00000000-0000-0000-0000-000000000000",
+  "work_order_id": "00000000-0000-0000-0000-000000000000"
+}

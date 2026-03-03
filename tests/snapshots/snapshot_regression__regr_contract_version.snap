@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_regression.rs
+expression: CONTRACT_VERSION
+---
+abp/v0.1

@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_regression.rs
+expression: info.to_string()
+---
+[receipt_hash_mismatch] hash does not match

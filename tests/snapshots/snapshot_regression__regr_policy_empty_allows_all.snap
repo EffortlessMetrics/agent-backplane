@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_regression.rs
+expression: "json!({\n    \"tool_allowed\": tool.allowed, \"read_allowed\": read.allowed,\n    \"write_allowed\": write.allowed,\n})"
+---
+{
+  "read_allowed": true,
+  "tool_allowed": true,
+  "write_allowed": true
+}

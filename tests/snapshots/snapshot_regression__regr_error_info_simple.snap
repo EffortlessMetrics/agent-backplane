@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_regression.rs
+expression: info
+---
+{
+  "code": "backend_not_found",
+  "message": "backend 'foo' not found",
+  "details": {},
+  "is_retryable": false
+}

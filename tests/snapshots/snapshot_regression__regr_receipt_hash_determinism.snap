@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_regression.rs
+expression: r1.receipt_sha256.unwrap()
+---
+de843463053eb8b367e50ce2c951ccaa421c7ab03abcc7c55d374b72802f7fd3

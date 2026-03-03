@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_regression.rs
+expression: "make_event(AgentEventKind::RunCompleted { message: \"finished\".into(), })"
+---
+{
+  "ts": "2024-01-01T00:00:00Z",
+  "type": "run_completed",
+  "message": "finished"
+}

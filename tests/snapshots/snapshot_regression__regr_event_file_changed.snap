@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_regression.rs
+expression: "make_event(AgentEventKind::FileChanged\n{ path: \"src/auth.rs\".into(), summary: \"added JWT validation\".into(), })"
+---
+{
+  "ts": "2024-01-01T00:00:00Z",
+  "type": "file_changed",
+  "path": "src/auth.rs",
+  "summary": "added JWT validation"
+}

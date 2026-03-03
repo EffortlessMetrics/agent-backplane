@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_regression.rs
+expression: "json!({\n    \"read_env\": engine.can_read_path(Path::new(\".env\")).allowed,\n    \"read_secret\": engine.can_read_path(Path::new(\"secret.key\")).allowed,\n    \"read_src\": engine.can_read_path(Path::new(\"src/lib.rs\")).allowed,\n    \"write_git\": engine.can_write_path(Path::new(\".git/config\")).allowed,\n    \"write_lock\": engine.can_write_path(Path::new(\"Cargo.lock\")).allowed,\n    \"write_src\": engine.can_write_path(Path::new(\"src/lib.rs\")).allowed,\n})"
+---
+{
+  "read_env": false,
+  "read_secret": false,
+  "read_src": true,
+  "write_git": false,
+  "write_lock": false,
+  "write_src": true
+}

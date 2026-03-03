@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_regression.rs
+expression: "json!({\n    \"native_count\": result.native.len(), \"emulated_count\":\n    result.emulated.len(), \"unsupported_count\": result.unsupported.len(),\n    \"is_viable\": result.is_viable(),\n})"
+---
+{
+  "emulated_count": 5,
+  "is_viable": false,
+  "native_count": 14,
+  "unsupported_count": 6
+}

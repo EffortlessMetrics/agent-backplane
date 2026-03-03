@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_regression.rs
+expression: "make_event(AgentEventKind::AssistantMessage { text: \"Hello, world!\".into(), })"
+---
+{
+  "ts": "2024-01-01T00:00:00Z",
+  "type": "assistant_message",
+  "text": "Hello, world!"
+}

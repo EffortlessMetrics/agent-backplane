@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_regression.rs
+expression: result
+---
+{
+  "native": [
+    "streaming",
+    "tool_read",
+    "tool_write"
+  ],
+  "emulated": [],
+  "unsupported": []
+}

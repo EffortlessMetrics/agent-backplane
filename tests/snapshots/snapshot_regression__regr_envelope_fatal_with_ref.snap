@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_regression.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": "run-001",
+  "error": "backend crashed"
+}
