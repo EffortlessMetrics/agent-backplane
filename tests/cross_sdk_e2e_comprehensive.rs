@@ -2601,8 +2601,10 @@ mod kimi_specific {
 
     #[test]
     fn kimi_config_k1_reasoning() {
-        let mut config = KimiConfig::default();
-        config.use_k1_reasoning = Some(true);
+        let config = KimiConfig {
+            use_k1_reasoning: Some(true),
+            ..Default::default()
+        };
         let wo = WorkOrderBuilder::new("think hard").build();
         let req = kimi_dialect::map_work_order(&wo, &config);
         assert!(req.use_search.is_some());
