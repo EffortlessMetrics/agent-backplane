@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec, clippy::needless_borrows_for_generic_args)]
 //! Deep comprehensive tests for the abp-runtime orchestration pipeline.
 //!
 //! Covers:

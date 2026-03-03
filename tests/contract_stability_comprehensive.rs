@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec, clippy::needless_borrows_for_generic_args)]
 //! Comprehensive contract stability and backward-compatibility tests.
 //!
 //! These tests pin the ABP wire format so that any accidental change to

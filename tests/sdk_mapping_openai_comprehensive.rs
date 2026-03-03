@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec, clippy::needless_borrows_for_generic_args)]
 //! Comprehensive tests for OpenAI SDK dialect mapping.
 //!
 //! Validates the full round-trip from OpenAI request/response formats

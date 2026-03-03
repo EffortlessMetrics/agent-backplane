@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec, clippy::needless_borrows_for_generic_args)]
 //! Deep comprehensive tests for workspace staging and git integration.
 //!
 //! Covers basic staging, include/exclude glob filtering, .git exclusion,
