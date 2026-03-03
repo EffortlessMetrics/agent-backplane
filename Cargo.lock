@@ -634,6 +634,7 @@ dependencies = [
  "abp-shim-gemini",
  "abp-shim-kimi",
  "abp-shim-openai",
+ "abp-sidecar-proto",
  "abp-sidecar-sdk",
  "abp-stream",
  "abp-telemetry",

@@ -6,7 +6,7 @@ use abp_core::{
     RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
-use abp_mapping::{features, known_rules, Fidelity, MappingRegistry, MappingRule};
+use abp_mapping::{Fidelity, MappingRegistry, MappingRule, features, known_rules};
 use abp_projection::{ProjectionError, ProjectionMatrix};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1121,10 +1121,12 @@ mod route_ranking {
         let wo = work_order(require_caps(&[Capability::Streaming, Capability::ToolRead]));
         let result = pm.project(&wo).unwrap();
         assert_eq!(result.selected_backend, "full");
-        assert!(result
-            .fallback_chain
-            .iter()
-            .any(|e| e.backend_id == "partial"));
+        assert!(
+            result
+                .fallback_chain
+                .iter()
+                .any(|e| e.backend_id == "partial")
+        );
     }
 
     #[test]

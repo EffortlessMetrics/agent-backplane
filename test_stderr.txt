@@ -1,4 +1,0 @@
-    Blocking waiting for file lock on build directory
-   Compiling agent-backplane v0.1.0 (H:\Code\Rust\agent-backplane)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.40s
-     Running tests\stream_processing_deep_comprehensive.rs (target\debug\deps\stream_processing_deep_comprehensive-925e705a890c2677.exe)

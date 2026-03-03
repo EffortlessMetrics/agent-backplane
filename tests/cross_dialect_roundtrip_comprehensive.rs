@@ -7,8 +7,8 @@
 //! unsupported mappings, and capability-based routing.
 
 use abp_capability::{
-    check_capability, generate_report, negotiate, NegotiationResult,
-    SupportLevel as CapSupportLevel,
+    NegotiationResult, SupportLevel as CapSupportLevel, check_capability, generate_report,
+    negotiate,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
@@ -17,8 +17,8 @@ use abp_core::{
 };
 use abp_dialect::Dialect;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
-    MappingRegistry, MappingRule, MappingValidation,
+    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
+    features, known_rules, validate_mapping,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

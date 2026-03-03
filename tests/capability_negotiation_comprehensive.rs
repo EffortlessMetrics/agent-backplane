@@ -5,9 +5,9 @@ use std::collections::BTreeMap;
 
 use abp_backend_core::ensure_capability_requirements;
 use abp_core::negotiate::{
-    check_capabilities, dialect_manifest, CapabilityDiff, CapabilityNegotiator,
-    CapabilityReport as NegotiateCapabilityReport, CapabilityReportEntry, DialectSupportLevel,
-    NegotiationRequest,
+    CapabilityDiff, CapabilityNegotiator, CapabilityReport as NegotiateCapabilityReport,
+    CapabilityReportEntry, DialectSupportLevel, NegotiationRequest, check_capabilities,
+    dialect_manifest,
 };
 use abp_core::{
     BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
@@ -1108,9 +1108,10 @@ fn selector_multiple_requirements_all_must_match() {
         vec![Capability::Streaming, Capability::ToolRead],
         1,
     ));
-    assert!(sel
-        .select(&[Capability::Streaming, Capability::ToolRead])
-        .is_some());
+    assert!(
+        sel.select(&[Capability::Streaming, Capability::ToolRead])
+            .is_some()
+    );
     let chosen = sel
         .select(&[Capability::Streaming, Capability::ToolRead])
         .unwrap();

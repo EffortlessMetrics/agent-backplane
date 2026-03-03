@@ -9,17 +9,18 @@
 //! empty/minimal profiles, and capability versioning.
 
 use abp_capability::{
-    check_capability, generate_report, negotiate, CompatibilityReport,
-    NegotiationResult as AbpCapNegotiationResult, SupportLevel,
+    CompatibilityReport, NegotiationResult as AbpCapNegotiationResult, SupportLevel,
+    check_capability, generate_report, negotiate,
 };
 use abp_core::negotiate::{
-    check_capabilities, dialect_manifest, CapabilityDiff, CapabilityNegotiator,
-    CapabilityReport as DialectCapabilityReport, CapabilityReportEntry, DialectSupportLevel,
-    NegotiationRequest,
+    CapabilityDiff, CapabilityNegotiator, CapabilityReport as DialectCapabilityReport,
+    CapabilityReportEntry, DialectSupportLevel, NegotiationRequest, check_capabilities,
+    dialect_manifest,
 };
 use abp_core::{
-    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
-    Outcome, ReceiptBuilder, SupportLevel as CoreSupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
+    CONTRACT_VERSION, Capability, CapabilityManifest, CapabilityRequirement,
+    CapabilityRequirements, MinSupport, Outcome, ReceiptBuilder, SupportLevel as CoreSupportLevel,
+    WorkOrderBuilder,
 };
 use serde_json;
 

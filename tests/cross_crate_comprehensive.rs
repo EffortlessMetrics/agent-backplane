@@ -8,14 +8,14 @@ use std::io::BufReader;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionLane, ExecutionMode,
-    Outcome, PolicyProfile, Receipt, ReceiptBuilder, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode,
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
+    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
 };
 use abp_policy::PolicyEngine;
 use abp_protocol::{Envelope, JsonlCodec};
@@ -1224,9 +1224,10 @@ mod mapping_registry_integration {
     #[test]
     fn registry_lookup_returns_none_for_missing() {
         let reg = MappingRegistry::new();
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "nonexistent")
-            .is_none());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, "nonexistent")
+                .is_none()
+        );
     }
 
     #[test]
@@ -1243,14 +1244,18 @@ mod mapping_registry_integration {
     fn fidelity_predicates() {
         assert!(Fidelity::Lossless.is_lossless());
         assert!(!Fidelity::Lossless.is_unsupported());
-        assert!(!Fidelity::LossyLabeled {
-            warning: "w".into()
-        }
-        .is_lossless());
-        assert!(!Fidelity::LossyLabeled {
-            warning: "w".into()
-        }
-        .is_unsupported());
+        assert!(
+            !Fidelity::LossyLabeled {
+                warning: "w".into()
+            }
+            .is_lossless()
+        );
+        assert!(
+            !Fidelity::LossyLabeled {
+                warning: "w".into()
+            }
+            .is_unsupported()
+        );
         assert!(!Fidelity::Unsupported { reason: "r".into() }.is_lossless());
         assert!(Fidelity::Unsupported { reason: "r".into() }.is_unsupported());
     }

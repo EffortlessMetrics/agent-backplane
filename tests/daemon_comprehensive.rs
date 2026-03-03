@@ -24,8 +24,8 @@ use abp_daemon::versioning::{
     ApiVersion, ApiVersionError, ApiVersionRegistry, VersionNegotiator, VersionedEndpoint,
 };
 use abp_daemon::{
-    build_app, AppState, BackendInfo, RunMetrics, RunRequest, RunResponse,
-    RunStatus as TrackerRunStatus, RunTracker,
+    AppState, BackendInfo, RunMetrics, RunRequest, RunResponse, RunStatus as TrackerRunStatus,
+    RunTracker, build_app,
 };
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;

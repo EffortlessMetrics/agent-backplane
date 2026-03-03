@@ -122,7 +122,9 @@ fn dc_help_short_flag_works() {
 fn dc_help_lists_all_subcommands() {
     let output = abp().arg("--help").output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    for subcmd in ["backends", "run", "validate", "schema", "inspect", "config", "receipt"] {
+    for subcmd in [
+        "backends", "run", "validate", "schema", "inspect", "config", "receipt",
+    ] {
         assert!(
             stdout.contains(subcmd),
             "help output should list subcommand '{subcmd}'"
@@ -182,10 +184,7 @@ fn dc_run_help_shows_all_flags() {
         "--policy",
         "--json",
     ] {
-        assert!(
-            stdout.contains(flag),
-            "run --help should mention '{flag}'"
-        );
+        assert!(stdout.contains(flag), "run --help should mention '{flag}'");
     }
 }
 
@@ -241,10 +240,7 @@ fn dc_backends_lists_all_sidecar_variants() {
         "sidecar:gemini",
         "sidecar:codex",
     ] {
-        assert!(
-            stdout.contains(name),
-            "backends should list '{name}'"
-        );
+        assert!(stdout.contains(name), "backends should list '{name}'");
     }
 }
 
@@ -252,7 +248,9 @@ fn dc_backends_lists_all_sidecar_variants() {
 fn dc_backends_lists_all_aliases() {
     let output = abp().arg("backends").output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    for alias in ["node", "python", "claude", "copilot", "kimi", "gemini", "codex"] {
+    for alias in [
+        "node", "python", "claude", "copilot", "kimi", "gemini", "codex",
+    ] {
         assert!(
             stdout.lines().any(|l| l.trim() == alias),
             "backends should list alias '{alias}' as a standalone line"
@@ -282,7 +280,11 @@ fn dc_backends_mock_appears_first_line() {
     let output = abp().arg("backends").output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let first = stdout.lines().next().expect("at least one line");
-    assert_eq!(first.trim(), "mock", "mock should be the first listed backend");
+    assert_eq!(
+        first.trim(),
+        "mock",
+        "mock should be the first listed backend"
+    );
 }
 
 #[test]
@@ -964,11 +966,7 @@ fn dc_run_multiple_params() {
 #[test]
 fn dc_run_dotted_param() {
     let tmp = tempfile::tempdir().unwrap();
-    run_mock_pt(
-        &tmp,
-        "dotted param",
-        &["--param", "abp.mode=passthrough"],
-    );
+    run_mock_pt(&tmp, "dotted param", &["--param", "abp.mode=passthrough"]);
 }
 
 #[test]
@@ -1120,11 +1118,7 @@ fn dc_run_policy_file_accepted() {
         "require_approval_for": []
     });
     std::fs::write(&policy_path, serde_json::to_string(&policy).unwrap()).unwrap();
-    run_mock_pt(
-        &tmp,
-        "policy",
-        &["--policy", policy_path.to_str().unwrap()],
-    );
+    run_mock_pt(&tmp, "policy", &["--policy", policy_path.to_str().unwrap()]);
 }
 
 #[test]
@@ -1313,7 +1307,10 @@ fn dc_schema_config_is_valid_json() {
 fn dc_schema_work_order_has_task_field() {
     let output = abp().args(["schema", "work-order"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("task"), "work-order schema should mention task field");
+    assert!(
+        stdout.contains("task"),
+        "work-order schema should mention task field"
+    );
 }
 
 #[test]

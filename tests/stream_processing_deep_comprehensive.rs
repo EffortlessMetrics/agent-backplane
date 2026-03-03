@@ -1253,27 +1253,23 @@ fn large_pipeline_processing_sync() {
 #[tokio::test]
 async fn large_multiplexer_1000_events_sorted() {
     let base = Utc::now();
-    let (tx1, rx1) = mpsc::channel(256);
-    let (tx2, rx2) = mpsc::channel(256);
+    let (tx1, rx1) = mpsc::channel(1024);
+    let (tx2, rx2) = mpsc::channel(1024);
 
-    let p1 = tokio::spawn(async move {
-        for i in (0..1000).step_by(2) {
-            tx1.send(delta_ts(&format!("a{i}"), base + Duration::milliseconds(i)))
-                .await
-                .unwrap();
-        }
-    });
+    // Send all events before starting the multiplexer to avoid deadlock
+    for i in (0..1000).step_by(2) {
+        tx1.send(delta_ts(&format!("a{i}"), base + Duration::milliseconds(i)))
+            .await
+            .unwrap();
+    }
+    drop(tx1);
 
-    let p2 = tokio::spawn(async move {
-        for i in (1..1000).step_by(2) {
-            tx2.send(delta_ts(&format!("b{i}"), base + Duration::milliseconds(i)))
-                .await
-                .unwrap();
-        }
-    });
-
-    p1.await.unwrap();
-    p2.await.unwrap();
+    for i in (1..1000).step_by(2) {
+        tx2.send(delta_ts(&format!("b{i}"), base + Duration::milliseconds(i)))
+            .await
+            .unwrap();
+    }
+    drop(tx2);
 
     let mux = EventMultiplexer::new(vec![rx1, rx2]);
     let events = mux.collect_sorted().await;
