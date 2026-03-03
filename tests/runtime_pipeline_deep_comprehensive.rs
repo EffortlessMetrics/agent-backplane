@@ -1648,7 +1648,6 @@ async fn run_streaming_with_capability_requirements_passes() {
             tempfile::tempdir()
                 .unwrap()
                 .keep()
-                .unwrap()
                 .to_string_lossy()
                 .to_string(),
         )
