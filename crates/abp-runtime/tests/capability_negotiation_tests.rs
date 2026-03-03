@@ -100,9 +100,9 @@ async fn negotiation_partial_emulated_succeeds() {
         .and_then(|v| v.as_array())
         .expect("native array");
     let emulatable = negotiation
-        .get("emulatable")
+        .get("emulated")
         .and_then(|v| v.as_array())
-        .expect("emulatable array");
+        .expect("emulated array");
     assert!(
         !native.is_empty(),
         "should have at least one native capability"

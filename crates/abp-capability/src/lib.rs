@@ -331,7 +331,11 @@ pub fn negotiate(
     manifest: &CapabilityManifest,
     requirements: &CapabilityRequirements,
 ) -> NegotiationResult {
-    let caps: Vec<Capability> = requirements.required.iter().map(|r| r.capability.clone()).collect();
+    let caps: Vec<Capability> = requirements
+        .required
+        .iter()
+        .map(|r| r.capability.clone())
+        .collect();
     negotiate_capabilities(&caps, manifest)
 }
 
@@ -414,7 +418,10 @@ pub fn openai_gpt4o_manifest() -> CapabilityManifest {
         (Capability::Vision, CoreSupportLevel::Native),
         (Capability::Audio, CoreSupportLevel::Native),
         (Capability::CodeExecution, CoreSupportLevel::Emulated),
-        (Capability::StructuredOutputJsonSchema, CoreSupportLevel::Native),
+        (
+            Capability::StructuredOutputJsonSchema,
+            CoreSupportLevel::Native,
+        ),
         (Capability::JsonMode, CoreSupportLevel::Native),
         (Capability::SystemMessage, CoreSupportLevel::Native),
         (Capability::Temperature, CoreSupportLevel::Native),
@@ -445,7 +452,10 @@ pub fn claude_35_sonnet_manifest() -> CapabilityManifest {
         (Capability::Vision, CoreSupportLevel::Native),
         (Capability::PdfInput, CoreSupportLevel::Native),
         (Capability::CodeExecution, CoreSupportLevel::Emulated),
-        (Capability::StructuredOutputJsonSchema, CoreSupportLevel::Emulated),
+        (
+            Capability::StructuredOutputJsonSchema,
+            CoreSupportLevel::Emulated,
+        ),
         (Capability::JsonMode, CoreSupportLevel::Emulated),
         (Capability::SystemMessage, CoreSupportLevel::Native),
         (Capability::Temperature, CoreSupportLevel::Native),
@@ -477,7 +487,10 @@ pub fn gemini_15_pro_manifest() -> CapabilityManifest {
         (Capability::Audio, CoreSupportLevel::Native),
         (Capability::PdfInput, CoreSupportLevel::Native),
         (Capability::CodeExecution, CoreSupportLevel::Native),
-        (Capability::StructuredOutputJsonSchema, CoreSupportLevel::Native),
+        (
+            Capability::StructuredOutputJsonSchema,
+            CoreSupportLevel::Native,
+        ),
         (Capability::JsonMode, CoreSupportLevel::Native),
         (Capability::SystemMessage, CoreSupportLevel::Native),
         (Capability::Temperature, CoreSupportLevel::Native),
@@ -1053,7 +1066,11 @@ mod tests {
         let m = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
         reg.register("test-backend", m);
         assert!(reg.get("test-backend").is_some());
-        assert!(reg.get("test-backend").unwrap().contains_key(&Capability::Streaming));
+        assert!(
+            reg.get("test-backend")
+                .unwrap()
+                .contains_key(&Capability::Streaming)
+        );
         assert!(reg.get("missing").is_none());
     }
 
@@ -1076,7 +1093,10 @@ mod tests {
         reg.register("x", m2);
         // After overwrite the manifest should reflect the second registration
         let got = reg.get("x").unwrap();
-        assert!(matches!(got.get(&Capability::Streaming), Some(CoreSupportLevel::Emulated)));
+        assert!(matches!(
+            got.get(&Capability::Streaming),
+            Some(CoreSupportLevel::Emulated)
+        ));
     }
 
     #[test]
@@ -1092,7 +1112,10 @@ mod tests {
     #[test]
     fn registry_negotiate_by_name_missing() {
         let reg = CapabilityRegistry::new();
-        assert!(reg.negotiate_by_name("nope", &[Capability::Streaming]).is_none());
+        assert!(
+            reg.negotiate_by_name("nope", &[Capability::Streaming])
+                .is_none()
+        );
     }
 
     #[test]

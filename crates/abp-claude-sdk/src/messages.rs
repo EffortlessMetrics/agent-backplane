@@ -264,9 +264,9 @@ impl From<Receipt> for MessagesResponse {
         }
 
         // Derive stop reason from the last tool-call or outcome.
-        let has_tool_use = content_blocks.iter().any(|b| {
-            matches!(b, ContentBlock::ToolUse { .. })
-        });
+        let has_tool_use = content_blocks
+            .iter()
+            .any(|b| matches!(b, ContentBlock::ToolUse { .. }));
         let stop_reason = if has_tool_use {
             Some("tool_use".into())
         } else {
@@ -747,7 +747,9 @@ mod tests {
         let resp: MessagesResponse = receipt.into();
         assert_eq!(resp.content.len(), 2);
         assert!(matches!(&resp.content[0], ContentBlock::Text { .. }));
-        assert!(matches!(&resp.content[1], ContentBlock::ToolUse { name, .. } if name == "read_file"));
+        assert!(
+            matches!(&resp.content[1], ContentBlock::ToolUse { name, .. } if name == "read_file")
+        );
         // When tool_use blocks are present, stop_reason should be "tool_use"
         assert_eq!(resp.stop_reason.as_deref(), Some("tool_use"));
     }
