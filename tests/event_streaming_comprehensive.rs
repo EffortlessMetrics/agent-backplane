@@ -992,6 +992,7 @@ fn event_timestamp_is_utc() {
 #[test]
 fn event_ordering_by_timestamp() {
     let base = Utc::now();
+    #[allow(clippy::useless_vec)]
     let mut events = vec![
         AgentEvent {
             ts: base + Duration::milliseconds(200),

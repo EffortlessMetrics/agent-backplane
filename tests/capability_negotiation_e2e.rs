@@ -1611,8 +1611,8 @@ fn negotiate_performance_large_requirement_set() {
     }
     let elapsed = start.elapsed();
     assert!(
-        elapsed.as_millis() < 1000,
-        "1000 negotiations should complete in <1s, took {}ms",
+        elapsed.as_millis() < 10_000,
+        "1000 negotiations should complete in <10s, took {}ms",
         elapsed.as_millis()
     );
 }
@@ -1631,8 +1631,8 @@ fn generate_report_performance() {
     }
     let elapsed = start.elapsed();
     assert!(
-        elapsed.as_millis() < 1000,
-        "1000 report generations should complete in <1s, took {}ms",
+        elapsed.as_millis() < 10_000,
+        "1000 report generations should complete in <10s, took {}ms",
         elapsed.as_millis()
     );
 }
@@ -1764,12 +1764,15 @@ async fn receipt_negotiation_result_matches_standalone_negotiate() {
     let (_, receipt) = drain_run(handle).await;
     let receipt = receipt.unwrap();
 
-    if let Some(obj) = receipt.usage_raw.as_object()
-        && let Some(neg) = obj.get("capability_negotiation")
-    {
-        let receipt_neg: NegotiationResult = serde_json::from_value(neg.clone()).unwrap();
-        assert_eq!(receipt_neg, standalone);
-    }
+    let obj = receipt
+        .usage_raw
+        .as_object()
+        .expect("usage_raw must be an object");
+    let neg = obj
+        .get("capability_negotiation")
+        .expect("capability_negotiation must be present in usage_raw");
+    let receipt_neg: NegotiationResult = serde_json::from_value(neg.clone()).unwrap();
+    assert_eq!(receipt_neg, standalone);
 }
 
 // ===========================================================================

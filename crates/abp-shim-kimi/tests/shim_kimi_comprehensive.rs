@@ -1053,10 +1053,10 @@ fn t69_capability_manifest() {
     use abp_core::Capability;
     let manifest = dialect::capability_manifest();
     // Verify capabilities are present by checking they're in the manifest
-    assert!(manifest.get(&Capability::Streaming).is_some());
-    assert!(manifest.get(&Capability::ToolWebSearch).is_some());
-    assert!(manifest.get(&Capability::ToolEdit).is_some());
-    assert!(manifest.get(&Capability::ToolRead).is_some());
+    assert!(manifest.contains_key(&Capability::Streaming));
+    assert!(manifest.contains_key(&Capability::ToolWebSearch));
+    assert!(manifest.contains_key(&Capability::ToolEdit));
+    assert!(manifest.contains_key(&Capability::ToolRead));
     // Verify the manifest has the expected number of entries
     let json = serde_json::to_string(&manifest).unwrap();
     assert!(json.contains("streaming"));

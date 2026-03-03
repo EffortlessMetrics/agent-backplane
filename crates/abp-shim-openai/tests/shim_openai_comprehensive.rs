@@ -491,9 +491,9 @@ fn t30_request_to_work_order_without_optional_fields() {
         .messages(vec![Message::user("test")])
         .build();
     let wo = request_to_work_order(&req);
-    assert!(wo.config.vendor.get("temperature").is_none());
-    assert!(wo.config.vendor.get("max_tokens").is_none());
-    assert!(wo.config.vendor.get("stop").is_none());
+    assert!(!wo.config.vendor.contains_key("temperature"));
+    assert!(!wo.config.vendor.contains_key("max_tokens"));
+    assert!(!wo.config.vendor.contains_key("stop"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -8,16 +8,16 @@
 use std::collections::{BTreeMap, HashSet};
 
 use abp_core::{
-    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-    ExecutionMode, MinSupport, RuntimeConfig, SupportLevel, WorkOrderBuilder,
+    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
+    MinSupport, RuntimeConfig, SupportLevel, WorkOrderBuilder,
 };
+use abp_dialect::Dialect;
 use abp_dialect::ir::{
     IrContentBlock, IrGenerationConfig, IrMessage, IrRequest, IrResponse, IrRole, IrStopReason,
     IrToolDefinition, IrUsage,
 };
 use abp_dialect::registry::{DialectEntry, DialectError, DialectRegistry, parse_response};
-use abp_dialect::Dialect;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ═══════════════════════════════════════════════════════════════════════
 // 1. Dialect enum parsing and validation (~15 tests)
@@ -470,8 +470,8 @@ fn registry_parse_unregistered_returns_error() {
 #[test]
 fn registry_serialize_delegates_to_serializer() {
     let r = DialectRegistry::with_builtins();
-    let ir = IrRequest::new(vec![IrMessage::text(IrRole::User, "Hello")])
-        .with_model("claude-3-sonnet");
+    let ir =
+        IrRequest::new(vec![IrMessage::text(IrRole::User, "Hello")]).with_model("claude-3-sonnet");
     let val = r.serialize(Dialect::Claude, &ir).unwrap();
     assert_eq!(val["model"].as_str(), Some("claude-3-sonnet"));
 }
@@ -569,7 +569,12 @@ fn cross_dialect_gemini_to_openai_preserves_user_text() {
     let openai_val = r.serialize(Dialect::OpenAi, &ir).unwrap();
     let msgs = openai_val["messages"].as_array().unwrap();
     assert!(!msgs.is_empty());
-    assert!(msgs[0]["content"].as_str().unwrap().contains("Hello from Gemini"));
+    assert!(
+        msgs[0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Hello from Gemini")
+    );
 }
 
 #[test]
@@ -598,7 +603,7 @@ fn cross_dialect_kimi_to_claude() {
     // Kimi-specific metadata survives parsing
     assert!(ir.metadata.contains_key("kimi_refs"));
     let claude_val = r.serialize(Dialect::Claude, &ir).unwrap();
-    assert!(claude_val["messages"].as_array().unwrap().len() >= 1);
+    assert!(!claude_val["messages"].as_array().unwrap().is_empty());
 }
 
 #[test]
@@ -710,13 +715,12 @@ fn cross_dialect_tool_definitions_claude_to_gemini() {
 #[test]
 fn cross_dialect_config_temperature_preservation() {
     let r = DialectRegistry::with_builtins();
-    let ir = IrRequest::new(vec![IrMessage::text(IrRole::User, "Hi")]).with_config(
-        IrGenerationConfig {
+    let ir =
+        IrRequest::new(vec![IrMessage::text(IrRole::User, "Hi")]).with_config(IrGenerationConfig {
             temperature: Some(0.7),
             max_tokens: Some(1024),
             ..Default::default()
-        },
-    );
+        });
 
     // OpenAI roundtrip preserves temperature
     let openai_val = r.serialize(Dialect::OpenAi, &ir).unwrap();
@@ -873,10 +877,7 @@ fn work_order_capability_requirements_with_tool_use() {
         .build();
 
     assert_eq!(wo.requirements.required.len(), 2);
-    assert_eq!(
-        wo.requirements.required[0].capability,
-        Capability::ToolRead
-    );
+    assert_eq!(wo.requirements.required[0].capability, Capability::ToolRead);
 }
 
 #[test]
@@ -939,8 +940,7 @@ fn dialect_registry_parse_for_each_backend_model() {
     ];
 
     for (model, dialect) in backends {
-        let ir = IrRequest::new(vec![IrMessage::text(IrRole::User, "test")])
-            .with_model(model);
+        let ir = IrRequest::new(vec![IrMessage::text(IrRole::User, "test")]).with_model(model);
         let val = r.serialize(dialect, &ir).unwrap();
         let parsed = r.parse(dialect, &val).unwrap();
         assert_eq!(parsed.model.as_deref(), Some(model));

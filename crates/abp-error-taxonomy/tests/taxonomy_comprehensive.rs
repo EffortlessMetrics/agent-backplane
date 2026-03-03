@@ -754,7 +754,7 @@ fn aggregation_max_severity_all_warnings() {
 
 #[test]
 fn aggregation_collect_error_infos() {
-    let errors = vec![
+    let errors = [
         AbpError::new(ErrorCode::BackendTimeout, "t1").with_context("backend", "openai"),
         AbpError::new(ErrorCode::BackendRateLimited, "t2").with_context("backend", "anthropic"),
     ];

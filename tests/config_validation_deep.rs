@@ -49,27 +49,37 @@ fn extract_reasons(err: ConfigError) -> Vec<String> {
     }
 }
 
-/// Guard that sets ABP_* env vars on creation and removes them on drop.
+/// Mutex to serialize env-mutating tests so they don't race.
+static ENV_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Guard that sets ABP_* env vars on creation and restores prior values on drop.
 struct EnvGuard {
-    keys: Vec<&'static str>,
+    prior: Vec<(&'static str, Option<String>)>,
+    _lock: std::sync::MutexGuard<'static, ()>,
 }
 
 impl EnvGuard {
     fn new(pairs: &[(&'static str, &str)]) -> Self {
-        let keys = pairs.iter().map(|(k, _)| *k).collect();
+        let lock = ENV_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let prior = pairs
+            .iter()
+            .map(|(k, _)| (*k, std::env::var(k).ok()))
+            .collect();
         for (k, v) in pairs {
-            // SAFETY: tests that touch env vars must run with --test-threads=1
-            // or accept the inherent race; we clean up in Drop.
+            // SAFETY: serialized by ENV_MUTEX; restored in Drop.
             unsafe { std::env::set_var(k, v) };
         }
-        Self { keys }
+        Self { prior, _lock: lock }
     }
 }
 
 impl Drop for EnvGuard {
     fn drop(&mut self) {
-        for k in &self.keys {
-            unsafe { std::env::remove_var(k) };
+        for (k, old) in &self.prior {
+            match old {
+                Some(v) => unsafe { std::env::set_var(k, v) },
+                None => unsafe { std::env::remove_var(k) },
+            }
         }
     }
 }

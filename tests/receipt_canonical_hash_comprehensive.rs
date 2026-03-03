@@ -8,12 +8,12 @@
 
 use std::collections::BTreeMap;
 
+use abp_core::chain::ReceiptChain;
 use abp_core::{
     AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata,
-    SupportLevel, UsageNormalized, VerificationReport, canonical_json, receipt_hash, sha256_hex,
+    CapabilityManifest, ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel,
+    UsageNormalized, VerificationReport, canonical_json, receipt_hash, sha256_hex,
 };
-use abp_core::chain::ReceiptChain;
 use abp_receipt::{canonicalize, compute_hash, verify_hash};
 use chrono::{DateTime, TimeZone, Utc};
 use uuid::Uuid;
@@ -552,13 +552,11 @@ fn canonical_usage_raw_key_order() {
     r.usage_raw = serde_json::json!({"z_key": 1, "a_key": 2, "m_key": 3});
     let json = canonicalize(&r).unwrap();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
-    if let Some(usage_raw) = v.get("usage_raw") {
-        if let serde_json::Value::Object(map) = usage_raw {
-            let keys: Vec<&String> = map.keys().collect();
-            let mut sorted = keys.clone();
-            sorted.sort();
-            assert_eq!(keys, sorted);
-        }
+    if let Some(serde_json::Value::Object(map)) = v.get("usage_raw") {
+        let keys: Vec<&String> = map.keys().collect();
+        let mut sorted = keys.clone();
+        sorted.sort();
+        assert_eq!(keys, sorted);
     }
 }
 

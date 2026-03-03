@@ -1183,7 +1183,7 @@ proptest! {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §8  Parallel serialization produces same output
+// §8  Deterministic serialization produces same output
 // ═══════════════════════════════════════════════════════════════════════════
 
 proptest! {
@@ -1191,7 +1191,7 @@ proptest! {
 
     // 65
     #[test]
-    fn parallel_work_order_serde(wo in arb_work_order()) {
+    fn deterministic_work_order_serde(wo in arb_work_order()) {
         let results: Vec<String> = (0..4)
             .map(|_| serde_json::to_string(&wo).unwrap())
             .collect();
@@ -1202,7 +1202,7 @@ proptest! {
 
     // 66
     #[test]
-    fn parallel_receipt_serde(r in arb_receipt()) {
+    fn deterministic_receipt_serde(r in arb_receipt()) {
         let results: Vec<String> = (0..4)
             .map(|_| serde_json::to_string(&r).unwrap())
             .collect();
@@ -1213,7 +1213,7 @@ proptest! {
 
     // 67
     #[test]
-    fn parallel_agent_event_serde(evt in arb_agent_event()) {
+    fn deterministic_agent_event_serde(evt in arb_agent_event()) {
         let results: Vec<String> = (0..4)
             .map(|_| serde_json::to_string(&evt).unwrap())
             .collect();
@@ -1224,7 +1224,7 @@ proptest! {
 
     // 68
     #[test]
-    fn parallel_envelope_serde(env in arb_envelope()) {
+    fn deterministic_envelope_serde(env in arb_envelope()) {
         let results: Vec<String> = (0..4)
             .map(|_| serde_json::to_string(&env).unwrap())
             .collect();
@@ -1235,7 +1235,7 @@ proptest! {
 
     // 69
     #[test]
-    fn parallel_receipt_hash(r in arb_receipt()) {
+    fn deterministic_receipt_hash(r in arb_receipt()) {
         let hashes: Vec<String> = (0..4)
             .map(|_| compute_hash(&r).unwrap())
             .collect();
@@ -1246,7 +1246,7 @@ proptest! {
 
     // 70
     #[test]
-    fn parallel_capability_manifest_serde(manifest in arb_capability_manifest()) {
+    fn deterministic_capability_manifest_serde(manifest in arb_capability_manifest()) {
         let results: Vec<String> = (0..4)
             .map(|_| serde_json::to_string(&manifest).unwrap())
             .collect();
@@ -1257,7 +1257,7 @@ proptest! {
 
     // 71
     #[test]
-    fn parallel_policy_profile_serde(policy in arb_policy_profile()) {
+    fn deterministic_policy_profile_serde(policy in arb_policy_profile()) {
         let results: Vec<String> = (0..4)
             .map(|_| serde_json::to_string(&policy).unwrap())
             .collect();
@@ -1268,7 +1268,7 @@ proptest! {
 
     // 72
     #[test]
-    fn parallel_envelope_encode(env in arb_envelope()) {
+    fn deterministic_envelope_encode(env in arb_envelope()) {
         let results: Vec<String> = (0..4)
             .map(|_| JsonlCodec::encode(&env).unwrap())
             .collect();

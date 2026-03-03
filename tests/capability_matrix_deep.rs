@@ -103,7 +103,7 @@ fn all_capability_variants_accounted() {
     let caps = all_capabilities();
     assert_eq!(
         caps.len(),
-        26,
+        41,
         "update all_capabilities() if variants added"
     );
 }
@@ -772,7 +772,7 @@ fn empty_capability_set() {
 #[test]
 fn all_capabilities_set() {
     let set: BTreeSet<Capability> = all_capabilities().into_iter().collect();
-    assert_eq!(set.len(), 26);
+    assert_eq!(set.len(), 41);
 }
 
 #[test]
@@ -1215,7 +1215,7 @@ fn manifest_all_capabilities_inserted() {
     for cap in all_capabilities() {
         m.insert(cap, SupportLevel::Native);
     }
-    assert_eq!(m.len(), 26);
+    assert_eq!(m.len(), 41);
 }
 
 // ===========================================================================
