@@ -159,6 +159,7 @@ walkdir = { workspace = true }
 axum = { workspace = true }
 tower = { workspace = true }
 http-body-util = { workspace = true }
+futures = { workspace = true }
 
 [[test]]
 name = "bdd"

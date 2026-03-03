@@ -12,19 +12,18 @@ use std::collections::BTreeMap;
 use abp_codex_sdk::dialect::{
     self, CanonicalToolDef, CodexConfig, CodexContentPart, CodexFunctionDef, CodexInputItem,
     CodexRequest, CodexResponse, CodexResponseItem, CodexStreamDelta, CodexStreamEvent,
-    CodexTextFormat, CodexTool, CodexUsage, FileAccess, NetworkAccess,
-    ReasoningSummary, SandboxConfig,
+    CodexTextFormat, CodexTool, CodexUsage, FileAccess, NetworkAccess, ReasoningSummary,
+    SandboxConfig,
 };
 use abp_codex_sdk::lowering;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CONTRACT_VERSION, Outcome, ReceiptBuilder,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, Outcome, ReceiptBuilder,
     SupportLevel, WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
 use abp_mapping::{
-    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules,
-    validate_mapping,
+    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -77,10 +76,7 @@ fn make_response(items: Vec<CodexResponseItem>) -> CodexResponse {
     }
 }
 
-fn make_response_with_usage(
-    items: Vec<CodexResponseItem>,
-    usage: CodexUsage,
-) -> CodexResponse {
+fn make_response_with_usage(items: Vec<CodexResponseItem>, usage: CodexUsage) -> CodexResponse {
     CodexResponse {
         id: "resp_usage".into(),
         model: "codex-mini-latest".into(),
@@ -348,7 +344,11 @@ fn multiple_tool_calls_in_sequence() {
     let resp = make_response(vec![
         function_call("fc_1", "read_file", r#"{"path":"a.rs"}"#),
         function_call_output("fc_1", "fn main() {}"),
-        function_call("fc_2", "write_file", r#"{"path":"b.rs","content":"// new"}"#),
+        function_call(
+            "fc_2",
+            "write_file",
+            r#"{"path":"b.rs","content":"// new"}"#,
+        ),
     ]);
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 3);
@@ -417,10 +417,7 @@ fn stream_response_created_maps_to_run_started() {
     };
     let events = dialect::map_stream_event(&event);
     assert_eq!(events.len(), 1);
-    assert!(matches!(
-        &events[0].kind,
-        AgentEventKind::RunStarted { .. }
-    ));
+    assert!(matches!(&events[0].kind, AgentEventKind::RunStarted { .. }));
 }
 
 #[test]
@@ -644,7 +641,10 @@ fn from_canonical_strips_prefix() {
 
 #[test]
 fn from_canonical_passthrough_without_prefix() {
-    assert_eq!(dialect::from_canonical_model("custom-model"), "custom-model");
+    assert_eq!(
+        dialect::from_canonical_model("custom-model"),
+        "custom-model"
+    );
 }
 
 #[test]
@@ -956,10 +956,7 @@ fn sandbox_in_config_roundtrip() {
     };
     let json = serde_json::to_string(&cfg).unwrap();
     let back: CodexConfig = serde_json::from_str(&json).unwrap();
-    assert_eq!(
-        back.sandbox.container_image.as_deref(),
-        Some("rust:latest")
-    );
+    assert_eq!(back.sandbox.container_image.as_deref(), Some("rust:latest"));
     assert_eq!(back.sandbox.timeout_seconds, Some(60));
 }
 
@@ -1044,7 +1041,10 @@ fn codex_self_mapping_lossless_all_features() {
         features::CODE_EXEC,
     ] {
         let rule = reg.lookup(Dialect::Codex, Dialect::Codex, feat).unwrap();
-        assert!(rule.fidelity.is_lossless(), "self-mapping for {feat} should be lossless");
+        assert!(
+            rule.fidelity.is_lossless(),
+            "self-mapping for {feat} should be lossless"
+        );
     }
 }
 
@@ -1368,10 +1368,7 @@ fn file_operation_followed_by_result() {
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 2);
     assert!(matches!(&events[0].kind, AgentEventKind::ToolCall { .. }));
-    assert!(matches!(
-        &events[1].kind,
-        AgentEventKind::ToolResult { .. }
-    ));
+    assert!(matches!(&events[1].kind, AgentEventKind::ToolResult { .. }));
 }
 
 #[test]
@@ -1539,7 +1536,11 @@ fn complex_conversation_roundtrip() {
         function_call("fc_a", "read_file", r#"{"path":"main.rs"}"#),
         function_call_output("fc_a", "fn main() {}"),
         assistant_text("Now I'll modify it."),
-        function_call("fc_b", "write_file", r#"{"path":"main.rs","content":"fn main() { println!(\"hello\"); }"}"#),
+        function_call(
+            "fc_b",
+            "write_file",
+            r#"{"path":"main.rs","content":"fn main() { println!(\"hello\"); }"}"#,
+        ),
     ];
     let conv = lowering::to_ir(&items);
     assert_eq!(conv.messages.len(), 5);
@@ -1782,7 +1783,9 @@ fn mapping_registry_insert_and_lookup_codex() {
         feature: "custom".into(),
         fidelity: Fidelity::Lossless,
     });
-    let rule = reg.lookup(Dialect::Codex, Dialect::Claude, "custom").unwrap();
+    let rule = reg
+        .lookup(Dialect::Codex, Dialect::Claude, "custom")
+        .unwrap();
     assert!(rule.fidelity.is_lossless());
 }
 

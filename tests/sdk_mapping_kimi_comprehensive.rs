@@ -23,8 +23,8 @@ use abp_core::{
 };
 use abp_dialect::Dialect;
 use abp_kimi_sdk::dialect::{
-    self, CanonicalToolDef, KimiBuiltinFunction, KimiBuiltinTool, KimiChunk, KimiChunkChoice,
-    KimiChunkDelta, KimiChunkFunctionCall, KimiChunkToolCall, KimiChoice, KimiConfig,
+    self, CanonicalToolDef, KimiBuiltinFunction, KimiBuiltinTool, KimiChoice, KimiChunk,
+    KimiChunkChoice, KimiChunkDelta, KimiChunkFunctionCall, KimiChunkToolCall, KimiConfig,
     KimiFunctionCall, KimiFunctionDef, KimiMessage, KimiRef, KimiRequest, KimiResponse,
     KimiResponseMessage, KimiRole, KimiTool, KimiToolCall, KimiToolDef, KimiUsage,
     ToolCallAccumulator,
@@ -101,11 +101,7 @@ fn simple_kimi_response(text: &str) -> KimiResponse {
     }
 }
 
-fn make_chunk(
-    id: &str,
-    delta: KimiChunkDelta,
-    finish_reason: Option<&str>,
-) -> KimiChunk {
+fn make_chunk(id: &str, delta: KimiChunkDelta, finish_reason: Option<&str>) -> KimiChunk {
     KimiChunk {
         id: id.into(),
         object: "chat.completion.chunk".into(),
@@ -403,8 +399,12 @@ mod function_calling_tool_use {
         };
         let events = dialect::map_response(&resp);
         assert_eq!(events.len(), 2);
-        assert!(matches!(&events[0].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "search"));
-        assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "fetch"));
+        assert!(
+            matches!(&events[0].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "search")
+        );
+        assert!(
+            matches!(&events[1].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "fetch")
+        );
     }
 
     #[test]
@@ -430,7 +430,10 @@ mod function_calling_tool_use {
         };
         let events = dialect::map_response(&resp);
         assert_eq!(events.len(), 2);
-        assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
+        assert!(matches!(
+            &events[0].kind,
+            AgentEventKind::AssistantMessage { .. }
+        ));
         assert!(matches!(&events[1].kind, AgentEventKind::ToolCall { .. }));
     }
 
@@ -569,11 +572,7 @@ mod streaming_response_mapping {
 
     #[test]
     fn finish_reason_produces_run_completed() {
-        let chunk = make_chunk(
-            "chunk-3",
-            KimiChunkDelta::default(),
-            Some("stop"),
-        );
+        let chunk = make_chunk("chunk-3", KimiChunkDelta::default(), Some("stop"));
         let events = dialect::map_stream_event(&chunk);
         assert_eq!(events.len(), 1);
         match &events[0].kind {
@@ -716,10 +715,7 @@ mod streaming_response_mapping {
 
     #[tokio::test]
     async fn client_streaming_produces_chunks() {
-        let events = vec![
-            assistant_delta_event("Hel"),
-            assistant_delta_event("lo!"),
-        ];
+        let events = vec![assistant_delta_event("Hel"), assistant_delta_event("lo!")];
         let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("Hi")])
@@ -783,38 +779,59 @@ mod model_capability_mapping {
     #[test]
     fn capability_manifest_has_streaming_native() {
         let caps = dialect::capability_manifest();
-        assert!(matches!(caps.get(&Capability::Streaming), Some(SupportLevel::Native)));
+        assert!(matches!(
+            caps.get(&Capability::Streaming),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn capability_manifest_has_tool_read_native() {
         let caps = dialect::capability_manifest();
-        assert!(matches!(caps.get(&Capability::ToolRead), Some(SupportLevel::Native)));
+        assert!(matches!(
+            caps.get(&Capability::ToolRead),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn capability_manifest_has_web_search_native() {
         let caps = dialect::capability_manifest();
-        assert!(matches!(caps.get(&Capability::ToolWebSearch), Some(SupportLevel::Native)));
+        assert!(matches!(
+            caps.get(&Capability::ToolWebSearch),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn capability_manifest_tool_edit_unsupported() {
         let caps = dialect::capability_manifest();
-        assert!(matches!(caps.get(&Capability::ToolEdit), Some(SupportLevel::Unsupported)));
+        assert!(matches!(
+            caps.get(&Capability::ToolEdit),
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
     fn capability_manifest_tool_bash_unsupported() {
         let caps = dialect::capability_manifest();
-        assert!(matches!(caps.get(&Capability::ToolBash), Some(SupportLevel::Unsupported)));
+        assert!(matches!(
+            caps.get(&Capability::ToolBash),
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
     fn capability_manifest_mcp_unsupported() {
         let caps = dialect::capability_manifest();
-        assert!(matches!(caps.get(&Capability::McpClient), Some(SupportLevel::Unsupported)));
-        assert!(matches!(caps.get(&Capability::McpServer), Some(SupportLevel::Unsupported)));
+        assert!(matches!(
+            caps.get(&Capability::McpClient),
+            Some(SupportLevel::Unsupported)
+        ));
+        assert!(matches!(
+            caps.get(&Capability::McpServer),
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
@@ -1172,7 +1189,10 @@ mod kimi_openai_compatibility {
         let registry = known_rules();
         let rule = registry.lookup(Dialect::Kimi, Dialect::Codex, features::TOOL_USE);
         assert!(rule.is_some());
-        assert!(matches!(rule.unwrap().fidelity, Fidelity::LossyLabeled { .. }));
+        assert!(matches!(
+            rule.unwrap().fidelity,
+            Fidelity::LossyLabeled { .. }
+        ));
     }
 
     #[test]
@@ -1186,17 +1206,31 @@ mod kimi_openai_compatibility {
     #[test]
     fn kimi_self_mapping_all_lossless() {
         let registry = known_rules();
-        for feat in [features::TOOL_USE, features::STREAMING, features::THINKING, features::IMAGE_INPUT, features::CODE_EXEC] {
+        for feat in [
+            features::TOOL_USE,
+            features::STREAMING,
+            features::THINKING,
+            features::IMAGE_INPUT,
+            features::CODE_EXEC,
+        ] {
             let rule = registry.lookup(Dialect::Kimi, Dialect::Kimi, feat);
             assert!(rule.is_some(), "missing self-rule for {feat}");
-            assert!(rule.unwrap().fidelity.is_lossless(), "not lossless for {feat}");
+            assert!(
+                rule.unwrap().fidelity.is_lossless(),
+                "not lossless for {feat}"
+            );
         }
     }
 
     #[test]
     fn kimi_thinking_cross_dialect_is_lossy() {
         let registry = known_rules();
-        for target in [Dialect::OpenAi, Dialect::Claude, Dialect::Gemini, Dialect::Codex] {
+        for target in [
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+        ] {
             let rule = registry.lookup(Dialect::Kimi, target, features::THINKING);
             assert!(rule.is_some(), "missing rule Kimi->{target:?} thinking");
             assert!(
@@ -1209,7 +1243,12 @@ mod kimi_openai_compatibility {
     #[test]
     fn kimi_image_input_unsupported() {
         let registry = known_rules();
-        for target in [Dialect::OpenAi, Dialect::Claude, Dialect::Gemini, Dialect::Codex] {
+        for target in [
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+        ] {
             let rule = registry.lookup(Dialect::Kimi, target, features::IMAGE_INPUT);
             assert!(rule.is_some());
             assert!(rule.unwrap().fidelity.is_unsupported());
@@ -1219,7 +1258,13 @@ mod kimi_openai_compatibility {
     #[test]
     fn kimi_code_exec_unsupported() {
         let registry = known_rules();
-        for target in [Dialect::OpenAi, Dialect::Claude, Dialect::Gemini, Dialect::Codex, Dialect::Copilot] {
+        for target in [
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+            Dialect::Copilot,
+        ] {
             let rule = registry.lookup(Dialect::Kimi, target, features::CODE_EXEC);
             assert!(rule.is_some());
             assert!(rule.unwrap().fidelity.is_unsupported());
@@ -1540,7 +1585,10 @@ mod conversation_history_format {
             kimi_msg("user", Some("What is Rust?")),
             kimi_msg("assistant", Some("Rust is a systems programming language.")),
             kimi_msg("user", Some("Tell me more about ownership.")),
-            kimi_msg("assistant", Some("Ownership is Rust's memory management model.")),
+            kimi_msg(
+                "assistant",
+                Some("Ownership is Rust's memory management model."),
+            ),
         ];
         let conv = lowering::to_ir(&msgs);
         assert_eq!(conv.len(), 5);
@@ -1577,7 +1625,12 @@ mod conversation_history_format {
 
     #[test]
     fn kimi_role_serde_roundtrip() {
-        for role in [KimiRole::System, KimiRole::User, KimiRole::Assistant, KimiRole::Tool] {
+        for role in [
+            KimiRole::System,
+            KimiRole::User,
+            KimiRole::Assistant,
+            KimiRole::Tool,
+        ] {
             let json = serde_json::to_string(&role).unwrap();
             let back: KimiRole = serde_json::from_str(&json).unwrap();
             assert_eq!(role, back);

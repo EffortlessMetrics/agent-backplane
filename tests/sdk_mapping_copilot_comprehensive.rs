@@ -23,9 +23,7 @@ use abp_core::{
     SupportLevel as CoreSupportLevel, UsageNormalized, WorkOrderBuilder,
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
-use abp_mapping::{
-    Fidelity, MappingError, MappingMatrix, features, known_rules, validate_mapping,
-};
+use abp_mapping::{Fidelity, MappingError, MappingMatrix, features, known_rules, validate_mapping};
 use abp_shim_copilot::{
     CopilotRequestBuilder, Message, events_to_stream_events, ir_to_messages, messages_to_ir,
     mock_receipt, mock_receipt_with_usage, receipt_to_response, request_to_work_order,
@@ -456,9 +454,7 @@ fn stream_references_maps_to_run_started() {
 
 #[test]
 fn stream_empty_references_maps_to_empty() {
-    let event = CopilotStreamEvent::CopilotReferences {
-        references: vec![],
-    };
+    let event = CopilotStreamEvent::CopilotReferences { references: vec![] };
     let mapped = dialect::map_stream_event(&event);
     assert!(mapped.is_empty());
 }
@@ -988,7 +984,10 @@ fn copilot_self_mapping_lossless_for_all_features() {
     ];
     for f in feats {
         let rule = reg.lookup(Dialect::Copilot, Dialect::Copilot, f).unwrap();
-        assert!(rule.fidelity.is_lossless(), "self-mapping for {f} not lossless");
+        assert!(
+            rule.fidelity.is_lossless(),
+            "self-mapping for {f} not lossless"
+        );
     }
 }
 
@@ -1122,7 +1121,10 @@ fn multiple_errors_produce_multiple_events() {
     let events = dialect::map_response(&resp);
     // 1 message + 2 errors
     assert_eq!(events.len(), 3);
-    assert!(matches!(&events[0].kind, AgentEventKind::AssistantMessage { .. }));
+    assert!(matches!(
+        &events[0].kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
     assert!(matches!(&events[1].kind, AgentEventKind::Error { .. }));
     assert!(matches!(&events[2].kind, AgentEventKind::Error { .. }));
 }
@@ -1218,12 +1220,7 @@ fn validate_mapping_copilot_unknown_feature() {
 #[test]
 fn validate_mapping_empty_feature_name() {
     let reg = known_rules();
-    let results = validate_mapping(
-        &reg,
-        Dialect::Copilot,
-        Dialect::OpenAi,
-        &[String::new()],
-    );
+    let results = validate_mapping(&reg, Dialect::Copilot, Dialect::OpenAi, &[String::new()]);
     assert_eq!(results.len(), 1);
     assert!(results[0].fidelity.is_unsupported());
     assert!(
@@ -1253,7 +1250,11 @@ fn work_order_with_workspace_root() {
 #[test]
 fn work_order_context_files_become_references() {
     let ctx = ContextPacket {
-        files: vec!["src/lib.rs".into(), "src/main.rs".into(), "Cargo.toml".into()],
+        files: vec![
+            "src/lib.rs".into(),
+            "src/main.rs".into(),
+            "Cargo.toml".into(),
+        ],
         snippets: vec![],
     };
     let wo = WorkOrderBuilder::new("review").context(ctx).build();

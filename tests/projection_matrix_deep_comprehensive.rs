@@ -488,7 +488,12 @@ fn thinking_claude_openai_may_be_asymmetric_in_warning_text() {
 fn code_exec_kimi_is_asymmetric_unsupported() {
     let reg = known_rules();
     // Kimi -> others for code_exec: unsupported
-    for &other in &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini, Dialect::Codex] {
+    for &other in &[
+        Dialect::OpenAi,
+        Dialect::Claude,
+        Dialect::Gemini,
+        Dialect::Codex,
+    ] {
         let rule = reg
             .lookup(Dialect::Kimi, other, features::CODE_EXEC)
             .unwrap();
@@ -591,7 +596,12 @@ fn image_input_openai_claude_gemini_triangle_lossless() {
 fn image_input_kimi_copilot_unsupported() {
     let reg = known_rules();
     for &nd in &[Dialect::Kimi, Dialect::Copilot] {
-        for &other in &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini, Dialect::Codex] {
+        for &other in &[
+            Dialect::OpenAi,
+            Dialect::Claude,
+            Dialect::Gemini,
+            Dialect::Codex,
+        ] {
             let rule = reg.lookup(nd, other, features::IMAGE_INPUT).unwrap();
             assert!(
                 rule.fidelity.is_unsupported(),
@@ -713,9 +723,7 @@ fn projection_prefers_native_over_emulated() {
         Dialect::Claude,
         50,
     );
-    let result = pm
-        .project(&wo(require(&[Capability::Streaming])))
-        .unwrap();
+    let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
     // Both satisfy the requirement; native should rank at least as high.
     assert!(result.fidelity_score.capability_coverage >= 1.0);
 }
@@ -735,9 +743,7 @@ fn projection_fallback_chain_contains_alternatives() {
         Dialect::Claude,
         50,
     );
-    let result = pm
-        .project(&wo(require(&[Capability::Streaming])))
-        .unwrap();
+    let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
     assert_eq!(result.fallback_chain.len(), 1);
 }
 
@@ -756,9 +762,7 @@ fn projection_empty_requirements_selects_highest_priority() {
         Dialect::Claude,
         90,
     );
-    let empty_reqs = CapabilityRequirements {
-        required: vec![],
-    };
+    let empty_reqs = CapabilityRequirements { required: vec![] };
     let result = pm.project(&wo(empty_reqs)).unwrap();
     assert_eq!(result.selected_backend, "high");
 }
@@ -783,9 +787,7 @@ fn projection_with_mapping_fidelity_scoring() {
         50,
     );
 
-    let result = pm
-        .project(&wo(require(&[Capability::Streaming])))
-        .unwrap();
+    let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
     // Claude has lossless tool_use+streaming from OpenAI; Codex has lossy tool_use.
     // Claude should score higher on mapping fidelity.
     assert_eq!(result.selected_backend, "claude-be");
@@ -1038,10 +1040,7 @@ fn rule_collection_btreemap_deterministic_json() {
     let rules: BTreeMap<String, &MappingRule> = reg
         .iter()
         .map(|r| {
-            let key = format!(
-                "{}->{}/{}",
-                r.source_dialect, r.target_dialect, r.feature
-            );
+            let key = format!("{}->{}/{}", r.source_dialect, r.target_dialect, r.feature);
             (key, r)
         })
         .collect();
@@ -1081,7 +1080,10 @@ fn known_rules_has_all_self_mappings() {
         .iter()
         .filter(|r| r.source_dialect == r.target_dialect)
         .count();
-    assert_eq!(self_count, expected, "every dialect×feature should have self-mapping");
+    assert_eq!(
+        self_count, expected,
+        "every dialect×feature should have self-mapping"
+    );
 }
 
 #[test]
@@ -1105,10 +1107,7 @@ fn known_rules_tool_use_coverage() {
     for &src in all_dialects() {
         for &tgt in all_dialects() {
             let rule = reg.lookup(src, tgt, features::TOOL_USE);
-            assert!(
-                rule.is_some(),
-                "tool_use {src} -> {tgt} missing",
-            );
+            assert!(rule.is_some(), "tool_use {src} -> {tgt} missing",);
         }
     }
 }
@@ -1119,10 +1118,7 @@ fn known_rules_thinking_coverage() {
     for &src in all_dialects() {
         for &tgt in all_dialects() {
             let rule = reg.lookup(src, tgt, features::THINKING);
-            assert!(
-                rule.is_some(),
-                "thinking {src} -> {tgt} missing",
-            );
+            assert!(rule.is_some(), "thinking {src} -> {tgt} missing",);
         }
     }
 }
@@ -1246,10 +1242,7 @@ fn merge_preserves_base_when_no_conflict() {
     ));
     assert_eq!(base.len(), 2);
     assert!(base.lookup(Dialect::OpenAi, Dialect::Claude, "a").is_some());
-    assert!(
-        base.lookup(Dialect::OpenAi, Dialect::Gemini, "b")
-            .is_some()
-    );
+    assert!(base.lookup(Dialect::OpenAi, Dialect::Gemini, "b").is_some());
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1318,9 +1311,7 @@ fn large_projection_matrix_many_backends() {
         );
     }
     assert_eq!(pm.backend_count(), 50);
-    let result = pm
-        .project(&wo(require(&[Capability::Streaming])))
-        .unwrap();
+    let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
     // Should select the highest-scoring backend.
     assert!(!result.selected_backend.is_empty());
     assert_eq!(result.fallback_chain.len(), 49);
@@ -1329,14 +1320,15 @@ fn large_projection_matrix_many_backends() {
 #[test]
 fn rank_targets_with_known_rules() {
     let reg = known_rules();
-    let ranked = reg.rank_targets(
-        Dialect::OpenAi,
-        &[features::TOOL_USE, features::STREAMING],
-    );
+    let ranked = reg.rank_targets(Dialect::OpenAi, &[features::TOOL_USE, features::STREAMING]);
     // Claude should appear high since both are lossless.
     let claude_entry = ranked.iter().find(|(d, _)| *d == Dialect::Claude);
     assert!(claude_entry.is_some());
-    assert_eq!(claude_entry.unwrap().1, 2, "both features lossless for Claude");
+    assert_eq!(
+        claude_entry.unwrap().1,
+        2,
+        "both features lossless for Claude"
+    );
 }
 
 #[test]
@@ -1548,10 +1540,7 @@ fn passthrough_same_dialect_gets_boost() {
 
     // Passthrough with source=openai should favor the OpenAI backend.
     let result = pm
-        .project(&passthrough_wo(
-            require(&[Capability::Streaming]),
-            "openai",
-        ))
+        .project(&passthrough_wo(require(&[Capability::Streaming]), "openai"))
         .unwrap();
     assert_eq!(result.selected_backend, "openai-be");
 }
@@ -1575,10 +1564,7 @@ fn passthrough_claude_selects_claude_backend() {
     );
 
     let result = pm
-        .project(&passthrough_wo(
-            require(&[Capability::Streaming]),
-            "claude",
-        ))
+        .project(&passthrough_wo(require(&[Capability::Streaming]), "claude"))
         .unwrap();
     assert_eq!(result.selected_backend, "claude-be");
 }
@@ -1617,10 +1603,12 @@ fn validate_lossy_feature_has_fidelity_loss_error() {
         &[features::THINKING.into()],
     );
     assert!(!results[0].fidelity.is_lossless());
-    assert!(results[0].errors.iter().any(|e| matches!(
-        e,
-        MappingError::FidelityLoss { .. }
-    )));
+    assert!(
+        results[0]
+            .errors
+            .iter()
+            .any(|e| matches!(e, MappingError::FidelityLoss { .. }))
+    );
 }
 
 #[test]
@@ -1721,9 +1709,7 @@ fn projection_set_source_dialect_overrides_work_order() {
         50,
     );
 
-    let result = pm
-        .project(&wo(require(&[Capability::Streaming])))
-        .unwrap();
+    let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
     // Claude -> Gemini tool_use is lossless; Claude -> Codex is lossy.
     assert_eq!(result.selected_backend, "gemini-be");
 }
@@ -1741,9 +1727,7 @@ fn projection_no_mapping_features_uses_heuristic() {
         Dialect::Claude,
         50,
     );
-    let result = pm
-        .project(&wo(require(&[Capability::Streaming])))
-        .unwrap();
+    let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
     assert_eq!(result.selected_backend, "be1");
 }
 
@@ -1756,9 +1740,7 @@ fn projection_score_total_is_weighted_sum() {
         Dialect::OpenAi,
         50,
     );
-    let result = pm
-        .project(&wo(require(&[Capability::Streaming])))
-        .unwrap();
+    let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
     let s = &result.fidelity_score;
     // total = 0.5*cap + 0.3*fidelity + 0.2*priority
     let expected = 0.5 * s.capability_coverage + 0.3 * s.mapping_fidelity + 0.2 * s.priority;
@@ -1865,8 +1847,7 @@ fn feature_constants_match_known_rules_coverage() {
     for &feat in all_features() {
         // Every feature should at least have self-mappings.
         assert!(
-            reg.lookup(Dialect::OpenAi, Dialect::OpenAi, feat)
-                .is_some(),
+            reg.lookup(Dialect::OpenAi, Dialect::OpenAi, feat).is_some(),
             "feature {feat} missing from known_rules",
         );
     }

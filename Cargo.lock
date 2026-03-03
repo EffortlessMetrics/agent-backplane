@@ -646,6 +646,7 @@ dependencies = [
  "claude-bridge",
  "criterion",
  "cucumber",
+ "futures",
  "http-body-util",
  "insta",
  "jsonschema",
