@@ -266,6 +266,7 @@ name = "abp-host"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-error",
  "abp-protocol",
  "anyhow",
  "chrono",
