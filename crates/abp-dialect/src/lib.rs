@@ -7,6 +7,9 @@
 //!
 //! Dialect detection, validation, and metadata for the Agent Backplane.
 
+pub mod ir;
+pub mod registry;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

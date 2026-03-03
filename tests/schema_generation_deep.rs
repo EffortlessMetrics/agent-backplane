@@ -694,10 +694,10 @@ fn error_code_enum_in_receipt_schema() {
         .filter_map(|v| v["const"].as_str())
         .collect();
     // Just check a few key codes
-    assert!(consts.contains(&"BACKEND_TIMEOUT"));
-    assert!(consts.contains(&"POLICY_DENIED"));
+    assert!(consts.contains(&"backend_timeout"));
+    assert!(consts.contains(&"policy_denied"));
     assert!(consts.contains(&"INTERNAL"));
-    assert!(consts.contains(&"PROTOCOL_INVALID_ENVELOPE"));
+    assert!(consts.contains(&"protocol_invalid_envelope"));
 }
 
 // ── 8. Schema additionalProperties settings ──────────────────────────

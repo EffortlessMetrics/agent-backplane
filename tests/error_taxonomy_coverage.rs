@@ -55,93 +55,93 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
 const CODE_TABLE: &[(ErrorCode, &str, ErrorCategory)] = &[
     (
         ErrorCode::ProtocolInvalidEnvelope,
-        "PROTOCOL_INVALID_ENVELOPE",
+        "protocol_invalid_envelope",
         ErrorCategory::Protocol,
     ),
     (
         ErrorCode::ProtocolUnexpectedMessage,
-        "PROTOCOL_UNEXPECTED_MESSAGE",
+        "protocol_unexpected_message",
         ErrorCategory::Protocol,
     ),
     (
         ErrorCode::ProtocolVersionMismatch,
-        "PROTOCOL_VERSION_MISMATCH",
+        "protocol_version_mismatch",
         ErrorCategory::Protocol,
     ),
     (
         ErrorCode::BackendNotFound,
-        "BACKEND_NOT_FOUND",
+        "backend_not_found",
         ErrorCategory::Backend,
     ),
     (
         ErrorCode::BackendTimeout,
-        "BACKEND_TIMEOUT",
+        "backend_timeout",
         ErrorCategory::Backend,
     ),
     (
         ErrorCode::BackendCrashed,
-        "BACKEND_CRASHED",
+        "backend_crashed",
         ErrorCategory::Backend,
     ),
     (
         ErrorCode::CapabilityUnsupported,
-        "CAPABILITY_UNSUPPORTED",
+        "capability_unsupported",
         ErrorCategory::Capability,
     ),
     (
         ErrorCode::CapabilityEmulationFailed,
-        "CAPABILITY_EMULATION_FAILED",
+        "capability_emulation_failed",
         ErrorCategory::Capability,
     ),
     (
         ErrorCode::PolicyDenied,
-        "POLICY_DENIED",
+        "policy_denied",
         ErrorCategory::Policy,
     ),
     (
         ErrorCode::PolicyInvalid,
-        "POLICY_INVALID",
+        "policy_invalid",
         ErrorCategory::Policy,
     ),
     (
         ErrorCode::WorkspaceInitFailed,
-        "WORKSPACE_INIT_FAILED",
+        "workspace_init_failed",
         ErrorCategory::Workspace,
     ),
     (
         ErrorCode::WorkspaceStagingFailed,
-        "WORKSPACE_STAGING_FAILED",
+        "workspace_staging_failed",
         ErrorCategory::Workspace,
     ),
     (
         ErrorCode::IrLoweringFailed,
-        "IR_LOWERING_FAILED",
+        "ir_lowering_failed",
         ErrorCategory::Ir,
     ),
-    (ErrorCode::IrInvalid, "IR_INVALID", ErrorCategory::Ir),
+    (ErrorCode::IrInvalid, "ir_invalid", ErrorCategory::Ir),
     (
         ErrorCode::ReceiptHashMismatch,
-        "RECEIPT_HASH_MISMATCH",
+        "receipt_hash_mismatch",
         ErrorCategory::Receipt,
     ),
     (
         ErrorCode::ReceiptChainBroken,
-        "RECEIPT_CHAIN_BROKEN",
+        "receipt_chain_broken",
         ErrorCategory::Receipt,
     ),
     (
         ErrorCode::DialectUnknown,
-        "DIALECT_UNKNOWN",
+        "dialect_unknown",
         ErrorCategory::Dialect,
     ),
     (
         ErrorCode::DialectMappingFailed,
-        "DIALECT_MAPPING_FAILED",
+        "dialect_mapping_failed",
         ErrorCategory::Dialect,
     ),
     (
         ErrorCode::ConfigInvalid,
-        "CONFIG_INVALID",
+        "config_invalid",
         ErrorCategory::Config,
     ),
     (ErrorCode::Internal, "INTERNAL", ErrorCategory::Internal),
@@ -859,7 +859,7 @@ fn dto_serde_roundtrip_all_codes() {
 
 #[test]
 fn dto_deserialize_from_handcrafted_json() {
-    let raw = r#"{"code":"BACKEND_NOT_FOUND","message":"no backend","context":{"name":"openai"}}"#;
+    let raw = r#"{"code":"backend_not_found","message":"no backend","context":{"name":"openai"}}"#;
     let dto: AbpErrorDto = serde_json::from_str(raw).unwrap();
     assert_eq!(dto.code, ErrorCode::BackendNotFound);
     assert_eq!(dto.message, "no backend");
@@ -917,7 +917,7 @@ fn abp_error_wrapping_another_abp_error() {
     let inner = AbpError::new(ErrorCode::PolicyDenied, "inner deny");
     let outer = AbpError::new(ErrorCode::Internal, "outer").with_source(inner);
     let src = StdError::source(&outer).unwrap();
-    assert!(src.to_string().contains("POLICY_DENIED"));
+    assert!(src.to_string().contains("policy_denied"));
     assert!(src.to_string().contains("inner deny"));
 }
 

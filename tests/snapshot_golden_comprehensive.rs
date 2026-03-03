@@ -704,7 +704,7 @@ fn event_error_with_code() {
     };
     let v = serde_json::to_value(e).unwrap();
     assert_eq!(v["type"], "error");
-    assert_eq!(v["error_code"], "BACKEND_TIMEOUT");
+    assert_eq!(v["error_code"], "backend_timeout");
 }
 
 #[test]
@@ -850,7 +850,7 @@ fn envelope_fatal_with_error_code() {
         abp_error::ErrorCode::BackendNotFound,
     );
     let v = serde_json::to_value(env).unwrap();
-    assert_eq!(v["error_code"], "BACKEND_NOT_FOUND");
+    assert_eq!(v["error_code"], "backend_not_found");
 }
 
 #[test]
@@ -1144,7 +1144,7 @@ fn ir_usage_with_cache() {
 fn error_code_display_backend_timeout() {
     assert_eq!(
         abp_error::ErrorCode::BackendTimeout.to_string(),
-        "BACKEND_TIMEOUT",
+        "backend_timeout",
     );
 }
 
@@ -1152,7 +1152,7 @@ fn error_code_display_backend_timeout() {
 fn error_code_display_policy_denied() {
     assert_eq!(
         abp_error::ErrorCode::PolicyDenied.to_string(),
-        "POLICY_DENIED",
+        "policy_denied",
     );
 }
 
@@ -1173,11 +1173,11 @@ fn error_category_display() {
 fn error_code_json_serialization() {
     assert_eq!(
         serde_json::to_string(&abp_error::ErrorCode::ProtocolInvalidEnvelope).unwrap(),
-        r#""PROTOCOL_INVALID_ENVELOPE""#,
+        r#""protocol_invalid_envelope""#,
     );
     assert_eq!(
         serde_json::to_string(&abp_error::ErrorCode::ReceiptHashMismatch).unwrap(),
-        r#""RECEIPT_HASH_MISMATCH""#,
+        r#""receipt_hash_mismatch""#,
     );
 }
 

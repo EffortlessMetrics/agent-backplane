@@ -159,27 +159,27 @@ fn error_code_eq_and_hash() {
 fn error_code_as_str_specific_values() {
     assert_eq!(
         ErrorCode::ProtocolInvalidEnvelope.as_str(),
-        "PROTOCOL_INVALID_ENVELOPE"
+        "protocol_invalid_envelope"
     );
-    assert_eq!(ErrorCode::BackendNotFound.as_str(), "BACKEND_NOT_FOUND");
-    assert_eq!(ErrorCode::BackendTimeout.as_str(), "BACKEND_TIMEOUT");
-    assert_eq!(ErrorCode::BackendCrashed.as_str(), "BACKEND_CRASHED");
+    assert_eq!(ErrorCode::BackendNotFound.as_str(), "backend_not_found");
+    assert_eq!(ErrorCode::BackendTimeout.as_str(), "backend_timeout");
+    assert_eq!(ErrorCode::BackendCrashed.as_str(), "backend_crashed");
     assert_eq!(
         ErrorCode::CapabilityUnsupported.as_str(),
-        "CAPABILITY_UNSUPPORTED"
+        "capability_unsupported"
     );
-    assert_eq!(ErrorCode::PolicyDenied.as_str(), "POLICY_DENIED");
+    assert_eq!(ErrorCode::PolicyDenied.as_str(), "policy_denied");
     assert_eq!(
         ErrorCode::WorkspaceInitFailed.as_str(),
-        "WORKSPACE_INIT_FAILED"
+        "workspace_init_failed"
     );
-    assert_eq!(ErrorCode::IrLoweringFailed.as_str(), "IR_LOWERING_FAILED");
+    assert_eq!(ErrorCode::IrLoweringFailed.as_str(), "ir_lowering_failed");
     assert_eq!(
         ErrorCode::ReceiptHashMismatch.as_str(),
-        "RECEIPT_HASH_MISMATCH"
+        "receipt_hash_mismatch"
     );
-    assert_eq!(ErrorCode::DialectUnknown.as_str(), "DIALECT_UNKNOWN");
-    assert_eq!(ErrorCode::ConfigInvalid.as_str(), "CONFIG_INVALID");
+    assert_eq!(ErrorCode::DialectUnknown.as_str(), "dialect_unknown");
+    assert_eq!(ErrorCode::ConfigInvalid.as_str(), "config_invalid");
     assert_eq!(ErrorCode::Internal.as_str(), "INTERNAL");
 }
 

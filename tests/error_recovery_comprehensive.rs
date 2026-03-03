@@ -351,7 +351,7 @@ fn protocol_error_abp_display() {
     let err = ProtocolError::Abp(abp);
     let msg = err.to_string();
     assert!(
-        msg.contains("BACKEND_TIMEOUT"),
+        msg.contains("backend_timeout"),
         "should contain code: {msg}"
     );
     assert!(msg.contains("timed out"), "should contain message: {msg}");
@@ -612,7 +612,7 @@ fn internal_maps_to_internal_category() {
 fn error_code_as_str_protocol_invalid_envelope() {
     assert_eq!(
         ErrorCode::ProtocolInvalidEnvelope.as_str(),
-        "PROTOCOL_INVALID_ENVELOPE"
+        "protocol_invalid_envelope"
     );
 }
 
@@ -620,7 +620,7 @@ fn error_code_as_str_protocol_invalid_envelope() {
 fn error_code_as_str_protocol_unexpected_message() {
     assert_eq!(
         ErrorCode::ProtocolUnexpectedMessage.as_str(),
-        "PROTOCOL_UNEXPECTED_MESSAGE"
+        "protocol_unexpected_message"
     );
 }
 
@@ -628,23 +628,23 @@ fn error_code_as_str_protocol_unexpected_message() {
 fn error_code_as_str_protocol_version_mismatch() {
     assert_eq!(
         ErrorCode::ProtocolVersionMismatch.as_str(),
-        "PROTOCOL_VERSION_MISMATCH"
+        "protocol_version_mismatch"
     );
 }
 
 #[test]
 fn error_code_as_str_backend_not_found() {
-    assert_eq!(ErrorCode::BackendNotFound.as_str(), "BACKEND_NOT_FOUND");
+    assert_eq!(ErrorCode::BackendNotFound.as_str(), "backend_not_found");
 }
 
 #[test]
 fn error_code_as_str_backend_timeout() {
-    assert_eq!(ErrorCode::BackendTimeout.as_str(), "BACKEND_TIMEOUT");
+    assert_eq!(ErrorCode::BackendTimeout.as_str(), "backend_timeout");
 }
 
 #[test]
 fn error_code_as_str_backend_crashed() {
-    assert_eq!(ErrorCode::BackendCrashed.as_str(), "BACKEND_CRASHED");
+    assert_eq!(ErrorCode::BackendCrashed.as_str(), "backend_crashed");
 }
 
 #[test]
@@ -1181,7 +1181,7 @@ fn errors_can_be_sent_across_threads() {
         err.to_string()
     });
     let result = handle.join().unwrap();
-    assert!(result.contains("BACKEND_CRASHED"));
+    assert!(result.contains("backend_crashed"));
 }
 
 #[test]

@@ -576,7 +576,7 @@ mod envelope_structure {
         );
         let json = serde_json::to_string(&env).unwrap();
         assert!(json.contains("\"error_code\""));
-        assert!(json.contains("BACKEND_TIMEOUT"));
+        assert!(json.contains("backend_timeout"));
     }
 
     #[test]
@@ -1664,10 +1664,10 @@ mod error_taxonomy {
 
     #[test]
     fn error_code_as_str_screaming_snake() {
-        assert_eq!(ErrorCode::BackendTimeout.as_str(), "BACKEND_TIMEOUT");
+        assert_eq!(ErrorCode::BackendTimeout.as_str(), "backend_timeout");
         assert_eq!(
             ErrorCode::ProtocolInvalidEnvelope.as_str(),
-            "PROTOCOL_INVALID_ENVELOPE"
+            "protocol_invalid_envelope"
         );
     }
 

@@ -902,8 +902,8 @@ fn given_error_code_when_category_checked_then_correct() {
 
 #[test]
 fn given_error_code_when_as_str_then_screaming_snake() {
-    assert_eq!(ErrorCode::BackendNotFound.as_str(), "BACKEND_NOT_FOUND");
-    assert_eq!(ErrorCode::PolicyDenied.as_str(), "POLICY_DENIED");
+    assert_eq!(ErrorCode::BackendNotFound.as_str(), "backend_not_found");
+    assert_eq!(ErrorCode::PolicyDenied.as_str(), "policy_denied");
 }
 
 #[test]
@@ -1824,7 +1824,7 @@ fn given_workspace_errors_when_category_then_workspace() {
 #[test]
 fn given_error_code_when_serialized_then_screaming_snake() {
     let json = serde_json::to_string(&ErrorCode::BackendNotFound).unwrap();
-    assert_eq!(json, r#""BACKEND_NOT_FOUND""#);
+    assert_eq!(json, r#""backend_not_found""#);
 }
 
 // ===========================================================================

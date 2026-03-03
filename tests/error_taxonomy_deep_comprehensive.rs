@@ -623,17 +623,17 @@ fn error_code_serde_roundtrip_all() {
 fn error_code_serializes_screaming_snake() {
     assert_eq!(
         serde_json::to_string(&ErrorCode::ProtocolInvalidEnvelope).unwrap(),
-        r#""PROTOCOL_INVALID_ENVELOPE""#
+        r#""protocol_invalid_envelope""#
     );
     assert_eq!(
         serde_json::to_string(&ErrorCode::BackendTimeout).unwrap(),
-        r#""BACKEND_TIMEOUT""#
+        r#""backend_timeout""#
     );
 }
 
 #[test]
 fn error_code_deserializes_from_string() {
-    let code: ErrorCode = serde_json::from_str(r#""BACKEND_TIMEOUT""#).unwrap();
+    let code: ErrorCode = serde_json::from_str(r#""backend_timeout""#).unwrap();
     assert_eq!(code, ErrorCode::BackendTimeout);
 }
 
@@ -1404,7 +1404,7 @@ fn fatal_envelope_json_has_error_code_field() {
     let envelope =
         Envelope::fatal_with_code(Some("run-1".into()), "fatal", ErrorCode::BackendCrashed);
     let json = serde_json::to_value(&envelope).unwrap();
-    assert_eq!(json["error_code"], "BACKEND_CRASHED");
+    assert_eq!(json["error_code"], "backend_crashed");
     assert_eq!(json["t"], "fatal");
 }
 
@@ -1666,39 +1666,39 @@ fn outcome_serializes_snake_case() {
 fn error_code_as_str_stability() {
     let expected: Vec<(&str, ErrorCode)> = vec![
         (
-            "PROTOCOL_INVALID_ENVELOPE",
+            "protocol_invalid_envelope",
             ErrorCode::ProtocolInvalidEnvelope,
         ),
         (
-            "PROTOCOL_UNEXPECTED_MESSAGE",
+            "protocol_unexpected_message",
             ErrorCode::ProtocolUnexpectedMessage,
         ),
         (
-            "PROTOCOL_VERSION_MISMATCH",
+            "protocol_version_mismatch",
             ErrorCode::ProtocolVersionMismatch,
         ),
-        ("BACKEND_NOT_FOUND", ErrorCode::BackendNotFound),
-        ("BACKEND_TIMEOUT", ErrorCode::BackendTimeout),
-        ("BACKEND_CRASHED", ErrorCode::BackendCrashed),
-        ("CAPABILITY_UNSUPPORTED", ErrorCode::CapabilityUnsupported),
+        ("backend_not_found", ErrorCode::BackendNotFound),
+        ("backend_timeout", ErrorCode::BackendTimeout),
+        ("backend_crashed", ErrorCode::BackendCrashed),
+        ("capability_unsupported", ErrorCode::CapabilityUnsupported),
         (
-            "CAPABILITY_EMULATION_FAILED",
+            "capability_emulation_failed",
             ErrorCode::CapabilityEmulationFailed,
         ),
-        ("POLICY_DENIED", ErrorCode::PolicyDenied),
-        ("POLICY_INVALID", ErrorCode::PolicyInvalid),
-        ("WORKSPACE_INIT_FAILED", ErrorCode::WorkspaceInitFailed),
+        ("policy_denied", ErrorCode::PolicyDenied),
+        ("policy_invalid", ErrorCode::PolicyInvalid),
+        ("workspace_init_failed", ErrorCode::WorkspaceInitFailed),
         (
-            "WORKSPACE_STAGING_FAILED",
+            "workspace_staging_failed",
             ErrorCode::WorkspaceStagingFailed,
         ),
-        ("IR_LOWERING_FAILED", ErrorCode::IrLoweringFailed),
-        ("IR_INVALID", ErrorCode::IrInvalid),
-        ("RECEIPT_HASH_MISMATCH", ErrorCode::ReceiptHashMismatch),
-        ("RECEIPT_CHAIN_BROKEN", ErrorCode::ReceiptChainBroken),
-        ("DIALECT_UNKNOWN", ErrorCode::DialectUnknown),
-        ("DIALECT_MAPPING_FAILED", ErrorCode::DialectMappingFailed),
-        ("CONFIG_INVALID", ErrorCode::ConfigInvalid),
+        ("ir_lowering_failed", ErrorCode::IrLoweringFailed),
+        ("ir_invalid", ErrorCode::IrInvalid),
+        ("receipt_hash_mismatch", ErrorCode::ReceiptHashMismatch),
+        ("receipt_chain_broken", ErrorCode::ReceiptChainBroken),
+        ("dialect_unknown", ErrorCode::DialectUnknown),
+        ("dialect_mapping_failed", ErrorCode::DialectMappingFailed),
+        ("config_invalid", ErrorCode::ConfigInvalid),
         ("INTERNAL", ErrorCode::Internal),
     ];
     for (s, code) in &expected {

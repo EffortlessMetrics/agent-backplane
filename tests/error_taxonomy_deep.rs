@@ -105,7 +105,7 @@ fn error_code_serde_roundtrip_all() {
 #[test]
 fn error_code_serializes_to_screaming_snake_case() {
     let json = serde_json::to_string(&ErrorCode::BackendTimeout).unwrap();
-    assert_eq!(json, r#""BACKEND_TIMEOUT""#);
+    assert_eq!(json, r#""backend_timeout""#);
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn error_code_as_str_matches_serde() {
 fn abp_error_display_includes_code_and_message() {
     let err = AbpError::new(ErrorCode::BackendNotFound, "backend 'foo' not found");
     let s = err.to_string();
-    assert!(s.contains("BACKEND_NOT_FOUND"), "missing code in: {s}");
+    assert!(s.contains("backend_not_found"), "missing code in: {s}");
     assert!(
         s.contains("backend 'foo' not found"),
         "missing message in: {s}"
@@ -644,13 +644,13 @@ fn btreemap_insertion_order_irrelevant() {
 #[test]
 fn error_code_snapshot_backend_timeout() {
     let json = serde_json::to_string(&ErrorCode::BackendTimeout).unwrap();
-    assert_eq!(json, r#""BACKEND_TIMEOUT""#);
+    assert_eq!(json, r#""backend_timeout""#);
 }
 
 #[test]
 fn error_code_snapshot_protocol_invalid_envelope() {
     let json = serde_json::to_string(&ErrorCode::ProtocolInvalidEnvelope).unwrap();
-    assert_eq!(json, r#""PROTOCOL_INVALID_ENVELOPE""#);
+    assert_eq!(json, r#""protocol_invalid_envelope""#);
 }
 
 #[test]
@@ -678,7 +678,7 @@ fn error_dto_snapshot_with_context() {
     let json = serde_json::to_string(&dto).unwrap();
     assert_eq!(
         json,
-        r#"{"code":"BACKEND_NOT_FOUND","message":"not found","context":{"key":"value"},"source_message":"inner"}"#
+        r#"{"code":"backend_not_found","message":"not found","context":{"key":"value"},"source_message":"inner"}"#
     );
 }
 
@@ -691,7 +691,7 @@ fn fatal_envelope_snapshot_with_error_code() {
     );
     let json = JsonlCodec::encode(&env).unwrap();
     assert!(json.contains(r#""t":"fatal""#));
-    assert!(json.contains(r#""error_code":"BACKEND_CRASHED""#));
+    assert!(json.contains(r#""error_code":"backend_crashed""#));
     assert!(json.contains(r#""error":"something failed""#));
 }
 
@@ -756,7 +756,7 @@ fn agent_event_error_carries_error_code() {
         ext: None,
     };
     let json = serde_json::to_string(&event).unwrap();
-    assert!(json.contains("BACKEND_CRASHED"));
+    assert!(json.contains("backend_crashed"));
     let back: AgentEvent = serde_json::from_str(&json).unwrap();
     if let AgentEventKind::Error { error_code, .. } = &back.kind {
         assert_eq!(*error_code, Some(ErrorCode::BackendCrashed));

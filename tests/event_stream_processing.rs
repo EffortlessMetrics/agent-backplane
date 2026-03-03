@@ -1740,7 +1740,7 @@ fn error_code_serializes_screaming_snake() {
         error_code: Some(abp_error::ErrorCode::BackendTimeout),
     });
     let v = roundtrip_value(&e);
-    assert_eq!(v["error_code"], "BACKEND_TIMEOUT");
+    assert_eq!(v["error_code"], "backend_timeout");
 }
 
 // ===========================================================================
@@ -1810,7 +1810,7 @@ fn deserialize_error_from_json() {
 
 #[test]
 fn deserialize_error_with_code_from_json() {
-    let json = r#"{"ts":"2025-01-15T12:00:00Z","type":"error","message":"timeout","error_code":"BACKEND_TIMEOUT"}"#;
+    let json = r#"{"ts":"2025-01-15T12:00:00Z","type":"error","message":"timeout","error_code":"backend_timeout"}"#;
     let e: AgentEvent = serde_json::from_str(json).unwrap();
     if let AgentEventKind::Error { error_code, .. } = &e.kind {
         assert_eq!(*error_code, Some(abp_error::ErrorCode::BackendTimeout));

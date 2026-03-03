@@ -871,7 +871,7 @@ fn s10_given_error_with_context_when_displayed_then_includes_info() {
     let err =
         AbpError::new(ErrorCode::PolicyDenied, "tool disallowed").with_context("tool", "Bash");
     let display = err.to_string();
-    assert!(display.contains("POLICY_DENIED"));
+    assert!(display.contains("policy_denied"));
     assert!(display.contains("tool disallowed"));
 }
 

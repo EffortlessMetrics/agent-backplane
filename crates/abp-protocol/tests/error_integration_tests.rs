@@ -14,7 +14,7 @@ fn fatal_with_error_code_roundtrips_through_jsonl() {
         ErrorCode::BackendTimeout,
     );
     let json = JsonlCodec::encode(&env).unwrap();
-    assert!(json.contains("BACKEND_TIMEOUT"));
+    assert!(json.contains("backend_timeout"));
 
     let decoded = JsonlCodec::decode(json.trim()).unwrap();
     assert_eq!(decoded.error_code(), Some(ErrorCode::BackendTimeout));
@@ -77,7 +77,7 @@ fn legacy_fatal_json_without_error_code_deserializes() {
 
 #[test]
 fn fatal_json_with_error_code_deserializes() {
-    let json = r#"{"t":"fatal","ref_id":null,"error":"bad envelope","error_code":"PROTOCOL_INVALID_ENVELOPE"}"#;
+    let json = r#"{"t":"fatal","ref_id":null,"error":"bad envelope","error_code":"protocol_invalid_envelope"}"#;
     let env = JsonlCodec::decode(json).unwrap();
     assert_eq!(env.error_code(), Some(ErrorCode::ProtocolInvalidEnvelope));
 }

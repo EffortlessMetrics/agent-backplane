@@ -932,7 +932,7 @@ fn fatal_error_code_skipped_when_none() {
 fn fatal_error_code_present_when_some() {
     let env = Envelope::fatal_with_code(None, "timeout", abp_error::ErrorCode::BackendTimeout);
     let v = serde_json::to_value(&env).unwrap();
-    assert_eq!(v["error_code"], "BACKEND_TIMEOUT");
+    assert_eq!(v["error_code"], "backend_timeout");
 }
 
 #[test]

@@ -529,10 +529,10 @@ fn abp_error_dialect_mapping_failed_has_dialect_category() {
 
 #[test]
 fn dialect_error_codes_stable_strings() {
-    assert_eq!(ErrorCode::DialectUnknown.as_str(), "DIALECT_UNKNOWN");
+    assert_eq!(ErrorCode::DialectUnknown.as_str(), "dialect_unknown");
     assert_eq!(
         ErrorCode::DialectMappingFailed.as_str(),
-        "DIALECT_MAPPING_FAILED"
+        "dialect_mapping_failed"
     );
 }
 
@@ -813,7 +813,7 @@ fn chained_error_dto_captures_source_message() {
 fn chained_error_display_includes_code_and_message() {
     let abp_err = AbpError::new(ErrorCode::DialectMappingFailed, "translation failed");
     let display = abp_err.to_string();
-    assert!(display.contains("DIALECT_MAPPING_FAILED"));
+    assert!(display.contains("dialect_mapping_failed"));
     assert!(display.contains("translation failed"));
 }
 

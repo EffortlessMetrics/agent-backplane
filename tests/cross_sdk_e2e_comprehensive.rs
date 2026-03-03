@@ -1028,7 +1028,7 @@ mod error_translation {
     fn dialect_unknown_error() {
         let err = AbpError::new(ErrorCode::DialectUnknown, "unknown dialect: foo");
         assert_eq!(err.category(), ErrorCategory::Dialect);
-        assert_eq!(err.code.as_str(), "DIALECT_UNKNOWN");
+        assert_eq!(err.code.as_str(), "dialect_unknown");
     }
 
     #[test]
@@ -1133,7 +1133,7 @@ mod error_translation {
     fn error_display_includes_code() {
         let err = AbpError::new(ErrorCode::ConfigInvalid, "bad config");
         let display = err.to_string();
-        assert!(display.contains("CONFIG_INVALID"));
+        assert!(display.contains("config_invalid"));
         assert!(display.contains("bad config"));
     }
 

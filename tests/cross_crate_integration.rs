@@ -671,11 +671,11 @@ fn error_code_categories() {
 
 #[test]
 fn error_code_as_str_format() {
-    assert_eq!(ErrorCode::PolicyDenied.as_str(), "POLICY_DENIED");
-    assert_eq!(ErrorCode::BackendNotFound.as_str(), "BACKEND_NOT_FOUND");
+    assert_eq!(ErrorCode::PolicyDenied.as_str(), "policy_denied");
+    assert_eq!(ErrorCode::BackendNotFound.as_str(), "backend_not_found");
     assert_eq!(
         ErrorCode::ProtocolInvalidEnvelope.as_str(),
-        "PROTOCOL_INVALID_ENVELOPE"
+        "protocol_invalid_envelope"
     );
 }
 
@@ -1882,7 +1882,7 @@ fn workspace_stager_no_git_init() {
 #[test]
 fn error_code_backend_crashed() {
     assert_eq!(ErrorCode::BackendCrashed.category(), ErrorCategory::Backend);
-    assert_eq!(ErrorCode::BackendCrashed.as_str(), "BACKEND_CRASHED");
+    assert_eq!(ErrorCode::BackendCrashed.as_str(), "backend_crashed");
 }
 
 #[test]

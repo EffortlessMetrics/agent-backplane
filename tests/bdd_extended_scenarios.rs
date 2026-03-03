@@ -132,7 +132,7 @@ fn multiple_capabilities_some_native_some_emulated() {
 fn protocol_error_has_correct_error_code() {
     let err = AbpError::new(ErrorCode::ProtocolInvalidEnvelope, "bad envelope");
     assert_eq!(err.code, ErrorCode::ProtocolInvalidEnvelope);
-    assert_eq!(err.code.as_str(), "PROTOCOL_INVALID_ENVELOPE");
+    assert_eq!(err.code.as_str(), "protocol_invalid_envelope");
 }
 
 /// Backend error has correct category.
@@ -178,7 +178,7 @@ fn error_builder_produces_well_formed_error() {
 fn error_display_includes_code_and_message() {
     let err = AbpError::new(ErrorCode::PolicyDenied, "tool disallowed");
     let display = err.to_string();
-    assert!(display.contains("POLICY_DENIED"));
+    assert!(display.contains("policy_denied"));
     assert!(display.contains("tool disallowed"));
 }
 

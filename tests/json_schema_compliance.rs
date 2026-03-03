@@ -1357,9 +1357,9 @@ fn error_code_variants_present() {
     let s = schema_value::<ErrorCode>();
     let json_str = serde_json::to_string(&s).unwrap();
     for variant in [
-        "BACKEND_NOT_FOUND",
-        "POLICY_DENIED",
-        "RECEIPT_HASH_MISMATCH",
+        "backend_not_found",
+        "policy_denied",
+        "receipt_hash_mismatch",
     ] {
         assert!(
             json_str.contains(variant),

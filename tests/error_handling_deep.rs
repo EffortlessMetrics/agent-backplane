@@ -59,7 +59,7 @@ fn runtime_classified_display() {
     let abp = AbpError::new(ErrorCode::BackendTimeout, "30 s exceeded");
     let err = RuntimeError::Classified(abp);
     let msg = err.to_string();
-    assert!(msg.contains("BACKEND_TIMEOUT"));
+    assert!(msg.contains("backend_timeout"));
     assert!(msg.contains("30 s exceeded"));
 }
 
@@ -319,7 +319,7 @@ fn protocol_abp_variant_display() {
     let abp = AbpError::new(ErrorCode::ProtocolInvalidEnvelope, "bad envelope");
     let err = ProtocolError::Abp(abp);
     let msg = err.to_string();
-    assert!(msg.contains("PROTOCOL_INVALID_ENVELOPE"));
+    assert!(msg.contains("protocol_invalid_envelope"));
     assert!(msg.contains("bad envelope"));
 }
 
@@ -538,7 +538,7 @@ fn abp_error_dto_to_abp_error_loses_source() {
 fn error_code_serde_roundtrip() {
     let code = ErrorCode::ProtocolInvalidEnvelope;
     let json = serde_json::to_string(&code).unwrap();
-    assert_eq!(json, r#""PROTOCOL_INVALID_ENVELOPE""#);
+    assert_eq!(json, r#""protocol_invalid_envelope""#);
     let back: ErrorCode = serde_json::from_str(&json).unwrap();
     assert_eq!(back, code);
 }
@@ -998,11 +998,11 @@ fn downcast_runtime_classified_inner() {
 
 #[test]
 fn abp_error_code_as_str_stability() {
-    assert_eq!(ErrorCode::BackendNotFound.as_str(), "BACKEND_NOT_FOUND");
-    assert_eq!(ErrorCode::PolicyDenied.as_str(), "POLICY_DENIED");
+    assert_eq!(ErrorCode::BackendNotFound.as_str(), "backend_not_found");
+    assert_eq!(ErrorCode::PolicyDenied.as_str(), "policy_denied");
     assert_eq!(
         ErrorCode::WorkspaceStagingFailed.as_str(),
-        "WORKSPACE_STAGING_FAILED"
+        "workspace_staging_failed"
     );
     assert_eq!(ErrorCode::Internal.as_str(), "INTERNAL");
 }

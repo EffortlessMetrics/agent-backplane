@@ -22,6 +22,7 @@
 //! - [`IrIdentityMapper`] — passthrough IR mapper.
 //! - [`OpenAiClaudeIrMapper`] — bidirectional OpenAI ↔ Claude IR mapper.
 //! - [`OpenAiGeminiIrMapper`] — bidirectional OpenAI ↔ Gemini IR mapper.
+//! - [`ClaudeGeminiIrMapper`] — bidirectional Claude ↔ Gemini IR mapper.
 //! - [`MapError`] — typed errors for IR mapping failures.
 //! - [`default_ir_mapper`] — factory for resolving IR mappers by dialect pair.
 
@@ -29,6 +30,7 @@ mod claude_to_openai;
 mod error;
 mod factory;
 mod identity;
+mod ir_claude_gemini;
 mod ir_identity;
 mod ir_mapper;
 mod ir_openai_claude;
@@ -40,6 +42,7 @@ pub use claude_to_openai::ClaudeToOpenAiMapper;
 pub use error::MappingError;
 pub use factory::{default_ir_mapper, supported_ir_pairs};
 pub use identity::IdentityMapper;
+pub use ir_claude_gemini::ClaudeGeminiIrMapper;
 pub use ir_identity::IrIdentityMapper;
 pub use ir_mapper::IrMapper;
 pub use ir_openai_claude::OpenAiClaudeIrMapper;
@@ -113,6 +116,9 @@ pub trait Mapper: Send + Sync {
 
 #[cfg(test)]
 mod ir_tests;
+
+#[cfg(test)]
+mod roundtrip_tests;
 
 #[cfg(test)]
 mod tests {

@@ -270,39 +270,39 @@ fn runtime_error_preserves_anyhow_chain() {
 fn error_code_as_str_stability() {
     let expected: Vec<(&str, ErrorCode)> = vec![
         (
-            "PROTOCOL_INVALID_ENVELOPE",
+            "protocol_invalid_envelope",
             ErrorCode::ProtocolInvalidEnvelope,
         ),
         (
-            "PROTOCOL_UNEXPECTED_MESSAGE",
+            "protocol_unexpected_message",
             ErrorCode::ProtocolUnexpectedMessage,
         ),
         (
-            "PROTOCOL_VERSION_MISMATCH",
+            "protocol_version_mismatch",
             ErrorCode::ProtocolVersionMismatch,
         ),
-        ("BACKEND_NOT_FOUND", ErrorCode::BackendNotFound),
-        ("BACKEND_TIMEOUT", ErrorCode::BackendTimeout),
-        ("BACKEND_CRASHED", ErrorCode::BackendCrashed),
-        ("CAPABILITY_UNSUPPORTED", ErrorCode::CapabilityUnsupported),
+        ("backend_not_found", ErrorCode::BackendNotFound),
+        ("backend_timeout", ErrorCode::BackendTimeout),
+        ("backend_crashed", ErrorCode::BackendCrashed),
+        ("capability_unsupported", ErrorCode::CapabilityUnsupported),
         (
-            "CAPABILITY_EMULATION_FAILED",
+            "capability_emulation_failed",
             ErrorCode::CapabilityEmulationFailed,
         ),
-        ("POLICY_DENIED", ErrorCode::PolicyDenied),
-        ("POLICY_INVALID", ErrorCode::PolicyInvalid),
-        ("WORKSPACE_INIT_FAILED", ErrorCode::WorkspaceInitFailed),
+        ("policy_denied", ErrorCode::PolicyDenied),
+        ("policy_invalid", ErrorCode::PolicyInvalid),
+        ("workspace_init_failed", ErrorCode::WorkspaceInitFailed),
         (
-            "WORKSPACE_STAGING_FAILED",
+            "workspace_staging_failed",
             ErrorCode::WorkspaceStagingFailed,
         ),
-        ("IR_LOWERING_FAILED", ErrorCode::IrLoweringFailed),
-        ("IR_INVALID", ErrorCode::IrInvalid),
-        ("RECEIPT_HASH_MISMATCH", ErrorCode::ReceiptHashMismatch),
-        ("RECEIPT_CHAIN_BROKEN", ErrorCode::ReceiptChainBroken),
-        ("DIALECT_UNKNOWN", ErrorCode::DialectUnknown),
-        ("DIALECT_MAPPING_FAILED", ErrorCode::DialectMappingFailed),
-        ("CONFIG_INVALID", ErrorCode::ConfigInvalid),
+        ("ir_lowering_failed", ErrorCode::IrLoweringFailed),
+        ("ir_invalid", ErrorCode::IrInvalid),
+        ("receipt_hash_mismatch", ErrorCode::ReceiptHashMismatch),
+        ("receipt_chain_broken", ErrorCode::ReceiptChainBroken),
+        ("dialect_unknown", ErrorCode::DialectUnknown),
+        ("dialect_mapping_failed", ErrorCode::DialectMappingFailed),
+        ("config_invalid", ErrorCode::ConfigInvalid),
         ("INTERNAL", ErrorCode::Internal),
     ];
     for (s, code) in &expected {
@@ -745,7 +745,7 @@ fn rate_limit_error_event_in_stream() {
         Some(ErrorCode::BackendTimeout),
     );
     let json = serde_json::to_value(&event).unwrap();
-    assert_eq!(json["error_code"], "BACKEND_TIMEOUT");
+    assert_eq!(json["error_code"], "backend_timeout");
 }
 
 #[test]
@@ -935,7 +935,7 @@ fn timeout_runtime_error_code_mapping() {
 fn timeout_error_event_in_stream() {
     let event = make_error_event("operation timed out", Some(ErrorCode::BackendTimeout));
     let json = serde_json::to_value(&event).unwrap();
-    assert_eq!(json["error_code"], "BACKEND_TIMEOUT");
+    assert_eq!(json["error_code"], "backend_timeout");
     assert_eq!(json["message"], "operation timed out");
 }
 
@@ -965,7 +965,7 @@ fn error_code_serde_roundtrip_all() {
 #[test]
 fn error_code_serializes_as_screaming_snake_case() {
     let json = serde_json::to_string(&ErrorCode::ProtocolInvalidEnvelope).unwrap();
-    assert_eq!(json, r#""PROTOCOL_INVALID_ENVELOPE""#);
+    assert_eq!(json, r#""protocol_invalid_envelope""#);
 }
 
 #[test]
@@ -1035,7 +1035,7 @@ fn fatal_envelope_error_code_json() {
         ErrorCode::BackendCrashed,
     );
     let json = serde_json::to_value(&envelope).unwrap();
-    assert_eq!(json["error_code"], "BACKEND_CRASHED");
+    assert_eq!(json["error_code"], "backend_crashed");
     assert_eq!(json["t"], "fatal");
 }
 
@@ -1443,7 +1443,7 @@ fn fatal_envelope_without_error_code() {
 
 #[test]
 fn error_code_serde_from_string() {
-    let code: ErrorCode = serde_json::from_str(r#""BACKEND_TIMEOUT""#).unwrap();
+    let code: ErrorCode = serde_json::from_str(r#""backend_timeout""#).unwrap();
     assert_eq!(code, ErrorCode::BackendTimeout);
 }
 

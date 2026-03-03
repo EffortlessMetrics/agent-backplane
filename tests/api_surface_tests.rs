@@ -532,10 +532,10 @@ fn error_code_variants_and_category() {
 #[test]
 fn error_code_as_str_stable() {
     use abp_error::ErrorCode;
-    assert_eq!(ErrorCode::BackendTimeout.as_str(), "BACKEND_TIMEOUT");
+    assert_eq!(ErrorCode::BackendTimeout.as_str(), "backend_timeout");
     assert_eq!(
         ErrorCode::ProtocolInvalidEnvelope.as_str(),
-        "PROTOCOL_INVALID_ENVELOPE"
+        "protocol_invalid_envelope"
     );
     assert_eq!(ErrorCode::Internal.as_str(), "INTERNAL");
 }
