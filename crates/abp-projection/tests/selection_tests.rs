@@ -348,7 +348,7 @@ fn select_n_round_robin_starts_at_current() {
         ],
     );
     // Advance counter by selecting once (consumes index 0).
-    sel.select();
+    let _ = sel.select();
     // select_n should start at the current counter position (1).
     let ranked: Vec<_> = sel
         .select_n(3)
@@ -424,7 +424,7 @@ fn clone_preserves_counter_state() {
             candidate("c", "m"),
         ],
     );
-    sel.select(); // counter -> 1
+    let _ = sel.select(); // counter -> 1
     let cloned = sel.clone();
     // Clone should continue from where the original left off.
     assert_eq!(cloned.select().unwrap().backend_name, "b");
