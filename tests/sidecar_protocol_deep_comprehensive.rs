@@ -1425,13 +1425,12 @@ fn final_and_events_share_ref_id() {
     let ev = msg_event_env(ref_id, "data");
     let fin = final_env(ref_id);
 
-    if let Envelope::Event { ref_id: ev_ref, .. } = &ev {
-        if let Envelope::Final {
+    if let Envelope::Event { ref_id: ev_ref, .. } = &ev
+        && let Envelope::Final {
             ref_id: fin_ref, ..
         } = &fin
-        {
-            assert_eq!(ev_ref, fin_ref);
-        }
+    {
+        assert_eq!(ev_ref, fin_ref);
     }
 }
 
