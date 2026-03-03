@@ -7,14 +7,24 @@ use std::collections::{BTreeMap, HashSet};
 use std::error::Error as StdError;
 use std::io;
 
+use abp_config::ConfigError;
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ContractError, Outcome,
     Receipt, ReceiptBuilder,
 };
+use abp_daemon::DaemonError;
+use abp_dialect::Dialect;
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode};
+use abp_host::HostError;
+use abp_mapping::MappingError as MappingValidationError;
+use abp_projection::ProjectionError;
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use abp_runtime::RuntimeError;
+use abp_shim_gemini::GeminiError;
+use abp_sidecar_proto::SidecarProtoError;
 use chrono::Utc;
+use claude_bridge::BridgeError;
+use sidecar_kit::SidecarError;
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -1592,5 +1602,834 @@ fn protocol_fatal_envelope_roundtrip() {
         assert_eq!(error_code, Some(ErrorCode::Internal));
     } else {
         panic!("expected Fatal");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 16. Send + Sync assertions for all error types
+// ═══════════════════════════════════════════════════════════════════════════
+
+const fn _assert_send_sync<T: Send + Sync>() {}
+
+#[test]
+fn abp_error_is_send_sync() {
+    const { _assert_send_sync::<AbpError>() };
+}
+
+#[test]
+fn protocol_error_is_send_sync() {
+    const { _assert_send_sync::<ProtocolError>() };
+}
+
+#[test]
+fn runtime_error_is_send_sync() {
+    const { _assert_send_sync::<RuntimeError>() };
+}
+
+#[test]
+fn contract_error_is_send_sync() {
+    const { _assert_send_sync::<ContractError>() };
+}
+
+#[test]
+fn host_error_is_send_sync() {
+    const { _assert_send_sync::<HostError>() };
+}
+
+#[test]
+fn config_error_is_send_sync() {
+    const { _assert_send_sync::<ConfigError>() };
+}
+
+#[test]
+fn projection_error_is_send_sync() {
+    const { _assert_send_sync::<ProjectionError>() };
+}
+
+#[test]
+fn daemon_error_is_send_sync() {
+    const { _assert_send_sync::<DaemonError>() };
+}
+
+#[test]
+fn sidecar_proto_error_is_send_sync() {
+    const { _assert_send_sync::<SidecarProtoError>() };
+}
+
+#[test]
+fn sidecar_error_is_send_sync() {
+    const { _assert_send_sync::<SidecarError>() };
+}
+
+#[test]
+fn bridge_error_is_send_sync() {
+    const { _assert_send_sync::<BridgeError>() };
+}
+
+#[test]
+fn mapping_validation_error_is_send_sync() {
+    const { _assert_send_sync::<MappingValidationError>() };
+}
+
+#[test]
+fn gemini_error_is_send_sync() {
+    const { _assert_send_sync::<GeminiError>() };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 17. HostError variant construction and Display
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn host_error_spawn_display_and_source() {
+    let err = HostError::Spawn(io::Error::new(io::ErrorKind::NotFound, "node not found"));
+    assert!(err.to_string().contains("spawn sidecar"));
+    assert!(err.to_string().contains("node not found"));
+    assert!(StdError::source(&err).is_some());
+}
+
+#[test]
+fn host_error_stdout_display_and_source() {
+    let err = HostError::Stdout(io::Error::new(io::ErrorKind::BrokenPipe, "pipe broke"));
+    assert!(err.to_string().contains("read sidecar stdout"));
+    assert!(StdError::source(&err).is_some());
+}
+
+#[test]
+fn host_error_stdin_display_and_source() {
+    let err = HostError::Stdin(io::Error::new(io::ErrorKind::BrokenPipe, "pipe broke"));
+    assert!(err.to_string().contains("write sidecar stdin"));
+    assert!(StdError::source(&err).is_some());
+}
+
+#[test]
+fn host_error_protocol_from_conversion() {
+    let pe = ProtocolError::Violation("bad envelope".into());
+    let he: HostError = pe.into();
+    assert!(matches!(he, HostError::Protocol(_)));
+    assert!(he.to_string().contains("protocol error"));
+}
+
+#[test]
+fn host_error_violation_display() {
+    let err = HostError::Violation("missing hello".into());
+    assert!(err.to_string().contains("missing hello"));
+}
+
+#[test]
+fn host_error_fatal_display() {
+    let err = HostError::Fatal("out of memory".into());
+    assert!(err.to_string().contains("out of memory"));
+}
+
+#[test]
+fn host_error_exited_display() {
+    let err = HostError::Exited { code: Some(1) };
+    assert!(err.to_string().contains("1"));
+}
+
+#[test]
+fn host_error_exited_no_code() {
+    let err = HostError::Exited { code: None };
+    assert!(err.to_string().contains("None"));
+}
+
+#[test]
+fn host_error_sidecar_crashed_display() {
+    let err = HostError::SidecarCrashed {
+        exit_code: Some(137),
+        stderr: "killed by OOM".into(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("137"));
+    assert!(msg.contains("killed by OOM"));
+}
+
+#[test]
+fn host_error_timeout_display() {
+    let err = HostError::Timeout {
+        duration: std::time::Duration::from_secs(30),
+    };
+    assert!(err.to_string().contains("30"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 18. ConfigError variant construction and Display
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn config_error_file_not_found_display() {
+    let err = ConfigError::FileNotFound {
+        path: "/etc/backplane.toml".into(),
+    };
+    assert!(err.to_string().contains("/etc/backplane.toml"));
+}
+
+#[test]
+fn config_error_parse_error_display() {
+    let err = ConfigError::ParseError {
+        reason: "unexpected eof".into(),
+    };
+    assert!(err.to_string().contains("unexpected eof"));
+}
+
+#[test]
+fn config_error_validation_error_display() {
+    let err = ConfigError::ValidationError {
+        reasons: vec!["missing backend".into(), "invalid timeout".into()],
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("missing backend"));
+    assert!(msg.contains("invalid timeout"));
+}
+
+#[test]
+fn config_error_merge_conflict_display() {
+    let err = ConfigError::MergeConflict {
+        reason: "conflicting timeout values".into(),
+    };
+    assert!(err.to_string().contains("conflicting timeout values"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 19. MappingError (abp-mapping) variant construction and Display
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn mapping_error_feature_unsupported_display() {
+    let err = MappingValidationError::FeatureUnsupported {
+        feature: "logprobs".into(),
+        from: Dialect::Claude,
+        to: Dialect::Gemini,
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("logprobs"));
+    assert!(msg.contains("unsupported"));
+}
+
+#[test]
+fn mapping_error_fidelity_loss_display() {
+    let err = MappingValidationError::FidelityLoss {
+        feature: "system_prompt".into(),
+        warning: "moved to first user message".into(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("system_prompt"));
+    assert!(msg.contains("fidelity loss"));
+}
+
+#[test]
+fn mapping_error_dialect_mismatch_display() {
+    let err = MappingValidationError::DialectMismatch {
+        from: Dialect::OpenAi,
+        to: Dialect::Kimi,
+    };
+    assert!(err.to_string().contains("dialect mismatch"));
+}
+
+#[test]
+fn mapping_error_invalid_input_display() {
+    let err = MappingValidationError::InvalidInput {
+        reason: "empty message list".into(),
+    };
+    assert!(err.to_string().contains("empty message list"));
+}
+
+#[test]
+fn mapping_error_serde_roundtrip() {
+    let err = MappingValidationError::FeatureUnsupported {
+        feature: "vision".into(),
+        from: Dialect::Claude,
+        to: Dialect::Codex,
+    };
+    let json = serde_json::to_string(&err).unwrap();
+    let back: MappingValidationError = serde_json::from_str(&json).unwrap();
+    assert_eq!(err, back);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 20. ProjectionError variant construction and Display
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn projection_error_no_suitable_backend_display() {
+    let err = ProjectionError::NoSuitableBackend {
+        reason: "no backend supports tool_use + streaming".into(),
+    };
+    assert!(err.to_string().contains("no suitable backend"));
+}
+
+#[test]
+fn projection_error_empty_matrix_display() {
+    let err = ProjectionError::EmptyMatrix;
+    assert!(err.to_string().contains("empty"));
+}
+
+#[test]
+fn projection_error_serde_roundtrip() {
+    let err = ProjectionError::NoSuitableBackend {
+        reason: "caps mismatch".into(),
+    };
+    let json = serde_json::to_string(&err).unwrap();
+    let back: ProjectionError = serde_json::from_str(&json).unwrap();
+    assert_eq!(err, back);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 21. DaemonError variant construction and Display
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn daemon_error_not_found_display() {
+    let err = DaemonError::NotFound("run-42".into());
+    assert!(err.to_string().contains("run-42"));
+}
+
+#[test]
+fn daemon_error_bad_request_display() {
+    let err = DaemonError::BadRequest("missing task field".into());
+    assert!(err.to_string().contains("missing task field"));
+}
+
+#[test]
+fn daemon_error_conflict_display() {
+    let err = DaemonError::Conflict("run already completed".into());
+    assert!(err.to_string().contains("run already completed"));
+}
+
+#[test]
+fn daemon_error_internal_from_anyhow() {
+    let inner = anyhow::anyhow!("disk full");
+    let err: DaemonError = inner.into();
+    assert!(matches!(err, DaemonError::Internal(_)));
+    assert!(err.to_string().contains("disk full"));
+}
+
+#[test]
+fn daemon_error_runtime_from_conversion() {
+    let re = RuntimeError::UnknownBackend {
+        name: "ghost".into(),
+    };
+    let err: DaemonError = re.into();
+    assert!(matches!(err, DaemonError::Runtime(_)));
+    assert!(err.to_string().contains("unknown backend"));
+}
+
+#[test]
+fn daemon_error_runtime_source_chain() {
+    let re = RuntimeError::WorkspaceFailed(anyhow::anyhow!("staging failed"));
+    let err: DaemonError = re.into();
+    let src = StdError::source(&err).unwrap();
+    assert!(src.to_string().contains("workspace preparation failed"));
+}
+
+#[test]
+fn daemon_error_status_codes() {
+    use axum::http::StatusCode;
+    assert_eq!(
+        DaemonError::NotFound("x".into()).status_code(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        DaemonError::BadRequest("x".into()).status_code(),
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        DaemonError::Conflict("x".into()).status_code(),
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        DaemonError::Internal(anyhow::anyhow!("x")).status_code(),
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 22. SidecarProtoError variant construction and Display
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn sidecar_proto_error_json_from_serde() {
+    let serde_err = serde_json::from_str::<serde_json::Value>("{bad}").unwrap_err();
+    let err: SidecarProtoError = serde_err.into();
+    assert!(matches!(err, SidecarProtoError::Json(_)));
+}
+
+#[test]
+fn sidecar_proto_error_io_from_std() {
+    let io_err = io::Error::new(io::ErrorKind::ConnectionReset, "reset");
+    let err: SidecarProtoError = io_err.into();
+    assert!(matches!(err, SidecarProtoError::Io(_)));
+    assert!(StdError::source(&err).is_some());
+}
+
+#[test]
+fn sidecar_proto_error_protocol_from_conversion() {
+    let pe = ProtocolError::Violation("bad".into());
+    let err: SidecarProtoError = pe.into();
+    assert!(matches!(err, SidecarProtoError::Protocol(_)));
+}
+
+#[test]
+fn sidecar_proto_error_unexpected_message_display() {
+    let err = SidecarProtoError::UnexpectedMessage {
+        expected: "run".into(),
+        got: "hello".into(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("run"));
+    assert!(msg.contains("hello"));
+}
+
+#[test]
+fn sidecar_proto_error_handler_display() {
+    let err = SidecarProtoError::Handler("tool execution failed".into());
+    assert!(err.to_string().contains("tool execution failed"));
+}
+
+#[test]
+fn sidecar_proto_error_stdin_closed_display() {
+    let err = SidecarProtoError::StdinClosed;
+    assert!(err.to_string().contains("stdin closed"));
+}
+
+#[test]
+fn sidecar_proto_error_channel_closed_display() {
+    let err = SidecarProtoError::ChannelClosed;
+    assert!(err.to_string().contains("channel closed"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 23. SidecarError (sidecar-kit) variant construction and Display
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn sidecar_error_spawn_display_and_source() {
+    let err = SidecarError::Spawn(io::Error::new(io::ErrorKind::NotFound, "python not found"));
+    assert!(err.to_string().contains("python not found"));
+    assert!(StdError::source(&err).is_some());
+}
+
+#[test]
+fn sidecar_error_stdout_display() {
+    let err = SidecarError::Stdout(io::Error::new(io::ErrorKind::BrokenPipe, "broken"));
+    assert!(err.to_string().contains("stdout"));
+}
+
+#[test]
+fn sidecar_error_stdin_display() {
+    let err = SidecarError::Stdin(io::Error::new(io::ErrorKind::BrokenPipe, "broken"));
+    assert!(err.to_string().contains("stdin"));
+}
+
+#[test]
+fn sidecar_error_protocol_display() {
+    let err = SidecarError::Protocol("missing hello".into());
+    assert!(err.to_string().contains("missing hello"));
+}
+
+#[test]
+fn sidecar_error_serialize_display_and_source() {
+    let serde_err = serde_json::to_value(f64::NAN).unwrap_err();
+    let err = SidecarError::Serialize(serde_err);
+    assert!(err.to_string().contains("serialization"));
+    assert!(StdError::source(&err).is_some());
+}
+
+#[test]
+fn sidecar_error_deserialize_display_and_source() {
+    let serde_err = serde_json::from_str::<serde_json::Value>("{{").unwrap_err();
+    let err = SidecarError::Deserialize(serde_err);
+    assert!(err.to_string().contains("deserialization"));
+    assert!(StdError::source(&err).is_some());
+}
+
+#[test]
+fn sidecar_error_fatal_display() {
+    let err = SidecarError::Fatal("process crashed".into());
+    assert!(err.to_string().contains("process crashed"));
+}
+
+#[test]
+fn sidecar_error_exited_display() {
+    let err = SidecarError::Exited(Some(137));
+    assert!(err.to_string().contains("137"));
+}
+
+#[test]
+fn sidecar_error_exited_none() {
+    let err = SidecarError::Exited(None);
+    assert!(err.to_string().contains("None"));
+}
+
+#[test]
+fn sidecar_error_timeout_display() {
+    let err = SidecarError::Timeout;
+    assert!(err.to_string().contains("timed out"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 24. BridgeError (claude-bridge) variant construction and Display
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn bridge_error_node_not_found_display() {
+    let err = BridgeError::NodeNotFound("node binary missing".into());
+    assert!(err.to_string().contains("node"));
+}
+
+#[test]
+fn bridge_error_host_script_not_found_display() {
+    let err = BridgeError::HostScriptNotFound("hosts/claude/index.js".into());
+    assert!(err.to_string().contains("hosts/claude/index.js"));
+}
+
+#[test]
+fn bridge_error_sidecar_from_conversion() {
+    let se = SidecarError::Timeout;
+    let err: BridgeError = se.into();
+    assert!(matches!(err, BridgeError::Sidecar(_)));
+}
+
+#[test]
+fn bridge_error_sidecar_source_chain() {
+    let se = SidecarError::Spawn(io::Error::new(io::ErrorKind::NotFound, "not found"));
+    let err: BridgeError = se.into();
+    let src = StdError::source(&err).unwrap();
+    assert!(src.to_string().contains("spawn sidecar"));
+}
+
+#[test]
+fn bridge_error_config_display() {
+    let err = BridgeError::Config("missing API key".into());
+    assert!(err.to_string().contains("missing API key"));
+}
+
+#[test]
+fn bridge_error_run_display() {
+    let err = BridgeError::Run("execution timed out".into());
+    assert!(err.to_string().contains("execution timed out"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 25. GeminiError variant construction and Display
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn gemini_error_request_conversion_display() {
+    let err = GeminiError::RequestConversion("unsupported content type".into());
+    assert!(err.to_string().contains("unsupported content type"));
+}
+
+#[test]
+fn gemini_error_response_conversion_display() {
+    let err = GeminiError::ResponseConversion("unexpected finish reason".into());
+    assert!(err.to_string().contains("unexpected finish reason"));
+}
+
+#[test]
+fn gemini_error_backend_error_display() {
+    let err = GeminiError::BackendError("quota exhausted".into());
+    assert!(err.to_string().contains("quota exhausted"));
+}
+
+#[test]
+fn gemini_error_serde_from_conversion() {
+    let serde_err = serde_json::from_str::<serde_json::Value>("{bad").unwrap_err();
+    let err: GeminiError = serde_err.into();
+    assert!(matches!(err, GeminiError::Serde(_)));
+    assert!(StdError::source(&err).is_some());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 26. ShimError variants from multiple shim crates
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn claude_shim_error_invalid_request() {
+    let err = abp_shim_claude::ShimError::InvalidRequest("empty messages".into());
+    assert!(err.to_string().contains("empty messages"));
+}
+
+#[test]
+fn claude_shim_error_api_error() {
+    let err = abp_shim_claude::ShimError::ApiError {
+        error_type: "rate_limit".into(),
+        message: "too many requests".into(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("rate_limit"));
+    assert!(msg.contains("too many requests"));
+}
+
+#[test]
+fn claude_shim_error_internal() {
+    let err = abp_shim_claude::ShimError::Internal("ir lowering failed".into());
+    assert!(err.to_string().contains("ir lowering failed"));
+}
+
+#[test]
+fn openai_shim_error_invalid_request() {
+    let err = abp_shim_openai::ShimError::InvalidRequest("bad model".into());
+    assert!(err.to_string().contains("bad model"));
+}
+
+#[test]
+fn openai_shim_error_serde_from() {
+    let serde_err = serde_json::from_str::<serde_json::Value>("{").unwrap_err();
+    let err: abp_shim_openai::ShimError = serde_err.into();
+    assert!(matches!(err, abp_shim_openai::ShimError::Serde(_)));
+}
+
+#[test]
+fn codex_shim_error_variants() {
+    let err = abp_shim_codex::ShimError::InvalidRequest("bad input".into());
+    assert!(err.to_string().contains("bad input"));
+    let err = abp_shim_codex::ShimError::Internal("oops".into());
+    assert!(err.to_string().contains("oops"));
+}
+
+#[test]
+fn kimi_shim_error_variants() {
+    let err = abp_shim_kimi::ShimError::InvalidRequest("missing role".into());
+    assert!(err.to_string().contains("missing role"));
+}
+
+#[test]
+fn copilot_shim_error_variants() {
+    let err = abp_shim_copilot::ShimError::InvalidRequest("bad auth".into());
+    assert!(err.to_string().contains("bad auth"));
+    let err = abp_shim_copilot::ShimError::Internal("conversion failed".into());
+    assert!(err.to_string().contains("conversion failed"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 27. Cross-crate error conversions
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn protocol_error_into_host_error() {
+    let pe = ProtocolError::Violation("bad ref_id".into());
+    let he: HostError = pe.into();
+    assert!(matches!(he, HostError::Protocol(_)));
+}
+
+#[test]
+fn protocol_error_into_sidecar_proto_error() {
+    let pe = ProtocolError::Violation("unexpected".into());
+    let spe: SidecarProtoError = pe.into();
+    assert!(matches!(spe, SidecarProtoError::Protocol(_)));
+}
+
+#[test]
+fn io_error_into_protocol_error() {
+    let io_err = io::Error::new(io::ErrorKind::UnexpectedEof, "eof");
+    let pe: ProtocolError = io_err.into();
+    assert!(matches!(pe, ProtocolError::Io(_)));
+}
+
+#[test]
+fn serde_error_into_protocol_error() {
+    let serde_err = serde_json::from_str::<serde_json::Value>("!").unwrap_err();
+    let pe: ProtocolError = serde_err.into();
+    assert!(matches!(pe, ProtocolError::Json(_)));
+}
+
+#[test]
+fn abp_error_into_protocol_error() {
+    let abp = AbpError::new(ErrorCode::ProtocolVersionMismatch, "v0.1 vs v0.2");
+    let pe: ProtocolError = abp.into();
+    assert!(matches!(pe, ProtocolError::Abp(_)));
+}
+
+#[test]
+fn abp_error_into_runtime_error() {
+    let abp = AbpError::new(ErrorCode::PolicyDenied, "denied");
+    let re: RuntimeError = abp.into();
+    assert!(matches!(re, RuntimeError::Classified(_)));
+}
+
+#[test]
+fn runtime_error_into_daemon_error() {
+    let re = RuntimeError::UnknownBackend {
+        name: "foo".into(),
+    };
+    let de: DaemonError = re.into();
+    assert!(matches!(de, DaemonError::Runtime(_)));
+}
+
+#[test]
+fn anyhow_error_into_daemon_error() {
+    let err = anyhow::anyhow!("internal failure");
+    let de: DaemonError = err.into();
+    assert!(matches!(de, DaemonError::Internal(_)));
+}
+
+#[test]
+fn sidecar_error_into_bridge_error() {
+    let se = SidecarError::Fatal("crashed".into());
+    let be: BridgeError = se.into();
+    assert!(matches!(be, BridgeError::Sidecar(_)));
+}
+
+#[test]
+fn io_error_into_sidecar_proto_error() {
+    let io_err = io::Error::new(io::ErrorKind::TimedOut, "timeout");
+    let spe: SidecarProtoError = io_err.into();
+    assert!(matches!(spe, SidecarProtoError::Io(_)));
+}
+
+#[test]
+fn serde_error_into_sidecar_proto_error() {
+    let serde_err = serde_json::from_str::<serde_json::Value>("bad").unwrap_err();
+    let spe: SidecarProtoError = serde_err.into();
+    assert!(matches!(spe, SidecarProtoError::Json(_)));
+}
+
+#[test]
+fn serde_error_into_gemini_error() {
+    let serde_err = serde_json::from_str::<serde_json::Value>("bad").unwrap_err();
+    let ge: GeminiError = serde_err.into();
+    assert!(matches!(ge, GeminiError::Serde(_)));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 28. Error source chains across crate boundaries
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn host_error_protocol_source_chain() {
+    let pe = ProtocolError::Io(io::Error::new(io::ErrorKind::BrokenPipe, "pipe"));
+    let he: HostError = pe.into();
+    // HostError::Protocol -> ProtocolError::Io -> io::Error
+    let src1 = StdError::source(&he).unwrap();
+    assert!(src1.to_string().contains("I/O error"));
+    let src2 = StdError::source(src1).unwrap();
+    assert_eq!(src2.to_string(), "pipe");
+}
+
+#[test]
+fn daemon_error_runtime_workspace_source_chain() {
+    let root = io::Error::new(io::ErrorKind::PermissionDenied, "read only");
+    let chain = anyhow::Error::new(root).context("staging dir");
+    let re = RuntimeError::WorkspaceFailed(chain);
+    let de: DaemonError = re.into();
+    // DaemonError::Runtime -> RuntimeError::WorkspaceFailed -> anyhow
+    let src1 = StdError::source(&de).unwrap();
+    assert!(src1.to_string().contains("workspace preparation failed"));
+    let src2 = StdError::source(src1).unwrap();
+    assert!(src2.to_string().contains("staging dir"));
+}
+
+#[test]
+fn sidecar_proto_error_protocol_io_chain() {
+    let io_err = io::Error::new(io::ErrorKind::ConnectionRefused, "refused");
+    let pe = ProtocolError::Io(io_err);
+    let spe: SidecarProtoError = pe.into();
+    let src1 = StdError::source(&spe).unwrap();
+    assert!(src1.to_string().contains("I/O error"));
+}
+
+#[test]
+fn bridge_error_sidecar_spawn_chain() {
+    let io_err = io::Error::new(io::ErrorKind::NotFound, "binary not found");
+    let se = SidecarError::Spawn(io_err);
+    let be: BridgeError = se.into();
+    // BridgeError::Sidecar -> SidecarError::Spawn -> io::Error
+    let src1 = StdError::source(&be).unwrap();
+    assert!(src1.to_string().contains("spawn sidecar"));
+    let src2 = StdError::source(src1).unwrap();
+    assert_eq!(src2.to_string(), "binary not found");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 29. Wire-format error serialization roundtrips
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn mapping_validation_error_all_variants_roundtrip() {
+    let errors = vec![
+        MappingValidationError::FeatureUnsupported {
+            feature: "vision".into(),
+            from: Dialect::Claude,
+            to: Dialect::Codex,
+        },
+        MappingValidationError::FidelityLoss {
+            feature: "system_prompt".into(),
+            warning: "moved".into(),
+        },
+        MappingValidationError::DialectMismatch {
+            from: Dialect::OpenAi,
+            to: Dialect::Gemini,
+        },
+        MappingValidationError::InvalidInput {
+            reason: "empty".into(),
+        },
+    ];
+    for err in &errors {
+        let json = serde_json::to_string(err).unwrap();
+        let back: MappingValidationError = serde_json::from_str(&json).unwrap();
+        assert_eq!(*err, back);
+    }
+}
+
+#[test]
+fn projection_error_all_variants_roundtrip() {
+    let errors = vec![
+        ProjectionError::NoSuitableBackend {
+            reason: "no match".into(),
+        },
+        ProjectionError::EmptyMatrix,
+    ];
+    for err in &errors {
+        let json = serde_json::to_string(err).unwrap();
+        let back: ProjectionError = serde_json::from_str(&json).unwrap();
+        assert_eq!(*err, back);
+    }
+}
+
+#[test]
+fn abp_error_dto_full_roundtrip_all_categories() {
+    for code in ALL_CODES {
+        let err =
+            AbpError::new(*code, format!("test message for {}", code.as_str()))
+                .with_context("test_key", "test_value");
+        let dto: AbpErrorDto = (&err).into();
+        let json = serde_json::to_string(&dto).unwrap();
+        let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
+        assert_eq!(dto, back);
+        assert_eq!(back.code, *code);
+    }
+}
+
+#[test]
+fn error_code_json_roundtrip_all_variants() {
+    for code in ALL_CODES {
+        let json = serde_json::to_string(code).unwrap();
+        let back: ErrorCode = serde_json::from_str(&json).unwrap();
+        assert_eq!(*code, back);
+    }
+}
+
+#[test]
+fn error_category_json_roundtrip_all_variants() {
+    for cat in ALL_CATEGORIES {
+        let json = serde_json::to_string(cat).unwrap();
+        let back: ErrorCategory = serde_json::from_str(&json).unwrap();
+        assert_eq!(*cat, back);
+    }
+}
+
+#[test]
+fn fatal_envelope_with_every_error_code_roundtrip() {
+    for code in ALL_CODES {
+        let envelope = Envelope::fatal_with_code(
+            Some("run-test".into()),
+            &format!("test fatal for {}", code.as_str()),
+            *code,
+        );
+        let line = JsonlCodec::encode(&envelope).unwrap();
+        let decoded = JsonlCodec::decode(line.trim()).unwrap();
+        assert_eq!(decoded.error_code(), Some(*code));
     }
 }
