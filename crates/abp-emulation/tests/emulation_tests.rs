@@ -1295,3 +1295,424 @@ fn thinking_detail_serde_roundtrip() {
         assert_eq!(*d, decoded);
     }
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// §1 — EmulationStrategy: all strategy types
+// ════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn strategy_system_prompt_injection_has_meaningful_debug() {
+    let s = EmulationStrategy::SystemPromptInjection {
+        prompt: "Think step by step".into(),
+    };
+    let dbg = format!("{s:?}");
+    assert!(dbg.contains("SystemPromptInjection"));
+    assert!(dbg.contains("Think step by step"));
+}
+
+#[test]
+fn strategy_post_processing_has_meaningful_debug() {
+    let s = EmulationStrategy::PostProcessing {
+        detail: "Validate JSON".into(),
+    };
+    let dbg = format!("{s:?}");
+    assert!(dbg.contains("PostProcessing"));
+    assert!(dbg.contains("Validate JSON"));
+}
+
+#[test]
+fn strategy_disabled_has_meaningful_debug() {
+    let s = EmulationStrategy::Disabled {
+        reason: "unsafe operation".into(),
+    };
+    let dbg = format!("{s:?}");
+    assert!(dbg.contains("Disabled"));
+    assert!(dbg.contains("unsafe operation"));
+}
+
+#[test]
+fn strategy_serde_system_prompt_injection_tag() {
+    let s = EmulationStrategy::SystemPromptInjection {
+        prompt: "test".into(),
+    };
+    let json = serde_json::to_string(&s).unwrap();
+    assert!(json.contains(r#""type":"system_prompt_injection"#));
+}
+
+#[test]
+fn strategy_serde_post_processing_tag() {
+    let s = EmulationStrategy::PostProcessing {
+        detail: "detail".into(),
+    };
+    let json = serde_json::to_string(&s).unwrap();
+    assert!(json.contains(r#""type":"post_processing"#));
+}
+
+#[test]
+fn strategy_serde_disabled_tag() {
+    let s = EmulationStrategy::Disabled {
+        reason: "nope".into(),
+    };
+    let json = serde_json::to_string(&s).unwrap();
+    assert!(json.contains(r#""type":"disabled"#));
+}
+
+#[test]
+fn strategy_equality_same_variant() {
+    let a = EmulationStrategy::SystemPromptInjection {
+        prompt: "same".into(),
+    };
+    let b = EmulationStrategy::SystemPromptInjection {
+        prompt: "same".into(),
+    };
+    assert_eq!(a, b);
+}
+
+#[test]
+fn strategy_inequality_different_variant() {
+    let a = EmulationStrategy::SystemPromptInjection { prompt: "x".into() };
+    let b = EmulationStrategy::PostProcessing { detail: "x".into() };
+    assert_ne!(a, b);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// §2 — EmulationEngine: processing
+// ════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn engine_emulates_known_capability_pair_extended_thinking() {
+    let engine = EmulationEngine::with_defaults();
+    let mut conv = IrConversation::new().push(IrMessage::text(IrRole::User, "Think"));
+    let report = engine.apply(&[Capability::ExtendedThinking], &mut conv);
+    assert_eq!(report.applied.len(), 1);
+    assert_eq!(report.applied[0].capability, Capability::ExtendedThinking);
+}
+
+#[test]
+fn engine_returns_appropriate_strategy_for_each_capability() {
+    let engine = EmulationEngine::with_defaults();
+    let mut conv = IrConversation::new().push(IrMessage::text(IrRole::User, "Hi"));
+
+    let report = engine.apply(
+        &[
+            Capability::ExtendedThinking,
+            Capability::StructuredOutputJsonSchema,
+            Capability::ImageInput,
+            Capability::StopSequences,
+        ],
+        &mut conv,
+    );
+
+    assert!(matches!(
+        report.applied[0].strategy,
+        EmulationStrategy::SystemPromptInjection { .. }
+    ));
+    assert!(matches!(
+        report.applied[1].strategy,
+        EmulationStrategy::PostProcessing { .. }
+    ));
+    assert!(matches!(
+        report.applied[2].strategy,
+        EmulationStrategy::SystemPromptInjection { .. }
+    ));
+    assert!(matches!(
+        report.applied[3].strategy,
+        EmulationStrategy::PostProcessing { .. }
+    ));
+}
+
+#[test]
+fn engine_rejects_unsupported_emulation_requests() {
+    let engine = EmulationEngine::with_defaults();
+    let report = engine.check_missing(&[Capability::CodeExecution, Capability::Streaming]);
+    assert!(report.applied.is_empty());
+    assert_eq!(report.warnings.len(), 2);
+    assert!(report.has_unemulatable());
+}
+
+#[test]
+fn engine_handles_empty_capability_set() {
+    let engine = EmulationEngine::with_defaults();
+    let report = engine.check_missing(&[]);
+    assert!(report.is_empty());
+    assert!(!report.has_unemulatable());
+}
+
+#[test]
+fn engine_with_defaults_uses_default_strategies() {
+    let engine = EmulationEngine::with_defaults();
+    let resolved = engine.resolve_strategy(&Capability::ExtendedThinking);
+    let default = default_strategy(&Capability::ExtendedThinking);
+    assert_eq!(resolved, default);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// §3 — FidelityLabel: equality, serialization, comparison
+// ════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn fidelity_native_equals_native() {
+    assert_eq!(FidelityLabel::Native, FidelityLabel::Native);
+}
+
+#[test]
+fn fidelity_native_not_equal_emulated() {
+    let emulated = FidelityLabel::Emulated {
+        strategy: EmulationStrategy::SystemPromptInjection { prompt: "x".into() },
+    };
+    assert_ne!(FidelityLabel::Native, emulated);
+}
+
+#[test]
+fn fidelity_emulated_differs_by_strategy() {
+    let a = FidelityLabel::Emulated {
+        strategy: EmulationStrategy::SystemPromptInjection { prompt: "x".into() },
+    };
+    let b = FidelityLabel::Emulated {
+        strategy: EmulationStrategy::PostProcessing { detail: "y".into() },
+    };
+    assert_ne!(a, b);
+}
+
+#[test]
+fn fidelity_label_native_serde_tag() {
+    let json = serde_json::to_string(&FidelityLabel::Native).unwrap();
+    assert!(json.contains(r#""fidelity":"native"#));
+}
+
+#[test]
+fn fidelity_label_emulated_serde_tag() {
+    let label = FidelityLabel::Emulated {
+        strategy: EmulationStrategy::PostProcessing { detail: "d".into() },
+    };
+    let json = serde_json::to_string(&label).unwrap();
+    assert!(json.contains(r#""fidelity":"emulated"#));
+}
+
+#[test]
+fn fidelity_label_debug_output() {
+    let label = FidelityLabel::Native;
+    assert!(format!("{label:?}").contains("Native"));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// §4 — compute_fidelity: function tests
+// ════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn compute_fidelity_native_source_to_native_target_is_lossless() {
+    let report = EmulationReport::default();
+    let labels = compute_fidelity(
+        &[
+            Capability::Streaming,
+            Capability::ToolUse,
+            Capability::CodeExecution,
+        ],
+        &report,
+    );
+    assert_eq!(labels.len(), 3);
+    for label in labels.values() {
+        assert_eq!(*label, FidelityLabel::Native);
+    }
+}
+
+#[test]
+fn compute_fidelity_emulated_target_is_lossy() {
+    let report = EmulationReport {
+        applied: vec![EmulationEntry {
+            capability: Capability::ExtendedThinking,
+            strategy: EmulationStrategy::SystemPromptInjection {
+                prompt: "Think step by step.".into(),
+            },
+        }],
+        warnings: vec![],
+    };
+    let labels = compute_fidelity(&[], &report);
+    assert_eq!(labels.len(), 1);
+    assert!(matches!(
+        labels[&Capability::ExtendedThinking],
+        FidelityLabel::Emulated { .. }
+    ));
+}
+
+#[test]
+fn compute_fidelity_warnings_not_included_in_labels() {
+    let report = EmulationReport {
+        applied: vec![],
+        warnings: vec!["CodeExecution not emulated: unsafe".into()],
+    };
+    let labels = compute_fidelity(&[], &report);
+    assert!(
+        labels.is_empty(),
+        "warnings should not produce fidelity labels"
+    );
+}
+
+#[test]
+fn compute_fidelity_mixed_native_and_emulated() {
+    let report = EmulationReport {
+        applied: vec![EmulationEntry {
+            capability: Capability::ImageInput,
+            strategy: emulate_image_input(),
+        }],
+        warnings: vec!["CodeExecution: disabled".into()],
+    };
+    let labels = compute_fidelity(&[Capability::Streaming], &report);
+
+    assert_eq!(labels.len(), 2);
+    assert_eq!(labels[&Capability::Streaming], FidelityLabel::Native);
+    assert!(matches!(
+        labels[&Capability::ImageInput],
+        FidelityLabel::Emulated { .. }
+    ));
+}
+
+#[test]
+fn compute_fidelity_emulated_overrides_native_for_same_capability() {
+    let report = EmulationReport {
+        applied: vec![EmulationEntry {
+            capability: Capability::Streaming,
+            strategy: EmulationStrategy::PostProcessing {
+                detail: "override".into(),
+            },
+        }],
+        warnings: vec![],
+    };
+    // Streaming listed as native AND emulated — emulated should win
+    let labels = compute_fidelity(&[Capability::Streaming], &report);
+    assert_eq!(labels.len(), 1);
+    assert!(matches!(
+        labels[&Capability::Streaming],
+        FidelityLabel::Emulated { .. }
+    ));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// §5 — can_emulate: function tests
+// ════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn can_emulate_known_emulatable_pairs() {
+    assert!(can_emulate(&Capability::ExtendedThinking));
+    assert!(can_emulate(&Capability::StructuredOutputJsonSchema));
+    assert!(can_emulate(&Capability::ImageInput));
+    assert!(can_emulate(&Capability::StopSequences));
+}
+
+#[test]
+fn cannot_emulate_non_emulatable_pairs() {
+    assert!(!can_emulate(&Capability::Streaming));
+    assert!(!can_emulate(&Capability::ToolUse));
+    assert!(!can_emulate(&Capability::CodeExecution));
+    assert!(!can_emulate(&Capability::ToolRead));
+    assert!(!can_emulate(&Capability::ToolWrite));
+    assert!(!can_emulate(&Capability::ToolBash));
+}
+
+#[test]
+fn can_emulate_reflects_default_strategy_not_disabled() {
+    // For every capability, can_emulate should agree with default_strategy
+    let caps = [
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolWrite,
+        Capability::ToolEdit,
+        Capability::ToolBash,
+        Capability::ToolGlob,
+        Capability::ToolGrep,
+        Capability::ExtendedThinking,
+        Capability::ImageInput,
+        Capability::CodeExecution,
+        Capability::StopSequences,
+        Capability::StructuredOutputJsonSchema,
+        Capability::ToolUse,
+    ];
+    for cap in &caps {
+        let is_disabled = matches!(default_strategy(cap), EmulationStrategy::Disabled { .. });
+        assert_eq!(
+            can_emulate(cap),
+            !is_disabled,
+            "can_emulate mismatch for {cap:?}"
+        );
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// §6 — default_strategy: each capability has a default strategy
+// ════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn default_strategy_extended_thinking_is_system_prompt() {
+    let s = default_strategy(&Capability::ExtendedThinking);
+    assert!(matches!(s, EmulationStrategy::SystemPromptInjection { .. }));
+    if let EmulationStrategy::SystemPromptInjection { prompt } = &s {
+        assert!(prompt.contains("step by step"));
+    }
+}
+
+#[test]
+fn default_strategy_structured_output_is_post_processing() {
+    let s = default_strategy(&Capability::StructuredOutputJsonSchema);
+    assert!(matches!(s, EmulationStrategy::PostProcessing { .. }));
+}
+
+#[test]
+fn default_strategy_code_execution_is_disabled() {
+    let s = default_strategy(&Capability::CodeExecution);
+    if let EmulationStrategy::Disabled { reason } = &s {
+        assert!(reason.contains("sandboxed"));
+    } else {
+        panic!("expected Disabled for CodeExecution");
+    }
+}
+
+#[test]
+fn default_strategy_image_input_matches_factory() {
+    assert_eq!(
+        default_strategy(&Capability::ImageInput),
+        emulate_image_input()
+    );
+}
+
+#[test]
+fn default_strategy_stop_sequences_matches_factory() {
+    assert_eq!(
+        default_strategy(&Capability::StopSequences),
+        emulate_stop_sequences()
+    );
+}
+
+#[test]
+fn default_strategy_unknown_capabilities_are_disabled() {
+    let disabled_caps = [
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolWrite,
+        Capability::ToolEdit,
+        Capability::ToolBash,
+        Capability::ToolGlob,
+        Capability::ToolGrep,
+        Capability::ToolUse,
+        Capability::Checkpointing,
+        Capability::SessionResume,
+    ];
+    for cap in &disabled_caps {
+        assert!(
+            matches!(default_strategy(cap), EmulationStrategy::Disabled { .. }),
+            "{cap:?} should default to Disabled"
+        );
+    }
+}
+
+#[test]
+fn default_strategy_disabled_reason_mentions_capability() {
+    let s = default_strategy(&Capability::ToolGlob);
+    if let EmulationStrategy::Disabled { reason } = &s {
+        assert!(
+            reason.contains("ToolGlob"),
+            "disabled reason should mention the capability name"
+        );
+    } else {
+        panic!("expected Disabled for ToolGlob");
+    }
+}

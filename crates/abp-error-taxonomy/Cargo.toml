@@ -15,5 +15,6 @@ readme = "README.md"
 abp-error = { path = "../abp-error" }
 
 [dev-dependencies]
+schemars.workspace = true
 serde_json.workspace = true
 serde.workspace = true

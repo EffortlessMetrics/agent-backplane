@@ -23,6 +23,9 @@
 //! - [`OpenAiClaudeIrMapper`] — bidirectional OpenAI ↔ Claude IR mapper.
 //! - [`OpenAiGeminiIrMapper`] — bidirectional OpenAI ↔ Gemini IR mapper.
 //! - [`ClaudeGeminiIrMapper`] — bidirectional Claude ↔ Gemini IR mapper.
+//! - [`OpenAiCodexIrMapper`] — lossy OpenAI ↔ Codex IR mapper (Codex is output-only).
+//! - [`OpenAiKimiIrMapper`] — bidirectional OpenAI ↔ Kimi IR mapper.
+//! - [`ClaudeKimiIrMapper`] — bidirectional Claude ↔ Kimi IR mapper.
 //! - [`MapError`] — typed errors for IR mapping failures.
 //! - [`default_ir_mapper`] — factory for resolving IR mappers by dialect pair.
 
@@ -31,10 +34,13 @@ mod error;
 mod factory;
 mod identity;
 mod ir_claude_gemini;
+mod ir_claude_kimi;
 mod ir_identity;
 mod ir_mapper;
 mod ir_openai_claude;
+mod ir_openai_codex;
 mod ir_openai_gemini;
+mod ir_openai_kimi;
 mod map_error;
 mod openai_to_claude;
 
@@ -43,10 +49,13 @@ pub use error::MappingError;
 pub use factory::{default_ir_mapper, supported_ir_pairs};
 pub use identity::IdentityMapper;
 pub use ir_claude_gemini::ClaudeGeminiIrMapper;
+pub use ir_claude_kimi::ClaudeKimiIrMapper;
 pub use ir_identity::IrIdentityMapper;
 pub use ir_mapper::IrMapper;
 pub use ir_openai_claude::OpenAiClaudeIrMapper;
+pub use ir_openai_codex::OpenAiCodexIrMapper;
 pub use ir_openai_gemini::OpenAiGeminiIrMapper;
+pub use ir_openai_kimi::OpenAiKimiIrMapper;
 pub use map_error::MapError;
 pub use openai_to_claude::OpenAiToClaudeMapper;
 

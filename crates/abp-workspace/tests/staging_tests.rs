@@ -8,6 +8,7 @@ use abp_workspace::{WorkspaceManager, WorkspaceStager};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::sync::Arc;
 use tempfile::tempdir;
 use walkdir::WalkDir;
 
@@ -822,4 +823,161 @@ fn stager_mutation_does_not_affect_source() {
         "original"
     );
     assert!(!src.path().join("new.txt").exists());
+}
+
+// ===========================================================================
+// 6. Additional glob, edge-case, and concurrency tests
+// ===========================================================================
+
+#[test]
+fn glob_multiple_exclude_patterns() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("keep.rs"), "fn keep() {}").unwrap();
+    fs::write(src.path().join("skip.log"), "log data").unwrap();
+    fs::write(src.path().join("skip.tmp"), "tmp data").unwrap();
+    fs::create_dir_all(src.path().join("build")).unwrap();
+    fs::write(src.path().join("build").join("out.o"), "object").unwrap();
+
+    let spec = make_staged_spec_with_globs(
+        src.path(),
+        vec![],
+        vec!["*.log".into(), "*.tmp".into(), "build/**".into()],
+    );
+    let ws = WorkspaceManager::prepare(&spec).unwrap();
+
+    let files = collect_files(ws.path());
+    assert!(files.contains(&"keep.rs".to_string()));
+    assert!(
+        !files.iter().any(|f| f.ends_with(".log")),
+        ".log should be excluded: {files:?}"
+    );
+    assert!(
+        !files.iter().any(|f| f.ends_with(".tmp")),
+        ".tmp should be excluded: {files:?}"
+    );
+    assert!(
+        !files.iter().any(|f| f.starts_with("build/")),
+        "build/ should be excluded: {files:?}"
+    );
+}
+
+#[test]
+fn edge_unicode_filenames() {
+    let src = tempdir().unwrap();
+    // Use characters that are valid on both Windows and Linux file systems
+    fs::write(src.path().join("café.txt"), "coffee").unwrap();
+    fs::write(src.path().join("naïve.rs"), "fn naïve() {}").unwrap();
+    fs::write(src.path().join("日本語.md"), "Japanese").unwrap();
+
+    let ws = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+
+    assert!(ws.path().join("café.txt").exists());
+    assert!(ws.path().join("naïve.rs").exists());
+    assert!(ws.path().join("日本語.md").exists());
+    assert_eq!(
+        fs::read_to_string(ws.path().join("café.txt")).unwrap(),
+        "coffee"
+    );
+    assert_eq!(
+        fs::read_to_string(ws.path().join("日本語.md")).unwrap(),
+        "Japanese"
+    );
+}
+
+#[test]
+fn edge_very_long_path_names() {
+    let src = tempdir().unwrap();
+    // Create moderately long directory and file names (stay within OS limits)
+    let long_dir = "a".repeat(100);
+    let long_file = format!("{}.txt", "b".repeat(100));
+    fs::create_dir_all(src.path().join(&long_dir)).unwrap();
+    fs::write(
+        src.path().join(&long_dir).join(&long_file),
+        "long path content",
+    )
+    .unwrap();
+
+    let ws = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+
+    assert!(ws.path().join(&long_dir).join(&long_file).exists());
+    assert_eq!(
+        fs::read_to_string(ws.path().join(&long_dir).join(&long_file)).unwrap(),
+        "long path content"
+    );
+}
+
+#[test]
+fn edge_concurrent_staging_threaded() {
+    let src = tempdir().unwrap();
+    create_standard_source(src.path());
+
+    let src_path = Arc::new(src.path().to_path_buf());
+    let handles: Vec<_> = (0..4)
+        .map(|_| {
+            let sp = Arc::clone(&src_path);
+            std::thread::spawn(move || {
+                WorkspaceStager::new()
+                    .source_root(sp.as_path())
+                    .with_git_init(false)
+                    .stage()
+                    .unwrap()
+            })
+        })
+        .collect();
+
+    let workspaces: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+
+    // All workspaces should exist at distinct paths with identical content
+    let reference = collect_files(workspaces[0].path());
+    for (i, ws) in workspaces.iter().enumerate().skip(1) {
+        assert_ne!(
+            workspaces[0].path(),
+            ws.path(),
+            "workspace paths must differ"
+        );
+        assert_eq!(
+            reference,
+            collect_files(ws.path()),
+            "workspace {i} files differ from workspace 0"
+        );
+    }
+}
+
+#[test]
+fn edge_staging_same_source_twice_independent() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("shared.txt"), "original").unwrap();
+
+    let ws1 = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+    let ws2 = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+
+    // Mutate ws1 — ws2 and source must be unaffected
+    fs::write(ws1.path().join("shared.txt"), "mutated").unwrap();
+
+    assert_eq!(
+        fs::read_to_string(ws2.path().join("shared.txt")).unwrap(),
+        "original",
+        "second workspace must be independent of first"
+    );
+    assert_eq!(
+        fs::read_to_string(src.path().join("shared.txt")).unwrap(),
+        "original",
+        "source must be untouched"
+    );
 }

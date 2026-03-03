@@ -5,10 +5,13 @@
 use abp_dialect::Dialect;
 
 use crate::ir_claude_gemini::ClaudeGeminiIrMapper;
+use crate::ir_claude_kimi::ClaudeKimiIrMapper;
 use crate::ir_identity::IrIdentityMapper;
 use crate::ir_mapper::IrMapper;
 use crate::ir_openai_claude::OpenAiClaudeIrMapper;
+use crate::ir_openai_codex::OpenAiCodexIrMapper;
 use crate::ir_openai_gemini::OpenAiGeminiIrMapper;
+use crate::ir_openai_kimi::OpenAiKimiIrMapper;
 
 /// Returns the appropriate [`IrMapper`] implementation for a given
 /// `(source, target)` dialect pair.
@@ -20,6 +23,9 @@ use crate::ir_openai_gemini::OpenAiGeminiIrMapper;
 /// - OpenAI ↔ Claude → [`OpenAiClaudeIrMapper`]
 /// - OpenAI ↔ Gemini → [`OpenAiGeminiIrMapper`]
 /// - Claude ↔ Gemini → [`ClaudeGeminiIrMapper`]
+/// - OpenAI ↔ Codex → [`OpenAiCodexIrMapper`] (lossy — Codex is output-only)
+/// - OpenAI ↔ Kimi → [`OpenAiKimiIrMapper`]
+/// - Claude ↔ Kimi → [`ClaudeKimiIrMapper`]
 #[must_use]
 pub fn default_ir_mapper(from: Dialect, to: Dialect) -> Option<Box<dyn IrMapper>> {
     if from == to {
@@ -35,6 +41,15 @@ pub fn default_ir_mapper(from: Dialect, to: Dialect) -> Option<Box<dyn IrMapper>
         }
         (Dialect::Claude, Dialect::Gemini) | (Dialect::Gemini, Dialect::Claude) => {
             Some(Box::new(ClaudeGeminiIrMapper))
+        }
+        (Dialect::OpenAi, Dialect::Codex) | (Dialect::Codex, Dialect::OpenAi) => {
+            Some(Box::new(OpenAiCodexIrMapper))
+        }
+        (Dialect::OpenAi, Dialect::Kimi) | (Dialect::Kimi, Dialect::OpenAi) => {
+            Some(Box::new(OpenAiKimiIrMapper))
+        }
+        (Dialect::Claude, Dialect::Kimi) | (Dialect::Kimi, Dialect::Claude) => {
+            Some(Box::new(ClaudeKimiIrMapper))
         }
         _ => None,
     }
@@ -57,6 +72,12 @@ pub fn supported_ir_pairs() -> Vec<(Dialect, Dialect)> {
     pairs.push((Dialect::Gemini, Dialect::OpenAi));
     pairs.push((Dialect::Claude, Dialect::Gemini));
     pairs.push((Dialect::Gemini, Dialect::Claude));
+    pairs.push((Dialect::OpenAi, Dialect::Codex));
+    pairs.push((Dialect::Codex, Dialect::OpenAi));
+    pairs.push((Dialect::OpenAi, Dialect::Kimi));
+    pairs.push((Dialect::Kimi, Dialect::OpenAi));
+    pairs.push((Dialect::Claude, Dialect::Kimi));
+    pairs.push((Dialect::Kimi, Dialect::Claude));
 
     pairs
 }

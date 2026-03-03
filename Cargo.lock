@@ -225,6 +225,7 @@ name = "abp-error-taxonomy"
 version = "0.1.0"
 dependencies = [
  "abp-error",
+ "schemars",
  "serde",
  "serde_json",
 ]
