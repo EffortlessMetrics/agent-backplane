@@ -32,7 +32,11 @@ fn mk(kind: AgentEventKind) -> AgentEvent {
 }
 
 fn mk_ts(kind: AgentEventKind, ts: chrono::DateTime<Utc>) -> AgentEvent {
-    AgentEvent { ts, kind, ext: None }
+    AgentEvent {
+        ts,
+        kind,
+        ext: None,
+    }
 }
 
 fn mk_ext(kind: AgentEventKind, ext: BTreeMap<String, serde_json::Value>) -> AgentEvent {
@@ -169,7 +173,9 @@ fn pipeline_builder_record_creates_recorder() {
 fn pipeline_builder_with_external_recorder() {
     let rec = EventRecorder::new();
     rec.record(&delta("pre"));
-    let p = StreamPipelineBuilder::new().with_recorder(rec.clone()).build();
+    let p = StreamPipelineBuilder::new()
+        .with_recorder(rec.clone())
+        .build();
     p.process(delta("post"));
     assert_eq!(rec.len(), 2);
 }
@@ -177,7 +183,9 @@ fn pipeline_builder_with_external_recorder() {
 #[test]
 fn pipeline_builder_with_stats() {
     let stats = EventStats::new();
-    let p = StreamPipelineBuilder::new().with_stats(stats.clone()).build();
+    let p = StreamPipelineBuilder::new()
+        .with_stats(stats.clone())
+        .build();
     p.process(delta("x"));
     assert_eq!(stats.total_events(), 1);
     assert!(p.stats().is_some());
@@ -279,18 +287,18 @@ fn filter_exclude_errors_accepts_all_non_error() {
 
 #[test]
 fn filter_custom_text_length() {
-    let f = EventFilter::new(|ev| {
-        matches!(&ev.kind, AgentEventKind::AssistantDelta { text } if text.len() >= 5)
-    });
+    let f = EventFilter::new(
+        |ev| matches!(&ev.kind, AgentEventKind::AssistantDelta { text } if text.len() >= 5),
+    );
     assert!(f.matches(&delta("hello")));
     assert!(!f.matches(&delta("hi")));
 }
 
 #[test]
 fn filter_custom_tool_name_prefix() {
-    let f = EventFilter::new(|ev| {
-        matches!(&ev.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name.starts_with("file_"))
-    });
+    let f = EventFilter::new(
+        |ev| matches!(&ev.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name.starts_with("file_")),
+    );
     assert!(f.matches(&tc("file_read")));
     assert!(!f.matches(&tc("bash")));
 }
@@ -300,7 +308,10 @@ fn filter_custom_has_ext() {
     let f = EventFilter::new(|ev| ev.ext.is_some());
     let mut ext = BTreeMap::new();
     ext.insert("k".into(), serde_json::json!(1));
-    assert!(f.matches(&mk_ext(AgentEventKind::AssistantDelta { text: "x".into() }, ext)));
+    assert!(f.matches(&mk_ext(
+        AgentEventKind::AssistantDelta { text: "x".into() },
+        ext
+    )));
     assert!(!f.matches(&delta("x")));
 }
 
@@ -325,7 +336,10 @@ fn filter_combined_and_logic() {
     let f1 = EventFilter::exclude_errors();
     let f2 = EventFilter::by_kind("tool_call");
     let events = every_kind();
-    let passed: Vec<_> = events.iter().filter(|e| f1.matches(e) && f2.matches(e)).collect();
+    let passed: Vec<_> = events
+        .iter()
+        .filter(|e| f1.matches(e) && f2.matches(e))
+        .collect();
     assert_eq!(passed.len(), 1);
 }
 
@@ -334,7 +348,10 @@ fn filter_combined_or_logic() {
     let f1 = EventFilter::by_kind("error");
     let f2 = EventFilter::by_kind("warning");
     let events = every_kind();
-    let passed: Vec<_> = events.iter().filter(|e| f1.matches(e) || f2.matches(e)).collect();
+    let passed: Vec<_> = events
+        .iter()
+        .filter(|e| f1.matches(e) || f2.matches(e))
+        .collect();
     assert_eq!(passed.len(), 2);
 }
 
@@ -423,7 +440,10 @@ fn recorder_preserves_ext_data() {
     let r = EventRecorder::new();
     let mut ext = BTreeMap::new();
     ext.insert("key".into(), serde_json::json!("value"));
-    r.record(&mk_ext(AgentEventKind::AssistantDelta { text: "x".into() }, ext));
+    r.record(&mk_ext(
+        AgentEventKind::AssistantDelta { text: "x".into() },
+        ext,
+    ));
     let evs = r.events();
     assert_eq!(
         evs[0].ext.as_ref().unwrap().get("key").unwrap(),
@@ -730,7 +750,9 @@ async fn pipe_preserves_order() {
 #[tokio::test]
 async fn recorder_via_pipeline_preserves_order() {
     let rec = EventRecorder::new();
-    let p = StreamPipelineBuilder::new().with_recorder(rec.clone()).build();
+    let p = StreamPipelineBuilder::new()
+        .with_recorder(rec.clone())
+        .build();
 
     let (tx, rx) = mpsc::channel(32);
     for i in 0..15 {
@@ -759,7 +781,9 @@ async fn recorder_via_pipeline_preserves_order() {
 #[test]
 fn sequence_numbers_preserved_through_pipeline() {
     let rec = EventRecorder::new();
-    let p = StreamPipelineBuilder::new().with_recorder(rec.clone()).build();
+    let p = StreamPipelineBuilder::new()
+        .with_recorder(rec.clone())
+        .build();
 
     for seq in 0..10u64 {
         let mut ext = BTreeMap::new();
@@ -770,7 +794,14 @@ fn sequence_numbers_preserved_through_pipeline() {
 
     let evs = rec.events();
     for (i, ev) in evs.iter().enumerate() {
-        let seq = ev.ext.as_ref().unwrap().get("seq").unwrap().as_u64().unwrap();
+        let seq = ev
+            .ext
+            .as_ref()
+            .unwrap()
+            .get("seq")
+            .unwrap()
+            .as_u64()
+            .unwrap();
         assert_eq!(seq, i as u64);
     }
 }
@@ -802,7 +833,15 @@ fn sequence_gaps_detectable_after_filtering() {
     assert_eq!(evs.len(), 6);
     let seqs: Vec<u64> = evs
         .iter()
-        .map(|ev| ev.ext.as_ref().unwrap().get("seq").unwrap().as_u64().unwrap())
+        .map(|ev| {
+            ev.ext
+                .as_ref()
+                .unwrap()
+                .get("seq")
+                .unwrap()
+                .as_u64()
+                .unwrap()
+        })
         .collect();
     assert_eq!(seqs, vec![1, 2, 4, 5, 7, 8]);
 }
@@ -827,7 +866,14 @@ fn transform_can_inject_sequence_numbers() {
 
     let evs = p.recorder().unwrap().events();
     for (i, ev) in evs.iter().enumerate() {
-        let seq = ev.ext.as_ref().unwrap().get("seq").unwrap().as_u64().unwrap();
+        let seq = ev
+            .ext
+            .as_ref()
+            .unwrap()
+            .get("seq")
+            .unwrap()
+            .as_u64()
+            .unwrap();
         assert_eq!(seq, i as u64);
     }
 }
@@ -860,7 +906,10 @@ async fn multiplexer_sorted_output_is_monotonic() {
 
     assert_eq!(events.len(), 10);
     for w in events.windows(2) {
-        assert!(w[0].ts <= w[1].ts, "timestamps should be monotonically non-decreasing");
+        assert!(
+            w[0].ts <= w[1].ts,
+            "timestamps should be monotonically non-decreasing"
+        );
     }
 }
 
@@ -1067,7 +1116,9 @@ async fn single_event_filtered_pass() {
     tx.send(delta("x")).await.unwrap();
     drop(tx);
     let stream = EventStream::new(rx);
-    let events = stream.collect_filtered(&EventFilter::by_kind("assistant_delta")).await;
+    let events = stream
+        .collect_filtered(&EventFilter::by_kind("assistant_delta"))
+        .await;
     assert_eq!(events.len(), 1);
 }
 
@@ -1148,7 +1199,11 @@ async fn large_stream_with_pipeline() {
 
     let producer = tokio::spawn(async move {
         for i in 0..n {
-            let ev = if i % 10 == 0 { err("e") } else { delta(&format!("{i}")) };
+            let ev = if i % 10 == 0 {
+                err("e")
+            } else {
+                delta(&format!("{i}"))
+            };
             tx_in.send(ev).await.unwrap();
         }
     });
@@ -1176,7 +1231,9 @@ async fn large_stream_with_pipeline() {
 #[test]
 fn large_pipeline_processing_sync() {
     let stats = EventStats::new();
-    let p = StreamPipelineBuilder::new().with_stats(stats.clone()).build();
+    let p = StreamPipelineBuilder::new()
+        .with_stats(stats.clone())
+        .build();
 
     for i in 0..5000 {
         let ev = match i % 5 {
@@ -1255,7 +1312,9 @@ async fn mixed_types_filter_only_deltas() {
     drop(tx);
 
     let stream = EventStream::new(rx);
-    let events = stream.collect_filtered(&EventFilter::by_kind("assistant_delta")).await;
+    let events = stream
+        .collect_filtered(&EventFilter::by_kind("assistant_delta"))
+        .await;
     assert_eq!(events.len(), 3);
 }
 
@@ -1358,7 +1417,9 @@ fn error_pipeline_count_before_filtering() {
     let stats_filtered = EventStats::new();
 
     // Pipeline without filter — sees everything
-    let p_all = StreamPipelineBuilder::new().with_stats(stats_all.clone()).build();
+    let p_all = StreamPipelineBuilder::new()
+        .with_stats(stats_all.clone())
+        .build();
     // Pipeline with error filter — sees only errors
     let p_err = StreamPipelineBuilder::new()
         .filter(EventFilter::errors_only())
@@ -1489,9 +1550,12 @@ async fn concurrent_multiplexer_three_streams() {
         tokio::spawn(async move {
             for i in 0..30 {
                 let offset = (stream_idx * 30 + i) as i64;
-                tx.send(delta_ts(&format!("s{stream_idx}_{i}"), base + Duration::milliseconds(offset)))
-                    .await
-                    .unwrap();
+                tx.send(delta_ts(
+                    &format!("s{stream_idx}_{i}"),
+                    base + Duration::milliseconds(offset),
+                ))
+                .await
+                .unwrap();
             }
         });
     }
@@ -1592,10 +1656,30 @@ fn transform_clone_independence() {
 #[test]
 fn event_kind_name_all_10_variants() {
     let pairs: Vec<(AgentEventKind, &str)> = vec![
-        (AgentEventKind::RunStarted { message: String::new() }, "run_started"),
-        (AgentEventKind::RunCompleted { message: String::new() }, "run_completed"),
-        (AgentEventKind::AssistantDelta { text: String::new() }, "assistant_delta"),
-        (AgentEventKind::AssistantMessage { text: String::new() }, "assistant_message"),
+        (
+            AgentEventKind::RunStarted {
+                message: String::new(),
+            },
+            "run_started",
+        ),
+        (
+            AgentEventKind::RunCompleted {
+                message: String::new(),
+            },
+            "run_completed",
+        ),
+        (
+            AgentEventKind::AssistantDelta {
+                text: String::new(),
+            },
+            "assistant_delta",
+        ),
+        (
+            AgentEventKind::AssistantMessage {
+                text: String::new(),
+            },
+            "assistant_message",
+        ),
         (
             AgentEventKind::ToolCall {
                 tool_name: String::new(),
@@ -1629,7 +1713,12 @@ fn event_kind_name_all_10_variants() {
             },
             "command_executed",
         ),
-        (AgentEventKind::Warning { message: String::new() }, "warning"),
+        (
+            AgentEventKind::Warning {
+                message: String::new(),
+            },
+            "warning",
+        ),
         (
             AgentEventKind::Error {
                 message: String::new(),
@@ -1867,7 +1956,10 @@ fn ext_preserved_through_identity_pipeline() {
         .transform(EventTransform::identity())
         .build();
     let result = p.process(ev).unwrap();
-    assert_eq!(result.ext.unwrap().get("key").unwrap(), &serde_json::json!(42));
+    assert_eq!(
+        result.ext.unwrap().get("key").unwrap(),
+        &serde_json::json!(42)
+    );
 }
 
 #[test]
@@ -1972,7 +2064,9 @@ fn command_executed_no_exit_code() {
 #[tokio::test]
 async fn pipeline_cloned_across_tasks() {
     let stats = EventStats::new();
-    let p = StreamPipelineBuilder::new().with_stats(stats.clone()).build();
+    let p = StreamPipelineBuilder::new()
+        .with_stats(stats.clone())
+        .build();
 
     let mut handles = Vec::new();
     for _ in 0..5 {
@@ -2008,7 +2102,10 @@ fn filter_complex_ext_and_kind() {
 
     let mut ext = BTreeMap::new();
     ext.insert("priority".into(), serde_json::json!("high"));
-    assert!(f.matches(&mk_ext(AgentEventKind::AssistantDelta { text: "x".into() }, ext)));
+    assert!(f.matches(&mk_ext(
+        AgentEventKind::AssistantDelta { text: "x".into() },
+        ext
+    )));
 
     let mut ext_low = BTreeMap::new();
     ext_low.insert("priority".into(), serde_json::json!("low"));
@@ -2064,7 +2161,9 @@ fn recorder_rapid_clear_record_cycles() {
 #[test]
 fn stats_reset_mid_processing() {
     let stats = EventStats::new();
-    let p = StreamPipelineBuilder::new().with_stats(stats.clone()).build();
+    let p = StreamPipelineBuilder::new()
+        .with_stats(stats.clone())
+        .build();
 
     for _ in 0..50 {
         p.process(delta("x"));
@@ -2182,9 +2281,15 @@ async fn multiplexer_mixed_event_types() {
     let mux = EventMultiplexer::new(vec![rx1, rx2]);
     let events = mux.collect_sorted().await;
     assert_eq!(events.len(), 4);
-    assert!(matches!(events[0].kind, AgentEventKind::AssistantDelta { .. }));
+    assert!(matches!(
+        events[0].kind,
+        AgentEventKind::AssistantDelta { .. }
+    ));
     assert!(matches!(events[1].kind, AgentEventKind::Error { .. }));
-    assert!(matches!(events[2].kind, AgentEventKind::AssistantDelta { .. }));
+    assert!(matches!(
+        events[2].kind,
+        AgentEventKind::AssistantDelta { .. }
+    ));
     assert!(matches!(events[3].kind, AgentEventKind::Error { .. }));
 }
 

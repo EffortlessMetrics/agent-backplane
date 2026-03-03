@@ -19,20 +19,18 @@
 //! 14. Partial execution and partial receipts
 //! 15. Resource cleanup after runs
 
-use std::collections::BTreeMap;
-use std::path::Path;
-use std::sync::Arc;
-use std::time::Duration;
-
 use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
     ExecutionLane, MinSupport, Outcome, PolicyProfile, RuntimeConfig, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode, WorkspaceSpec,
+    WorkspaceMode,
 };
 use abp_integrations::{Backend, MockBackend};
 use abp_runtime::registry::BackendRegistry;
 use abp_runtime::telemetry::RunMetrics;
 use abp_runtime::{Runtime, RuntimeError};
+use std::collections::BTreeMap;
+use std::path::Path;
+use std::sync::Arc;
 use tokio_stream::StreamExt;
 
 // ============================================================
@@ -1649,7 +1647,8 @@ async fn run_streaming_with_capability_requirements_passes() {
         .root(
             tempfile::tempdir()
                 .unwrap()
-                .into_path()
+                .keep()
+                .unwrap()
                 .to_string_lossy()
                 .to_string(),
         )
