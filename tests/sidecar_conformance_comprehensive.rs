@@ -11,9 +11,8 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     ExecutionMode, Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder,
-    CONTRACT_VERSION,
 };
 use abp_protocol::{Envelope, JsonlCodec};
 use chrono::Utc;
@@ -92,9 +91,7 @@ fn parse_run_envelope() {
 fn parse_event_envelope() {
     let env = make_event(
         "run-1",
-        AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        AgentEventKind::AssistantMessage { text: "hi".into() },
     );
     let json = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(json.trim()).unwrap();
@@ -168,7 +165,10 @@ fn discriminator_t_for_fatal() {
 #[test]
 fn type_discriminator_rejected() {
     let json = r#"{"type":"hello","contract_version":"abp/v0.1","backend":{"id":"x","backend_version":null,"adapter_version":null},"capabilities":{}}"#;
-    assert!(JsonlCodec::decode(json).is_err(), "\"type\" should be rejected; only \"t\" is valid");
+    assert!(
+        JsonlCodec::decode(json).is_err(),
+        "\"type\" should be rejected; only \"t\" is valid"
+    );
 }
 
 // =========================================================================
@@ -266,9 +266,7 @@ fn ref_id_correlates_event_to_run() {
     let run = make_run(run_id);
     let event = make_event(
         run_id,
-        AgentEventKind::AssistantDelta {
-            text: "tok".into(),
-        },
+        AgentEventKind::AssistantDelta { text: "tok".into() },
     );
     let fin = make_final(run_id);
 
@@ -915,11 +913,7 @@ fn fatal_with_error_code() {
 
 #[test]
 fn fatal_error_code_accessor() {
-    let env = Envelope::fatal_with_code(
-        None,
-        "timeout",
-        abp_error::ErrorCode::BackendTimeout,
-    );
+    let env = Envelope::fatal_with_code(None, "timeout", abp_error::ErrorCode::BackendTimeout);
     assert_eq!(env.error_code(), Some(abp_error::ErrorCode::BackendTimeout));
 }
 
@@ -1073,11 +1067,8 @@ fn multiple_runs_in_sequence_via_stream() {
     let fin2 = make_final("run-b");
 
     let mut buf = Vec::new();
-    JsonlCodec::encode_many_to_writer(
-        &mut buf,
-        &[hello, run1, evt1, fin1, run2, evt2, fin2],
-    )
-    .unwrap();
+    JsonlCodec::encode_many_to_writer(&mut buf, &[hello, run1, evt1, fin1, run2, evt2, fin2])
+        .unwrap();
 
     let reader = BufReader::new(buf.as_slice());
     let envelopes: Vec<Envelope> = JsonlCodec::decode_stream(reader)
@@ -1133,7 +1124,10 @@ fn validate_sequence_hello_first() {
 
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&[hello, run, evt, fin]);
-    assert!(errors.is_empty(), "valid sequence should have no errors: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "valid sequence should have no errors: {errors:?}"
+    );
 }
 
 #[test]
@@ -1175,12 +1169,7 @@ fn validate_sequence_missing_terminal() {
 
     let hello = make_hello();
     let run = make_run("r");
-    let evt = make_event(
-        "r",
-        AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
-    );
+    let evt = make_event("r", AgentEventKind::AssistantMessage { text: "hi".into() });
 
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&[hello, run, evt]);

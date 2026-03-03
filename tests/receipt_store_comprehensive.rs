@@ -7,12 +7,12 @@ use std::collections::BTreeMap;
 use std::io::{Read, Write};
 
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, ExecutionMode, Outcome, Receipt,
-    UsageNormalized, VerificationReport, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, CONTRACT_VERSION, ExecutionMode, Outcome, Receipt,
+    UsageNormalized, VerificationReport, receipt_hash,
 };
 use abp_receipt::{
-    canonicalize, compute_hash, diff_receipts, verify_hash, ChainError, ReceiptBuilder,
-    ReceiptChain,
+    ChainError, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash, diff_receipts,
+    verify_hash,
 };
 use abp_runtime::store::{ReceiptStorage, ReceiptStore, StoreError};
 use chrono::{DateTime, Duration, TimeZone, Utc};
@@ -342,8 +342,7 @@ mod hash_keyed_storage {
     fn load_by_hash_not_found() {
         let dir = tempfile::tempdir().unwrap();
         let store = ReceiptStore::new(dir.path());
-        let fake_hash =
-            "0000000000000000000000000000000000000000000000000000000000000000";
+        let fake_hash = "0000000000000000000000000000000000000000000000000000000000000000";
         let err = store.load_by_hash(fake_hash).unwrap_err();
         assert!(matches!(err, StoreError::NotFound(_)));
     }
@@ -416,8 +415,7 @@ mod compression {
         let json_bytes = json.as_bytes();
 
         // Compress with flate2
-        let mut encoder =
-            flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         encoder.write_all(json_bytes).unwrap();
         let compressed = encoder.finish().unwrap();
 
@@ -462,8 +460,7 @@ mod compression {
         let r = make_receipt("mock", 0, Outcome::Complete);
         let json = serde_json::to_string(&r).unwrap();
 
-        let mut enc =
-            flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+        let mut enc = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
         enc.write_all(json.as_bytes()).unwrap();
         let compressed = enc.finish().unwrap();
 
@@ -483,7 +480,8 @@ mod compression {
         let compressed = zstd::encode_all(json.as_bytes(), 10).unwrap();
         let decompressed = zstd::decode_all(&compressed[..]).unwrap();
 
-        let loaded: Receipt = serde_json::from_str(std::str::from_utf8(&decompressed).unwrap()).unwrap();
+        let loaded: Receipt =
+            serde_json::from_str(std::str::from_utf8(&decompressed).unwrap()).unwrap();
         assert!(verify_hash(&loaded));
     }
 
@@ -628,8 +626,7 @@ mod integrity_verification {
     fn trait_verify_integrity_not_found() {
         let dir = tempfile::tempdir().unwrap();
         let store = ReceiptStore::new(dir.path());
-        let fake_hash =
-            "0000000000000000000000000000000000000000000000000000000000000000";
+        let fake_hash = "0000000000000000000000000000000000000000000000000000000000000000";
         let err = store.verify_integrity(fake_hash).unwrap_err();
         assert!(matches!(err, StoreError::NotFound(_)));
     }
@@ -672,9 +669,15 @@ mod querying {
         let dir = tempfile::tempdir().unwrap();
         let store = ReceiptStore::new(dir.path());
 
-        store.save(&make_receipt("alpha", 0, Outcome::Complete)).unwrap();
-        store.save(&make_receipt("beta", 10, Outcome::Complete)).unwrap();
-        store.save(&make_receipt("alpha", 20, Outcome::Partial)).unwrap();
+        store
+            .save(&make_receipt("alpha", 0, Outcome::Complete))
+            .unwrap();
+        store
+            .save(&make_receipt("beta", 10, Outcome::Complete))
+            .unwrap();
+        store
+            .save(&make_receipt("alpha", 20, Outcome::Partial))
+            .unwrap();
 
         let all_ids = store.list().unwrap();
         let alpha_count = all_ids
@@ -720,7 +723,9 @@ mod querying {
             .with_hash()
             .unwrap();
         store.save(&r).unwrap();
-        store.save(&make_receipt("other", 10, Outcome::Complete)).unwrap();
+        store
+            .save(&make_receipt("other", 10, Outcome::Complete))
+            .unwrap();
 
         let all_ids = store.list().unwrap();
         let matching: Vec<_> = all_ids
@@ -829,7 +834,10 @@ mod metadata_audit_trail {
         store.save(&r).unwrap();
 
         let loaded = store.load(r.meta.run_id).unwrap();
-        assert_eq!(loaded.verification.git_diff.as_deref(), Some("diff --git a/foo b/foo\n+bar"));
+        assert_eq!(
+            loaded.verification.git_diff.as_deref(),
+            Some("diff --git a/foo b/foo\n+bar")
+        );
         assert!(loaded.verification.harness_ok);
     }
 
@@ -1081,7 +1089,10 @@ mod btreemap_determinism {
 
         let j1 = serde_json::to_string(&m1).unwrap();
         let j2 = serde_json::to_string(&m2).unwrap();
-        assert_eq!(j1, j2, "BTreeMap should produce identical JSON regardless of insertion order");
+        assert_eq!(
+            j1, j2,
+            "BTreeMap should produce identical JSON regardless of insertion order"
+        );
     }
 
     #[test]
@@ -1120,7 +1131,10 @@ mod btreemap_determinism {
 
         let h1 = receipt_hash(&r1).unwrap();
         let h2 = receipt_hash(&r2).unwrap();
-        assert_eq!(h1, h2, "Same capabilities in different order should hash identically");
+        assert_eq!(
+            h1, h2,
+            "Same capabilities in different order should hash identically"
+        );
     }
 
     #[test]
@@ -1169,7 +1183,9 @@ mod chain_verification {
     fn verify_chain_single_valid_receipt() {
         let dir = tempfile::tempdir().unwrap();
         let store = ReceiptStore::new(dir.path());
-        store.save(&make_receipt("mock", 0, Outcome::Complete)).unwrap();
+        store
+            .save(&make_receipt("mock", 0, Outcome::Complete))
+            .unwrap();
 
         let result = store.verify_chain().unwrap();
         assert!(result.is_valid);
@@ -1182,7 +1198,9 @@ mod chain_verification {
         let store = ReceiptStore::new(dir.path());
 
         for i in 0..3 {
-            store.save(&make_receipt("m", i * 100, Outcome::Complete)).unwrap();
+            store
+                .save(&make_receipt("m", i * 100, Outcome::Complete))
+                .unwrap();
         }
 
         let result = store.verify_chain().unwrap();

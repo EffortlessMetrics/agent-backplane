@@ -650,9 +650,8 @@ mod claude_to_ir {
 mod gemini_to_ir {
     use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
     use abp_gemini_sdk::dialect::{
-        self, CanonicalToolDef, GeminiContent, GeminiInlineData, GeminiPart,
-        GeminiSafetyRating, GeminiSafetySetting,
-        HarmBlockThreshold, HarmCategory, HarmProbability,
+        self, CanonicalToolDef, GeminiContent, GeminiInlineData, GeminiPart, GeminiSafetyRating,
+        GeminiSafetySetting, HarmBlockThreshold, HarmCategory, HarmProbability,
     };
     use abp_gemini_sdk::lowering;
     use serde_json::json;
@@ -877,10 +876,10 @@ mod gemini_to_ir {
 // ── 4. Kimi dialect → ABP IR mapping ────────────────────────────────────
 
 mod kimi_to_ir {
-    use abp_core::ir::{IrContentBlock, IrRole, IrUsage};
+    use abp_core::ir::{IrContentBlock, IrRole};
     use abp_kimi_sdk::dialect::{
-        self, CanonicalToolDef, KimiBuiltinTool, KimiFunctionCall,
-        KimiMessage, KimiRef, KimiToolCall, KimiUsage,
+        self, CanonicalToolDef, KimiBuiltinTool, KimiFunctionCall, KimiMessage, KimiRef,
+        KimiToolCall, KimiUsage,
     };
     use abp_kimi_sdk::lowering;
     use serde_json::json;
@@ -1071,7 +1070,6 @@ mod kimi_to_ir {
 mod roundtrip_fidelity {
     use abp_claude_sdk::dialect::{ClaudeContentBlock, ClaudeMessage};
     use abp_claude_sdk::lowering as claude_lowering;
-    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
     use abp_gemini_sdk::dialect::{GeminiContent, GeminiInlineData, GeminiPart};
     use abp_gemini_sdk::lowering as gemini_lowering;
     use abp_kimi_sdk::dialect::{KimiFunctionCall, KimiMessage, KimiToolCall};
@@ -1188,8 +1186,7 @@ mod roundtrip_fidelity {
         let conv = claude_lowering::to_ir(&original, None);
         let recovered = claude_lowering::from_ir(&conv);
 
-        let parsed: Vec<ClaudeContentBlock> =
-            serde_json::from_str(&recovered[0].content).unwrap();
+        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&recovered[0].content).unwrap();
         match &parsed[0] {
             ClaudeContentBlock::ToolUse { id, name, .. } => {
                 assert_eq!(id, "tu_rt");
@@ -1343,10 +1340,7 @@ mod roundtrip_fidelity {
 
 mod error_cases {
     use abp_dialect::Dialect;
-    use abp_mapping::{
-        features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
-        MappingRegistry, MappingRule,
-    };
+    use abp_mapping::{Fidelity, MappingError, features, known_rules, validate_mapping};
 
     #[test]
     fn feature_unsupported_error_for_unknown_feature() {
@@ -1369,8 +1363,7 @@ mod error_cases {
     #[test]
     fn empty_feature_name_is_invalid_input() {
         let registry = known_rules();
-        let results =
-            validate_mapping(&registry, Dialect::OpenAi, Dialect::Claude, &["".into()]);
+        let results = validate_mapping(&registry, Dialect::OpenAi, Dialect::Claude, &["".into()]);
         assert_eq!(results.len(), 1);
         assert!(matches!(
             &results[0].errors[0],
@@ -1414,10 +1407,7 @@ mod error_cases {
             &[features::THINKING.into()],
         );
         assert_eq!(results.len(), 1);
-        assert!(matches!(
-            results[0].fidelity,
-            Fidelity::LossyLabeled { .. }
-        ));
+        assert!(matches!(results[0].fidelity, Fidelity::LossyLabeled { .. }));
         assert!(!results[0].errors.is_empty());
         assert!(matches!(
             &results[0].errors[0],
@@ -1468,10 +1458,7 @@ mod error_cases {
         assert_eq!(results.len(), 3);
 
         // tool_use: lossy (OpenAI -> Codex)
-        assert!(matches!(
-            results[0].fidelity,
-            Fidelity::LossyLabeled { .. }
-        ));
+        assert!(matches!(results[0].fidelity, Fidelity::LossyLabeled { .. }));
         // streaming: lossless
         assert!(results[1].fidelity.is_lossless());
         // image_input: unsupported
@@ -1494,11 +1481,11 @@ mod error_cases {
 // ── 7. Capability downgrade paths and emulation labeling ────────────────
 
 mod capability_downgrade {
-    use abp_core::ir::{IrConversation, IrMessage, IrRole};
     use abp_core::Capability;
+    use abp_core::ir::{IrConversation, IrMessage, IrRole};
     use abp_emulation::{
-        apply_emulation, can_emulate, compute_fidelity, default_strategy, EmulationConfig,
-        EmulationEngine, EmulationStrategy, FidelityLabel,
+        EmulationConfig, EmulationEngine, EmulationStrategy, FidelityLabel, apply_emulation,
+        can_emulate, compute_fidelity, default_strategy,
     };
 
     #[test]
@@ -1535,8 +1522,7 @@ mod capability_downgrade {
     #[test]
     fn structured_output_emulated_via_post_processing() {
         let engine = EmulationEngine::with_defaults();
-        let mut conv =
-            IrConversation::new().push(IrMessage::text(IrRole::User, "Return JSON"));
+        let mut conv = IrConversation::new().push(IrMessage::text(IrRole::User, "Return JSON"));
 
         let report = engine.apply(&[Capability::StructuredOutputJsonSchema], &mut conv);
 
@@ -1549,8 +1535,7 @@ mod capability_downgrade {
 
     #[test]
     fn post_processing_does_not_mutate_conversation() {
-        let original =
-            IrConversation::new().push(IrMessage::text(IrRole::User, "Return JSON"));
+        let original = IrConversation::new().push(IrMessage::text(IrRole::User, "Return JSON"));
         let mut conv = original.clone();
 
         let engine = EmulationEngine::with_defaults();
@@ -1570,8 +1555,7 @@ mod capability_downgrade {
         );
 
         let engine = EmulationEngine::new(config);
-        let mut conv =
-            IrConversation::new().push(IrMessage::text(IrRole::User, "Run this code"));
+        let mut conv = IrConversation::new().push(IrMessage::text(IrRole::User, "Run this code"));
 
         let report = engine.apply(&[Capability::CodeExecution], &mut conv);
 
@@ -1681,7 +1665,11 @@ mod capability_downgrade {
         engine.apply(&[Capability::ExtendedThinking], &mut conv);
 
         assert_eq!(conv.messages[0].role, IrRole::System);
-        assert!(conv.messages[0].text_content().contains("Think step by step"));
+        assert!(
+            conv.messages[0]
+                .text_content()
+                .contains("Think step by step")
+        );
     }
 
     #[test]
@@ -1709,8 +1697,7 @@ mod capability_downgrade {
 mod mapping_registry {
     use abp_dialect::Dialect;
     use abp_mapping::{
-        features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry,
-        MappingRule,
+        Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules,
     };
 
     #[test]
@@ -1731,10 +1718,7 @@ mod mapping_registry {
                 features::CODE_EXEC,
             ] {
                 let rule = registry.lookup(d, d, f);
-                assert!(
-                    rule.is_some(),
-                    "missing same-dialect rule for {d:?}/{f}"
-                );
+                assert!(rule.is_some(), "missing same-dialect rule for {d:?}/{f}");
                 assert!(
                     rule.unwrap().fidelity.is_lossless(),
                     "same-dialect rule for {d:?}/{f} should be lossless"
@@ -1782,10 +1766,7 @@ mod mapping_registry {
         let from_codex = registry
             .lookup(Dialect::Codex, Dialect::OpenAi, features::TOOL_USE)
             .unwrap();
-        assert!(matches!(
-            from_codex.fidelity,
-            Fidelity::LossyLabeled { .. }
-        ));
+        assert!(matches!(from_codex.fidelity, Fidelity::LossyLabeled { .. }));
     }
 
     #[test]
@@ -1832,10 +1813,8 @@ mod mapping_registry {
     #[test]
     fn rank_targets_returns_best_matches() {
         let registry = known_rules();
-        let ranked = registry.rank_targets(
-            Dialect::OpenAi,
-            &[features::TOOL_USE, features::STREAMING],
-        );
+        let ranked =
+            registry.rank_targets(Dialect::OpenAi, &[features::TOOL_USE, features::STREAMING]);
         assert!(!ranked.is_empty());
         // Claude should be in the results with lossless for both
         let claude_rank = ranked.iter().find(|(d, _)| *d == Dialect::Claude);
@@ -1958,7 +1937,9 @@ mod dialect_detection {
 // ── 10. IR type fundamentals ────────────────────────────────────────────
 
 mod ir_fundamentals {
-    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
+    use abp_core::ir::{
+        IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage,
+    };
     use serde_json::json;
 
     #[test]
@@ -2004,10 +1985,7 @@ mod ir_fundamentals {
         assert_eq!(conv.len(), 3);
         assert!(!conv.is_empty());
         assert_eq!(conv.system_message().unwrap().text_content(), "Be helpful");
-        assert_eq!(
-            conv.last_assistant().unwrap().text_content(),
-            "Hello!"
-        );
+        assert_eq!(conv.last_assistant().unwrap().text_content(), "Hello!");
         assert_eq!(conv.messages_by_role(IrRole::User).len(), 1);
     }
 
@@ -2145,10 +2123,10 @@ mod ir_fundamentals {
 mod cross_dialect_lowering {
     use abp_claude_sdk::dialect::{ClaudeContentBlock, ClaudeMessage};
     use abp_claude_sdk::lowering as claude_lowering;
-    use abp_core::ir::{IrContentBlock, IrRole};
+    use abp_core::ir::IrContentBlock;
     use abp_gemini_sdk::dialect::{GeminiContent, GeminiPart};
     use abp_gemini_sdk::lowering as gemini_lowering;
-    use abp_kimi_sdk::dialect::{KimiFunctionCall, KimiMessage, KimiToolCall};
+    use abp_kimi_sdk::dialect::KimiMessage;
     use abp_kimi_sdk::lowering as kimi_lowering;
     use abp_openai_sdk::dialect::{OpenAIFunctionCall, OpenAIMessage, OpenAIToolCall};
     use abp_openai_sdk::lowering as openai_lowering;
@@ -2364,52 +2342,55 @@ mod capability_manifests {
     #[test]
     fn openai_manifest_has_streaming() {
         let m = openai_dialect::capability_manifest();
-        assert_eq!(
+        assert!(matches!(
             m.get(&Capability::Streaming),
-            Some(&SupportLevel::Native)
-        );
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn claude_manifest_has_native_tool_read() {
         let m = claude_dialect::capability_manifest();
-        assert_eq!(m.get(&Capability::ToolRead), Some(&SupportLevel::Native));
+        assert!(matches!(
+            m.get(&Capability::ToolRead),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn gemini_manifest_glob_unsupported() {
         let m = gemini_dialect::capability_manifest();
-        assert_eq!(
+        assert!(matches!(
             m.get(&Capability::ToolGlob),
-            Some(&SupportLevel::Unsupported)
-        );
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
     fn kimi_manifest_tool_edit_unsupported() {
         let m = kimi_dialect::capability_manifest();
-        assert_eq!(
+        assert!(matches!(
             m.get(&Capability::ToolEdit),
-            Some(&SupportLevel::Unsupported)
-        );
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
     fn kimi_has_native_web_search() {
         let m = kimi_dialect::capability_manifest();
-        assert_eq!(
+        assert!(matches!(
             m.get(&Capability::ToolWebSearch),
-            Some(&SupportLevel::Native)
-        );
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn claude_has_native_web_search() {
         let m = claude_dialect::capability_manifest();
-        assert_eq!(
+        assert!(matches!(
             m.get(&Capability::ToolWebSearch),
-            Some(&SupportLevel::Native)
-        );
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
@@ -2421,9 +2402,8 @@ mod capability_manifests {
             ("Kimi", kimi_dialect::capability_manifest()),
         ];
         for (name, m) in manifests {
-            assert_eq!(
-                m.get(&Capability::Streaming),
-                Some(&SupportLevel::Native),
+            assert!(
+                matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)),
                 "{name} should support streaming natively"
             );
         }
@@ -2434,8 +2414,8 @@ mod capability_manifests {
 
 mod claude_passthrough {
     use abp_claude_sdk::dialect::{
-        self, ClaudeApiError, ClaudeContentBlock, ClaudeMessageDelta, ClaudeResponse,
-        ClaudeStreamDelta, ClaudeStreamEvent, ClaudeUsage,
+        self, ClaudeApiError, ClaudeMessageDelta, ClaudeResponse, ClaudeStreamDelta,
+        ClaudeStreamEvent, ClaudeUsage,
     };
 
     #[test]
@@ -2523,9 +2503,6 @@ mod claude_passthrough {
         let event = ClaudeStreamEvent::Ping {};
         let wrapped = dialect::to_passthrough_event(&event);
         let ext = wrapped.ext.as_ref().unwrap();
-        assert_eq!(
-            ext.get("dialect").and_then(|v| v.as_str()),
-            Some("claude")
-        );
+        assert_eq!(ext.get("dialect").and_then(|v| v.as_str()), Some("claude"));
     }
 }

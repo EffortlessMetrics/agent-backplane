@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use abp_backend_core::ensure_capability_requirements;
 use abp_capability::{
-    check_capability, generate_report, negotiate as cap_negotiate,
-    NegotiationResult as CapNegotiationResult, SupportLevel as CapSupportLevel,
+    NegotiationResult as CapNegotiationResult, SupportLevel as CapSupportLevel, check_capability,
+    generate_report, negotiate as cap_negotiate,
 };
 use abp_core::negotiate::{
     CapabilityDiff, CapabilityNegotiator, CapabilityReport as NegotiateCapabilityReport,
@@ -156,8 +156,14 @@ fn cap_negotiate_all_native() {
     ]);
     let reqs = CapabilityRequirements {
         required: vec![
-            CapabilityRequirement { capability: Capability::Streaming, min_support: MinSupport::Native },
-            CapabilityRequirement { capability: Capability::ToolRead, min_support: MinSupport::Native },
+            CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Native,
+            },
+            CapabilityRequirement {
+                capability: Capability::ToolRead,
+                min_support: MinSupport::Native,
+            },
         ],
     };
     let result = cap_negotiate(&manifest, &reqs);
@@ -175,9 +181,18 @@ fn cap_negotiate_mixed_native_emulated_unsupported() {
     ]);
     let reqs = CapabilityRequirements {
         required: vec![
-            CapabilityRequirement { capability: Capability::Streaming, min_support: MinSupport::Native },
-            CapabilityRequirement { capability: Capability::ToolRead, min_support: MinSupport::Native },
-            CapabilityRequirement { capability: Capability::Logprobs, min_support: MinSupport::Native },
+            CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Native,
+            },
+            CapabilityRequirement {
+                capability: Capability::ToolRead,
+                min_support: MinSupport::Native,
+            },
+            CapabilityRequirement {
+                capability: Capability::Logprobs,
+                min_support: MinSupport::Native,
+            },
         ],
     };
     let result = cap_negotiate(&manifest, &reqs);
@@ -189,7 +204,10 @@ fn cap_negotiate_mixed_native_emulated_unsupported() {
 
 #[test]
 fn cap_negotiate_empty_requirements_always_compatible() {
-    let result = cap_negotiate(&CapabilityManifest::new(), &CapabilityRequirements::default());
+    let result = cap_negotiate(
+        &CapabilityManifest::new(),
+        &CapabilityRequirements::default(),
+    );
     assert!(result.is_compatible());
     assert_eq!(result.total(), 0);
 }
@@ -197,9 +215,10 @@ fn cap_negotiate_empty_requirements_always_compatible() {
 #[test]
 fn cap_negotiate_empty_manifest_all_unsupported() {
     let reqs = CapabilityRequirements {
-        required: vec![
-            CapabilityRequirement { capability: Capability::Streaming, min_support: MinSupport::Native },
-        ],
+        required: vec![CapabilityRequirement {
+            capability: Capability::Streaming,
+            min_support: MinSupport::Native,
+        }],
     };
     let result = cap_negotiate(&CapabilityManifest::new(), &reqs);
     assert!(!result.is_compatible());
@@ -210,12 +229,15 @@ fn cap_negotiate_empty_manifest_all_unsupported() {
 fn cap_negotiate_restricted_counts_as_emulatable() {
     let manifest = make_manifest(&[(
         Capability::ToolBash,
-        SupportLevel::Restricted { reason: "sandbox".into() },
+        SupportLevel::Restricted {
+            reason: "sandbox".into(),
+        },
     )]);
     let reqs = CapabilityRequirements {
-        required: vec![
-            CapabilityRequirement { capability: Capability::ToolBash, min_support: MinSupport::Native },
-        ],
+        required: vec![CapabilityRequirement {
+            capability: Capability::ToolBash,
+            min_support: MinSupport::Native,
+        }],
     };
     let result = cap_negotiate(&manifest, &reqs);
     assert_eq!(result.emulatable, vec![Capability::ToolBash]);
@@ -235,8 +257,22 @@ fn cap_negotiate_total_counts_all_buckets() {
 #[test]
 fn matrix_common_capabilities_is_intersection() {
     let mut m = CapabilityMatrix::new();
-    m.register("a", vec![Capability::Streaming, Capability::ToolRead, Capability::ToolWrite]);
-    m.register("b", vec![Capability::Streaming, Capability::ToolWrite, Capability::Logprobs]);
+    m.register(
+        "a",
+        vec![
+            Capability::Streaming,
+            Capability::ToolRead,
+            Capability::ToolWrite,
+        ],
+    );
+    m.register(
+        "b",
+        vec![
+            Capability::Streaming,
+            Capability::ToolWrite,
+            Capability::Logprobs,
+        ],
+    );
     m.register("c", vec![Capability::Streaming, Capability::ToolWrite]);
 
     let common = m.common_capabilities();
@@ -314,7 +350,10 @@ fn negotiator_best_match_none_when_all_incompatible() {
 #[test]
 fn check_capability_native_returns_native() {
     let manifest = make_manifest(&[(Capability::Streaming, SupportLevel::Native)]);
-    assert_eq!(check_capability(&manifest, &Capability::Streaming), CapSupportLevel::Native);
+    assert_eq!(
+        check_capability(&manifest, &Capability::Streaming),
+        CapSupportLevel::Native
+    );
 }
 
 #[test]
@@ -328,7 +367,9 @@ fn check_capability_emulated_returns_emulated() {
 fn check_capability_restricted_returns_emulated_with_reason() {
     let manifest = make_manifest(&[(
         Capability::ToolBash,
-        SupportLevel::Restricted { reason: "policy".into() },
+        SupportLevel::Restricted {
+            reason: "policy".into(),
+        },
     )]);
     let level = check_capability(&manifest, &Capability::ToolBash);
     match level {
@@ -343,13 +384,19 @@ fn check_capability_restricted_returns_emulated_with_reason() {
 #[test]
 fn check_capability_missing_returns_unsupported() {
     let manifest = CapabilityManifest::new();
-    assert_eq!(check_capability(&manifest, &Capability::Streaming), CapSupportLevel::Unsupported);
+    assert_eq!(
+        check_capability(&manifest, &Capability::Streaming),
+        CapSupportLevel::Unsupported
+    );
 }
 
 #[test]
 fn check_capability_explicit_unsupported_returns_unsupported() {
     let manifest = make_manifest(&[(Capability::Logprobs, SupportLevel::Unsupported)]);
-    assert_eq!(check_capability(&manifest, &Capability::Logprobs), CapSupportLevel::Unsupported);
+    assert_eq!(
+        check_capability(&manifest, &Capability::Logprobs),
+        CapSupportLevel::Unsupported
+    );
 }
 
 #[test]
@@ -380,7 +427,9 @@ fn support_level_unsupported_satisfies_nothing() {
 
 #[test]
 fn support_level_restricted_satisfies_emulated_but_not_native() {
-    let restricted = SupportLevel::Restricted { reason: "sandbox".into() };
+    let restricted = SupportLevel::Restricted {
+        reason: "sandbox".into(),
+    };
     assert!(restricted.satisfies(&MinSupport::Emulated));
     assert!(!restricted.satisfies(&MinSupport::Native));
 }
@@ -388,7 +437,10 @@ fn support_level_restricted_satisfies_emulated_but_not_native() {
 #[test]
 fn dialect_support_level_native_emulated_unsupported_classification() {
     let claude = dialect_manifest("claude");
-    assert!(matches!(claude.get(&Capability::Streaming), Some(DialectSupportLevel::Native)));
+    assert!(matches!(
+        claude.get(&Capability::Streaming),
+        Some(DialectSupportLevel::Native)
+    ));
     assert!(matches!(
         claude.get(&Capability::StructuredOutputJsonSchema),
         Some(DialectSupportLevel::Emulated { .. })
@@ -481,7 +533,13 @@ fn ensure_requirements_fails_when_level_insufficient() {
 
 #[test]
 fn ensure_requirements_passes_with_empty_requirements() {
-    assert!(ensure_capability_requirements(&CapabilityRequirements::default(), &CapabilityManifest::new()).is_ok());
+    assert!(
+        ensure_capability_requirements(
+            &CapabilityRequirements::default(),
+            &CapabilityManifest::new()
+        )
+        .is_ok()
+    );
 }
 
 #[test]
@@ -494,7 +552,9 @@ fn ensure_requirements_restricted_satisfies_emulated_min() {
     };
     let manifest = make_manifest(&[(
         Capability::ToolBash,
-        SupportLevel::Restricted { reason: "sandboxed".into() },
+        SupportLevel::Restricted {
+            reason: "sandboxed".into(),
+        },
     )]);
     assert!(ensure_capability_requirements(&reqs, &manifest).is_ok());
 }
@@ -503,8 +563,14 @@ fn ensure_requirements_restricted_satisfies_emulated_min() {
 fn ensure_requirements_multiple_unsatisfied_all_reported() {
     let reqs = CapabilityRequirements {
         required: vec![
-            CapabilityRequirement { capability: Capability::Streaming, min_support: MinSupport::Native },
-            CapabilityRequirement { capability: Capability::ToolBash, min_support: MinSupport::Native },
+            CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Native,
+            },
+            CapabilityRequirement {
+                capability: Capability::ToolBash,
+                min_support: MinSupport::Native,
+            },
         ],
     };
     let err = ensure_capability_requirements(&reqs, &CapabilityManifest::new()).unwrap_err();
@@ -539,9 +605,10 @@ fn negotiation_incompatible_blocks_execution() {
 fn check_capabilities_report_blocks_unsupported_route() {
     let wo = WorkOrderBuilder::new("needs logprobs")
         .requirements(CapabilityRequirements {
-            required: vec![
-                CapabilityRequirement { capability: Capability::Logprobs, min_support: MinSupport::Native },
-            ],
+            required: vec![CapabilityRequirement {
+                capability: Capability::Logprobs,
+                min_support: MinSupport::Native,
+            }],
         })
         .build();
     let report = check_capabilities(&wo, "openai", "claude");
@@ -570,8 +637,14 @@ fn fidelity_label_native_for_native_capabilities() {
     let native_caps = vec![Capability::Streaming, Capability::ToolRead];
     let empty_report = abp_emulation::EmulationReport::default();
     let labels = compute_fidelity(&native_caps, &empty_report);
-    assert_eq!(labels.get(&Capability::Streaming), Some(&FidelityLabel::Native));
-    assert_eq!(labels.get(&Capability::ToolRead), Some(&FidelityLabel::Native));
+    assert_eq!(
+        labels.get(&Capability::Streaming),
+        Some(&FidelityLabel::Native)
+    );
+    assert_eq!(
+        labels.get(&Capability::ToolRead),
+        Some(&FidelityLabel::Native)
+    );
 }
 
 #[test]
@@ -592,7 +665,10 @@ fn fidelity_labels_mixed_native_and_emulated() {
     let report = engine.check_missing(&[Capability::ExtendedThinking]);
     let labels = compute_fidelity(&native, &report);
 
-    assert_eq!(labels.get(&Capability::Streaming), Some(&FidelityLabel::Native));
+    assert_eq!(
+        labels.get(&Capability::Streaming),
+        Some(&FidelityLabel::Native)
+    );
     assert!(matches!(
         labels.get(&Capability::ExtendedThinking),
         Some(FidelityLabel::Emulated { .. })
@@ -679,7 +755,9 @@ fn fidelity_label_serde_roundtrip() {
     assert_eq!(back, native);
 
     let emulated = FidelityLabel::Emulated {
-        strategy: EmulationStrategy::SystemPromptInjection { prompt: "think".into() },
+        strategy: EmulationStrategy::SystemPromptInjection {
+            prompt: "think".into(),
+        },
     };
     let json = serde_json::to_string(&emulated).unwrap();
     let back: FidelityLabel = serde_json::from_str(&json).unwrap();
@@ -717,9 +795,10 @@ fn check_capabilities_empty_requirements_always_satisfiable() {
 fn check_capabilities_unknown_dialect_returns_all_unsupported() {
     let wo = WorkOrderBuilder::new("task")
         .requirements(CapabilityRequirements {
-            required: vec![
-                CapabilityRequirement { capability: Capability::Streaming, min_support: MinSupport::Native },
-            ],
+            required: vec![CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Native,
+            }],
         })
         .build();
     let report = check_capabilities(&wo, "claude", "nonexistent");
@@ -754,11 +833,15 @@ fn capability_report_filters_by_support_level() {
             },
             CapabilityReportEntry {
                 capability: Capability::PdfInput,
-                support: DialectSupportLevel::Emulated { detail: "via conversion".into() },
+                support: DialectSupportLevel::Emulated {
+                    detail: "via conversion".into(),
+                },
             },
             CapabilityReportEntry {
                 capability: Capability::Logprobs,
-                support: DialectSupportLevel::Unsupported { reason: "not available".into() },
+                support: DialectSupportLevel::Unsupported {
+                    reason: "not available".into(),
+                },
             },
         ],
     };
@@ -773,8 +856,14 @@ fn pre_execution_check_combined_with_emulation_decision() {
     let wo = WorkOrderBuilder::new("task")
         .requirements(CapabilityRequirements {
             required: vec![
-                CapabilityRequirement { capability: Capability::Streaming, min_support: MinSupport::Native },
-                CapabilityRequirement { capability: Capability::ExtendedThinking, min_support: MinSupport::Emulated },
+                CapabilityRequirement {
+                    capability: Capability::Streaming,
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: Capability::ExtendedThinking,
+                    min_support: MinSupport::Emulated,
+                },
             ],
         })
         .build();
@@ -883,9 +972,17 @@ fn matrix_evaluate_empty_requirements_full_score() {
 fn matrix_best_backend_picks_highest_score() {
     let mut m = CapabilityMatrix::new();
     m.register("a", vec![Capability::Streaming]);
-    m.register("b", vec![Capability::Streaming, Capability::ToolRead, Capability::ToolWrite]);
+    m.register(
+        "b",
+        vec![
+            Capability::Streaming,
+            Capability::ToolRead,
+            Capability::ToolWrite,
+        ],
+    );
     assert_eq!(
-        m.best_backend(&[Capability::Streaming, Capability::ToolRead]).as_deref(),
+        m.best_backend(&[Capability::Streaming, Capability::ToolRead])
+            .as_deref(),
         Some("b")
     );
 }
@@ -900,7 +997,11 @@ fn matrix_all_capabilities_returns_none_for_unknown() {
 fn selector_first_match_picks_first_capable() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(make_candidate("a", vec![Capability::ToolRead], 1));
-    sel.add_candidate(make_candidate("b", vec![Capability::ToolRead, Capability::Streaming], 1));
+    sel.add_candidate(make_candidate(
+        "b",
+        vec![Capability::ToolRead, Capability::Streaming],
+        1,
+    ));
     assert_eq!(sel.select(&[Capability::ToolRead]).unwrap().name, "a");
 }
 
@@ -908,9 +1009,15 @@ fn selector_first_match_picks_first_capable() {
 fn selector_best_fit_picks_most_matches() {
     let mut sel = BackendSelector::new(SelectionStrategy::BestFit);
     sel.add_candidate(make_candidate("a", vec![Capability::ToolRead], 1));
-    sel.add_candidate(make_candidate("b", vec![Capability::ToolRead, Capability::Streaming], 1));
+    sel.add_candidate(make_candidate(
+        "b",
+        vec![Capability::ToolRead, Capability::Streaming],
+        1,
+    ));
     assert_eq!(
-        sel.select(&[Capability::ToolRead, Capability::Streaming]).unwrap().name,
+        sel.select(&[Capability::ToolRead, Capability::Streaming])
+            .unwrap()
+            .name,
         "b"
     );
 }
@@ -946,7 +1053,11 @@ fn selector_skips_disabled_candidates() {
 fn selector_select_all_returns_all_capable() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(make_candidate("a", vec![Capability::Streaming], 1));
-    sel.add_candidate(make_candidate("b", vec![Capability::Streaming, Capability::ToolRead], 1));
+    sel.add_candidate(make_candidate(
+        "b",
+        vec![Capability::Streaming, Capability::ToolRead],
+        1,
+    ));
     sel.add_candidate(make_candidate("c", vec![Capability::ToolRead], 1));
     assert_eq!(sel.select_all(&[Capability::Streaming]).len(), 2);
 }
@@ -1000,7 +1111,10 @@ fn selector_empty_requirements_matches_all() {
 fn selector_candidate_and_enabled_counts() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(make_candidate("a", vec![], 1));
-    let disabled = BackendCandidate { enabled: false, ..make_candidate("b", vec![], 1) };
+    let disabled = BackendCandidate {
+        enabled: false,
+        ..make_candidate("b", vec![], 1)
+    };
     sel.add_candidate(disabled);
     assert_eq!(sel.candidate_count(), 2);
     assert_eq!(sel.enabled_count(), 1);
@@ -1014,55 +1128,97 @@ fn selector_candidate_and_enabled_counts() {
 fn claude_openai_streaming_both_native() {
     let claude = dialect_manifest("claude");
     let openai = dialect_manifest("openai");
-    assert!(matches!(claude.get(&Capability::Streaming), Some(DialectSupportLevel::Native)));
-    assert!(matches!(openai.get(&Capability::Streaming), Some(DialectSupportLevel::Native)));
+    assert!(matches!(
+        claude.get(&Capability::Streaming),
+        Some(DialectSupportLevel::Native)
+    ));
+    assert!(matches!(
+        openai.get(&Capability::Streaming),
+        Some(DialectSupportLevel::Native)
+    ));
 }
 
 #[test]
 fn claude_lacks_logprobs_openai_has_it() {
     let claude = dialect_manifest("claude");
     let openai = dialect_manifest("openai");
-    assert!(matches!(claude.get(&Capability::Logprobs), Some(DialectSupportLevel::Unsupported { .. })));
-    assert!(matches!(openai.get(&Capability::Logprobs), Some(DialectSupportLevel::Native)));
+    assert!(matches!(
+        claude.get(&Capability::Logprobs),
+        Some(DialectSupportLevel::Unsupported { .. })
+    ));
+    assert!(matches!(
+        openai.get(&Capability::Logprobs),
+        Some(DialectSupportLevel::Native)
+    ));
 }
 
 #[test]
 fn openai_lacks_extended_thinking_claude_has_native() {
     let claude = dialect_manifest("claude");
     let openai = dialect_manifest("openai");
-    assert!(matches!(claude.get(&Capability::ExtendedThinking), Some(DialectSupportLevel::Native)));
-    assert!(matches!(openai.get(&Capability::ExtendedThinking), Some(DialectSupportLevel::Unsupported { .. })));
+    assert!(matches!(
+        claude.get(&Capability::ExtendedThinking),
+        Some(DialectSupportLevel::Native)
+    ));
+    assert!(matches!(
+        openai.get(&Capability::ExtendedThinking),
+        Some(DialectSupportLevel::Unsupported { .. })
+    ));
 }
 
 #[test]
 fn gemini_has_pdf_native_openai_does_not() {
     let gemini = dialect_manifest("gemini");
     let openai = dialect_manifest("openai");
-    assert!(matches!(gemini.get(&Capability::PdfInput), Some(DialectSupportLevel::Native)));
-    assert!(matches!(openai.get(&Capability::PdfInput), Some(DialectSupportLevel::Unsupported { .. })));
+    assert!(matches!(
+        gemini.get(&Capability::PdfInput),
+        Some(DialectSupportLevel::Native)
+    ));
+    assert!(matches!(
+        openai.get(&Capability::PdfInput),
+        Some(DialectSupportLevel::Unsupported { .. })
+    ));
 }
 
 #[test]
 fn claude_gemini_tool_use_both_native() {
     let claude = dialect_manifest("claude");
     let gemini = dialect_manifest("gemini");
-    assert!(matches!(claude.get(&Capability::ToolUse), Some(DialectSupportLevel::Native)));
-    assert!(matches!(gemini.get(&Capability::ToolUse), Some(DialectSupportLevel::Native)));
+    assert!(matches!(
+        claude.get(&Capability::ToolUse),
+        Some(DialectSupportLevel::Native)
+    ));
+    assert!(matches!(
+        gemini.get(&Capability::ToolUse),
+        Some(DialectSupportLevel::Native)
+    ));
 }
 
 #[test]
 fn openai_structured_output_native_claude_emulated() {
     let openai = dialect_manifest("openai");
     let claude = dialect_manifest("claude");
-    assert!(matches!(openai.get(&Capability::StructuredOutputJsonSchema), Some(DialectSupportLevel::Native)));
-    assert!(matches!(claude.get(&Capability::StructuredOutputJsonSchema), Some(DialectSupportLevel::Emulated { .. })));
+    assert!(matches!(
+        openai.get(&Capability::StructuredOutputJsonSchema),
+        Some(DialectSupportLevel::Native)
+    ));
+    assert!(matches!(
+        claude.get(&Capability::StructuredOutputJsonSchema),
+        Some(DialectSupportLevel::Emulated { .. })
+    ));
 }
 
 #[test]
 fn gemini_lacks_logprobs_and_seed() {
     let gemini = dialect_manifest("gemini");
-    assert!(matches!(gemini.get(&Capability::Logprobs), Some(DialectSupportLevel::Unsupported { .. })));
-    assert!(matches!(gemini.get(&Capability::SeedDeterminism), Some(DialectSupportLevel::Unsupported { .. })));
+    assert!(matches!(
+        gemini.get(&Capability::Logprobs),
+        Some(DialectSupportLevel::Unsupported { .. })
+    ));
+    assert!(matches!(
+        gemini.get(&Capability::SeedDeterminism),
+        Some(DialectSupportLevel::Unsupported { .. })
+    ));
 }
 
 #[test]
@@ -1070,7 +1226,10 @@ fn cross_dialect_matrix_all_pairs_streaming() {
     for dialect in ["claude", "openai", "gemini"] {
         let m = dialect_manifest(dialect);
         assert!(
-            matches!(m.get(&Capability::Streaming), Some(DialectSupportLevel::Native)),
+            matches!(
+                m.get(&Capability::Streaming),
+                Some(DialectSupportLevel::Native)
+            ),
             "{dialect} should natively support streaming"
         );
     }
@@ -1081,7 +1240,10 @@ fn cross_dialect_matrix_stop_sequences_all_native() {
     for dialect in ["claude", "openai", "gemini"] {
         let m = dialect_manifest(dialect);
         assert!(
-            matches!(m.get(&Capability::StopSequences), Some(DialectSupportLevel::Native)),
+            matches!(
+                m.get(&Capability::StopSequences),
+                Some(DialectSupportLevel::Native)
+            ),
             "{dialect} should natively support stop sequences"
         );
     }
@@ -1090,7 +1252,11 @@ fn cross_dialect_matrix_stop_sequences_all_native() {
 #[test]
 fn capability_matrix_cross_sdk_comparison() {
     let mut matrix = CapabilityMatrix::new();
-    for (name, dialect) in [("claude", "claude"), ("openai", "openai"), ("gemini", "gemini")] {
+    for (name, dialect) in [
+        ("claude", "claude"),
+        ("openai", "openai"),
+        ("gemini", "gemini"),
+    ] {
         let dm = dialect_manifest(dialect);
         let native_caps: Vec<Capability> = dm
             .iter()
@@ -1120,17 +1286,23 @@ fn best_backend_for_logprobs_is_openai() {
     let mut matrix = CapabilityMatrix::new();
     let openai = dialect_manifest("openai");
     let claude = dialect_manifest("claude");
-    let openai_native: Vec<Capability> = openai.iter()
+    let openai_native: Vec<Capability> = openai
+        .iter()
         .filter(|(_, l)| matches!(l, DialectSupportLevel::Native))
-        .map(|(c, _)| c.clone()).collect();
-    let claude_native: Vec<Capability> = claude.iter()
+        .map(|(c, _)| c.clone())
+        .collect();
+    let claude_native: Vec<Capability> = claude
+        .iter()
         .filter(|(_, l)| matches!(l, DialectSupportLevel::Native))
-        .map(|(c, _)| c.clone()).collect();
+        .map(|(c, _)| c.clone())
+        .collect();
     matrix.register("openai", openai_native);
     matrix.register("claude", claude_native);
 
     assert_eq!(
-        matrix.best_backend(&[Capability::Streaming, Capability::Logprobs]).as_deref(),
+        matrix
+            .best_backend(&[Capability::Streaming, Capability::Logprobs])
+            .as_deref(),
         Some("openai")
     );
 }
@@ -1140,9 +1312,18 @@ fn cross_dialect_check_capabilities_claude_to_openai() {
     let wo = WorkOrderBuilder::new("task")
         .requirements(CapabilityRequirements {
             required: vec![
-                CapabilityRequirement { capability: Capability::Streaming, min_support: MinSupport::Native },
-                CapabilityRequirement { capability: Capability::ToolUse, min_support: MinSupport::Native },
-                CapabilityRequirement { capability: Capability::StructuredOutputJsonSchema, min_support: MinSupport::Emulated },
+                CapabilityRequirement {
+                    capability: Capability::Streaming,
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: Capability::ToolUse,
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: Capability::StructuredOutputJsonSchema,
+                    min_support: MinSupport::Emulated,
+                },
             ],
         })
         .build();
@@ -1156,8 +1337,14 @@ fn cross_dialect_check_capabilities_openai_to_gemini() {
     let wo = WorkOrderBuilder::new("task")
         .requirements(CapabilityRequirements {
             required: vec![
-                CapabilityRequirement { capability: Capability::Streaming, min_support: MinSupport::Native },
-                CapabilityRequirement { capability: Capability::ImageInput, min_support: MinSupport::Native },
+                CapabilityRequirement {
+                    capability: Capability::Streaming,
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: Capability::ImageInput,
+                    min_support: MinSupport::Native,
+                },
             ],
         })
         .build();
@@ -1196,7 +1383,12 @@ fn hello_envelope_roundtrip_with_capabilities() {
     let mut caps = CapabilityManifest::new();
     caps.insert(Capability::Streaming, SupportLevel::Native);
     caps.insert(Capability::ToolRead, SupportLevel::Emulated);
-    caps.insert(Capability::ToolBash, SupportLevel::Restricted { reason: "sandbox".into() });
+    caps.insert(
+        Capability::ToolBash,
+        SupportLevel::Restricted {
+            reason: "sandbox".into(),
+        },
+    );
 
     let hello = sample_hello_envelope(caps);
     let json = JsonlCodec::encode(&hello).unwrap();
@@ -1205,9 +1397,18 @@ fn hello_envelope_roundtrip_with_capabilities() {
     match decoded {
         Envelope::Hello { capabilities, .. } => {
             assert_eq!(capabilities.len(), 3);
-            assert!(matches!(capabilities.get(&Capability::Streaming), Some(SupportLevel::Native)));
-            assert!(matches!(capabilities.get(&Capability::ToolRead), Some(SupportLevel::Emulated)));
-            assert!(matches!(capabilities.get(&Capability::ToolBash), Some(SupportLevel::Restricted { .. })));
+            assert!(matches!(
+                capabilities.get(&Capability::Streaming),
+                Some(SupportLevel::Native)
+            ));
+            assert!(matches!(
+                capabilities.get(&Capability::ToolRead),
+                Some(SupportLevel::Emulated)
+            ));
+            assert!(matches!(
+                capabilities.get(&Capability::ToolBash),
+                Some(SupportLevel::Restricted { .. })
+            ));
         }
         _ => panic!("expected Hello"),
     }
@@ -1217,7 +1418,10 @@ fn hello_envelope_roundtrip_with_capabilities() {
 fn hello_envelope_contains_contract_version() {
     let hello = sample_hello_envelope(CapabilityManifest::new());
     let json = JsonlCodec::encode(&hello).unwrap();
-    assert!(json.contains(&format!(r#""contract_version":"{}""#, abp_core::CONTRACT_VERSION)));
+    assert!(json.contains(&format!(
+        r#""contract_version":"{}""#,
+        abp_core::CONTRACT_VERSION
+    )));
 }
 
 #[test]
@@ -1230,7 +1434,11 @@ fn hello_envelope_discriminator_is_t() {
 #[test]
 fn hello_envelope_with_mode_passthrough() {
     let hello = Envelope::hello_with_mode(
-        BackendIdentity { id: "pt".into(), backend_version: None, adapter_version: None },
+        BackendIdentity {
+            id: "pt".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
         CapabilityManifest::new(),
         abp_core::ExecutionMode::Passthrough,
     );
@@ -1248,7 +1456,9 @@ fn support_level_all_variants_roundtrip() {
         SupportLevel::Native,
         SupportLevel::Emulated,
         SupportLevel::Unsupported,
-        SupportLevel::Restricted { reason: "policy limit".into() },
+        SupportLevel::Restricted {
+            reason: "policy limit".into(),
+        },
     ];
     for level in &levels {
         let json = serde_json::to_string(level).unwrap();
@@ -1260,8 +1470,14 @@ fn support_level_all_variants_roundtrip() {
 fn capability_requirements_json_roundtrip() {
     let reqs = CapabilityRequirements {
         required: vec![
-            CapabilityRequirement { capability: Capability::Streaming, min_support: MinSupport::Native },
-            CapabilityRequirement { capability: Capability::ToolEdit, min_support: MinSupport::Emulated },
+            CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Native,
+            },
+            CapabilityRequirement {
+                capability: Capability::ToolEdit,
+                min_support: MinSupport::Emulated,
+            },
         ],
     };
     let json = serde_json::to_string(&reqs).unwrap();
@@ -1275,19 +1491,31 @@ fn capability_manifest_json_roundtrip() {
     manifest.insert(Capability::Streaming, SupportLevel::Native);
     manifest.insert(Capability::ToolRead, SupportLevel::Emulated);
     manifest.insert(Capability::ToolBash, SupportLevel::Unsupported);
-    manifest.insert(Capability::CodeExecution, SupportLevel::Restricted { reason: "sandbox".into() });
+    manifest.insert(
+        Capability::CodeExecution,
+        SupportLevel::Restricted {
+            reason: "sandbox".into(),
+        },
+    );
     let json = serde_json::to_string(&manifest).unwrap();
     let back: CapabilityManifest = serde_json::from_str(&json).unwrap();
     assert_eq!(back.len(), 4);
-    assert!(matches!(back.get(&Capability::CodeExecution), Some(SupportLevel::Restricted { .. })));
+    assert!(matches!(
+        back.get(&Capability::CodeExecution),
+        Some(SupportLevel::Restricted { .. })
+    ));
 }
 
 #[test]
 fn dialect_support_level_json_roundtrip() {
     let levels = vec![
         DialectSupportLevel::Native,
-        DialectSupportLevel::Emulated { detail: "via adapter".into() },
-        DialectSupportLevel::Unsupported { reason: "not available".into() },
+        DialectSupportLevel::Emulated {
+            detail: "via adapter".into(),
+        },
+        DialectSupportLevel::Unsupported {
+            reason: "not available".into(),
+        },
     ];
     for level in &levels {
         let json = serde_json::to_string(level).unwrap();
@@ -1318,9 +1546,15 @@ fn manifest_deterministic_serialization_btreemap() {
 #[test]
 fn emulation_strategy_serde_roundtrip() {
     let strategies = vec![
-        EmulationStrategy::SystemPromptInjection { prompt: "think".into() },
-        EmulationStrategy::PostProcessing { detail: "validate".into() },
-        EmulationStrategy::Disabled { reason: "nope".into() },
+        EmulationStrategy::SystemPromptInjection {
+            prompt: "think".into(),
+        },
+        EmulationStrategy::PostProcessing {
+            detail: "validate".into(),
+        },
+        EmulationStrategy::Disabled {
+            reason: "nope".into(),
+        },
     ];
     for s in &strategies {
         let json = serde_json::to_string(s).unwrap();
@@ -1400,11 +1634,15 @@ fn negotiator_restricted_counted_when_minimum_is_restricted() {
     let request = NegotiationRequest {
         required: vec![Capability::ToolBash],
         preferred: vec![],
-        minimum_support: SupportLevel::Restricted { reason: String::new() },
+        minimum_support: SupportLevel::Restricted {
+            reason: String::new(),
+        },
     };
     let manifest = make_manifest(&[(
         Capability::ToolBash,
-        SupportLevel::Restricted { reason: "sandboxed".into() },
+        SupportLevel::Restricted {
+            reason: "sandboxed".into(),
+        },
     )]);
     let result = CapabilityNegotiator::negotiate(&request, &manifest);
     assert!(result.is_compatible);
@@ -1426,8 +1664,14 @@ fn negotiator_unsupported_minimum_accepts_everything() {
 fn selector_multiple_requirements_all_must_match() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(make_candidate("a", vec![Capability::Streaming], 1));
-    sel.add_candidate(make_candidate("b", vec![Capability::Streaming, Capability::ToolRead], 1));
-    let chosen = sel.select(&[Capability::Streaming, Capability::ToolRead]).unwrap();
+    sel.add_candidate(make_candidate(
+        "b",
+        vec![Capability::Streaming, Capability::ToolRead],
+        1,
+    ));
+    let chosen = sel
+        .select(&[Capability::Streaming, Capability::ToolRead])
+        .unwrap();
     assert_eq!(chosen.name, "b");
 }
 
@@ -1437,8 +1681,14 @@ fn full_negotiation_pipeline_from_work_order() {
     let wo = WorkOrderBuilder::new("full pipeline test")
         .requirements(CapabilityRequirements {
             required: vec![
-                CapabilityRequirement { capability: Capability::Streaming, min_support: MinSupport::Native },
-                CapabilityRequirement { capability: Capability::ToolUse, min_support: MinSupport::Emulated },
+                CapabilityRequirement {
+                    capability: Capability::Streaming,
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: Capability::ToolUse,
+                    min_support: MinSupport::Emulated,
+                },
             ],
         })
         .build();
