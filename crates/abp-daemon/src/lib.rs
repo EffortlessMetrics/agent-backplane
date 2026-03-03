@@ -12,6 +12,8 @@ pub mod middleware;
 pub mod queue;
 /// Trait-based route handler signatures.
 pub mod routes;
+/// In-memory run registry and event store.
+pub mod state;
 /// Request validation for the daemon API.
 pub mod validation;
 /// API versioning support.

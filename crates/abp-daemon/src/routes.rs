@@ -113,6 +113,145 @@ pub trait DaemonRouter: HealthHandler + BackendsHandler + RunHandler + RunStatus
 
 impl<T> DaemonRouter for T where T: HealthHandler + BackendsHandler + RunHandler + RunStatusHandler {}
 
+// ---------------------------------------------------------------------------
+// Route table — lightweight route matching without an HTTP framework
+// ---------------------------------------------------------------------------
+
+/// HTTP method for route matching.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Method {
+    /// GET request.
+    Get,
+    /// POST request.
+    Post,
+    /// DELETE request.
+    Delete,
+}
+
+impl std::fmt::Display for Method {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Get => write!(f, "GET"),
+            Self::Post => write!(f, "POST"),
+            Self::Delete => write!(f, "DELETE"),
+        }
+    }
+}
+
+/// Identifies which endpoint a request was matched to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Endpoint {
+    /// `GET /api/v1/health`
+    Health,
+    /// `GET /api/v1/backends`
+    ListBackends,
+    /// `POST /api/v1/runs`
+    SubmitRun,
+    /// `GET /api/v1/runs/:id`
+    GetRun {
+        /// The run identifier extracted from the path.
+        run_id: String,
+    },
+    /// `GET /api/v1/runs/:id/events`
+    GetRunEvents {
+        /// The run identifier extracted from the path.
+        run_id: String,
+    },
+    /// `POST /api/v1/runs/:id/cancel`
+    CancelRun {
+        /// The run identifier extracted from the path.
+        run_id: String,
+    },
+    /// `DELETE /api/v1/runs/:id`
+    DeleteRun {
+        /// The run identifier extracted from the path.
+        run_id: String,
+    },
+}
+
+/// Result of matching a request path and method against the route table.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MatchResult {
+    /// Successfully matched to an endpoint.
+    Matched(Endpoint),
+    /// The path exists but the method is not allowed.
+    MethodNotAllowed,
+    /// No route matches the path.
+    NotFound,
+}
+
+/// A simple route table that maps `(method, path)` pairs to endpoints.
+pub struct RouteTable {
+    prefix: String,
+}
+
+impl RouteTable {
+    /// Create a route table with the given API prefix (e.g. `"/api/v1"`).
+    pub fn new(prefix: impl Into<String>) -> Self {
+        Self {
+            prefix: prefix.into(),
+        }
+    }
+
+    /// Match a request against the route table.
+    pub fn match_route(&self, method: Method, path: &str) -> MatchResult {
+        let stripped = path.strip_prefix(&self.prefix).unwrap_or(path);
+        let stripped = stripped.strip_suffix('/').unwrap_or(stripped);
+
+        let segments: Vec<&str> = stripped.split('/').filter(|s| !s.is_empty()).collect();
+
+        match segments.as_slice() {
+            ["health"] => {
+                if method == Method::Get {
+                    MatchResult::Matched(Endpoint::Health)
+                } else {
+                    MatchResult::MethodNotAllowed
+                }
+            }
+            ["backends"] => {
+                if method == Method::Get {
+                    MatchResult::Matched(Endpoint::ListBackends)
+                } else {
+                    MatchResult::MethodNotAllowed
+                }
+            }
+            ["runs"] => match method {
+                Method::Post => MatchResult::Matched(Endpoint::SubmitRun),
+                Method::Get => MatchResult::MethodNotAllowed,
+                _ => MatchResult::MethodNotAllowed,
+            },
+            ["runs", id] => match method {
+                Method::Get => MatchResult::Matched(Endpoint::GetRun {
+                    run_id: (*id).to_string(),
+                }),
+                Method::Delete => MatchResult::Matched(Endpoint::DeleteRun {
+                    run_id: (*id).to_string(),
+                }),
+                _ => MatchResult::MethodNotAllowed,
+            },
+            ["runs", id, "events"] => {
+                if method == Method::Get {
+                    MatchResult::Matched(Endpoint::GetRunEvents {
+                        run_id: (*id).to_string(),
+                    })
+                } else {
+                    MatchResult::MethodNotAllowed
+                }
+            }
+            ["runs", id, "cancel"] => {
+                if method == Method::Post {
+                    MatchResult::Matched(Endpoint::CancelRun {
+                        run_id: (*id).to_string(),
+                    })
+                } else {
+                    MatchResult::MethodNotAllowed
+                }
+            }
+            _ => MatchResult::NotFound,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
