@@ -932,7 +932,7 @@ fn capability_negotiate_emulated_tool_read() {
     };
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulated, vec![Capability::ToolRead]);
+    assert_eq!(result.emulated_caps(), vec![Capability::ToolRead]);
 }
 
 #[test]
@@ -946,7 +946,7 @@ fn capability_negotiate_unsupported() {
     };
     let result = negotiate(&manifest, &reqs);
     assert!(!result.is_compatible());
-    assert_eq!(result.unsupported, vec![Capability::CodeExecution]);
+    assert_eq!(result.unsupported_caps(), vec![Capability::CodeExecution]);
 }
 
 #[test]
@@ -982,11 +982,11 @@ fn capability_check_missing_is_unsupported() {
 
 #[test]
 fn capability_report_compatible() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming, Capability::ToolUse],
-        emulated: vec![],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming, Capability::ToolUse],
+        vec![],
+        vec![],
+    );
     let report = generate_report(&result);
     assert!(report.compatible);
     assert_eq!(report.native_count, 2);
@@ -995,11 +995,7 @@ fn capability_report_compatible() {
 
 #[test]
 fn capability_report_incompatible() {
-    let result = NegotiationResult {
-        native: vec![],
-        emulated: vec![],
-        unsupported: vec![Capability::ImageInput],
-    };
+    let result = NegotiationResult::from_simple(vec![], vec![], vec![Capability::ImageInput]);
     let report = generate_report(&result);
     assert!(!report.compatible);
     assert_eq!(report.unsupported_count, 1);
@@ -1042,11 +1038,11 @@ fn capability_restricted_treated_as_emulated() {
 
 #[test]
 fn capability_negotiation_total() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![Capability::ToolRead],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead],
+        vec![Capability::Logprobs],
+    );
     assert_eq!(result.total(), 3);
 }
 

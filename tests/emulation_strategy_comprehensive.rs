@@ -1355,14 +1355,14 @@ fn negotiation_emulatable_feeds_into_emulation_engine() {
     let neg = negotiate(&manifest, &reqs);
     assert!(neg.is_compatible());
     assert_eq!(neg.native, vec![Capability::Streaming]);
-    assert_eq!(neg.emulated, vec![Capability::ExtendedThinking]);
+    assert_eq!(neg.emulated_caps(), vec![Capability::ExtendedThinking]);
 
     // Now apply emulation only for the emulatable capabilities
     let engine = EmulationEngine::with_defaults();
     let mut conv = IrConversation::new()
         .push(IrMessage::text(IrRole::System, "You are a bot."))
         .push(IrMessage::text(IrRole::User, "Hi"));
-    let emu_report = engine.apply(&neg.emulated, &mut conv);
+    let emu_report = engine.apply(&neg.emulated_caps(), &mut conv);
     assert_eq!(emu_report.applied.len(), 1);
 
     // Compute fidelity
@@ -1388,7 +1388,7 @@ fn unsupported_capabilities_produce_disabled_emulation() {
 
     // Even emulation engine can't help
     let engine = EmulationEngine::with_defaults();
-    let report = engine.check_missing(&neg.unsupported);
+    let report = engine.check_missing(&neg.unsupported_caps());
     assert!(report.has_unemulatable());
 }
 

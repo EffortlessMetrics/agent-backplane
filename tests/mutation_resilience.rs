@@ -194,11 +194,11 @@ fn negotiate_empty_requirements_is_compatible() {
 /// NegotiationResult::total must equal sum of all buckets.
 #[test]
 fn negotiate_total_equals_sum_of_buckets() {
-    let result = abp_capability::NegotiationResult {
-        native: vec![abp_core::Capability::Streaming],
-        emulated: vec![abp_core::Capability::ToolRead],
-        unsupported: vec![abp_core::Capability::Logprobs],
-    };
+    let result = abp_capability::NegotiationResult::from_simple(
+        vec![abp_core::Capability::Streaming],
+        vec![abp_core::Capability::ToolRead],
+        vec![abp_core::Capability::Logprobs],
+    );
     assert_eq!(result.total(), 3);
     assert_eq!(
         result.total(),

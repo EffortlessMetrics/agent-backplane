@@ -873,9 +873,11 @@ fn http_status_class(code: &ErrorCode) -> u16 {
     match code.category() {
         ErrorCategory::Policy => 403,
         ErrorCategory::Backend => match code {
-            ErrorCode::BackendNotFound => 404,
+            ErrorCode::BackendNotFound | ErrorCode::BackendModelNotFound => 404,
             ErrorCode::BackendTimeout => 504,
             ErrorCode::BackendCrashed => 502,
+            ErrorCode::BackendRateLimited => 429,
+            ErrorCode::BackendAuthFailed => 401,
             _ => 500,
         },
         ErrorCategory::Config => 400,
@@ -885,6 +887,9 @@ fn http_status_class(code: &ErrorCode) -> u16 {
         ErrorCategory::Receipt => 409,
         ErrorCategory::Dialect => 400,
         ErrorCategory::Workspace => 500,
+        ErrorCategory::Mapping => 422,
+        ErrorCategory::Execution => 500,
+        ErrorCategory::Contract => 422,
         ErrorCategory::Internal => 500,
     }
 }

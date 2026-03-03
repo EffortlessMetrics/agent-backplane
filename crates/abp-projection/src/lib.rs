@@ -582,7 +582,7 @@ fn is_passthrough_mode(work_order: &WorkOrder) -> bool {
 fn build_emulations(neg: &NegotiationResult) -> Vec<RequiredEmulation> {
     neg.emulated
         .iter()
-        .map(|cap| RequiredEmulation {
+        .map(|(cap, _strategy)| RequiredEmulation {
             capability: cap.clone(),
             strategy: "adapter".into(),
         })
@@ -1248,43 +1248,35 @@ mod tests {
 
     #[test]
     fn capability_coverage_empty_reqs() {
-        let neg = NegotiationResult {
-            native: vec![],
-            emulated: vec![],
-            unsupported: vec![],
-        };
+        let neg = NegotiationResult::from_simple(vec![], vec![], vec![]);
         let reqs = CapabilityRequirements::default();
         assert!((capability_coverage(&neg, &reqs) - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn capability_coverage_partial() {
-        let neg = NegotiationResult {
-            native: vec![Capability::Streaming],
-            emulated: vec![],
-            unsupported: vec![Capability::ToolRead],
-        };
+        let neg = NegotiationResult::from_simple(
+            vec![Capability::Streaming],
+            vec![],
+            vec![Capability::ToolRead],
+        );
         let reqs = require_caps(&[Capability::Streaming, Capability::ToolRead]);
         assert!((capability_coverage(&neg, &reqs) - 0.5).abs() < f64::EPSILON);
     }
 
     #[test]
     fn build_emulations_empty() {
-        let neg = NegotiationResult {
-            native: vec![Capability::Streaming],
-            emulated: vec![],
-            unsupported: vec![],
-        };
+        let neg = NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
         assert!(build_emulations(&neg).is_empty());
     }
 
     #[test]
     fn build_emulations_multiple() {
-        let neg = NegotiationResult {
-            native: vec![],
-            emulated: vec![Capability::Streaming, Capability::ToolRead],
-            unsupported: vec![],
-        };
+        let neg = NegotiationResult::from_simple(
+            vec![],
+            vec![Capability::Streaming, Capability::ToolRead],
+            vec![],
+        );
         let emu = build_emulations(&neg);
         assert_eq!(emu.len(), 2);
         assert_eq!(emu[0].capability, Capability::Streaming);

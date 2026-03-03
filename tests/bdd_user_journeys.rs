@@ -356,7 +356,7 @@ fn given_capability_gap_when_run_then_negotiation_error() {
 
     let result = negotiate(&manifest, &reqs);
     assert!(!result.is_compatible());
-    assert_eq!(result.unsupported, vec![Capability::McpClient]);
+    assert_eq!(result.unsupported_caps(), vec![Capability::McpClient]);
 
     // Also check via runtime API.
     let rt = Runtime::with_default_backends();

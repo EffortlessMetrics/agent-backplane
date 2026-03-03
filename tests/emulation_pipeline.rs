@@ -80,7 +80,7 @@ mod structured_output {
         );
         assert!(!neg.is_compatible());
         assert_eq!(
-            neg.unsupported,
+            neg.unsupported_caps(),
             vec![Capability::StructuredOutputJsonSchema]
         );
     }
@@ -288,7 +288,7 @@ mod extended_thinking {
         let manifest = empty_manifest();
         let neg = negotiate(&manifest, &require(&[Capability::ExtendedThinking]));
         assert!(!neg.is_compatible());
-        assert_eq!(neg.unsupported, vec![Capability::ExtendedThinking]);
+        assert_eq!(neg.unsupported_caps(), vec![Capability::ExtendedThinking]);
     }
 
     #[test]
@@ -771,9 +771,7 @@ mod cross_capability {
         // Attempt to emulate the unsupported capabilities.
         let engine = EmulationEngine::with_defaults();
         let mut conv = minimal_conversation();
-        let report = engine.apply(&neg.unsupported, &mut conv);
-
-        // Both ExtendedThinking and StopSequences are emulatable.
+        let report = engine.apply(&neg.unsupported_caps(), &mut conv);
         assert_eq!(report.applied.len(), 2);
         assert!(report.warnings.is_empty());
 
@@ -810,7 +808,7 @@ mod cross_capability {
         // Emulate both.
         let engine = EmulationEngine::with_defaults();
         let mut conv = minimal_conversation();
-        let report = engine.apply(&neg.unsupported, &mut conv);
+        let report = engine.apply(&neg.unsupported_caps(), &mut conv);
         assert_eq!(report.applied.len(), 2);
         assert!(report.warnings.is_empty());
     }

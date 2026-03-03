@@ -655,7 +655,7 @@ fn negotiate_kimi_requesting_tool_bash_fails() {
     let reqs = require_native(&[Capability::ToolBash]);
     let result = negotiate(&m, &reqs);
     assert!(!result.is_compatible());
-    assert_eq!(result.unsupported, vec![Capability::ToolBash]);
+    assert_eq!(result.unsupported_caps(), vec![Capability::ToolBash]);
 }
 
 #[test]

@@ -1092,11 +1092,8 @@ fn given_manifest_when_no_requirements_then_compatible() {
 
 #[test]
 fn given_report_when_all_native_then_compatible_summary() {
-    let result = abp_capability::NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![],
-        unsupported: vec![],
-    };
+    let result =
+        abp_capability::NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
     let report = generate_report(&result);
     assert!(report.compatible);
     assert_eq!(report.native_count, 1);
@@ -1105,11 +1102,8 @@ fn given_report_when_all_native_then_compatible_summary() {
 
 #[test]
 fn given_report_when_unsupported_then_incompatible() {
-    let result = abp_capability::NegotiationResult {
-        native: vec![],
-        emulated: vec![],
-        unsupported: vec![Capability::ToolBash],
-    };
+    let result =
+        abp_capability::NegotiationResult::from_simple(vec![], vec![], vec![Capability::ToolBash]);
     let report = generate_report(&result);
     assert!(!report.compatible);
     assert_eq!(report.unsupported_count, 1);

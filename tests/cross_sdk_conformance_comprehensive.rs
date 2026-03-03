@@ -794,7 +794,7 @@ fn unsupported_capability_negotiation_fails() {
     let reqs = require_caps(&[(Capability::CodeExecution, MinSupport::Native)]);
     let result = negotiate(&manifest, &reqs);
     assert!(!result.is_compatible());
-    assert_eq!(result.unsupported, vec![Capability::CodeExecution]);
+    assert_eq!(result.unsupported_caps(), vec![Capability::CodeExecution]);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -845,11 +845,11 @@ fn capability_restricted_maps_to_emulated() {
 
 #[test]
 fn capability_report_fully_compatible() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming, Capability::ToolUse],
-        emulated: vec![],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming, Capability::ToolUse],
+        vec![],
+        vec![],
+    );
     let report = generate_report(&result);
     assert!(report.compatible);
     assert_eq!(report.native_count, 2);
@@ -858,11 +858,11 @@ fn capability_report_fully_compatible() {
 
 #[test]
 fn capability_report_incompatible() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![],
-        unsupported: vec![Capability::CodeExecution],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![],
+        vec![Capability::CodeExecution],
+    );
     let report = generate_report(&result);
     assert!(!report.compatible);
     assert_eq!(report.unsupported_count, 1);
@@ -871,11 +871,11 @@ fn capability_report_incompatible() {
 
 #[test]
 fn capability_report_mixed() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![Capability::ExtendedThinking],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ExtendedThinking],
+        vec![],
+    );
     let report = generate_report(&result);
     assert!(report.compatible);
     assert_eq!(report.native_count, 1);
@@ -884,11 +884,11 @@ fn capability_report_mixed() {
 
 #[test]
 fn capability_total_counts_all_buckets() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![Capability::ToolRead],
-        unsupported: vec![Capability::CodeExecution],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead],
+        vec![Capability::CodeExecution],
+    );
     assert_eq!(result.total(), 3);
 }
 

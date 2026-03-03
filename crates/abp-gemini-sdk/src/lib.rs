@@ -8,9 +8,9 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod conversions;
 pub mod dialect;
 pub mod lowering;
-pub mod conversions;
 
 use abp_runtime::Runtime;
 use abp_sidecar_sdk::{register_sidecar_backend, sidecar_script as resolve_sidecar_script};

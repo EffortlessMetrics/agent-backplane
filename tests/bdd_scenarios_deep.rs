@@ -531,7 +531,7 @@ fn s06_given_no_tool_use_when_emulation_required_then_emulatable() {
     let reqs = require(&[(Capability::ToolUse, MinSupport::Emulated)]);
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulated, vec![Capability::ToolUse]);
+    assert_eq!(result.emulated_caps(), vec![Capability::ToolUse]);
 }
 
 /// Given backend missing extended_thinking, When native required, Then unsupported.
@@ -541,7 +541,10 @@ fn s06_given_no_thinking_when_native_required_then_unsupported() {
     let reqs = require(&[(Capability::ExtendedThinking, MinSupport::Native)]);
     let result = negotiate(&manifest, &reqs);
     assert!(!result.is_compatible());
-    assert_eq!(result.unsupported, vec![Capability::ExtendedThinking]);
+    assert_eq!(
+        result.unsupported_caps(),
+        vec![Capability::ExtendedThinking]
+    );
 }
 
 /// Given empty requirements, When negotiated, Then always compatible.

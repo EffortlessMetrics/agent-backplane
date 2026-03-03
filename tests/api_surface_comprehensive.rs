@@ -1738,31 +1738,23 @@ mod capability_constructors {
 
     #[test]
     fn negotiation_result_is_compatible() {
-        let r = NegotiationResult {
-            native: vec![Capability::Streaming],
-            emulated: vec![],
-            unsupported: vec![],
-        };
+        let r = NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
         assert!(r.is_compatible());
     }
 
     #[test]
     fn negotiation_result_total() {
-        let r = NegotiationResult {
-            native: vec![Capability::Streaming],
-            emulated: vec![Capability::ToolRead],
-            unsupported: vec![Capability::Logprobs],
-        };
+        let r = NegotiationResult::from_simple(
+            vec![Capability::Streaming],
+            vec![Capability::ToolRead],
+            vec![Capability::Logprobs],
+        );
         assert_eq!(r.total(), 3);
     }
 
     #[test]
     fn generate_report_compatible() {
-        let r = NegotiationResult {
-            native: vec![Capability::Streaming],
-            emulated: vec![],
-            unsupported: vec![],
-        };
+        let r = NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
         let report = generate_report(&r);
         assert!(report.compatible);
         assert_eq!(report.native_count, 1);
@@ -1771,11 +1763,7 @@ mod capability_constructors {
 
     #[test]
     fn generate_report_incompatible() {
-        let r = NegotiationResult {
-            native: vec![],
-            emulated: vec![],
-            unsupported: vec![Capability::Streaming],
-        };
+        let r = NegotiationResult::from_simple(vec![], vec![], vec![Capability::Streaming]);
         let report = generate_report(&r);
         assert!(!report.compatible);
         assert!(report.summary.contains("incompatible"));
@@ -1830,11 +1818,7 @@ mod capability_traits {
 
     #[test]
     fn negotiation_result_clone_debug_eq_serde() {
-        let r = NegotiationResult {
-            native: vec![Capability::Streaming],
-            emulated: vec![],
-            unsupported: vec![],
-        };
+        let r = NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
         let cloned = r.clone();
         assert_eq!(r, cloned);
         let _ = format!("{:?}", cloned);
@@ -1845,11 +1829,7 @@ mod capability_traits {
 
     #[test]
     fn compatibility_report_clone_debug_eq_serde() {
-        let r = NegotiationResult {
-            native: vec![],
-            emulated: vec![],
-            unsupported: vec![],
-        };
+        let r = NegotiationResult::from_simple(vec![], vec![], vec![]);
         let report = generate_report(&r);
         let cloned = report.clone();
         assert_eq!(report, cloned);

@@ -329,8 +329,8 @@ fn negotiate_mixed_native_emulated_unsupported() {
     ]);
     let res = negotiate(&m, &r);
     assert_eq!(res.native, vec![Capability::Streaming]);
-    assert_eq!(res.emulated, vec![Capability::ToolRead]);
-    assert_eq!(res.unsupported, vec![Capability::ToolWrite]);
+    assert_eq!(res.emulated_caps(), vec![Capability::ToolRead]);
+    assert_eq!(res.unsupported_caps(), vec![Capability::ToolWrite]);
     assert!(!res.is_compatible());
 }
 
@@ -344,7 +344,7 @@ fn negotiate_restricted_treated_as_emulatable() {
     )]);
     let r = require_native(&[Capability::ToolBash]);
     let res = negotiate(&m, &r);
-    assert_eq!(res.emulated, vec![Capability::ToolBash]);
+    assert_eq!(res.emulated_caps(), vec![Capability::ToolBash]);
     assert!(res.is_compatible());
 }
 
@@ -353,7 +353,7 @@ fn negotiate_explicit_unsupported_in_manifest() {
     let m = manifest(&[(Capability::Logprobs, SupportLevel::Unsupported)]);
     let r = require_native(&[Capability::Logprobs]);
     let res = negotiate(&m, &r);
-    assert_eq!(res.unsupported, vec![Capability::Logprobs]);
+    assert_eq!(res.unsupported_caps(), vec![Capability::Logprobs]);
     assert!(!res.is_compatible());
 }
 
@@ -488,11 +488,11 @@ fn check_cap_every_core_variant() {
 
 #[test]
 fn report_fully_compatible() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming, Capability::ToolRead],
-        emulated: vec![Capability::ToolWrite],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming, Capability::ToolRead],
+        vec![Capability::ToolWrite],
+        vec![],
+    );
     let report = generate_report(&result);
     assert!(report.compatible);
     assert_eq!(report.native_count, 2);
@@ -503,11 +503,11 @@ fn report_fully_compatible() {
 
 #[test]
 fn report_incompatible() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![],
+        vec![Capability::Logprobs],
+    );
     let report = generate_report(&result);
     assert!(!report.compatible);
     assert!(report.summary.contains("incompatible"));
@@ -515,11 +515,7 @@ fn report_incompatible() {
 
 #[test]
 fn report_empty_result() {
-    let result = NegotiationResult {
-        native: vec![],
-        emulated: vec![],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(vec![], vec![], vec![]);
     let report = generate_report(&result);
     assert!(report.compatible);
     assert_eq!(report.native_count, 0);
@@ -527,11 +523,11 @@ fn report_empty_result() {
 
 #[test]
 fn report_counts_match() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![Capability::ToolRead, Capability::ToolWrite],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead, Capability::ToolWrite],
+        vec![Capability::Logprobs],
+    );
     let report = generate_report(&result);
     assert_eq!(report.native_count, 1);
     assert_eq!(report.emulated_count, 2);
@@ -540,22 +536,22 @@ fn report_counts_match() {
 
 #[test]
 fn report_details_length_matches_total() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![Capability::ToolRead],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead],
+        vec![Capability::Logprobs],
+    );
     let report = generate_report(&result);
     assert_eq!(report.details.len(), 3);
 }
 
 #[test]
 fn report_summary_contains_counts() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming, Capability::ToolUse],
-        emulated: vec![Capability::ToolBash],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming, Capability::ToolUse],
+        vec![Capability::ToolBash],
+        vec![],
+    );
     let report = generate_report(&result);
     assert!(report.summary.contains("2 native"));
     assert!(report.summary.contains("1 emulatable"));
@@ -564,11 +560,11 @@ fn report_summary_contains_counts() {
 
 #[test]
 fn report_all_emulated_is_compatible() {
-    let result = NegotiationResult {
-        native: vec![],
-        emulated: vec![Capability::Streaming, Capability::ToolRead],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![],
+        vec![Capability::Streaming, Capability::ToolRead],
+        vec![],
+    );
     let report = generate_report(&result);
     assert!(report.compatible);
     assert!(report.summary.contains("fully compatible"));
@@ -576,11 +572,7 @@ fn report_all_emulated_is_compatible() {
 
 #[test]
 fn report_serde_roundtrip() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
     let report = generate_report(&result);
     let json = serde_json::to_string(&report).unwrap();
     let back: CompatibilityReport = serde_json::from_str(&json).unwrap();
@@ -589,11 +581,11 @@ fn report_serde_roundtrip() {
 
 #[test]
 fn negotiation_result_serde_roundtrip() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![Capability::ToolRead],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead],
+        vec![Capability::Logprobs],
+    );
     let json = serde_json::to_string(&result).unwrap();
     let back: NegotiationResult = serde_json::from_str(&json).unwrap();
     assert_eq!(back, result);
@@ -1239,7 +1231,7 @@ fn edge_empty_manifest_single_requirement() {
     let m: CapabilityManifest = BTreeMap::new();
     let r = require_native(&[Capability::Streaming]);
     let res = negotiate(&m, &r);
-    assert_eq!(res.unsupported, vec![Capability::Streaming]);
+    assert_eq!(res.unsupported_caps(), vec![Capability::Streaming]);
     assert!(!res.is_compatible());
 }
 
@@ -1293,7 +1285,7 @@ fn edge_single_capability_emulated() {
     let m = manifest(&[(Capability::ToolUse, SupportLevel::Emulated)]);
     let r = require_native(&[Capability::ToolUse]);
     let res = negotiate(&m, &r);
-    assert_eq!(res.emulated, vec![Capability::ToolUse]);
+    assert_eq!(res.emulated_caps(), vec![Capability::ToolUse]);
     assert!(res.is_compatible());
 }
 
@@ -1302,7 +1294,7 @@ fn edge_single_capability_unsupported() {
     let m: CapabilityManifest = BTreeMap::new();
     let r = require_native(&[Capability::ToolUse]);
     let res = negotiate(&m, &r);
-    assert_eq!(res.unsupported, vec![Capability::ToolUse]);
+    assert_eq!(res.unsupported_caps(), vec![Capability::ToolUse]);
     assert!(!res.is_compatible());
 }
 
@@ -1323,32 +1315,24 @@ fn edge_large_manifest_small_requirements() {
 
 #[test]
 fn edge_negotiation_result_total_zero() {
-    let result = NegotiationResult {
-        native: vec![],
-        emulated: vec![],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(vec![], vec![], vec![]);
     assert_eq!(result.total(), 0);
     assert!(result.is_compatible());
 }
 
 #[test]
 fn edge_negotiation_result_is_compatible_only_emulated() {
-    let result = NegotiationResult {
-        native: vec![],
-        emulated: vec![Capability::Streaming],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(vec![], vec![Capability::Streaming], vec![]);
     assert!(result.is_compatible());
 }
 
 #[test]
 fn edge_negotiation_result_is_not_compatible_one_unsupported() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulated: vec![Capability::ToolRead],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead],
+        vec![Capability::Logprobs],
+    );
     assert!(!result.is_compatible());
 }
 
@@ -1443,11 +1427,7 @@ fn edge_check_all_capabilities_native() {
 #[test]
 fn edge_report_large_unsupported() {
     let all = all_capabilities();
-    let result = NegotiationResult {
-        native: vec![],
-        emulated: vec![],
-        unsupported: all.clone(),
-    };
+    let result = NegotiationResult::from_simple(vec![], vec![], all.clone());
     let report = generate_report(&result);
     assert!(!report.compatible);
     assert_eq!(report.unsupported_count, all.len());
@@ -1457,11 +1437,7 @@ fn edge_report_large_unsupported() {
 #[test]
 fn edge_report_large_native() {
     let all = all_capabilities();
-    let result = NegotiationResult {
-        native: all.clone(),
-        emulated: vec![],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(all.clone(), vec![], vec![]);
     let report = generate_report(&result);
     assert!(report.compatible);
     assert_eq!(report.native_count, all.len());

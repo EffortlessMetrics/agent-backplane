@@ -47,6 +47,12 @@ pub enum ErrorCategory {
     Dialect,
     /// Configuration errors.
     Config,
+    /// Cross-dialect mapping / translation errors.
+    Mapping,
+    /// Task execution errors.
+    Execution,
+    /// Contract validation errors.
+    Contract,
     /// Catch-all for unexpected internal errors.
     Internal,
 }
@@ -63,6 +69,9 @@ impl fmt::Display for ErrorCategory {
             Self::Receipt => "receipt",
             Self::Dialect => "dialect",
             Self::Config => "config",
+            Self::Mapping => "mapping",
+            Self::Execution => "execution",
+            Self::Contract => "contract",
             Self::Internal => "internal",
         };
         f.write_str(s)
@@ -75,8 +84,8 @@ impl fmt::Display for ErrorCategory {
 
 /// Machine-readable, stable error code.
 ///
-/// Each variant serialises to a `SCREAMING_SNAKE_CASE` string that is
-/// guaranteed not to change across patch releases.
+/// Each variant serialises to a `snake_case` string that is guaranteed not to
+/// change across patch releases.
 ///
 /// # Examples
 ///
@@ -84,28 +93,66 @@ impl fmt::Display for ErrorCategory {
 /// use abp_error::ErrorCode;
 ///
 /// let code = ErrorCode::BackendTimeout;
-/// assert_eq!(code.as_str(), "BACKEND_TIMEOUT");
-/// assert_eq!(code.to_string(), "BACKEND_TIMEOUT");
+/// assert_eq!(code.as_str(), "backend_timeout");
+/// assert_eq!(code.to_string(), "backend timed out");
 /// assert_eq!(code.category().to_string(), "backend");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     // -- Protocol --
     /// Envelope failed to parse or has missing/invalid fields.
     ProtocolInvalidEnvelope,
+    /// The sidecar handshake (hello exchange) failed.
+    ProtocolHandshakeFailed,
+    /// The `ref_id` field is missing from the envelope.
+    ProtocolMissingRefId,
     /// Message arrived in wrong order (e.g. event before hello).
     ProtocolUnexpectedMessage,
     /// Contract version mismatch between host and sidecar.
     ProtocolVersionMismatch,
 
+    // -- Mapping --
+    /// A required capability is not supported by the target dialect.
+    MappingUnsupportedCapability,
+    /// The source and target dialects are incompatible.
+    MappingDialectMismatch,
+    /// Translation succeeded but information was lost.
+    MappingLossyConversion,
+    /// A tool call cannot be represented in the target dialect.
+    MappingUnmappableTool,
+
     // -- Backend --
     /// Requested backend name does not exist.
     BackendNotFound,
+    /// The backend is temporarily unavailable.
+    BackendUnavailable,
     /// Backend did not respond within the configured timeout.
     BackendTimeout,
+    /// The backend rejected the request due to rate limiting.
+    BackendRateLimited,
+    /// Authentication with the backend failed.
+    BackendAuthFailed,
+    /// The requested model was not found on the backend.
+    BackendModelNotFound,
     /// Backend process exited unexpectedly.
     BackendCrashed,
+
+    // -- Execution --
+    /// A tool invocation failed during execution.
+    ExecutionToolFailed,
+    /// An error occurred in the staged workspace.
+    ExecutionWorkspaceError,
+    /// The operation was denied due to insufficient permissions.
+    ExecutionPermissionDenied,
+
+    // -- Contract --
+    /// The contract version does not match the expected version.
+    ContractVersionMismatch,
+    /// The payload violates the contract schema.
+    ContractSchemaViolation,
+    /// The receipt is structurally invalid or cannot be verified.
+    ContractInvalidReceipt,
 
     // -- Capability --
     /// A required capability is not supported by the backend.
@@ -157,12 +204,31 @@ impl ErrorCode {
     pub fn category(&self) -> ErrorCategory {
         match self {
             Self::ProtocolInvalidEnvelope
+            | Self::ProtocolHandshakeFailed
+            | Self::ProtocolMissingRefId
             | Self::ProtocolUnexpectedMessage
             | Self::ProtocolVersionMismatch => ErrorCategory::Protocol,
 
-            Self::BackendNotFound | Self::BackendTimeout | Self::BackendCrashed => {
-                ErrorCategory::Backend
-            }
+            Self::MappingUnsupportedCapability
+            | Self::MappingDialectMismatch
+            | Self::MappingLossyConversion
+            | Self::MappingUnmappableTool => ErrorCategory::Mapping,
+
+            Self::BackendNotFound
+            | Self::BackendUnavailable
+            | Self::BackendTimeout
+            | Self::BackendRateLimited
+            | Self::BackendAuthFailed
+            | Self::BackendModelNotFound
+            | Self::BackendCrashed => ErrorCategory::Backend,
+
+            Self::ExecutionToolFailed
+            | Self::ExecutionWorkspaceError
+            | Self::ExecutionPermissionDenied => ErrorCategory::Execution,
+
+            Self::ContractVersionMismatch
+            | Self::ContractSchemaViolation
+            | Self::ContractInvalidReceipt => ErrorCategory::Contract,
 
             Self::CapabilityUnsupported | Self::CapabilityEmulationFailed => {
                 ErrorCategory::Capability
@@ -184,37 +250,167 @@ impl ErrorCode {
         }
     }
 
-    /// Stable `&'static str` representation of the code (e.g.
-    /// `"PROTOCOL_INVALID_ENVELOPE"`).
+    /// Stable `&'static str` representation of the code in snake_case
+    /// (e.g. `"protocol_invalid_envelope"`).
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::ProtocolInvalidEnvelope => "PROTOCOL_INVALID_ENVELOPE",
-            Self::ProtocolUnexpectedMessage => "PROTOCOL_UNEXPECTED_MESSAGE",
-            Self::ProtocolVersionMismatch => "PROTOCOL_VERSION_MISMATCH",
-            Self::BackendNotFound => "BACKEND_NOT_FOUND",
-            Self::BackendTimeout => "BACKEND_TIMEOUT",
-            Self::BackendCrashed => "BACKEND_CRASHED",
-            Self::CapabilityUnsupported => "CAPABILITY_UNSUPPORTED",
-            Self::CapabilityEmulationFailed => "CAPABILITY_EMULATION_FAILED",
-            Self::PolicyDenied => "POLICY_DENIED",
-            Self::PolicyInvalid => "POLICY_INVALID",
-            Self::WorkspaceInitFailed => "WORKSPACE_INIT_FAILED",
-            Self::WorkspaceStagingFailed => "WORKSPACE_STAGING_FAILED",
-            Self::IrLoweringFailed => "IR_LOWERING_FAILED",
-            Self::IrInvalid => "IR_INVALID",
-            Self::ReceiptHashMismatch => "RECEIPT_HASH_MISMATCH",
-            Self::ReceiptChainBroken => "RECEIPT_CHAIN_BROKEN",
-            Self::DialectUnknown => "DIALECT_UNKNOWN",
-            Self::DialectMappingFailed => "DIALECT_MAPPING_FAILED",
-            Self::ConfigInvalid => "CONFIG_INVALID",
-            Self::Internal => "INTERNAL",
+            Self::ProtocolInvalidEnvelope => "protocol_invalid_envelope",
+            Self::ProtocolHandshakeFailed => "protocol_handshake_failed",
+            Self::ProtocolMissingRefId => "protocol_missing_ref_id",
+            Self::ProtocolUnexpectedMessage => "protocol_unexpected_message",
+            Self::ProtocolVersionMismatch => "protocol_version_mismatch",
+            Self::MappingUnsupportedCapability => "mapping_unsupported_capability",
+            Self::MappingDialectMismatch => "mapping_dialect_mismatch",
+            Self::MappingLossyConversion => "mapping_lossy_conversion",
+            Self::MappingUnmappableTool => "mapping_unmappable_tool",
+            Self::BackendNotFound => "backend_not_found",
+            Self::BackendUnavailable => "backend_unavailable",
+            Self::BackendTimeout => "backend_timeout",
+            Self::BackendRateLimited => "backend_rate_limited",
+            Self::BackendAuthFailed => "backend_auth_failed",
+            Self::BackendModelNotFound => "backend_model_not_found",
+            Self::BackendCrashed => "backend_crashed",
+            Self::ExecutionToolFailed => "execution_tool_failed",
+            Self::ExecutionWorkspaceError => "execution_workspace_error",
+            Self::ExecutionPermissionDenied => "execution_permission_denied",
+            Self::ContractVersionMismatch => "contract_version_mismatch",
+            Self::ContractSchemaViolation => "contract_schema_violation",
+            Self::ContractInvalidReceipt => "contract_invalid_receipt",
+            Self::CapabilityUnsupported => "capability_unsupported",
+            Self::CapabilityEmulationFailed => "capability_emulation_failed",
+            Self::PolicyDenied => "policy_denied",
+            Self::PolicyInvalid => "policy_invalid",
+            Self::WorkspaceInitFailed => "workspace_init_failed",
+            Self::WorkspaceStagingFailed => "workspace_staging_failed",
+            Self::IrLoweringFailed => "ir_lowering_failed",
+            Self::IrInvalid => "ir_invalid",
+            Self::ReceiptHashMismatch => "receipt_hash_mismatch",
+            Self::ReceiptChainBroken => "receipt_chain_broken",
+            Self::DialectUnknown => "dialect_unknown",
+            Self::DialectMappingFailed => "dialect_mapping_failed",
+            Self::ConfigInvalid => "config_invalid",
+            Self::Internal => "internal",
         }
+    }
+
+    /// Human-readable description of what this error code means.
+    pub fn message(&self) -> &'static str {
+        match self {
+            Self::ProtocolInvalidEnvelope => "envelope failed to parse or has invalid fields",
+            Self::ProtocolHandshakeFailed => "sidecar handshake failed",
+            Self::ProtocolMissingRefId => "ref_id field is missing from the envelope",
+            Self::ProtocolUnexpectedMessage => "message arrived in unexpected order",
+            Self::ProtocolVersionMismatch => "protocol version mismatch between host and sidecar",
+            Self::MappingUnsupportedCapability => {
+                "required capability is not supported by the target dialect"
+            }
+            Self::MappingDialectMismatch => "source and target dialects are incompatible",
+            Self::MappingLossyConversion => "translation succeeded but information was lost",
+            Self::MappingUnmappableTool => "tool call cannot be represented in the target dialect",
+            Self::BackendNotFound => "requested backend does not exist",
+            Self::BackendUnavailable => "backend is temporarily unavailable",
+            Self::BackendTimeout => "backend timed out",
+            Self::BackendRateLimited => "backend rejected the request due to rate limiting",
+            Self::BackendAuthFailed => "authentication with the backend failed",
+            Self::BackendModelNotFound => "requested model was not found on the backend",
+            Self::BackendCrashed => "backend process exited unexpectedly",
+            Self::ExecutionToolFailed => "tool invocation failed during execution",
+            Self::ExecutionWorkspaceError => "an error occurred in the staged workspace",
+            Self::ExecutionPermissionDenied => "operation denied due to insufficient permissions",
+            Self::ContractVersionMismatch => "contract version does not match the expected version",
+            Self::ContractSchemaViolation => "payload violates the contract schema",
+            Self::ContractInvalidReceipt => "receipt is structurally invalid or cannot be verified",
+            Self::CapabilityUnsupported => "required capability is not supported by the backend",
+            Self::CapabilityEmulationFailed => "capability emulation layer failed",
+            Self::PolicyDenied => "policy rule denied the operation",
+            Self::PolicyInvalid => "policy definition is malformed",
+            Self::WorkspaceInitFailed => "failed to initialise the staged workspace",
+            Self::WorkspaceStagingFailed => "failed to stage files into the workspace",
+            Self::IrLoweringFailed => "IR lowering failed",
+            Self::IrInvalid => "IR structure is invalid or inconsistent",
+            Self::ReceiptHashMismatch => "computed receipt hash does not match the declared hash",
+            Self::ReceiptChainBroken => "receipt chain has a gap or out-of-order entry",
+            Self::DialectUnknown => "dialect identifier is not recognised",
+            Self::DialectMappingFailed => "mapping between dialects failed",
+            Self::ConfigInvalid => "configuration file or value is invalid",
+            Self::Internal => "unexpected internal error",
+        }
+    }
+
+    /// Whether this error is potentially transient and the operation may
+    /// succeed if retried.
+    pub fn is_retryable(&self) -> bool {
+        matches!(
+            self,
+            Self::BackendUnavailable
+                | Self::BackendTimeout
+                | Self::BackendRateLimited
+                | Self::BackendCrashed
+        )
     }
 }
 
 impl fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
+        f.write_str(self.message())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ErrorInfo
+// ---------------------------------------------------------------------------
+
+/// Lightweight, serialisable error descriptor.
+///
+/// Pairs an [`ErrorCode`] with a message, arbitrary details, and a retryability
+/// flag.  Use this when you need a structured error payload without the
+/// cause-chain baggage of [`AbpError`].
+///
+/// # Examples
+///
+/// ```
+/// use abp_error::{ErrorCode, ErrorInfo};
+///
+/// let info = ErrorInfo::new(ErrorCode::BackendTimeout, "timed out after 30 s")
+///     .with_detail("backend", "openai");
+/// assert!(info.is_retryable);
+/// assert_eq!(info.details["backend"], serde_json::json!("openai"));
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ErrorInfo {
+    /// Machine-readable error code.
+    pub code: ErrorCode,
+    /// Human-readable message.
+    pub message: String,
+    /// Arbitrary key-value details for diagnostics.
+    pub details: BTreeMap<String, serde_json::Value>,
+    /// Whether the caller should retry the operation.
+    pub is_retryable: bool,
+}
+
+impl ErrorInfo {
+    /// Create a new [`ErrorInfo`].  `is_retryable` is inferred from the code.
+    pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
+        Self {
+            is_retryable: code.is_retryable(),
+            code,
+            message: message.into(),
+            details: BTreeMap::new(),
+        }
+    }
+
+    /// Attach a key-value detail.
+    pub fn with_detail(mut self, key: impl Into<String>, value: impl Serialize) -> Self {
+        if let Ok(v) = serde_json::to_value(value) {
+            self.details.insert(key.into(), v);
+        }
+        self
+    }
+}
+
+impl fmt::Display for ErrorInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}] {}", self.code.as_str(), self.message)
     }
 }
 
@@ -300,6 +496,21 @@ impl AbpError {
     pub fn category(&self) -> ErrorCategory {
         self.code.category()
     }
+
+    /// Shorthand for `self.code.is_retryable()`.
+    pub fn is_retryable(&self) -> bool {
+        self.code.is_retryable()
+    }
+
+    /// Convert this error into an [`ErrorInfo`], discarding the source chain.
+    pub fn to_info(&self) -> ErrorInfo {
+        ErrorInfo {
+            code: self.code,
+            message: self.message.clone(),
+            details: self.context.clone(),
+            is_retryable: self.code.is_retryable(),
+        }
+    }
 }
 
 impl fmt::Debug for AbpError {
@@ -335,6 +546,22 @@ impl std::error::Error for AbpError {
         self.source
             .as_ref()
             .map(|e| e.as_ref() as &(dyn std::error::Error + 'static))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// From conversions
+// ---------------------------------------------------------------------------
+
+impl From<std::io::Error> for AbpError {
+    fn from(err: std::io::Error) -> Self {
+        AbpError::new(ErrorCode::Internal, err.to_string()).with_source(err)
+    }
+}
+
+impl From<serde_json::Error> for AbpError {
+    fn from(err: serde_json::Error) -> Self {
+        AbpError::new(ErrorCode::ProtocolInvalidEnvelope, err.to_string()).with_source(err)
     }
 }
 
@@ -401,25 +628,54 @@ mod tests {
 
     /// All error codes for exhaustive iteration in tests.
     const ALL_CODES: &[ErrorCode] = &[
+        // Protocol
         ErrorCode::ProtocolInvalidEnvelope,
+        ErrorCode::ProtocolHandshakeFailed,
+        ErrorCode::ProtocolMissingRefId,
         ErrorCode::ProtocolUnexpectedMessage,
         ErrorCode::ProtocolVersionMismatch,
+        // Mapping
+        ErrorCode::MappingUnsupportedCapability,
+        ErrorCode::MappingDialectMismatch,
+        ErrorCode::MappingLossyConversion,
+        ErrorCode::MappingUnmappableTool,
+        // Backend
         ErrorCode::BackendNotFound,
+        ErrorCode::BackendUnavailable,
         ErrorCode::BackendTimeout,
+        ErrorCode::BackendRateLimited,
+        ErrorCode::BackendAuthFailed,
+        ErrorCode::BackendModelNotFound,
         ErrorCode::BackendCrashed,
+        // Execution
+        ErrorCode::ExecutionToolFailed,
+        ErrorCode::ExecutionWorkspaceError,
+        ErrorCode::ExecutionPermissionDenied,
+        // Contract
+        ErrorCode::ContractVersionMismatch,
+        ErrorCode::ContractSchemaViolation,
+        ErrorCode::ContractInvalidReceipt,
+        // Capability
         ErrorCode::CapabilityUnsupported,
         ErrorCode::CapabilityEmulationFailed,
+        // Policy
         ErrorCode::PolicyDenied,
         ErrorCode::PolicyInvalid,
+        // Workspace
         ErrorCode::WorkspaceInitFailed,
         ErrorCode::WorkspaceStagingFailed,
+        // IR
         ErrorCode::IrLoweringFailed,
         ErrorCode::IrInvalid,
+        // Receipt
         ErrorCode::ReceiptHashMismatch,
         ErrorCode::ReceiptChainBroken,
+        // Dialect
         ErrorCode::DialectUnknown,
         ErrorCode::DialectMappingFailed,
+        // Config
         ErrorCode::ConfigInvalid,
+        // Internal
         ErrorCode::Internal,
     ];
 
@@ -437,7 +693,7 @@ mod tests {
     #[test]
     fn display_without_context() {
         let err = AbpError::new(ErrorCode::BackendNotFound, "no such backend");
-        assert_eq!(err.to_string(), "[BACKEND_NOT_FOUND] no such backend");
+        assert_eq!(err.to_string(), "[backend_not_found] no such backend");
     }
 
     #[test]
@@ -445,7 +701,7 @@ mod tests {
         let err =
             AbpError::new(ErrorCode::BackendTimeout, "timed out").with_context("timeout_ms", 5000);
         let s = err.to_string();
-        assert!(s.starts_with("[BACKEND_TIMEOUT] timed out"));
+        assert!(s.starts_with("[backend_timeout] timed out"));
         assert!(s.contains("timeout_ms"));
         assert!(s.contains("5000"));
     }
@@ -476,6 +732,14 @@ mod tests {
             ErrorCategory::Protocol
         );
         assert_eq!(
+            ErrorCode::ProtocolHandshakeFailed.category(),
+            ErrorCategory::Protocol
+        );
+        assert_eq!(
+            ErrorCode::ProtocolMissingRefId.category(),
+            ErrorCategory::Protocol
+        );
+        assert_eq!(
             ErrorCode::ProtocolUnexpectedMessage.category(),
             ErrorCategory::Protocol
         );
@@ -486,13 +750,81 @@ mod tests {
     }
 
     #[test]
+    fn mapping_codes_categorised() {
+        assert_eq!(
+            ErrorCode::MappingUnsupportedCapability.category(),
+            ErrorCategory::Mapping
+        );
+        assert_eq!(
+            ErrorCode::MappingDialectMismatch.category(),
+            ErrorCategory::Mapping
+        );
+        assert_eq!(
+            ErrorCode::MappingLossyConversion.category(),
+            ErrorCategory::Mapping
+        );
+        assert_eq!(
+            ErrorCode::MappingUnmappableTool.category(),
+            ErrorCategory::Mapping
+        );
+    }
+
+    #[test]
     fn backend_codes_categorised() {
         assert_eq!(
             ErrorCode::BackendNotFound.category(),
             ErrorCategory::Backend
         );
+        assert_eq!(
+            ErrorCode::BackendUnavailable.category(),
+            ErrorCategory::Backend
+        );
         assert_eq!(ErrorCode::BackendTimeout.category(), ErrorCategory::Backend);
+        assert_eq!(
+            ErrorCode::BackendRateLimited.category(),
+            ErrorCategory::Backend
+        );
+        assert_eq!(
+            ErrorCode::BackendAuthFailed.category(),
+            ErrorCategory::Backend
+        );
+        assert_eq!(
+            ErrorCode::BackendModelNotFound.category(),
+            ErrorCategory::Backend
+        );
         assert_eq!(ErrorCode::BackendCrashed.category(), ErrorCategory::Backend);
+    }
+
+    #[test]
+    fn execution_codes_categorised() {
+        assert_eq!(
+            ErrorCode::ExecutionToolFailed.category(),
+            ErrorCategory::Execution
+        );
+        assert_eq!(
+            ErrorCode::ExecutionWorkspaceError.category(),
+            ErrorCategory::Execution
+        );
+        assert_eq!(
+            ErrorCode::ExecutionPermissionDenied.category(),
+            ErrorCategory::Execution
+        );
+    }
+
+    #[test]
+    fn contract_codes_categorised() {
+        assert_eq!(
+            ErrorCode::ContractVersionMismatch.category(),
+            ErrorCategory::Contract
+        );
+        assert_eq!(
+            ErrorCode::ContractSchemaViolation.category(),
+            ErrorCategory::Contract
+        );
+        assert_eq!(
+            ErrorCode::ContractInvalidReceipt.category(),
+            ErrorCategory::Contract
+        );
     }
 
     #[test]
@@ -602,24 +934,83 @@ mod tests {
         assert_eq!(err.category(), ErrorCategory::Dialect);
     }
 
+    // -- Retryability ---------------------------------------------------
+
+    #[test]
+    fn retryable_backend_codes() {
+        assert!(ErrorCode::BackendUnavailable.is_retryable());
+        assert!(ErrorCode::BackendTimeout.is_retryable());
+        assert!(ErrorCode::BackendRateLimited.is_retryable());
+        assert!(ErrorCode::BackendCrashed.is_retryable());
+    }
+
+    #[test]
+    fn non_retryable_codes() {
+        assert!(!ErrorCode::ProtocolInvalidEnvelope.is_retryable());
+        assert!(!ErrorCode::ProtocolHandshakeFailed.is_retryable());
+        assert!(!ErrorCode::MappingDialectMismatch.is_retryable());
+        assert!(!ErrorCode::BackendNotFound.is_retryable());
+        assert!(!ErrorCode::BackendAuthFailed.is_retryable());
+        assert!(!ErrorCode::ExecutionToolFailed.is_retryable());
+        assert!(!ErrorCode::ContractVersionMismatch.is_retryable());
+        assert!(!ErrorCode::PolicyDenied.is_retryable());
+        assert!(!ErrorCode::Internal.is_retryable());
+    }
+
+    #[test]
+    fn abp_error_is_retryable_delegates() {
+        let retryable = AbpError::new(ErrorCode::BackendTimeout, "timeout");
+        assert!(retryable.is_retryable());
+
+        let non_retryable = AbpError::new(ErrorCode::PolicyDenied, "denied");
+        assert!(!non_retryable.is_retryable());
+    }
+
     // -- Serialization / Deserialization --------------------------------
 
     #[test]
-    fn error_code_serde_roundtrip() {
-        let code = ErrorCode::ProtocolInvalidEnvelope;
-        let json = serde_json::to_string(&code).unwrap();
-        assert_eq!(json, r#""PROTOCOL_INVALID_ENVELOPE""#);
-        let back: ErrorCode = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, code);
+    fn error_code_serde_roundtrip_all_variants() {
+        for &code in ALL_CODES {
+            let json = serde_json::to_string(&code).unwrap();
+            let back: ErrorCode = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, code, "roundtrip failed for {code:?}");
+        }
+    }
+
+    #[test]
+    fn error_code_serializes_as_snake_case() {
+        let json = serde_json::to_string(&ErrorCode::ProtocolInvalidEnvelope).unwrap();
+        assert_eq!(json, r#""protocol_invalid_envelope""#);
+
+        let json = serde_json::to_string(&ErrorCode::BackendRateLimited).unwrap();
+        assert_eq!(json, r#""backend_rate_limited""#);
+
+        let json = serde_json::to_string(&ErrorCode::MappingLossyConversion).unwrap();
+        assert_eq!(json, r#""mapping_lossy_conversion""#);
     }
 
     #[test]
     fn error_category_serde_roundtrip() {
-        let cat = ErrorCategory::Backend;
-        let json = serde_json::to_string(&cat).unwrap();
-        assert_eq!(json, r#""backend""#);
-        let back: ErrorCategory = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, cat);
+        let categories = [
+            ErrorCategory::Protocol,
+            ErrorCategory::Backend,
+            ErrorCategory::Capability,
+            ErrorCategory::Policy,
+            ErrorCategory::Workspace,
+            ErrorCategory::Ir,
+            ErrorCategory::Receipt,
+            ErrorCategory::Dialect,
+            ErrorCategory::Config,
+            ErrorCategory::Mapping,
+            ErrorCategory::Execution,
+            ErrorCategory::Contract,
+            ErrorCategory::Internal,
+        ];
+        for cat in categories {
+            let json = serde_json::to_string(&cat).unwrap();
+            let back: ErrorCategory = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, cat, "roundtrip failed for {cat:?}");
+        }
     }
 
     #[test]
@@ -685,16 +1076,18 @@ mod tests {
     }
 
     #[test]
-    fn all_codes_display_matches_as_str() {
+    fn all_codes_have_unique_messages() {
+        let mut seen = HashSet::new();
         for code in ALL_CODES {
-            assert_eq!(code.to_string(), code.as_str());
+            let m = code.message();
+            assert!(seen.insert(m), "duplicate message: {m}");
         }
     }
 
     #[test]
     fn error_code_count() {
         // Ensure we don't silently drop a variant from ALL_CODES.
-        assert_eq!(ALL_CODES.len(), 20);
+        assert_eq!(ALL_CODES.len(), 36);
     }
 
     #[test]
@@ -710,7 +1103,18 @@ mod tests {
     fn error_category_display() {
         assert_eq!(ErrorCategory::Protocol.to_string(), "protocol");
         assert_eq!(ErrorCategory::Backend.to_string(), "backend");
+        assert_eq!(ErrorCategory::Mapping.to_string(), "mapping");
+        assert_eq!(ErrorCategory::Execution.to_string(), "execution");
+        assert_eq!(ErrorCategory::Contract.to_string(), "contract");
         assert_eq!(ErrorCategory::Internal.to_string(), "internal");
+    }
+
+    #[test]
+    fn error_code_display_is_human_readable() {
+        // Display should produce a human-readable message, not the code string.
+        let msg = ErrorCode::BackendTimeout.to_string();
+        assert_eq!(msg, "backend timed out");
+        assert_ne!(msg, "backend_timeout");
     }
 
     #[test]
@@ -720,6 +1124,167 @@ mod tests {
         assert_eq!(
             err.context["details"],
             serde_json::json!({"a": 1, "b": [2, 3]})
+        );
+    }
+
+    // -- ErrorInfo ------------------------------------------------------
+
+    #[test]
+    fn error_info_construction() {
+        let info = ErrorInfo::new(ErrorCode::BackendTimeout, "timed out");
+        assert_eq!(info.code, ErrorCode::BackendTimeout);
+        assert_eq!(info.message, "timed out");
+        assert!(info.is_retryable);
+        assert!(info.details.is_empty());
+    }
+
+    #[test]
+    fn error_info_non_retryable() {
+        let info = ErrorInfo::new(ErrorCode::PolicyDenied, "denied");
+        assert!(!info.is_retryable);
+    }
+
+    #[test]
+    fn error_info_with_details() {
+        let info = ErrorInfo::new(ErrorCode::BackendRateLimited, "rate limited")
+            .with_detail("retry_after_ms", 5000)
+            .with_detail("backend", "openai");
+        assert_eq!(info.details.len(), 2);
+        assert_eq!(info.details["retry_after_ms"], serde_json::json!(5000));
+        assert_eq!(info.details["backend"], serde_json::json!("openai"));
+    }
+
+    #[test]
+    fn error_info_serde_roundtrip() {
+        let info = ErrorInfo::new(ErrorCode::ContractSchemaViolation, "bad schema")
+            .with_detail("field", "work_order.task");
+        let json = serde_json::to_string(&info).unwrap();
+        let back: ErrorInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(info, back);
+    }
+
+    #[test]
+    fn error_info_display() {
+        let info = ErrorInfo::new(ErrorCode::ExecutionToolFailed, "tool crashed");
+        assert_eq!(info.to_string(), "[execution_tool_failed] tool crashed");
+    }
+
+    #[test]
+    fn abp_error_to_info() {
+        let err = AbpError::new(ErrorCode::BackendTimeout, "timeout").with_context("ms", 3000);
+        let info = err.to_info();
+        assert_eq!(info.code, ErrorCode::BackendTimeout);
+        assert_eq!(info.message, "timeout");
+        assert!(info.is_retryable);
+        assert_eq!(info.details["ms"], serde_json::json!(3000));
+    }
+
+    #[test]
+    fn error_info_deterministic_serialization() {
+        let info = ErrorInfo::new(ErrorCode::Internal, "err")
+            .with_detail("z_key", "last")
+            .with_detail("a_key", "first");
+        let json = serde_json::to_string(&info).unwrap();
+        // BTreeMap ensures a_key comes before z_key.
+        let a_pos = json.find("a_key").unwrap();
+        let z_pos = json.find("z_key").unwrap();
+        assert!(a_pos < z_pos);
+    }
+
+    // -- From conversions -----------------------------------------------
+
+    #[test]
+    fn from_io_error() {
+        let io_err = io::Error::new(io::ErrorKind::NotFound, "file not found");
+        let abp_err: AbpError = io_err.into();
+        assert_eq!(abp_err.code, ErrorCode::Internal);
+        assert!(abp_err.message.contains("file not found"));
+        assert!(abp_err.source.is_some());
+    }
+
+    #[test]
+    fn from_serde_json_error() {
+        let json_err = serde_json::from_str::<serde_json::Value>("not json").unwrap_err();
+        let abp_err: AbpError = json_err.into();
+        assert_eq!(abp_err.code, ErrorCode::ProtocolInvalidEnvelope);
+        assert!(abp_err.source.is_some());
+    }
+
+    // -- Display stability for new variants -----------------------------
+
+    #[test]
+    fn display_stability_new_protocol_codes() {
+        assert_eq!(
+            ErrorCode::ProtocolHandshakeFailed.message(),
+            "sidecar handshake failed"
+        );
+        assert_eq!(
+            ErrorCode::ProtocolMissingRefId.message(),
+            "ref_id field is missing from the envelope"
+        );
+    }
+
+    #[test]
+    fn display_stability_mapping_codes() {
+        assert_eq!(
+            ErrorCode::MappingUnsupportedCapability.message(),
+            "required capability is not supported by the target dialect"
+        );
+        assert_eq!(
+            ErrorCode::MappingUnmappableTool.message(),
+            "tool call cannot be represented in the target dialect"
+        );
+    }
+
+    #[test]
+    fn display_stability_backend_codes() {
+        assert_eq!(
+            ErrorCode::BackendUnavailable.message(),
+            "backend is temporarily unavailable"
+        );
+        assert_eq!(
+            ErrorCode::BackendRateLimited.message(),
+            "backend rejected the request due to rate limiting"
+        );
+        assert_eq!(
+            ErrorCode::BackendAuthFailed.message(),
+            "authentication with the backend failed"
+        );
+        assert_eq!(
+            ErrorCode::BackendModelNotFound.message(),
+            "requested model was not found on the backend"
+        );
+    }
+
+    #[test]
+    fn display_stability_execution_codes() {
+        assert_eq!(
+            ErrorCode::ExecutionToolFailed.message(),
+            "tool invocation failed during execution"
+        );
+        assert_eq!(
+            ErrorCode::ExecutionWorkspaceError.message(),
+            "an error occurred in the staged workspace"
+        );
+        assert_eq!(
+            ErrorCode::ExecutionPermissionDenied.message(),
+            "operation denied due to insufficient permissions"
+        );
+    }
+
+    #[test]
+    fn display_stability_contract_codes() {
+        assert_eq!(
+            ErrorCode::ContractVersionMismatch.message(),
+            "contract version does not match the expected version"
+        );
+        assert_eq!(
+            ErrorCode::ContractSchemaViolation.message(),
+            "payload violates the contract schema"
+        );
+        assert_eq!(
+            ErrorCode::ContractInvalidReceipt.message(),
+            "receipt is structurally invalid or cannot be verified"
         );
     }
 }

@@ -60,7 +60,7 @@ expression: value
   },
   "usage_raw": {
     "capability_negotiation": {
-      "emulatable": [],
+      "emulated": [],
       "native": [],
       "unsupported": []
     },

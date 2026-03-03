@@ -488,13 +488,12 @@ impl Runtime {
                                 let emulated_caps: std::collections::BTreeSet<_> =
                                     emu.applied.iter().map(|e| &e.capability).collect();
                                 result
-                                    .unsupported
-                                    .iter()
+                                    .unsupported_caps()
+                                    .into_iter()
                                     .filter(|c| !emulated_caps.contains(c))
-                                    .cloned()
                                     .collect()
                             }
-                            None => result.unsupported.clone(),
+                            None => result.unsupported_caps(),
                         };
                         if !truly_unsupported.is_empty() {
                             let names: Vec<String> =
@@ -509,7 +508,7 @@ impl Runtime {
                         warn!(
                             target: "abp.runtime",
                             backend=%backend_name,
-                            emulated=?result.emulated,
+                            emulated=?result.emulated_caps(),
                             "capabilities require emulation"
                         );
                     }
