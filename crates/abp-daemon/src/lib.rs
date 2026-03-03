@@ -370,6 +370,16 @@ pub struct StatusResponse {
     pub total_runs: usize,
 }
 
+/// Response body for `POST /api/v1/validate`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationResponse {
+    /// Whether the work order passed all validation checks.
+    pub valid: bool,
+    /// Validation error messages (empty when `valid` is `true`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<String>,
+}
+
 /// An API error with HTTP status code and message.
 #[derive(Debug)]
 pub struct ApiError {
@@ -402,6 +412,22 @@ impl IntoResponse for ApiError {
         let body = Json(json!({ "error": self.message }));
         (self.status, body).into_response()
     }
+}
+
+/// Build the Axum router with all daemon routes under the `/api/v1` prefix.
+///
+/// Legacy (un-prefixed) routes from [`build_app`] are also included for
+/// backward compatibility.
+pub fn build_versioned_app(state: Arc<AppState>) -> Router {
+    let v1 = Router::new()
+        .route("/run", post(cmd_run))
+        .route("/backends", get(cmd_backends))
+        .route("/health", get(cmd_health))
+        .route("/status/{run_id}", get(cmd_get_run))
+        .route("/validate", post(cmd_validate_v1))
+        .with_state(state.clone());
+
+    build_app(state).nest("/api/v1", v1)
 }
 
 /// Build the Axum router with all daemon routes.
@@ -714,6 +740,29 @@ async fn cmd_validate(
         "backend": req.backend,
         "work_order_id": req.work_order.id,
     })))
+}
+
+async fn cmd_validate_v1(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<RunRequest>,
+) -> Json<ValidationResponse> {
+    let mut errors = Vec::new();
+
+    if let Err(wo_errors) = validation::RequestValidator::validate_work_order(&req.work_order) {
+        errors.extend(wo_errors);
+    }
+
+    let backend_names = state.runtime.backend_names();
+    if let Err(e) =
+        validation::RequestValidator::validate_backend_name(&req.backend, &backend_names)
+    {
+        errors.push(e);
+    }
+
+    Json(ValidationResponse {
+        valid: errors.is_empty(),
+        errors,
+    })
 }
 
 async fn cmd_schema(
