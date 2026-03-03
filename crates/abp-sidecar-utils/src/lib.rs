@@ -18,5 +18,15 @@
 
 pub mod codec;
 pub mod event_stream;
+pub mod frame;
 pub mod handshake;
 pub mod health;
+pub mod testing;
+pub mod validate;
+
+// Re-export the most commonly used items for convenience.
+pub use frame::{
+    decode_envelope, encode_envelope, encode_event, encode_fatal, encode_final, encode_hello,
+};
+pub use testing::{mock_event, mock_fatal, mock_final, mock_hello, mock_work_order};
+pub use validate::{validate_hello, validate_ref_id, validate_sequence};

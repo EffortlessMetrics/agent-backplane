@@ -7,6 +7,8 @@
 //!
 //! Projection matrix that routes work orders to the best-fit backend.
 
+pub mod selection;
+
 use std::collections::BTreeMap;
 
 use abp_capability::{NegotiationResult, negotiate};

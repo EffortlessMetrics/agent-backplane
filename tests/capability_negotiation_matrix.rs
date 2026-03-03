@@ -433,7 +433,7 @@ fn check_cap_unsupported_explicit() {
     assert_eq!(
         check_capability(&m, &Capability::Logprobs),
         CapSupportLevel::Unsupported {
-            reason: "unsupported".into()
+            reason: "explicitly marked unsupported".into()
         }
     );
 }
@@ -444,7 +444,7 @@ fn check_cap_missing() {
     assert_eq!(
         check_capability(&m, &Capability::Streaming),
         CapSupportLevel::Unsupported {
-            reason: "unsupported".into()
+            reason: "not declared in manifest".into()
         }
     );
 }
@@ -458,11 +458,10 @@ fn check_cap_restricted_contains_reason() {
         },
     )]);
     let level = check_capability(&m, &Capability::ToolBash);
-    if let CapSupportLevel::Emulated { method } = level {
-        assert!(method.contains("restricted"));
-        assert!(method.contains("policy"));
+    if let CapSupportLevel::Restricted { reason } = level {
+        assert!(reason.contains("policy"));
     } else {
-        panic!("expected Emulated");
+        panic!("expected Restricted");
     }
 }
 
@@ -554,7 +553,7 @@ fn report_summary_contains_counts() {
     );
     let report = generate_report(&result);
     assert!(report.summary.contains("2 native"));
-    assert!(report.summary.contains("1 emulatable"));
+    assert!(report.summary.contains("1 emulated"));
     assert!(report.summary.contains("0 unsupported"));
 }
 
@@ -1489,18 +1488,18 @@ fn edge_duplicate_caps_in_requirements_unsupported() {
 
 #[test]
 fn edge_restricted_with_long_reason() {
-    let reason = "a".repeat(1000);
+    let long_reason = "a".repeat(1000);
     let m = manifest(&[(
         Capability::ToolBash,
         SupportLevel::Restricted {
-            reason: reason.clone(),
+            reason: long_reason.clone(),
         },
     )]);
     let level = check_capability(&m, &Capability::ToolBash);
-    if let CapSupportLevel::Emulated { method } = level {
-        assert!(method.contains(&reason));
+    if let CapSupportLevel::Restricted { reason } = level {
+        assert!(reason.contains(&long_reason));
     } else {
-        panic!("expected Emulated");
+        panic!("expected Restricted");
     }
 }
 

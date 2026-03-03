@@ -130,6 +130,26 @@ impl RuntimeError {
             }
         }
     }
+
+    /// Returns `true` when the error is transient and the operation could
+    /// reasonably succeed on a subsequent attempt.
+    ///
+    /// Errors that are inherently permanent (unknown backend, policy
+    /// compilation, capability mismatch) always return `false`.
+    #[must_use]
+    pub fn is_retryable(&self) -> bool {
+        match self {
+            // Transient — backend may recover on retry.
+            Self::BackendFailed(_) | Self::WorkspaceFailed(_) => true,
+            // Classified errors delegate to the error taxonomy.
+            Self::Classified(e) => e.is_retryable(),
+            // Everything else is a permanent configuration/logic error.
+            Self::UnknownBackend { .. }
+            | Self::PolicyFailed(_)
+            | Self::CapabilityCheckFailed(_)
+            | Self::NoProjectionMatch { .. } => false,
+        }
+    }
 }
 
 /// Central orchestrator that holds registered backends and executes work orders.

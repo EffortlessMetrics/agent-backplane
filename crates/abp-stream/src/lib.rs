@@ -8,6 +8,14 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
+pub mod buffer;
+pub mod metrics;
+pub mod tee;
+
+pub use buffer::StreamBuffer;
+pub use metrics::{MetricsSummary, StreamMetrics};
+pub use tee::{StreamTee, TeeError};
+
 // ---------------------------------------------------------------------------
 // EventFilter
 // ---------------------------------------------------------------------------

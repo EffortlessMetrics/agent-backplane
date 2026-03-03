@@ -8,6 +8,8 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod validate;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

@@ -419,11 +419,11 @@ async fn mixed_native_emulated_runtime_e2e() {
         && let Some(neg) = obj.get("capability_negotiation")
     {
         let native = neg.get("native").and_then(|n| n.as_array());
-        let emulatable = neg.get("emulatable").and_then(|e| e.as_array());
+        let emulated = neg.get("emulated").and_then(|e| e.as_array());
         assert!(native.is_some(), "negotiation result should have native");
         assert!(
-            emulatable.is_some(),
-            "negotiation result should have emulatable"
+            emulated.is_some(),
+            "negotiation result should have emulated"
         );
     }
 }
@@ -1114,8 +1114,8 @@ fn check_capability_each_variant_restricted() {
         )]);
         let level = check_capability(&m, &cap);
         assert!(
-            matches!(level, abp_capability::SupportLevel::Emulated { .. }),
-            "{cap:?} Restricted should map to Emulated"
+            matches!(level, abp_capability::SupportLevel::Restricted { .. }),
+            "{cap:?} Restricted should map to Restricted"
         );
     }
 }
@@ -1529,7 +1529,7 @@ fn report_summary_format_includes_counts() {
     );
     let report = generate_report(&result);
     assert!(report.summary.contains("1 native"));
-    assert!(report.summary.contains("1 emulatable"));
+    assert!(report.summary.contains("1 emulated"));
     assert!(report.summary.contains("0 unsupported"));
 }
 

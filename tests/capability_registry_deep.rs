@@ -481,7 +481,7 @@ fn check_capability_unsupported_explicit() {
     assert_eq!(
         check_capability(&m, &Capability::Logprobs),
         SupportLevel::Unsupported {
-            reason: "unsupported".into()
+            reason: "explicitly marked unsupported".into()
         }
     );
 }
@@ -492,7 +492,7 @@ fn check_capability_missing() {
     assert_eq!(
         check_capability(&m, &Capability::Streaming),
         SupportLevel::Unsupported {
-            reason: "unsupported".into()
+            reason: "not declared in manifest".into()
         }
     );
 }
@@ -506,10 +506,9 @@ fn check_capability_restricted() {
         },
     )]);
     let level = check_capability(&m, &Capability::ToolBash);
-    assert!(matches!(level, SupportLevel::Emulated { .. }));
-    if let SupportLevel::Emulated { method } = &level {
-        assert!(method.contains("restricted"));
-        assert!(method.contains("policy"));
+    assert!(matches!(level, SupportLevel::Restricted { .. }));
+    if let SupportLevel::Restricted { reason } = &level {
+        assert!(reason.contains("policy"));
     }
 }
 
@@ -1241,7 +1240,7 @@ fn report_summary_contains_counts() {
     );
     let report = generate_report(&result);
     assert!(report.summary.contains("2 native"));
-    assert!(report.summary.contains("1 emulatable"));
+    assert!(report.summary.contains("1 emulated"));
     assert!(report.summary.contains("0 unsupported"));
 }
 
@@ -1366,7 +1365,7 @@ fn edge_unknown_capability_absent_from_manifest() {
     assert_eq!(
         check_capability(&m, &Capability::McpServer),
         SupportLevel::Unsupported {
-            reason: "unsupported".into()
+            reason: "not declared in manifest".into()
         }
     );
 }
@@ -1421,10 +1420,10 @@ fn edge_restricted_reason_preserved_in_check() {
             reason: "read-only workspace".into(),
         },
     )]);
-    if let SupportLevel::Emulated { method } = check_capability(&m, &Capability::ToolEdit) {
-        assert!(method.contains("read-only workspace"));
+    if let SupportLevel::Restricted { reason } = check_capability(&m, &Capability::ToolEdit) {
+        assert!(reason.contains("read-only workspace"));
     } else {
-        panic!("Expected Emulated for Restricted");
+        panic!("Expected Restricted for Restricted");
     }
 }
 
