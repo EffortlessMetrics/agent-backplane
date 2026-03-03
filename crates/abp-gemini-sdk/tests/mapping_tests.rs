@@ -78,6 +78,7 @@ fn response_with_text_and_function_call_produces_events() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = map_response(&resp);

@@ -351,6 +351,7 @@ fn generation_config_full_roundtrip() {
         temperature: Some(0.5),
         top_p: Some(0.9),
         top_k: Some(32),
+        candidate_count: None,
         stop_sequences: Some(vec!["###".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(serde_json::json!({"type": "object"})),

@@ -146,6 +146,7 @@ fn citation_metadata_empty_sources_roundtrip() {
 fn map_response_empty_candidates_produces_no_events() {
     let resp = GeminiResponse {
         candidates: vec![],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = map_response(&resp);
@@ -167,6 +168,7 @@ fn map_response_function_response_produces_tool_result() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = map_response(&resp);
@@ -186,6 +188,7 @@ fn map_response_empty_parts_produces_no_events() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = map_response(&resp);

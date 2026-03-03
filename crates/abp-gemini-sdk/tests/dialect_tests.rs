@@ -157,6 +157,7 @@ fn gemini_response_serde_roundtrip() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: Some(GeminiUsageMetadata {
             prompt_token_count: 10,
             candidates_token_count: 5,
@@ -221,6 +222,7 @@ fn generation_config_custom_fields() {
         temperature: Some(0.7),
         top_p: Some(0.95),
         top_k: Some(40),
+        candidate_count: None,
         stop_sequences: Some(vec!["DONE".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(serde_json::json!({"type": "object"})),

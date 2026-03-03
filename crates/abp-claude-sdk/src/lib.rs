@@ -10,6 +10,7 @@
 
 pub mod dialect;
 pub mod lowering;
+pub mod messages;
 
 use abp_runtime::Runtime;
 use abp_sidecar_sdk::{register_sidecar_backend, sidecar_script as resolve_sidecar_script};
