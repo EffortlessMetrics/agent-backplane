@@ -393,6 +393,7 @@ dependencies = [
  "abp-capability",
  "abp-core",
  "abp-dialect",
+ "abp-mapper",
  "abp-mapping",
  "serde",
  "serde_json",

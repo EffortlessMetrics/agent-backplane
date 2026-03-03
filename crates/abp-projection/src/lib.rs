@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 use abp_capability::{NegotiationResult, negotiate};
 use abp_core::{Capability, CapabilityManifest, CapabilityRequirements, WorkOrder};
 use abp_dialect::Dialect;
+use abp_mapper::{ClaudeToOpenAiMapper, IdentityMapper, Mapper, OpenAiToClaudeMapper};
 use abp_mapping::MappingRegistry;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -92,6 +93,55 @@ pub struct RequiredEmulation {
     pub strategy: String,
 }
 
+// ── Dialect projection types ────────────────────────────────────────────
+
+/// Describes how a dialect pair should be projected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectionMode {
+    /// Same-dialect passthrough — no transformation needed.
+    Passthrough,
+    /// Cross-dialect mapping — a mapper translates between the two.
+    Mapped,
+    /// The dialect pair is not supported.
+    Unsupported,
+}
+
+/// A (source, target) dialect pair used as a key in the projection matrix.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct DialectPair {
+    /// Source dialect that produced the request.
+    pub source: Dialect,
+    /// Target dialect the request is being mapped to.
+    pub target: Dialect,
+}
+
+impl DialectPair {
+    /// Creates a new dialect pair.
+    #[must_use]
+    pub fn new(source: Dialect, target: Dialect) -> Self {
+        Self { source, target }
+    }
+}
+
+impl std::fmt::Display for DialectPair {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} → {}", self.source, self.target)
+    }
+}
+
+/// Describes how to map from one dialect to another.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectionEntry {
+    /// The dialect pair this entry applies to.
+    pub pair: DialectPair,
+    /// The projection mode (passthrough, mapped, or unsupported).
+    pub mode: ProjectionMode,
+    /// Optional hint for which mapper implementation to use (e.g. `"identity"`,
+    /// `"openai_to_claude"`).
+    pub mapper_hint: Option<String>,
+}
+
 // ── Fallback entry ──────────────────────────────────────────────────────
 
 /// An alternative backend in the fallback chain.
@@ -121,11 +171,13 @@ pub struct ProjectionResult {
 // ── Projection matrix ───────────────────────────────────────────────────
 
 /// The projection matrix: combines a backend registry, capability negotiation,
-/// and mapping quality to route work orders to backends.
+/// mapping quality, and dialect pair routing to route work orders to backends.
 #[derive(Debug, Clone, Default)]
 pub struct ProjectionMatrix {
     backends: BTreeMap<String, BackendEntry>,
     mapping_registry: MappingRegistry,
+    /// Dialect pair entries describing how each source→target pair is handled.
+    dialect_entries: BTreeMap<DialectPair, ProjectionEntry>,
     /// Source dialect of the work order (set per-projection or globally).
     source_dialect: Option<Dialect>,
     /// Features to evaluate mapping fidelity for.
@@ -156,6 +208,123 @@ impl ProjectionMatrix {
     /// Sets the feature list used for mapping fidelity scoring.
     pub fn set_mapping_features(&mut self, features: Vec<String>) {
         self.mapping_features = features;
+    }
+
+    // ── Dialect pair registration & lookup ───────────────────────────────
+
+    /// Registers a dialect pair mapping with the given mode.
+    ///
+    /// If `source == target`, the mode is forced to [`ProjectionMode::Passthrough`]
+    /// and the mapper hint is set to `"identity"`.
+    pub fn register(&mut self, source: Dialect, target: Dialect, mode: ProjectionMode) {
+        let pair = DialectPair::new(source, target);
+        let (effective_mode, mapper_hint) = if source == target {
+            (ProjectionMode::Passthrough, Some("identity".to_string()))
+        } else {
+            let hint = match mode {
+                ProjectionMode::Passthrough => Some("identity".to_string()),
+                ProjectionMode::Mapped => default_mapper_hint(source, target),
+                ProjectionMode::Unsupported => None,
+            };
+            (mode, hint)
+        };
+        self.dialect_entries.insert(
+            pair.clone(),
+            ProjectionEntry {
+                pair,
+                mode: effective_mode,
+                mapper_hint,
+            },
+        );
+    }
+
+    /// Looks up the projection entry for a given dialect pair.
+    ///
+    /// Returns `None` if no entry has been registered for the pair.
+    #[must_use]
+    pub fn lookup(&self, source: Dialect, target: Dialect) -> Option<&ProjectionEntry> {
+        let pair = DialectPair::new(source, target);
+        self.dialect_entries.get(&pair)
+    }
+
+    /// Returns the number of registered dialect pair entries.
+    #[must_use]
+    pub fn dialect_entry_count(&self) -> usize {
+        self.dialect_entries.len()
+    }
+
+    /// Returns an iterator over all registered dialect pair entries.
+    pub fn dialect_entries(&self) -> impl Iterator<Item = &ProjectionEntry> {
+        self.dialect_entries.values()
+    }
+
+    /// Resolves a [`Mapper`] implementation for the given dialect pair.
+    ///
+    /// Returns `None` if the pair is unsupported or no mapper is available.
+    #[must_use]
+    pub fn resolve_mapper(&self, source: Dialect, target: Dialect) -> Option<Box<dyn Mapper>> {
+        let entry = self.lookup(source, target)?;
+        match entry.mode {
+            ProjectionMode::Unsupported => None,
+            ProjectionMode::Passthrough => Some(Box::new(IdentityMapper)),
+            ProjectionMode::Mapped => resolve_mapper_for_pair(source, target),
+        }
+    }
+
+    /// Populates the matrix with default dialect pair entries.
+    ///
+    /// Default entries cover:
+    /// - All identity (same-dialect) pairs as [`ProjectionMode::Passthrough`]
+    /// - OpenAI↔Claude as [`ProjectionMode::Mapped`]
+    /// - Claude↔OpenAI as [`ProjectionMode::Mapped`]
+    /// - OpenAI↔Gemini, Gemini↔OpenAI as [`ProjectionMode::Mapped`]
+    /// - Claude↔Gemini, Gemini↔Claude as [`ProjectionMode::Mapped`]
+    /// - Codex↔OpenAI, OpenAI↔Codex as [`ProjectionMode::Mapped`] (Codex uses OpenAI-compatible format)
+    /// - All other cross-dialect pairs as [`ProjectionMode::Unsupported`]
+    pub fn register_defaults(&mut self) {
+        let dialects = Dialect::all();
+
+        // Identity (passthrough) entries for all dialects.
+        for &d in dialects {
+            self.register(d, d, ProjectionMode::Passthrough);
+        }
+
+        // Mapped cross-dialect pairs.
+        let mapped_pairs: &[(Dialect, Dialect)] = &[
+            (Dialect::OpenAi, Dialect::Claude),
+            (Dialect::Claude, Dialect::OpenAi),
+            (Dialect::OpenAi, Dialect::Gemini),
+            (Dialect::Gemini, Dialect::OpenAi),
+            (Dialect::Claude, Dialect::Gemini),
+            (Dialect::Gemini, Dialect::Claude),
+            (Dialect::Codex, Dialect::OpenAi),
+            (Dialect::OpenAi, Dialect::Codex),
+        ];
+
+        for &(src, tgt) in mapped_pairs {
+            self.register(src, tgt, ProjectionMode::Mapped);
+        }
+
+        // All remaining pairs are unsupported.
+        for &src in dialects {
+            for &tgt in dialects {
+                if src == tgt {
+                    continue;
+                }
+                let pair = DialectPair::new(src, tgt);
+                if !self.dialect_entries.contains_key(&pair) {
+                    self.register(src, tgt, ProjectionMode::Unsupported);
+                }
+            }
+        }
+    }
+
+    /// Creates a projection matrix pre-populated with default dialect entries.
+    #[must_use]
+    pub fn with_defaults() -> Self {
+        let mut pm = Self::new();
+        pm.register_defaults();
+        pm
     }
 
     /// Register a backend with its capabilities, dialect, and priority.
@@ -354,6 +523,36 @@ impl ProjectionMatrix {
         }
 
         None
+    }
+}
+
+// ── Dialect pair helpers ─────────────────────────────────────────────────
+
+/// Returns a default mapper hint string for a known cross-dialect pair.
+fn default_mapper_hint(source: Dialect, target: Dialect) -> Option<String> {
+    match (source, target) {
+        (Dialect::OpenAi, Dialect::Claude) => Some("openai_to_claude".to_string()),
+        (Dialect::Claude, Dialect::OpenAi) => Some("claude_to_openai".to_string()),
+        (Dialect::Codex, Dialect::OpenAi) => Some("identity".to_string()),
+        (Dialect::OpenAi, Dialect::Codex) => Some("identity".to_string()),
+        _ => Some(format!(
+            "{}_to_{}",
+            source.label().to_lowercase(),
+            target.label().to_lowercase()
+        )),
+    }
+}
+
+/// Resolves a concrete [`Mapper`] for a given dialect pair.
+fn resolve_mapper_for_pair(source: Dialect, target: Dialect) -> Option<Box<dyn Mapper>> {
+    match (source, target) {
+        (Dialect::OpenAi, Dialect::Claude) => Some(Box::new(OpenAiToClaudeMapper)),
+        (Dialect::Claude, Dialect::OpenAi) => Some(Box::new(ClaudeToOpenAiMapper)),
+        // Codex uses OpenAI-compatible format — identity mapping suffices.
+        (Dialect::Codex, Dialect::OpenAi) | (Dialect::OpenAi, Dialect::Codex) => {
+            Some(Box::new(IdentityMapper))
+        }
+        _ => None,
     }
 }
 
@@ -1090,5 +1289,539 @@ mod tests {
         assert_eq!(emu.len(), 2);
         assert_eq!(emu[0].capability, Capability::Streaming);
         assert_eq!(emu[1].capability, Capability::ToolRead);
+    }
+
+    // ── Dialect projection matrix tests ─────────────────────────────────
+
+    // -- Passthrough identity entries --
+
+    #[test]
+    fn passthrough_openai_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    #[test]
+    fn passthrough_claude_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Claude, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    #[test]
+    fn passthrough_gemini_to_gemini() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Gemini, Dialect::Gemini).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn passthrough_codex_to_codex() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Codex, Dialect::Codex).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn passthrough_kimi_to_kimi() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Kimi, Dialect::Kimi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn passthrough_copilot_to_copilot() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Copilot, Dialect::Copilot).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn all_identity_pairs_are_passthrough() {
+        let pm = ProjectionMatrix::with_defaults();
+        for &d in Dialect::all() {
+            let entry = pm.lookup(d, d).unwrap();
+            assert_eq!(
+                entry.mode,
+                ProjectionMode::Passthrough,
+                "identity {d} → {d}"
+            );
+            assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+        }
+    }
+
+    // -- Cross-dialect mapped entries --
+
+    #[test]
+    fn mapped_openai_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("openai_to_claude"));
+    }
+
+    #[test]
+    fn mapped_claude_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Claude, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("claude_to_openai"));
+    }
+
+    #[test]
+    fn mapped_openai_to_gemini() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Gemini).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn mapped_gemini_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Gemini, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn mapped_claude_to_gemini() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Claude, Dialect::Gemini).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn mapped_gemini_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Gemini, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn mapped_codex_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Codex, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    #[test]
+    fn mapped_openai_to_codex() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Codex).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    // -- Unsupported entries --
+
+    #[test]
+    fn unsupported_kimi_to_copilot() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Kimi, Dialect::Copilot).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Unsupported);
+        assert!(entry.mapper_hint.is_none());
+    }
+
+    #[test]
+    fn unsupported_copilot_to_kimi() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Copilot, Dialect::Kimi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Unsupported);
+    }
+
+    #[test]
+    fn unsupported_kimi_to_codex() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Kimi, Dialect::Codex).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Unsupported);
+    }
+
+    #[test]
+    fn unsupported_copilot_to_codex() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Copilot, Dialect::Codex).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Unsupported);
+    }
+
+    // -- Missing/unregistered entries --
+
+    #[test]
+    fn lookup_missing_entry_returns_none() {
+        let pm = ProjectionMatrix::new();
+        assert!(pm.lookup(Dialect::OpenAi, Dialect::Claude).is_none());
+    }
+
+    #[test]
+    fn empty_matrix_has_no_dialect_entries() {
+        let pm = ProjectionMatrix::new();
+        assert_eq!(pm.dialect_entry_count(), 0);
+    }
+
+    // -- Registration and override --
+
+    #[test]
+    fn register_single_entry() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
+        assert_eq!(pm.dialect_entry_count(), 1);
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn register_override_replaces_entry() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
+        assert_eq!(
+            pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap().mode,
+            ProjectionMode::Mapped
+        );
+
+        pm.register(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            ProjectionMode::Unsupported,
+        );
+        assert_eq!(
+            pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap().mode,
+            ProjectionMode::Unsupported
+        );
+        assert_eq!(pm.dialect_entry_count(), 1);
+    }
+
+    #[test]
+    fn register_identity_forces_passthrough() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::OpenAi, Dialect::OpenAi, ProjectionMode::Mapped);
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    #[test]
+    fn register_identity_ignores_unsupported() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(
+            Dialect::Claude,
+            Dialect::Claude,
+            ProjectionMode::Unsupported,
+        );
+        let entry = pm.lookup(Dialect::Claude, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn register_does_not_affect_reverse() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
+        assert!(pm.lookup(Dialect::Claude, Dialect::OpenAi).is_none());
+    }
+
+    // -- Default matrix completeness --
+
+    #[test]
+    fn default_matrix_covers_all_pairs() {
+        let pm = ProjectionMatrix::with_defaults();
+        let dialects = Dialect::all();
+        let expected = dialects.len() * dialects.len();
+        assert_eq!(pm.dialect_entry_count(), expected);
+
+        for &src in dialects {
+            for &tgt in dialects {
+                assert!(
+                    pm.lookup(src, tgt).is_some(),
+                    "missing entry for {src} → {tgt}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn default_matrix_has_exactly_six_passthroughs() {
+        let pm = ProjectionMatrix::with_defaults();
+        let passthrough_count = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Passthrough)
+            .count();
+        assert_eq!(passthrough_count, Dialect::all().len());
+    }
+
+    #[test]
+    fn default_matrix_mapped_count() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapped_count = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Mapped)
+            .count();
+        // 8 mapped pairs: OpenAI↔Claude, OpenAI↔Gemini, Claude↔Gemini, Codex↔OpenAI
+        assert_eq!(mapped_count, 8);
+    }
+
+    #[test]
+    fn default_matrix_unsupported_count() {
+        let pm = ProjectionMatrix::with_defaults();
+        let total = pm.dialect_entry_count();
+        let passthrough = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Passthrough)
+            .count();
+        let mapped = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Mapped)
+            .count();
+        let unsupported = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Unsupported)
+            .count();
+        assert_eq!(passthrough + mapped + unsupported, total);
+        assert!(unsupported > 0);
+    }
+
+    #[test]
+    fn register_defaults_idempotent() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        let count_before = pm.dialect_entry_count();
+        pm.register_defaults();
+        assert_eq!(pm.dialect_entry_count(), count_before);
+    }
+
+    // -- DialectPair type tests --
+
+    #[test]
+    fn dialect_pair_new() {
+        let pair = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        assert_eq!(pair.source, Dialect::OpenAi);
+        assert_eq!(pair.target, Dialect::Claude);
+    }
+
+    #[test]
+    fn dialect_pair_display() {
+        let pair = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        assert_eq!(pair.to_string(), "OpenAI → Claude");
+    }
+
+    #[test]
+    fn dialect_pair_equality() {
+        let a = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        let b = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        let c = DialectPair::new(Dialect::Claude, Dialect::OpenAi);
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn dialect_pair_serde_roundtrip() {
+        let pair = DialectPair::new(Dialect::Gemini, Dialect::Kimi);
+        let json = serde_json::to_string(&pair).unwrap();
+        let back: DialectPair = serde_json::from_str(&json).unwrap();
+        assert_eq!(pair, back);
+    }
+
+    #[test]
+    fn dialect_pair_ord_deterministic() {
+        let mut pairs = [
+            DialectPair::new(Dialect::Gemini, Dialect::Claude),
+            DialectPair::new(Dialect::OpenAi, Dialect::Claude),
+            DialectPair::new(Dialect::Claude, Dialect::OpenAi),
+        ];
+        pairs.sort();
+        // Ordering should be deterministic (by Dialect variant discriminant order).
+        assert_eq!(pairs[0].source, pairs[1].source.min(pairs[0].source));
+    }
+
+    // -- ProjectionEntry tests --
+
+    #[test]
+    fn projection_entry_serde_roundtrip() {
+        let entry = ProjectionEntry {
+            pair: DialectPair::new(Dialect::OpenAi, Dialect::Claude),
+            mode: ProjectionMode::Mapped,
+            mapper_hint: Some("openai_to_claude".to_string()),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let back: ProjectionEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(entry, back);
+    }
+
+    #[test]
+    fn projection_mode_serde_roundtrip() {
+        for mode in [
+            ProjectionMode::Passthrough,
+            ProjectionMode::Mapped,
+            ProjectionMode::Unsupported,
+        ] {
+            let json = serde_json::to_string(&mode).unwrap();
+            let back: ProjectionMode = serde_json::from_str(&json).unwrap();
+            assert_eq!(mode, back);
+        }
+    }
+
+    // -- Mapper resolution --
+
+    #[test]
+    fn resolve_mapper_identity_passthrough() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::OpenAi);
+        assert!(mapper.is_some());
+        let m = mapper.unwrap();
+        assert_eq!(m.source_dialect(), Dialect::OpenAi);
+        assert_eq!(m.target_dialect(), Dialect::OpenAi);
+    }
+
+    #[test]
+    fn resolve_mapper_openai_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude);
+        assert!(mapper.is_some());
+        let m = mapper.unwrap();
+        assert_eq!(m.source_dialect(), Dialect::OpenAi);
+        assert_eq!(m.target_dialect(), Dialect::Claude);
+    }
+
+    #[test]
+    fn resolve_mapper_claude_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::Claude, Dialect::OpenAi);
+        assert!(mapper.is_some());
+        let m = mapper.unwrap();
+        assert_eq!(m.source_dialect(), Dialect::Claude);
+        assert_eq!(m.target_dialect(), Dialect::OpenAi);
+    }
+
+    #[test]
+    fn resolve_mapper_unsupported_returns_none() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::Kimi, Dialect::Copilot);
+        assert!(mapper.is_none());
+    }
+
+    #[test]
+    fn resolve_mapper_unregistered_returns_none() {
+        let pm = ProjectionMatrix::new();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude);
+        assert!(mapper.is_none());
+    }
+
+    #[test]
+    fn resolve_mapper_codex_to_openai_uses_identity() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::Codex, Dialect::OpenAi);
+        assert!(mapper.is_some());
+    }
+
+    // -- Override after defaults --
+
+    #[test]
+    fn override_default_entry() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        assert_eq!(
+            pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap().mode,
+            ProjectionMode::Mapped
+        );
+
+        pm.register(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            ProjectionMode::Unsupported,
+        );
+        assert_eq!(
+            pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap().mode,
+            ProjectionMode::Unsupported
+        );
+    }
+
+    #[test]
+    fn override_default_does_not_affect_others() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        let count_before = pm.dialect_entry_count();
+        pm.register(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            ProjectionMode::Unsupported,
+        );
+        assert_eq!(pm.dialect_entry_count(), count_before);
+        // Reverse direction unchanged.
+        assert_eq!(
+            pm.lookup(Dialect::Claude, Dialect::OpenAi).unwrap().mode,
+            ProjectionMode::Mapped
+        );
+    }
+
+    // -- dialect_entries iterator --
+
+    #[test]
+    fn dialect_entries_iterator_count() {
+        let pm = ProjectionMatrix::with_defaults();
+        let count = pm.dialect_entries().count();
+        assert_eq!(count, pm.dialect_entry_count());
+    }
+
+    #[test]
+    fn dialect_entries_iterator_all_have_valid_pairs() {
+        let pm = ProjectionMatrix::with_defaults();
+        for entry in pm.dialect_entries() {
+            // Every entry's pair source/target should be in Dialect::all().
+            assert!(Dialect::all().contains(&entry.pair.source));
+            assert!(Dialect::all().contains(&entry.pair.target));
+        }
+    }
+
+    // -- BTreeMap determinism --
+
+    #[test]
+    fn btreemap_iteration_order_deterministic() {
+        let pm1 = ProjectionMatrix::with_defaults();
+        let pm2 = ProjectionMatrix::with_defaults();
+        let keys1: Vec<_> = pm1.dialect_entries().map(|e| e.pair.clone()).collect();
+        let keys2: Vec<_> = pm2.dialect_entries().map(|e| e.pair.clone()).collect();
+        assert_eq!(keys1, keys2);
+    }
+
+    // -- Mapper hint values --
+
+    #[test]
+    fn passthrough_entries_all_have_identity_hint() {
+        let pm = ProjectionMatrix::with_defaults();
+        for entry in pm.dialect_entries() {
+            if entry.mode == ProjectionMode::Passthrough {
+                assert_eq!(
+                    entry.mapper_hint.as_deref(),
+                    Some("identity"),
+                    "passthrough entry {} should have identity hint",
+                    entry.pair
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn unsupported_entries_have_no_hint() {
+        let pm = ProjectionMatrix::with_defaults();
+        for entry in pm.dialect_entries() {
+            if entry.mode == ProjectionMode::Unsupported {
+                assert!(
+                    entry.mapper_hint.is_none(),
+                    "unsupported entry {} should have no hint",
+                    entry.pair
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn mapped_entries_all_have_hints() {
+        let pm = ProjectionMatrix::with_defaults();
+        for entry in pm.dialect_entries() {
+            if entry.mode == ProjectionMode::Mapped {
+                assert!(
+                    entry.mapper_hint.is_some(),
+                    "mapped entry {} should have a hint",
+                    entry.pair
+                );
+            }
+        }
     }
 }
