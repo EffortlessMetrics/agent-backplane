@@ -14,20 +14,19 @@ use abp_claude_sdk::dialect::{
 use abp_claude_sdk::lowering;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, ReceiptBuilder, RuntimeConfig, SupportLevel,
-    WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, ReceiptBuilder,
+    SupportLevel, WorkOrderBuilder,
 };
 use abp_shim_claude::{
-    content_block_from_ir, content_block_to_ir, message_to_ir, request_to_claude,
-    request_to_work_order, response_from_claude, response_from_events, stream_event_from_claude,
     AnthropicClient, ApiError, ContentBlock, EventStream, ImageSource, Message,
-    MessageDeltaPayload, MessageRequest, MessageResponse, Role, ShimError, StreamDelta,
-    StreamEvent, Usage,
+    MessageRequest, MessageResponse, Role, ShimError, StreamDelta,
+    StreamEvent, Usage, content_block_from_ir, content_block_to_ir,
+    request_to_claude, request_to_work_order, response_from_claude, response_from_events,
+    stream_event_from_claude,
 };
 use chrono::Utc;
 use serde_json::json;
 use std::collections::BTreeMap;
-use tokio_stream::StreamExt;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -59,6 +58,7 @@ fn make_agent_event(kind: AgentEventKind) -> AgentEvent {
     }
 }
 
+#[allow(dead_code)]
 fn make_agent_event_with_ext(
     kind: AgentEventKind,
     ext: BTreeMap<String, serde_json::Value>,

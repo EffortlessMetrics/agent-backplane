@@ -433,7 +433,10 @@ fn glob_stager_include_and_exclude() {
         .unwrap();
     let files = collect_files(ws.path());
     for f in &files {
-        assert!(f.ends_with(".rs") || f.ends_with(".toml"), "unexpected: {f}");
+        assert!(
+            f.ends_with(".rs") || f.ends_with(".toml"),
+            "unexpected: {f}"
+        );
     }
     assert!(!files.iter().any(|f| f.starts_with("target/")));
 }
@@ -701,7 +704,12 @@ fn diff_summary_detects_addition() {
     fs::write(ws.path().join("new.txt"), "new content\n").unwrap();
     let summary = diff_workspace(&ws).unwrap();
     assert!(!summary.is_empty());
-    assert!(summary.added.iter().any(|p| p.to_string_lossy().contains("new.txt")));
+    assert!(
+        summary
+            .added
+            .iter()
+            .any(|p| p.to_string_lossy().contains("new.txt"))
+    );
 }
 
 #[test]
@@ -711,7 +719,12 @@ fn diff_summary_detects_modification() {
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     fs::write(ws.path().join("f.txt"), "modified\n").unwrap();
     let summary = diff_workspace(&ws).unwrap();
-    assert!(summary.modified.iter().any(|p| p.to_string_lossy().contains("f.txt")));
+    assert!(
+        summary
+            .modified
+            .iter()
+            .any(|p| p.to_string_lossy().contains("f.txt"))
+    );
 }
 
 #[test]
@@ -721,7 +734,12 @@ fn diff_summary_detects_deletion() {
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     fs::remove_file(ws.path().join("f.txt")).unwrap();
     let summary = diff_workspace(&ws).unwrap();
-    assert!(summary.deleted.iter().any(|p| p.to_string_lossy().contains("f.txt")));
+    assert!(
+        summary
+            .deleted
+            .iter()
+            .any(|p| p.to_string_lossy().contains("f.txt"))
+    );
 }
 
 #[test]
@@ -785,7 +803,11 @@ fn cleanup_stager_workspace_on_drop() {
 fn cleanup_with_nested_dirs() {
     let src = tempdir().unwrap();
     fs::create_dir_all(src.path().join("a").join("b").join("c")).unwrap();
-    fs::write(src.path().join("a").join("b").join("c").join("f.txt"), "deep").unwrap();
+    fs::write(
+        src.path().join("a").join("b").join("c").join("f.txt"),
+        "deep",
+    )
+    .unwrap();
     let staged_path;
     {
         let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
@@ -802,7 +824,10 @@ fn cleanup_does_not_affect_source() {
         let _ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     }
     assert!(src.path().join("f.txt").exists());
-    assert_eq!(fs::read_to_string(src.path().join("f.txt")).unwrap(), "data");
+    assert_eq!(
+        fs::read_to_string(src.path().join("f.txt")).unwrap(),
+        "data"
+    );
 }
 
 // ===========================================================================
@@ -919,8 +944,7 @@ fn dangling_symlinks_do_not_cause_error() {
     fs::write(src.path().join("real.txt"), "real").unwrap();
     #[cfg(unix)]
     {
-        std::os::unix::fs::symlink("/nonexistent/target", src.path().join("dangling.txt"))
-            .unwrap();
+        std::os::unix::fs::symlink("/nonexistent/target", src.path().join("dangling.txt")).unwrap();
     }
     // Staging must succeed regardless
     let ws = WorkspaceStager::new()
@@ -1231,12 +1255,8 @@ fn glob_exclude_dot_files() {
     let src = tempdir().unwrap();
     fs::write(src.path().join(".hidden"), "secret").unwrap();
     fs::write(src.path().join("visible.txt"), "ok").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        vec![],
-        vec![".*".into()],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec![], vec![".*".into()]))
+        .unwrap();
     let files = collect_files(ws.path());
     assert!(files.contains(&"visible.txt".to_string()));
     assert!(!files.iter().any(|f| f.starts_with('.')));
