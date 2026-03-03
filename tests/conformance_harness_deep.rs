@@ -8,16 +8,14 @@
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, ExecutionMode, Outcome, ReceiptBuilder, SupportLevel,
-    WorkOrderBuilder, canonical_json, receipt_hash, sha256_hex,
-};
-use abp_protocol::{
-    Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder, canonical_json,
+    receipt_hash, sha256_hex,
 };
 use abp_protocol::builder::EnvelopeBuilder;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
 use abp_protocol::version::{ProtocolVersion, negotiate_version};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -86,9 +84,25 @@ fn sample_sequence(ref_id: &str) -> Vec<Envelope> {
     vec![
         make_hello(),
         make_run_envelope(ref_id),
-        make_event(ref_id, AgentEventKind::RunStarted { message: "go".into() }, 0),
-        make_event(ref_id, AgentEventKind::AssistantDelta { text: "hi".into() }, 1),
-        make_event(ref_id, AgentEventKind::RunCompleted { message: "done".into() }, 2),
+        make_event(
+            ref_id,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
+        make_event(
+            ref_id,
+            AgentEventKind::AssistantDelta { text: "hi".into() },
+            1,
+        ),
+        make_event(
+            ref_id,
+            AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+            2,
+        ),
         make_final(ref_id),
     ]
 }
@@ -172,7 +186,9 @@ fn version_negotiate_different_major_fails() {
 fn version_hello_envelope_carries_contract_version() {
     let hello = make_hello();
     match &hello {
-        Envelope::Hello { contract_version, .. } => {
+        Envelope::Hello {
+            contract_version, ..
+        } => {
             assert_eq!(contract_version, CONTRACT_VERSION);
         }
         _ => panic!("expected Hello"),
@@ -187,7 +203,10 @@ fn version_hello_envelope_carries_contract_version() {
 fn envelope_hello_has_t_discriminator() {
     // Spec: discriminator field is "t" (not "type")
     let json = JsonlCodec::encode(&make_hello()).unwrap();
-    assert!(json.contains("\"t\":\"hello\""), "must have t=hello: {json}");
+    assert!(
+        json.contains("\"t\":\"hello\""),
+        "must have t=hello: {json}"
+    );
 }
 
 #[test]
@@ -199,23 +218,38 @@ fn envelope_run_has_t_discriminator() {
 
 #[test]
 fn envelope_event_has_t_discriminator() {
-    let event = make_event("r", AgentEventKind::RunStarted { message: "go".into() }, 0);
+    let event = make_event(
+        "r",
+        AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
+        0,
+    );
     let json = JsonlCodec::encode(&event).unwrap();
-    assert!(json.contains("\"t\":\"event\""), "must have t=event: {json}");
+    assert!(
+        json.contains("\"t\":\"event\""),
+        "must have t=event: {json}"
+    );
 }
 
 #[test]
 fn envelope_final_has_t_discriminator() {
     let fin = make_final("r");
     let json = JsonlCodec::encode(&fin).unwrap();
-    assert!(json.contains("\"t\":\"final\""), "must have t=final: {json}");
+    assert!(
+        json.contains("\"t\":\"final\""),
+        "must have t=final: {json}"
+    );
 }
 
 #[test]
 fn envelope_fatal_has_t_discriminator() {
     let fatal = make_fatal(Some("r"), "boom");
     let json = JsonlCodec::encode(&fatal).unwrap();
-    assert!(json.contains("\"t\":\"fatal\""), "must have t=fatal: {json}");
+    assert!(
+        json.contains("\"t\":\"fatal\""),
+        "must have t=fatal: {json}"
+    );
 }
 
 #[test]
@@ -239,7 +273,13 @@ fn envelope_run_required_fields() {
 #[test]
 fn envelope_event_required_fields() {
     // Spec: event requires ref_id, event
-    let event = make_event("r", AgentEventKind::RunStarted { message: "go".into() }, 0);
+    let event = make_event(
+        "r",
+        AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
+        0,
+    );
     let json = JsonlCodec::encode(&event).unwrap();
     assert!(json.contains("\"ref_id\""));
     // The event field is flattened into the envelope but its content is present
@@ -269,7 +309,10 @@ fn envelope_jsonl_newline_terminated() {
     // Spec: every message is terminated by \n
     let hello = make_hello();
     let line = JsonlCodec::encode(&hello).unwrap();
-    assert!(line.ends_with('\n'), "JSONL line must be newline-terminated");
+    assert!(
+        line.ends_with('\n'),
+        "JSONL line must be newline-terminated"
+    );
 }
 
 #[test]
@@ -282,7 +325,11 @@ fn envelope_round_trip_hello() {
 
 #[test]
 fn envelope_round_trip_event() {
-    let original = make_event("r1", AgentEventKind::AssistantDelta { text: "hi".into() }, 0);
+    let original = make_event(
+        "r1",
+        AgentEventKind::AssistantDelta { text: "hi".into() },
+        0,
+    );
     let json = JsonlCodec::encode(&original).unwrap();
     let decoded = JsonlCodec::decode(json.trim()).unwrap();
     match decoded {
@@ -311,7 +358,8 @@ fn envelope_round_trip_fatal() {
 #[test]
 fn envelope_mode_defaults_to_mapped() {
     // Spec: mode defaults to "mapped" if absent
-    let json = r#"{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"x"},"capabilities":{}}"#;
+    let json =
+        r#"{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"x"},"capabilities":{}}"#;
     let decoded = JsonlCodec::decode(json).unwrap();
     match decoded {
         Envelope::Hello { mode, .. } => assert_eq!(mode, ExecutionMode::Mapped),
@@ -328,12 +376,20 @@ fn handshake_hello_must_be_first() {
     // Spec: sidecar MUST send hello as very first stdout line
     let validator = EnvelopeValidator::new();
     let seq = vec![
-        make_event("r", AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            "r",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
         make_final("r"),
     ];
     let errors = validator.validate_sequence(&seq);
     assert!(
-        errors.iter().any(|e| matches!(e, SequenceError::MissingHello)),
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello)),
         "should detect missing hello"
     );
 }
@@ -344,12 +400,20 @@ fn handshake_hello_not_at_position_zero() {
     let seq = vec![
         make_run_envelope("r"),
         make_hello(),
-        make_event("r", AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            "r",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
         make_final("r"),
     ];
     let errors = validator.validate_sequence(&seq);
     assert!(
-        errors.iter().any(|e| matches!(e, SequenceError::HelloNotFirst { .. })),
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })),
         "should detect hello not first"
     );
 }
@@ -411,10 +475,12 @@ fn handshake_hello_bad_version_format() {
     };
     let result = validator.validate(&hello);
     assert!(!result.valid);
-    assert!(result.errors.iter().any(|e| matches!(
-        e,
-        ValidationError::InvalidVersion { .. }
-    )));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]
@@ -451,7 +517,10 @@ fn handshake_hello_passthrough_mode() {
         ExecutionMode::Passthrough,
     );
     let json = JsonlCodec::encode(&hello).unwrap();
-    assert!(json.contains("\"passthrough\""), "mode should be serialized");
+    assert!(
+        json.contains("\"passthrough\""),
+        "mode should be serialized"
+    );
 }
 
 #[test]
@@ -477,7 +546,9 @@ fn handshake_builder_sets_contract_version() {
         .build()
         .unwrap();
     match &env {
-        Envelope::Hello { contract_version, .. } => {
+        Envelope::Hello {
+            contract_version, ..
+        } => {
             assert_eq!(contract_version, CONTRACT_VERSION);
         }
         _ => panic!("expected Hello"),
@@ -502,7 +573,10 @@ fn lifecycle_valid_sequence_accepted() {
     let validator = EnvelopeValidator::new();
     let seq = sample_sequence("run-1");
     let errors = validator.validate_sequence(&seq);
-    assert!(errors.is_empty(), "valid sequence should have no errors: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "valid sequence should have no errors: {errors:?}"
+    );
 }
 
 #[test]
@@ -512,12 +586,20 @@ fn lifecycle_ref_id_must_match_run_id() {
     let seq = vec![
         make_hello(),
         make_run_envelope("run-1"),
-        make_event("run-WRONG", AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            "run-WRONG",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
         make_final("run-1"),
     ];
     let errors = validator.validate_sequence(&seq);
     assert!(
-        errors.iter().any(|e| matches!(e, SequenceError::RefIdMismatch { .. })),
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })),
         "should detect ref_id mismatch"
     );
 }
@@ -528,11 +610,21 @@ fn lifecycle_final_ref_id_mismatch_detected() {
     let seq = vec![
         make_hello(),
         make_run_envelope("run-1"),
-        make_event("run-1", AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            "run-1",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
         make_final("run-OTHER"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors.iter().any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -541,10 +633,20 @@ fn lifecycle_missing_terminal() {
     let seq = vec![
         make_hello(),
         make_run_envelope("r"),
-        make_event("r", AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            "r",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -557,15 +659,27 @@ fn lifecycle_multiple_terminals_detected() {
         make_fatal(Some("r"), "extra"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors.iter().any(|e| matches!(e, SequenceError::MultipleTerminals)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MultipleTerminals))
+    );
 }
 
 #[test]
 fn lifecycle_empty_sequence_detected() {
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&[]);
-    assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingHello)));
-    assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -573,13 +687,21 @@ fn lifecycle_event_before_run_detected() {
     let validator = EnvelopeValidator::new();
     let seq = vec![
         make_hello(),
-        make_event("r", AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            "r",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
         make_run_envelope("r"),
         make_final("r"),
     ];
     let errors = validator.validate_sequence(&seq);
     assert!(
-        errors.iter().any(|e| matches!(e, SequenceError::OutOfOrderEvents)),
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::OutOfOrderEvents)),
         "event before run should be detected"
     );
 }
@@ -588,11 +710,7 @@ fn lifecycle_event_before_run_detected() {
 fn lifecycle_zero_events_valid() {
     // hello → run → final (no events) is valid
     let validator = EnvelopeValidator::new();
-    let seq = vec![
-        make_hello(),
-        make_run_envelope("r"),
-        make_final("r"),
-    ];
+    let seq = vec![make_hello(), make_run_envelope("r"), make_final("r")];
     let errors = validator.validate_sequence(&seq);
     assert!(errors.is_empty(), "zero events is valid: {errors:?}");
 }
@@ -604,7 +722,9 @@ fn lifecycle_many_events_before_final() {
     for i in 0..20 {
         seq.push(make_event(
             ref_id,
-            AgentEventKind::AssistantDelta { text: format!("tok-{i}") },
+            AgentEventKind::AssistantDelta {
+                text: format!("tok-{i}"),
+            },
             i,
         ));
     }
@@ -621,11 +741,20 @@ fn lifecycle_fatal_ending_valid() {
     let seq = vec![
         make_hello(),
         make_run_envelope("r"),
-        make_event("r", AgentEventKind::RunStarted { message: "go".into() }, 0),
+        make_event(
+            "r",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            0,
+        ),
         make_fatal(Some("r"), "crash"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors.is_empty(), "fatal ending should be valid: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "fatal ending should be valid: {errors:?}"
+    );
 }
 
 #[test]
@@ -659,7 +788,9 @@ fn lifecycle_event_validator_checks_empty_ref_id() {
         ref_id: String::new(),
         event: AgentEvent {
             ts: fixed_ts(),
-            kind: AgentEventKind::RunStarted { message: "go".into() },
+            kind: AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
             ext: None,
         },
     };
@@ -707,7 +838,10 @@ fn error_fatal_terminates_run() {
         make_fatal(Some("r"), "unrecoverable"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors.is_empty(), "fatal should be a valid terminal: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "fatal should be a valid terminal: {errors:?}"
+    );
 }
 
 #[test]
@@ -877,7 +1011,10 @@ fn receipt_hash_excludes_own_field() {
     receipt2.receipt_sha256 = Some("some-previous-hash".into());
     let hash_with = receipt_hash(&receipt2).unwrap();
 
-    assert_eq!(hash_without, hash_with, "hash must not depend on receipt_sha256 field");
+    assert_eq!(
+        hash_without, hash_with,
+        "hash must not depend on receipt_sha256 field"
+    );
 }
 
 #[test]
@@ -901,7 +1038,10 @@ fn receipt_different_data_different_hash() {
 fn receipt_canonical_json_sorts_keys() {
     let v = serde_json::json!({"z": 1, "a": 2, "m": 3});
     let canon = canonical_json(&v).unwrap();
-    assert!(canon.starts_with("{\"a\":"), "keys should be sorted: {canon}");
+    assert!(
+        canon.starts_with("{\"a\":"),
+        "keys should be sorted: {canon}"
+    );
 }
 
 #[test]
@@ -926,11 +1066,15 @@ fn receipt_required_meta_fields() {
 
 #[test]
 fn receipt_mode_serializes() {
-    let r1 = ReceiptBuilder::new("test").mode(ExecutionMode::Passthrough).build();
+    let r1 = ReceiptBuilder::new("test")
+        .mode(ExecutionMode::Passthrough)
+        .build();
     let json = serde_json::to_string(&r1).unwrap();
     assert!(json.contains("\"passthrough\""));
 
-    let r2 = ReceiptBuilder::new("test").mode(ExecutionMode::Mapped).build();
+    let r2 = ReceiptBuilder::new("test")
+        .mode(ExecutionMode::Mapped)
+        .build();
     let json2 = serde_json::to_string(&r2).unwrap();
     assert!(json2.contains("\"mapped\""));
 }

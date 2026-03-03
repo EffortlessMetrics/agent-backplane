@@ -283,11 +283,10 @@ fn restricted_cap_strategy_contains_reason() {
     )]);
     let level = check_capability(&m, &Capability::ToolBash);
     match level {
-        CapSupportLevel::Emulated { method } => {
-            assert!(method.contains("restricted"));
-            assert!(method.contains("user policy"));
+        CapSupportLevel::Restricted { reason } => {
+            assert!(reason.contains("user policy"));
         }
-        _ => panic!("expected Emulated"),
+        _ => panic!("expected Restricted, got {level:?}"),
     }
 }
 

@@ -119,9 +119,7 @@ fn struct_receipt_schema_is_valid_json() {
 #[test]
 fn struct_receipt_has_schema_field() {
     let s = schema_of::<Receipt>();
-    assert_eq!(
-        s["$schema"], "https://json-schema.org/draft/2020-12/schema"
-    );
+    assert_eq!(s["$schema"], "https://json-schema.org/draft/2020-12/schema");
 }
 
 #[test]
@@ -139,9 +137,7 @@ fn struct_receipt_has_type_object() {
 #[test]
 fn struct_backplane_config_has_schema_field() {
     let s = schema_of::<BackplaneConfig>();
-    assert_eq!(
-        s["$schema"], "https://json-schema.org/draft/2020-12/schema"
-    );
+    assert_eq!(s["$schema"], "https://json-schema.org/draft/2020-12/schema");
 }
 
 #[test]
@@ -153,17 +149,13 @@ fn struct_backplane_config_has_title() {
 #[test]
 fn struct_agent_event_has_schema_draft() {
     let s = schema_of::<AgentEvent>();
-    assert_eq!(
-        s["$schema"], "https://json-schema.org/draft/2020-12/schema"
-    );
+    assert_eq!(s["$schema"], "https://json-schema.org/draft/2020-12/schema");
 }
 
 #[test]
 fn struct_agent_event_kind_has_schema_draft() {
     let s = schema_of::<AgentEventKind>();
-    assert_eq!(
-        s["$schema"], "https://json-schema.org/draft/2020-12/schema"
-    );
+    assert_eq!(s["$schema"], "https://json-schema.org/draft/2020-12/schema");
 }
 
 #[test]
@@ -278,9 +270,7 @@ fn type_coverage_validates_real_instances() {
     let e_schema = schema_of::<AgentEvent>();
     let e = serde_json::to_value(AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: None,
     })
     .unwrap();
@@ -349,7 +339,9 @@ fn enum_agent_event_kind_uses_tag_type_discriminator() {
     // AgentEventKind uses #[serde(tag = "type", rename_all = "snake_case")]
     // Schema should encode this as oneOf with "type" discriminator
     let s = schema_of::<AgentEventKind>();
-    let one_of = s["oneOf"].as_array().expect("AgentEventKind should use oneOf");
+    let one_of = s["oneOf"]
+        .as_array()
+        .expect("AgentEventKind should use oneOf");
     // Each variant should be an object with a "type" property
     for variant in one_of {
         // Resolve $ref if present, or check inline
@@ -410,17 +402,20 @@ fn enum_error_code_uses_snake_case_variants() {
 fn enum_support_level_has_restricted_object_variant() {
     // SupportLevel has Restricted { reason: String } which is not a simple string enum
     let s = schema_of::<SupportLevel>();
-    let one_of = s["oneOf"].as_array().expect("SupportLevel should use oneOf");
+    let one_of = s["oneOf"]
+        .as_array()
+        .expect("SupportLevel should use oneOf");
     // At least one variant should be an object (Restricted)
     let has_object = one_of.iter().any(|v| {
         v.get("type").and_then(|t| t.as_str()) == Some("object")
             || v.get("properties").is_some()
             || v.get("$ref").is_some()
     });
-    let has_simple = one_of
-        .iter()
-        .any(|v| v.get("const").is_some());
-    assert!(has_object, "SupportLevel must have an object variant (Restricted)");
+    let has_simple = one_of.iter().any(|v| v.get("const").is_some());
+    assert!(
+        has_object,
+        "SupportLevel must have an object variant (Restricted)"
+    );
     assert!(has_simple, "SupportLevel must have simple string variants");
 }
 
@@ -428,8 +423,13 @@ fn enum_support_level_has_restricted_object_variant() {
 fn enum_backend_config_uses_tag_type_discriminator() {
     // BackendConfig uses #[serde(tag = "type")]
     let s = schema_of::<BackendConfig>();
-    let one_of = s["oneOf"].as_array().expect("BackendConfig should use oneOf");
-    assert!(one_of.len() >= 2, "BackendConfig should have at least Mock and Sidecar");
+    let one_of = s["oneOf"]
+        .as_array()
+        .expect("BackendConfig should use oneOf");
+    assert!(
+        one_of.len() >= 2,
+        "BackendConfig should have at least Mock and Sidecar"
+    );
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -556,9 +556,20 @@ fn refs_no_dangling_refs_in_receipt() {
 #[test]
 fn refs_work_order_properties_reference_known_types() {
     let s = schema_of::<WorkOrder>();
-    let props = s["properties"].as_object().expect("WorkOrder should have properties");
+    let props = s["properties"]
+        .as_object()
+        .expect("WorkOrder should have properties");
     // These properties must exist in the schema
-    for expected in ["id", "task", "lane", "workspace", "context", "policy", "requirements", "config"] {
+    for expected in [
+        "id",
+        "task",
+        "lane",
+        "workspace",
+        "context",
+        "policy",
+        "requirements",
+        "config",
+    ] {
         assert!(
             props.contains_key(expected),
             "WorkOrder missing property '{expected}'"
@@ -569,8 +580,22 @@ fn refs_work_order_properties_reference_known_types() {
 #[test]
 fn refs_receipt_properties_reference_known_types() {
     let s = schema_of::<Receipt>();
-    let props = s["properties"].as_object().expect("Receipt should have properties");
-    for expected in ["meta", "backend", "capabilities", "mode", "usage_raw", "usage", "trace", "artifacts", "verification", "outcome", "receipt_sha256"] {
+    let props = s["properties"]
+        .as_object()
+        .expect("Receipt should have properties");
+    for expected in [
+        "meta",
+        "backend",
+        "capabilities",
+        "mode",
+        "usage_raw",
+        "usage",
+        "trace",
+        "artifacts",
+        "verification",
+        "outcome",
+        "receipt_sha256",
+    ] {
         assert!(
             props.contains_key(expected),
             "Receipt missing property '{expected}'"

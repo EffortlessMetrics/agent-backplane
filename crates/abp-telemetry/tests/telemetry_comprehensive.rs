@@ -128,7 +128,10 @@ fn run_summary_json_keys_alphabetical() {
     let json = serde_json::to_string(&s).unwrap();
     let a_pos = json.find("a_event").unwrap();
     let z_pos = json.find("z_event").unwrap();
-    assert!(a_pos < z_pos, "BTreeMap should serialize keys alphabetically");
+    assert!(
+        a_pos < z_pos,
+        "BTreeMap should serialize keys alphabetically"
+    );
 }
 
 #[test]
@@ -372,8 +375,20 @@ fn cost_estimator_total_all_unknown_is_zero() {
 #[test]
 fn cost_estimator_models_list_alphabetical() {
     let mut ce = CostEstimator::new();
-    ce.set_pricing("z-model", ModelPricing { input_cost_per_token: 0.0, output_cost_per_token: 0.0 });
-    ce.set_pricing("a-model", ModelPricing { input_cost_per_token: 0.0, output_cost_per_token: 0.0 });
+    ce.set_pricing(
+        "z-model",
+        ModelPricing {
+            input_cost_per_token: 0.0,
+            output_cost_per_token: 0.0,
+        },
+    );
+    ce.set_pricing(
+        "a-model",
+        ModelPricing {
+            input_cost_per_token: 0.0,
+            output_cost_per_token: 0.0,
+        },
+    );
     let models = ce.models();
     assert_eq!(models, vec!["a-model", "z-model"]);
 }
@@ -491,7 +506,11 @@ fn exporter_format_enum_dispatch_structured() {
 
 #[test]
 fn exporter_format_serde_roundtrip() {
-    for fmt in [ExportFormat::Json, ExportFormat::Csv, ExportFormat::Structured] {
+    for fmt in [
+        ExportFormat::Json,
+        ExportFormat::Csv,
+        ExportFormat::Structured,
+    ] {
         let json = serde_json::to_string(&fmt).unwrap();
         let d: ExportFormat = serde_json::from_str(&json).unwrap();
         assert_eq!(d, fmt);
@@ -542,8 +561,16 @@ fn dialect_metrics_success_rate_by_dialect() {
     c.record(run("b", "slow", 10, 1, 1, 1));
     c.record(run("b", "slow", 10, 1, 1, 1));
     let runs = c.runs();
-    let fast_errors: u64 = runs.iter().filter(|r| r.dialect == "fast").map(|r| r.errors_count).sum();
-    let slow_errors: u64 = runs.iter().filter(|r| r.dialect == "slow").map(|r| r.errors_count).sum();
+    let fast_errors: u64 = runs
+        .iter()
+        .filter(|r| r.dialect == "fast")
+        .map(|r| r.errors_count)
+        .sum();
+    let slow_errors: u64 = runs
+        .iter()
+        .filter(|r| r.dialect == "slow")
+        .map(|r| r.errors_count)
+        .sum();
     assert_eq!(fast_errors, 0);
     assert_eq!(slow_errors, 2);
 }
@@ -556,7 +583,11 @@ fn dialect_metrics_latency_per_dialect() {
     c.record(run("b", "anthropic", 50, 1, 1, 0));
     let runs = c.runs();
     let openai_avg: f64 = {
-        let ds: Vec<u64> = runs.iter().filter(|r| r.dialect == "openai").map(|r| r.duration_ms).collect();
+        let ds: Vec<u64> = runs
+            .iter()
+            .filter(|r| r.dialect == "openai")
+            .map(|r| r.duration_ms)
+            .collect();
         ds.iter().sum::<u64>() as f64 / ds.len() as f64
     };
     assert!((openai_avg - 150.0).abs() < f64::EPSILON);
@@ -569,8 +600,16 @@ fn dialect_metrics_token_usage_per_dialect() {
     c.record(run("b", "d1", 10, 150, 250, 0));
     c.record(run("b", "d2", 10, 500, 600, 0));
     let runs = c.runs();
-    let d1_in: u64 = runs.iter().filter(|r| r.dialect == "d1").map(|r| r.tokens_in).sum();
-    let d1_out: u64 = runs.iter().filter(|r| r.dialect == "d1").map(|r| r.tokens_out).sum();
+    let d1_in: u64 = runs
+        .iter()
+        .filter(|r| r.dialect == "d1")
+        .map(|r| r.tokens_in)
+        .sum();
+    let d1_out: u64 = runs
+        .iter()
+        .filter(|r| r.dialect == "d1")
+        .map(|r| r.tokens_out)
+        .sum();
     assert_eq!(d1_in, 250);
     assert_eq!(d1_out, 450);
 }

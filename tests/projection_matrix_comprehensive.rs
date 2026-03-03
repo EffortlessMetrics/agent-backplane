@@ -2300,11 +2300,7 @@ mod route_resolution {
     #[test]
     fn no_route_when_pair_is_unsupported_and_no_intermediate() {
         let mut pm = ProjectionMatrix::new();
-        pm.register(
-            Dialect::Kimi,
-            Dialect::Copilot,
-            ProjectionMode::Unsupported,
-        );
+        pm.register(Dialect::Kimi, Dialect::Copilot, ProjectionMode::Unsupported);
         assert!(pm.find_route(Dialect::Kimi, Dialect::Copilot).is_none());
     }
 
@@ -3002,11 +2998,7 @@ mod multi_hop_routing {
     #[test]
     fn no_multi_hop_when_both_hops_unsupported() {
         let mut pm = ProjectionMatrix::new();
-        pm.register(
-            Dialect::Kimi,
-            Dialect::OpenAi,
-            ProjectionMode::Unsupported,
-        );
+        pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Unsupported);
         pm.register(
             Dialect::OpenAi,
             Dialect::Copilot,
@@ -3018,11 +3010,7 @@ mod multi_hop_routing {
     #[test]
     fn no_multi_hop_when_first_hop_unsupported() {
         let mut pm = ProjectionMatrix::new();
-        pm.register(
-            Dialect::Kimi,
-            Dialect::OpenAi,
-            ProjectionMode::Unsupported,
-        );
+        pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Unsupported);
         pm.register(Dialect::OpenAi, Dialect::Copilot, ProjectionMode::Mapped);
         assert!(pm.find_route(Dialect::Kimi, Dialect::Copilot).is_none());
     }

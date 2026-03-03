@@ -139,6 +139,104 @@ impl EventStream {
     pub fn iter(&self) -> std::slice::Iter<'_, AgentEvent> {
         self.events.iter()
     }
+
+    /// Consume the stream and return the underlying vector.
+    #[must_use]
+    pub fn into_vec(self) -> Vec<AgentEvent> {
+        self.events
+    }
+
+    // ── Combinator utilities ──────────────────────────────────────────
+
+    /// Return a new stream keeping only events where `predicate` returns
+    /// `true` (generic predicate filter).
+    #[must_use]
+    pub fn filter_pred(&self, predicate: impl Fn(&AgentEvent) -> bool) -> Self {
+        Self {
+            events: self
+                .events
+                .iter()
+                .filter(|e| predicate(e))
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Return a new stream with every event transformed by `f`.
+    #[must_use]
+    pub fn map_events(&self, f: impl Fn(AgentEvent) -> AgentEvent) -> Self {
+        Self {
+            events: self.events.iter().cloned().map(f).collect(),
+        }
+    }
+
+    /// Return a new stream containing events *before* the first event where
+    /// `predicate` returns `true`. The matching event itself is **not**
+    /// included.
+    #[must_use]
+    pub fn take_until(&self, predicate: impl Fn(&AgentEvent) -> bool) -> Self {
+        let mut out = Vec::new();
+        for e in &self.events {
+            if predicate(e) {
+                break;
+            }
+            out.push(e.clone());
+        }
+        Self { events: out }
+    }
+
+    /// Rate-limit the stream so that at most one event per `window` is kept.
+    ///
+    /// The first event is always included. Subsequent events are included only
+    /// if their timestamp is at least `window` after the last included event.
+    #[must_use]
+    pub fn throttle(&self, window: Duration) -> Self {
+        let mut out = Vec::new();
+        let mut last_ts: Option<chrono::DateTime<chrono::Utc>> = None;
+        for e in &self.events {
+            match last_ts {
+                None => {
+                    last_ts = Some(e.ts);
+                    out.push(e.clone());
+                }
+                Some(prev) => {
+                    if let Ok(delta) = (e.ts - prev).to_std() {
+                        if delta >= window {
+                            last_ts = Some(e.ts);
+                            out.push(e.clone());
+                        }
+                    }
+                }
+            }
+        }
+        Self { events: out }
+    }
+
+    /// Merge two streams into one, ordered by timestamp (stable — when
+    /// timestamps are equal, events from `self` come first).
+    #[must_use]
+    pub fn merge(&self, other: &EventStream) -> Self {
+        let mut merged = Vec::with_capacity(self.events.len() + other.events.len());
+        let (mut i, mut j) = (0, 0);
+        while i < self.events.len() && j < other.events.len() {
+            if self.events[i].ts <= other.events[j].ts {
+                merged.push(self.events[i].clone());
+                i += 1;
+            } else {
+                merged.push(other.events[j].clone());
+                j += 1;
+            }
+        }
+        while i < self.events.len() {
+            merged.push(self.events[i].clone());
+            i += 1;
+        }
+        while j < other.events.len() {
+            merged.push(other.events[j].clone());
+            j += 1;
+        }
+        Self { events: merged }
+    }
 }
 
 impl IntoIterator for EventStream {

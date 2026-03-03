@@ -1606,7 +1606,12 @@ fn fatal_envelope_t_tag() {
 
 #[test]
 fn envelope_encode_ends_with_newline() {
-    for env in [make_hello(), make_run("r1"), make_event("r1"), make_final("r1")] {
+    for env in [
+        make_hello(),
+        make_run("r1"),
+        make_event("r1"),
+        make_final("r1"),
+    ] {
         let encoded = JsonlCodec::encode(&env).unwrap();
         assert!(encoded.ends_with('\n'), "envelope must end with newline");
     }
@@ -1714,10 +1719,7 @@ fn encode_many_to_writer_works() {
 
 #[test]
 fn hello_with_empty_capabilities() {
-    let hello = Envelope::hello(
-        test_identity(),
-        CapabilityManifest::new(),
-    );
+    let hello = Envelope::hello(test_identity(), CapabilityManifest::new());
     match &hello {
         Envelope::Hello { capabilities, .. } => {
             assert!(capabilities.is_empty());
@@ -1776,8 +1778,16 @@ fn hello_sequence_missing_hello_error() {
 fn hello_empty_sequence_errors() {
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&[]);
-    assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingHello)));
-    assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -1847,7 +1857,10 @@ fn run_preserves_work_order_fields() {
             assert_eq!(work_order.id, id);
             assert_eq!(work_order.task, "hello world");
             assert!(matches!(work_order.lane, ExecutionLane::PatchFirst));
-            assert!(matches!(work_order.workspace.mode, WorkspaceMode::PassThrough));
+            assert!(matches!(
+                work_order.workspace.mode,
+                WorkspaceMode::PassThrough
+            ));
         }
         _ => panic!("expected Run"),
     }
@@ -2241,7 +2254,8 @@ fn sidecar_config_default_fields() {
 fn registry_multiple_sidecars_lookup() {
     let mut reg = SidecarRegistry::default();
     reg.register(SidecarConfig::new("node-sc", "node")).unwrap();
-    reg.register(SidecarConfig::new("python-sc", "python")).unwrap();
+    reg.register(SidecarConfig::new("python-sc", "python"))
+        .unwrap();
     reg.register(SidecarConfig::new("bash-sc", "bash")).unwrap();
     assert_eq!(reg.list().len(), 3);
     assert!(reg.get("node-sc").is_some());
@@ -2392,13 +2406,20 @@ fn lifecycle_invalid_transition_stopped_to_ready() {
 #[test]
 fn lifecycle_full_happy_path() {
     let mut mgr = LifecycleManager::new();
-    mgr.transition(LifecycleState::Starting, Some("boot".into())).unwrap();
-    mgr.transition(LifecycleState::Ready, Some("handshake done".into())).unwrap();
-    mgr.transition(LifecycleState::Running, Some("work order received".into())).unwrap();
-    mgr.transition(LifecycleState::Ready, Some("run complete".into())).unwrap();
-    mgr.transition(LifecycleState::Running, Some("second run".into())).unwrap();
-    mgr.transition(LifecycleState::Stopping, Some("shutdown".into())).unwrap();
-    mgr.transition(LifecycleState::Stopped, Some("clean exit".into())).unwrap();
+    mgr.transition(LifecycleState::Starting, Some("boot".into()))
+        .unwrap();
+    mgr.transition(LifecycleState::Ready, Some("handshake done".into()))
+        .unwrap();
+    mgr.transition(LifecycleState::Running, Some("work order received".into()))
+        .unwrap();
+    mgr.transition(LifecycleState::Ready, Some("run complete".into()))
+        .unwrap();
+    mgr.transition(LifecycleState::Running, Some("second run".into()))
+        .unwrap();
+    mgr.transition(LifecycleState::Stopping, Some("shutdown".into()))
+        .unwrap();
+    mgr.transition(LifecycleState::Stopped, Some("clean exit".into()))
+        .unwrap();
     assert_eq!(*mgr.state(), LifecycleState::Stopped);
     assert_eq!(mgr.history().len(), 7);
 }
@@ -2428,8 +2449,12 @@ fn lifecycle_error_display() {
 fn health_status_serde_roundtrip() {
     let statuses = vec![
         HealthStatus::Healthy,
-        HealthStatus::Degraded { reason: "slow".into() },
-        HealthStatus::Unhealthy { reason: "down".into() },
+        HealthStatus::Degraded {
+            reason: "slow".into(),
+        },
+        HealthStatus::Unhealthy {
+            reason: "down".into(),
+        },
         HealthStatus::Unknown,
     ];
     for status in statuses {
@@ -2444,7 +2469,13 @@ fn health_monitor_multiple_sidecars() {
     let mut monitor = HealthMonitor::new();
     monitor.record_check("s1", HealthStatus::Healthy, Some(Duration::from_millis(5)));
     monitor.record_check("s2", HealthStatus::Healthy, Some(Duration::from_millis(10)));
-    monitor.record_check("s3", HealthStatus::Degraded { reason: "slow".into() }, None);
+    monitor.record_check(
+        "s3",
+        HealthStatus::Degraded {
+            reason: "slow".into(),
+        },
+        None,
+    );
     assert_eq!(monitor.total_checks(), 3);
     assert!(!monitor.all_healthy());
     let report = monitor.generate_report();
@@ -2487,8 +2518,16 @@ fn retry_metadata_with_failed_attempts() {
     let meta = RetryMetadata {
         total_attempts: 3,
         failed_attempts: vec![
-            RetryAttempt { attempt: 0, error: "spawn failed".into(), delay: Duration::from_millis(100) },
-            RetryAttempt { attempt: 1, error: "timeout".into(), delay: Duration::from_millis(200) },
+            RetryAttempt {
+                attempt: 0,
+                error: "spawn failed".into(),
+                delay: Duration::from_millis(100),
+            },
+            RetryAttempt {
+                attempt: 1,
+                error: "timeout".into(),
+                delay: Duration::from_millis(200),
+            },
         ],
         total_duration: Duration::from_millis(500),
     };

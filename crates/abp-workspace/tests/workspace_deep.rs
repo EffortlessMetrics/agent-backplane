@@ -173,7 +173,10 @@ fn wd_spec_serde_mode_string_staged() {
         exclude: vec![],
     };
     let json = serde_json::to_string(&spec).unwrap();
-    assert!(json.contains("staged"), "mode should serialize as snake_case: {json}");
+    assert!(
+        json.contains("staged"),
+        "mode should serialize as snake_case: {json}"
+    );
 }
 
 #[test]
@@ -257,8 +260,7 @@ fn wd_copy_exclude_env_files() {
     fs::write(src.path().join(".env"), "SECRET=xyz").unwrap();
     fs::write(src.path().join(".env.local"), "LOCAL=1").unwrap();
     fs::write(src.path().join("app.rs"), "fn app(){}").unwrap();
-    let ws =
-        WorkspaceManager::prepare(&staged_spec_globs(src.path(), &[], &[".env*"])).unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &[], &[".env*"])).unwrap();
     let f = files(ws.path());
     assert!(f.contains(&"app.rs".to_string()));
     assert!(!f.iter().any(|p| p.starts_with(".env")));
@@ -466,10 +468,7 @@ fn wd_git_all_staged_files_tracked() {
     let tracked = git(ws.path(), &["ls-files"]).unwrap();
     for f in files(ws.path()) {
         let normalized = f.replace('\\', "/");
-        assert!(
-            tracked.contains(&normalized),
-            "file {f} not tracked in git"
-        );
+        assert!(tracked.contains(&normalized), "file {f} not tracked in git");
     }
 }
 
@@ -512,7 +511,10 @@ fn wd_git_author_is_abp() {
     fs::write(src.path().join("f"), "").unwrap();
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     let author = git(ws.path(), &["log", "--format=%an <%ae>"]).unwrap();
-    assert!(author.contains("abp"), "author should contain 'abp', got: {author}");
+    assert!(
+        author.contains("abp"),
+        "author should contain 'abp', got: {author}"
+    );
 }
 
 // ===========================================================================
@@ -523,8 +525,7 @@ fn wd_git_author_is_abp() {
 fn wd_glob_include_rs_only() {
     let src = tempdir().unwrap();
     populate(src.path());
-    let ws =
-        WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["*.rs"], &[])).unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["*.rs"], &[])).unwrap();
     for f in files(ws.path()) {
         assert!(f.ends_with(".rs"), "non-.rs file found: {f}");
     }
@@ -536,8 +537,8 @@ fn wd_glob_exclude_target_dir() {
     fs::create_dir_all(src.path().join("target/debug")).unwrap();
     fs::write(src.path().join("target/debug/binary"), "").unwrap();
     fs::write(src.path().join("src.rs"), "fn main(){}").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &[], &["target/**"]))
-        .unwrap();
+    let ws =
+        WorkspaceManager::prepare(&staged_spec_globs(src.path(), &[], &["target/**"])).unwrap();
     let f = files(ws.path());
     assert!(!f.iter().any(|p| p.starts_with("target/")));
     assert!(f.contains(&"src.rs".to_string()));
@@ -551,12 +552,8 @@ fn wd_glob_nested_include_pattern() {
     fs::write(src.path().join("crates/core/src/lib.rs"), "").unwrap();
     fs::write(src.path().join("crates/util/src/lib.rs"), "").unwrap();
     fs::write(src.path().join("build.sh"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &["crates/**/src/**"],
-        &[],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["crates/**/src/**"], &[]))
+        .unwrap();
     let f = files(ws.path());
     assert!(f.contains(&"crates/core/src/lib.rs".to_string()));
     assert!(f.contains(&"crates/util/src/lib.rs".to_string()));
@@ -570,12 +567,8 @@ fn wd_glob_multiple_include_patterns() {
     fs::write(src.path().join("b.toml"), "").unwrap();
     fs::write(src.path().join("c.md"), "").unwrap();
     fs::write(src.path().join("d.log"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &["*.rs", "*.toml"],
-        &[],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["*.rs", "*.toml"], &[]))
+        .unwrap();
     let f = files(ws.path());
     assert!(f.contains(&"a.rs".to_string()));
     assert!(f.contains(&"b.toml".to_string()));
@@ -589,12 +582,8 @@ fn wd_glob_multiple_exclude_patterns() {
     fs::write(src.path().join("code.rs"), "").unwrap();
     fs::write(src.path().join("debug.log"), "").unwrap();
     fs::write(src.path().join("cache.tmp"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &[],
-        &["*.log", "*.tmp"],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &[], &["*.log", "*.tmp"]))
+        .unwrap();
     let f = files(ws.path());
     assert!(f.contains(&"code.rs".to_string()));
     assert!(!f.contains(&"debug.log".to_string()));
@@ -607,12 +596,8 @@ fn wd_glob_exclude_overrides_include() {
     fs::create_dir_all(src.path().join("src/gen")).unwrap();
     fs::write(src.path().join("src/lib.rs"), "pub").unwrap();
     fs::write(src.path().join("src/gen/out.rs"), "gen").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &["src/**"],
-        &["**/gen/**"],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["src/**"], &["**/gen/**"]))
+        .unwrap();
     let f = files(ws.path());
     assert!(f.contains(&"src/lib.rs".to_string()));
     assert!(!f.iter().any(|p| p.contains("gen/")));
@@ -624,12 +609,8 @@ fn wd_glob_brace_expansion_include() {
     fs::write(src.path().join("app.rs"), "").unwrap();
     fs::write(src.path().join("app.ts"), "").unwrap();
     fs::write(src.path().join("app.py"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &["*.{rs,ts}"],
-        &[],
-    ))
-    .unwrap();
+    let ws =
+        WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["*.{rs,ts}"], &[])).unwrap();
     let f = files(ws.path());
     assert!(f.contains(&"app.rs".to_string()));
     assert!(f.contains(&"app.ts".to_string()));
@@ -643,12 +624,7 @@ fn wd_glob_question_mark_wildcard() {
     fs::write(src.path().join("v2.txt"), "").unwrap();
     fs::write(src.path().join("va.txt"), "").unwrap();
     fs::write(src.path().join("v12.txt"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &["v?.txt"],
-        &[],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["v?.txt"], &[])).unwrap();
     let f = files(ws.path());
     assert!(f.contains(&"v1.txt".to_string()));
     assert!(f.contains(&"v2.txt".to_string()));
@@ -663,12 +639,8 @@ fn wd_glob_char_class_exclude() {
     fs::write(src.path().join("test1.rs"), "").unwrap();
     fs::write(src.path().join("test2.rs"), "").unwrap();
     fs::write(src.path().join("testX.rs"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &[],
-        &["test[0-9].rs"],
-    ))
-    .unwrap();
+    let ws =
+        WorkspaceManager::prepare(&staged_spec_globs(src.path(), &[], &["test[0-9].rs"])).unwrap();
     let f = files(ws.path());
     assert!(!f.contains(&"test1.rs".to_string()));
     assert!(!f.contains(&"test2.rs".to_string()));
@@ -679,12 +651,7 @@ fn wd_glob_char_class_exclude() {
 fn wd_glob_no_match_yields_empty() {
     let src = tempdir().unwrap();
     fs::write(src.path().join("readme.md"), "# Hello").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &["*.rs"],
-        &[],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["*.rs"], &[])).unwrap();
     assert!(files(ws.path()).is_empty());
 }
 
@@ -693,8 +660,7 @@ fn wd_glob_exclude_all_with_star() {
     let src = tempdir().unwrap();
     fs::write(src.path().join("a.rs"), "").unwrap();
     fs::write(src.path().join("b.txt"), "").unwrap();
-    let ws =
-        WorkspaceManager::prepare(&staged_spec_globs(src.path(), &[], &["*"])).unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &[], &["*"])).unwrap();
     assert!(files(ws.path()).is_empty());
 }
 
@@ -702,12 +668,8 @@ fn wd_glob_exclude_all_with_star() {
 fn wd_glob_same_include_and_exclude_denies() {
     let src = tempdir().unwrap();
     fs::write(src.path().join("code.rs"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &["*.rs"],
-        &["*.rs"],
-    ))
-    .unwrap();
+    let ws =
+        WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["*.rs"], &["*.rs"])).unwrap();
     assert!(files(ws.path()).is_empty());
 }
 
@@ -719,12 +681,7 @@ fn wd_glob_double_star_catches_all_depths() {
     fs::write(src.path().join("a/mid.rs"), "").unwrap();
     fs::write(src.path().join("a/b/c/deep.rs"), "").unwrap();
     fs::write(src.path().join("a/b/c/skip.txt"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &["**/*.rs"],
-        &[],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["**/*.rs"], &[])).unwrap();
     let f = files(ws.path());
     assert!(f.contains(&"top.rs".to_string()));
     assert!(f.contains(&"a/mid.rs".to_string()));
@@ -738,12 +695,7 @@ fn wd_glob_include_specific_filenames() {
     fs::write(src.path().join("Cargo.toml"), "").unwrap();
     fs::write(src.path().join("Cargo.lock"), "").unwrap();
     fs::write(src.path().join("README.md"), "").unwrap();
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        &["Cargo.*"],
-        &[],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), &["Cargo.*"], &[])).unwrap();
     let f = files(ws.path());
     assert!(f.contains(&"Cargo.toml".to_string()));
     assert!(f.contains(&"Cargo.lock".to_string()));
@@ -883,7 +835,10 @@ fn wd_cleanup_staged_with_git() {
     let path = ws.path().to_path_buf();
     assert!(path.exists());
     drop(ws);
-    assert!(!path.exists(), "staged dir with git should be removed on drop");
+    assert!(
+        !path.exists(),
+        "staged dir with git should be removed on drop"
+    );
 }
 
 #[test]

@@ -4,9 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, WorkOrderBuilder,
-};
+use abp_core::{AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, WorkOrderBuilder};
 use abp_protocol::{Envelope, JsonlCodec};
 use chrono::{Duration, Utc};
 use serde_json::json;
@@ -54,9 +52,7 @@ fn construct_run_completed() {
 
 #[test]
 fn construct_assistant_delta() {
-    let ev = make_event(AgentEventKind::AssistantDelta {
-        text: "tok".into(),
-    });
+    let ev = make_event(AgentEventKind::AssistantDelta { text: "tok".into() });
     assert!(matches!(ev.kind, AgentEventKind::AssistantDelta { .. }));
 }
 
@@ -162,9 +158,7 @@ fn agent_event_ext_can_carry_data() {
     ext.insert("raw_message".into(), json!({"vendor": "test"}));
     let ev = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: Some(ext),
     };
     assert!(ev.ext.is_some());
@@ -392,9 +386,7 @@ fn command_executed_no_exit_code() {
 
 #[test]
 fn event_kind_tag_field_is_type() {
-    let ev = make_event(AgentEventKind::AssistantDelta {
-        text: "t".into(),
-    });
+    let ev = make_event(AgentEventKind::AssistantDelta { text: "t".into() });
     let v: serde_json::Value = serde_json::to_value(&ev).unwrap();
     // AgentEventKind uses #[serde(tag = "type")]
     assert_eq!(v["type"], "assistant_delta");
@@ -406,9 +398,7 @@ fn event_kind_tag_field_is_type() {
 
 #[test]
 fn wrap_event_in_envelope() {
-    let ev = make_event(AgentEventKind::AssistantMessage {
-        text: "hi".into(),
-    });
+    let ev = make_event(AgentEventKind::AssistantMessage { text: "hi".into() });
     let envelope = Envelope::Event {
         ref_id: "run-1".into(),
         event: ev,
@@ -476,9 +466,7 @@ fn fatal_envelope_has_t_fatal() {
 #[test]
 fn envelope_ref_id_correlation() {
     let run_id = "run-abc-123";
-    let ev = make_event(AgentEventKind::AssistantDelta {
-        text: "x".into(),
-    });
+    let ev = make_event(AgentEventKind::AssistantDelta { text: "x".into() });
     let envelope = Envelope::Event {
         ref_id: run_id.into(),
         event: ev,
@@ -500,11 +488,7 @@ fn multiple_events_share_ref_id() {
         })
         .collect();
     for env in &envs {
-        if let Envelope::Event {
-            ref_id: rid,
-            ..
-        } = env
-        {
+        if let Envelope::Event { ref_id: rid, .. } = env {
             assert_eq!(rid, ref_id);
         }
     }
@@ -661,9 +645,7 @@ fn stream_starts_with_run_started() {
         make_event(AgentEventKind::RunStarted {
             message: "begin".into(),
         }),
-        make_event(AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        }),
+        make_event(AgentEventKind::AssistantMessage { text: "hi".into() }),
         make_event(AgentEventKind::RunCompleted {
             message: "end".into(),
         }),
@@ -732,12 +714,8 @@ fn stream_by_kind_filters_correctly() {
         make_event(AgentEventKind::RunStarted {
             message: "s".into(),
         }),
-        make_event(AgentEventKind::AssistantDelta {
-            text: "t1".into(),
-        }),
-        make_event(AgentEventKind::AssistantDelta {
-            text: "t2".into(),
-        }),
+        make_event(AgentEventKind::AssistantDelta { text: "t1".into() }),
+        make_event(AgentEventKind::AssistantDelta { text: "t2".into() }),
         make_event(AgentEventKind::RunCompleted {
             message: "e".into(),
         }),
@@ -753,12 +731,8 @@ fn stream_count_by_kind() {
         make_event(AgentEventKind::RunStarted {
             message: "s".into(),
         }),
-        make_event(AgentEventKind::AssistantDelta {
-            text: "t1".into(),
-        }),
-        make_event(AgentEventKind::AssistantDelta {
-            text: "t2".into(),
-        }),
+        make_event(AgentEventKind::AssistantDelta { text: "t1".into() }),
+        make_event(AgentEventKind::AssistantDelta { text: "t2".into() }),
         make_event(AgentEventKind::Warning {
             message: "w".into(),
         }),
@@ -857,9 +831,7 @@ fn stream_duration_with_multiple_events() {
         },
         AgentEvent {
             ts: base + Duration::milliseconds(100),
-            kind: AgentEventKind::AssistantMessage {
-                text: "m".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "m".into() },
             ext: None,
         },
         AgentEvent {
@@ -1010,17 +982,12 @@ fn event_ordering_by_timestamp() {
         },
         AgentEvent {
             ts: base + Duration::milliseconds(100),
-            kind: AgentEventKind::AssistantMessage {
-                text: "mid".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "mid".into() },
             ext: None,
         },
     ];
     events.sort_by_key(|e| e.ts);
-    assert!(matches!(
-        events[0].kind,
-        AgentEventKind::RunStarted { .. }
-    ));
+    assert!(matches!(events[0].kind, AgentEventKind::RunStarted { .. }));
     assert!(matches!(
         events[1].kind,
         AgentEventKind::AssistantMessage { .. }
@@ -1145,13 +1112,19 @@ async fn mock_backend_streams_events_via_channel() {
 
     // First event should be RunStarted
     assert!(
-        matches!(events.first().unwrap().kind, AgentEventKind::RunStarted { .. }),
+        matches!(
+            events.first().unwrap().kind,
+            AgentEventKind::RunStarted { .. }
+        ),
         "first event should be RunStarted"
     );
 
     // Last event should be RunCompleted
     assert!(
-        matches!(events.last().unwrap().kind, AgentEventKind::RunCompleted { .. }),
+        matches!(
+            events.last().unwrap().kind,
+            AgentEventKind::RunCompleted { .. }
+        ),
         "last event should be RunCompleted"
     );
 }
@@ -1175,10 +1148,7 @@ async fn mock_backend_receipt_contains_trace() {
         !receipt.trace.is_empty(),
         "receipt trace should contain events"
     );
-    assert!(
-        receipt.receipt_sha256.is_some(),
-        "receipt should have hash"
-    );
+    assert!(receipt.receipt_sha256.is_some(), "receipt should have hash");
 }
 
 #[tokio::test]
@@ -1240,10 +1210,7 @@ async fn concurrent_event_collection() {
     producer.await.unwrap();
     let events = consumer.await.unwrap();
     assert_eq!(events.len(), 20);
-    assert!(matches!(
-        events[0].kind,
-        AgentEventKind::RunStarted { .. }
-    ));
+    assert!(matches!(events[0].kind, AgentEventKind::RunStarted { .. }));
     assert!(matches!(
         events[19].kind,
         AgentEventKind::RunCompleted { .. }
@@ -1357,12 +1324,13 @@ fn event_with_ext_serde_roundtrip() {
 
 #[test]
 fn event_without_ext_omits_field() {
-    let ev = make_event(AgentEventKind::AssistantDelta {
-        text: "t".into(),
-    });
+    let ev = make_event(AgentEventKind::AssistantDelta { text: "t".into() });
     let json = serde_json::to_string(&ev).unwrap();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(v.get("ext").is_none(), "ext:None should be omitted from JSON");
+    assert!(
+        v.get("ext").is_none(),
+        "ext:None should be omitted from JSON"
+    );
 }
 
 #[test]
@@ -1386,12 +1354,8 @@ fn all_event_kinds_produce_type_field() {
         AgentEventKind::RunCompleted {
             message: "c".into(),
         },
-        AgentEventKind::AssistantDelta {
-            text: "d".into(),
-        },
-        AgentEventKind::AssistantMessage {
-            text: "m".into(),
-        },
+        AgentEventKind::AssistantDelta { text: "d".into() },
+        AgentEventKind::AssistantMessage { text: "m".into() },
         AgentEventKind::ToolCall {
             tool_name: "t".into(),
             tool_use_id: None,

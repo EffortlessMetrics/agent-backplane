@@ -198,6 +198,78 @@ elif mode == "drop_midstream":
     sys.stdout.flush()
     os._exit(1)
 
+elif mode == "hello_extra_fields":
+    # Hello envelope with extra unknown fields (forward compatibility).
+    hello = make_hello()
+    hello["extra_field"] = "should be ignored"
+    hello["future_feature"] = {"nested": True}
+    emit(hello)
+    ref_id = read_run()
+    emit(make_event(ref_id, "run_started", message="extra fields ok"))
+    emit(make_final(ref_id))
+
+elif mode == "large_payload":
+    # Send an event with a very large text payload (~100KB).
+    emit(make_hello())
+    ref_id = read_run()
+    big_text = "A" * 100_000
+    emit(make_event(ref_id, "assistant_message", text=big_text))
+    emit(make_final(ref_id))
+
+elif mode == "unicode_content":
+    # Send events with unicode characters.
+    emit(make_hello())
+    ref_id = read_run()
+    emit(make_event(ref_id, "run_started", message="Unicode: 你好世界 🌍 こんにちは мир"))
+    emit(make_event(ref_id, "assistant_message", text="Emoji: 🚀🎉💻 Math: ∑∫∂ñ"))
+    emit(make_final(ref_id))
+
+elif mode == "wrong_ref_id":
+    # Send events with a mismatched ref_id.
+    emit(make_hello())
+    ref_id = read_run()
+    emit(make_event(ref_id, "run_started", message="correct ref"))
+    emit(make_event("wrong-ref-id-12345", "assistant_message", text="wrong ref"))
+    emit(make_event(ref_id, "run_completed", message="correct again"))
+    emit(make_final(ref_id))
+
+elif mode == "empty_lines":
+    # Send empty lines between events (should be ignored).
+    emit(make_hello())
+    ref_id = read_run()
+    print("", flush=True)
+    emit(make_event(ref_id, "run_started", message="around empty lines"))
+    print("", flush=True)
+    print("", flush=True)
+    emit(make_event(ref_id, "assistant_message", text="still going"))
+    print("", flush=True)
+    emit(make_final(ref_id))
+
+elif mode == "tool_call_events":
+    # Send tool call and tool result events.
+    emit(make_hello())
+    ref_id = read_run()
+    emit(make_event(ref_id, "run_started", message="tool test"))
+    emit(make_event(ref_id, "tool_call", tool_name="read_file",
+                    tool_use_id="tc-1", input={"path": "test.txt"}))
+    emit(make_event(ref_id, "tool_result", tool_name="read_file",
+                    tool_use_id="tc-1", output={"content": "hello"}, is_error=False))
+    emit(make_event(ref_id, "run_completed", message="tools done"))
+    emit(make_final(ref_id))
+
+elif mode == "no_hello_hang":
+    # Don't send hello, just hang forever (for hello timeout tests).
+    time.sleep(30)
+
+elif mode == "graceful_exit":
+    # Normal flow then exit with code 0.
+    emit(make_hello())
+    ref_id = read_run()
+    emit(make_event(ref_id, "run_started", message="graceful"))
+    emit(make_event(ref_id, "run_completed", message="done gracefully"))
+    emit(make_final(ref_id))
+    sys.exit(0)
+
 else:
     print(f"Unknown mode: {mode}", file=sys.stderr)
     sys.exit(1)

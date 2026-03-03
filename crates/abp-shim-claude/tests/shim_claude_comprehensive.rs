@@ -4,15 +4,16 @@
 use std::collections::BTreeMap;
 
 use abp_claude_sdk::dialect::{
-    self, ClaudeApiError, ClaudeContentBlock, ClaudeMessageDelta, ClaudeResponse,
-    ClaudeStopReason, ClaudeStreamDelta, ClaudeStreamEvent, ClaudeUsage, ThinkingConfig,
+    self, ClaudeApiError, ClaudeContentBlock, ClaudeMessageDelta, ClaudeResponse, ClaudeStopReason,
+    ClaudeStreamDelta, ClaudeStreamEvent, ClaudeUsage, ThinkingConfig,
 };
 use abp_core::{AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, UsageNormalized};
 use abp_shim_claude::{
-    content_block_from_ir, content_block_to_ir, message_to_ir, request_to_claude,
-    request_to_work_order, response_from_claude, response_from_events, stream_event_from_claude,
-    AnthropicClient, ApiError, ContentBlock, EventStream, ImageSource, Message, MessageDeltaPayload,
-    MessageRequest, MessageResponse, Role, ShimError, StreamDelta, StreamEvent, Usage,
+    AnthropicClient, ApiError, ContentBlock, EventStream, ImageSource, Message,
+    MessageDeltaPayload, MessageRequest, MessageResponse, Role, ShimError, StreamDelta,
+    StreamEvent, Usage, content_block_from_ir, content_block_to_ir, message_to_ir,
+    request_to_claude, request_to_work_order, response_from_claude, response_from_events,
+    stream_event_from_claude,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -536,9 +537,7 @@ fn response_usage_mapped() {
         id: "msg_u".into(),
         model: "claude-sonnet-4-20250514".into(),
         role: "assistant".into(),
-        content: vec![ClaudeContentBlock::Text {
-            text: "hi".into(),
-        }],
+        content: vec![ClaudeContentBlock::Text { text: "hi".into() }],
         stop_reason: None,
         usage: Some(ClaudeUsage {
             input_tokens: 200,
@@ -1175,16 +1174,40 @@ fn edge_image_url_ir_roundtrip() {
 
 #[test]
 fn edge_stop_reason_mapping_all_variants() {
-    assert_eq!(dialect::parse_stop_reason("end_turn"), Some(ClaudeStopReason::EndTurn));
-    assert_eq!(dialect::parse_stop_reason("tool_use"), Some(ClaudeStopReason::ToolUse));
-    assert_eq!(dialect::parse_stop_reason("max_tokens"), Some(ClaudeStopReason::MaxTokens));
-    assert_eq!(dialect::parse_stop_reason("stop_sequence"), Some(ClaudeStopReason::StopSequence));
+    assert_eq!(
+        dialect::parse_stop_reason("end_turn"),
+        Some(ClaudeStopReason::EndTurn)
+    );
+    assert_eq!(
+        dialect::parse_stop_reason("tool_use"),
+        Some(ClaudeStopReason::ToolUse)
+    );
+    assert_eq!(
+        dialect::parse_stop_reason("max_tokens"),
+        Some(ClaudeStopReason::MaxTokens)
+    );
+    assert_eq!(
+        dialect::parse_stop_reason("stop_sequence"),
+        Some(ClaudeStopReason::StopSequence)
+    );
     assert_eq!(dialect::parse_stop_reason("unknown"), None);
 
-    assert_eq!(dialect::map_stop_reason(ClaudeStopReason::EndTurn), "end_turn");
-    assert_eq!(dialect::map_stop_reason(ClaudeStopReason::ToolUse), "tool_use");
-    assert_eq!(dialect::map_stop_reason(ClaudeStopReason::MaxTokens), "max_tokens");
-    assert_eq!(dialect::map_stop_reason(ClaudeStopReason::StopSequence), "stop_sequence");
+    assert_eq!(
+        dialect::map_stop_reason(ClaudeStopReason::EndTurn),
+        "end_turn"
+    );
+    assert_eq!(
+        dialect::map_stop_reason(ClaudeStopReason::ToolUse),
+        "tool_use"
+    );
+    assert_eq!(
+        dialect::map_stop_reason(ClaudeStopReason::MaxTokens),
+        "max_tokens"
+    );
+    assert_eq!(
+        dialect::map_stop_reason(ClaudeStopReason::StopSequence),
+        "stop_sequence"
+    );
 }
 
 #[test]
@@ -1231,7 +1254,10 @@ async fn client_create_stream_produces_canonical_sequence() {
 
     // Must start with MessageStart and end with MessageStop
     assert!(matches!(&events[0], StreamEvent::MessageStart { .. }));
-    assert!(matches!(events.last().unwrap(), StreamEvent::MessageStop {}));
+    assert!(matches!(
+        events.last().unwrap(),
+        StreamEvent::MessageStop {}
+    ));
 
     // Must contain at least one ContentBlockDelta
     let has_delta = events
@@ -1378,9 +1404,7 @@ fn passthrough_fidelity_verification() {
         ClaudeStreamEvent::Ping {},
         ClaudeStreamEvent::ContentBlockDelta {
             index: 0,
-            delta: ClaudeStreamDelta::TextDelta {
-                text: "tok".into(),
-            },
+            delta: ClaudeStreamDelta::TextDelta { text: "tok".into() },
         },
         ClaudeStreamEvent::MessageStop {},
         ClaudeStreamEvent::Error {

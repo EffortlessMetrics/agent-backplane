@@ -370,9 +370,11 @@ async fn v1_validate_rejects_unknown_backend() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json["valid"], false);
     let errors = json["errors"].as_array().unwrap();
-    assert!(errors
-        .iter()
-        .any(|e| e.as_str().unwrap().contains("unknown backend")));
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.as_str().unwrap().contains("unknown backend"))
+    );
 }
 
 // ===========================================================================
@@ -420,10 +422,7 @@ fn validation_response_valid_roundtrip() {
 fn validation_response_invalid_roundtrip() {
     let resp = ValidationResponse {
         valid: false,
-        errors: vec![
-            "task must not be empty".into(),
-            "unknown backend: x".into(),
-        ],
+        errors: vec!["task must not be empty".into(), "unknown backend: x".into()],
     };
     let json = serde_json::to_string(&resp).unwrap();
     let back: ValidationResponse = serde_json::from_str(&json).unwrap();
@@ -491,10 +490,7 @@ async fn v1_and_legacy_health_return_same_structure() {
     let (_, legacy_json) = get_json(app2, "/health").await;
 
     assert_eq!(v1_json["status"], legacy_json["status"]);
-    assert_eq!(
-        v1_json["contract_version"],
-        legacy_json["contract_version"]
-    );
+    assert_eq!(v1_json["contract_version"], legacy_json["contract_version"]);
 }
 
 // ===========================================================================

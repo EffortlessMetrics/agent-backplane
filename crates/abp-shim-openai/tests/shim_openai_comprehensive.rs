@@ -4,14 +4,14 @@
 
 use abp_core::ir::{IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, UsageNormalized};
+use abp_shim_openai::ResponseFormat;
 use abp_shim_openai::{
-    events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
-    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order, tools_to_ir,
     ChatCompletionRequest, ChatCompletionResponse, Choice, Delta, FunctionCall, FunctionDef,
     Message, OpenAiClient, ProcessFn, Role, ShimError, StreamChoice, StreamEvent, Tool, ToolCall,
-    Usage,
+    Usage, events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir,
+    mock_receipt, mock_receipt_with_usage, receipt_to_response, request_to_ir,
+    request_to_work_order, tools_to_ir,
 };
-use abp_shim_openai::ResponseFormat;
 use chrono::Utc;
 use serde_json::json;
 use tokio_stream::StreamExt;
@@ -126,7 +126,10 @@ fn t03_system_message_serde() {
     assert!(json.contains(r#""role":"system"#));
     let parsed: Message = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed.role, Role::System);
-    assert_eq!(parsed.content.as_deref(), Some("You are a helpful assistant."));
+    assert_eq!(
+        parsed.content.as_deref(),
+        Some("You are a helpful assistant.")
+    );
 }
 
 #[test]
@@ -821,7 +824,10 @@ fn t59_unknown_model_name_accepted() {
         .messages(vec![Message::user("test")])
         .build();
     let wo = request_to_work_order(&req);
-    assert_eq!(wo.config.model.as_deref(), Some("totally-unknown-model-v99"));
+    assert_eq!(
+        wo.config.model.as_deref(),
+        Some("totally-unknown-model-v99")
+    );
 }
 
 #[test]
@@ -884,7 +890,10 @@ fn t64_unicode_content_roundtrip() {
     let msg = Message::user("Hello 🌍 — こんにちは — مرحبا");
     let json = serde_json::to_string(&msg).unwrap();
     let parsed: Message = serde_json::from_str(&json).unwrap();
-    assert_eq!(parsed.content.as_deref(), Some("Hello 🌍 — こんにちは — مرحبا"));
+    assert_eq!(
+        parsed.content.as_deref(),
+        Some("Hello 🌍 — こんにちは — مرحبا")
+    );
 }
 
 #[tokio::test]
@@ -924,11 +933,7 @@ fn t66_message_constructors_all_variants() {
 
 #[test]
 fn t67_tool_function_constructor() {
-    let tool = Tool::function(
-        "my_tool",
-        "My tool desc",
-        json!({"type": "object"}),
-    );
+    let tool = Tool::function("my_tool", "My tool desc", json!({"type": "object"}));
     assert_eq!(tool.tool_type, "function");
     assert_eq!(tool.function.name, "my_tool");
     assert_eq!(tool.function.description, "My tool desc");

@@ -12,11 +12,11 @@ use abp_gemini_sdk::dialect::{
 };
 use abp_gemini_sdk::lowering;
 use abp_shim_gemini::{
+    Candidate, Content, FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration,
+    GeminiClient, GeminiError, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
+    Part, SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
     from_dialect_response, from_dialect_stream_chunk, gen_config_from_dialect, to_dialect_request,
-    usage_from_ir, usage_to_ir, Candidate, Content, FunctionCallingConfig, FunctionCallingMode,
-    FunctionDeclaration, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
-    GeminiClient, GeminiError, Part, SafetySetting, StreamEvent, ToolConfig, ToolDeclaration,
-    UsageMetadata,
+    usage_from_ir, usage_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -73,7 +73,10 @@ fn content_model_role() {
 
 #[test]
 fn content_serde_roundtrip() {
-    let c = Content::user(vec![Part::text("test"), Part::inline_data("image/jpeg", "abc")]);
+    let c = Content::user(vec![
+        Part::text("test"),
+        Part::inline_data("image/jpeg", "abc"),
+    ]);
     let json = serde_json::to_string(&c).unwrap();
     let back: Content = serde_json::from_str(&json).unwrap();
     assert_eq!(back.role, "user");
@@ -833,7 +836,10 @@ fn tool_declaration_to_dialect_and_back() {
         .tools(vec![tool.clone()]);
     let dialect = to_dialect_request(&req);
     let dialect_tools = dialect.tools.unwrap();
-    assert_eq!(dialect_tools[0].function_declarations[0].name, "get_weather");
+    assert_eq!(
+        dialect_tools[0].function_declarations[0].name,
+        "get_weather"
+    );
     assert_eq!(
         dialect_tools[0].function_declarations[0].parameters["required"][0],
         "location"
@@ -1035,10 +1041,7 @@ fn multi_modal_content_mixed_parts() {
     let req = GenerateContentRequest::new("gemini-2.5-flash").add_content(content);
     let dialect = to_dialect_request(&req);
     assert_eq!(dialect.contents[0].parts.len(), 2);
-    assert!(matches!(
-        &dialect.contents[0].parts[0],
-        GeminiPart::Text(_)
-    ));
+    assert!(matches!(&dialect.contents[0].parts[0], GeminiPart::Text(_)));
     assert!(matches!(
         &dialect.contents[0].parts[1],
         GeminiPart::InlineData(_)

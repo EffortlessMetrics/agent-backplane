@@ -13,9 +13,9 @@ use abp_codex_sdk::lowering;
 use abp_core::ir::{IrConversation, IrMessage, IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, UsageNormalized};
 use abp_shim_codex::{
-    codex_message, events_to_stream_events, ir_to_response_items, ir_usage_to_usage,
-    mock_receipt, mock_receipt_with_usage, receipt_to_response, request_to_ir,
-    request_to_work_order, response_to_ir, CodexClient, CodexRequestBuilder, ShimError, Usage,
+    CodexClient, CodexRequestBuilder, ShimError, Usage, codex_message, events_to_stream_events,
+    ir_to_response_items, ir_usage_to_usage, mock_receipt, mock_receipt_with_usage,
+    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -510,7 +510,10 @@ fn t35_receipt_to_response_tool_call() {
     let resp = receipt_to_response(&receipt, "codex-mini-latest");
     match &resp.output[0] {
         CodexResponseItem::FunctionCall {
-            id, name, arguments, ..
+            id,
+            name,
+            arguments,
+            ..
         } => {
             assert_eq!(id, "fc_99");
             assert_eq!(name, "read");
@@ -645,10 +648,8 @@ fn t41_response_to_ir_message_preserves_text() {
 
 #[test]
 fn t42_ir_to_response_items_roundtrip() {
-    let conv = IrConversation::from_messages(vec![IrMessage::text(
-        IrRole::Assistant,
-        "roundtrip test",
-    )]);
+    let conv =
+        IrConversation::from_messages(vec![IrMessage::text(IrRole::Assistant, "roundtrip test")]);
     let items = ir_to_response_items(&conv);
     assert_eq!(items.len(), 1);
     match &items[0] {
@@ -712,9 +713,7 @@ fn t45_receipt_to_response_skips_non_mapped_events() {
 fn t46_stream_events_bookend_created_completed() {
     let events = vec![AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: None,
     }];
     let stream = events_to_stream_events(&events, "codex-mini-latest");
@@ -829,28 +828,21 @@ async fn t53_client_stream_collects_all_events() {
     let events = vec![
         AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "a".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "a".into() },
             ext: None,
         },
         AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "b".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "b".into() },
             ext: None,
         },
         AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "c".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "c".into() },
             ext: None,
         },
     ];
-    let processor: abp_shim_codex::ProcessFn =
-        Box::new(move |_wo| mock_receipt(events.clone()));
+    let processor: abp_shim_codex::ProcessFn = Box::new(move |_wo| mock_receipt(events.clone()));
     let client = CodexClient::new("codex-mini-latest").with_processor(processor);
     let req = CodexRequestBuilder::new()
         .input(vec![codex_message("user", "test")])
@@ -1067,7 +1059,10 @@ fn t68_unknown_model_passes_through() {
         .input(vec![codex_message("user", "test")])
         .build();
     let wo = request_to_work_order(&req);
-    assert_eq!(wo.config.model.as_deref(), Some("totally-unknown-model-v99"));
+    assert_eq!(
+        wo.config.model.as_deref(),
+        Some("totally-unknown-model-v99")
+    );
 }
 
 #[tokio::test]

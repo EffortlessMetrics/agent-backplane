@@ -163,10 +163,7 @@ fn openai_claude_rt_simple_user_text() {
 
 #[test]
 fn openai_claude_rt_assistant_text() {
-    let rt = openai_claude_openai(&[
-        oai_text("user", "Hi"),
-        oai_text("assistant", "Hey there!"),
-    ]);
+    let rt = openai_claude_openai(&[oai_text("user", "Hi"), oai_text("assistant", "Hey there!")]);
     assert_eq!(rt.len(), 2);
     assert_eq!(rt[1].role, "assistant");
     assert_eq!(rt[1].content.as_deref(), Some("Hey there!"));
@@ -174,10 +171,7 @@ fn openai_claude_rt_assistant_text() {
 
 #[test]
 fn openai_claude_rt_system_prompt_preserved() {
-    let rt = openai_claude_openai(&[
-        oai_text("system", "Be concise."),
-        oai_text("user", "Hi"),
-    ]);
+    let rt = openai_claude_openai(&[oai_text("system", "Be concise."), oai_text("user", "Hi")]);
     assert_eq!(rt.len(), 2);
     assert_eq!(rt[0].role, "system");
     assert_eq!(rt[0].content.as_deref(), Some("Be concise."));
@@ -185,11 +179,7 @@ fn openai_claude_rt_system_prompt_preserved() {
 
 #[test]
 fn openai_claude_rt_tool_call_name_and_args() {
-    let rt = openai_claude_openai(&[oai_tool_call(
-        "c1",
-        "read_file",
-        r#"{"path":"main.rs"}"#,
-    )]);
+    let rt = openai_claude_openai(&[oai_tool_call("c1", "read_file", r#"{"path":"main.rs"}"#)]);
     assert_eq!(rt[0].role, "assistant");
     let tc = &rt[0].tool_calls.as_ref().unwrap()[0];
     assert_eq!(tc.function.name, "read_file");
@@ -368,10 +358,7 @@ fn openai_gemini_rt_simple_user_text() {
 
 #[test]
 fn openai_gemini_rt_assistant_role_mapping() {
-    let rt = openai_gemini_openai(&[
-        oai_text("user", "Hi"),
-        oai_text("assistant", "Hello!"),
-    ]);
+    let rt = openai_gemini_openai(&[oai_text("user", "Hi"), oai_text("assistant", "Hello!")]);
     // assistant → model → assistant roundtrip
     assert_eq!(rt[1].role, "assistant");
     assert_eq!(rt[1].content.as_deref(), Some("Hello!"));
@@ -491,10 +478,7 @@ fn claude_gemini_rt_simple_text() {
 #[test]
 fn claude_gemini_rt_assistant_text() {
     let (rt, _) = claude_gemini_claude(
-        &[
-            claude_text("user", "Hi"),
-            claude_text("assistant", "Hey!"),
-        ],
+        &[claude_text("user", "Hi"), claude_text("assistant", "Hey!")],
         None,
     );
     assert_eq!(rt[1].role, "assistant");
@@ -503,10 +487,8 @@ fn claude_gemini_rt_assistant_text() {
 
 #[test]
 fn claude_gemini_rt_system_prompt_preserved() {
-    let (_, sys) = claude_gemini_claude(
-        &[claude_text("user", "Hi")],
-        Some("Be a coding assistant."),
-    );
+    let (_, sys) =
+        claude_gemini_claude(&[claude_text("user", "Hi")], Some("Be a coding assistant."));
     assert_eq!(sys.as_deref(), Some("Be a coding assistant."));
 }
 
@@ -746,7 +728,10 @@ fn openai_codex_rt_simple_text() {
     let oai = vec![oai_text("assistant", "OpenAI to Codex")];
     let ir1 = openai_ir::to_ir(&oai);
     let codex = codex_ir::from_ir(&ir1);
-    assert!(!codex.is_empty(), "assistant msg should produce codex items");
+    assert!(
+        !codex.is_empty(),
+        "assistant msg should produce codex items"
+    );
     let ir2 = codex_ir::to_ir(&codex);
     let oai2 = openai_ir::from_ir(&ir2);
     assert_eq!(oai2[0].content.as_deref(), Some("OpenAI to Codex"));
@@ -778,7 +763,10 @@ fn claude_codex_rt_simple_text() {
     let msgs = vec![claude_text("assistant", "Claude to Codex")];
     let ir1 = claude_ir::to_ir(&msgs, None);
     let codex = codex_ir::from_ir(&ir1);
-    assert!(!codex.is_empty(), "assistant msg should produce codex items");
+    assert!(
+        !codex.is_empty(),
+        "assistant msg should produce codex items"
+    );
     let ir2 = codex_ir::to_ir(&codex);
     let claude2 = claude_ir::from_ir(&ir2);
     assert_eq!(claude2[0].content, "Claude to Codex");
@@ -841,7 +829,10 @@ fn kimi_codex_rt_simple_text() {
     let msgs = vec![kimi_text("assistant", "Kimi to Codex")];
     let ir1 = kimi_ir::to_ir(&msgs);
     let codex = codex_ir::from_ir(&ir1);
-    assert!(!codex.is_empty(), "assistant msg should produce codex items");
+    assert!(
+        !codex.is_empty(),
+        "assistant msg should produce codex items"
+    );
     let ir2 = codex_ir::to_ir(&codex);
     let kimi2 = kimi_ir::from_ir(&ir2);
     assert_eq!(kimi2[0].content.as_deref(), Some("Kimi to Codex"));
@@ -862,14 +853,15 @@ fn codex_copilot_rt_simple_text() {
     // Codex input_to_ir produces user messages; copilot preserves them;
     // but codex from_ir only handles assistant output.
     // Use assistant role to verify the full roundtrip.
-    let ir1 = IrConversation::from_messages(vec![IrMessage::text(
-        IrRole::Assistant,
-        "Codex to Copilot",
-    )]);
+    let ir1 =
+        IrConversation::from_messages(vec![IrMessage::text(IrRole::Assistant, "Codex to Copilot")]);
     let copilot = copilot_ir::from_ir(&ir1);
     let ir2 = copilot_ir::to_ir(&copilot);
     let codex2 = codex_ir::from_ir(&ir2);
-    assert!(!codex2.is_empty(), "assistant msg should produce codex items");
+    assert!(
+        !codex2.is_empty(),
+        "assistant msg should produce codex items"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1132,10 +1124,12 @@ fn lossy_claude_thinking_to_openai_becomes_text() {
     assert!(text.contains("reasoning step"));
     // Roundtrip loses thinking block type
     let ir2 = openai_ir::to_ir(&oai);
-    assert!(ir2.messages[0]
-        .content
-        .iter()
-        .all(|b| !matches!(b, IrContentBlock::Thinking { .. })));
+    assert!(
+        ir2.messages[0]
+            .content
+            .iter()
+            .all(|b| !matches!(b, IrContentBlock::Thinking { .. }))
+    );
 }
 
 /// LOSSY: Claude thinking blocks become plain text in Gemini.
@@ -1270,10 +1264,12 @@ fn lossy_codex_reasoning_not_in_other_sdks() {
     assert!(copilot[0].content.contains("reasoning about the problem"));
     let ir2 = copilot_ir::to_ir(&copilot);
     // No longer a thinking block
-    assert!(ir2.messages[0]
-        .content
-        .iter()
-        .all(|b| !matches!(b, IrContentBlock::Thinking { .. })));
+    assert!(
+        ir2.messages[0]
+            .content
+            .iter()
+            .all(|b| !matches!(b, IrContentBlock::Thinking { .. }))
+    );
 }
 
 /// LOSSY: Image blocks only supported by Claude and Gemini natively.
@@ -1290,14 +1286,11 @@ fn lossy_image_blocks_not_supported_by_all_sdks() {
     // OpenAI doesn't have native image content blocks in this lowering
     let oai = openai_ir::from_ir(&ir);
     let ir2 = openai_ir::to_ir(&oai);
-    let has_image = ir2
-        .messages
-        .first()
-        .is_some_and(|m| {
-            m.content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Image { .. }))
-        });
+    let has_image = ir2.messages.first().is_some_and(|m| {
+        m.content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Image { .. }))
+    });
     assert!(
         !has_image,
         "LOSSY: Image blocks lost after OpenAI roundtrip"

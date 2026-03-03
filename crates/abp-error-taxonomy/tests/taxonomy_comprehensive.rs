@@ -436,10 +436,7 @@ fn severity_protocol_version_mismatch_is_critical() {
 
 #[test]
 fn severity_contract_version_mismatch_is_critical() {
-    assert_eq!(
-        severity_of(&ErrorCode::ContractVersionMismatch),
-        "critical"
-    );
+    assert_eq!(severity_of(&ErrorCode::ContractVersionMismatch), "critical");
 }
 
 #[test]
@@ -762,10 +759,7 @@ fn aggregation_collect_error_infos() {
     assert_eq!(infos.len(), 2);
     assert!(infos.iter().all(|i| i.is_retryable));
     assert_eq!(infos[0].details["backend"], serde_json::json!("openai"));
-    assert_eq!(
-        infos[1].details["backend"],
-        serde_json::json!("anthropic")
-    );
+    assert_eq!(infos[1].details["backend"], serde_json::json!("anthropic"));
 }
 
 #[test]

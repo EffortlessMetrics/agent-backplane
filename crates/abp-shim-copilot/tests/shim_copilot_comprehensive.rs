@@ -4,17 +4,18 @@
 use std::collections::BTreeMap;
 
 use abp_copilot_sdk::dialect::{
-    self, CopilotConfirmation, CopilotConfig, CopilotError, CopilotFunctionCall, CopilotMessage,
-    CopilotReference, CopilotReferenceType, CopilotRequest, CopilotResponse, CopilotStreamEvent,
-    CopilotTool, CopilotToolType, CanonicalToolDef,
+    self, CanonicalToolDef, CopilotConfig, CopilotConfirmation, CopilotError, CopilotFunctionCall,
+    CopilotMessage, CopilotReference, CopilotReferenceType, CopilotRequest, CopilotResponse,
+    CopilotStreamEvent, CopilotTool, CopilotToolType,
 };
 use abp_copilot_sdk::lowering;
 use abp_core::ir::{IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, WorkOrderBuilder};
 use abp_shim_copilot::{
+    CopilotClient, CopilotFunctionDef, CopilotRequestBuilder, Message, ShimError,
     events_to_stream_events, ir_to_messages, ir_usage_to_tuple, messages_to_ir, mock_receipt,
     mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    response_to_ir, CopilotClient, CopilotFunctionDef, CopilotRequestBuilder, Message, ShimError,
+    response_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -357,9 +358,7 @@ fn request_translation_with_references() {
         .messages(vec![Message::user_with_refs("Check file", refs)])
         .build();
     let ir = request_to_ir(&req);
-    assert!(ir.messages[0]
-        .metadata
-        .contains_key("copilot_references"));
+    assert!(ir.messages[0].metadata.contains_key("copilot_references"));
 }
 
 #[test]
@@ -452,12 +451,8 @@ fn response_translation_assistant_message() {
 #[test]
 fn response_translation_delta_concatenation() {
     let events = vec![
-        agent_event(AgentEventKind::AssistantDelta {
-            text: "Hel".into(),
-        }),
-        agent_event(AgentEventKind::AssistantDelta {
-            text: "lo!".into(),
-        }),
+        agent_event(AgentEventKind::AssistantDelta { text: "Hel".into() }),
+        agent_event(AgentEventKind::AssistantDelta { text: "lo!".into() }),
     ];
     let receipt = mock_receipt(events);
     let resp = receipt_to_response(&receipt, "gpt-4o");
@@ -761,18 +756,14 @@ fn streaming_assistant_message_becomes_text_delta() {
 #[test]
 fn streaming_mixed_events_order_preserved() {
     let events = vec![
-        agent_event(AgentEventKind::AssistantDelta {
-            text: "A".into(),
-        }),
+        agent_event(AgentEventKind::AssistantDelta { text: "A".into() }),
         agent_event(AgentEventKind::ToolCall {
             tool_name: "t".into(),
             tool_use_id: None,
             parent_tool_use_id: None,
             input: json!({}),
         }),
-        agent_event(AgentEventKind::AssistantDelta {
-            text: "B".into(),
-        }),
+        agent_event(AgentEventKind::AssistantDelta { text: "B".into() }),
     ];
     let stream = events_to_stream_events(&events, "gpt-4o");
     // refs + delta + function_call + delta + done = 5
@@ -911,8 +902,7 @@ fn tool_call_stream_function_call_arguments_valid_json() {
     let stream = events_to_stream_events(&events, "gpt-4o");
     match &stream[1] {
         CopilotStreamEvent::FunctionCall { function_call } => {
-            let parsed: serde_json::Value =
-                serde_json::from_str(&function_call.arguments).unwrap();
+            let parsed: serde_json::Value = serde_json::from_str(&function_call.arguments).unwrap();
             assert_eq!(parsed["line"], 42);
         }
         other => panic!("expected FunctionCall, got {other:?}"),
@@ -1009,10 +999,7 @@ fn dialect_to_canonical_model() {
 #[test]
 fn dialect_from_canonical_model() {
     assert_eq!(dialect::from_canonical_model("copilot/gpt-4o"), "gpt-4o");
-    assert_eq!(
-        dialect::from_canonical_model("other-model"),
-        "other-model"
-    );
+    assert_eq!(dialect::from_canonical_model("other-model"), "other-model");
 }
 
 #[test]
@@ -1097,9 +1084,7 @@ fn dialect_passthrough_roundtrip() {
 #[test]
 fn dialect_passthrough_fidelity_multiple_events() {
     let events = vec![
-        CopilotStreamEvent::CopilotReferences {
-            references: vec![],
-        },
+        CopilotStreamEvent::CopilotReferences { references: vec![] },
         CopilotStreamEvent::TextDelta {
             text: "hello".into(),
         },

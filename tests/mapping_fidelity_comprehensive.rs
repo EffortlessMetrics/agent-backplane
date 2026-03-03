@@ -7,10 +7,9 @@ use abp_core::{AgentEvent, AgentEventKind};
 use abp_dialect::Dialect;
 use abp_error::{ErrorCategory, ErrorCode};
 use abp_mapper::{
-    ClaudeToOpenAiMapper, DialectRequest, IdentityMapper, IrMapper,
-    MapError, Mapper, MappingError, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper,
-    ClaudeGeminiIrMapper, IrIdentityMapper,
-    default_ir_mapper, supported_ir_pairs, OpenAiToClaudeMapper,
+    ClaudeGeminiIrMapper, ClaudeToOpenAiMapper, DialectRequest, IdentityMapper, IrIdentityMapper,
+    IrMapper, MapError, Mapper, MappingError, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper,
+    OpenAiToClaudeMapper, default_ir_mapper, supported_ir_pairs,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -62,11 +61,12 @@ mod fidelity_level_semantics {
             let m = default_ir_mapper(d, d);
             assert!(m.is_some(), "same-dialect pair {d} -> {d} must have mapper");
             let mapper = m.unwrap();
-            let conv = IrConversation::from_messages(vec![
-                IrMessage::text(IrRole::User, "test"),
-            ]);
+            let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "test")]);
             let result = mapper.map_request(d, d, &conv).unwrap();
-            assert_eq!(result, conv, "same-dialect mapping must be lossless for {d}");
+            assert_eq!(
+                result, conv,
+                "same-dialect mapping must be lossless for {d}"
+            );
         }
     }
 
@@ -105,9 +105,8 @@ mod fidelity_level_semantics {
     #[test]
     fn text_content_preserved_across_openai_claude() {
         let mapper = OpenAiClaudeIrMapper;
-        let conv = IrConversation::from_messages(vec![
-            IrMessage::text(IrRole::User, "What is 2+2?"),
-        ]);
+        let conv =
+            IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "What is 2+2?")]);
         let mapped = mapper
             .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
             .unwrap();
@@ -117,9 +116,8 @@ mod fidelity_level_semantics {
     #[test]
     fn text_content_preserved_across_openai_gemini() {
         let mapper = OpenAiGeminiIrMapper;
-        let conv = IrConversation::from_messages(vec![
-            IrMessage::text(IrRole::User, "Hello Gemini"),
-        ]);
+        let conv =
+            IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "Hello Gemini")]);
         let mapped = mapper
             .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
             .unwrap();
@@ -129,9 +127,8 @@ mod fidelity_level_semantics {
     #[test]
     fn text_content_preserved_across_claude_gemini() {
         let mapper = ClaudeGeminiIrMapper;
-        let conv = IrConversation::from_messages(vec![
-            IrMessage::text(IrRole::User, "Hello from Claude"),
-        ]);
+        let conv =
+            IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "Hello from Claude")]);
         let mapped = mapper
             .map_request(Dialect::Claude, Dialect::Gemini, &conv)
             .unwrap();
@@ -363,9 +360,7 @@ mod mapper_factory_operations {
     #[test]
     fn ir_mapper_rejects_unsupported_pair() {
         let mapper = OpenAiClaudeIrMapper;
-        let conv = IrConversation::from_messages(vec![
-            IrMessage::text(IrRole::User, "test"),
-        ]);
+        let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "test")]);
         let err = mapper
             .map_request(Dialect::Gemini, Dialect::Kimi, &conv)
             .unwrap_err();
@@ -722,9 +717,7 @@ mod output_mapping_validation {
         let mapper = ClaudeToOpenAiMapper;
         let event = AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "tok".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "tok".into() },
             ext: None,
         };
         let result = mapper.map_event(&event).unwrap();
@@ -1199,7 +1192,10 @@ mod error_taxonomy {
     #[test]
     fn error_code_mapping_messages_are_descriptive() {
         let msg = ErrorCode::MappingLossyConversion.message();
-        assert!(msg.contains("lost"), "message should mention information loss: {msg}");
+        assert!(
+            msg.contains("lost"),
+            "message should mention information loss: {msg}"
+        );
 
         let msg2 = ErrorCode::MappingUnmappableTool.message();
         assert!(msg2.contains("tool"), "message should mention tool: {msg2}");
@@ -1250,10 +1246,7 @@ mod error_taxonomy {
 
     #[test]
     fn dialect_error_codes_exist() {
-        assert_eq!(
-            ErrorCode::DialectUnknown.category(),
-            ErrorCategory::Dialect
-        );
+        assert_eq!(ErrorCode::DialectUnknown.category(), ErrorCategory::Dialect);
         assert_eq!(
             ErrorCode::DialectMappingFailed.category(),
             ErrorCategory::Dialect

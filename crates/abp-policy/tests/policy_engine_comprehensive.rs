@@ -3,7 +3,9 @@
 
 use abp_core::PolicyProfile;
 use abp_policy::audit::{AuditSummary, PolicyAuditor, PolicyDecision};
-use abp_policy::compose::{ComposedEngine, PolicyPrecedence, PolicySet, PolicyValidator, WarningKind};
+use abp_policy::compose::{
+    ComposedEngine, PolicyPrecedence, PolicySet, PolicyValidator, WarningKind,
+};
 use abp_policy::rules::{Rule, RuleCondition, RuleEffect, RuleEngine};
 use abp_policy::{Decision, PolicyEngine};
 use std::path::Path;
@@ -42,7 +44,10 @@ fn default_profile_allows_all_read_paths() {
     let e = engine(PolicyProfile::default());
     assert!(e.can_read_path(Path::new("src/main.rs")).allowed);
     assert!(e.can_read_path(Path::new(".env")).allowed);
-    assert!(e.can_read_path(Path::new("deep/nested/dir/file.txt")).allowed);
+    assert!(
+        e.can_read_path(Path::new("deep/nested/dir/file.txt"))
+            .allowed
+    );
 }
 
 #[test]
@@ -762,7 +767,10 @@ fn write_deny_multiple_patterns() {
     });
     assert!(!e.can_write_path(Path::new(".git/config")).allowed);
     assert!(!e.can_write_path(Path::new(".svn/entries")).allowed);
-    assert!(!e.can_write_path(Path::new("node_modules/foo/index.js")).allowed);
+    assert!(
+        !e.can_write_path(Path::new("node_modules/foo/index.js"))
+            .allowed
+    );
     assert!(e.can_write_path(Path::new("src/lib.rs")).allowed);
 }
 
@@ -877,12 +885,7 @@ fn real_world_restrictive_profile() {
         allowed_tools: svec(&["Read", "Grep", "ListFiles"]),
         disallowed_tools: svec(&["Bash", "Exec", "Shell", "WebFetch"]),
         deny_read: svec(&["**/.env", "**/.env.*", "**/*.pem", "**/*.key", "**/id_rsa"]),
-        deny_write: svec(&[
-            "**/.git/**",
-            "**/node_modules/**",
-            "**/*.lock",
-            "config/**",
-        ]),
+        deny_write: svec(&["**/.git/**", "**/node_modules/**", "**/*.lock", "config/**"]),
         ..PolicyProfile::default()
     };
     let e = engine(p);
@@ -1074,9 +1077,11 @@ fn validator_warns_overlapping_allow_deny() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
+    );
 }
 
 #[test]
@@ -1097,9 +1102,11 @@ fn validator_warns_unreachable_with_wildcard_deny() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule)
+    );
 }
 
 #[test]
@@ -1109,9 +1116,11 @@ fn validator_warns_catch_all_deny_read() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule)
+    );
 }
 
 // ===========================================================================

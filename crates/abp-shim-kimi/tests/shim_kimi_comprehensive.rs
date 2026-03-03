@@ -5,16 +5,15 @@
 use abp_core::ir::{IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, UsageNormalized};
 use abp_kimi_sdk::dialect::{
-    self, CanonicalToolDef, KimiBuiltinFunction, KimiBuiltinTool, KimiChunk, KimiChunkChoice,
-    KimiChunkDelta, KimiChunkFunctionCall, KimiChunkToolCall, KimiChoice, KimiConfig,
+    self, CanonicalToolDef, KimiBuiltinFunction, KimiBuiltinTool, KimiChoice, KimiChunk,
+    KimiChunkChoice, KimiChunkDelta, KimiChunkFunctionCall, KimiChunkToolCall, KimiConfig,
     KimiFunctionCall, KimiFunctionDef, KimiMessage, KimiRef, KimiRequest, KimiResponse,
-    KimiResponseMessage, KimiRole, KimiTool, KimiToolCall, KimiUsage,
-    ToolCallAccumulator,
+    KimiResponseMessage, KimiRole, KimiTool, KimiToolCall, KimiUsage, ToolCallAccumulator,
 };
 use abp_shim_kimi::{
-    events_to_stream_chunks, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
-    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    KimiClient, KimiRequestBuilder, Message, ProcessFn, ShimError,
+    KimiClient, KimiRequestBuilder, Message, ProcessFn, ShimError, events_to_stream_chunks,
+    ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt, mock_receipt_with_usage,
+    receipt_to_response, request_to_ir, request_to_work_order,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -331,10 +330,7 @@ fn t16_request_to_work_order_basic() {
 #[test]
 fn t17_request_to_work_order_with_system_message() {
     let req = KimiRequestBuilder::new()
-        .messages(vec![
-            Message::system("Be concise."),
-            Message::user("Hello"),
-        ])
+        .messages(vec![Message::system("Be concise."), Message::user("Hello")])
         .build();
     let wo = request_to_work_order(&req);
     assert_eq!(wo.task, "Hello");
@@ -528,10 +524,7 @@ async fn t32_receipt_to_response_tool_calls() {
         .messages(vec![Message::user("Search rust")])
         .build();
     let resp = client.create(req).await.unwrap();
-    assert_eq!(
-        resp.choices[0].finish_reason.as_deref(),
-        Some("tool_calls")
-    );
+    assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("tool_calls"));
     let tcs = resp.choices[0].message.tool_calls.as_ref().unwrap();
     assert_eq!(tcs[0].id, "call_1");
     assert_eq!(tcs[0].function.name, "web_search");
@@ -635,10 +628,7 @@ fn t39_receipt_to_response_mixed_text_and_tool_calls() {
         Some("Let me search.")
     );
     assert!(resp.choices[0].message.tool_calls.is_some());
-    assert_eq!(
-        resp.choices[0].finish_reason.as_deref(),
-        Some("tool_calls")
-    );
+    assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("tool_calls"));
 }
 
 #[test]
@@ -777,7 +767,10 @@ fn t49_events_to_stream_chunks_assistant_message() {
         chunks[0].choices[0].delta.content.as_deref(),
         Some("full message")
     );
-    assert_eq!(chunks[0].choices[0].delta.role.as_deref(), Some("assistant"));
+    assert_eq!(
+        chunks[0].choices[0].delta.role.as_deref(),
+        Some("assistant")
+    );
 }
 
 #[test]
@@ -1032,9 +1025,18 @@ fn t66_empty_messages_roundtrip() {
 
 #[test]
 fn t67_model_name_mapping() {
-    assert_eq!(dialect::to_canonical_model("moonshot-v1-8k"), "moonshot/moonshot-v1-8k");
-    assert_eq!(dialect::from_canonical_model("moonshot/moonshot-v1-8k"), "moonshot-v1-8k");
-    assert_eq!(dialect::from_canonical_model("moonshot-v1-8k"), "moonshot-v1-8k");
+    assert_eq!(
+        dialect::to_canonical_model("moonshot-v1-8k"),
+        "moonshot/moonshot-v1-8k"
+    );
+    assert_eq!(
+        dialect::from_canonical_model("moonshot/moonshot-v1-8k"),
+        "moonshot-v1-8k"
+    );
+    assert_eq!(
+        dialect::from_canonical_model("moonshot-v1-8k"),
+        "moonshot-v1-8k"
+    );
 }
 
 #[test]

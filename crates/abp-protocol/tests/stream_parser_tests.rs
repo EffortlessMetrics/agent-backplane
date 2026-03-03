@@ -67,7 +67,11 @@ fn partial_line_across_two_feeds() {
 #[test]
 fn empty_lines_ignored() {
     let mut parser = StreamParser::new();
-    let input = format!("\n\n{}\n\n{}\n\n", fatal_line("x").trim(), fatal_line("y").trim());
+    let input = format!(
+        "\n\n{}\n\n{}\n\n",
+        fatal_line("x").trim(),
+        fatal_line("y").trim()
+    );
     let results = parser.feed(input.as_bytes());
     assert_eq!(results.len(), 2);
 }
@@ -376,10 +380,7 @@ fn split_mid_multibyte_utf8() {
     let bytes = line.as_bytes();
     // 'é' is 2 bytes in UTF-8 — split inside it
     // Find the é in the serialized JSON
-    let pos = bytes
-        .windows(2)
-        .position(|w| w == "é".as_bytes())
-        .unwrap();
+    let pos = bytes.windows(2).position(|w| w == "é".as_bytes()).unwrap();
     let (first, second) = bytes.split_at(pos + 1); // split inside the é
 
     let r1 = parser.feed(first);
