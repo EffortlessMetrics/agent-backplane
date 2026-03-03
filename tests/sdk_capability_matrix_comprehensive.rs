@@ -603,7 +603,7 @@ fn native_count_ordering() {
             (*name, native.len())
         })
         .collect();
-    counts.sort_by(|a, b| b.1.cmp(&a.1));
+    counts.sort_by_key(|b| std::cmp::Reverse(b.1));
     // Claude should be at the top
     assert_eq!(counts[0].0, "claude");
 }

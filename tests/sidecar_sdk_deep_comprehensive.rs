@@ -1715,7 +1715,7 @@ fn process_config_serialization() {
     let cfg = ProcessConfig::default();
     let json = serde_json::to_string(&cfg).unwrap();
     let deser: ProcessConfig = serde_json::from_str(&json).unwrap();
-    assert_eq!(deser.inherit_env, true);
+    assert!(deser.inherit_env);
 }
 
 #[test]
