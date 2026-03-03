@@ -72,7 +72,7 @@ mod structured_output {
     fn detection_needed_when_backend_lacks_capability() {
         let manifest = empty_manifest();
         let level = check_capability(&manifest, &Capability::StructuredOutputJsonSchema);
-        assert_eq!(level, SupportLevel::Unsupported);
+        assert!(matches!(level, SupportLevel::Unsupported { .. }));
 
         let neg = negotiate(
             &manifest,

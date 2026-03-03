@@ -531,7 +531,7 @@ fn s06_given_no_tool_use_when_emulation_required_then_emulatable() {
     let reqs = require(&[(Capability::ToolUse, MinSupport::Emulated)]);
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable, vec![Capability::ToolUse]);
+    assert_eq!(result.emulated, vec![Capability::ToolUse]);
 }
 
 /// Given backend missing extended_thinking, When native required, Then unsupported.
@@ -567,7 +567,7 @@ fn s06_given_mixed_caps_when_negotiated_then_categorized() {
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
     assert_eq!(result.native.len(), 1);
-    assert_eq!(result.emulatable.len(), 1);
+    assert_eq!(result.emulated.len(), 1);
 }
 
 /// Given EmulationEngine, When checking missing caps, Then report generated.

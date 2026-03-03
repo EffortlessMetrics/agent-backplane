@@ -161,7 +161,7 @@ fn negotiate_all_native_is_compatible() {
     let result = abp_capability::negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
     assert_eq!(result.native.len(), 2);
-    assert!(result.emulatable.is_empty());
+    assert!(result.emulated.is_empty());
     assert!(result.unsupported.is_empty());
 }
 
@@ -196,13 +196,13 @@ fn negotiate_empty_requirements_is_compatible() {
 fn negotiate_total_equals_sum_of_buckets() {
     let result = abp_capability::NegotiationResult {
         native: vec![abp_core::Capability::Streaming],
-        emulatable: vec![abp_core::Capability::ToolRead],
+        emulated: vec![abp_core::Capability::ToolRead],
         unsupported: vec![abp_core::Capability::Logprobs],
     };
     assert_eq!(result.total(), 3);
     assert_eq!(
         result.total(),
-        result.native.len() + result.emulatable.len() + result.unsupported.len()
+        result.native.len() + result.emulated.len() + result.unsupported.len()
     );
 }
 
@@ -221,7 +221,7 @@ fn negotiate_emulated_goes_to_emulatable() {
     };
     let result = abp_capability::negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable.len(), 1);
+    assert_eq!(result.emulated.len(), 1);
     assert!(result.native.is_empty());
 }
 
@@ -242,7 +242,7 @@ fn negotiate_restricted_counts_as_emulatable() {
     };
     let result = abp_capability::negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable.len(), 1);
+    assert_eq!(result.emulated.len(), 1);
     assert!(result.unsupported.is_empty());
 }
 
@@ -251,7 +251,7 @@ fn negotiate_restricted_counts_as_emulatable() {
 fn check_capability_missing_is_unsupported() {
     let manifest: abp_core::CapabilityManifest = BTreeMap::new();
     let level = abp_capability::check_capability(&manifest, &abp_core::Capability::Streaming);
-    assert_eq!(level, abp_capability::SupportLevel::Unsupported);
+    assert_eq!(level, abp_capability::SupportLevel::Unsupported { .. });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -822,6 +822,6 @@ fn support_level_emulated_requirement_accepts_both() {
 /// Unsupported does NOT satisfy any requirement.
 #[test]
 fn support_level_unsupported_satisfies_nothing() {
-    assert!(!abp_core::SupportLevel::Unsupported.satisfies(&abp_core::MinSupport::Native));
-    assert!(!abp_core::SupportLevel::Unsupported.satisfies(&abp_core::MinSupport::Emulated));
+    assert!(!abp_core::SupportLevel::Unsupported { .. }.satisfies(&abp_core::MinSupport::Native));
+    assert!(!abp_core::SupportLevel::Unsupported { .. }.satisfies(&abp_core::MinSupport::Emulated));
 }

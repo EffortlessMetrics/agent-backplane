@@ -932,7 +932,7 @@ fn capability_negotiate_emulated_tool_read() {
     };
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable, vec![Capability::ToolRead]);
+    assert_eq!(result.emulated, vec![Capability::ToolRead]);
 }
 
 #[test]
@@ -982,7 +982,7 @@ fn capability_check_missing_is_unsupported() {
 fn capability_report_compatible() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming, Capability::ToolUse],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![],
     };
     let report = generate_report(&result);
@@ -995,7 +995,7 @@ fn capability_report_compatible() {
 fn capability_report_incompatible() {
     let result = NegotiationResult {
         native: vec![],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![Capability::ImageInput],
     };
     let report = generate_report(&result);
@@ -1042,7 +1042,7 @@ fn capability_restricted_treated_as_emulated() {
 fn capability_negotiation_total() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
+        emulated: vec![Capability::ToolRead],
         unsupported: vec![Capability::Logprobs],
     };
     assert_eq!(result.total(), 3);

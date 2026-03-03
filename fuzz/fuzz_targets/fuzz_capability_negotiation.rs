@@ -100,7 +100,7 @@ fuzz_target!(|input: CapFuzzInput| {
 
     // --- Property 2: categories are complete ---
     assert_eq!(
-        result.native.len() + result.emulatable.len() + result.unsupported.len(),
+        result.native.len() + result.emulated.len() + result.unsupported.len(),
         num_required,
         "native + emulatable + unsupported must equal total required"
     );
@@ -123,7 +123,7 @@ fuzz_target!(|input: CapFuzzInput| {
     let report = generate_report(&result);
     assert_eq!(report.compatible, result.is_compatible());
     assert_eq!(report.native_count, result.native.len());
-    assert_eq!(report.emulated_count, result.emulatable.len());
+    assert_eq!(report.emulated_count, result.emulated.len());
     assert_eq!(report.unsupported_count, result.unsupported.len());
     assert!(!report.summary.is_empty());
 

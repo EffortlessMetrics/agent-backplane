@@ -1,0 +1,25 @@
+[package]
+name = "abp-sidecar-utils"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Reusable sidecar protocol utilities for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "ai", "sidecar", "protocol"]
+categories = ["development-tools"]
+
+[dependencies]
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-protocol = { path = "../abp-protocol", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["io-util", "sync", "time", "macros"] }
+tracing.workspace = true
+
+[dev-dependencies]
+chrono.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time", "io-util"] }

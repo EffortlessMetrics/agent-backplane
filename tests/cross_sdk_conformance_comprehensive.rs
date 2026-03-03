@@ -822,7 +822,7 @@ fn capability_emulated_satisfies_emulated_requirement() {
 fn capability_absent_is_unsupported() {
     let manifest: CapabilityManifest = BTreeMap::new();
     let level = check_capability(&manifest, &Capability::ToolWrite);
-    assert!(matches!(level, abp_capability::SupportLevel::Unsupported));
+    assert!(matches!(level, abp_capability::SupportLevel::Unsupported { .. }));
 }
 
 #[test]
@@ -844,7 +844,7 @@ fn capability_restricted_maps_to_emulated() {
 fn capability_report_fully_compatible() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming, Capability::ToolUse],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![],
     };
     let report = generate_report(&result);
@@ -857,7 +857,7 @@ fn capability_report_fully_compatible() {
 fn capability_report_incompatible() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![Capability::CodeExecution],
     };
     let report = generate_report(&result);
@@ -870,7 +870,7 @@ fn capability_report_incompatible() {
 fn capability_report_mixed() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ExtendedThinking],
+        emulated: vec![Capability::ExtendedThinking],
         unsupported: vec![],
     };
     let report = generate_report(&result);
@@ -883,7 +883,7 @@ fn capability_report_mixed() {
 fn capability_total_counts_all_buckets() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
+        emulated: vec![Capability::ToolRead],
         unsupported: vec![Capability::CodeExecution],
     };
     assert_eq!(result.total(), 3);

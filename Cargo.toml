@@ -31,6 +31,7 @@ members = [
   "crates/abp-ir",
   "crates/abp-integrations",
   "crates/abp-kimi-sdk",
+  "crates/abp-mapper",
   "crates/abp-mapping",
   "crates/abp-openai-sdk",
   "crates/abp-policy",
@@ -38,6 +39,7 @@ members = [
   "crates/abp-receipt",
   "crates/abp-protocol",
   "crates/abp-runtime",
+  "crates/abp-sdk-types",
   "crates/abp-shim-claude",
   "crates/abp-shim-codex",
   "crates/abp-shim-copilot",
@@ -45,6 +47,7 @@ members = [
   "crates/abp-shim-openai",
   "crates/abp-sidecar-proto",
   "crates/abp-sidecar-sdk",
+  "crates/abp-sidecar-utils",
   "crates/abp-stream",
   "crates/abp-telemetry",
   "crates/abp-workspace",
@@ -132,6 +135,7 @@ jsonschema.workspace = true
 abp-daemon = { path = "crates/abp-daemon" }
 abp-dialect = { path = "crates/abp-dialect" }
 abp-error = { path = "crates/abp-error" }
+abp-error-taxonomy = { path = "crates/abp-error-taxonomy" }
 abp-capability = { path = "crates/abp-capability" }
 abp-receipt = { path = "crates/abp-receipt" }
 abp-mapping = { path = "crates/abp-mapping" }
@@ -154,6 +158,8 @@ abp-backend-core = { path = "crates/abp-backend-core" }
 abp-backend-mock = { path = "crates/abp-backend-mock" }
 abp-sidecar-proto = { path = "crates/abp-sidecar-proto" }
 abp-sidecar-sdk = { path = "crates/abp-sidecar-sdk" }
+abp-sidecar-utils = { path = "crates/abp-sidecar-utils" }
+abp-sdk-types = { path = "crates/abp-sdk-types" }
 insta = { workspace = true }
 proptest = { workspace = true }
 sha2 = { workspace = true }

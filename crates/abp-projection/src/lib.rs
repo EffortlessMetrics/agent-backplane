@@ -364,7 +364,7 @@ fn capability_coverage(neg: &NegotiationResult, reqs: &CapabilityRequirements) -
     if reqs.required.is_empty() {
         return 1.0;
     }
-    let satisfied = neg.native.len() + neg.emulatable.len();
+    let satisfied = neg.native.len() + neg.emulated.len();
     satisfied as f64 / reqs.required.len() as f64
 }
 
@@ -381,7 +381,7 @@ fn is_passthrough_mode(work_order: &WorkOrder) -> bool {
 
 /// Build the list of required emulations from a negotiation result.
 fn build_emulations(neg: &NegotiationResult) -> Vec<RequiredEmulation> {
-    neg.emulatable
+    neg.emulated
         .iter()
         .map(|cap| RequiredEmulation {
             capability: cap.clone(),
@@ -1051,7 +1051,7 @@ mod tests {
     fn capability_coverage_empty_reqs() {
         let neg = NegotiationResult {
             native: vec![],
-            emulatable: vec![],
+            emulated: vec![],
             unsupported: vec![],
         };
         let reqs = CapabilityRequirements::default();
@@ -1062,7 +1062,7 @@ mod tests {
     fn capability_coverage_partial() {
         let neg = NegotiationResult {
             native: vec![Capability::Streaming],
-            emulatable: vec![],
+            emulated: vec![],
             unsupported: vec![Capability::ToolRead],
         };
         let reqs = require_caps(&[Capability::Streaming, Capability::ToolRead]);
@@ -1073,7 +1073,7 @@ mod tests {
     fn build_emulations_empty() {
         let neg = NegotiationResult {
             native: vec![Capability::Streaming],
-            emulatable: vec![],
+            emulated: vec![],
             unsupported: vec![],
         };
         assert!(build_emulations(&neg).is_empty());
@@ -1083,7 +1083,7 @@ mod tests {
     fn build_emulations_multiple() {
         let neg = NegotiationResult {
             native: vec![],
-            emulatable: vec![Capability::Streaming, Capability::ToolRead],
+            emulated: vec![Capability::Streaming, Capability::ToolRead],
             unsupported: vec![],
         };
         let emu = build_emulations(&neg);

@@ -99,7 +99,7 @@ fuzz_target!(|data: &[u8]| {
 
     // --- categories complete ---
     assert_eq!(
-        result.native.len() + result.emulatable.len() + result.unsupported.len(),
+        result.native.len() + result.emulated.len() + result.unsupported.len(),
         num_required,
     );
 

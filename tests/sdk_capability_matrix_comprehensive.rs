@@ -646,7 +646,7 @@ fn negotiate_openai_tools_are_emulated() {
     ]);
     let result = negotiate(&m, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable.len(), 3);
+    assert_eq!(result.emulated.len(), 3);
 }
 
 #[test]
@@ -871,7 +871,7 @@ fn projection_openai_cannot_natively_satisfy_tool_reqs() {
     let result = negotiate(&m, &reqs);
     assert!(result.is_compatible());
     assert!(result.native.is_empty());
-    assert_eq!(result.emulatable.len(), 2);
+    assert_eq!(result.emulated.len(), 2);
 }
 
 #[test]

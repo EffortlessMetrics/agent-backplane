@@ -59,7 +59,7 @@ fn given_backend_without_tool_use_when_requiring_with_emulation_then_emulation_a
     let reqs = require(&[(Capability::ToolUse, MinSupport::Emulated)]);
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable, vec![Capability::ToolUse]);
+    assert_eq!(result.emulated, vec![Capability::ToolUse]);
 }
 
 /// Given a backend without extended_thinking,
@@ -79,7 +79,7 @@ fn given_backend_without_extended_thinking_when_requiring_native_then_capability
 fn capability_report_includes_all_three_categories() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
+        emulated: vec![Capability::ToolRead],
         unsupported: vec![Capability::Logprobs],
     };
     let report = generate_report(&result);
@@ -116,7 +116,7 @@ fn multiple_capabilities_some_native_some_emulated() {
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
     assert_eq!(result.native.len(), 2);
-    assert_eq!(result.emulatable.len(), 1);
+    assert_eq!(result.emulated.len(), 1);
     assert!(result.unsupported.is_empty());
 }
 

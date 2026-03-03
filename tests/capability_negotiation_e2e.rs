@@ -382,7 +382,7 @@ fn mixed_negotiation_native_and_emulated() {
         vec![Capability::Streaming, Capability::ToolWrite]
     );
     assert_eq!(
-        result.emulatable,
+        result.emulated,
         vec![Capability::ToolRead, Capability::ToolBash]
     );
     assert!(result.unsupported.is_empty());
@@ -488,7 +488,7 @@ fn all_caps_required_fully_capable_passes() {
 
     assert!(result.is_compatible());
     assert_eq!(result.native.len(), all_caps.len());
-    assert!(result.emulatable.is_empty());
+    assert!(result.emulated.is_empty());
     assert!(result.unsupported.is_empty());
 }
 
@@ -586,7 +586,7 @@ async fn negotiation_result_stored_in_receipt_metadata() {
         serde_json::from_value(neg.clone()).expect("should deserialize to NegotiationResult");
     assert!(neg_result.is_compatible());
     assert!(neg_result.native.contains(&Capability::Streaming));
-    assert!(neg_result.emulatable.contains(&Capability::ToolRead));
+    assert!(neg_result.emulated.contains(&Capability::ToolRead));
     assert!(neg_result.unsupported.is_empty());
 }
 
@@ -645,7 +645,7 @@ fn restricted_capability_treated_as_emulated_in_negotiation() {
     let result = negotiate(&caps, &reqs);
 
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable, vec![Capability::ToolBash]);
+    assert_eq!(result.emulated, vec![Capability::ToolBash]);
     assert!(result.native.is_empty());
 }
 
@@ -667,8 +667,8 @@ fn support_level_satisfies_hierarchy() {
     assert!(restricted.satisfies(&MinSupport::Emulated));
 
     // Unsupported satisfies nothing
-    assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Native));
-    assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
+    assert!(!CoreSupportLevel::Unsupported { .. }.satisfies(&MinSupport::Native));
+    assert!(!CoreSupportLevel::Unsupported { .. }.satisfies(&MinSupport::Emulated));
 }
 
 // ===========================================================================
@@ -867,7 +867,7 @@ fn concurrent_negotiate_calls_produce_consistent_results() {
 fn negotiation_result_serde_roundtrip() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming, Capability::ToolRead],
-        emulatable: vec![Capability::ToolWrite],
+        emulated: vec![Capability::ToolWrite],
         unsupported: vec![Capability::McpClient],
     };
 
@@ -974,7 +974,7 @@ async fn emulation_report_stored_in_receipt_usage_raw() {
 fn generate_report_reflects_mixed_negotiation() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead, Capability::ToolWrite],
+        emulated: vec![Capability::ToolRead, Capability::ToolWrite],
         unsupported: vec![Capability::McpClient, Capability::Logprobs],
     };
 
@@ -1033,7 +1033,7 @@ fn negotiate_all_26_capabilities_native() {
 
     assert!(result.is_compatible());
     assert_eq!(result.native.len(), 26);
-    assert!(result.emulatable.is_empty());
+    assert!(result.emulated.is_empty());
     assert!(result.unsupported.is_empty());
 }
 
@@ -1050,7 +1050,7 @@ fn negotiate_all_26_capabilities_emulated() {
 
     assert!(result.is_compatible());
     assert!(result.native.is_empty());
-    assert_eq!(result.emulatable.len(), 26);
+    assert_eq!(result.emulated.len(), 26);
 }
 
 #[test]
@@ -1082,7 +1082,7 @@ fn check_capability_each_variant_missing() {
     for cap in all_capabilities() {
         let level = check_capability(&empty, &cap);
         assert!(
-            matches!(level, abp_capability::SupportLevel::Unsupported),
+            matches!(level, abp_capability::SupportLevel::Unsupported { .. }),
             "{cap:?} should be Unsupported when missing"
         );
     }
@@ -1155,12 +1155,12 @@ fn support_level_restricted_satisfies_emulated() {
 
 #[test]
 fn support_level_unsupported_does_not_satisfy_native() {
-    assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Native));
+    assert!(!CoreSupportLevel::Unsupported { .. }.satisfies(&MinSupport::Native));
 }
 
 #[test]
 fn support_level_unsupported_does_not_satisfy_emulated() {
-    assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
+    assert!(!CoreSupportLevel::Unsupported { .. }.satisfies(&MinSupport::Emulated));
 }
 
 // ===========================================================================
@@ -1176,7 +1176,7 @@ fn min_support_native_requires_exact_native() {
     let result = negotiate(&caps, &reqs);
     // Emulated in manifest → emulatable bucket (compatible)
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable, vec![Capability::Streaming]);
+    assert_eq!(result.emulated, vec![Capability::Streaming]);
 }
 
 #[test]
@@ -1205,7 +1205,7 @@ fn min_support_mixed_native_and_emulated_in_single_negotiation() {
     let result = negotiate(&caps, &reqs);
     assert!(result.is_compatible());
     assert_eq!(result.native.len(), 2); // Streaming, ToolWrite
-    assert_eq!(result.emulatable.len(), 1); // ToolRead
+    assert_eq!(result.emulated.len(), 1); // ToolRead
 }
 
 // ===========================================================================
@@ -1243,7 +1243,7 @@ fn capability_diff_all_missing() {
 
     assert_eq!(result.unsupported.len(), 3);
     assert!(result.native.is_empty());
-    assert!(result.emulatable.is_empty());
+    assert!(result.emulated.is_empty());
 }
 
 #[test]
@@ -1497,7 +1497,7 @@ async fn runtime_multiple_backends_independent_negotiation() {
 fn report_details_contain_all_capabilities() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
+        emulated: vec![Capability::ToolRead],
         unsupported: vec![Capability::McpClient],
     };
     let report = generate_report(&result);
@@ -1508,7 +1508,7 @@ fn report_details_contain_all_capabilities() {
 fn report_compatible_with_only_emulated() {
     let result = NegotiationResult {
         native: vec![],
-        emulatable: vec![Capability::Streaming, Capability::ToolRead],
+        emulated: vec![Capability::Streaming, Capability::ToolRead],
         unsupported: vec![],
     };
     let report = generate_report(&result);
@@ -1521,7 +1521,7 @@ fn report_compatible_with_only_emulated() {
 fn report_summary_format_includes_counts() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
+        emulated: vec![Capability::ToolRead],
         unsupported: vec![],
     };
     let report = generate_report(&result);
@@ -1534,7 +1534,7 @@ fn report_summary_format_includes_counts() {
 fn report_empty_is_compatible() {
     let result = NegotiationResult {
         native: vec![],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![],
     };
     let report = generate_report(&result);
@@ -1546,7 +1546,7 @@ fn report_empty_is_compatible() {
 fn report_serde_roundtrip() {
     let result = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![],
     };
     let report = generate_report(&result);
@@ -1626,7 +1626,7 @@ fn negotiate_performance_large_requirement_set() {
 fn generate_report_performance() {
     let result = NegotiationResult {
         native: all_capabilities(),
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![],
     };
 
@@ -1831,7 +1831,7 @@ fn runtime_check_capabilities_empty_requirements() {
 fn negotiation_result_total_counts_all_buckets() {
     let r = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead, Capability::ToolWrite],
+        emulated: vec![Capability::ToolRead, Capability::ToolWrite],
         unsupported: vec![Capability::McpClient],
     };
     assert_eq!(r.total(), 4);
@@ -1841,7 +1841,7 @@ fn negotiation_result_total_counts_all_buckets() {
 fn negotiation_result_is_compatible_empty() {
     let r = NegotiationResult {
         native: vec![],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![],
     };
     assert!(r.is_compatible());
@@ -1852,7 +1852,7 @@ fn negotiation_result_is_compatible_empty() {
 fn negotiation_result_is_compatible_with_emulatable_only() {
     let r = NegotiationResult {
         native: vec![],
-        emulatable: vec![Capability::Streaming],
+        emulated: vec![Capability::Streaming],
         unsupported: vec![],
     };
     assert!(r.is_compatible());
@@ -1862,7 +1862,7 @@ fn negotiation_result_is_compatible_with_emulatable_only() {
 fn negotiation_result_not_compatible_with_any_unsupported() {
     let r = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
+        emulated: vec![Capability::ToolRead],
         unsupported: vec![Capability::McpClient],
     };
     assert!(!r.is_compatible());
@@ -1948,7 +1948,7 @@ fn capability_matrix_best_backend_with_all_26() {
 #[test]
 fn explicit_unsupported_in_manifest_treated_as_unsupported() {
     let caps = manifest_from(&[
-        (Capability::Logprobs, CoreSupportLevel::Unsupported),
+        (Capability::Logprobs, CoreSupportLevel::Unsupported { .. }),
         (Capability::Streaming, CoreSupportLevel::Native),
     ]);
     let reqs = require_native(&[Capability::Logprobs, Capability::Streaming]);

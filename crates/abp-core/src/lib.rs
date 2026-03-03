@@ -294,6 +294,37 @@ pub enum Capability {
     SeedDeterminism,
     /// Support custom stop sequences.
     StopSequences,
+
+    /// Legacy function-calling style (distinct from tool_use in some SDKs).
+    FunctionCalling,
+    /// Accept images as input (vision models).
+    Vision,
+    /// Accept audio as input.
+    Audio,
+    /// Constrain output to valid JSON.
+    JsonMode,
+    /// Support system-level prompt messages.
+    SystemMessage,
+    /// Temperature sampling parameter.
+    Temperature,
+    /// Top-p (nucleus) sampling parameter.
+    TopP,
+    /// Top-k sampling parameter.
+    TopK,
+    /// Maximum token limit parameter.
+    MaxTokens,
+    /// Frequency penalty parameter.
+    FrequencyPenalty,
+    /// Presence penalty parameter.
+    PresencePenalty,
+    /// Prompt caching / cache-control hints.
+    CacheControl,
+    /// Batch request API support.
+    BatchMode,
+    /// Text embedding generation.
+    Embeddings,
+    /// Image generation (e.g. DALL-E).
+    ImageGeneration,
 }
 
 /// How well a backend supports a given [`Capability`].

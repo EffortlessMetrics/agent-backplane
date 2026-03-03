@@ -329,6 +329,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-mapper"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-dialect",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "abp-mapping"
 version = "0.1.0"
 dependencies = [
@@ -448,6 +460,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-sdk-types"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "abp-shim-claude"
 version = "0.1.0"
 dependencies = [
@@ -563,6 +585,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-sidecar-utils"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-protocol",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "abp-stream"
 version = "0.1.0"
 dependencies = [
@@ -624,6 +660,7 @@ dependencies = [
  "abp-dialect",
  "abp-emulation",
  "abp-error",
+ "abp-error-taxonomy",
  "abp-gemini-sdk",
  "abp-git",
  "abp-glob",
@@ -637,6 +674,7 @@ dependencies = [
  "abp-protocol",
  "abp-receipt",
  "abp-runtime",
+ "abp-sdk-types",
  "abp-shim-claude",
  "abp-shim-codex",
  "abp-shim-copilot",
@@ -645,6 +683,7 @@ dependencies = [
  "abp-shim-openai",
  "abp-sidecar-proto",
  "abp-sidecar-sdk",
+ "abp-sidecar-utils",
  "abp-stream",
  "abp-telemetry",
  "abp-workspace",
@@ -656,6 +695,7 @@ dependencies = [
  "claude-bridge",
  "criterion",
  "cucumber",
+ "flate2",
  "futures",
  "http-body-util",
  "insta",
@@ -676,6 +716,7 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "walkdir",
+ "zstd",
 ]
 
 [[package]]

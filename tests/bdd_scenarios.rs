@@ -1070,7 +1070,7 @@ fn given_manifest_with_emulated_when_native_required_then_emulatable() {
     let reqs = require_caps(&[(Capability::ToolRead, MinSupport::Native)]);
     let result = negotiate(&manifest, &reqs);
     // negotiate() classifies by manifest level, not min_support
-    assert!(!result.emulatable.is_empty());
+    assert!(!result.emulated.is_empty());
     assert!(result.unsupported.is_empty());
 }
 
@@ -1094,7 +1094,7 @@ fn given_manifest_when_no_requirements_then_compatible() {
 fn given_report_when_all_native_then_compatible_summary() {
     let result = abp_capability::NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![],
     };
     let report = generate_report(&result);
@@ -1107,7 +1107,7 @@ fn given_report_when_all_native_then_compatible_summary() {
 fn given_report_when_unsupported_then_incompatible() {
     let result = abp_capability::NegotiationResult {
         native: vec![],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![Capability::ToolBash],
     };
     let report = generate_report(&result);
@@ -1126,7 +1126,7 @@ fn given_check_capability_when_native_then_native() {
 fn given_check_capability_when_absent_then_unsupported() {
     let manifest = CapabilityManifest::new();
     let level = check_capability(&manifest, &Capability::Streaming);
-    assert_eq!(level, abp_capability::SupportLevel::Unsupported);
+    assert_eq!(level, abp_capability::SupportLevel::Unsupported { .. });
 }
 
 // ===========================================================================
@@ -2040,5 +2040,5 @@ fn given_emulated_support_when_native_required_then_not_satisfied() {
 
 #[test]
 fn given_unsupported_when_emulated_required_then_not_satisfied() {
-    assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
+    assert!(!SupportLevel::Unsupported { .. }.satisfies(&MinSupport::Emulated));
 }

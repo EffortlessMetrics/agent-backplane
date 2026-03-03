@@ -505,11 +505,11 @@ impl Runtime {
                             )));
                         }
                     }
-                    if !result.emulatable.is_empty() {
+                    if !result.emulated.is_empty() {
                         warn!(
                             target: "abp.runtime",
                             backend=%backend_name,
-                            emulated=?result.emulatable,
+                            emulated=?result.emulated,
                             "capabilities require emulation"
                         );
                     }

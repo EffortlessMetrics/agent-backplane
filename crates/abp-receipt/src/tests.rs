@@ -660,7 +660,10 @@ fn validator_detects_bad_timestamps() {
     let v = ReceiptValidator::new();
     let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 5).unwrap();
     let t2 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
-    let mut r = ReceiptBuilder::new("mock").started_at(t1).finished_at(t2).build();
+    let mut r = ReceiptBuilder::new("mock")
+        .started_at(t1)
+        .finished_at(t2)
+        .build();
     // Manually fix the timestamps to make finished < started
     r.meta.started_at = t1;
     r.meta.finished_at = t2;
@@ -745,12 +748,8 @@ fn store_filter_by_backend() {
     use crate::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
 
     let mut store = InMemoryReceiptStore::new();
-    store
-        .store(ReceiptBuilder::new("alpha").build())
-        .unwrap();
-    store
-        .store(ReceiptBuilder::new("beta").build())
-        .unwrap();
+    store.store(ReceiptBuilder::new("alpha").build()).unwrap();
+    store.store(ReceiptBuilder::new("beta").build()).unwrap();
 
     let filter = ReceiptFilter {
         backend_id: Some("alpha".into()),
@@ -792,13 +791,28 @@ fn store_filter_by_time_range() {
 
     let mut store = InMemoryReceiptStore::new();
     store
-        .store(ReceiptBuilder::new("early").started_at(t1).finished_at(t1).build())
+        .store(
+            ReceiptBuilder::new("early")
+                .started_at(t1)
+                .finished_at(t1)
+                .build(),
+        )
         .unwrap();
     store
-        .store(ReceiptBuilder::new("mid").started_at(t2).finished_at(t2).build())
+        .store(
+            ReceiptBuilder::new("mid")
+                .started_at(t2)
+                .finished_at(t2)
+                .build(),
+        )
         .unwrap();
     store
-        .store(ReceiptBuilder::new("late").started_at(t3).finished_at(t3).build())
+        .store(
+            ReceiptBuilder::new("late")
+                .started_at(t3)
+                .finished_at(t3)
+                .build(),
+        )
         .unwrap();
 
     let filter = ReceiptFilter {

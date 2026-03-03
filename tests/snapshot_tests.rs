@@ -1127,7 +1127,7 @@ fn snapshot_backend_entry_sidecar_no_timeout() {
 fn snapshot_negotiation_result_all_native() {
     let r = NegotiationResult {
         native: vec![Capability::Streaming, Capability::ToolUse],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![],
     };
     insta::assert_json_snapshot!(r);
@@ -1137,7 +1137,7 @@ fn snapshot_negotiation_result_all_native() {
 fn snapshot_negotiation_result_mixed() {
     let r = NegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ExtendedThinking],
+        emulated: vec![Capability::ExtendedThinking],
         unsupported: vec![Capability::McpServer],
     };
     insta::assert_json_snapshot!(r);

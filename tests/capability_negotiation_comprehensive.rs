@@ -168,7 +168,7 @@ fn cap_negotiate_all_native() {
     };
     let result = cap_negotiate(&manifest, &reqs);
     assert_eq!(result.native.len(), 2);
-    assert!(result.emulatable.is_empty());
+    assert!(result.emulated.is_empty());
     assert!(result.unsupported.is_empty());
     assert!(result.is_compatible());
 }
@@ -197,7 +197,7 @@ fn cap_negotiate_mixed_native_emulated_unsupported() {
     };
     let result = cap_negotiate(&manifest, &reqs);
     assert_eq!(result.native, vec![Capability::Streaming]);
-    assert_eq!(result.emulatable, vec![Capability::ToolRead]);
+    assert_eq!(result.emulated, vec![Capability::ToolRead]);
     assert_eq!(result.unsupported, vec![Capability::Logprobs]);
     assert!(!result.is_compatible());
 }
@@ -240,7 +240,7 @@ fn cap_negotiate_restricted_counts_as_emulatable() {
         }],
     };
     let result = cap_negotiate(&manifest, &reqs);
-    assert_eq!(result.emulatable, vec![Capability::ToolBash]);
+    assert_eq!(result.emulated, vec![Capability::ToolBash]);
     assert!(result.is_compatible());
 }
 
@@ -248,7 +248,7 @@ fn cap_negotiate_restricted_counts_as_emulatable() {
 fn cap_negotiate_total_counts_all_buckets() {
     let result = CapNegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
+        emulated: vec![Capability::ToolRead],
         unsupported: vec![Capability::Logprobs],
     };
     assert_eq!(result.total(), 3);
@@ -455,7 +455,7 @@ fn dialect_support_level_native_emulated_unsupported_classification() {
 fn generate_report_classifies_all_three_levels() {
     let result = CapNegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
+        emulated: vec![Capability::ToolRead],
         unsupported: vec![Capability::Logprobs],
     };
     let report = generate_report(&result);
@@ -470,7 +470,7 @@ fn generate_report_classifies_all_three_levels() {
 fn generate_report_fully_compatible_when_no_unsupported() {
     let result = CapNegotiationResult {
         native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
+        emulated: vec![Capability::ToolRead],
         unsupported: vec![],
     };
     let report = generate_report(&result);
@@ -482,7 +482,7 @@ fn generate_report_fully_compatible_when_no_unsupported() {
 fn generate_report_incompatible_when_unsupported_present() {
     let result = CapNegotiationResult {
         native: vec![],
-        emulatable: vec![],
+        emulated: vec![],
         unsupported: vec![Capability::Logprobs],
     };
     let report = generate_report(&result);

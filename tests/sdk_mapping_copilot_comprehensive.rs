@@ -684,7 +684,7 @@ fn capability_negotiation_emulated_tool() {
     };
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable, vec![Capability::ToolRead]);
+    assert_eq!(result.emulated, vec![Capability::ToolRead]);
 }
 
 #[test]
@@ -700,7 +700,7 @@ fn capability_negotiation_native_only_emulated_goes_to_emulatable() {
     // negotiate classifies by manifest level, not min_support;
     // ToolRead is Emulated in the manifest, so it lands in emulatable
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable, vec![Capability::ToolRead]);
+    assert_eq!(result.emulated, vec![Capability::ToolRead]);
     assert!(result.native.is_empty());
 }
 
