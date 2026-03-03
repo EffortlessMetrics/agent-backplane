@@ -207,7 +207,9 @@ fn round_trip_event() {
     match rt {
         Envelope::Event { ref_id, event } => {
             assert_eq!(ref_id, "rt-run");
-            assert!(matches!(event.kind, AgentEventKind::AssistantMessage { text } if text == "hello world"));
+            assert!(
+                matches!(event.kind, AgentEventKind::AssistantMessage { text } if text == "hello world")
+            );
         }
         other => panic!("expected Event, got {other:?}"),
     }
@@ -514,7 +516,9 @@ fn event_kind_run_started() {
     let rt = round_trip(&env);
     match rt {
         Envelope::Event { event, .. } => {
-            assert!(matches!(event.kind, AgentEventKind::RunStarted { message } if message == "Starting"));
+            assert!(
+                matches!(event.kind, AgentEventKind::RunStarted { message } if message == "Starting")
+            );
         }
         _ => panic!("expected Event"),
     }
@@ -531,7 +535,9 @@ fn event_kind_run_completed() {
     let rt = round_trip(&env);
     match rt {
         Envelope::Event { event, .. } => {
-            assert!(matches!(event.kind, AgentEventKind::RunCompleted { message } if message == "Done"));
+            assert!(
+                matches!(event.kind, AgentEventKind::RunCompleted { message } if message == "Done")
+            );
         }
         _ => panic!("expected Event"),
     }
@@ -548,7 +554,9 @@ fn event_kind_assistant_delta() {
     let rt = round_trip(&env);
     match rt {
         Envelope::Event { event, .. } => {
-            assert!(matches!(event.kind, AgentEventKind::AssistantDelta { text } if text == "token"));
+            assert!(
+                matches!(event.kind, AgentEventKind::AssistantDelta { text } if text == "token")
+            );
         }
         _ => panic!("expected Event"),
     }
@@ -565,7 +573,9 @@ fn event_kind_assistant_message() {
     let rt = round_trip(&env);
     match rt {
         Envelope::Event { event, .. } => {
-            assert!(matches!(event.kind, AgentEventKind::AssistantMessage { text } if text == "full msg"));
+            assert!(
+                matches!(event.kind, AgentEventKind::AssistantMessage { text } if text == "full msg")
+            );
         }
         _ => panic!("expected Event"),
     }
@@ -662,8 +672,10 @@ fn event_kind_file_changed() {
     let rt = round_trip(&env);
     match rt {
         Envelope::Event { event, .. } => {
-            assert!(matches!(event.kind, AgentEventKind::FileChanged { path, summary }
-                if path == "src/main.rs" && summary == "added main fn"));
+            assert!(
+                matches!(event.kind, AgentEventKind::FileChanged { path, summary }
+                if path == "src/main.rs" && summary == "added main fn")
+            );
         }
         _ => panic!("expected Event"),
     }
@@ -705,7 +717,9 @@ fn event_kind_warning() {
     let rt = round_trip(&env);
     match rt {
         Envelope::Event { event, .. } => {
-            assert!(matches!(event.kind, AgentEventKind::Warning { message } if message == "approaching budget limit"));
+            assert!(
+                matches!(event.kind, AgentEventKind::Warning { message } if message == "approaching budget limit")
+            );
         }
         _ => panic!("expected Event"),
     }
@@ -764,9 +778,7 @@ fn event_with_ext_passthrough() {
         ref_id: "r".into(),
         event: AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
             ext: Some(ext),
         },
     };
@@ -863,9 +875,7 @@ fn final_receipt_with_hash() {
 
 #[test]
 fn final_receipt_failed_outcome() {
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Failed)
-        .build();
+    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
     let env = Envelope::Final {
         ref_id: "r".into(),
         receipt,
@@ -894,7 +904,10 @@ fn fatal_with_error_code() {
             error, error_code, ..
         } => {
             assert_eq!(error, "version mismatch");
-            assert_eq!(error_code, Some(abp_error::ErrorCode::ProtocolVersionMismatch));
+            assert_eq!(
+                error_code,
+                Some(abp_error::ErrorCode::ProtocolVersionMismatch)
+            );
         }
         _ => panic!("expected Fatal"),
     }
@@ -1185,9 +1198,7 @@ fn validate_sequence_ref_id_mismatch() {
     let run = make_run("run-good");
     let evt = make_event(
         "run-BAD",
-        AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        AgentEventKind::AssistantMessage { text: "hi".into() },
     );
     let fin = make_final("run-good");
 
@@ -1206,12 +1217,7 @@ fn validate_sequence_events_before_run() {
     use abp_protocol::validate::{EnvelopeValidator, SequenceError};
 
     let hello = make_hello();
-    let evt = make_event(
-        "r",
-        AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
-    );
+    let evt = make_event("r", AgentEventKind::AssistantMessage { text: "hi".into() });
     let run = make_run("r");
     let fin = make_final("r");
 
@@ -1237,7 +1243,10 @@ fn validate_sequence_fatal_terminates() {
 
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&[hello, run, fatal]);
-    assert!(errors.is_empty(), "fatal should be a valid terminal: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "fatal should be a valid terminal: {errors:?}"
+    );
 }
 
 // =========================================================================
@@ -1310,12 +1319,7 @@ fn encode_always_newline_terminated() {
     let envs: Vec<Envelope> = vec![
         make_hello(),
         make_run("r"),
-        make_event(
-            "r",
-            AgentEventKind::AssistantMessage {
-                text: "x".into(),
-            },
-        ),
+        make_event("r", AgentEventKind::AssistantMessage { text: "x".into() }),
         make_final("r"),
         Envelope::Fatal {
             ref_id: None,
@@ -1325,6 +1329,9 @@ fn encode_always_newline_terminated() {
     ];
     for env in &envs {
         let json = JsonlCodec::encode(env).unwrap();
-        assert!(json.ends_with('\n'), "all encoded envelopes must end with newline");
+        assert!(
+            json.ends_with('\n'),
+            "all encoded envelopes must end with newline"
+        );
     }
 }
