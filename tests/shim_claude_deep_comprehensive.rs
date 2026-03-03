@@ -1195,69 +1195,105 @@ fn lowering_empty_messages_roundtrip() {
 // 8. Claude-specific capability mapping
 // ═══════════════════════════════════════════════════════════════════════════
 
-fn support_level_json(m: &std::collections::BTreeMap<abp_core::Capability, abp_core::SupportLevel>, cap: abp_core::Capability) -> serde_json::Value {
+fn support_level_json(
+    m: &std::collections::BTreeMap<abp_core::Capability, abp_core::SupportLevel>,
+    cap: abp_core::Capability,
+) -> serde_json::Value {
     serde_json::to_value(m.get(&cap).expect("capability missing")).unwrap()
 }
 
 #[test]
 fn capability_manifest_streaming_native() {
     let m = dialect::capability_manifest();
-    assert_eq!(support_level_json(&m, abp_core::Capability::Streaming), json!("native"));
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::Streaming),
+        json!("native")
+    );
 }
 
 #[test]
 fn capability_manifest_tool_read_native() {
     let m = dialect::capability_manifest();
-    assert_eq!(support_level_json(&m, abp_core::Capability::ToolRead), json!("native"));
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::ToolRead),
+        json!("native")
+    );
 }
 
 #[test]
 fn capability_manifest_tool_write_native() {
     let m = dialect::capability_manifest();
-    assert_eq!(support_level_json(&m, abp_core::Capability::ToolWrite), json!("native"));
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::ToolWrite),
+        json!("native")
+    );
 }
 
 #[test]
 fn capability_manifest_tool_edit_native() {
     let m = dialect::capability_manifest();
-    assert_eq!(support_level_json(&m, abp_core::Capability::ToolEdit), json!("native"));
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::ToolEdit),
+        json!("native")
+    );
 }
 
 #[test]
 fn capability_manifest_tool_bash_native() {
     let m = dialect::capability_manifest();
-    assert_eq!(support_level_json(&m, abp_core::Capability::ToolBash), json!("native"));
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::ToolBash),
+        json!("native")
+    );
 }
 
 #[test]
 fn capability_manifest_mcp_client_native() {
     let m = dialect::capability_manifest();
-    assert_eq!(support_level_json(&m, abp_core::Capability::McpClient), json!("native"));
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::McpClient),
+        json!("native")
+    );
 }
 
 #[test]
 fn capability_manifest_mcp_server_unsupported() {
     let m = dialect::capability_manifest();
-    assert_eq!(support_level_json(&m, abp_core::Capability::McpServer), json!("unsupported"));
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::McpServer),
+        json!("unsupported")
+    );
 }
 
 #[test]
 fn capability_manifest_checkpointing_emulated() {
     let m = dialect::capability_manifest();
-    assert_eq!(support_level_json(&m, abp_core::Capability::Checkpointing), json!("emulated"));
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::Checkpointing),
+        json!("emulated")
+    );
 }
 
 #[test]
 fn capability_manifest_structured_output_native() {
     let m = dialect::capability_manifest();
-    assert_eq!(support_level_json(&m, abp_core::Capability::StructuredOutputJsonSchema), json!("native"));
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::StructuredOutputJsonSchema),
+        json!("native")
+    );
 }
 
 #[test]
 fn capability_manifest_hooks_native() {
     let m = dialect::capability_manifest();
-    assert_eq!(support_level_json(&m, abp_core::Capability::HooksPreToolUse), json!("native"));
-    assert_eq!(support_level_json(&m, abp_core::Capability::HooksPostToolUse), json!("native"));
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::HooksPreToolUse),
+        json!("native")
+    );
+    assert_eq!(
+        support_level_json(&m, abp_core::Capability::HooksPostToolUse),
+        json!("native")
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -96,7 +96,12 @@ mod mapping_rule_construction {
 
     #[test]
     fn lossy_rule_preserves_warning() {
-        let rule = make_lossy(Dialect::Claude, Dialect::OpenAi, "thinking", "mapped to system");
+        let rule = make_lossy(
+            Dialect::Claude,
+            Dialect::OpenAi,
+            "thinking",
+            "mapped to system",
+        );
         assert_eq!(rule.feature, "thinking");
         assert!(!rule.fidelity.is_lossless());
         assert!(!rule.fidelity.is_unsupported());
@@ -214,11 +219,7 @@ mod registry_basics {
     fn insert_multiple_distinct_rules() {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
-        reg.insert(make_lossless(
-            Dialect::OpenAi,
-            Dialect::Claude,
-            "streaming",
-        ));
+        reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "streaming"));
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Gemini, "tool_use"));
         assert_eq!(reg.len(), 3);
     }
@@ -227,36 +228,40 @@ mod registry_basics {
     fn lookup_existing_rule_returns_some() {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-            .is_some());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+                .is_some()
+        );
     }
 
     #[test]
     fn lookup_missing_source_returns_none() {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
-        assert!(reg
-            .lookup(Dialect::Gemini, Dialect::Claude, "tool_use")
-            .is_none());
+        assert!(
+            reg.lookup(Dialect::Gemini, Dialect::Claude, "tool_use")
+                .is_none()
+        );
     }
 
     #[test]
     fn lookup_missing_target_returns_none() {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Gemini, "tool_use")
-            .is_none());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Gemini, "tool_use")
+                .is_none()
+        );
     }
 
     #[test]
     fn lookup_missing_feature_returns_none() {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
-            .is_none());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
+                .is_none()
+        );
     }
 
     #[test]
@@ -264,9 +269,10 @@ mod registry_basics {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
         // Reverse direction should not match
-        assert!(reg
-            .lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
-            .is_none());
+        assert!(
+            reg.lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
+                .is_none()
+        );
     }
 
     #[test]
@@ -336,11 +342,7 @@ mod validation {
     #[test]
     fn validate_single_lossless_feature() {
         let mut reg = MappingRegistry::new();
-        reg.insert(make_lossless(
-            Dialect::OpenAi,
-            Dialect::Claude,
-            "streaming",
-        ));
+        reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "streaming"));
         let results = validate_mapping(
             &reg,
             Dialect::OpenAi,
@@ -361,12 +363,8 @@ mod validation {
             "thinking",
             "mapped to system msg",
         ));
-        let results = validate_mapping(
-            &reg,
-            Dialect::Claude,
-            Dialect::OpenAi,
-            &["thinking".into()],
-        );
+        let results =
+            validate_mapping(&reg, Dialect::Claude, Dialect::OpenAi, &["thinking".into()]);
         assert_eq!(results.len(), 1);
         assert!(!results[0].fidelity.is_lossless());
         assert_eq!(results[0].errors.len(), 1);
@@ -484,12 +482,8 @@ mod validation {
     fn validate_feature_name_is_case_sensitive() {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
-        let results = validate_mapping(
-            &reg,
-            Dialect::OpenAi,
-            Dialect::Claude,
-            &["Tool_Use".into()],
-        );
+        let results =
+            validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &["Tool_Use".into()]);
         assert!(results[0].fidelity.is_unsupported());
     }
 
@@ -541,17 +535,13 @@ mod fidelity_levels {
 
     #[test]
     fn unsupported_is_unsupported() {
-        let f = Fidelity::Unsupported {
-            reason: "r".into(),
-        };
+        let f = Fidelity::Unsupported { reason: "r".into() };
         assert!(f.is_unsupported());
     }
 
     #[test]
     fn unsupported_is_not_lossless() {
-        let f = Fidelity::Unsupported {
-            reason: "r".into(),
-        };
+        let f = Fidelity::Unsupported { reason: "r".into() };
         assert!(!f.is_lossless());
     }
 
@@ -594,9 +584,7 @@ mod fidelity_levels {
     #[test]
     fn fidelity_ne_lossless_vs_unsupported() {
         let a = Fidelity::Lossless;
-        let b = Fidelity::Unsupported {
-            reason: "r".into(),
-        };
+        let b = Fidelity::Unsupported { reason: "r".into() };
         assert_ne!(a, b);
     }
 
@@ -653,10 +641,7 @@ mod known_rules_tests {
         for &d in all_dialects() {
             for &f in &all_features() {
                 let rule = reg.lookup(d, d, f);
-                assert!(
-                    rule.is_some(),
-                    "missing self-mapping for {d} feature {f}"
-                );
+                assert!(rule.is_some(), "missing self-mapping for {d} feature {f}");
                 assert!(
                     rule.unwrap().fidelity.is_lossless(),
                     "{d} -> {d} {f} should be lossless"
@@ -900,9 +885,7 @@ mod known_rules_tests {
             Dialect::Codex,
             Dialect::Copilot,
         ] {
-            let rule = reg
-                .lookup(Dialect::Kimi, tgt, features::CODE_EXEC)
-                .unwrap();
+            let rule = reg.lookup(Dialect::Kimi, tgt, features::CODE_EXEC).unwrap();
             assert!(
                 rule.fidelity.is_unsupported(),
                 "Kimi -> {tgt} code_exec should be unsupported"
@@ -1085,20 +1068,14 @@ mod mapping_errors {
 
     #[test]
     fn error_equality_same_variant() {
-        let a = MappingError::InvalidInput {
-            reason: "x".into(),
-        };
-        let b = MappingError::InvalidInput {
-            reason: "x".into(),
-        };
+        let a = MappingError::InvalidInput { reason: "x".into() };
+        let b = MappingError::InvalidInput { reason: "x".into() };
         assert_eq!(a, b);
     }
 
     #[test]
     fn error_inequality_different_variants() {
-        let a = MappingError::InvalidInput {
-            reason: "x".into(),
-        };
+        let a = MappingError::InvalidInput { reason: "x".into() };
         let b = MappingError::DialectMismatch {
             from: Dialect::OpenAi,
             to: Dialect::Claude,
@@ -1257,7 +1234,10 @@ mod mapping_chain {
             .unwrap();
         // At least one hop should be lossy for thinking
         let chain_lossy = !ab.fidelity.is_lossless() || !bc.fidelity.is_lossless();
-        assert!(chain_lossy, "thinking chain should involve at least one lossy hop");
+        assert!(
+            chain_lossy,
+            "thinking chain should involve at least one lossy hop"
+        );
     }
 
     #[test]
@@ -1433,9 +1413,7 @@ mod priority_conflict {
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "b"));
         reg.insert(make_lossy(Dialect::OpenAi, Dialect::Claude, "a", "warn"));
         // b should be unaffected
-        let rule_b = reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "b")
-            .unwrap();
+        let rule_b = reg.lookup(Dialect::OpenAi, Dialect::Claude, "b").unwrap();
         assert!(rule_b.fidelity.is_lossless());
     }
 
@@ -1444,12 +1422,7 @@ mod priority_conflict {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "feat"));
         assert_eq!(reg.len(), 1);
-        reg.insert(make_lossy(
-            Dialect::OpenAi,
-            Dialect::Claude,
-            "feat",
-            "warn",
-        ));
+        reg.insert(make_lossy(Dialect::OpenAi, Dialect::Claude, "feat", "warn"));
         assert_eq!(reg.len(), 1);
     }
 }
@@ -1464,14 +1437,15 @@ mod edge_cases {
     #[test]
     fn validate_with_only_empty_feature_names() {
         let reg = MappingRegistry::new();
-        let results =
-            validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &["".into(), "".into()]);
+        let results = validate_mapping(
+            &reg,
+            Dialect::OpenAi,
+            Dialect::Claude,
+            &["".into(), "".into()],
+        );
         assert_eq!(results.len(), 2);
         for r in &results {
-            assert!(matches!(
-                &r.errors[0],
-                MappingError::InvalidInput { .. }
-            ));
+            assert!(matches!(&r.errors[0], MappingError::InvalidInput { .. }));
         }
     }
 
@@ -1498,9 +1472,10 @@ mod edge_cases {
             ));
         }
         assert_eq!(reg.len(), 200);
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "feat_199")
-            .is_some());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, "feat_199")
+                .is_some()
+        );
     }
 
     #[test]
@@ -1535,9 +1510,10 @@ mod edge_cases {
             Dialect::Claude,
             "feat-with-dashes",
         ));
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "feat-with-dashes")
-            .is_some());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, "feat-with-dashes")
+                .is_some()
+        );
     }
 
     #[test]
@@ -1705,9 +1681,7 @@ mod serialization {
 
     #[test]
     fn fidelity_unsupported_json_has_type_tag() {
-        let f = Fidelity::Unsupported {
-            reason: "r".into(),
-        };
+        let f = Fidelity::Unsupported { reason: "r".into() };
         let json = serde_json::to_string(&f).unwrap();
         let val: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(val["type"], "unsupported");
@@ -1923,7 +1897,10 @@ mod coverage_analysis {
     fn count_lossless_rules_in_known_registry() {
         let reg = known_rules();
         let lossless_count = reg.iter().filter(|r| r.fidelity.is_lossless()).count();
-        assert!(lossless_count > 0, "should have at least some lossless rules");
+        assert!(
+            lossless_count > 0,
+            "should have at least some lossless rules"
+        );
     }
 
     #[test]
@@ -2002,12 +1979,7 @@ mod rank_targets {
     #[test]
     fn rank_targets_includes_dialects_with_any_supported_feature() {
         let mut reg = MappingRegistry::new();
-        reg.insert(make_lossy(
-            Dialect::OpenAi,
-            Dialect::Claude,
-            "feat",
-            "warn",
-        ));
+        reg.insert(make_lossy(Dialect::OpenAi, Dialect::Claude, "feat", "warn"));
         let ranked = reg.rank_targets(Dialect::OpenAi, &["feat"]);
         assert_eq!(ranked.len(), 1);
         assert_eq!(ranked[0].0, Dialect::Claude);

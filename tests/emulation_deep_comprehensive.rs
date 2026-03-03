@@ -10,10 +10,10 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{Capability, CapabilityRequirement, MinSupport};
 use abp_emulation::{
-    apply_emulation, can_emulate, compute_fidelity, default_strategy, emulate_code_execution,
-    emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
-    emulate_structured_output, EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport,
-    EmulationStrategy, FidelityLabel,
+    EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy,
+    FidelityLabel, apply_emulation, can_emulate, compute_fidelity, default_strategy,
+    emulate_code_execution, emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
+    emulate_structured_output,
 };
 use std::collections::BTreeMap;
 
@@ -90,19 +90,25 @@ fn all_caps() -> Vec<Capability> {
 
 #[test]
 fn strategy_variant_system_prompt_injection_construction() {
-    let s = EmulationStrategy::SystemPromptInjection { prompt: "hello".into() };
+    let s = EmulationStrategy::SystemPromptInjection {
+        prompt: "hello".into(),
+    };
     assert!(matches!(s, EmulationStrategy::SystemPromptInjection { .. }));
 }
 
 #[test]
 fn strategy_variant_post_processing_construction() {
-    let s = EmulationStrategy::PostProcessing { detail: "truncate".into() };
+    let s = EmulationStrategy::PostProcessing {
+        detail: "truncate".into(),
+    };
     assert!(matches!(s, EmulationStrategy::PostProcessing { .. }));
 }
 
 #[test]
 fn strategy_variant_disabled_construction() {
-    let s = EmulationStrategy::Disabled { reason: "unsafe".into() };
+    let s = EmulationStrategy::Disabled {
+        reason: "unsafe".into(),
+    };
     assert!(matches!(s, EmulationStrategy::Disabled { .. }));
 }
 
@@ -219,7 +225,9 @@ fn strategy_engine_resolve_prefers_config_override() {
     let mut cfg = EmulationConfig::new();
     cfg.set(
         Capability::ExtendedThinking,
-        EmulationStrategy::Disabled { reason: "off".into() },
+        EmulationStrategy::Disabled {
+            reason: "off".into(),
+        },
     );
     let engine = EmulationEngine::new(cfg);
     assert!(matches!(
@@ -233,7 +241,9 @@ fn strategy_override_does_not_affect_other_caps() {
     let mut cfg = EmulationConfig::new();
     cfg.set(
         Capability::ExtendedThinking,
-        EmulationStrategy::Disabled { reason: "off".into() },
+        EmulationStrategy::Disabled {
+            reason: "off".into(),
+        },
     );
     let engine = EmulationEngine::new(cfg);
     assert!(matches!(
@@ -599,7 +609,9 @@ fn error_override_to_disabled_produces_warning() {
     let mut cfg = EmulationConfig::new();
     cfg.set(
         Capability::ExtendedThinking,
-        EmulationStrategy::Disabled { reason: "user disabled".into() },
+        EmulationStrategy::Disabled {
+            reason: "user disabled".into(),
+        },
     );
     let engine = EmulationEngine::new(cfg);
     let mut conv = user_conv("x");
@@ -614,7 +626,9 @@ fn error_custom_disabled_reason_appears_in_warning() {
     let mut cfg = EmulationConfig::new();
     cfg.set(
         Capability::ImageInput,
-        EmulationStrategy::Disabled { reason: "images not allowed by policy".into() },
+        EmulationStrategy::Disabled {
+            reason: "images not allowed by policy".into(),
+        },
     );
     let engine = EmulationEngine::new(cfg);
     let report = engine.check_missing(&[Capability::ImageInput]);
@@ -1350,9 +1364,7 @@ fn result_type_fidelity_native_roundtrip() {
 #[test]
 fn result_type_fidelity_emulated_roundtrip() {
     let l = FidelityLabel::Emulated {
-        strategy: EmulationStrategy::PostProcessing {
-            detail: "x".into(),
-        },
+        strategy: EmulationStrategy::PostProcessing { detail: "x".into() },
     };
     let json = serde_json::to_string(&l).unwrap();
     assert!(json.contains("\"fidelity\":\"emulated\""));

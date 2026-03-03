@@ -394,7 +394,9 @@ mod tests {
     fn save_by_hash_requires_hash() {
         let dir = tempfile::tempdir().unwrap();
         let store = ReceiptStore::new(dir.path());
-        let receipt = ReceiptBuilder::new("no-hash").outcome(Outcome::Complete).build();
+        let receipt = ReceiptBuilder::new("no-hash")
+            .outcome(Outcome::Complete)
+            .build();
 
         let err = store.save_by_hash(&receipt).unwrap_err();
         assert!(matches!(err, StoreError::MissingHash));
@@ -474,9 +476,7 @@ mod tests {
         let store = ReceiptStore::new(dir.path());
 
         let err = store
-            .verify_integrity(
-                "0000000000000000000000000000000000000000000000000000000000000000",
-            )
+            .verify_integrity("0000000000000000000000000000000000000000000000000000000000000000")
             .unwrap_err();
         assert!(matches!(err, StoreError::NotFound(_)));
     }

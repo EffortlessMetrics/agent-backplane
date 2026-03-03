@@ -7,9 +7,9 @@
 
 use std::io::{Read, Write};
 
+use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use flate2::Compression;
 use serde::{Deserialize, Serialize};
 
 /// Identifies which compression algorithm to apply.
@@ -270,14 +270,20 @@ mod tests {
     fn gzip_empty_input() {
         let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
         let data = b"";
-        assert_eq!(c.decompress(&c.compress(data).unwrap()).unwrap(), data.as_slice());
+        assert_eq!(
+            c.decompress(&c.compress(data).unwrap()).unwrap(),
+            data.as_slice()
+        );
     }
 
     #[test]
     fn zstd_empty_input() {
         let c = MessageCompressor::new(CompressionAlgorithm::Zstd);
         let data = b"";
-        assert_eq!(c.decompress(&c.compress(data).unwrap()).unwrap(), data.as_slice());
+        assert_eq!(
+            c.decompress(&c.compress(data).unwrap()).unwrap(),
+            data.as_slice()
+        );
     }
 
     #[test]
@@ -285,7 +291,10 @@ mod tests {
         let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
         let data = "abcdef".repeat(1000);
         let compressed = c.compress(data.as_bytes()).unwrap();
-        assert!(compressed.len() < data.len(), "gzip should compress repetitive data");
+        assert!(
+            compressed.len() < data.len(),
+            "gzip should compress repetitive data"
+        );
         assert_eq!(c.decompress(&compressed).unwrap(), data.as_bytes());
     }
 
@@ -294,7 +303,10 @@ mod tests {
         let c = MessageCompressor::new(CompressionAlgorithm::Zstd);
         let data = "abcdef".repeat(1000);
         let compressed = c.compress(data.as_bytes()).unwrap();
-        assert!(compressed.len() < data.len(), "zstd should compress repetitive data");
+        assert!(
+            compressed.len() < data.len(),
+            "zstd should compress repetitive data"
+        );
         assert_eq!(c.decompress(&compressed).unwrap(), data.as_bytes());
     }
 

@@ -15,10 +15,9 @@ use abp_core::{
     AgentEvent, AgentEventKind, Capability, SupportLevel, UsageNormalized, WorkOrderBuilder,
 };
 use abp_shim_copilot::{
-    CopilotClient, CopilotRequestBuilder, Message, ShimError,
-    events_to_stream_events, ir_to_messages, ir_usage_to_tuple, messages_to_ir, mock_receipt,
-    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    response_to_ir,
+    CopilotClient, CopilotRequestBuilder, Message, ShimError, events_to_stream_events,
+    ir_to_messages, ir_usage_to_tuple, messages_to_ir, mock_receipt, mock_receipt_with_usage,
+    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -240,10 +239,7 @@ mod request_builder {
     #[test]
     fn builder_messages_converted_correctly() {
         let req = CopilotRequestBuilder::new()
-            .messages(vec![
-                Message::system("Be concise"),
-                Message::user("Hello"),
-            ])
+            .messages(vec![Message::system("Be concise"), Message::user("Hello")])
             .build();
         assert_eq!(req.messages.len(), 2);
         assert_eq!(req.messages[0].role, "system");
@@ -277,9 +273,7 @@ mod request_builder {
     fn builder_preserves_message_references() {
         let refs = vec![make_reference(CopilotReferenceType::File, "f1")];
         let msg = Message::user_with_refs("Read", refs);
-        let req = CopilotRequestBuilder::new()
-            .messages(vec![msg])
-            .build();
+        let req = CopilotRequestBuilder::new().messages(vec![msg]).build();
         assert_eq!(req.messages[0].copilot_references.len(), 1);
     }
 }
@@ -544,12 +538,8 @@ mod receipt_to_response_tests {
     #[test]
     fn receipt_with_deltas_concatenated() {
         let events = vec![
-            make_event(AgentEventKind::AssistantDelta {
-                text: "Hel".into(),
-            }),
-            make_event(AgentEventKind::AssistantDelta {
-                text: "lo!".into(),
-            }),
+            make_event(AgentEventKind::AssistantDelta { text: "Hel".into() }),
+            make_event(AgentEventKind::AssistantDelta { text: "lo!".into() }),
         ];
         let receipt = mock_receipt(events);
         let resp = receipt_to_response(&receipt, "gpt-4o");
@@ -718,18 +708,17 @@ mod stream_events {
             text: "hi".into(),
         })];
         let stream = events_to_stream_events(&events, "gpt-4o");
-        assert!(matches!(stream.last().unwrap(), CopilotStreamEvent::Done {}));
+        assert!(matches!(
+            stream.last().unwrap(),
+            CopilotStreamEvent::Done {}
+        ));
     }
 
     #[test]
     fn stream_delta_events() {
         let events = vec![
-            make_event(AgentEventKind::AssistantDelta {
-                text: "Hel".into(),
-            }),
-            make_event(AgentEventKind::AssistantDelta {
-                text: "lo".into(),
-            }),
+            make_event(AgentEventKind::AssistantDelta { text: "Hel".into() }),
+            make_event(AgentEventKind::AssistantDelta { text: "lo".into() }),
         ];
         let stream = events_to_stream_events(&events, "gpt-4o");
         // references + 2 deltas + done
@@ -798,16 +787,12 @@ mod stream_events {
     #[test]
     fn stream_mixed_events_order() {
         let events = vec![
-            make_event(AgentEventKind::AssistantDelta {
-                text: "A".into(),
-            }),
+            make_event(AgentEventKind::AssistantDelta { text: "A".into() }),
             make_event(AgentEventKind::Error {
                 message: "warn".into(),
                 error_code: None,
             }),
-            make_event(AgentEventKind::AssistantDelta {
-                text: "B".into(),
-            }),
+            make_event(AgentEventKind::AssistantDelta { text: "B".into() }),
         ];
         let stream = events_to_stream_events(&events, "gpt-4o");
         // refs + delta + error + delta + done
@@ -826,9 +811,7 @@ mod stream_events {
             make_event(AgentEventKind::RunStarted {
                 message: "start".into(),
             }),
-            make_event(AgentEventKind::AssistantDelta {
-                text: "hi".into(),
-            }),
+            make_event(AgentEventKind::AssistantDelta { text: "hi".into() }),
             make_event(AgentEventKind::RunCompleted {
                 message: "done".into(),
             }),
@@ -860,12 +843,8 @@ mod client_tests {
     #[tokio::test]
     async fn client_create_stream_simple() {
         let events = vec![
-            make_event(AgentEventKind::AssistantDelta {
-                text: "Hel".into(),
-            }),
-            make_event(AgentEventKind::AssistantDelta {
-                text: "lo!".into(),
-            }),
+            make_event(AgentEventKind::AssistantDelta { text: "Hel".into() }),
+            make_event(AgentEventKind::AssistantDelta { text: "lo!".into() }),
         ];
         let client = CopilotClient::new("gpt-4o").with_processor(make_processor(events));
         let req = simple_copilot_request("Hi");
@@ -949,9 +928,11 @@ mod client_tests {
         let req = simple_copilot_request("test");
         let stream = client.create_stream(req).await.unwrap();
         let chunks: Vec<CopilotStreamEvent> = stream.collect().await;
-        assert!(chunks
-            .iter()
-            .any(|c| matches!(c, CopilotStreamEvent::CopilotErrors { .. })));
+        assert!(
+            chunks
+                .iter()
+                .any(|c| matches!(c, CopilotStreamEvent::CopilotErrors { .. }))
+        );
     }
 
     #[tokio::test]
@@ -1183,51 +1164,81 @@ mod capability_manifest {
     #[test]
     fn manifest_has_streaming_native() {
         let m = dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::Streaming),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn manifest_has_tool_read_emulated() {
         let m = dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::ToolRead), Some(SupportLevel::Emulated)));
+        assert!(matches!(
+            m.get(&Capability::ToolRead),
+            Some(SupportLevel::Emulated)
+        ));
     }
 
     #[test]
     fn manifest_has_tool_write_emulated() {
         let m = dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::ToolWrite), Some(SupportLevel::Emulated)));
+        assert!(matches!(
+            m.get(&Capability::ToolWrite),
+            Some(SupportLevel::Emulated)
+        ));
     }
 
     #[test]
     fn manifest_glob_unsupported() {
         let m = dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::ToolGlob), Some(SupportLevel::Unsupported)));
+        assert!(matches!(
+            m.get(&Capability::ToolGlob),
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
     fn manifest_grep_unsupported() {
         let m = dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::ToolGrep), Some(SupportLevel::Unsupported)));
+        assert!(matches!(
+            m.get(&Capability::ToolGrep),
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
     fn manifest_web_search_native() {
         let m = dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::ToolWebSearch), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::ToolWebSearch),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn manifest_mcp_unsupported() {
         let m = dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::McpClient), Some(SupportLevel::Unsupported)));
-        assert!(matches!(m.get(&Capability::McpServer), Some(SupportLevel::Unsupported)));
+        assert!(matches!(
+            m.get(&Capability::McpClient),
+            Some(SupportLevel::Unsupported)
+        ));
+        assert!(matches!(
+            m.get(&Capability::McpServer),
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
     fn manifest_hooks_emulated() {
         let m = dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::HooksPreToolUse), Some(SupportLevel::Emulated)));
-        assert!(matches!(m.get(&Capability::HooksPostToolUse), Some(SupportLevel::Emulated)));
+        assert!(matches!(
+            m.get(&Capability::HooksPreToolUse),
+            Some(SupportLevel::Emulated)
+        ));
+        assert!(matches!(
+            m.get(&Capability::HooksPostToolUse),
+            Some(SupportLevel::Emulated)
+        ));
     }
 
     #[test]
@@ -1492,9 +1503,7 @@ mod stream_event_mapping {
 
     #[test]
     fn map_references_empty() {
-        let event = CopilotStreamEvent::CopilotReferences {
-            references: vec![],
-        };
+        let event = CopilotStreamEvent::CopilotReferences { references: vec![] };
         let mapped = dialect::map_stream_event(&event);
         assert!(mapped.is_empty());
     }
@@ -1615,9 +1624,7 @@ mod passthrough_fidelity {
 
     #[test]
     fn from_passthrough_no_ext_returns_none() {
-        let event = make_event(AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        });
+        let event = make_event(AgentEventKind::AssistantDelta { text: "hi".into() });
         assert!(dialect::from_passthrough_event(&event).is_none());
     }
 
@@ -1627,9 +1634,7 @@ mod passthrough_fidelity {
         ext.insert("dialect".into(), json!("copilot"));
         let event = AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "hi".into() },
             ext: Some(ext),
         };
         assert!(dialect::from_passthrough_event(&event).is_none());
@@ -2117,10 +2122,7 @@ mod edge_cases {
     fn mock_receipt_has_valid_structure() {
         let receipt = mock_receipt(vec![]);
         assert!(!receipt.meta.run_id.is_nil());
-        assert_eq!(
-            receipt.meta.contract_version,
-            abp_core::CONTRACT_VERSION
-        );
+        assert_eq!(receipt.meta.contract_version, abp_core::CONTRACT_VERSION);
         assert_eq!(receipt.backend.id, "mock");
     }
 

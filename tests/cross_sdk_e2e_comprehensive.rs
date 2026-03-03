@@ -13,8 +13,8 @@ use abp_capability::{
 };
 use abp_claude_sdk::dialect::{
     self as claude_dialect, CanonicalToolDef as ClaudeCanonical, ClaudeConfig, ClaudeContentBlock,
-    ClaudeMessage, ClaudeResponse, ClaudeStopReason, ClaudeStreamDelta,
-    ClaudeStreamEvent, ClaudeUsage,
+    ClaudeMessage, ClaudeResponse, ClaudeStopReason, ClaudeStreamDelta, ClaudeStreamEvent,
+    ClaudeUsage,
 };
 use abp_codex_sdk::dialect::{
     self as codex_dialect, CanonicalToolDef as CodexCanonical, CodexConfig,
@@ -26,9 +26,8 @@ use abp_copilot_sdk::dialect::{
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::{
-    AgentEventKind, Capability, CapabilityRequirement,
-    CapabilityRequirements, MinSupport, Outcome, Receipt, SupportLevel, WorkOrderBuilder,
-    CONTRACT_VERSION,
+    AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement, CapabilityRequirements,
+    MinSupport, Outcome, Receipt, SupportLevel, WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
 use abp_emulation::{
@@ -45,10 +44,7 @@ use abp_kimi_sdk::dialect::{
     KimiChunkChoice, KimiChunkDelta, KimiConfig, KimiMessage, KimiResponse, KimiResponseMessage,
     KimiUsage,
 };
-use abp_mapping::{
-    Fidelity, MappingMatrix, features,
-    known_rules, validate_mapping,
-};
+use abp_mapping::{Fidelity, MappingMatrix, features, known_rules, validate_mapping};
 use abp_openai_sdk::dialect::{
     self as openai_dialect, CanonicalToolDef as OpenAICanonical, OpenAIChoice, OpenAIConfig,
     OpenAIFunctionCall, OpenAIMessage, OpenAIResponse, OpenAIToolCall, OpenAIUsage,
@@ -265,7 +261,11 @@ mod openai_to_claude {
         let config = OpenAIConfig::default();
         let req = openai_dialect::map_work_order(&wo, &config);
         assert_eq!(req.model, "gpt-4o");
-        assert!(req.messages.iter().any(|m| m.content.as_deref() == Some("Refactor code")));
+        assert!(
+            req.messages
+                .iter()
+                .any(|m| m.content.as_deref() == Some("Refactor code"))
+        );
     }
 
     #[test]
@@ -300,7 +300,9 @@ mod openai_to_claude {
         };
         let events = openai_dialect::map_response(&resp);
         assert!(!events.is_empty());
-        assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { text } if text == "Hello!")));
+        assert!(events.iter().any(
+            |e| matches!(&e.kind, AgentEventKind::AssistantMessage { text } if text == "Hello!")
+        ));
     }
 
     #[test]
@@ -309,9 +311,7 @@ mod openai_to_claude {
             id: "msg_1".into(),
             model: "claude-sonnet-4-20250514".into(),
             role: "assistant".into(),
-            content: vec![ClaudeContentBlock::Text {
-                text: "Hi!".into(),
-            }],
+            content: vec![ClaudeContentBlock::Text { text: "Hi!".into() }],
             stop_reason: Some("end_turn".into()),
             usage: Some(ClaudeUsage {
                 input_tokens: 10,
@@ -327,10 +327,30 @@ mod openai_to_claude {
     #[test]
     fn openai_multi_turn_to_ir_preserves_order() {
         let msgs = vec![
-            OpenAIMessage { role: "system".into(), content: Some("sys".into()), tool_calls: None, tool_call_id: None },
-            OpenAIMessage { role: "user".into(), content: Some("u1".into()), tool_calls: None, tool_call_id: None },
-            OpenAIMessage { role: "assistant".into(), content: Some("a1".into()), tool_calls: None, tool_call_id: None },
-            OpenAIMessage { role: "user".into(), content: Some("u2".into()), tool_calls: None, tool_call_id: None },
+            OpenAIMessage {
+                role: "system".into(),
+                content: Some("sys".into()),
+                tool_calls: None,
+                tool_call_id: None,
+            },
+            OpenAIMessage {
+                role: "user".into(),
+                content: Some("u1".into()),
+                tool_calls: None,
+                tool_call_id: None,
+            },
+            OpenAIMessage {
+                role: "assistant".into(),
+                content: Some("a1".into()),
+                tool_calls: None,
+                tool_call_id: None,
+            },
+            OpenAIMessage {
+                role: "user".into(),
+                content: Some("u2".into()),
+                tool_calls: None,
+                tool_call_id: None,
+            },
         ];
         let ir = abp_openai_sdk::lowering::to_ir(&msgs);
         assert_eq!(ir.len(), 4);
@@ -414,10 +434,12 @@ mod claude_to_gemini {
             content: serde_json::to_string(&blocks).unwrap(),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
-        assert!(ir.messages[0]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::ToolUse { .. })));
+        assert!(
+            ir.messages[0]
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolUse { .. }))
+        );
     }
 
     #[test]
@@ -491,10 +513,12 @@ mod claude_to_gemini {
             content: serde_json::to_string(&blocks).unwrap(),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&msgs, None);
-        assert!(ir.messages[0]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
+        assert!(
+            ir.messages[0]
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
+        );
     }
 
     #[test]
@@ -715,22 +739,34 @@ mod tool_translation {
         let name = "my_complex_tool";
         let desc = "A complex tool";
 
-        let o = openai_dialect::tool_def_from_openai(&openai_dialect::tool_def_to_openai(&make_openai_canonical(name, desc)));
+        let o = openai_dialect::tool_def_from_openai(&openai_dialect::tool_def_to_openai(
+            &make_openai_canonical(name, desc),
+        ));
         assert_eq!(o.name, name);
 
-        let c = claude_dialect::tool_def_from_claude(&claude_dialect::tool_def_to_claude(&make_claude_canonical(name, desc)));
+        let c = claude_dialect::tool_def_from_claude(&claude_dialect::tool_def_to_claude(
+            &make_claude_canonical(name, desc),
+        ));
         assert_eq!(c.name, name);
 
-        let g = gemini_dialect::tool_def_from_gemini(&gemini_dialect::tool_def_to_gemini(&make_gemini_canonical(name, desc)));
+        let g = gemini_dialect::tool_def_from_gemini(&gemini_dialect::tool_def_to_gemini(
+            &make_gemini_canonical(name, desc),
+        ));
         assert_eq!(g.name, name);
 
-        let k = kimi_dialect::tool_def_from_kimi(&kimi_dialect::tool_def_to_kimi(&make_kimi_canonical(name, desc)));
+        let k = kimi_dialect::tool_def_from_kimi(&kimi_dialect::tool_def_to_kimi(
+            &make_kimi_canonical(name, desc),
+        ));
         assert_eq!(k.name, name);
 
-        let co = copilot_dialect::tool_def_from_copilot(&copilot_dialect::tool_def_to_copilot(&make_copilot_canonical(name, desc)));
+        let co = copilot_dialect::tool_def_from_copilot(&copilot_dialect::tool_def_to_copilot(
+            &make_copilot_canonical(name, desc),
+        ));
         assert_eq!(co.unwrap().name, name);
 
-        let cd = codex_dialect::tool_def_from_codex(&codex_dialect::tool_def_to_codex(&make_codex_canonical(name, desc)));
+        let cd = codex_dialect::tool_def_from_codex(&codex_dialect::tool_def_to_codex(
+            &make_codex_canonical(name, desc),
+        ));
         assert_eq!(cd.name, name);
     }
 }
@@ -746,18 +782,26 @@ mod streaming_events {
     fn claude_stream_text_delta_maps_to_event() {
         let event = ClaudeStreamEvent::ContentBlockDelta {
             index: 0,
-            delta: ClaudeStreamDelta::TextDelta { text: "Hello".into() },
+            delta: ClaudeStreamDelta::TextDelta {
+                text: "Hello".into(),
+            },
         };
         let events = claude_dialect::map_stream_event(&event);
         assert!(!events.is_empty());
-        assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { text } if text == "Hello")));
+        assert!(events.iter().any(
+            |e| matches!(&e.kind, AgentEventKind::AssistantDelta { text } if text == "Hello")
+        ));
     }
 
     #[test]
     fn claude_stream_message_stop() {
         let event = ClaudeStreamEvent::MessageStop {};
         let events = claude_dialect::map_stream_event(&event);
-        assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+        );
     }
 
     #[test]
@@ -798,7 +842,11 @@ mod streaming_events {
             refs: None,
         };
         let events = kimi_dialect::map_stream_event(&chunk);
-        assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { text } if text == "hi")));
+        assert!(
+            events.iter().any(
+                |e| matches!(&e.kind, AgentEventKind::AssistantDelta { text } if text == "hi")
+            )
+        );
     }
 
     #[test]
@@ -817,7 +865,11 @@ mod streaming_events {
             refs: None,
         };
         let events = kimi_dialect::map_stream_event(&chunk);
-        assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+        );
     }
 
     #[test]
@@ -826,14 +878,20 @@ mod streaming_events {
             text: "streaming".into(),
         };
         let events = copilot_dialect::map_stream_event(&event);
-        assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { text } if text == "streaming")));
+        assert!(events.iter().any(
+            |e| matches!(&e.kind, AgentEventKind::AssistantDelta { text } if text == "streaming")
+        ));
     }
 
     #[test]
     fn copilot_stream_done() {
         let event = CopilotStreamEvent::Done {};
         let events = copilot_dialect::map_stream_event(&event);
-        assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+        );
     }
 
     #[test]
@@ -847,7 +905,11 @@ mod streaming_events {
             }],
         };
         let events = copilot_dialect::map_stream_event(&event);
-        assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::Error { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(&e.kind, AgentEventKind::Error { .. }))
+        );
     }
 
     #[test]
@@ -881,7 +943,9 @@ mod streaming_events {
     fn claude_passthrough_roundtrip() {
         let original = ClaudeStreamEvent::ContentBlockDelta {
             index: 0,
-            delta: ClaudeStreamDelta::TextDelta { text: "test".into() },
+            delta: ClaudeStreamDelta::TextDelta {
+                text: "test".into(),
+            },
         };
         let wrapped = claude_dialect::to_passthrough_event(&original);
         let recovered = claude_dialect::from_passthrough_event(&wrapped);
@@ -921,9 +985,7 @@ mod streaming_events {
 
     #[test]
     fn copilot_empty_references_stream_produces_no_events() {
-        let event = CopilotStreamEvent::CopilotReferences {
-            references: vec![],
-        };
+        let event = CopilotStreamEvent::CopilotReferences { references: vec![] };
         let events = copilot_dialect::map_stream_event(&event);
         assert!(events.is_empty());
     }
@@ -954,7 +1016,10 @@ mod error_translation {
 
     #[test]
     fn capability_unsupported_error() {
-        let err = AbpError::new(ErrorCode::CapabilityUnsupported, "extended_thinking not available");
+        let err = AbpError::new(
+            ErrorCode::CapabilityUnsupported,
+            "extended_thinking not available",
+        );
         assert_eq!(err.category(), ErrorCategory::Capability);
     }
 
@@ -967,7 +1032,10 @@ mod error_translation {
 
     #[test]
     fn dialect_mapping_failed_error() {
-        let err = AbpError::new(ErrorCode::DialectMappingFailed, "cannot map thinking to openai");
+        let err = AbpError::new(
+            ErrorCode::DialectMappingFailed,
+            "cannot map thinking to openai",
+        );
         assert_eq!(err.code, ErrorCode::DialectMappingFailed);
     }
 
@@ -1016,9 +1084,18 @@ mod error_translation {
 
     #[test]
     fn protocol_error_codes() {
-        assert_eq!(ErrorCode::ProtocolInvalidEnvelope.category(), ErrorCategory::Protocol);
-        assert_eq!(ErrorCode::ProtocolUnexpectedMessage.category(), ErrorCategory::Protocol);
-        assert_eq!(ErrorCode::ProtocolVersionMismatch.category(), ErrorCategory::Protocol);
+        assert_eq!(
+            ErrorCode::ProtocolInvalidEnvelope.category(),
+            ErrorCategory::Protocol
+        );
+        assert_eq!(
+            ErrorCode::ProtocolUnexpectedMessage.category(),
+            ErrorCategory::Protocol
+        );
+        assert_eq!(
+            ErrorCode::ProtocolVersionMismatch.category(),
+            ErrorCategory::Protocol
+        );
     }
 
     #[test]
@@ -1029,14 +1106,26 @@ mod error_translation {
 
     #[test]
     fn workspace_error_codes() {
-        assert_eq!(ErrorCode::WorkspaceInitFailed.category(), ErrorCategory::Workspace);
-        assert_eq!(ErrorCode::WorkspaceStagingFailed.category(), ErrorCategory::Workspace);
+        assert_eq!(
+            ErrorCode::WorkspaceInitFailed.category(),
+            ErrorCategory::Workspace
+        );
+        assert_eq!(
+            ErrorCode::WorkspaceStagingFailed.category(),
+            ErrorCategory::Workspace
+        );
     }
 
     #[test]
     fn receipt_error_codes() {
-        assert_eq!(ErrorCode::ReceiptHashMismatch.category(), ErrorCategory::Receipt);
-        assert_eq!(ErrorCode::ReceiptChainBroken.category(), ErrorCategory::Receipt);
+        assert_eq!(
+            ErrorCode::ReceiptHashMismatch.category(),
+            ErrorCategory::Receipt
+        );
+        assert_eq!(
+            ErrorCode::ReceiptChainBroken.category(),
+            ErrorCategory::Receipt
+        );
     }
 
     #[test]
@@ -1162,7 +1251,9 @@ mod receipt_generation {
 
     #[test]
     fn receipt_diff_detects_changes() {
-        let r1 = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+        let r1 = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .build();
         let r2 = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
         let diff = diff_receipts(&r1, &r2);
         assert!(!diff.changes.is_empty());
@@ -1199,7 +1290,9 @@ mod receipt_generation {
 
     #[test]
     fn receipt_partial_outcome() {
-        let r = ReceiptBuilder::new("mock").outcome(Outcome::Partial).build();
+        let r = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Partial)
+            .build();
         assert_eq!(r.outcome, Outcome::Partial);
     }
 
@@ -1346,31 +1439,46 @@ mod capability_comparison {
     #[test]
     fn openai_has_streaming_native() {
         let m = openai_dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::Streaming),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn claude_has_streaming_native() {
         let m = claude_dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::Streaming),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn gemini_has_streaming_native() {
         let m = gemini_dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::Streaming),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn kimi_has_streaming_native() {
         let m = kimi_dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::Streaming),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn copilot_has_streaming_native() {
         let m = copilot_dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::Streaming), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::Streaming),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
@@ -1394,14 +1502,23 @@ mod capability_comparison {
     #[test]
     fn copilot_mcp_is_unsupported() {
         let m = copilot_dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::McpClient), Some(SupportLevel::Unsupported)));
-        assert!(matches!(m.get(&Capability::McpServer), Some(SupportLevel::Unsupported)));
+        assert!(matches!(
+            m.get(&Capability::McpClient),
+            Some(SupportLevel::Unsupported)
+        ));
+        assert!(matches!(
+            m.get(&Capability::McpServer),
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
     fn kimi_mcp_is_unsupported() {
         let m = kimi_dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::McpClient), Some(SupportLevel::Unsupported)));
+        assert!(matches!(
+            m.get(&Capability::McpClient),
+            Some(SupportLevel::Unsupported)
+        ));
     }
 
     #[test]
@@ -1487,13 +1604,19 @@ mod capability_comparison {
     #[test]
     fn kimi_web_search_is_native() {
         let m = kimi_dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::ToolWebSearch), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::ToolWebSearch),
+            Some(SupportLevel::Native)
+        ));
     }
 
     #[test]
     fn copilot_web_search_is_native() {
         let m = copilot_dialect::capability_manifest();
-        assert!(matches!(m.get(&Capability::ToolWebSearch), Some(SupportLevel::Native)));
+        assert!(matches!(
+            m.get(&Capability::ToolWebSearch),
+            Some(SupportLevel::Native)
+        ));
     }
 }
 
@@ -1622,12 +1745,7 @@ mod dialect_and_mapping {
     #[test]
     fn validate_mapping_with_empty_feature() {
         let reg = known_rules();
-        let results = validate_mapping(
-            &reg,
-            Dialect::OpenAi,
-            Dialect::Claude,
-            &["".into()],
-        );
+        let results = validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &["".into()]);
         assert_eq!(results.len(), 1);
         assert!(!results[0].errors.is_empty());
     }
@@ -1794,7 +1912,10 @@ mod cross_sdk_emulation {
         );
         let engine = EmulationEngine::new(config);
         let strategy = engine.resolve_strategy(&Capability::CodeExecution);
-        assert!(matches!(strategy, EmulationStrategy::SystemPromptInjection { .. }));
+        assert!(matches!(
+            strategy,
+            EmulationStrategy::SystemPromptInjection { .. }
+        ));
     }
 
     #[test]
@@ -1810,7 +1931,10 @@ mod cross_sdk_emulation {
             warnings: vec![],
         };
         let labels = compute_fidelity(&native, &report);
-        assert_eq!(labels.get(&Capability::Streaming), Some(&FidelityLabel::Native));
+        assert_eq!(
+            labels.get(&Capability::Streaming),
+            Some(&FidelityLabel::Native)
+        );
         assert!(matches!(
             labels.get(&Capability::ExtendedThinking),
             Some(FidelityLabel::Emulated { .. })
@@ -1961,9 +2085,12 @@ mod ir_roundtrip {
 
     #[test]
     fn openai_to_kimi_via_ir() {
-        let openai_msgs = vec![
-            OpenAIMessage { role: "user".into(), content: Some("Hi".into()), tool_calls: None, tool_call_id: None },
-        ];
+        let openai_msgs = vec![OpenAIMessage {
+            role: "user".into(),
+            content: Some("Hi".into()),
+            tool_calls: None,
+            tool_call_id: None,
+        }];
         let ir = abp_openai_sdk::lowering::to_ir(&openai_msgs);
         let kimi_msgs = abp_kimi_sdk::lowering::from_ir(&ir);
         assert_eq!(kimi_msgs[0].role, "user");
@@ -2034,9 +2161,24 @@ mod ir_roundtrip {
     #[test]
     fn multi_turn_openai_to_gemini_via_ir() {
         let openai_msgs = vec![
-            OpenAIMessage { role: "system".into(), content: Some("sys".into()), tool_calls: None, tool_call_id: None },
-            OpenAIMessage { role: "user".into(), content: Some("u".into()), tool_calls: None, tool_call_id: None },
-            OpenAIMessage { role: "assistant".into(), content: Some("a".into()), tool_calls: None, tool_call_id: None },
+            OpenAIMessage {
+                role: "system".into(),
+                content: Some("sys".into()),
+                tool_calls: None,
+                tool_call_id: None,
+            },
+            OpenAIMessage {
+                role: "user".into(),
+                content: Some("u".into()),
+                tool_calls: None,
+                tool_call_id: None,
+            },
+            OpenAIMessage {
+                role: "assistant".into(),
+                content: Some("a".into()),
+                tool_calls: None,
+                tool_call_id: None,
+            },
         ];
         let ir = abp_openai_sdk::lowering::to_ir(&openai_msgs);
         let gemini_contents = abp_gemini_sdk::lowering::from_ir(&ir);
@@ -2253,7 +2395,11 @@ mod response_mapping {
             function_call: None,
         };
         let events = copilot_dialect::map_response(&resp);
-        assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::Error { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(&e.kind, AgentEventKind::Error { .. }))
+        );
     }
 
     #[test]
@@ -2271,7 +2417,11 @@ mod response_mapping {
             function_call: None,
         };
         let events = copilot_dialect::map_response(&resp);
-        assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::Warning { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(&e.kind, AgentEventKind::Warning { .. }))
+        );
     }
 
     #[test]
@@ -2309,8 +2459,14 @@ mod response_mapping {
 
     #[test]
     fn claude_stop_reason_mapping() {
-        assert_eq!(claude_dialect::map_stop_reason(ClaudeStopReason::EndTurn), "end_turn");
-        assert_eq!(claude_dialect::map_stop_reason(ClaudeStopReason::ToolUse), "tool_use");
+        assert_eq!(
+            claude_dialect::map_stop_reason(ClaudeStopReason::EndTurn),
+            "end_turn"
+        );
+        assert_eq!(
+            claude_dialect::map_stop_reason(ClaudeStopReason::ToolUse),
+            "tool_use"
+        );
     }
 
     #[test]
@@ -2384,7 +2540,9 @@ mod response_mapping {
         }]);
         let events = acc.finish();
         assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "search"));
+        assert!(
+            matches!(&events[0].kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "search")
+        );
     }
 }
 

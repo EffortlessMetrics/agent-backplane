@@ -11,9 +11,7 @@ use abp_core::{
     UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
     canonical_json, receipt_hash, sha256_hex,
 };
-use abp_protocol::{
-    Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version,
-};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -227,7 +225,10 @@ mod receipt_self_referential_prevention {
         let h1 = receipt_hash(&r).unwrap();
         r.receipt_sha256 = Some("deadbeef".to_string());
         let h2 = receipt_hash(&r).unwrap();
-        assert_eq!(h1, h2, "existing receipt_sha256 must be nulled before hashing");
+        assert_eq!(
+            h1, h2,
+            "existing receipt_sha256 must be nulled before hashing"
+        );
     }
 
     #[test]
@@ -466,9 +467,7 @@ mod envelope_structure {
     fn event_uses_t_tag() {
         let env = Envelope::Event {
             ref_id: "run-1".into(),
-            event: make_event(AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            }),
+            event: make_event(AgentEventKind::AssistantMessage { text: "hi".into() }),
         };
         let json = serde_json::to_string(&env).unwrap();
         assert!(json.contains("\"t\":\"event\""));
@@ -582,11 +581,8 @@ mod envelope_structure {
 
     #[test]
     fn fatal_error_code_accessor() {
-        let env = Envelope::fatal_with_code(
-            None,
-            "err",
-            abp_error::ErrorCode::ProtocolInvalidEnvelope,
-        );
+        let env =
+            Envelope::fatal_with_code(None, "err", abp_error::ErrorCode::ProtocolInvalidEnvelope);
         assert_eq!(
             env.error_code(),
             Some(abp_error::ErrorCode::ProtocolInvalidEnvelope)
@@ -654,9 +650,7 @@ mod agent_event_serde {
 
     #[test]
     fn assistant_delta_roundtrip() {
-        roundtrip(AgentEventKind::AssistantDelta {
-            text: "tok".into(),
-        });
+        roundtrip(AgentEventKind::AssistantDelta { text: "tok".into() });
     }
 
     #[test]
@@ -748,9 +742,7 @@ mod agent_event_serde {
 
     #[test]
     fn assistant_delta_type_tag() {
-        let event = make_event(AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        });
+        let event = make_event(AgentEventKind::AssistantDelta { text: "hi".into() });
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("\"type\":\"assistant_delta\""));
     }
@@ -828,9 +820,7 @@ mod agent_event_serde {
         ext.insert("raw_message".into(), json!({"vendor": "data"}));
         let event = AgentEvent {
             ts,
-            kind: AgentEventKind::AssistantMessage {
-                text: "msg".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "msg".into() },
             ext: Some(ext),
         };
         let json = serde_json::to_string(&event).unwrap();
@@ -993,9 +983,7 @@ mod jsonl_codec {
     fn decode_roundtrip_event_envelope() {
         let env = Envelope::Event {
             ref_id: "r1".into(),
-            event: make_event(AgentEventKind::AssistantMessage {
-                text: "yo".into(),
-            }),
+            event: make_event(AgentEventKind::AssistantMessage { text: "yo".into() }),
         };
         let line = JsonlCodec::encode(&env).unwrap();
         let back = JsonlCodec::decode(line.trim()).unwrap();
@@ -1351,9 +1339,7 @@ mod sidecar_handshake {
         };
         let event = Envelope::Event {
             ref_id: run_id.clone(),
-            event: make_event(AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            }),
+            event: make_event(AgentEventKind::AssistantMessage { text: "hi".into() }),
         };
         let final_env = Envelope::Final {
             ref_id: run_id,
@@ -1377,7 +1363,11 @@ mod sidecar_handshake {
         };
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&[run, final_env]);
-        assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingHello)));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingHello))
+        );
     }
 
     #[test]
@@ -1393,9 +1383,11 @@ mod sidecar_handshake {
         };
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&[run, hello, final_env]);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+        );
     }
 
     #[test]
@@ -1407,19 +1399,27 @@ mod sidecar_handshake {
         };
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&[hello, run]);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal)));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingTerminal))
+        );
     }
 
     #[test]
     fn empty_sequence_errors() {
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&[]);
-        assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingHello)));
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal)));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingHello))
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingTerminal))
+        );
     }
 
     #[test]
@@ -1431,9 +1431,7 @@ mod sidecar_handshake {
         };
         let event = Envelope::Event {
             ref_id: "wrong-id".into(),
-            event: make_event(AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            }),
+            event: make_event(AgentEventKind::AssistantMessage { text: "hi".into() }),
         };
         let final_env = Envelope::Final {
             ref_id: "run-1".into(),
@@ -1441,9 +1439,11 @@ mod sidecar_handshake {
         };
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&[hello, run, event, final_env]);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+        );
     }
 
     #[test]
@@ -1633,7 +1633,10 @@ mod error_taxonomy {
 
     #[test]
     fn all_receipt_codes_map_to_receipt_category() {
-        let codes = [ErrorCode::ReceiptHashMismatch, ErrorCode::ReceiptChainBroken];
+        let codes = [
+            ErrorCode::ReceiptHashMismatch,
+            ErrorCode::ReceiptChainBroken,
+        ];
         for code in &codes {
             assert_eq!(code.category(), ErrorCategory::Receipt);
         }
@@ -1690,8 +1693,7 @@ mod error_taxonomy {
 
     #[test]
     fn abp_error_with_context() {
-        let err = AbpError::new(ErrorCode::BackendTimeout, "timed out")
-            .with_context("ms", 5000);
+        let err = AbpError::new(ErrorCode::BackendTimeout, "timed out").with_context("ms", 5000);
         assert_eq!(err.context.len(), 1);
     }
 
@@ -1719,10 +1721,7 @@ mod error_taxonomy {
     #[test]
     fn protocol_error_carries_error_code() {
         let pe = ProtocolError::Violation("bad".into());
-        assert_eq!(
-            pe.error_code(),
-            Some(ErrorCode::ProtocolInvalidEnvelope)
-        );
+        assert_eq!(pe.error_code(), Some(ErrorCode::ProtocolInvalidEnvelope));
     }
 
     #[test]
@@ -1731,10 +1730,7 @@ mod error_taxonomy {
             expected: "hello".into(),
             got: "run".into(),
         };
-        assert_eq!(
-            pe.error_code(),
-            Some(ErrorCode::ProtocolUnexpectedMessage)
-        );
+        assert_eq!(pe.error_code(), Some(ErrorCode::ProtocolUnexpectedMessage));
     }
 
     #[test]
@@ -1907,9 +1903,7 @@ mod receipt_builder_tests {
 
     #[test]
     fn builder_set_outcome() {
-        let r = ReceiptBuilder::new("mock")
-            .outcome(Outcome::Failed)
-            .build();
+        let r = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
         assert_eq!(r.outcome, Outcome::Failed);
     }
 
@@ -1923,17 +1917,13 @@ mod receipt_builder_tests {
 
     #[test]
     fn builder_set_backend_version() {
-        let r = ReceiptBuilder::new("mock")
-            .backend_version("2.0")
-            .build();
+        let r = ReceiptBuilder::new("mock").backend_version("2.0").build();
         assert_eq!(r.backend.backend_version.as_deref(), Some("2.0"));
     }
 
     #[test]
     fn builder_set_adapter_version() {
-        let r = ReceiptBuilder::new("mock")
-            .adapter_version("1.0")
-            .build();
+        let r = ReceiptBuilder::new("mock").adapter_version("1.0").build();
         assert_eq!(r.backend.adapter_version.as_deref(), Some("1.0"));
     }
 
@@ -2239,7 +2229,10 @@ mod stream_parser {
     #[test]
     fn max_line_len_enforced() {
         let mut parser = StreamParser::with_max_line_len(10);
-        let long_line = format!("{{\"t\":\"fatal\",\"ref_id\":null,\"error\":\"{}\"}}\n", "x".repeat(100));
+        let long_line = format!(
+            "{{\"t\":\"fatal\",\"ref_id\":null,\"error\":\"{}\"}}\n",
+            "x".repeat(100)
+        );
         let results = parser.push(long_line.as_bytes());
         assert_eq!(results.len(), 1);
         assert!(results[0].is_err());
@@ -2318,19 +2311,14 @@ mod envelope_builder_tests {
         let event = make_event(AgentEventKind::RunStarted {
             message: "go".into(),
         });
-        let env = EnvelopeBuilder::event(event)
-            .ref_id("r1")
-            .build()
-            .unwrap();
+        let env = EnvelopeBuilder::event(event).ref_id("r1").build().unwrap();
         assert!(matches!(env, Envelope::Event { .. }));
     }
 
     #[test]
     fn final_builder_requires_ref_id() {
         let receipt = deterministic_receipt("mock");
-        let err = EnvelopeBuilder::final_receipt(receipt)
-            .build()
-            .unwrap_err();
+        let err = EnvelopeBuilder::final_receipt(receipt).build().unwrap_err();
         assert_eq!(
             err,
             abp_protocol::builder::BuilderError::MissingField("ref_id")

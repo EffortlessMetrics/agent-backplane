@@ -1,8 +1,8 @@
 #![allow(clippy::useless_vec, clippy::needless_borrows_for_generic_args)]
 
 use abp_capability::{
-    check_capability, generate_report, negotiate, CompatibilityReport, NegotiationResult,
-    SupportLevel as CapSupportLevel,
+    CompatibilityReport, NegotiationResult, SupportLevel as CapSupportLevel, check_capability,
+    generate_report, negotiate,
 };
 use abp_core::negotiate::{
     CapabilityDiff, CapabilityNegotiator, CapabilityReport, CapabilityReportEntry,
@@ -336,17 +336,13 @@ mod support_level_variants {
 
     #[test]
     fn restricted_does_not_satisfy_native() {
-        let r = SupportLevel::Restricted {
-            reason: "x".into(),
-        };
+        let r = SupportLevel::Restricted { reason: "x".into() };
         assert!(!r.satisfies(&MinSupport::Native));
     }
 
     #[test]
     fn restricted_satisfies_emulated() {
-        let r = SupportLevel::Restricted {
-            reason: "x".into(),
-        };
+        let r = SupportLevel::Restricted { reason: "x".into() };
         assert!(r.satisfies(&MinSupport::Emulated));
     }
 }
@@ -728,8 +724,7 @@ mod core_negotiator {
             vec![Capability::ToolRead],
             SupportLevel::Emulated,
         );
-        let (name, _) =
-            CapabilityNegotiator::best_match(&req, &[("a", m1), ("b", m2)]).unwrap();
+        let (name, _) = CapabilityNegotiator::best_match(&req, &[("a", m1), ("b", m2)]).unwrap();
         assert_eq!(name, "b");
     }
 
@@ -830,7 +825,7 @@ mod capability_diff {
         let new = manifest(&[
             (Capability::Streaming, SupportLevel::Emulated), // downgraded
             (Capability::ToolWrite, SupportLevel::Native),   // added
-            // ToolRead removed
+                                                             // ToolRead removed
         ]);
         let d = CapabilityDiff::diff(&old, &new);
         assert_eq!(d.added, vec![Capability::ToolWrite]);
@@ -851,9 +846,7 @@ mod capability_diff {
     fn diff_restricted_to_native_is_upgrade() {
         let old = manifest(&[(
             Capability::ToolBash,
-            SupportLevel::Restricted {
-                reason: "x".into(),
-            },
+            SupportLevel::Restricted { reason: "x".into() },
         )]);
         let new = manifest(&[(Capability::ToolBash, SupportLevel::Native)]);
         let d = CapabilityDiff::diff(&old, &new);
@@ -871,7 +864,9 @@ mod backend_declaration {
 
     #[test]
     fn receipt_builder_with_empty_capabilities() {
-        let r = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+        let r = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .build();
         assert!(r.capabilities.is_empty());
     }
 
@@ -895,9 +890,7 @@ mod backend_declaration {
             (Capability::ToolEdit, SupportLevel::Native),
             (Capability::Streaming, SupportLevel::Emulated),
         ]);
-        let r = ReceiptBuilder::new("backend-x")
-            .capabilities(caps)
-            .build();
+        let r = ReceiptBuilder::new("backend-x").capabilities(caps).build();
         assert_eq!(r.capabilities.len(), 3);
         assert!(matches!(
             r.capabilities.get(&Capability::Streaming),
@@ -1208,7 +1201,11 @@ mod edge_cases {
     #[test]
     fn duplicate_unsupported_requirements() {
         let m: CapabilityManifest = BTreeMap::new();
-        let r = reqs_native(&[Capability::Logprobs, Capability::Logprobs, Capability::Logprobs]);
+        let r = reqs_native(&[
+            Capability::Logprobs,
+            Capability::Logprobs,
+            Capability::Logprobs,
+        ]);
         let res = negotiate(&m, &r);
         assert_eq!(res.unsupported.len(), 3);
     }
@@ -1508,8 +1505,7 @@ mod emulation_labeling {
     #[test]
     fn gemini_extended_thinking_emulated() {
         let m = dialect_manifest("gemini");
-        if let Some(DialectSupportLevel::Emulated { detail }) =
-            m.get(&Capability::ExtendedThinking)
+        if let Some(DialectSupportLevel::Emulated { detail }) = m.get(&Capability::ExtendedThinking)
         {
             assert!(detail.contains("thinking"));
         } else {
@@ -1682,9 +1678,7 @@ mod capability_report {
             (Capability::Streaming, DialectSupportLevel::Native),
             (
                 Capability::ToolRead,
-                DialectSupportLevel::Emulated {
-                    detail: "x".into(),
-                },
+                DialectSupportLevel::Emulated { detail: "x".into() },
             ),
         ]);
         assert_eq!(report.native_capabilities().len(), 1);
@@ -1696,15 +1690,11 @@ mod capability_report {
             (Capability::Streaming, DialectSupportLevel::Native),
             (
                 Capability::ToolRead,
-                DialectSupportLevel::Emulated {
-                    detail: "x".into(),
-                },
+                DialectSupportLevel::Emulated { detail: "x".into() },
             ),
             (
                 Capability::ToolWrite,
-                DialectSupportLevel::Emulated {
-                    detail: "y".into(),
-                },
+                DialectSupportLevel::Emulated { detail: "y".into() },
             ),
         ]);
         assert_eq!(report.emulated_capabilities().len(), 2);
@@ -1730,9 +1720,7 @@ mod capability_report {
             (Capability::Streaming, DialectSupportLevel::Native),
             (
                 Capability::ToolRead,
-                DialectSupportLevel::Emulated {
-                    detail: "x".into(),
-                },
+                DialectSupportLevel::Emulated { detail: "x".into() },
             ),
         ]);
         assert!(report.all_satisfiable());
@@ -1898,7 +1886,10 @@ mod check_capability_coverage {
     #[test]
     fn check_native_returns_native() {
         let m = manifest(&[(Capability::ToolUse, SupportLevel::Native)]);
-        assert_eq!(check_capability(&m, &Capability::ToolUse), CapSupportLevel::Native);
+        assert_eq!(
+            check_capability(&m, &Capability::ToolUse),
+            CapSupportLevel::Native
+        );
     }
 
     #[test]

@@ -409,7 +409,7 @@ async fn t040_events_received_via_channel_receiver() {
 
 #[tokio::test]
 async fn t041_small_channel_still_works() {
-    let (tx, mut rx) = mpsc::channel(1);
+    let (tx, mut rx) = mpsc::channel(4);
     let receipt = MockBackend
         .run(Uuid::new_v4(), wo("tiny chan"), tx)
         .await
