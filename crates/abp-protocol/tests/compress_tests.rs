@@ -42,23 +42,25 @@ fn none_passthrough_unchanged() {
 }
 
 #[test]
-fn gzip_stub_prepends_header() {
+fn gzip_compress_has_header_tag() {
     let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
     let data = b"abc";
     let compressed = c.compress(data).unwrap();
-    assert_eq!(compressed.len(), data.len() + 1);
+    assert!(compressed.len() > 1);
     assert_eq!(compressed[0], 0x01); // gzip tag
-    assert_eq!(&compressed[1..], data);
+    // Real compression: round-trip must yield original data
+    assert_eq!(c.decompress(&compressed).unwrap(), data);
 }
 
 #[test]
-fn zstd_stub_prepends_header() {
+fn zstd_compress_has_header_tag() {
     let c = MessageCompressor::new(CompressionAlgorithm::Zstd);
     let data = b"xyz";
     let compressed = c.compress(data).unwrap();
-    assert_eq!(compressed.len(), data.len() + 1);
+    assert!(compressed.len() > 1);
     assert_eq!(compressed[0], 0x02); // zstd tag
-    assert_eq!(&compressed[1..], data);
+    // Real compression: round-trip must yield original data
+    assert_eq!(c.decompress(&compressed).unwrap(), data);
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +79,7 @@ fn none_empty_data() {
 fn gzip_empty_data_round_trip() {
     let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
     let compressed = c.compress(b"").unwrap();
-    assert_eq!(compressed.len(), 1); // header only
+    assert!(compressed.len() > 1); // header + gzip framing
     assert_eq!(c.decompress(&compressed).unwrap(), b"");
 }
 
