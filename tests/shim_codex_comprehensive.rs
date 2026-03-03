@@ -2,11 +2,11 @@
 //! Comprehensive tests for the `abp-shim-codex` crate.
 
 use abp_codex_sdk::dialect::{
-    self, capability_manifest, codex_tool_to_canonical, from_canonical_model, is_known_model,
-    map_response, map_stream_event, map_work_order, to_canonical_model, tool_def_from_codex,
-    tool_def_to_codex, CanonicalToolDef, CodexConfig, CodexContentPart, CodexInputItem,
-    CodexRequest, CodexResponse, CodexResponseItem, CodexStreamDelta, CodexStreamEvent, CodexUsage,
-    FileAccess, NetworkAccess, ReasoningSummary,
+    self, CanonicalToolDef, CodexConfig, CodexContentPart, CodexInputItem, CodexRequest,
+    CodexResponse, CodexResponseItem, CodexStreamDelta, CodexStreamEvent, CodexUsage, FileAccess,
+    NetworkAccess, ReasoningSummary, capability_manifest, codex_tool_to_canonical,
+    from_canonical_model, is_known_model, map_response, map_stream_event, map_work_order,
+    to_canonical_model, tool_def_from_codex, tool_def_to_codex,
 };
 use abp_codex_sdk::lowering;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
@@ -14,10 +14,10 @@ use abp_core::{
     AgentEvent, AgentEventKind, Capability, SupportLevel, UsageNormalized, WorkOrderBuilder,
 };
 use abp_shim_codex::{
-    codex_message, events_to_stream_events, ir_to_response_items, ir_usage_to_usage, mock_receipt,
-    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    response_to_ir, CodexClient, CodexFunctionDef, CodexRequestBuilder, CodexShimRequest,
-    CodexTextFormat, CodexTool, ProcessFn, SandboxConfig, ShimError, Usage,
+    CodexClient, CodexFunctionDef, CodexRequestBuilder, CodexShimRequest, CodexTextFormat,
+    CodexTool, ProcessFn, SandboxConfig, ShimError, Usage, codex_message, events_to_stream_events,
+    ir_to_response_items, ir_usage_to_usage, mock_receipt, mock_receipt_with_usage,
+    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;

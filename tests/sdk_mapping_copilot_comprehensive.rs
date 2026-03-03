@@ -18,15 +18,15 @@ use abp_copilot_sdk::dialect::{
 use abp_copilot_sdk::lowering;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
-    ContextPacket, ContextSnippet, MinSupport, Outcome, ReceiptBuilder,
-    SupportLevel as CoreSupportLevel, UsageNormalized, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement,
+    CapabilityRequirements, ContextPacket, ContextSnippet, MinSupport, Outcome, ReceiptBuilder,
+    SupportLevel as CoreSupportLevel, UsageNormalized, WorkOrderBuilder,
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
-use abp_mapping::{features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix};
+use abp_mapping::{Fidelity, MappingError, MappingMatrix, features, known_rules, validate_mapping};
 use abp_shim_copilot::{
-    events_to_stream_events, ir_to_messages, messages_to_ir, mock_receipt, mock_receipt_with_usage,
-    receipt_to_response, request_to_work_order, CopilotRequestBuilder, Message,
+    CopilotRequestBuilder, Message, events_to_stream_events, ir_to_messages, messages_to_ir,
+    mock_receipt, mock_receipt_with_usage, receipt_to_response, request_to_work_order,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -1223,10 +1223,12 @@ fn validate_mapping_empty_feature_name() {
     let results = validate_mapping(&reg, Dialect::Copilot, Dialect::OpenAi, &[String::new()]);
     assert_eq!(results.len(), 1);
     assert!(results[0].fidelity.is_unsupported());
-    assert!(results[0]
-        .errors
-        .iter()
-        .any(|e| matches!(e, MappingError::InvalidInput { .. })));
+    assert!(
+        results[0]
+            .errors
+            .iter()
+            .any(|e| matches!(e, MappingError::InvalidInput { .. }))
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

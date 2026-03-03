@@ -23,7 +23,7 @@
 //! 18. ChangeTracker / OperationLog
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
-use abp_workspace::diff::{diff_workspace, DiffSummary};
+use abp_workspace::diff::{DiffSummary, diff_workspace};
 use abp_workspace::ops::{FileOperation, OperationFilter, OperationLog, OperationSummary};
 use abp_workspace::snapshot::{capture, compare};
 use abp_workspace::template::{TemplateRegistry, WorkspaceTemplate};
@@ -110,11 +110,7 @@ fn create_fixture(root: &Path) {
     fs::write(root.join("src").join("utils.rs"), "pub fn util() {}").unwrap();
     fs::write(root.join("src").join("data.json"), "{}").unwrap();
     fs::create_dir_all(root.join("tests")).unwrap();
-    fs::write(
-        root.join("tests").join("test_one.rs"),
-        "#[test] fn t() {}",
-    )
-    .unwrap();
+    fs::write(root.join("tests").join("test_one.rs"), "#[test] fn t() {}").unwrap();
 }
 
 /// Create fixture with many file types.
@@ -178,7 +174,10 @@ fn creation_via_stager_builder() {
         .stage()
         .unwrap();
     assert!(ws.path().join("f.txt").exists());
-    assert_eq!(fs::read_to_string(ws.path().join("f.txt")).unwrap(), "hello");
+    assert_eq!(
+        fs::read_to_string(ws.path().join("f.txt")).unwrap(),
+        "hello"
+    );
 }
 
 #[test]
@@ -206,10 +205,7 @@ fn creation_preserves_empty_file() {
     let src = tempdir().unwrap();
     fs::write(src.path().join("empty.txt"), "").unwrap();
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert_eq!(
-        fs::read_to_string(ws.path().join("empty.txt")).unwrap(),
-        ""
-    );
+    assert_eq!(fs::read_to_string(ws.path().join("empty.txt")).unwrap(), "");
 }
 
 #[test]
@@ -236,7 +232,10 @@ fn creation_preserves_newline_variations() {
         .with_git_init(false)
         .stage()
         .unwrap();
-    assert_eq!(fs::read(ws.path().join("crlf.txt")).unwrap(), crlf.as_bytes());
+    assert_eq!(
+        fs::read(ws.path().join("crlf.txt")).unwrap(),
+        crlf.as_bytes()
+    );
     assert_eq!(fs::read(ws.path().join("lf.txt")).unwrap(), lf.as_bytes());
 }
 
@@ -265,12 +264,8 @@ fn glob_include_only_rs_files() {
 fn glob_exclude_md_files() {
     let src = tempdir().unwrap();
     create_fixture(src.path());
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        vec![],
-        vec!["*.md".into()],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec![], vec!["*.md".into()]))
+        .unwrap();
     let files = collect_files(ws.path());
     assert!(!files.iter().any(|f| f.ends_with(".md")));
     assert!(!files.is_empty());
@@ -376,12 +371,8 @@ fn glob_exclude_json_files() {
 fn glob_include_star_matches_all_rs() {
     let src = tempdir().unwrap();
     create_fixture(src.path());
-    let ws = WorkspaceManager::prepare(&staged_spec_globs(
-        src.path(),
-        vec!["*.rs".into()],
-        vec![],
-    ))
-    .unwrap();
+    let ws = WorkspaceManager::prepare(&staged_spec_globs(src.path(), vec!["*.rs".into()], vec![]))
+        .unwrap();
     let files = collect_files(ws.path());
     // globset's *.rs matches .rs files at any depth
     for f in &files {

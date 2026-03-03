@@ -228,11 +228,13 @@ mod request_construction {
         let req = openai_dialect::map_work_order(&wo, &cfg);
         assert_eq!(req.messages.len(), 1);
         assert_eq!(req.messages[0].role, "user");
-        assert!(req.messages[0]
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("Write tests"));
+        assert!(
+            req.messages[0]
+                .content
+                .as_deref()
+                .unwrap()
+                .contains("Write tests")
+        );
     }
 
     #[test]

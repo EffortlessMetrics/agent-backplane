@@ -16,9 +16,7 @@ use abp_core::{
 };
 use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
-use abp_protocol::{
-    Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version,
-};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 use serde_json::json;
 
@@ -131,9 +129,7 @@ mod tag_discriminator {
     fn agent_event_kind_uses_type_tag() {
         let event = AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
             ext: None,
         };
         let json = serde_json::to_string(&event).unwrap();
@@ -158,7 +154,10 @@ mod tag_discriminator {
         let names = ["hello", "run", "event", "final", "fatal"];
         for (env, name) in variants.iter().zip(names.iter()) {
             let json = encode(env);
-            assert!(json.contains(&format!(r#""t":"{}""#, name)), "expected t={name}");
+            assert!(
+                json.contains(&format!(r#""t":"{}""#, name)),
+                "expected t={name}"
+            );
         }
     }
 }
@@ -621,9 +620,7 @@ mod event_envelope {
             ref_id: "r1".into(),
             event: AgentEvent {
                 ts: Utc::now(),
-                kind: AgentEventKind::AssistantMessage {
-                    text: "ext".into(),
-                },
+                kind: AgentEventKind::AssistantMessage { text: "ext".into() },
                 ext: Some(ext),
             },
         };
@@ -1097,13 +1094,15 @@ mod unknown_envelope_types {
 
     #[test]
     fn misspelled_hello() {
-        let json = r#"{"t":"helo","contract_version":"abp/v0.1","backend":{"id":"x"},"capabilities":{}}"#;
+        let json =
+            r#"{"t":"helo","contract_version":"abp/v0.1","backend":{"id":"x"},"capabilities":{}}"#;
         assert!(JsonlCodec::decode(json).is_err());
     }
 
     #[test]
     fn camel_case_type_name() {
-        let json = r#"{"t":"Hello","contract_version":"abp/v0.1","backend":{"id":"x"},"capabilities":{}}"#;
+        let json =
+            r#"{"t":"Hello","contract_version":"abp/v0.1","backend":{"id":"x"},"capabilities":{}}"#;
         assert!(JsonlCodec::decode(json).is_err());
     }
 
@@ -1210,9 +1209,7 @@ mod unicode_payloads {
 
     #[test]
     fn unicode_in_task() {
-        let wo = WorkOrderBuilder::new("修复 bug 🐛")
-            .root(".")
-            .build();
+        let wo = WorkOrderBuilder::new("修复 bug 🐛").root(".").build();
         let env = Envelope::Run {
             id: wo.id.to_string(),
             work_order: wo,
@@ -1507,10 +1504,7 @@ mod roundtrip_fidelity {
             let json = encode(env);
             let rt = JsonlCodec::decode(json.trim()).unwrap();
             // Verify same variant
-            assert_eq!(
-                std::mem::discriminant(env),
-                std::mem::discriminant(&rt)
-            );
+            assert_eq!(std::mem::discriminant(env), std::mem::discriminant(&rt));
         }
     }
 }
@@ -1650,9 +1644,7 @@ mod builder_api {
             .build()
             .unwrap();
         match env {
-            Envelope::Hello {
-                backend, mode, ..
-            } => {
+            Envelope::Hello { backend, mode, .. } => {
                 assert_eq!(backend.id, "my-sc");
                 assert_eq!(backend.backend_version.as_deref(), Some("3.0"));
                 assert_eq!(mode, ExecutionMode::Passthrough);
@@ -1664,7 +1656,10 @@ mod builder_api {
     #[test]
     fn run_builder() {
         let wo = WorkOrderBuilder::new("builder task").root(".").build();
-        let env = EnvelopeBuilder::run(wo).ref_id("custom-id").build().unwrap();
+        let env = EnvelopeBuilder::run(wo)
+            .ref_id("custom-id")
+            .build()
+            .unwrap();
         match env {
             Envelope::Run { id, .. } => assert_eq!(id, "custom-id"),
             _ => panic!("expected Run"),
@@ -1735,9 +1730,7 @@ mod builder_api {
             .build()
             .unwrap();
         match env {
-            Envelope::Fatal {
-                ref_id, error, ..
-            } => {
+            Envelope::Fatal { ref_id, error, .. } => {
                 assert_eq!(ref_id.as_deref(), Some("r-fat"));
                 assert_eq!(error, "oops");
             }
@@ -1849,12 +1842,7 @@ mod validation {
     fn valid_sequence() {
         let v = EnvelopeValidator::new();
         let (id, run) = run_env("task");
-        let seq = vec![
-            hello_env(),
-            run,
-            event_env(&id, "msg"),
-            final_env(&id),
-        ];
+        let seq = vec![hello_env(), run, event_env(&id, "msg"), final_env(&id)];
         let errors = v.validate_sequence(&seq);
         assert!(errors.is_empty());
     }
@@ -1865,7 +1853,11 @@ mod validation {
         let (id, run) = run_env("task");
         let seq = vec![run, final_env(&id)];
         let errors = v.validate_sequence(&seq);
-        assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingHello)));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingHello))
+        );
     }
 
     #[test]
@@ -1874,9 +1866,11 @@ mod validation {
         let (_, run) = run_env("task");
         let seq = vec![hello_env(), run];
         let errors = v.validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal)));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingTerminal))
+        );
     }
 
     #[test]
@@ -1890,9 +1884,11 @@ mod validation {
             final_env(&id),
         ];
         let errors = v.validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+        );
     }
 
     #[test]
@@ -1901,19 +1897,27 @@ mod validation {
         let (id, run) = run_env("task");
         let seq = vec![run, hello_env(), final_env(&id)];
         let errors = v.validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+        );
     }
 
     #[test]
     fn empty_sequence() {
         let v = EnvelopeValidator::new();
         let errors = v.validate_sequence(&[]);
-        assert!(errors.iter().any(|e| matches!(e, SequenceError::MissingHello)));
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal)));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingHello))
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingTerminal))
+        );
     }
 }
 
@@ -2065,8 +2069,7 @@ mod protocol_errors {
 
     #[test]
     fn abp_error_conversion() {
-        let abp_err =
-            abp_error::AbpError::new(abp_error::ErrorCode::BackendNotFound, "not found");
+        let abp_err = abp_error::AbpError::new(abp_error::ErrorCode::BackendNotFound, "not found");
         let proto_err: ProtocolError = abp_err.into();
         assert_eq!(
             proto_err.error_code(),
@@ -2129,9 +2132,7 @@ mod sidecar_proto {
         sender.send_fatal("boom").await.unwrap();
         let env = rx.try_recv().unwrap();
         match env {
-            Envelope::Fatal {
-                ref_id, error, ..
-            } => {
+            Envelope::Fatal { ref_id, error, .. } => {
                 assert_eq!(ref_id.as_deref(), Some("r1"));
                 assert_eq!(error, "boom");
             }
@@ -2192,13 +2193,9 @@ mod sidecar_proto_write {
     #[tokio::test]
     async fn send_hello_writes_hello() {
         let (mut w, r) = tokio::io::duplex(4096);
-        abp_sidecar_proto::send_hello(
-            &mut w,
-            backend("proto-test"),
-            CapabilityManifest::new(),
-        )
-        .await
-        .unwrap();
+        abp_sidecar_proto::send_hello(&mut w, backend("proto-test"), CapabilityManifest::new())
+            .await
+            .unwrap();
         drop(w);
         let text = drain(r).await;
         assert!(text.contains(r#""t":"hello""#));
@@ -2210,9 +2207,7 @@ mod sidecar_proto_write {
         let (mut w, r) = tokio::io::duplex(4096);
         let event = AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
             ext: None,
         };
         abp_sidecar_proto::send_event(&mut w, "run-1", event)
@@ -2324,11 +2319,7 @@ mod router {
             destination: "ev".into(),
             priority: 1,
         });
-        let envs = vec![
-            hello_env(),
-            event_env("r1", "a"),
-            event_env("r1", "b"),
-        ];
+        let envs = vec![hello_env(), event_env("r1", "a"), event_env("r1", "b")];
         let matches = router.route_all(&envs);
         assert_eq!(matches.len(), 2);
     }
@@ -2385,9 +2376,11 @@ mod batch {
             created_at: "2024-01-01T00:00:00Z".into(),
         };
         let errors = proc.validate_batch(&req);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, BatchValidationError::EmptyBatch)));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, BatchValidationError::EmptyBatch))
+        );
     }
 
     #[test]
