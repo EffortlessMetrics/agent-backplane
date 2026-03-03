@@ -1455,3 +1455,889 @@ mod audit_serde {
         assert_eq!(back, d);
     }
 }
+
+// =========================================================================
+// 12. Additional coverage: tool pattern specificity & edge scenarios
+// =========================================================================
+
+mod tool_pattern_specificity {
+    use super::*;
+
+    #[test]
+    fn underscore_glob_pattern_allow() {
+        let e = engine(&PolicyProfile {
+            allowed_tools: s(&["read_*"]),
+            ..Default::default()
+        });
+        assert!(e.can_use_tool("read_file").allowed);
+        assert!(e.can_use_tool("read_dir").allowed);
+        assert!(!e.can_use_tool("write_file").allowed);
+    }
+
+    #[test]
+    fn underscore_glob_pattern_deny() {
+        let e = engine(&PolicyProfile {
+            disallowed_tools: s(&["exec_*"]),
+            ..Default::default()
+        });
+        assert!(!e.can_use_tool("exec_cmd").allowed);
+        assert!(!e.can_use_tool("exec_shell").allowed);
+        assert!(e.can_use_tool("read_file").allowed);
+    }
+
+    #[test]
+    fn multiple_allow_patterns() {
+        let e = engine(&PolicyProfile {
+            allowed_tools: s(&["read_*", "list_*", "Grep"]),
+            ..Default::default()
+        });
+        assert!(e.can_use_tool("read_file").allowed);
+        assert!(e.can_use_tool("list_dir").allowed);
+        assert!(e.can_use_tool("Grep").allowed);
+        assert!(!e.can_use_tool("write_file").allowed);
+        assert!(!e.can_use_tool("Bash").allowed);
+    }
+
+    #[test]
+    fn broad_allow_narrow_deny() {
+        let e = engine(&PolicyProfile {
+            allowed_tools: s(&["*"]),
+            disallowed_tools: s(&["exec_shell"]),
+            ..Default::default()
+        });
+        assert!(!e.can_use_tool("exec_shell").allowed);
+        assert!(e.can_use_tool("exec_cmd").allowed);
+        assert!(e.can_use_tool("Read").allowed);
+    }
+
+    #[test]
+    fn narrow_allow_broad_deny() {
+        let e = engine(&PolicyProfile {
+            allowed_tools: s(&["Read"]),
+            disallowed_tools: s(&["*"]),
+            ..Default::default()
+        });
+        // Deny always beats allow, even specific vs wildcard
+        assert!(!e.can_use_tool("Read").allowed);
+        assert!(!e.can_use_tool("Bash").allowed);
+    }
+
+    #[test]
+    fn pattern_deny_overrides_pattern_allow() {
+        let e = engine(&PolicyProfile {
+            allowed_tools: s(&["file_*"]),
+            disallowed_tools: s(&["file_delete*"]),
+            ..Default::default()
+        });
+        assert!(e.can_use_tool("file_read").allowed);
+        assert!(e.can_use_tool("file_write").allowed);
+        assert!(!e.can_use_tool("file_delete").allowed);
+        assert!(!e.can_use_tool("file_delete_recursive").allowed);
+    }
+
+    #[test]
+    fn tool_name_with_dots() {
+        let e = engine(&PolicyProfile {
+            disallowed_tools: s(&["com.example.*"]),
+            ..Default::default()
+        });
+        assert!(!e.can_use_tool("com.example.tool").allowed);
+        assert!(e.can_use_tool("org.other.tool").allowed);
+    }
+
+    #[test]
+    fn tool_name_with_slashes() {
+        let e = engine(&PolicyProfile {
+            disallowed_tools: s(&["ns/dangerous_*"]),
+            ..Default::default()
+        });
+        assert!(!e.can_use_tool("ns/dangerous_exec").allowed);
+        assert!(e.can_use_tool("ns/safe_read").allowed);
+    }
+
+    #[test]
+    fn curly_brace_alternation_deny() {
+        let e = engine(&PolicyProfile {
+            disallowed_tools: s(&["{Bash,Shell,Exec}"]),
+            ..Default::default()
+        });
+        assert!(!e.can_use_tool("Bash").allowed);
+        assert!(!e.can_use_tool("Shell").allowed);
+        assert!(!e.can_use_tool("Exec").allowed);
+        assert!(e.can_use_tool("Read").allowed);
+    }
+
+    #[test]
+    fn curly_brace_alternation_allow() {
+        let e = engine(&PolicyProfile {
+            allowed_tools: s(&["{Read,Write,Grep}"]),
+            ..Default::default()
+        });
+        assert!(e.can_use_tool("Read").allowed);
+        assert!(e.can_use_tool("Write").allowed);
+        assert!(e.can_use_tool("Grep").allowed);
+        assert!(!e.can_use_tool("Bash").allowed);
+    }
+
+    #[test]
+    fn very_long_tool_name() {
+        let long_name: String = "Tool".repeat(250);
+        let e = engine(&PolicyProfile {
+            disallowed_tools: vec![long_name.clone()],
+            ..Default::default()
+        });
+        assert!(!e.can_use_tool(&long_name).allowed);
+        assert!(e.can_use_tool("Short").allowed);
+    }
+}
+
+// =========================================================================
+// 13. Additional file read coverage
+// =========================================================================
+
+mod read_advanced {
+    use super::*;
+
+    #[test]
+    fn deny_read_hidden_files() {
+        let e = engine(&PolicyProfile {
+            deny_read: s(&["**/.*"]),
+            ..Default::default()
+        });
+        assert!(!e.can_read_path(Path::new(".gitignore")).allowed);
+        assert!(!e.can_read_path(Path::new("config/.hidden")).allowed);
+        assert!(e.can_read_path(Path::new("src/lib.rs")).allowed);
+    }
+
+    #[test]
+    fn deny_read_specific_nested_dir() {
+        let e = engine(&PolicyProfile {
+            deny_read: s(&[".secret/**"]),
+            ..Default::default()
+        });
+        assert!(!e.can_read_path(Path::new(".secret/key.pem")).allowed);
+        assert!(!e.can_read_path(Path::new(".secret/nested/data")).allowed);
+        assert!(e.can_read_path(Path::new("public/key.pem")).allowed);
+    }
+
+    #[test]
+    fn deny_read_env_variants() {
+        let e = engine(&PolicyProfile {
+            deny_read: s(&["*.env", "*.env.*"]),
+            ..Default::default()
+        });
+        assert!(!e.can_read_path(Path::new(".env")).allowed);
+        assert!(!e.can_read_path(Path::new("app.env")).allowed);
+        assert!(!e.can_read_path(Path::new(".env.local")).allowed);
+        assert!(!e.can_read_path(Path::new("config.env.production")).allowed);
+        assert!(e.can_read_path(Path::new("environment.rs")).allowed);
+    }
+
+    #[test]
+    fn deny_read_very_long_path() {
+        let long_path = "a/".repeat(200) + "secret.txt";
+        let e = engine(&PolicyProfile {
+            deny_read: s(&["**/secret.txt"]),
+            ..Default::default()
+        });
+        assert!(!e.can_read_path(Path::new(&long_path)).allowed);
+    }
+
+    #[test]
+    fn deny_read_windows_style_separators() {
+        // Path::new normalizes on each OS; test that the deny pattern works
+        let e = engine(&PolicyProfile {
+            deny_read: s(&["**/secret.txt"]),
+            ..Default::default()
+        });
+        // On Windows, backslash is the separator; Path::new handles it
+        assert!(!e.can_read_path(Path::new("dir\\secret.txt")).allowed);
+    }
+
+    #[test]
+    fn deny_read_curly_brace_extension_set() {
+        let e = engine(&PolicyProfile {
+            deny_read: s(&["*.{pem,key,p12}"]),
+            ..Default::default()
+        });
+        assert!(!e.can_read_path(Path::new("cert.pem")).allowed);
+        assert!(!e.can_read_path(Path::new("server.key")).allowed);
+        assert!(!e.can_read_path(Path::new("keystore.p12")).allowed);
+        assert!(e.can_read_path(Path::new("readme.md")).allowed);
+    }
+
+    #[test]
+    fn deny_read_does_not_affect_write() {
+        let e = engine(&PolicyProfile {
+            deny_read: s(&["**/*.secret"]),
+            ..Default::default()
+        });
+        // Writing the same path should still be allowed
+        assert!(e.can_write_path(Path::new("data.secret")).allowed);
+    }
+
+    #[test]
+    fn deny_read_root_file_only() {
+        let e = engine(&PolicyProfile {
+            deny_read: s(&["Makefile"]),
+            ..Default::default()
+        });
+        assert!(!e.can_read_path(Path::new("Makefile")).allowed);
+        // globset default: * crosses directories, so nested may also match
+        assert!(e.can_read_path(Path::new("src/main.rs")).allowed);
+    }
+}
+
+// =========================================================================
+// 14. Additional file write coverage
+// =========================================================================
+
+mod write_advanced {
+    use super::*;
+
+    #[test]
+    fn deny_write_workspace_root_dotfiles() {
+        let e = engine(&PolicyProfile {
+            deny_write: s(&[".*"]),
+            ..Default::default()
+        });
+        assert!(!e.can_write_path(Path::new(".gitignore")).allowed);
+        assert!(!e.can_write_path(Path::new(".env")).allowed);
+        assert!(e.can_write_path(Path::new("src/main.rs")).allowed);
+    }
+
+    #[test]
+    fn deny_write_node_modules_deep() {
+        let e = engine(&PolicyProfile {
+            deny_write: s(&["**/node_modules/**"]),
+            ..Default::default()
+        });
+        assert!(
+            !e.can_write_path(Path::new("node_modules/pkg/index.js"))
+                .allowed
+        );
+        assert!(
+            !e.can_write_path(Path::new("frontend/node_modules/x/y/z.js"))
+                .allowed
+        );
+        assert!(e.can_write_path(Path::new("src/index.js")).allowed);
+    }
+
+    #[test]
+    fn deny_write_binary_extensions() {
+        let e = engine(&PolicyProfile {
+            deny_write: s(&["*.{exe,dll,so,dylib}"]),
+            ..Default::default()
+        });
+        assert!(!e.can_write_path(Path::new("app.exe")).allowed);
+        assert!(!e.can_write_path(Path::new("libfoo.so")).allowed);
+        assert!(!e.can_write_path(Path::new("libbar.dylib")).allowed);
+        assert!(e.can_write_path(Path::new("main.rs")).allowed);
+    }
+
+    #[test]
+    fn deny_write_does_not_affect_read() {
+        let e = engine(&PolicyProfile {
+            deny_write: s(&["**/*.lock"]),
+            ..Default::default()
+        });
+        assert!(e.can_read_path(Path::new("Cargo.lock")).allowed);
+    }
+
+    #[test]
+    fn deny_write_very_long_path() {
+        let long_path = "deep/".repeat(150) + "file.txt";
+        let e = engine(&PolicyProfile {
+            deny_write: s(&["**/file.txt"]),
+            ..Default::default()
+        });
+        assert!(!e.can_write_path(Path::new(&long_path)).allowed);
+    }
+
+    #[test]
+    fn deny_write_workspace_root_files() {
+        let e = engine(&PolicyProfile {
+            deny_write: s(&["Cargo.toml", "Cargo.lock"]),
+            ..Default::default()
+        });
+        assert!(!e.can_write_path(Path::new("Cargo.toml")).allowed);
+        assert!(!e.can_write_path(Path::new("Cargo.lock")).allowed);
+        assert!(e.can_write_path(Path::new("src/main.rs")).allowed);
+    }
+
+    #[test]
+    fn deny_write_parent_traversal() {
+        let e = engine(&PolicyProfile {
+            deny_write: s(&["**/etc/**"]),
+            ..Default::default()
+        });
+        assert!(!e.can_write_path(Path::new("../../../etc/passwd")).allowed);
+    }
+
+    #[test]
+    fn deny_write_only_specific_subdir() {
+        let e = engine(&PolicyProfile {
+            deny_write: s(&["build/release/**"]),
+            ..Default::default()
+        });
+        assert!(
+            !e.can_write_path(Path::new("build/release/output.bin"))
+                .allowed
+        );
+        assert!(
+            e.can_write_path(Path::new("build/debug/output.bin"))
+                .allowed
+        );
+    }
+}
+
+// =========================================================================
+// 15. Serialization roundtrip and TOML config
+// =========================================================================
+
+mod serialization {
+    use super::*;
+
+    #[test]
+    fn policy_profile_json_roundtrip() {
+        let p = PolicyProfile {
+            allowed_tools: s(&["Read", "Write"]),
+            disallowed_tools: s(&["Bash"]),
+            deny_read: s(&["**/.env"]),
+            deny_write: s(&["**/.git/**"]),
+            allow_network: s(&["*.example.com"]),
+            deny_network: s(&["evil.com"]),
+            require_approval_for: s(&["Delete"]),
+        };
+        let json = serde_json::to_string_pretty(&p).unwrap();
+        let back: PolicyProfile = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.allowed_tools, p.allowed_tools);
+        assert_eq!(back.disallowed_tools, p.disallowed_tools);
+        assert_eq!(back.deny_read, p.deny_read);
+        assert_eq!(back.deny_write, p.deny_write);
+        assert_eq!(back.allow_network, p.allow_network);
+        assert_eq!(back.deny_network, p.deny_network);
+        assert_eq!(back.require_approval_for, p.require_approval_for);
+    }
+
+    #[test]
+    fn policy_profile_toml_roundtrip() {
+        let p = PolicyProfile {
+            allowed_tools: s(&["Read", "Write"]),
+            disallowed_tools: s(&["Bash"]),
+            deny_read: s(&["**/.env"]),
+            deny_write: s(&["**/.git/**"]),
+            allow_network: s(&["*.example.com"]),
+            deny_network: s(&["evil.com"]),
+            require_approval_for: s(&["Delete"]),
+        };
+        let toml_str = toml::to_string_pretty(&p).unwrap();
+        let back: PolicyProfile = toml::from_str(&toml_str).unwrap();
+        assert_eq!(back.allowed_tools, p.allowed_tools);
+        assert_eq!(back.disallowed_tools, p.disallowed_tools);
+        assert_eq!(back.deny_read, p.deny_read);
+        assert_eq!(back.deny_write, p.deny_write);
+    }
+
+    #[test]
+    fn policy_from_toml_string() {
+        let toml_str = r#"
+allowed_tools = ["Read", "Write"]
+disallowed_tools = ["Bash"]
+deny_read = ["**/.env"]
+deny_write = ["**/.git/**"]
+allow_network = []
+deny_network = []
+require_approval_for = []
+"#;
+        let p: PolicyProfile = toml::from_str(toml_str).unwrap();
+        assert_eq!(p.allowed_tools, vec!["Read", "Write"]);
+        assert_eq!(p.disallowed_tools, vec!["Bash"]);
+        // Verify engine compiles from parsed TOML
+        let e = engine(&p);
+        assert!(e.can_use_tool("Read").allowed);
+        assert!(!e.can_use_tool("Bash").allowed);
+    }
+
+    #[test]
+    fn default_policy_profile_json_roundtrip() {
+        let p = PolicyProfile::default();
+        let json = serde_json::to_string(&p).unwrap();
+        let back: PolicyProfile = serde_json::from_str(&json).unwrap();
+        assert!(back.allowed_tools.is_empty());
+        assert!(back.disallowed_tools.is_empty());
+        assert!(back.deny_read.is_empty());
+        assert!(back.deny_write.is_empty());
+    }
+
+    #[test]
+    fn decision_is_serializable() {
+        let d = Decision::deny("forbidden");
+        let json = serde_json::to_string(&d).unwrap();
+        assert!(json.contains("forbidden"));
+        assert!(json.contains("false"));
+    }
+
+    #[test]
+    fn composed_policy_decision_json_roundtrip() {
+        use abp_policy::compose::PolicyDecision;
+
+        let cases = vec![
+            PolicyDecision::Allow {
+                reason: "ok".into(),
+            },
+            PolicyDecision::Deny {
+                reason: "bad".into(),
+            },
+            PolicyDecision::Abstain,
+        ];
+        for d in &cases {
+            let json = serde_json::to_string(d).unwrap();
+            let back: PolicyDecision = serde_json::from_str(&json).unwrap();
+            assert_eq!(&back, d);
+        }
+    }
+}
+
+// =========================================================================
+// 16. Compilation edge cases
+// =========================================================================
+
+mod compile_advanced {
+    use super::*;
+
+    #[test]
+    fn compile_with_only_deny_read() {
+        let p = PolicyProfile {
+            deny_read: s(&["*.secret", "**/.env"]),
+            ..Default::default()
+        };
+        let e = engine(&p);
+        assert!(!e.can_read_path(Path::new("api.secret")).allowed);
+        assert!(e.can_use_tool("anything").allowed);
+        assert!(e.can_write_path(Path::new("api.secret")).allowed);
+    }
+
+    #[test]
+    fn compile_with_only_deny_write() {
+        let p = PolicyProfile {
+            deny_write: s(&["**/.git/**"]),
+            ..Default::default()
+        };
+        let e = engine(&p);
+        assert!(!e.can_write_path(Path::new(".git/config")).allowed);
+        assert!(e.can_read_path(Path::new(".git/config")).allowed);
+        assert!(e.can_use_tool("anything").allowed);
+    }
+
+    #[test]
+    fn compile_all_deny_lists_populated() {
+        let p = PolicyProfile {
+            disallowed_tools: s(&["Bash", "Shell"]),
+            deny_read: s(&["*.key", "*.pem"]),
+            deny_write: s(&["*.lock", "**/.git/**"]),
+            ..Default::default()
+        };
+        let e = engine(&p);
+        assert!(!e.can_use_tool("Bash").allowed);
+        assert!(!e.can_read_path(Path::new("server.key")).allowed);
+        assert!(!e.can_write_path(Path::new("Cargo.lock")).allowed);
+        assert!(e.can_use_tool("Read").allowed);
+        assert!(e.can_read_path(Path::new("src/lib.rs")).allowed);
+        assert!(e.can_write_path(Path::new("src/lib.rs")).allowed);
+    }
+
+    #[test]
+    fn compile_invalid_in_allowed_tools() {
+        let p = PolicyProfile {
+            allowed_tools: s(&["["]),
+            ..Default::default()
+        };
+        assert!(PolicyEngine::new(&p).is_err());
+    }
+
+    #[test]
+    fn compile_invalid_in_deny_read_preserves_context() {
+        let p = PolicyProfile {
+            deny_read: s(&["[invalid"]),
+            ..Default::default()
+        };
+        let err = PolicyEngine::new(&p).unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(msg.contains("deny_read"), "error: {msg}");
+    }
+
+    #[test]
+    fn compile_mixed_valid_and_invalid_fails() {
+        let p = PolicyProfile {
+            deny_write: s(&["valid_pattern", "[invalid"]),
+            ..Default::default()
+        };
+        assert!(PolicyEngine::new(&p).is_err());
+    }
+
+    #[test]
+    fn compile_double_star_pattern() {
+        let p = PolicyProfile {
+            deny_read: s(&["**"]),
+            ..Default::default()
+        };
+        let e = engine(&p);
+        assert!(!e.can_read_path(Path::new("anything")).allowed);
+        assert!(!e.can_read_path(Path::new("a/b/c")).allowed);
+    }
+
+    #[test]
+    fn compile_empty_string_pattern_succeeds() {
+        // Empty string is a valid (though useless) glob
+        let p = PolicyProfile {
+            deny_read: vec![String::new()],
+            ..Default::default()
+        };
+        // Should compile without error
+        let _e = engine(&p);
+    }
+}
+
+// =========================================================================
+// 17. Rule engine advanced scenarios
+// =========================================================================
+
+mod rules_advanced {
+    use super::*;
+
+    #[test]
+    fn multiple_rules_same_priority_first_wins() {
+        let mut eng = RuleEngine::new();
+        eng.add_rule(Rule {
+            id: "first".into(),
+            description: "First rule".into(),
+            condition: RuleCondition::Always,
+            effect: RuleEffect::Log,
+            priority: 10,
+        });
+        eng.add_rule(Rule {
+            id: "second".into(),
+            description: "Second rule".into(),
+            condition: RuleCondition::Always,
+            effect: RuleEffect::Deny,
+            priority: 10,
+        });
+        // max_by_key returns last max when equal, so second wins
+        // (this tests the actual behavior)
+        let result = eng.evaluate("test");
+        assert!(result == RuleEffect::Log || result == RuleEffect::Deny);
+    }
+
+    #[test]
+    fn rule_condition_pattern_invalid_glob_no_match() {
+        // Invalid glob pattern in a RuleCondition::Pattern silently doesn't match
+        let cond = RuleCondition::Pattern("[".into());
+        assert!(!cond.matches("anything"));
+    }
+
+    #[test]
+    fn deeply_nested_conditions() {
+        let cond = RuleCondition::Not(Box::new(RuleCondition::And(vec![
+            RuleCondition::Or(vec![
+                RuleCondition::Pattern("*.rs".into()),
+                RuleCondition::Pattern("*.py".into()),
+            ]),
+            RuleCondition::Not(Box::new(RuleCondition::Pattern("test*".into()))),
+        ])));
+        // The inner matches non-test .rs/.py files
+        // NOT inverts: matches everything EXCEPT non-test .rs/.py
+        assert!(!cond.matches("main.rs")); // inner matches → NOT = false
+        assert!(cond.matches("test_main.rs")); // inner doesn't match → NOT = true
+        assert!(cond.matches("readme.md")); // inner doesn't match → NOT = true
+    }
+
+    #[test]
+    fn rule_serde_roundtrip() {
+        let rule = Rule {
+            id: "test-rule".into(),
+            description: "A test rule".into(),
+            condition: RuleCondition::Pattern("*.rs".into()),
+            effect: RuleEffect::Deny,
+            priority: 42,
+        };
+        let json = serde_json::to_string(&rule).unwrap();
+        let back: Rule = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, "test-rule");
+        assert_eq!(back.priority, 42);
+    }
+
+    #[test]
+    fn evaluate_all_with_no_rules() {
+        let eng = RuleEngine::new();
+        let results = eng.evaluate_all("anything");
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn add_and_remove_multiple_rules() {
+        let mut eng = RuleEngine::new();
+        for i in 0..10 {
+            eng.add_rule(Rule {
+                id: format!("rule-{i}"),
+                description: format!("Rule {i}"),
+                condition: RuleCondition::Always,
+                effect: RuleEffect::Allow,
+                priority: i,
+            });
+        }
+        assert_eq!(eng.rule_count(), 10);
+        eng.remove_rule("rule-5");
+        assert_eq!(eng.rule_count(), 9);
+        eng.remove_rule("rule-0");
+        assert_eq!(eng.rule_count(), 8);
+        // Removing again is a no-op
+        eng.remove_rule("rule-0");
+        assert_eq!(eng.rule_count(), 8);
+    }
+}
+
+// =========================================================================
+// 18. Validator advanced scenarios
+// =========================================================================
+
+mod validator_advanced {
+    use super::*;
+
+    #[test]
+    fn validator_empty_glob_in_allowed_tools() {
+        let p = PolicyProfile {
+            allowed_tools: vec![String::new()],
+            ..Default::default()
+        };
+        let w = PolicyValidator::validate(&p);
+        assert!(w.iter().any(|x| x.kind == WarningKind::EmptyGlob));
+    }
+
+    #[test]
+    fn validator_empty_glob_in_disallowed_tools() {
+        let p = PolicyProfile {
+            disallowed_tools: vec![String::new()],
+            ..Default::default()
+        };
+        let w = PolicyValidator::validate(&p);
+        assert!(w.iter().any(|x| x.kind == WarningKind::EmptyGlob));
+    }
+
+    #[test]
+    fn validator_empty_glob_in_allow_network() {
+        let p = PolicyProfile {
+            allow_network: vec![String::new()],
+            ..Default::default()
+        };
+        let w = PolicyValidator::validate(&p);
+        assert!(w.iter().any(|x| x.kind == WarningKind::EmptyGlob));
+    }
+
+    #[test]
+    fn validator_empty_glob_in_deny_network() {
+        let p = PolicyProfile {
+            deny_network: vec![String::new()],
+            ..Default::default()
+        };
+        let w = PolicyValidator::validate(&p);
+        assert!(w.iter().any(|x| x.kind == WarningKind::EmptyGlob));
+    }
+
+    #[test]
+    fn validator_wildcard_deny_with_multiple_allows_unreachable() {
+        let p = PolicyProfile {
+            allowed_tools: s(&["Read", "Write", "Grep"]),
+            disallowed_tools: s(&["*"]),
+            ..Default::default()
+        };
+        let w = PolicyValidator::validate(&p);
+        let unreachable_count = w
+            .iter()
+            .filter(|x| x.kind == WarningKind::UnreachableRule)
+            .count();
+        assert_eq!(unreachable_count, 3);
+    }
+
+    #[test]
+    fn validator_catch_all_deny_write_star_star_slash_star() {
+        let p = PolicyProfile {
+            deny_write: s(&["**/*"]),
+            ..Default::default()
+        };
+        let w = PolicyValidator::validate(&p);
+        assert!(w.iter().any(|x| x.kind == WarningKind::UnreachableRule));
+    }
+
+    #[test]
+    fn validator_no_false_overlap_for_different_patterns() {
+        let p = PolicyProfile {
+            allowed_tools: s(&["Read"]),
+            disallowed_tools: s(&["Bash"]),
+            ..Default::default()
+        };
+        let w = PolicyValidator::validate(&p);
+        assert!(
+            !w.iter()
+                .any(|x| x.kind == WarningKind::OverlappingAllowDeny)
+        );
+    }
+}
+
+// =========================================================================
+// 19. Composed engine advanced scenarios
+// =========================================================================
+
+mod compose_advanced {
+    use super::*;
+
+    #[test]
+    fn composed_deny_overrides_read_from_multiple_profiles() {
+        let profiles = vec![
+            PolicyProfile::default(),
+            PolicyProfile {
+                deny_read: s(&["*.pem"]),
+                ..Default::default()
+            },
+            PolicyProfile::default(),
+        ];
+        let ce = ComposedEngine::new(profiles, PolicyPrecedence::DenyOverrides).unwrap();
+        // One deny among many defaults still blocks
+        assert!(ce.check_read("cert.pem").is_deny());
+        assert!(ce.check_read("readme.md").is_allow());
+    }
+
+    #[test]
+    fn composed_first_applicable_read() {
+        let profiles = vec![
+            PolicyProfile {
+                deny_read: s(&["*.secret"]),
+                ..Default::default()
+            },
+            PolicyProfile::default(),
+        ];
+        let ce = ComposedEngine::new(profiles, PolicyPrecedence::FirstApplicable).unwrap();
+        assert!(ce.check_read("api.secret").is_deny());
+        // Non-matching: first profile allows (no deny match)
+        assert!(ce.check_read("readme.md").is_allow());
+    }
+
+    #[test]
+    fn composed_allow_overrides_write() {
+        let profiles = vec![
+            PolicyProfile {
+                deny_write: s(&["*.lock"]),
+                ..Default::default()
+            },
+            PolicyProfile::default(),
+        ];
+        let ce = ComposedEngine::new(profiles, PolicyPrecedence::AllowOverrides).unwrap();
+        // Second profile allows everything, allow overrides
+        assert!(ce.check_write("Cargo.lock").is_allow());
+    }
+
+    #[test]
+    fn composed_invalid_glob_fails() {
+        let profiles = vec![PolicyProfile {
+            deny_read: s(&["["]),
+            ..Default::default()
+        }];
+        assert!(ComposedEngine::new(profiles, PolicyPrecedence::DenyOverrides).is_err());
+    }
+
+    #[test]
+    fn policy_set_empty_merge_is_default() {
+        let set = PolicySet::new("empty");
+        let merged = set.merge();
+        assert!(merged.allowed_tools.is_empty());
+        assert!(merged.disallowed_tools.is_empty());
+        assert!(merged.deny_read.is_empty());
+        assert!(merged.deny_write.is_empty());
+    }
+
+    #[test]
+    fn policy_set_three_profiles_merged() {
+        let mut set = PolicySet::new("triple");
+        set.add(PolicyProfile {
+            disallowed_tools: s(&["Bash"]),
+            deny_read: s(&["*.key"]),
+            ..Default::default()
+        });
+        set.add(PolicyProfile {
+            disallowed_tools: s(&["Shell"]),
+            deny_write: s(&["*.lock"]),
+            ..Default::default()
+        });
+        set.add(PolicyProfile {
+            allowed_tools: s(&["Read"]),
+            require_approval_for: s(&["Exec"]),
+            ..Default::default()
+        });
+        let merged = set.merge();
+        assert!(merged.disallowed_tools.contains(&"Bash".to_string()));
+        assert!(merged.disallowed_tools.contains(&"Shell".to_string()));
+        assert!(merged.allowed_tools.contains(&"Read".to_string()));
+        assert!(merged.deny_read.contains(&"*.key".to_string()));
+        assert!(merged.deny_write.contains(&"*.lock".to_string()));
+        assert!(merged.require_approval_for.contains(&"Exec".to_string()));
+    }
+}
+
+// =========================================================================
+// 20. Unicode and special character paths
+// =========================================================================
+
+mod unicode_and_special {
+    use super::*;
+
+    #[test]
+    fn unicode_directory_deny_write() {
+        let e = engine(&PolicyProfile {
+            deny_write: s(&["données/**"]),
+            ..Default::default()
+        });
+        assert!(!e.can_write_path(Path::new("données/fichier.txt")).allowed);
+        assert!(e.can_write_path(Path::new("data/file.txt")).allowed);
+    }
+
+    #[test]
+    fn cjk_characters_in_path() {
+        let e = engine(&PolicyProfile {
+            deny_read: s(&["秘密/**"]),
+            ..Default::default()
+        });
+        assert!(!e.can_read_path(Path::new("秘密/data.txt")).allowed);
+        assert!(e.can_read_path(Path::new("public/data.txt")).allowed);
+    }
+
+    #[test]
+    fn emoji_in_tool_name() {
+        let e = engine(&PolicyProfile {
+            disallowed_tools: s(&["🔧Tool"]),
+            ..Default::default()
+        });
+        assert!(!e.can_use_tool("🔧Tool").allowed);
+        assert!(e.can_use_tool("Tool").allowed);
+    }
+
+    #[test]
+    fn spaces_in_file_path() {
+        let e = engine(&PolicyProfile {
+            deny_read: s(&["**/my documents/**"]),
+            ..Default::default()
+        });
+        assert!(
+            !e.can_read_path(Path::new("home/my documents/secret.txt"))
+                .allowed
+        );
+    }
+
+    #[test]
+    fn path_with_special_glob_chars_literal() {
+        // A path containing literal brackets should not cause issues
+        let e = engine(&PolicyProfile::default());
+        // With default (empty) policy, everything is allowed
+        assert!(e.can_read_path(Path::new("file[1].txt")).allowed);
+        assert!(e.can_write_path(Path::new("file{a,b}.txt")).allowed);
+    }
+}

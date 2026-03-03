@@ -1089,7 +1089,7 @@ fn agent_event_error() {
 #[test]
 fn agent_event_error_with_code() {
     // Construct via JSON to avoid direct abp_error dependency in integration test
-    let json_str = r#"{"ts":"2024-01-01T00:00:00Z","type":"error","message":"hash bad","error_code":"RECEIPT_HASH_MISMATCH"}"#;
+    let json_str = r#"{"ts":"2024-01-01T00:00:00Z","type":"error","message":"hash bad","error_code":"receipt_hash_mismatch"}"#;
     let e: AgentEvent = serde_json::from_str(json_str).unwrap();
     if let AgentEventKind::Error { error_code, .. } = &e.kind {
         assert!(error_code.is_some());
