@@ -673,6 +673,7 @@ dependencies = [
  "abp-host",
  "abp-integrations",
  "abp-kimi-sdk",
+ "abp-mapper",
  "abp-mapping",
  "abp-openai-sdk",
  "abp-policy",

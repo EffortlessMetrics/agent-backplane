@@ -1,1045 +1,1324 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! Cross-SDK fidelity tests verifying mapping correctness between all dialect pairs.
+//! Cross-SDK fidelity verification tests.
 //!
-//! Covers message role mapping, tool definition translation, streaming event parity,
-//! capability fidelity, and edge cases across the full projection matrix.
+//! Validates mapping quality between dialect pairs (OpenAI, Claude, Gemini)
+//! at the IR level. Each test documents exactly what is preserved, what is
+//! lost, and what degrades across round-trips.
 
-use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrderBuilder,
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+use abp_dialect::Dialect;
+use abp_mapper::{
+    ClaudeGeminiIrMapper, IrIdentityMapper, IrMapper, MapError, OpenAiClaudeIrMapper,
+    OpenAiGeminiIrMapper, default_ir_mapper,
 };
-use abp_integrations::projection::{
-    Dialect, Message, MessageRole, ProjectionMatrix, ToolCall, ToolDefinitionIr, ToolResult,
-    TranslationFidelity, translate,
-};
-use chrono::Utc;
 use serde_json::json;
-use std::collections::BTreeMap;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// ── Helpers ─────────────────────────────────────────────────────────────
 
-fn matrix() -> ProjectionMatrix {
-    ProjectionMatrix::new()
+fn simple_text_conv() -> IrConversation {
+    IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "You are a helpful assistant."),
+        IrMessage::text(IrRole::User, "Hello!"),
+        IrMessage::text(IrRole::Assistant, "Hi there, how can I help?"),
+    ])
 }
 
-/// All seven registered string dialect names.
-const ALL_STRING_DIALECTS: &[&str] = &[
-    "abp",
-    "openai",
-    "anthropic",
-    "gemini",
-    "codex",
-    "kimi",
-    "mock",
-];
-
-/// Vendor (non-ABP, non-Mock) Dialect enum variants.
-const VENDOR_DIALECTS: &[Dialect] = &[
-    Dialect::Claude,
-    Dialect::Codex,
-    Dialect::Gemini,
-    Dialect::Kimi,
-    Dialect::OpenAi,
-];
-
-fn all_sdk_manifests() -> Vec<(&'static str, CapabilityManifest)> {
-    vec![
-        ("claude", abp_claude_sdk::dialect::capability_manifest()),
-        ("codex", abp_codex_sdk::dialect::capability_manifest()),
-        ("gemini", abp_gemini_sdk::dialect::capability_manifest()),
-        ("kimi", abp_kimi_sdk::dialect::capability_manifest()),
-        ("openai", abp_openai_sdk::dialect::capability_manifest()),
-    ]
+fn user_only_conv() -> IrConversation {
+    IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "Just a question")])
 }
 
-fn make_tool_def(name: &str, desc: &str, params: serde_json::Value) -> ToolDefinitionIr {
-    ToolDefinitionIr {
-        name: name.to_string(),
-        description: desc.to_string(),
-        parameters: params,
-    }
+fn multi_turn_conv() -> IrConversation {
+    IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "Be concise."),
+        IrMessage::text(IrRole::User, "First turn"),
+        IrMessage::text(IrRole::Assistant, "Reply 1"),
+        IrMessage::text(IrRole::User, "Second turn"),
+        IrMessage::text(IrRole::Assistant, "Reply 2"),
+        IrMessage::text(IrRole::User, "Third turn"),
+        IrMessage::text(IrRole::Assistant, "Reply 3"),
+    ])
 }
 
-// =========================================================================
-// 1. Message Role Mapping Fidelity (8 tests)
-// =========================================================================
-
-#[test]
-fn role_system_to_system_openai_codex_identity() {
-    // OpenAI and Codex use the same format — system stays system.
-    let m = matrix();
-    let msgs = vec![Message {
-        role: MessageRole::System,
-        content: "You are a helpful assistant.".into(),
-    }];
-    let mapped_openai = m
-        .map_messages(Dialect::Abp, Dialect::OpenAi, &msgs)
-        .unwrap();
-    assert_eq!(mapped_openai[0].role, MessageRole::System);
-    assert_eq!(mapped_openai[0].content, "You are a helpful assistant.");
-
-    let mapped_codex = m.map_messages(Dialect::Abp, Dialect::Codex, &msgs).unwrap();
-    assert_eq!(mapped_codex[0].role, MessageRole::System);
-    assert_eq!(mapped_codex[0].content, "You are a helpful assistant.");
-}
-
-#[test]
-fn role_system_to_user_with_prefix_claude() {
-    // Claude wraps system messages as user messages with [System] prefix.
-    let m = matrix();
-    let msgs = vec![Message {
-        role: MessageRole::System,
-        content: "Be concise.".into(),
-    }];
-    let mapped = m
-        .map_messages(Dialect::Abp, Dialect::Claude, &msgs)
-        .unwrap();
-    assert_eq!(mapped[0].role, MessageRole::User);
-    assert!(mapped[0].content.starts_with("[System] "));
-    assert!(mapped[0].content.contains("Be concise."));
-}
-
-#[test]
-fn role_system_to_user_with_prefix_gemini() {
-    // Gemini also lacks native system role, same behavior as Claude.
-    let m = matrix();
-    let msgs = vec![Message {
-        role: MessageRole::System,
-        content: "Answer briefly.".into(),
-    }];
-    let mapped = m
-        .map_messages(Dialect::Abp, Dialect::Gemini, &msgs)
-        .unwrap();
-    assert_eq!(mapped[0].role, MessageRole::User);
-    assert!(mapped[0].content.starts_with("[System] "));
-    assert!(mapped[0].content.contains("Answer briefly."));
-}
-
-#[test]
-fn role_user_to_user_all_pairs_lossless() {
-    let m = matrix();
-    let msgs = vec![Message {
-        role: MessageRole::User,
-        content: "Hello from the user".into(),
-    }];
-    for &from in Dialect::ALL {
-        for &to in Dialect::ALL {
-            let mapped = m.map_messages(from, to, &msgs).unwrap();
-            assert_eq!(mapped[0].role, MessageRole::User);
-            assert_eq!(
-                mapped[0].content, "Hello from the user",
-                "user role mapping failed for {from:?} -> {to:?}"
-            );
-        }
-    }
-}
-
-#[test]
-fn role_assistant_to_assistant_all_pairs_lossless() {
-    let m = matrix();
-    let msgs = vec![Message {
-        role: MessageRole::Assistant,
-        content: "I am the assistant.".into(),
-    }];
-    for &from in Dialect::ALL {
-        for &to in Dialect::ALL {
-            let mapped = m.map_messages(from, to, &msgs).unwrap();
-            assert_eq!(mapped[0].role, MessageRole::Assistant);
-            assert_eq!(
-                mapped[0].content, "I am the assistant.",
-                "assistant role mapping failed for {from:?} -> {to:?}"
-            );
-        }
-    }
-}
-
-#[test]
-fn role_tool_to_tool_openai_codex_same_format() {
-    // OpenAI and Codex share tool call/result format — tool names map identically.
-    let m = matrix();
-    let call = ToolCall {
-        tool_name: "file_read".to_string(),
-        tool_use_id: Some("tc-1".into()),
-        parent_tool_use_id: None,
-        input: json!({"path": "main.rs"}),
-    };
-    // openai -> codex: codex uses same names as openai
-    let translated = m.translate_tool_call("openai", "codex", &call).unwrap();
-    assert_eq!(translated.tool_use_id, call.tool_use_id);
-    assert_eq!(translated.input, call.input);
-}
-
-#[test]
-fn role_tool_result_openai_to_anthropic_field_preservation() {
-    // OpenAI tool_result maps to Anthropic — field names differ but content preserved.
-    let m = matrix();
-    let result = ToolResult {
-        tool_name: "file_read".to_string(),
-        tool_use_id: Some("tc-1".into()),
-        output: json!({"content": "fn main() {}"}),
-        is_error: false,
-    };
-    let translated = m
-        .translate_tool_result("openai", "anthropic", &result)
-        .unwrap();
-    assert_eq!(translated.tool_name, "Read"); // mapped name
-    assert_eq!(translated.tool_use_id, result.tool_use_id);
-    assert_eq!(translated.output, result.output);
-    assert_eq!(translated.is_error, result.is_error);
-}
-
-#[test]
-fn multi_turn_conversation_preserved_through_mapping() {
-    let m = matrix();
-    let conversation = vec![
-        Message {
-            role: MessageRole::System,
-            content: "You write Rust.".into(),
-        },
-        Message {
-            role: MessageRole::User,
-            content: "Write hello world.".into(),
-        },
-        Message {
-            role: MessageRole::Assistant,
-            content: "fn main() { println!(\"Hello\"); }".into(),
-        },
-        Message {
-            role: MessageRole::User,
-            content: "Add a test.".into(),
-        },
-        Message {
-            role: MessageRole::Assistant,
-            content: "#[test] fn it_works() {}".into(),
-        },
-    ];
-
-    // OpenAI preserves all roles as-is.
-    let openai_msgs = m
-        .map_messages(Dialect::Abp, Dialect::OpenAi, &conversation)
-        .unwrap();
-    assert_eq!(openai_msgs.len(), 5);
-    assert_eq!(openai_msgs[0].role, MessageRole::System);
-    assert_eq!(openai_msgs[1].role, MessageRole::User);
-    assert_eq!(openai_msgs[2].role, MessageRole::Assistant);
-    assert_eq!(openai_msgs[3].role, MessageRole::User);
-    assert_eq!(openai_msgs[4].role, MessageRole::Assistant);
-
-    // Claude folds system into user but preserves sequence.
-    let claude_msgs = m
-        .map_messages(Dialect::Abp, Dialect::Claude, &conversation)
-        .unwrap();
-    assert_eq!(claude_msgs.len(), 5);
-    assert_eq!(claude_msgs[0].role, MessageRole::User);
-    assert!(claude_msgs[0].content.starts_with("[System] "));
-    assert_eq!(claude_msgs[1].content, "Write hello world.");
-    assert_eq!(claude_msgs[4].content, "#[test] fn it_works() {}");
-}
-
-// =========================================================================
-// 2. Tool Definition Mapping (6 tests)
-// =========================================================================
-
-#[test]
-fn tool_def_openai_function_to_claude_tool() {
-    let m = matrix();
-    let tool = make_tool_def(
-        "file_read",
-        "Read a file",
-        json!({
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "File path"}
-            },
-            "required": ["path"]
-        }),
-    );
-    let mapped = m
-        .map_tool_definitions(
-            Dialect::OpenAi,
-            Dialect::Claude,
-            std::slice::from_ref(&tool),
-        )
-        .unwrap();
-    assert_eq!(mapped.len(), 1);
-    assert_eq!(mapped[0].name, "Read"); // openai -> claude name
-    assert_eq!(mapped[0].description, "Read a file");
-    assert_eq!(mapped[0].parameters, tool.parameters); // JSON Schema preserved
-}
-
-#[test]
-fn tool_def_openai_function_to_gemini_declaration() {
-    let m = matrix();
-    let tool = make_tool_def(
-        "file_read",
-        "Read file contents",
-        json!({
-            "type": "object",
-            "properties": {
-                "filePath": {"type": "string"}
-            }
-        }),
-    );
-    let mapped = m
-        .map_tool_definitions(
-            Dialect::OpenAi,
-            Dialect::Gemini,
-            std::slice::from_ref(&tool),
-        )
-        .unwrap();
-    assert_eq!(mapped[0].name, "readFile"); // camelCase convention
-    assert_eq!(mapped[0].parameters, tool.parameters);
-}
-
-#[test]
-fn tool_def_claude_to_openai_reverse_mapping() {
-    let m = matrix();
-    let tool = make_tool_def(
-        "Read",
-        "Read a file from disk",
-        json!({"type": "object", "properties": {"path": {"type": "string"}}}),
-    );
-    let mapped = m
-        .map_tool_definitions(Dialect::Claude, Dialect::OpenAi, &[tool])
-        .unwrap();
-    assert_eq!(mapped[0].name, "file_read");
-    assert_eq!(mapped[0].description, "Read a file from disk");
-}
-
-#[test]
-fn tool_def_complex_nested_json_schema() {
-    let m = matrix();
-    let complex_params = json!({
-        "type": "object",
-        "properties": {
-            "config": {
-                "type": "object",
-                "properties": {
-                    "nested": {
-                        "type": "object",
-                        "properties": {
-                            "deep_value": {"type": "integer", "minimum": 0},
-                            "array_of_objects": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "key": {"type": "string"},
-                                        "value": {"type": ["string", "number", "null"]}
-                                    },
-                                    "required": ["key"]
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "required": ["config"]
-    });
-    let tool = make_tool_def("read_file", "Complex tool", complex_params.clone());
-    // Translate through ABP -> each vendor and verify schema fidelity.
-    for &target in VENDOR_DIALECTS {
-        let mapped = m
-            .map_tool_definitions(Dialect::Abp, target, std::slice::from_ref(&tool))
-            .unwrap();
-        assert_eq!(
-            mapped[0].parameters, complex_params,
-            "complex nested JSON Schema not preserved for {target:?}"
-        );
-    }
-}
-
-#[test]
-fn tool_def_enum_parameters_preserved() {
-    let m = matrix();
-    let tool = make_tool_def(
-        "bash",
-        "Execute shell command",
-        json!({
-            "type": "object",
-            "properties": {
-                "shell": {
-                    "type": "string",
-                    "enum": ["bash", "zsh", "fish", "sh"]
+fn tool_call_conv() -> IrConversation {
+    IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "What is the weather?"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Text {
+                    text: "Let me check.".into(),
                 },
-                "timeout_ms": {
-                    "type": "integer",
-                    "enum": [1000, 5000, 30000, 60000]
-                }
-            }
-        }),
+                IrContentBlock::ToolUse {
+                    id: "call_1".into(),
+                    name: "get_weather".into(),
+                    input: json!({"city": "NYC"}),
+                },
+            ],
+        ),
+        IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "call_1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "72°F, sunny".into(),
+                }],
+                is_error: false,
+            }],
+        ),
+        IrMessage::text(IrRole::Assistant, "It's 72°F and sunny in NYC."),
+    ])
+}
+
+fn multi_tool_conv() -> IrConversation {
+    IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "Search and read"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::ToolUse {
+                    id: "t1".into(),
+                    name: "search".into(),
+                    input: json!({"q": "rust"}),
+                },
+                IrContentBlock::ToolUse {
+                    id: "t2".into(),
+                    name: "read_file".into(),
+                    input: json!({"path": "main.rs"}),
+                },
+            ],
+        ),
+        IrMessage::new(
+            IrRole::User,
+            vec![
+                IrContentBlock::ToolResult {
+                    tool_use_id: "t1".into(),
+                    content: vec![IrContentBlock::Text {
+                        text: "result1".into(),
+                    }],
+                    is_error: false,
+                },
+                IrContentBlock::ToolResult {
+                    tool_use_id: "t2".into(),
+                    content: vec![IrContentBlock::Text {
+                        text: "result2".into(),
+                    }],
+                    is_error: false,
+                },
+            ],
+        ),
+    ])
+}
+
+fn thinking_conv() -> IrConversation {
+    IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "Solve this puzzle"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking {
+                    text: "Let me think step by step...".into(),
+                },
+                IrContentBlock::Text {
+                    text: "The answer is 42.".into(),
+                },
+            ],
+        ),
+    ])
+}
+
+fn image_conv() -> IrConversation {
+    IrConversation::from_messages(vec![IrMessage::new(
+        IrRole::User,
+        vec![
+            IrContentBlock::Text {
+                text: "Describe this image.".into(),
+            },
+            IrContentBlock::Image {
+                media_type: "image/png".into(),
+                data: "iVBORw0KGgo=".into(),
+            },
+        ],
+    )])
+}
+
+fn error_tool_result_conv() -> IrConversation {
+    IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "run cmd"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "e1".into(),
+                name: "exec".into(),
+                input: json!({"cmd": "fail"}),
+            }],
+        ),
+        IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "e1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "error: command not found".into(),
+                }],
+                is_error: true,
+            }],
+        ),
+    ])
+}
+
+fn metadata_conv() -> IrConversation {
+    let mut msg = IrMessage::text(IrRole::User, "with metadata");
+    msg.metadata.insert("source".into(), json!("test"));
+    msg.metadata
+        .insert("timestamp".into(), json!(1_700_000_000));
+    IrConversation::from_messages(vec![msg])
+}
+
+fn thinking_with_tool_conv() -> IrConversation {
+    IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "Complex task"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking {
+                    text: "I need to call a tool first.".into(),
+                },
+                IrContentBlock::ToolUse {
+                    id: "tc1".into(),
+                    name: "analyze".into(),
+                    input: json!({"data": [1, 2, 3]}),
+                },
+            ],
+        ),
+        IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "tc1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "analysis done".into(),
+                }],
+                is_error: false,
+            }],
+        ),
+    ])
+}
+
+/// Count Thinking blocks across a conversation.
+fn count_thinking(conv: &IrConversation) -> usize {
+    conv.messages
+        .iter()
+        .flat_map(|m| &m.content)
+        .filter(|b| matches!(b, IrContentBlock::Thinking { .. }))
+        .count()
+}
+
+/// Count ToolUse blocks across a conversation.
+fn count_tool_uses(conv: &IrConversation) -> usize {
+    conv.tool_calls().len()
+}
+
+/// Count ToolResult blocks across a conversation.
+fn count_tool_results(conv: &IrConversation) -> usize {
+    conv.messages
+        .iter()
+        .flat_map(|m| &m.content)
+        .filter(|b| matches!(b, IrContentBlock::ToolResult { .. }))
+        .count()
+}
+
+/// Concatenate all text across every message.
+fn all_text(conv: &IrConversation) -> String {
+    conv.messages
+        .iter()
+        .map(|m| m.text_content())
+        .collect::<Vec<_>>()
+        .join("|")
+}
+
+/// Map via factory, panicking if no mapper exists.
+fn map_req(from: Dialect, to: Dialect, conv: &IrConversation) -> IrConversation {
+    let mapper = default_ir_mapper(from, to).unwrap_or_else(|| {
+        panic!("no mapper for {from:?} -> {to:?}");
+    });
+    mapper.map_request(from, to, conv).unwrap()
+}
+
+/// Supported cross-dialect pairs (non-identity).
+const CROSS_PAIRS: [(Dialect, Dialect); 6] = [
+    (Dialect::OpenAi, Dialect::Claude),
+    (Dialect::Claude, Dialect::OpenAi),
+    (Dialect::OpenAi, Dialect::Gemini),
+    (Dialect::Gemini, Dialect::OpenAi),
+    (Dialect::Claude, Dialect::Gemini),
+    (Dialect::Gemini, Dialect::Claude),
+];
+
+// ═════════════════════════════════════════════════════════════════════════
+// 1. TEXT MESSAGE FIDELITY (15 tests)
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn text_fidelity_openai_to_claude_preserves_all_text() {
+    let result = map_req(Dialect::OpenAi, Dialect::Claude, &simple_text_conv());
+    assert_eq!(
+        result.messages[0].text_content(),
+        "You are a helpful assistant."
     );
-    for &target in VENDOR_DIALECTS {
-        let mapped = m
-            .map_tool_definitions(Dialect::Abp, target, std::slice::from_ref(&tool))
-            .unwrap();
-        let shell_enum = &mapped[0].parameters["properties"]["shell"]["enum"];
-        assert_eq!(shell_enum, &json!(["bash", "zsh", "fish", "sh"]));
-        let timeout_enum = &mapped[0].parameters["properties"]["timeout_ms"]["enum"];
-        assert_eq!(timeout_enum, &json!([1000, 5000, 30000, 60000]));
-    }
+    assert_eq!(result.messages[1].text_content(), "Hello!");
+    assert_eq!(
+        result.messages[2].text_content(),
+        "Hi there, how can I help?"
+    );
 }
 
 #[test]
-fn tool_def_no_parameters_empty_schema() {
-    let m = matrix();
-    let tool = make_tool_def("glob", "List files", json!({}));
-    for &target in VENDOR_DIALECTS {
-        let mapped = m
-            .map_tool_definitions(Dialect::Abp, target, std::slice::from_ref(&tool))
-            .unwrap();
+fn text_fidelity_claude_to_openai_preserves_all_text() {
+    let result = map_req(Dialect::Claude, Dialect::OpenAi, &simple_text_conv());
+    assert_eq!(
+        result.messages[0].text_content(),
+        "You are a helpful assistant."
+    );
+    assert_eq!(result.messages[1].text_content(), "Hello!");
+    assert_eq!(
+        result.messages[2].text_content(),
+        "Hi there, how can I help?"
+    );
+}
+
+#[test]
+fn text_fidelity_openai_to_gemini_preserves_all_text() {
+    let result = map_req(Dialect::OpenAi, Dialect::Gemini, &simple_text_conv());
+    assert_eq!(
+        result.messages[0].text_content(),
+        "You are a helpful assistant."
+    );
+    assert_eq!(result.messages[1].text_content(), "Hello!");
+    assert_eq!(
+        result.messages[2].text_content(),
+        "Hi there, how can I help?"
+    );
+}
+
+#[test]
+fn text_fidelity_gemini_to_openai_preserves_all_text() {
+    let result = map_req(Dialect::Gemini, Dialect::OpenAi, &simple_text_conv());
+    assert_eq!(
+        result.messages[0].text_content(),
+        "You are a helpful assistant."
+    );
+    assert_eq!(result.messages[1].text_content(), "Hello!");
+    assert_eq!(
+        result.messages[2].text_content(),
+        "Hi there, how can I help?"
+    );
+}
+
+#[test]
+fn text_fidelity_claude_to_gemini_preserves_all_text() {
+    let result = map_req(Dialect::Claude, Dialect::Gemini, &simple_text_conv());
+    assert_eq!(
+        result.messages[0].text_content(),
+        "You are a helpful assistant."
+    );
+    assert_eq!(result.messages[1].text_content(), "Hello!");
+    assert_eq!(
+        result.messages[2].text_content(),
+        "Hi there, how can I help?"
+    );
+}
+
+#[test]
+fn text_fidelity_gemini_to_claude_preserves_all_text() {
+    let result = map_req(Dialect::Gemini, Dialect::Claude, &simple_text_conv());
+    assert_eq!(
+        result.messages[0].text_content(),
+        "You are a helpful assistant."
+    );
+    assert_eq!(result.messages[1].text_content(), "Hello!");
+    assert_eq!(
+        result.messages[2].text_content(),
+        "Hi there, how can I help?"
+    );
+}
+
+#[test]
+fn text_fidelity_system_role_preserved_all_pairs() {
+    let conv = simple_text_conv();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
         assert_eq!(
-            mapped[0].parameters,
-            json!({}),
-            "empty schema should be preserved for {target:?}"
+            result.messages[0].text_content(),
+            "You are a helpful assistant.",
+            "system text lost for {from:?} -> {to:?}"
         );
     }
 }
 
-// =========================================================================
-// 3. Streaming Event Parity (6 tests)
-// =========================================================================
+#[test]
+fn text_fidelity_user_role_preserved_all_cross_pairs() {
+    let conv = user_only_conv();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        assert_eq!(result.messages[0].role, IrRole::User);
+        assert_eq!(
+            result.messages[0].text_content(),
+            "Just a question",
+            "user text lost for {from:?} -> {to:?}"
+        );
+    }
+}
 
 #[test]
-fn text_delta_semantics_across_all_sdks() {
-    let m = matrix();
-    let delta = AgentEvent {
-        ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: "Hello, ".into(),
-        },
-        ext: None,
-    };
-    // All dialect pairs must preserve delta text content.
-    for &from in ALL_STRING_DIALECTS {
-        for &to in ALL_STRING_DIALECTS {
-            let translated = m.translate_event(from, to, &delta).unwrap();
-            match &translated.kind {
-                AgentEventKind::AssistantDelta { text } => {
-                    assert_eq!(text, "Hello, ", "delta text lost {from} -> {to}");
+fn text_fidelity_multi_turn_message_count_preserved_across_pairs() {
+    let conv = multi_turn_conv();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        assert_eq!(
+            result.len(),
+            conv.len(),
+            "message count changed for {from:?} -> {to:?}"
+        );
+    }
+}
+
+#[test]
+fn text_fidelity_multi_turn_text_ordering_preserved() {
+    let conv = multi_turn_conv();
+    let expected_texts: Vec<String> = conv.messages.iter().map(|m| m.text_content()).collect();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        let result_texts: Vec<String> = result.messages.iter().map(|m| m.text_content()).collect();
+        assert_eq!(
+            expected_texts, result_texts,
+            "text ordering broken for {from:?} -> {to:?}"
+        );
+    }
+}
+
+#[test]
+fn text_fidelity_empty_conversation_stays_empty() {
+    let conv = IrConversation::new();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        assert!(
+            result.is_empty(),
+            "empty conv not empty for {from:?} -> {to:?}"
+        );
+    }
+}
+
+#[test]
+fn text_fidelity_unicode_preserved() {
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "こんにちは 🌍 émojis «quotes»"),
+        IrMessage::text(IrRole::Assistant, "Ответ: ∑∏∫ — ñ ü ö"),
+    ]);
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        assert_eq!(
+            result.messages[0].text_content(),
+            "こんにちは 🌍 émojis «quotes»"
+        );
+        assert_eq!(result.messages[1].text_content(), "Ответ: ∑∏∫ — ñ ü ö");
+    }
+}
+
+#[test]
+fn text_fidelity_empty_string_text_preserved() {
+    let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "")]);
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        assert_eq!(result.messages[0].text_content(), "");
+    }
+}
+
+#[test]
+fn text_fidelity_very_long_text_preserved() {
+    let long_text = "a".repeat(100_000);
+    let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, &long_text)]);
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        assert_eq!(result.messages[0].text_content().len(), 100_000);
+    }
+}
+
+#[test]
+fn text_fidelity_identity_mapper_is_exact_clone() {
+    let mapper = IrIdentityMapper;
+    let conv = simple_text_conv();
+    for &d in Dialect::all() {
+        let result = mapper.map_request(d, d, &conv).unwrap();
+        assert_eq!(conv, result, "identity not exact for {d:?}");
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 2. TOOL CALL FIDELITY (15 tests)
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn tool_fidelity_openai_to_claude_tool_use_name_preserved() {
+    let result = map_req(Dialect::OpenAi, Dialect::Claude, &tool_call_conv());
+    let tools = result.tool_calls();
+    assert_eq!(tools.len(), 1);
+    if let IrContentBlock::ToolUse { name, .. } = tools[0] {
+        assert_eq!(name, "get_weather");
+    } else {
+        panic!("expected ToolUse");
+    }
+}
+
+#[test]
+fn tool_fidelity_openai_to_claude_tool_use_input_preserved() {
+    let result = map_req(Dialect::OpenAi, Dialect::Claude, &tool_call_conv());
+    let tools = result.tool_calls();
+    if let IrContentBlock::ToolUse { input, .. } = tools[0] {
+        assert_eq!(input, &json!({"city": "NYC"}));
+    } else {
+        panic!("expected ToolUse");
+    }
+}
+
+#[test]
+fn tool_fidelity_openai_to_claude_tool_use_id_preserved() {
+    let result = map_req(Dialect::OpenAi, Dialect::Claude, &tool_call_conv());
+    let tools = result.tool_calls();
+    if let IrContentBlock::ToolUse { id, .. } = tools[0] {
+        assert_eq!(id, "call_1");
+    } else {
+        panic!("expected ToolUse");
+    }
+}
+
+#[test]
+fn tool_fidelity_openai_to_claude_tool_result_role_becomes_user() {
+    let result = map_req(Dialect::OpenAi, Dialect::Claude, &tool_call_conv());
+    let tool_result_msg = &result.messages[2];
+    assert_eq!(tool_result_msg.role, IrRole::User);
+    assert!(matches!(
+        &tool_result_msg.content[0],
+        IrContentBlock::ToolResult { .. }
+    ));
+}
+
+#[test]
+fn tool_fidelity_openai_to_gemini_tool_result_role_becomes_user() {
+    let result = map_req(Dialect::OpenAi, Dialect::Gemini, &tool_call_conv());
+    let tool_result_msg = &result.messages[2];
+    assert_eq!(tool_result_msg.role, IrRole::User);
+}
+
+#[test]
+fn tool_fidelity_claude_to_openai_user_tool_results_become_tool_role() {
+    let result = map_req(Dialect::Claude, Dialect::OpenAi, &multi_tool_conv());
+    let tool_msgs: Vec<_> = result
+        .messages
+        .iter()
+        .filter(|m| m.role == IrRole::Tool)
+        .collect();
+    assert_eq!(tool_msgs.len(), 2, "expected two Tool-role messages");
+}
+
+#[test]
+fn tool_fidelity_gemini_to_openai_user_tool_results_become_tool_role() {
+    let result = map_req(Dialect::Gemini, Dialect::OpenAi, &multi_tool_conv());
+    let tool_msgs: Vec<_> = result
+        .messages
+        .iter()
+        .filter(|m| m.role == IrRole::Tool)
+        .collect();
+    assert_eq!(tool_msgs.len(), 2);
+}
+
+#[test]
+fn tool_fidelity_tool_use_count_preserved_all_pairs() {
+    let conv = tool_call_conv();
+    let orig_count = count_tool_uses(&conv);
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        assert_eq!(
+            count_tool_uses(&result),
+            orig_count,
+            "tool use count changed for {from:?} -> {to:?}"
+        );
+    }
+}
+
+#[test]
+fn tool_fidelity_tool_result_count_preserved_all_pairs() {
+    let conv = tool_call_conv();
+    let orig_count = count_tool_results(&conv);
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        assert_eq!(
+            count_tool_results(&result),
+            orig_count,
+            "tool result count changed for {from:?} -> {to:?}"
+        );
+    }
+}
+
+#[test]
+fn tool_fidelity_multi_tool_use_names_preserved() {
+    let conv = multi_tool_conv();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        let names: Vec<&str> = result
+            .tool_calls()
+            .iter()
+            .filter_map(|b| {
+                if let IrContentBlock::ToolUse { name, .. } = b {
+                    Some(name.as_str())
+                } else {
+                    None
                 }
-                other => panic!("expected AssistantDelta, got {other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            names,
+            vec!["search", "read_file"],
+            "tool names differ for {from:?} -> {to:?}"
+        );
+    }
+}
+
+#[test]
+fn tool_fidelity_error_flag_preserved_openai_to_claude() {
+    let result = map_req(Dialect::OpenAi, Dialect::Claude, &error_tool_result_conv());
+    let tr_blocks: Vec<_> = result
+        .messages
+        .iter()
+        .flat_map(|m| &m.content)
+        .filter(|b| matches!(b, IrContentBlock::ToolResult { .. }))
+        .collect();
+    assert_eq!(tr_blocks.len(), 1);
+    if let IrContentBlock::ToolResult { is_error, .. } = tr_blocks[0] {
+        assert!(is_error, "is_error flag lost");
+    }
+}
+
+#[test]
+fn tool_fidelity_error_flag_preserved_openai_to_gemini() {
+    let result = map_req(Dialect::OpenAi, Dialect::Gemini, &error_tool_result_conv());
+    let tr_blocks: Vec<_> = result
+        .messages
+        .iter()
+        .flat_map(|m| &m.content)
+        .filter(|b| matches!(b, IrContentBlock::ToolResult { .. }))
+        .collect();
+    if let IrContentBlock::ToolResult { is_error, .. } = tr_blocks[0] {
+        assert!(is_error, "is_error flag lost in OpenAI -> Gemini");
+    }
+}
+
+#[test]
+fn tool_fidelity_error_flag_preserved_claude_to_gemini() {
+    let result = map_req(Dialect::Claude, Dialect::Gemini, &error_tool_result_conv());
+    let tr_blocks: Vec<_> = result
+        .messages
+        .iter()
+        .flat_map(|m| &m.content)
+        .filter(|b| matches!(b, IrContentBlock::ToolResult { .. }))
+        .collect();
+    if let IrContentBlock::ToolResult { is_error, .. } = tr_blocks[0] {
+        assert!(is_error, "is_error flag lost in Claude -> Gemini");
+    }
+}
+
+#[test]
+fn tool_fidelity_tool_result_content_text_preserved() {
+    let conv = tool_call_conv();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        let found = result.messages.iter().flat_map(|m| &m.content).any(|b| {
+            if let IrContentBlock::ToolResult { content, .. } = b {
+                content
+                    .iter()
+                    .any(|c| matches!(c, IrContentBlock::Text { text } if text == "72°F, sunny"))
+            } else {
+                false
             }
-        }
+        });
+        assert!(
+            found,
+            "tool result content text lost for {from:?} -> {to:?}"
+        );
     }
 }
 
 #[test]
-fn tool_call_streaming_accumulation_openai_to_anthropic() {
-    // OpenAI streams tool call fragments; Claude sends blocks.
-    // Through the projection matrix, the ToolCall event is translated as a whole unit.
-    let m = matrix();
-    let event = AgentEvent {
-        ts: Utc::now(),
-        kind: AgentEventKind::ToolCall {
-            tool_name: "file_read".into(),
-            tool_use_id: Some("tc-stream-1".into()),
-            parent_tool_use_id: None,
-            input: json!({"path": "src/lib.rs", "encoding": "utf-8"}),
-        },
-        ext: None,
-    };
-    let translated = m.translate_event("openai", "anthropic", &event).unwrap();
-    match &translated.kind {
-        AgentEventKind::ToolCall {
-            tool_name,
-            tool_use_id,
-            input,
-            ..
-        } => {
-            assert_eq!(tool_name, "Read");
-            assert_eq!(tool_use_id.as_deref(), Some("tc-stream-1"));
-            assert_eq!(input, &json!({"path": "src/lib.rs", "encoding": "utf-8"}));
-        }
-        other => panic!("expected ToolCall, got {other:?}"),
+fn tool_fidelity_mixed_text_and_tool_use_in_assistant_preserved() {
+    let conv = tool_call_conv();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        let asst_msg = result.messages.iter().find(|m| {
+            m.role == IrRole::Assistant
+                && m.content
+                    .iter()
+                    .any(|b| matches!(b, IrContentBlock::ToolUse { .. }))
+        });
+        assert!(
+            asst_msg.is_some(),
+            "assistant with tool_use vanished for {from:?} -> {to:?}"
+        );
+        let asst = asst_msg.unwrap();
+        assert!(
+            asst.content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::Text { text } if text == "Let me check.")),
+            "text alongside tool_use lost for {from:?} -> {to:?}"
+        );
     }
 }
 
-#[test]
-fn stop_reason_mapping_via_event_tables() {
-    // Verify event mapping tables have run_completed equivalents across dialects.
-    let m = matrix();
-    let abp_to_openai = m.event_mapping("abp", "openai").unwrap();
-    assert_eq!(
-        abp_to_openai.kind_map.get("run_completed"),
-        Some(&"response.completed".to_string())
-    );
-
-    let abp_to_anthropic = m.event_mapping("abp", "anthropic").unwrap();
-    assert_eq!(
-        abp_to_anthropic.kind_map.get("run_completed"),
-        Some(&"message_stop".to_string())
-    );
-
-    let abp_to_gemini = m.event_mapping("abp", "gemini").unwrap();
-    assert_eq!(
-        abp_to_gemini.kind_map.get("run_completed"),
-        Some(&"generate_content_end".to_string())
-    );
-}
+// ═════════════════════════════════════════════════════════════════════════
+// 3. STREAMING FIDELITY (10 tests)
+//    Simulated by mapping incrementally growing conversations and
+//    verifying order, content, and partial-state correctness.
+// ═════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn usage_token_counting_via_event_passthrough() {
-    // Token usage metadata in ext is preserved through translation.
-    let m = matrix();
-    let mut ext = BTreeMap::new();
-    ext.insert(
-        "usage".to_string(),
-        json!({
-            "input_tokens": 150,
-            "output_tokens": 42,
-            "total_tokens": 192
-        }),
-    );
-    let event = AgentEvent {
-        ts: Utc::now(),
-        kind: AgentEventKind::RunCompleted {
-            message: "done".into(),
-        },
-        ext: Some(ext.clone()),
-    };
-    for &from in ALL_STRING_DIALECTS {
-        for &to in ALL_STRING_DIALECTS {
-            let translated = m.translate_event(from, to, &event).unwrap();
-            let usage = translated.ext.as_ref().unwrap().get("usage").unwrap();
-            assert_eq!(usage["input_tokens"], 150);
-            assert_eq!(usage["output_tokens"], 42);
-            assert_eq!(usage["total_tokens"], 192);
-        }
-    }
-}
-
-#[test]
-fn finish_reason_variants_across_sdks() {
-    // Each SDK uses different stop/finish terminology — verify event mapping tables.
-    let m = matrix();
-    // OpenAI: response.completed, Anthropic: message_stop, Gemini: generate_content_end
-    let pairs: &[(&str, &str, &str)] = &[
-        ("openai", "anthropic", "message_stop"),
-        ("openai", "gemini", "generate_content_end"),
-        ("anthropic", "openai", "response.completed"),
-        ("anthropic", "gemini", "generate_content_end"),
-        ("gemini", "openai", "response.completed"),
-        ("gemini", "anthropic", "message_stop"),
+fn streaming_fidelity_incremental_messages_preserve_order_openai_claude() {
+    let mapper = OpenAiClaudeIrMapper;
+    let msgs = [
+        IrMessage::text(IrRole::User, "msg1"),
+        IrMessage::text(IrRole::Assistant, "msg2"),
+        IrMessage::text(IrRole::User, "msg3"),
     ];
-    for &(from, to, expected_stop) in pairs {
-        let mapping = m.event_mapping(from, to).unwrap();
-        // Find the mapping entry for the source "completed" event.
-        let source_completed = match from {
-            "openai" => "response.completed",
-            "anthropic" => "message_stop",
-            "gemini" => "generate_content_end",
-            _ => continue,
-        };
-        let target = mapping.kind_map.get(source_completed);
-        assert_eq!(
-            target,
-            Some(&expected_stop.to_string()),
-            "finish reason mapping {from} -> {to}"
-        );
+    for i in 1..=msgs.len() {
+        let conv = IrConversation::from_messages(msgs[..i].to_vec());
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        assert_eq!(result.len(), i);
+        for (mapped, orig) in result.messages.iter().zip(msgs[..i].iter()) {
+            assert_eq!(mapped.text_content(), orig.text_content());
+        }
     }
 }
 
 #[test]
-fn empty_delta_handling() {
-    let m = matrix();
-    let delta = AgentEvent {
-        ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta { text: "".into() },
-        ext: None,
-    };
-    for &from in ALL_STRING_DIALECTS {
-        for &to in ALL_STRING_DIALECTS {
-            let translated = m.translate_event(from, to, &delta).unwrap();
-            match &translated.kind {
-                AgentEventKind::AssistantDelta { text } => {
-                    assert_eq!(text, "", "empty delta should stay empty {from} -> {to}");
+fn streaming_fidelity_incremental_messages_preserve_order_openai_gemini() {
+    let mapper = OpenAiGeminiIrMapper;
+    let msgs = [
+        IrMessage::text(IrRole::User, "msg1"),
+        IrMessage::text(IrRole::Assistant, "msg2"),
+        IrMessage::text(IrRole::User, "msg3"),
+    ];
+    for i in 1..=msgs.len() {
+        let conv = IrConversation::from_messages(msgs[..i].to_vec());
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
+        assert_eq!(result.len(), i);
+    }
+}
+
+#[test]
+fn streaming_fidelity_incremental_messages_preserve_order_claude_gemini() {
+    let mapper = ClaudeGeminiIrMapper;
+    let msgs = [
+        IrMessage::text(IrRole::User, "msg1"),
+        IrMessage::text(IrRole::Assistant, "msg2"),
+        IrMessage::text(IrRole::User, "msg3"),
+    ];
+    for i in 1..=msgs.len() {
+        let conv = IrConversation::from_messages(msgs[..i].to_vec());
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+            .unwrap();
+        assert_eq!(result.len(), i);
+    }
+}
+
+#[test]
+fn streaming_fidelity_partial_tool_flow_maps_consistently() {
+    let mapper = OpenAiClaudeIrMapper;
+    let step1 = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "question")]);
+    let r1 = mapper
+        .map_request(Dialect::OpenAi, Dialect::Claude, &step1)
+        .unwrap();
+    assert_eq!(r1.len(), 1);
+
+    let step2 = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "question"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "x".into(),
+                name: "fn".into(),
+                input: json!({}),
+            }],
+        ),
+    ]);
+    let r2 = mapper
+        .map_request(Dialect::OpenAi, Dialect::Claude, &step2)
+        .unwrap();
+    assert_eq!(r2.len(), 2);
+    assert_eq!(count_tool_uses(&r2), 1);
+}
+
+#[test]
+fn streaming_fidelity_response_mapping_preserves_order() {
+    let mapper = OpenAiClaudeIrMapper;
+    let conv = simple_text_conv();
+    let result = mapper
+        .map_response(Dialect::OpenAi, Dialect::Claude, &conv)
+        .unwrap();
+    for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
+        assert_eq!(orig.text_content(), mapped.text_content());
+    }
+}
+
+#[test]
+fn streaming_fidelity_multi_content_block_order_preserved() {
+    let conv = IrConversation::from_messages(vec![IrMessage::new(
+        IrRole::Assistant,
+        vec![
+            IrContentBlock::Text {
+                text: "First".into(),
+            },
+            IrContentBlock::Text {
+                text: "Second".into(),
+            },
+            IrContentBlock::Text {
+                text: "Third".into(),
+            },
+        ],
+    )]);
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        let texts: Vec<&str> = result.messages[0]
+            .content
+            .iter()
+            .filter_map(|b| match b {
+                IrContentBlock::Text { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts, vec!["First", "Second", "Third"]);
+    }
+}
+
+#[test]
+fn streaming_fidelity_tool_use_order_in_assistant_preserved() {
+    let conv = multi_tool_conv();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        let tool_names: Vec<&str> = result
+            .tool_calls()
+            .iter()
+            .filter_map(|b| {
+                if let IrContentBlock::ToolUse { name, .. } = b {
+                    Some(name.as_str())
+                } else {
+                    None
                 }
-                other => panic!("expected AssistantDelta, got {other:?}"),
-            }
-        }
-    }
-}
-
-// =========================================================================
-// 4. Capability Fidelity (5 tests)
-// =========================================================================
-
-#[test]
-fn all_six_dialects_report_capability_support_levels() {
-    // Each SDK dialect must report at least streaming + core tool capabilities.
-    let core_caps = [Capability::Streaming, Capability::ToolRead];
-    for (name, manifest) in all_sdk_manifests() {
-        for cap in &core_caps {
-            let level = manifest.get(cap);
-            assert!(level.is_some(), "{name} must report {cap:?} capability");
-            match level.unwrap() {
-                SupportLevel::Native | SupportLevel::Emulated => {}
-                other => panic!("{name} has unexpected {cap:?} level: {other:?}"),
-            }
-        }
-        // All dialects must report ToolWrite and ToolBash, even if unsupported.
-        for cap in &[Capability::ToolWrite, Capability::ToolBash] {
-            assert!(
-                manifest.contains_key(cap),
-                "{name} must declare {cap:?} capability"
-            );
-        }
+            })
+            .collect();
+        assert_eq!(tool_names, vec!["search", "read_file"]);
     }
 }
 
 #[test]
-fn passthrough_mode_preserves_all_fields_same_dialect() {
-    // Identity translation: same dialect → same dialect preserves everything.
-    let wo = WorkOrderBuilder::new("Passthrough test task").build();
-    for &d in Dialect::ALL {
-        let result = translate(d, d, &wo).unwrap();
-        let expected = serde_json::to_value(&wo).unwrap();
-        assert_eq!(result, expected, "identity passthrough failed for {d:?}");
-    }
-}
-
-#[test]
-fn mapped_mode_correctly_degrades_unsupported_features() {
-    // can_translate reports fidelity levels correctly.
-    let m = matrix();
-    // Identity = Lossless.
-    for &d in Dialect::ALL {
+fn streaming_fidelity_metadata_carried_through_mapping() {
+    let conv = metadata_conv();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
         assert_eq!(
-            m.can_translate(d, d),
-            TranslationFidelity::Lossless,
-            "identity should be lossless for {d:?}"
-        );
-    }
-    // ABP → vendor = LossySupported.
-    for &d in VENDOR_DIALECTS {
-        assert_eq!(
-            m.can_translate(Dialect::Abp, d),
-            TranslationFidelity::LossySupported,
-            "ABP -> {d:?} should be LossySupported"
-        );
-    }
-    // Vendor → ABP = LossySupported.
-    for &d in VENDOR_DIALECTS {
-        assert_eq!(
-            m.can_translate(d, Dialect::Abp),
-            TranslationFidelity::LossySupported,
-            "{d:?} -> ABP should be LossySupported"
+            result.messages[0].metadata.get("source"),
+            Some(&json!("test")),
+            "metadata lost for {from:?} -> {to:?}"
         );
     }
 }
 
 #[test]
-fn early_failure_when_critical_capability_unsupported() {
-    // Vendor-to-vendor WorkOrder translation is unsupported in v0.1.
-    let wo = WorkOrderBuilder::new("test").build();
-    for &from in VENDOR_DIALECTS {
-        for &to in VENDOR_DIALECTS {
-            if from == to {
-                continue;
-            }
-            let result = translate(from, to, &wo);
-            assert!(
-                result.is_err(),
-                "vendor-to-vendor {from:?} -> {to:?} should fail"
-            );
-            let err_msg = result.unwrap_err().to_string();
-            assert!(
-                err_msg.contains("unsupported"),
-                "error should mention unsupported for {from:?} -> {to:?}"
-            );
-        }
+fn streaming_fidelity_image_blocks_preserved_all_pairs() {
+    let conv = image_conv();
+    for (from, to) in &CROSS_PAIRS {
+        let result = map_req(*from, *to, &conv);
+        let has_image = result.messages[0].content.iter().any(|b| {
+            matches!(
+                b,
+                IrContentBlock::Image { media_type, .. } if media_type == "image/png"
+            )
+        });
+        assert!(has_image, "image block lost for {from:?} -> {to:?}");
     }
 }
 
 #[test]
-fn emulation_labeling_in_receipt_metadata() {
-    // Capability manifests correctly label emulated capabilities.
-    let claude_manifest = abp_claude_sdk::dialect::capability_manifest();
-    // Claude reports Checkpointing as Emulated.
+fn streaming_fidelity_request_and_response_produce_same_text() {
+    let conv = simple_text_conv();
+    for (from, to) in &CROSS_PAIRS {
+        let mapper = default_ir_mapper(*from, *to).unwrap();
+        let req_result = mapper.map_request(*from, *to, &conv).unwrap();
+        let resp_result = mapper.map_response(*from, *to, &conv).unwrap();
+        assert_eq!(
+            all_text(&req_result),
+            all_text(&resp_result),
+            "request/response diverge for {from:?} -> {to:?}"
+        );
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 4. LOSSY MAPPING AWARENESS (15 tests)
+//    Explicitly documents what information is lost in each direction.
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn lossy_thinking_dropped_claude_to_openai() {
+    let result = map_req(Dialect::Claude, Dialect::OpenAi, &thinking_conv());
+    assert_eq!(count_thinking(&result), 0, "thinking should be dropped");
+    assert_eq!(result.messages[1].text_content(), "The answer is 42.");
+}
+
+#[test]
+fn lossy_thinking_dropped_claude_to_gemini() {
+    let result = map_req(Dialect::Claude, Dialect::Gemini, &thinking_conv());
+    assert_eq!(count_thinking(&result), 0);
+    assert_eq!(result.messages[1].text_content(), "The answer is 42.");
+}
+
+#[test]
+fn lossy_thinking_dropped_openai_to_gemini() {
+    let result = map_req(Dialect::OpenAi, Dialect::Gemini, &thinking_conv());
+    assert_eq!(count_thinking(&result), 0);
+}
+
+#[test]
+fn lossy_thinking_preserved_openai_to_claude() {
+    // Claude supports thinking natively, so this direction is lossless.
+    let result = map_req(Dialect::OpenAi, Dialect::Claude, &thinking_conv());
+    assert_eq!(count_thinking(&result), 1);
+}
+
+#[test]
+fn lossy_thinking_preserved_gemini_to_claude() {
+    // Gemini→Claude mapper does not filter thinking.
+    let result = map_req(Dialect::Gemini, Dialect::Claude, &thinking_conv());
+    assert_eq!(count_thinking(&result), 1);
+}
+
+#[test]
+fn lossy_tool_role_remapped_to_user_for_claude() {
+    let conv = tool_call_conv();
+    let result = map_req(Dialect::OpenAi, Dialect::Claude, &conv);
+    let tool_result_msgs: Vec<_> = result
+        .messages
+        .iter()
+        .filter(|m| {
+            m.content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolResult { .. }))
+        })
+        .collect();
+    for msg in &tool_result_msgs {
+        assert_eq!(
+            msg.role,
+            IrRole::User,
+            "Claude should use User role for tool results"
+        );
+    }
+}
+
+#[test]
+fn lossy_tool_role_remapped_to_user_for_gemini() {
+    let conv = tool_call_conv();
+    let result = map_req(Dialect::OpenAi, Dialect::Gemini, &conv);
+    let tool_result_msgs: Vec<_> = result
+        .messages
+        .iter()
+        .filter(|m| {
+            m.content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolResult { .. }))
+        })
+        .collect();
+    for msg in &tool_result_msgs {
+        assert_eq!(
+            msg.role,
+            IrRole::User,
+            "Gemini should use User role for tool results"
+        );
+    }
+}
+
+#[test]
+fn lossy_claude_user_tool_results_split_to_openai_tool_messages() {
+    let conv = multi_tool_conv();
+    let result = map_req(Dialect::Claude, Dialect::OpenAi, &conv);
+    let user_with_tool_results = result
+        .messages
+        .iter()
+        .filter(|m| {
+            m.role == IrRole::User
+                && m.content
+                    .iter()
+                    .any(|b| matches!(b, IrContentBlock::ToolResult { .. }))
+        })
+        .count();
+    assert_eq!(
+        user_with_tool_results, 0,
+        "tool results should not remain in User messages"
+    );
+    let tool_msgs = result
+        .messages
+        .iter()
+        .filter(|m| m.role == IrRole::Tool)
+        .count();
+    assert_eq!(tool_msgs, 2);
+}
+
+#[test]
+fn lossy_gemini_user_tool_results_split_to_openai_tool_messages() {
+    let conv = multi_tool_conv();
+    let result = map_req(Dialect::Gemini, Dialect::OpenAi, &conv);
+    let tool_msgs = result
+        .messages
+        .iter()
+        .filter(|m| m.role == IrRole::Tool)
+        .count();
+    assert_eq!(tool_msgs, 2);
+}
+
+#[test]
+fn lossy_message_count_may_change_claude_to_openai_with_tool_results() {
+    let conv = multi_tool_conv();
+    let result = map_req(Dialect::Claude, Dialect::OpenAi, &conv);
     assert!(
+        result.len() >= conv.len(),
+        "message count should not decrease"
+    );
+}
+
+#[test]
+fn lossy_thinking_with_tool_use_drops_thinking_keeps_tool() {
+    let result = map_req(Dialect::Claude, Dialect::OpenAi, &thinking_with_tool_conv());
+    assert_eq!(count_thinking(&result), 0);
+    assert_eq!(count_tool_uses(&result), 1);
+}
+
+#[test]
+fn lossy_thinking_with_tool_use_drops_thinking_for_gemini() {
+    let result = map_req(Dialect::Claude, Dialect::Gemini, &thinking_with_tool_conv());
+    assert_eq!(count_thinking(&result), 0);
+    assert_eq!(count_tool_uses(&result), 1);
+}
+
+#[test]
+fn lossy_content_block_count_decreases_when_thinking_dropped() {
+    let conv = thinking_conv();
+    let orig_blocks = conv.messages[1].content.len();
+    assert_eq!(orig_blocks, 2); // Thinking + Text
+
+    let result = map_req(Dialect::Claude, Dialect::OpenAi, &conv);
+    let mapped_blocks = result.messages[1].content.len();
+    assert_eq!(mapped_blocks, 1); // Only Text
+}
+
+#[test]
+fn lossy_unsupported_pair_returns_error() {
+    let mapper = OpenAiClaudeIrMapper;
+    let conv = simple_text_conv();
+    let err = mapper
+        .map_request(Dialect::Gemini, Dialect::Kimi, &conv)
+        .unwrap_err();
+    assert!(matches!(err, MapError::UnsupportedPair { .. }));
+}
+
+#[test]
+fn lossy_factory_returns_none_for_unsupported_pair() {
+    assert!(default_ir_mapper(Dialect::Kimi, Dialect::Copilot).is_none());
+    assert!(default_ir_mapper(Dialect::Codex, Dialect::Gemini).is_none());
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 5. ROUND-TRIP DEGRADATION (15 tests)
+//    Map A→B→A and verify what survives and what is lost.
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn roundtrip_openai_claude_openai_simple_text_lossless() {
+    let conv = simple_text_conv();
+    let mid = map_req(Dialect::OpenAi, Dialect::Claude, &conv);
+    let back = map_req(Dialect::Claude, Dialect::OpenAi, &mid);
+    assert_eq!(conv.len(), back.len());
+    for (o, b) in conv.messages.iter().zip(back.messages.iter()) {
+        assert_eq!(o.role, b.role);
+        assert_eq!(o.text_content(), b.text_content());
+    }
+}
+
+#[test]
+fn roundtrip_openai_gemini_openai_simple_text_lossless() {
+    let conv = simple_text_conv();
+    let mid = map_req(Dialect::OpenAi, Dialect::Gemini, &conv);
+    let back = map_req(Dialect::Gemini, Dialect::OpenAi, &mid);
+    assert_eq!(conv.len(), back.len());
+    for (o, b) in conv.messages.iter().zip(back.messages.iter()) {
+        assert_eq!(o.role, b.role);
+        assert_eq!(o.text_content(), b.text_content());
+    }
+}
+
+#[test]
+fn roundtrip_claude_gemini_claude_simple_text_lossless() {
+    let conv = simple_text_conv();
+    let mid = map_req(Dialect::Claude, Dialect::Gemini, &conv);
+    let back = map_req(Dialect::Gemini, Dialect::Claude, &mid);
+    assert_eq!(conv.len(), back.len());
+    for (o, b) in conv.messages.iter().zip(back.messages.iter()) {
+        assert_eq!(o.role, b.role);
+        assert_eq!(o.text_content(), b.text_content());
+    }
+}
+
+#[test]
+fn roundtrip_openai_claude_openai_tool_use_names_preserved() {
+    let conv = tool_call_conv();
+    let mid = map_req(Dialect::OpenAi, Dialect::Claude, &conv);
+    let back = map_req(Dialect::Claude, Dialect::OpenAi, &mid);
+    assert_eq!(count_tool_uses(&conv), count_tool_uses(&back));
+    let orig_names: Vec<&str> = conv
+        .tool_calls()
+        .iter()
+        .filter_map(|b| {
+            if let IrContentBlock::ToolUse { name, .. } = b {
+                Some(name.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+    let back_names: Vec<&str> = back
+        .tool_calls()
+        .iter()
+        .filter_map(|b| {
+            if let IrContentBlock::ToolUse { name, .. } = b {
+                Some(name.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(orig_names, back_names);
+}
+
+#[test]
+fn roundtrip_openai_gemini_openai_tool_use_names_preserved() {
+    let conv = tool_call_conv();
+    let mid = map_req(Dialect::OpenAi, Dialect::Gemini, &conv);
+    let back = map_req(Dialect::Gemini, Dialect::OpenAi, &mid);
+    assert_eq!(count_tool_uses(&conv), count_tool_uses(&back));
+}
+
+#[test]
+fn roundtrip_claude_gemini_claude_tool_use_preserved() {
+    let conv = tool_call_conv();
+    let mid = map_req(Dialect::Claude, Dialect::Gemini, &conv);
+    let back = map_req(Dialect::Gemini, Dialect::Claude, &mid);
+    assert_eq!(count_tool_uses(&conv), count_tool_uses(&back));
+}
+
+#[test]
+fn roundtrip_thinking_lost_claude_openai_claude() {
+    let conv = thinking_conv();
+    assert_eq!(count_thinking(&conv), 1);
+    let mid = map_req(Dialect::Claude, Dialect::OpenAi, &conv);
+    assert_eq!(count_thinking(&mid), 0);
+    let back = map_req(Dialect::OpenAi, Dialect::Claude, &mid);
+    // Thinking is permanently lost after the OpenAI hop.
+    assert_eq!(count_thinking(&back), 0);
+    // But text survives.
+    assert_eq!(back.messages[1].text_content(), "The answer is 42.");
+}
+
+#[test]
+fn roundtrip_thinking_lost_claude_gemini_claude() {
+    let conv = thinking_conv();
+    let mid = map_req(Dialect::Claude, Dialect::Gemini, &conv);
+    assert_eq!(count_thinking(&mid), 0);
+    let back = map_req(Dialect::Gemini, Dialect::Claude, &mid);
+    assert_eq!(count_thinking(&back), 0);
+    assert_eq!(back.messages[1].text_content(), "The answer is 42.");
+}
+
+#[test]
+fn roundtrip_tool_role_recovers_openai_claude_openai() {
+    let conv = tool_call_conv();
+    let mid = map_req(Dialect::OpenAi, Dialect::Claude, &conv);
+    // In Claude form, tool result should be User-role.
+    assert!(mid.messages.iter().any(|m| {
+        m.role == IrRole::User
+            && m.content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolResult { .. }))
+    }));
+    let back = map_req(Dialect::Claude, Dialect::OpenAi, &mid);
+    // Should recover Tool-role.
+    assert!(back.messages.iter().any(|m| m.role == IrRole::Tool));
+}
+
+#[test]
+fn roundtrip_tool_role_recovers_openai_gemini_openai() {
+    let conv = tool_call_conv();
+    let mid = map_req(Dialect::OpenAi, Dialect::Gemini, &conv);
+    assert!(!mid.messages.iter().any(|m| m.role == IrRole::Tool));
+    let back = map_req(Dialect::Gemini, Dialect::OpenAi, &mid);
+    assert!(back.messages.iter().any(|m| m.role == IrRole::Tool));
+}
+
+#[test]
+fn roundtrip_multi_turn_text_all_pairs_lossless() {
+    let conv = multi_turn_conv();
+    let pairs = [
+        (Dialect::OpenAi, Dialect::Claude),
+        (Dialect::OpenAi, Dialect::Gemini),
+        (Dialect::Claude, Dialect::Gemini),
+    ];
+    for (a, b) in &pairs {
+        let mid = map_req(*a, *b, &conv);
+        let back = map_req(*b, *a, &mid);
+        assert_eq!(
+            conv.len(),
+            back.len(),
+            "message count diverges for {a:?}→{b:?}→{a:?}"
+        );
+        for (o, r) in conv.messages.iter().zip(back.messages.iter()) {
+            assert_eq!(o.text_content(), r.text_content());
+        }
+    }
+}
+
+#[test]
+fn roundtrip_image_preserved_openai_claude_openai() {
+    let conv = image_conv();
+    let mid = map_req(Dialect::OpenAi, Dialect::Claude, &conv);
+    let back = map_req(Dialect::Claude, Dialect::OpenAi, &mid);
+    let has_image = back.messages[0].content.iter().any(|b| {
         matches!(
-            claude_manifest.get(&Capability::Checkpointing),
-            Some(SupportLevel::Emulated)
-        ),
-        "Claude should report Checkpointing as Emulated"
-    );
+            b,
+            IrContentBlock::Image {
+                media_type,
+                data,
+                ..
+            } if media_type == "image/png" && data == "iVBORw0KGgo="
+        )
+    });
+    assert!(has_image, "image lost in round-trip");
+}
 
-    // Verify each manifest has a mix of support levels (not all the same).
-    for (name, manifest) in all_sdk_manifests() {
-        let levels: std::collections::HashSet<String> =
-            manifest.values().map(|l| format!("{l:?}")).collect();
-        assert!(
-            levels.len() > 1,
-            "{name} should have mixed support levels, got only: {levels:?}"
-        );
+#[test]
+fn roundtrip_image_preserved_openai_gemini_openai() {
+    let conv = image_conv();
+    let mid = map_req(Dialect::OpenAi, Dialect::Gemini, &conv);
+    let back = map_req(Dialect::Gemini, Dialect::OpenAi, &mid);
+    let has_image = back.messages[0].content.iter().any(|b| {
+        matches!(
+            b,
+            IrContentBlock::Image { media_type, .. } if media_type == "image/png"
+        )
+    });
+    assert!(has_image, "image lost in OpenAI→Gemini→OpenAI round-trip");
+}
+
+#[test]
+fn roundtrip_error_tool_result_preserved_openai_claude_openai() {
+    let conv = error_tool_result_conv();
+    let mid = map_req(Dialect::OpenAi, Dialect::Claude, &conv);
+    let back = map_req(Dialect::Claude, Dialect::OpenAi, &mid);
+    let tr = back
+        .messages
+        .iter()
+        .flat_map(|m| &m.content)
+        .find(|b| matches!(b, IrContentBlock::ToolResult { .. }));
+    assert!(tr.is_some());
+    if let Some(IrContentBlock::ToolResult {
+        is_error, content, ..
+    }) = tr
+    {
+        assert!(is_error, "is_error flag lost in round-trip");
+        assert!(content.iter().any(
+            |c| matches!(c, IrContentBlock::Text { text } if text == "error: command not found")
+        ));
     }
 }
 
-// =========================================================================
-// 5. Edge Cases (5 tests)
-// =========================================================================
-
 #[test]
-fn unicode_content_preserved_through_mapping() {
-    let m = matrix();
-    let unicode_samples = [
-        "日本語テスト 🦀",
-        "مرحبا بالعالم",
-        "Ünïcödé: ñ ö ü",
-        "emoji chain: 🔥🎉💻🌍🚀",
-        "CJK+Hangul: 你好 こんにちは 안녕하세요",
-        "math symbols: ∑∏∫∂√∞≠≤≥",
-        "zalgo: h̸̡̪̯ẻ̶̡̺l̵̛̘l̴̪̽o̶̝̐",
+fn roundtrip_metadata_survives_all_pairs() {
+    let conv = metadata_conv();
+    let pairs = [
+        (Dialect::OpenAi, Dialect::Claude),
+        (Dialect::OpenAi, Dialect::Gemini),
+        (Dialect::Claude, Dialect::Gemini),
     ];
-    for content in &unicode_samples {
-        let msgs = vec![Message {
-            role: MessageRole::User,
-            content: content.to_string(),
-        }];
-        for &from in Dialect::ALL {
-            for &to in Dialect::ALL {
-                let mapped = m.map_messages(from, to, &msgs).unwrap();
-                assert_eq!(
-                    mapped[0].content, *content,
-                    "unicode lost for {from:?} -> {to:?}: {content}"
-                );
-            }
-        }
-    }
-}
-
-#[test]
-fn very_long_messages_over_100kb() {
-    let m = matrix();
-    let long_text = "x".repeat(120_000); // 120KB
-    let msgs = vec![Message {
-        role: MessageRole::User,
-        content: long_text.clone(),
-    }];
-    for &target in VENDOR_DIALECTS {
-        let mapped = m.map_messages(Dialect::Abp, target, &msgs).unwrap();
+    for (a, b) in &pairs {
+        let mid = map_req(*a, *b, &conv);
+        let back = map_req(*b, *a, &mid);
         assert_eq!(
-            mapped[0].content.len(),
-            120_000,
-            "long message truncated for {target:?}"
-        );
-        assert_eq!(mapped[0].content, long_text);
-    }
-}
-
-#[test]
-fn empty_messages_handled() {
-    let m = matrix();
-    let msgs = vec![Message {
-        role: MessageRole::User,
-        content: String::new(),
-    }];
-    for &from in Dialect::ALL {
-        for &to in Dialect::ALL {
-            let mapped = m.map_messages(from, to, &msgs).unwrap();
-            assert_eq!(
-                mapped[0].content, "",
-                "empty content should stay empty {from:?} -> {to:?}"
-            );
-        }
-    }
-
-    // Empty message list.
-    let empty: Vec<Message> = vec![];
-    for &from in Dialect::ALL {
-        for &to in Dialect::ALL {
-            let mapped = m.map_messages(from, to, &empty).unwrap();
-            assert!(
-                mapped.is_empty(),
-                "empty list should stay empty {from:?} -> {to:?}"
-            );
-        }
-    }
-}
-
-#[test]
-fn null_optional_fields_preserved() {
-    let m = matrix();
-    // ToolCall with all Nones.
-    let call = ToolCall {
-        tool_name: "read_file".into(),
-        tool_use_id: None,
-        parent_tool_use_id: None,
-        input: json!(null),
-    };
-    for &from in ALL_STRING_DIALECTS {
-        for &to in ALL_STRING_DIALECTS {
-            let t = m.translate_tool_call(from, to, &call).unwrap();
-            assert_eq!(
-                t.tool_use_id, None,
-                "tool_use_id should be None {from}->{to}"
-            );
-            assert_eq!(
-                t.parent_tool_use_id, None,
-                "parent_tool_use_id should be None {from}->{to}"
-            );
-            assert!(
-                t.input.is_null(),
-                "null input should stay null {from}->{to}"
-            );
-        }
-    }
-
-    // ToolResult with None id.
-    let result = ToolResult {
-        tool_name: "read_file".into(),
-        tool_use_id: None,
-        output: json!(null),
-        is_error: false,
-    };
-    for &from in ALL_STRING_DIALECTS {
-        for &to in ALL_STRING_DIALECTS {
-            let t = m.translate_tool_result(from, to, &result).unwrap();
-            assert_eq!(t.tool_use_id, None);
-            assert!(t.output.is_null());
-        }
-    }
-}
-
-#[test]
-fn special_characters_in_tool_names() {
-    let m = matrix();
-    let special_names = [
-        "tool-with-dashes",
-        "tool.with.dots",
-        "tool_with_underscores",
-        "tool/with/slashes",
-        "tool with spaces",
-        "tool@special#chars!",
-        "工具名称",      // Chinese tool name
-        "🔧wrench_tool", // emoji prefix
-    ];
-    for name in &special_names {
-        let call = ToolCall {
-            tool_name: name.to_string(),
-            tool_use_id: Some("tc-special".into()),
-            parent_tool_use_id: None,
-            input: json!({"key": "value"}),
-        };
-        // Unmapped names pass through unchanged.
-        for &from in ALL_STRING_DIALECTS {
-            for &to in ALL_STRING_DIALECTS {
-                let t = m.translate_tool_call(from, to, &call).unwrap();
-                assert_eq!(
-                    t.tool_name, *name,
-                    "special tool name '{name}' should pass through {from} -> {to}"
-                );
-            }
-        }
-    }
-}
-
-// =========================================================================
-// 6. Additional Cross-SDK Mapping Tests
-// =========================================================================
-
-#[test]
-fn tool_def_identity_preserves_all_fields() {
-    let m = matrix();
-    let tools = vec![
-        make_tool_def(
-            "read_file",
-            "Read a file",
-            json!({"type": "object", "properties": {"path": {"type": "string"}}}),
-        ),
-        make_tool_def("bash", "Run command", json!({"type": "object"})),
-    ];
-    for &d in Dialect::ALL {
-        let mapped = m.map_tool_definitions(d, d, &tools).unwrap();
-        assert_eq!(mapped.len(), 2);
-        assert_eq!(mapped[0].name, "read_file");
-        assert_eq!(mapped[1].name, "bash");
-        assert_eq!(mapped[0].description, "Read a file");
-    }
-}
-
-#[test]
-fn event_mapping_tool_call_names_roundtrip_seven_dialects() {
-    // Roundtrip through ABP for all seven string dialects.
-    let m = matrix();
-    for &dialect in ALL_STRING_DIALECTS {
-        if dialect == "abp" {
-            continue;
-        }
-        let forward = m.event_mapping(dialect, "abp");
-        let backward = m.event_mapping("abp", dialect);
-        assert!(
-            forward.is_some(),
-            "event mapping {dialect} -> abp should exist"
-        );
-        assert!(
-            backward.is_some(),
-            "event mapping abp -> {dialect} should exist"
-        );
-    }
-}
-
-#[test]
-fn model_mapping_native_models_passthrough() {
-    let m = matrix();
-    let native_pairs: &[(Dialect, &str)] = &[
-        (Dialect::OpenAi, "gpt-4o"),
-        (Dialect::Claude, "claude-sonnet-4-20250514"),
-        (Dialect::Gemini, "gemini-2.5-flash"),
-        (Dialect::Codex, "codex-mini-latest"),
-        (Dialect::Kimi, "moonshot-v1-8k"),
-    ];
-    for &(dialect, model) in native_pairs {
-        let result = m.map_model_name(Dialect::Abp, dialect, model).unwrap();
-        assert_eq!(
-            result, model,
-            "native model {model} should pass through for {dialect:?}"
-        );
-    }
-}
-
-#[test]
-fn model_mapping_cross_dialect_equivalence() {
-    let m = matrix();
-    // gpt-4o is equivalent to claude-sonnet-4-20250514 for Claude target.
-    let result = m
-        .map_model_name(Dialect::OpenAi, Dialect::Claude, "gpt-4o")
-        .unwrap();
-    assert_eq!(result, "claude-sonnet-4-20250514");
-
-    // gpt-4o -> gemini-2.5-flash for Gemini target.
-    let result = m
-        .map_model_name(Dialect::OpenAi, Dialect::Gemini, "gpt-4o")
-        .unwrap();
-    assert_eq!(result, "gemini-2.5-flash");
-}
-
-#[test]
-fn codex_kimi_mock_tool_translations_registered() {
-    let m = matrix();
-    // codex, kimi, mock should all have translation paths.
-    let extended = &["codex", "kimi", "mock"];
-    for &dialect in extended {
-        assert!(
-            m.has_translation("abp", dialect),
-            "abp -> {dialect} should exist"
-        );
-        assert!(
-            m.has_translation(dialect, "abp"),
-            "{dialect} -> abp should exist"
-        );
-    }
-}
-
-#[test]
-fn translation_fidelity_mock_is_lossy_supported() {
-    let m = matrix();
-    for &d in Dialect::ALL {
-        if d == Dialect::Mock {
-            continue;
-        }
-        assert_eq!(
-            m.can_translate(d, Dialect::Mock),
-            TranslationFidelity::LossySupported,
-            "{d:?} -> Mock should be LossySupported"
+            back.messages[0].metadata.get("source"),
+            Some(&json!("test")),
+            "metadata lost in roundtrip {a:?}→{b:?}→{a:?}"
         );
         assert_eq!(
-            m.can_translate(Dialect::Mock, d),
-            TranslationFidelity::LossySupported,
-            "Mock -> {d:?} should be LossySupported"
+            back.messages[0].metadata.get("timestamp"),
+            Some(&json!(1_700_000_000)),
+            "metadata value lost in roundtrip {a:?}→{b:?}→{a:?}"
+        );
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// BONUS: Factory & structural tests (5 tests)
+// ═════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn factory_all_cross_pairs_have_mappers() {
+    for (from, to) in &CROSS_PAIRS {
+        assert!(
+            default_ir_mapper(*from, *to).is_some(),
+            "no mapper for {from:?} -> {to:?}"
         );
     }
 }
 
 #[test]
-fn full_chain_through_codex_and_kimi() {
-    // ABP -> codex -> openai -> kimi -> abp
-    let m = matrix();
-    let chain: &[&str] = &["abp", "codex", "openai", "kimi", "abp"];
-    let call = ToolCall {
-        tool_name: "read_file".into(),
-        tool_use_id: Some("tc-chain".into()),
-        parent_tool_use_id: None,
-        input: json!({"path": "Cargo.toml"}),
-    };
-    let mut current = call.clone();
-    for window in chain.windows(2) {
-        current = m
-            .translate_tool_call(window[0], window[1], &current)
-            .unwrap_or_else(|e| panic!("{} -> {} failed: {e}", window[0], window[1]));
-    }
-    assert_eq!(
-        current.tool_name, "read_file",
-        "should roundtrip to ABP name"
-    );
-    assert_eq!(current.input, call.input);
-}
-
-#[test]
-fn event_warning_and_error_passthrough_all_dialects() {
-    let m = matrix();
-    let events = vec![
-        AgentEvent {
-            ts: Utc::now(),
-            kind: AgentEventKind::Warning {
-                message: "Rate limit approaching".into(),
-            },
-            ext: None,
-        },
-        AgentEvent {
-            ts: Utc::now(),
-            kind: AgentEventKind::Error {
-                message: "Context window exceeded".into(),
-                error_code: None,
-            },
-            ext: None,
-        },
-    ];
-    for event in &events {
-        for &from in ALL_STRING_DIALECTS {
-            for &to in ALL_STRING_DIALECTS {
-                let translated = m.translate_event(from, to, event).unwrap();
-                match (&event.kind, &translated.kind) {
-                    (
-                        AgentEventKind::Warning { message: a },
-                        AgentEventKind::Warning { message: b },
-                    ) => assert_eq!(a, b),
-                    (
-                        AgentEventKind::Error { message: a, .. },
-                        AgentEventKind::Error { message: b, .. },
-                    ) => assert_eq!(a, b),
-                    _ => panic!("kind mismatch {from} -> {to}"),
-                }
-            }
-        }
+fn factory_identity_mappers_exist_for_all_dialects() {
+    for &d in Dialect::all() {
+        assert!(
+            default_ir_mapper(d, d).is_some(),
+            "no identity mapper for {d:?}"
+        );
     }
 }
 
 #[test]
-fn batch_tool_definitions_mapped_correctly() {
-    let m = matrix();
-    let tools = vec![
-        make_tool_def("read_file", "Read", json!({"type": "object"})),
-        make_tool_def("write_file", "Write", json!({"type": "object"})),
-        make_tool_def("bash", "Shell", json!({"type": "object"})),
-        make_tool_def("edit_file", "Edit", json!({"type": "object"})),
-        make_tool_def("glob", "Glob", json!({"type": "object"})),
-    ];
-    let mapped = m
-        .map_tool_definitions(Dialect::Abp, Dialect::OpenAi, &tools)
-        .unwrap();
-    let names: Vec<&str> = mapped.iter().map(|t| t.name.as_str()).collect();
-    assert_eq!(
-        names,
-        &[
-            "file_read",
-            "file_write",
-            "shell",
-            "apply_diff",
-            "file_search"
-        ]
-    );
+fn factory_supported_pairs_consistent_with_cross_pairs() {
+    let pairs = abp_mapper::supported_ir_pairs();
+    for (from, to) in &CROSS_PAIRS {
+        assert!(
+            pairs.contains(&(*from, *to)),
+            "supported_ir_pairs missing ({from:?}, {to:?})"
+        );
+    }
+}
+
+#[test]
+fn mapper_supported_pairs_match_declared_openai_claude() {
+    let mapper = OpenAiClaudeIrMapper;
+    let pairs = mapper.supported_pairs();
+    assert!(pairs.contains(&(Dialect::OpenAi, Dialect::Claude)));
+    assert!(pairs.contains(&(Dialect::Claude, Dialect::OpenAi)));
+    assert_eq!(pairs.len(), 2);
+}
+
+#[test]
+fn mapper_supported_pairs_match_declared_claude_gemini() {
+    let mapper = ClaudeGeminiIrMapper;
+    let pairs = mapper.supported_pairs();
+    assert!(pairs.contains(&(Dialect::Claude, Dialect::Gemini)));
+    assert!(pairs.contains(&(Dialect::Gemini, Dialect::Claude)));
+    assert_eq!(pairs.len(), 2);
 }

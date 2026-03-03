@@ -138,6 +138,7 @@ abp-error = { path = "crates/abp-error" }
 abp-error-taxonomy = { path = "crates/abp-error-taxonomy" }
 abp-capability = { path = "crates/abp-capability" }
 abp-receipt = { path = "crates/abp-receipt" }
+abp-mapper = { path = "crates/abp-mapper" }
 abp-mapping = { path = "crates/abp-mapping" }
 abp-config = { path = "crates/abp-config" }
 abp-claude-sdk = { path = "crates/abp-claude-sdk" }
