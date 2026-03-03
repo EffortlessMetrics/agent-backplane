@@ -251,7 +251,10 @@ fn negotiate_restricted_counts_as_emulatable() {
 fn check_capability_missing_is_unsupported() {
     let manifest: abp_core::CapabilityManifest = BTreeMap::new();
     let level = abp_capability::check_capability(&manifest, &abp_core::Capability::Streaming);
-    assert_eq!(level, abp_capability::SupportLevel::Unsupported { .. });
+    assert!(matches!(
+        level,
+        abp_capability::SupportLevel::Unsupported { .. }
+    ));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -822,6 +825,6 @@ fn support_level_emulated_requirement_accepts_both() {
 /// Unsupported does NOT satisfy any requirement.
 #[test]
 fn support_level_unsupported_satisfies_nothing() {
-    assert!(!abp_core::SupportLevel::Unsupported { .. }.satisfies(&abp_core::MinSupport::Native));
-    assert!(!abp_core::SupportLevel::Unsupported { .. }.satisfies(&abp_core::MinSupport::Emulated));
+    assert!(!abp_core::SupportLevel::Unsupported.satisfies(&abp_core::MinSupport::Native));
+    assert!(!abp_core::SupportLevel::Unsupported.satisfies(&abp_core::MinSupport::Emulated));
 }

@@ -1805,7 +1805,7 @@ fn mapping_registry_len_and_iter() {
     let reg = known_rules();
     let count_iter = reg.iter().count();
     assert_eq!(reg.len(), count_iter);
-    assert!(reg.len() > 0);
+    assert!(!reg.is_empty());
 }
 
 #[test]

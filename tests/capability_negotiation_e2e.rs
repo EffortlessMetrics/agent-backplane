@@ -667,8 +667,8 @@ fn support_level_satisfies_hierarchy() {
     assert!(restricted.satisfies(&MinSupport::Emulated));
 
     // Unsupported satisfies nothing
-    assert!(!CoreSupportLevel::Unsupported { .. }.satisfies(&MinSupport::Native));
-    assert!(!CoreSupportLevel::Unsupported { .. }.satisfies(&MinSupport::Emulated));
+    assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Native));
+    assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
 }
 
 // ===========================================================================
@@ -1155,12 +1155,12 @@ fn support_level_restricted_satisfies_emulated() {
 
 #[test]
 fn support_level_unsupported_does_not_satisfy_native() {
-    assert!(!CoreSupportLevel::Unsupported { .. }.satisfies(&MinSupport::Native));
+    assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Native));
 }
 
 #[test]
 fn support_level_unsupported_does_not_satisfy_emulated() {
-    assert!(!CoreSupportLevel::Unsupported { .. }.satisfies(&MinSupport::Emulated));
+    assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
 }
 
 // ===========================================================================
@@ -1948,7 +1948,7 @@ fn capability_matrix_best_backend_with_all_26() {
 #[test]
 fn explicit_unsupported_in_manifest_treated_as_unsupported() {
     let caps = manifest_from(&[
-        (Capability::Logprobs, CoreSupportLevel::Unsupported { .. }),
+        (Capability::Logprobs, CoreSupportLevel::Unsupported),
         (Capability::Streaming, CoreSupportLevel::Native),
     ]);
     let reqs = require_native(&[Capability::Logprobs, Capability::Streaming]);

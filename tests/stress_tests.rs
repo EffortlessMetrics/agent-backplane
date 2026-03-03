@@ -1322,7 +1322,7 @@ fn stress_mapping_registry_rank_targets() {
     }
     let ranked = reg.rank_targets(Dialect::OpenAi, &features);
     assert!(!ranked.is_empty());
-    for count in ranked.values() {
+    for (_, count) in &ranked {
         assert_eq!(*count, 3);
     }
 }

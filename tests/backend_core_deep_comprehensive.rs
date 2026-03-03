@@ -182,7 +182,7 @@ fn t013_backend_trait_identity_returns_backend_identity_struct() {
 #[test]
 fn t014_backend_trait_capabilities_returns_btreemap() {
     let caps: CapabilityManifest = MockBackend.capabilities();
-    assert!(caps.len() >= 1);
+    assert!(!caps.is_empty());
 }
 
 #[test]
@@ -416,7 +416,7 @@ async fn t041_small_channel_still_works() {
         .unwrap();
     assert_eq!(receipt.outcome, Outcome::Complete);
     let mut count = 0;
-    while let Ok(_) = rx.try_recv() {
+    while rx.try_recv().is_ok() {
         count += 1;
     }
     assert!(count > 0);
@@ -942,7 +942,7 @@ async fn t098_mock_run_with_unsatisfied_requirements_fails() {
 #[test]
 fn t099_ensure_requirements_all_mock_caps_emulated_pass() {
     let caps = MockBackend.capabilities();
-    for (cap, _) in &caps {
+    for cap in caps.keys() {
         let reqs = CapabilityRequirements {
             required: vec![CapabilityRequirement {
                 capability: cap.clone(),
@@ -1437,7 +1437,7 @@ async fn t148_concurrent_event_counts() {
                 .await
                 .unwrap();
             let mut count = 0;
-            while let Ok(_) = rx.try_recv() {
+            while rx.try_recv().is_ok() {
                 count += 1;
             }
             count

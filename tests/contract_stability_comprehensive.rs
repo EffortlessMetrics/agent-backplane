@@ -2068,10 +2068,12 @@ fn work_order_with_requirements_roundtrips() {
 
 #[test]
 fn work_order_with_runtime_config_roundtrips() {
-    let mut config = RuntimeConfig::default();
-    config.model = Some("claude-3".into());
-    config.max_turns = Some(20);
-    config.max_budget_usd = Some(10.0);
+    let mut config = RuntimeConfig {
+        model: Some("claude-3".into()),
+        max_turns: Some(20),
+        max_budget_usd: Some(10.0),
+        ..Default::default()
+    };
     config.vendor.insert("key".into(), json!("val"));
     config.env.insert("TOKEN".into(), "abc".into());
     let wo = WorkOrderBuilder::new("task").config(config).build();

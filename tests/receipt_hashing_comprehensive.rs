@@ -886,10 +886,9 @@ fn ext_field_on_event_affects_hash() {
 #[test]
 fn contract_error_is_debug_display() {
     // Ensure ContractError implements the expected traits.
-    let err: Result<String, ContractError> = Err(ContractError::Json(
-        serde_json::from_str::<serde_json::Value>("invalid").unwrap_err(),
-    ));
-    let msg = format!("{}", err.unwrap_err());
+    let err =
+        ContractError::Json(serde_json::from_str::<serde_json::Value>("invalid").unwrap_err());
+    let msg = format!("{}", err);
     assert!(!msg.is_empty());
 }
 

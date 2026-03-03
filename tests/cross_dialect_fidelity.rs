@@ -489,6 +489,7 @@ mod gemini {
             temperature: Some(0.5),
             top_p: Some(0.9),
             top_k: Some(40),
+            candidate_count: None,
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: None,
             response_schema: None,

@@ -657,7 +657,7 @@ fn error_disabled_caps_do_not_mutate_conversation() {
     for cap in non_emulatable() {
         let original = user_conv("x");
         let mut conv = original.clone();
-        engine.apply(&[cap.clone()], &mut conv);
+        engine.apply(std::slice::from_ref(&cap), &mut conv);
         assert_eq!(conv, original, "{cap:?} mutated the conversation");
     }
 }
@@ -957,7 +957,7 @@ fn registry_config_stores_and_retrieves_strategy() {
 #[test]
 fn registry_config_absent_key_returns_none() {
     let cfg = EmulationConfig::new();
-    assert!(cfg.strategies.get(&Capability::Streaming).is_none());
+    assert!(!cfg.strategies.contains_key(&Capability::Streaming));
 }
 
 #[test]
@@ -1222,7 +1222,7 @@ fn warning_disabled_caps_always_produce_warnings() {
     let engine = EmulationEngine::with_defaults();
     for cap in non_emulatable() {
         let mut conv = user_conv("x");
-        let report = engine.apply(&[cap.clone()], &mut conv);
+        let report = engine.apply(std::slice::from_ref(&cap), &mut conv);
         assert!(
             !report.warnings.is_empty(),
             "{cap:?} must produce a warning"
@@ -1235,7 +1235,7 @@ fn warning_disabled_caps_never_in_applied() {
     let engine = EmulationEngine::with_defaults();
     for cap in non_emulatable() {
         let mut conv = user_conv("x");
-        let report = engine.apply(&[cap.clone()], &mut conv);
+        let report = engine.apply(std::slice::from_ref(&cap), &mut conv);
         assert!(report.applied.is_empty(), "{cap:?} in applied");
     }
 }
@@ -1245,7 +1245,7 @@ fn warning_emulated_caps_never_produce_warnings() {
     let engine = EmulationEngine::with_defaults();
     for cap in emulatable() {
         let mut conv = user_conv("x");
-        let report = engine.apply(&[cap.clone()], &mut conv);
+        let report = engine.apply(std::slice::from_ref(&cap), &mut conv);
         assert!(report.warnings.is_empty(), "{cap:?} should not warn");
     }
 }

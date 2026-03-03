@@ -506,7 +506,7 @@ fn silent_degradation_disabled_caps_always_produce_warnings() {
     let engine = EmulationEngine::with_defaults();
     for cap in non_emulatable() {
         let mut conv = user_conv("x");
-        let report = engine.apply(&[cap.clone()], &mut conv);
+        let report = engine.apply(std::slice::from_ref(&cap), &mut conv);
         assert!(
             !report.warnings.is_empty(),
             "{cap:?} must produce a warning, not silently degrade"
@@ -519,7 +519,7 @@ fn silent_degradation_disabled_caps_never_produce_applied() {
     let engine = EmulationEngine::with_defaults();
     for cap in non_emulatable() {
         let mut conv = user_conv("x");
-        let report = engine.apply(&[cap.clone()], &mut conv);
+        let report = engine.apply(std::slice::from_ref(&cap), &mut conv);
         assert!(
             report.applied.is_empty(),
             "{cap:?} should not appear in applied"
@@ -533,7 +533,7 @@ fn silent_degradation_disabled_caps_do_not_mutate_conversation() {
     for cap in non_emulatable() {
         let original = user_conv("x");
         let mut conv = original.clone();
-        engine.apply(&[cap.clone()], &mut conv);
+        engine.apply(std::slice::from_ref(&cap), &mut conv);
         assert_eq!(conv, original, "{cap:?} mutated the conversation");
     }
 }
@@ -543,7 +543,7 @@ fn silent_degradation_emulated_caps_always_produce_applied() {
     let engine = EmulationEngine::with_defaults();
     for cap in emulatable() {
         let mut conv = user_conv("x");
-        let report = engine.apply(&[cap.clone()], &mut conv);
+        let report = engine.apply(std::slice::from_ref(&cap), &mut conv);
         assert!(
             !report.applied.is_empty(),
             "{cap:?} must appear in applied, not silently dropped"
@@ -556,7 +556,7 @@ fn silent_degradation_emulated_caps_never_produce_warnings() {
     let engine = EmulationEngine::with_defaults();
     for cap in emulatable() {
         let mut conv = user_conv("x");
-        let report = engine.apply(&[cap.clone()], &mut conv);
+        let report = engine.apply(std::slice::from_ref(&cap), &mut conv);
         assert!(
             report.warnings.is_empty(),
             "{cap:?} should not produce a warning"
@@ -1547,7 +1547,7 @@ fn capability_requirement_native_min_support() {
     // (fidelity label would be Emulated, not Native)
     let mut conv = user_conv("x");
     let engine = EmulationEngine::with_defaults();
-    let report = engine.apply(&[req.capability.clone()], &mut conv);
+    let report = engine.apply(std::slice::from_ref(&req.capability), &mut conv);
     let labels = compute_fidelity(&[], &report);
     let label = &labels[&req.capability];
     // Emulated != Native requirement
@@ -1562,7 +1562,7 @@ fn capability_requirement_emulated_min_support() {
     };
     let mut conv = user_conv("x");
     let engine = EmulationEngine::with_defaults();
-    let report = engine.apply(&[req.capability.clone()], &mut conv);
+    let report = engine.apply(std::slice::from_ref(&req.capability), &mut conv);
     let labels = compute_fidelity(&[], &report);
     // Emulated satisfies Emulated min_support
     assert!(labels.contains_key(&req.capability));
@@ -1575,7 +1575,7 @@ fn capability_requirement_native_satisfied_by_native_backend() {
         min_support: MinSupport::Native,
     };
     let report = EmulationReport::default();
-    let labels = compute_fidelity(&[req.capability.clone()], &report);
+    let labels = compute_fidelity(std::slice::from_ref(&req.capability), &report);
     assert_eq!(labels[&req.capability], FidelityLabel::Native);
 }
 

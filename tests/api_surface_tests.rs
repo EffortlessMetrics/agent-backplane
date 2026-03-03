@@ -1231,9 +1231,11 @@ fn capability_support_level_variants() {
     use abp_capability::SupportLevel;
     let _ = SupportLevel::Native;
     let _ = SupportLevel::Emulated {
-        strategy: "prompt".into(),
+        method: "prompt".into(),
     };
-    let _ = SupportLevel::Unsupported;
+    let _ = SupportLevel::Unsupported {
+        reason: "unsupported".into(),
+    };
 }
 
 // ═══════════════════════════════════════════════════════════════════════

@@ -822,7 +822,10 @@ fn capability_emulated_satisfies_emulated_requirement() {
 fn capability_absent_is_unsupported() {
     let manifest: CapabilityManifest = BTreeMap::new();
     let level = check_capability(&manifest, &Capability::ToolWrite);
-    assert!(matches!(level, abp_capability::SupportLevel::Unsupported { .. }));
+    assert!(matches!(
+        level,
+        abp_capability::SupportLevel::Unsupported { .. }
+    ));
 }
 
 #[test]

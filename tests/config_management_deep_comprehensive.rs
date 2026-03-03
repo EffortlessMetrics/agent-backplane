@@ -965,7 +965,7 @@ fn t70_select_sidecar_backend_by_name() {
 #[test]
 fn t71_nonexistent_backend_returns_none() {
     let c = full_cfg();
-    assert!(c.backends.get("nonexistent").is_none());
+    assert!(!c.backends.contains_key("nonexistent"));
 }
 
 #[test]

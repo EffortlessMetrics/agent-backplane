@@ -204,7 +204,10 @@ fn report_details_order_is_native_emulated_unsupported() {
         report.details[1].1,
         CapSupportLevel::Emulated { .. }
     ));
-    assert!(matches!(report.details[2].1, CapSupportLevel::Unsupported));
+    assert!(matches!(
+        report.details[2].1,
+        CapSupportLevel::Unsupported { .. }
+    ));
 }
 
 // ===========================================================================
@@ -263,8 +266,8 @@ fn emulated_cap_has_adapter_strategy() {
     let m = manifest(&[(Capability::ToolRead, SupportLevel::Emulated)]);
     let level = check_capability(&m, &Capability::ToolRead);
     match level {
-        CapSupportLevel::Emulated { strategy } => {
-            assert_eq!(strategy, "adapter");
+        CapSupportLevel::Emulated { method } => {
+            assert_eq!(method, "adapter");
         }
         _ => panic!("expected Emulated"),
     }
@@ -280,9 +283,9 @@ fn restricted_cap_strategy_contains_reason() {
     )]);
     let level = check_capability(&m, &Capability::ToolBash);
     match level {
-        CapSupportLevel::Emulated { strategy } => {
-            assert!(strategy.contains("restricted"));
-            assert!(strategy.contains("user policy"));
+        CapSupportLevel::Emulated { method } => {
+            assert!(method.contains("restricted"));
+            assert!(method.contains("user policy"));
         }
         _ => panic!("expected Emulated"),
     }
@@ -294,11 +297,16 @@ fn restricted_cap_strategy_contains_reason() {
 
 #[test]
 fn native_and_emulated_are_distinct_support_levels() {
-    assert_ne!(CapSupportLevel::Native, CapSupportLevel::Unsupported);
+    assert_ne!(
+        CapSupportLevel::Native,
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
+    );
     assert_ne!(
         CapSupportLevel::Native,
         CapSupportLevel::Emulated {
-            strategy: "adapter".into()
+            method: "adapter".into()
         }
     );
 }
@@ -306,10 +314,10 @@ fn native_and_emulated_are_distinct_support_levels() {
 #[test]
 fn emulated_strategies_differ() {
     let a = CapSupportLevel::Emulated {
-        strategy: "polyfill".into(),
+        method: "polyfill".into(),
     };
     let b = CapSupportLevel::Emulated {
-        strategy: "adapter".into(),
+        method: "adapter".into(),
     };
     assert_ne!(a, b);
 }
@@ -317,10 +325,10 @@ fn emulated_strategies_differ() {
 #[test]
 fn same_emulated_strategy_is_equal() {
     let a = CapSupportLevel::Emulated {
-        strategy: "adapter".into(),
+        method: "adapter".into(),
     };
     let b = CapSupportLevel::Emulated {
-        strategy: "adapter".into(),
+        method: "adapter".into(),
     };
     assert_eq!(a, b);
 }
@@ -457,9 +465,11 @@ fn serde_roundtrip_cap_support_level() {
     let levels = vec![
         CapSupportLevel::Native,
         CapSupportLevel::Emulated {
-            strategy: "polyfill".into(),
+            method: "polyfill".into(),
         },
-        CapSupportLevel::Unsupported,
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into(),
+        },
     ];
     for level in &levels {
         let json = serde_json::to_string(level).unwrap();
@@ -1648,7 +1658,7 @@ fn negotiation_result_annotates_all_categories() {
             level,
             CapSupportLevel::Native
                 | CapSupportLevel::Emulated { .. }
-                | CapSupportLevel::Unsupported
+                | CapSupportLevel::Unsupported { .. }
         ));
     }
     assert_eq!(report.details.len(), 3);

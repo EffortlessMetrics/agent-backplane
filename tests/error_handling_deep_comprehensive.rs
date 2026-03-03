@@ -140,6 +140,7 @@ fn error_code_deserialize_rejects_lowercase() {
 #[test]
 fn error_code_copy_and_clone() {
     let code = ErrorCode::BackendTimeout;
+    #[allow(clippy::clone_on_copy)]
     let cloned = code.clone();
     let copied = code;
     assert_eq!(code, cloned);

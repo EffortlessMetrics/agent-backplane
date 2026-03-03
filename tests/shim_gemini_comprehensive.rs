@@ -44,6 +44,7 @@ fn dialect_response_with_text(text: &str) -> GeminiResponse {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     }
 }
@@ -59,6 +60,7 @@ fn dialect_response_with_usage(prompt: u64, candidates: u64) -> GeminiResponse {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: Some(GeminiUsageMetadata {
             prompt_token_count: prompt,
             candidates_token_count: candidates,
@@ -302,6 +304,7 @@ fn from_dialect_response_multiple_candidates() {
                 citation_metadata: None,
             },
         ],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let shim_resp = from_dialect_response(&resp);
@@ -1830,6 +1833,7 @@ fn map_response_produces_assistant_message() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = dialect::map_response(&resp);

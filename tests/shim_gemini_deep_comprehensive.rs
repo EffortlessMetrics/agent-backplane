@@ -60,6 +60,7 @@ fn dialect_text_response(text: &str) -> GeminiResponse {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     }
 }
@@ -75,6 +76,7 @@ fn dialect_response_with_usage(prompt: u64, candidates: u64) -> GeminiResponse {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: Some(GeminiUsageMetadata {
             prompt_token_count: prompt,
             candidates_token_count: candidates,
@@ -635,6 +637,7 @@ fn from_dialect_response_preserves_finish_reason() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let shim_resp = from_dialect_response(&resp);
@@ -659,6 +662,7 @@ fn from_dialect_response_function_call() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let shim_resp = from_dialect_response(&resp);
@@ -1858,6 +1862,7 @@ fn from_dialect_response_multiple_candidates() {
                 citation_metadata: None,
             },
         ],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let shim_resp = from_dialect_response(&resp);
@@ -1879,6 +1884,7 @@ fn from_dialect_response_inline_data() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let shim_resp = from_dialect_response(&resp);
@@ -1985,6 +1991,7 @@ fn map_response_function_call() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = dialect::map_response(&resp);
@@ -2010,6 +2017,7 @@ fn map_response_function_response() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = dialect::map_response(&resp);
@@ -2035,6 +2043,7 @@ fn map_response_inline_data_ignored() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = dialect::map_response(&resp);
@@ -2103,6 +2112,7 @@ fn map_response_multiple_parts() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = dialect::map_response(&resp);

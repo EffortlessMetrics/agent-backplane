@@ -823,7 +823,9 @@ fn check_capability_unsupported_for_missing() {
     // Capabilities not in Kimi's manifest at all
     assert_eq!(
         check_capability(&m, &Capability::SessionResume),
-        CapSupportLevel::Unsupported
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
     );
 }
 
@@ -837,7 +839,8 @@ fn check_capability_all_sdks_all_caps() {
             match level {
                 CapSupportLevel::Native
                 | CapSupportLevel::Emulated { .. }
-                | CapSupportLevel::Unsupported => {}
+                | CapSupportLevel::Unsupported { .. }
+                | CapSupportLevel::Restricted { .. } => {}
             }
         }
     }

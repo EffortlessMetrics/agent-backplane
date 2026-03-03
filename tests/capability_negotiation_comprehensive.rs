@@ -360,7 +360,7 @@ fn check_capability_native_returns_native() {
 fn check_capability_emulated_returns_emulated() {
     let manifest = make_manifest(&[(Capability::Streaming, SupportLevel::Emulated)]);
     let level = check_capability(&manifest, &Capability::Streaming);
-    assert!(matches!(level, CapSupportLevel::Emulated { strategy } if strategy == "adapter"));
+    assert!(matches!(level, CapSupportLevel::Emulated { method } if method == "adapter"));
 }
 
 #[test]
@@ -373,9 +373,9 @@ fn check_capability_restricted_returns_emulated_with_reason() {
     )]);
     let level = check_capability(&manifest, &Capability::ToolBash);
     match level {
-        CapSupportLevel::Emulated { strategy } => {
-            assert!(strategy.contains("restricted"));
-            assert!(strategy.contains("policy"));
+        CapSupportLevel::Emulated { method } => {
+            assert!(method.contains("restricted"));
+            assert!(method.contains("policy"));
         }
         other => panic!("expected Emulated, got {other:?}"),
     }
@@ -386,7 +386,9 @@ fn check_capability_missing_returns_unsupported() {
     let manifest = CapabilityManifest::new();
     assert_eq!(
         check_capability(&manifest, &Capability::Streaming),
-        CapSupportLevel::Unsupported
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
     );
 }
 
@@ -395,7 +397,9 @@ fn check_capability_explicit_unsupported_returns_unsupported() {
     let manifest = make_manifest(&[(Capability::Logprobs, SupportLevel::Unsupported)]);
     assert_eq!(
         check_capability(&manifest, &Capability::Logprobs),
-        CapSupportLevel::Unsupported
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
     );
 }
 
@@ -681,7 +685,7 @@ fn fidelity_labels_omit_disabled_capabilities() {
     let report = engine.check_missing(&[Capability::CodeExecution]);
     let labels = compute_fidelity(&[], &report);
     // CodeExecution default strategy is Disabled, so it appears in warnings, not applied
-    assert!(labels.get(&Capability::CodeExecution).is_none());
+    assert!(!labels.contains_key(&Capability::CodeExecution));
     assert!(report.has_unemulatable());
 }
 

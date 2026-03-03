@@ -38,6 +38,7 @@ fn make_response(parts: Vec<GeminiPart>) -> GeminiResponse {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     }
 }
@@ -317,6 +318,7 @@ fn response_multiple_candidates() {
                 citation_metadata: None,
             },
         ],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = map_response(&resp);
@@ -327,6 +329,7 @@ fn response_multiple_candidates() {
 fn response_empty_candidates() {
     let resp = GeminiResponse {
         candidates: vec![],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = map_response(&resp);
@@ -345,6 +348,7 @@ fn response_with_usage_metadata() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: Some(GeminiUsageMetadata {
             prompt_token_count: 10,
             candidates_token_count: 20,
@@ -1237,6 +1241,7 @@ fn serde_gemini_generation_config() {
         temperature: Some(0.5),
         top_p: Some(0.9),
         top_k: Some(40),
+        candidate_count: None,
         stop_sequences: Some(vec!["END".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(json!({"type": "object"})),
@@ -1334,6 +1339,7 @@ fn serde_gemini_response() {
             }]),
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: Some(GeminiUsageMetadata {
             prompt_token_count: 5,
             candidates_token_count: 10,
@@ -1570,6 +1576,7 @@ fn generation_config_all_fields_serde() {
         temperature: Some(1.5),
         top_p: Some(0.95),
         top_k: Some(64),
+        candidate_count: None,
         stop_sequences: Some(vec!["<END>".into(), "STOP".into()]),
         response_mime_type: Some("text/plain".into()),
         response_schema: Some(json!({"type": "string"})),

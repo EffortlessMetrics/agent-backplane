@@ -422,7 +422,7 @@ fn check_cap_emulated() {
     assert_eq!(
         check_capability(&m, &Capability::Streaming),
         CapSupportLevel::Emulated {
-            strategy: "adapter".into()
+            method: "adapter".into()
         }
     );
 }
@@ -432,7 +432,9 @@ fn check_cap_unsupported_explicit() {
     let m = manifest(&[(Capability::Logprobs, SupportLevel::Unsupported)]);
     assert_eq!(
         check_capability(&m, &Capability::Logprobs),
-        CapSupportLevel::Unsupported
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
     );
 }
 
@@ -441,7 +443,9 @@ fn check_cap_missing() {
     let m: CapabilityManifest = BTreeMap::new();
     assert_eq!(
         check_capability(&m, &Capability::Streaming),
-        CapSupportLevel::Unsupported
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
     );
 }
 
@@ -454,9 +458,9 @@ fn check_cap_restricted_contains_reason() {
         },
     )]);
     let level = check_capability(&m, &Capability::ToolBash);
-    if let CapSupportLevel::Emulated { strategy } = level {
-        assert!(strategy.contains("restricted"));
-        assert!(strategy.contains("policy"));
+    if let CapSupportLevel::Emulated { method } = level {
+        assert!(method.contains("restricted"));
+        assert!(method.contains("policy"));
     } else {
         panic!("expected Emulated");
     }
@@ -473,7 +477,7 @@ fn check_cap_every_core_variant() {
     for (core_level, should_satisfy) in cases {
         let m = manifest(&[(Capability::Streaming, core_level)]);
         let level = check_capability(&m, &Capability::Streaming);
-        let satisfied = !matches!(level, CapSupportLevel::Unsupported);
+        let satisfied = !matches!(level, CapSupportLevel::Unsupported { .. });
         assert_eq!(satisfied, should_satisfy);
     }
 }
@@ -600,9 +604,11 @@ fn cap_support_level_serde_roundtrip() {
     let levels = vec![
         CapSupportLevel::Native,
         CapSupportLevel::Emulated {
-            strategy: "polyfill".into(),
+            method: "polyfill".into(),
         },
-        CapSupportLevel::Unsupported,
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into(),
+        },
     ];
     for level in &levels {
         let json = serde_json::to_string(level).unwrap();
@@ -1414,7 +1420,10 @@ fn edge_project_with_all_capabilities_emulated() {
 fn edge_check_all_capabilities_against_empty() {
     let m: CapabilityManifest = BTreeMap::new();
     for cap in &all_capabilities() {
-        assert!(matches!(check_capability(&m, cap), CapSupportLevel::Unsupported { .. }));
+        assert!(matches!(
+            check_capability(&m, cap),
+            CapSupportLevel::Unsupported { .. }
+        ));
     }
 }
 
@@ -1512,8 +1521,8 @@ fn edge_restricted_with_long_reason() {
         },
     )]);
     let level = check_capability(&m, &Capability::ToolBash);
-    if let CapSupportLevel::Emulated { strategy } = level {
-        assert!(strategy.contains(&reason));
+    if let CapSupportLevel::Emulated { method } = level {
+        assert!(method.contains(&reason));
     } else {
         panic!("expected Emulated");
     }

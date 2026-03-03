@@ -465,6 +465,7 @@ fn gemini_generation_config_full() {
         temperature: Some(0.9),
         top_p: Some(0.95),
         top_k: Some(40),
+        candidate_count: None,
         stop_sequences: Some(vec!["END".into(), "STOP".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(json!({
@@ -552,6 +553,7 @@ fn gemini_request_full() {
             temperature: Some(0.7),
             top_p: None,
             top_k: None,
+            candidate_count: None,
             stop_sequences: None,
             response_mime_type: None,
             response_schema: None,

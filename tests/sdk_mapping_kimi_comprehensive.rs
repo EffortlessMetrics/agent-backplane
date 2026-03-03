@@ -962,8 +962,10 @@ mod kimi_specific_features {
     #[test]
     fn map_work_order_with_k1_reasoning_enables_search() {
         let wo = WorkOrderBuilder::new("test").build();
-        let mut cfg = KimiConfig::default();
-        cfg.use_k1_reasoning = Some(true);
+        let cfg = KimiConfig {
+            use_k1_reasoning: Some(true),
+            ..Default::default()
+        };
         let req = dialect::map_work_order(&wo, &cfg);
         assert_eq!(req.use_search, Some(true));
     }

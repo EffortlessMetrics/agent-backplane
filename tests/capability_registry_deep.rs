@@ -177,51 +177,55 @@ fn support_level_native() {
 #[test]
 fn support_level_emulated() {
     let l = SupportLevel::Emulated {
-        strategy: "polyfill".into(),
+        method: "polyfill".into(),
     };
     assert!(matches!(l, SupportLevel::Emulated { .. }));
-    if let SupportLevel::Emulated { strategy } = &l {
-        assert_eq!(strategy, "polyfill");
+    if let SupportLevel::Emulated { method } = &l {
+        assert_eq!(method, "polyfill");
     }
 }
 
 #[test]
 fn support_level_unsupported() {
-    let l = SupportLevel::Unsupported;
-    assert!(matches!(l, SupportLevel::Unsupported));
+    let l = SupportLevel::Unsupported {
+        reason: "unsupported".into(),
+    };
+    assert!(matches!(l, SupportLevel::Unsupported { .. }));
 }
 
 #[test]
 fn support_level_equality() {
     assert_eq!(SupportLevel::Native, SupportLevel::Native);
-    assert!(matches!(SupportLevel::Unsupported, SupportLevel::Unsupported { .. }));
-    assert_eq!(
-        SupportLevel::Emulated {
-            strategy: "x".into()
+    assert!(matches!(
+        SupportLevel::Unsupported {
+            reason: "unsupported".into()
         },
-        SupportLevel::Emulated {
-            strategy: "x".into()
-        }
+        SupportLevel::Unsupported { .. }
+    ));
+    assert_eq!(
+        SupportLevel::Emulated { method: "x".into() },
+        SupportLevel::Emulated { method: "x".into() }
     );
 }
 
 #[test]
 fn support_level_inequality() {
-    assert_ne!(SupportLevel::Native, SupportLevel::Unsupported);
     assert_ne!(
-        SupportLevel::Emulated {
-            strategy: "a".into()
-        },
-        SupportLevel::Emulated {
-            strategy: "b".into()
+        SupportLevel::Native,
+        SupportLevel::Unsupported {
+            reason: "unsupported".into()
         }
+    );
+    assert_ne!(
+        SupportLevel::Emulated { method: "a".into() },
+        SupportLevel::Emulated { method: "b".into() }
     );
 }
 
 #[test]
 fn support_level_clone() {
     let l = SupportLevel::Emulated {
-        strategy: "clone me".into(),
+        method: "clone me".into(),
     };
     let l2 = l.clone();
     assert_eq!(l, l2);
@@ -466,7 +470,7 @@ fn check_capability_emulated() {
     assert_eq!(
         check_capability(&m, &Capability::Streaming),
         SupportLevel::Emulated {
-            strategy: "adapter".into()
+            method: "adapter".into()
         }
     );
 }
@@ -476,7 +480,9 @@ fn check_capability_unsupported_explicit() {
     let m = manifest(&[(Capability::Logprobs, CoreSupportLevel::Unsupported)]);
     assert_eq!(
         check_capability(&m, &Capability::Logprobs),
-        SupportLevel::Unsupported
+        SupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
     );
 }
 
@@ -485,7 +491,9 @@ fn check_capability_missing() {
     let m = CapabilityManifest::new();
     assert_eq!(
         check_capability(&m, &Capability::Streaming),
-        SupportLevel::Unsupported
+        SupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
     );
 }
 
@@ -499,9 +507,9 @@ fn check_capability_restricted() {
     )]);
     let level = check_capability(&m, &Capability::ToolBash);
     assert!(matches!(level, SupportLevel::Emulated { .. }));
-    if let SupportLevel::Emulated { strategy } = &level {
-        assert!(strategy.contains("restricted"));
-        assert!(strategy.contains("policy"));
+    if let SupportLevel::Emulated { method } = &level {
+        assert!(method.contains("restricted"));
+        assert!(method.contains("policy"));
     }
 }
 
@@ -516,7 +524,7 @@ fn check_capability_all_core_variants() {
     for (level, should_be_supported) in cases {
         let m = manifest(&[(Capability::Streaming, level)]);
         let result = check_capability(&m, &Capability::Streaming);
-        let supported = !matches!(result, SupportLevel::Unsupported);
+        let supported = !matches!(result, SupportLevel::Unsupported { .. });
         assert_eq!(supported, should_be_supported);
     }
 }
@@ -525,7 +533,10 @@ fn check_capability_all_core_variants() {
 fn check_capability_every_variant_against_empty_manifest() {
     let m = CapabilityManifest::new();
     for cap in all_capabilities() {
-        assert!(matches!(check_capability(&m, &cap), SupportLevel::Unsupported { .. }));
+        assert!(matches!(
+            check_capability(&m, &cap),
+            SupportLevel::Unsupported { .. }
+        ));
     }
 }
 
@@ -817,7 +828,7 @@ fn serde_support_level_native_roundtrip() {
 #[test]
 fn serde_support_level_emulated_roundtrip() {
     let l = SupportLevel::Emulated {
-        strategy: "polyfill".into(),
+        method: "polyfill".into(),
     };
     let json = serde_json::to_string(&l).unwrap();
     let back: SupportLevel = serde_json::from_str(&json).unwrap();
@@ -826,7 +837,9 @@ fn serde_support_level_emulated_roundtrip() {
 
 #[test]
 fn serde_support_level_unsupported_roundtrip() {
-    let l = SupportLevel::Unsupported;
+    let l = SupportLevel::Unsupported {
+        reason: "unsupported".into(),
+    };
     let json = serde_json::to_string(&l).unwrap();
     let back: SupportLevel = serde_json::from_str(&json).unwrap();
     assert_eq!(l, back);
@@ -893,12 +906,12 @@ fn serde_support_level_json_structure() {
 #[test]
 fn serde_support_level_emulated_json_structure() {
     let l = SupportLevel::Emulated {
-        strategy: "adapter".into(),
+        method: "adapter".into(),
     };
     let json = serde_json::to_string(&l).unwrap();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(v["level"], "emulated");
-    assert_eq!(v["strategy"], "adapter");
+    assert_eq!(v["method"], "adapter");
 }
 
 #[test]
@@ -1376,7 +1389,9 @@ fn edge_unknown_capability_absent_from_manifest() {
     let m = manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
     assert_eq!(
         check_capability(&m, &Capability::McpServer),
-        SupportLevel::Unsupported
+        SupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
     );
 }
 
@@ -1430,8 +1445,8 @@ fn edge_restricted_reason_preserved_in_check() {
             reason: "read-only workspace".into(),
         },
     )]);
-    if let SupportLevel::Emulated { strategy } = check_capability(&m, &Capability::ToolEdit) {
-        assert!(strategy.contains("read-only workspace"));
+    if let SupportLevel::Emulated { method } = check_capability(&m, &Capability::ToolEdit) {
+        assert!(method.contains("read-only workspace"));
     } else {
         panic!("Expected Emulated for Restricted");
     }
@@ -1490,7 +1505,10 @@ fn edge_report_detail_ordering() {
     // Details are listed native first, then emulatable, then unsupported
     assert!(matches!(report.details[0].1, SupportLevel::Native));
     assert!(matches!(report.details[1].1, SupportLevel::Emulated { .. }));
-    assert!(matches!(report.details[2].1, SupportLevel::Unsupported));
+    assert!(matches!(
+        report.details[2].1,
+        SupportLevel::Unsupported { .. }
+    ));
 }
 
 #[test]

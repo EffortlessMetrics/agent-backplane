@@ -509,6 +509,7 @@ fn gen_config_to_dialect(cfg: &GenerationConfig) -> GeminiGenerationConfig {
         temperature: cfg.temperature,
         top_p: cfg.top_p,
         top_k: cfg.top_k,
+        candidate_count: None,
         stop_sequences: cfg.stop_sequences.clone(),
         response_mime_type: cfg.response_mime_type.clone(),
         response_schema: cfg.response_schema.clone(),
@@ -1351,6 +1352,7 @@ mod tests {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: Some(GeminiUsageMetadata {
                 prompt_token_count: 5,
                 candidates_token_count: 3,

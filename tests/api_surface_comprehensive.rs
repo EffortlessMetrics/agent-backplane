@@ -452,6 +452,7 @@ mod core_enum_variants {
                 Capability::Logprobs => {}
                 Capability::SeedDeterminism => {}
                 Capability::StopSequences => {}
+                _ => {}
             }
         }
     }
@@ -1714,7 +1715,9 @@ mod capability_constructors {
         let m = CapabilityManifest::new();
         assert_eq!(
             check_capability(&m, &Capability::Streaming),
-            SupportLevel::Unsupported
+            SupportLevel::Unsupported {
+                reason: "unsupported".into()
+            }
         );
     }
 
@@ -1790,16 +1793,17 @@ mod capability_enum_variants {
     fn support_level_exhaustive() {
         let levels = [
             SupportLevel::Native,
-            SupportLevel::Emulated {
-                strategy: "s".into(),
+            SupportLevel::Emulated { method: "s".into() },
+            SupportLevel::Unsupported {
+                reason: "unsupported".into(),
             },
-            SupportLevel::Unsupported,
         ];
         for l in &levels {
             match l {
                 SupportLevel::Native => {}
                 SupportLevel::Emulated { .. } => {}
-                SupportLevel::Unsupported => {}
+                SupportLevel::Unsupported { .. } => {}
+                SupportLevel::Restricted { .. } => {}
             }
         }
     }

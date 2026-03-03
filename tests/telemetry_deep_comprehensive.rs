@@ -1125,7 +1125,7 @@ fn dc_json_exporter_as_trait_object() {
 
 #[test]
 fn dc_json_exporter_default() {
-    let _e = JsonExporter::default();
+    let _e = JsonExporter;
 }
 
 #[test]

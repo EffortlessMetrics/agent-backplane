@@ -205,7 +205,7 @@ mod tests {
         let mut codec = StreamingCodec::with_max_line_len(20);
         // Create a line longer than the limit.
         let long =
-            format!("{{\"t\":\"fatal\",\"ref_id\":null,\"error\":\"this is way too long\"}}\n");
+            "{\"t\":\"fatal\",\"ref_id\":null,\"error\":\"this is way too long\"}\n".to_string();
         let envs = codec.push(long.as_bytes());
         assert!(envs.is_empty());
         assert_eq!(codec.metrics().errors_skipped, 1);

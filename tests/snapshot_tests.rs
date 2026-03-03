@@ -1157,7 +1157,7 @@ fn snapshot_compatibility_report() {
             (
                 "extended_thinking".into(),
                 CapSupportLevel::Emulated {
-                    strategy: "adapter".into(),
+                    method: "adapter".into(),
                 },
             ),
         ],
@@ -1175,8 +1175,18 @@ fn snapshot_compatibility_report_incompatible() {
         summary: "incompatible (2 unsupported)".into(),
         details: vec![
             ("streaming".into(), CapSupportLevel::Native),
-            ("mcp_client".into(), CapSupportLevel::Unsupported),
-            ("mcp_server".into(), CapSupportLevel::Unsupported),
+            (
+                "mcp_client".into(),
+                CapSupportLevel::Unsupported {
+                    reason: "unsupported".into(),
+                },
+            ),
+            (
+                "mcp_server".into(),
+                CapSupportLevel::Unsupported {
+                    reason: "unsupported".into(),
+                },
+            ),
         ],
     };
     insta::assert_json_snapshot!(r);

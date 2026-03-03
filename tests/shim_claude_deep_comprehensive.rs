@@ -2515,8 +2515,10 @@ fn dialect_map_work_order_model_override() {
 #[test]
 fn dialect_map_work_order_uses_config_system_prompt() {
     let wo = abp_core::WorkOrderBuilder::new("task").build();
-    let mut cfg = dialect::ClaudeConfig::default();
-    cfg.system_prompt = Some("Be terse".into());
+    let cfg = dialect::ClaudeConfig {
+        system_prompt: Some("Be terse".into()),
+        ..Default::default()
+    };
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.system.as_deref(), Some("Be terse"));
 }
@@ -2524,8 +2526,10 @@ fn dialect_map_work_order_uses_config_system_prompt() {
 #[test]
 fn dialect_map_work_order_thinking_from_config() {
     let wo = abp_core::WorkOrderBuilder::new("task").build();
-    let mut cfg = dialect::ClaudeConfig::default();
-    cfg.thinking = Some(ThinkingConfig::new(4096));
+    let cfg = dialect::ClaudeConfig {
+        thinking: Some(ThinkingConfig::new(4096)),
+        ..Default::default()
+    };
     let req = dialect::map_work_order(&wo, &cfg);
     assert!(req.thinking.is_some());
     assert_eq!(req.thinking.unwrap().budget_tokens, 4096);

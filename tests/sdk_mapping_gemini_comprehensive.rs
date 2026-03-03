@@ -61,6 +61,7 @@ fn make_response(parts: Vec<GeminiPart>, finish_reason: Option<&str>) -> GeminiR
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     }
 }
@@ -73,6 +74,7 @@ fn make_response_with_usage(text: &str, prompt: u64, candidates: u64) -> GeminiR
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: Some(GeminiUsageMetadata {
             prompt_token_count: prompt,
             candidates_token_count: candidates,
@@ -625,6 +627,7 @@ mod function_call_mapping {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let events = dialect::map_response(&resp);
@@ -1362,6 +1365,7 @@ mod multi_modal_content {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let events = dialect::map_response(&resp);
@@ -1417,6 +1421,7 @@ mod candidate_selection {
                     citation_metadata: None,
                 },
             ],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let events = dialect::map_response(&resp);
@@ -1440,6 +1445,7 @@ mod candidate_selection {
                     citation_metadata: None,
                 },
             ],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let shim_resp = from_dialect_response(&resp);
@@ -1506,6 +1512,7 @@ mod candidate_selection {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let shim_resp = from_dialect_response(&resp);
@@ -1524,6 +1531,7 @@ mod candidate_selection {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let shim_resp = from_dialect_response(&resp);
@@ -1685,6 +1693,7 @@ mod finish_reason_mapping {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let shim_resp = from_dialect_response(&resp);
@@ -1706,6 +1715,7 @@ mod finish_reason_mapping {
                 }]),
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let shim_resp = from_dialect_response(&resp);
@@ -1731,6 +1741,7 @@ mod finish_reason_mapping {
                     }],
                 }),
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let shim_resp = from_dialect_response(&resp);
@@ -1756,6 +1767,7 @@ mod finish_reason_mapping {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let shim_resp = from_dialect_response(&resp);

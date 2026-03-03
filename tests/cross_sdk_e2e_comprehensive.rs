@@ -483,6 +483,7 @@ mod claude_to_gemini {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: Some(GeminiUsageMetadata {
                 prompt_token_count: 10,
                 candidates_token_count: 5,
@@ -1588,7 +1589,7 @@ mod capability_comparison {
     fn check_capability_unsupported_for_missing() {
         let m = kimi_dialect::capability_manifest();
         let level = check_capability(&m, &Capability::SessionResume);
-        assert!(matches!(level, CapSupportLevel::Unsupported));
+        assert!(matches!(level, CapSupportLevel::Unsupported { .. }));
     }
 
     #[test]
@@ -2484,6 +2485,7 @@ mod response_mapping {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let events = gemini_dialect::map_response(&resp);

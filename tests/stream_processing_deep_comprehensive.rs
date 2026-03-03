@@ -1210,7 +1210,7 @@ async fn large_stream_with_pipeline() {
 
     let consumer = tokio::spawn(async move {
         let mut count = 0usize;
-        while let Some(_) = rx_out.recv().await {
+        while (rx_out.recv().await).is_some() {
             count += 1;
         }
         count
@@ -1542,7 +1542,6 @@ async fn concurrent_multiplexer_three_streams() {
     for stream_idx in 0..3 {
         let (tx, rx) = mpsc::channel(64);
         rxs.push(rx);
-        let base = base;
         tokio::spawn(async move {
             for i in 0..30 {
                 let offset = (stream_idx * 30 + i) as i64;
@@ -1588,7 +1587,7 @@ async fn concurrent_pipe_with_filter() {
 
     let consumer = tokio::spawn(async move {
         let mut count = 0u64;
-        while let Some(_) = rx_out.recv().await {
+        while (rx_out.recv().await).is_some() {
             count += 1;
         }
         count
@@ -1810,7 +1809,7 @@ async fn multiplexer_merge_returns_all_events() {
     let mut rx = mux.merge(8);
 
     let mut count = 0;
-    while let Some(_) = rx.recv().await {
+    while (rx.recv().await).is_some() {
         count += 1;
     }
     assert_eq!(count, 3);

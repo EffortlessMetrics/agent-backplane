@@ -279,7 +279,7 @@ mod support_level_variants {
 
     #[test]
     fn unsupported_debug() {
-        assert!(matches!(format!("{:?}", SupportLevel::Unsupported { .. })), "Unsupported");
+        assert!(format!("{:?}", SupportLevel::Unsupported).contains("Unsupported"),);
     }
 
     #[test]
@@ -1143,7 +1143,7 @@ mod serde_roundtrips {
     #[test]
     fn cap_support_level_serde_emulated_with_strategy() {
         let l = CapSupportLevel::Emulated {
-            strategy: "wrapper".into(),
+            method: "wrapper".into(),
         };
         let j = serde_json::to_string(&l).unwrap();
         let back: CapSupportLevel = serde_json::from_str(&j).unwrap();
@@ -1532,8 +1532,8 @@ mod emulation_labeling {
             },
         )]);
         let level = check_capability(&m, &Capability::ToolBash);
-        if let CapSupportLevel::Emulated { strategy } = level {
-            assert!(strategy.contains("sandbox"));
+        if let CapSupportLevel::Emulated { method } = level {
+            assert!(method.contains("sandbox"));
         } else {
             panic!("Expected Emulated from Restricted");
         }
@@ -1546,7 +1546,7 @@ mod emulation_labeling {
         assert_eq!(
             level,
             CapSupportLevel::Emulated {
-                strategy: "adapter".into()
+                method: "adapter".into()
             }
         );
     }
@@ -1906,7 +1906,9 @@ mod check_capability_coverage {
         let m = manifest(&[(Capability::ToolUse, SupportLevel::Unsupported)]);
         assert_eq!(
             check_capability(&m, &Capability::ToolUse),
-            CapSupportLevel::Unsupported
+            CapSupportLevel::Unsupported {
+                reason: "unsupported".into()
+            }
         );
     }
 
@@ -1915,7 +1917,9 @@ mod check_capability_coverage {
         let m: CapabilityManifest = BTreeMap::new();
         assert_eq!(
             check_capability(&m, &Capability::ToolUse),
-            CapSupportLevel::Unsupported
+            CapSupportLevel::Unsupported {
+                reason: "unsupported".into()
+            }
         );
     }
 
@@ -1948,7 +1952,9 @@ mod check_capability_coverage {
         for cap in all_capabilities() {
             assert_eq!(
                 check_capability(&BTreeMap::new(), &cap),
-                CapSupportLevel::Unsupported,
+                CapSupportLevel::Unsupported {
+                    reason: "unsupported".into()
+                },
                 "Failed for {cap:?}"
             );
         }

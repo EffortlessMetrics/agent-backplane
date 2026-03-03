@@ -1143,9 +1143,11 @@ mod work_order_validation {
 
     #[test]
     fn builder_set_config() {
-        let mut config = RuntimeConfig::default();
-        config.model = Some("claude-4".into());
-        config.max_turns = Some(20);
+        let config = RuntimeConfig {
+            model: Some("claude-4".into()),
+            max_turns: Some(20),
+            ..Default::default()
+        };
         let wo = WorkOrderBuilder::new("t").config(config).build();
         assert_eq!(wo.config.model.as_deref(), Some("claude-4"));
         assert_eq!(wo.config.max_turns, Some(20));

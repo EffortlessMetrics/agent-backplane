@@ -1126,7 +1126,10 @@ fn given_check_capability_when_native_then_native() {
 fn given_check_capability_when_absent_then_unsupported() {
     let manifest = CapabilityManifest::new();
     let level = check_capability(&manifest, &Capability::Streaming);
-    assert_eq!(level, abp_capability::SupportLevel::Unsupported { .. });
+    assert!(matches!(
+        level,
+        abp_capability::SupportLevel::Unsupported { .. }
+    ));
 }
 
 // ===========================================================================
@@ -2040,5 +2043,5 @@ fn given_emulated_support_when_native_required_then_not_satisfied() {
 
 #[test]
 fn given_unsupported_when_emulated_required_then_not_satisfied() {
-    assert!(!SupportLevel::Unsupported { .. }.satisfies(&MinSupport::Emulated));
+    assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
 }

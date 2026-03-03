@@ -974,7 +974,9 @@ fn capability_check_missing_is_unsupported() {
     let manifest = CapabilityManifest::new();
     assert_eq!(
         check_capability(&manifest, &Capability::Logprobs),
-        CapSupportLevel::Unsupported
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
     );
 }
 

@@ -201,6 +201,7 @@ mod gemini {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: Some(GeminiUsageMetadata {
                 prompt_token_count: 90,
                 candidates_token_count: 45,

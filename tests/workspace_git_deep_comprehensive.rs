@@ -1104,6 +1104,7 @@ mod readonly_tests {
         );
         // Restore for cleanup
         let mut perms = fs::metadata(&path).unwrap().permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
         perms.set_readonly(false);
         fs::set_permissions(&path, perms).unwrap();
     }

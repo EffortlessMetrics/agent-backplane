@@ -22,7 +22,6 @@ use abp_core::{
     CapabilityRequirements, MinSupport, Outcome, ReceiptBuilder, SupportLevel as CoreSupportLevel,
     WorkOrderBuilder,
 };
-use serde_json;
 
 // ===========================================================================
 // Helpers
@@ -145,10 +144,7 @@ fn merge_manifests(a: &CapabilityManifest, b: &CapabilityManifest) -> Capability
     }
     let mut out = a.clone();
     for (cap, level_b) in b {
-        let insert = match out.get(cap) {
-            Some(existing) if rank(existing) >= rank(level_b) => false,
-            _ => true,
-        };
+        let insert = !matches!(out.get(cap), Some(existing) if rank(existing) >= rank(level_b));
         if insert {
             out.insert(cap.clone(), level_b.clone());
         }
@@ -454,7 +450,7 @@ mod tool_availability {
         assert_eq!(
             check_capability(&m, &Capability::ToolBash),
             SupportLevel::Emulated {
-                strategy: "adapter".into()
+                method: "adapter".into()
             }
         );
     }
@@ -464,7 +460,9 @@ mod tool_availability {
         let m = CapabilityManifest::new();
         assert_eq!(
             check_capability(&m, &Capability::ToolWrite),
-            SupportLevel::Unsupported
+            SupportLevel::Unsupported {
+                reason: "unsupported".into()
+            }
         );
     }
 
@@ -473,7 +471,9 @@ mod tool_availability {
         let m = mk_manifest(&[(Capability::ToolBash, CoreSupportLevel::Unsupported)]);
         assert_eq!(
             check_capability(&m, &Capability::ToolBash),
-            SupportLevel::Unsupported
+            SupportLevel::Unsupported {
+                reason: "unsupported".into()
+            }
         );
     }
 
@@ -499,8 +499,8 @@ mod tool_availability {
         )]);
         let level = check_capability(&m, &Capability::ToolBash);
         assert!(matches!(level, SupportLevel::Emulated { .. }));
-        if let SupportLevel::Emulated { strategy } = level {
-            assert!(strategy.contains("restricted"));
+        if let SupportLevel::Emulated { method } = level {
+            assert!(method.contains("restricted"));
         }
     }
 
@@ -884,7 +884,7 @@ mod serde_roundtrip {
     #[test]
     fn support_level_emulated_json() {
         let level = SupportLevel::Emulated {
-            strategy: "polyfill".into(),
+            method: "polyfill".into(),
         };
         let json = serde_json::to_string(&level).unwrap();
         let back: SupportLevel = serde_json::from_str(&json).unwrap();
@@ -893,7 +893,9 @@ mod serde_roundtrip {
 
     #[test]
     fn support_level_unsupported_json() {
-        let level = SupportLevel::Unsupported;
+        let level = SupportLevel::Unsupported {
+            reason: "unsupported".into(),
+        };
         let json = serde_json::to_string(&level).unwrap();
         let back: SupportLevel = serde_json::from_str(&json).unwrap();
         assert_eq!(level, back);

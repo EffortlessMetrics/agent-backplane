@@ -1214,6 +1214,7 @@ fn gemini_finish_reason_stop() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = gemini_dialect::map_response(&resp);
