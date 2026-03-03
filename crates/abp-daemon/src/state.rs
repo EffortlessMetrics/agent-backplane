@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! In-memory run registry and event store for the daemon HTTP API.
 //!
-//! This module provides [`RunRegistry`] — a thread-safe, async-aware store
+//! This module provides `RunRegistry` — a thread-safe, async-aware store
 //! that tracks run lifecycle state and per-run event logs.
 
 use abp_core::{AgentEvent, Receipt};
