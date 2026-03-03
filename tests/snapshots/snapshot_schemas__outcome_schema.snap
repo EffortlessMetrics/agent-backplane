@@ -1,0 +1,26 @@
+---
+source: tests/snapshot_schemas.rs
+expression: "serde_json::to_string_pretty(&schema).unwrap()"
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Outcome",
+  "description": "High-level result status of a run.\n\n# Examples\n\n```\nuse abp_core::Outcome;\n\nlet outcome: Outcome = serde_json::from_str(r#\"\"complete\"\"#).unwrap();\nassert_eq!(outcome, Outcome::Complete);\n```",
+  "oneOf": [
+    {
+      "description": "The run finished successfully.",
+      "type": "string",
+      "const": "complete"
+    },
+    {
+      "description": "The run produced partial results (e.g. budget exhausted).",
+      "type": "string",
+      "const": "partial"
+    },
+    {
+      "description": "The run failed.",
+      "type": "string",
+      "const": "failed"
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+---
+source: tests/snapshot_schemas.rs
+expression: "serde_json::to_string_pretty(&schema).unwrap()"
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IrContentBlock",
+  "description": "A single content block inside an [`IrMessage`].",
+  "oneOf": [
+    {
+      "description": "Plain text content.",
+      "type": "object",
+      "properties": {
+        "text": {
+          "description": "The text payload.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "text"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ]
+    },
+    {
+      "description": "Base64-encoded image data.",
+      "type": "object",
+      "properties": {
+        "data": {
+          "description": "Base64-encoded image bytes.",
+          "type": "string"
+        },
+        "media_type": {
+          "description": "MIME type (e.g. `\"image/png\"`).",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "image"
+        }
+      },
+      "required": [
+        "type",
+        "media_type",
+        "data"
+      ]
+    },
+    {
+      "description": "A tool invocation requested by the model.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Unique identifier for this tool invocation.",
+          "type": "string"
+        },
+        "input": {
+          "description": "JSON-encoded input arguments."
+        },
+        "name": {
+          "description": "Tool name.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "tool_use"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "name",
+        "input"
+      ]
+    },
+    {
+      "description": "The result of a prior tool invocation.",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "Nested content blocks for the result payload.",
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          }
+        },
+        "is_error": {
+          "description": "Whether the tool reported an error.",
+          "type": "boolean"
+        },
+        "tool_use_id": {
+          "description": "Identifier of the corresponding [`IrContentBlock::ToolUse`].",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "tool_result"
+        }
+      },
+      "required": [
+        "type",
+        "tool_use_id",
+        "content",
+        "is_error"
+      ]
+    },
+    {
+      "description": "Extended thinking / chain-of-thought block.",
+      "type": "object",
+      "properties": {
+        "text": {
+          "description": "The thinking text.",
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "thinking"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ]
+    }
+  ]
+}

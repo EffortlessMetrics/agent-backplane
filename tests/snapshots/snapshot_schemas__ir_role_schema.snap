@@ -1,0 +1,31 @@
+---
+source: tests/snapshot_schemas.rs
+expression: "serde_json::to_string_pretty(&schema).unwrap()"
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IrRole",
+  "description": "Normalized message role across all dialects.",
+  "oneOf": [
+    {
+      "description": "System prompt / instructions.",
+      "type": "string",
+      "const": "system"
+    },
+    {
+      "description": "User / human turn.",
+      "type": "string",
+      "const": "user"
+    },
+    {
+      "description": "Assistant / model turn.",
+      "type": "string",
+      "const": "assistant"
+    },
+    {
+      "description": "Tool result turn (correlates with a prior tool-use block).",
+      "type": "string",
+      "const": "tool"
+    }
+  ]
+}
