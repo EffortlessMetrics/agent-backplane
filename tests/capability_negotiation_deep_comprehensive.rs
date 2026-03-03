@@ -442,9 +442,9 @@ mod requirement_matching {
                 reason: "sandbox".into(),
             },
         )]);
-        // check_capability maps Restricted to Emulated, so it's not native
+        // check_capability maps Restricted to Restricted, so it's not native
         let level = check_capability(&m, &Capability::ToolBash);
-        assert!(matches!(level, CapSupportLevel::Emulated { .. }));
+        assert!(matches!(level, CapSupportLevel::Restricted { .. }));
     }
 
     #[test]
@@ -1528,10 +1528,10 @@ mod emulation_labeling {
             },
         )]);
         let level = check_capability(&m, &Capability::ToolBash);
-        if let CapSupportLevel::Emulated { method } = level {
-            assert!(method.contains("sandbox"));
+        if let CapSupportLevel::Restricted { reason } = level {
+            assert!(reason.contains("sandbox"));
         } else {
-            panic!("Expected Emulated from Restricted");
+            panic!("Expected Restricted from Restricted");
         }
     }
 
@@ -1855,7 +1855,7 @@ mod compatibility_report_tests {
         );
         let report = generate_report(&res);
         assert!(report.summary.contains("1 native"));
-        assert!(report.summary.contains("1 emulatable"));
+        assert!(report.summary.contains("1 emulated"));
         assert!(report.summary.contains("1 unsupported"));
     }
 }
@@ -1891,7 +1891,7 @@ mod check_capability_coverage {
         assert_eq!(
             check_capability(&m, &Capability::ToolUse),
             CapSupportLevel::Unsupported {
-                reason: "unsupported".into()
+                reason: "explicitly marked unsupported".into()
             }
         );
     }
@@ -1902,13 +1902,13 @@ mod check_capability_coverage {
         assert_eq!(
             check_capability(&m, &Capability::ToolUse),
             CapSupportLevel::Unsupported {
-                reason: "unsupported".into()
+                reason: "not declared in manifest".into()
             }
         );
     }
 
     #[test]
-    fn check_restricted_returns_emulated() {
+    fn check_restricted_returns_restricted() {
         let m = manifest(&[(
             Capability::ToolBash,
             SupportLevel::Restricted {
@@ -1916,7 +1916,7 @@ mod check_capability_coverage {
             },
         )]);
         let level = check_capability(&m, &Capability::ToolBash);
-        assert!(matches!(level, CapSupportLevel::Emulated { .. }));
+        assert!(matches!(level, CapSupportLevel::Restricted { .. }));
     }
 
     #[test]
@@ -1937,7 +1937,7 @@ mod check_capability_coverage {
             assert_eq!(
                 check_capability(&BTreeMap::new(), &cap),
                 CapSupportLevel::Unsupported {
-                    reason: "unsupported".into()
+                    reason: "not declared in manifest".into()
                 },
                 "Failed for {cap:?}"
             );
