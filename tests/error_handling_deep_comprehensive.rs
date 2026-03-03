@@ -103,7 +103,7 @@ fn all_error_codes_have_unique_as_str() {
 #[test]
 fn error_code_display_matches_as_str() {
     for code in ALL_ABP_ERROR_CODES {
-        assert_eq!(code.to_string(), code.as_str());
+        assert_eq!(code.to_string(), code.message());
     }
 }
 

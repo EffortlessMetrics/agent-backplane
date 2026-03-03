@@ -1781,9 +1781,10 @@ fn given_all_error_codes_when_as_str_then_non_empty() {
 }
 
 #[test]
-fn given_error_code_when_display_then_same_as_str() {
+fn given_error_code_when_display_then_same_as_message() {
     let code = ErrorCode::BackendTimeout;
-    assert_eq!(code.to_string(), code.as_str());
+    // Display uses .message() (human-readable text), not .as_str() (snake_case code)
+    assert_eq!(code.to_string(), code.message());
 }
 
 #[test]

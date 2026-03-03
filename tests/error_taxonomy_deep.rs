@@ -153,7 +153,7 @@ fn abp_error_display_omits_context_when_empty() {
 #[test]
 fn error_code_display_matches_as_str() {
     for code in ALL_CODES {
-        assert_eq!(code.to_string(), code.as_str());
+        assert_eq!(code.to_string(), code.message());
     }
 }
 

@@ -166,7 +166,7 @@ fn error_code_as_str_matches_table() {
 #[test]
 fn error_code_display_equals_as_str() {
     for code in ALL_CODES {
-        assert_eq!(code.to_string(), code.as_str());
+        assert_eq!(code.to_string(), code.message());
     }
 }
 

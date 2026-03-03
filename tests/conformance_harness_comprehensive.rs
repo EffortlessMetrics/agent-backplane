@@ -1674,7 +1674,7 @@ mod error_taxonomy {
     #[test]
     fn error_code_display_matches_as_str() {
         let code = ErrorCode::PolicyDenied;
-        assert_eq!(code.to_string(), code.as_str());
+        assert_eq!(code.to_string(), code.message());
     }
 
     #[test]
