@@ -1296,3 +1296,805 @@ fn collector_multiple_summaries_consistent() {
     let s2 = c.summary();
     assert_eq!(s1, s2);
 }
+
+// ===========================================================================
+// RunSummary tests (15)
+// ===========================================================================
+
+#[test]
+fn run_summary_default_is_empty() {
+    let s = RunSummary::new();
+    assert_eq!(s.total_events, 0);
+    assert_eq!(s.error_count, 0);
+    assert_eq!(s.warning_count, 0);
+    assert_eq!(s.tool_call_count, 0);
+    assert_eq!(s.total_duration_ms, 0);
+    assert!(s.event_counts.is_empty());
+}
+
+#[test]
+fn run_summary_record_single_event() {
+    let mut s = RunSummary::new();
+    s.record_event("assistant_message");
+    assert_eq!(s.total_events, 1);
+    assert_eq!(s.event_counts["assistant_message"], 1);
+}
+
+#[test]
+fn run_summary_record_multiple_same_kind() {
+    let mut s = RunSummary::new();
+    s.record_event("assistant_delta");
+    s.record_event("assistant_delta");
+    s.record_event("assistant_delta");
+    assert_eq!(s.total_events, 3);
+    assert_eq!(s.event_counts["assistant_delta"], 3);
+}
+
+#[test]
+fn run_summary_record_error_increments_error_count() {
+    let mut s = RunSummary::new();
+    s.record_event("error");
+    s.record_event("error");
+    assert_eq!(s.error_count, 2);
+    assert_eq!(s.total_events, 2);
+}
+
+#[test]
+fn run_summary_record_warning_increments_warning_count() {
+    let mut s = RunSummary::new();
+    s.record_event("warning");
+    assert_eq!(s.warning_count, 1);
+}
+
+#[test]
+fn run_summary_record_tool_call_increments_count() {
+    let mut s = RunSummary::new();
+    s.record_event("tool_call");
+    s.record_event("tool_call");
+    s.record_event("tool_call");
+    assert_eq!(s.tool_call_count, 3);
+}
+
+#[test]
+fn run_summary_set_duration() {
+    let mut s = RunSummary::new();
+    s.set_duration(1500);
+    assert_eq!(s.total_duration_ms, 1500);
+}
+
+#[test]
+fn run_summary_has_errors() {
+    let mut s = RunSummary::new();
+    assert!(!s.has_errors());
+    s.record_event("error");
+    assert!(s.has_errors());
+}
+
+#[test]
+fn run_summary_error_rate_no_events() {
+    let s = RunSummary::new();
+    assert_eq!(s.error_rate(), 0.0);
+}
+
+#[test]
+fn run_summary_error_rate_mixed() {
+    let mut s = RunSummary::new();
+    s.record_event("error");
+    s.record_event("assistant_message");
+    s.record_event("tool_call");
+    s.record_event("error");
+    // 2 errors out of 4 events = 0.5
+    assert!((s.error_rate() - 0.5).abs() < f64::EPSILON);
+}
+
+#[test]
+fn run_summary_merge_two_summaries() {
+    let mut s1 = RunSummary::from_events(&["error", "tool_call"], 100);
+    let s2 = RunSummary::from_events(&["warning", "tool_call", "tool_call"], 200);
+    s1.merge(&s2);
+    assert_eq!(s1.total_events, 5);
+    assert_eq!(s1.error_count, 1);
+    assert_eq!(s1.warning_count, 1);
+    assert_eq!(s1.tool_call_count, 3);
+    assert_eq!(s1.total_duration_ms, 300);
+}
+
+#[test]
+fn run_summary_merge_empty_into_populated() {
+    let mut s1 = RunSummary::from_events(&["error"], 50);
+    let s2 = RunSummary::new();
+    s1.merge(&s2);
+    assert_eq!(s1.total_events, 1);
+    assert_eq!(s1.total_duration_ms, 50);
+}
+
+#[test]
+fn run_summary_from_events_builds_correctly() {
+    let s = RunSummary::from_events(
+        &[
+            "run_started",
+            "tool_call",
+            "tool_result",
+            "error",
+            "run_completed",
+        ],
+        500,
+    );
+    assert_eq!(s.total_events, 5);
+    assert_eq!(s.event_counts["run_started"], 1);
+    assert_eq!(s.event_counts["tool_call"], 1);
+    assert_eq!(s.tool_call_count, 1);
+    assert_eq!(s.error_count, 1);
+    assert_eq!(s.total_duration_ms, 500);
+}
+
+#[test]
+fn run_summary_serde_roundtrip() {
+    let s = RunSummary::from_events(&["error", "tool_call", "assistant_delta"], 999);
+    let json = serde_json::to_string(&s).unwrap();
+    let s2: RunSummary = serde_json::from_str(&json).unwrap();
+    assert_eq!(s, s2);
+}
+
+#[test]
+fn run_summary_event_counts_deterministic_order() {
+    let mut s = RunSummary::new();
+    s.record_event("zebra");
+    s.record_event("alpha");
+    s.record_event("middle");
+    let keys: Vec<&String> = s.event_counts.keys().collect();
+    assert_eq!(keys, vec!["alpha", "middle", "zebra"]);
+}
+
+// ===========================================================================
+// LatencyHistogram tests (10)
+// ===========================================================================
+
+#[test]
+fn histogram_new_is_empty() {
+    let h = LatencyHistogram::new();
+    assert!(h.is_empty());
+    assert_eq!(h.count(), 0);
+    assert_eq!(h.mean(), 0.0);
+}
+
+#[test]
+fn histogram_record_and_count() {
+    let mut h = LatencyHistogram::new();
+    h.record(10.0);
+    h.record(20.0);
+    assert_eq!(h.count(), 2);
+    assert!(!h.is_empty());
+}
+
+#[test]
+fn histogram_min_max() {
+    let mut h = LatencyHistogram::new();
+    h.record(5.0);
+    h.record(100.0);
+    h.record(50.0);
+    assert_eq!(h.min(), Some(5.0));
+    assert_eq!(h.max(), Some(100.0));
+}
+
+#[test]
+fn histogram_min_max_empty() {
+    let h = LatencyHistogram::new();
+    assert_eq!(h.min(), None);
+    assert_eq!(h.max(), None);
+}
+
+#[test]
+fn histogram_mean() {
+    let mut h = LatencyHistogram::new();
+    h.record(10.0);
+    h.record(20.0);
+    h.record(30.0);
+    assert!((h.mean() - 20.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn histogram_p50_odd() {
+    let mut h = LatencyHistogram::new();
+    for v in [10.0, 20.0, 30.0, 40.0, 50.0] {
+        h.record(v);
+    }
+    assert!((h.p50() - 30.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn histogram_p95_p99() {
+    let mut h = LatencyHistogram::new();
+    for i in 1..=100 {
+        h.record(i as f64);
+    }
+    assert!(h.p95() > 94.0 && h.p95() <= 96.0);
+    assert!(h.p99() > 98.0 && h.p99() <= 100.0);
+}
+
+#[test]
+fn histogram_merge() {
+    let mut h1 = LatencyHistogram::new();
+    h1.record(10.0);
+    h1.record(20.0);
+    let mut h2 = LatencyHistogram::new();
+    h2.record(30.0);
+    h1.merge(&h2);
+    assert_eq!(h1.count(), 3);
+    assert!((h1.mean() - 20.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn histogram_buckets() {
+    let mut h = LatencyHistogram::new();
+    for v in [5.0, 15.0, 25.0, 35.0, 150.0] {
+        h.record(v);
+    }
+    let b = h.buckets(&[10.0, 20.0, 50.0, 100.0]);
+    // [0,10): 5.0 → 1
+    // [10,20): 15.0 → 1
+    // [20,50): 25.0, 35.0 → 2
+    // [50,100): → 0
+    // [100,∞): 150.0 → 1
+    assert_eq!(b, vec![1, 1, 2, 0, 1]);
+}
+
+#[test]
+fn histogram_serde_roundtrip() {
+    let mut h = LatencyHistogram::new();
+    h.record(1.5);
+    h.record(2.5);
+    let json = serde_json::to_string(&h).unwrap();
+    let h2: LatencyHistogram = serde_json::from_str(&json).unwrap();
+    assert_eq!(h, h2);
+}
+
+// ===========================================================================
+// CostEstimator tests (10)
+// ===========================================================================
+
+#[test]
+fn cost_estimator_new_is_empty() {
+    let e = CostEstimator::new();
+    assert!(e.models().is_empty());
+}
+
+#[test]
+fn cost_estimator_set_and_get_pricing() {
+    let mut e = CostEstimator::new();
+    e.set_pricing(
+        "gpt-4",
+        ModelPricing {
+            input_cost_per_token: 0.00003,
+            output_cost_per_token: 0.00006,
+        },
+    );
+    let p = e.get_pricing("gpt-4").unwrap();
+    assert!((p.input_cost_per_token - 0.00003).abs() < f64::EPSILON);
+}
+
+#[test]
+fn cost_estimator_unknown_model_returns_none() {
+    let e = CostEstimator::new();
+    assert!(e.estimate("unknown", 100, 100).is_none());
+}
+
+#[test]
+fn cost_estimator_single_model() {
+    let mut e = CostEstimator::new();
+    e.set_pricing(
+        "gpt-4",
+        ModelPricing {
+            input_cost_per_token: 0.00003,
+            output_cost_per_token: 0.00006,
+        },
+    );
+    let cost = e.estimate("gpt-4", 1000, 500).unwrap();
+    let expected = 1000.0 * 0.00003 + 500.0 * 0.00006;
+    assert!((cost - expected).abs() < 1e-10);
+}
+
+#[test]
+fn cost_estimator_zero_tokens() {
+    let mut e = CostEstimator::new();
+    e.set_pricing(
+        "model",
+        ModelPricing {
+            input_cost_per_token: 0.001,
+            output_cost_per_token: 0.002,
+        },
+    );
+    assert_eq!(e.estimate("model", 0, 0), Some(0.0));
+}
+
+#[test]
+fn cost_estimator_multi_model_total() {
+    let mut e = CostEstimator::new();
+    e.set_pricing(
+        "gpt-4",
+        ModelPricing {
+            input_cost_per_token: 0.00003,
+            output_cost_per_token: 0.00006,
+        },
+    );
+    e.set_pricing(
+        "claude",
+        ModelPricing {
+            input_cost_per_token: 0.00001,
+            output_cost_per_token: 0.00003,
+        },
+    );
+    let total = e.estimate_total(&[("gpt-4", 1000, 500), ("claude", 2000, 1000)]);
+    let expected = (1000.0 * 0.00003 + 500.0 * 0.00006) + (2000.0 * 0.00001 + 1000.0 * 0.00003);
+    assert!((total - expected).abs() < 1e-10);
+}
+
+#[test]
+fn cost_estimator_skips_unknown_in_total() {
+    let mut e = CostEstimator::new();
+    e.set_pricing(
+        "gpt-4",
+        ModelPricing {
+            input_cost_per_token: 0.00003,
+            output_cost_per_token: 0.00006,
+        },
+    );
+    let total = e.estimate_total(&[("gpt-4", 1000, 0), ("unknown", 5000, 5000)]);
+    let expected = 1000.0 * 0.00003;
+    assert!((total - expected).abs() < 1e-10);
+}
+
+#[test]
+fn cost_estimator_overwrite_pricing() {
+    let mut e = CostEstimator::new();
+    e.set_pricing(
+        "model",
+        ModelPricing {
+            input_cost_per_token: 0.001,
+            output_cost_per_token: 0.002,
+        },
+    );
+    e.set_pricing(
+        "model",
+        ModelPricing {
+            input_cost_per_token: 0.01,
+            output_cost_per_token: 0.02,
+        },
+    );
+    let cost = e.estimate("model", 100, 100).unwrap();
+    let expected = 100.0 * 0.01 + 100.0 * 0.02;
+    assert!((cost - expected).abs() < 1e-10);
+}
+
+#[test]
+fn cost_estimator_models_list() {
+    let mut e = CostEstimator::new();
+    e.set_pricing(
+        "beta",
+        ModelPricing {
+            input_cost_per_token: 0.0,
+            output_cost_per_token: 0.0,
+        },
+    );
+    e.set_pricing(
+        "alpha",
+        ModelPricing {
+            input_cost_per_token: 0.0,
+            output_cost_per_token: 0.0,
+        },
+    );
+    let models = e.models();
+    // BTreeMap ensures alphabetical order
+    assert_eq!(models, vec!["alpha", "beta"]);
+}
+
+#[test]
+fn cost_estimator_serde_roundtrip() {
+    let mut e = CostEstimator::new();
+    e.set_pricing(
+        "gpt-4",
+        ModelPricing {
+            input_cost_per_token: 0.00003,
+            output_cost_per_token: 0.00006,
+        },
+    );
+    let json = serde_json::to_string(&e).unwrap();
+    let e2: CostEstimator = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        e2.estimate("gpt-4", 1000, 500),
+        e.estimate("gpt-4", 1000, 500)
+    );
+}
+
+// ===========================================================================
+// MetricsExporter tests (10)
+// ===========================================================================
+
+fn make_summary_for_export() -> MetricsSummary {
+    let c = MetricsCollector::new();
+    c.record(simple_run("mock", 100, 1));
+    c.record(simple_run("sidecar", 200, 0));
+    c.summary()
+}
+
+#[test]
+fn exporter_json_valid() {
+    let s = make_summary_for_export();
+    let json = MetricsExporter::export_json(&s).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(v["count"], 2);
+}
+
+#[test]
+fn exporter_json_roundtrip() {
+    let s = make_summary_for_export();
+    let json = MetricsExporter::export_json(&s).unwrap();
+    let s2: MetricsSummary = serde_json::from_str(&json).unwrap();
+    assert_eq!(s, s2);
+}
+
+#[test]
+fn exporter_csv_runs_header() {
+    let runs = vec![simple_run("mock", 100, 0)];
+    let csv = MetricsExporter::export_csv(&runs).unwrap();
+    assert!(csv.starts_with("backend_name,"));
+    assert!(csv.contains("mock"));
+}
+
+#[test]
+fn exporter_csv_runs_row_count() {
+    let runs = vec![
+        simple_run("a", 10, 0),
+        simple_run("b", 20, 1),
+        simple_run("c", 30, 0),
+    ];
+    let csv = MetricsExporter::export_csv(&runs).unwrap();
+    let lines: Vec<&str> = csv.lines().collect();
+    assert_eq!(lines.len(), 4); // header + 3 rows
+}
+
+#[test]
+fn exporter_csv_empty_runs() {
+    let csv = MetricsExporter::export_csv(&[]).unwrap();
+    let lines: Vec<&str> = csv.lines().collect();
+    assert_eq!(lines.len(), 1); // header only
+}
+
+#[test]
+fn exporter_structured_format() {
+    let s = make_summary_for_export();
+    let out = MetricsExporter::export_structured(&s).unwrap();
+    assert!(out.contains("count=2"));
+    assert!(out.contains("total_tokens_in="));
+    assert!(out.contains("backend.mock=1"));
+}
+
+#[test]
+fn exporter_format_enum_json() {
+    let s = make_summary_for_export();
+    let out = MetricsExporter::export(&s, ExportFormat::Json).unwrap();
+    let _: serde_json::Value = serde_json::from_str(&out).unwrap();
+}
+
+#[test]
+fn exporter_format_enum_csv() {
+    let s = make_summary_for_export();
+    let out = MetricsExporter::export(&s, ExportFormat::Csv).unwrap();
+    assert!(out.contains("count,"));
+    assert!(out.lines().count() >= 2);
+}
+
+#[test]
+fn exporter_format_enum_structured() {
+    let s = make_summary_for_export();
+    let out = MetricsExporter::export(&s, ExportFormat::Structured).unwrap();
+    assert!(out.contains("count="));
+    assert!(out.contains("error_rate="));
+}
+
+#[test]
+fn exporter_empty_summary_all_formats() {
+    let s = MetricsSummary::default();
+    assert!(MetricsExporter::export(&s, ExportFormat::Json).is_ok());
+    assert!(MetricsExporter::export(&s, ExportFormat::Csv).is_ok());
+    assert!(MetricsExporter::export(&s, ExportFormat::Structured).is_ok());
+}
+
+// ===========================================================================
+// Integration tests (15)
+// ===========================================================================
+
+#[test]
+fn integration_events_to_summary() {
+    let events = [
+        "run_started",
+        "assistant_delta",
+        "assistant_delta",
+        "tool_call",
+        "tool_result",
+        "assistant_message",
+        "error",
+        "run_completed",
+    ];
+    let s = RunSummary::from_events(&events, 1200);
+    assert_eq!(s.total_events, 8);
+    assert_eq!(s.tool_call_count, 1);
+    assert_eq!(s.error_count, 1);
+    assert_eq!(s.total_duration_ms, 1200);
+    assert!((s.error_rate() - 0.125).abs() < f64::EPSILON);
+}
+
+#[test]
+fn integration_summary_to_json_export() {
+    let s = RunSummary::from_events(&["tool_call", "error"], 500);
+    let json = serde_json::to_string(&s).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed["total_events"], 2);
+    assert_eq!(parsed["error_count"], 1);
+}
+
+#[test]
+fn integration_collector_to_exporter_pipeline() {
+    let c = MetricsCollector::new();
+    c.record(simple_run("mock", 100, 0));
+    c.record(simple_run("mock", 200, 1));
+    let summary = c.summary();
+    let json = MetricsExporter::export_json(&summary).unwrap();
+    let parsed: MetricsSummary = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed.count, 2);
+    assert_eq!(parsed.backend_counts["mock"], 2);
+}
+
+#[test]
+fn integration_histogram_with_run_durations() {
+    let c = MetricsCollector::new();
+    let mut h = LatencyHistogram::new();
+    for d in [50, 100, 150, 200, 250] {
+        c.record(simple_run("mock", d, 0));
+        h.record(d as f64);
+    }
+    assert_eq!(c.len(), 5);
+    assert!((h.p50() - 150.0).abs() < f64::EPSILON);
+    assert!(h.p95() > 200.0);
+}
+
+#[test]
+fn integration_cost_estimation_from_runs() {
+    let mut estimator = CostEstimator::new();
+    estimator.set_pricing(
+        "gpt-4",
+        ModelPricing {
+            input_cost_per_token: 0.00003,
+            output_cost_per_token: 0.00006,
+        },
+    );
+
+    let runs = [simple_run("gpt-4", 100, 0), simple_run("gpt-4", 200, 0)];
+    let usages: Vec<(&str, u64, u64)> = runs
+        .iter()
+        .map(|r| ("gpt-4", r.tokens_in, r.tokens_out))
+        .collect();
+    let total_cost = estimator.estimate_total(&usages);
+    assert!(total_cost > 0.0);
+}
+
+#[test]
+fn integration_full_pipeline_collect_summarize_export() {
+    // 1. Collect
+    let c = MetricsCollector::new();
+    for i in 0..10 {
+        c.record(simple_run(
+            "backend",
+            i * 100,
+            if i % 3 == 0 { 1 } else { 0 },
+        ));
+    }
+
+    // 2. Summarize
+    let summary = c.summary();
+    assert_eq!(summary.count, 10);
+
+    // 3. Export all formats
+    let json = MetricsExporter::export(&summary, ExportFormat::Json).unwrap();
+    let csv = MetricsExporter::export(&summary, ExportFormat::Csv).unwrap();
+    let structured = MetricsExporter::export(&summary, ExportFormat::Structured).unwrap();
+
+    assert!(!json.is_empty());
+    assert!(!csv.is_empty());
+    assert!(!structured.is_empty());
+
+    // JSON round-trip
+    let s2: MetricsSummary = serde_json::from_str(&json).unwrap();
+    assert_eq!(s2.count, 10);
+}
+
+#[test]
+fn integration_run_summary_merge_multiple() {
+    let summaries: Vec<RunSummary> = (0..5)
+        .map(|i| {
+            let events: Vec<&str> = if i % 2 == 0 {
+                vec!["tool_call", "tool_result"]
+            } else {
+                vec!["error", "warning"]
+            };
+            RunSummary::from_events(&events, 100)
+        })
+        .collect();
+
+    let mut combined = RunSummary::new();
+    for s in &summaries {
+        combined.merge(s);
+    }
+    assert_eq!(combined.total_events, 10);
+    assert_eq!(combined.total_duration_ms, 500);
+    assert_eq!(combined.tool_call_count, 3); // i=0,2,4
+    assert_eq!(combined.error_count, 2); // i=1,3
+    assert_eq!(combined.warning_count, 2); // i=1,3
+}
+
+#[test]
+fn integration_histogram_merge_multiple() {
+    let mut combined = LatencyHistogram::new();
+    for i in 0..5 {
+        let mut h = LatencyHistogram::new();
+        h.record((i * 10 + 10) as f64);
+        h.record((i * 10 + 15) as f64);
+        combined.merge(&h);
+    }
+    assert_eq!(combined.count(), 10);
+    assert!(combined.min().unwrap() >= 10.0);
+    assert!(combined.max().unwrap() <= 55.0);
+}
+
+#[test]
+fn integration_concurrent_run_summaries() {
+    let collector = MetricsCollector::new();
+    let mut handles = vec![];
+    for i in 0..10 {
+        let cc = collector.clone();
+        handles.push(thread::spawn(move || {
+            cc.record(simple_run("concurrent", i * 50, if i > 7 { 1 } else { 0 }));
+        }));
+    }
+    for h in handles {
+        h.join().unwrap();
+    }
+    let summary = collector.summary();
+    assert_eq!(summary.count, 10);
+    assert_eq!(summary.backend_counts["concurrent"], 10);
+}
+
+#[test]
+fn integration_csv_export_roundtrip_field_count() {
+    let runs = vec![simple_run("a", 100, 0), simple_run("b", 200, 1)];
+    let csv = MetricsExporter::export_csv(&runs).unwrap();
+    let lines: Vec<&str> = csv.lines().collect();
+    let header_cols = lines[0].split(',').count();
+    for line in &lines[1..] {
+        assert_eq!(line.split(',').count(), header_cols);
+    }
+}
+
+#[test]
+fn integration_structured_export_parseable() {
+    let c = MetricsCollector::new();
+    c.record(simple_run("test", 100, 0));
+    let summary = c.summary();
+    let out = MetricsExporter::export_structured(&summary).unwrap();
+    for line in out.lines() {
+        assert!(
+            line.contains('='),
+            "Each line should be key=value: {}",
+            line
+        );
+    }
+}
+
+#[test]
+fn integration_cost_with_histogram() {
+    let mut h = LatencyHistogram::new();
+    let mut estimator = CostEstimator::new();
+    estimator.set_pricing(
+        "model-a",
+        ModelPricing {
+            input_cost_per_token: 0.0001,
+            output_cost_per_token: 0.0002,
+        },
+    );
+
+    let durations = [50.0, 100.0, 150.0, 200.0, 250.0];
+    for d in durations {
+        h.record(d);
+    }
+
+    let cost = estimator.estimate("model-a", 500, 250).unwrap();
+    assert!(cost > 0.0);
+    assert_eq!(h.count(), 5);
+    assert!((h.p50() - 150.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn integration_export_format_serde() {
+    let json = serde_json::to_string(&ExportFormat::Json).unwrap();
+    let csv = serde_json::to_string(&ExportFormat::Csv).unwrap();
+    let structured = serde_json::to_string(&ExportFormat::Structured).unwrap();
+    assert_eq!(json, "\"json\"");
+    assert_eq!(csv, "\"csv\"");
+    assert_eq!(structured, "\"structured\"");
+
+    let rt: ExportFormat = serde_json::from_str(&json).unwrap();
+    assert_eq!(rt, ExportFormat::Json);
+}
+
+#[test]
+fn integration_end_to_end_multi_backend() {
+    // Simulate multi-backend run
+    let c = MetricsCollector::new();
+    c.record(simple_run("openai", 150, 0));
+    c.record(simple_run("anthropic", 200, 1));
+    c.record(simple_run("openai", 100, 0));
+
+    let summary = c.summary();
+    assert_eq!(summary.backend_counts["openai"], 2);
+    assert_eq!(summary.backend_counts["anthropic"], 1);
+
+    // Event-level summary
+    let run_sum = RunSummary::from_events(
+        &["run_started", "tool_call", "error", "run_completed"],
+        summary.mean_duration_ms as u64,
+    );
+    assert_eq!(run_sum.total_events, 4);
+    assert!(run_sum.has_errors());
+
+    // Cost estimation
+    let mut estimator = CostEstimator::new();
+    estimator.set_pricing(
+        "openai",
+        ModelPricing {
+            input_cost_per_token: 0.00003,
+            output_cost_per_token: 0.00006,
+        },
+    );
+    estimator.set_pricing(
+        "anthropic",
+        ModelPricing {
+            input_cost_per_token: 0.00001,
+            output_cost_per_token: 0.00003,
+        },
+    );
+
+    let runs = c.runs();
+    let usages: Vec<(&str, u64, u64)> = runs
+        .iter()
+        .map(|r| (r.backend_name.as_str(), r.tokens_in, r.tokens_out))
+        .collect();
+    let total_cost = estimator.estimate_total(&usages);
+    assert!(total_cost > 0.0);
+
+    // Export
+    let json = MetricsExporter::export(&summary, ExportFormat::Json).unwrap();
+    let csv = MetricsExporter::export_csv(&c.runs()).unwrap();
+    assert!(!json.is_empty());
+    assert!(csv.lines().count() == 4); // header + 3 runs
+}
+
+#[test]
+fn integration_histogram_buckets_with_collector() {
+    let c = MetricsCollector::new();
+    let mut h = LatencyHistogram::new();
+
+    for d in [10, 50, 100, 500, 1000, 5000] {
+        c.record(simple_run("test", d, 0));
+        h.record(d as f64);
+    }
+
+    let buckets = h.buckets(&[50.0, 200.0, 1000.0]);
+    // [0,50): 10 → 1
+    // [50,200): 50, 100 → 2
+    // [200,1000): 500 → 1
+    // [1000,∞): 1000, 5000 → 2
+    assert_eq!(buckets, vec![1, 2, 1, 2]);
+
+    let summary = c.summary();
+    assert_eq!(summary.count, 6);
+}

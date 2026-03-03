@@ -248,6 +248,346 @@ impl TelemetryExporter for JsonExporter {
 }
 
 // ---------------------------------------------------------------------------
+// RunSummary
+// ---------------------------------------------------------------------------
+
+/// Aggregated summary of a single agent run with event counts by type.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct RunSummary {
+    /// Event counts by kind name (e.g. "tool_call", "error").
+    pub event_counts: BTreeMap<String, u64>,
+    /// Total number of events recorded.
+    pub total_events: u64,
+    /// Wall-clock duration in milliseconds.
+    pub total_duration_ms: u64,
+    /// Number of error events.
+    pub error_count: u64,
+    /// Number of warning events.
+    pub warning_count: u64,
+    /// Number of tool-call events.
+    pub tool_call_count: u64,
+}
+
+impl RunSummary {
+    /// Create a new empty summary.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record an event by its kind name.
+    pub fn record_event(&mut self, kind: &str) {
+        *self.event_counts.entry(kind.to_string()).or_insert(0) += 1;
+        self.total_events += 1;
+        match kind {
+            "error" => self.error_count += 1,
+            "warning" => self.warning_count += 1,
+            "tool_call" => self.tool_call_count += 1,
+            _ => {}
+        }
+    }
+
+    /// Set the total run duration.
+    pub fn set_duration(&mut self, ms: u64) {
+        self.total_duration_ms = ms;
+    }
+
+    /// Whether any errors were recorded.
+    pub fn has_errors(&self) -> bool {
+        self.error_count > 0
+    }
+
+    /// Error rate as a fraction of total events (0.0 if no events).
+    pub fn error_rate(&self) -> f64 {
+        if self.total_events == 0 {
+            return 0.0;
+        }
+        self.error_count as f64 / self.total_events as f64
+    }
+
+    /// Merge another summary into this one.
+    pub fn merge(&mut self, other: &RunSummary) {
+        for (kind, count) in &other.event_counts {
+            *self.event_counts.entry(kind.clone()).or_insert(0) += count;
+        }
+        self.total_events += other.total_events;
+        self.total_duration_ms += other.total_duration_ms;
+        self.error_count += other.error_count;
+        self.warning_count += other.warning_count;
+        self.tool_call_count += other.tool_call_count;
+    }
+
+    /// Build a RunSummary from a slice of event-kind strings.
+    pub fn from_events(kinds: &[&str], duration_ms: u64) -> Self {
+        let mut s = Self::new();
+        for kind in kinds {
+            s.record_event(kind);
+        }
+        s.set_duration(duration_ms);
+        s
+    }
+}
+
+// ---------------------------------------------------------------------------
+// LatencyHistogram
+// ---------------------------------------------------------------------------
+
+/// Simple histogram for tracking latency values in milliseconds.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct LatencyHistogram {
+    values: Vec<f64>,
+}
+
+impl LatencyHistogram {
+    /// Create a new empty histogram.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record a latency value (in milliseconds).
+    pub fn record(&mut self, value: f64) {
+        self.values.push(value);
+    }
+
+    /// Number of recorded values.
+    pub fn count(&self) -> usize {
+        self.values.len()
+    }
+
+    /// Whether the histogram is empty.
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    /// Minimum recorded value, or `None` if empty.
+    pub fn min(&self) -> Option<f64> {
+        self.values
+            .iter()
+            .copied()
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+    }
+
+    /// Maximum recorded value, or `None` if empty.
+    pub fn max(&self) -> Option<f64> {
+        self.values
+            .iter()
+            .copied()
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+    }
+
+    /// Mean of all recorded values (0.0 if empty).
+    pub fn mean(&self) -> f64 {
+        if self.values.is_empty() {
+            return 0.0;
+        }
+        let sum: f64 = self.values.iter().sum();
+        sum / self.values.len() as f64
+    }
+
+    /// Compute a percentile (0–100) from recorded values.
+    pub fn percentile(&self, pct: f64) -> f64 {
+        if self.values.is_empty() {
+            return 0.0;
+        }
+        let mut sorted: Vec<f64> = self.values.clone();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        if sorted.len() == 1 {
+            return sorted[0];
+        }
+        let rank = pct / 100.0 * (sorted.len() - 1) as f64;
+        let lower = rank.floor() as usize;
+        let upper = rank.ceil() as usize;
+        let frac = rank - lower as f64;
+        sorted[lower] * (1.0 - frac) + sorted[upper] * frac
+    }
+
+    /// 50th percentile (median).
+    pub fn p50(&self) -> f64 {
+        self.percentile(50.0)
+    }
+
+    /// 95th percentile.
+    pub fn p95(&self) -> f64 {
+        self.percentile(95.0)
+    }
+
+    /// 99th percentile.
+    pub fn p99(&self) -> f64 {
+        self.percentile(99.0)
+    }
+
+    /// Merge another histogram into this one.
+    pub fn merge(&mut self, other: &LatencyHistogram) {
+        self.values.extend_from_slice(&other.values);
+    }
+
+    /// Count values falling into the given bucket boundaries.
+    ///
+    /// Given boundaries `[b0, b1, b2, ...]`, returns counts for:
+    /// `[0, b0)`, `[b0, b1)`, `[b1, b2)`, ..., `[bN, ∞)`.
+    pub fn buckets(&self, boundaries: &[f64]) -> Vec<u64> {
+        let mut counts = vec![0u64; boundaries.len() + 1];
+        for &v in &self.values {
+            let idx = boundaries
+                .iter()
+                .position(|&b| v < b)
+                .unwrap_or(boundaries.len());
+            counts[idx] += 1;
+        }
+        counts
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CostEstimator
+// ---------------------------------------------------------------------------
+
+/// Pricing for a single model (cost per token in USD).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ModelPricing {
+    /// Cost per input token in USD.
+    pub input_cost_per_token: f64,
+    /// Cost per output token in USD.
+    pub output_cost_per_token: f64,
+}
+
+/// Estimates monetary cost based on token usage and model pricing.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CostEstimator {
+    pricing: BTreeMap<String, ModelPricing>,
+}
+
+impl CostEstimator {
+    /// Create a new estimator with no pricing data.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register pricing for a model.
+    pub fn set_pricing(&mut self, model: &str, pricing: ModelPricing) {
+        self.pricing.insert(model.to_string(), pricing);
+    }
+
+    /// Get pricing for a model, if registered.
+    pub fn get_pricing(&self, model: &str) -> Option<&ModelPricing> {
+        self.pricing.get(model)
+    }
+
+    /// Estimate cost for a single model usage. Returns `None` if the model
+    /// has no registered pricing.
+    pub fn estimate(&self, model: &str, input_tokens: u64, output_tokens: u64) -> Option<f64> {
+        let p = self.pricing.get(model)?;
+        Some(
+            input_tokens as f64 * p.input_cost_per_token
+                + output_tokens as f64 * p.output_cost_per_token,
+        )
+    }
+
+    /// Estimate total cost across multiple model usages.
+    ///
+    /// Each tuple is `(model_name, input_tokens, output_tokens)`.
+    /// Models without registered pricing are skipped.
+    pub fn estimate_total(&self, usages: &[(&str, u64, u64)]) -> f64 {
+        usages
+            .iter()
+            .filter_map(|(model, inp, out)| self.estimate(model, *inp, *out))
+            .sum()
+    }
+
+    /// List all registered model names.
+    pub fn models(&self) -> Vec<&str> {
+        self.pricing.keys().map(|s| s.as_str()).collect()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MetricsExporter
+// ---------------------------------------------------------------------------
+
+/// Export format for metrics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExportFormat {
+    /// Pretty-printed JSON.
+    Json,
+    /// Comma-separated values.
+    Csv,
+    /// Structured key=value format.
+    Structured,
+}
+
+/// Multi-format metrics exporter.
+#[derive(Debug, Default)]
+pub struct MetricsExporter;
+
+impl MetricsExporter {
+    /// Export a `MetricsSummary` as JSON.
+    pub fn export_json(summary: &MetricsSummary) -> Result<String, String> {
+        serde_json::to_string_pretty(summary).map_err(|e| e.to_string())
+    }
+
+    /// Export a slice of `RunMetrics` as CSV.
+    pub fn export_csv(runs: &[RunMetrics]) -> Result<String, String> {
+        let mut out = String::from(
+            "backend_name,dialect,duration_ms,events_count,tokens_in,tokens_out,tool_calls_count,errors_count,emulations_applied\n",
+        );
+        for r in runs {
+            out.push_str(&format!(
+                "{},{},{},{},{},{},{},{},{}\n",
+                r.backend_name,
+                r.dialect,
+                r.duration_ms,
+                r.events_count,
+                r.tokens_in,
+                r.tokens_out,
+                r.tool_calls_count,
+                r.errors_count,
+                r.emulations_applied,
+            ));
+        }
+        Ok(out)
+    }
+
+    /// Export a `MetricsSummary` in structured `key=value` format.
+    pub fn export_structured(summary: &MetricsSummary) -> Result<String, String> {
+        let mut lines = Vec::new();
+        lines.push(format!("count={}", summary.count));
+        lines.push(format!("mean_duration_ms={:.2}", summary.mean_duration_ms));
+        lines.push(format!("p50_duration_ms={:.2}", summary.p50_duration_ms));
+        lines.push(format!("p99_duration_ms={:.2}", summary.p99_duration_ms));
+        lines.push(format!("total_tokens_in={}", summary.total_tokens_in));
+        lines.push(format!("total_tokens_out={}", summary.total_tokens_out));
+        lines.push(format!("error_rate={:.4}", summary.error_rate));
+        for (k, v) in &summary.backend_counts {
+            lines.push(format!("backend.{}={}", k, v));
+        }
+        Ok(lines.join("\n"))
+    }
+
+    /// Export a `MetricsSummary` in the specified format.
+    pub fn export(summary: &MetricsSummary, format: ExportFormat) -> Result<String, String> {
+        match format {
+            ExportFormat::Json => Self::export_json(summary),
+            ExportFormat::Csv => {
+                // For summary-only CSV export, produce a single-row CSV
+                let header = "count,mean_duration_ms,p50_duration_ms,p99_duration_ms,total_tokens_in,total_tokens_out,error_rate\n";
+                let row = format!(
+                    "{},{:.2},{:.2},{:.2},{},{},{:.4}\n",
+                    summary.count,
+                    summary.mean_duration_ms,
+                    summary.p50_duration_ms,
+                    summary.p99_duration_ms,
+                    summary.total_tokens_in,
+                    summary.total_tokens_out,
+                    summary.error_rate,
+                );
+                Ok(format!("{}{}", header, row))
+            }
+            ExportFormat::Structured => Self::export_structured(summary),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
