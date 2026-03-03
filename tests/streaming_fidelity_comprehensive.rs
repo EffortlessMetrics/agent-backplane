@@ -165,8 +165,8 @@ async fn ordering_deltas_before_message() {
         .iter()
         .position(|e| kind_name(e) == "assistant_message")
         .unwrap();
-    for i in 0..5 {
-        assert_eq!(kind_name(&events[i]), "assistant_delta");
+    for event in events.iter().take(5) {
+        assert_eq!(kind_name(event), "assistant_delta");
     }
     assert_eq!(msg_idx, 5);
 }
