@@ -7,6 +7,8 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod strategies;
+
 use abp_core::Capability;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use serde::{Deserialize, Serialize};
