@@ -5,20 +5,29 @@
 
 //! This crate extracts receipt-focused logic from `abp-core` into a dedicated
 //! microcrate. It provides canonical JSON serialization, SHA-256 hashing,
-//! chain verification, a fluent receipt builder, and field-level diffing.
+//! chain verification, a fluent receipt builder, field-level diffing,
+//! structured validation, pluggable storage, and serialization helpers.
 
 mod builder;
 mod chain;
 mod diff;
+/// Serialization in JSON and compact binary formats.
+pub mod serde_formats;
+/// Pluggable receipt storage with an in-memory implementation.
+pub mod store;
+mod validate;
 
 pub use builder::ReceiptBuilder;
 pub use chain::{ChainError, ReceiptChain};
 pub use diff::{FieldDiff, ReceiptDiff, diff_receipts};
+pub use validate::{ReceiptValidator, ValidationError};
 
 // Re-export core receipt types so consumers can depend on abp-receipt alone.
-pub use abp_core::{Outcome, Receipt};
+pub use abp_core::{
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, ContractError, ExecutionMode,
+    Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport,
+};
 
-use abp_core::ContractError;
 use sha2::{Digest, Sha256};
 
 /// Produce the canonical JSON representation of a receipt.

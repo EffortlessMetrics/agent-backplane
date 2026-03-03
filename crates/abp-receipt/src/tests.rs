@@ -5,6 +5,7 @@ use abp_core::{
     AgentEvent, AgentEventKind, ArtifactRef, ExecutionMode, UsageNormalized, VerificationReport,
 };
 use chrono::{TimeZone, Utc};
+use std::time::Duration;
 use uuid::Uuid;
 
 // ── Canonicalization tests ─────────────────────────────────────────
@@ -433,6 +434,101 @@ fn builder_with_hash() {
     assert!(verify_hash(&r));
 }
 
+// ── New builder method tests ───────────────────────────────────────
+
+#[test]
+fn builder_backend_alias() {
+    let r = ReceiptBuilder::new("initial").backend("replaced").build();
+    assert_eq!(r.backend.id, "replaced");
+}
+
+#[test]
+fn builder_model() {
+    let r = ReceiptBuilder::new("x").model("gpt-4").build();
+    assert_eq!(r.usage_raw["model"], "gpt-4");
+}
+
+#[test]
+fn builder_dialect() {
+    let r = ReceiptBuilder::new("x").dialect("claude").build();
+    assert_eq!(r.usage_raw["dialect"], "claude");
+}
+
+#[test]
+fn builder_model_merges_with_usage_raw() {
+    let r = ReceiptBuilder::new("x")
+        .usage_raw(serde_json::json!({"extra": true}))
+        .model("gpt-4")
+        .build();
+    assert_eq!(r.usage_raw["model"], "gpt-4");
+    assert_eq!(r.usage_raw["extra"], true);
+}
+
+#[test]
+fn builder_usage_tokens() {
+    let r = ReceiptBuilder::new("x").usage_tokens(500, 1000).build();
+    assert_eq!(r.usage.input_tokens, Some(500));
+    assert_eq!(r.usage.output_tokens, Some(1000));
+}
+
+#[test]
+fn builder_events_replaces_trace() {
+    let evt1 = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::RunStarted {
+            message: "a".into(),
+        },
+        ext: None,
+    };
+    let evt2 = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::RunCompleted {
+            message: "b".into(),
+        },
+        ext: None,
+    };
+    let r = ReceiptBuilder::new("x")
+        .add_event(evt1.clone())
+        .events(vec![evt2])
+        .build();
+    // events() replaces, so only one event
+    assert_eq!(r.trace.len(), 1);
+}
+
+#[test]
+fn builder_add_event() {
+    let evt = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
+        ext: None,
+    };
+    let r = ReceiptBuilder::new("x").add_event(evt).build();
+    assert_eq!(r.trace.len(), 1);
+}
+
+#[test]
+fn builder_duration() {
+    let ts = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let r = ReceiptBuilder::new("x")
+        .started_at(ts)
+        .duration(Duration::from_secs(10))
+        .build();
+    assert_eq!(r.meta.duration_ms, 10_000);
+}
+
+#[test]
+fn builder_error() {
+    let r = ReceiptBuilder::new("x").error("something broke").build();
+    assert_eq!(r.outcome, Outcome::Failed);
+    assert_eq!(r.trace.len(), 1);
+    match &r.trace[0].kind {
+        AgentEventKind::Error { message, .. } => assert_eq!(message, "something broke"),
+        other => panic!("expected Error event, got {other:?}"),
+    }
+}
+
 // ── Diff tests ─────────────────────────────────────────────────────
 
 #[test]
@@ -511,6 +607,247 @@ fn diff_detects_verification_change() {
     b.verification.harness_ok = true;
     let d = diff_receipts(&a, &b);
     assert!(d.changes.iter().any(|c| c.field == "verification"));
+}
+
+// ── Validator tests ────────────────────────────────────────────────
+
+#[test]
+fn validator_passes_valid_receipt() {
+    let v = ReceiptValidator::new();
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    assert!(v.validate(&r).is_ok());
+}
+
+#[test]
+fn validator_passes_without_hash() {
+    let v = ReceiptValidator::new();
+    let r = ReceiptBuilder::new("mock").build();
+    assert!(v.validate(&r).is_ok());
+}
+
+#[test]
+fn validator_detects_wrong_contract_version() {
+    let v = ReceiptValidator::new();
+    let mut r = ReceiptBuilder::new("mock").build();
+    r.meta.contract_version = "wrong/v9".into();
+    let errs = v.validate(&r).unwrap_err();
+    assert!(errs.iter().any(|e| e.field == "meta.contract_version"));
+}
+
+#[test]
+fn validator_detects_tampered_hash() {
+    let v = ReceiptValidator::new();
+    let mut r = ReceiptBuilder::new("mock").with_hash().unwrap();
+    r.outcome = Outcome::Failed; // tamper
+    let errs = v.validate(&r).unwrap_err();
+    assert!(errs.iter().any(|e| e.field == "receipt_sha256"));
+}
+
+#[test]
+fn validator_detects_empty_backend_id() {
+    let v = ReceiptValidator::new();
+    let mut r = ReceiptBuilder::new("mock").build();
+    r.backend.id = String::new();
+    let errs = v.validate(&r).unwrap_err();
+    assert!(errs.iter().any(|e| e.field == "backend.id"));
+}
+
+#[test]
+fn validator_detects_bad_timestamps() {
+    let v = ReceiptValidator::new();
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 5).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let mut r = ReceiptBuilder::new("mock").started_at(t1).finished_at(t2).build();
+    // Manually fix the timestamps to make finished < started
+    r.meta.started_at = t1;
+    r.meta.finished_at = t2;
+    let errs = v.validate(&r).unwrap_err();
+    assert!(errs.iter().any(|e| e.field == "meta.finished_at"));
+}
+
+#[test]
+fn validator_detects_inconsistent_duration() {
+    let v = ReceiptValidator::new();
+    let mut r = ReceiptBuilder::new("mock").build();
+    r.meta.duration_ms = 99999;
+    let errs = v.validate(&r).unwrap_err();
+    assert!(errs.iter().any(|e| e.field == "meta.duration_ms"));
+}
+
+#[test]
+fn validator_reports_multiple_errors() {
+    let v = ReceiptValidator::new();
+    let mut r = ReceiptBuilder::new("mock").build();
+    r.backend.id = String::new();
+    r.meta.contract_version = "bad".into();
+    let errs = v.validate(&r).unwrap_err();
+    assert!(errs.len() >= 2);
+}
+
+#[test]
+fn validation_error_display() {
+    let e = ValidationError {
+        field: "test".into(),
+        message: "oops".into(),
+    };
+    assert_eq!(e.to_string(), "test: oops");
+}
+
+// ── Store tests ────────────────────────────────────────────────────
+
+#[test]
+fn store_and_retrieve() {
+    use crate::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
+
+    let mut store = InMemoryReceiptStore::new();
+    assert!(store.is_empty());
+
+    let r = ReceiptBuilder::new("mock").with_hash().unwrap();
+    let id = r.meta.run_id;
+    store.store(r).unwrap();
+
+    assert_eq!(store.len(), 1);
+    assert!(!store.is_empty());
+
+    let got = store.get(id).unwrap().unwrap();
+    assert_eq!(got.backend.id, "mock");
+
+    let all = store.list(&ReceiptFilter::default()).unwrap();
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].id, id);
+}
+
+#[test]
+fn store_rejects_duplicate() {
+    use crate::store::{InMemoryReceiptStore, ReceiptStore, StoreError};
+
+    let mut store = InMemoryReceiptStore::new();
+    let id = Uuid::new_v4();
+    let r1 = ReceiptBuilder::new("a").run_id(id).build();
+    let r2 = ReceiptBuilder::new("b").run_id(id).build();
+    store.store(r1).unwrap();
+    assert!(matches!(store.store(r2), Err(StoreError::DuplicateId(_))));
+}
+
+#[test]
+fn store_get_missing_returns_none() {
+    use crate::store::{InMemoryReceiptStore, ReceiptStore};
+
+    let store = InMemoryReceiptStore::new();
+    assert!(store.get(Uuid::new_v4()).unwrap().is_none());
+}
+
+#[test]
+fn store_filter_by_backend() {
+    use crate::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
+
+    let mut store = InMemoryReceiptStore::new();
+    store
+        .store(ReceiptBuilder::new("alpha").build())
+        .unwrap();
+    store
+        .store(ReceiptBuilder::new("beta").build())
+        .unwrap();
+
+    let filter = ReceiptFilter {
+        backend_id: Some("alpha".into()),
+        ..Default::default()
+    };
+    let results = store.list(&filter).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].backend_id, "alpha");
+}
+
+#[test]
+fn store_filter_by_outcome() {
+    use crate::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
+
+    let mut store = InMemoryReceiptStore::new();
+    store
+        .store(ReceiptBuilder::new("x").outcome(Outcome::Complete).build())
+        .unwrap();
+    store
+        .store(ReceiptBuilder::new("y").outcome(Outcome::Failed).build())
+        .unwrap();
+
+    let filter = ReceiptFilter {
+        outcome: Some(Outcome::Failed),
+        ..Default::default()
+    };
+    let results = store.list(&filter).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].outcome, Outcome::Failed);
+}
+
+#[test]
+fn store_filter_by_time_range() {
+    use crate::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
+
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 6, 1, 0, 0, 0).unwrap();
+    let t3 = Utc.with_ymd_and_hms(2025, 12, 1, 0, 0, 0).unwrap();
+
+    let mut store = InMemoryReceiptStore::new();
+    store
+        .store(ReceiptBuilder::new("early").started_at(t1).finished_at(t1).build())
+        .unwrap();
+    store
+        .store(ReceiptBuilder::new("mid").started_at(t2).finished_at(t2).build())
+        .unwrap();
+    store
+        .store(ReceiptBuilder::new("late").started_at(t3).finished_at(t3).build())
+        .unwrap();
+
+    let filter = ReceiptFilter {
+        after: Some(Utc.with_ymd_and_hms(2025, 3, 1, 0, 0, 0).unwrap()),
+        before: Some(Utc.with_ymd_and_hms(2025, 9, 1, 0, 0, 0).unwrap()),
+        ..Default::default()
+    };
+    let results = store.list(&filter).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].backend_id, "mid");
+}
+
+// ── Serialization tests ────────────────────────────────────────────
+
+#[test]
+fn json_roundtrip() {
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let json = crate::serde_formats::to_json(&r).unwrap();
+    let r2 = crate::serde_formats::from_json(&json).unwrap();
+    assert_eq!(r.meta.run_id, r2.meta.run_id);
+    assert_eq!(r.outcome, r2.outcome);
+    assert_eq!(r.receipt_sha256, r2.receipt_sha256);
+}
+
+#[test]
+fn bytes_roundtrip() {
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .model("gpt-4")
+        .usage_tokens(100, 200)
+        .with_hash()
+        .unwrap();
+    let bytes = crate::serde_formats::to_bytes(&r).unwrap();
+    let r2 = crate::serde_formats::from_bytes(&bytes).unwrap();
+    assert_eq!(r.meta.run_id, r2.meta.run_id);
+    assert_eq!(r.outcome, r2.outcome);
+    assert_eq!(r.usage_raw["model"], "gpt-4");
+}
+
+#[test]
+fn bytes_compact_vs_json_pretty() {
+    let r = ReceiptBuilder::new("mock").build();
+    let pretty = crate::serde_formats::to_json(&r).unwrap();
+    let compact = crate::serde_formats::to_bytes(&r).unwrap();
+    // Compact should be smaller than pretty-printed
+    assert!(compact.len() < pretty.len());
 }
 
 // ── Edge cases ─────────────────────────────────────────────────────
@@ -593,4 +930,19 @@ fn receipt_diff_len_and_is_empty() {
     let d2 = diff_receipts(&a, &b);
     assert!(!d2.is_empty());
     assert!(d2.len() >= 2);
+}
+
+// ── Receipt summary tests ──────────────────────────────────────────
+
+#[test]
+fn receipt_summary_from_receipt() {
+    use crate::store::ReceiptSummary;
+
+    let r = ReceiptBuilder::new("test-be")
+        .outcome(Outcome::Partial)
+        .build();
+    let summary = ReceiptSummary::from(&r);
+    assert_eq!(summary.id, r.meta.run_id);
+    assert_eq!(summary.backend_id, "test-be");
+    assert_eq!(summary.outcome, Outcome::Partial);
 }

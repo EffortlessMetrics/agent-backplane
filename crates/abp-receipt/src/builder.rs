@@ -3,10 +3,11 @@
 //! Fluent builder for constructing [`Receipt`]s.
 
 use abp_core::{
-    AgentEvent, ArtifactRef, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode,
-    Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport,
 };
 use chrono::{DateTime, Utc};
+use std::time::Duration;
 use uuid::Uuid;
 
 /// Fluent builder for constructing [`Receipt`]s ergonomically.
@@ -29,6 +30,8 @@ pub struct ReceiptBuilder {
     backend_id: String,
     backend_version: Option<String>,
     adapter_version: Option<String>,
+    model: Option<String>,
+    dialect: Option<String>,
     capabilities: CapabilityManifest,
     mode: ExecutionMode,
     outcome: Outcome,
@@ -52,6 +55,8 @@ impl ReceiptBuilder {
             backend_id: backend_id.into(),
             backend_version: None,
             adapter_version: None,
+            model: None,
+            dialect: None,
             capabilities: CapabilityManifest::new(),
             mode: ExecutionMode::default(),
             outcome: Outcome::Complete,
@@ -72,6 +77,12 @@ impl ReceiptBuilder {
     pub fn outcome(mut self, outcome: Outcome) -> Self {
         self.outcome = outcome;
         self
+    }
+
+    /// Alias for [`Self::backend_id`] — set the backend identifier.
+    #[must_use]
+    pub fn backend(self, name: impl Into<String>) -> Self {
+        self.backend_id(name)
     }
 
     /// Set the backend identifier.
@@ -95,6 +106,20 @@ impl ReceiptBuilder {
         self
     }
 
+    /// Set the model name (stored in `usage_raw.model`).
+    #[must_use]
+    pub fn model(mut self, name: impl Into<String>) -> Self {
+        self.model = Some(name.into());
+        self
+    }
+
+    /// Set the dialect (stored in `usage_raw.dialect`).
+    #[must_use]
+    pub fn dialect(mut self, dialect: impl Into<String>) -> Self {
+        self.dialect = Some(dialect.into());
+        self
+    }
+
     /// Set the run start timestamp.
     #[must_use]
     pub fn started_at(mut self, dt: DateTime<Utc>) -> Self {
@@ -106,6 +131,13 @@ impl ReceiptBuilder {
     #[must_use]
     pub fn finished_at(mut self, dt: DateTime<Utc>) -> Self {
         self.finished_at = dt;
+        self
+    }
+
+    /// Set the run duration. Adjusts `finished_at` relative to `started_at`.
+    #[must_use]
+    pub fn duration(mut self, dur: Duration) -> Self {
+        self.finished_at = self.started_at + chrono::Duration::milliseconds(dur.as_millis() as i64);
         self
     }
 
@@ -151,6 +183,14 @@ impl ReceiptBuilder {
         self
     }
 
+    /// Convenience: set input and output token counts.
+    #[must_use]
+    pub fn usage_tokens(mut self, tokens_in: u64, tokens_out: u64) -> Self {
+        self.usage.input_tokens = Some(tokens_in);
+        self.usage.output_tokens = Some(tokens_out);
+        self
+    }
+
     /// Set the verification report.
     #[must_use]
     pub fn verification(mut self, verification: VerificationReport) -> Self {
@@ -158,11 +198,24 @@ impl ReceiptBuilder {
         self
     }
 
-    /// Append a trace event.
+    /// Replace the full trace with the given events.
     #[must_use]
-    pub fn add_trace_event(mut self, event: AgentEvent) -> Self {
+    pub fn events(mut self, events: Vec<AgentEvent>) -> Self {
+        self.trace = events;
+        self
+    }
+
+    /// Append a single trace event.
+    #[must_use]
+    pub fn add_event(mut self, event: AgentEvent) -> Self {
         self.trace.push(event);
         self
+    }
+
+    /// Append a trace event (alias for [`Self::add_event`]).
+    #[must_use]
+    pub fn add_trace_event(self, event: AgentEvent) -> Self {
+        self.add_event(event)
     }
 
     /// Append an artifact reference.
@@ -172,12 +225,33 @@ impl ReceiptBuilder {
         self
     }
 
+    /// Mark the receipt as failed with an error message.
+    ///
+    /// Sets the outcome to [`Outcome::Failed`] and appends an
+    /// [`AgentEventKind::Error`] trace event.
+    #[must_use]
+    pub fn error(mut self, message: impl Into<String>) -> Self {
+        self.outcome = Outcome::Failed;
+        self.trace.push(AgentEvent {
+            ts: self.finished_at,
+            kind: AgentEventKind::Error {
+                message: message.into(),
+                error_code: None,
+            },
+            ext: None,
+        });
+        self
+    }
+
     /// Consume the builder and produce a [`Receipt`] (no hash).
     #[must_use]
     pub fn build(self) -> Receipt {
         let duration_ms = (self.finished_at - self.started_at)
             .num_milliseconds()
             .max(0) as u64;
+
+        // Merge model/dialect into usage_raw if set.
+        let usage_raw = self.build_usage_raw();
 
         Receipt {
             meta: RunMetadata {
@@ -195,7 +269,7 @@ impl ReceiptBuilder {
             },
             capabilities: self.capabilities,
             mode: self.mode,
-            usage_raw: self.usage_raw,
+            usage_raw,
             usage: self.usage,
             trace: self.trace,
             artifacts: self.artifacts,
@@ -214,5 +288,19 @@ impl ReceiptBuilder {
         let mut receipt = self.build();
         receipt.receipt_sha256 = Some(crate::compute_hash(&receipt)?);
         Ok(receipt)
+    }
+
+    /// Merge model/dialect into usage_raw.
+    fn build_usage_raw(&self) -> serde_json::Value {
+        let mut raw = self.usage_raw.clone();
+        if let serde_json::Value::Object(map) = &mut raw {
+            if let Some(ref m) = self.model {
+                map.insert("model".into(), serde_json::Value::String(m.clone()));
+            }
+            if let Some(ref d) = self.dialect {
+                map.insert("dialect".into(), serde_json::Value::String(d.clone()));
+            }
+        }
+        raw
     }
 }
