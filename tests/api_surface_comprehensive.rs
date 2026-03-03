@@ -1716,7 +1716,7 @@ mod capability_constructors {
         assert_eq!(
             check_capability(&m, &Capability::Streaming),
             SupportLevel::Unsupported {
-                reason: "unsupported".into()
+                reason: "not declared in manifest".into()
             }
         );
     }
