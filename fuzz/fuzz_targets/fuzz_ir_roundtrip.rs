@@ -60,9 +60,9 @@ fuzz_target!(|input: IrFuzzInput| {
         // --- Property 1 & 2: parse + round-trip for core IR types ---
         try_roundtrip::<IrConversation>(s, |conv| {
             assert_eq!(
-                serde_json::from_str::<IrConversation>(
-                    &serde_json::to_string(&conv).unwrap()
-                ).unwrap().len(),
+                serde_json::from_str::<IrConversation>(&serde_json::to_string(&conv).unwrap())
+                    .unwrap()
+                    .len(),
                 conv.len(),
                 "round-trip must preserve message count"
             );
@@ -147,7 +147,10 @@ fuzz_target!(|input: IrFuzzInput| {
     // Round-trip the constructed conversation.
     if let Ok(json) = serde_json::to_string(&conv) {
         let rt = serde_json::from_str::<IrConversation>(&json);
-        assert!(rt.is_ok(), "constructed IrConversation round-trip must succeed");
+        assert!(
+            rt.is_ok(),
+            "constructed IrConversation round-trip must succeed"
+        );
         assert_eq!(rt.unwrap().len(), conv.len());
     }
 

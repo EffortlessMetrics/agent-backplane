@@ -44,7 +44,10 @@ fuzz_target!(|input: WorkOrderFuzzInput| {
 
                 // Parsed WorkOrder serialization is deterministic.
                 let json2 = serde_json::to_string(&wo).unwrap();
-                assert_eq!(json, json2, "parsed WorkOrder re-serialization must be deterministic");
+                assert_eq!(
+                    json, json2,
+                    "parsed WorkOrder re-serialization must be deterministic"
+                );
             }
         }
     }
@@ -99,7 +102,10 @@ fuzz_target!(|input: WorkOrderFuzzInput| {
 
     // --- Property 5: builder output serializes and round-trips ---
     let json_rt = serde_json::to_string(&wo).and_then(|j| serde_json::from_str::<WorkOrder>(&j));
-    assert!(json_rt.is_ok(), "builder WorkOrder must round-trip through JSON");
+    assert!(
+        json_rt.is_ok(),
+        "builder WorkOrder must round-trip through JSON"
+    );
 
     // --- Property 6: serialization is deterministic ---
     let json1 = serde_json::to_string(&wo);
