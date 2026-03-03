@@ -90,39 +90,27 @@ fn all_caps() -> Vec<Capability> {
 
 #[test]
 fn strategy_variant_system_prompt_injection_construction() {
-    let s = EmulationStrategy::SystemPromptInjection {
-        prompt: "hello".into(),
-    };
+    let s = EmulationStrategy::SystemPromptInjection { prompt: "hello".into() };
     assert!(matches!(s, EmulationStrategy::SystemPromptInjection { .. }));
 }
 
 #[test]
 fn strategy_variant_post_processing_construction() {
-    let s = EmulationStrategy::PostProcessing {
-        detail: "truncate".into(),
-    };
+    let s = EmulationStrategy::PostProcessing { detail: "truncate".into() };
     assert!(matches!(s, EmulationStrategy::PostProcessing { .. }));
 }
 
 #[test]
 fn strategy_variant_disabled_construction() {
-    let s = EmulationStrategy::Disabled {
-        reason: "unsafe".into(),
-    };
+    let s = EmulationStrategy::Disabled { reason: "unsafe".into() };
     assert!(matches!(s, EmulationStrategy::Disabled { .. }));
 }
 
 #[test]
 fn strategy_variants_are_distinct_via_ne() {
-    let a = EmulationStrategy::SystemPromptInjection {
-        prompt: "x".into(),
-    };
-    let b = EmulationStrategy::PostProcessing {
-        detail: "x".into(),
-    };
-    let c = EmulationStrategy::Disabled {
-        reason: "x".into(),
-    };
+    let a = EmulationStrategy::SystemPromptInjection { prompt: "x".into() };
+    let b = EmulationStrategy::PostProcessing { detail: "x".into() };
+    let c = EmulationStrategy::Disabled { reason: "x".into() };
     assert_ne!(a, b);
     assert_ne!(b, c);
     assert_ne!(a, c);
@@ -130,23 +118,15 @@ fn strategy_variants_are_distinct_via_ne() {
 
 #[test]
 fn strategy_eq_same_variant_same_data() {
-    let a = EmulationStrategy::SystemPromptInjection {
-        prompt: "x".into(),
-    };
-    let b = EmulationStrategy::SystemPromptInjection {
-        prompt: "x".into(),
-    };
+    let a = EmulationStrategy::SystemPromptInjection { prompt: "x".into() };
+    let b = EmulationStrategy::SystemPromptInjection { prompt: "x".into() };
     assert_eq!(a, b);
 }
 
 #[test]
 fn strategy_ne_same_variant_different_data() {
-    let a = EmulationStrategy::SystemPromptInjection {
-        prompt: "x".into(),
-    };
-    let b = EmulationStrategy::SystemPromptInjection {
-        prompt: "y".into(),
-    };
+    let a = EmulationStrategy::SystemPromptInjection { prompt: "x".into() };
+    let b = EmulationStrategy::SystemPromptInjection { prompt: "y".into() };
     assert_ne!(a, b);
 }
 
@@ -239,9 +219,7 @@ fn strategy_engine_resolve_prefers_config_override() {
     let mut cfg = EmulationConfig::new();
     cfg.set(
         Capability::ExtendedThinking,
-        EmulationStrategy::Disabled {
-            reason: "off".into(),
-        },
+        EmulationStrategy::Disabled { reason: "off".into() },
     );
     let engine = EmulationEngine::new(cfg);
     assert!(matches!(
@@ -255,9 +233,7 @@ fn strategy_override_does_not_affect_other_caps() {
     let mut cfg = EmulationConfig::new();
     cfg.set(
         Capability::ExtendedThinking,
-        EmulationStrategy::Disabled {
-            reason: "off".into(),
-        },
+        EmulationStrategy::Disabled { reason: "off".into() },
     );
     let engine = EmulationEngine::new(cfg);
     assert!(matches!(
@@ -623,9 +599,7 @@ fn error_override_to_disabled_produces_warning() {
     let mut cfg = EmulationConfig::new();
     cfg.set(
         Capability::ExtendedThinking,
-        EmulationStrategy::Disabled {
-            reason: "user disabled".into(),
-        },
+        EmulationStrategy::Disabled { reason: "user disabled".into() },
     );
     let engine = EmulationEngine::new(cfg);
     let mut conv = user_conv("x");
@@ -640,9 +614,7 @@ fn error_custom_disabled_reason_appears_in_warning() {
     let mut cfg = EmulationConfig::new();
     cfg.set(
         Capability::ImageInput,
-        EmulationStrategy::Disabled {
-            reason: "images not allowed by policy".into(),
-        },
+        EmulationStrategy::Disabled { reason: "images not allowed by policy".into() },
     );
     let engine = EmulationEngine::new(cfg);
     let report = engine.check_missing(&[Capability::ImageInput]);
@@ -686,11 +658,12 @@ fn cross_dialect_emulate_thinking_on_text_only_backend() {
     let engine = EmulationEngine::with_defaults();
     let report = engine.apply(&[Capability::ExtendedThinking], &mut conv);
     assert_eq!(report.applied.len(), 1);
-    assert!(conv
-        .system_message()
-        .unwrap()
-        .text_content()
-        .contains("step by step"));
+    assert!(
+        conv.system_message()
+            .unwrap()
+            .text_content()
+            .contains("step by step")
+    );
 }
 
 #[test]
@@ -711,11 +684,12 @@ fn cross_dialect_emulate_image_input_on_text_only_backend() {
     let engine = EmulationEngine::with_defaults();
     let report = engine.apply(&[Capability::ImageInput], &mut conv);
     assert_eq!(report.applied.len(), 1);
-    assert!(conv
-        .system_message()
-        .unwrap()
-        .text_content()
-        .contains("Image"));
+    assert!(
+        conv.system_message()
+            .unwrap()
+            .text_content()
+            .contains("Image")
+    );
 }
 
 #[test]
@@ -1004,15 +978,11 @@ fn registry_config_btreemap_sorted_keys() {
     let mut cfg = EmulationConfig::new();
     cfg.set(
         Capability::ToolUse,
-        EmulationStrategy::Disabled {
-            reason: "a".into(),
-        },
+        EmulationStrategy::Disabled { reason: "a".into() },
     );
     cfg.set(
         Capability::Streaming,
-        EmulationStrategy::Disabled {
-            reason: "b".into(),
-        },
+        EmulationStrategy::Disabled { reason: "b".into() },
     );
     let keys: Vec<_> = cfg.strategies.keys().collect();
     let mut sorted = keys.clone();
@@ -1106,15 +1076,11 @@ fn config_btreemap_preserves_deterministic_order() {
     let mut cfg = EmulationConfig::new();
     cfg.set(
         Capability::ToolUse,
-        EmulationStrategy::Disabled {
-            reason: "a".into(),
-        },
+        EmulationStrategy::Disabled { reason: "a".into() },
     );
     cfg.set(
         Capability::Streaming,
-        EmulationStrategy::Disabled {
-            reason: "b".into(),
-        },
+        EmulationStrategy::Disabled { reason: "b".into() },
     );
     let j1 = serde_json::to_string(&cfg).unwrap();
     let j2 = serde_json::to_string(&cfg).unwrap();
@@ -1266,10 +1232,7 @@ fn warning_emulated_caps_never_produce_warnings() {
     for cap in emulatable() {
         let mut conv = user_conv("x");
         let report = engine.apply(&[cap.clone()], &mut conv);
-        assert!(
-            report.warnings.is_empty(),
-            "{cap:?} should not warn"
-        );
+        assert!(report.warnings.is_empty(), "{cap:?} should not warn");
     }
 }
 
@@ -1399,24 +1362,24 @@ fn result_type_fidelity_emulated_roundtrip() {
 
 #[test]
 fn result_type_strategy_serde_type_tags() {
-    let spi = EmulationStrategy::SystemPromptInjection {
-        prompt: "x".into(),
-    };
-    let pp = EmulationStrategy::PostProcessing {
-        detail: "x".into(),
-    };
-    let dis = EmulationStrategy::Disabled {
-        reason: "x".into(),
-    };
-    assert!(serde_json::to_string(&spi)
-        .unwrap()
-        .contains("\"type\":\"system_prompt_injection\""));
-    assert!(serde_json::to_string(&pp)
-        .unwrap()
-        .contains("\"type\":\"post_processing\""));
-    assert!(serde_json::to_string(&dis)
-        .unwrap()
-        .contains("\"type\":\"disabled\""));
+    let spi = EmulationStrategy::SystemPromptInjection { prompt: "x".into() };
+    let pp = EmulationStrategy::PostProcessing { detail: "x".into() };
+    let dis = EmulationStrategy::Disabled { reason: "x".into() };
+    assert!(
+        serde_json::to_string(&spi)
+            .unwrap()
+            .contains("\"type\":\"system_prompt_injection\"")
+    );
+    assert!(
+        serde_json::to_string(&pp)
+            .unwrap()
+            .contains("\"type\":\"post_processing\"")
+    );
+    assert!(
+        serde_json::to_string(&dis)
+            .unwrap()
+            .contains("\"type\":\"disabled\"")
+    );
 }
 
 #[test]
@@ -1659,16 +1622,12 @@ fn clone_config_independence() {
     let mut cfg1 = EmulationConfig::new();
     cfg1.set(
         Capability::Streaming,
-        EmulationStrategy::Disabled {
-            reason: "a".into(),
-        },
+        EmulationStrategy::Disabled { reason: "a".into() },
     );
     let mut cfg2 = cfg1.clone();
     cfg2.set(
         Capability::Streaming,
-        EmulationStrategy::SystemPromptInjection {
-            prompt: "b".into(),
-        },
+        EmulationStrategy::SystemPromptInjection { prompt: "b".into() },
     );
     assert!(matches!(
         cfg1.strategies[&Capability::Streaming],
@@ -1894,7 +1853,10 @@ fn edge_overhead_system_prompt_injection_adds_one_content_block() {
     let orig_blocks = conv.system_message().unwrap().content.len();
     let engine = EmulationEngine::with_defaults();
     engine.apply(&[Capability::ExtendedThinking], &mut conv);
-    assert_eq!(conv.system_message().unwrap().content.len(), orig_blocks + 1);
+    assert_eq!(
+        conv.system_message().unwrap().content.len(),
+        orig_blocks + 1
+    );
 }
 
 #[test]

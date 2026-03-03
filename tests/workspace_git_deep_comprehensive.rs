@@ -67,6 +67,7 @@ fn collect_files(root: &Path) -> Vec<String> {
 }
 
 /// Collect sorted relative directory paths (excluding `.git`) under `root`.
+#[allow(dead_code)]
 fn collect_dirs(root: &Path) -> Vec<String> {
     let mut dirs: Vec<String> = WalkDir::new(root)
         .sort_by_file_name()
