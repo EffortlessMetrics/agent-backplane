@@ -7,6 +7,7 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod api;
 pub mod dialect;
 pub mod lowering;
 

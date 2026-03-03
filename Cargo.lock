@@ -110,6 +110,7 @@ dependencies = [
  "insta",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]
@@ -136,6 +137,7 @@ dependencies = [
  "insta",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]
@@ -326,6 +328,7 @@ dependencies = [
  "insta",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]

@@ -4,10 +4,14 @@
 #![warn(missing_docs)]
 /// HTTP control-plane API types and handler signatures.
 pub mod api;
+/// Framework-agnostic request/response types.
+pub mod handler;
 /// Middleware stack for the daemon HTTP API.
 pub mod middleware;
 /// Priority-based run queue.
 pub mod queue;
+/// Trait-based route handler signatures.
+pub mod routes;
 /// Request validation for the daemon API.
 pub mod validation;
 /// API versioning support.
@@ -37,6 +41,88 @@ use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
 use tracing::{error, info};
 use uuid::Uuid;
+
+// ---------------------------------------------------------------------------
+// DaemonConfig — static configuration for the control-plane server
+// ---------------------------------------------------------------------------
+
+/// Static configuration for the HTTP control-plane daemon.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DaemonConfig {
+    /// Bind address (e.g. `"127.0.0.1"` or `"0.0.0.0"`).
+    pub bind_address: String,
+    /// Port to listen on.
+    pub port: u16,
+    /// Optional bearer token required for authenticated endpoints.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_token: Option<String>,
+}
+
+impl Default for DaemonConfig {
+    fn default() -> Self {
+        Self {
+            bind_address: "127.0.0.1".into(),
+            port: 8088,
+            auth_token: None,
+        }
+    }
+}
+
+impl DaemonConfig {
+    /// Return the `address:port` string suitable for binding a listener.
+    pub fn bind_string(&self) -> String {
+        format!("{}:{}", self.bind_address, self.port)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DaemonState — shared mutable state for the running daemon
+// ---------------------------------------------------------------------------
+
+/// Shared mutable state for the daemon, holding registered backends and active
+/// runs. Intended to be wrapped in `Arc` and shared across handler tasks.
+#[derive(Clone, Default)]
+pub struct DaemonState {
+    /// Names of registered backends.
+    pub backends: Arc<RwLock<Vec<String>>>,
+    /// Active and completed runs keyed by run ID.
+    pub active_runs: Arc<RwLock<HashMap<Uuid, handler::RunStatus>>>,
+}
+
+impl DaemonState {
+    /// Create an empty daemon state.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a backend by name.
+    pub async fn register_backend(&self, name: String) {
+        let mut guard = self.backends.write().await;
+        if !guard.contains(&name) {
+            guard.push(name);
+        }
+    }
+
+    /// Return a snapshot of registered backend names.
+    pub async fn backend_names(&self) -> Vec<String> {
+        self.backends.read().await.clone()
+    }
+
+    /// Insert or update a run status entry.
+    pub async fn set_run_status(&self, id: Uuid, status: handler::RunStatus) {
+        self.active_runs.write().await.insert(id, status);
+    }
+
+    /// Get the status of a run by ID.
+    pub async fn get_run_status(&self, id: Uuid) -> Option<handler::RunStatus> {
+        self.active_runs.read().await.get(&id).cloned()
+    }
+
+    /// Return all tracked run IDs.
+    pub async fn run_ids(&self) -> Vec<Uuid> {
+        self.active_runs.read().await.keys().copied().collect()
+    }
+}
 
 // ---------------------------------------------------------------------------
 // DaemonError — thiserror-based error type for the daemon
