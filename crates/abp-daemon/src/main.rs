@@ -104,7 +104,10 @@ async fn main() -> Result<()> {
         "abp-daemon listening"
     );
 
-    axum::serve(listener, app).await.context("serve")
+    axum::serve(listener, app)
+        .with_graceful_shutdown(abp_daemon::shutdown_signal())
+        .await
+        .context("serve")
 }
 
 fn build_runtime(host_root: &Path, config: &abp_config::BackplaneConfig) -> Result<Runtime> {

@@ -31,11 +31,60 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use thiserror::Error;
 use tokio::fs;
 use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
 use tracing::{error, info};
 use uuid::Uuid;
+
+// ---------------------------------------------------------------------------
+// DaemonError — thiserror-based error type for the daemon
+// ---------------------------------------------------------------------------
+
+/// Errors originating from the daemon control-plane.
+#[derive(Debug, Error)]
+pub enum DaemonError {
+    /// A requested resource was not found.
+    #[error("not found: {0}")]
+    NotFound(String),
+
+    /// The request was malformed or invalid.
+    #[error("bad request: {0}")]
+    BadRequest(String),
+
+    /// A state conflict (e.g. cancelling a completed run).
+    #[error("conflict: {0}")]
+    Conflict(String),
+
+    /// An unexpected internal error.
+    #[error("internal error: {0}")]
+    Internal(#[from] anyhow::Error),
+
+    /// The underlying runtime returned an error.
+    #[error("runtime error: {0}")]
+    Runtime(#[from] abp_runtime::RuntimeError),
+}
+
+impl DaemonError {
+    /// Map this error to an HTTP status code.
+    pub fn status_code(&self) -> StatusCode {
+        match self {
+            Self::NotFound(_) => StatusCode::NOT_FOUND,
+            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::Conflict(_) => StatusCode::CONFLICT,
+            Self::Internal(_) | Self::Runtime(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+impl IntoResponse for DaemonError {
+    fn into_response(self) -> Response {
+        let status = self.status_code();
+        let body = Json(json!({ "error": self.to_string() }));
+        (status, body).into_response()
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Run lifecycle tracking
@@ -218,6 +267,21 @@ pub struct RunMetrics {
     pub failed: usize,
 }
 
+/// Runtime status response for GET /status.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatusResponse {
+    /// Server status (e.g. `"ok"`).
+    pub status: String,
+    /// Contract version.
+    pub contract_version: String,
+    /// Registered backend names.
+    pub backends: Vec<String>,
+    /// Active (non-terminal) run IDs.
+    pub active_runs: Vec<Uuid>,
+    /// Total number of tracked runs (active + completed + failed).
+    pub total_runs: usize,
+}
+
 /// An API error with HTTP status code and message.
 #[derive(Debug)]
 pub struct ApiError {
@@ -256,6 +320,7 @@ impl IntoResponse for ApiError {
 pub fn build_app(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(cmd_health))
+        .route("/status", get(cmd_status))
         .route("/metrics", get(cmd_metrics))
         .route("/backends", get(cmd_backends))
         .route("/capabilities", get(cmd_capabilities))
@@ -280,6 +345,22 @@ async fn cmd_health() -> impl IntoResponse {
         "contract_version": abp_core::CONTRACT_VERSION,
         "time": Utc::now().to_rfc3339(),
     }))
+}
+
+async fn cmd_status(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let runs = state.run_tracker.list_runs().await;
+    let active_runs: Vec<Uuid> = runs
+        .iter()
+        .filter(|(_, s)| matches!(s, RunStatus::Pending | RunStatus::Running))
+        .map(|(id, _)| *id)
+        .collect();
+    Json(StatusResponse {
+        status: "ok".into(),
+        contract_version: abp_core::CONTRACT_VERSION.into(),
+        backends: state.runtime.backend_names(),
+        active_runs,
+        total_runs: runs.len(),
+    })
 }
 
 async fn cmd_metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -694,4 +775,32 @@ pub async fn persist_receipt(root: &Path, receipt: &Receipt) -> anyhow::Result<(
     let path = receipt_path(root, receipt.meta.run_id);
     let bytes = serde_json::to_vec_pretty(receipt)?;
     fs::write(path, bytes).await.context("write receipt")
+}
+
+/// Wait for a shutdown signal (Ctrl-C).
+///
+/// Returns when the process receives a termination signal, enabling
+/// graceful shutdown of the HTTP server.
+pub async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        () = ctrl_c => info!("received Ctrl+C, shutting down"),
+        () = terminate => info!("received SIGTERM, shutting down"),
+    }
 }

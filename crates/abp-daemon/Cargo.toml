@@ -32,6 +32,7 @@ abp-host = { path = "../abp-host", version = "0.1.0" }
 abp-integrations = { path = "../abp-integrations", version = "0.1.0" }
 abp-runtime = { path = "../abp-runtime", version = "0.1.0" }
 chrono.workspace = true
+thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
