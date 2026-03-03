@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Receipt persistence and retrieval.
 //!
-//! This module provides both a concrete [`ReceiptStore`] (file-system based,
-//! keyed by `run_id`) and a trait-based [`ReceiptStorage`] abstraction keyed
+//! This module provides both a concrete `ReceiptStore` (file-system based,
+//! keyed by `run_id`) and a trait-based `ReceiptStorage` abstraction keyed
 //! by receipt SHA-256 hash.  The trait allows swapping backends (filesystem,
 //! SQLite, etc.) while keeping the same interface.
 
