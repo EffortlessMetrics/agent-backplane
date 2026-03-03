@@ -8,8 +8,23 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// Bidirectional conversions between Gemini API types and ABP core types.
+///
+/// Implements `From<GeminiRequest>` for `WorkOrder` and constructs
+/// `GeminiResponse` from `Receipt`.
 pub mod conversions;
+
+/// Gemini dialect configuration, model mapping, and capability manifest.
+///
+/// Defines the concrete types (`GeminiContent`, `GeminiPart`, etc.)
+/// used on the wire, and maps between vendor model names and ABP
+/// canonical model identifiers.
 pub mod dialect;
+
+/// Lowering between ABP IR and the Google Gemini message format.
+///
+/// `lowering::to_ir` lifts Gemini content slices into an IR conversation,
+/// and `lowering::from_ir` lowers back to Gemini contents.
 pub mod lowering;
 
 use abp_runtime::Runtime;

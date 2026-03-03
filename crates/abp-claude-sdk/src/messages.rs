@@ -3,8 +3,8 @@
 //!
 //! This module provides types that mirror the
 //! [Anthropic Messages API](https://docs.anthropic.com/en/api/messages)
-//! and implements bidirectional conversion with ABP's [`WorkOrder`] and
-//! [`Receipt`] types.
+//! and implements bidirectional conversion with ABP's `WorkOrder` and
+//! `Receipt` types.
 
 use std::collections::BTreeMap;
 

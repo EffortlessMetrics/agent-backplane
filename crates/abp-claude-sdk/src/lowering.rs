@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Lowering between ABP IR and the Anthropic Claude message format.
 //!
-//! [`to_ir`] converts a slice of [`ClaudeMessage`]s (plus optional system
-//! prompt) into an [`IrConversation`], and [`from_ir`] converts an
-//! [`IrConversation`] back into Claude messages.
+//! `to_ir` converts a slice of `ClaudeMessage`s (plus optional system
+//! prompt) into an `IrConversation`, and `from_ir` converts an
+//! `IrConversation` back into Claude messages.
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 

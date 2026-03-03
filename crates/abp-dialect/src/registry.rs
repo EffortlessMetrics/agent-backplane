@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Dialect registry for parser/serializer lookup.
 //!
-//! The [`DialectRegistry`] stores [`DialectEntry`] records — one per
+//! The `DialectRegistry` stores `DialectEntry` records — one per
 //! registered dialect — each carrying a parser function that lifts raw
-//! JSON into [`IrRequest`] and a serializer function that lowers
-//! [`IrRequest`] back to raw JSON.
+//! JSON into `IrRequest` and a serializer function that lowers
+//! `IrRequest` back to raw JSON.
 
 use std::collections::BTreeMap;
 

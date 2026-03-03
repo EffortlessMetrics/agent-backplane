@@ -7,7 +7,18 @@
 //!
 //! Dialect detection, validation, and metadata for the Agent Backplane.
 
+/// Intermediate representation types for cross-dialect translation.
+///
+/// Provides dialect-agnostic request/response wrappers (`IrRequest`,
+/// `IrResponse`) and content primitives (`IrMessage`, `IrContentBlock`)
+/// that serve as the lingua franca between vendor-specific formats.
 pub mod ir;
+
+/// Dialect registry for parser/serializer lookup.
+///
+/// Stores `DialectEntry` records — one per registered dialect — each
+/// carrying codec functions that lift raw JSON into IR and lower IR
+/// back to raw JSON.
 pub mod registry;
 
 use serde::{Deserialize, Serialize};

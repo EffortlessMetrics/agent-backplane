@@ -8,8 +8,24 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// Claude dialect configuration, model mapping, and capability manifest.
+///
+/// Defines the concrete types (`ClaudeMessage`, `ClaudeContentBlock`, etc.)
+/// used on the wire, and maps between vendor model names and ABP
+/// canonical model identifiers.
 pub mod dialect;
+
+/// Lowering between ABP IR and the Anthropic Claude message format.
+///
+/// `lowering::to_ir` lifts Claude message slices into an IR conversation,
+/// and `lowering::from_ir` lowers back to Claude messages.
 pub mod lowering;
+
+/// Anthropic Messages API surface types and bidirectional conversions.
+///
+/// Provides request/response types mirroring the
+/// [Anthropic Messages API](https://docs.anthropic.com/en/api/messages)
+/// with `From` conversions to/from ABP's `WorkOrder` and `Receipt`.
 pub mod messages;
 
 use abp_runtime::Runtime;

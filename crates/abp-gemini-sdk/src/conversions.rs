@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Conversions between Gemini API types and ABP core types.
 //!
-//! Implements [`From<GeminiRequest>`] for [`WorkOrder`] and
-//! [`From<Receipt>`] for [`GeminiResponse`].
+//! Implements `From<GeminiRequest>` for `WorkOrder` and
+//! `From<Receipt>` for `GeminiResponse`.
 
 use std::collections::BTreeMap;
 

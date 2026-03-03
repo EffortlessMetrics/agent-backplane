@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Lowering between ABP IR and the OpenAI Chat Completions message format.
 //!
-//! [`to_ir`] converts a slice of [`OpenAIMessage`]s into an [`IrConversation`],
-//! and [`from_ir`] converts an [`IrConversation`] back into OpenAI messages.
+//! `to_ir` converts a slice of `OpenAIMessage`s into an `IrConversation`,
+//! and `from_ir` converts an `IrConversation` back into OpenAI messages.
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 
