@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 //! Unified error taxonomy with stable error codes for the Agent Backplane.
 //!
 //! Every ABP error carries an [`ErrorCode`] (a machine-readable, stable string

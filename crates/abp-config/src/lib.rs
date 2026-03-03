@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![doc = include_str!("../README.md")]
 //! Configuration loading, validation, and merging for the Agent Backplane.
 //!
 //! This crate provides [`BackplaneConfig`] — the top-level runtime settings —

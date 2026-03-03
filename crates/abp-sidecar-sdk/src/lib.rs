@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 //! Shared sidecar registration helpers used by vendor SDK microcrates.

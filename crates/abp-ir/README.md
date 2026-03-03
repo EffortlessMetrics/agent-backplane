@@ -57,7 +57,7 @@ verify that all IR types survive a JSON round-trip without data loss.
 
 ## Crate Structure
 
-```
+```text
 src/lib.rs                    — re-exports from abp_core::ir
 tests/
   proptest_roundtrip.rs       — property-based serde round-trip tests

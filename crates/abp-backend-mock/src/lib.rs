@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 //! Mock backend implementation used for local testing.

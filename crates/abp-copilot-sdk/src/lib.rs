@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![doc = include_str!("../README.md")]
 //! Microcrate for wiring the GitHub Copilot sidecar into ABP runtimes.
 //!
 //! Registers the Copilot sidecar backend and exposes the

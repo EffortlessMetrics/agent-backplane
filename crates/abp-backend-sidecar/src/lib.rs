@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 //! Sidecar backend implementation for JSONL protocol adapters.

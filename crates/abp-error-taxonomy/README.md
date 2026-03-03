@@ -44,7 +44,7 @@ assert_eq!(err.code.category(), ErrorCategory::Backend);
 
 ## Crate Structure
 
-```
+```text
 src/lib.rs           — re-exports from abp-error
 tests/
   taxonomy_deep.rs   — comprehensive taxonomy test suite

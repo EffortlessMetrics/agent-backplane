@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![doc = include_str!("../README.md")]
 //! Labeled capability emulation for Agent Backplane.
 //!
 //! When a backend does not natively support a capability (e.g. `extended_thinking`),
