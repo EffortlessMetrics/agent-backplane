@@ -13,10 +13,12 @@
 pub mod builders;
 pub mod cancel;
 pub mod capabilities;
+pub mod capability_builder;
 pub mod client;
 pub mod codec;
 pub mod diagnostics;
 pub mod error;
+pub mod event_builder;
 pub mod events;
 pub mod frame;
 pub mod framing;
@@ -25,9 +27,11 @@ pub mod middleware;
 pub mod pipeline;
 pub mod process;
 pub mod protocol_helpers;
+pub mod protocol_io;
 pub mod protocol_state;
 pub mod receipt_builder;
 pub mod run;
+pub mod sidecar_harness;
 pub mod spec;
 pub mod test_utils;
 pub mod transform;
@@ -81,5 +85,13 @@ pub use test_utils::{
 };
 
 pub use capabilities::{CapabilitySet, default_streaming_capabilities};
+pub use capability_builder::CapabilityBuilder;
+pub use event_builder::{
+    CommandRunBuilder, ErrorBuilder, EventBuildError, FileEditBuilder, RunCompletedBuilder,
+    RunStartedBuilder, TextDeltaBuilder, TextMessageBuilder, ThinkingBuilder, ToolCallBuilder,
+    ToolResultBuilder, UsageBuilder, WarningBuilder,
+};
 pub use harness::{HandlerContext, HarnessError, SidecarHandler, SidecarHarness};
+pub use protocol_io::{ProtocolReader, ProtocolWriter};
+pub use sidecar_harness::{AsyncSidecarTestHarness, InProcessHarness};
 pub use work_order::WorkOrderView;

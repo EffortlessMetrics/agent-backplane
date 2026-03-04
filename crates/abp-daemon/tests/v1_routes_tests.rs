@@ -2,15 +2,12 @@
 //! Integration tests for the `/v1` HTTP routes.
 
 use abp_core::{Outcome, ReceiptBuilder, WorkOrderBuilder};
-use abp_daemon::models::{
-    BackendsListResponse, CancelResponse, ErrorBody, HealthResponse, ReceiptResponse, RunRequest,
-    RunResponse, RunStatusKind, StatusResponse,
-};
+use abp_daemon::models::{BackendsListResponse, RunRequest};
 use abp_daemon::routes::v1_routes;
 use abp_daemon::state::{RunPhase, ServerState};
+use axum::Router;
 use axum::body::Body;
 use axum::http::{self, Request, StatusCode};
-use axum::Router;
 use http_body_util::BodyExt;
 use serde_json;
 use std::collections::BTreeMap;
@@ -149,7 +146,11 @@ async fn v1_backends_sidecar_type() {
         .unwrap();
     let json = body_json(resp).await;
     let list: BackendsListResponse = serde_json::from_value(json).unwrap();
-    let sidecar = list.backends.iter().find(|b| b.name == "sidecar:node").unwrap();
+    let sidecar = list
+        .backends
+        .iter()
+        .find(|b| b.name == "sidecar:node")
+        .unwrap();
     assert_eq!(sidecar.backend_type, "sidecar");
 }
 
@@ -250,7 +251,11 @@ async fn v1_status_not_found() {
 async fn v1_status_after_create() {
     let state = test_state();
     let run_id = Uuid::new_v4();
-    state.registry.create_run(run_id, "mock".into()).await.unwrap();
+    state
+        .registry
+        .create_run(run_id, "mock".into())
+        .await
+        .unwrap();
 
     let resp = app(state)
         .oneshot(
@@ -271,8 +276,16 @@ async fn v1_status_after_create() {
 async fn v1_status_running_state() {
     let state = test_state();
     let run_id = Uuid::new_v4();
-    state.registry.create_run(run_id, "mock".into()).await.unwrap();
-    state.registry.transition(run_id, RunPhase::Running).await.unwrap();
+    state
+        .registry
+        .create_run(run_id, "mock".into())
+        .await
+        .unwrap();
+    state
+        .registry
+        .transition(run_id, RunPhase::Running)
+        .await
+        .unwrap();
 
     let resp = app(state)
         .oneshot(
@@ -310,7 +323,11 @@ async fn v1_receipt_not_found() {
 async fn v1_receipt_no_receipt_yet() {
     let state = test_state();
     let run_id = Uuid::new_v4();
-    state.registry.create_run(run_id, "mock".into()).await.unwrap();
+    state
+        .registry
+        .create_run(run_id, "mock".into())
+        .await
+        .unwrap();
 
     let resp = app(state)
         .oneshot(
@@ -330,9 +347,19 @@ async fn v1_receipt_no_receipt_yet() {
 async fn v1_receipt_after_completion() {
     let state = test_state();
     let run_id = Uuid::new_v4();
-    state.registry.create_run(run_id, "mock".into()).await.unwrap();
-    state.registry.transition(run_id, RunPhase::Running).await.unwrap();
-    let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    state
+        .registry
+        .create_run(run_id, "mock".into())
+        .await
+        .unwrap();
+    state
+        .registry
+        .transition(run_id, RunPhase::Running)
+        .await
+        .unwrap();
+    let receipt = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     state.registry.complete(run_id, receipt).await.unwrap();
 
     let resp = app(state)
@@ -374,7 +401,11 @@ async fn v1_cancel_not_found() {
 async fn v1_cancel_queued_run() {
     let state = test_state();
     let run_id = Uuid::new_v4();
-    state.registry.create_run(run_id, "mock".into()).await.unwrap();
+    state
+        .registry
+        .create_run(run_id, "mock".into())
+        .await
+        .unwrap();
 
     let resp = app(state)
         .oneshot(
@@ -395,8 +426,16 @@ async fn v1_cancel_queued_run() {
 async fn v1_cancel_running_run() {
     let state = test_state();
     let run_id = Uuid::new_v4();
-    state.registry.create_run(run_id, "mock".into()).await.unwrap();
-    state.registry.transition(run_id, RunPhase::Running).await.unwrap();
+    state
+        .registry
+        .create_run(run_id, "mock".into())
+        .await
+        .unwrap();
+    state
+        .registry
+        .transition(run_id, RunPhase::Running)
+        .await
+        .unwrap();
 
     let resp = app(state)
         .oneshot(
@@ -415,9 +454,21 @@ async fn v1_cancel_running_run() {
 async fn v1_cancel_completed_run_409() {
     let state = test_state();
     let run_id = Uuid::new_v4();
-    state.registry.create_run(run_id, "mock".into()).await.unwrap();
-    state.registry.transition(run_id, RunPhase::Running).await.unwrap();
-    state.registry.transition(run_id, RunPhase::Completed).await.unwrap();
+    state
+        .registry
+        .create_run(run_id, "mock".into())
+        .await
+        .unwrap();
+    state
+        .registry
+        .transition(run_id, RunPhase::Running)
+        .await
+        .unwrap();
+    state
+        .registry
+        .transition(run_id, RunPhase::Completed)
+        .await
+        .unwrap();
 
     let resp = app(state)
         .oneshot(
