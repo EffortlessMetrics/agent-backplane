@@ -3,14 +3,14 @@
 
 //! Exhaustive BDD-style scenario tests for core Agent Backplane workflows.
 //!
-//! Each test follows Given/When/Then structure and covers:
-//! - IR mapping and content preservation across dialects
-//! - Sidecar protocol handshake and version negotiation
-//! - Policy enforcement (tool, read, write)
-//! - Receipt hashing determinism
-//! - Capability negotiation
-//! - Streaming event reconstruction
-//! - Edge cases and error conditions
+//! Each test follows Given/When/Then structure organized by user stories:
+//!
+//! 1. "As a developer, I want to run a task via mock backend"
+//! 2. "As a developer, I want to map OpenAI requests to Claude"
+//! 3. "As an operator, I want to enforce tool policies"
+//! 4. "As a sidecar, I want to speak JSONL protocol"
+//! 5. "As a system, I want deterministic receipts"
+//! 6. "As an operator, I want to monitor health"
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -19,32 +19,28 @@ use chrono::Utc;
 use serde_json::json;
 use uuid::Uuid;
 
-use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
-use abp_core::negotiate::{CapabilityNegotiator, NegotiationRequest, NegotiationResult};
+use abp_backend_core::{
+    Backend, BackendHealth, BackendMetadata, BackendMetrics, BackendRegistry, HealthStatus,
+    RateLimit, SelectionStrategy,
+};
+use abp_backend_mock::MockBackend;
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
-    ContextSnippet, ContractError, ExecutionLane, ExecutionMode, MinSupport, Outcome,
-    PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel,
-    UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    canonical_json, receipt_hash, sha256_hex,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, ReceiptBuilder, SupportLevel, UsageNormalized, WorkOrder,
+    WorkOrderBuilder, canonical_json, receipt_hash, sha256_hex,
 };
 use abp_dialect::Dialect;
-use abp_error::{AbpError, ErrorCategory, ErrorCode};
-use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_mapper::{
-    ClaudeGeminiIrMapper, ClaudeToOpenAiMapper, IrIdentityMapper, IrMapper, MapError,
-    OpenAiClaudeIrMapper, OpenAiGeminiIrMapper, OpenAiToClaudeMapper, default_ir_mapper,
-    supported_ir_pairs,
+    IrIdentityMapper, IrMapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper, default_ir_mapper,
 };
 use abp_policy::{Decision, PolicyEngine};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
-use abp_receipt::{
-    ReceiptBuilder as ReceiptReceiptBuilder, canonicalize, compute_hash, verify_hash,
-};
+use abp_protocol::{Envelope, JsonlCodec, is_compatible_version};
+use abp_receipt::{compute_hash, verify_hash};
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Helper functions
+// Helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn make_event(kind: AgentEventKind) -> AgentEvent {
@@ -55,13 +51,17 @@ fn make_event(kind: AgentEventKind) -> AgentEvent {
     }
 }
 
+fn make_work_order(task: &str) -> WorkOrder {
+    WorkOrderBuilder::new(task).root(".").build()
+}
+
 fn make_receipt(backend_id: &str) -> Receipt {
     ReceiptBuilder::new(backend_id)
         .outcome(Outcome::Complete)
         .build()
 }
 
-fn make_receipt_with_trace(events: Vec<AgentEvent>) -> Receipt {
+fn make_receipt_with_events(events: Vec<AgentEvent>) -> Receipt {
     let mut builder = ReceiptBuilder::new("test-backend").outcome(Outcome::Complete);
     for event in events {
         builder = builder.add_trace_event(event);
@@ -80,7 +80,7 @@ fn make_hello_envelope(backend_id: &str) -> Envelope {
     )
 }
 
-fn make_openai_ir_conversation() -> IrConversation {
+fn make_ir_conversation() -> IrConversation {
     IrConversation::from_messages(vec![
         IrMessage::text(IrRole::System, "You are a helpful assistant."),
         IrMessage::text(IrRole::User, "Hello, world!"),
@@ -88,67 +88,266 @@ fn make_openai_ir_conversation() -> IrConversation {
     ])
 }
 
-fn make_capability_manifest(caps: &[(Capability, SupportLevel)]) -> CapabilityManifest {
-    let mut manifest = CapabilityManifest::new();
-    for (cap, level) in caps {
-        manifest.insert(cap.clone(), level.clone());
-    }
-    manifest
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Scenario 1: IR Mapping — Content Preservation
-// "Given a user submits a work order with OpenAI dialect,
-//  When the backend is Claude,
-//  Then the IR mapping should preserve content"
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_openai_to_claude_ir_mapping_preserves_text_content() {
-    // Given: A conversation in OpenAI dialect with text content
-    let ir = make_openai_ir_conversation();
-
-    // When: Mapped from OpenAI to Claude via IR mapper
-    let mapper = OpenAiClaudeIrMapper;
-    let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &ir);
-
-    // Then: The mapped conversation preserves all text content
-    assert!(result.is_ok());
-    let mapped = result.unwrap();
-    assert_eq!(mapped.messages.len(), ir.messages.len());
-    for (original, mapped_msg) in ir.messages.iter().zip(mapped.messages.iter()) {
-        assert_eq!(original.text_content(), mapped_msg.text_content());
+fn make_backend_metadata(name: &str, dialect: &str) -> BackendMetadata {
+    BackendMetadata {
+        name: name.into(),
+        dialect: dialect.into(),
+        version: "1.0.0".into(),
+        max_tokens: Some(128_000),
+        supports_streaming: true,
+        supports_tools: true,
+        rate_limit: None,
     }
 }
 
-#[test]
-fn scenario_openai_to_claude_ir_mapping_preserves_roles() {
-    // Given: A multi-role conversation
-    let ir = make_openai_ir_conversation();
+fn register_healthy_backend(registry: &mut BackendRegistry, name: &str, dialect: &str) {
+    registry.register_with_metadata(name, make_backend_metadata(name, dialect));
+    let mut health = BackendHealth::default();
+    health.record_success(50);
+    registry.update_health(name, health);
+}
 
-    // When: Mapped to Claude dialect
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 1: "As a developer, I want to run a task via mock backend"
+//
+// Given a work order, when run via MockBackend, then the receipt should
+// have the correct outcome, events, hash, and metadata.
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+async fn story1_given_work_order_when_mock_run_then_receipt_outcome_is_complete() {
+    // Given: A work order for the mock backend
+    let wo = make_work_order("Fix the login bug");
+    let backend = MockBackend;
+    let (tx, _rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The backend runs the work order
+    let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: The receipt outcome is Complete
+    assert_eq!(receipt.outcome, Outcome::Complete);
+}
+
+#[tokio::test]
+async fn story1_given_work_order_when_mock_run_then_backend_identity_is_mock() {
+    // Given: A work order
+    let wo = make_work_order("Add logging");
+    let backend = MockBackend;
+    let (tx, _rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The backend runs
+    let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: The backend identity is "mock"
+    assert_eq!(receipt.backend.id, "mock");
+    assert_eq!(receipt.backend.backend_version.as_deref(), Some("0.1"));
+}
+
+#[tokio::test]
+async fn story1_given_work_order_when_mock_run_then_contract_version_matches() {
+    // Given: A work order
+    let wo = make_work_order("Refactor module");
+    let backend = MockBackend;
+    let (tx, _rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The backend runs
+    let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: The contract version is correct
+    assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
+}
+
+#[tokio::test]
+async fn story1_given_work_order_when_mock_run_then_receipt_has_hash() {
+    // Given: A work order
+    let wo = make_work_order("Deploy feature");
+    let backend = MockBackend;
+    let (tx, _rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The backend runs
+    let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: The receipt has a SHA-256 hash
+    assert!(receipt.receipt_sha256.is_some());
+    assert_eq!(receipt.receipt_sha256.as_ref().unwrap().len(), 64);
+}
+
+#[tokio::test]
+async fn story1_given_work_order_when_mock_run_then_events_are_streamed() {
+    // Given: A work order
+    let wo = make_work_order("Write tests");
+    let backend = MockBackend;
+    let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The backend runs
+    let _receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: Events were streamed to the channel
+    let mut events = Vec::new();
+    while let Ok(ev) = rx.try_recv() {
+        events.push(ev);
+    }
+    assert!(
+        events.len() >= 2,
+        "expected at least RunStarted and RunCompleted, got {}",
+        events.len()
+    );
+}
+
+#[tokio::test]
+async fn story1_given_work_order_when_mock_run_then_trace_starts_with_run_started() {
+    // Given: A work order
+    let wo = make_work_order("Optimize queries");
+    let backend = MockBackend;
+    let (tx, _rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The backend runs
+    let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: The trace starts with RunStarted
+    assert!(
+        matches!(&receipt.trace[0].kind, AgentEventKind::RunStarted { .. }),
+        "first trace event should be RunStarted"
+    );
+}
+
+#[tokio::test]
+async fn story1_given_work_order_when_mock_run_then_trace_ends_with_run_completed() {
+    // Given: A work order
+    let wo = make_work_order("Add feature flag");
+    let backend = MockBackend;
+    let (tx, _rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The backend runs
+    let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: The trace ends with RunCompleted
+    let last = receipt.trace.last().unwrap();
+    assert!(
+        matches!(&last.kind, AgentEventKind::RunCompleted { .. }),
+        "last trace event should be RunCompleted"
+    );
+}
+
+#[tokio::test]
+async fn story1_given_work_order_when_mock_run_then_work_order_id_matches() {
+    // Given: A work order with a known ID
+    let wo = make_work_order("Check dependencies");
+    let expected_id = wo.id;
+    let backend = MockBackend;
+    let (tx, _rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The backend runs
+    let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: The receipt references the original work order
+    assert_eq!(receipt.meta.work_order_id, expected_id);
+}
+
+#[tokio::test]
+async fn story1_given_work_order_when_mock_run_then_usage_tokens_are_zero() {
+    // Given: A work order
+    let wo = make_work_order("Generate docs");
+    let backend = MockBackend;
+    let (tx, _rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The mock backend runs (no real API call)
+    let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: Token usage is zero (mock doesn't call any LLM)
+    assert_eq!(receipt.usage.input_tokens, Some(0));
+    assert_eq!(receipt.usage.output_tokens, Some(0));
+}
+
+#[tokio::test]
+async fn story1_given_mock_backend_when_capabilities_queried_then_streaming_is_native() {
+    // Given: The mock backend
+    let backend = MockBackend;
+
+    // When: We query its capabilities
+    let caps = backend.capabilities();
+
+    // Then: Streaming is natively supported and tools are emulated
+    assert_eq!(
+        caps.get(&Capability::Streaming),
+        Some(&SupportLevel::Native)
+    );
+    assert_eq!(
+        caps.get(&Capability::ToolRead),
+        Some(&SupportLevel::Emulated)
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 2: "As a developer, I want to map OpenAI requests to Claude"
+//
+// Given an OpenAI-style IR request, when mapped to Claude dialect,
+// then the resulting request should preserve all semantics.
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story2_given_openai_conversation_when_mapped_to_claude_then_text_preserved() {
+    // Given: An OpenAI-style IR conversation
+    let ir = make_ir_conversation();
+
+    // When: Mapped from OpenAI to Claude
     let mapper = OpenAiClaudeIrMapper;
     let mapped = mapper
         .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
         .unwrap();
 
-    // Then: Roles are preserved
+    // Then: Text content is preserved across all messages
+    for (orig, m) in ir.messages.iter().zip(mapped.messages.iter()) {
+        assert_eq!(orig.text_content(), m.text_content());
+    }
+}
+
+#[test]
+fn story2_given_openai_conversation_when_mapped_to_claude_then_roles_preserved() {
+    // Given: A multi-role conversation
+    let ir = make_ir_conversation();
+
+    // When: Mapped to Claude
+    let mapper = OpenAiClaudeIrMapper;
+    let mapped = mapper
+        .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
+        .unwrap();
+
+    // Then: Roles are preserved in order
     assert_eq!(mapped.messages[0].role, IrRole::System);
     assert_eq!(mapped.messages[1].role, IrRole::User);
     assert_eq!(mapped.messages[2].role, IrRole::Assistant);
 }
 
 #[test]
-fn scenario_openai_to_claude_ir_mapping_preserves_tool_use_blocks() {
-    // Given: A conversation with tool use
-    let tool_use = IrContentBlock::ToolUse {
-        id: "tool-1".into(),
-        name: "read_file".into(),
-        input: json!({"path": "src/main.rs"}),
-    };
+fn story2_given_openai_conversation_when_mapped_to_claude_then_message_count_preserved() {
+    // Given: A 3-message conversation
+    let ir = make_ir_conversation();
+
+    // When: Mapped to Claude
+    let mapper = OpenAiClaudeIrMapper;
+    let mapped = mapper
+        .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
+        .unwrap();
+
+    // Then: The number of messages is preserved
+    assert_eq!(mapped.messages.len(), ir.messages.len());
+}
+
+#[test]
+fn story2_given_openai_tool_use_when_mapped_to_claude_then_tool_name_preserved() {
+    // Given: A conversation with a tool call
+    let tool_msg = IrMessage::new(
+        IrRole::Assistant,
+        vec![IrContentBlock::ToolUse {
+            id: "call_1".into(),
+            name: "read_file".into(),
+            input: json!({"path": "main.rs"}),
+        }],
+    );
     let ir = IrConversation::from_messages(vec![
-        IrMessage::text(IrRole::User, "Read the file"),
-        IrMessage::new(IrRole::Assistant, vec![tool_use.clone()]),
+        IrMessage::text(IrRole::User, "Read main.rs"),
+        tool_msg,
     ]);
 
     // When: Mapped to Claude
@@ -157,125 +356,58 @@ fn scenario_openai_to_claude_ir_mapping_preserves_tool_use_blocks() {
         .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
         .unwrap();
 
-    // Then: Tool use block is preserved
-    let tool_blocks = mapped.messages[1].tool_use_blocks();
-    assert_eq!(tool_blocks.len(), 1);
-    if let IrContentBlock::ToolUse { name, input, .. } = tool_blocks[0] {
+    // Then: Tool name and input are preserved
+    let tools = mapped.messages[1].tool_use_blocks();
+    assert_eq!(tools.len(), 1);
+    if let IrContentBlock::ToolUse { name, input, .. } = tools[0] {
         assert_eq!(name, "read_file");
-        assert_eq!(input, &json!({"path": "src/main.rs"}));
+        assert_eq!(input, &json!({"path": "main.rs"}));
     } else {
         panic!("expected ToolUse block");
     }
 }
 
 #[test]
-fn scenario_claude_to_openai_roundtrip_preserves_content() {
-    // Given: An IR conversation
-    let ir = make_openai_ir_conversation();
+fn story2_given_openai_conversation_when_roundtripped_then_content_intact() {
+    // Given: An OpenAI conversation
+    let ir = make_ir_conversation();
 
-    // When: Mapped OpenAI -> Claude -> OpenAI
+    // When: Roundtripped OpenAI -> Claude -> OpenAI
     let mapper = OpenAiClaudeIrMapper;
     let to_claude = mapper
         .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
         .unwrap();
-    let back_to_openai = mapper
+    let back = mapper
         .map_request(Dialect::Claude, Dialect::OpenAi, &to_claude)
         .unwrap();
 
-    // Then: Text content is preserved after roundtrip
-    for (original, roundtripped) in ir.messages.iter().zip(back_to_openai.messages.iter()) {
-        assert_eq!(original.text_content(), roundtripped.text_content());
+    // Then: All text content is intact
+    for (orig, rt) in ir.messages.iter().zip(back.messages.iter()) {
+        assert_eq!(orig.text_content(), rt.text_content());
     }
 }
 
 #[test]
-fn scenario_identity_mapper_is_passthrough() {
-    // Given: Any IR conversation
-    let ir = make_openai_ir_conversation();
-
-    // When: Processed by identity mapper
-    let mapper = IrIdentityMapper;
-    let mapped = mapper
-        .map_request(Dialect::OpenAi, Dialect::OpenAi, &ir)
-        .unwrap();
-
-    // Then: Output equals input
-    assert_eq!(ir, mapped);
-}
-
-#[test]
-fn scenario_openai_to_gemini_ir_mapping_preserves_content() {
-    // Given: An OpenAI-style conversation
-    let ir = make_openai_ir_conversation();
-
-    // When: Mapped to Gemini
-    let mapper = OpenAiGeminiIrMapper;
-    let result = mapper.map_request(Dialect::OpenAi, Dialect::Gemini, &ir);
-
-    // Then: Content is preserved
-    assert!(result.is_ok());
-    let mapped = result.unwrap();
-    assert!(!mapped.messages.is_empty());
-}
-
-#[test]
-fn scenario_unsupported_dialect_pair_returns_error() {
-    // Given: An IR mapper that doesn't support a certain pair
-    let mapper = OpenAiClaudeIrMapper;
-    let ir = make_openai_ir_conversation();
-
-    // When: Attempting an unsupported dialect mapping
-    let result = mapper.map_request(Dialect::Gemini, Dialect::Codex, &ir);
-
-    // Then: Returns an UnsupportedPair error
-    assert!(result.is_err());
-    match result.unwrap_err() {
-        MapError::UnsupportedPair { from, to } => {
-            assert_eq!(from, Dialect::Gemini);
-            assert_eq!(to, Dialect::Codex);
-        }
-        other => panic!("expected UnsupportedPair, got {:?}", other),
-    }
-}
-
-#[test]
-fn scenario_default_ir_mapper_factory_resolves_known_pairs() {
-    // Given: A known set of supported dialect pairs
-    let pairs = supported_ir_pairs();
-
-    // When/Then: Each pair resolves to a mapper
-    for (from, to) in &pairs {
-        let mapper = default_ir_mapper(*from, *to);
-        assert!(
-            mapper.is_some(),
-            "expected mapper for {:?} -> {:?}",
-            from,
-            to
-        );
-    }
-}
-
-#[test]
-fn scenario_ir_mapping_preserves_empty_conversation() {
+fn story2_given_empty_conversation_when_mapped_then_empty_result() {
     // Given: An empty conversation
     let ir = IrConversation::new();
 
-    // When: Mapped
-    let mapper = IrIdentityMapper;
+    // When: Mapped to Claude
+    let mapper = OpenAiClaudeIrMapper;
     let mapped = mapper
-        .map_request(Dialect::OpenAi, Dialect::OpenAi, &ir)
+        .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
         .unwrap();
 
-    // Then: Remains empty
+    // Then: The result is also empty
     assert!(mapped.messages.is_empty());
 }
 
 #[test]
-fn scenario_ir_mapping_preserves_system_message() {
-    // Given: A conversation with system prompt only
+fn story2_given_system_message_when_mapped_then_system_role_preserved() {
+    // Given: A conversation with only a system message
     let ir = IrConversation::from_messages(vec![IrMessage::text(
         IrRole::System,
-        "You are a code reviewer.",
+        "You are a coding assistant",
     )]);
 
     // When: Mapped to Claude
@@ -284,204 +416,396 @@ fn scenario_ir_mapping_preserves_system_message() {
         .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
         .unwrap();
 
-    // Then: System message is preserved
-    assert!(mapped.system_message().is_some());
+    // Then: The system message and role are preserved
+    assert_eq!(mapped.messages.len(), 1);
+    assert_eq!(mapped.messages[0].role, IrRole::System);
     assert_eq!(
-        mapped.system_message().unwrap().text_content(),
-        "You are a code reviewer."
+        mapped.messages[0].text_content(),
+        "You are a coding assistant"
     );
 }
 
 #[test]
-fn scenario_ir_mapping_preserves_tool_result_with_error_flag() {
-    // Given: A tool result with is_error=true
-    let ir = IrConversation::from_messages(vec![IrMessage::new(
-        IrRole::Tool,
-        vec![IrContentBlock::ToolResult {
-            tool_use_id: "call-1".into(),
-            content: vec![IrContentBlock::Text {
-                text: "file not found".into(),
-            }],
-            is_error: true,
-        }],
-    )]);
+fn story2_given_identity_mapper_when_mapped_then_exact_passthrough() {
+    // Given: Any conversation
+    let ir = make_ir_conversation();
 
-    // When: Mapped
-    let mapper = OpenAiClaudeIrMapper;
+    // When: Processed by identity mapper
+    let mapper = IrIdentityMapper;
     let mapped = mapper
-        .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
+        .map_request(Dialect::OpenAi, Dialect::OpenAi, &ir)
         .unwrap();
 
-    // Then: Error flag is preserved
-    if let IrContentBlock::ToolResult { is_error, .. } = &mapped.messages[0].content[0] {
-        assert!(is_error);
-    } else {
-        panic!("expected ToolResult block");
+    // Then: Output is identical
+    assert_eq!(mapped.messages.len(), ir.messages.len());
+    for (orig, m) in ir.messages.iter().zip(mapped.messages.iter()) {
+        assert_eq!(orig.text_content(), m.text_content());
+        assert_eq!(orig.role, m.role);
     }
 }
 
 #[test]
-fn scenario_ir_conversation_text_content_accessor() {
-    // Given: A message with multiple text blocks
-    let msg = IrMessage::new(
-        IrRole::Assistant,
-        vec![
-            IrContentBlock::Text {
-                text: "Hello ".into(),
-            },
-            IrContentBlock::Text {
-                text: "world!".into(),
-            },
-        ],
-    );
+fn story2_given_supported_pair_when_factory_called_then_mapper_returned() {
+    // Given: A known supported dialect pair (OpenAI -> Claude)
+    // When: The factory is called
+    let result = default_ir_mapper(Dialect::OpenAi, Dialect::Claude);
 
-    // When: Getting text content
-    let text = msg.text_content();
-
-    // Then: All text blocks are concatenated
-    assert_eq!(text, "Hello world!");
+    // Then: A mapper is returned
+    assert!(result.is_some());
 }
 
 #[test]
-fn scenario_ir_message_is_text_only_with_mixed_content() {
-    // Given: A message with text and tool use
-    let msg = IrMessage::new(
-        IrRole::Assistant,
-        vec![
-            IrContentBlock::Text {
-                text: "Let me check".into(),
-            },
-            IrContentBlock::ToolUse {
-                id: "t1".into(),
-                name: "read".into(),
-                input: json!({}),
-            },
-        ],
-    );
+fn story2_given_openai_to_gemini_when_mapped_then_content_preserved() {
+    // Given: An OpenAI conversation
+    let ir = make_ir_conversation();
 
-    // When: Checking if text-only
-    // Then: Returns false
-    assert!(!msg.is_text_only());
+    // When: Mapped to Gemini
+    let mapper = OpenAiGeminiIrMapper;
+    let mapped = mapper
+        .map_request(Dialect::OpenAi, Dialect::Gemini, &ir)
+        .unwrap();
+
+    // Then: Text content is preserved
+    for (orig, m) in ir.messages.iter().zip(mapped.messages.iter()) {
+        assert_eq!(orig.text_content(), m.text_content());
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Scenario 2: Sidecar Hello Handshake
-// "Given a sidecar sends hello,
-//  When the contract version matches,
-//  Then the handshake succeeds"
+// Story 3: "As an operator, I want to enforce tool policies"
+//
+// Given a policy profile, when a tool/path is checked, then the policy
+// engine correctly allows or denies access.
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn scenario_sidecar_hello_with_matching_version_succeeds() {
-    // Given: A sidecar sends a hello with the current contract version
+fn story3_given_deny_bash_policy_when_bash_called_then_denied() {
+    // Given: A policy that disallows Bash
+    let policy = PolicyProfile {
+        disallowed_tools: vec!["Bash".into()],
+        ..Default::default()
+    };
+
+    // When: The policy engine checks Bash
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let decision = engine.can_use_tool("Bash");
+
+    // Then: Bash is denied
+    assert!(!decision.allowed);
+}
+
+#[test]
+fn story3_given_deny_bash_policy_when_read_called_then_allowed() {
+    // Given: A policy that only denies Bash
+    let policy = PolicyProfile {
+        disallowed_tools: vec!["Bash".into()],
+        ..Default::default()
+    };
+
+    // When: The policy engine checks Read
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let decision = engine.can_use_tool("Read");
+
+    // Then: Read is allowed
+    assert!(decision.allowed);
+}
+
+#[test]
+fn story3_given_allowlist_policy_when_unlisted_tool_called_then_denied() {
+    // Given: A policy allowing only "Read" and "Write"
+    let policy = PolicyProfile {
+        allowed_tools: vec!["Read".into(), "Write".into()],
+        ..Default::default()
+    };
+
+    // When: The engine checks an unlisted tool
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let decision = engine.can_use_tool("Bash");
+
+    // Then: Unlisted tool is denied
+    assert!(!decision.allowed);
+}
+
+#[test]
+fn story3_given_allowlist_policy_when_listed_tool_called_then_allowed() {
+    // Given: A policy allowing "Read"
+    let policy = PolicyProfile {
+        allowed_tools: vec!["Read".into()],
+        ..Default::default()
+    };
+
+    // When: The engine checks Read
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let decision = engine.can_use_tool("Read");
+
+    // Then: It is allowed
+    assert!(decision.allowed);
+}
+
+#[test]
+fn story3_given_deny_overrides_allow_when_tool_in_both_then_denied() {
+    // Given: A policy where "Bash" is in both allow and deny lists
+    let policy = PolicyProfile {
+        allowed_tools: vec!["Bash".into(), "Read".into()],
+        disallowed_tools: vec!["Bash".into()],
+        ..Default::default()
+    };
+
+    // When: The engine checks Bash
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let decision = engine.can_use_tool("Bash");
+
+    // Then: Deny takes precedence
+    assert!(!decision.allowed);
+}
+
+#[test]
+fn story3_given_deny_read_git_when_git_path_read_then_denied() {
+    // Given: A policy denying reads on .git/**
+    let policy = PolicyProfile {
+        deny_read: vec![".git/**".into()],
+        ..Default::default()
+    };
+
+    // When: Reading .git/config
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let decision = engine.can_read_path(Path::new(".git/config"));
+
+    // Then: Read is denied
+    assert!(!decision.allowed);
+}
+
+#[test]
+fn story3_given_deny_read_git_when_src_path_read_then_allowed() {
+    // Given: A policy denying reads only on .git/**
+    let policy = PolicyProfile {
+        deny_read: vec![".git/**".into()],
+        ..Default::default()
+    };
+
+    // When: Reading src/main.rs
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let decision = engine.can_read_path(Path::new("src/main.rs"));
+
+    // Then: Read is allowed
+    assert!(decision.allowed);
+}
+
+#[test]
+fn story3_given_deny_write_secrets_when_env_written_then_denied() {
+    // Given: A policy denying writes to secret files
+    let policy = PolicyProfile {
+        deny_write: vec!["**/.env".into(), "**/secrets/**".into()],
+        ..Default::default()
+    };
+
+    // When: Writing to .env
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let decision = engine.can_write_path(Path::new(".env"));
+
+    // Then: Write is denied
+    assert!(!decision.allowed);
+}
+
+#[test]
+fn story3_given_deny_write_secrets_when_src_written_then_allowed() {
+    // Given: A policy denying writes only to secrets
+    let policy = PolicyProfile {
+        deny_write: vec!["**/secrets/**".into()],
+        ..Default::default()
+    };
+
+    // When: Writing to src/lib.rs
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let decision = engine.can_write_path(Path::new("src/lib.rs"));
+
+    // Then: Write is allowed
+    assert!(decision.allowed);
+}
+
+#[test]
+fn story3_given_default_policy_when_any_tool_called_then_allowed() {
+    // Given: A default (empty) policy
+    let policy = PolicyProfile::default();
+
+    // When: Any tool is checked
+    let engine = PolicyEngine::new(&policy).unwrap();
+
+    // Then: All tools are allowed, all paths readable/writable
+    assert!(engine.can_use_tool("Bash").allowed);
+    assert!(engine.can_use_tool("Read").allowed);
+    assert!(engine.can_read_path(Path::new("anything")).allowed);
+    assert!(engine.can_write_path(Path::new("anything")).allowed);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 4: "As a sidecar, I want to speak JSONL protocol"
+//
+// Given a hello envelope, when run is sent, then events are streamed,
+// and the final envelope carries the receipt.
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story4_given_hello_envelope_when_encoded_then_contains_tag_t() {
+    // Given: A hello envelope
     let hello = make_hello_envelope("test-sidecar");
 
-    // When: Encoded and decoded via JSONL
-    let encoded = JsonlCodec::encode(&hello).unwrap();
-    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
+    // When: Encoded to JSONL
+    let json = JsonlCodec::encode(&hello).unwrap();
 
-    // Then: The handshake succeeds with correct version
-    if let Envelope::Hello {
-        contract_version, ..
-    } = &decoded
-    {
-        assert_eq!(contract_version, CONTRACT_VERSION);
+    // Then: The discriminator tag is "t", not "type"
+    assert!(json.contains(r#""t":"hello"#));
+}
+
+#[test]
+fn story4_given_hello_envelope_when_encoded_then_ends_with_newline() {
+    // Given: A hello envelope
+    let hello = make_hello_envelope("my-sidecar");
+
+    // When: Encoded to JSONL
+    let json = JsonlCodec::encode(&hello).unwrap();
+
+    // Then: The line ends with \n
+    assert!(json.ends_with('\n'));
+}
+
+#[test]
+fn story4_given_hello_envelope_when_roundtripped_then_identity_preserved() {
+    // Given: A hello envelope with known identity
+    let hello = make_hello_envelope("roundtrip-sidecar");
+
+    // When: Encoded and decoded
+    let json = JsonlCodec::encode(&hello).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: The identity is preserved
+    if let Envelope::Hello { backend, .. } = decoded {
+        assert_eq!(backend.id, "roundtrip-sidecar");
     } else {
         panic!("expected Hello envelope");
     }
 }
 
 #[test]
-fn scenario_sidecar_hello_version_compatibility_check() {
-    // Given: Our contract version
-    let our_version = CONTRACT_VERSION;
+fn story4_given_run_envelope_when_roundtripped_then_work_order_preserved() {
+    // Given: A run envelope with a work order
+    let wo = make_work_order("Test sidecar protocol");
+    let run_id = wo.id.to_string();
+    let run_env = Envelope::Run {
+        id: run_id.clone(),
+        work_order: wo,
+    };
 
-    // When: Checking compatibility with the same version
-    let compatible = is_compatible_version(our_version, our_version);
+    // When: Encoded and decoded
+    let json = JsonlCodec::encode(&run_env).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
 
-    // Then: It is compatible
-    assert!(compatible);
-}
-
-#[test]
-fn scenario_sidecar_hello_version_incompatible_major() {
-    // Given: A sidecar with a different major version
-    let their_version = "abp/v1.0";
-    let our_version = CONTRACT_VERSION;
-
-    // When: Checking compatibility
-    let compatible = is_compatible_version(their_version, our_version);
-
-    // Then: It is incompatible
-    assert!(!compatible);
-}
-
-#[test]
-fn scenario_sidecar_hello_invalid_version_format() {
-    // Given: An invalid version string
-    let invalid = "not-a-version";
-
-    // When: Parsing the version
-    let parsed = parse_version(invalid);
-
-    // Then: Returns None
-    assert!(parsed.is_none());
-}
-
-#[test]
-fn scenario_sidecar_hello_parses_valid_version() {
-    // Given: A valid version string
-    let version = CONTRACT_VERSION;
-
-    // When: Parsing
-    let parsed = parse_version(version);
-
-    // Then: Returns (0, 1)
-    assert_eq!(parsed, Some((0, 1)));
-}
-
-#[test]
-fn scenario_sidecar_hello_envelope_serialization_roundtrip() {
-    // Given: A hello envelope with capabilities
-    let mut caps = CapabilityManifest::new();
-    caps.insert(Capability::ToolRead, SupportLevel::Native);
-    caps.insert(Capability::Streaming, SupportLevel::Emulated);
-
-    let hello = Envelope::hello(
-        BackendIdentity {
-            id: "test".into(),
-            backend_version: Some("2.0".into()),
-            adapter_version: Some("1.0".into()),
-        },
-        caps,
-    );
-
-    // When: Serialized and deserialized
-    let encoded = JsonlCodec::encode(&hello).unwrap();
-    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
-
-    // Then: All fields are preserved
-    if let Envelope::Hello {
-        contract_version,
-        backend,
-        capabilities,
-        mode,
-    } = decoded
-    {
-        assert_eq!(contract_version, CONTRACT_VERSION);
-        assert_eq!(backend.id, "test");
-        assert_eq!(backend.backend_version.as_deref(), Some("2.0"));
-        assert_eq!(backend.adapter_version.as_deref(), Some("1.0"));
-        assert!(capabilities.contains_key(&Capability::ToolRead));
-        assert!(capabilities.contains_key(&Capability::Streaming));
-        assert_eq!(mode, ExecutionMode::Mapped);
+    // Then: The run ID and task are preserved
+    if let Envelope::Run { id, work_order } = decoded {
+        assert_eq!(id, run_id);
+        assert_eq!(work_order.task, "Test sidecar protocol");
     } else {
-        panic!("expected Hello");
+        panic!("expected Run envelope");
     }
 }
 
 #[test]
-fn scenario_sidecar_hello_with_passthrough_mode() {
+fn story4_given_event_envelope_when_roundtripped_then_event_kind_preserved() {
+    // Given: An event envelope with an AssistantMessage
+    let event = make_event(AgentEventKind::AssistantMessage {
+        text: "Hello from sidecar".into(),
+    });
+    let env = Envelope::Event {
+        ref_id: "run-1".into(),
+        event,
+    };
+
+    // When: Encoded and decoded
+    let json = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: The event kind and text are preserved
+    if let Envelope::Event { ref_id, event } = decoded {
+        assert_eq!(ref_id, "run-1");
+        if let AgentEventKind::AssistantMessage { text } = &event.kind {
+            assert_eq!(text, "Hello from sidecar");
+        } else {
+            panic!("expected AssistantMessage event");
+        }
+    } else {
+        panic!("expected Event envelope");
+    }
+}
+
+#[test]
+fn story4_given_final_envelope_when_roundtripped_then_receipt_preserved() {
+    // Given: A final envelope with a receipt
+    let receipt = make_receipt("final-sidecar");
+    let env = Envelope::Final {
+        ref_id: "run-1".into(),
+        receipt,
+    };
+
+    // When: Encoded and decoded
+    let json = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: The receipt outcome and backend are preserved
+    if let Envelope::Final { ref_id, receipt } = decoded {
+        assert_eq!(ref_id, "run-1");
+        assert_eq!(receipt.outcome, Outcome::Complete);
+        assert_eq!(receipt.backend.id, "final-sidecar");
+    } else {
+        panic!("expected Final envelope");
+    }
+}
+
+#[test]
+fn story4_given_fatal_envelope_when_roundtripped_then_error_preserved() {
+    // Given: A fatal envelope with an error message
+    let env = Envelope::Fatal {
+        ref_id: Some("run-1".into()),
+        error: "something went wrong".into(),
+        error_code: None,
+    };
+
+    // When: Encoded and decoded
+    let json = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: The error message is preserved
+    if let Envelope::Fatal { ref_id, error, .. } = decoded {
+        assert_eq!(ref_id.as_deref(), Some("run-1"));
+        assert_eq!(error, "something went wrong");
+    } else {
+        panic!("expected Fatal envelope");
+    }
+}
+
+#[test]
+fn story4_given_invalid_json_when_decoded_then_error_returned() {
+    // Given: Invalid JSON input
+    let bad_json = "this is not valid json";
+
+    // When: Attempting to decode
+    let result = JsonlCodec::decode(bad_json);
+
+    // Then: An error is returned
+    assert!(result.is_err());
+}
+
+#[test]
+fn story4_given_compatible_version_when_checked_then_true() {
+    // Given: Two compatible versions
+    // When: Checking compatibility
+    let compatible = is_compatible_version(CONTRACT_VERSION, CONTRACT_VERSION);
+
+    // Then: They are compatible
+    assert!(compatible);
+}
+
+#[test]
+fn story4_given_hello_with_passthrough_mode_when_decoded_then_mode_preserved() {
     // Given: A hello envelope with passthrough mode
     let hello = Envelope::hello_with_mode(
         BackendIdentity {
@@ -494,1853 +818,316 @@ fn scenario_sidecar_hello_with_passthrough_mode() {
     );
 
     // When: Encoded and decoded
-    let line = JsonlCodec::encode(&hello).unwrap();
-    let decoded = JsonlCodec::decode(line.trim()).unwrap();
+    let json = JsonlCodec::encode(&hello).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
 
     // Then: Passthrough mode is preserved
     if let Envelope::Hello { mode, .. } = decoded {
         assert_eq!(mode, ExecutionMode::Passthrough);
     } else {
-        panic!("expected Hello");
+        panic!("expected Hello envelope");
     }
 }
 
-#[test]
-fn scenario_sidecar_hello_json_contains_tag_t() {
-    // Given: A hello envelope
-    let hello = make_hello_envelope("tagged-sidecar");
-
-    // When: Encoded to JSON
-    let line = JsonlCodec::encode(&hello).unwrap();
-
-    // Then: The JSON uses "t" as the discriminator tag, not "type"
-    assert!(line.contains("\"t\":\"hello\""));
-    assert!(!line.contains("\"type\":\"hello\""));
-}
-
-#[test]
-fn scenario_sidecar_hello_ends_with_newline() {
-    // Given: Any envelope
-    let hello = make_hello_envelope("newline-check");
-
-    // When: Encoded
-    let line = JsonlCodec::encode(&hello).unwrap();
-
-    // Then: Ends with newline (JSONL requirement)
-    assert!(line.ends_with('\n'));
-}
-
-#[test]
-fn scenario_sidecar_fatal_envelope_carries_error_code() {
-    // Given: A fatal error with error code
-    let fatal = Envelope::fatal_with_code(Some("run-1".into()), "oops", ErrorCode::BackendCrashed);
-
-    // When: Checking the error code
-    let code = fatal.error_code();
-
-    // Then: Error code is accessible
-    assert_eq!(code, Some(ErrorCode::BackendCrashed));
-}
-
-#[test]
-fn scenario_sidecar_run_envelope_roundtrip() {
-    // Given: A work order wrapped in a Run envelope
-    let wo = WorkOrderBuilder::new("test task").build();
-    let run = Envelope::Run {
-        id: "run-abc".into(),
-        work_order: wo,
-    };
-
-    // When: Serialized and deserialized
-    let encoded = JsonlCodec::encode(&run).unwrap();
-    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
-
-    // Then: Task is preserved
-    if let Envelope::Run { id, work_order } = decoded {
-        assert_eq!(id, "run-abc");
-        assert_eq!(work_order.task, "test task");
-    } else {
-        panic!("expected Run");
-    }
-}
-
-#[test]
-fn scenario_sidecar_event_envelope_roundtrip() {
-    // Given: An event envelope with assistant message
-    let event = make_event(AgentEventKind::AssistantMessage {
-        text: "Hello!".into(),
-    });
-    let envelope = Envelope::Event {
-        ref_id: "run-1".into(),
-        event,
-    };
-
-    // When: Roundtripped
-    let line = JsonlCodec::encode(&envelope).unwrap();
-    let decoded = JsonlCodec::decode(line.trim()).unwrap();
-
-    // Then: Event content is preserved
-    if let Envelope::Event { ref_id, event } = decoded {
-        assert_eq!(ref_id, "run-1");
-        if let AgentEventKind::AssistantMessage { text } = &event.kind {
-            assert_eq!(text, "Hello!");
-        } else {
-            panic!("wrong event kind");
-        }
-    } else {
-        panic!("expected Event");
-    }
-}
-
-#[test]
-fn scenario_sidecar_decode_invalid_json_returns_error() {
-    // Given: Invalid JSON
-    let bad = "this is not json";
-
-    // When: Decoded
-    let result = JsonlCodec::decode(bad);
-
-    // Then: Returns a protocol error
-    assert!(result.is_err());
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
-// Scenario 3: Policy Enforcement
-// "Given a policy denies tool X,
-//  When a work order uses tool X,
-//  Then execution fails with PolicyViolation"
+// Story 5: "As a system, I want deterministic receipts"
+//
+// Given the same input, when run twice, then identical receipts
+// with identical hashes are produced.
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn scenario_policy_denies_disallowed_tool() {
-    // Given: A policy that disallows Bash
-    let policy = PolicyProfile {
-        disallowed_tools: vec!["Bash".into()],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When: Checking Bash
-    let decision = engine.can_use_tool("Bash");
-
-    // Then: It is denied
-    assert!(!decision.allowed);
-    assert!(decision.reason.is_some());
-}
-
-#[test]
-fn scenario_policy_allows_unlisted_tool_when_no_allowlist() {
-    // Given: A policy with only a denylist (no allowlist)
-    let policy = PolicyProfile {
-        disallowed_tools: vec!["Bash".into()],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When: Checking an unlisted tool
-    let decision = engine.can_use_tool("Read");
-
-    // Then: It is allowed
-    assert!(decision.allowed);
-}
-
-#[test]
-fn scenario_policy_allowlist_blocks_unlisted_tools() {
-    // Given: A policy with an explicit allowlist
-    let policy = PolicyProfile {
-        allowed_tools: vec!["Read".into(), "Grep".into()],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When: Checking a tool not in the allowlist
-    let decision = engine.can_use_tool("Write");
-
-    // Then: It is denied
-    assert!(!decision.allowed);
-}
-
-#[test]
-fn scenario_policy_allowlist_permits_listed_tools() {
-    // Given: A policy with an explicit allowlist
-    let policy = PolicyProfile {
-        allowed_tools: vec!["Read".into(), "Grep".into()],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When: Checking a tool in the allowlist
-    let read_decision = engine.can_use_tool("Read");
-    let grep_decision = engine.can_use_tool("Grep");
-
-    // Then: Both are allowed
-    assert!(read_decision.allowed);
-    assert!(grep_decision.allowed);
-}
-
-#[test]
-fn scenario_policy_denylist_takes_precedence_over_allowlist() {
-    // Given: A policy with Bash in both allow and deny
-    let policy = PolicyProfile {
-        allowed_tools: vec!["Bash".into(), "Read".into()],
-        disallowed_tools: vec!["Bash".into()],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When: Checking Bash
-    let decision = engine.can_use_tool("Bash");
-
-    // Then: Deny takes precedence
-    assert!(!decision.allowed);
-}
-
-#[test]
-fn scenario_policy_denies_read_on_git_directory() {
-    // Given: A policy that denies reading .git paths
-    let policy = PolicyProfile {
-        deny_read: vec!["**/.git/**".into()],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When: Checking a .git path
-    let decision = engine.can_read_path(Path::new(".git/config"));
-
-    // Then: Read is denied
-    assert!(!decision.allowed);
-}
-
-#[test]
-fn scenario_policy_allows_read_on_source_files() {
-    // Given: A policy that denies reading .git only
-    let policy = PolicyProfile {
-        deny_read: vec!["**/.git/**".into()],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When: Checking a source file
-    let decision = engine.can_read_path(Path::new("src/lib.rs"));
-
-    // Then: Read is allowed
-    assert!(decision.allowed);
-}
-
-#[test]
-fn scenario_policy_denies_write_on_protected_paths() {
-    // Given: A policy that denies writing to .env files
-    let policy = PolicyProfile {
-        deny_write: vec!["**/.env*".into()],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When: Checking write to .env
-    let decision = engine.can_write_path(Path::new(".env"));
-
-    // Then: Write is denied
-    assert!(!decision.allowed);
-}
-
-#[test]
-fn scenario_policy_allows_write_on_normal_files() {
-    // Given: A policy that denies writing to .env files
-    let policy = PolicyProfile {
-        deny_write: vec!["**/.env*".into()],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When: Checking write to a normal file
-    let decision = engine.can_write_path(Path::new("src/main.rs"));
-
-    // Then: Write is allowed
-    assert!(decision.allowed);
-}
-
-#[test]
-fn scenario_default_policy_allows_everything() {
-    // Given: A default (empty) policy
-    let policy = PolicyProfile::default();
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When: Checking any tool and path
-    // Then: Everything is allowed
-    assert!(engine.can_use_tool("Bash").allowed);
-    assert!(engine.can_use_tool("Write").allowed);
-    assert!(engine.can_read_path(Path::new("anything.rs")).allowed);
-    assert!(engine.can_write_path(Path::new("anything.rs")).allowed);
-}
-
-#[test]
-fn scenario_policy_multiple_deny_patterns() {
-    // Given: A policy with multiple deny patterns
-    let policy = PolicyProfile {
-        deny_write: vec![
-            "**/.git/**".into(),
-            "**/node_modules/**".into(),
-            "**/*.lock".into(),
-        ],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When/Then: All patterns are enforced
-    assert!(!engine.can_write_path(Path::new(".git/HEAD")).allowed);
-    assert!(
-        !engine
-            .can_write_path(Path::new("node_modules/pkg/index.js"))
-            .allowed
-    );
-    assert!(!engine.can_write_path(Path::new("Cargo.lock")).allowed);
-    assert!(engine.can_write_path(Path::new("src/lib.rs")).allowed);
-}
-
-#[test]
-fn scenario_policy_decision_allow_has_no_reason() {
-    // Given/When: Creating an allow decision
-    let decision = Decision::allow();
-
-    // Then: No reason is provided
-    assert!(decision.allowed);
-    assert!(decision.reason.is_none());
-}
-
-#[test]
-fn scenario_policy_decision_deny_has_reason() {
-    // Given/When: Creating a deny decision with reason
-    let decision = Decision::deny("tool not in allowlist");
-
-    // Then: Reason is provided
-    assert!(!decision.allowed);
-    assert_eq!(decision.reason.as_deref(), Some("tool not in allowlist"));
-}
-
-#[test]
-fn scenario_policy_error_code_is_policy_denied() {
-    // Given: The ErrorCode for policy denial
-    let code = ErrorCode::PolicyDenied;
-
-    // When: Checking its category
-    let category = code.category();
-
-    // Then: It belongs to the Policy category
-    assert_eq!(category, ErrorCategory::Policy);
-}
-
-#[test]
-fn scenario_policy_deny_write_to_secrets() {
-    // Given: A policy protecting secret files
-    let policy = PolicyProfile {
-        deny_read: vec!["**/.env*".into(), "**/secrets/**".into()],
-        deny_write: vec!["**/.env*".into(), "**/secrets/**".into()],
-        ..PolicyProfile::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-
-    // When/Then: Secrets are protected
-    assert!(
-        !engine
-            .can_read_path(Path::new("secrets/api_key.txt"))
-            .allowed
-    );
-    assert!(
-        !engine
-            .can_write_path(Path::new("secrets/api_key.txt"))
-            .allowed
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Scenario 4: Receipt Hashing — Determinism
-// "Given a receipt is generated,
-//  When hashed,
-//  Then the hash is deterministic"
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_receipt_hash_is_deterministic() {
+fn story5_given_same_receipt_when_hashed_twice_then_identical_hashes() {
     // Given: A receipt
-    let receipt = make_receipt("mock");
+    let receipt = make_receipt("determinism-test");
 
     // When: Hashed twice
     let hash1 = receipt_hash(&receipt).unwrap();
     let hash2 = receipt_hash(&receipt).unwrap();
 
-    // Then: Both hashes are identical
+    // Then: The hashes are identical
     assert_eq!(hash1, hash2);
 }
 
 #[test]
-fn scenario_receipt_hash_is_64_hex_chars() {
+fn story5_given_receipt_when_hashed_then_64_hex_chars() {
     // Given: A receipt
-    let receipt = make_receipt("mock");
+    let receipt = make_receipt("format-test");
 
     // When: Hashed
     let hash = receipt_hash(&receipt).unwrap();
 
-    // Then: SHA-256 hex is 64 characters
+    // Then: The hash is 64 hex characters (SHA-256)
     assert_eq!(hash.len(), 64);
     assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
 }
 
 #[test]
-fn scenario_receipt_with_hash_method_sets_field() {
-    // Given: A receipt without hash
-    let receipt = make_receipt("mock");
+fn story5_given_receipt_when_with_hash_called_then_field_set() {
+    // Given: A receipt without a hash
+    let receipt = make_receipt("hash-field-test");
     assert!(receipt.receipt_sha256.is_none());
 
-    // When: with_hash is called
+    // When: with_hash() is called
     let hashed = receipt.with_hash().unwrap();
 
-    // Then: Hash field is set
+    // Then: The receipt_sha256 field is set
     assert!(hashed.receipt_sha256.is_some());
-    assert_eq!(hashed.receipt_sha256.as_ref().unwrap().len(), 64);
 }
 
 #[test]
-fn scenario_receipt_hash_excludes_receipt_sha256_field() {
-    // Given: A receipt with and without a pre-existing hash
-    let receipt_a = make_receipt("mock");
-    let mut receipt_b = receipt_a.clone();
-    receipt_b.receipt_sha256 = Some("bogus_hash_should_be_ignored".into());
+fn story5_given_receipt_when_hashed_then_excludes_hash_field_from_input() {
+    // Given: Two receipts, one with hash, one without
+    let receipt = make_receipt("self-ref-test");
+    let hash_before = receipt_hash(&receipt).unwrap();
+    let hashed = receipt.with_hash().unwrap();
+    let hash_after = receipt_hash(&hashed).unwrap();
 
-    // When: Both are hashed
-    let hash_a = receipt_hash(&receipt_a).unwrap();
-    let hash_b = receipt_hash(&receipt_b).unwrap();
-
-    // Then: Hashes are identical (receipt_sha256 is nulled before hashing)
-    assert_eq!(hash_a, hash_b);
+    // Then: Hashes match because the hash field is excluded from the input
+    assert_eq!(hash_before, hash_after);
 }
 
 #[test]
-fn scenario_receipt_hash_changes_when_content_changes() {
-    // Given: Two receipts with different outcomes
-    let receipt_a = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .build();
-    let receipt_b = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
-
-    // When: Both are hashed
-    let hash_a = receipt_hash(&receipt_a).unwrap();
-    let hash_b = receipt_hash(&receipt_b).unwrap();
-
-    // Then: Hashes differ
-    assert_ne!(hash_a, hash_b);
-}
-
-#[test]
-fn scenario_receipt_hash_changes_with_different_backend() {
+fn story5_given_different_backends_when_hashed_then_different_hashes() {
     // Given: Two receipts from different backends
-    let receipt_a = make_receipt("backend-a");
-    let receipt_b = make_receipt("backend-b");
+    let receipt_a = make_receipt("backend-alpha");
+    let receipt_b = make_receipt("backend-beta");
 
     // When: Hashed
     let hash_a = receipt_hash(&receipt_a).unwrap();
     let hash_b = receipt_hash(&receipt_b).unwrap();
 
-    // Then: Hashes differ
+    // Then: The hashes differ
     assert_ne!(hash_a, hash_b);
 }
 
 #[test]
-fn scenario_canonical_json_is_deterministic() {
-    // Given: A JSON value with unordered keys
-    let val = json!({"z": 1, "a": 2, "m": 3});
+fn story5_given_receipt_when_canonicalized_then_deterministic_json() {
+    // Given: A receipt
+    let receipt = make_receipt("canonical-test");
 
     // When: Canonicalized twice
-    let json1 = canonical_json(&val).unwrap();
-    let json2 = canonical_json(&val).unwrap();
+    let json1 = canonical_json(&receipt).unwrap();
+    let json2 = canonical_json(&receipt).unwrap();
 
-    // Then: Identical output
+    // Then: The canonical JSON is identical
     assert_eq!(json1, json2);
 }
 
 #[test]
-fn scenario_canonical_json_sorts_keys() {
-    // Given: A JSON value with unordered keys
-    let val = json!({"b": 2, "a": 1});
+fn story5_given_btreemap_when_canonicalized_then_keys_sorted() {
+    // Given: A BTreeMap (used in receipts for determinism)
+    let mut map = BTreeMap::new();
+    map.insert("zebra", 1);
+    map.insert("alpha", 2);
+    map.insert("middle", 3);
 
     // When: Canonicalized
-    let json = canonical_json(&val).unwrap();
+    let json = canonical_json(&map).unwrap();
 
-    // Then: Keys are sorted
-    assert!(json.starts_with("{\"a\":1"));
+    // Then: Keys are sorted alphabetically
+    let alpha_pos = json.find("alpha").unwrap();
+    let middle_pos = json.find("middle").unwrap();
+    let zebra_pos = json.find("zebra").unwrap();
+    assert!(alpha_pos < middle_pos);
+    assert!(middle_pos < zebra_pos);
 }
 
 #[test]
-fn scenario_sha256_hex_produces_consistent_output() {
-    // Given: A fixed input
-    let input = b"hello world";
+fn story5_given_receipt_with_hash_when_verified_then_valid() {
+    // Given: A receipt with a computed hash
+    let receipt = make_receipt("verify-test").with_hash().unwrap();
 
-    // When: Hashed twice
+    // When: Verified
+    let valid = verify_hash(&receipt);
+
+    // Then: The hash is valid
+    assert!(valid);
+}
+
+#[test]
+fn story5_given_tampered_receipt_when_verified_then_invalid() {
+    // Given: A receipt with a hash, then tampered
+    let mut receipt = make_receipt("tamper-test").with_hash().unwrap();
+    receipt.outcome = Outcome::Failed;
+
+    // When: Verified after tampering
+    let valid = verify_hash(&receipt);
+
+    // Then: The hash is no longer valid
+    assert!(!valid);
+}
+
+#[test]
+fn story5_given_sha256_hex_when_called_with_same_input_then_deterministic() {
+    // Given: The same byte input
+    let input = b"deterministic test data";
+
+    // When: sha256_hex called twice
     let h1 = sha256_hex(input);
     let h2 = sha256_hex(input);
 
-    // Then: Identical output
+    // Then: Results are identical
     assert_eq!(h1, h2);
     assert_eq!(h1.len(), 64);
 }
 
-#[test]
-fn scenario_receipt_builder_sets_contract_version() {
-    // Given/When: A receipt built with the builder
-    let receipt = ReceiptBuilder::new("test").build();
-
-    // Then: Contract version is set correctly
-    assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
-}
-
-#[test]
-fn scenario_receipt_canonicalize_and_compute_hash_agree() {
-    // Given: A receipt
-    let receipt = make_receipt("mock");
-
-    // When: Using both abp_core and abp_receipt hash functions
-    let hash_core = receipt_hash(&receipt).unwrap();
-    let hash_receipt = compute_hash(&receipt).unwrap();
-
-    // Then: Both produce the same hash
-    assert_eq!(hash_core, hash_receipt);
-}
-
-#[test]
-fn scenario_receipt_verify_hash_succeeds_for_valid_hash() {
-    // Given: A receipt with a valid hash
-    let receipt = make_receipt("mock").with_hash().unwrap();
-
-    // When: Verifying the hash
-    let valid = verify_hash(&receipt);
-
-    // Then: Verification succeeds
-    assert!(valid);
-}
-
-#[test]
-fn scenario_receipt_verify_hash_fails_for_tampered_receipt() {
-    // Given: A receipt with a valid hash
-    let mut receipt = make_receipt("mock").with_hash().unwrap();
-
-    // When: Tampering with the receipt
-    receipt.outcome = Outcome::Failed;
-
-    // Then: Verification fails
-    assert!(!verify_hash(&receipt));
-}
-
-#[test]
-fn scenario_receipt_without_hash_is_trivially_valid() {
-    // Given: A receipt without a hash
-    let receipt = make_receipt("mock");
-    assert!(receipt.receipt_sha256.is_none());
-
-    // When: Verifying — the implementation treats "no hash" as vacuously valid
-    let valid = verify_hash(&receipt);
-
-    // Then: Returns true (nothing to contradict)
-    assert!(valid);
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
-// Scenario 5: Capability Negotiation
-// "Given two SDKs have different capabilities,
-//  When negotiation runs,
-//  Then unsupported features are detected"
+// Story 6: "As an operator, I want to monitor health"
+//
+// Given a backend registry, when health is checked, then the correct
+// status is reported and selection strategies work.
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn scenario_capability_negotiation_detects_unsupported_features() {
-    // Given: A manifest that only supports ToolRead
-    let manifest = make_capability_manifest(&[(Capability::ToolRead, SupportLevel::Native)]);
+fn story6_given_new_registry_when_no_backends_then_empty() {
+    // Given: A new backend registry
+    let registry = BackendRegistry::new();
 
-    // And: Requirements that demand Streaming
-    let request = NegotiationRequest {
-        required: vec![Capability::Streaming],
-        preferred: vec![],
-        minimum_support: SupportLevel::Emulated,
-    };
-
-    // When: Negotiating
-    let result = CapabilityNegotiator::negotiate(&request, &manifest);
-
-    // Then: Streaming is unsatisfied
-    assert!(!result.is_compatible);
-    assert!(result.unsatisfied.contains(&Capability::Streaming));
-}
-
-#[test]
-fn scenario_capability_negotiation_satisfies_all_requirements() {
-    // Given: A manifest with all required capabilities
-    let manifest = make_capability_manifest(&[
-        (Capability::ToolRead, SupportLevel::Native),
-        (Capability::Streaming, SupportLevel::Native),
-        (Capability::ToolWrite, SupportLevel::Native),
-    ]);
-    let request = NegotiationRequest {
-        required: vec![
-            Capability::ToolRead,
-            Capability::Streaming,
-            Capability::ToolWrite,
-        ],
-        preferred: vec![],
-        minimum_support: SupportLevel::Emulated,
-    };
-
-    // When: Negotiating
-    let result = CapabilityNegotiator::negotiate(&request, &manifest);
-
-    // Then: All satisfied
-    assert!(result.is_compatible);
-    assert!(result.unsatisfied.is_empty());
-}
-
-#[test]
-fn scenario_capability_emulated_satisfies_emulated_requirement() {
-    // Given: A manifest with emulated capability
-    let manifest = make_capability_manifest(&[(Capability::Streaming, SupportLevel::Emulated)]);
-    let request = NegotiationRequest {
-        required: vec![Capability::Streaming],
-        preferred: vec![],
-        minimum_support: SupportLevel::Emulated,
-    };
-
-    // When: Negotiating
-    let result = CapabilityNegotiator::negotiate(&request, &manifest);
-
-    // Then: Satisfied
-    assert!(result.is_compatible);
-}
-
-#[test]
-fn scenario_capability_emulated_does_not_satisfy_native_requirement() {
-    // Given: A manifest with emulated support
-    let manifest = make_capability_manifest(&[(Capability::Streaming, SupportLevel::Emulated)]);
-
-    // And: A requirement for native support
-    let request = NegotiationRequest {
-        required: vec![Capability::Streaming],
-        preferred: vec![],
-        minimum_support: SupportLevel::Native,
-    };
-
-    // When: Negotiating
-    let result = CapabilityNegotiator::negotiate(&request, &manifest);
-
-    // Then: Not satisfied
-    assert!(!result.is_compatible);
-}
-
-#[test]
-fn scenario_capability_negotiation_identifies_bonus_preferred() {
-    // Given: A manifest with extra capabilities
-    let manifest = make_capability_manifest(&[
-        (Capability::ToolRead, SupportLevel::Native),
-        (Capability::ExtendedThinking, SupportLevel::Native),
-    ]);
-    let request = NegotiationRequest {
-        required: vec![Capability::ToolRead],
-        preferred: vec![Capability::ExtendedThinking],
-        minimum_support: SupportLevel::Emulated,
-    };
-
-    // When: Negotiating
-    let result = CapabilityNegotiator::negotiate(&request, &manifest);
-
-    // Then: Bonus features detected
-    assert!(result.is_compatible);
-    assert!(result.bonus.contains(&Capability::ExtendedThinking));
-}
-
-#[test]
-fn scenario_support_level_native_satisfies_native() {
-    // Given: Native support level
-    let level = SupportLevel::Native;
-
-    // When: Checking against native requirement
-    // Then: Satisfied
-    assert!(level.satisfies(&MinSupport::Native));
-}
-
-#[test]
-fn scenario_support_level_native_satisfies_emulated() {
-    // Given: Native support level
-    let level = SupportLevel::Native;
-
-    // When: Checking against emulated requirement
-    // Then: Satisfied (native > emulated)
-    assert!(level.satisfies(&MinSupport::Emulated));
-}
-
-#[test]
-fn scenario_support_level_emulated_does_not_satisfy_native() {
-    // Given: Emulated support level
-    let level = SupportLevel::Emulated;
-
-    // When: Checking against native requirement
-    // Then: Not satisfied
-    assert!(!level.satisfies(&MinSupport::Native));
-}
-
-#[test]
-fn scenario_support_level_unsupported_satisfies_nothing() {
-    // Given: Unsupported level
-    let level = SupportLevel::Unsupported;
-
-    // When/Then: Satisfies neither
-    assert!(!level.satisfies(&MinSupport::Native));
-    assert!(!level.satisfies(&MinSupport::Emulated));
-}
-
-#[test]
-fn scenario_support_level_restricted_satisfies_emulated() {
-    // Given: Restricted level
-    let level = SupportLevel::Restricted {
-        reason: "disabled by admin".into(),
-    };
-
-    // When: Checking against emulated
-    // Then: Satisfies emulated (restricted counts as available)
-    assert!(level.satisfies(&MinSupport::Emulated));
-}
-
-#[test]
-fn scenario_capability_manifest_is_btree_map_for_determinism() {
-    // Given: A capability manifest with entries
-    let manifest = make_capability_manifest(&[
-        (Capability::Streaming, SupportLevel::Native),
-        (Capability::ToolRead, SupportLevel::Native),
-        (Capability::ToolBash, SupportLevel::Emulated),
-    ]);
-
-    // When: Serialized to JSON
-    let json = serde_json::to_string(&manifest).unwrap();
-
-    // Then: Keys are in sorted order (BTreeMap guarantee)
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    if let serde_json::Value::Object(map) = parsed {
-        let keys: Vec<_> = map.keys().collect();
-        let mut sorted_keys = keys.clone();
-        sorted_keys.sort();
-        assert_eq!(keys, sorted_keys);
-    }
-}
-
-#[test]
-fn scenario_empty_requirements_always_compatible() {
-    // Given: No requirements
-    let request = NegotiationRequest {
-        required: vec![],
-        preferred: vec![],
-        minimum_support: SupportLevel::Native,
-    };
-
-    // When: Negotiating against any manifest
-    let result = CapabilityNegotiator::negotiate(&request, &CapabilityManifest::new());
-
-    // Then: Compatible
-    assert!(result.is_compatible);
-}
-
-#[test]
-fn scenario_negotiation_with_missing_capability_in_manifest() {
-    // Given: Requirement for a capability not in manifest at all
-    let manifest = CapabilityManifest::new();
-    let request = NegotiationRequest {
-        required: vec![Capability::CodeExecution],
-        preferred: vec![],
-        minimum_support: SupportLevel::Emulated,
-    };
-
-    // When: Negotiating
-    let result = CapabilityNegotiator::negotiate(&request, &manifest);
-
-    // Then: Not compatible
-    assert!(!result.is_compatible);
-    assert!(result.unsatisfied.contains(&Capability::CodeExecution));
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Scenario 6: Streaming Event Reconstruction
-// "Given a streaming response,
-//  When events are collected,
-//  Then the full response is reconstructable"
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_streaming_deltas_reconstruct_full_message() {
-    // Given: A stream of assistant deltas
-    let events = vec![
-        make_event(AgentEventKind::RunStarted {
-            message: "Starting".into(),
-        }),
-        make_event(AgentEventKind::AssistantDelta {
-            text: "Hello, ".into(),
-        }),
-        make_event(AgentEventKind::AssistantDelta {
-            text: "world!".into(),
-        }),
-        make_event(AgentEventKind::RunCompleted {
-            message: "Done".into(),
-        }),
-    ];
-
-    // When: Collecting deltas
-    let full_text: String = events
-        .iter()
-        .filter_map(|e| {
-            if let AgentEventKind::AssistantDelta { text } = &e.kind {
-                Some(text.as_str())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    // Then: Full message is reconstructed
-    assert_eq!(full_text, "Hello, world!");
-}
-
-#[test]
-fn scenario_streaming_events_have_chronological_timestamps() {
-    // Given: A series of events
-    let events = vec![
-        make_event(AgentEventKind::RunStarted {
-            message: "start".into(),
-        }),
-        make_event(AgentEventKind::AssistantDelta {
-            text: "token".into(),
-        }),
-        make_event(AgentEventKind::RunCompleted {
-            message: "done".into(),
-        }),
-    ];
-
-    // When: Examining timestamps
-    // Then: Each is >= previous (timestamps are set at creation)
-    for window in events.windows(2) {
-        assert!(window[1].ts >= window[0].ts);
-    }
-}
-
-#[test]
-fn scenario_streaming_trace_contains_run_started_and_completed() {
-    // Given: A receipt with trace events
-    let receipt = make_receipt_with_trace(vec![
-        make_event(AgentEventKind::RunStarted {
-            message: "starting".into(),
-        }),
-        make_event(AgentEventKind::AssistantMessage {
-            text: "result".into(),
-        }),
-        make_event(AgentEventKind::RunCompleted {
-            message: "done".into(),
-        }),
-    ]);
-
-    // When: Inspecting the trace
-    let first = &receipt.trace[0].kind;
-    let last = &receipt.trace[receipt.trace.len() - 1].kind;
-
-    // Then: Starts with RunStarted, ends with RunCompleted
-    assert!(matches!(first, AgentEventKind::RunStarted { .. }));
-    assert!(matches!(last, AgentEventKind::RunCompleted { .. }));
-}
-
-#[test]
-fn scenario_streaming_tool_call_and_result_pair() {
-    // Given: A tool call followed by its result
-    let events = vec![
-        make_event(AgentEventKind::ToolCall {
-            tool_name: "read_file".into(),
-            tool_use_id: Some("call-1".into()),
-            parent_tool_use_id: None,
-            input: json!({"path": "src/main.rs"}),
-        }),
-        make_event(AgentEventKind::ToolResult {
-            tool_name: "read_file".into(),
-            tool_use_id: Some("call-1".into()),
-            output: json!({"content": "fn main() {}"}),
-            is_error: false,
-        }),
-    ];
-
-    // When: Matching tool calls to results
-    let call = &events[0];
-    let result = &events[1];
-
-    // Then: They share the same tool_use_id
-    if let (
-        AgentEventKind::ToolCall {
-            tool_use_id: id1, ..
-        },
-        AgentEventKind::ToolResult {
-            tool_use_id: id2, ..
-        },
-    ) = (&call.kind, &result.kind)
-    {
-        assert_eq!(id1, id2);
-    } else {
-        panic!("expected ToolCall/ToolResult pair");
-    }
-}
-
-#[test]
-fn scenario_streaming_file_changed_events_track_workspace_mutations() {
-    // Given: FileChanged events during a run
-    let events = vec![
-        make_event(AgentEventKind::FileChanged {
-            path: "src/lib.rs".into(),
-            summary: "Added function".into(),
-        }),
-        make_event(AgentEventKind::FileChanged {
-            path: "src/main.rs".into(),
-            summary: "Updated import".into(),
-        }),
-    ];
-
-    // When: Collecting changed files
-    let changed_files: Vec<&str> = events
-        .iter()
-        .filter_map(|e| {
-            if let AgentEventKind::FileChanged { path, .. } = &e.kind {
-                Some(path.as_str())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    // Then: All mutations are tracked
-    assert_eq!(changed_files, vec!["src/lib.rs", "src/main.rs"]);
-}
-
-#[test]
-fn scenario_streaming_command_executed_event_captures_exit_code() {
-    // Given: A command execution event
-    let event = make_event(AgentEventKind::CommandExecuted {
-        command: "cargo test".into(),
-        exit_code: Some(0),
-        output_preview: Some("test result: ok".into()),
-    });
-
-    // When: Inspecting the event
-    if let AgentEventKind::CommandExecuted {
-        command,
-        exit_code,
-        output_preview,
-    } = &event.kind
-    {
-        // Then: All fields captured
-        assert_eq!(command, "cargo test");
-        assert_eq!(*exit_code, Some(0));
-        assert!(output_preview.is_some());
-    } else {
-        panic!("expected CommandExecuted");
-    }
-}
-
-#[test]
-fn scenario_streaming_warning_event() {
-    // Given: A warning event
-    let event = make_event(AgentEventKind::Warning {
-        message: "Rate limit approaching".into(),
-    });
-
-    // When/Then: It's a warning
-    assert!(matches!(event.kind, AgentEventKind::Warning { .. }));
-}
-
-#[test]
-fn scenario_streaming_error_event_with_error_code() {
-    // Given: An error event with a code
-    let event = make_event(AgentEventKind::Error {
-        message: "Backend crashed".into(),
-        error_code: Some(ErrorCode::BackendCrashed),
-    });
-
-    // When: Inspecting the error
-    if let AgentEventKind::Error {
-        message,
-        error_code,
-    } = &event.kind
-    {
-        // Then: Error details are present
-        assert_eq!(message, "Backend crashed");
-        assert_eq!(*error_code, Some(ErrorCode::BackendCrashed));
-    }
-}
-
-#[test]
-fn scenario_streaming_empty_trace_is_valid() {
-    // Given: A receipt with no trace events
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .build();
-
-    // When/Then: Empty trace is valid
-    assert!(receipt.trace.is_empty());
-}
-
-#[test]
-fn scenario_streaming_event_ext_field_for_passthrough() {
-    // Given: An event with ext data for passthrough mode
-    let mut ext = BTreeMap::new();
-    ext.insert("raw_message".into(), json!({"original": "data"}));
-    let event = AgentEvent {
-        ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hello".into(),
-        },
-        ext: Some(ext),
-    };
-
-    // When: Serialized and deserialized
-    let json = serde_json::to_string(&event).unwrap();
-    let decoded: AgentEvent = serde_json::from_str(&json).unwrap();
-
-    // Then: ext data is preserved
-    assert!(decoded.ext.is_some());
-    assert!(decoded.ext.unwrap().contains_key("raw_message"));
-}
-
-#[test]
-fn scenario_streaming_multiple_delta_interleaved_with_tool_calls() {
-    // Given: Interleaved deltas and tool calls
-    let events = vec![
-        make_event(AgentEventKind::AssistantDelta {
-            text: "Let me ".into(),
-        }),
-        make_event(AgentEventKind::AssistantDelta {
-            text: "check ".into(),
-        }),
-        make_event(AgentEventKind::ToolCall {
-            tool_name: "read_file".into(),
-            tool_use_id: Some("c1".into()),
-            parent_tool_use_id: None,
-            input: json!({"path": "f.rs"}),
-        }),
-        make_event(AgentEventKind::ToolResult {
-            tool_name: "read_file".into(),
-            tool_use_id: Some("c1".into()),
-            output: json!("content"),
-            is_error: false,
-        }),
-        make_event(AgentEventKind::AssistantDelta {
-            text: "the file.".into(),
-        }),
-    ];
-
-    // When: Collecting just the deltas
-    let text: String = events
-        .iter()
-        .filter_map(|e| match &e.kind {
-            AgentEventKind::AssistantDelta { text } => Some(text.as_str()),
-            _ => None,
-        })
-        .collect();
-
-    // Then: Full assistant response is reconstructed
-    assert_eq!(text, "Let me check the file.");
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Work Order Construction
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_work_order_builder_defaults() {
-    // Given/When: A minimal work order
-    let wo = WorkOrderBuilder::new("test task").build();
-
-    // Then: Defaults are sensible
-    assert_eq!(wo.task, "test task");
-    assert!(matches!(wo.lane, ExecutionLane::PatchFirst));
-    assert!(matches!(wo.workspace.mode, WorkspaceMode::Staged));
-    assert_eq!(wo.workspace.root, ".");
-    assert!(wo.config.model.is_none());
-    assert!(wo.config.max_turns.is_none());
-    assert!(wo.config.max_budget_usd.is_none());
-}
-
-#[test]
-fn scenario_work_order_builder_full_configuration() {
-    // Given/When: A fully configured work order
-    let wo = WorkOrderBuilder::new("Fix auth bug")
-        .lane(ExecutionLane::WorkspaceFirst)
-        .root("/workspace")
-        .workspace_mode(WorkspaceMode::PassThrough)
-        .include(vec!["src/**".into()])
-        .exclude(vec!["target/**".into()])
-        .model("claude-3.5-sonnet")
-        .max_turns(10)
-        .max_budget_usd(5.0)
-        .build();
-
-    // Then: All fields are set
-    assert_eq!(wo.task, "Fix auth bug");
-    assert!(matches!(wo.lane, ExecutionLane::WorkspaceFirst));
-    assert_eq!(wo.workspace.root, "/workspace");
-    assert!(matches!(wo.workspace.mode, WorkspaceMode::PassThrough));
-    assert_eq!(wo.workspace.include, vec!["src/**"]);
-    assert_eq!(wo.workspace.exclude, vec!["target/**"]);
-    assert_eq!(wo.config.model.as_deref(), Some("claude-3.5-sonnet"));
-    assert_eq!(wo.config.max_turns, Some(10));
-    assert_eq!(wo.config.max_budget_usd, Some(5.0));
-}
-
-#[test]
-fn scenario_work_order_has_unique_id() {
-    // Given: Two work orders
-    let wo1 = WorkOrderBuilder::new("task1").build();
-    let wo2 = WorkOrderBuilder::new("task2").build();
-
-    // Then: IDs are unique
-    assert_ne!(wo1.id, wo2.id);
-}
-
-#[test]
-fn scenario_work_order_with_context_snippets() {
-    // Given: A work order with context
-    let ctx = ContextPacket {
-        files: vec!["src/lib.rs".into()],
-        snippets: vec![ContextSnippet {
-            name: "error_log".into(),
-            content: "Error: connection refused".into(),
-        }],
-    };
-    let wo = WorkOrderBuilder::new("diagnose error").context(ctx).build();
-
-    // Then: Context is preserved
-    assert_eq!(wo.context.files.len(), 1);
-    assert_eq!(wo.context.snippets.len(), 1);
-    assert_eq!(wo.context.snippets[0].name, "error_log");
-}
-
-#[test]
-fn scenario_work_order_serialization_roundtrip() {
-    // Given: A work order
-    let wo = WorkOrderBuilder::new("roundtrip test")
-        .model("gpt-4")
-        .build();
-
-    // When: Serialized and deserialized
-    let json = serde_json::to_string(&wo).unwrap();
-    let decoded: WorkOrder = serde_json::from_str(&json).unwrap();
-
-    // Then: Content is preserved
-    assert_eq!(decoded.task, "roundtrip test");
-    assert_eq!(decoded.config.model.as_deref(), Some("gpt-4"));
-}
-
-#[test]
-fn scenario_work_order_with_policy() {
-    // Given: A work order with restrictive policy
-    let policy = PolicyProfile {
-        allowed_tools: vec!["Read".into(), "Grep".into()],
-        deny_write: vec!["**/.git/**".into()],
-        ..PolicyProfile::default()
-    };
-    let wo = WorkOrderBuilder::new("safe task").policy(policy).build();
-
-    // Then: Policy is attached
-    assert_eq!(wo.policy.allowed_tools, vec!["Read", "Grep"]);
-    assert_eq!(wo.policy.deny_write, vec!["**/.git/**"]);
-}
-
-#[test]
-fn scenario_work_order_with_capability_requirements() {
-    // Given: Requirements
-    let reqs = CapabilityRequirements {
-        required: vec![
-            CapabilityRequirement {
-                capability: Capability::Streaming,
-                min_support: MinSupport::Native,
-            },
-            CapabilityRequirement {
-                capability: Capability::ToolRead,
-                min_support: MinSupport::Emulated,
-            },
-        ],
-    };
-    let wo = WorkOrderBuilder::new("capable task")
-        .requirements(reqs)
-        .build();
-
-    // Then: Requirements are attached
-    assert_eq!(wo.requirements.required.len(), 2);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Receipt Construction
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_receipt_builder_defaults() {
-    // Given/When: A minimal receipt
-    let receipt = ReceiptBuilder::new("mock").build();
-
-    // Then: Sensible defaults
-    assert_eq!(receipt.backend.id, "mock");
-    assert_eq!(receipt.outcome, Outcome::Complete);
-    assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
-    assert!(receipt.trace.is_empty());
-    assert!(receipt.artifacts.is_empty());
-    assert!(receipt.receipt_sha256.is_none());
-}
-
-#[test]
-fn scenario_receipt_with_artifacts() {
-    // Given: A receipt with artifacts
-    let receipt = ReceiptBuilder::new("mock")
-        .add_artifact(ArtifactRef {
-            kind: "patch".into(),
-            path: "output.patch".into(),
-        })
-        .add_artifact(ArtifactRef {
-            kind: "log".into(),
-            path: "run.log".into(),
-        })
-        .build();
-
-    // Then: Artifacts are recorded
-    assert_eq!(receipt.artifacts.len(), 2);
-    assert_eq!(receipt.artifacts[0].kind, "patch");
-    assert_eq!(receipt.artifacts[1].kind, "log");
-}
-
-#[test]
-fn scenario_receipt_with_usage() {
-    // Given: A receipt with usage data
-    let receipt = ReceiptBuilder::new("mock")
-        .usage(UsageNormalized {
-            input_tokens: Some(100),
-            output_tokens: Some(200),
-            cache_read_tokens: None,
-            cache_write_tokens: None,
-            request_units: None,
-            estimated_cost_usd: Some(0.01),
-        })
-        .build();
-
-    // Then: Usage is recorded
-    assert_eq!(receipt.usage.input_tokens, Some(100));
-    assert_eq!(receipt.usage.output_tokens, Some(200));
-    assert_eq!(receipt.usage.estimated_cost_usd, Some(0.01));
-}
-
-#[test]
-fn scenario_receipt_with_verification_report() {
-    // Given: A receipt with git verification
-    let receipt = ReceiptBuilder::new("mock")
-        .verification(VerificationReport {
-            git_diff: Some("+fn new_function() {}".into()),
-            git_status: Some("M src/lib.rs".into()),
-            harness_ok: true,
-        })
-        .build();
-
-    // Then: Verification is recorded
-    assert!(receipt.verification.git_diff.is_some());
-    assert!(receipt.verification.harness_ok);
-}
-
-#[test]
-fn scenario_receipt_outcome_serialization() {
-    // Given: Each outcome variant
-    let outcomes = vec![Outcome::Complete, Outcome::Partial, Outcome::Failed];
-
-    for outcome in outcomes {
-        // When: Serialized and deserialized
-        let json = serde_json::to_string(&outcome).unwrap();
-        let decoded: Outcome = serde_json::from_str(&json).unwrap();
-
-        // Then: Roundtrip succeeds
-        assert_eq!(outcome, decoded);
-    }
-}
-
-#[test]
-fn scenario_receipt_execution_mode_default_is_mapped() {
-    // Given/When: Default execution mode
-    let mode = ExecutionMode::default();
-
-    // Then: It is Mapped
-    assert_eq!(mode, ExecutionMode::Mapped);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Glob Pattern Matching
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_glob_include_only_matching_files() {
-    // Given: An include-only glob
-    let globs = IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
-
-    // When/Then: Only src files are allowed
-    assert!(globs.decide_path(Path::new("src/lib.rs")).is_allowed());
-    assert!(!globs.decide_path(Path::new("tests/test.rs")).is_allowed());
-}
-
-#[test]
-fn scenario_glob_exclude_overrides_include() {
-    // Given: Include src but exclude tests within it
-    let globs = IncludeExcludeGlobs::new(&["src/**".into()], &["src/tests/**".into()]).unwrap();
-
-    // When/Then: Tests inside src are excluded
-    assert!(globs.decide_path(Path::new("src/lib.rs")).is_allowed());
-    assert!(
-        !globs
-            .decide_path(Path::new("src/tests/test.rs"))
-            .is_allowed()
-    );
-}
-
-#[test]
-fn scenario_glob_empty_patterns_allow_everything() {
-    // Given: No include or exclude patterns
-    let globs = IncludeExcludeGlobs::new(&[], &[]).unwrap();
-
-    // When/Then: Everything is allowed
-    assert!(globs.decide_path(Path::new("anything.rs")).is_allowed());
-    assert!(
-        globs
-            .decide_path(Path::new("deeply/nested/file.txt"))
-            .is_allowed()
-    );
-}
-
-#[test]
-fn scenario_glob_decide_str_works_for_tool_names() {
-    // Given: Globs for tool names
-    let globs = IncludeExcludeGlobs::new(&["Read".into(), "Grep".into()], &[]).unwrap();
-
-    // When/Then: Only matching tools pass
-    assert!(globs.decide_str("Read").is_allowed());
-    assert!(globs.decide_str("Grep").is_allowed());
-    assert!(!globs.decide_str("Write").is_allowed());
-}
-
-#[test]
-fn scenario_glob_match_decision_denied_by_exclude() {
-    // Given: An exclude-only glob
-    let globs = IncludeExcludeGlobs::new(&[], &["*.lock".into()]).unwrap();
-
-    // When: Checking a lock file
-    let decision = globs.decide_path(Path::new("Cargo.lock"));
-
-    // Then: Denied by exclude
-    assert!(!decision.is_allowed());
-    assert!(matches!(decision, MatchDecision::DeniedByExclude));
-}
-
-#[test]
-fn scenario_glob_match_decision_denied_by_missing_include() {
-    // Given: An include-only glob
-    let globs = IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
-
-    // When: Checking a file outside include
-    let decision = globs.decide_path(Path::new("tests/test.rs"));
-
-    // Then: Denied by missing include
-    assert!(!decision.is_allowed());
-    assert!(matches!(decision, MatchDecision::DeniedByMissingInclude));
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Error Taxonomy
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_error_code_categories_are_correct() {
-    // Given: Various error codes
-    // When/Then: Each maps to the correct category
-    assert_eq!(
-        ErrorCode::ProtocolHandshakeFailed.category(),
-        ErrorCategory::Protocol
-    );
-    assert_eq!(
-        ErrorCode::BackendNotFound.category(),
-        ErrorCategory::Backend
-    );
-    assert_eq!(ErrorCode::PolicyDenied.category(), ErrorCategory::Policy);
-    assert_eq!(
-        ErrorCode::CapabilityUnsupported.category(),
-        ErrorCategory::Capability
-    );
-    assert_eq!(
-        ErrorCode::ReceiptHashMismatch.category(),
-        ErrorCategory::Receipt
-    );
-    assert_eq!(
-        ErrorCode::MappingLossyConversion.category(),
-        ErrorCategory::Mapping
-    );
-    assert_eq!(
-        ErrorCode::ContractVersionMismatch.category(),
-        ErrorCategory::Contract
-    );
-}
-
-#[test]
-fn scenario_error_code_retryable_check() {
-    // Given: Retryable and non-retryable errors
-    // When/Then: Retryability is correctly reported
-    assert!(ErrorCode::BackendRateLimited.is_retryable());
-    assert!(ErrorCode::BackendTimeout.is_retryable());
-    assert!(!ErrorCode::PolicyDenied.is_retryable());
-    assert!(!ErrorCode::ContractVersionMismatch.is_retryable());
-}
-
-#[test]
-fn scenario_abp_error_construction_with_context() {
-    // Given: An error with context
-    let err = AbpError::new(ErrorCode::PolicyDenied, "tool Bash is not allowed")
-        .with_context("tool_name", "Bash");
-
-    // Then: Error fields are set
-    assert_eq!(err.code, ErrorCode::PolicyDenied);
-    assert_eq!(err.message, "tool Bash is not allowed");
-    assert!(err.context.contains_key("tool_name"));
-    assert_eq!(err.category(), ErrorCategory::Policy);
-}
-
-#[test]
-fn scenario_abp_error_is_not_retryable_for_policy() {
-    // Given: A policy denial error
-    let err = AbpError::new(ErrorCode::PolicyDenied, "denied");
-
-    // Then: Not retryable
-    assert!(!err.is_retryable());
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Protocol Validation
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_protocol_final_envelope_carries_receipt() {
-    // Given: A receipt
-    let receipt = make_receipt("sidecar-test");
-    let final_env = Envelope::Final {
-        ref_id: "run-42".into(),
-        receipt: receipt.clone(),
-    };
-
-    // When: Roundtripped
-    let encoded = JsonlCodec::encode(&final_env).unwrap();
-    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
-
-    // Then: Receipt is preserved
-    if let Envelope::Final { ref_id, receipt: r } = decoded {
-        assert_eq!(ref_id, "run-42");
-        assert_eq!(r.backend.id, "sidecar-test");
-    } else {
-        panic!("expected Final");
-    }
-}
-
-#[test]
-fn scenario_protocol_fatal_envelope_without_ref_id() {
-    // Given: A fatal error without ref_id (pre-handshake)
-    let fatal = Envelope::Fatal {
-        ref_id: None,
-        error: "startup failure".into(),
-        error_code: None,
-    };
-
-    // When: Roundtripped
-    let encoded = JsonlCodec::encode(&fatal).unwrap();
-    let decoded = JsonlCodec::decode(encoded.trim()).unwrap();
-
-    // Then: ref_id is None
-    if let Envelope::Fatal { ref_id, error, .. } = decoded {
-        assert!(ref_id.is_none());
-        assert_eq!(error, "startup failure");
-    } else {
-        panic!("expected Fatal");
-    }
-}
-
-#[test]
-fn scenario_protocol_version_parse_various_formats() {
-    // Given/When/Then: Various version strings
-    assert_eq!(parse_version("abp/v0.1"), Some((0, 1)));
-    assert_eq!(parse_version("abp/v1.0"), Some((1, 0)));
-    assert_eq!(parse_version("abp/v2.3"), Some((2, 3)));
-    assert_eq!(parse_version("invalid"), None);
-    assert_eq!(parse_version(""), None);
-}
-
-#[test]
-fn scenario_protocol_envelope_default_mode_is_mapped() {
-    // Given: A hello without explicit mode
-    let hello_json = serde_json::json!({
-        "t": "hello",
-        "contract_version": "abp/v0.1",
-        "backend": {"id": "test", "backend_version": null, "adapter_version": null},
-        "capabilities": {}
-    });
-
-    // When: Deserialized
-    let envelope: Envelope = serde_json::from_value(hello_json).unwrap();
-
-    // Then: Mode defaults to Mapped
-    if let Envelope::Hello { mode, .. } = envelope {
-        assert_eq!(mode, ExecutionMode::Mapped);
-    } else {
-        panic!("expected Hello");
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Agent Event Serialization
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_agent_event_kind_uses_type_tag() {
-    // Given: An event kind
-    let event = make_event(AgentEventKind::RunStarted {
-        message: "start".into(),
-    });
-
-    // When: Serialized
-    let json = serde_json::to_string(&event).unwrap();
-
-    // Then: Uses "type" as tag (not "t" like envelopes)
-    assert!(json.contains("\"type\":\"run_started\""));
-}
-
-#[test]
-fn scenario_agent_event_kind_all_variants_serialize() {
-    // Given: All event kinds
-    let kinds = vec![
-        AgentEventKind::RunStarted {
-            message: "s".into(),
-        },
-        AgentEventKind::RunCompleted {
-            message: "c".into(),
-        },
-        AgentEventKind::AssistantDelta { text: "d".into() },
-        AgentEventKind::AssistantMessage { text: "m".into() },
-        AgentEventKind::ToolCall {
-            tool_name: "t".into(),
-            tool_use_id: None,
-            parent_tool_use_id: None,
-            input: json!({}),
-        },
-        AgentEventKind::ToolResult {
-            tool_name: "t".into(),
-            tool_use_id: None,
-            output: json!({}),
-            is_error: false,
-        },
-        AgentEventKind::FileChanged {
-            path: "f".into(),
-            summary: "s".into(),
-        },
-        AgentEventKind::CommandExecuted {
-            command: "c".into(),
-            exit_code: None,
-            output_preview: None,
-        },
-        AgentEventKind::Warning {
-            message: "w".into(),
-        },
-        AgentEventKind::Error {
-            message: "e".into(),
-            error_code: None,
-        },
-    ];
-
-    // When/Then: Each variant serializes and deserializes
-    for kind in kinds {
-        let event = make_event(kind);
-        let json = serde_json::to_string(&event).unwrap();
-        let decoded: AgentEvent = serde_json::from_str(&json).unwrap();
-        // Verify roundtrip doesn't panic
-        let _ = serde_json::to_string(&decoded).unwrap();
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Dialect Types
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_all_dialects_are_enumerable() {
-    // Given: All known dialects
-    let dialects = vec![
-        Dialect::OpenAi,
-        Dialect::Claude,
-        Dialect::Gemini,
-        Dialect::Codex,
-        Dialect::Kimi,
-        Dialect::Copilot,
-    ];
-
-    // When/Then: Each serializes to its expected string
-    for dialect in &dialects {
-        let json = serde_json::to_string(dialect).unwrap();
-        let decoded: Dialect = serde_json::from_str(&json).unwrap();
-        assert_eq!(*dialect, decoded);
-    }
-}
-
-#[test]
-fn scenario_supported_ir_pairs_is_non_empty() {
-    // Given/When: The supported IR mapper pairs
-    let pairs = supported_ir_pairs();
-
-    // Then: At least some pairs exist
-    assert!(!pairs.is_empty());
+    // When/Then: It has no backends
+    assert!(registry.is_empty());
+    assert_eq!(registry.len(), 0);
+    assert!(registry.list().is_empty());
 }
 
 #[test]
-fn scenario_openai_claude_pair_is_supported() {
-    // Given: The supported pairs
-    let pairs = supported_ir_pairs();
+fn story6_given_registered_backend_when_health_queried_then_status_healthy() {
+    // Given: A registry with a backend marked healthy
+    let mut registry = BackendRegistry::new();
+    register_healthy_backend(&mut registry, "gpt-4", "openai");
 
-    // Then: OpenAI <-> Claude is supported
-    assert!(pairs.contains(&(Dialect::OpenAi, Dialect::Claude)));
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: IR Conversation
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_ir_conversation_push_chaining() {
-    // Given: An empty conversation
-    let conv = IrConversation::new()
-        .push(IrMessage::text(IrRole::System, "system"))
-        .push(IrMessage::text(IrRole::User, "user"));
-
-    // Then: Both messages present
-    assert_eq!(conv.messages.len(), 2);
-}
-
-#[test]
-fn scenario_ir_conversation_system_message_accessor() {
-    // Given: A conversation with system message
-    let conv = IrConversation::from_messages(vec![
-        IrMessage::text(IrRole::System, "You are helpful"),
-        IrMessage::text(IrRole::User, "Hi"),
-    ]);
-
-    // When: Accessing system message
-    let system = conv.system_message();
+    // When: Health is queried
+    let health = registry.health("gpt-4").unwrap();
 
-    // Then: Found
-    assert!(system.is_some());
-    assert_eq!(system.unwrap().text_content(), "You are helpful");
+    // Then: Status is Healthy
+    assert_eq!(health.status, HealthStatus::Healthy);
+    assert!(health.is_operational());
 }
 
 #[test]
-fn scenario_ir_conversation_last_assistant() {
-    // Given: A conversation with multiple assistant turns
-    let conv = IrConversation::from_messages(vec![
-        IrMessage::text(IrRole::Assistant, "first"),
-        IrMessage::text(IrRole::User, "next"),
-        IrMessage::text(IrRole::Assistant, "second"),
-    ]);
+fn story6_given_healthy_backend_when_failure_recorded_then_degraded() {
+    // Given: A healthy backend
+    let mut health = BackendHealth::default();
+    health.record_success(50);
+    assert_eq!(health.status, HealthStatus::Healthy);
 
-    // When: Getting last assistant
-    let last = conv.last_assistant();
+    // When: A failure is recorded (threshold = 3)
+    health.record_failure(3);
 
-    // Then: Returns the second one
-    assert_eq!(last.unwrap().text_content(), "second");
+    // Then: Status transitions to Degraded
+    assert_eq!(health.status, HealthStatus::Degraded);
+    assert!(health.is_operational()); // Degraded is still operational
 }
 
 #[test]
-fn scenario_ir_conversation_no_system_message() {
-    // Given: A conversation without system message
-    let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "Hi")]);
+fn story6_given_degraded_backend_when_threshold_failures_then_unhealthy() {
+    // Given: A backend with consecutive failures approaching the threshold
+    let mut health = BackendHealth::default();
+    health.record_failure(3); // 1st failure -> Degraded
+    health.record_failure(3); // 2nd failure -> Degraded
+    health.record_failure(3); // 3rd failure -> Unhealthy (threshold=3)
 
-    // When: Looking for system message
-    // Then: None
-    assert!(conv.system_message().is_none());
+    // Then: Status is Unhealthy
+    assert_eq!(health.status, HealthStatus::Unhealthy);
+    assert!(!health.is_operational());
 }
 
 #[test]
-fn scenario_ir_tool_definition_serialization() {
-    // Given: A tool definition
-    let tool = IrToolDefinition {
-        name: "read_file".into(),
-        description: "Read a file from the workspace".into(),
-        parameters: json!({
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"}
-            },
-            "required": ["path"]
-        }),
-    };
+fn story6_given_unhealthy_backend_when_success_recorded_then_healthy() {
+    // Given: An unhealthy backend
+    let mut health = BackendHealth::default();
+    health.record_failure(1); // Immediately unhealthy
 
-    // When: Roundtripped
-    let json = serde_json::to_string(&tool).unwrap();
-    let decoded: IrToolDefinition = serde_json::from_str(&json).unwrap();
+    // When: A success is recorded
+    health.record_success(100);
 
-    // Then: All fields preserved
-    assert_eq!(decoded.name, "read_file");
-    assert_eq!(decoded.description, "Read a file from the workspace");
+    // Then: Status recovers to Healthy
+    assert_eq!(health.status, HealthStatus::Healthy);
+    assert_eq!(health.consecutive_failures, 0);
+    assert_eq!(health.error_rate, 0.0);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Contract Version
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_contract_version_is_abp_v0_1() {
-    assert_eq!(CONTRACT_VERSION, "abp/v0.1");
-}
-
 #[test]
-fn scenario_contract_version_in_receipt_matches_constant() {
-    let receipt = ReceiptBuilder::new("mock").build();
-    assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
-}
-
-#[test]
-fn scenario_contract_version_in_hello_matches_constant() {
-    let hello = make_hello_envelope("test");
-    if let Envelope::Hello {
-        contract_version, ..
-    } = &hello
-    {
-        assert_eq!(contract_version, CONTRACT_VERSION);
-    }
-}
+fn story6_given_registry_with_mixed_health_when_queried_then_correct_lists() {
+    // Given: A registry with healthy and unhealthy backends
+    let mut registry = BackendRegistry::new();
+    register_healthy_backend(&mut registry, "healthy-one", "openai");
+    register_healthy_backend(&mut registry, "healthy-two", "claude");
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Execution Mode / Lane
-// ═══════════════════════════════════════════════════════════════════════════
+    // Make one unhealthy
+    let mut bad_health = BackendHealth::default();
+    bad_health.record_failure(1);
+    registry.register_with_metadata("sick-one", make_backend_metadata("sick-one", "gemini"));
+    registry.update_health("sick-one", bad_health);
 
-#[test]
-fn scenario_execution_mode_passthrough_serialization() {
-    let mode = ExecutionMode::Passthrough;
-    let json = serde_json::to_string(&mode).unwrap();
-    assert_eq!(json, "\"passthrough\"");
-}
+    // When: Querying healthy backends
+    let healthy = registry.healthy_backends();
 
-#[test]
-fn scenario_execution_mode_mapped_serialization() {
-    let mode = ExecutionMode::Mapped;
-    let json = serde_json::to_string(&mode).unwrap();
-    assert_eq!(json, "\"mapped\"");
+    // Then: Only the healthy ones are returned
+    assert_eq!(healthy.len(), 2);
+    assert!(healthy.contains(&"healthy-one"));
+    assert!(healthy.contains(&"healthy-two"));
 }
 
 #[test]
-fn scenario_execution_lane_patch_first_serialization() {
-    let lane = ExecutionLane::PatchFirst;
-    let json = serde_json::to_string(&lane).unwrap();
-    assert_eq!(json, "\"patch_first\"");
-}
+fn story6_given_registry_when_select_by_dialect_then_correct_backend() {
+    // Given: A registry with backends of different dialects
+    let mut registry = BackendRegistry::new();
+    register_healthy_backend(&mut registry, "openai-backend", "openai");
+    register_healthy_backend(&mut registry, "claude-backend", "claude");
 
-#[test]
-fn scenario_execution_lane_workspace_first_serialization() {
-    let lane = ExecutionLane::WorkspaceFirst;
-    let json = serde_json::to_string(&lane).unwrap();
-    assert_eq!(json, "\"workspace_first\"");
-}
+    // When: Selecting by dialect "claude"
+    let selected = registry.select(&SelectionStrategy::ByDialect("claude".into()));
 
-#[test]
-fn scenario_workspace_mode_staged_serialization() {
-    let mode = WorkspaceMode::Staged;
-    let json = serde_json::to_string(&mode).unwrap();
-    let decoded: WorkspaceMode = serde_json::from_str(&json).unwrap();
-    assert!(matches!(decoded, WorkspaceMode::Staged));
+    // Then: The Claude backend is selected
+    assert_eq!(selected.as_deref(), Some("claude-backend"));
 }
 
 #[test]
-fn scenario_workspace_mode_passthrough_serialization() {
-    let mode = WorkspaceMode::PassThrough;
-    let json = serde_json::to_string(&mode).unwrap();
-    let decoded: WorkspaceMode = serde_json::from_str(&json).unwrap();
-    assert!(matches!(decoded, WorkspaceMode::PassThrough));
-}
+fn story6_given_registry_when_select_by_streaming_then_streaming_backend() {
+    // Given: A registry with a streaming-capable backend
+    let mut registry = BackendRegistry::new();
+    register_healthy_backend(&mut registry, "stream-backend", "openai");
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Map Errors
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn scenario_map_error_unsupported_pair_display() {
-    let err = MapError::UnsupportedPair {
-        from: Dialect::OpenAi,
-        to: Dialect::Codex,
-    };
-    let msg = err.to_string();
-    assert!(msg.contains("unsupported dialect pair"));
-}
+    // When: Selecting by streaming support
+    let selected = registry.select(&SelectionStrategy::ByStreaming);
 
-#[test]
-fn scenario_map_error_lossy_conversion_display() {
-    let err = MapError::LossyConversion {
-        field: "system_prompt".into(),
-        reason: "Codex has no system role".into(),
-    };
-    let msg = err.to_string();
-    assert!(msg.contains("lossy conversion"));
-    assert!(msg.contains("system_prompt"));
+    // Then: The streaming backend is selected
+    assert_eq!(selected.as_deref(), Some("stream-backend"));
 }
 
 #[test]
-fn scenario_map_error_unmappable_tool_display() {
-    let err = MapError::UnmappableTool {
-        name: "custom_tool".into(),
-        reason: "no equivalent in target dialect".into(),
-    };
-    let msg = err.to_string();
-    assert!(msg.contains("unmappable tool"));
-    assert!(msg.contains("custom_tool"));
-}
+fn story6_given_unhealthy_preference_when_selected_then_none() {
+    // Given: A registry where the preferred backend is unhealthy
+    let mut registry = BackendRegistry::new();
+    registry.register_with_metadata("preferred", make_backend_metadata("preferred", "openai"));
+    let mut health = BackendHealth::default();
+    health.record_failure(1);
+    registry.update_health("preferred", health);
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Backend Identity
-// ═══════════════════════════════════════════════════════════════════════════
+    // When: Selecting by preference for the unhealthy backend
+    let selected = registry.select(&SelectionStrategy::ByPreference("preferred".into()));
 
-#[test]
-fn scenario_backend_identity_serialization_roundtrip() {
-    let id = BackendIdentity {
-        id: "sidecar:claude".into(),
-        backend_version: Some("3.5".into()),
-        adapter_version: Some("1.2.0".into()),
-    };
-    let json = serde_json::to_string(&id).unwrap();
-    let decoded: BackendIdentity = serde_json::from_str(&json).unwrap();
-    assert_eq!(decoded.id, "sidecar:claude");
-    assert_eq!(decoded.backend_version.as_deref(), Some("3.5"));
+    // Then: None is returned (unhealthy backends are not selected)
+    assert!(selected.is_none());
 }
 
 #[test]
-fn scenario_backend_identity_with_no_versions() {
-    let id = BackendIdentity {
-        id: "mock".into(),
-        backend_version: None,
-        adapter_version: None,
-    };
-    let json = serde_json::to_string(&id).unwrap();
-    assert!(json.contains("\"id\":\"mock\""));
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Edge Cases: Receipt Chain (from abp-receipt)
-// ═══════════════════════════════════════════════════════════════════════════
+fn story6_given_backend_metrics_when_runs_recorded_then_stats_correct() {
+    // Given: Backend metrics tracking
+    let mut metrics = BackendMetrics::default();
 
-#[test]
-fn scenario_receipt_canonicalize_is_deterministic() {
-    let receipt = make_receipt("mock");
-    let json1 = canonicalize(&receipt).unwrap();
-    let json2 = canonicalize(&receipt).unwrap();
-    assert_eq!(json1, json2);
-}
+    // When: Recording successes and failures
+    metrics.record_success(100);
+    metrics.record_success(200);
+    metrics.record_failure(50);
 
-#[test]
-fn scenario_receipt_compute_hash_matches_core() {
-    let receipt = make_receipt("mock");
-    let hash_core = receipt_hash(&receipt).unwrap();
-    let hash_receipt = compute_hash(&receipt).unwrap();
-    assert_eq!(hash_core, hash_receipt);
+    // Then: Statistics are correct
+    assert_eq!(metrics.total_runs, 3);
+    assert_eq!(metrics.successful_runs, 2);
+    assert_eq!(metrics.failed_runs, 1);
+    let avg = metrics.average_latency_ms().unwrap();
+    assert!((avg - 116.666).abs() < 1.0); // (100+200+50)/3
+    let rate = metrics.success_rate().unwrap();
+    assert!((rate - 0.666).abs() < 0.01);
 }
