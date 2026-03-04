@@ -10,9 +10,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use abp_core::ir::IrConversation;
-use abp_dialect::features::DialectFeature;
 use abp_dialect::Dialect;
-use abp_mapper::{default_ir_mapper, supported_ir_pairs, IrMapper};
+use abp_dialect::features::DialectFeature;
+use abp_mapper::{IrMapper, default_ir_mapper, supported_ir_pairs};
 use serde::{Deserialize, Serialize};
 
 use crate::ProjectionError;
@@ -104,6 +104,7 @@ struct RegisteredTranslator {
 /// let result = engine.translate(Dialect::OpenAi, Dialect::OpenAi, &conv).unwrap();
 /// assert_eq!(result.mode, TranslationMode::Passthrough);
 /// ```
+#[derive(Default)]
 pub struct TranslationEngine {
     translators: Vec<RegisteredTranslator>,
     /// Features to check for capability gap detection.
@@ -116,15 +117,6 @@ impl std::fmt::Debug for TranslationEngine {
             .field("translator_count", &self.translators.len())
             .field("gap_features", &self.gap_features)
             .finish()
-    }
-}
-
-impl Default for TranslationEngine {
-    fn default() -> Self {
-        Self {
-            translators: Vec::new(),
-            gap_features: Vec::new(),
-        }
     }
 }
 
@@ -247,12 +239,12 @@ impl TranslationEngine {
         }
 
         // Find a direct mapper.
-        let mapper =
-            self.find_mapper(from, to)
-                .ok_or_else(|| ProjectionError::UnsupportedDialectPair {
-                    src_dialect: from,
-                    tgt_dialect: to,
-                })?;
+        let mapper = self
+            .find_mapper(from, to)
+            .ok_or(ProjectionError::UnsupportedDialectPair {
+                src_dialect: from,
+                tgt_dialect: to,
+            })?;
 
         let translated = mapper.map_request(from, to, conversation).map_err(|e| {
             ProjectionError::MappingFailed {
@@ -291,12 +283,12 @@ impl TranslationEngine {
             });
         }
 
-        let mapper =
-            self.find_mapper(from, to)
-                .ok_or_else(|| ProjectionError::UnsupportedDialectPair {
-                    src_dialect: from,
-                    tgt_dialect: to,
-                })?;
+        let mapper = self
+            .find_mapper(from, to)
+            .ok_or(ProjectionError::UnsupportedDialectPair {
+                src_dialect: from,
+                tgt_dialect: to,
+            })?;
 
         let translated = mapper.map_response(from, to, conversation).map_err(|e| {
             ProjectionError::MappingFailed {

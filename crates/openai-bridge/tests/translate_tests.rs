@@ -6,10 +6,10 @@
 use abp_core::ir::{IrContentBlock, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use openai_bridge::openai_types::*;
 use openai_bridge::translate::{
-    api_error_to_bridge, conversation_from_ir, conversation_to_ir, extract_usage, merge_usage,
-    message_from_ir, message_to_ir, response_content_to_ir, response_to_ir_message, role_from_ir,
-    role_to_ir, task_to_request, tool_def_from_ir, tool_def_to_ir, usage_from_ir, usage_to_ir,
-    StreamAccumulator, StreamFragment,
+    StreamAccumulator, StreamFragment, api_error_to_bridge, conversation_from_ir,
+    conversation_to_ir, extract_usage, merge_usage, message_from_ir, message_to_ir,
+    response_content_to_ir, response_to_ir_message, role_from_ir, role_to_ir, task_to_request,
+    tool_def_from_ir, tool_def_to_ir, usage_from_ir, usage_to_ir,
 };
 
 // ── Role mapping ───────────────────────────────────────────────────

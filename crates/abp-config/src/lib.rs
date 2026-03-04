@@ -10,11 +10,14 @@
 
 pub mod defaults;
 pub mod diff;
+pub mod diff_analyzer;
 pub mod env;
+pub mod hot_reload_policy;
 pub mod hot_validate;
 pub mod migrate;
 pub mod schema;
 pub mod store;
+pub mod transaction;
 pub mod validate;
 pub mod watcher;
 
