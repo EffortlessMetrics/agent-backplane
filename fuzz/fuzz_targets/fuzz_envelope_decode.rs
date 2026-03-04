@@ -59,7 +59,11 @@ fuzz_target!(|data: &[u8]| {
     // Split data into random-sized chunks to exercise buffering.
     let mut parser = StreamParser::new();
     let mut chunk_envelopes = Vec::new();
-    let chunk_size = if data.is_empty() { 1 } else { (data[0] as usize % 64) + 1 };
+    let chunk_size = if data.is_empty() {
+        1
+    } else {
+        (data[0] as usize % 64) + 1
+    };
     for chunk in data.chunks(chunk_size) {
         for result in parser.push(chunk) {
             if let Ok(env) = result {

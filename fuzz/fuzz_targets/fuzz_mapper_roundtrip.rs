@@ -168,8 +168,7 @@ fuzz_target!(|input: MapperFuzzInput| {
         extra: Default::default(),
     };
 
-    let ir = IrRequest::new(messages)
-        .with_config(config);
+    let ir = IrRequest::new(messages).with_config(config);
     let ir = if let Some(ref model) = input.model {
         ir.with_model(model.clone())
     } else {

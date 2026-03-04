@@ -61,7 +61,10 @@ fuzz_target!(|input: WorkOrderFuzzInput| {
 
             // --- Property 3: canonical_json determinism ---
             if let (Ok(c1), Ok(c2)) = (canonical_json(&wo), canonical_json(&rt)) {
-                assert_eq!(c1, c2, "canonical JSON must be deterministic across round-trips");
+                assert_eq!(
+                    c1, c2,
+                    "canonical JSON must be deterministic across round-trips"
+                );
             }
 
             // Serialized JSON must be identical after round-trip.

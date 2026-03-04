@@ -1,323 +1,523 @@
 #![allow(clippy::all)]
-#![allow(clippy::manual_repeat_n)]
-#![allow(clippy::manual_range_contains)]
-#![allow(clippy::single_component_path_imports)]
-#![allow(clippy::let_and_return)]
-#![allow(clippy::unnecessary_to_owned)]
-#![allow(clippy::implicit_clone)]
-#![allow(clippy::field_reassign_with_default)]
-#![allow(clippy::iter_kv_map)]
-#![allow(clippy::bool_assert_comparison)]
-#![allow(clippy::redundant_closure)]
-#![allow(clippy::collapsible_if)]
-#![allow(clippy::collapsible_match)]
-#![allow(clippy::single_match)]
-#![allow(clippy::manual_map)]
-#![allow(clippy::match_like_matches_macro)]
-#![allow(clippy::needless_return)]
-#![allow(clippy::redundant_pattern_matching)]
-#![allow(clippy::len_zero)]
-#![allow(clippy::map_entry)]
-#![allow(clippy::unnecessary_unwrap)]
-#![allow(unknown_lints)]
+#![allow(unused_imports)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unused_mut)]
+#![allow(unreachable_code)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
-#![allow(clippy::approx_constant)]
-#![allow(clippy::needless_update)]
-#![allow(clippy::useless_vec)]
-#![allow(clippy::clone_on_copy)]
-#![allow(clippy::type_complexity)]
-#![allow(clippy::needless_borrow)]
 //! Comprehensive API surface stability tests.
 //!
 //! These tests verify that public types, constructors, methods, trait
 //! implementations, enum variants, constants, and re-exports across all
 //! primary crates remain accessible and stable.
+//!
+//! Categories:
+//! 1. Trait implementations (30+ tests)
+//! 2. Type construction and defaults (25+ tests)
+//! 3. Method signatures (25+ tests)
+//! 4. Enum exhaustiveness (20+ tests)
+//! 5. Re-exports and module structure (15+ tests)
+//! 6. Version and contract stability (15+ tests)
 
 // ==========================================================================
-// 1. abp-core — public types are accessible (type position)
+// 1. Trait implementations — Clone, Debug, Send, Sync, Serialize, etc.
 // ==========================================================================
 
-mod core_types_accessible {
-    use abp_core::{
-        AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-        CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet,
-        ContractError, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-        ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized,
-        VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    };
+mod trait_impls {
+    use std::collections::BTreeMap;
+    use std::fmt::Debug;
+
+    use abp_core::*;
+    use abp_error::{AbpError, ErrorCategory, ErrorCode, ErrorInfo};
+    use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
+    use serde::{Deserialize, Serialize};
+
+    fn assert_clone<T: Clone>() {}
+    fn assert_debug<T: Debug>() {}
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    fn assert_send_sync<T: Send + Sync>() {}
+    fn assert_serialize<T: Serialize>() {}
+    fn assert_deserialize<'a, T: Deserialize<'a>>() {}
+    fn assert_json_schema<T: schemars::JsonSchema>() {}
+    fn assert_display<T: std::fmt::Display>() {}
+    fn assert_error<T: std::error::Error>() {}
+
+    // ── Clone ──────────────────────────────────────────────────────────
 
     #[test]
-    fn work_order_is_nameable() {
-        let _: Option<WorkOrder> = None;
+    fn work_order_is_clone() {
+        assert_clone::<WorkOrder>();
     }
 
     #[test]
-    fn receipt_is_nameable() {
-        let _: Option<Receipt> = None;
+    fn receipt_is_clone() {
+        assert_clone::<Receipt>();
     }
 
     #[test]
-    fn agent_event_is_nameable() {
-        let _: Option<AgentEvent> = None;
+    fn agent_event_is_clone() {
+        assert_clone::<AgentEvent>();
     }
 
     #[test]
-    fn agent_event_kind_is_nameable() {
-        let _: Option<AgentEventKind> = None;
+    fn agent_event_kind_is_clone() {
+        assert_clone::<AgentEventKind>();
     }
 
     #[test]
-    fn backend_identity_is_nameable() {
-        let _: Option<BackendIdentity> = None;
+    fn execution_lane_is_clone() {
+        assert_clone::<ExecutionLane>();
     }
 
     #[test]
-    fn capability_is_nameable() {
-        let _: Option<Capability> = None;
+    fn outcome_is_clone() {
+        assert_clone::<Outcome>();
     }
 
     #[test]
-    fn capability_manifest_is_nameable() {
-        let _: Option<CapabilityManifest> = None;
+    fn capability_is_clone() {
+        assert_clone::<Capability>();
     }
 
     #[test]
-    fn capability_requirements_is_nameable() {
-        let _: Option<CapabilityRequirements> = None;
+    fn support_level_is_clone() {
+        assert_clone::<SupportLevel>();
     }
 
     #[test]
-    fn capability_requirement_is_nameable() {
-        let _: Option<CapabilityRequirement> = None;
+    fn execution_mode_is_clone() {
+        assert_clone::<ExecutionMode>();
     }
 
     #[test]
-    fn context_packet_is_nameable() {
-        let _: Option<ContextPacket> = None;
+    fn backend_identity_is_clone() {
+        assert_clone::<BackendIdentity>();
     }
 
     #[test]
-    fn context_snippet_is_nameable() {
-        let _: Option<ContextSnippet> = None;
+    fn envelope_is_clone() {
+        assert_clone::<Envelope>();
     }
 
     #[test]
-    fn execution_lane_is_nameable() {
-        let _: Option<ExecutionLane> = None;
+    fn error_code_is_clone() {
+        assert_clone::<ErrorCode>();
     }
 
     #[test]
-    fn execution_mode_is_nameable() {
-        let _: Option<ExecutionMode> = None;
+    fn error_info_is_clone() {
+        assert_clone::<ErrorInfo>();
+    }
+
+    // ── Debug ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn work_order_is_debug() {
+        assert_debug::<WorkOrder>();
     }
 
     #[test]
-    fn min_support_is_nameable() {
-        let _: Option<MinSupport> = None;
+    fn receipt_is_debug() {
+        assert_debug::<Receipt>();
     }
 
     #[test]
-    fn outcome_is_nameable() {
-        let _: Option<Outcome> = None;
+    fn agent_event_is_debug() {
+        assert_debug::<AgentEvent>();
     }
 
     #[test]
-    fn policy_profile_is_nameable() {
-        let _: Option<PolicyProfile> = None;
+    fn outcome_is_debug() {
+        assert_debug::<Outcome>();
     }
 
     #[test]
-    fn run_metadata_is_nameable() {
-        let _: Option<RunMetadata> = None;
+    fn error_code_is_debug() {
+        assert_debug::<ErrorCode>();
     }
 
     #[test]
-    fn runtime_config_is_nameable() {
-        let _: Option<RuntimeConfig> = None;
+    fn abp_error_is_debug() {
+        assert_debug::<AbpError>();
     }
 
     #[test]
-    fn support_level_is_nameable() {
-        let _: Option<SupportLevel> = None;
+    fn envelope_is_debug() {
+        assert_debug::<Envelope>();
     }
 
     #[test]
-    fn usage_normalized_is_nameable() {
-        let _: Option<UsageNormalized> = None;
+    fn protocol_error_is_debug() {
+        assert_debug::<ProtocolError>();
     }
 
     #[test]
-    fn verification_report_is_nameable() {
-        let _: Option<VerificationReport> = None;
+    fn contract_error_is_debug() {
+        assert_debug::<ContractError>();
     }
 
     #[test]
-    fn workspace_mode_is_nameable() {
-        let _: Option<WorkspaceMode> = None;
+    fn jsonl_codec_is_debug() {
+        assert_debug::<JsonlCodec>();
+    }
+
+    // ── Send + Sync ────────────────────────────────────────────────────
+
+    #[test]
+    fn work_order_is_send_sync() {
+        assert_send_sync::<WorkOrder>();
     }
 
     #[test]
-    fn workspace_spec_is_nameable() {
-        let _: Option<WorkspaceSpec> = None;
+    fn receipt_is_send_sync() {
+        assert_send_sync::<Receipt>();
     }
 
     #[test]
-    fn artifact_ref_is_nameable() {
-        let _: Option<ArtifactRef> = None;
+    fn agent_event_is_send_sync() {
+        assert_send_sync::<AgentEvent>();
     }
 
     #[test]
-    fn contract_error_is_nameable() {
-        let _: Option<ContractError> = None;
+    fn envelope_is_send_sync() {
+        assert_send_sync::<Envelope>();
     }
 
     #[test]
-    fn work_order_builder_is_nameable() {
-        let _: Option<WorkOrderBuilder> = None;
+    fn error_code_is_send_sync() {
+        assert_send_sync::<ErrorCode>();
     }
 
     #[test]
-    fn receipt_builder_is_nameable() {
-        let _: Option<ReceiptBuilder> = None;
+    fn error_info_is_send_sync() {
+        assert_send_sync::<ErrorInfo>();
+    }
+
+    // ── std::error::Error ──────────────────────────────────────────────
+
+    #[test]
+    fn abp_error_implements_std_error() {
+        assert_error::<AbpError>();
+    }
+
+    #[test]
+    fn protocol_error_implements_std_error() {
+        assert_error::<ProtocolError>();
+    }
+
+    #[test]
+    fn contract_error_implements_std_error() {
+        assert_error::<ContractError>();
+    }
+
+    #[test]
+    fn config_error_implements_std_error() {
+        assert_error::<abp_config::ConfigError>();
+    }
+
+    // ── Serialize + Deserialize ────────────────────────────────────────
+
+    #[test]
+    fn work_order_is_serializable() {
+        assert_serialize::<WorkOrder>();
+        assert_deserialize::<WorkOrder>();
+    }
+
+    #[test]
+    fn receipt_is_serializable() {
+        assert_serialize::<Receipt>();
+        assert_deserialize::<Receipt>();
+    }
+
+    #[test]
+    fn agent_event_is_serializable() {
+        assert_serialize::<AgentEvent>();
+        assert_deserialize::<AgentEvent>();
+    }
+
+    #[test]
+    fn envelope_is_serializable() {
+        assert_serialize::<Envelope>();
+        assert_deserialize::<Envelope>();
+    }
+
+    #[test]
+    fn error_code_is_serializable() {
+        assert_serialize::<ErrorCode>();
+        assert_deserialize::<ErrorCode>();
+    }
+
+    #[test]
+    fn outcome_is_serializable() {
+        assert_serialize::<Outcome>();
+        assert_deserialize::<Outcome>();
+    }
+
+    #[test]
+    fn capability_is_serializable() {
+        assert_serialize::<Capability>();
+        assert_deserialize::<Capability>();
+    }
+
+    #[test]
+    fn execution_mode_is_serializable() {
+        assert_serialize::<ExecutionMode>();
+        assert_deserialize::<ExecutionMode>();
+    }
+
+    // ── JsonSchema ─────────────────────────────────────────────────────
+
+    #[test]
+    fn work_order_has_json_schema() {
+        assert_json_schema::<WorkOrder>();
+    }
+
+    #[test]
+    fn receipt_has_json_schema() {
+        assert_json_schema::<Receipt>();
+    }
+
+    #[test]
+    fn agent_event_has_json_schema() {
+        assert_json_schema::<AgentEvent>();
+    }
+
+    #[test]
+    fn outcome_has_json_schema() {
+        assert_json_schema::<Outcome>();
+    }
+
+    #[test]
+    fn capability_has_json_schema() {
+        assert_json_schema::<Capability>();
+    }
+
+    #[test]
+    fn execution_mode_has_json_schema() {
+        assert_json_schema::<ExecutionMode>();
+    }
+
+    #[test]
+    fn error_code_has_json_schema() {
+        assert_json_schema::<ErrorCode>();
+    }
+
+    // ── Display ────────────────────────────────────────────────────────
+
+    #[test]
+    fn error_code_implements_display() {
+        assert_display::<ErrorCode>();
+    }
+
+    #[test]
+    fn abp_error_implements_display() {
+        assert_display::<AbpError>();
+    }
+
+    #[test]
+    fn error_info_implements_display() {
+        assert_display::<ErrorInfo>();
+    }
+
+    #[test]
+    fn error_category_implements_display() {
+        assert_display::<ErrorCategory>();
+    }
+
+    #[test]
+    fn protocol_error_implements_display() {
+        assert_display::<ProtocolError>();
+    }
+
+    #[test]
+    fn contract_error_implements_display() {
+        assert_display::<ContractError>();
     }
 }
 
 // ==========================================================================
-// 2. abp-core — constants
+// 2. Type construction and defaults
 // ==========================================================================
 
-mod core_constants {
-    use abp_core::CONTRACT_VERSION;
+mod type_construction {
+    use abp_core::*;
+    use abp_error::{AbpError, ErrorCode, ErrorInfo};
+    use std::collections::BTreeMap;
+
+    // ── WorkOrder builder defaults ─────────────────────────────────────
 
     #[test]
-    fn contract_version_is_accessible() {
-        assert_eq!(CONTRACT_VERSION, "abp/v0.1");
-    }
-}
-
-// ==========================================================================
-// 3. abp-core — constructors and builders
-// ==========================================================================
-
-mod core_constructors {
-    use abp_core::{ExecutionLane, Outcome, ReceiptBuilder, WorkOrderBuilder, WorkspaceMode};
-
-    #[test]
-    fn work_order_builder_new() {
+    fn work_order_builder_produces_valid_defaults() {
         let wo = WorkOrderBuilder::new("test task").build();
         assert_eq!(wo.task, "test task");
+        assert!(!wo.id.is_nil());
     }
 
     #[test]
-    fn work_order_builder_lane() {
-        let wo = WorkOrderBuilder::new("t")
-            .lane(ExecutionLane::WorkspaceFirst)
-            .build();
-        assert!(matches!(wo.lane, ExecutionLane::WorkspaceFirst));
-    }
-
-    #[test]
-    fn work_order_builder_root() {
-        let wo = WorkOrderBuilder::new("t").root("/tmp").build();
-        assert_eq!(wo.workspace.root, "/tmp");
-    }
-
-    #[test]
-    fn work_order_builder_workspace_mode() {
-        let wo = WorkOrderBuilder::new("t")
-            .workspace_mode(WorkspaceMode::PassThrough)
-            .build();
-        assert!(matches!(wo.workspace.mode, WorkspaceMode::PassThrough));
-    }
-
-    #[test]
-    fn work_order_builder_include_exclude() {
-        let wo = WorkOrderBuilder::new("t")
-            .include(vec!["src/**".into()])
-            .exclude(vec!["*.log".into()])
-            .build();
-        assert_eq!(wo.workspace.include, vec!["src/**"]);
-        assert_eq!(wo.workspace.exclude, vec!["*.log"]);
-    }
-
-    #[test]
-    fn work_order_builder_model() {
-        let wo = WorkOrderBuilder::new("t").model("gpt-4").build();
-        assert_eq!(wo.config.model.as_deref(), Some("gpt-4"));
-    }
-
-    #[test]
-    fn work_order_builder_max_turns() {
-        let wo = WorkOrderBuilder::new("t").max_turns(5).build();
-        assert_eq!(wo.config.max_turns, Some(5));
-    }
-
-    #[test]
-    fn work_order_builder_max_budget_usd() {
-        let wo = WorkOrderBuilder::new("t").max_budget_usd(1.5).build();
-        assert_eq!(wo.config.max_budget_usd, Some(1.5));
-    }
-
-    #[test]
-    fn receipt_builder_new() {
-        let r = ReceiptBuilder::new("mock").build();
-        assert_eq!(r.backend.id, "mock");
-    }
-
-    #[test]
-    fn receipt_builder_outcome() {
-        let r = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
-        assert_eq!(r.outcome, Outcome::Failed);
-    }
-
-    #[test]
-    fn receipt_builder_with_hash() {
-        let r = ReceiptBuilder::new("mock").with_hash().unwrap();
-        assert!(r.receipt_sha256.is_some());
-    }
-
-    #[test]
-    fn receipt_with_hash_method() {
-        let r = ReceiptBuilder::new("mock").build().with_hash().unwrap();
-        assert_eq!(r.receipt_sha256.as_ref().unwrap().len(), 64);
-    }
-}
-
-// ==========================================================================
-// 4. abp-core — trait implementations (Clone, Debug, Serialize, Deserialize)
-// ==========================================================================
-
-mod core_traits {
-    use abp_core::{ExecutionMode, Outcome, ReceiptBuilder, WorkOrderBuilder};
-
-    #[test]
-    fn work_order_clone_debug() {
+    fn work_order_builder_default_lane_is_patch_first() {
         let wo = WorkOrderBuilder::new("t").build();
-        let cloned = wo.clone();
-        let _ = format!("{:?}", cloned);
+        assert!(matches!(wo.lane, ExecutionLane::PatchFirst));
     }
 
     #[test]
-    fn work_order_serde_roundtrip() {
-        let wo = WorkOrderBuilder::new("serde test").build();
-        let json = serde_json::to_string(&wo).unwrap();
-        let back: abp_core::WorkOrder = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.task, "serde test");
+    fn work_order_builder_default_root_is_dot() {
+        let wo = WorkOrderBuilder::new("t").build();
+        assert_eq!(wo.workspace.root, ".");
     }
 
     #[test]
-    fn receipt_clone_debug() {
+    fn work_order_builder_default_workspace_mode_is_staged() {
+        let wo = WorkOrderBuilder::new("t").build();
+        assert!(matches!(wo.workspace.mode, WorkspaceMode::Staged));
+    }
+
+    #[test]
+    fn work_order_builder_default_include_is_empty() {
+        let wo = WorkOrderBuilder::new("t").build();
+        assert!(wo.workspace.include.is_empty());
+    }
+
+    #[test]
+    fn work_order_builder_default_exclude_is_empty() {
+        let wo = WorkOrderBuilder::new("t").build();
+        assert!(wo.workspace.exclude.is_empty());
+    }
+
+    #[test]
+    fn work_order_builder_default_config_model_is_none() {
+        let wo = WorkOrderBuilder::new("t").build();
+        assert!(wo.config.model.is_none());
+    }
+
+    #[test]
+    fn work_order_builder_default_max_turns_is_none() {
+        let wo = WorkOrderBuilder::new("t").build();
+        assert!(wo.config.max_turns.is_none());
+    }
+
+    #[test]
+    fn work_order_builder_default_max_budget_is_none() {
+        let wo = WorkOrderBuilder::new("t").build();
+        assert!(wo.config.max_budget_usd.is_none());
+    }
+
+    #[test]
+    fn work_order_builder_default_vendor_is_empty() {
+        let wo = WorkOrderBuilder::new("t").build();
+        assert!(wo.config.vendor.is_empty());
+    }
+
+    #[test]
+    fn work_order_builder_default_env_is_empty() {
+        let wo = WorkOrderBuilder::new("t").build();
+        assert!(wo.config.env.is_empty());
+    }
+
+    // ── Receipt builder defaults ───────────────────────────────────────
+
+    #[test]
+    fn receipt_builder_default_outcome_is_complete() {
         let r = ReceiptBuilder::new("mock").build();
-        let cloned = r.clone();
-        let _ = format!("{:?}", cloned);
+        assert_eq!(r.outcome, Outcome::Complete);
     }
 
     #[test]
-    fn receipt_serde_roundtrip() {
+    fn receipt_builder_default_hash_is_none() {
         let r = ReceiptBuilder::new("mock").build();
-        let json = serde_json::to_string(&r).unwrap();
-        let back: abp_core::Receipt = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.backend.id, "mock");
+        assert!(r.receipt_sha256.is_none());
+    }
+
+    #[test]
+    fn receipt_builder_default_trace_is_empty() {
+        let r = ReceiptBuilder::new("mock").build();
+        assert!(r.trace.is_empty());
+    }
+
+    #[test]
+    fn receipt_builder_default_artifacts_is_empty() {
+        let r = ReceiptBuilder::new("mock").build();
+        assert!(r.artifacts.is_empty());
+    }
+
+    #[test]
+    fn receipt_builder_default_capabilities_is_empty() {
+        let r = ReceiptBuilder::new("mock").build();
+        assert!(r.capabilities.is_empty());
+    }
+
+    #[test]
+    fn receipt_builder_default_mode_is_mapped() {
+        let r = ReceiptBuilder::new("mock").build();
+        assert_eq!(r.mode, ExecutionMode::Mapped);
+    }
+
+    #[test]
+    fn receipt_builder_sets_backend_id() {
+        let r = ReceiptBuilder::new("my-backend").build();
+        assert_eq!(r.backend.id, "my-backend");
+    }
+
+    #[test]
+    fn receipt_builder_sets_contract_version() {
+        let r = ReceiptBuilder::new("mock").build();
+        assert_eq!(r.meta.contract_version, CONTRACT_VERSION);
+    }
+
+    // ── Default trait impls ────────────────────────────────────────────
+
+    #[test]
+    fn runtime_config_defaults_all_none_or_empty() {
+        let c = RuntimeConfig::default();
+        assert!(c.model.is_none());
+        assert!(c.vendor.is_empty());
+        assert!(c.env.is_empty());
+        assert!(c.max_budget_usd.is_none());
+        assert!(c.max_turns.is_none());
+    }
+
+    #[test]
+    fn policy_profile_defaults_all_empty() {
+        let p = PolicyProfile::default();
+        assert!(p.allowed_tools.is_empty());
+        assert!(p.disallowed_tools.is_empty());
+        assert!(p.deny_read.is_empty());
+        assert!(p.deny_write.is_empty());
+        assert!(p.allow_network.is_empty());
+        assert!(p.deny_network.is_empty());
+        assert!(p.require_approval_for.is_empty());
+    }
+
+    #[test]
+    fn capability_requirements_defaults_empty() {
+        let cr = CapabilityRequirements::default();
+        assert!(cr.required.is_empty());
+    }
+
+    #[test]
+    fn context_packet_defaults_empty() {
+        let cp = ContextPacket::default();
+        assert!(cp.files.is_empty());
+        assert!(cp.snippets.is_empty());
+    }
+
+    #[test]
+    fn usage_normalized_defaults_all_none() {
+        let u = UsageNormalized::default();
+        assert!(u.input_tokens.is_none());
+        assert!(u.output_tokens.is_none());
+        assert!(u.cache_read_tokens.is_none());
+        assert!(u.cache_write_tokens.is_none());
+        assert!(u.request_units.is_none());
+        assert!(u.estimated_cost_usd.is_none());
+    }
+
+    #[test]
+    fn verification_report_defaults_sensible() {
+        let v = VerificationReport::default();
+        assert!(v.git_diff.is_none());
+        assert!(v.git_status.is_none());
+        assert_eq!(v.harness_ok, false);
     }
 
     #[test]
@@ -326,192 +526,37 @@ mod core_traits {
     }
 
     #[test]
-    fn outcome_partial_eq() {
-        assert_eq!(Outcome::Complete, Outcome::Complete);
-        assert_ne!(Outcome::Complete, Outcome::Failed);
-    }
-
-    #[test]
-    fn execution_mode_clone_copy() {
-        let m = ExecutionMode::Passthrough;
-        let c = m;
-        assert_eq!(m, c);
+    fn backplane_config_defaults_sensible() {
+        let c = abp_config::BackplaneConfig::default();
+        assert!(c.default_backend.is_none());
+        assert!(c.workspace_dir.is_none());
+        assert_eq!(c.log_level.as_deref(), Some("info"));
+        assert!(c.backends.is_empty());
+        assert!(c.policy_profiles.is_empty());
     }
 }
 
 // ==========================================================================
-// 5. abp-core — enum variant exhaustiveness
+// 3. Method signatures
 // ==========================================================================
 
-mod core_enum_variants {
-    use abp_core::{
-        Capability, ExecutionLane, ExecutionMode, MinSupport, Outcome, SupportLevel, WorkspaceMode,
-    };
+mod method_signatures {
+    use abp_core::*;
+    use abp_error::{AbpError, ErrorCategory, ErrorCode, ErrorInfo};
+    use abp_protocol::{Envelope, JsonlCodec};
+    use std::collections::BTreeMap;
+
+    // ── Receipt hashing ────────────────────────────────────────────────
 
     #[test]
-    fn execution_lane_exhaustive() {
-        let lanes = [ExecutionLane::PatchFirst, ExecutionLane::WorkspaceFirst];
-        for lane in &lanes {
-            match lane {
-                ExecutionLane::PatchFirst => {}
-                ExecutionLane::WorkspaceFirst => {}
-            }
-        }
-    }
-
-    #[test]
-    fn workspace_mode_exhaustive() {
-        let modes = [WorkspaceMode::PassThrough, WorkspaceMode::Staged];
-        for mode in &modes {
-            match mode {
-                WorkspaceMode::PassThrough => {}
-                WorkspaceMode::Staged => {}
-            }
-        }
-    }
-
-    #[test]
-    fn execution_mode_exhaustive() {
-        let modes = [ExecutionMode::Passthrough, ExecutionMode::Mapped];
-        for mode in &modes {
-            match mode {
-                ExecutionMode::Passthrough => {}
-                ExecutionMode::Mapped => {}
-            }
-        }
-    }
-
-    #[test]
-    fn outcome_exhaustive() {
-        let outcomes = [Outcome::Complete, Outcome::Partial, Outcome::Failed];
-        for o in &outcomes {
-            match o {
-                Outcome::Complete => {}
-                Outcome::Partial => {}
-                Outcome::Failed => {}
-            }
-        }
-    }
-
-    #[test]
-    fn min_support_exhaustive() {
-        let ms = [MinSupport::Native, MinSupport::Emulated];
-        for m in &ms {
-            match m {
-                MinSupport::Native => {}
-                MinSupport::Emulated => {}
-            }
-        }
-    }
-
-    #[test]
-    fn support_level_exhaustive() {
-        let levels = [
-            SupportLevel::Native,
-            SupportLevel::Emulated,
-            SupportLevel::Unsupported,
-            SupportLevel::Restricted { reason: "r".into() },
-        ];
-        for l in &levels {
-            match l {
-                SupportLevel::Native => {}
-                SupportLevel::Emulated => {}
-                SupportLevel::Unsupported => {}
-                SupportLevel::Restricted { reason: _ } => {}
-            }
-        }
-    }
-
-    #[test]
-    fn capability_exhaustive() {
-        let caps = [
-            Capability::Streaming,
-            Capability::ToolRead,
-            Capability::ToolWrite,
-            Capability::ToolEdit,
-            Capability::ToolBash,
-            Capability::ToolGlob,
-            Capability::ToolGrep,
-            Capability::ToolWebSearch,
-            Capability::ToolWebFetch,
-            Capability::ToolAskUser,
-            Capability::HooksPreToolUse,
-            Capability::HooksPostToolUse,
-            Capability::SessionResume,
-            Capability::SessionFork,
-            Capability::Checkpointing,
-            Capability::StructuredOutputJsonSchema,
-            Capability::McpClient,
-            Capability::McpServer,
-            Capability::ToolUse,
-            Capability::ExtendedThinking,
-            Capability::ImageInput,
-            Capability::PdfInput,
-            Capability::CodeExecution,
-            Capability::Logprobs,
-            Capability::SeedDeterminism,
-            Capability::StopSequences,
-        ];
-        for c in &caps {
-            match c {
-                Capability::Streaming => {}
-                Capability::ToolRead => {}
-                Capability::ToolWrite => {}
-                Capability::ToolEdit => {}
-                Capability::ToolBash => {}
-                Capability::ToolGlob => {}
-                Capability::ToolGrep => {}
-                Capability::ToolWebSearch => {}
-                Capability::ToolWebFetch => {}
-                Capability::ToolAskUser => {}
-                Capability::HooksPreToolUse => {}
-                Capability::HooksPostToolUse => {}
-                Capability::SessionResume => {}
-                Capability::SessionFork => {}
-                Capability::Checkpointing => {}
-                Capability::StructuredOutputJsonSchema => {}
-                Capability::McpClient => {}
-                Capability::McpServer => {}
-                Capability::ToolUse => {}
-                Capability::ExtendedThinking => {}
-                Capability::ImageInput => {}
-                Capability::PdfInput => {}
-                Capability::CodeExecution => {}
-                Capability::Logprobs => {}
-                Capability::SeedDeterminism => {}
-                Capability::StopSequences => {}
-                _ => {}
-            }
-        }
-    }
-}
-
-// ==========================================================================
-// 6. abp-core — public free functions
-// ==========================================================================
-
-mod core_functions {
-    use abp_core::{Outcome, ReceiptBuilder, canonical_json, receipt_hash, sha256_hex};
-
-    #[test]
-    fn canonical_json_works() {
-        let json = canonical_json(&serde_json::json!({"b": 2, "a": 1})).unwrap();
-        assert!(json.starts_with(r#"{"a":1"#));
-    }
-
-    #[test]
-    fn sha256_hex_works() {
-        let hex = sha256_hex(b"hello");
-        assert_eq!(hex.len(), 64);
-    }
-
-    #[test]
-    fn receipt_hash_works() {
+    fn receipt_with_hash_returns_non_none_hash() {
         let r = ReceiptBuilder::new("mock")
             .outcome(Outcome::Complete)
-            .build();
-        let h = receipt_hash(&r).unwrap();
-        assert_eq!(h.len(), 64);
+            .build()
+            .with_hash()
+            .unwrap();
+        assert!(r.receipt_sha256.is_some());
+        assert_eq!(r.receipt_sha256.as_ref().unwrap().len(), 64);
     }
 
     #[test]
@@ -523,1450 +568,948 @@ mod core_functions {
         let h2 = receipt_hash(&r).unwrap();
         assert_eq!(h1, h2);
     }
-}
-
-// ==========================================================================
-// 7. abp-core — SupportLevel::satisfies
-// ==========================================================================
-
-mod core_support_level {
-    use abp_core::{MinSupport, SupportLevel};
 
     #[test]
-    fn native_satisfies_native() {
-        assert!(SupportLevel::Native.satisfies(&MinSupport::Native));
+    fn receipt_hash_length_is_64_hex() {
+        let r = ReceiptBuilder::new("mock").build();
+        let h = receipt_hash(&r).unwrap();
+        assert_eq!(h.len(), 64);
+        assert!(h.chars().all(|c| c.is_ascii_hexdigit()));
     }
 
     #[test]
-    fn native_satisfies_emulated() {
-        assert!(SupportLevel::Native.satisfies(&MinSupport::Emulated));
+    fn receipt_verify_hash_returns_true_for_valid() {
+        let r = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .build()
+            .with_hash()
+            .unwrap();
+        assert!(abp_receipt::verify_hash(&r));
     }
 
     #[test]
-    fn emulated_does_not_satisfy_native() {
-        assert!(!SupportLevel::Emulated.satisfies(&MinSupport::Native));
+    fn receipt_verify_hash_returns_false_for_tampered() {
+        let mut r = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .build()
+            .with_hash()
+            .unwrap();
+        r.receipt_sha256 = Some("tampered".into());
+        assert!(!abp_receipt::verify_hash(&r));
     }
 
     #[test]
-    fn emulated_satisfies_emulated() {
-        assert!(SupportLevel::Emulated.satisfies(&MinSupport::Emulated));
+    fn receipt_verify_hash_returns_true_when_no_hash() {
+        let r = ReceiptBuilder::new("mock").build();
+        assert!(abp_receipt::verify_hash(&r));
     }
 
-    #[test]
-    fn unsupported_satisfies_nothing() {
-        assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Native));
-        assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
-    }
+    // ── Envelope encode/decode ─────────────────────────────────────────
 
     #[test]
-    fn restricted_satisfies_emulated() {
-        let r = SupportLevel::Restricted {
-            reason: "sandbox".into(),
-        };
-        assert!(r.satisfies(&MinSupport::Emulated));
-        assert!(!r.satisfies(&MinSupport::Native));
-    }
-}
-
-// ==========================================================================
-// 8. abp-core — error type implements std::error::Error
-// ==========================================================================
-
-mod core_errors {
-    use abp_core::ContractError;
-
-    #[test]
-    fn contract_error_is_std_error() {
-        fn assert_error<T: std::error::Error>() {}
-        assert_error::<ContractError>();
-    }
-
-    #[test]
-    fn contract_error_display() {
-        let err =
-            ContractError::Json(serde_json::from_str::<serde_json::Value>("invalid").unwrap_err());
-        let msg = format!("{err}");
-        assert!(!msg.is_empty());
-    }
-}
-
-// ==========================================================================
-// 9. abp-core — AgentEventKind variant exhaustiveness
-// ==========================================================================
-
-mod core_agent_event_kind {
-    use abp_core::AgentEventKind;
-
-    #[test]
-    fn agent_event_kind_exhaustive() {
-        let kinds = [
-            AgentEventKind::RunStarted {
-                message: "s".into(),
-            },
-            AgentEventKind::RunCompleted {
-                message: "c".into(),
-            },
-            AgentEventKind::AssistantDelta { text: "d".into() },
-            AgentEventKind::AssistantMessage { text: "m".into() },
-            AgentEventKind::ToolCall {
-                tool_name: "Read".into(),
-                tool_use_id: None,
-                parent_tool_use_id: None,
-                input: serde_json::json!({}),
-            },
-            AgentEventKind::ToolResult {
-                tool_name: "Read".into(),
-                tool_use_id: None,
-                output: serde_json::json!({}),
-                is_error: false,
-            },
-            AgentEventKind::FileChanged {
-                path: "a.rs".into(),
-                summary: "created".into(),
-            },
-            AgentEventKind::CommandExecuted {
-                command: "ls".into(),
-                exit_code: Some(0),
-                output_preview: None,
-            },
-            AgentEventKind::Warning {
-                message: "w".into(),
-            },
-            AgentEventKind::Error {
-                message: "e".into(),
-                error_code: None,
-            },
-        ];
-        for k in &kinds {
-            match k {
-                AgentEventKind::RunStarted { .. } => {}
-                AgentEventKind::RunCompleted { .. } => {}
-                AgentEventKind::AssistantDelta { .. } => {}
-                AgentEventKind::AssistantMessage { .. } => {}
-                AgentEventKind::ToolCall { .. } => {}
-                AgentEventKind::ToolResult { .. } => {}
-                AgentEventKind::FileChanged { .. } => {}
-                AgentEventKind::CommandExecuted { .. } => {}
-                AgentEventKind::Warning { .. } => {}
-                AgentEventKind::Error { .. } => {}
-            }
-        }
-    }
-}
-
-// ==========================================================================
-// 10. abp-core — module re-exports
-// ==========================================================================
-
-mod core_modules {
-    #[test]
-    fn aggregate_module_accessible() {
-        let _exists = std::any::type_name::<abp_core::aggregate::EventAggregator>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn chain_module_accessible() {
-        let _exists = std::any::type_name::<abp_core::chain::ChainError>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn config_module_accessible() {
-        let _exists = std::any::type_name::<abp_core::config::WarningSeverity>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn filter_module_accessible() {
-        let _exists = std::any::type_name::<abp_core::filter::EventFilter>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn ir_module_accessible() {
-        let _exists = std::any::type_name::<abp_core::ir::IrRole>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn validate_module_accessible() {
-        let _exists = std::any::type_name::<abp_core::validate::ValidationError>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn verify_module_accessible() {
-        let _exists = std::any::type_name::<abp_core::verify::VerificationCheck>();
-        assert!(!_exists.is_empty());
-    }
-}
-
-// ==========================================================================
-// 11. abp-protocol — public types accessible
-// ==========================================================================
-
-mod protocol_types {
-    use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
-
-    #[test]
-    fn envelope_is_nameable() {
-        let _: Option<Envelope> = None;
-    }
-
-    #[test]
-    fn jsonl_codec_is_nameable() {
-        let _: Option<JsonlCodec> = None;
-    }
-
-    #[test]
-    fn protocol_error_is_nameable() {
-        let _: Option<ProtocolError> = None;
-    }
-}
-
-// ==========================================================================
-// 12. abp-protocol — constructors and methods
-// ==========================================================================
-
-mod protocol_constructors {
-    use abp_core::{BackendIdentity, CapabilityManifest, ExecutionMode};
-    use abp_protocol::{Envelope, JsonlCodec};
-
-    #[test]
-    fn envelope_hello() {
-        let env = Envelope::hello(
-            BackendIdentity {
-                id: "test".into(),
-                backend_version: None,
-                adapter_version: None,
-            },
-            CapabilityManifest::new(),
-        );
-        assert!(matches!(env, Envelope::Hello { .. }));
-    }
-
-    #[test]
-    fn envelope_hello_with_mode() {
-        let env = Envelope::hello_with_mode(
-            BackendIdentity {
-                id: "test".into(),
-                backend_version: None,
-                adapter_version: None,
-            },
-            CapabilityManifest::new(),
-            ExecutionMode::Passthrough,
-        );
-        assert!(matches!(env, Envelope::Hello { .. }));
-    }
-
-    #[test]
-    fn envelope_fatal_with_code() {
-        let env = Envelope::fatal_with_code(
-            Some("run-1".into()),
-            "boom",
-            abp_error::ErrorCode::ProtocolInvalidEnvelope,
-        );
-        assert!(env.error_code().is_some());
-    }
-
-    #[test]
-    fn envelope_error_code_on_non_fatal_is_none() {
-        let env = Envelope::hello(
-            BackendIdentity {
-                id: "x".into(),
-                backend_version: None,
-                adapter_version: None,
-            },
-            CapabilityManifest::new(),
-        );
-        assert!(env.error_code().is_none());
-    }
-
-    #[test]
-    fn jsonl_codec_encode_decode_roundtrip() {
+    fn envelope_encode_produces_valid_jsonl() {
         let env = Envelope::Fatal {
             ref_id: None,
-            error: "test".into(),
+            error: "boom".into(),
             error_code: None,
         };
         let line = JsonlCodec::encode(&env).unwrap();
         assert!(line.ends_with('\n'));
-        let decoded = JsonlCodec::decode(line.trim()).unwrap();
-        assert!(matches!(decoded, Envelope::Fatal { .. }));
+        assert!(line.contains("\"t\":\"fatal\""));
     }
 
     #[test]
-    fn jsonl_codec_encode_to_writer() {
+    fn envelope_decode_accepts_valid_jsonl() {
+        let line = r#"{"t":"fatal","ref_id":null,"error":"boom"}"#;
+        let env = JsonlCodec::decode(line).unwrap();
+        assert!(matches!(env, Envelope::Fatal { error, .. } if error == "boom"));
+    }
+
+    #[test]
+    fn envelope_roundtrip_fatal() {
+        let env = Envelope::Fatal {
+            ref_id: Some("run-1".into()),
+            error: "test error".into(),
+            error_code: None,
+        };
+        let line = JsonlCodec::encode(&env).unwrap();
+        let decoded = JsonlCodec::decode(line.trim()).unwrap();
+        assert!(matches!(decoded, Envelope::Fatal { error, .. } if error == "test error"));
+    }
+
+    #[test]
+    fn envelope_hello_roundtrip() {
+        let env = Envelope::hello(
+            BackendIdentity {
+                id: "test".into(),
+                backend_version: None,
+                adapter_version: None,
+            },
+            CapabilityManifest::new(),
+        );
+        let line = JsonlCodec::encode(&env).unwrap();
+        let decoded = JsonlCodec::decode(line.trim()).unwrap();
+        assert!(matches!(decoded, Envelope::Hello { .. }));
+    }
+
+    // ── ErrorCode methods ──────────────────────────────────────────────
+
+    #[test]
+    fn error_code_as_str_returns_snake_case() {
+        let code = ErrorCode::BackendTimeout;
+        let s = code.as_str();
+        assert_eq!(s, "backend_timeout");
+        assert!(!s.contains('-'));
+        assert!(!s.chars().any(|c| c.is_uppercase()));
+    }
+
+    #[test]
+    fn error_code_as_str_all_are_snake_case() {
+        let codes = [
+            ErrorCode::ProtocolInvalidEnvelope,
+            ErrorCode::BackendNotFound,
+            ErrorCode::PolicyDenied,
+            ErrorCode::Internal,
+            ErrorCode::CapabilityUnsupported,
+            ErrorCode::WorkspaceStagingFailed,
+        ];
+        for code in &codes {
+            let s = code.as_str();
+            assert!(
+                s.chars()
+                    .all(|c| c.is_lowercase() || c == '_' || c.is_ascii_digit()),
+                "ErrorCode::{:?}.as_str() = {:?} is not snake_case",
+                code,
+                s
+            );
+        }
+    }
+
+    #[test]
+    fn error_code_category_returns_valid_category() {
+        assert_eq!(ErrorCode::BackendTimeout.category(), ErrorCategory::Backend);
+        assert_eq!(ErrorCode::PolicyDenied.category(), ErrorCategory::Policy);
+        assert_eq!(ErrorCode::Internal.category(), ErrorCategory::Internal);
+        assert_eq!(
+            ErrorCode::ProtocolInvalidEnvelope.category(),
+            ErrorCategory::Protocol
+        );
+    }
+
+    #[test]
+    fn error_code_message_returns_nonempty_string() {
+        let code = ErrorCode::BackendTimeout;
+        let msg = code.message();
+        assert!(!msg.is_empty());
+    }
+
+    #[test]
+    fn error_code_is_retryable_for_transient_errors() {
+        assert!(ErrorCode::BackendTimeout.is_retryable());
+        assert!(ErrorCode::BackendUnavailable.is_retryable());
+        assert!(ErrorCode::BackendRateLimited.is_retryable());
+        assert!(!ErrorCode::PolicyDenied.is_retryable());
+        assert!(!ErrorCode::Internal.is_retryable());
+    }
+
+    // ── AbpError methods ───────────────────────────────────────────────
+
+    #[test]
+    fn abp_error_new_creates_valid_error() {
+        let err = AbpError::new(ErrorCode::Internal, "something broke");
+        assert_eq!(err.code, ErrorCode::Internal);
+        assert_eq!(err.message, "something broke");
+        assert!(err.source.is_none());
+        assert!(err.context.is_empty());
+    }
+
+    #[test]
+    fn abp_error_with_context_adds_context() {
+        let err = AbpError::new(ErrorCode::BackendTimeout, "timed out")
+            .with_context("backend", "openai")
+            .with_context("timeout_ms", 30_000);
+        assert_eq!(err.context.len(), 2);
+        assert!(err.context.contains_key("backend"));
+        assert!(err.context.contains_key("timeout_ms"));
+    }
+
+    #[test]
+    fn abp_error_with_source_adds_source_chain() {
+        let inner = std::io::Error::new(std::io::ErrorKind::TimedOut, "network timeout");
+        let err = AbpError::new(ErrorCode::BackendTimeout, "timed out").with_source(inner);
+        assert!(err.source.is_some());
+        let source = std::error::Error::source(&err);
+        assert!(source.is_some());
+    }
+
+    #[test]
+    fn abp_error_to_info_preserves_fields() {
+        let err = AbpError::new(ErrorCode::BackendTimeout, "timed out").with_context("k", "v");
+        let info = err.to_info();
+        assert_eq!(info.code, ErrorCode::BackendTimeout);
+        assert_eq!(info.message, "timed out");
+        assert_eq!(info.details.len(), 1);
+        assert!(info.is_retryable);
+    }
+
+    // ── canonical_json / sha256_hex ────────────────────────────────────
+
+    #[test]
+    fn canonical_json_sorts_keys() {
+        let json = canonical_json(&serde_json::json!({"b": 2, "a": 1})).unwrap();
+        assert!(json.starts_with(r#"{"a":1"#));
+    }
+
+    #[test]
+    fn sha256_hex_returns_64_char_hex() {
+        let hex = sha256_hex(b"hello");
+        assert_eq!(hex.len(), 64);
+        assert!(hex.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    // ── SupportLevel ───────────────────────────────────────────────────
+
+    #[test]
+    fn support_level_satisfies_logic() {
+        assert!(SupportLevel::Native.satisfies(&MinSupport::Native));
+        assert!(SupportLevel::Native.satisfies(&MinSupport::Emulated));
+        assert!(!SupportLevel::Emulated.satisfies(&MinSupport::Native));
+        assert!(SupportLevel::Emulated.satisfies(&MinSupport::Emulated));
+        assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
+    }
+
+    // ── Protocol version parsing ───────────────────────────────────────
+
+    #[test]
+    fn parse_version_valid() {
+        assert_eq!(abp_protocol::parse_version("abp/v0.1"), Some((0, 1)));
+        assert_eq!(abp_protocol::parse_version("abp/v2.3"), Some((2, 3)));
+    }
+
+    #[test]
+    fn parse_version_invalid_returns_none() {
+        assert_eq!(abp_protocol::parse_version("invalid"), None);
+        assert_eq!(abp_protocol::parse_version(""), None);
+    }
+
+    #[test]
+    fn is_compatible_version_same_major() {
+        assert!(abp_protocol::is_compatible_version("abp/v0.1", "abp/v0.2"));
+        assert!(!abp_protocol::is_compatible_version("abp/v1.0", "abp/v0.1"));
+    }
+}
+
+// ==========================================================================
+// 4. Enum exhaustiveness — verify all expected variants exist
+// ==========================================================================
+
+mod enum_exhaustiveness {
+    use abp_core::*;
+    use abp_error::{ErrorCategory, ErrorCode};
+
+    #[test]
+    fn agent_event_kind_has_run_started() {
+        let _ = AgentEventKind::RunStarted {
+            message: String::new(),
+        };
+    }
+
+    #[test]
+    fn agent_event_kind_has_run_completed() {
+        let _ = AgentEventKind::RunCompleted {
+            message: String::new(),
+        };
+    }
+
+    #[test]
+    fn agent_event_kind_has_assistant_delta() {
+        let _ = AgentEventKind::AssistantDelta {
+            text: String::new(),
+        };
+    }
+
+    #[test]
+    fn agent_event_kind_has_assistant_message() {
+        let _ = AgentEventKind::AssistantMessage {
+            text: String::new(),
+        };
+    }
+
+    #[test]
+    fn agent_event_kind_has_tool_call() {
+        let _ = AgentEventKind::ToolCall {
+            tool_name: String::new(),
+            tool_use_id: None,
+            parent_tool_use_id: None,
+            input: serde_json::json!({}),
+        };
+    }
+
+    #[test]
+    fn agent_event_kind_has_tool_result() {
+        let _ = AgentEventKind::ToolResult {
+            tool_name: String::new(),
+            tool_use_id: None,
+            output: serde_json::json!({}),
+            is_error: false,
+        };
+    }
+
+    #[test]
+    fn agent_event_kind_has_file_changed() {
+        let _ = AgentEventKind::FileChanged {
+            path: String::new(),
+            summary: String::new(),
+        };
+    }
+
+    #[test]
+    fn agent_event_kind_has_command_executed() {
+        let _ = AgentEventKind::CommandExecuted {
+            command: String::new(),
+            exit_code: None,
+            output_preview: None,
+        };
+    }
+
+    #[test]
+    fn agent_event_kind_has_warning() {
+        let _ = AgentEventKind::Warning {
+            message: String::new(),
+        };
+    }
+
+    #[test]
+    fn agent_event_kind_has_error() {
+        let _ = AgentEventKind::Error {
+            message: String::new(),
+            error_code: None,
+        };
+    }
+
+    #[test]
+    fn outcome_has_all_expected_variants() {
+        let _ = Outcome::Complete;
+        let _ = Outcome::Partial;
+        let _ = Outcome::Failed;
+    }
+
+    #[test]
+    fn execution_lane_has_all_expected_variants() {
+        let _ = ExecutionLane::PatchFirst;
+        let _ = ExecutionLane::WorkspaceFirst;
+    }
+
+    #[test]
+    fn execution_mode_has_all_expected_variants() {
+        let _ = ExecutionMode::Passthrough;
+        let _ = ExecutionMode::Mapped;
+    }
+
+    #[test]
+    fn support_level_has_all_expected_variants() {
+        let _ = SupportLevel::Native;
+        let _ = SupportLevel::Emulated;
+        let _ = SupportLevel::Unsupported;
+        let _ = SupportLevel::Restricted {
+            reason: String::new(),
+        };
+    }
+
+    #[test]
+    fn workspace_mode_has_all_expected_variants() {
+        let _ = WorkspaceMode::PassThrough;
+        let _ = WorkspaceMode::Staged;
+    }
+
+    #[test]
+    fn min_support_has_all_expected_variants() {
+        let _ = MinSupport::Native;
+        let _ = MinSupport::Emulated;
+    }
+
+    #[test]
+    fn capability_has_streaming_and_tool_variants() {
+        let _ = Capability::Streaming;
+        let _ = Capability::ToolRead;
+        let _ = Capability::ToolWrite;
+        let _ = Capability::ToolEdit;
+        let _ = Capability::ToolBash;
+        let _ = Capability::ToolGlob;
+        let _ = Capability::ToolGrep;
+        let _ = Capability::ToolWebSearch;
+        let _ = Capability::ToolWebFetch;
+        let _ = Capability::ToolAskUser;
+    }
+
+    #[test]
+    fn capability_has_hooks_and_session_variants() {
+        let _ = Capability::HooksPreToolUse;
+        let _ = Capability::HooksPostToolUse;
+        let _ = Capability::SessionResume;
+        let _ = Capability::SessionFork;
+        let _ = Capability::Checkpointing;
+    }
+
+    #[test]
+    fn capability_has_mcp_and_generic_variants() {
+        let _ = Capability::McpClient;
+        let _ = Capability::McpServer;
+        let _ = Capability::ToolUse;
+        let _ = Capability::ExtendedThinking;
+        let _ = Capability::ImageInput;
+        let _ = Capability::PdfInput;
+        let _ = Capability::CodeExecution;
+    }
+
+    #[test]
+    fn capability_has_params_variants() {
+        let _ = Capability::Temperature;
+        let _ = Capability::TopP;
+        let _ = Capability::TopK;
+        let _ = Capability::MaxTokens;
+        let _ = Capability::FrequencyPenalty;
+        let _ = Capability::PresencePenalty;
+    }
+
+    #[test]
+    fn capability_has_legacy_and_advanced_variants() {
+        let _ = Capability::FunctionCalling;
+        let _ = Capability::Vision;
+        let _ = Capability::Audio;
+        let _ = Capability::JsonMode;
+        let _ = Capability::SystemMessage;
+        let _ = Capability::CacheControl;
+        let _ = Capability::BatchMode;
+        let _ = Capability::Embeddings;
+        let _ = Capability::ImageGeneration;
+        let _ = Capability::Logprobs;
+        let _ = Capability::SeedDeterminism;
+        let _ = Capability::StopSequences;
+        let _ = Capability::StructuredOutputJsonSchema;
+    }
+
+    // ── ErrorCode variants ─────────────────────────────────────────────
+
+    #[test]
+    fn error_code_has_protocol_variants() {
+        let _ = ErrorCode::ProtocolInvalidEnvelope;
+        let _ = ErrorCode::ProtocolHandshakeFailed;
+        let _ = ErrorCode::ProtocolMissingRefId;
+        let _ = ErrorCode::ProtocolUnexpectedMessage;
+        let _ = ErrorCode::ProtocolVersionMismatch;
+    }
+
+    #[test]
+    fn error_code_has_mapping_variants() {
+        let _ = ErrorCode::MappingUnsupportedCapability;
+        let _ = ErrorCode::MappingDialectMismatch;
+        let _ = ErrorCode::MappingLossyConversion;
+        let _ = ErrorCode::MappingUnmappableTool;
+    }
+
+    #[test]
+    fn error_code_has_backend_variants() {
+        let _ = ErrorCode::BackendNotFound;
+        let _ = ErrorCode::BackendUnavailable;
+        let _ = ErrorCode::BackendTimeout;
+        let _ = ErrorCode::BackendRateLimited;
+        let _ = ErrorCode::BackendAuthFailed;
+        let _ = ErrorCode::BackendModelNotFound;
+        let _ = ErrorCode::BackendCrashed;
+    }
+
+    #[test]
+    fn error_code_has_execution_variants() {
+        let _ = ErrorCode::ExecutionToolFailed;
+        let _ = ErrorCode::ExecutionWorkspaceError;
+        let _ = ErrorCode::ExecutionPermissionDenied;
+    }
+
+    #[test]
+    fn error_code_has_contract_variants() {
+        let _ = ErrorCode::ContractVersionMismatch;
+        let _ = ErrorCode::ContractSchemaViolation;
+        let _ = ErrorCode::ContractInvalidReceipt;
+    }
+
+    #[test]
+    fn error_code_has_capability_policy_workspace_variants() {
+        let _ = ErrorCode::CapabilityUnsupported;
+        let _ = ErrorCode::CapabilityEmulationFailed;
+        let _ = ErrorCode::PolicyDenied;
+        let _ = ErrorCode::PolicyInvalid;
+        let _ = ErrorCode::WorkspaceInitFailed;
+        let _ = ErrorCode::WorkspaceStagingFailed;
+    }
+
+    #[test]
+    fn error_code_has_ir_receipt_dialect_config_internal() {
+        let _ = ErrorCode::IrLoweringFailed;
+        let _ = ErrorCode::IrInvalid;
+        let _ = ErrorCode::ReceiptHashMismatch;
+        let _ = ErrorCode::ReceiptChainBroken;
+        let _ = ErrorCode::DialectUnknown;
+        let _ = ErrorCode::DialectMappingFailed;
+        let _ = ErrorCode::ConfigInvalid;
+        let _ = ErrorCode::Internal;
+    }
+
+    #[test]
+    fn error_category_has_all_expected_variants() {
+        let _ = ErrorCategory::Protocol;
+        let _ = ErrorCategory::Backend;
+        let _ = ErrorCategory::Capability;
+        let _ = ErrorCategory::Policy;
+        let _ = ErrorCategory::Workspace;
+        let _ = ErrorCategory::Ir;
+        let _ = ErrorCategory::Receipt;
+        let _ = ErrorCategory::Dialect;
+        let _ = ErrorCategory::Config;
+        let _ = ErrorCategory::Mapping;
+        let _ = ErrorCategory::Execution;
+        let _ = ErrorCategory::Contract;
+        let _ = ErrorCategory::Internal;
+    }
+
+    #[test]
+    fn dialect_has_all_expected_variants() {
+        let _ = abp_dialect::Dialect::OpenAi;
+        let _ = abp_dialect::Dialect::Claude;
+        let _ = abp_dialect::Dialect::Gemini;
+        let _ = abp_dialect::Dialect::Codex;
+        let _ = abp_dialect::Dialect::Kimi;
+        let _ = abp_dialect::Dialect::Copilot;
+    }
+
+    #[test]
+    fn ir_role_has_all_expected_variants() {
+        use abp_core::ir::*;
+        let _ = IrRole::System;
+        let _ = IrRole::User;
+        let _ = IrRole::Assistant;
+        let _ = IrRole::Tool;
+    }
+
+    #[test]
+    fn ir_content_block_has_all_expected_variants() {
+        use abp_core::ir::*;
+        let _ = IrContentBlock::Text {
+            text: String::new(),
+        };
+        let _ = IrContentBlock::Image {
+            media_type: String::new(),
+            data: String::new(),
+        };
+        let _ = IrContentBlock::ToolUse {
+            id: String::new(),
+            name: String::new(),
+            input: serde_json::json!({}),
+        };
+        let _ = IrContentBlock::ToolResult {
+            tool_use_id: String::new(),
+            content: vec![],
+            is_error: false,
+        };
+        let _ = IrContentBlock::Thinking {
+            text: String::new(),
+        };
+    }
+}
+
+// ==========================================================================
+// 5. Re-exports and module structure
+// ==========================================================================
+
+mod reexports {
+    #[test]
+    fn abp_core_exports_contract_version() {
+        let _ = abp_core::CONTRACT_VERSION;
+    }
+
+    #[test]
+    fn abp_core_exports_work_order() {
+        let _: Option<abp_core::WorkOrder> = None;
+    }
+
+    #[test]
+    fn abp_core_exports_receipt() {
+        let _: Option<abp_core::Receipt> = None;
+    }
+
+    #[test]
+    fn abp_core_exports_agent_event() {
+        let _: Option<abp_core::AgentEvent> = None;
+    }
+
+    #[test]
+    fn abp_core_exports_all_builders() {
+        let _: Option<abp_core::WorkOrderBuilder> = None;
+        let _: Option<abp_core::ReceiptBuilder> = None;
+    }
+
+    #[test]
+    fn abp_core_exports_all_enums() {
+        let _: Option<abp_core::ExecutionLane> = None;
+        let _: Option<abp_core::Outcome> = None;
+        let _: Option<abp_core::Capability> = None;
+        let _: Option<abp_core::SupportLevel> = None;
+        let _: Option<abp_core::ExecutionMode> = None;
+        let _: Option<abp_core::MinSupport> = None;
+        let _: Option<abp_core::WorkspaceMode> = None;
+    }
+
+    #[test]
+    fn abp_core_exports_all_structs() {
+        let _: Option<abp_core::BackendIdentity> = None;
+        let _: Option<abp_core::RuntimeConfig> = None;
+        let _: Option<abp_core::PolicyProfile> = None;
+        let _: Option<abp_core::CapabilityRequirements> = None;
+        let _: Option<abp_core::ContextPacket> = None;
+        let _: Option<abp_core::WorkspaceSpec> = None;
+        let _: Option<abp_core::RunMetadata> = None;
+        let _: Option<abp_core::UsageNormalized> = None;
+        let _: Option<abp_core::VerificationReport> = None;
+        let _: Option<abp_core::ArtifactRef> = None;
+        let _: Option<abp_core::ContextSnippet> = None;
+        let _: Option<abp_core::CapabilityRequirement> = None;
+    }
+
+    #[test]
+    fn abp_core_exports_capability_manifest_type_alias() {
+        let _: abp_core::CapabilityManifest = std::collections::BTreeMap::new();
+    }
+
+    #[test]
+    fn abp_core_exports_functions() {
+        let _ = abp_core::canonical_json as fn(&serde_json::Value) -> _;
+        let _ = abp_core::sha256_hex as fn(&[u8]) -> String;
+        let _ = abp_core::receipt_hash as fn(&abp_core::Receipt) -> _;
+    }
+
+    #[test]
+    fn abp_core_exports_ir_module() {
+        let _: Option<abp_core::ir::IrRole> = None;
+        let _: Option<abp_core::ir::IrContentBlock> = None;
+        let _: Option<abp_core::ir::IrMessage> = None;
+        let _: Option<abp_core::ir::IrToolDefinition> = None;
+    }
+
+    #[test]
+    fn abp_protocol_exports_envelope() {
+        let _: Option<abp_protocol::Envelope> = None;
+    }
+
+    #[test]
+    fn abp_protocol_exports_jsonl_codec() {
+        let _: Option<abp_protocol::JsonlCodec> = None;
+    }
+
+    #[test]
+    fn abp_protocol_exports_protocol_error() {
+        let _: Option<abp_protocol::ProtocolError> = None;
+    }
+
+    #[test]
+    fn abp_protocol_exports_version_functions() {
+        let _ = abp_protocol::parse_version as fn(&str) -> Option<(u32, u32)>;
+        let _ = abp_protocol::is_compatible_version as fn(&str, &str) -> bool;
+    }
+
+    #[test]
+    fn abp_integrations_exports_backend_trait() {
+        fn assert_backend_trait_exists<T: abp_integrations::Backend>() {}
+    }
+
+    #[test]
+    fn abp_integrations_exports_mock_backend() {
+        let _: Option<abp_integrations::MockBackend> = None;
+    }
+
+    #[test]
+    fn abp_integrations_exports_sidecar_backend() {
+        let _: Option<abp_integrations::SidecarBackend> = None;
+    }
+
+    #[test]
+    fn abp_error_exports_core_types() {
+        let _: Option<abp_error::AbpError> = None;
+        let _: Option<abp_error::ErrorCode> = None;
+        let _: Option<abp_error::ErrorInfo> = None;
+        let _: Option<abp_error::ErrorCategory> = None;
+    }
+
+    #[test]
+    fn abp_receipt_reexports_core_receipt() {
+        let _: Option<abp_receipt::Receipt> = None;
+        let _: Option<abp_receipt::Outcome> = None;
+        let _: Option<abp_receipt::ReceiptBuilder> = None;
+    }
+
+    #[test]
+    fn abp_receipt_exports_own_functions() {
+        let _ = abp_receipt::canonicalize as fn(&abp_core::Receipt) -> _;
+        let _ = abp_receipt::compute_hash as fn(&abp_core::Receipt) -> _;
+        let _ = abp_receipt::verify_hash as fn(&abp_core::Receipt) -> bool;
+    }
+
+    #[test]
+    fn abp_ir_reexports_core_ir_types() {
+        let _: Option<abp_ir::IrRole> = None;
+        let _: Option<abp_ir::IrContentBlock> = None;
+        let _: Option<abp_ir::IrMessage> = None;
+    }
+
+    #[test]
+    fn abp_dialect_exports_dialect_enum() {
+        let _: Option<abp_dialect::Dialect> = None;
+    }
+
+    #[test]
+    fn abp_policy_exports_engine_and_decision() {
+        let _: Option<abp_policy::PolicyEngine> = None;
+        let _: Option<abp_policy::Decision> = None;
+    }
+
+    #[test]
+    fn abp_glob_exports_match_types() {
+        let _: Option<abp_glob::IncludeExcludeGlobs> = None;
+        let _: Option<abp_glob::MatchDecision> = None;
+    }
+
+    #[test]
+    fn abp_config_exports_config_types() {
+        let _: Option<abp_config::BackplaneConfig> = None;
+        let _: Option<abp_config::BackendEntry> = None;
+        let _: Option<abp_config::ConfigError> = None;
+        let _: Option<abp_config::ConfigWarning> = None;
+    }
+
+    #[test]
+    fn abp_capability_exports_negotiation_types() {
+        let _: Option<abp_capability::NegotiationResult> = None;
+        let _: Option<abp_capability::CompatibilityReport> = None;
+        let _: Option<abp_capability::SupportLevel> = None;
+        let _: Option<abp_capability::EmulationStrategy> = None;
+        let _: Option<abp_capability::CapabilityRegistry> = None;
+    }
+
+    #[test]
+    fn abp_validate_crate_has_validator_types() {
+        // abp-validate exports validation types; verified via abp_core::validate module
+        let _: Option<abp_core::ContractError> = None;
+    }
+
+    #[test]
+    fn abp_mapping_exports_error_and_fidelity() {
+        let _: Option<abp_mapping::MappingError> = None;
+        let _: Option<abp_mapping::Fidelity> = None;
+    }
+
+    #[test]
+    fn abp_projection_exports_matrix_types() {
+        let _: Option<abp_projection::ProjectionError> = None;
+        let _: Option<abp_projection::BackendEntry> = None;
+        let _: Option<abp_projection::ProjectionScore> = None;
+    }
+}
+
+// ==========================================================================
+// 6. Version and contract stability
+// ==========================================================================
+
+mod version_and_contract {
+    use abp_core::*;
+    use abp_protocol::{Envelope, JsonlCodec};
+
+    #[test]
+    fn contract_version_is_abp_v01() {
+        assert_eq!(CONTRACT_VERSION, "abp/v0.1");
+    }
+
+    #[test]
+    fn contract_version_starts_with_abp() {
+        assert!(CONTRACT_VERSION.starts_with("abp/"));
+    }
+
+    #[test]
+    fn envelope_tag_uses_t_discriminator() {
         let env = Envelope::Fatal {
             ref_id: None,
             error: "test".into(),
             error_code: None,
         };
-        let mut buf = Vec::new();
-        JsonlCodec::encode_to_writer(&mut buf, &env).unwrap();
-        assert!(!buf.is_empty());
+        let json = serde_json::to_string(&env).unwrap();
+        assert!(
+            json.contains("\"t\":"),
+            "Envelope should use 't' as tag discriminator, got: {json}"
+        );
     }
 
     #[test]
-    fn jsonl_codec_encode_many_to_writer() {
-        let envs = vec![
-            Envelope::Fatal {
-                ref_id: None,
-                error: "a".into(),
-                error_code: None,
-            },
-            Envelope::Fatal {
-                ref_id: None,
-                error: "b".into(),
-                error_code: None,
-            },
-        ];
-        let mut buf = Vec::new();
-        JsonlCodec::encode_many_to_writer(&mut buf, &envs).unwrap();
-        let content = String::from_utf8(buf).unwrap();
-        assert_eq!(content.lines().count(), 2);
+    fn agent_event_kind_uses_type_discriminator() {
+        let kind = AgentEventKind::Warning {
+            message: "test".into(),
+        };
+        let json = serde_json::to_string(&kind).unwrap();
+        assert!(
+            json.contains("\"type\":"),
+            "AgentEventKind should use 'type' as tag, got: {json}"
+        );
     }
 
     #[test]
-    fn jsonl_codec_decode_stream() {
-        use std::io::BufReader;
-        let input = r#"{"t":"fatal","ref_id":null,"error":"x"}
-{"t":"fatal","ref_id":null,"error":"y"}
-"#;
-        let reader = BufReader::new(input.as_bytes());
-        let envs: Vec<_> = JsonlCodec::decode_stream(reader)
-            .collect::<Result<Vec<_>, _>>()
+    fn outcome_serializes_as_snake_case() {
+        let json = serde_json::to_string(&Outcome::Complete).unwrap();
+        assert_eq!(json, "\"complete\"");
+        let json = serde_json::to_string(&Outcome::Partial).unwrap();
+        assert_eq!(json, "\"partial\"");
+        let json = serde_json::to_string(&Outcome::Failed).unwrap();
+        assert_eq!(json, "\"failed\"");
+    }
+
+    #[test]
+    fn execution_lane_serializes_as_snake_case() {
+        let json = serde_json::to_string(&ExecutionLane::PatchFirst).unwrap();
+        assert_eq!(json, "\"patch_first\"");
+        let json = serde_json::to_string(&ExecutionLane::WorkspaceFirst).unwrap();
+        assert_eq!(json, "\"workspace_first\"");
+    }
+
+    #[test]
+    fn execution_mode_serializes_as_snake_case() {
+        let json = serde_json::to_string(&ExecutionMode::Passthrough).unwrap();
+        assert_eq!(json, "\"passthrough\"");
+        let json = serde_json::to_string(&ExecutionMode::Mapped).unwrap();
+        assert_eq!(json, "\"mapped\"");
+    }
+
+    #[test]
+    fn capability_serializes_as_snake_case() {
+        let json = serde_json::to_string(&Capability::ToolRead).unwrap();
+        assert_eq!(json, "\"tool_read\"");
+        let json = serde_json::to_string(&Capability::ExtendedThinking).unwrap();
+        assert_eq!(json, "\"extended_thinking\"");
+    }
+
+    #[test]
+    fn support_level_serializes_as_snake_case() {
+        let json = serde_json::to_string(&SupportLevel::Native).unwrap();
+        assert_eq!(json, "\"native\"");
+        let json = serde_json::to_string(&SupportLevel::Emulated).unwrap();
+        assert_eq!(json, "\"emulated\"");
+    }
+
+    #[test]
+    fn agent_event_kind_variant_names_are_snake_case() {
+        let kind = AgentEventKind::RunStarted {
+            message: "hi".into(),
+        };
+        let json = serde_json::to_string(&kind).unwrap();
+        assert!(json.contains("\"type\":\"run_started\""), "got: {json}");
+
+        let kind = AgentEventKind::ToolCall {
+            tool_name: "t".into(),
+            tool_use_id: None,
+            parent_tool_use_id: None,
+            input: serde_json::json!({}),
+        };
+        let json = serde_json::to_string(&kind).unwrap();
+        assert!(json.contains("\"type\":\"tool_call\""), "got: {json}");
+    }
+
+    #[test]
+    fn error_code_serializes_as_snake_case() {
+        use abp_error::ErrorCode;
+        let json = serde_json::to_string(&ErrorCode::BackendTimeout).unwrap();
+        assert_eq!(json, "\"backend_timeout\"");
+        let json = serde_json::to_string(&ErrorCode::ProtocolInvalidEnvelope).unwrap();
+        assert_eq!(json, "\"protocol_invalid_envelope\"");
+    }
+
+    #[test]
+    fn json_schema_generation_works_for_work_order() {
+        let schema = schemars::schema_for!(WorkOrder);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("WorkOrder") || json.contains("properties"));
+    }
+
+    #[test]
+    fn json_schema_generation_works_for_receipt() {
+        let schema = schemars::schema_for!(Receipt);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(!json.is_empty());
+    }
+
+    #[test]
+    fn json_schema_generation_works_for_agent_event() {
+        let schema = schemars::schema_for!(AgentEvent);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(!json.is_empty());
+    }
+
+    #[test]
+    fn work_order_serde_roundtrip() {
+        let wo = WorkOrderBuilder::new("test task")
+            .lane(ExecutionLane::WorkspaceFirst)
+            .model("gpt-4")
+            .max_turns(10)
+            .build();
+        let json = serde_json::to_string(&wo).unwrap();
+        let deserialized: WorkOrder = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.task, "test task");
+        assert_eq!(deserialized.config.model.as_deref(), Some("gpt-4"));
+        assert_eq!(deserialized.config.max_turns, Some(10));
+    }
+
+    #[test]
+    fn receipt_serde_roundtrip() {
+        let r = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Failed)
+            .build()
+            .with_hash()
             .unwrap();
-        assert_eq!(envs.len(), 2);
-    }
-}
-
-// ==========================================================================
-// 13. abp-protocol — Envelope variant exhaustiveness
-// ==========================================================================
-
-mod protocol_enum_variants {
-    use abp_protocol::Envelope;
-
-    #[test]
-    fn envelope_exhaustive() {
-        let fatal = Envelope::Fatal {
-            ref_id: None,
-            error: "e".into(),
-            error_code: None,
-        };
-        match &fatal {
-            Envelope::Hello { .. } => {}
-            Envelope::Run { .. } => {}
-            Envelope::Event { .. } => {}
-            Envelope::Final { .. } => {}
-            Envelope::Fatal { .. } => {}
-        }
-    }
-}
-
-// ==========================================================================
-// 14. abp-protocol — ProtocolError variant exhaustiveness and std::error::Error
-// ==========================================================================
-
-mod protocol_errors {
-    use abp_protocol::ProtocolError;
-
-    #[test]
-    fn protocol_error_is_std_error() {
-        fn assert_error<T: std::error::Error>() {}
-        assert_error::<ProtocolError>();
-    }
-
-    #[test]
-    fn protocol_error_json_variant() {
-        let err = abp_protocol::JsonlCodec::decode("not json").unwrap_err();
-        assert!(matches!(err, ProtocolError::Json(_)));
-    }
-
-    #[test]
-    fn protocol_error_violation_variant() {
-        let err = ProtocolError::Violation("test".into());
-        assert!(err.to_string().contains("test"));
-        assert!(err.error_code().is_some());
-    }
-
-    #[test]
-    fn protocol_error_unexpected_message_variant() {
-        let err = ProtocolError::UnexpectedMessage {
-            expected: "hello".into(),
-            got: "fatal".into(),
-        };
-        assert!(err.to_string().contains("hello"));
-        assert!(err.error_code().is_some());
-    }
-
-    #[test]
-    fn protocol_error_error_code_method() {
-        let err = ProtocolError::Violation("v".into());
-        assert!(err.error_code().is_some());
-    }
-}
-
-// ==========================================================================
-// 15. abp-protocol — free functions
-// ==========================================================================
-
-mod protocol_functions {
-    use abp_protocol::{is_compatible_version, parse_version};
-
-    #[test]
-    fn parse_version_valid() {
-        assert_eq!(parse_version("abp/v0.1"), Some((0, 1)));
-        assert_eq!(parse_version("abp/v2.3"), Some((2, 3)));
-    }
-
-    #[test]
-    fn parse_version_invalid() {
-        assert_eq!(parse_version("invalid"), None);
-        assert_eq!(parse_version("abp/v"), None);
-    }
-
-    #[test]
-    fn is_compatible_version_same_major() {
-        assert!(is_compatible_version("abp/v0.1", "abp/v0.2"));
-    }
-
-    #[test]
-    fn is_compatible_version_different_major() {
-        assert!(!is_compatible_version("abp/v1.0", "abp/v0.1"));
-    }
-}
-
-// ==========================================================================
-// 16. abp-protocol — trait implementations
-// ==========================================================================
-
-mod protocol_traits {
-    use abp_protocol::{Envelope, JsonlCodec};
-
-    #[test]
-    fn envelope_clone_debug_serde() {
-        let env = Envelope::Fatal {
-            ref_id: None,
-            error: "e".into(),
-            error_code: None,
-        };
-        let cloned = env.clone();
-        let _ = format!("{:?}", cloned);
-        let json = serde_json::to_string(&cloned).unwrap();
-        let _: Envelope = serde_json::from_str(&json).unwrap();
-    }
-
-    #[test]
-    fn jsonl_codec_debug_clone_copy() {
-        let c = JsonlCodec;
-        let c2 = c;
-        let _ = format!("{:?}", c2);
-    }
-}
-
-// ==========================================================================
-// 17. abp-glob — public types accessible
-// ==========================================================================
-
-mod glob_types {
-    use abp_glob::{IncludeExcludeGlobs, MatchDecision};
-
-    #[test]
-    fn include_exclude_globs_is_nameable() {
-        let _: Option<IncludeExcludeGlobs> = None;
-    }
-
-    #[test]
-    fn match_decision_is_nameable() {
-        let _: Option<MatchDecision> = None;
-    }
-}
-
-// ==========================================================================
-// 18. abp-glob — constructors and methods
-// ==========================================================================
-
-mod glob_constructors {
-    use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
-    use std::path::Path;
-
-    #[test]
-    fn new_empty() {
-        let g = IncludeExcludeGlobs::new(&[], &[]).unwrap();
-        assert_eq!(g.decide_str("anything"), MatchDecision::Allowed);
-    }
-
-    #[test]
-    fn decide_str_include() {
-        let g = IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
-        assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::Allowed);
-        assert_eq!(
-            g.decide_str("README.md"),
-            MatchDecision::DeniedByMissingInclude
-        );
-    }
-
-    #[test]
-    fn decide_str_exclude() {
-        let g = IncludeExcludeGlobs::new(&[], &["*.log".into()]).unwrap();
-        assert_eq!(g.decide_str("app.log"), MatchDecision::DeniedByExclude);
-        assert_eq!(g.decide_str("main.rs"), MatchDecision::Allowed);
-    }
-
-    #[test]
-    fn decide_path_works() {
-        let g = IncludeExcludeGlobs::new(&["src/**".into()], &[]).unwrap();
-        assert_eq!(
-            g.decide_path(Path::new("src/main.rs")),
-            MatchDecision::Allowed
-        );
-    }
-
-    #[test]
-    fn build_globset_empty_returns_none() {
-        assert!(build_globset(&[]).unwrap().is_none());
-    }
-
-    #[test]
-    fn build_globset_non_empty_returns_some() {
-        let set = build_globset(&["*.rs".into()]).unwrap();
-        assert!(set.is_some());
-    }
-}
-
-// ==========================================================================
-// 19. abp-glob — enum variant exhaustiveness and traits
-// ==========================================================================
-
-mod glob_enum_variants {
-    use abp_glob::MatchDecision;
-
-    #[test]
-    fn match_decision_exhaustive() {
-        let decisions = [
-            MatchDecision::Allowed,
-            MatchDecision::DeniedByExclude,
-            MatchDecision::DeniedByMissingInclude,
-        ];
-        for d in &decisions {
-            match d {
-                MatchDecision::Allowed => {}
-                MatchDecision::DeniedByExclude => {}
-                MatchDecision::DeniedByMissingInclude => {}
-            }
-        }
-    }
-
-    #[test]
-    fn match_decision_is_allowed() {
-        assert!(MatchDecision::Allowed.is_allowed());
-        assert!(!MatchDecision::DeniedByExclude.is_allowed());
-        assert!(!MatchDecision::DeniedByMissingInclude.is_allowed());
-    }
-
-    #[test]
-    fn match_decision_partial_eq() {
-        assert_eq!(MatchDecision::Allowed, MatchDecision::Allowed);
-        assert_ne!(MatchDecision::Allowed, MatchDecision::DeniedByExclude);
-    }
-
-    #[test]
-    fn match_decision_clone_copy_debug() {
-        let d = MatchDecision::Allowed;
-        let d2 = d;
-        let _ = format!("{:?}", d2);
-    }
-}
-
-// ==========================================================================
-// 20. abp-policy — public types accessible
-// ==========================================================================
-
-mod policy_types {
-    use abp_policy::{Decision, PolicyEngine};
-
-    #[test]
-    fn decision_is_nameable() {
-        let _: Option<Decision> = None;
-    }
-
-    #[test]
-    fn policy_engine_is_nameable() {
-        let _: Option<PolicyEngine> = None;
-    }
-}
-
-// ==========================================================================
-// 21. abp-policy — constructors and methods
-// ==========================================================================
-
-mod policy_constructors {
-    use abp_core::PolicyProfile;
-    use abp_policy::{Decision, PolicyEngine};
-    use std::path::Path;
-
-    #[test]
-    fn decision_allow() {
-        let d = Decision::allow();
-        assert!(d.allowed);
-        assert!(d.reason.is_none());
-    }
-
-    #[test]
-    fn decision_deny() {
-        let d = Decision::deny("nope");
-        assert!(!d.allowed);
-        assert_eq!(d.reason.as_deref(), Some("nope"));
-    }
-
-    #[test]
-    fn policy_engine_new_default_policy() {
-        let engine = PolicyEngine::new(&PolicyProfile::default()).unwrap();
-        assert!(engine.can_use_tool("Bash").allowed);
-    }
-
-    #[test]
-    fn policy_engine_can_use_tool() {
-        let policy = PolicyProfile {
-            disallowed_tools: vec!["Bash".into()],
-            ..PolicyProfile::default()
-        };
-        let engine = PolicyEngine::new(&policy).unwrap();
-        assert!(!engine.can_use_tool("Bash").allowed);
-        assert!(engine.can_use_tool("Read").allowed);
-    }
-
-    #[test]
-    fn policy_engine_can_read_path() {
-        let policy = PolicyProfile {
-            deny_read: vec!["secret*".into()],
-            ..PolicyProfile::default()
-        };
-        let engine = PolicyEngine::new(&policy).unwrap();
-        assert!(!engine.can_read_path(Path::new("secret.txt")).allowed);
-        assert!(engine.can_read_path(Path::new("public.txt")).allowed);
-    }
-
-    #[test]
-    fn policy_engine_can_write_path() {
-        let policy = PolicyProfile {
-            deny_write: vec!["locked*".into()],
-            ..PolicyProfile::default()
-        };
-        let engine = PolicyEngine::new(&policy).unwrap();
-        assert!(!engine.can_write_path(Path::new("locked.md")).allowed);
-        assert!(engine.can_write_path(Path::new("open.md")).allowed);
-    }
-}
-
-// ==========================================================================
-// 22. abp-policy — trait implementations
-// ==========================================================================
-
-mod policy_traits {
-    use abp_policy::Decision;
-
-    #[test]
-    fn decision_clone_debug_serde() {
-        let d = Decision::deny("test");
-        let cloned = d.clone();
-        let _ = format!("{:?}", cloned);
-        let json = serde_json::to_string(&cloned).unwrap();
-        let back: Decision = serde_json::from_str(&json).unwrap();
-        assert!(!back.allowed);
-    }
-
-    #[test]
-    fn policy_engine_clone_debug() {
-        let engine = abp_policy::PolicyEngine::new(&abp_core::PolicyProfile::default()).unwrap();
-        let cloned = engine.clone();
-        let _ = format!("{:?}", cloned);
-    }
-}
-
-// ==========================================================================
-// 23. abp-dialect — public types accessible
-// ==========================================================================
-
-mod dialect_types {
-    use abp_dialect::{
-        DetectionResult, Dialect, DialectDetector, DialectValidator, ValidationError,
-        ValidationResult,
-    };
-
-    #[test]
-    fn dialect_is_nameable() {
-        let _: Option<Dialect> = None;
-    }
-
-    #[test]
-    fn detection_result_is_nameable() {
-        let _: Option<DetectionResult> = None;
-    }
-
-    #[test]
-    fn dialect_detector_is_nameable() {
-        let _: Option<DialectDetector> = None;
-    }
-
-    #[test]
-    fn dialect_validator_is_nameable() {
-        let _: Option<DialectValidator> = None;
-    }
-
-    #[test]
-    fn validation_error_is_nameable() {
-        let _: Option<ValidationError> = None;
-    }
-
-    #[test]
-    fn validation_result_is_nameable() {
-        let _: Option<ValidationResult> = None;
-    }
-}
-
-// ==========================================================================
-// 24. abp-dialect — enum variant exhaustiveness
-// ==========================================================================
-
-mod dialect_enum_variants {
-    use abp_dialect::Dialect;
-
-    #[test]
-    fn dialect_exhaustive() {
-        let dialects = [
-            Dialect::OpenAi,
-            Dialect::Claude,
-            Dialect::Gemini,
-            Dialect::Codex,
-            Dialect::Kimi,
-            Dialect::Copilot,
-        ];
-        for d in &dialects {
-            match d {
-                Dialect::OpenAi => {}
-                Dialect::Claude => {}
-                Dialect::Gemini => {}
-                Dialect::Codex => {}
-                Dialect::Kimi => {}
-                Dialect::Copilot => {}
-            }
-        }
-    }
-}
-
-// ==========================================================================
-// 25. abp-dialect — constructors and methods
-// ==========================================================================
-
-mod dialect_constructors {
-    use abp_dialect::{Dialect, DialectDetector, DialectValidator};
-
-    #[test]
-    fn dialect_label() {
-        assert_eq!(Dialect::OpenAi.label(), "OpenAI");
-        assert_eq!(Dialect::Claude.label(), "Claude");
-        assert_eq!(Dialect::Gemini.label(), "Gemini");
-        assert_eq!(Dialect::Codex.label(), "Codex");
-        assert_eq!(Dialect::Kimi.label(), "Kimi");
-        assert_eq!(Dialect::Copilot.label(), "Copilot");
-    }
-
-    #[test]
-    fn dialect_all() {
-        let all = Dialect::all();
-        assert_eq!(all.len(), 6);
-    }
-
-    #[test]
-    fn dialect_display() {
-        let s = format!("{}", Dialect::OpenAi);
-        assert_eq!(s, "OpenAI");
-    }
-
-    #[test]
-    fn dialect_detector_new() {
-        let d = DialectDetector::new();
-        let _ = format!("{:?}", d);
-    }
-
-    #[test]
-    fn dialect_detector_detect_openai() {
-        let detector = DialectDetector::new();
-        let val = serde_json::json!({
-            "model": "gpt-4",
-            "messages": [{"role": "user", "content": "hello"}],
-            "choices": []
-        });
-        let result = detector.detect(&val);
-        assert!(result.is_some());
-    }
-
-    #[test]
-    fn dialect_detector_detect_none_for_non_object() {
-        let detector = DialectDetector::new();
-        assert!(detector.detect(&serde_json::json!("string")).is_none());
-    }
-
-    #[test]
-    fn dialect_detector_detect_all() {
-        let detector = DialectDetector::new();
-        let val =
-            serde_json::json!({"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]});
-        let results = detector.detect_all(&val);
-        assert!(!results.is_empty());
-    }
-
-    #[test]
-    fn dialect_validator_new() {
-        let v = DialectValidator::new();
-        let _ = format!("{:?}", v);
-    }
-
-    #[test]
-    fn dialect_validator_validate() {
-        let v = DialectValidator::new();
-        let val =
-            serde_json::json!({"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]});
-        let result = v.validate(&val, abp_dialect::Dialect::OpenAi);
-        assert!(result.valid);
-    }
-
-    #[test]
-    fn dialect_validator_validate_invalid() {
-        let v = DialectValidator::new();
-        let result = v.validate(
-            &serde_json::json!("not an object"),
-            abp_dialect::Dialect::OpenAi,
-        );
-        assert!(!result.valid);
-        assert!(!result.errors.is_empty());
-    }
-}
-
-// ==========================================================================
-// 26. abp-dialect — trait implementations
-// ==========================================================================
-
-mod dialect_traits {
-    use abp_dialect::{Dialect, ValidationError};
-
-    #[test]
-    fn dialect_clone_copy_debug_hash_eq_serde() {
-        let d = Dialect::OpenAi;
-        let d2 = d;
-        assert_eq!(d, d2);
-        let _ = format!("{:?}", d2);
-        let json = serde_json::to_string(&d).unwrap();
-        let back: Dialect = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, d);
-    }
-
-    #[test]
-    fn dialect_hash() {
-        use std::collections::HashSet;
-        let mut set = HashSet::new();
-        set.insert(Dialect::OpenAi);
-        set.insert(Dialect::Claude);
-        assert_eq!(set.len(), 2);
-    }
-
-    #[test]
-    fn validation_error_is_std_error() {
-        fn assert_error<T: std::error::Error>() {}
-        assert_error::<ValidationError>();
-    }
-
-    #[test]
-    fn validation_error_display() {
-        let e = ValidationError {
-            path: "/model".into(),
-            message: "missing".into(),
-        };
-        let s = format!("{e}");
-        assert!(s.contains("/model"));
-        assert!(s.contains("missing"));
-    }
-}
-
-// ==========================================================================
-// 27. abp-mapping — public types accessible
-// ==========================================================================
-
-mod mapping_types {
-    use abp_mapping::{
-        Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
-    };
-
-    #[test]
-    fn fidelity_is_nameable() {
-        let _: Option<Fidelity> = None;
-    }
-
-    #[test]
-    fn mapping_error_is_nameable() {
-        let _: Option<MappingError> = None;
-    }
-
-    #[test]
-    fn mapping_registry_is_nameable() {
-        let _: Option<MappingRegistry> = None;
-    }
-
-    #[test]
-    fn mapping_rule_is_nameable() {
-        let _: Option<MappingRule> = None;
-    }
-
-    #[test]
-    fn mapping_matrix_is_nameable() {
-        let _: Option<MappingMatrix> = None;
-    }
-
-    #[test]
-    fn mapping_validation_is_nameable() {
-        let _: Option<MappingValidation> = None;
-    }
-}
-
-// ==========================================================================
-// 28. abp-mapping — constructors and methods
-// ==========================================================================
-
-mod mapping_constructors {
-    use abp_dialect::Dialect;
-    use abp_mapping::{
-        Fidelity, MappingMatrix, MappingRegistry, MappingRule, known_rules, validate_mapping,
-    };
-
-    #[test]
-    fn mapping_registry_new() {
-        let reg = MappingRegistry::new();
-        assert!(reg.is_empty());
-        assert_eq!(reg.len(), 0);
-    }
-
-    #[test]
-    fn mapping_registry_insert_and_lookup() {
-        let mut reg = MappingRegistry::new();
-        reg.insert(MappingRule {
-            source_dialect: Dialect::OpenAi,
-            target_dialect: Dialect::Claude,
-            feature: "tool_use".into(),
-            fidelity: Fidelity::Lossless,
-        });
-        assert_eq!(reg.len(), 1);
-        assert!(!reg.is_empty());
-        let rule = reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use");
-        assert!(rule.is_some());
-    }
-
-    #[test]
-    fn mapping_registry_iter() {
-        let mut reg = MappingRegistry::new();
-        reg.insert(MappingRule {
-            source_dialect: Dialect::OpenAi,
-            target_dialect: Dialect::Claude,
-            feature: "f".into(),
-            fidelity: Fidelity::Lossless,
-        });
-        assert_eq!(reg.iter().count(), 1);
-    }
-
-    #[test]
-    fn mapping_registry_rank_targets() {
-        let reg = known_rules();
-        let ranked = reg.rank_targets(Dialect::OpenAi, &["tool_use", "streaming"]);
-        assert!(!ranked.is_empty());
-    }
-
-    #[test]
-    fn mapping_matrix_new() {
-        let m = MappingMatrix::new();
-        assert!(!m.is_supported(Dialect::OpenAi, Dialect::Claude));
-    }
-
-    #[test]
-    fn mapping_matrix_set_get() {
-        let mut m = MappingMatrix::new();
-        m.set(Dialect::OpenAi, Dialect::Claude, true);
-        assert!(m.is_supported(Dialect::OpenAi, Dialect::Claude));
-        assert_eq!(m.get(Dialect::OpenAi, Dialect::Claude), Some(true));
-        assert_eq!(m.get(Dialect::Claude, Dialect::OpenAi), None);
-    }
-
-    #[test]
-    fn mapping_matrix_from_registry() {
-        let reg = known_rules();
-        let matrix = MappingMatrix::from_registry(&reg);
-        assert!(matrix.is_supported(Dialect::OpenAi, Dialect::Claude));
-    }
-
-    #[test]
-    fn known_rules_non_empty() {
-        let reg = known_rules();
-        assert!(!reg.is_empty());
-    }
-
-    #[test]
-    fn validate_mapping_returns_results() {
-        let reg = known_rules();
-        let results = validate_mapping(
-            &reg,
-            Dialect::OpenAi,
-            Dialect::Claude,
-            &["tool_use".into(), "streaming".into()],
-        );
-        assert_eq!(results.len(), 2);
-    }
-
-    #[test]
-    fn fidelity_is_lossless() {
-        assert!(Fidelity::Lossless.is_lossless());
-        assert!(!Fidelity::Unsupported { reason: "x".into() }.is_lossless());
-    }
-
-    #[test]
-    fn fidelity_is_unsupported() {
-        assert!(Fidelity::Unsupported { reason: "x".into() }.is_unsupported());
-        assert!(!Fidelity::Lossless.is_unsupported());
-    }
-}
-
-// ==========================================================================
-// 29. abp-mapping — enum variant exhaustiveness
-// ==========================================================================
-
-mod mapping_enum_variants {
-    use abp_dialect::Dialect;
-    use abp_mapping::{Fidelity, MappingError};
-
-    #[test]
-    fn fidelity_exhaustive() {
-        let variants = [
-            Fidelity::Lossless,
-            Fidelity::LossyLabeled {
-                warning: "w".into(),
-            },
-            Fidelity::Unsupported { reason: "r".into() },
-        ];
-        for v in &variants {
-            match v {
-                Fidelity::Lossless => {}
-                Fidelity::LossyLabeled { .. } => {}
-                Fidelity::Unsupported { .. } => {}
-            }
-        }
-    }
-
-    #[test]
-    fn mapping_error_exhaustive() {
-        let errs = [
-            MappingError::FeatureUnsupported {
-                feature: "f".into(),
-                from: Dialect::OpenAi,
-                to: Dialect::Claude,
-            },
-            MappingError::FidelityLoss {
-                feature: "f".into(),
-                warning: "w".into(),
-            },
-            MappingError::DialectMismatch {
-                from: Dialect::OpenAi,
-                to: Dialect::Claude,
-            },
-            MappingError::InvalidInput { reason: "r".into() },
-        ];
-        for e in &errs {
-            match e {
-                MappingError::FeatureUnsupported { .. } => {}
-                MappingError::FidelityLoss { .. } => {}
-                MappingError::DialectMismatch { .. } => {}
-                MappingError::InvalidInput { .. } => {}
-            }
-        }
-    }
-}
-
-// ==========================================================================
-// 30. abp-mapping — error type implements std::error::Error
-// ==========================================================================
-
-mod mapping_errors {
-    use abp_mapping::MappingError;
-
-    #[test]
-    fn mapping_error_is_std_error() {
-        fn assert_error<T: std::error::Error>() {}
-        assert_error::<MappingError>();
-    }
-
-    #[test]
-    fn mapping_error_display() {
-        let err = abp_mapping::MappingError::InvalidInput {
-            reason: "bad".into(),
-        };
-        let s = format!("{err}");
-        assert!(s.contains("bad"));
-    }
-}
-
-// ==========================================================================
-// 31. abp-mapping — trait implementations
-// ==========================================================================
-
-mod mapping_traits {
-    use abp_dialect::Dialect;
-    use abp_mapping::{Fidelity, MappingError, MappingRegistry, MappingRule};
-
-    #[test]
-    fn fidelity_clone_debug_eq_serde() {
-        let f = Fidelity::Lossless;
-        let cloned = f.clone();
-        assert_eq!(f, cloned);
-        let _ = format!("{:?}", cloned);
-        let json = serde_json::to_string(&f).unwrap();
-        let back: Fidelity = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, f);
-    }
-
-    #[test]
-    fn mapping_error_clone_debug_eq_serde() {
-        let e = MappingError::InvalidInput { reason: "x".into() };
-        let cloned = e.clone();
-        assert_eq!(e, cloned);
-        let _ = format!("{:?}", cloned);
-        let json = serde_json::to_string(&e).unwrap();
-        let back: MappingError = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, e);
-    }
-
-    #[test]
-    fn mapping_rule_clone_debug_eq_serde() {
-        let r = MappingRule {
-            source_dialect: Dialect::OpenAi,
-            target_dialect: Dialect::Claude,
-            feature: "f".into(),
-            fidelity: Fidelity::Lossless,
-        };
-        let cloned = r.clone();
-        assert_eq!(r, cloned);
-        let _ = format!("{:?}", cloned);
         let json = serde_json::to_string(&r).unwrap();
-        let back: MappingRule = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, r);
+        let deserialized: Receipt = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.outcome, Outcome::Failed);
+        assert!(deserialized.receipt_sha256.is_some());
     }
 
     #[test]
-    fn mapping_registry_clone_debug_default() {
-        let reg = MappingRegistry::default();
-        let cloned = reg.clone();
-        let _ = format!("{:?}", cloned);
+    fn receipt_builder_contract_version_matches_constant() {
+        let r = ReceiptBuilder::new("test").build();
+        assert_eq!(r.meta.contract_version, "abp/v0.1");
     }
 
     #[test]
-    fn mapping_matrix_clone_debug_default() {
-        let m = abp_mapping::MappingMatrix::default();
-        let cloned = m.clone();
-        let _ = format!("{:?}", cloned);
-    }
-}
-
-// ==========================================================================
-// 32. abp-mapping — features module constants
-// ==========================================================================
-
-mod mapping_features {
-    use abp_mapping::features;
-
-    #[test]
-    fn feature_constants_accessible() {
-        assert_eq!(features::TOOL_USE, "tool_use");
-        assert_eq!(features::STREAMING, "streaming");
-        assert_eq!(features::THINKING, "thinking");
-        assert_eq!(features::IMAGE_INPUT, "image_input");
-        assert_eq!(features::CODE_EXEC, "code_exec");
-    }
-}
-
-// ==========================================================================
-// 33. abp-capability — public types accessible
-// ==========================================================================
-
-mod capability_types {
-    use abp_capability::{CompatibilityReport, NegotiationResult, SupportLevel};
-
-    #[test]
-    fn support_level_is_nameable() {
-        let _: Option<SupportLevel> = None;
-    }
-
-    #[test]
-    fn negotiation_result_is_nameable() {
-        let _: Option<NegotiationResult> = None;
-    }
-
-    #[test]
-    fn compatibility_report_is_nameable() {
-        let _: Option<CompatibilityReport> = None;
-    }
-}
-
-// ==========================================================================
-// 34. abp-capability — constructors and methods
-// ==========================================================================
-
-mod capability_constructors {
-    use abp_capability::{
-        NegotiationResult, SupportLevel, check_capability, generate_report, negotiate,
-    };
-    use abp_core::{
-        Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
-        SupportLevel as CoreSupportLevel,
-    };
-
-    #[test]
-    fn check_capability_native() {
-        let mut m = CapabilityManifest::new();
-        m.insert(Capability::Streaming, CoreSupportLevel::Native);
-        assert_eq!(
-            check_capability(&m, &Capability::Streaming),
-            SupportLevel::Native
-        );
-    }
-
-    #[test]
-    fn check_capability_missing() {
-        let m = CapabilityManifest::new();
-        assert_eq!(
-            check_capability(&m, &Capability::Streaming),
-            SupportLevel::Unsupported {
-                reason: "not declared in manifest".into()
-            }
-        );
-    }
-
-    #[test]
-    fn negotiate_returns_result() {
-        let mut m = CapabilityManifest::new();
-        m.insert(Capability::Streaming, CoreSupportLevel::Native);
-        let reqs = CapabilityRequirements {
-            required: vec![CapabilityRequirement {
-                capability: Capability::Streaming,
-                min_support: MinSupport::Native,
-            }],
-        };
-        let result = negotiate(&m, &reqs);
-        assert!(result.is_compatible());
-        assert_eq!(result.total(), 1);
-    }
-
-    #[test]
-    fn negotiation_result_is_compatible() {
-        let r = NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
-        assert!(r.is_compatible());
-    }
-
-    #[test]
-    fn negotiation_result_total() {
-        let r = NegotiationResult::from_simple(
-            vec![Capability::Streaming],
-            vec![Capability::ToolRead],
-            vec![Capability::Logprobs],
-        );
-        assert_eq!(r.total(), 3);
-    }
-
-    #[test]
-    fn generate_report_compatible() {
-        let r = NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
-        let report = generate_report(&r);
-        assert!(report.compatible);
-        assert_eq!(report.native_count, 1);
-        assert!(report.summary.contains("fully compatible"));
-    }
-
-    #[test]
-    fn generate_report_incompatible() {
-        let r = NegotiationResult::from_simple(vec![], vec![], vec![Capability::Streaming]);
-        let report = generate_report(&r);
-        assert!(!report.compatible);
-        assert!(report.summary.contains("incompatible"));
-    }
-}
-
-// ==========================================================================
-// 35. abp-capability — enum variant exhaustiveness
-// ==========================================================================
-
-mod capability_enum_variants {
-    use abp_capability::SupportLevel;
-
-    #[test]
-    fn support_level_exhaustive() {
-        let levels = [
-            SupportLevel::Native,
-            SupportLevel::Emulated { method: "s".into() },
-            SupportLevel::Unsupported {
-                reason: "unsupported".into(),
+    fn hello_envelope_carries_contract_version() {
+        let env = Envelope::hello(
+            BackendIdentity {
+                id: "test".into(),
+                backend_version: None,
+                adapter_version: None,
             },
-        ];
-        for l in &levels {
-            match l {
-                SupportLevel::Native => {}
-                SupportLevel::Emulated { .. } => {}
-                SupportLevel::Unsupported { .. } => {}
-                SupportLevel::Restricted { .. } => {}
-            }
-        }
-    }
-}
-
-// ==========================================================================
-// 36. abp-capability — trait implementations
-// ==========================================================================
-
-mod capability_traits {
-    use abp_capability::{NegotiationResult, SupportLevel, generate_report};
-    use abp_core::Capability;
-
-    #[test]
-    fn support_level_clone_debug_eq_serde() {
-        let l = SupportLevel::Native;
-        let cloned = l.clone();
-        assert_eq!(l, cloned);
-        let _ = format!("{:?}", cloned);
-        let json = serde_json::to_string(&l).unwrap();
-        let back: SupportLevel = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, l);
+            CapabilityManifest::new(),
+        );
+        let json = serde_json::to_string(&env).unwrap();
+        assert!(json.contains("abp/v0.1"));
     }
 
     #[test]
-    fn negotiation_result_clone_debug_eq_serde() {
-        let r = NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
-        let cloned = r.clone();
-        assert_eq!(r, cloned);
-        let _ = format!("{:?}", cloned);
-        let json = serde_json::to_string(&r).unwrap();
-        let back: NegotiationResult = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, r);
+    fn dialect_serializes_as_snake_case() {
+        use abp_dialect::Dialect;
+        let json = serde_json::to_string(&Dialect::OpenAi).unwrap();
+        assert_eq!(json, "\"open_ai\"");
+        let json = serde_json::to_string(&Dialect::Claude).unwrap();
+        assert_eq!(json, "\"claude\"");
     }
 
     #[test]
-    fn compatibility_report_clone_debug_eq_serde() {
-        let r = NegotiationResult::from_simple(vec![], vec![], vec![]);
-        let report = generate_report(&r);
-        let cloned = report.clone();
-        assert_eq!(report, cloned);
-        let _ = format!("{:?}", cloned);
-        let json = serde_json::to_string(&report).unwrap();
-        let back: abp_capability::CompatibilityReport = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, report);
-    }
-}
-
-// ==========================================================================
-// 37. abp-policy — module re-exports
-// ==========================================================================
-
-mod policy_modules {
-    #[test]
-    fn audit_module_accessible() {
-        let _exists = std::any::type_name::<abp_policy::audit::PolicyDecision>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn compose_module_accessible() {
-        let _exists = std::any::type_name::<abp_policy::compose::PolicyDecision>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn rules_module_accessible() {
-        let _exists = std::any::type_name::<abp_policy::rules::RuleCondition>();
-        assert!(!_exists.is_empty());
-    }
-}
-
-// ==========================================================================
-// 38. abp-protocol — module re-exports
-// ==========================================================================
-
-mod protocol_modules {
-    #[test]
-    fn batch_module_accessible() {
-        let _exists = std::any::type_name::<abp_protocol::batch::BatchRequest>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn builder_module_accessible() {
-        let _exists = std::any::type_name::<abp_protocol::builder::BuilderError>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn codec_module_accessible() {
-        let _exists = std::any::type_name::<abp_protocol::codec::StreamingCodec>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn compress_module_accessible() {
-        let _exists = std::any::type_name::<abp_protocol::compress::CompressionAlgorithm>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn router_module_accessible() {
-        let _exists = std::any::type_name::<abp_protocol::router::MessageRoute>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn stream_module_accessible() {
-        let _exists = std::any::type_name::<abp_protocol::stream::StreamParser>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn validate_module_accessible() {
-        let _exists = std::any::type_name::<abp_protocol::validate::ValidationError>();
-        assert!(!_exists.is_empty());
-    }
-
-    #[test]
-    fn version_module_accessible() {
-        let _exists = std::any::type_name::<abp_protocol::version::VersionError>();
-        assert!(!_exists.is_empty());
-    }
-}
-
-// ==========================================================================
-// 39. Cross-crate integration: PolicyProfile from core works with PolicyEngine
-// ==========================================================================
-
-mod cross_crate_integration {
-    use abp_core::PolicyProfile;
-    use abp_policy::PolicyEngine;
-
-    #[test]
-    fn core_policy_profile_works_with_policy_engine() {
-        let profile = PolicyProfile {
-            allowed_tools: vec!["Read".into()],
-            disallowed_tools: vec!["Bash".into()],
-            deny_read: vec![],
-            deny_write: vec!["**/.git/**".into()],
-            allow_network: vec![],
-            deny_network: vec![],
-            require_approval_for: vec![],
-        };
-        let engine = PolicyEngine::new(&profile).unwrap();
-        assert!(engine.can_use_tool("Read").allowed);
-        assert!(!engine.can_use_tool("Bash").allowed);
+    fn ir_role_serializes_as_snake_case() {
+        use abp_core::ir::IrRole;
+        let json = serde_json::to_string(&IrRole::System).unwrap();
+        assert_eq!(json, "\"system\"");
+        let json = serde_json::to_string(&IrRole::Assistant).unwrap();
+        assert_eq!(json, "\"assistant\"");
     }
 }

@@ -35,20 +35,27 @@
 
 use std::path::Path;
 
+use abp_capability::{NegotiationResult, negotiate, negotiate_capabilities};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome,
-    PolicyProfile, Receipt, ReceiptBuilder, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, canonical_json, receipt_hash, sha256_hex,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder,
+    canonical_json,
+    ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition},
+    receipt_hash, sha256_hex,
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
+use abp_error::{AbpError, ErrorCategory, ErrorCode};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
+use abp_ir::lower::{lower_to_claude, lower_to_gemini, lower_to_openai};
 use abp_mapping::{
     Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, known_rules,
     validate_mapping,
 };
 use abp_policy::PolicyEngine;
-use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_receipt::{ReceiptChain, compute_hash, verify_hash};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -1411,4 +1418,691 @@ fn given_receipt_builder_with_usage_when_built_then_reflected() {
     let receipt = ReceiptBuilder::new("mock").usage(usage).build();
     assert_eq!(receipt.usage.input_tokens, Some(100));
     assert_eq!(receipt.usage.output_tokens, Some(200));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SDK Shim / IR Lowering scenarios
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn given_openai_dialect_work_order_when_lowered_to_ir_then_messages_field_present() {
+    // Scenario: An IR conversation lowered to OpenAI format has a "messages" array.
+    let conv = IrConversation::new()
+        .push(IrMessage::text(IrRole::System, "You are helpful"))
+        .push(IrMessage::text(IrRole::User, "Hello"));
+    let result = lower_to_openai(&conv, &[]);
+    assert!(result.get("messages").unwrap().is_array());
+    let messages = result["messages"].as_array().unwrap();
+    assert_eq!(messages.len(), 2);
+    assert_eq!(messages[0]["role"], "system");
+    assert_eq!(messages[1]["role"], "user");
+}
+
+#[test]
+fn given_ir_with_tools_when_lowered_to_claude_then_tool_definitions_preserved() {
+    // Scenario: Tool definitions survive lowering to Claude format.
+    let conv = IrConversation::new().push(IrMessage::text(IrRole::User, "Use the read tool"));
+    let tools = vec![IrToolDefinition {
+        name: "Read".into(),
+        description: "Read a file".into(),
+        parameters: serde_json::json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+    }];
+    let result = lower_to_claude(&conv, &tools);
+    let tool_arr = result["tools"].as_array().unwrap();
+    assert_eq!(tool_arr.len(), 1);
+    assert_eq!(tool_arr[0]["name"], "Read");
+    assert_eq!(tool_arr[0]["description"], "Read a file");
+    assert!(tool_arr[0].get("input_schema").is_some());
+}
+
+#[test]
+fn given_ir_with_tool_use_when_lowered_to_openai_then_tool_calls_array_present() {
+    // Scenario: An assistant message with tool_use blocks produces tool_calls in OpenAI format.
+    let conv = IrConversation::new().push(IrMessage::new(
+        IrRole::Assistant,
+        vec![IrContentBlock::ToolUse {
+            id: "call_1".into(),
+            name: "Read".into(),
+            input: serde_json::json!({"path": "src/lib.rs"}),
+        }],
+    ));
+    let result = lower_to_openai(&conv, &[]);
+    let msgs = result["messages"].as_array().unwrap();
+    assert_eq!(msgs.len(), 1);
+    assert!(msgs[0].get("tool_calls").is_some());
+    let calls = msgs[0]["tool_calls"].as_array().unwrap();
+    assert_eq!(calls[0]["function"]["name"], "Read");
+}
+
+#[test]
+fn given_gemini_lowering_when_system_message_present_then_system_instruction_extracted() {
+    // Scenario: Gemini lowering extracts system messages into system_instruction.
+    let conv = IrConversation::new()
+        .push(IrMessage::text(IrRole::System, "Be concise"))
+        .push(IrMessage::text(IrRole::User, "Hi"));
+    let result = lower_to_gemini(&conv, &[]);
+    assert!(result.get("system_instruction").is_some());
+    let sys = &result["system_instruction"]["parts"][0]["text"];
+    assert_eq!(sys.as_str().unwrap(), "Be concise");
+    // System message is not in contents
+    let contents = result["contents"].as_array().unwrap();
+    assert_eq!(contents.len(), 1);
+    assert_eq!(contents[0]["role"], "user");
+}
+
+#[test]
+fn given_gemini_lowering_when_tools_provided_then_function_declarations_present() {
+    // Scenario: Tools are lowered to Gemini's function_declarations format.
+    let conv = IrConversation::new().push(IrMessage::text(IrRole::User, "Search"));
+    let tools = vec![IrToolDefinition {
+        name: "search".into(),
+        description: "Search files".into(),
+        parameters: serde_json::json!({"type": "object"}),
+    }];
+    let result = lower_to_gemini(&conv, &tools);
+    let tool_arr = result["tools"].as_array().unwrap();
+    assert_eq!(tool_arr.len(), 1);
+    let decls = tool_arr[0]["function_declarations"].as_array().unwrap();
+    assert_eq!(decls[0]["name"], "search");
+}
+
+#[test]
+fn given_passthrough_mode_when_execution_mode_serialized_then_passthrough_string() {
+    // Scenario: ExecutionMode::Passthrough serializes as "passthrough".
+    let json = serde_json::to_string(&ExecutionMode::Passthrough).unwrap();
+    assert_eq!(json, "\"passthrough\"");
+}
+
+#[test]
+fn given_mapped_mode_with_incompatible_capability_when_negotiated_then_unsupported() {
+    // Scenario: A strict negotiation rejects unsupported capabilities.
+    let manifest = CapabilityManifest::new(); // empty — nothing supported
+    let result = negotiate_capabilities(&[Capability::Streaming], &manifest);
+    assert!(!result.is_viable());
+    assert_eq!(result.unsupported.len(), 1);
+}
+
+#[test]
+fn given_ir_conversation_with_tool_result_when_lowered_to_openai_then_tool_role_messages() {
+    // Scenario: ToolResult blocks become role:"tool" messages in OpenAI format.
+    let conv = IrConversation::new().push(IrMessage::new(
+        IrRole::Tool,
+        vec![IrContentBlock::ToolResult {
+            tool_use_id: "call_1".into(),
+            content: vec![IrContentBlock::Text {
+                text: "file contents here".into(),
+            }],
+            is_error: false,
+        }],
+    ));
+    let result = lower_to_openai(&conv, &[]);
+    let msgs = result["messages"].as_array().unwrap();
+    assert_eq!(msgs[0]["role"], "tool");
+    assert_eq!(msgs[0]["tool_call_id"], "call_1");
+}
+
+#[test]
+fn given_claude_lowering_when_thinking_block_present_then_preserved() {
+    // Scenario: Thinking blocks survive lowering to Claude format.
+    let conv = IrConversation::new().push(IrMessage::new(
+        IrRole::Assistant,
+        vec![
+            IrContentBlock::Thinking {
+                text: "Let me think...".into(),
+            },
+            IrContentBlock::Text {
+                text: "Here is the answer".into(),
+            },
+        ],
+    ));
+    let result = lower_to_claude(&conv, &[]);
+    let msgs = result["messages"].as_array().unwrap();
+    let content = msgs[0]["content"].as_array().unwrap();
+    assert_eq!(content.len(), 2);
+    assert_eq!(content[0]["type"], "thinking");
+}
+
+#[test]
+fn given_gemini_lowering_when_thinking_block_present_then_filtered_out() {
+    // Scenario: Gemini does not support thinking blocks; they are skipped.
+    let conv = IrConversation::new().push(IrMessage::new(
+        IrRole::Assistant,
+        vec![
+            IrContentBlock::Thinking { text: "hmm".into() },
+            IrContentBlock::Text {
+                text: "answer".into(),
+            },
+        ],
+    ));
+    let result = lower_to_gemini(&conv, &[]);
+    let contents = result["contents"].as_array().unwrap();
+    let parts = contents[0]["parts"].as_array().unwrap();
+    // Only the text part should be present; thinking is filtered.
+    assert_eq!(parts.len(), 1);
+    assert_eq!(parts[0]["text"], "answer");
+}
+
+#[test]
+fn given_multiple_tools_when_lowered_to_openai_then_all_included() {
+    // Scenario: Multiple tool definitions all appear in the lowered OpenAI output.
+    let conv = IrConversation::new().push(IrMessage::text(IrRole::User, "hi"));
+    let tools = vec![
+        IrToolDefinition {
+            name: "Read".into(),
+            description: "Read file".into(),
+            parameters: serde_json::json!({}),
+        },
+        IrToolDefinition {
+            name: "Write".into(),
+            description: "Write file".into(),
+            parameters: serde_json::json!({}),
+        },
+        IrToolDefinition {
+            name: "Bash".into(),
+            description: "Run command".into(),
+            parameters: serde_json::json!({}),
+        },
+    ];
+    let result = lower_to_openai(&conv, &tools);
+    let tool_arr = result["tools"].as_array().unwrap();
+    assert_eq!(tool_arr.len(), 3);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Sidecar Protocol scenarios (additional)
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn given_event_envelope_when_ref_id_present_then_matches_run_id() {
+    // Scenario: Event envelopes carry a ref_id for correlation.
+    let event = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::AssistantMessage {
+            text: "Hello".into(),
+        },
+        ext: None,
+    };
+    let envelope = Envelope::Event {
+        ref_id: "run-42".into(),
+        event,
+    };
+    let json = JsonlCodec::encode(&envelope).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+    match decoded {
+        Envelope::Event { ref_id, .. } => assert_eq!(ref_id, "run-42"),
+        _ => panic!("Expected Event envelope"),
+    }
+}
+
+#[test]
+fn given_fatal_envelope_when_ref_id_none_then_serializes_as_null() {
+    // Scenario: Fatal envelopes can omit ref_id.
+    let envelope = Envelope::Fatal {
+        ref_id: None,
+        error: "crash".into(),
+        error_code: None,
+    };
+    let json = JsonlCodec::encode(&envelope).unwrap();
+    assert!(json.contains("\"ref_id\":null"));
+}
+
+#[test]
+fn given_fatal_with_error_code_when_decoded_then_code_preserved() {
+    // Scenario: Fatal envelopes with ErrorCode round-trip correctly.
+    let envelope =
+        Envelope::fatal_with_code(Some("run-1".into()), "timed out", ErrorCode::BackendTimeout);
+    let json = JsonlCodec::encode(&envelope).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+    assert_eq!(decoded.error_code(), Some(ErrorCode::BackendTimeout));
+}
+
+#[test]
+fn given_final_envelope_when_receipt_included_then_roundtrips() {
+    // Scenario: A Final envelope with a receipt round-trips through JSONL.
+    let receipt = abp_receipt::ReceiptBuilder::new("test-backend")
+        .outcome(Outcome::Complete)
+        .build();
+    let envelope = Envelope::Final {
+        ref_id: "run-99".into(),
+        receipt,
+    };
+    let json = JsonlCodec::encode(&envelope).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+    match decoded {
+        Envelope::Final { ref_id, receipt } => {
+            assert_eq!(ref_id, "run-99");
+            assert_eq!(receipt.outcome, Outcome::Complete);
+        }
+        _ => panic!("Expected Final envelope"),
+    }
+}
+
+#[test]
+fn given_run_envelope_when_work_order_included_then_roundtrips() {
+    // Scenario: A Run envelope carrying a WorkOrder round-trips.
+    let wo = WorkOrderBuilder::new("test task").build();
+    let envelope = Envelope::Run {
+        id: "run-1".into(),
+        work_order: wo,
+    };
+    let json = JsonlCodec::encode(&envelope).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+    match decoded {
+        Envelope::Run { id, work_order } => {
+            assert_eq!(id, "run-1");
+            assert_eq!(work_order.task, "test task");
+        }
+        _ => panic!("Expected Run envelope"),
+    }
+}
+
+#[test]
+fn given_protocol_version_mismatch_when_checked_then_incompatible() {
+    // Scenario: Different major versions are incompatible.
+    assert!(!is_compatible_version("abp/v1.0", "abp/v0.1"));
+    assert!(!is_compatible_version("abp/v2.0", "abp/v0.1"));
+}
+
+#[test]
+fn given_hello_envelope_when_mode_passthrough_then_serialized_correctly() {
+    // Scenario: Hello envelope with passthrough mode round-trips.
+    let envelope = Envelope::hello_with_mode(
+        BackendIdentity {
+            id: "test".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        CapabilityManifest::new(),
+        ExecutionMode::Passthrough,
+    );
+    let json = JsonlCodec::encode(&envelope).unwrap();
+    assert!(json.contains("passthrough"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Receipt Chain scenarios
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn given_receipt_chain_when_single_receipt_pushed_then_chain_valid() {
+    // Scenario: A chain with one hashed receipt verifies successfully.
+    let mut chain = ReceiptChain::new();
+    let r = abp_receipt::ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    chain.push(r).unwrap();
+    assert_eq!(chain.len(), 1);
+    assert!(chain.verify().is_ok());
+}
+
+#[test]
+fn given_receipt_chain_when_multiple_receipts_pushed_then_chain_valid() {
+    // Scenario: A chain with multiple chronologically ordered receipts is valid.
+    let mut chain = ReceiptChain::new();
+    for _ in 0..3 {
+        let r = abp_receipt::ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .with_hash()
+            .unwrap();
+        chain.push(r).unwrap();
+    }
+    assert_eq!(chain.len(), 3);
+    assert!(chain.verify().is_ok());
+}
+
+#[test]
+fn given_empty_chain_when_verified_then_error() {
+    // Scenario: An empty chain returns EmptyChain error on verification.
+    let chain = ReceiptChain::new();
+    assert!(chain.verify().is_err());
+}
+
+#[test]
+fn given_tampered_receipt_when_hash_verified_then_invalid() {
+    // Scenario: A receipt with a tampered hash fails verification.
+    let mut r = abp_receipt::ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    r.receipt_sha256 =
+        Some("0000000000000000000000000000000000000000000000000000000000000000".into());
+    assert!(!verify_hash(&r));
+}
+
+#[test]
+fn given_receipt_without_hash_when_verified_then_valid() {
+    // Scenario: A receipt with no hash is considered valid (hash is optional).
+    let r = abp_receipt::ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
+    assert!(r.receipt_sha256.is_none());
+    assert!(verify_hash(&r));
+}
+
+#[test]
+fn given_receipt_hash_when_recomputed_then_deterministic() {
+    // Scenario: Hashing the same receipt twice yields the same hash.
+    let r = abp_receipt::ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
+    let h1 = compute_hash(&r).unwrap();
+    let h2 = compute_hash(&r).unwrap();
+    assert_eq!(h1, h2);
+    assert_eq!(h1.len(), 64);
+}
+
+#[test]
+fn given_receipt_chain_when_duplicate_id_pushed_then_error() {
+    // Scenario: Pushing a receipt with a duplicate run_id fails.
+    let mut chain = ReceiptChain::new();
+    let r = abp_receipt::ReceiptBuilder::new("mock")
+        .run_id(Uuid::nil())
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    chain.push(r.clone()).unwrap();
+    let err = chain.push(r).unwrap_err();
+    assert!(matches!(err, abp_receipt::ChainError::DuplicateId { .. }));
+}
+
+#[test]
+fn given_chain_summary_when_computed_then_counts_match() {
+    // Scenario: Chain summary correctly counts outcomes.
+    let mut chain = ReceiptChain::new();
+    chain
+        .push(
+            abp_receipt::ReceiptBuilder::new("a")
+                .outcome(Outcome::Complete)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    chain
+        .push(
+            abp_receipt::ReceiptBuilder::new("b")
+                .outcome(Outcome::Failed)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    chain
+        .push(
+            abp_receipt::ReceiptBuilder::new("c")
+                .outcome(Outcome::Partial)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    let summary = chain.chain_summary();
+    assert_eq!(summary.total_receipts, 3);
+    assert_eq!(summary.complete_count, 1);
+    assert_eq!(summary.failed_count, 1);
+    assert_eq!(summary.partial_count, 1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Workspace Staging scenarios
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn given_glob_exclude_git_when_git_path_checked_then_excluded() {
+    // Scenario: .git directories are excluded by glob patterns.
+    let globs = IncludeExcludeGlobs::new(&[], &["**/.git/**".to_string()]).unwrap();
+    assert_eq!(
+        globs.decide_str(".git/config"),
+        MatchDecision::DeniedByExclude
+    );
+    assert_eq!(
+        globs.decide_str(".git/HEAD"),
+        MatchDecision::DeniedByExclude
+    );
+    assert_eq!(globs.decide_str("src/main.rs"), MatchDecision::Allowed);
+}
+
+#[test]
+fn given_include_only_rust_files_when_non_rust_checked_then_excluded() {
+    // Scenario: Include globs restrict to matching files.
+    let globs = IncludeExcludeGlobs::new(&["**/*.rs".to_string()], &[]).unwrap();
+    assert_eq!(globs.decide_str("src/lib.rs"), MatchDecision::Allowed);
+    assert_eq!(
+        globs.decide_str("README.md"),
+        MatchDecision::DeniedByMissingInclude
+    );
+}
+
+#[test]
+fn given_workspace_spec_staged_mode_when_checked_then_mode_is_staged() {
+    // Scenario: WorkOrderBuilder defaults to staged workspace mode.
+    let wo = WorkOrderBuilder::new("test").build();
+    assert!(matches!(wo.workspace.mode, abp_core::WorkspaceMode::Staged));
+}
+
+#[test]
+fn given_workspace_stager_when_exclude_patterns_set_then_stored() {
+    // Scenario: WorkspaceStager stores exclude patterns.
+    let stager =
+        abp_workspace::WorkspaceStager::new().exclude(vec!["*.log".into(), "target/**".into()]);
+    // We can't access private fields, but we can verify it doesn't error on creation.
+    // The patterns are used when staging is invoked.
+    // This test verifies the builder API works.
+    let _stager = stager.with_git_init(false);
+}
+
+#[test]
+fn given_glob_with_multiple_includes_when_matching_then_union_behavior() {
+    // Scenario: Multiple include patterns act as a union.
+    let globs =
+        IncludeExcludeGlobs::new(&["src/**".to_string(), "tests/**".to_string()], &[]).unwrap();
+    assert_eq!(globs.decide_str("src/lib.rs"), MatchDecision::Allowed);
+    assert_eq!(globs.decide_str("tests/test.rs"), MatchDecision::Allowed);
+    assert_eq!(
+        globs.decide_str("docs/readme.md"),
+        MatchDecision::DeniedByMissingInclude
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Policy Engine scenarios (additional)
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn given_empty_policy_when_any_tool_checked_then_allowed() {
+    // Scenario: Default policy allows everything.
+    let engine = PolicyEngine::new(&PolicyProfile::default()).unwrap();
+    assert!(engine.can_use_tool("Bash").allowed);
+    assert!(engine.can_use_tool("Read").allowed);
+    assert!(engine.can_use_tool("SomeRandomTool").allowed);
+}
+
+#[test]
+fn given_wildcard_deny_with_specific_allow_when_checking_then_deny_wins() {
+    // Scenario: Deny always beats allow for overlapping tools.
+    let policy = PolicyProfile {
+        allowed_tools: vec!["*".into()],
+        disallowed_tools: vec!["Bash".into()],
+        ..PolicyProfile::default()
+    };
+    let engine = PolicyEngine::new(&policy).unwrap();
+    assert!(!engine.can_use_tool("Bash").allowed);
+    assert!(engine.can_use_tool("Read").allowed);
+}
+
+#[test]
+fn given_deny_read_pattern_when_matching_path_then_denied_with_reason() {
+    // Scenario: Denied reads include a human-readable reason.
+    let policy = PolicyProfile {
+        deny_read: vec!["**/.env*".into()],
+        ..PolicyProfile::default()
+    };
+    let engine = PolicyEngine::new(&policy).unwrap();
+    let decision = engine.can_read_path(Path::new(".env.production"));
+    assert!(!decision.allowed);
+    assert!(decision.reason.is_some());
+    assert!(decision.reason.unwrap().contains("denied"));
+}
+
+#[test]
+fn given_deny_write_deep_nested_when_nested_path_written_then_denied() {
+    // Scenario: Deep nested paths are denied by recursive globs.
+    let policy = PolicyProfile {
+        deny_write: vec!["vendor/**".into()],
+        ..PolicyProfile::default()
+    };
+    let engine = PolicyEngine::new(&policy).unwrap();
+    assert!(
+        !engine
+            .can_write_path(Path::new("vendor/a/b/c/d.rs"))
+            .allowed
+    );
+    assert!(engine.can_write_path(Path::new("src/main.rs")).allowed);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Error Handling scenarios
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn given_backend_not_found_error_code_when_category_checked_then_backend() {
+    // Scenario: BackendNotFound is in the Backend error category.
+    assert_eq!(
+        ErrorCode::BackendNotFound.category(),
+        ErrorCategory::Backend
+    );
+}
+
+#[test]
+fn given_policy_denied_error_code_when_category_checked_then_policy() {
+    // Scenario: PolicyDenied is in the Policy error category.
+    assert_eq!(ErrorCode::PolicyDenied.category(), ErrorCategory::Policy);
+}
+
+#[test]
+fn given_workspace_init_failed_when_category_checked_then_workspace() {
+    // Scenario: WorkspaceInitFailed is in the Workspace error category.
+    assert_eq!(
+        ErrorCode::WorkspaceInitFailed.category(),
+        ErrorCategory::Workspace
+    );
+}
+
+#[test]
+fn given_protocol_handshake_failed_when_category_checked_then_protocol() {
+    // Scenario: ProtocolHandshakeFailed is in the Protocol error category.
+    assert_eq!(
+        ErrorCode::ProtocolHandshakeFailed.category(),
+        ErrorCategory::Protocol
+    );
+}
+
+#[test]
+fn given_backend_timeout_when_retryable_checked_then_true() {
+    // Scenario: BackendTimeout is a retryable error.
+    assert!(ErrorCode::BackendTimeout.is_retryable());
+}
+
+#[test]
+fn given_policy_denied_when_retryable_checked_then_false() {
+    // Scenario: PolicyDenied is not retryable.
+    assert!(!ErrorCode::PolicyDenied.is_retryable());
+}
+
+#[test]
+fn given_abp_error_when_context_added_then_retrievable() {
+    // Scenario: AbpError builder accumulates context.
+    let err = AbpError::new(ErrorCode::BackendNotFound, "backend 'foo' not found")
+        .with_context("backend_name", "foo")
+        .with_context("searched_paths", vec!["/usr/bin", "/opt"]);
+    assert_eq!(err.code, ErrorCode::BackendNotFound);
+    assert_eq!(err.context.len(), 2);
+    assert_eq!(err.context["backend_name"], serde_json::json!("foo"));
+}
+
+#[test]
+fn given_error_code_as_str_when_called_then_snake_case() {
+    // Scenario: Error codes serialize as stable snake_case strings.
+    assert_eq!(ErrorCode::BackendNotFound.as_str(), "backend_not_found");
+    assert_eq!(ErrorCode::PolicyDenied.as_str(), "policy_denied");
+    assert_eq!(
+        ErrorCode::WorkspaceStagingFailed.as_str(),
+        "workspace_staging_failed"
+    );
+}
+
+#[test]
+fn given_receipt_hash_mismatch_code_when_category_checked_then_receipt() {
+    // Scenario: ReceiptHashMismatch is in the Receipt category.
+    assert_eq!(
+        ErrorCode::ReceiptHashMismatch.category(),
+        ErrorCategory::Receipt
+    );
+}
+
+#[test]
+fn given_capability_unsupported_code_when_category_checked_then_capability() {
+    // Scenario: CapabilityUnsupported is in the Capability category.
+    assert_eq!(
+        ErrorCode::CapabilityUnsupported.category(),
+        ErrorCategory::Capability
+    );
+}
+
+#[test]
+fn given_ir_lowering_failed_code_when_category_checked_then_ir() {
+    // Scenario: IrLoweringFailed is in the IR category.
+    assert_eq!(ErrorCode::IrLoweringFailed.category(), ErrorCategory::Ir);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Capability Negotiation scenarios (additional)
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn given_full_manifest_when_all_required_present_then_viable() {
+    // Scenario: Backend with all required capabilities negotiates successfully.
+    let mut manifest = CapabilityManifest::new();
+    manifest.insert(Capability::Streaming, SupportLevel::Native);
+    manifest.insert(Capability::ToolUse, SupportLevel::Native);
+    manifest.insert(Capability::ToolRead, SupportLevel::Native);
+    let result = negotiate_capabilities(
+        &[
+            Capability::Streaming,
+            Capability::ToolUse,
+            Capability::ToolRead,
+        ],
+        &manifest,
+    );
+    assert!(result.is_viable());
+    assert_eq!(result.native.len(), 3);
+}
+
+#[test]
+fn given_empty_manifest_when_capabilities_required_then_all_unsupported() {
+    // Scenario: An empty manifest cannot satisfy any requirements.
+    let manifest = CapabilityManifest::new();
+    let result = negotiate_capabilities(&[Capability::Streaming, Capability::ToolUse], &manifest);
+    assert!(!result.is_viable());
+    assert_eq!(result.unsupported.len(), 2);
+}
+
+#[test]
+fn given_emulated_capability_when_negotiated_then_classified_as_emulated() {
+    // Scenario: Emulated capabilities are properly classified.
+    let mut manifest = CapabilityManifest::new();
+    manifest.insert(Capability::ToolRead, SupportLevel::Emulated);
+    let result = negotiate_capabilities(&[Capability::ToolRead], &manifest);
+    assert!(result.is_viable());
+    assert_eq!(result.emulated.len(), 1);
+    assert_eq!(result.native.len(), 0);
+}
+
+#[test]
+fn given_negotiation_result_when_total_called_then_sum_correct() {
+    // Scenario: NegotiationResult.total() counts all categories.
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead],
+        vec![Capability::Vision],
+    );
+    assert_eq!(result.total(), 3);
 }

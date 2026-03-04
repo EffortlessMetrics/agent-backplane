@@ -108,8 +108,7 @@ fn make_block(b: &FuzzBlock) -> IrContentBlock {
         },
         _ => IrContentBlock::Custom {
             custom_type: b.custom_type.clone(),
-            data: serde_json::from_str(&b.custom_json)
-                .unwrap_or(serde_json::Value::Null),
+            data: serde_json::from_str(&b.custom_json).unwrap_or(serde_json::Value::Null),
         },
     }
 }
@@ -173,8 +172,7 @@ fuzz_target!(|input: NormalizeFuzzInput| {
         extra: Default::default(),
     };
 
-    let request = IrRequest::new(messages.clone())
-        .with_config(config.clone());
+    let request = IrRequest::new(messages.clone()).with_config(config.clone());
     let request = if let Some(ref model) = input.model {
         request.with_model(model.clone())
     } else {
@@ -200,8 +198,7 @@ fuzz_target!(|input: NormalizeFuzzInput| {
     }
 
     // ===== Property 4: IrResponse construction =====
-    let resp_blocks: Vec<IrContentBlock> =
-        input.response_blocks.iter().map(make_block).collect();
+    let resp_blocks: Vec<IrContentBlock> = input.response_blocks.iter().map(make_block).collect();
 
     let stop_reason = match input.stop_reason_idx % 6 {
         0 => IrStopReason::EndTurn,
@@ -238,20 +235,29 @@ fuzz_target!(|input: NormalizeFuzzInput| {
     let ua = IrUsage {
         input_tokens: input.usage_a.input_tokens,
         output_tokens: input.usage_a.output_tokens,
-        total_tokens: input.usage_a.input_tokens.saturating_add(input.usage_a.output_tokens),
+        total_tokens: input
+            .usage_a
+            .input_tokens
+            .saturating_add(input.usage_a.output_tokens),
         cache_read_tokens: input.usage_a.cache_read,
         cache_write_tokens: input.usage_a.cache_write,
     };
     let ub = IrUsage {
         input_tokens: input.usage_b.input_tokens,
         output_tokens: input.usage_b.output_tokens,
-        total_tokens: input.usage_b.input_tokens.saturating_add(input.usage_b.output_tokens),
+        total_tokens: input
+            .usage_b
+            .input_tokens
+            .saturating_add(input.usage_b.output_tokens),
         cache_read_tokens: input.usage_b.cache_read,
         cache_write_tokens: input.usage_b.cache_write,
     };
     let ab = ua.merge(ub);
     let ba = ub.merge(ua);
-    assert_eq!(ab.total_tokens, ba.total_tokens, "merge must be commutative");
+    assert_eq!(
+        ab.total_tokens, ba.total_tokens,
+        "merge must be commutative"
+    );
     assert_eq!(ab.input_tokens, ba.input_tokens);
     assert_eq!(ab.output_tokens, ba.output_tokens);
 

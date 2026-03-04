@@ -301,3 +301,7 @@ harness = false
 [[bench]]
 name = "dialect_detect"
 harness = false
+
+[[bench]]
+name = "benchmarks"
+harness = false
