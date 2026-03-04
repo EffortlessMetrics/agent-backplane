@@ -10,6 +10,8 @@ pub mod hooks;
 pub mod metrics;
 pub mod pipeline;
 pub mod spans;
+pub mod events;
+pub mod export;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
