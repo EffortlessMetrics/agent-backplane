@@ -10,10 +10,14 @@
 //! - PassThrough: run directly in the user's workspace.
 //! - Staged: create a sanitized copy (and optionally a synthetic git repo).
 
+pub mod approval;
+pub mod archive;
 pub mod changes;
 pub mod diff;
+pub mod git_ops;
 pub mod ops;
 pub mod patch;
+pub mod semantic_diff;
 pub mod snapshot;
 pub mod template;
 pub mod tracker;

@@ -17,8 +17,10 @@ abp-glob = { path = "../abp-glob", version = "0.1.0" }
 abp-git = { path = "../abp-git", version = "0.1.0" }
 anyhow.workspace = true
 chrono.workspace = true
+flate2.workspace = true
 serde.workspace = true
 sha2.workspace = true
+tar = "0.4"
 tokio.workspace = true
 tracing.workspace = true
 walkdir.workspace = true
