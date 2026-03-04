@@ -12,6 +12,7 @@ categories = ["development-tools"]
 
 [dependencies]
 abp-capability = { path = "../abp-capability", version = "0.1.0" }
+abp-cancel = { path = "../abp-cancel", version = "0.1.0" }
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-emulation = { path = "../abp-emulation", version = "0.1.0" }
 abp-error = { path = "../abp-error", version = "0.1.0" }

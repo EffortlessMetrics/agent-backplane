@@ -11,6 +11,7 @@ members = [
   "crates/abp-backend-core",
   "crates/abp-backend-mock",
   "crates/abp-capability",
+  "crates/abp-cancel",
   "crates/abp-backend-sidecar",
   "crates/abp-claude-sdk",
   "crates/abp-cli",

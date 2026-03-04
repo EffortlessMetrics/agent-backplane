@@ -44,6 +44,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-cancel"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
 name = "abp-capability"
 version = "0.1.0"
 dependencies = [
@@ -417,6 +424,7 @@ dependencies = [
 name = "abp-runtime"
 version = "0.1.0"
 dependencies = [
+ "abp-cancel",
  "abp-capability",
  "abp-core",
  "abp-dialect",
@@ -2833,6 +2841,7 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 name = "sidecar-kit"
 version = "0.1.0"
 dependencies = [
+ "abp-cancel",
  "abp-core",
  "chrono",
  "insta",
