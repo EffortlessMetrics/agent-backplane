@@ -83,6 +83,9 @@ fn make_openai_request(n: usize) -> ChatCompletionRequest {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     }
 }
 

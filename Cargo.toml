@@ -305,5 +305,9 @@ name = "dialect_detect"
 harness = false
 
 [[bench]]
+name = "config_parsing"
+harness = false
+
+[[bench]]
 name = "benchmarks"
 harness = false
