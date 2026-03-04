@@ -65,6 +65,232 @@ pub enum MockScenario {
         /// Suggested retry-after duration in milliseconds.
         retry_after_ms: u64,
     },
+    /// A fully custom event sequence built via [`EventSequenceBuilder`].
+    Custom {
+        /// Ordered steps to execute.
+        steps: Vec<EventStep>,
+        /// Token usage to report in the receipt.
+        usage: Option<UsageNormalized>,
+        /// The outcome to set on the receipt.
+        outcome: Outcome,
+        /// If set, emit events up to this point then fail with this error.
+        fail_after: Option<String>,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// EventStep
+// ---------------------------------------------------------------------------
+
+/// A single step in a custom event sequence.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventStep {
+    /// The event to emit.
+    pub kind: AgentEventKind,
+    /// Milliseconds to sleep before emitting this event.
+    pub delay_before_ms: u64,
+}
+
+// ---------------------------------------------------------------------------
+// EventSequenceBuilder
+// ---------------------------------------------------------------------------
+
+/// Builder for constructing custom [`MockScenario::Custom`] sequences.
+///
+/// Provides a fluent API for assembling arbitrary event sequences with
+/// per-event latency, tool call/result simulation, error injection, and
+/// configurable token usage.
+///
+/// # Example
+/// ```
+/// use abp_backend_mock::scenarios::EventSequenceBuilder;
+///
+/// let scenario = EventSequenceBuilder::new()
+///     .message("Hello")
+///     .delay_ms(50)
+///     .tool_call("read_file", serde_json::json!({"path": "foo.txt"}))
+///     .tool_result("read_file", serde_json::json!({"content": "bar"}))
+///     .message("Done")
+///     .usage_tokens(100, 50)
+///     .build();
+/// ```
+#[derive(Debug, Clone)]
+pub struct EventSequenceBuilder {
+    steps: Vec<EventStep>,
+    next_delay_ms: u64,
+    usage: Option<UsageNormalized>,
+    outcome: Outcome,
+    fail_after: Option<String>,
+}
+
+impl Default for EventSequenceBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EventSequenceBuilder {
+    /// Create a new empty builder.
+    pub fn new() -> Self {
+        Self {
+            steps: Vec::new(),
+            next_delay_ms: 0,
+            usage: None,
+            outcome: Outcome::Complete,
+            fail_after: None,
+        }
+    }
+
+    /// Set delay (ms) to apply before the *next* added event.
+    pub fn delay_ms(mut self, ms: u64) -> Self {
+        self.next_delay_ms = ms;
+        self
+    }
+
+    /// Emit an `AssistantMessage` event.
+    pub fn message(mut self, text: impl Into<String>) -> Self {
+        self.push(AgentEventKind::AssistantMessage { text: text.into() });
+        self
+    }
+
+    /// Emit an `AssistantDelta` (streaming chunk) event.
+    pub fn delta(mut self, text: impl Into<String>) -> Self {
+        self.push(AgentEventKind::AssistantDelta { text: text.into() });
+        self
+    }
+
+    /// Emit a `ToolCall` event.
+    pub fn tool_call(self, name: impl Into<String>, input: serde_json::Value) -> Self {
+        self.tool_call_full(name, None, None, input)
+    }
+
+    /// Emit a `ToolCall` event with explicit IDs.
+    pub fn tool_call_full(
+        mut self,
+        name: impl Into<String>,
+        tool_use_id: Option<String>,
+        parent_tool_use_id: Option<String>,
+        input: serde_json::Value,
+    ) -> Self {
+        self.push(AgentEventKind::ToolCall {
+            tool_name: name.into(),
+            tool_use_id,
+            parent_tool_use_id,
+            input,
+        });
+        self
+    }
+
+    /// Emit a successful `ToolResult` event.
+    pub fn tool_result(mut self, name: impl Into<String>, output: serde_json::Value) -> Self {
+        self.push(AgentEventKind::ToolResult {
+            tool_name: name.into(),
+            tool_use_id: None,
+            output,
+            is_error: false,
+        });
+        self
+    }
+
+    /// Emit a failed `ToolResult` event.
+    pub fn tool_error(mut self, name: impl Into<String>, output: serde_json::Value) -> Self {
+        self.push(AgentEventKind::ToolResult {
+            tool_name: name.into(),
+            tool_use_id: None,
+            output,
+            is_error: true,
+        });
+        self
+    }
+
+    /// Emit a `FileChanged` event.
+    pub fn file_changed(mut self, path: impl Into<String>, summary: impl Into<String>) -> Self {
+        self.push(AgentEventKind::FileChanged {
+            path: path.into(),
+            summary: summary.into(),
+        });
+        self
+    }
+
+    /// Emit a `CommandExecuted` event.
+    pub fn command_executed(
+        mut self,
+        command: impl Into<String>,
+        exit_code: i32,
+        output_preview: Option<String>,
+    ) -> Self {
+        self.push(AgentEventKind::CommandExecuted {
+            command: command.into(),
+            exit_code: Some(exit_code),
+            output_preview,
+        });
+        self
+    }
+
+    /// Emit a `Warning` event.
+    pub fn warning(mut self, message: impl Into<String>) -> Self {
+        self.push(AgentEventKind::Warning {
+            message: message.into(),
+        });
+        self
+    }
+
+    /// Emit an `Error` event (does **not** cause the run to fail; use
+    /// [`fail_after`](Self::fail_after) for that).
+    pub fn error_event(mut self, message: impl Into<String>) -> Self {
+        self.push(AgentEventKind::Error {
+            message: message.into(),
+            error_code: None,
+        });
+        self
+    }
+
+    /// Configure token usage reported in the receipt.
+    pub fn usage(mut self, usage: UsageNormalized) -> Self {
+        self.usage = Some(usage);
+        self
+    }
+
+    /// Shorthand: set input and output token counts.
+    pub fn usage_tokens(mut self, input: u64, output: u64) -> Self {
+        self.usage = Some(UsageNormalized {
+            input_tokens: Some(input),
+            output_tokens: Some(output),
+            ..Default::default()
+        });
+        self
+    }
+
+    /// Set the receipt outcome (defaults to `Complete`).
+    pub fn outcome(mut self, outcome: Outcome) -> Self {
+        self.outcome = outcome;
+        self
+    }
+
+    /// After emitting all events, fail with this error message instead of
+    /// returning a receipt. Simulates mid-stream crashes.
+    pub fn fail_after(mut self, message: impl Into<String>) -> Self {
+        self.fail_after = Some(message.into());
+        self
+    }
+
+    /// Build the final [`MockScenario::Custom`].
+    pub fn build(self) -> MockScenario {
+        MockScenario::Custom {
+            steps: self.steps,
+            usage: self.usage,
+            outcome: self.outcome,
+            fail_after: self.fail_after,
+        }
+    }
+
+    fn push(&mut self, kind: AgentEventKind) {
+        self.steps.push(EventStep {
+            kind,
+            delay_before_ms: self.next_delay_ms,
+        });
+        self.next_delay_ms = 0;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -251,6 +477,23 @@ impl ScenarioMockBackend {
                 MockScenario::RateLimited { retry_after_ms } => {
                     anyhow::bail!("rate limited: retry after {}ms", retry_after_ms);
                 }
+                MockScenario::Custom {
+                    steps,
+                    usage,
+                    outcome,
+                    fail_after,
+                } => {
+                    self.run_custom(
+                        run_id,
+                        work_order,
+                        events_tx,
+                        steps,
+                        usage.as_ref(),
+                        outcome,
+                        fail_after.as_deref(),
+                    )
+                    .await
+                }
             }
         })
     }
@@ -307,6 +550,8 @@ impl ScenarioMockBackend {
             &self.capabilities(),
             started,
             trace,
+            None,
+            None,
         )
     }
 
@@ -363,6 +608,66 @@ impl ScenarioMockBackend {
             &self.capabilities(),
             started,
             trace,
+            None,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn run_custom(
+        &self,
+        run_id: Uuid,
+        work_order: &WorkOrder,
+        events_tx: &mpsc::Sender<AgentEvent>,
+        steps: &[EventStep],
+        usage: Option<&UsageNormalized>,
+        outcome: &Outcome,
+        fail_after: Option<&str>,
+    ) -> Result<Receipt> {
+        ensure_capability_requirements(&work_order.requirements, &self.capabilities())
+            .context("capability requirements not satisfied")?;
+
+        let started = Utc::now();
+        let mut trace = Vec::new();
+
+        emit(
+            &mut trace,
+            events_tx,
+            AgentEventKind::RunStarted {
+                message: format!("scenario-mock custom: {}", work_order.task),
+            },
+        )
+        .await;
+
+        for step in steps {
+            if step.delay_before_ms > 0 {
+                tokio::time::sleep(std::time::Duration::from_millis(step.delay_before_ms)).await;
+            }
+            emit(&mut trace, events_tx, step.kind.clone()).await;
+        }
+
+        if let Some(err_msg) = fail_after {
+            anyhow::bail!("{}", err_msg);
+        }
+
+        emit(
+            &mut trace,
+            events_tx,
+            AgentEventKind::RunCompleted {
+                message: "scenario-mock custom complete".into(),
+            },
+        )
+        .await;
+
+        build_receipt(
+            run_id,
+            work_order,
+            &self.identity(),
+            &self.capabilities(),
+            started,
+            trace,
+            usage,
+            Some(outcome),
         )
     }
 }
@@ -409,6 +714,45 @@ impl<B: Backend> MockBackendRecorder<B> {
     /// The most recent recorded call, if any.
     pub async fn last_call(&self) -> Option<RecordedCall> {
         self.calls.lock().await.last().cloned()
+    }
+
+    /// Assert that exactly `n` calls were recorded. Panics with a descriptive
+    /// message on mismatch.
+    pub async fn assert_call_count(&self, expected: usize) {
+        let actual = self.calls.lock().await.len();
+        assert_eq!(
+            actual, expected,
+            "expected {expected} recorded calls, got {actual}"
+        );
+    }
+
+    /// Assert that all recorded calls succeeded (returned `Ok`).
+    pub async fn assert_all_succeeded(&self) {
+        for (i, call) in self.calls.lock().await.iter().enumerate() {
+            assert!(
+                call.result.is_ok(),
+                "call {i} failed: {:?}",
+                call.result.as_ref().unwrap_err()
+            );
+        }
+    }
+
+    /// Assert that all recorded calls failed (returned `Err`).
+    pub async fn assert_all_failed(&self) {
+        for (i, call) in self.calls.lock().await.iter().enumerate() {
+            assert!(call.result.is_err(), "call {i} unexpectedly succeeded");
+        }
+    }
+
+    /// Return recorded calls filtered by task substring.
+    pub async fn calls_matching(&self, task_substring: &str) -> Vec<RecordedCall> {
+        self.calls
+            .lock()
+            .await
+            .iter()
+            .filter(|c| c.work_order.task.contains(task_substring))
+            .cloned()
+            .collect()
     }
 }
 
@@ -464,6 +808,7 @@ async fn emit(trace: &mut Vec<AgentEvent>, tx: &mpsc::Sender<AgentEvent>, kind: 
     let _ = tx.send(ev).await;
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_receipt(
     run_id: Uuid,
     work_order: &WorkOrder,
@@ -471,6 +816,8 @@ fn build_receipt(
     capabilities: &CapabilityManifest,
     started: DateTime<Utc>,
     trace: Vec<AgentEvent>,
+    usage: Option<&UsageNormalized>,
+    outcome: Option<&Outcome>,
 ) -> Result<Receipt> {
     let finished = Utc::now();
     let duration_ms = (finished - started)
@@ -478,6 +825,13 @@ fn build_receipt(
         .unwrap_or_default()
         .as_millis() as u64;
     let mode = extract_execution_mode(work_order);
+
+    let default_usage = UsageNormalized {
+        input_tokens: Some(0),
+        output_tokens: Some(0),
+        estimated_cost_usd: Some(0.0),
+        ..Default::default()
+    };
 
     let receipt = Receipt {
         meta: RunMetadata {
@@ -492,12 +846,7 @@ fn build_receipt(
         capabilities: capabilities.clone(),
         mode,
         usage_raw: json!({"note": "scenario-mock"}),
-        usage: UsageNormalized {
-            input_tokens: Some(0),
-            output_tokens: Some(0),
-            estimated_cost_usd: Some(0.0),
-            ..Default::default()
-        },
+        usage: usage.cloned().unwrap_or(default_usage),
         trace,
         artifacts: vec![],
         verification: VerificationReport {
@@ -505,7 +854,7 @@ fn build_receipt(
             git_status: None,
             harness_ok: true,
         },
-        outcome: Outcome::Complete,
+        outcome: outcome.cloned().unwrap_or(Outcome::Complete),
         receipt_sha256: None,
     }
     .with_hash()?;

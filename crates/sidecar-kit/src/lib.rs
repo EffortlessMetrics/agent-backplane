@@ -12,12 +12,14 @@
 
 pub mod builders;
 pub mod cancel;
+pub mod capabilities;
 pub mod client;
 pub mod codec;
 pub mod diagnostics;
 pub mod error;
 pub mod frame;
 pub mod framing;
+pub mod harness;
 pub mod middleware;
 pub mod pipeline;
 pub mod process;
@@ -26,11 +28,12 @@ pub mod run;
 pub mod spec;
 pub mod transform;
 pub mod typed_middleware;
+pub mod work_order;
 
 pub use builders::{
-    ReceiptBuilder, event_command_executed, event_error, event_file_changed, event_frame,
-    event_run_completed, event_run_started, event_text_delta, event_text_message, event_tool_call,
-    event_tool_result, event_warning, fatal_frame, hello_frame,
+    EventBuilder, ReceiptBuilder, event_command_executed, event_error, event_file_changed,
+    event_frame, event_run_completed, event_run_started, event_text_delta, event_text_message,
+    event_tool_call, event_tool_result, event_warning, fatal_frame, final_frame, hello_frame,
 };
 pub use cancel::CancelToken;
 pub use client::{HelloData, SidecarClient};
@@ -60,3 +63,7 @@ pub use typed_middleware::{
     ErrorRecoveryMiddleware as TypedErrorRecoveryMiddleware, MetricsMiddleware, MiddlewareAction,
     RateLimitMiddleware, SidecarMiddleware, SidecarMiddlewareChain,
 };
+
+pub use capabilities::{CapabilitySet, default_streaming_capabilities};
+pub use harness::{HandlerContext, HarnessError, SidecarHandler, SidecarHarness};
+pub use work_order::WorkOrderView;

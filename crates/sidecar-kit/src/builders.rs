@@ -163,6 +163,76 @@ pub fn hello_frame(backend_name: &str) -> Frame {
     }
 }
 
+/// Build a [`Frame::Final`] carrying a receipt value.
+#[must_use]
+pub fn final_frame(ref_id: &str, receipt: Value) -> Frame {
+    Frame::Final {
+        ref_id: ref_id.to_string(),
+        receipt,
+    }
+}
+
+// ── EventBuilder ────────────────────────────────────────────────────
+
+/// Fluent builder for constructing arbitrary event payloads.
+///
+/// Produces a JSON object matching the ABP `AgentEvent` shape.
+///
+/// # Example
+/// ```
+/// use sidecar_kit::builders::EventBuilder;
+///
+/// let event = EventBuilder::new("tool_call")
+///     .field("tool_name", "read_file")
+///     .field("input", serde_json::json!({"path": "src/main.rs"}))
+///     .build();
+/// assert_eq!(event["type"], "tool_call");
+/// ```
+#[derive(Debug, Clone)]
+pub struct EventBuilder {
+    event_type: String,
+    fields: serde_json::Map<String, Value>,
+}
+
+impl EventBuilder {
+    /// Start building an event of the given type.
+    #[must_use]
+    pub fn new(event_type: &str) -> Self {
+        Self {
+            event_type: event_type.to_string(),
+            fields: serde_json::Map::new(),
+        }
+    }
+
+    /// Set an arbitrary field on the event.
+    #[must_use]
+    pub fn field(mut self, key: &str, value: impl Into<Value>) -> Self {
+        self.fields.insert(key.to_string(), value.into());
+        self
+    }
+
+    /// Set the `text` field (convenience for delta/message events).
+    #[must_use]
+    pub fn text(self, text: &str) -> Self {
+        self.field("text", Value::String(text.to_string()))
+    }
+
+    /// Set the `message` field (convenience for run_started/completed/warning/error).
+    #[must_use]
+    pub fn message(self, msg: &str) -> Self {
+        self.field("message", Value::String(msg.to_string()))
+    }
+
+    /// Consume the builder and produce an event [`Value`] with a timestamp.
+    #[must_use]
+    pub fn build(self) -> Value {
+        let mut map = self.fields;
+        map.insert("ts".to_string(), json!(Utc::now().to_rfc3339()));
+        map.insert("type".to_string(), json!(self.event_type));
+        Value::Object(map)
+    }
+}
+
 // ── ReceiptBuilder ──────────────────────────────────────────────────
 
 /// Incremental builder for constructing a receipt [`Value`].

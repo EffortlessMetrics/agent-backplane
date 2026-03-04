@@ -960,3 +960,388 @@ fn receipt_summary_from_receipt() {
     assert_eq!(summary.backend_id, "test-be");
     assert_eq!(summary.outcome, Outcome::Partial);
 }
+
+// ── Enrichment tests ───────────────────────────────────────────────
+
+#[test]
+fn enrich_metadata_from_empty_receipt() {
+    use crate::enrich::ReceiptMetadata;
+
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
+    let meta = ReceiptMetadata::from_receipt(&r);
+    assert_eq!(meta.backend_id, "mock");
+    assert_eq!(meta.event_count, 0);
+    assert_eq!(meta.error_count, 0);
+    assert_eq!(meta.tool_use_count, 0);
+    assert_eq!(meta.delta_count, 0);
+    assert_eq!(meta.total_delta_chars, 0);
+    assert_eq!(meta.artifact_count, 0);
+    assert!(!meta.has_hash);
+    assert!(meta.tags.is_empty());
+    assert!(meta.annotations.is_empty());
+}
+
+#[test]
+fn enrich_metadata_counts_events() {
+    use crate::enrich::ReceiptMetadata;
+
+    let r = ReceiptBuilder::new("mock")
+        .add_event(AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::Error {
+                message: "oops".into(),
+                error_code: None,
+            },
+            ext: None,
+        })
+        .add_event(AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "read".into(),
+                tool_use_id: None,
+                parent_tool_use_id: None,
+                input: serde_json::json!({}),
+            },
+            ext: None,
+        })
+        .add_event(AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantDelta {
+                text: "hello world".into(),
+            },
+            ext: None,
+        })
+        .build();
+
+    let meta = ReceiptMetadata::from_receipt(&r);
+    assert_eq!(meta.event_count, 3);
+    assert_eq!(meta.error_count, 1);
+    assert_eq!(meta.tool_use_count, 1);
+    assert_eq!(meta.delta_count, 1);
+    assert_eq!(meta.total_delta_chars, 11);
+}
+
+#[test]
+fn enrich_metadata_detects_hash() {
+    use crate::enrich::ReceiptMetadata;
+
+    let r = ReceiptBuilder::new("mock").with_hash().unwrap();
+    let meta = ReceiptMetadata::from_receipt(&r);
+    assert!(meta.has_hash);
+}
+
+#[test]
+fn enrich_metadata_counts_artifacts() {
+    use crate::enrich::ReceiptMetadata;
+
+    let r = ReceiptBuilder::new("mock")
+        .add_artifact(ArtifactRef {
+            kind: "patch".into(),
+            path: "a.patch".into(),
+        })
+        .add_artifact(ArtifactRef {
+            kind: "log".into(),
+            path: "run.log".into(),
+        })
+        .build();
+    let meta = ReceiptMetadata::from_receipt(&r);
+    assert_eq!(meta.artifact_count, 2);
+}
+
+#[test]
+fn enricher_applies_tags_and_annotations() {
+    use crate::enrich::ReceiptEnricher;
+
+    let enricher = ReceiptEnricher::new()
+        .tag("production")
+        .tag("v2")
+        .annotate("team", "platform")
+        .annotate("env", "staging");
+
+    let r = ReceiptBuilder::new("mock").build();
+    let meta = enricher.enrich(&r);
+    assert!(meta.tags.contains(&"production".to_string()));
+    assert!(meta.tags.contains(&"v2".to_string()));
+    assert_eq!(meta.annotations.get("team").unwrap(), "platform");
+    assert_eq!(meta.annotations.get("env").unwrap(), "staging");
+}
+
+#[test]
+fn enricher_batch() {
+    use crate::enrich::ReceiptEnricher;
+
+    let enricher = ReceiptEnricher::new().tag("batch");
+    let receipts = vec![
+        ReceiptBuilder::new("a").build(),
+        ReceiptBuilder::new("b").build(),
+    ];
+    let metas = enricher.enrich_batch(&receipts);
+    assert_eq!(metas.len(), 2);
+    assert_eq!(metas[0].backend_id, "a");
+    assert_eq!(metas[1].backend_id, "b");
+    assert!(metas[0].tags.contains(&"batch".to_string()));
+}
+
+// ── Stats tests ────────────────────────────────────────────────────
+
+#[test]
+fn stats_from_receipt_basic() {
+    use crate::stats::ReceiptStats;
+
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .usage_tokens(100, 200)
+        .build();
+    let stats = ReceiptStats::from_receipt(&r);
+    assert_eq!(stats.input_tokens, Some(100));
+    assert_eq!(stats.output_tokens, Some(200));
+    assert_eq!(stats.total_tokens(), Some(300));
+    assert_eq!(stats.event_count, 0);
+    assert_eq!(stats.error_count, 0);
+    assert_eq!(stats.outcome, Outcome::Complete);
+}
+
+#[test]
+fn stats_total_tokens_partial() {
+    use crate::stats::ReceiptStats;
+
+    let r = ReceiptBuilder::new("x")
+        .usage(UsageNormalized {
+            input_tokens: Some(50),
+            output_tokens: None,
+            ..Default::default()
+        })
+        .build();
+    let stats = ReceiptStats::from_receipt(&r);
+    assert_eq!(stats.total_tokens(), Some(50));
+}
+
+#[test]
+fn stats_total_tokens_none() {
+    use crate::stats::ReceiptStats;
+
+    let r = ReceiptBuilder::new("x").build();
+    let stats = ReceiptStats::from_receipt(&r);
+    assert_eq!(stats.total_tokens(), None);
+}
+
+#[test]
+fn stats_tokens_per_ms() {
+    use crate::stats::ReceiptStats;
+
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 1).unwrap();
+    let r = ReceiptBuilder::new("x")
+        .started_at(ts1)
+        .finished_at(ts2)
+        .usage_tokens(500, 500)
+        .build();
+    let stats = ReceiptStats::from_receipt(&r);
+    let tpm = stats.tokens_per_ms().unwrap();
+    assert!((tpm - 1.0).abs() < 0.01); // 1000 tokens / 1000ms = 1.0
+}
+
+#[test]
+fn stats_tokens_per_ms_zero_duration() {
+    use crate::stats::ReceiptStats;
+
+    let r = ReceiptBuilder::new("x").usage_tokens(100, 100).build();
+    let stats = ReceiptStats::from_receipt(&r);
+    assert!(stats.tokens_per_ms().is_none());
+}
+
+#[test]
+fn stats_counts_errors_and_tool_use() {
+    use crate::stats::ReceiptStats;
+
+    let r = ReceiptBuilder::new("x")
+        .add_event(AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::Error {
+                message: "oops".into(),
+                error_code: None,
+            },
+            ext: None,
+        })
+        .add_event(AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "read".into(),
+                tool_use_id: None,
+                parent_tool_use_id: None,
+                input: serde_json::json!({}),
+            },
+            ext: None,
+        })
+        .add_event(AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "write".into(),
+                tool_use_id: None,
+                parent_tool_use_id: None,
+                input: serde_json::json!({}),
+            },
+            ext: None,
+        })
+        .build();
+    let stats = ReceiptStats::from_receipt(&r);
+    assert_eq!(stats.event_count, 3);
+    assert_eq!(stats.error_count, 1);
+    assert_eq!(stats.tool_use_count, 2);
+}
+
+#[test]
+fn batch_stats_empty() {
+    use crate::stats::BatchStats;
+
+    let stats = BatchStats::from_receipts(&[]);
+    assert_eq!(stats.total_receipts, 0);
+    assert!(stats.success_rate.is_none());
+    assert!(stats.avg_duration_ms().is_none());
+    assert_eq!(stats.total_tokens(), 0);
+}
+
+#[test]
+fn batch_stats_basic() {
+    use crate::stats::BatchStats;
+
+    let receipts = vec![
+        ReceiptBuilder::new("a")
+            .outcome(Outcome::Complete)
+            .usage_tokens(50, 100)
+            .build(),
+        ReceiptBuilder::new("b")
+            .outcome(Outcome::Failed)
+            .usage_tokens(30, 60)
+            .build(),
+        ReceiptBuilder::new("a")
+            .outcome(Outcome::Partial)
+            .usage_tokens(20, 40)
+            .build(),
+    ];
+    let stats = BatchStats::from_receipts(&receipts);
+    assert_eq!(stats.total_receipts, 3);
+    assert_eq!(stats.complete_count, 1);
+    assert_eq!(stats.failed_count, 1);
+    assert_eq!(stats.partial_count, 1);
+    assert_eq!(stats.total_input_tokens, 100);
+    assert_eq!(stats.total_output_tokens, 200);
+    assert_eq!(stats.total_tokens(), 300);
+    assert_eq!(stats.backend_counts.get("a"), Some(&2));
+    assert_eq!(stats.backend_counts.get("b"), Some(&1));
+    // success rate = 1/3
+    let sr = stats.success_rate.unwrap();
+    assert!((sr - 1.0 / 3.0).abs() < 0.01);
+}
+
+#[test]
+fn batch_stats_avg_duration() {
+    use crate::stats::BatchStats;
+
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 2).unwrap();
+    let receipts = vec![
+        ReceiptBuilder::new("a")
+            .started_at(ts1)
+            .finished_at(ts2)
+            .build(),
+        ReceiptBuilder::new("b")
+            .started_at(ts1)
+            .finished_at(ts2)
+            .build(),
+    ];
+    let stats = BatchStats::from_receipts(&receipts);
+    let avg = stats.avg_duration_ms().unwrap();
+    assert!((avg - 2000.0).abs() < 0.01);
+}
+
+// ── Version tests ──────────────────────────────────────────────────
+
+#[test]
+fn version_parse_valid() {
+    use crate::version::FormatVersion;
+
+    let v = FormatVersion::parse("receipt/v0.1").unwrap();
+    assert_eq!(v.major, 0);
+    assert_eq!(v.minor, 1);
+}
+
+#[test]
+fn version_parse_larger() {
+    use crate::version::FormatVersion;
+
+    let v = FormatVersion::parse("receipt/v2.15").unwrap();
+    assert_eq!(v.major, 2);
+    assert_eq!(v.minor, 15);
+}
+
+#[test]
+fn version_parse_invalid_prefix() {
+    use crate::version::FormatVersion;
+
+    assert!(FormatVersion::parse("wrong/v0.1").is_err());
+}
+
+#[test]
+fn version_parse_invalid_format() {
+    use crate::version::FormatVersion;
+
+    assert!(FormatVersion::parse("receipt/v0").is_err());
+    assert!(FormatVersion::parse("receipt/v0.1.2").is_err());
+    assert!(FormatVersion::parse("receipt/vabc").is_err());
+}
+
+#[test]
+fn version_current() {
+    use crate::version::FormatVersion;
+
+    let current = FormatVersion::current();
+    assert_eq!(current.major, 0);
+    assert_eq!(current.minor, 1);
+}
+
+#[test]
+fn version_display() {
+    use crate::version::FormatVersion;
+
+    let v = FormatVersion::parse("receipt/v0.1").unwrap();
+    assert_eq!(v.to_string(), "receipt/v0.1");
+}
+
+#[test]
+fn version_compatibility_same_major() {
+    use crate::version::FormatVersion;
+
+    let v1 = FormatVersion::parse("receipt/v0.1").unwrap();
+    let v2 = FormatVersion::parse("receipt/v0.5").unwrap();
+    assert!(v1.is_compatible_with(&v2));
+    assert!(v2.is_compatible_with(&v1));
+}
+
+#[test]
+fn version_incompatibility_different_major() {
+    use crate::version::FormatVersion;
+
+    let v1 = FormatVersion::parse("receipt/v0.1").unwrap();
+    let v2 = FormatVersion::parse("receipt/v1.0").unwrap();
+    assert!(!v1.is_compatible_with(&v2));
+}
+
+#[test]
+fn version_check_contract_version() {
+    use crate::version::check_contract_version;
+
+    let r = ReceiptBuilder::new("mock").build();
+    assert!(check_contract_version(&r.meta.contract_version));
+    assert!(!check_contract_version("wrong/v9"));
+}
+
+#[test]
+fn version_error_display() {
+    use crate::version::VersionError;
+
+    let e = VersionError::InvalidFormat("bad".into());
+    assert_eq!(e.to_string(), "invalid version format: \"bad\"");
+}

@@ -317,6 +317,11 @@ expression: value
           "const": "emulated",
           "description": "Native or emulated is acceptable.",
           "type": "string"
+        },
+        {
+          "const": "any",
+          "description": "Any support level is acceptable (including unsupported).",
+          "type": "string"
         }
       ]
     },

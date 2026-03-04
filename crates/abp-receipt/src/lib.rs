@@ -11,13 +11,19 @@
 mod builder;
 mod chain;
 mod diff;
+/// Receipt metadata enrichment — compute and attach derived fields.
+pub mod enrich;
 /// Serialization in JSON and compact binary formats.
 pub mod serde_formats;
+/// Standalone receipt statistics computation.
+pub mod stats;
 /// Pluggable receipt storage with an in-memory implementation.
 pub mod store;
 mod validate;
 /// Receipt verification and batch auditing utilities.
 pub mod verify;
+/// Receipt format versioning and compatibility checking.
+pub mod version;
 
 pub use builder::ReceiptBuilder;
 pub use chain::{
