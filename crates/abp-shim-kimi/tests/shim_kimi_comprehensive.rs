@@ -1130,3 +1130,353 @@ fn t70_extract_usage_helper() {
     };
     assert!(dialect::extract_usage(&resp_no_usage).is_none());
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §11 — Additional coverage (t71–t85)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 71. ShimError Display variants ──────────────────────────────────────
+
+#[test]
+fn t71_shim_error_display_variants() {
+    let inv = ShimError::InvalidRequest("bad input".into());
+    assert!(inv.to_string().contains("bad input"));
+
+    let int = ShimError::Internal("boom".into());
+    assert!(int.to_string().contains("boom"));
+
+    let serde_err: std::result::Result<serde_json::Value, _> = serde_json::from_str("{{bad");
+    let se = ShimError::Serde(serde_err.unwrap_err());
+    assert!(se.to_string().contains("serde error"));
+}
+
+// ── 72. Message::tool constructor ───────────────────────────────────────
+
+#[test]
+fn t72_message_tool_constructor() {
+    let msg = Message::tool("call_123", "result text");
+    assert_eq!(msg.role, "tool");
+    assert_eq!(msg.content.as_deref(), Some("result text"));
+    assert_eq!(msg.tool_call_id.as_deref(), Some("call_123"));
+    assert!(msg.tool_calls.is_none());
+}
+
+// ── 73. Message::assistant_with_tool_calls constructor ──────────────────
+
+#[test]
+fn t73_message_assistant_with_tool_calls() {
+    let tc = KimiToolCall {
+        id: "call_x".into(),
+        call_type: "function".into(),
+        function: KimiFunctionCall {
+            name: "search".into(),
+            arguments: "{}".into(),
+        },
+    };
+    let msg = Message::assistant_with_tool_calls(vec![tc.clone()]);
+    assert_eq!(msg.role, "assistant");
+    assert!(msg.content.is_none());
+    let tcs = msg.tool_calls.unwrap();
+    assert_eq!(tcs.len(), 1);
+    assert_eq!(tcs[0].id, "call_x");
+}
+
+// ── 74. Message serde roundtrip ─────────────────────────────────────────
+
+#[test]
+fn t74_message_serde_roundtrip() {
+    let msg = Message::user("hello world");
+    let json = serde_json::to_string(&msg).unwrap();
+    let back: Message = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.role, "user");
+    assert_eq!(back.content.as_deref(), Some("hello world"));
+    assert!(back.tool_calls.is_none());
+    assert!(back.tool_call_id.is_none());
+}
+
+// ── 75. Usage serde roundtrip ───────────────────────────────────────────
+
+#[test]
+fn t75_usage_serde_roundtrip() {
+    use abp_shim_kimi::Usage;
+    let usage = Usage {
+        prompt_tokens: 42,
+        completion_tokens: 17,
+        total_tokens: 59,
+    };
+    let json = serde_json::to_string(&usage).unwrap();
+    let back: Usage = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, usage);
+}
+
+// ── 76. to_canonical_model / from_canonical_model roundtrip ─────────────
+
+#[test]
+fn t76_canonical_model_roundtrip() {
+    let vendor = "moonshot-v1-128k";
+    let canonical = dialect::to_canonical_model(vendor);
+    assert_eq!(canonical, "moonshot/moonshot-v1-128k");
+    let back = dialect::from_canonical_model(&canonical);
+    assert_eq!(back, vendor);
+}
+
+// ── 77. from_canonical_model without prefix passes through ──────────────
+
+#[test]
+fn t77_from_canonical_model_no_prefix() {
+    let result = dialect::from_canonical_model("gpt-4");
+    assert_eq!(result, "gpt-4");
+}
+
+// ── 78. response_to_ir with tool calls ──────────────────────────────────
+
+#[test]
+fn t78_response_to_ir_with_tool_calls() {
+    use abp_shim_kimi::response_to_ir;
+    let resp = KimiResponse {
+        id: "cmpl-1".into(),
+        model: "moonshot-v1-8k".into(),
+        choices: vec![KimiChoice {
+            index: 0,
+            message: KimiResponseMessage {
+                role: "assistant".into(),
+                content: None,
+                tool_calls: Some(vec![KimiToolCall {
+                    id: "call_a".into(),
+                    call_type: "function".into(),
+                    function: KimiFunctionCall {
+                        name: "web_search".into(),
+                        arguments: r#"{"q":"test"}"#.into(),
+                    },
+                }]),
+            },
+            finish_reason: Some("tool_calls".into()),
+        }],
+        usage: None,
+        refs: None,
+    };
+    let conv = response_to_ir(&resp);
+    assert_eq!(conv.len(), 1);
+    assert_eq!(conv.messages[0].role, IrRole::Assistant);
+}
+
+// ── 79. map_work_order from dialect ─────────────────────────────────────
+
+#[test]
+fn t79_dialect_map_work_order() {
+    use abp_core::WorkOrderBuilder;
+    let wo = WorkOrderBuilder::new("Summarize this article").build();
+    let cfg = KimiConfig::default();
+    let req = dialect::map_work_order(&wo, &cfg);
+    assert_eq!(req.model, "moonshot-v1-8k");
+    assert!(
+        req.messages[0]
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Summarize this article")
+    );
+}
+
+// ── 80. map_response from dialect ───────────────────────────────────────
+
+#[test]
+fn t80_dialect_map_response_text() {
+    let resp = KimiResponse {
+        id: "cmpl-x".into(),
+        model: "moonshot-v1-8k".into(),
+        choices: vec![KimiChoice {
+            index: 0,
+            message: KimiResponseMessage {
+                role: "assistant".into(),
+                content: Some("Answer here".into()),
+                tool_calls: None,
+            },
+            finish_reason: Some("stop".into()),
+        }],
+        usage: None,
+        refs: None,
+    };
+    let events = dialect::map_response(&resp);
+    assert_eq!(events.len(), 1);
+    match &events[0].kind {
+        AgentEventKind::AssistantMessage { text } => assert_eq!(text, "Answer here"),
+        other => panic!("expected AssistantMessage, got {other:?}"),
+    }
+}
+
+// ── 81. map_stream_event from dialect ───────────────────────────────────
+
+#[test]
+fn t81_dialect_map_stream_event_delta() {
+    let chunk = KimiChunk {
+        id: "cmpl-1".into(),
+        object: "chat.completion.chunk".into(),
+        created: 1700000000,
+        model: "moonshot-v1-8k".into(),
+        choices: vec![KimiChunkChoice {
+            index: 0,
+            delta: KimiChunkDelta {
+                role: None,
+                content: Some("partial".into()),
+                tool_calls: None,
+            },
+            finish_reason: None,
+        }],
+        usage: None,
+        refs: None,
+    };
+    let events = dialect::map_stream_event(&chunk);
+    assert_eq!(events.len(), 1);
+    match &events[0].kind {
+        AgentEventKind::AssistantDelta { text } => assert_eq!(text, "partial"),
+        other => panic!("expected AssistantDelta, got {other:?}"),
+    }
+}
+
+// ── 82. map_stream_event finish_reason emits RunCompleted ───────────────
+
+#[test]
+fn t82_dialect_map_stream_event_finish() {
+    let chunk = KimiChunk {
+        id: "cmpl-1".into(),
+        object: "chat.completion.chunk".into(),
+        created: 1700000000,
+        model: "moonshot-v1-8k".into(),
+        choices: vec![KimiChunkChoice {
+            index: 0,
+            delta: KimiChunkDelta::default(),
+            finish_reason: Some("stop".into()),
+        }],
+        usage: None,
+        refs: None,
+    };
+    let events = dialect::map_stream_event(&chunk);
+    assert_eq!(events.len(), 1);
+    match &events[0].kind {
+        AgentEventKind::RunCompleted { message } => {
+            assert!(message.contains("stop"));
+        }
+        other => panic!("expected RunCompleted, got {other:?}"),
+    }
+}
+
+// ── 83. Client builder default base_url ─────────────────────────────────
+
+#[test]
+fn t83_client_builder_defaults() {
+    use abp_shim_kimi::client::Client;
+    let client = Client::new("sk-test-key").unwrap();
+    assert_eq!(client.base_url(), "https://api.moonshot.cn/v1");
+}
+
+// ── 84. ClientError display ─────────────────────────────────────────────
+
+#[test]
+fn t84_client_error_display() {
+    use abp_shim_kimi::client::ClientError;
+    let err = ClientError::Api {
+        status: 500,
+        body: "internal server error".into(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("500"));
+    assert!(msg.contains("internal server error"));
+
+    let builder_err = ClientError::Builder("cannot build".into());
+    assert!(builder_err.to_string().contains("cannot build"));
+}
+
+// ── 85. KimiClient Debug impl ───────────────────────────────────────────
+
+#[test]
+fn t85_kimi_client_debug() {
+    let client = KimiClient::new("moonshot-v1-8k");
+    let dbg = format!("{:?}", client);
+    assert!(dbg.contains("moonshot-v1-8k"));
+    assert!(dbg.contains("KimiClient"));
+}
+
+// ── 86. map_response with refs attaches ext metadata ────────────────────
+
+#[test]
+fn t86_dialect_map_response_with_refs() {
+    let resp = KimiResponse {
+        id: "cmpl-r".into(),
+        model: "moonshot-v1-8k".into(),
+        choices: vec![KimiChoice {
+            index: 0,
+            message: KimiResponseMessage {
+                role: "assistant".into(),
+                content: Some("See [1].".into()),
+                tool_calls: None,
+            },
+            finish_reason: Some("stop".into()),
+        }],
+        usage: None,
+        refs: Some(vec![KimiRef {
+            index: 1,
+            url: "https://example.com".into(),
+            title: Some("Example".into()),
+        }]),
+    };
+    let events = dialect::map_response(&resp);
+    assert_eq!(events.len(), 1);
+    let ext = events[0].ext.as_ref().expect("ext should be present");
+    assert!(ext.contains_key("kimi_refs"));
+}
+
+// ── 87. DIALECT_VERSION constant ────────────────────────────────────────
+
+#[test]
+fn t87_dialect_version() {
+    assert_eq!(dialect::DIALECT_VERSION, "kimi/v0.1");
+}
+
+// ── 88. DEFAULT_MODEL constant ──────────────────────────────────────────
+
+#[test]
+fn t88_default_model() {
+    assert_eq!(dialect::DEFAULT_MODEL, "moonshot-v1-8k");
+}
+
+// ── 89. KimiChunkToolCall serde roundtrip ───────────────────────────────
+
+#[test]
+fn t89_chunk_tool_call_serde_roundtrip() {
+    let ctc = KimiChunkToolCall {
+        index: 0,
+        id: Some("call_1".into()),
+        call_type: Some("function".into()),
+        function: Some(KimiChunkFunctionCall {
+            name: Some("search".into()),
+            arguments: Some(r#"{"q":"test"}"#.into()),
+        }),
+    };
+    let json = serde_json::to_string(&ctc).unwrap();
+    let back: KimiChunkToolCall = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, ctc);
+}
+
+// ── 90. map_response empty content skipped ──────────────────────────────
+
+#[test]
+fn t90_dialect_map_response_empty_content_skipped() {
+    let resp = KimiResponse {
+        id: "cmpl-e".into(),
+        model: "moonshot-v1-8k".into(),
+        choices: vec![KimiChoice {
+            index: 0,
+            message: KimiResponseMessage {
+                role: "assistant".into(),
+                content: Some("".into()),
+                tool_calls: None,
+            },
+            finish_reason: Some("stop".into()),
+        }],
+        usage: None,
+        refs: None,
+    };
+    let events = dialect::map_response(&resp);
+    assert!(events.is_empty(), "empty string content should be skipped");
+}

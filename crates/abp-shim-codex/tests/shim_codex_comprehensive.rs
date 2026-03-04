@@ -1115,3 +1115,357 @@ async fn t70_no_processor_stream_returns_internal_error() {
     let result = client.create_stream(req).await;
     assert!(result.is_err());
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. Additional coverage (15 tests)
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t71_codex_client_model_accessor() {
+    let client = CodexClient::new("o3-mini");
+    assert_eq!(client.model(), "o3-mini");
+}
+
+#[test]
+fn t72_codex_client_debug_impl() {
+    let client = CodexClient::new("codex-mini-latest");
+    let dbg = format!("{:?}", client);
+    assert!(dbg.contains("CodexClient"));
+    assert!(dbg.contains("codex-mini-latest"));
+}
+
+#[test]
+fn t73_shim_error_invalid_request_display() {
+    let err = ShimError::InvalidRequest("bad field".into());
+    let msg = err.to_string();
+    assert!(msg.contains("invalid request"));
+    assert!(msg.contains("bad field"));
+}
+
+#[test]
+fn t74_shim_error_internal_display() {
+    let err = ShimError::Internal("unexpected state".into());
+    let msg = err.to_string();
+    assert!(msg.contains("internal error"));
+    assert!(msg.contains("unexpected state"));
+}
+
+#[test]
+fn t75_shim_error_serde_variant_from_json() {
+    let bad_json = "{{not json}}";
+    let result: std::result::Result<CodexRequest, _> = serde_json::from_str(bad_json);
+    let serde_err = result.unwrap_err();
+    let shim_err: ShimError = serde_err.into();
+    let msg = shim_err.to_string();
+    assert!(msg.contains("serde error"));
+}
+
+#[test]
+fn t76_mock_receipt_has_valid_structure() {
+    let events = vec![AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
+        ext: None,
+    }];
+    let receipt = mock_receipt(events.clone());
+    assert_eq!(receipt.trace.len(), 1);
+    assert_eq!(receipt.backend.id, "mock");
+    assert!(receipt.receipt_sha256.is_none());
+    assert_eq!(receipt.usage.input_tokens, None);
+    assert_eq!(receipt.usage.output_tokens, None);
+}
+
+#[test]
+fn t77_mock_receipt_with_usage_preserves_tokens() {
+    let usage = UsageNormalized {
+        input_tokens: Some(42),
+        output_tokens: Some(17),
+        cache_read_tokens: Some(5),
+        cache_write_tokens: None,
+        request_units: None,
+        estimated_cost_usd: None,
+    };
+    let receipt = mock_receipt_with_usage(vec![], usage);
+    assert_eq!(receipt.usage.input_tokens, Some(42));
+    assert_eq!(receipt.usage.output_tokens, Some(17));
+    assert_eq!(receipt.usage.cache_read_tokens, Some(5));
+    assert!(receipt.trace.is_empty());
+}
+
+#[test]
+fn t78_usage_struct_equality() {
+    let a = Usage {
+        input_tokens: 100,
+        output_tokens: 50,
+        total_tokens: 150,
+    };
+    let b = Usage {
+        input_tokens: 100,
+        output_tokens: 50,
+        total_tokens: 150,
+    };
+    assert_eq!(a, b);
+}
+
+#[test]
+fn t79_codex_shim_request_is_codex_request() {
+    // CodexShimRequest is a type alias for CodexRequest
+    let req: abp_shim_codex::CodexShimRequest =
+        CodexRequestBuilder::new().model("test-model").build();
+    assert_eq!(req.model, "test-model");
+}
+
+#[test]
+fn t80_request_to_ir_multiple_user_messages() {
+    let req = CodexRequestBuilder::new()
+        .input(vec![
+            codex_message("user", "first"),
+            codex_message("assistant", "ack"),
+            codex_message("user", "second"),
+        ])
+        .build();
+    let conv = request_to_ir(&req);
+    assert_eq!(conv.len(), 3);
+    assert_eq!(conv.messages[0].role, IrRole::User);
+    assert_eq!(conv.messages[1].role, IrRole::Assistant);
+    assert_eq!(conv.messages[2].role, IrRole::User);
+}
+
+#[test]
+fn t81_request_to_work_order_picks_last_user_msg_as_task() {
+    let req = CodexRequestBuilder::new()
+        .input(vec![
+            codex_message("user", "first question"),
+            codex_message("assistant", "answer"),
+            codex_message("user", "follow up"),
+        ])
+        .build();
+    let wo = request_to_work_order(&req);
+    assert_eq!(wo.task, "follow up");
+}
+
+#[test]
+fn t82_receipt_to_response_empty_trace() {
+    let receipt = mock_receipt(vec![]);
+    let resp = receipt_to_response(&receipt, "test-model");
+    assert!(resp.output.is_empty());
+    assert_eq!(resp.model, "test-model");
+    assert_eq!(resp.status.as_deref(), Some("completed"));
+    let u = resp.usage.unwrap();
+    assert_eq!(u.total_tokens, 0);
+}
+
+#[test]
+fn t83_network_access_variants_serde() {
+    let none_json = serde_json::to_string(&NetworkAccess::None).unwrap();
+    let full_json = serde_json::to_string(&NetworkAccess::Full).unwrap();
+    let allow_json =
+        serde_json::to_string(&NetworkAccess::AllowList(vec!["example.com".into()])).unwrap();
+    let _: NetworkAccess = serde_json::from_str(&none_json).unwrap();
+    let _: NetworkAccess = serde_json::from_str(&full_json).unwrap();
+    let back: NetworkAccess = serde_json::from_str(&allow_json).unwrap();
+    assert_eq!(back, NetworkAccess::AllowList(vec!["example.com".into()]));
+}
+
+#[test]
+fn t84_file_access_variants_serde() {
+    let ws_json = serde_json::to_string(&FileAccess::WorkspaceOnly).unwrap();
+    let ro_json = serde_json::to_string(&FileAccess::ReadOnlyExternal).unwrap();
+    let full_json = serde_json::to_string(&FileAccess::Full).unwrap();
+    let _: FileAccess = serde_json::from_str(&ws_json).unwrap();
+    let _: FileAccess = serde_json::from_str(&ro_json).unwrap();
+    let back: FileAccess = serde_json::from_str(&full_json).unwrap();
+    assert_eq!(back, FileAccess::Full);
+}
+
+#[test]
+fn t85_sandbox_config_all_fields_roundtrip() {
+    let cfg = SandboxConfig {
+        container_image: Some("ubuntu:22.04".into()),
+        networking: NetworkAccess::Full,
+        file_access: FileAccess::Full,
+        timeout_seconds: Some(300),
+        memory_mb: Some(2048),
+        env: {
+            let mut m = std::collections::BTreeMap::new();
+            m.insert("FOO".into(), "bar".into());
+            m
+        },
+    };
+    let json = serde_json::to_string(&cfg).unwrap();
+    let back: SandboxConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.container_image.as_deref(), Some("ubuntu:22.04"));
+    assert_eq!(back.timeout_seconds, Some(300));
+    assert_eq!(back.memory_mb, Some(2048));
+    assert_eq!(back.env.get("FOO").unwrap(), "bar");
+    assert_eq!(back.networking, NetworkAccess::Full);
+    assert_eq!(back.file_access, FileAccess::Full);
+}
+
+#[tokio::test]
+async fn t86_client_create_with_processor_roundtrip() {
+    let events = vec![
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "part1".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "part2".into(),
+            },
+            ext: None,
+        },
+    ];
+    let processor: abp_shim_codex::ProcessFn = Box::new(move |_wo| mock_receipt(events.clone()));
+    let client = CodexClient::new("codex-mini-latest").with_processor(processor);
+    let req = CodexRequestBuilder::new()
+        .input(vec![codex_message("user", "test")])
+        .build();
+    let resp = client.create(req).await.unwrap();
+    assert_eq!(resp.output.len(), 2);
+}
+
+#[test]
+fn t87_stream_event_error_variant_serde() {
+    let evt = CodexStreamEvent::Error {
+        message: "rate limited".into(),
+        code: Some("rate_limit_exceeded".into()),
+    };
+    let json = serde_json::to_string(&evt).unwrap();
+    let back: CodexStreamEvent = serde_json::from_str(&json).unwrap();
+    match back {
+        CodexStreamEvent::Error { message, code } => {
+            assert_eq!(message, "rate limited");
+            assert_eq!(code.as_deref(), Some("rate_limit_exceeded"));
+        }
+        other => panic!("expected Error, got {other:?}"),
+    }
+}
+
+#[test]
+fn t88_stream_event_response_failed_serde() {
+    let evt = CodexStreamEvent::ResponseFailed {
+        response: CodexResponse {
+            id: "resp_fail".into(),
+            model: "codex-mini-latest".into(),
+            output: vec![],
+            usage: None,
+            status: Some("failed".into()),
+        },
+    };
+    let json = serde_json::to_string(&evt).unwrap();
+    let back: CodexStreamEvent = serde_json::from_str(&json).unwrap();
+    match back {
+        CodexStreamEvent::ResponseFailed { response } => {
+            assert_eq!(response.id, "resp_fail");
+            assert_eq!(response.status.as_deref(), Some("failed"));
+        }
+        other => panic!("expected ResponseFailed, got {other:?}"),
+    }
+}
+
+#[test]
+fn t89_builder_chaining_all_options() {
+    let tools = vec![CodexTool::CodeInterpreter {}];
+    let req = CodexRequestBuilder::new()
+        .model("o3-mini")
+        .input(vec![codex_message("user", "test")])
+        .max_output_tokens(4096)
+        .temperature(0.3)
+        .tools(tools)
+        .text(CodexTextFormat::JsonObject {})
+        .build();
+    assert_eq!(req.model, "o3-mini");
+    assert_eq!(req.max_output_tokens, Some(4096));
+    assert_eq!(req.temperature, Some(0.3));
+    assert_eq!(req.tools.len(), 1);
+    assert!(req.text.is_some());
+}
+
+#[test]
+fn t90_http_client_builder_defaults() {
+    use abp_shim_codex::client::Client;
+    let client = Client::new("sk-test-key").unwrap();
+    assert_eq!(client.base_url(), "https://api.openai.com/v1");
+}
+
+#[test]
+fn t91_http_client_builder_custom_base_url() {
+    use abp_shim_codex::client::ClientBuilder;
+    use std::time::Duration;
+    let client = ClientBuilder::new("sk-key")
+        .base_url("https://custom.api.example/v2")
+        .timeout(Duration::from_secs(60))
+        .build()
+        .unwrap();
+    assert_eq!(client.base_url(), "https://custom.api.example/v2");
+}
+
+#[test]
+fn t92_http_client_error_display_api() {
+    use abp_shim_codex::client::ClientError;
+    let err = ClientError::Api {
+        status: 429,
+        body: "rate limited".into(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("429"));
+    assert!(msg.contains("rate limited"));
+}
+
+#[test]
+fn t93_http_client_error_display_builder() {
+    use abp_shim_codex::client::ClientError;
+    let err = ClientError::Builder("tls failed".into());
+    let msg = err.to_string();
+    assert!(msg.contains("builder error"));
+    assert!(msg.contains("tls failed"));
+}
+
+#[test]
+fn t94_reasoning_summary_serde_roundtrip() {
+    let item = CodexResponseItem::Reasoning {
+        summary: vec![
+            ReasoningSummary {
+                text: "step 1".into(),
+            },
+            ReasoningSummary {
+                text: "step 2".into(),
+            },
+        ],
+    };
+    let json = serde_json::to_string(&item).unwrap();
+    let back: CodexResponseItem = serde_json::from_str(&json).unwrap();
+    match back {
+        CodexResponseItem::Reasoning { summary } => {
+            assert_eq!(summary.len(), 2);
+            assert_eq!(summary[0].text, "step 1");
+            assert_eq!(summary[1].text, "step 2");
+        }
+        other => panic!("expected Reasoning, got {other:?}"),
+    }
+}
+
+#[test]
+fn t95_request_to_work_order_both_temp_and_max_tokens() {
+    let req = CodexRequestBuilder::new()
+        .model("codex-mini-latest")
+        .input(vec![codex_message("user", "test")])
+        .temperature(0.9)
+        .max_output_tokens(512)
+        .build();
+    let wo = request_to_work_order(&req);
+    assert_eq!(
+        wo.config.vendor.get("temperature"),
+        Some(&serde_json::Value::from(0.9))
+    );
+    assert_eq!(
+        wo.config.vendor.get("max_output_tokens"),
+        Some(&serde_json::Value::from(512))
+    );
+    assert_eq!(wo.config.model.as_deref(), Some("codex-mini-latest"));
+}
