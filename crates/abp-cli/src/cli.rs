@@ -113,10 +113,17 @@ pub enum Commands {
     },
 
     /// Validate a JSON file as a WorkOrder, Receipt, or auto-detect type.
+    ///
+    /// When called with no arguments, validates the current config file.
+    /// Use `--config <path>` to validate a specific TOML config.
     Validate {
-        /// Path to the JSON file.
+        /// Path to a JSON file to validate (work order or receipt).
         #[arg()]
-        file: PathBuf,
+        file: Option<PathBuf>,
+
+        /// Validate a specific TOML configuration file.
+        #[arg(long = "config-file")]
+        config_file: Option<PathBuf>,
     },
 
     /// Print a JSON schema to stdout.
@@ -124,6 +131,10 @@ pub enum Commands {
         /// Which schema to print.
         #[arg(value_enum)]
         kind: SchemaArg,
+
+        /// Write the schema to a file instead of stdout.
+        #[arg(long)]
+        output: Option<PathBuf>,
     },
 
     /// Inspect a receipt file and verify its hash.
@@ -148,6 +159,13 @@ pub enum Commands {
         #[command(subcommand)]
         action: ReceiptAction,
     },
+
+    /// Show current runtime and daemon status.
+    Status {
+        /// Print status as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Actions for the `config` subcommand.
@@ -158,6 +176,27 @@ pub enum ConfigAction {
         /// Path to a TOML configuration file (overrides --config).
         #[arg(long)]
         config: Option<PathBuf>,
+    },
+    /// Display the current effective configuration.
+    Show {
+        /// Output format: "toml" or "json" (default: toml).
+        #[arg(long, default_value = "toml")]
+        format: String,
+    },
+    /// Validate a configuration file (alias for check).
+    Validate {
+        /// Path to a TOML configuration file (overrides --config).
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Diff two configuration files and show changes.
+    Diff {
+        /// First TOML configuration file.
+        #[arg()]
+        file1: PathBuf,
+        /// Second TOML configuration file.
+        #[arg()]
+        file2: PathBuf,
     },
 }
 

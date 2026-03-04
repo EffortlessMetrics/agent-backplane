@@ -358,9 +358,15 @@ fn max_turns_negative_rejected() {
 }
 
 #[test]
-fn validate_missing_file_arg() {
-    let err = parse(&["validate"]).unwrap_err();
-    assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+fn validate_no_args_parses_as_config_mode() {
+    let cli = parse(&["validate"]).unwrap();
+    match &cli.command {
+        Commands::Validate { file, config_file } => {
+            assert!(file.is_none());
+            assert!(config_file.is_none());
+        }
+        other => panic!("expected Validate, got {other:?}"),
+    }
 }
 
 #[test]
@@ -958,7 +964,7 @@ fn receipt_no_action_is_error() {
 fn validate_parses_file_path() {
     let cli = parse(&["validate", "wo.json"]).unwrap();
     match &cli.command {
-        Commands::Validate { file } => assert_eq!(file, &PathBuf::from("wo.json")),
+        Commands::Validate { file, .. } => assert_eq!(file, &Some(PathBuf::from("wo.json"))),
         other => panic!("expected Validate, got {other:?}"),
     }
 }
@@ -967,7 +973,7 @@ fn validate_parses_file_path() {
 fn schema_work_order_parses() {
     let cli = parse(&["schema", "work-order"]).unwrap();
     match &cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::WorkOrder)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::WorkOrder)),
         other => panic!("expected Schema, got {other:?}"),
     }
 }
@@ -976,7 +982,7 @@ fn schema_work_order_parses() {
 fn schema_receipt_parses() {
     let cli = parse(&["schema", "receipt"]).unwrap();
     match &cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::Receipt)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::Receipt)),
         other => panic!("expected Schema, got {other:?}"),
     }
 }
@@ -985,7 +991,7 @@ fn schema_receipt_parses() {
 fn schema_config_parses() {
     let cli = parse(&["schema", "config"]).unwrap();
     match &cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::Config)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::Config)),
         other => panic!("expected Schema, got {other:?}"),
     }
 }

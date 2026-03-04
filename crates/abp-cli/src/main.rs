@@ -5,6 +5,9 @@ use abp_cli::cli::{
     Cli, Commands, ConfigAction, LaneArg, ReceiptAction, SchemaArg, WorkspaceModeArg,
 };
 use abp_cli::commands::{self, SchemaKind};
+use abp_cli::schema as schema_cmd;
+use abp_cli::status as status_cmd;
+use abp_cli::validate as validate_cmd;
 use abp_codex_sdk as codex_sdk;
 use abp_copilot_sdk as copilot_sdk;
 use abp_core::{
@@ -59,11 +62,12 @@ async fn main() {
 
     let result = match cli.command {
         Commands::Backends => cmd_backends().await,
-        Commands::Validate { file } => cmd_validate(&file),
-        Commands::Schema { kind } => cmd_schema(kind),
+        Commands::Validate { file, config_file } => cmd_validate(file.as_deref(), config_file.as_deref()),
+        Commands::Schema { kind, output } => cmd_schema(kind, output),
         Commands::Inspect { file } => cmd_inspect(&file),
         Commands::ConfigCmd { action } => cmd_config(action, config_path),
         Commands::ReceiptCmd { action } => cmd_receipt(action),
+        Commands::Status { json } => cmd_status(&config, json),
         Commands::Run {
             backend,
             task,
@@ -135,24 +139,57 @@ async fn cmd_backends() -> Result<()> {
     Ok(())
 }
 
-fn cmd_validate(file: &std::path::Path) -> Result<()> {
-    let detected = commands::validate_file(file)?;
-    match detected {
-        commands::ValidatedType::WorkOrder => println!("valid work_order"),
-        commands::ValidatedType::Receipt => println!("valid receipt"),
+fn cmd_validate(file: Option<&std::path::Path>, config_file: Option<&std::path::Path>) -> Result<()> {
+    // If --config-file is given, validate that config file.
+    if let Some(cfg_path) = config_file {
+        let result = validate_cmd::validate_config(Some(cfg_path))?;
+        for e in &result.errors {
+            eprintln!("error: {e}");
+        }
+        for w in &result.warnings {
+            eprintln!("warning: {w}");
+        }
+        if result.valid {
+            println!("config: valid");
+        } else {
+            std::process::exit(EXIT_RUNTIME_ERROR);
+        }
+        return Ok(());
+    }
+
+    // If a positional file is given, validate it as a WorkOrder or Receipt.
+    if let Some(path) = file {
+        let detected = commands::validate_file(path)?;
+        match detected {
+            commands::ValidatedType::WorkOrder => println!("valid work_order"),
+            commands::ValidatedType::Receipt => println!("valid receipt"),
+        }
+        return Ok(());
+    }
+
+    // No arguments: validate the current config.
+    let result = validate_cmd::validate_config(None)?;
+    for e in &result.errors {
+        eprintln!("error: {e}");
+    }
+    for w in &result.warnings {
+        eprintln!("warning: {w}");
+    }
+    if result.valid {
+        println!("config: valid");
+    } else {
+        std::process::exit(EXIT_RUNTIME_ERROR);
     }
     Ok(())
 }
 
-fn cmd_schema(kind: SchemaArg) -> Result<()> {
+fn cmd_schema(kind: SchemaArg, output: Option<PathBuf>) -> Result<()> {
     let sk = match kind {
         SchemaArg::WorkOrder => SchemaKind::WorkOrder,
         SchemaArg::Receipt => SchemaKind::Receipt,
         SchemaArg::Config => SchemaKind::Config,
     };
-    let json = commands::schema_json(sk)?;
-    println!("{json}");
-    Ok(())
+    schema_cmd::output_schema(sk, output.as_deref())
 }
 
 fn cmd_inspect(file: &std::path::Path) -> Result<()> {
@@ -175,7 +212,7 @@ fn cmd_inspect(file: &std::path::Path) -> Result<()> {
 
 fn cmd_config(action: ConfigAction, global_config_path: Option<PathBuf>) -> Result<()> {
     match action {
-        ConfigAction::Check { config } => {
+        ConfigAction::Check { config } | ConfigAction::Validate { config } => {
             let path = config.or(global_config_path);
             let diagnostics = commands::config_check(path.as_deref())?;
             for d in &diagnostics {
@@ -183,6 +220,35 @@ fn cmd_config(action: ConfigAction, global_config_path: Option<PathBuf>) -> Resu
             }
             if diagnostics.iter().any(|d| d.starts_with("error:")) {
                 std::process::exit(EXIT_RUNTIME_ERROR);
+            }
+            Ok(())
+        }
+        ConfigAction::Show { format } => {
+            let path = global_config_path;
+            let cfg = abp_config::load_config(path.as_deref()).unwrap_or_else(|e| {
+                tracing::warn!("failed to load config: {e}");
+                abp_config::BackplaneConfig::default()
+            });
+            match format.as_str() {
+                "json" => {
+                    println!("{}", serde_json::to_string_pretty(&cfg)?);
+                }
+                _ => {
+                    println!("{}", toml::to_string_pretty(&cfg)?);
+                }
+            }
+            Ok(())
+        }
+        ConfigAction::Diff { file1, file2 } => {
+            let cfg1 = abp_config::load_from_file(&file1)
+                .with_context(|| format!("load config '{}'", file1.display()))?;
+            let cfg2 = abp_config::load_from_file(&file2)
+                .with_context(|| format!("load config '{}'", file2.display()))?;
+            let diff = abp_config::diff::diff(&cfg1, &cfg2);
+            if diff.is_empty() {
+                println!("no differences");
+            } else {
+                println!("{diff}");
             }
             Ok(())
         }
@@ -210,6 +276,15 @@ fn cmd_receipt(action: ReceiptAction) -> Result<()> {
             println!("{diff}");
             Ok(())
         }
+    }
+}
+
+fn cmd_status(config: &abp_config::BackplaneConfig, json: bool) -> Result<()> {
+    let info = status_cmd::gather_status(config)?;
+    if json {
+        status_cmd::print_status_json(&info)
+    } else {
+        status_cmd::print_status(&info)
     }
 }
 

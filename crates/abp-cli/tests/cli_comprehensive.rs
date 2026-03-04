@@ -340,7 +340,7 @@ fn parse_run_policy_option() {
 fn parse_validate_subcommand() {
     let cli = Cli::try_parse_from(["abp", "validate", "wo.json"]).unwrap();
     match cli.command {
-        Commands::Validate { file } => assert_eq!(file, PathBuf::from("wo.json")),
+        Commands::Validate { file, .. } => assert_eq!(file, Some(PathBuf::from("wo.json"))),
         _ => panic!("expected Validate"),
     }
 }
@@ -349,7 +349,7 @@ fn parse_validate_subcommand() {
 fn parse_schema_work_order() {
     let cli = Cli::try_parse_from(["abp", "schema", "work-order"]).unwrap();
     match cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::WorkOrder)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::WorkOrder)),
         _ => panic!("expected Schema"),
     }
 }
@@ -358,7 +358,7 @@ fn parse_schema_work_order() {
 fn parse_schema_receipt() {
     let cli = Cli::try_parse_from(["abp", "schema", "receipt"]).unwrap();
     match cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::Receipt)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::Receipt)),
         _ => panic!("expected Schema"),
     }
 }
@@ -367,7 +367,7 @@ fn parse_schema_receipt() {
 fn parse_schema_config() {
     let cli = Cli::try_parse_from(["abp", "schema", "config"]).unwrap();
     match cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::Config)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::Config)),
         _ => panic!("expected Schema"),
     }
 }

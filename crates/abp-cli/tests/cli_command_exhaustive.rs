@@ -425,9 +425,15 @@ fn invalid_schema_kind_rejected() {
 }
 
 #[test]
-fn missing_validate_file_arg_rejected() {
-    let err = parse(&["validate"]).unwrap_err();
-    assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+fn validate_no_args_parses_as_config_validation() {
+    let cli = parse(&["validate"]).unwrap();
+    match cli.command {
+        Commands::Validate { file, config_file } => {
+            assert!(file.is_none());
+            assert!(config_file.is_none());
+        }
+        _ => panic!("expected Validate"),
+    }
 }
 
 #[test]
@@ -835,7 +841,7 @@ fn env_var_with_equals_in_value() {
 fn validate_subcommand_parses() {
     let cli = parse(&["validate", "file.json"]).unwrap();
     match cli.command {
-        Commands::Validate { file } => assert_eq!(file, PathBuf::from("file.json")),
+        Commands::Validate { file, .. } => assert_eq!(file, Some(PathBuf::from("file.json"))),
         _ => panic!("expected Validate"),
     }
 }
@@ -844,7 +850,7 @@ fn validate_subcommand_parses() {
 fn schema_work_order_parses() {
     let cli = parse(&["schema", "work-order"]).unwrap();
     match cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::WorkOrder)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::WorkOrder)),
         _ => panic!("expected Schema"),
     }
 }
@@ -853,7 +859,7 @@ fn schema_work_order_parses() {
 fn schema_receipt_parses() {
     let cli = parse(&["schema", "receipt"]).unwrap();
     match cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::Receipt)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::Receipt)),
         _ => panic!("expected Schema"),
     }
 }
@@ -862,7 +868,7 @@ fn schema_receipt_parses() {
 fn schema_config_parses() {
     let cli = parse(&["schema", "config"]).unwrap();
     match cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::Config)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::Config)),
         _ => panic!("expected Schema"),
     }
 }
