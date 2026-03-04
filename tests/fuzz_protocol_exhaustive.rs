@@ -5,16 +5,27 @@
 #![allow(clippy::all)]
 #![allow(dead_code, unused_imports)]
 
+use abp_capability::{
+    check_capability, generate_report, negotiate_capabilities, CapabilityRegistry,
+    CompatibilityReport, NegotiationResult,
+};
+use abp_config::{parse_toml, validate_config, BackendEntry, BackplaneConfig};
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability,
     CapabilityManifest, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
     Receipt, ReceiptBuilder, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, receipt_hash,
+    WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
 };
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
+use abp_ir::lower::{
+    lower_to_claude, lower_to_codex, lower_to_copilot, lower_to_gemini, lower_to_kimi,
+    lower_to_openai,
+};
+use abp_ir::normalize;
 use abp_policy::PolicyEngine;
 use abp_protocol::codec::StreamingCodec;
-use abp_protocol::{Envelope, JsonlCodec};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -932,4 +943,1053 @@ fn envelope_encode_never_contains_raw_newlines() {
             "encoded envelope must not contain internal newlines"
         );
     }
+}
+
+// ===========================================================================
+// 7. Fuzz: JSONL envelope parsing — invalid JSON, truncated, missing fields
+// ===========================================================================
+
+#[test]
+fn fuzz_jsonl_control_characters_no_panic() {
+    // ASCII control chars 0x01–0x1F (except \t, \n, \r which are whitespace)
+    for byte in 1u8..=31 {
+        let input = format!("{{\"t\":\"fatal\",\"error\":\"x{}y\"}}", byte as char);
+        let _ = JsonlCodec::decode(&input);
+    }
+}
+
+#[test]
+fn fuzz_jsonl_trailing_comma_variants() {
+    let inputs = &[
+        r#"{"t":"fatal","error":"x",}"#,
+        r#"{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"x",},"capabilities":{}}"#,
+        r#"{"t":"fatal","error":"x","error_code":"sidecar_crashed",}"#,
+    ];
+    for input in inputs {
+        let result = JsonlCodec::decode(input);
+        assert!(result.is_err(), "trailing comma must fail: {}", input);
+    }
+}
+
+#[test]
+fn fuzz_jsonl_number_edge_values_in_fields() {
+    let inputs = &[
+        r#"{"t":"fatal","error":"NaN"}"#,
+        r#"{"t":"fatal","error":"Infinity"}"#,
+        r#"{"t":"fatal","error":""}"#,
+        // Integer overflow in unexpected places
+        r#"{"t":"run","id":"x","work_order":99999999999999999999}"#,
+    ];
+    for input in inputs {
+        let _ = JsonlCodec::decode(input);
+    }
+}
+
+#[test]
+fn fuzz_jsonl_bom_prefix() {
+    // UTF-8 BOM before valid JSON
+    let bom = "\u{FEFF}";
+    let input = format!("{}{{\"t\":\"fatal\",\"error\":\"boom\"}}", bom);
+    let _ = JsonlCodec::decode(&input);
+    // Must not panic; may or may not parse depending on BOM handling
+}
+
+#[test]
+fn fuzz_jsonl_multiple_json_objects_on_one_line() {
+    let input = r#"{"t":"fatal","error":"a"}{"t":"fatal","error":"b"}"#;
+    let result = JsonlCodec::decode(input);
+    // Should fail or only parse the first object — must not panic
+    let _ = result;
+}
+
+#[test]
+fn fuzz_jsonl_extremely_long_string_key() {
+    let long_key = "k".repeat(1_000_000);
+    let input = format!(r#"{{"t":"fatal","{}":"value","error":"x"}}"#, long_key);
+    let _ = JsonlCodec::decode(&input);
+}
+
+// ===========================================================================
+// 8. Fuzz: WorkOrder construction — invalid UUIDs, empty fields, oversized
+// ===========================================================================
+
+#[test]
+fn fuzz_workorder_invalid_uuid_deserialization() {
+    let invalid_uuids = &[
+        "not-a-uuid",
+        "",
+        "00000000-0000-0000-0000",               // truncated
+        "00000000-0000-0000-0000-0000000000000", // too long
+        "ZZZZZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZZZZZZZZZ",  // invalid hex
+        "00000000000000000000000000000000",      // missing dashes
+        "null",
+    ];
+    for bad_uuid in invalid_uuids {
+        let json = format!(
+            r#"{{"id":"{}","task":"test","lane":"patch_first","workspace":{{"root":".","mode":"staged","include":[],"exclude":[]}},"context":{{"files":[],"snippets":[]}},"policy":{{}},"requirements":{{"required":[]}},"config":{{"vendor":{{}},"env":{{}}}}}}"#,
+            bad_uuid
+        );
+        let result = serde_json::from_str::<WorkOrder>(&json);
+        assert!(
+            result.is_err(),
+            "invalid UUID '{}' must fail to deserialize",
+            bad_uuid
+        );
+    }
+}
+
+#[test]
+fn fuzz_workorder_all_fields_null_json() {
+    let json = r#"{"id":null,"task":null,"lane":null,"workspace":null,"context":null,"policy":null,"requirements":null,"config":null}"#;
+    let result = serde_json::from_str::<WorkOrder>(json);
+    assert!(result.is_err(), "all-null WorkOrder must fail");
+}
+
+#[test]
+fn fuzz_workorder_extra_nested_vendor_config() {
+    // Deeply nested vendor config should not panic
+    let mut depth = serde_json::Value::String("leaf".into());
+    for _ in 0..200 {
+        let mut map = serde_json::Map::new();
+        map.insert("nested".into(), depth);
+        depth = serde_json::Value::Object(map);
+    }
+    let wo = WorkOrderBuilder::new("test").build();
+    let mut json_val = serde_json::to_value(&wo).unwrap();
+    json_val["config"]["vendor"]["deep"] = depth;
+    let result = serde_json::from_value::<WorkOrder>(json_val);
+    // Should succeed — vendor config accepts arbitrary JSON
+    assert!(result.is_ok(), "deep vendor config should be tolerated");
+}
+
+#[test]
+fn fuzz_workorder_negative_budget_and_turns() {
+    // JSON with negative numbers for unsigned/float fields
+    let wo = WorkOrderBuilder::new("test").build();
+    let mut json_val = serde_json::to_value(&wo).unwrap();
+    json_val["config"]["max_budget_usd"] = json!(-1.0);
+    let _ = serde_json::from_value::<WorkOrder>(json_val.clone());
+
+    json_val["config"]["max_turns"] = json!(-1);
+    let result = serde_json::from_value::<WorkOrder>(json_val);
+    // Negative u32 should fail deserialization
+    assert!(
+        result.is_err(),
+        "negative max_turns must fail for u32 field"
+    );
+}
+
+#[test]
+fn fuzz_workorder_nan_infinity_budget() {
+    let wo = WorkOrderBuilder::new("test").build();
+    let full_json = serde_json::to_string(&wo).unwrap();
+    // Replace budget with NaN (invalid JSON)
+    let nan_json = full_json.replace("null", "NaN");
+    let _ = serde_json::from_str::<WorkOrder>(&nan_json);
+
+    // Replace with Infinity
+    let inf_json = full_json.replace("null", "Infinity");
+    let _ = serde_json::from_str::<WorkOrder>(&inf_json);
+    // Must not panic
+}
+
+// ===========================================================================
+// 9. Fuzz: Receipt manipulation — hash tampering, field removal, type confusion
+// ===========================================================================
+
+#[test]
+fn fuzz_receipt_outcome_type_confusion() {
+    let r = make_hashed_receipt("test");
+    let mut json_val = serde_json::to_value(&r).unwrap();
+    // Replace outcome string with integer
+    json_val["outcome"] = json!(42);
+    let result = serde_json::from_value::<Receipt>(json_val.clone());
+    assert!(result.is_err(), "integer outcome must fail");
+
+    // Replace with object
+    json_val["outcome"] = json!({"status": "complete"});
+    let result = serde_json::from_value::<Receipt>(json_val);
+    assert!(result.is_err(), "object outcome must fail");
+}
+
+#[test]
+fn fuzz_receipt_remove_required_fields_one_by_one() {
+    let r = make_hashed_receipt("test");
+    let json_val = serde_json::to_value(&r).unwrap();
+    let required_fields = ["meta", "backend", "outcome", "capabilities"];
+    for field in &required_fields {
+        let mut modified = json_val.clone();
+        modified.as_object_mut().unwrap().remove(*field);
+        let result = serde_json::from_value::<Receipt>(modified);
+        assert!(
+            result.is_err(),
+            "receipt with '{}' removed must fail",
+            field
+        );
+    }
+}
+
+#[test]
+fn fuzz_receipt_hash_with_empty_trace() {
+    let r1 = ReceiptBuilder::new("test")
+        .outcome(Outcome::Complete)
+        .build();
+    let r2 = ReceiptBuilder::new("test")
+        .outcome(Outcome::Complete)
+        .build();
+    let h1 = receipt_hash(&r1).unwrap();
+    let h2 = receipt_hash(&r2).unwrap();
+    // Different run_ids mean different hashes even with empty traces
+    assert_ne!(h1, h2, "distinct run_ids must produce different hashes");
+}
+
+#[test]
+fn fuzz_receipt_enormous_trace() {
+    let mut builder = ReceiptBuilder::new("test").outcome(Outcome::Complete);
+    for i in 0..1000 {
+        let event = AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::AssistantDelta {
+                text: format!("chunk-{}", i),
+            },
+            ext: None,
+        };
+        builder = builder.add_trace_event(event);
+    }
+    let r = builder.build();
+    let hash = receipt_hash(&r);
+    assert!(hash.is_ok(), "hashing 1000-event receipt must succeed");
+}
+
+#[test]
+fn fuzz_receipt_all_outcome_variants_roundtrip() {
+    let outcomes = [Outcome::Complete, Outcome::Partial, Outcome::Failed];
+    for outcome in &outcomes {
+        let r = make_receipt("test", outcome.clone());
+        let json = serde_json::to_string(&r).unwrap();
+        let roundtrip: Receipt = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            serde_json::to_value(&r.outcome).unwrap(),
+            serde_json::to_value(&roundtrip.outcome).unwrap()
+        );
+    }
+}
+
+#[test]
+fn fuzz_receipt_meta_fields_replaced_with_wrong_types() {
+    let r = make_hashed_receipt("test");
+    let mut json_val = serde_json::to_value(&r).unwrap();
+    // Replace meta.run_id with an integer
+    json_val["meta"]["run_id"] = json!(12345);
+    let result = serde_json::from_value::<Receipt>(json_val);
+    assert!(result.is_err(), "integer run_id must fail");
+}
+
+// ===========================================================================
+// 10. Fuzz: Policy evaluation — conflicting rules, deep nested patterns
+// ===========================================================================
+
+#[test]
+fn fuzz_policy_many_overlapping_patterns() {
+    // 100 overlapping glob patterns
+    let mut deny_write: Vec<String> = Vec::new();
+    for depth in 0..100 {
+        deny_write.push(format!("{}/**/*.rs", "a/".repeat(depth)));
+    }
+    let policy = PolicyProfile {
+        deny_write,
+        ..Default::default()
+    };
+    let engine = PolicyEngine::new(&policy);
+    if let Ok(engine) = engine {
+        let _ = engine.can_write_path(Path::new("a/a/a/a/deep/file.rs"));
+    }
+}
+
+#[test]
+fn fuzz_policy_simultaneous_allow_deny_read_write() {
+    let policy = PolicyProfile {
+        deny_read: vec!["**/*.secret".into()],
+        deny_write: vec!["**/*.config".into()],
+        allowed_tools: vec!["bash".into(), "python".into()],
+        disallowed_tools: vec!["python".into(), "node".into()],
+        ..Default::default()
+    };
+    if let Ok(engine) = PolicyEngine::new(&policy) {
+        // bash is allowed-only
+        assert!(engine.can_use_tool("bash").allowed);
+        // python is in both allow and deny — deny wins
+        assert!(!engine.can_use_tool("python").allowed);
+        // node is denied
+        assert!(!engine.can_use_tool("node").allowed);
+        // read checks
+        assert!(!engine.can_read_path(Path::new("keys.secret")).allowed);
+        assert!(engine.can_read_path(Path::new("app.config")).allowed);
+        // write checks
+        assert!(!engine.can_write_path(Path::new("app.config")).allowed);
+    }
+}
+
+#[test]
+fn fuzz_policy_deeply_nested_directory_path() {
+    let policy = PolicyProfile {
+        deny_write: vec!["**/secret/**".into()],
+        ..Default::default()
+    };
+    if let Ok(engine) = PolicyEngine::new(&policy) {
+        let deep_path = format!("{}/secret/file.txt", "a/b/c/".repeat(50));
+        let _ = engine.can_write_path(Path::new(&deep_path));
+    }
+}
+
+#[test]
+fn fuzz_policy_symlink_like_paths() {
+    let tricky_paths = &[
+        "src/./main.rs",
+        "src//double//slash.rs",
+        "src/sub/../main.rs",
+        "src/.hidden/file.rs",
+        "src/...triple.rs",
+    ];
+    let policy = PolicyProfile {
+        deny_write: vec!["src/**".into()],
+        ..Default::default()
+    };
+    if let Ok(engine) = PolicyEngine::new(&policy) {
+        for path in tricky_paths {
+            let _ = engine.can_write_path(Path::new(path));
+            // Must not panic
+        }
+    }
+}
+
+#[test]
+fn fuzz_policy_all_empty_lists() {
+    let policy = PolicyProfile {
+        allowed_tools: vec![],
+        disallowed_tools: vec![],
+        deny_read: vec![],
+        deny_write: vec![],
+        ..Default::default()
+    };
+    if let Ok(engine) = PolicyEngine::new(&policy) {
+        // Everything should be allowed
+        assert!(engine.can_use_tool("anything").allowed);
+        assert!(engine.can_read_path(Path::new("any/file.rs")).allowed);
+        assert!(engine.can_write_path(Path::new("any/file.rs")).allowed);
+    }
+}
+
+// ===========================================================================
+// 11. Fuzz: Capability negotiation — impossible features, version mismatches
+// ===========================================================================
+
+#[test]
+fn fuzz_capability_negotiate_empty_manifest_all_required() {
+    let manifest: CapabilityManifest = BTreeMap::new();
+    let required = vec![
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolWrite,
+        Capability::ToolBash,
+        Capability::Vision,
+        Capability::ExtendedThinking,
+    ];
+    let result = negotiate_capabilities(&required, &manifest);
+    assert!(
+        !result.unsupported.is_empty(),
+        "empty manifest cannot satisfy any requirements"
+    );
+}
+
+#[test]
+fn fuzz_capability_negotiate_all_native() {
+    let mut manifest: CapabilityManifest = BTreeMap::new();
+    let caps = vec![
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolWrite,
+    ];
+    for cap in &caps {
+        manifest.insert(cap.clone(), SupportLevel::Native);
+    }
+    let result = negotiate_capabilities(&caps, &manifest);
+    assert!(result.is_viable(), "fully native manifest should be viable");
+    assert_eq!(result.native.len(), 3);
+}
+
+#[test]
+fn fuzz_capability_negotiate_duplicate_requirements() {
+    let mut manifest: CapabilityManifest = BTreeMap::new();
+    manifest.insert(Capability::Streaming, SupportLevel::Native);
+    // Duplicate the same requirement
+    let required = vec![
+        Capability::Streaming,
+        Capability::Streaming,
+        Capability::Streaming,
+    ];
+    let result = negotiate_capabilities(&required, &manifest);
+    // Must not panic; native count might be 1 or 3 depending on dedup
+    let _ = result;
+}
+
+#[test]
+fn fuzz_capability_version_parsing_edge_cases() {
+    let cases: &[(&str, Option<(u32, u32)>)] = &[
+        ("abp/v0.1", Some((0, 1))),
+        ("abp/v1.0", Some((1, 0))),
+        ("abp/v999.999", Some((999, 999))),
+        ("abp/v0.0", Some((0, 0))),
+        ("", None),
+        ("abp/v", None),
+        ("abp/v1", None),
+        ("abp/v1.", None),
+        ("abp/v.1", None),
+        ("abp/v-1.0", None),
+        ("xyz/v0.1", None),
+        ("abp/v0.1.0", None),
+        ("ABP/V0.1", None),
+    ];
+    for (input, expected) in cases {
+        let result = parse_version(input);
+        assert_eq!(
+            result, *expected,
+            "parse_version({:?}) expected {:?}, got {:?}",
+            input, expected, result
+        );
+    }
+}
+
+#[test]
+fn fuzz_capability_version_compatibility() {
+    // Same major version -> compatible
+    assert!(is_compatible_version("abp/v0.1", "abp/v0.1"));
+    assert!(is_compatible_version("abp/v0.1", "abp/v0.9"));
+    // Different major version -> incompatible
+    assert!(!is_compatible_version("abp/v1.0", "abp/v0.1"));
+    // Invalid versions -> incompatible
+    assert!(!is_compatible_version("garbage", "abp/v0.1"));
+    assert!(!is_compatible_version("abp/v0.1", "garbage"));
+    assert!(!is_compatible_version("", ""));
+}
+
+#[test]
+fn fuzz_capability_registry_unknown_backend() {
+    let registry = CapabilityRegistry::with_defaults();
+    let result = registry.negotiate_by_name("nonexistent_backend_xyz", &[Capability::Streaming]);
+    assert!(
+        result.is_none(),
+        "unknown backend must return None from registry"
+    );
+}
+
+// ===========================================================================
+// 12. Fuzz: IR translation — invalid content blocks, missing roles, empty msgs
+// ===========================================================================
+
+#[test]
+fn fuzz_ir_empty_conversation_lowering() {
+    let conv = IrConversation::new();
+    let tools: Vec<IrToolDefinition> = vec![];
+    // All lowering targets must handle empty conversations without panic
+    let _ = lower_to_openai(&conv, &tools);
+    let _ = lower_to_claude(&conv, &tools);
+    let _ = lower_to_gemini(&conv, &tools);
+    let _ = lower_to_kimi(&conv, &tools);
+    let _ = lower_to_codex(&conv, &tools);
+    let _ = lower_to_copilot(&conv, &tools);
+}
+
+#[test]
+fn fuzz_ir_empty_text_blocks() {
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, ""),
+        IrMessage::text(IrRole::Assistant, ""),
+        IrMessage::new(
+            IrRole::User,
+            vec![IrContentBlock::Text {
+                text: String::new(),
+            }],
+        ),
+    ]);
+    let tools: Vec<IrToolDefinition> = vec![];
+    let _ = lower_to_openai(&conv, &tools);
+    let _ = lower_to_claude(&conv, &tools);
+}
+
+#[test]
+fn fuzz_ir_tool_use_with_invalid_input() {
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "do something"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "".into(),
+                name: "".into(),
+                input: json!(null),
+            }],
+        ),
+        IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "".into(),
+                content: vec![],
+                is_error: true,
+            }],
+        ),
+    ]);
+    let _ = lower_to_openai(&conv, &[]);
+    let _ = lower_to_claude(&conv, &[]);
+}
+
+#[test]
+fn fuzz_ir_deeply_nested_tool_results() {
+    // ToolResult containing another ToolResult (unusual but should not panic)
+    let inner = IrContentBlock::ToolResult {
+        tool_use_id: "inner".into(),
+        content: vec![IrContentBlock::Text {
+            text: "deep".into(),
+        }],
+        is_error: false,
+    };
+    let outer = IrContentBlock::ToolResult {
+        tool_use_id: "outer".into(),
+        content: vec![inner],
+        is_error: false,
+    };
+    let conv = IrConversation::from_messages(vec![IrMessage::new(IrRole::Tool, vec![outer])]);
+    let _ = lower_to_openai(&conv, &[]);
+    let _ = lower_to_claude(&conv, &[]);
+}
+
+#[test]
+fn fuzz_ir_message_with_all_block_types_mixed() {
+    let blocks = vec![
+        IrContentBlock::Text {
+            text: "hello".into(),
+        },
+        IrContentBlock::Thinking {
+            text: "reasoning...".into(),
+        },
+        IrContentBlock::ToolUse {
+            id: "t1".into(),
+            name: "bash".into(),
+            input: json!({"cmd": "ls"}),
+        },
+        IrContentBlock::Image {
+            media_type: "image/png".into(),
+            data: "iVBORw0KGgo=".into(),
+        },
+    ];
+    let conv = IrConversation::from_messages(vec![IrMessage::new(IrRole::Assistant, blocks)]);
+    // All lowering functions must handle mixed block types
+    let _ = lower_to_openai(&conv, &[]);
+    let _ = lower_to_claude(&conv, &[]);
+    let _ = lower_to_gemini(&conv, &[]);
+}
+
+#[test]
+fn fuzz_ir_normalize_empty_and_whitespace() {
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "   "),
+        IrMessage::text(IrRole::User, "\t\n"),
+        IrMessage::text(IrRole::Assistant, ""),
+        IrMessage::new(IrRole::User, vec![]),
+    ]);
+    let normalized = normalize::normalize(&conv);
+    // Must not panic; empty messages should be stripped
+    let _ = normalized;
+}
+
+#[test]
+fn fuzz_ir_normalize_dedup_multiple_system() {
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "system 1"),
+        IrMessage::text(IrRole::System, "system 2"),
+        IrMessage::text(IrRole::System, "system 3"),
+        IrMessage::text(IrRole::User, "hello"),
+    ]);
+    let deduped = normalize::dedup_system(&conv);
+    let system_count = deduped.messages_by_role(IrRole::System).len();
+    assert!(
+        system_count <= 1,
+        "dedup_system should leave at most 1 system message, got {}",
+        system_count
+    );
+}
+
+#[test]
+fn fuzz_ir_conversation_role_accessors() {
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "q1"),
+        IrMessage::text(IrRole::Assistant, "a1"),
+        IrMessage::text(IrRole::User, "q2"),
+    ]);
+    assert!(conv.system_message().is_none());
+    assert_eq!(conv.last_assistant().unwrap().text_content(), "a1");
+    assert_eq!(conv.last_message().unwrap().text_content(), "q2");
+    assert_eq!(conv.messages_by_role(IrRole::User).len(), 2);
+    assert!(conv.tool_calls().is_empty());
+}
+
+#[test]
+fn fuzz_ir_tool_definition_empty_parameters() {
+    let tools = vec![
+        IrToolDefinition {
+            name: "".into(),
+            description: "".into(),
+            parameters: json!(null),
+        },
+        IrToolDefinition {
+            name: "tool".into(),
+            description: "desc".into(),
+            parameters: json!({}),
+        },
+        IrToolDefinition {
+            name: "evil<script>".into(),
+            description: "'; DROP TABLE;--".into(),
+            parameters: json!({"type": "object", "properties": {}}),
+        },
+    ];
+    let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "test")]);
+    let _ = lower_to_openai(&conv, &tools);
+    let _ = lower_to_claude(&conv, &tools);
+}
+
+// ===========================================================================
+// 13. Fuzz: Config parsing — malformed TOML, type mismatches, boundary values
+// ===========================================================================
+
+#[test]
+fn fuzz_config_empty_string() {
+    let result = parse_toml("");
+    // Empty TOML is valid; should produce default config
+    assert!(result.is_ok(), "empty TOML should parse to defaults");
+}
+
+#[test]
+fn fuzz_config_completely_invalid_toml() {
+    let invalid_inputs = &[
+        "{{{{",
+        "not toml at all!!!",
+        "[[[triple bracket]]]",
+        "key = {unclosed",
+        "= value_without_key",
+        "\x00\x01\x02",
+    ];
+    for input in invalid_inputs {
+        let result = parse_toml(input);
+        assert!(result.is_err(), "invalid TOML must fail: {:?}", input);
+    }
+}
+
+#[test]
+fn fuzz_config_type_mismatches() {
+    let inputs = &[
+        // port as string instead of integer
+        r#"port = "not_a_number""#,
+        // log_level as integer instead of string
+        r#"log_level = 42"#,
+        // backends as string instead of table
+        r#"backends = "invalid""#,
+        // policy_profiles as integer instead of array
+        r#"policy_profiles = 99"#,
+    ];
+    for input in inputs {
+        let result = parse_toml(input);
+        assert!(result.is_err(), "type mismatch must fail: {:?}", input);
+    }
+}
+
+#[test]
+fn fuzz_config_boundary_port_values() {
+    // Valid port
+    let result = parse_toml("port = 8080");
+    assert!(result.is_ok());
+
+    // Port 0 — allowed by TOML, validation may warn
+    let result = parse_toml("port = 0");
+    if let Ok(cfg) = &result {
+        let _ = validate_config(cfg);
+    }
+
+    // Max u16
+    let result = parse_toml("port = 65535");
+    assert!(result.is_ok());
+
+    // Overflow u16
+    let result = parse_toml("port = 70000");
+    assert!(result.is_err(), "port > 65535 must fail for u16");
+}
+
+#[test]
+fn fuzz_config_backend_sidecar_missing_command() {
+    let toml = r#"
+[backends.test]
+type = "sidecar"
+args = ["--flag"]
+"#;
+    let result = parse_toml(toml);
+    // Missing 'command' in sidecar — should error or produce incomplete config
+    let _ = result;
+}
+
+#[test]
+fn fuzz_config_validate_invalid_log_levels() {
+    let levels = &["INVALID", "verbose", "TRACE", "Debug", "", "   "];
+    for level in levels {
+        let cfg = BackplaneConfig {
+            log_level: Some((*level).into()),
+            ..Default::default()
+        };
+        let result = validate_config(&cfg);
+        // Invalid log levels should produce a validation error
+        assert!(
+            result.is_err(),
+            "invalid log_level '{}' must fail validation",
+            level
+        );
+    }
+}
+
+#[test]
+fn fuzz_config_sidecar_extreme_timeout() {
+    let toml = r#"
+[backends.slow]
+type = "sidecar"
+command = "slow-agent"
+timeout_secs = 999999
+"#;
+    let result = parse_toml(toml);
+    if let Ok(cfg) = &result {
+        let warnings = validate_config(cfg);
+        if let Ok(ws) = warnings {
+            // Should have a large-timeout warning
+            let has_timeout_warning = ws
+                .iter()
+                .any(|w| matches!(w, abp_config::ConfigWarning::LargeTimeout { .. }));
+            assert!(
+                has_timeout_warning,
+                "extreme timeout should produce warning"
+            );
+        }
+    }
+}
+
+// ===========================================================================
+// 14. Fuzz: Stream event sequences — out-of-order, duplicates, gaps
+// ===========================================================================
+
+#[test]
+fn fuzz_stream_events_out_of_order() {
+    use chrono::Utc;
+    // Events that logically should be in order but aren't
+    let events = vec![
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::RunStarted {
+                message: "start".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "hello".into(),
+            },
+            ext: None,
+        },
+    ];
+    // Build a receipt with out-of-order events — should not panic
+    let mut builder = ReceiptBuilder::new("test").outcome(Outcome::Complete);
+    for e in events {
+        builder = builder.add_trace_event(e);
+    }
+    let receipt = builder.build();
+    let _ = receipt.with_hash();
+}
+
+#[test]
+fn fuzz_stream_duplicate_events() {
+    use chrono::Utc;
+    let event = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::AssistantDelta {
+            text: "chunk".into(),
+        },
+        ext: None,
+    };
+    let mut builder = ReceiptBuilder::new("test").outcome(Outcome::Complete);
+    for _ in 0..100 {
+        builder = builder.add_trace_event(event.clone());
+    }
+    let receipt = builder.build();
+    assert_eq!(receipt.trace.len(), 100);
+    let _ = receipt.with_hash();
+}
+
+#[test]
+fn fuzz_stream_tool_result_without_tool_call() {
+    use chrono::Utc;
+    // ToolResult event without preceding ToolCall — should still serialize
+    let events = vec![
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::RunStarted {
+                message: "start".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::ToolResult {
+                tool_name: "bash".into(),
+                tool_use_id: Some("orphan_id".into()),
+                output: json!("result without call"),
+                is_error: false,
+            },
+            ext: None,
+        },
+    ];
+    let mut builder = ReceiptBuilder::new("test").outcome(Outcome::Complete);
+    for e in events {
+        builder = builder.add_trace_event(e);
+    }
+    let receipt = builder.build();
+    let json = serde_json::to_string(&receipt).unwrap();
+    let _: Receipt = serde_json::from_str(&json).unwrap();
+}
+
+#[test]
+fn fuzz_stream_events_as_envelope_batch() {
+    use chrono::Utc;
+    let ref_id = "run-123";
+    let envelopes: Vec<Envelope> = (0..20)
+        .map(|i| Envelope::Event {
+            ref_id: ref_id.into(),
+            event: AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::AssistantDelta {
+                    text: format!("token-{}", i),
+                },
+                ext: None,
+            },
+        })
+        .collect();
+    let batch = StreamingCodec::encode_batch(&envelopes);
+    let results = StreamingCodec::decode_batch(&batch);
+    assert_eq!(results.len(), 20);
+    for (i, r) in results.iter().enumerate() {
+        assert!(r.is_ok(), "event {} must decode successfully", i);
+    }
+}
+
+#[test]
+fn fuzz_stream_interleaved_valid_invalid_lines() {
+    let valid_fatal = r#"{"t":"fatal","error":"ok"}"#;
+    let invalid = r#"{"t":"unknown_garbage"}"#;
+    let bad_json = "not json at all";
+    let batch = format!(
+        "{}\n{}\n{}\n{}\n{}\n",
+        valid_fatal, invalid, bad_json, valid_fatal, invalid
+    );
+    let results = StreamingCodec::decode_batch(&batch);
+    assert_eq!(results.len(), 5);
+    assert!(results[0].is_ok());
+    assert!(results[1].is_err());
+    assert!(results[2].is_err());
+    assert!(results[3].is_ok());
+    assert!(results[4].is_err());
+}
+
+#[test]
+fn fuzz_stream_final_envelope_with_minimal_receipt() {
+    let receipt = ReceiptBuilder::new("test")
+        .outcome(Outcome::Complete)
+        .build();
+    let env = Envelope::Final {
+        ref_id: "run-1".into(),
+        receipt,
+    };
+    let encoded = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(&encoded).unwrap();
+    assert!(matches!(decoded, Envelope::Final { .. }));
+}
+
+// ===========================================================================
+// 15. Fuzz: Cross-concern edge cases
+// ===========================================================================
+
+#[test]
+fn fuzz_envelope_run_with_policy_that_denies_everything() {
+    let policy = PolicyProfile {
+        deny_read: vec!["**".into()],
+        deny_write: vec!["**".into()],
+        disallowed_tools: vec!["*".into()],
+        ..Default::default()
+    };
+    let wo = WorkOrderBuilder::new("test").policy(policy).build();
+    let env = Envelope::Run {
+        id: wo.id.to_string(),
+        work_order: wo,
+    };
+    let encoded = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(&encoded).unwrap();
+    if let Envelope::Run { work_order, .. } = decoded {
+        if let Ok(engine) = PolicyEngine::new(&work_order.policy) {
+            assert!(!engine.can_use_tool("bash").allowed);
+        }
+    }
+}
+
+#[test]
+fn fuzz_receipt_with_special_backend_ids() {
+    let long_id = "a".repeat(10000);
+    let special_ids: &[&str] = &[
+        "",
+        " ",
+        "🤖",
+        "backend\nwith\nnewlines",
+        &long_id,
+        "<script>alert(1)</script>",
+    ];
+    for id in special_ids {
+        let r = ReceiptBuilder::new(*id).outcome(Outcome::Complete).build();
+        let hash = receipt_hash(&r);
+        assert!(hash.is_ok(), "special backend id {:?} must hash", id);
+        let json = serde_json::to_string(&r).unwrap();
+        let roundtrip: Receipt = serde_json::from_str(&json).unwrap();
+        assert_eq!(roundtrip.backend.id, *id);
+    }
+}
+
+#[test]
+fn fuzz_workorder_roundtrip_through_envelope() {
+    // Build a maximally-populated work order and roundtrip through envelope
+    let wo = WorkOrderBuilder::new("complex task 🎯")
+        .root("/tmp/workspace")
+        .model("gpt-4o")
+        .max_turns(100)
+        .max_budget_usd(50.0)
+        .lane(ExecutionLane::WorkspaceFirst)
+        .workspace_mode(WorkspaceMode::Staged)
+        .include(vec!["**/*.rs".into(), "**/*.toml".into()])
+        .exclude(vec!["target/**".into()])
+        .build();
+    let env = Envelope::Run {
+        id: wo.id.to_string(),
+        work_order: wo.clone(),
+    };
+    let encoded = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(&encoded).unwrap();
+    if let Envelope::Run { work_order, .. } = decoded {
+        assert_eq!(work_order.task, wo.task);
+        assert_eq!(work_order.id, wo.id);
+    } else {
+        panic!("expected Run envelope");
+    }
+}
+
+#[test]
+fn fuzz_ir_roundtrip_through_json() {
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "You are a helpful assistant."),
+        IrMessage::text(IrRole::User, "Hello!"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking {
+                    text: "thinking...".into(),
+                },
+                IrContentBlock::Text {
+                    text: "Hi there!".into(),
+                },
+            ],
+        ),
+    ]);
+    let json = serde_json::to_string(&conv).unwrap();
+    let roundtrip: IrConversation = serde_json::from_str(&json).unwrap();
+    assert_eq!(conv, roundtrip);
+}
+
+#[test]
+fn fuzz_ir_image_block_with_huge_data() {
+    // Simulate a large base64-encoded image
+    let huge_data = "A".repeat(1_000_000);
+    let conv = IrConversation::from_messages(vec![IrMessage::new(
+        IrRole::User,
+        vec![IrContentBlock::Image {
+            media_type: "image/png".into(),
+            data: huge_data,
+        }],
+    )]);
+    let _ = lower_to_openai(&conv, &[]);
+    let _ = lower_to_claude(&conv, &[]);
+}
+
+#[test]
+fn fuzz_config_roundtrip_mock_backend() {
+    let toml_str = r#"
+default_backend = "mock"
+log_level = "debug"
+
+[backends.mock]
+type = "mock"
+"#;
+    let cfg = parse_toml(toml_str).unwrap();
+    assert_eq!(cfg.default_backend.as_deref(), Some("mock"));
+    assert!(cfg.backends.contains_key("mock"));
+    let warnings = validate_config(&cfg);
+    assert!(warnings.is_ok());
+}
+
+#[test]
+fn fuzz_capability_report_generation() {
+    let mut manifest: CapabilityManifest = BTreeMap::new();
+    manifest.insert(Capability::Streaming, SupportLevel::Native);
+    manifest.insert(Capability::ToolRead, SupportLevel::Unsupported);
+    manifest.insert(Capability::Vision, SupportLevel::Emulated);
+
+    let required = vec![
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::Vision,
+    ];
+    let result = negotiate_capabilities(&required, &manifest);
+    let report = generate_report(&result);
+
+    assert!(report.native_count >= 1);
+    assert!(report.summary.len() > 0, "report summary must not be empty");
+}
+
+#[test]
+fn fuzz_glob_pattern_catastrophic_backtracking() {
+    // Patterns known to cause exponential matching in naive implementations
+    let pattern = "a]".repeat(100);
+    let _ = IncludeExcludeGlobs::new(&[pattern], &[]);
+
+    let long_stars = "**/*".repeat(20);
+    let result = IncludeExcludeGlobs::new(&[long_stars], &[]);
+    if let Ok(g) = result {
+        // Should complete quickly, not hang
+        let _ = g.decide_path(Path::new("a/b/c/d/e/f/g/h/i/j/k/l/m.txt"));
+    }
+}
+
+#[test]
+fn fuzz_streaming_codec_line_count_edge_cases() {
+    assert_eq!(StreamingCodec::line_count(""), 0);
+    assert_eq!(StreamingCodec::line_count("\n"), 0);
+    assert_eq!(StreamingCodec::line_count("\n\n\n"), 0);
+    assert_eq!(StreamingCodec::line_count("a"), 1);
+    assert_eq!(StreamingCodec::line_count("a\nb"), 2);
+    assert_eq!(StreamingCodec::line_count("a\nb\n"), 2);
+    assert_eq!(StreamingCodec::line_count("a\n\nb"), 2);
 }
