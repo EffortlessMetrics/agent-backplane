@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Comprehensive integration tests for workspace staging and git diff
 //! functionality.
 //!

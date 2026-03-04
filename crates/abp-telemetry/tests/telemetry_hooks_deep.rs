@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Deep tests for telemetry hooks and event pipeline covering hook registration,
 //! pre/post-execution hooks, event hooks, error hooks, metric collection, hook
 //! ordering, failure handling, async hooks, hook filtering, span correlation,

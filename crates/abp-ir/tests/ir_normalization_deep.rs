@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Deep tests for IR normalization and transformation.
 //!
 //! Covers 12 test categories: message normalization, content block normalization,

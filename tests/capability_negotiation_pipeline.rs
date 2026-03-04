@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Deep capability registry tests verifying the full capability negotiation
 //! pipeline: registry operations, manifest merging, negotiation algorithm,
 //! support-level transitions, emulation planning, error catalog, backend

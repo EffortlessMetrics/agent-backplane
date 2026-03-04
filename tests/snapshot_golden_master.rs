@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Golden-master snapshot test suite for ABP contract types.
 //!
 //! Categories:

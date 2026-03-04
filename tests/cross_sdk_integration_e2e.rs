@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Cross-SDK end-to-end integration tests.
 //!
 //! Tests the full ABP pipeline from work order construction through backend

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Comprehensive config validation tests covering TOML parsing, backend config,
 //! policy config, sidecar config, defaults, validation errors, env overrides,
 //! multiple backends, config merge, serde roundtrips, file loading, and dotted

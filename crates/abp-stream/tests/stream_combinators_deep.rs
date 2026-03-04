@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Comprehensive tests for stream processing patterns and combinators.
 
 use std::pin::Pin;

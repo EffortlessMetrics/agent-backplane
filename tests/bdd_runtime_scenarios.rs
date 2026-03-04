@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Comprehensive BDD-style scenario tests for the runtime pipeline.
 //!
 //! Each test follows Given/When/Then structure documented in comments.

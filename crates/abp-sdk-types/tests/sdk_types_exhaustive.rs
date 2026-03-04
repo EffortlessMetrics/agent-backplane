@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Exhaustive integration tests for all SDK dialect types in `abp-sdk-types`.
 
 use std::collections::BTreeMap;

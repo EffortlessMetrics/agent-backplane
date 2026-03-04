@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Comprehensive tests for the `abp-config` configuration system.
 //!
 //! Categories:

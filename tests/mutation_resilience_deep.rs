@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Deep mutation-resilience tests.
 //!
 //! Each test is designed so that a single-site mutation in the SUT would

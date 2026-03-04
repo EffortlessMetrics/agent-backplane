@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Deep tests for the emulation engine covering strategy selection, pipeline,
 //! label propagation, support-level semantics, feature detection, error handling,
 //! silent degradation prevention, multi-emulation, metrics, configuration,

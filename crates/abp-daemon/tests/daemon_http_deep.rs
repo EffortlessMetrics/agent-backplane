@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Comprehensive deep tests for the daemon HTTP API surface.
 //!
 //! Covers both the lightweight `server::router` (backed by `ServerState`) and

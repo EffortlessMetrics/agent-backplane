@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! SDK parity conformance tests — verify ABP can faithfully reproduce
 //! each vendor SDK's surface area, wire format, and semantic behavior.
 

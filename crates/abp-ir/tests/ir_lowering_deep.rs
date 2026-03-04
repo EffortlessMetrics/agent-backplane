@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Deep tests for IR lowering and lifting between vendor-specific types and
 //! the ABP intermediate representation.
 //!

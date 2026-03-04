@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Deep integration tests for the daemon HTTP control-plane API.
 //!
 //! Tests cover both the `server::router` (lightweight `ServerState`) and the

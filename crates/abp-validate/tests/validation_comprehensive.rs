@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Comprehensive validation tests for abp-validate covering work orders,
 //! receipts, envelopes, events, schema checks, policy, capabilities,
 //! error messages, batch validation, custom validators, and serde pipelines.

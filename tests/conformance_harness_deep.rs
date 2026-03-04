@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Deep conformance test harness verifying that ABP conforms to its own
 //! protocol specification (`docs/sidecar_protocol.md`).
 //!

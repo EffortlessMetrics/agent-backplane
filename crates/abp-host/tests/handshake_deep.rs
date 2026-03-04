@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Comprehensive tests for the sidecar JSONL handshake protocol.
 //!
 //! Covers valid/invalid hello envelopes, run forwarding, event streaming,

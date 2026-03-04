@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::useless_vec)]
 //! Comprehensive tests for the abp-policy engine — tool/read/write allow/deny,
 //! network policies, defaults, priority, glob patterns, profiles, composition,
 //! edge cases, serde roundtrips, and error messages.
