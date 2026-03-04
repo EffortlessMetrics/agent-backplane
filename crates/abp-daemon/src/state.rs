@@ -311,6 +311,13 @@ impl BackendList {
         Self::default()
     }
 
+    /// Create a backend list pre-populated with the given names.
+    pub fn from_names(names: Vec<String>) -> Self {
+        Self {
+            names: Arc::new(RwLock::new(names)),
+        }
+    }
+
     /// Register a backend name.
     pub async fn register(&self, name: String) {
         let mut guard = self.names.write().await;
@@ -337,5 +344,46 @@ impl BackendList {
     /// Whether the list is empty.
     pub async fn is_empty(&self) -> bool {
         self.names.read().await.is_empty()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ServerState — shared state for DaemonServer
+// ---------------------------------------------------------------------------
+
+/// Shared application state for [`DaemonServer`](crate::server::DaemonServer).
+///
+/// Wraps a [`BackendList`] and [`RunRegistry`] together with a start time
+/// for uptime tracking. Designed to be wrapped in [`Arc`] and passed as
+/// Axum router state.
+#[derive(Clone)]
+pub struct ServerState {
+    /// Registered backend names.
+    pub backends: BackendList,
+    /// Registry of tracked runs.
+    pub registry: RunRegistry,
+    /// Instant the server was created (for uptime calculation).
+    pub start_time: std::time::Instant,
+}
+
+impl ServerState {
+    /// Create a new server state pre-populated with the given backend names.
+    pub fn new(backend_names: Vec<String>) -> Self {
+        Self {
+            backends: BackendList::from_names(backend_names),
+            registry: RunRegistry::new(),
+            start_time: std::time::Instant::now(),
+        }
+    }
+
+    /// Server uptime in whole seconds since creation.
+    pub fn uptime_secs(&self) -> u64 {
+        self.start_time.elapsed().as_secs()
+    }
+}
+
+impl Default for ServerState {
+    fn default() -> Self {
+        Self::new(Vec::new())
     }
 }

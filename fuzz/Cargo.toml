@@ -208,3 +208,23 @@ doc = false
 name = "fuzz_protocol_stream"
 path = "fuzz_targets/fuzz_protocol_stream.rs"
 doc = false
+
+[[bin]]
+name = "fuzz_work_order_json"
+path = "fuzz_targets/fuzz_work_order_json.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt_json"
+path = "fuzz_targets/fuzz_receipt_json.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_compile"
+path = "fuzz_targets/fuzz_policy_compile.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_agent_event_json"
+path = "fuzz_targets/fuzz_agent_event_json.rs"
+doc = false
