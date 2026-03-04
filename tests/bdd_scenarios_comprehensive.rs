@@ -35,13 +35,12 @@
 
 use std::path::Path;
 
-use abp_capability::{NegotiationResult, negotiate, negotiate_capabilities};
+use abp_capability::{NegotiationResult, negotiate_capabilities};
 use abp_core::{
     AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
-    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder,
-    canonical_json,
+    CapabilityManifest, ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, MinSupport,
+    Outcome, PolicyProfile, Receipt, ReceiptBuilder, SupportLevel, UsageNormalized,
+    VerificationReport, WorkOrder, WorkOrderBuilder, canonical_json,
     ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition},
     receipt_hash, sha256_hex,
 };
@@ -54,7 +53,7 @@ use abp_mapping::{
     validate_mapping,
 };
 use abp_policy::PolicyEngine;
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
 use abp_receipt::{ReceiptChain, compute_hash, verify_hash};
 use chrono::Utc;
 use uuid::Uuid;
