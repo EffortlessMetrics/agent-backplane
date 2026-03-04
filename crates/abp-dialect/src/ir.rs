@@ -1281,7 +1281,7 @@ mod tests {
     #[test]
     fn usage_serde_roundtrip() {
         let u = IrUsage::from_io(10, 20);
-        let json = serde_json::to_value(&u).unwrap();
+        let json = serde_json::to_value(u).unwrap();
         let back: IrUsage = serde_json::from_value(json).unwrap();
         assert_eq!(u, back);
     }

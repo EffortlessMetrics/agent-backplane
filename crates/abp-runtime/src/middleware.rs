@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Middleware pattern for runtime work-order execution.
 //!
-//! A [`Middleware`] receives callbacks before and after a backend run,
-//! and a [`MiddlewareChain`] composes an ordered sequence of middlewares.
+//! A `Middleware` receives callbacks before and after a backend run,
+//! and a `MiddlewareChain` composes an ordered sequence of middlewares.
 //! Three built-in implementations are provided:
 //!
-//! - [`LoggingMiddleware`] — structured `tracing` output
-//! - [`TelemetryMiddleware`] — records timing/outcomes in [`RunMetrics`]
-//! - [`PolicyMiddleware`] — validates the work order against its policy
+//! - `LoggingMiddleware` — structured `tracing` output
+//! - `TelemetryMiddleware` — records timing/outcomes in `RunMetrics`
+//! - `PolicyMiddleware` — validates the work order against its policy
 
 use abp_core::{Receipt, WorkOrder};
 use abp_policy::PolicyEngine;

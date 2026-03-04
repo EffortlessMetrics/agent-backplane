@@ -208,18 +208,14 @@ impl<S: Stream<Item = AgentEvent>> Stream for ThrottleStream<S> {
         }
 
         // Ready to emit.
-        loop {
-            match this.inner.as_mut().poll_next(cx) {
-                Poll::Ready(Some(ev)) => {
-                    *this.ready = false;
-                    this.delay
-                        .as_mut()
-                        .reset(Instant::now() + *this.interval);
-                    return Poll::Ready(Some(ev));
-                }
-                Poll::Ready(None) => return Poll::Ready(None),
-                Poll::Pending => return Poll::Pending,
+        match this.inner.as_mut().poll_next(cx) {
+            Poll::Ready(Some(ev)) => {
+                *this.ready = false;
+                this.delay.as_mut().reset(Instant::now() + *this.interval);
+                Poll::Ready(Some(ev))
             }
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
         }
     }
 }

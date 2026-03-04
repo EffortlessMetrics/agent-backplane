@@ -32,12 +32,20 @@
 //! assert!(permit.is_ok());
 //! ```
 
+mod adaptive;
 mod backend_limiter;
+mod circuit_breaker;
+mod metrics;
+mod per_model;
 mod policy;
 mod sliding_window;
 mod token_bucket;
 
+pub use adaptive::AdaptiveLimiter;
 pub use backend_limiter::{BackendRateLimiter, RateLimitError, RatePermit};
+pub use circuit_breaker::{CircuitBreaker, CircuitBreakerError, CircuitState};
+pub use metrics::{MetricsSnapshot, RateLimitMetrics};
+pub use per_model::{ModelLimitResult, ModelRateLimiter};
 pub use policy::{RateLimitConfig, RateLimitPolicy};
 pub use sliding_window::SlidingWindowCounter;
 pub use token_bucket::TokenBucket;

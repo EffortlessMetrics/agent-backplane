@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Runtime configuration loading and integration with `abp-config`.
 //!
-//! Provides [`RuntimeConfig`] — a runtime-specific view of configuration
+//! Provides `RuntimeConfig` — a runtime-specific view of configuration
 //! covering backend selection strategy, default policies, telemetry settings,
 //! and workspace options.  This module does **not** depend on `abp-config`
 //! directly (to avoid a circular dependency); instead it defines its own
@@ -114,7 +114,7 @@ impl Default for WorkspaceOptions {
 ///     .build();
 /// assert_eq!(config.selection_strategy, BackendSelectionStrategy::Projection);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RuntimeConfig {
     /// How to select a backend when none is specified.
     pub selection_strategy: BackendSelectionStrategy,
@@ -134,19 +134,6 @@ pub struct RuntimeConfig {
     pub run_timeout: Option<Duration>,
     /// Maximum number of concurrent runs (0 = unlimited).
     pub max_concurrent_runs: usize,
-}
-
-impl Default for RuntimeConfig {
-    fn default() -> Self {
-        Self {
-            selection_strategy: BackendSelectionStrategy::default(),
-            default_policy: PolicyProfile::default(),
-            telemetry: TelemetrySettings::default(),
-            workspace: WorkspaceOptions::default(),
-            run_timeout: None,
-            max_concurrent_runs: 0,
-        }
-    }
 }
 
 impl RuntimeConfig {
@@ -178,7 +165,7 @@ impl RuntimeConfig {
         };
 
         let telemetry = TelemetrySettings {
-            tracing_enabled: log_level.map_or(true, |l| l != "off"),
+            tracing_enabled: log_level != Some("off"),
             ..TelemetrySettings::default()
         };
 
@@ -455,10 +442,7 @@ mod tests {
     #[test]
     fn from_backplane_values_workspace_dir() {
         let cfg = RuntimeConfig::from_backplane_values(None, Some("/custom/ws"), None);
-        assert_eq!(
-            cfg.workspace.base_dir,
-            Some(PathBuf::from("/custom/ws"))
-        );
+        assert_eq!(cfg.workspace.base_dir, Some(PathBuf::from("/custom/ws")));
     }
 
     #[test]

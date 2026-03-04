@@ -273,7 +273,7 @@ impl HeartbeatMonitor {
             return false;
         }
         self.last_ping_at
-            .map_or(false, |t| t.elapsed() >= self.config.timeout())
+            .is_some_and(|t| t.elapsed() >= self.config.timeout())
     }
 
     /// Returns `true` if enough time has elapsed since the last ping to send another.
