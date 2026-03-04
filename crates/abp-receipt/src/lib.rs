@@ -20,7 +20,9 @@ mod validate;
 pub mod verify;
 
 pub use builder::ReceiptBuilder;
-pub use chain::{ChainError, ReceiptChain};
+pub use chain::{
+    ChainBuilder, ChainError, ChainGap, ChainSummary, ReceiptChain, TamperEvidence, TamperKind,
+};
 pub use diff::{FieldDiff, ReceiptDiff, diff_receipts};
 pub use validate::{ReceiptValidator, ValidationError};
 pub use verify::{AuditIssue, AuditReport, ReceiptAuditor, VerificationResult, verify_receipt};
