@@ -199,6 +199,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-duration-serde"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-emulation"
 version = "0.1.0"
 dependencies = [
@@ -263,6 +271,7 @@ name = "abp-host"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-duration-serde",
  "abp-protocol",
  "anyhow",
  "chrono",
@@ -420,6 +429,7 @@ dependencies = [
  "abp-capability",
  "abp-core",
  "abp-dialect",
+ "abp-duration-serde",
  "abp-emulation",
  "abp-error",
  "abp-integrations",

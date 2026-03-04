@@ -23,6 +23,7 @@ members = [
   "crates/abp-error",
   "crates/abp-error-taxonomy",
   "crates/abp-dialect",
+  "crates/abp-duration-serde",
   "crates/abp-gemini-sdk",
   "crates/abp-shim-gemini",
   "crates/abp-git",
