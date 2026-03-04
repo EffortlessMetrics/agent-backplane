@@ -4,9 +4,9 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
-pub mod convert;
 /// HTTP client for the Anthropic Messages API.
 pub mod client;
+pub mod convert;
 pub mod types;
 
 use std::pin::Pin;

@@ -7,10 +7,10 @@
 //!
 //! Drop-in Copilot SDK shim that routes through ABP's intermediate representation.
 
-/// Conversion layer between Copilot SDK types and ABP core types.
-pub mod convert;
 /// HTTP client for the GitHub Copilot Chat API.
 pub mod client;
+/// Conversion layer between Copilot SDK types and ABP core types.
+pub mod convert;
 /// Copilot SDK–specific types: messages, request builder, and helpers.
 pub mod types;
 

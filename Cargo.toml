@@ -99,7 +99,7 @@ http-body-util = "0.1"
 tokio-tungstenite = "0.28"
 assert_cmd = "2"
 predicates = "3"
-insta = { version = "1", features = ["json", "redactions"] }
+insta = { version = "1", features = ["json", "yaml", "redactions"] }
 toml = "0.8"
 proptest = "1"
 criterion = { version = "0.5", features = ["html_reports"] }

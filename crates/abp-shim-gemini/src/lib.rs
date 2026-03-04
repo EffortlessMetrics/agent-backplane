@@ -4,10 +4,10 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
-/// Conversion layer between Gemini types and ABP core types.
-pub mod convert;
 /// HTTP client for the Google Gemini API.
 pub mod client;
+/// Conversion layer between Gemini types and ABP core types.
+pub mod convert;
 /// Strongly-typed Gemini API types mirroring the Google Gemini REST API.
 pub mod types;
 

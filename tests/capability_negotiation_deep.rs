@@ -251,7 +251,8 @@ fn negotiate_restricted_counts_as_emulatable() {
             reason: "sandbox".into(),
         },
     )]);
-    let r = reqs_native(&[Capability::ToolBash]);
+    // Restricted satisfies Emulated min_support (not Native)
+    let r = reqs(&[(Capability::ToolBash, MinSupport::Emulated)]);
     let res = negotiate(&m, &r);
     assert_eq!(res.emulated_caps(), vec![Capability::ToolBash]);
     assert!(res.is_compatible());
@@ -785,7 +786,8 @@ fn single_cap_native() {
 #[test]
 fn single_cap_emulated() {
     let m = manifest(&[(Capability::ToolUse, SupportLevel::Emulated)]);
-    let r = reqs_native(&[Capability::ToolUse]);
+    // Emulated satisfies Emulated min_support (not Native)
+    let r = reqs(&[(Capability::ToolUse, MinSupport::Emulated)]);
     let res = negotiate(&m, &r);
     assert!(res.is_compatible());
     assert_eq!(res.emulated_caps(), vec![Capability::ToolUse]);
@@ -1213,10 +1215,11 @@ fn negotiate_mixed_native_emulated_unsupported() {
         (Capability::ToolRead, SupportLevel::Emulated),
         (Capability::ToolBash, SupportLevel::Unsupported),
     ]);
-    let r = reqs_native(&[
-        Capability::Streaming,
-        Capability::ToolRead,
-        Capability::ToolBash,
+    // ToolRead with Emulated min_support → emulated bucket; ToolBash unsupported → incompatible
+    let r = reqs(&[
+        (Capability::Streaming, MinSupport::Native),
+        (Capability::ToolRead, MinSupport::Emulated),
+        (Capability::ToolBash, MinSupport::Native),
     ]);
     let res = negotiate(&m, &r);
     assert_eq!(res.native, vec![Capability::Streaming]);
@@ -1845,17 +1848,18 @@ fn negotiate_ten_caps_simultaneously() {
     ]
     .into_iter()
     .collect();
-    let r = reqs_native(&[
-        Capability::Streaming,
-        Capability::ToolRead,
-        Capability::ToolWrite,
-        Capability::ToolEdit,
-        Capability::ToolBash,
-        Capability::ToolGlob,
-        Capability::ToolGrep,
-        Capability::Logprobs,
-        Capability::McpClient,
-        Capability::ExtendedThinking,
+    // ToolWrite/ToolEdit are Emulated in manifest, use Emulated min_support for them
+    let r = reqs(&[
+        (Capability::Streaming, MinSupport::Native),
+        (Capability::ToolRead, MinSupport::Native),
+        (Capability::ToolWrite, MinSupport::Emulated),
+        (Capability::ToolEdit, MinSupport::Emulated),
+        (Capability::ToolBash, MinSupport::Native),
+        (Capability::ToolGlob, MinSupport::Native),
+        (Capability::ToolGrep, MinSupport::Native),
+        (Capability::Logprobs, MinSupport::Native),
+        (Capability::McpClient, MinSupport::Native),
+        (Capability::ExtendedThinking, MinSupport::Native),
     ]);
     let res = negotiate(&m, &r);
     assert_eq!(res.native.len(), 3);
@@ -2024,7 +2028,11 @@ fn full_pipeline_negotiate_then_emulate_then_fidelity() {
         (Capability::ToolRead, SupportLevel::Native),
         (Capability::ExtendedThinking, SupportLevel::Emulated),
     ]);
-    let r = reqs_native(&[Capability::ToolRead, Capability::ExtendedThinking]);
+    // ExtendedThinking is Emulated, so use Emulated min_support
+    let r = reqs(&[
+        (Capability::ToolRead, MinSupport::Native),
+        (Capability::ExtendedThinking, MinSupport::Emulated),
+    ]);
     let neg = negotiate(&m, &r);
     assert!(neg.is_compatible());
 
