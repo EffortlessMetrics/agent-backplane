@@ -197,10 +197,7 @@ mod glob_nested {
             MatchDecision::DeniedByMissingInclude
         );
         // .bak matches exclude, and exclude is checked first (takes precedence)
-        assert_eq!(
-            g.decide_str("file.bak"),
-            MatchDecision::DeniedByExclude
-        );
+        assert_eq!(g.decide_str("file.bak"), MatchDecision::DeniedByExclude);
     }
 
     #[test]
