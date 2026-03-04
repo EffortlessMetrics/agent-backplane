@@ -200,6 +200,7 @@ impl DialectDetector {
     ) -> Option<DetectionResult> {
         let mut best: Option<DetectionResult> = None;
 
+        #[allow(clippy::type_complexity)]
         let checks: &[(Dialect, &[(&str, Option<&str>)])] = &[
             (
                 Dialect::Claude,
