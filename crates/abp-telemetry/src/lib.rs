@@ -9,10 +9,12 @@
 pub mod events;
 pub mod export;
 pub mod hooks;
+pub mod metric_event;
 pub mod metrics;
 pub mod pipeline;
 pub mod report;
 pub mod runtime_events;
+pub mod span_tracker;
 pub mod spans;
 pub mod tracing_integration;
 
@@ -1459,19 +1461,14 @@ mod tests {
         // Per-backend latency
         assert!(prom.contains("abp_backend_latency_ms{backend=\"mock\",quantile=\"0.5\"}"));
         // Per-backend tokens
-        assert!(
-            prom.contains("abp_backend_tokens_total{backend=\"mock\",direction=\"input\"} 200")
-        );
+        assert!(prom.contains("abp_backend_tokens_total{backend=\"mock\",direction=\"input\"} 200"));
         // Dialect pair runs
         assert!(
             prom.contains("abp_dialect_pair_runs_total{source=\"openai\",target=\"anthropic\"} 2")
         );
         // Dialect pair errors
-        assert!(
-            prom.contains(
-                "abp_dialect_pair_errors_total{source=\"openai\",target=\"anthropic\"} 1"
-            )
-        );
+        assert!(prom
+            .contains("abp_dialect_pair_errors_total{source=\"openai\",target=\"anthropic\"} 1"));
     }
 
     #[test]

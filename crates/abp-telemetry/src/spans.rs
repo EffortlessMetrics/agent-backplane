@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tracing::{Span, info_span};
+use tracing::{info_span, Span};
 
 /// Create a tracing span for processing a work-order request.
 ///

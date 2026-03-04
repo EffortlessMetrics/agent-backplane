@@ -100,6 +100,129 @@ fn prom_name(name: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
+// Exporter trait
+// ---------------------------------------------------------------------------
+
+/// Trait for exporting a [`TelemetrySnapshot`] to a specific wire format.
+///
+/// Implementations are provided for JSON, Prometheus text, and OpenTelemetry
+/// JSON formats.
+pub trait Exporter: Send + Sync {
+    /// Export format name (for logging / diagnostics).
+    fn format_name(&self) -> &'static str;
+
+    /// Render the snapshot into the target format.
+    fn export(&self, snapshot: &TelemetrySnapshot) -> Result<String, String>;
+}
+
+/// Exports a [`TelemetrySnapshot`] as pretty-printed JSON.
+#[derive(Debug, Default)]
+pub struct JsonSnapshotExporter;
+
+impl Exporter for JsonSnapshotExporter {
+    fn format_name(&self) -> &'static str {
+        "json"
+    }
+
+    fn export(&self, snapshot: &TelemetrySnapshot) -> Result<String, String> {
+        serde_json::to_string_pretty(snapshot).map_err(|e| e.to_string())
+    }
+}
+
+/// Exports a [`TelemetrySnapshot`] in Prometheus text exposition format.
+#[derive(Debug, Default)]
+pub struct PrometheusExporter;
+
+impl Exporter for PrometheusExporter {
+    fn format_name(&self) -> &'static str {
+        "prometheus"
+    }
+
+    fn export(&self, snapshot: &TelemetrySnapshot) -> Result<String, String> {
+        Ok(snapshot.to_prometheus_text())
+    }
+}
+
+/// Exports a [`TelemetrySnapshot`] in an OpenTelemetry-compatible JSON format.
+///
+/// Produces a JSON object with `resource_metrics` containing data points for
+/// each counter, gauge, and histogram, following the OTLP JSON structure.
+#[derive(Debug, Default)]
+pub struct OpenTelemetryExporter;
+
+impl Exporter for OpenTelemetryExporter {
+    fn format_name(&self) -> &'static str {
+        "opentelemetry"
+    }
+
+    fn export(&self, snapshot: &TelemetrySnapshot) -> Result<String, String> {
+        Ok(snapshot.to_opentelemetry_json())
+    }
+}
+
+impl TelemetrySnapshot {
+    /// Render the snapshot in an OpenTelemetry-compatible JSON format.
+    ///
+    /// Produces a simplified OTLP-style JSON structure with `resource_metrics`
+    /// containing scope metrics for counters, gauges, and histograms.
+    pub fn to_opentelemetry_json(&self) -> String {
+        let mut metrics = Vec::new();
+
+        for (name, value) in &self.counters {
+            metrics.push(serde_json::json!({
+                "name": name,
+                "sum": {
+                    "data_points": [{
+                        "as_int": value,
+                        "is_monotonic": true,
+                    }],
+                    "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
+                }
+            }));
+        }
+
+        for (name, value) in &self.gauges {
+            metrics.push(serde_json::json!({
+                "name": name,
+                "gauge": {
+                    "data_points": [{
+                        "as_int": value,
+                    }],
+                }
+            }));
+        }
+
+        for (name, stats) in &self.histograms {
+            metrics.push(serde_json::json!({
+                "name": name,
+                "summary": {
+                    "data_points": [{
+                        "count": stats.count,
+                        "sum": stats.mean.unwrap_or(0.0) * stats.count as f64,
+                        "quantile_values": [
+                            { "quantile": 0.5, "value": stats.p50.unwrap_or(0.0) },
+                            { "quantile": 0.9, "value": stats.p90.unwrap_or(0.0) },
+                            { "quantile": 0.99, "value": stats.p99.unwrap_or(0.0) },
+                        ],
+                    }],
+                }
+            }));
+        }
+
+        let otlp = serde_json::json!({
+            "resource_metrics": [{
+                "scope_metrics": [{
+                    "scope": { "name": "abp-telemetry" },
+                    "metrics": metrics,
+                }],
+            }],
+        });
+
+        serde_json::to_string_pretty(&otlp).expect("OTLP JSON is always serializable")
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -228,5 +351,127 @@ mod tests {
         assert_eq!(back.counters["c"], 1);
         assert_eq!(back.gauges["g"], 42);
         assert_eq!(back.histograms["h"].count, 1);
+    }
+
+    // --- Exporter trait ---
+
+    #[test]
+    fn json_snapshot_exporter_format_name() {
+        let exp = JsonSnapshotExporter;
+        assert_eq!(exp.format_name(), "json");
+    }
+
+    #[test]
+    fn json_snapshot_exporter_valid_output() {
+        let reg = MetricsRegistry::new();
+        reg.counter("reqs").increment_by(5);
+        let snap = TelemetrySnapshot::from_registry(&reg);
+        let exp = JsonSnapshotExporter;
+        let json = exp.export(&snap).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["counters"]["reqs"], 5);
+    }
+
+    #[test]
+    fn prometheus_exporter_format_name() {
+        let exp = PrometheusExporter;
+        assert_eq!(exp.format_name(), "prometheus");
+    }
+
+    #[test]
+    fn prometheus_exporter_output() {
+        let reg = MetricsRegistry::new();
+        reg.counter("reqs").increment_by(10);
+        let snap = TelemetrySnapshot::from_registry(&reg);
+        let exp = PrometheusExporter;
+        let text = exp.export(&snap).unwrap();
+        assert!(text.contains("reqs_total 10"));
+    }
+
+    #[test]
+    fn opentelemetry_exporter_format_name() {
+        let exp = OpenTelemetryExporter;
+        assert_eq!(exp.format_name(), "opentelemetry");
+    }
+
+    #[test]
+    fn opentelemetry_exporter_counters() {
+        let reg = MetricsRegistry::new();
+        reg.counter("requests").increment_by(42);
+        let snap = TelemetrySnapshot::from_registry(&reg);
+        let exp = OpenTelemetryExporter;
+        let json_str = exp.export(&snap).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        let metrics = &parsed["resource_metrics"][0]["scope_metrics"][0]["metrics"];
+        assert!(metrics.is_array());
+        let first = &metrics[0];
+        assert_eq!(first["name"], "requests");
+        assert_eq!(first["sum"]["data_points"][0]["as_int"], 42);
+        assert_eq!(first["sum"]["data_points"][0]["is_monotonic"], true);
+    }
+
+    #[test]
+    fn opentelemetry_exporter_gauges() {
+        let reg = MetricsRegistry::new();
+        reg.gauge("active").set(7);
+        let snap = TelemetrySnapshot::from_registry(&reg);
+        let json_str = snap.to_opentelemetry_json();
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        let metrics = &parsed["resource_metrics"][0]["scope_metrics"][0]["metrics"];
+        let gauge_metric = metrics
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["name"] == "active")
+            .unwrap();
+        assert_eq!(gauge_metric["gauge"]["data_points"][0]["as_int"], 7);
+    }
+
+    #[test]
+    fn opentelemetry_exporter_histograms() {
+        let reg = MetricsRegistry::new();
+        let h = reg.histogram("latency");
+        h.record(10.0);
+        h.record(20.0);
+        h.record(30.0);
+        let snap = TelemetrySnapshot::from_registry(&reg);
+        let json_str = snap.to_opentelemetry_json();
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        let metrics = &parsed["resource_metrics"][0]["scope_metrics"][0]["metrics"];
+        let hist_metric = metrics
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["name"] == "latency")
+            .unwrap();
+        assert_eq!(hist_metric["summary"]["data_points"][0]["count"], 3);
+    }
+
+    #[test]
+    fn opentelemetry_exporter_scope_name() {
+        let reg = MetricsRegistry::new();
+        let snap = TelemetrySnapshot::from_registry(&reg);
+        let json_str = snap.to_opentelemetry_json();
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        let scope = &parsed["resource_metrics"][0]["scope_metrics"][0]["scope"]["name"];
+        assert_eq!(scope, "abp-telemetry");
+    }
+
+    #[test]
+    fn exporter_trait_object_dispatch() {
+        let exporters: Vec<Box<dyn Exporter>> = vec![
+            Box::new(JsonSnapshotExporter),
+            Box::new(PrometheusExporter),
+            Box::new(OpenTelemetryExporter),
+        ];
+        let reg = MetricsRegistry::new();
+        reg.counter("c").increment();
+        let snap = TelemetrySnapshot::from_registry(&reg);
+        for exp in &exporters {
+            assert!(exp.export(&snap).is_ok());
+        }
+        assert_eq!(exporters[0].format_name(), "json");
+        assert_eq!(exporters[1].format_name(), "prometheus");
+        assert_eq!(exporters[2].format_name(), "opentelemetry");
     }
 }
