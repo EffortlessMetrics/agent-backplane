@@ -758,6 +758,7 @@ dependencies = [
  "abp-projection",
  "abp-protocol",
  "abp-receipt",
+ "abp-receipt-store",
  "abp-runtime",
  "abp-sdk-types",
  "abp-shim-claude",
