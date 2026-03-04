@@ -286,7 +286,8 @@ fn parse_empty_args() {
 #[test]
 fn load_config_none_returns_default() {
     // Clear env override so the default is visible.
-    std::env::remove_var("ABP_LOG_LEVEL");
+    // SAFETY: No other test in this binary relies on ABP_LOG_LEVEL concurrently.
+    unsafe { std::env::remove_var("ABP_LOG_LEVEL") };
     let cfg = load_config(None).unwrap();
     assert_eq!(cfg.log_level.as_deref(), Some("info"));
 }
