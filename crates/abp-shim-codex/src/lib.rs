@@ -11,6 +11,8 @@
 pub mod client;
 /// Conversion layer between Codex Responses API types and ABP core types.
 pub mod convert;
+/// Translation functions between Codex-specific shim types and ABP core types.
+pub mod translate;
 /// Codex Responses API types (builder, usage statistics).
 pub mod types;
 

@@ -4,16 +4,22 @@
 #![warn(missing_docs)]
 /// HTTP control-plane API types and handler signatures.
 pub mod api;
+/// V1 API request/response types for `/api/v1` endpoints.
+pub mod api_types;
 /// Framework-agnostic request/response types.
 pub mod handler;
 /// Middleware stack for the daemon HTTP API.
 pub mod middleware;
 /// Priority-based run queue.
 pub mod queue;
+/// Axum router for the `/api/v1` HTTP endpoints.
+pub mod router;
 /// Trait-based route handler signatures.
 pub mod routes;
 /// Axum-based HTTP server scaffolding.
 pub mod server;
+/// SSE (Server-Sent Events) streaming utilities.
+pub mod sse;
 /// In-memory run registry and event store.
 pub mod state;
 /// Request validation for the daemon API.

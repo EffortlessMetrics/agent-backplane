@@ -35,7 +35,7 @@ pub struct CodexContextItem {
 /// Wraps the base [`CodexRequest`] and adds Codex-specific fields like
 /// `instructions` (system-level prompt), `context` (file context), and
 /// `sandbox` (execution environment settings).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodexExtendedRequest {
     /// Model identifier (e.g. `codex-mini-latest`, `o3-mini`).
     pub model: String,
@@ -96,7 +96,7 @@ impl CodexExtendedRequest {
 // ── Codex-specific response ─────────────────────────────────────────────
 
 /// Extended Codex response with shim-specific metadata.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodexExtendedResponse {
     /// Unique response identifier.
     pub id: String,
@@ -138,7 +138,7 @@ pub struct CodexSandboxResult {
 ///
 /// Wraps the base stream event kinds and adds a sequence number for
 /// ordering and an optional error detail field.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexShimStreamEvent {
     /// The response object has been created.
