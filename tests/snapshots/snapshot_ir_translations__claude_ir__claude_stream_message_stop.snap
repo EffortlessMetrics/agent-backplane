@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir_events"
+---
+[]

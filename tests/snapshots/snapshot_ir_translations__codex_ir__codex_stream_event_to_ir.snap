@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir_events"
+---
+[
+  {
+    "type": "text_delta",
+    "index": 0,
+    "text": "fn test"
+  }
+]

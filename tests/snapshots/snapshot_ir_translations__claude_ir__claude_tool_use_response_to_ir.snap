@@ -1,0 +1,30 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir"
+---
+{
+  "id": "msg_tool",
+  "model": "claude-sonnet-4-20250514",
+  "content": [
+    {
+      "type": "text",
+      "text": "Let me read that file."
+    },
+    {
+      "type": "tool_call",
+      "id": "toolu_01",
+      "name": "read_file",
+      "input": {
+        "path": "/tmp/test.txt"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "usage": {
+    "input_tokens": 80,
+    "output_tokens": 30,
+    "total_tokens": 110,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0
+  }
+}

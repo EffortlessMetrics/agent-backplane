@@ -1,0 +1,33 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&report"
+---
+{
+  "compatible": false,
+  "native_count": 1,
+  "emulated_count": 0,
+  "unsupported_count": 2,
+  "summary": "1 native, 0 emulated, 2 unsupported — incompatible",
+  "details": [
+    [
+      "Streaming",
+      {
+        "level": "native"
+      }
+    ],
+    [
+      "ToolUse",
+      {
+        "level": "unsupported",
+        "reason": "Unsupported support does not meet minimum Native"
+      }
+    ],
+    [
+      "CodeExecution",
+      {
+        "level": "unsupported",
+        "reason": "Unsupported support does not meet minimum Native"
+      }
+    ]
+  ]
+}

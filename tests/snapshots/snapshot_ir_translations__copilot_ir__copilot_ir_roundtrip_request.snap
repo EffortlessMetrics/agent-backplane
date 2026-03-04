@@ -1,0 +1,23 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&back"
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Explain this error"
+        }
+      ]
+    }
+  ],
+  "max_tokens": 1024,
+  "sampling": {},
+  "stream": {
+    "enabled": false
+  }
+}

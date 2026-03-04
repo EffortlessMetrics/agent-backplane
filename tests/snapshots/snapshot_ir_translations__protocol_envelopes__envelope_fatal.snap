@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&env"
+---
+{
+  "t": "fatal",
+  "ref_id": "00000000-0000-4000-8000-000000000001",
+  "error": "Backend process crashed unexpectedly",
+  "error_code": "backend_crashed"
+}

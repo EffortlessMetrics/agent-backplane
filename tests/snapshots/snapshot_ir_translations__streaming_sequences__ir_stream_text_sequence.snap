@@ -1,0 +1,48 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&chunks"
+---
+[
+  {
+    "id": "stream-001",
+    "model": "gpt-4o",
+    "index": 0,
+    "role": "assistant"
+  },
+  {
+    "index": 0,
+    "delta_content": [
+      {
+        "type": "text",
+        "text": "Hello, "
+      }
+    ]
+  },
+  {
+    "index": 0,
+    "delta_content": [
+      {
+        "type": "text",
+        "text": "how can I "
+      }
+    ]
+  },
+  {
+    "index": 0,
+    "delta_content": [
+      {
+        "type": "text",
+        "text": "help you?"
+      }
+    ]
+  },
+  {
+    "index": 0,
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 8,
+      "total_tokens": 18
+    }
+  }
+]

@@ -1,0 +1,22 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&back"
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "system_prompt": "You are a Rust expert.",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Explain Rust lifetimes"
+        }
+      ]
+    }
+  ],
+  "config": {
+    "max_tokens": 4096
+  }
+}

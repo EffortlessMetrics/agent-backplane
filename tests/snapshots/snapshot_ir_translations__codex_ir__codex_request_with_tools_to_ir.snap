@@ -1,0 +1,37 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir"
+---
+{
+  "model": "codex-mini-latest",
+  "system_prompt": "Use tools to answer",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "What files exist?"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_files",
+      "description": "List directory",
+      "parameters": {
+        "properties": {
+          "dir": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "config": {
+    "max_tokens": 512,
+    "temperature": 0.3
+  }
+}

@@ -1,0 +1,37 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir"
+---
+{
+  "model": "moonshot-v1-128k",
+  "system_prompt": "You are a Chinese language expert.",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Translate: hello"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "dictionary",
+      "description": "Look up a word",
+      "parameters": {
+        "properties": {
+          "word": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "config": {
+    "max_tokens": 2048,
+    "temperature": 0.3
+  }
+}

@@ -1,0 +1,58 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir"
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are helpful"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "What is 2+2?"
+        }
+      ]
+    }
+  ],
+  "max_tokens": 2048,
+  "tools": [
+    {
+      "name": "calculator",
+      "description": "Evaluate math",
+      "parameters": {
+        "properties": {
+          "expr": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "sampling": {
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "frequency_penalty": 0.1,
+    "presence_penalty": 0.2
+  },
+  "stop_sequences": [
+    "END"
+  ],
+  "stream": {
+    "enabled": false
+  },
+  "extra": {
+    "n": 1
+  }
+}

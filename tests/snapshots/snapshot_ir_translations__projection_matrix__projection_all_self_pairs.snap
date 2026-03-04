@@ -1,0 +1,48 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&pairs"
+---
+[
+  {
+    "dialect": "OpenAi",
+    "self_pair": {
+      "source": "open_ai",
+      "target": "open_ai"
+    }
+  },
+  {
+    "dialect": "Claude",
+    "self_pair": {
+      "source": "claude",
+      "target": "claude"
+    }
+  },
+  {
+    "dialect": "Gemini",
+    "self_pair": {
+      "source": "gemini",
+      "target": "gemini"
+    }
+  },
+  {
+    "dialect": "Codex",
+    "self_pair": {
+      "source": "codex",
+      "target": "codex"
+    }
+  },
+  {
+    "dialect": "Kimi",
+    "self_pair": {
+      "source": "kimi",
+      "target": "kimi"
+    }
+  },
+  {
+    "dialect": "Copilot",
+    "self_pair": {
+      "source": "copilot",
+      "target": "copilot"
+    }
+  }
+]

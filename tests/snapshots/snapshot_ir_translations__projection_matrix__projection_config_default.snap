@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&config"
+---
+{
+  "capability_weight": 0.5,
+  "fidelity_weight": 0.3,
+  "priority_weight": 0.2,
+  "passthrough_bonus": 0.15,
+  "prefer_passthrough": false
+}

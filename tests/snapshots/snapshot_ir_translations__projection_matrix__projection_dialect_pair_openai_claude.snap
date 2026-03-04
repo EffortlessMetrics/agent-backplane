@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&pair"
+---
+{
+  "source": "open_ai",
+  "target": "claude"
+}

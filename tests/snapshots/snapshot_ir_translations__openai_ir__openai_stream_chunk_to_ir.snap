@@ -1,0 +1,18 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir_chunks"
+---
+[
+  {
+    "id": "chatcmpl-stream",
+    "model": "gpt-4o",
+    "index": 0,
+    "delta_content": [
+      {
+        "type": "text",
+        "text": "Hello"
+      }
+    ],
+    "role": "assistant"
+  }
+]

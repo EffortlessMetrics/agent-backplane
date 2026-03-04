@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&classification"
+---
+{
+  "code": "backend_timeout",
+  "severity": "retriable",
+  "category": "timeout_error",
+  "recovery": {
+    "action": "retry",
+    "description": "Request timed out — retry with the same parameters",
+    "delay_ms": 1000
+  }
+}

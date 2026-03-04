@@ -15,8 +15,8 @@ use uuid::Uuid;
 
 use abp_core::{
     AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirements, ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel,
-    UsageNormalized, VerificationReport, WorkOrderBuilder,
+    CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
+    RunMetadata, SupportLevel, UsageNormalized, VerificationReport, WorkOrderBuilder,
 };
 use abp_sdk_types::ir::{IrContentPart, IrMessage, IrRole, IrToolCall, IrToolDefinition, IrUsage};
 use abp_sdk_types::ir_request::{IrChatRequest, IrSamplingParams, IrStreamConfig};
@@ -513,11 +513,11 @@ mod gemini_ir {
                 },
             ],
             tools: Some(vec![GeminiTool {
-                function_declarations: Some(vec![FunctionDeclaration {
+                function_declarations: vec![FunctionDeclaration {
                     name: "search".into(),
                     description: "Search the web".into(),
-                    parameters: Some(json!({"type":"object","properties":{"q":{"type":"string"}}})),
-                }]),
+                    parameters: json!({"type":"object","properties":{"q":{"type":"string"}}}),
+                }],
             }]),
             generation_config: Some(GenerationConfig {
                 temperature: Some(0.8),
@@ -542,7 +542,7 @@ mod gemini_ir {
     #[test]
     fn gemini_response_to_ir() {
         let resp = GenerateContentResponse {
-            candidates: Some(vec![Candidate {
+            candidates: vec![Candidate {
                 content: Content {
                     role: Some("model".into()),
                     parts: vec![Part::Text("Artificial intelligence is...".into())],
@@ -550,12 +550,12 @@ mod gemini_ir {
                 finish_reason: Some("STOP".into()),
                 safety_ratings: None,
                 citation_metadata: None,
-            }]),
+            }],
             prompt_feedback: None,
             usage_metadata: Some(UsageMetadata {
-                prompt_token_count: Some(30),
-                candidates_token_count: Some(15),
-                total_token_count: Some(45),
+                prompt_token_count: 30,
+                candidates_token_count: 15,
+                total_token_count: 45,
             }),
         };
         let ir = ir_translate::gemini_response_to_ir(&resp);
@@ -577,7 +577,7 @@ mod gemini_ir {
     #[test]
     fn gemini_stream_chunk_to_ir() {
         let chunk = GenerateContentResponse {
-            candidates: Some(vec![Candidate {
+            candidates: vec![Candidate {
                 content: Content {
                     role: Some("model".into()),
                     parts: vec![Part::Text("Partial ".into())],
@@ -585,7 +585,7 @@ mod gemini_ir {
                 finish_reason: None,
                 safety_ratings: None,
                 citation_metadata: None,
-            }]),
+            }],
             prompt_feedback: None,
             usage_metadata: None,
         };
@@ -621,14 +621,14 @@ mod codex_ir {
     fn codex_minimal_request_to_ir() {
         let req = CodexRequest {
             model: "codex-mini-latest".into(),
-            instructions: Some("Write tests".into()),
-            input: "fn add(a: i32, b: i32) -> i32 { a + b }".into(),
+            input: vec![CodexInputItem::Message {
+                role: "user".into(),
+                content: "fn add(a: i32, b: i32) -> i32 { a + b }".into(),
+            }],
             tools: vec![],
             temperature: None,
             max_output_tokens: None,
-            stream: None,
-            reasoning: None,
-            previous_response_id: None,
+            text: None,
         };
         let ir = ir_translate::codex_request_to_ir(&req);
         insta::assert_json_snapshot!("codex_minimal_request_to_ir", &ir);
@@ -638,19 +638,26 @@ mod codex_ir {
     fn codex_request_with_tools_to_ir() {
         let req = CodexRequest {
             model: "codex-mini-latest".into(),
-            instructions: Some("Use tools to answer".into()),
-            input: "What files exist?".into(),
+            input: vec![
+                CodexInputItem::Message {
+                    role: "system".into(),
+                    content: "Use tools to answer".into(),
+                },
+                CodexInputItem::Message {
+                    role: "user".into(),
+                    content: "What files exist?".into(),
+                },
+            ],
             tools: vec![CodexTool::Function {
-                name: "list_files".into(),
-                description: Some("List directory".into()),
-                parameters: Some(json!({"type":"object","properties":{"dir":{"type":"string"}}})),
-                strict: None,
+                function: CodexFunctionDef {
+                    name: "list_files".into(),
+                    description: "List directory".into(),
+                    parameters: json!({"type":"object","properties":{"dir":{"type":"string"}}}),
+                },
             }],
             temperature: Some(0.3),
             max_output_tokens: Some(512),
-            stream: None,
-            reasoning: None,
-            previous_response_id: None,
+            text: None,
         };
         let ir = ir_translate::codex_request_to_ir(&req);
         insta::assert_json_snapshot!("codex_request_with_tools_to_ir", &ir);
@@ -660,23 +667,19 @@ mod codex_ir {
     fn codex_response_to_ir() {
         let resp = CodexResponse {
             id: "resp_codex_01".into(),
-            output: vec![CodexOutputItem::Message {
-                id: "msg_01".into(),
-                role: "assistant".into(),
-                content: vec![CodexContent::OutputText {
-                    text: "Here are the test cases.".into(),
-                    annotations: vec![],
-                }],
-                status: Some("completed".into()),
-            }],
             model: "codex-mini-latest".into(),
+            output: vec![CodexResponseItem::Message {
+                role: "assistant".into(),
+                content: vec![CodexContentPart::OutputText {
+                    text: "Here are the test cases.".into(),
+                }],
+            }],
             usage: Some(CodexUsage {
                 input_tokens: 40,
                 output_tokens: 60,
                 total_tokens: 100,
             }),
             status: Some("completed".into()),
-            error: None,
         };
         let ir = ir_translate::codex_response_to_ir(&resp);
         insta::assert_json_snapshot!("codex_response_to_ir", &ir);
@@ -696,10 +699,11 @@ mod codex_ir {
 
     #[test]
     fn codex_stream_event_to_ir() {
-        let event = CodexStreamEvent::ResponseOutputTextDelta {
+        let event = CodexStreamEvent::OutputItemDelta {
             output_index: 0,
-            content_index: 0,
-            delta: "fn test".into(),
+            delta: CodexStreamDelta::OutputTextDelta {
+                text: "fn test".into(),
+            },
         };
         let ir_events = ir_translate::codex_stream_to_ir(&event);
         insta::assert_json_snapshot!("codex_stream_event_to_ir", &ir_events);
@@ -725,6 +729,7 @@ mod copilot_ir {
                 tool_calls: None,
                 tool_call_id: None,
                 name: None,
+                copilot_references: vec![],
             }],
             tools: None,
             temperature: None,
@@ -732,8 +737,10 @@ mod copilot_ir {
             stream: None,
             top_p: None,
             n: None,
-            references: None,
-            copilot_thread_id: None,
+            stop: None,
+            tool_choice: None,
+            copilot_references: vec![],
+            turn_history: vec![],
         };
         let ir = ir_translate::copilot_request_to_ir(&req);
         insta::assert_json_snapshot!("copilot_minimal_request_to_ir", &ir);
@@ -750,6 +757,7 @@ mod copilot_ir {
                     tool_calls: None,
                     tool_call_id: None,
                     name: None,
+                    copilot_references: vec![],
                 },
                 CopilotMessage {
                     role: CopilotMessageRole::User,
@@ -757,6 +765,7 @@ mod copilot_ir {
                     tool_calls: None,
                     tool_call_id: None,
                     name: None,
+                    copilot_references: vec![],
                 },
             ],
             tools: Some(vec![CopilotTool {
@@ -772,13 +781,15 @@ mod copilot_ir {
             stream: Some(true),
             top_p: Some(0.9),
             n: Some(1),
-            references: Some(vec![CopilotReference {
+            stop: None,
+            tool_choice: None,
+            copilot_references: vec![CopilotReference {
                 ref_type: CopilotReferenceType::File,
                 id: "src/main.rs".into(),
                 data: json!({"content": "fn main() {}"}),
                 metadata: None,
-            }]),
-            copilot_thread_id: Some("thread-123".into()),
+            }],
+            turn_history: vec![],
         };
         let ir = ir_translate::copilot_request_to_ir(&req);
         insta::assert_json_snapshot!("copilot_full_request_to_ir", &ir);
@@ -797,6 +808,7 @@ mod copilot_ir {
                     tool_calls: None,
                     tool_call_id: None,
                     name: None,
+                    copilot_references: vec![],
                 },
                 finish_reason: Some("stop".into()),
             }],
@@ -829,7 +841,8 @@ mod copilot_ir {
     fn copilot_stream_event_to_ir() {
         let event = CopilotStreamEvent::ChatCompletionChunk {
             chunk: CopilotStreamChunk {
-                id: "chunk-01".into(),
+                id: Some("chunk-01".into()),
+                model: Some("gpt-4o".into()),
                 choices: vec![CopilotStreamChoice {
                     index: 0,
                     delta: CopilotStreamDelta {
@@ -839,6 +852,7 @@ mod copilot_ir {
                     },
                     finish_reason: None,
                 }],
+                usage: None,
             },
         };
         let ir_chunks = ir_translate::copilot_stream_to_ir(&event);
@@ -868,13 +882,8 @@ mod kimi_ir {
             max_tokens: None,
             temperature: None,
             stream: None,
-            top_p: None,
-            n: None,
             tools: None,
-            tool_choice: None,
-            stop: None,
-            presence_penalty: None,
-            frequency_penalty: None,
+            use_search: None,
         };
         let ir = ir_translate::kimi_request_to_ir(&req);
         insta::assert_json_snapshot!("kimi_minimal_request_to_ir", &ir);
@@ -901,8 +910,6 @@ mod kimi_ir {
             max_tokens: Some(2048),
             temperature: Some(0.3),
             stream: Some(false),
-            top_p: Some(0.9),
-            n: Some(1),
             tools: Some(vec![ToolDefinition::Function {
                 function: FunctionDefinition {
                     name: "dictionary".into(),
@@ -910,10 +917,7 @@ mod kimi_ir {
                     parameters: json!({"type":"object","properties":{"word":{"type":"string"}}}),
                 },
             }]),
-            tool_choice: Some(json!("auto")),
-            stop: Some(vec!["END".into()]),
-            presence_penalty: Some(0.1),
-            frequency_penalty: Some(0.2),
+            use_search: None,
         };
         let ir = ir_translate::kimi_request_to_ir(&req);
         insta::assert_json_snapshot!("kimi_full_request_to_ir", &ir);
@@ -926,10 +930,9 @@ mod kimi_ir {
             model: "moonshot-v1-8k".into(),
             choices: vec![Choice {
                 index: 0,
-                message: Message {
-                    role: Role::Assistant,
+                message: ResponseMessage {
+                    role: "assistant".into(),
                     content: Some("你好 means hello.".into()),
-                    tool_call_id: None,
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
@@ -991,7 +994,7 @@ mod receipt_canonical {
     #[test]
     fn receipt_canonical_json() {
         let receipt = sample_receipt();
-        insta::assert_json_snapshot!("receipt_canonical_json", &receipt);
+        insta::assert_yaml_snapshot!("receipt_canonical_json", &receipt);
     }
 
     #[test]
@@ -1080,7 +1083,7 @@ mod receipt_canonical {
                 ext: None,
             },
         ];
-        insta::assert_json_snapshot!("receipt_with_tool_trace", &receipt);
+        insta::assert_yaml_snapshot!("receipt_with_tool_trace", &receipt);
     }
 
     #[test]
@@ -1094,7 +1097,7 @@ mod receipt_canonical {
             },
             ext: None,
         });
-        insta::assert_json_snapshot!("receipt_partial_outcome", &receipt);
+        insta::assert_yaml_snapshot!("receipt_partial_outcome", &receipt);
     }
 }
 
@@ -1116,7 +1119,7 @@ mod protocol_envelopes {
             },
             sample_capabilities(),
         );
-        insta::assert_json_snapshot!("envelope_hello", &env);
+        insta::assert_yaml_snapshot!("envelope_hello", &env);
     }
 
     #[test]
@@ -1126,7 +1129,10 @@ mod protocol_envelopes {
             id: fixed_uuid().to_string(),
             work_order: wo,
         };
-        insta::assert_json_snapshot!("envelope_run", &env);
+        insta::assert_json_snapshot!("envelope_run", &env, {
+            ".work_order.id" => "[uuid]",
+            ".work_order.created_at" => "[timestamp]"
+        });
     }
 
     #[test]
@@ -1150,7 +1156,7 @@ mod protocol_envelopes {
             ref_id: fixed_uuid().to_string(),
             receipt: sample_receipt(),
         };
-        insta::assert_json_snapshot!("envelope_final", &env);
+        insta::assert_yaml_snapshot!("envelope_final", &env);
     }
 
     #[test]
@@ -1177,9 +1183,18 @@ mod capability_negotiation {
         let mut manifest = BTreeMap::new();
         manifest.insert(Capability::Streaming, SupportLevel::Native);
         manifest.insert(Capability::ToolUse, SupportLevel::Native);
-        let mut reqs: CapabilityRequirements = Vec::new();
-        reqs.push(Capability::Streaming);
-        reqs.push(Capability::ToolUse);
+        let reqs = CapabilityRequirements {
+            required: vec![
+                CapabilityRequirement {
+                    capability: Capability::Streaming,
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: Capability::ToolUse,
+                    min_support: MinSupport::Native,
+                },
+            ],
+        };
         let result = negotiate(&manifest, &reqs);
         let report = generate_report(&result);
         insta::assert_json_snapshot!("negotiation_all_native_report", &report);
@@ -1190,9 +1205,18 @@ mod capability_negotiation {
         let mut manifest = BTreeMap::new();
         manifest.insert(Capability::Streaming, SupportLevel::Native);
         manifest.insert(Capability::ExtendedThinking, SupportLevel::Emulated);
-        let mut reqs: CapabilityRequirements = Vec::new();
-        reqs.push(Capability::Streaming);
-        reqs.push(Capability::ExtendedThinking);
+        let reqs = CapabilityRequirements {
+            required: vec![
+                CapabilityRequirement {
+                    capability: Capability::Streaming,
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: Capability::ExtendedThinking,
+                    min_support: MinSupport::Emulated,
+                },
+            ],
+        };
         let result = negotiate(&manifest, &reqs);
         let report = generate_report(&result);
         insta::assert_json_snapshot!("negotiation_with_emulated_report", &report);
@@ -1203,10 +1227,22 @@ mod capability_negotiation {
         let mut manifest = BTreeMap::new();
         manifest.insert(Capability::Streaming, SupportLevel::Native);
         manifest.insert(Capability::ToolUse, SupportLevel::Unsupported);
-        let mut reqs: CapabilityRequirements = Vec::new();
-        reqs.push(Capability::Streaming);
-        reqs.push(Capability::ToolUse);
-        reqs.push(Capability::CodeExecution);
+        let reqs = CapabilityRequirements {
+            required: vec![
+                CapabilityRequirement {
+                    capability: Capability::Streaming,
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: Capability::ToolUse,
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: Capability::CodeExecution,
+                    min_support: MinSupport::Native,
+                },
+            ],
+        };
         let result = negotiate(&manifest, &reqs);
         let report = generate_report(&result);
         insta::assert_json_snapshot!("negotiation_unsupported_report", &report);
@@ -1215,7 +1251,7 @@ mod capability_negotiation {
     #[test]
     fn negotiation_empty_requirements() {
         let manifest = sample_capabilities();
-        let reqs: CapabilityRequirements = Vec::new();
+        let reqs = CapabilityRequirements { required: vec![] };
         let result = negotiate(&manifest, &reqs);
         let report = generate_report(&result);
         insta::assert_json_snapshot!("negotiation_empty_reqs_report", &report);
@@ -1444,7 +1480,7 @@ mod streaming_sequences {
                 block: IrContentBlock::ToolCall {
                     id: "call_01".into(),
                     name: "read_file".into(),
-                    arguments: json!({}),
+                    input: json!({}),
                 },
             },
             IrStreamEvent::tool_call_delta(0, r#"{"path":""#),
