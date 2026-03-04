@@ -61,6 +61,8 @@ pub mod capabilities;
 pub mod emulation;
 /// Fidelity reporting for dialect mapping.
 pub mod fidelity;
+/// Projection matrix — the core cross-dialect mapping engine.
+pub mod projection;
 /// Mapping rules for dialect translation.
 pub mod rules;
 /// IR-level structural validation.
