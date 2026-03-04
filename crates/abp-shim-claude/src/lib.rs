@@ -7,6 +7,12 @@
 /// HTTP client for the Anthropic Messages API.
 pub mod client;
 pub mod convert;
+/// Anthropic-compatible error types.
+pub mod error;
+/// Message request builder and API handle.
+pub mod messages;
+/// SSE streaming adapter.
+pub mod streaming;
 pub mod types;
 
 use std::pin::Pin;

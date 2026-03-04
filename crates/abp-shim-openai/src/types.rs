@@ -430,3 +430,87 @@ impl ErrorResponse {
         serde_json::from_str(body).unwrap_or_else(|_| Self::server_error(body))
     }
 }
+
+// ── Embedding types ─────────────────────────────────────────────────────
+
+/// Request to create embeddings.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct EmbeddingRequest {
+    /// Model identifier (e.g. `text-embedding-3-small`).
+    pub model: String,
+    /// Input text(s) to embed.
+    pub input: EmbeddingInput,
+    /// Optional encoding format (`"float"` or `"base64"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encoding_format: Option<String>,
+    /// Optional dimensionality for the embedding.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dimensions: Option<u32>,
+}
+
+/// Input for an embedding request — a single string or multiple strings.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(untagged)]
+pub enum EmbeddingInput {
+    /// A single string to embed.
+    Single(String),
+    /// Multiple strings to embed.
+    Multiple(Vec<String>),
+}
+
+/// Response from the embeddings API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct EmbeddingResponse {
+    /// Object type (always `"list"`).
+    pub object: String,
+    /// The embedding data.
+    pub data: Vec<EmbeddingData>,
+    /// Model used.
+    pub model: String,
+    /// Token usage statistics.
+    pub usage: EmbeddingUsage,
+}
+
+/// A single embedding result.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct EmbeddingData {
+    /// Object type (always `"embedding"`).
+    pub object: String,
+    /// Index of the input in the request.
+    pub index: u32,
+    /// The embedding vector.
+    pub embedding: Vec<f64>,
+}
+
+/// Token usage for embeddings.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct EmbeddingUsage {
+    /// Number of prompt tokens.
+    pub prompt_tokens: u64,
+    /// Total tokens used.
+    pub total_tokens: u64,
+}
+
+// ── Model types ─────────────────────────────────────────────────────────
+
+/// Response from the list models API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct ModelList {
+    /// Object type (always `"list"`).
+    pub object: String,
+    /// Available models.
+    pub data: Vec<ModelInfo>,
+}
+
+/// Information about a single model.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct ModelInfo {
+    /// Model identifier.
+    pub id: String,
+    /// Object type (always `"model"`).
+    pub object: String,
+    /// Unix timestamp of creation.
+    pub created: u64,
+    /// Organization that owns the model.
+    pub owned_by: String,
+}

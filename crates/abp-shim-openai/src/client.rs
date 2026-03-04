@@ -354,6 +354,175 @@ pub fn parse_sse_text(text: &str) -> Vec<std::result::Result<StreamChunk, String
         .collect()
 }
 
+// ── OpenAiClient facade ─────────────────────────────────────────────────
+
+/// High-level OpenAI client facade that mirrors the official SDK's API
+/// surface. Created with `OpenAiClient::new(api_key)` and provides
+/// namespace accessors: `chat_completions()`, `embeddings()`, `models()`.
+#[derive(Debug, Clone)]
+pub struct OpenAiClient {
+    inner: Client,
+}
+
+impl OpenAiClient {
+    /// Create a new client with the given API key.
+    ///
+    /// Uses the default base URL (`https://api.openai.com/v1`) and a 30-second
+    /// timeout.
+    pub fn new(api_key: impl Into<String>) -> Result<Self> {
+        Ok(Self {
+            inner: Client::new(api_key)?,
+        })
+    }
+
+    /// Create a new client with custom configuration via the builder.
+    pub fn with_builder(builder: ClientBuilder) -> Result<Self> {
+        Ok(Self {
+            inner: builder.build()?,
+        })
+    }
+
+    /// Access the chat completions API.
+    #[must_use]
+    pub fn chat_completions(&self) -> ChatCompletionsApi<'_> {
+        ChatCompletionsApi {
+            client: &self.inner,
+        }
+    }
+
+    /// Access the embeddings API.
+    #[must_use]
+    pub fn embeddings(&self) -> EmbeddingsApi<'_> {
+        EmbeddingsApi {
+            client: &self.inner,
+        }
+    }
+
+    /// Access the models API.
+    #[must_use]
+    pub fn models(&self) -> ModelsApi<'_> {
+        ModelsApi {
+            client: &self.inner,
+        }
+    }
+
+    /// The base URL this client targets.
+    #[must_use]
+    pub fn base_url(&self) -> &str {
+        self.inner.base_url()
+    }
+}
+
+/// Chat completions API namespace.
+pub struct ChatCompletionsApi<'a> {
+    client: &'a Client,
+}
+
+impl ChatCompletionsApi<'_> {
+    /// Send a chat completion request.
+    pub async fn create(&self, request: &ChatCompletionRequest) -> Result<ChatCompletionResponse> {
+        self.client.chat_completion(request).await
+    }
+
+    /// Send a streaming chat completion request.
+    pub async fn create_stream(
+        &self,
+        request: &ChatCompletionRequest,
+    ) -> Result<impl Stream<Item = Result<StreamChunk>>> {
+        self.client.stream_chat_completion(request).await
+    }
+}
+
+/// Embeddings API namespace.
+pub struct EmbeddingsApi<'a> {
+    client: &'a Client,
+}
+
+impl EmbeddingsApi<'_> {
+    /// Create embeddings for the given input.
+    pub async fn create(
+        &self,
+        request: &crate::types::EmbeddingRequest,
+    ) -> Result<crate::types::EmbeddingResponse> {
+        let url = format!("{}/embeddings", self.client.base_url);
+        let resp = self
+            .client
+            .http
+            .post(&url)
+            .headers(self.client.default_headers())
+            .json(request)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            let parsed = serde_json::from_str::<ErrorResponse>(&body).ok();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                body,
+                parsed,
+            });
+        }
+        Ok(resp.json().await?)
+    }
+}
+
+/// Models API namespace.
+pub struct ModelsApi<'a> {
+    client: &'a Client,
+}
+
+impl ModelsApi<'_> {
+    /// List all available models.
+    pub async fn list(&self) -> Result<crate::types::ModelList> {
+        let url = format!("{}/models", self.client.base_url);
+        let resp = self
+            .client
+            .http
+            .get(&url)
+            .headers(self.client.default_headers())
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            let parsed = serde_json::from_str::<ErrorResponse>(&body).ok();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                body,
+                parsed,
+            });
+        }
+        Ok(resp.json().await?)
+    }
+
+    /// Retrieve information about a specific model.
+    pub async fn retrieve(&self, model_id: &str) -> Result<crate::types::ModelInfo> {
+        let url = format!("{}/models/{}", self.client.base_url, model_id);
+        let resp = self
+            .client
+            .http
+            .get(&url)
+            .headers(self.client.default_headers())
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            let parsed = serde_json::from_str::<ErrorResponse>(&body).ok();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                body,
+                parsed,
+            });
+        }
+        Ok(resp.json().await?)
+    }
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -589,5 +758,38 @@ mod tests {
             tc.function.as_ref().unwrap().name.as_deref(),
             Some("read_file")
         );
+    }
+
+    // ── OpenAiClient facade tests ───────────────────────────────────────
+
+    #[test]
+    fn openai_client_construction() {
+        let client = OpenAiClient::new("sk-test-key").unwrap();
+        assert_eq!(client.base_url(), "https://api.openai.com/v1");
+    }
+
+    #[test]
+    fn openai_client_with_builder() {
+        let builder = ClientBuilder::new("sk-key").base_url("https://custom.example.com/v1");
+        let client = OpenAiClient::with_builder(builder).unwrap();
+        assert_eq!(client.base_url(), "https://custom.example.com/v1");
+    }
+
+    #[test]
+    fn openai_client_has_chat_completions() {
+        let client = OpenAiClient::new("sk-test").unwrap();
+        let _api = client.chat_completions();
+    }
+
+    #[test]
+    fn openai_client_has_embeddings() {
+        let client = OpenAiClient::new("sk-test").unwrap();
+        let _api = client.embeddings();
+    }
+
+    #[test]
+    fn openai_client_has_models() {
+        let client = OpenAiClient::new("sk-test").unwrap();
+        let _api = client.models();
     }
 }
