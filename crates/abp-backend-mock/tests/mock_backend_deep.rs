@@ -8,9 +8,9 @@ use abp_backend_core::Backend;
 use abp_backend_mock::MockBackend;
 use abp_backend_mock::scenarios::{MockBackendRecorder, MockScenario, ScenarioMockBackend};
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
-    ExecutionMode, MinSupport, Outcome, Receipt, RuntimeConfig, SupportLevel, WorkOrder,
-    WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement,
+    CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt, RuntimeConfig,
+    SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -336,10 +336,7 @@ async fn mock_run_passthrough_mode_via_nested_vendor() {
 #[tokio::test]
 async fn mock_run_passthrough_mode_via_flat_vendor() {
     let mut vendor = BTreeMap::new();
-    vendor.insert(
-        "abp.mode".to_string(),
-        serde_json::json!("passthrough"),
-    );
+    vendor.insert("abp.mode".to_string(), serde_json::json!("passthrough"));
     let wo = wo_with_vendor("pass-test2", vendor);
     let (receipt, _) = run_backend_wo(&MockBackend, wo).await.unwrap();
     assert_eq!(receipt.mode, ExecutionMode::Passthrough);
@@ -1359,10 +1356,12 @@ async fn unsatisfied_requirement_rejects_run() {
     let wo = wo_with_requirements("cap-reject", reqs);
     let result = run_backend_wo(&MockBackend, wo).await;
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("capability requirements not satisfied"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("capability requirements not satisfied")
+    );
 }
 
 #[tokio::test]
@@ -1471,9 +1470,7 @@ async fn one_unsatisfied_among_multiple_requirements_rejects() {
 
 #[tokio::test]
 async fn empty_requirements_always_satisfied() {
-    let reqs = CapabilityRequirements {
-        required: vec![],
-    };
+    let reqs = CapabilityRequirements { required: vec![] };
     let wo = wo_with_requirements("no-req", reqs);
     let result = run_backend_wo(&MockBackend, wo).await;
     assert!(result.is_ok());

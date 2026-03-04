@@ -228,7 +228,10 @@ fn display_differs_from_as_str_for_all_codes() {
     for &code in ALL_CODES {
         let display = code.to_string();
         let as_str = code.as_str();
-        assert_ne!(display, as_str, "{code:?}: Display should differ from as_str");
+        assert_ne!(
+            display, as_str,
+            "{code:?}: Display should differ from as_str"
+        );
     }
 }
 
@@ -359,8 +362,14 @@ fn message_stability_remaining() {
         ErrorCode::CapabilityEmulationFailed.message(),
         "capability emulation layer failed"
     );
-    assert_eq!(ErrorCode::PolicyDenied.message(), "policy rule denied the operation");
-    assert_eq!(ErrorCode::PolicyInvalid.message(), "policy definition is malformed");
+    assert_eq!(
+        ErrorCode::PolicyDenied.message(),
+        "policy rule denied the operation"
+    );
+    assert_eq!(
+        ErrorCode::PolicyInvalid.message(),
+        "policy definition is malformed"
+    );
     assert_eq!(
         ErrorCode::WorkspaceInitFailed.message(),
         "failed to initialise the staged workspace"
@@ -693,8 +702,7 @@ fn context_with_empty_key() {
 
 #[test]
 fn context_with_null_value() {
-    let err =
-        AbpError::new(ErrorCode::Internal, "test").with_context("k", serde_json::Value::Null);
+    let err = AbpError::new(ErrorCode::Internal, "test").with_context("k", serde_json::Value::Null);
     assert_eq!(err.context["k"], serde_json::Value::Null);
 }
 
@@ -789,7 +797,9 @@ fn error_info_clone_independence() {
     let info = ErrorInfo::new(ErrorCode::Internal, "original").with_detail("k", "v");
     let mut cloned = info.clone();
     cloned.message = "modified".to_string();
-    cloned.details.insert("k2".to_string(), serde_json::json!("v2"));
+    cloned
+        .details
+        .insert("k2".to_string(), serde_json::json!("v2"));
     assert_eq!(info.message, "original");
     assert_eq!(info.details.len(), 1);
 }
@@ -1006,7 +1016,11 @@ fn from_io_error_various_kinds_all_map_to_internal() {
     for kind in kinds {
         let io_err = io::Error::new(kind, "msg");
         let abp: AbpError = io_err.into();
-        assert_eq!(abp.code, ErrorCode::Internal, "io {kind:?} should map to Internal");
+        assert_eq!(
+            abp.code,
+            ErrorCode::Internal,
+            "io {kind:?} should map to Internal"
+        );
     }
 }
 
@@ -1225,7 +1239,9 @@ fn repeated_serialization_is_identical() {
         .with_context("backend", "openai")
         .with_context("ms", 5000);
     let dto: AbpErrorDto = (&err).into();
-    let runs: Vec<String> = (0..5).map(|_| serde_json::to_string(&dto).unwrap()).collect();
+    let runs: Vec<String> = (0..5)
+        .map(|_| serde_json::to_string(&dto).unwrap())
+        .collect();
     for json in &runs {
         assert_eq!(json, &runs[0]);
     }

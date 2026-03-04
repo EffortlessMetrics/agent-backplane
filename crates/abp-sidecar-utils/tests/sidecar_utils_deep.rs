@@ -10,17 +10,15 @@ use abp_core::{
     ExecutionMode, Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder,
 };
 use abp_protocol::{Envelope, JsonlCodec};
-use abp_sidecar_utils::codec::{StreamingCodec, DEFAULT_MAX_LINE_LEN};
+use abp_sidecar_utils::codec::{DEFAULT_MAX_LINE_LEN, StreamingCodec};
 use abp_sidecar_utils::event_stream::{EventStreamError, EventStreamProcessor};
 use abp_sidecar_utils::frame::{
     backend_identity, contract_version, decode_envelope, encode_envelope, encode_event,
     encode_fatal, encode_final, encode_hello,
 };
-use abp_sidecar_utils::handshake::{
-    HandshakeError, HandshakeManager, DEFAULT_HANDSHAKE_TIMEOUT,
-};
+use abp_sidecar_utils::handshake::{DEFAULT_HANDSHAKE_TIMEOUT, HandshakeError, HandshakeManager};
 use abp_sidecar_utils::health::{
-    ProtocolHealth, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_HEARTBEAT_INTERVAL,
+    DEFAULT_CONNECTION_TIMEOUT, DEFAULT_HEARTBEAT_INTERVAL, ProtocolHealth,
 };
 use abp_sidecar_utils::testing::{mock_event, mock_fatal, mock_final, mock_hello, mock_work_order};
 use abp_sidecar_utils::validate::{validate_hello, validate_ref_id, validate_sequence};
@@ -188,7 +186,11 @@ fn codec_push_non_utf8_skipped() {
 #[test]
 fn codec_push_blank_lines_between_valid() {
     let mut codec = StreamingCodec::new();
-    let data = format!("\n{}\n\n{}\n", fatal_json("a").trim(), fatal_json("b").trim());
+    let data = format!(
+        "\n{}\n\n{}\n",
+        fatal_json("a").trim(),
+        fatal_json("b").trim()
+    );
     let envs = codec.push(data.as_bytes());
     assert_eq!(envs.len(), 2);
     assert_eq!(codec.metrics().errors_skipped, 0);
@@ -437,15 +439,11 @@ fn esp_counts_by_type_tracks_different_kinds() {
 
     let msg_env = Envelope::Event {
         ref_id: "run-1".into(),
-        event: make_agent_event(AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        }),
+        event: make_agent_event(AgentEventKind::AssistantMessage { text: "hi".into() }),
     };
     let delta_env = Envelope::Event {
         ref_id: "run-1".into(),
-        event: make_agent_event(AgentEventKind::AssistantDelta {
-            text: "tok".into(),
-        }),
+        event: make_agent_event(AgentEventKind::AssistantDelta { text: "tok".into() }),
     };
     let started_env = Envelope::Event {
         ref_id: "run-1".into(),
@@ -463,10 +461,7 @@ fn esp_counts_by_type_tracks_different_kinds() {
         proc.stats().counts_by_type.get("assistant_message"),
         Some(&1)
     );
-    assert_eq!(
-        proc.stats().counts_by_type.get("assistant_delta"),
-        Some(&2)
-    );
+    assert_eq!(proc.stats().counts_by_type.get("assistant_delta"), Some(&2));
     assert_eq!(proc.stats().counts_by_type.get("run_started"), Some(&1));
     assert_eq!(proc.stats().events_processed, 4);
 }
@@ -928,9 +923,7 @@ async fn handshake_hello_info_fields() {
 async fn handshake_await_hello_with_event_envelope() {
     let event_line = encode_event(
         "run-1",
-        &make_agent_event(AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        }),
+        &make_agent_event(AgentEventKind::AssistantMessage { text: "hi".into() }),
     );
     let reader = BufReader::new(event_line.as_bytes());
     let err = HandshakeManager::await_hello(reader, DEFAULT_HANDSHAKE_TIMEOUT)
@@ -1097,7 +1090,12 @@ fn mock_hello_contains_contract_version() {
 
 #[test]
 fn mock_hello_backend_id_preserved() {
-    for name in &["a", "my-backend", "backend-with-dashes", "x".repeat(100).as_str()] {
+    for name in &[
+        "a",
+        "my-backend",
+        "backend-with-dashes",
+        "x".repeat(100).as_str(),
+    ] {
         let env = mock_hello(name);
         if let Envelope::Hello { backend, .. } = &env {
             assert_eq!(backend.id, *name);

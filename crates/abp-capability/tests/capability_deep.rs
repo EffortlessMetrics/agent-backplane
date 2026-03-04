@@ -5,9 +5,9 @@
 //! check_capability, NegotiationResult, CompatibilityReport, registry, and serde.
 
 use abp_capability::{
+    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
     check_capability, default_emulation_strategy, generate_report, negotiate,
-    negotiate_capabilities, CapabilityRegistry, CompatibilityReport, EmulationStrategy,
-    NegotiationResult, SupportLevel,
+    negotiate_capabilities,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -242,8 +242,8 @@ fn negotiate_mixed_min_support_one_fails() {
         (Capability::ToolRead, CoreSupportLevel::Emulated),
     ]);
     let r = require(&[
-        (Capability::Streaming, MinSupport::Native),  // fails: Emulated < Native
-        (Capability::ToolRead, MinSupport::Emulated),  // passes
+        (Capability::Streaming, MinSupport::Native), // fails: Emulated < Native
+        (Capability::ToolRead, MinSupport::Emulated), // passes
     ]);
     let res = negotiate(&m, &r);
     assert!(!res.is_compatible());
@@ -309,7 +309,7 @@ fn negotiate_duplicate_requirements_different_min_support() {
     let m = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
     let r = require(&[
         (Capability::Streaming, MinSupport::Native),   // fails
-        (Capability::Streaming, MinSupport::Emulated),  // passes
+        (Capability::Streaming, MinSupport::Emulated), // passes
     ]);
     let res = negotiate(&m, &r);
     assert!(!res.is_compatible());
@@ -336,7 +336,11 @@ fn negotiate_preserves_requirement_order() {
     let res = negotiate(&m, &r);
     assert_eq!(
         res.native,
-        vec![Capability::ToolRead, Capability::Streaming, Capability::ToolWrite]
+        vec![
+            Capability::ToolRead,
+            Capability::Streaming,
+            Capability::ToolWrite
+        ]
     );
 }
 
@@ -407,7 +411,10 @@ fn negotiate_capabilities_empty_manifest_empty_required() {
 #[test]
 fn check_capability_native_returns_native() {
     let m = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
-    assert_eq!(check_capability(&m, &Capability::Streaming), SupportLevel::Native);
+    assert_eq!(
+        check_capability(&m, &Capability::Streaming),
+        SupportLevel::Native
+    );
 }
 
 #[test]
@@ -506,7 +513,10 @@ fn negotiation_result_warnings_returns_only_approximate() {
         native: vec![],
         emulated: vec![
             (Capability::ToolRead, EmulationStrategy::ClientSide),
-            (Capability::FunctionCalling, EmulationStrategy::ServerFallback),
+            (
+                Capability::FunctionCalling,
+                EmulationStrategy::ServerFallback,
+            ),
             (Capability::Vision, EmulationStrategy::Approximate),
         ],
         unsupported: vec![],
@@ -607,12 +617,18 @@ fn negotiation_result_display_not_viable() {
 
 #[test]
 fn emulation_strategy_display_client_side() {
-    assert_eq!(format!("{}", EmulationStrategy::ClientSide), "client-side emulation");
+    assert_eq!(
+        format!("{}", EmulationStrategy::ClientSide),
+        "client-side emulation"
+    );
 }
 
 #[test]
 fn emulation_strategy_display_server_fallback() {
-    assert_eq!(format!("{}", EmulationStrategy::ServerFallback), "server fallback");
+    assert_eq!(
+        format!("{}", EmulationStrategy::ServerFallback),
+        "server fallback"
+    );
 }
 
 #[test]
@@ -908,7 +924,10 @@ fn bulk_negotiation_large_manifest() {
         (Capability::Vision, CoreSupportLevel::Native),
         (Capability::Audio, CoreSupportLevel::Native),
         (Capability::CodeExecution, CoreSupportLevel::Emulated),
-        (Capability::StructuredOutputJsonSchema, CoreSupportLevel::Native),
+        (
+            Capability::StructuredOutputJsonSchema,
+            CoreSupportLevel::Native,
+        ),
         (Capability::JsonMode, CoreSupportLevel::Native),
         (Capability::Temperature, CoreSupportLevel::Native),
         (Capability::TopP, CoreSupportLevel::Native),
@@ -1031,7 +1050,10 @@ fn registry_negotiate_by_name_found() {
 #[test]
 fn registry_negotiate_by_name_missing() {
     let reg = CapabilityRegistry::new();
-    assert!(reg.negotiate_by_name("nope", &[Capability::Streaming]).is_none());
+    assert!(
+        reg.negotiate_by_name("nope", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]
@@ -1051,7 +1073,11 @@ fn registry_query_capability_streaming_all_native() {
     let reg = CapabilityRegistry::with_defaults();
     let results = reg.query_capability(&Capability::Streaming);
     assert_eq!(results.len(), 6);
-    assert!(results.iter().all(|(_, level)| matches!(level, SupportLevel::Native)));
+    assert!(
+        results
+            .iter()
+            .all(|(_, level)| matches!(level, SupportLevel::Native))
+    );
 }
 
 #[test]
@@ -1080,7 +1106,9 @@ fn registry_compare_claude_to_openai_shows_extended_thinking_gap() {
         .compare("anthropic/claude-3.5-sonnet", "openai/gpt-4o")
         .unwrap();
     assert!(
-        result.unsupported_caps().contains(&Capability::ExtendedThinking)
+        result
+            .unsupported_caps()
+            .contains(&Capability::ExtendedThinking)
     );
 }
 
@@ -1282,8 +1310,14 @@ fn cross_model_tool_bash_codex_and_copilot() {
     use abp_capability::*;
     let codex = codex_manifest();
     let copilot = copilot_manifest();
-    assert_eq!(check_capability(&codex, &Capability::ToolBash), SupportLevel::Native);
-    assert_eq!(check_capability(&copilot, &Capability::ToolBash), SupportLevel::Native);
+    assert_eq!(
+        check_capability(&codex, &Capability::ToolBash),
+        SupportLevel::Native
+    );
+    assert_eq!(
+        check_capability(&copilot, &Capability::ToolBash),
+        SupportLevel::Native
+    );
 }
 
 // ===========================================================================
@@ -1298,7 +1332,11 @@ fn satisfies_boundary_emulated_never_satisfies_native_min() {
         (Capability::Vision, CoreSupportLevel::Emulated),
         (Capability::ToolUse, CoreSupportLevel::Emulated),
     ]);
-    let r = require_native(&[Capability::Streaming, Capability::Vision, Capability::ToolUse]);
+    let r = require_native(&[
+        Capability::Streaming,
+        Capability::Vision,
+        Capability::ToolUse,
+    ]);
     let res = negotiate(&m, &r);
     assert!(!res.is_compatible());
     assert_eq!(res.unsupported.len(), 3);

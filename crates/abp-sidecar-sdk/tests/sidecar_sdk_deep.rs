@@ -18,9 +18,7 @@ use tokio::io::BufReader;
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn noop_handler() -> SidecarBuilder {
-    SidecarBuilder::new("test").on_run(|_wo, emitter| async move {
-        Ok(emitter.finish("test"))
-    })
+    SidecarBuilder::new("test").on_run(|_wo, emitter| async move { Ok(emitter.finish("test")) })
 }
 
 fn make_run_input(task: &str) -> (String, WorkOrder) {
@@ -120,8 +118,7 @@ fn builder_set_mapped_mode_explicit() {
 
 #[test]
 fn builder_add_single_capability() {
-    let b = SidecarBuilder::new("x")
-        .capability(Capability::Streaming, SupportLevel::Native);
+    let b = SidecarBuilder::new("x").capability(Capability::Streaming, SupportLevel::Native);
     let manifest = b.capability_manifest();
     assert_eq!(manifest.len(), 1);
     assert!(matches!(
@@ -253,7 +250,10 @@ fn builder_chain_order_independent() {
     assert_eq!(b1.backend_version(), b2.backend_version());
     assert_eq!(b1.adapter_version_str(), b2.adapter_version_str());
     assert_eq!(b1.execution_mode(), b2.execution_mode());
-    assert_eq!(b1.capability_manifest().len(), b2.capability_manifest().len());
+    assert_eq!(
+        b1.capability_manifest().len(),
+        b2.capability_manifest().len()
+    );
     assert!(b1.has_handler());
     assert!(b2.has_handler());
 }
@@ -394,7 +394,10 @@ fn sidecar_error_no_handler_display() {
 
 #[test]
 fn sidecar_error_io_display() {
-    let e = SidecarError::Io(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "pipe broken"));
+    let e = SidecarError::Io(std::io::Error::new(
+        std::io::ErrorKind::BrokenPipe,
+        "pipe broken",
+    ));
     assert!(e.to_string().contains("pipe broken"));
 }
 
@@ -494,7 +497,9 @@ async fn emitter_message_content() {
     let (em, mut rx) = EventEmitter::new("r", 4);
     em.emit_message("Hello, world!").await.unwrap();
     let ev = rx.recv().await.unwrap();
-    assert!(matches!(ev.kind, AgentEventKind::AssistantMessage { text } if text == "Hello, world!"));
+    assert!(
+        matches!(ev.kind, AgentEventKind::AssistantMessage { text } if text == "Hello, world!")
+    );
 }
 
 #[tokio::test]
@@ -708,42 +713,60 @@ async fn emitter_finish_failed_creates_failed_receipt() {
 async fn emitter_closed_channel_text_delta() {
     let (em, rx) = EventEmitter::new("r", 4);
     drop(rx);
-    assert!(matches!(em.emit_text_delta("x").await, Err(EmitError::ChannelClosed)));
+    assert!(matches!(
+        em.emit_text_delta("x").await,
+        Err(EmitError::ChannelClosed)
+    ));
 }
 
 #[tokio::test]
 async fn emitter_closed_channel_message() {
     let (em, rx) = EventEmitter::new("r", 4);
     drop(rx);
-    assert!(matches!(em.emit_message("x").await, Err(EmitError::ChannelClosed)));
+    assert!(matches!(
+        em.emit_message("x").await,
+        Err(EmitError::ChannelClosed)
+    ));
 }
 
 #[tokio::test]
 async fn emitter_closed_channel_warning() {
     let (em, rx) = EventEmitter::new("r", 4);
     drop(rx);
-    assert!(matches!(em.emit_warning("x").await, Err(EmitError::ChannelClosed)));
+    assert!(matches!(
+        em.emit_warning("x").await,
+        Err(EmitError::ChannelClosed)
+    ));
 }
 
 #[tokio::test]
 async fn emitter_closed_channel_error() {
     let (em, rx) = EventEmitter::new("r", 4);
     drop(rx);
-    assert!(matches!(em.emit_error(None, "x").await, Err(EmitError::ChannelClosed)));
+    assert!(matches!(
+        em.emit_error(None, "x").await,
+        Err(EmitError::ChannelClosed)
+    ));
 }
 
 #[tokio::test]
 async fn emitter_closed_channel_run_started() {
     let (em, rx) = EventEmitter::new("r", 4);
     drop(rx);
-    assert!(matches!(em.emit_run_started("x").await, Err(EmitError::ChannelClosed)));
+    assert!(matches!(
+        em.emit_run_started("x").await,
+        Err(EmitError::ChannelClosed)
+    ));
 }
 
 #[tokio::test]
 async fn emitter_closed_channel_run_completed() {
     let (em, rx) = EventEmitter::new("r", 4);
     drop(rx);
-    assert!(matches!(em.emit_run_completed("x").await, Err(EmitError::ChannelClosed)));
+    assert!(matches!(
+        em.emit_run_completed("x").await,
+        Err(EmitError::ChannelClosed)
+    ));
 }
 
 #[tokio::test]
@@ -771,7 +794,8 @@ async fn emitter_closed_channel_tool_call_start() {
     let (em, rx) = EventEmitter::new("r", 4);
     drop(rx);
     assert!(matches!(
-        em.emit_tool_call_start("t", "id", serde_json::json!(null)).await,
+        em.emit_tool_call_start("t", "id", serde_json::json!(null))
+            .await,
         Err(EmitError::ChannelClosed)
     ));
 }
@@ -781,7 +805,8 @@ async fn emitter_closed_channel_tool_result() {
     let (em, rx) = EventEmitter::new("r", 4);
     drop(rx);
     assert!(matches!(
-        em.emit_tool_result("t", "id", serde_json::json!(null), false).await,
+        em.emit_tool_result("t", "id", serde_json::json!(null), false)
+            .await,
         Err(EmitError::ChannelClosed)
     ));
 }
@@ -851,10 +876,22 @@ async fn emitter_multiple_events_ordering() {
 
     assert_eq!(events.len(), 5);
     assert!(matches!(events[0].kind, AgentEventKind::RunStarted { .. }));
-    assert!(matches!(events[1].kind, AgentEventKind::AssistantDelta { .. }));
-    assert!(matches!(events[2].kind, AgentEventKind::AssistantDelta { .. }));
-    assert!(matches!(events[3].kind, AgentEventKind::AssistantMessage { .. }));
-    assert!(matches!(events[4].kind, AgentEventKind::RunCompleted { .. }));
+    assert!(matches!(
+        events[1].kind,
+        AgentEventKind::AssistantDelta { .. }
+    ));
+    assert!(matches!(
+        events[2].kind,
+        AgentEventKind::AssistantDelta { .. }
+    ));
+    assert!(matches!(
+        events[3].kind,
+        AgentEventKind::AssistantMessage { .. }
+    ));
+    assert!(matches!(
+        events[4].kind,
+        AgentEventKind::RunCompleted { .. }
+    ));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1023,9 +1060,7 @@ async fn runtime_final_envelope_contains_receipt() {
 #[tokio::test]
 async fn runtime_handler_error_produces_fatal() {
     let rt = SidecarBuilder::new("fatal-x")
-        .on_run(|_wo, _em| async move {
-            Err(SidecarError::Handler("something broke".into()))
-        })
+        .on_run(|_wo, _em| async move { Err(SidecarError::Handler("something broke".into())) })
         .build()
         .unwrap();
 
@@ -1042,9 +1077,7 @@ async fn runtime_handler_error_produces_fatal() {
 #[tokio::test]
 async fn runtime_fatal_envelope_is_valid_json() {
     let rt = SidecarBuilder::new("fatal-json")
-        .on_run(|_wo, _em| async move {
-            Err(SidecarError::Handler("fail".into()))
-        })
+        .on_run(|_wo, _em| async move { Err(SidecarError::Handler("fail".into())) })
         .build()
         .unwrap();
 
@@ -1218,10 +1251,7 @@ async fn runtime_all_output_is_valid_jsonl() {
     let output = String::from_utf8(stdout).unwrap();
     for (i, line) in output.lines().enumerate() {
         let parsed: Result<serde_json::Value, _> = serde_json::from_str(line);
-        assert!(
-            parsed.is_ok(),
-            "line {i} is not valid JSON: {line}"
-        );
+        assert!(parsed.is_ok(), "line {i} is not valid JSON: {line}");
     }
 }
 
@@ -1469,10 +1499,7 @@ async fn e2e_full_lifecycle_with_all_event_types() {
                 .emit_tool_result("read_file", "tc-1", serde_json::json!("fn main(){}"), false)
                 .await
                 .unwrap();
-            emitter
-                .emit_file_changed("f.rs", "updated")
-                .await
-                .unwrap();
+            emitter.emit_file_changed("f.rs", "updated").await.unwrap();
             emitter
                 .emit_command_executed("cargo test", Some(0), Some("pass"))
                 .await

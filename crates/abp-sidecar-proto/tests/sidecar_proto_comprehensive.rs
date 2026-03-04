@@ -280,7 +280,9 @@ impl SidecarHandler for FatalAfterEventsHandler {
 #[tokio::test]
 async fn hello_has_correct_tag() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_hello(&mut w, default_identity(), caps()).await.unwrap();
+    send_hello(&mut w, default_identity(), caps())
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     assert!(text.contains(r#""t":"hello""#));
@@ -289,7 +291,9 @@ async fn hello_has_correct_tag() {
 #[tokio::test]
 async fn hello_contains_contract_version() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_hello(&mut w, default_identity(), caps()).await.unwrap();
+    send_hello(&mut w, default_identity(), caps())
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     assert!(text.contains(CONTRACT_VERSION));
@@ -298,7 +302,9 @@ async fn hello_contains_contract_version() {
 #[tokio::test]
 async fn hello_contains_backend_identity() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_hello(&mut w, default_identity(), caps()).await.unwrap();
+    send_hello(&mut w, default_identity(), caps())
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     assert!(text.contains("comprehensive-test-sidecar"));
@@ -308,7 +314,9 @@ async fn hello_contains_backend_identity() {
 #[tokio::test]
 async fn hello_roundtrip_preserves_fields() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_hello(&mut w, default_identity(), caps()).await.unwrap();
+    send_hello(&mut w, default_identity(), caps())
+        .await
+        .unwrap();
     drop(w);
     let line = drain(r).await;
     let env = JsonlCodec::decode(line.trim()).unwrap();
@@ -323,8 +331,14 @@ async fn hello_roundtrip_preserves_fields() {
             assert_eq!(backend.backend_version.as_deref(), Some("1.0.0"));
             assert_eq!(backend.adapter_version.as_deref(), Some("0.3.0"));
             assert_eq!(contract_version, CONTRACT_VERSION);
-            assert!(matches!(capabilities.get(&Capability::Streaming), Some(SupportLevel::Native)));
-            assert!(matches!(capabilities.get(&Capability::ToolRead), Some(SupportLevel::Emulated)));
+            assert!(matches!(
+                capabilities.get(&Capability::Streaming),
+                Some(SupportLevel::Native)
+            ));
+            assert!(matches!(
+                capabilities.get(&Capability::ToolRead),
+                Some(SupportLevel::Emulated)
+            ));
             assert_eq!(mode, ExecutionMode::Mapped);
         }
         other => panic!("expected Hello, got {other:?}"),
@@ -373,7 +387,9 @@ async fn hello_with_minimal_identity() {
 #[tokio::test]
 async fn hello_ends_with_newline() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_hello(&mut w, default_identity(), caps()).await.unwrap();
+    send_hello(&mut w, default_identity(), caps())
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     assert!(text.ends_with('\n'));
@@ -382,7 +398,9 @@ async fn hello_ends_with_newline() {
 #[tokio::test]
 async fn hello_is_single_line() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_hello(&mut w, default_identity(), caps()).await.unwrap();
+    send_hello(&mut w, default_identity(), caps())
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     assert_eq!(text.lines().count(), 1);
@@ -391,7 +409,9 @@ async fn hello_is_single_line() {
 #[tokio::test]
 async fn hello_json_fields_present() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_hello(&mut w, default_identity(), caps()).await.unwrap();
+    send_hello(&mut w, default_identity(), caps())
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     let v: serde_json::Value = serde_json::from_str(text.trim()).unwrap();
@@ -483,7 +503,9 @@ async fn event_envelope_tag() {
 #[tokio::test]
 async fn event_preserves_ref_id() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_event(&mut w, "my-unique-ref-id", started()).await.unwrap();
+    send_event(&mut w, "my-unique-ref-id", started())
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     assert!(text.contains(r#""ref_id":"my-unique-ref-id""#));
@@ -508,7 +530,9 @@ async fn event_roundtrip_run_started() {
 #[tokio::test]
 async fn event_roundtrip_assistant_delta() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_event(&mut w, "r1", delta("hello world")).await.unwrap();
+    send_event(&mut w, "r1", delta("hello world"))
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     let env = JsonlCodec::decode(text.trim()).unwrap();
@@ -524,7 +548,9 @@ async fn event_roundtrip_assistant_delta() {
 #[tokio::test]
 async fn event_roundtrip_tool_call() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_event(&mut w, "r1", tool_call("read_file")).await.unwrap();
+    send_event(&mut w, "r1", tool_call("read_file"))
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     let env = JsonlCodec::decode(text.trim()).unwrap();
@@ -597,7 +623,9 @@ async fn event_roundtrip_file_changed() {
 #[tokio::test]
 async fn event_roundtrip_command_executed() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_event(&mut w, "r1", cmd_event("cargo test")).await.unwrap();
+    send_event(&mut w, "r1", cmd_event("cargo test"))
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     let env = JsonlCodec::decode(text.trim()).unwrap();
@@ -621,7 +649,9 @@ async fn event_roundtrip_command_executed() {
 #[tokio::test]
 async fn event_roundtrip_warning() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_event(&mut w, "r1", warning("budget low")).await.unwrap();
+    send_event(&mut w, "r1", warning("budget low"))
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     let env = JsonlCodec::decode(text.trim()).unwrap();
@@ -699,7 +729,9 @@ async fn event_with_ext_data() {
 #[tokio::test]
 async fn final_envelope_tag() {
     let (mut w, r) = tokio::io::duplex(8192);
-    send_final(&mut w, "r1", receipt(Uuid::nil())).await.unwrap();
+    send_final(&mut w, "r1", receipt(Uuid::nil()))
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     assert!(text.contains(r#""t":"final""#));
@@ -830,7 +862,9 @@ async fn final_with_usage_data() {
 #[tokio::test]
 async fn fatal_envelope_tag() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_fatal(&mut w, Some("r1".into()), "error").await.unwrap();
+    send_fatal(&mut w, Some("r1".into()), "error")
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     assert!(text.contains(r#""t":"fatal""#));
@@ -839,7 +873,9 @@ async fn fatal_envelope_tag() {
 #[tokio::test]
 async fn fatal_with_ref_id() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_fatal(&mut w, Some("run-x".into()), "boom").await.unwrap();
+    send_fatal(&mut w, Some("run-x".into()), "boom")
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     let env = JsonlCodec::decode(text.trim()).unwrap();
@@ -942,10 +978,14 @@ async fn decode_single_line() {
 #[tokio::test]
 async fn decode_stream_multiple_lines() {
     let (mut w, r) = tokio::io::duplex(16384);
-    send_hello(&mut w, default_identity(), caps()).await.unwrap();
+    send_hello(&mut w, default_identity(), caps())
+        .await
+        .unwrap();
     send_event(&mut w, "r1", started()).await.unwrap();
     send_event(&mut w, "r1", delta("hello")).await.unwrap();
-    send_final(&mut w, "r1", receipt(Uuid::nil())).await.unwrap();
+    send_final(&mut w, "r1", receipt(Uuid::nil()))
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     let reader = BufReader::new(text.as_bytes());
@@ -959,8 +999,7 @@ async fn decode_stream_multiple_lines() {
 async fn decode_stream_skips_empty_lines() {
     let input = format!(
         "\n  \n{}\n\n{}\n",
-        r#"{"t":"fatal","ref_id":null,"error":"a"}"#,
-        r#"{"t":"fatal","ref_id":null,"error":"b"}"#,
+        r#"{"t":"fatal","ref_id":null,"error":"a"}"#, r#"{"t":"fatal","ref_id":null,"error":"b"}"#,
     );
     let reader = BufReader::new(input.as_bytes());
     let envs: Vec<_> = JsonlCodec::decode_stream(reader)
@@ -1188,7 +1227,9 @@ async fn version_incompatible_invalid_strings() {
 #[tokio::test]
 async fn hello_version_is_compatible_with_contract() {
     let (mut w, r) = tokio::io::duplex(4096);
-    send_hello(&mut w, default_identity(), caps()).await.unwrap();
+    send_hello(&mut w, default_identity(), caps())
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     let env = JsonlCodec::decode(text.trim()).unwrap();
@@ -1231,9 +1272,7 @@ async fn server_rejects_truncated_json() {
 async fn server_rejects_array_json() {
     let (mut w, _r) = tokio::io::duplex(4096);
     let server = SidecarServer::new(NoopHandler, default_identity(), caps());
-    let result = server
-        .run_with_io(b"[1, 2, 3]\n" as &[u8], &mut w)
-        .await;
+    let result = server.run_with_io(b"[1, 2, 3]\n" as &[u8], &mut w).await;
     assert!(result.is_err());
 }
 
@@ -1294,10 +1333,7 @@ async fn server_skips_blank_lines_before_run() {
     let input = format!("\n  \n\t\n{run_line}");
     let (mut wr, r) = tokio::io::duplex(16384);
     let server = SidecarServer::new(NoopHandler, default_identity(), caps());
-    server
-        .run_with_io(input.as_bytes(), &mut wr)
-        .await
-        .unwrap();
+    server.run_with_io(input.as_bytes(), &mut wr).await.unwrap();
     drop(wr);
     let text = drain(r).await;
     assert!(text.contains(r#""t":"hello""#));
@@ -1308,9 +1344,7 @@ async fn server_skips_blank_lines_before_run() {
 async fn server_only_blank_lines_returns_stdin_closed() {
     let (mut w, _r) = tokio::io::duplex(4096);
     let server = SidecarServer::new(NoopHandler, default_identity(), caps());
-    let result = server
-        .run_with_io(b"\n\n  \n\n" as &[u8], &mut w)
-        .await;
+    let result = server.run_with_io(b"\n\n  \n\n" as &[u8], &mut w).await;
     assert!(matches!(
         result.unwrap_err(),
         SidecarProtoError::StdinClosed
@@ -1328,7 +1362,12 @@ async fn server_rejects_event_as_first_non_blank() {
     let server = SidecarServer::new(NoopHandler, default_identity(), caps());
     let result = server.run_with_io(line.as_bytes(), &mut w).await;
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("unexpected message"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("unexpected message")
+    );
 }
 
 #[tokio::test]
@@ -1365,7 +1404,12 @@ async fn server_rejects_hello_as_input() {
     let server = SidecarServer::new(NoopHandler, default_identity(), caps());
     let result = server.run_with_io(line.as_bytes(), &mut w).await;
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("unexpected message"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("unexpected message")
+    );
 }
 
 #[tokio::test]
@@ -1473,10 +1517,7 @@ async fn server_full_sequence_hello_events_final() {
     let input = run_input("r-full", &w);
     let (mut wr, r) = tokio::io::duplex(16384);
     let server = SidecarServer::new(MixedEventHandler, default_identity(), caps());
-    server
-        .run_with_io(input.as_slice(), &mut wr)
-        .await
-        .unwrap();
+    server.run_with_io(input.as_slice(), &mut wr).await.unwrap();
     drop(wr);
     let text = drain(r).await;
     let envs = decode_all(&text);
@@ -1495,10 +1536,7 @@ async fn server_hello_always_first() {
     let input = run_input("r-h1st", &w);
     let (mut wr, r) = tokio::io::duplex(16384);
     let server = SidecarServer::new(EchoHandler, default_identity(), caps());
-    server
-        .run_with_io(input.as_slice(), &mut wr)
-        .await
-        .unwrap();
+    server.run_with_io(input.as_slice(), &mut wr).await.unwrap();
     drop(wr);
     let text = drain(r).await;
     let envs = decode_all(&text);
@@ -1511,10 +1549,7 @@ async fn server_final_always_last_on_success() {
     let input = run_input("r-last", &w);
     let (mut wr, r) = tokio::io::duplex(16384);
     let server = SidecarServer::new(NEventHandler(4), default_identity(), caps());
-    server
-        .run_with_io(input.as_slice(), &mut wr)
-        .await
-        .unwrap();
+    server.run_with_io(input.as_slice(), &mut wr).await.unwrap();
     drop(wr);
     let text = drain(r).await;
     let envs = decode_all(&text);
@@ -1531,10 +1566,7 @@ async fn server_fatal_last_on_handler_error() {
         default_identity(),
         caps(),
     );
-    server
-        .run_with_io(input.as_slice(), &mut wr)
-        .await
-        .unwrap();
+    server.run_with_io(input.as_slice(), &mut wr).await.unwrap();
     drop(wr);
     let text = drain(r).await;
     let envs = decode_all(&text);
@@ -1552,10 +1584,7 @@ async fn server_drains_events_before_fatal() {
     let input = run_input("r-drain", &w);
     let (mut wr, r) = tokio::io::duplex(16384);
     let server = SidecarServer::new(FatalAfterEventsHandler, default_identity(), caps());
-    server
-        .run_with_io(input.as_slice(), &mut wr)
-        .await
-        .unwrap();
+    server.run_with_io(input.as_slice(), &mut wr).await.unwrap();
     drop(wr);
     let text = drain(r).await;
     let envs = decode_all(&text);
@@ -1573,10 +1602,7 @@ async fn server_no_events_just_final() {
     let input = run_input("r-noev", &w);
     let (mut wr, r) = tokio::io::duplex(16384);
     let server = SidecarServer::new(NoopHandler, default_identity(), caps());
-    server
-        .run_with_io(input.as_slice(), &mut wr)
-        .await
-        .unwrap();
+    server.run_with_io(input.as_slice(), &mut wr).await.unwrap();
     drop(wr);
     let text = drain(r).await;
     let envs = decode_all(&text);
@@ -1703,13 +1729,17 @@ async fn multiple_events_streamed_in_order() {
 #[tokio::test]
 async fn decode_stream_from_concatenated_output() {
     let (mut w, r) = tokio::io::duplex(16384);
-    send_hello(&mut w, default_identity(), caps()).await.unwrap();
+    send_hello(&mut w, default_identity(), caps())
+        .await
+        .unwrap();
     for i in 0..5 {
         send_event(&mut w, "r1", delta(&format!("tok-{i}")))
             .await
             .unwrap();
     }
-    send_final(&mut w, "r1", receipt(Uuid::nil())).await.unwrap();
+    send_final(&mut w, "r1", receipt(Uuid::nil()))
+        .await
+        .unwrap();
     drop(w);
     let text = drain(r).await;
     let reader = BufReader::new(text.as_bytes());
@@ -1795,10 +1825,7 @@ async fn many_events_server_stress() {
     let input = run_input("r-stress", &w);
     let (mut wr, r) = tokio::io::duplex(1024 * 1024);
     let server = SidecarServer::new(NEventHandler(100), default_identity(), caps());
-    server
-        .run_with_io(input.as_slice(), &mut wr)
-        .await
-        .unwrap();
+    server.run_with_io(input.as_slice(), &mut wr).await.unwrap();
     drop(wr);
     let text = drain(r).await;
     let envs = decode_all(&text);
@@ -1881,10 +1908,7 @@ async fn server_with_different_identities() {
         let input = run_input(&format!("r-{id}"), &w);
         let (mut wr, r) = tokio::io::duplex(16384);
         let server = SidecarServer::new(NoopHandler, identity(id), caps());
-        server
-            .run_with_io(input.as_slice(), &mut wr)
-            .await
-            .unwrap();
+        server.run_with_io(input.as_slice(), &mut wr).await.unwrap();
         drop(wr);
         let text = drain(r).await;
         assert!(text.contains(id));
@@ -2038,8 +2062,7 @@ async fn decode_raw_fatal_json() {
 
 #[tokio::test]
 async fn decode_fatal_with_extra_fields() {
-    let json =
-        r#"{"t":"fatal","ref_id":"r1","error":"err","extra1":"val","extra2":42}"#;
+    let json = r#"{"t":"fatal","ref_id":"r1","error":"err","extra1":"val","extra2":42}"#;
     let env = JsonlCodec::decode(json).unwrap();
     assert!(matches!(env, Envelope::Fatal { .. }));
 }
@@ -2080,15 +2103,54 @@ async fn work_order_builder_through_run_envelope() {
 #[tokio::test]
 async fn all_tags_use_t_not_type() {
     let tags = vec![
-        ("hello", JsonlCodec::encode(&Envelope::hello(default_identity(), caps())).unwrap()),
-        ("run", JsonlCodec::encode(&Envelope::Run { id: "r".into(), work_order: default_wo() }).unwrap()),
-        ("event", JsonlCodec::encode(&Envelope::Event { ref_id: "r".into(), event: started() }).unwrap()),
-        ("final", JsonlCodec::encode(&Envelope::Final { ref_id: "r".into(), receipt: receipt(Uuid::nil()) }).unwrap()),
-        ("fatal", JsonlCodec::encode(&Envelope::Fatal { ref_id: None, error: "e".into(), error_code: None }).unwrap()),
+        (
+            "hello",
+            JsonlCodec::encode(&Envelope::hello(default_identity(), caps())).unwrap(),
+        ),
+        (
+            "run",
+            JsonlCodec::encode(&Envelope::Run {
+                id: "r".into(),
+                work_order: default_wo(),
+            })
+            .unwrap(),
+        ),
+        (
+            "event",
+            JsonlCodec::encode(&Envelope::Event {
+                ref_id: "r".into(),
+                event: started(),
+            })
+            .unwrap(),
+        ),
+        (
+            "final",
+            JsonlCodec::encode(&Envelope::Final {
+                ref_id: "r".into(),
+                receipt: receipt(Uuid::nil()),
+            })
+            .unwrap(),
+        ),
+        (
+            "fatal",
+            JsonlCodec::encode(&Envelope::Fatal {
+                ref_id: None,
+                error: "e".into(),
+                error_code: None,
+            })
+            .unwrap(),
+        ),
     ];
     for (expected_tag, json) in &tags {
         let v: serde_json::Value = serde_json::from_str(json.trim()).unwrap();
-        assert_eq!(v["t"].as_str().unwrap(), *expected_tag, "tag mismatch for {expected_tag}");
-        assert!(v.get("type").is_none(), "should not have 'type' field for {expected_tag}");
+        assert_eq!(
+            v["t"].as_str().unwrap(),
+            *expected_tag,
+            "tag mismatch for {expected_tag}"
+        );
+        assert!(
+            v.get("type").is_none(),
+            "should not have 'type' field for {expected_tag}"
+        );
     }
 }
