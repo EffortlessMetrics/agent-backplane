@@ -16,11 +16,14 @@ pub mod buffer;
 pub mod buffered;
 pub mod collector;
 pub mod demux;
+pub mod fanout;
 pub mod merged;
 pub mod metrics;
 pub mod mux;
+pub mod replay;
 pub mod tee;
 pub mod timeout;
+pub mod transform;
 
 pub use aggregate::{StreamAggregator, StreamSummary, ToolCallAggregate};
 pub use backpressure::{BackpressurePolicy, BackpressuredSender, SendOutcome};
@@ -28,11 +31,14 @@ pub use buffer::{BufferFullError, EventBuffer, RingBuffer, StreamBuffer};
 pub use buffered::BufferedStream;
 pub use collector::EventCollector;
 pub use demux::StreamDemux;
+pub use fanout::FanOut;
 pub use merged::MergedStream;
 pub use metrics::{MetricsSummary, StreamMetrics};
 pub use mux::StreamMultiplexer;
+pub use replay::{ReplayBuffer, ReplaySubscription};
 pub use tee::{StreamTee, TeeError};
 pub use timeout::{StreamTimeout, TimeoutItem, TimeoutStream};
+pub use transform::{BatchStream, FilterStream, MapStream, TakeUntilStream, ThrottleStream};
 
 // ---------------------------------------------------------------------------
 // EventFilter

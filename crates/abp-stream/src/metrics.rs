@@ -37,7 +37,7 @@ impl fmt::Display for MetricsSummary {
     }
 }
 
-/// Tracks stream metrics: event counts, byte totals, timing, and per-kind breakdowns.
+/// Tracks stream metrics: event counts, byte totals, timing, latency, and per-kind breakdowns.
 #[derive(Debug)]
 pub struct StreamMetrics {
     event_count: u64,
@@ -45,6 +45,8 @@ pub struct StreamMetrics {
     first_event_time: Option<Instant>,
     last_event_time: Option<Instant>,
     event_type_counts: BTreeMap<String, u64>,
+    /// Per-event latency (time between consecutive events).
+    latencies: Vec<Duration>,
 }
 
 impl StreamMetrics {
@@ -57,12 +59,16 @@ impl StreamMetrics {
             first_event_time: None,
             last_event_time: None,
             event_type_counts: BTreeMap::new(),
+            latencies: Vec::new(),
         }
     }
 
     /// Record an event, updating all tracked metrics.
     pub fn record_event(&mut self, event: &AgentEvent) {
         let now = Instant::now();
+        if let Some(last) = self.last_event_time {
+            self.latencies.push(now.duration_since(last));
+        }
         if self.first_event_time.is_none() {
             self.first_event_time = Some(now);
         }
@@ -136,6 +142,42 @@ impl StreamMetrics {
     #[must_use]
     pub fn event_type_counts(&self) -> &BTreeMap<String, u64> {
         &self.event_type_counts
+    }
+
+    /// Per-event latencies (time between consecutive events).
+    ///
+    /// The vec contains `event_count - 1` entries (one per inter-event gap).
+    #[must_use]
+    pub fn latencies(&self) -> &[Duration] {
+        &self.latencies
+    }
+
+    /// Average latency between consecutive events.
+    ///
+    /// Returns [`Duration::ZERO`] if fewer than two events have been recorded.
+    #[must_use]
+    pub fn average_latency(&self) -> Duration {
+        if self.latencies.is_empty() {
+            return Duration::ZERO;
+        }
+        let total: Duration = self.latencies.iter().sum();
+        total / self.latencies.len() as u32
+    }
+
+    /// Minimum latency between consecutive events.
+    ///
+    /// Returns [`Duration::ZERO`] if fewer than two events have been recorded.
+    #[must_use]
+    pub fn min_latency(&self) -> Duration {
+        self.latencies.iter().copied().min().unwrap_or(Duration::ZERO)
+    }
+
+    /// Maximum latency between consecutive events.
+    ///
+    /// Returns [`Duration::ZERO`] if fewer than two events have been recorded.
+    #[must_use]
+    pub fn max_latency(&self) -> Duration {
+        self.latencies.iter().copied().max().unwrap_or(Duration::ZERO)
     }
 }
 
