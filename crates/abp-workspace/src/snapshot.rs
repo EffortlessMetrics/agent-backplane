@@ -35,6 +35,16 @@ pub struct WorkspaceSnapshot {
     pub root: PathBuf,
 }
 
+/// In-memory file contents captured alongside a [`WorkspaceSnapshot`].
+///
+/// Used by [`restore_snapshot`] to restore file content without requiring the
+/// original snapshot root to still be present on disk.
+#[derive(Clone, Debug, Default)]
+pub struct SnapshotContents {
+    /// File contents keyed by relative path.
+    pub contents: BTreeMap<PathBuf, Vec<u8>>,
+}
+
 impl WorkspaceSnapshot {
     /// Number of files in the snapshot.
     #[must_use]
@@ -70,11 +80,26 @@ impl WorkspaceSnapshot {
 ///
 /// Returns an error if the directory cannot be read or a file cannot be hashed.
 pub fn capture(path: &Path) -> Result<WorkspaceSnapshot> {
+    let (snapshot, _contents) = capture_with_contents(path)?;
+    Ok(snapshot)
+}
+
+/// Capture a [`WorkspaceSnapshot`] together with the raw file contents.
+///
+/// The returned [`SnapshotContents`] can be passed to [`restore_snapshot`]
+/// to restore the workspace even if files have been modified or deleted
+/// since the snapshot was taken.
+///
+/// # Errors
+///
+/// Returns an error if the directory cannot be read or a file cannot be hashed.
+pub fn capture_with_contents(path: &Path) -> Result<(WorkspaceSnapshot, SnapshotContents)> {
     let root = path
         .canonicalize()
         .with_context(|| format!("canonicalize {}", path.display()))?;
 
     let mut files = BTreeMap::new();
+    let mut contents_map = BTreeMap::new();
 
     let walker = WalkDir::new(&root)
         .follow_links(false)
@@ -98,21 +123,28 @@ pub fn capture(path: &Path) -> Result<WorkspaceSnapshot> {
 
         let is_binary = content.iter().take(8192).any(|&b| b == 0);
 
+        let rel_buf = rel.to_path_buf();
         files.insert(
-            rel.to_path_buf(),
+            rel_buf.clone(),
             FileSnapshot {
                 size: content.len() as u64,
                 sha256,
                 is_binary,
             },
         );
+        contents_map.insert(rel_buf, content);
     }
 
-    Ok(WorkspaceSnapshot {
-        files,
-        created_at: Utc::now(),
-        root: root.clone(),
-    })
+    Ok((
+        WorkspaceSnapshot {
+            files,
+            created_at: Utc::now(),
+            root: root.clone(),
+        },
+        SnapshotContents {
+            contents: contents_map,
+        },
+    ))
 }
 
 /// Result of comparing two workspace snapshots.
@@ -169,15 +201,19 @@ pub fn compare_snapshots(before: &WorkspaceSnapshot, after: &WorkspaceSnapshot) 
 
 /// Restore a workspace directory to the state captured in a snapshot.
 ///
-/// For each file in the snapshot the original content is read from the
-/// snapshot root and written to `workspace_path`.  Files present on disk but
-/// absent from the snapshot are removed.  Only regular files are considered;
-/// the `.git` directory is left untouched.
+/// When `contents` is provided, file data is read from the in-memory store.
+/// Otherwise the function falls back to reading from the snapshot's original
+/// root path.  Files present on disk but absent from the snapshot are removed.
+/// The `.git` directory is left untouched.
 ///
 /// # Errors
 ///
 /// Returns an error if file I/O fails.
-pub fn restore_snapshot(workspace_path: &Path, snapshot: &WorkspaceSnapshot) -> Result<()> {
+pub fn restore_snapshot(
+    workspace_path: &Path,
+    snapshot: &WorkspaceSnapshot,
+    contents: Option<&SnapshotContents>,
+) -> Result<()> {
     // Collect current files on disk (excluding .git).
     let mut current_files: std::collections::BTreeSet<PathBuf> =
         std::collections::BTreeSet::new();
@@ -212,22 +248,24 @@ pub fn restore_snapshot(workspace_path: &Path, snapshot: &WorkspaceSnapshot) -> 
     }
 
     // Restore / create files from snapshot.
-    for (rel, file_snap) in &snapshot.files {
+    for (rel, _file_snap) in &snapshot.files {
         let dest = workspace_path.join(rel);
-        let src = snapshot.root.join(rel);
 
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent)
                 .with_context(|| format!("create dir {}", parent.display()))?;
         }
 
-        // Read content from snapshot root if available, otherwise write empty
-        // file (best-effort — the snapshot root may have been cleaned up).
-        let content = if src.exists() {
-            fs::read(&src).with_context(|| format!("read {}", src.display()))?
+        // Prefer in-memory content, fall back to reading from snapshot root.
+        let content = if let Some(c) = contents.and_then(|sc| sc.contents.get(rel)) {
+            c.clone()
         } else {
-            // Fallback: write a zero-length file with the correct size hint.
-            vec![0u8; file_snap.size as usize]
+            let src = snapshot.root.join(rel);
+            if src.exists() {
+                fs::read(&src).with_context(|| format!("read {}", src.display()))?
+            } else {
+                Vec::new()
+            }
         };
 
         fs::write(&dest, &content)
