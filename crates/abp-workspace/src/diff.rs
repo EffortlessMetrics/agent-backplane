@@ -12,6 +12,7 @@ use crate::PreparedWorkspace;
 use abp_glob::IncludeExcludeGlobs;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -503,4 +504,1007 @@ impl DiffPolicy {
             Ok(PolicyResult::Fail { violations })
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Structured diff parsing — DiffAnalysis
+// ---------------------------------------------------------------------------
+
+/// Classification of a change in a parsed diff, including rename support.
+///
+/// Extends [`ChangeType`] with a `Renamed` variant for use with full
+/// unified-diff parsing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffChangeKind {
+    /// File was newly created.
+    Added,
+    /// File content was modified.
+    Modified,
+    /// File was deleted.
+    Deleted,
+    /// File was renamed (possibly with content changes).
+    Renamed,
+}
+
+impl fmt::Display for DiffChangeKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Added => write!(f, "added"),
+            Self::Modified => write!(f, "modified"),
+            Self::Deleted => write!(f, "deleted"),
+            Self::Renamed => write!(f, "renamed"),
+        }
+    }
+}
+
+/// Detected file type based on extension.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileType {
+    /// Rust source file.
+    Rust,
+    /// JavaScript source file.
+    JavaScript,
+    /// TypeScript source file.
+    TypeScript,
+    /// Python source file.
+    Python,
+    /// Go source file.
+    Go,
+    /// Java source file.
+    Java,
+    /// C# source file.
+    CSharp,
+    /// C++ source file.
+    Cpp,
+    /// C source file.
+    C,
+    /// HTML file.
+    Html,
+    /// CSS/SCSS/LESS file.
+    Css,
+    /// JSON file.
+    Json,
+    /// YAML file.
+    Yaml,
+    /// TOML file.
+    Toml,
+    /// Markdown file.
+    Markdown,
+    /// Shell script.
+    Shell,
+    /// SQL file.
+    Sql,
+    /// XML file.
+    Xml,
+    /// Binary file.
+    Binary,
+    /// Unknown or unrecognised file type.
+    Other,
+}
+
+impl fmt::Display for FileType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Rust => write!(f, "rust"),
+            Self::JavaScript => write!(f, "javascript"),
+            Self::TypeScript => write!(f, "typescript"),
+            Self::Python => write!(f, "python"),
+            Self::Go => write!(f, "go"),
+            Self::Java => write!(f, "java"),
+            Self::CSharp => write!(f, "csharp"),
+            Self::Cpp => write!(f, "cpp"),
+            Self::C => write!(f, "c"),
+            Self::Html => write!(f, "html"),
+            Self::Css => write!(f, "css"),
+            Self::Json => write!(f, "json"),
+            Self::Yaml => write!(f, "yaml"),
+            Self::Toml => write!(f, "toml"),
+            Self::Markdown => write!(f, "markdown"),
+            Self::Shell => write!(f, "shell"),
+            Self::Sql => write!(f, "sql"),
+            Self::Xml => write!(f, "xml"),
+            Self::Binary => write!(f, "binary"),
+            Self::Other => write!(f, "other"),
+        }
+    }
+}
+
+/// Identify the [`FileType`] from a file path's extension.
+#[must_use]
+pub fn identify_file_type(path: &str) -> FileType {
+    if let Some(ext) = Path::new(path).extension().and_then(|e| e.to_str()) {
+        match ext.to_ascii_lowercase().as_str() {
+            "rs" => FileType::Rust,
+            "js" | "mjs" | "cjs" | "jsx" => FileType::JavaScript,
+            "ts" | "tsx" | "mts" => FileType::TypeScript,
+            "py" | "pyi" => FileType::Python,
+            "go" => FileType::Go,
+            "java" => FileType::Java,
+            "cs" => FileType::CSharp,
+            "cpp" | "cxx" | "cc" | "hpp" | "hxx" => FileType::Cpp,
+            "c" | "h" => FileType::C,
+            "html" | "htm" => FileType::Html,
+            "css" | "scss" | "less" | "sass" => FileType::Css,
+            "json" => FileType::Json,
+            "yaml" | "yml" => FileType::Yaml,
+            "toml" => FileType::Toml,
+            "md" | "markdown" => FileType::Markdown,
+            "sh" | "bash" | "zsh" | "fish" | "ps1" => FileType::Shell,
+            "sql" => FileType::Sql,
+            "xml" | "xsl" | "xslt" => FileType::Xml,
+            "png" | "jpg" | "jpeg" | "gif" | "bmp" | "ico" | "svg" | "webp" | "wasm" | "exe"
+            | "dll" | "so" | "dylib" | "a" | "o" | "obj" | "zip" | "tar" | "gz" | "bz2" | "xz"
+            | "7z" | "rar" | "pdf" | "doc" | "docx" | "xls" | "xlsx" | "mp3" | "mp4" | "wav"
+            | "avi" | "mkv" | "ttf" | "otf" | "woff" | "woff2" | "eot" => FileType::Binary,
+            _ => FileType::Other,
+        }
+    } else {
+        FileType::Other
+    }
+}
+
+/// Kind of a single line within a diff hunk.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffLineKind {
+    /// Context line (unchanged).
+    Context,
+    /// Added line.
+    Added,
+    /// Removed line.
+    Removed,
+    /// The `\ No newline at end of file` marker.
+    NoNewlineMarker,
+}
+
+/// A single line within a diff hunk.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiffLine {
+    /// The kind of diff line.
+    pub kind: DiffLineKind,
+    /// Content of the line (without the leading `+`/`-`/space marker).
+    pub content: String,
+}
+
+/// A parsed hunk from a unified diff.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiffHunk {
+    /// Starting line in the old file.
+    pub old_start: usize,
+    /// Number of lines in the old file range.
+    pub old_count: usize,
+    /// Starting line in the new file.
+    pub new_start: usize,
+    /// Number of lines in the new file range.
+    pub new_count: usize,
+    /// Raw hunk header text (e.g. `@@ -1,3 +1,4 @@`).
+    pub header: String,
+    /// Parsed lines within this hunk.
+    pub lines: Vec<DiffLine>,
+}
+
+/// Parsed representation of a single file within a unified diff.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileDiff {
+    /// Path of the file (new path for renames, otherwise the file path).
+    pub path: String,
+    /// Kind of change.
+    pub change_kind: DiffChangeKind,
+    /// Whether the file is binary.
+    pub is_binary: bool,
+    /// Diff hunks (empty for binary files and mode-only changes).
+    pub hunks: Vec<DiffHunk>,
+    /// Lines added in this file.
+    pub additions: usize,
+    /// Lines removed in this file.
+    pub deletions: usize,
+    /// Old file mode (e.g. `100644`), if a mode change was detected.
+    pub old_mode: Option<String>,
+    /// New file mode (e.g. `100755`), if a mode change was detected.
+    pub new_mode: Option<String>,
+    /// Detected file type.
+    pub file_type: FileType,
+    /// Original path for renamed files.
+    pub renamed_from: Option<String>,
+}
+
+/// Per-file statistics extracted from a [`DiffAnalysis`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileStats {
+    /// File path.
+    pub path: String,
+    /// Lines added.
+    pub additions: usize,
+    /// Lines removed.
+    pub deletions: usize,
+    /// Whether the file is binary.
+    pub is_binary: bool,
+    /// Detected file type.
+    pub file_type: FileType,
+    /// Kind of change.
+    pub change_kind: DiffChangeKind,
+}
+
+/// Structured analysis of a complete `git diff` unified output.
+///
+/// Use [`DiffAnalysis::parse`] to create an instance from raw diff text.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiffAnalysis {
+    /// Per-file diff entries.
+    pub files: Vec<FileDiff>,
+    /// Total lines added across all files.
+    pub total_additions: usize,
+    /// Total lines removed across all files.
+    pub total_deletions: usize,
+    /// Number of binary files in the diff.
+    pub binary_file_count: usize,
+}
+
+impl DiffAnalysis {
+    /// Parse a raw unified diff string into structured data.
+    #[must_use]
+    pub fn parse(raw: &str) -> Self {
+        let mut analysis = Self::default();
+        if raw.trim().is_empty() {
+            return analysis;
+        }
+
+        let lines: Vec<&str> = raw.lines().collect();
+        let mut sections: Vec<Vec<&str>> = Vec::new();
+        let mut current: Vec<&str> = Vec::new();
+
+        for line in &lines {
+            if line.starts_with("diff --git ") {
+                if !current.is_empty() {
+                    sections.push(current);
+                    current = Vec::new();
+                }
+            }
+            current.push(line);
+        }
+        if !current.is_empty() {
+            sections.push(current);
+        }
+
+        for section in &sections {
+            if let Some(fd) = parse_file_section(section) {
+                analysis.total_additions += fd.additions;
+                analysis.total_deletions += fd.deletions;
+                if fd.is_binary {
+                    analysis.binary_file_count += 1;
+                }
+                analysis.files.push(fd);
+            }
+        }
+
+        analysis
+    }
+
+    /// Returns `true` when the diff contains no file changes.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+
+    /// Total number of changed files.
+    #[must_use]
+    pub fn file_count(&self) -> usize {
+        self.files.len()
+    }
+
+    /// Files filtered by change kind.
+    #[must_use]
+    pub fn files_by_kind(&self, kind: DiffChangeKind) -> Vec<&FileDiff> {
+        self.files
+            .iter()
+            .filter(|f| f.change_kind == kind)
+            .collect()
+    }
+
+    /// Per-file statistics.
+    #[must_use]
+    pub fn file_stats(&self) -> Vec<FileStats> {
+        self.files
+            .iter()
+            .map(|f| FileStats {
+                path: f.path.clone(),
+                additions: f.additions,
+                deletions: f.deletions,
+                is_binary: f.is_binary,
+                file_type: f.file_type,
+                change_kind: f.change_kind,
+            })
+            .collect()
+    }
+}
+
+// -- private parsing helpers ------------------------------------------------
+
+fn parse_file_section(lines: &[&str]) -> Option<FileDiff> {
+    if lines.is_empty() {
+        return None;
+    }
+    let header = lines[0];
+    if !header.starts_with("diff --git ") {
+        return None;
+    }
+
+    let (_old_path, new_path) = parse_diff_git_header(header)?;
+
+    let mut change_kind = DiffChangeKind::Modified;
+    let mut is_binary = false;
+    let mut old_mode: Option<String> = None;
+    let mut new_mode: Option<String> = None;
+    let mut renamed_from: Option<String> = None;
+    let mut hunks: Vec<DiffHunk> = Vec::new();
+    let mut additions: usize = 0;
+    let mut deletions: usize = 0;
+
+    let mut i = 1;
+    while i < lines.len() {
+        let line = lines[i];
+
+        if line.starts_with("new file mode ") {
+            change_kind = DiffChangeKind::Added;
+            new_mode = line.strip_prefix("new file mode ").map(String::from);
+        } else if line.starts_with("deleted file mode ") {
+            change_kind = DiffChangeKind::Deleted;
+            old_mode = line.strip_prefix("deleted file mode ").map(String::from);
+        } else if line.starts_with("old mode ") {
+            old_mode = line.strip_prefix("old mode ").map(String::from);
+        } else if line.starts_with("new mode ") {
+            new_mode = line.strip_prefix("new mode ").map(String::from);
+        } else if line.starts_with("rename from ") {
+            change_kind = DiffChangeKind::Renamed;
+            renamed_from = line.strip_prefix("rename from ").map(String::from);
+        } else if line.starts_with("Binary files ") && line.ends_with(" differ") {
+            is_binary = true;
+        } else if line.starts_with("@@") {
+            let (hunk, consumed) = parse_hunk_from_lines(&lines[i..]);
+            if let Some(h) = hunk {
+                for dl in &h.lines {
+                    match dl.kind {
+                        DiffLineKind::Added => additions += 1,
+                        DiffLineKind::Removed => deletions += 1,
+                        _ => {}
+                    }
+                }
+                hunks.push(h);
+            }
+            i += consumed;
+            continue;
+        }
+        // Skip index, similarity, ---, +++ and other metadata lines.
+        i += 1;
+    }
+
+    let path = new_path;
+    let file_type = if is_binary {
+        FileType::Binary
+    } else {
+        identify_file_type(&path)
+    };
+
+    Some(FileDiff {
+        path,
+        change_kind,
+        is_binary,
+        hunks,
+        additions,
+        deletions,
+        old_mode,
+        new_mode,
+        file_type,
+        renamed_from,
+    })
+}
+
+/// Extract `(old_path, new_path)` from `diff --git a/<old> b/<new>`.
+fn parse_diff_git_header(header: &str) -> Option<(String, String)> {
+    let rest = header.strip_prefix("diff --git ")?;
+    let b_idx = rest.find(" b/")?;
+    let a_path = rest.get(2..b_idx)?.to_string();
+    let b_path = rest.get(b_idx + 3..)?.to_string();
+    Some((a_path, b_path))
+}
+
+/// Parse a hunk starting at `lines[0]` (the `@@` line).
+///
+/// Returns the parsed hunk and the number of lines consumed.
+fn parse_hunk_from_lines(lines: &[&str]) -> (Option<DiffHunk>, usize) {
+    if lines.is_empty() || !lines[0].starts_with("@@") {
+        return (None, 1);
+    }
+
+    let header = lines[0];
+    let (old_start, old_count, new_start, new_count) = parse_hunk_range(header);
+
+    let mut hunk_lines: Vec<DiffLine> = Vec::new();
+    let mut consumed: usize = 1;
+
+    for &line in &lines[1..] {
+        if line.starts_with("diff --git ") || line.starts_with("@@") {
+            break;
+        }
+
+        let (kind, content) = if let Some(rest) = line.strip_prefix('+') {
+            (DiffLineKind::Added, rest.to_string())
+        } else if let Some(rest) = line.strip_prefix('-') {
+            (DiffLineKind::Removed, rest.to_string())
+        } else if line.starts_with('\\') {
+            (DiffLineKind::NoNewlineMarker, line.to_string())
+        } else if let Some(rest) = line.strip_prefix(' ') {
+            (DiffLineKind::Context, rest.to_string())
+        } else {
+            (DiffLineKind::Context, line.to_string())
+        };
+
+        hunk_lines.push(DiffLine { kind, content });
+        consumed += 1;
+    }
+
+    (
+        Some(DiffHunk {
+            old_start,
+            old_count,
+            new_start,
+            new_count,
+            header: header.to_string(),
+            lines: hunk_lines,
+        }),
+        consumed,
+    )
+}
+
+/// Parse `@@ -old_start,old_count +new_start,new_count @@` ranges.
+fn parse_hunk_range(header: &str) -> (usize, usize, usize, usize) {
+    let parts: Vec<&str> = header.split_whitespace().collect();
+    let (old_start, old_count) = if parts.len() > 1 {
+        parse_range_part(parts[1].trim_start_matches('-'))
+    } else {
+        (0, 0)
+    };
+    let (new_start, new_count) = if parts.len() > 2 {
+        parse_range_part(parts[2].trim_start_matches('+'))
+    } else {
+        (0, 0)
+    };
+    (old_start, old_count, new_start, new_count)
+}
+
+fn parse_range_part(s: &str) -> (usize, usize) {
+    if let Some((start, count)) = s.split_once(',') {
+        (start.parse().unwrap_or(0), count.parse().unwrap_or(0))
+    } else {
+        (s.parse().unwrap_or(0), 1)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Change classification
+// ---------------------------------------------------------------------------
+
+/// Category of a file based on its path and role in the project.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileCategory {
+    /// Production source code.
+    SourceCode,
+    /// Configuration files.
+    Config,
+    /// Documentation (READMEs, guides, etc.).
+    Documentation,
+    /// Test files and fixtures.
+    Tests,
+    /// Static assets (images, fonts, media).
+    Assets,
+    /// Build artifacts and lock files.
+    Build,
+    /// CI/CD pipeline configuration.
+    CiCd,
+    /// Anything that does not fit other categories.
+    Other,
+}
+
+impl fmt::Display for FileCategory {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::SourceCode => write!(f, "source code"),
+            Self::Config => write!(f, "config"),
+            Self::Documentation => write!(f, "documentation"),
+            Self::Tests => write!(f, "tests"),
+            Self::Assets => write!(f, "assets"),
+            Self::Build => write!(f, "build"),
+            Self::CiCd => write!(f, "ci/cd"),
+            Self::Other => write!(f, "other"),
+        }
+    }
+}
+
+/// Classifies file changes by category, security sensitivity, and size.
+///
+/// Thresholds and heuristics are configurable via the builder methods.
+#[derive(Debug, Clone)]
+pub struct ChangeClassifier {
+    large_change_threshold: usize,
+}
+
+impl Default for ChangeClassifier {
+    fn default() -> Self {
+        Self {
+            large_change_threshold: 500,
+        }
+    }
+}
+
+impl ChangeClassifier {
+    /// Create a classifier with default settings (large-change threshold = 500).
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the threshold (total lines changed) above which a change is
+    /// considered large.
+    #[must_use]
+    pub fn with_large_threshold(mut self, threshold: usize) -> Self {
+        self.large_change_threshold = threshold;
+        self
+    }
+
+    /// Current large-change threshold.
+    #[must_use]
+    pub fn large_change_threshold(&self) -> usize {
+        self.large_change_threshold
+    }
+
+    /// Classify a file path into a [`FileCategory`].
+    #[must_use]
+    pub fn classify_path(&self, path: &str) -> FileCategory {
+        let lower = path.to_ascii_lowercase();
+        let file_name = Path::new(path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+
+        // Tests
+        if lower.contains("/tests/")
+            || lower.contains("/test/")
+            || lower.starts_with("tests/")
+            || lower.starts_with("test/")
+            || file_name.ends_with("_test.rs")
+            || file_name.ends_with("_test.go")
+            || file_name.ends_with("_test.py")
+            || file_name.ends_with(".test.js")
+            || file_name.ends_with(".test.ts")
+            || file_name.ends_with("_spec.rb")
+            || file_name.ends_with(".spec.ts")
+            || file_name.ends_with(".spec.js")
+            || file_name.starts_with("test_")
+        {
+            return FileCategory::Tests;
+        }
+
+        // CI/CD
+        if lower.contains(".github/workflows/")
+            || lower.contains(".gitlab-ci")
+            || lower.contains("jenkinsfile")
+            || lower.contains(".circleci/")
+            || lower.contains(".travis.yml")
+            || lower.contains("azure-pipelines")
+        {
+            return FileCategory::CiCd;
+        }
+
+        // Documentation
+        if matches!(
+            file_name.as_str(),
+            "readme.md"
+                | "readme.txt"
+                | "readme"
+                | "changelog.md"
+                | "changelog"
+                | "contributing.md"
+                | "contributing"
+                | "license"
+                | "license.md"
+                | "license-mit"
+                | "license-apache"
+                | "code_of_conduct.md"
+                | "authors"
+                | "authors.md"
+                | "todo.md"
+                | "todo"
+                | "history.md"
+        ) || lower.starts_with("docs/")
+            || lower.starts_with("doc/")
+            || lower.ends_with(".md")
+            || lower.ends_with(".rst")
+            || lower.ends_with(".adoc")
+        {
+            return FileCategory::Documentation;
+        }
+
+        // Build artifacts / lock files
+        if matches!(
+            file_name.as_str(),
+            "cargo.lock"
+                | "package-lock.json"
+                | "yarn.lock"
+                | "pnpm-lock.yaml"
+                | "go.sum"
+                | "gemfile.lock"
+                | "poetry.lock"
+                | "composer.lock"
+                | "pipfile.lock"
+        ) {
+            return FileCategory::Build;
+        }
+
+        // Config files
+        if matches!(
+            file_name.as_str(),
+            "cargo.toml"
+                | "package.json"
+                | "tsconfig.json"
+                | "pyproject.toml"
+                | "setup.py"
+                | "setup.cfg"
+                | "go.mod"
+                | ".gitignore"
+                | ".gitattributes"
+                | "dockerfile"
+                | "docker-compose.yml"
+                | "docker-compose.yaml"
+                | "makefile"
+                | "cmakelists.txt"
+                | ".editorconfig"
+                | ".prettierrc"
+                | ".eslintrc"
+                | ".eslintrc.js"
+                | ".eslintrc.json"
+                | "rustfmt.toml"
+                | "clippy.toml"
+                | "deny.toml"
+                | ".babelrc"
+                | "webpack.config.js"
+                | "vite.config.js"
+                | "jest.config.js"
+                | "tarpaulin.toml"
+                | "mutants.toml"
+        ) || lower.ends_with(".toml")
+            || lower.ends_with(".yaml")
+            || lower.ends_with(".yml")
+            || lower.ends_with(".ini")
+            || lower.ends_with(".cfg")
+            || lower.ends_with(".conf")
+            || lower.ends_with(".env")
+            || lower.ends_with(".properties")
+        {
+            return FileCategory::Config;
+        }
+
+        // Assets (binary file types)
+        let ft = identify_file_type(path);
+        if ft == FileType::Binary {
+            return FileCategory::Assets;
+        }
+
+        // Source code
+        if matches!(
+            ft,
+            FileType::Rust
+                | FileType::JavaScript
+                | FileType::TypeScript
+                | FileType::Python
+                | FileType::Go
+                | FileType::Java
+                | FileType::CSharp
+                | FileType::Cpp
+                | FileType::C
+                | FileType::Html
+                | FileType::Css
+                | FileType::Shell
+                | FileType::Sql
+        ) {
+            return FileCategory::SourceCode;
+        }
+
+        if matches!(ft, FileType::Json | FileType::Xml) {
+            return FileCategory::Config;
+        }
+
+        FileCategory::Other
+    }
+
+    /// Returns `true` if the path refers to a security-sensitive file.
+    #[must_use]
+    pub fn is_security_sensitive(&self, path: &str) -> bool {
+        let lower = path.to_ascii_lowercase();
+        let file_name = Path::new(path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+
+        // Sensitive extensions
+        if lower.ends_with(".pem")
+            || lower.ends_with(".key")
+            || lower.ends_with(".cert")
+            || lower.ends_with(".p12")
+            || lower.ends_with(".pfx")
+            || lower.ends_with(".keystore")
+            || lower.ends_with(".jks")
+        {
+            return true;
+        }
+
+        // Sensitive filenames
+        if matches!(
+            file_name.as_str(),
+            ".env"
+                | ".env.local"
+                | ".env.production"
+                | ".env.development"
+                | ".htpasswd"
+                | "shadow"
+                | "passwd"
+                | "id_rsa"
+                | "id_ed25519"
+                | "id_ecdsa"
+                | "id_dsa"
+                | "known_hosts"
+        ) {
+            return true;
+        }
+
+        // Sensitive path components
+        if lower.contains("/secrets/")
+            || lower.contains("/.ssh/")
+            || lower.contains("credentials")
+            || lower.contains("private_key")
+        {
+            return true;
+        }
+
+        // Sensitive filename keywords (excluding "author*")
+        if file_name.contains("secret")
+            || file_name.contains("password")
+            || file_name.contains("credential")
+            || file_name.contains("token")
+            || (file_name.contains("auth") && !file_name.contains("author"))
+        {
+            return true;
+        }
+
+        false
+    }
+
+    /// Returns `true` when the total change size exceeds the large-change
+    /// threshold.
+    #[must_use]
+    pub fn is_large_change(&self, additions: usize, deletions: usize) -> bool {
+        additions + deletions > self.large_change_threshold
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Diff report with risk assessment
+// ---------------------------------------------------------------------------
+
+/// Risk level for a change or change set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RiskLevel {
+    /// Low risk — routine changes.
+    Low,
+    /// Medium risk — large changes or binary files.
+    Medium,
+    /// High risk — security-sensitive files touched.
+    High,
+}
+
+impl fmt::Display for RiskLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Low => write!(f, "low"),
+            Self::Medium => write!(f, "medium"),
+            Self::High => write!(f, "high"),
+        }
+    }
+}
+
+/// Per-file breakdown within a [`DiffReport`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileBreakdown {
+    /// File path.
+    pub path: String,
+    /// Kind of change.
+    pub change_kind: DiffChangeKind,
+    /// Classified category.
+    pub category: FileCategory,
+    /// Lines added.
+    pub additions: usize,
+    /// Lines removed.
+    pub deletions: usize,
+    /// Whether the file is binary.
+    pub is_binary: bool,
+    /// Whether the file is security-sensitive.
+    pub is_security_sensitive: bool,
+    /// Whether the change exceeds the large-change threshold.
+    pub is_large: bool,
+    /// Per-file risk level.
+    pub risk: RiskLevel,
+}
+
+/// Comprehensive diff report with risk assessment and category breakdown.
+///
+/// Produced by [`DiffReport::from_analysis`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiffReport {
+    /// Per-file breakdown.
+    pub files: Vec<FileBreakdown>,
+    /// Total lines added.
+    pub total_additions: usize,
+    /// Total lines removed.
+    pub total_deletions: usize,
+    /// Total files changed.
+    pub total_files: usize,
+    /// Overall risk level (maximum of per-file risks).
+    pub risk_level: RiskLevel,
+    /// Human-readable summary text.
+    pub summary_text: String,
+    /// Count of files per category.
+    pub categories: BTreeMap<FileCategory, usize>,
+    /// Whether any security-sensitive file was touched.
+    pub has_security_sensitive_changes: bool,
+    /// Number of files exceeding the large-change threshold.
+    pub large_change_count: usize,
+}
+
+impl DiffReport {
+    /// Build a report from a parsed [`DiffAnalysis`] using the given
+    /// [`ChangeClassifier`].
+    #[must_use]
+    pub fn from_analysis(analysis: &DiffAnalysis, classifier: &ChangeClassifier) -> Self {
+        let mut files = Vec::new();
+        let mut categories: BTreeMap<FileCategory, usize> = BTreeMap::new();
+        let mut has_security = false;
+        let mut large_count: usize = 0;
+        let mut max_risk = RiskLevel::Low;
+
+        for fd in &analysis.files {
+            let category = classifier.classify_path(&fd.path);
+            let sensitive = classifier.is_security_sensitive(&fd.path);
+            let large = classifier.is_large_change(fd.additions, fd.deletions);
+
+            *categories.entry(category).or_default() += 1;
+            if sensitive {
+                has_security = true;
+            }
+            if large {
+                large_count += 1;
+            }
+
+            let risk = compute_file_risk(sensitive, large, fd.is_binary);
+            if risk > max_risk {
+                max_risk = risk;
+            }
+
+            files.push(FileBreakdown {
+                path: fd.path.clone(),
+                change_kind: fd.change_kind,
+                category,
+                additions: fd.additions,
+                deletions: fd.deletions,
+                is_binary: fd.is_binary,
+                is_security_sensitive: sensitive,
+                is_large: large,
+                risk,
+            });
+        }
+
+        let summary_text = build_summary_text(
+            &files,
+            analysis.total_additions,
+            analysis.total_deletions,
+            &categories,
+            max_risk,
+        );
+
+        Self {
+            files,
+            total_additions: analysis.total_additions,
+            total_deletions: analysis.total_deletions,
+            total_files: analysis.files.len(),
+            risk_level: max_risk,
+            summary_text,
+            categories,
+            has_security_sensitive_changes: has_security,
+            large_change_count: large_count,
+        }
+    }
+}
+
+impl fmt::Display for DiffReport {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.summary_text)
+    }
+}
+
+fn compute_file_risk(sensitive: bool, large: bool, binary: bool) -> RiskLevel {
+    if sensitive {
+        return RiskLevel::High;
+    }
+    if large || binary {
+        return RiskLevel::Medium;
+    }
+    RiskLevel::Low
+}
+
+fn build_summary_text(
+    files: &[FileBreakdown],
+    total_add: usize,
+    total_del: usize,
+    categories: &BTreeMap<FileCategory, usize>,
+    risk: RiskLevel,
+) -> String {
+    if files.is_empty() {
+        return "No changes detected.".to_string();
+    }
+
+    let added = files
+        .iter()
+        .filter(|f| f.change_kind == DiffChangeKind::Added)
+        .count();
+    let modified = files
+        .iter()
+        .filter(|f| f.change_kind == DiffChangeKind::Modified)
+        .count();
+    let deleted = files
+        .iter()
+        .filter(|f| f.change_kind == DiffChangeKind::Deleted)
+        .count();
+    let renamed = files
+        .iter()
+        .filter(|f| f.change_kind == DiffChangeKind::Renamed)
+        .count();
+
+    let mut change_parts: Vec<String> = Vec::new();
+    if added > 0 {
+        change_parts.push(format!("{added} added"));
+    }
+    if modified > 0 {
+        change_parts.push(format!("{modified} modified"));
+    }
+    if deleted > 0 {
+        change_parts.push(format!("{deleted} deleted"));
+    }
+    if renamed > 0 {
+        change_parts.push(format!("{renamed} renamed"));
+    }
+
+    let header = format!(
+        "{} file(s) changed: {}: +{} -{}",
+        files.len(),
+        change_parts.join(", "),
+        total_add,
+        total_del,
+    );
+
+    let mut lines = vec![header];
+
+    if categories.len() > 1 {
+        let cat_parts: Vec<String> = categories
+            .iter()
+            .map(|(cat, count)| format!("{cat}: {count}"))
+            .collect();
+        lines.push(format!("Categories: {}", cat_parts.join(", ")));
+    }
+
+    lines.push(format!("Risk: {risk}"));
+    lines.join("\n")
 }
