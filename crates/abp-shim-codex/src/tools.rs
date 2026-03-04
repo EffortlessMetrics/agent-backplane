@@ -33,7 +33,7 @@ pub enum ToolDefinition {
 ///
 /// The code interpreter runs code in a sandboxed environment and returns
 /// the output. Optionally, a container image can be specified.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct CodeInterpreterTool {
     /// Container image for execution (e.g. `"python:3.12"`).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -41,15 +41,6 @@ pub struct CodeInterpreterTool {
     /// Allowed file extensions for uploads.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_extensions: Vec<String>,
-}
-
-impl Default for CodeInterpreterTool {
-    fn default() -> Self {
-        Self {
-            container: None,
-            allowed_extensions: Vec::new(),
-        }
-    }
 }
 
 impl CodeInterpreterTool {
@@ -96,7 +87,7 @@ pub struct FileSearchRankingOptions {
 /// Configuration for the built-in File Search tool.
 ///
 /// Searches over vector stores attached to the assistant or thread.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct FileSearchTool {
     /// IDs of vector stores to search.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -107,16 +98,6 @@ pub struct FileSearchTool {
     /// Ranking options for search results.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ranking_options: Option<FileSearchRankingOptions>,
-}
-
-impl Default for FileSearchTool {
-    fn default() -> Self {
-        Self {
-            vector_store_ids: Vec::new(),
-            max_num_results: None,
-            ranking_options: None,
-        }
-    }
 }
 
 impl FileSearchTool {
