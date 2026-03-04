@@ -2,17 +2,17 @@
 
 //! Cross-dialect translation engine using the IR pipeline.
 //!
-//! The [`TranslationEngine`] registers translator pairs (dialect→IR→dialect)
-//! and provides [`translate`](TranslationEngine::translate) which chains
+//! The `TranslationEngine` registers translator pairs (dialect→IR→dialect)
+//! and provides `translate` which chains
 //! `source→IR→target` in a single call. It tracks whether each translation
 //! is passthrough, mapped, or emulated, and detects capability gaps.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use abp_core::ir::IrConversation;
-use abp_dialect::Dialect;
 use abp_dialect::features::DialectFeature;
-use abp_mapper::{IrMapper, default_ir_mapper, supported_ir_pairs};
+use abp_dialect::Dialect;
+use abp_mapper::{default_ir_mapper, supported_ir_pairs, IrMapper};
 use serde::{Deserialize, Serialize};
 
 use crate::ProjectionError;
