@@ -1101,3 +1101,794 @@ async fn t75_full_roundtrip_request_response() {
     assert_eq!(u.completion_tokens, 25);
     assert_eq!(u.total_tokens, 75);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. Additional request construction tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t76_builder_all_fields_set() {
+    let req = ChatCompletionRequest::builder()
+        .model("gpt-4o")
+        .messages(vec![Message::user("test")])
+        .temperature(0.5)
+        .max_tokens(512)
+        .stop(vec!["END".into()])
+        .stream(true)
+        .response_format(ResponseFormat::json_object())
+        .tools(vec![Tool::function("t", "d", json!({}))])
+        .build();
+
+    assert_eq!(req.model, "gpt-4o");
+    assert_eq!(req.temperature, Some(0.5));
+    assert_eq!(req.max_tokens, Some(512));
+    assert_eq!(req.stop.as_ref().unwrap().len(), 1);
+    assert_eq!(req.stream, Some(true));
+    assert!(req.response_format.is_some());
+    assert_eq!(req.tools.as_ref().unwrap().len(), 1);
+}
+
+#[test]
+fn t77_builder_empty_messages() {
+    let req = ChatCompletionRequest::builder()
+        .model("gpt-4o")
+        .messages(vec![])
+        .build();
+    assert!(req.messages.is_empty());
+}
+
+#[test]
+fn t78_request_with_multiple_tools() {
+    let req = ChatCompletionRequest::builder()
+        .model("gpt-4o")
+        .messages(vec![Message::user("test")])
+        .tools(vec![
+            Tool::function("search", "Search web", json!({"type": "object"})),
+            Tool::function("calc", "Calculate", json!({"type": "object"})),
+            Tool::function("read", "Read file", json!({"type": "object"})),
+        ])
+        .build();
+    assert_eq!(req.tools.as_ref().unwrap().len(), 3);
+}
+
+#[test]
+fn t79_request_serde_with_tools_roundtrip() {
+    let req = ChatCompletionRequest::builder()
+        .model("gpt-4o")
+        .messages(vec![Message::user("test")])
+        .tools(vec![Tool::function(
+            "get_weather",
+            "Get weather",
+            json!({"type": "object", "properties": {"loc": {"type": "string"}}}),
+        )])
+        .build();
+
+    let json = serde_json::to_string(&req).unwrap();
+    let parsed: ChatCompletionRequest = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed.tools.as_ref().unwrap().len(), 1);
+    assert_eq!(parsed.tools.unwrap()[0].function.name, "get_weather");
+}
+
+#[test]
+fn t80_request_to_work_order_with_empty_messages() {
+    let req = ChatCompletionRequest::builder()
+        .model("gpt-4o")
+        .messages(vec![])
+        .build();
+    let wo = request_to_work_order(&req);
+    // Falls back to default task
+    assert!(!wo.task.is_empty());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. Additional response mapping tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t81_receipt_to_response_assistant_message_role() {
+    let receipt = mock_receipt(vec![assistant_event("hello")]);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    assert_eq!(resp.choices[0].message.role, Role::Assistant);
+}
+
+#[test]
+fn t82_receipt_to_response_single_delta() {
+    let receipt = mock_receipt(vec![delta_event("partial")]);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    assert_eq!(resp.choices[0].message.content.as_deref(), Some("partial"));
+}
+
+#[test]
+fn t83_receipt_to_response_message_then_delta() {
+    // AssistantMessage followed by AssistantDelta — delta appends to existing
+    let receipt = mock_receipt(vec![assistant_event("Hello"), delta_event(" World")]);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    // AssistantMessage sets content to "Hello", then delta appends " World"
+    // Actually, AssistantMessage replaces content; but per the code,
+    // AssistantMessage sets content = Some(text), delta uses get_or_insert
+    // and pushes. Since content is Some("Hello"), delta pushes to it = "Hello World"?
+    // No: AssistantDelta does `c.push_str(text)` on `content.get_or_insert_with`.
+    // But AssistantMessage does `content = Some(text.clone())`.
+    // If AssistantMessage runs first, content = Some("Hello").
+    // Then AssistantDelta runs: content.get_or_insert_with returns &mut "Hello",
+    // pushes " World" → "Hello World".
+    // BUT: get_or_insert_with on a Some returns the existing value. So yes.
+    // Actually re-reading: the code does `let c = content.get_or_insert_with(String::new);`
+    // This returns &mut String. If content is already Some("Hello"), it returns &mut "Hello".
+    // Then `c.push_str(" World")` → "Hello World".
+    // But wait — that modifies the inner String in-place. Is that right with `content = Some(text.clone())`?
+    // Actually `content: Option<String>` — `get_or_insert_with` on `Some("Hello".to_string())` returns a &mut String pointing to that "Hello".
+    // push_str modifies it to "Hello World". Yes.
+    assert_eq!(
+        resp.choices[0].message.content.as_deref(),
+        Some("Hello World")
+    );
+}
+
+#[test]
+fn t84_receipt_to_response_error_after_text() {
+    // Error overwrites any earlier content
+    let receipt = mock_receipt(vec![
+        assistant_event("partial"),
+        error_event("connection reset"),
+    ]);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    let content = resp.choices[0].message.content.as_deref().unwrap();
+    assert!(content.contains("connection reset"));
+}
+
+#[test]
+fn t85_receipt_to_response_usage_always_present() {
+    let receipt = mock_receipt(vec![assistant_event("test")]);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    assert!(resp.usage.is_some());
+}
+
+#[test]
+fn t86_receipt_to_response_multiple_deltas_accumulate() {
+    let receipt = mock_receipt(vec![
+        delta_event("a"),
+        delta_event("b"),
+        delta_event("c"),
+        delta_event("d"),
+        delta_event("e"),
+    ]);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    assert_eq!(resp.choices[0].message.content.as_deref(), Some("abcde"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. Additional tool call handling tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t87_tool_call_serde_type_renamed() {
+    let tc = ToolCall {
+        id: "call_1".into(),
+        call_type: "function".into(),
+        function: FunctionCall {
+            name: "f".into(),
+            arguments: "{}".into(),
+        },
+    };
+    let json = serde_json::to_value(&tc).unwrap();
+    // "call_type" serializes as "type" due to #[serde(rename = "type")]
+    assert!(json.get("type").is_some());
+    assert!(json.get("call_type").is_none());
+}
+
+#[test]
+fn t88_tool_definition_type_renamed() {
+    let tool = Tool::function("t", "d", json!({}));
+    let json = serde_json::to_value(&tool).unwrap();
+    assert_eq!(json["type"], "function");
+    assert!(json.get("tool_type").is_none());
+}
+
+#[test]
+fn t89_tool_call_complex_arguments() {
+    let args = json!({
+        "path": "/usr/local/file.txt",
+        "options": {"recursive": true, "depth": 3},
+        "tags": ["a", "b", "c"]
+    });
+    let tc = ToolCall {
+        id: "call_complex".into(),
+        call_type: "function".into(),
+        function: FunctionCall {
+            name: "process".into(),
+            arguments: serde_json::to_string(&args).unwrap(),
+        },
+    };
+    let json = serde_json::to_string(&tc).unwrap();
+    let parsed: ToolCall = serde_json::from_str(&json).unwrap();
+    let parsed_args: serde_json::Value = serde_json::from_str(&parsed.function.arguments).unwrap();
+    assert_eq!(parsed_args["options"]["recursive"], true);
+    assert_eq!(parsed_args["tags"].as_array().unwrap().len(), 3);
+}
+
+#[test]
+fn t90_tool_call_empty_arguments() {
+    let tc = ToolCall {
+        id: "call_e".into(),
+        call_type: "function".into(),
+        function: FunctionCall {
+            name: "no_args".into(),
+            arguments: "{}".into(),
+        },
+    };
+    let json = serde_json::to_string(&tc).unwrap();
+    let parsed: ToolCall = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed.function.arguments, "{}");
+}
+
+#[test]
+fn t91_receipt_with_three_parallel_tool_calls() {
+    let receipt = mock_receipt(vec![
+        tool_call_event("read_file", "call_a", json!({"path": "a.rs"})),
+        tool_call_event("read_file", "call_b", json!({"path": "b.rs"})),
+        tool_call_event("read_file", "call_c", json!({"path": "c.rs"})),
+    ]);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    let tcs = resp.choices[0].message.tool_calls.as_ref().unwrap();
+    assert_eq!(tcs.len(), 3);
+    assert_eq!(tcs[0].id, "call_a");
+    assert_eq!(tcs[1].id, "call_b");
+    assert_eq!(tcs[2].id, "call_c");
+    assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("tool_calls"));
+}
+
+#[test]
+fn t92_tool_result_message_fields() {
+    let msg = Message::tool("call_42", "result data");
+    assert_eq!(msg.role, Role::Tool);
+    assert_eq!(msg.content.as_deref(), Some("result data"));
+    assert_eq!(msg.tool_call_id.as_deref(), Some("call_42"));
+    assert!(msg.tool_calls.is_none());
+}
+
+#[test]
+fn t93_assistant_with_tool_calls_no_content() {
+    let msg = Message::assistant_with_tool_calls(vec![ToolCall {
+        id: "call_1".into(),
+        call_type: "function".into(),
+        function: FunctionCall {
+            name: "test".into(),
+            arguments: "{}".into(),
+        },
+    }]);
+    assert!(msg.content.is_none());
+    assert!(msg.tool_calls.is_some());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 10. Additional streaming tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t94_stream_delta_default_is_empty() {
+    let d = Delta::default();
+    assert!(d.role.is_none());
+    assert!(d.content.is_none());
+    assert!(d.tool_calls.is_none());
+}
+
+#[test]
+fn t95_stream_event_serde_with_tool_calls() {
+    let se = StreamEvent {
+        id: "chatcmpl-s1".into(),
+        object: "chat.completion.chunk".into(),
+        created: 1700000000,
+        model: "gpt-4o".into(),
+        choices: vec![StreamChoice {
+            index: 0,
+            delta: Delta {
+                role: None,
+                content: None,
+                tool_calls: Some(vec![abp_shim_openai::StreamToolCall {
+                    index: 0,
+                    id: Some("call_s1".into()),
+                    call_type: Some("function".into()),
+                    function: Some(abp_shim_openai::StreamFunctionCall {
+                        name: Some("search".into()),
+                        arguments: Some(r#"{"q":"test"}"#.into()),
+                    }),
+                }]),
+            },
+            finish_reason: None,
+        }],
+        usage: None,
+    };
+    let json = serde_json::to_string(&se).unwrap();
+    let parsed: StreamEvent = serde_json::from_str(&json).unwrap();
+    let tc = &parsed.choices[0].delta.tool_calls.as_ref().unwrap()[0];
+    assert_eq!(tc.id.as_deref(), Some("call_s1"));
+}
+
+#[test]
+fn t96_stream_events_multiple_tool_calls() {
+    let events = vec![
+        tool_call_event("search", "call_1", json!({"q": "a"})),
+        tool_call_event("search", "call_2", json!({"q": "b"})),
+    ];
+    let stream = events_to_stream_events(&events, "gpt-4o");
+    // 2 tool call chunks + 1 stop chunk
+    assert_eq!(stream.len(), 3);
+    assert!(stream[0].choices[0].delta.tool_calls.is_some());
+    assert!(stream[1].choices[0].delta.tool_calls.is_some());
+    assert_eq!(stream[2].choices[0].finish_reason.as_deref(), Some("stop"));
+}
+
+#[test]
+fn t97_stream_events_mixed_deltas_and_tool_calls() {
+    let events = vec![
+        delta_event("Let me "),
+        delta_event("search."),
+        tool_call_event("search", "call_s", json!({"q": "rust"})),
+    ];
+    let stream = events_to_stream_events(&events, "gpt-4o");
+    // 2 text deltas + 1 tool call + 1 stop
+    assert_eq!(stream.len(), 4);
+    assert_eq!(
+        stream[0].choices[0].delta.content.as_deref(),
+        Some("Let me ")
+    );
+    assert_eq!(
+        stream[1].choices[0].delta.content.as_deref(),
+        Some("search.")
+    );
+    assert!(stream[2].choices[0].delta.tool_calls.is_some());
+}
+
+#[tokio::test]
+async fn t98_streaming_no_processor_error() {
+    let client = OpenAiClient::new("gpt-4o");
+    let req = ChatCompletionRequest::builder()
+        .messages(vec![Message::user("test")])
+        .stream(true)
+        .build();
+    let result = client.chat().completions().create_stream(req).await;
+    assert!(result.is_err());
+    match result {
+        Err(ShimError::Internal(_)) => {}
+        other => panic!("expected ShimError::Internal, got {:?}", other.err()),
+    }
+}
+
+#[test]
+fn t99_stream_event_with_usage() {
+    let se = StreamEvent {
+        id: "chatcmpl-u".into(),
+        object: "chat.completion.chunk".into(),
+        created: 1700000000,
+        model: "gpt-4o".into(),
+        choices: vec![StreamChoice {
+            index: 0,
+            delta: Delta::default(),
+            finish_reason: Some("stop".into()),
+        }],
+        usage: Some(Usage {
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+        }),
+    };
+    let json = serde_json::to_string(&se).unwrap();
+    let parsed: StreamEvent = serde_json::from_str(&json).unwrap();
+    let u = parsed.usage.unwrap();
+    assert_eq!(u.prompt_tokens, 10);
+    assert_eq!(u.total_tokens, 15);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 11. System message preservation tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t100_system_message_ir_roundtrip() {
+    let messages = vec![
+        Message::system("You are a coding assistant."),
+        Message::user("Write hello world"),
+    ];
+    let conv = messages_to_ir(&messages);
+    assert_eq!(conv.messages[0].role, IrRole::System);
+    assert_eq!(
+        conv.messages[0].text_content(),
+        "You are a coding assistant."
+    );
+    let back = ir_to_messages(&conv);
+    assert_eq!(back[0].role, Role::System);
+    assert_eq!(
+        back[0].content.as_deref(),
+        Some("You are a coding assistant.")
+    );
+}
+
+#[test]
+fn t101_multiple_system_messages() {
+    let messages = vec![
+        Message::system("First instruction"),
+        Message::system("Second instruction"),
+        Message::user("Go"),
+    ];
+    let conv = messages_to_ir(&messages);
+    assert_eq!(conv.messages[0].role, IrRole::System);
+    assert_eq!(conv.messages[1].role, IrRole::System);
+    assert_eq!(conv.messages[2].role, IrRole::User);
+}
+
+#[tokio::test]
+async fn t102_system_message_in_full_roundtrip() {
+    let events = vec![assistant_event("I will be helpful.")];
+    let client = OpenAiClient::new("gpt-4o").with_processor(make_processor(events));
+    let req = ChatCompletionRequest::builder()
+        .messages(vec![
+            Message::system("Be extremely helpful."),
+            Message::user("Hello"),
+        ])
+        .build();
+    let resp = client.chat().completions().create(req).await.unwrap();
+    assert_eq!(
+        resp.choices[0].message.content.as_deref(),
+        Some("I will be helpful.")
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 12. Model name mapping and validation
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t103_model_names_all_accepted() {
+    for model in [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4-turbo",
+        "gpt-4",
+        "gpt-3.5-turbo",
+        "o3-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "custom-model",
+    ] {
+        let req = ChatCompletionRequest::builder()
+            .model(model)
+            .messages(vec![Message::user("test")])
+            .build();
+        let wo = request_to_work_order(&req);
+        assert_eq!(wo.config.model.as_deref(), Some(model));
+    }
+}
+
+#[test]
+fn t104_model_preserved_through_receipt() {
+    let receipt = mock_receipt(vec![assistant_event("ok")]);
+    for model in ["gpt-4o", "gpt-4-turbo", "o3-mini", "custom-model"] {
+        let resp = receipt_to_response(&receipt, model);
+        assert_eq!(resp.model, model);
+    }
+}
+
+#[test]
+fn t105_client_model_accessor() {
+    let client = OpenAiClient::new("gpt-4-turbo");
+    assert_eq!(client.model(), "gpt-4-turbo");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 13. Token usage tracking
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t106_usage_total_equals_sum() {
+    let usage = Usage {
+        prompt_tokens: 123,
+        completion_tokens: 456,
+        total_tokens: 579,
+    };
+    assert_eq!(
+        usage.total_tokens,
+        usage.prompt_tokens + usage.completion_tokens
+    );
+}
+
+#[test]
+fn t107_ir_usage_zero_values() {
+    let ir = IrUsage::from_io(0, 0);
+    let usage = ir_usage_to_usage(&ir);
+    assert_eq!(usage.prompt_tokens, 0);
+    assert_eq!(usage.completion_tokens, 0);
+    assert_eq!(usage.total_tokens, 0);
+}
+
+#[test]
+fn t108_usage_large_values() {
+    let usage = UsageNormalized {
+        input_tokens: Some(1_000_000),
+        output_tokens: Some(500_000),
+        cache_read_tokens: None,
+        cache_write_tokens: None,
+        request_units: None,
+        estimated_cost_usd: None,
+    };
+    let receipt = mock_receipt_with_usage(vec![assistant_event("ok")], usage);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    let u = resp.usage.unwrap();
+    assert_eq!(u.prompt_tokens, 1_000_000);
+    assert_eq!(u.completion_tokens, 500_000);
+    assert_eq!(u.total_tokens, 1_500_000);
+}
+
+#[test]
+fn t109_usage_serde_all_fields_present() {
+    let usage = Usage {
+        prompt_tokens: 10,
+        completion_tokens: 20,
+        total_tokens: 30,
+    };
+    let json = serde_json::to_value(&usage).unwrap();
+    assert!(json.get("prompt_tokens").is_some());
+    assert!(json.get("completion_tokens").is_some());
+    assert!(json.get("total_tokens").is_some());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 14. Error mapping
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t110_error_event_produces_error_prefix() {
+    let receipt = mock_receipt(vec![error_event("authentication failed")]);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    let content = resp.choices[0].message.content.as_deref().unwrap();
+    assert!(content.starts_with("Error:"));
+    assert!(content.contains("authentication failed"));
+}
+
+#[test]
+fn t111_error_event_sets_stop_finish_reason() {
+    let receipt = mock_receipt(vec![error_event("invalid request")]);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("stop"));
+}
+
+#[test]
+fn t112_error_event_in_stream() {
+    let events = vec![error_event("server error")];
+    let stream = events_to_stream_events(&events, "gpt-4o");
+    // Error events are not mapped by events_to_stream_events (only deltas, messages, tool calls)
+    // Actually: the code iterates and matches AgentEventKind variants. Error is not matched.
+    // So only the final stop chunk is produced.
+    // Wait, let me re-check the events_to_stream_events code...
+    // It only matches AssistantDelta, AssistantMessage, ToolCall. Others are skipped.
+    // So error event is skipped, only stop chunk.
+    assert_eq!(stream.len(), 1);
+    assert_eq!(stream[0].choices[0].finish_reason.as_deref(), Some("stop"));
+}
+
+#[test]
+fn t113_shim_error_invalid_request_display() {
+    let err = ShimError::InvalidRequest("missing model field".into());
+    let msg = err.to_string();
+    assert!(msg.contains("missing model field"));
+}
+
+#[test]
+fn t114_shim_error_internal_display() {
+    let err = ShimError::Internal("no processor configured".into());
+    let msg = err.to_string();
+    assert!(msg.contains("no processor configured"));
+}
+
+#[test]
+fn t115_shim_error_serde_display() {
+    let bad_json = "{invalid}";
+    let err: std::result::Result<Message, _> = serde_json::from_str(bad_json);
+    assert!(err.is_err());
+    let shim_err = ShimError::from(err.unwrap_err());
+    let msg = shim_err.to_string();
+    assert!(msg.contains("serde error"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 15. Serialization/deserialization edge cases
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t116_message_with_null_optional_fields() {
+    let json = r#"{"role":"user","content":"hello"}"#;
+    let msg: Message = serde_json::from_str(json).unwrap();
+    assert_eq!(msg.role, Role::User);
+    assert_eq!(msg.content.as_deref(), Some("hello"));
+    assert!(msg.tool_calls.is_none());
+    assert!(msg.tool_call_id.is_none());
+}
+
+#[test]
+fn t117_response_format_text_roundtrip() {
+    let rf = ResponseFormat::text();
+    let json = serde_json::to_string(&rf).unwrap();
+    let parsed: ResponseFormat = serde_json::from_str(&json).unwrap();
+    let val = serde_json::to_value(&parsed).unwrap();
+    assert_eq!(val["type"], "text");
+}
+
+#[test]
+fn t118_chat_completion_response_serde_with_no_usage() {
+    let resp = ChatCompletionResponse {
+        id: "chatcmpl-x".into(),
+        object: "chat.completion".into(),
+        created: 1700000000,
+        model: "gpt-4o".into(),
+        choices: vec![Choice {
+            index: 0,
+            message: Message::assistant("hi"),
+            finish_reason: Some("stop".into()),
+        }],
+        usage: None,
+    };
+    let json = serde_json::to_string(&resp).unwrap();
+    let parsed: ChatCompletionResponse = serde_json::from_str(&json).unwrap();
+    assert!(parsed.usage.is_none());
+}
+
+#[test]
+fn t119_special_chars_in_content() {
+    let msg = Message::user(r#"Say "hello" with \n newlines and 	tabs"#);
+    let json = serde_json::to_string(&msg).unwrap();
+    let parsed: Message = serde_json::from_str(&json).unwrap();
+    assert!(parsed.content.as_deref().unwrap().contains("hello"));
+}
+
+#[test]
+fn t120_tool_choice_mode_serde() {
+    use abp_shim_openai::{ToolChoice, ToolChoiceMode};
+
+    let auto = ToolChoice::Mode(ToolChoiceMode::Auto);
+    let json = serde_json::to_string(&auto).unwrap();
+    assert_eq!(json, r#""auto""#);
+
+    let none = ToolChoice::Mode(ToolChoiceMode::None);
+    let json = serde_json::to_string(&none).unwrap();
+    assert_eq!(json, r#""none""#);
+
+    let required = ToolChoice::Mode(ToolChoiceMode::Required);
+    let json = serde_json::to_string(&required).unwrap();
+    assert_eq!(json, r#""required""#);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 16. Drop-in API fidelity
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn t121_client_chat_completions_api_chain() {
+    // Verify the OpenAI-style API: client.chat().completions()
+    let events = vec![assistant_event("ok")];
+    let client = OpenAiClient::new("gpt-4o").with_processor(make_processor(events));
+    let _chat = client.chat();
+    let _completions = client.chat().completions();
+    // API chain compiles and is accessible
+}
+
+#[test]
+fn t122_stream_choice_index_always_zero() {
+    let events = vec![delta_event("a"), delta_event("b")];
+    let stream = events_to_stream_events(&events, "gpt-4o");
+    for chunk in &stream {
+        assert_eq!(chunk.choices[0].index, 0);
+    }
+}
+
+#[tokio::test]
+async fn t123_full_tool_use_conversation_roundtrip() {
+    // Simulate: user asks → model calls tool → tool result → model responds
+    let events = vec![tool_call_event(
+        "get_weather",
+        "call_w",
+        json!({"location": "Tokyo"}),
+    )];
+    let client = OpenAiClient::new("gpt-4o").with_processor(make_processor(events));
+
+    // First request: user asks about weather
+    let req = ChatCompletionRequest::builder()
+        .model("gpt-4o")
+        .messages(vec![Message::user("What's the weather in Tokyo?")])
+        .tools(vec![Tool::function(
+            "get_weather",
+            "Get weather",
+            json!({"type": "object", "properties": {"location": {"type": "string"}}}),
+        )])
+        .build();
+
+    let resp = client.chat().completions().create(req).await.unwrap();
+    assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("tool_calls"));
+    let tcs = resp.choices[0].message.tool_calls.as_ref().unwrap();
+    assert_eq!(tcs[0].function.name, "get_weather");
+    assert!(tcs[0].function.arguments.contains("Tokyo"));
+}
+
+#[test]
+fn t124_response_object_field_is_chat_completion() {
+    let receipt = mock_receipt(vec![assistant_event("test")]);
+    let resp = receipt_to_response(&receipt, "gpt-4o");
+    assert_eq!(resp.object, "chat.completion");
+}
+
+#[test]
+fn t125_stream_events_object_is_chunk() {
+    let events = vec![delta_event("hi")];
+    let stream = events_to_stream_events(&events, "gpt-4o");
+    for chunk in &stream {
+        assert_eq!(chunk.object, "chat.completion.chunk");
+    }
+}
+
+#[test]
+fn t126_tool_choice_function_serde() {
+    use abp_shim_openai::{ToolChoice, ToolChoiceFunctionRef};
+
+    let tc = ToolChoice::Function {
+        tool_type: "function".into(),
+        function: ToolChoiceFunctionRef {
+            name: "get_weather".into(),
+        },
+    };
+    let json = serde_json::to_value(&tc).unwrap();
+    assert_eq!(json["type"], "function");
+    assert_eq!(json["function"]["name"], "get_weather");
+}
+
+#[test]
+fn t127_request_builder_tool_choice_function() {
+    use abp_shim_openai::{ToolChoice, ToolChoiceFunctionRef};
+
+    let req = ChatCompletionRequest::builder()
+        .messages(vec![Message::user("test")])
+        .tools(vec![Tool::function("f", "d", json!({}))])
+        .tool_choice(ToolChoice::Function {
+            tool_type: "function".into(),
+            function: ToolChoiceFunctionRef { name: "f".into() },
+        })
+        .build();
+    assert!(req.tool_choice.is_some());
+}
+
+#[test]
+fn t128_tools_to_ir_preserves_parameters() {
+    let params = json!({
+        "type": "object",
+        "properties": {
+            "query": {"type": "string"},
+            "limit": {"type": "integer", "default": 10}
+        },
+        "required": ["query"]
+    });
+    let tools = vec![Tool::function("search", "Search", params.clone())];
+    let ir = tools_to_ir(&tools);
+    assert_eq!(ir[0].parameters, params);
+}
+
+#[test]
+fn t129_empty_tool_list_to_ir() {
+    let ir = tools_to_ir(&[]);
+    assert!(ir.is_empty());
+}
+
+#[test]
+fn t130_stream_tool_call_serde() {
+    let stc = abp_shim_openai::StreamToolCall {
+        index: 0,
+        id: Some("call_1".into()),
+        call_type: Some("function".into()),
+        function: Some(abp_shim_openai::StreamFunctionCall {
+            name: Some("test".into()),
+            arguments: Some("{}".into()),
+        }),
+    };
+    let json = serde_json::to_value(&stc).unwrap();
+    assert_eq!(json["index"], 0);
+    assert_eq!(json["id"], "call_1");
+    // "type" field due to rename
+    assert_eq!(json["type"], "function");
+}

@@ -2068,3 +2068,270 @@ mod default_matrix_structure {
         assert_eq!(keys1, keys2);
     }
 }
+
+// =========================================================================
+// ProjectionError Display & serde for both variants
+// =========================================================================
+mod error_variants {
+    use super::*;
+
+    #[test]
+    fn empty_matrix_display() {
+        let err = ProjectionError::EmptyMatrix;
+        let msg = err.to_string();
+        assert!(msg.contains("empty"));
+        assert!(msg.contains("no backends"));
+    }
+
+    #[test]
+    fn no_suitable_backend_display_contains_reason() {
+        let err = ProjectionError::NoSuitableBackend {
+            reason: "missing tool_read".into(),
+        };
+        assert!(err.to_string().contains("missing tool_read"));
+    }
+
+    #[test]
+    fn empty_matrix_serde_roundtrip() {
+        let err = ProjectionError::EmptyMatrix;
+        let json = serde_json::to_string(&err).unwrap();
+        let back: ProjectionError = serde_json::from_str(&json).unwrap();
+        assert_eq!(err, back);
+    }
+
+    #[test]
+    fn no_suitable_backend_serde_roundtrip() {
+        let err = ProjectionError::NoSuitableBackend {
+            reason: "caps".into(),
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        let back: ProjectionError = serde_json::from_str(&json).unwrap();
+        assert_eq!(err, back);
+    }
+
+    #[test]
+    fn error_equality() {
+        let a = ProjectionError::EmptyMatrix;
+        let b = ProjectionError::EmptyMatrix;
+        assert_eq!(a, b);
+
+        let c = ProjectionError::NoSuitableBackend { reason: "x".into() };
+        let d = ProjectionError::NoSuitableBackend { reason: "x".into() };
+        assert_eq!(c, d);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn error_debug_contains_variant_name() {
+        let err = ProjectionError::EmptyMatrix;
+        let dbg = format!("{err:?}");
+        assert!(dbg.contains("EmptyMatrix"));
+    }
+}
+
+// =========================================================================
+// Multiple work orders against the same matrix
+// =========================================================================
+mod multiple_work_orders {
+    use super::*;
+
+    #[test]
+    fn same_matrix_different_requirements() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register_backend(
+            "full",
+            manifest(&[
+                (Capability::Streaming, SupportLevel::Native),
+                (Capability::ToolRead, SupportLevel::Native),
+                (Capability::ToolWrite, SupportLevel::Native),
+            ]),
+            Dialect::OpenAi,
+            50,
+        );
+        pm.register_backend(
+            "stream-only",
+            manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+            Dialect::OpenAi,
+            80,
+        );
+
+        // WO requiring streaming+toolread → full (since stream-only is incompatible)
+        let res1 = pm
+            .project(&work_order(require_caps(&[
+                Capability::Streaming,
+                Capability::ToolRead,
+            ])))
+            .unwrap();
+        assert_eq!(res1.selected_backend, "full");
+
+        // WO requiring only streaming → stream-only (higher priority)
+        let res2 = pm
+            .project(&work_order(require_caps(&[Capability::Streaming])))
+            .unwrap();
+        assert_eq!(res2.selected_backend, "stream-only");
+    }
+
+    #[test]
+    fn ten_work_orders_same_matrix_consistent() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register_backend(
+            "be",
+            manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+            Dialect::OpenAi,
+            50,
+        );
+        for _ in 0..10 {
+            let res = pm
+                .project(&work_order(require_caps(&[Capability::Streaming])))
+                .unwrap();
+            assert_eq!(res.selected_backend, "be");
+        }
+    }
+
+    #[test]
+    fn interleaved_success_and_failure() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register_backend(
+            "be",
+            manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+            Dialect::OpenAi,
+            50,
+        );
+
+        // Success
+        let ok = pm.project(&work_order(require_caps(&[Capability::Streaming])));
+        assert!(ok.is_ok());
+
+        // Failure — capability not offered
+        let fail = pm.project(&work_order(require_caps(&[Capability::ToolWrite])));
+        assert!(fail.is_err());
+
+        // Success again — matrix unaffected by previous failure
+        let ok2 = pm.project(&work_order(require_caps(&[Capability::Streaming])));
+        assert!(ok2.is_ok());
+    }
+
+    #[test]
+    fn empty_and_nonempty_requirements_alternate() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register_backend("be", manifest(&[]), Dialect::OpenAi, 50);
+
+        let empty_req = pm.project(&work_order(CapabilityRequirements::default()));
+        assert!(empty_req.is_ok());
+
+        let nonempty_req = pm.project(&work_order(require_caps(&[Capability::Streaming])));
+        assert!(nonempty_req.is_err());
+    }
+}
+
+// =========================================================================
+// Mapper resolution details
+// =========================================================================
+mod mapper_resolution {
+    use super::*;
+
+    #[test]
+    fn resolve_mapper_identity_for_same_dialect() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::OpenAi);
+        assert!(mapper.is_some());
+    }
+
+    #[test]
+    fn resolve_mapper_returns_none_for_unsupported_pair() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::Kimi, Dialect::Copilot, ProjectionMode::Unsupported);
+        assert!(pm.resolve_mapper(Dialect::Kimi, Dialect::Copilot).is_none());
+    }
+
+    #[test]
+    fn resolve_mapper_openai_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        assert!(
+            pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn resolve_mapper_claude_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        assert!(
+            pm.resolve_mapper(Dialect::Claude, Dialect::OpenAi)
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn resolve_mapper_codex_openai_identity() {
+        let pm = ProjectionMatrix::with_defaults();
+        assert!(pm.resolve_mapper(Dialect::Codex, Dialect::OpenAi).is_some());
+        assert!(pm.resolve_mapper(Dialect::OpenAi, Dialect::Codex).is_some());
+    }
+
+    #[test]
+    fn resolve_mapper_unregistered_returns_none() {
+        let pm = ProjectionMatrix::new();
+        assert!(pm.resolve_mapper(Dialect::Gemini, Dialect::Kimi).is_none());
+    }
+}
+
+// =========================================================================
+// DialectPair Display
+// =========================================================================
+mod dialect_pair_extras {
+    use super::*;
+
+    #[test]
+    fn dialect_pair_display() {
+        let pair = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        let display = pair.to_string();
+        assert!(display.contains("→"));
+    }
+
+    #[test]
+    fn dialect_pair_ord() {
+        let a = DialectPair::new(Dialect::Claude, Dialect::OpenAi);
+        let b = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        // PartialOrd/Ord is derived so just check it doesn't panic
+        let _ = a.cmp(&b);
+    }
+
+    #[test]
+    fn dialect_pair_hash_stable() {
+        use std::collections::HashSet;
+        let pair = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        let mut set = HashSet::new();
+        set.insert(pair.clone());
+        assert!(set.contains(&pair));
+    }
+}
+
+// =========================================================================
+// SelectionStrategy serde
+// =========================================================================
+mod strategy_serde {
+    use super::*;
+
+    #[test]
+    fn all_strategy_variants_roundtrip() {
+        for strategy in [
+            SelectionStrategy::LowestLatency,
+            SelectionStrategy::LowestCost,
+            SelectionStrategy::HighestFidelity,
+            SelectionStrategy::RoundRobin,
+            SelectionStrategy::WeightedRandom,
+            SelectionStrategy::FallbackChain,
+        ] {
+            let json = serde_json::to_string(&strategy).unwrap();
+            let back: SelectionStrategy = serde_json::from_str(&json).unwrap();
+            assert_eq!(strategy, back);
+        }
+    }
+
+    #[test]
+    fn strategy_rename_is_snake_case() {
+        let json = serde_json::to_string(&SelectionStrategy::LowestLatency).unwrap();
+        assert!(json.contains("lowest_latency"));
+    }
+}

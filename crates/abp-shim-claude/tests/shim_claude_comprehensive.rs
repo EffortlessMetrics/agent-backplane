@@ -1456,3 +1456,757 @@ fn passthrough_event_has_dialect_marker() {
     );
     assert!(ext.contains_key("raw_message"));
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. Additional error mapping tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn error_mapping_rate_limit() {
+    let err = ApiError {
+        error_type: "rate_limit_error".into(),
+        message: "Rate limit exceeded".into(),
+    };
+    let json = serde_json::to_string(&err).unwrap();
+    assert!(json.contains("rate_limit_error"));
+    let back: ApiError = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.error_type, "rate_limit_error");
+}
+
+#[test]
+fn error_mapping_authentication() {
+    let err = ApiError {
+        error_type: "authentication_error".into(),
+        message: "Invalid API key".into(),
+    };
+    let json = serde_json::to_string(&err).unwrap();
+    let back: ApiError = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.error_type, "authentication_error");
+    assert_eq!(back.message, "Invalid API key");
+}
+
+#[test]
+fn error_mapping_overloaded() {
+    let err = ApiError {
+        error_type: "overloaded_error".into(),
+        message: "Anthropic servers are temporarily overloaded".into(),
+    };
+    let json = serde_json::to_string(&err).unwrap();
+    let back: ApiError = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.error_type, "overloaded_error");
+}
+
+#[test]
+fn error_mapping_invalid_request() {
+    let err = ApiError {
+        error_type: "invalid_request_error".into(),
+        message: "messages: at least one message is required".into(),
+    };
+    let json = serde_json::to_string(&err).unwrap();
+    let back: ApiError = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.error_type, "invalid_request_error");
+}
+
+#[test]
+fn error_mapping_not_found() {
+    let err = ApiError {
+        error_type: "not_found_error".into(),
+        message: "Model not found".into(),
+    };
+    let json = serde_json::to_string(&err).unwrap();
+    let back: ApiError = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.error_type, "not_found_error");
+    assert_eq!(back.message, "Model not found");
+}
+
+#[test]
+fn shim_error_invalid_request_display() {
+    let err = ShimError::InvalidRequest("max_tokens must be > 0".into());
+    let msg = err.to_string();
+    assert!(msg.contains("max_tokens must be > 0"));
+}
+
+#[test]
+fn shim_error_api_error_display() {
+    let err = ShimError::ApiError {
+        error_type: "rate_limit_error".into(),
+        message: "too many requests".into(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("rate_limit_error"));
+    assert!(msg.contains("too many requests"));
+}
+
+#[test]
+fn shim_error_internal_display() {
+    let err = ShimError::Internal("serialization failed".into());
+    let msg = err.to_string();
+    assert!(msg.contains("serialization failed"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. Additional stream event conversion tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn stream_claude_event_to_shim_message_start() {
+    let claude_resp = make_claude_response(vec![ClaudeContentBlock::Text {
+        text: "hello".into(),
+    }]);
+    let claude_event = ClaudeStreamEvent::MessageStart {
+        message: claude_resp,
+    };
+    let shim_event = stream_event_from_claude(&claude_event);
+    match shim_event {
+        StreamEvent::MessageStart { message } => {
+            assert_eq!(message.response_type, "message");
+            assert_eq!(message.role, "assistant");
+        }
+        other => panic!("expected MessageStart, got {other:?}"),
+    }
+}
+
+#[test]
+fn stream_claude_event_to_shim_content_block_start() {
+    let claude_event = ClaudeStreamEvent::ContentBlockStart {
+        index: 0,
+        content_block: ClaudeContentBlock::Text {
+            text: String::new(),
+        },
+    };
+    let shim_event = stream_event_from_claude(&claude_event);
+    match shim_event {
+        StreamEvent::ContentBlockStart {
+            index,
+            content_block,
+        } => {
+            assert_eq!(index, 0);
+            assert!(matches!(content_block, ContentBlock::Text { text } if text.is_empty()));
+        }
+        other => panic!("expected ContentBlockStart, got {other:?}"),
+    }
+}
+
+#[test]
+fn stream_claude_event_to_shim_content_block_stop() {
+    let claude_event = ClaudeStreamEvent::ContentBlockStop { index: 2 };
+    let shim_event = stream_event_from_claude(&claude_event);
+    match shim_event {
+        StreamEvent::ContentBlockStop { index } => assert_eq!(index, 2),
+        other => panic!("expected ContentBlockStop, got {other:?}"),
+    }
+}
+
+#[test]
+fn stream_claude_event_to_shim_message_stop() {
+    let claude_event = ClaudeStreamEvent::MessageStop {};
+    let shim_event = stream_event_from_claude(&claude_event);
+    assert!(matches!(shim_event, StreamEvent::MessageStop {}));
+}
+
+#[test]
+fn stream_claude_event_to_shim_ping() {
+    let claude_event = ClaudeStreamEvent::Ping {};
+    let shim_event = stream_event_from_claude(&claude_event);
+    assert!(matches!(shim_event, StreamEvent::Ping {}));
+}
+
+#[test]
+fn stream_claude_event_to_shim_error() {
+    let claude_event = ClaudeStreamEvent::Error {
+        error: ClaudeApiError {
+            error_type: "overloaded_error".into(),
+            message: "Servers busy".into(),
+        },
+    };
+    let shim_event = stream_event_from_claude(&claude_event);
+    match shim_event {
+        StreamEvent::Error { error } => {
+            assert_eq!(error.error_type, "overloaded_error");
+            assert_eq!(error.message, "Servers busy");
+        }
+        other => panic!("expected Error, got {other:?}"),
+    }
+}
+
+#[test]
+fn stream_claude_event_to_shim_input_json_delta() {
+    let claude_event = ClaudeStreamEvent::ContentBlockDelta {
+        index: 1,
+        delta: ClaudeStreamDelta::InputJsonDelta {
+            partial_json: r#"{"path":"src/"#.into(),
+        },
+    };
+    let shim_event = stream_event_from_claude(&claude_event);
+    match shim_event {
+        StreamEvent::ContentBlockDelta {
+            index,
+            delta: StreamDelta::InputJsonDelta { partial_json },
+        } => {
+            assert_eq!(index, 1);
+            assert_eq!(partial_json, r#"{"path":"src/"#);
+        }
+        other => panic!("expected InputJsonDelta, got {other:?}"),
+    }
+}
+
+#[test]
+fn stream_claude_event_to_shim_signature_delta() {
+    let claude_event = ClaudeStreamEvent::ContentBlockDelta {
+        index: 0,
+        delta: ClaudeStreamDelta::SignatureDelta {
+            signature: "sig_partial_abc".into(),
+        },
+    };
+    let shim_event = stream_event_from_claude(&claude_event);
+    match shim_event {
+        StreamEvent::ContentBlockDelta {
+            delta: StreamDelta::SignatureDelta { signature },
+            ..
+        } => assert_eq!(signature, "sig_partial_abc"),
+        other => panic!("expected SignatureDelta, got {other:?}"),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. Additional message_to_ir edge cases
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn message_to_ir_single_tool_use_serialized_as_json() {
+    let msg = Message {
+        role: Role::Assistant,
+        content: vec![ContentBlock::ToolUse {
+            id: "tu_only".into(),
+            name: "grep".into(),
+            input: json!({"pattern": "TODO"}),
+        }],
+    };
+    let ir = message_to_ir(&msg);
+    assert_eq!(ir.role, "assistant");
+    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&ir.content).unwrap();
+    assert_eq!(blocks.len(), 1);
+    assert!(matches!(&blocks[0], ClaudeContentBlock::ToolUse { name, .. } if name == "grep"));
+}
+
+#[test]
+fn message_to_ir_image_only_serialized_as_json() {
+    let msg = Message {
+        role: Role::User,
+        content: vec![ContentBlock::Image {
+            source: ImageSource::Url {
+                url: "https://example.com/img.png".into(),
+            },
+        }],
+    };
+    let ir = message_to_ir(&msg);
+    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&ir.content).unwrap();
+    assert_eq!(blocks.len(), 1);
+    assert!(matches!(&blocks[0], ClaudeContentBlock::Image { .. }));
+}
+
+#[test]
+fn message_to_ir_mixed_text_and_image() {
+    let msg = Message {
+        role: Role::User,
+        content: vec![
+            ContentBlock::Text {
+                text: "What is this?".into(),
+            },
+            ContentBlock::Image {
+                source: ImageSource::Base64 {
+                    media_type: "image/png".into(),
+                    data: "abc123".into(),
+                },
+            },
+        ],
+    };
+    let ir = message_to_ir(&msg);
+    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&ir.content).unwrap();
+    assert_eq!(blocks.len(), 2);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 10. Additional response_from_events scenarios
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn response_from_events_run_completed_only() {
+    let events = vec![AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::RunCompleted {
+            message: "finished".into(),
+        },
+        ext: None,
+    }];
+    let resp = response_from_events(&events, "claude-sonnet-4-20250514", None);
+    assert!(resp.content.is_empty());
+    // RunCompleted alone sets end_turn even with no content
+    assert_eq!(resp.stop_reason.as_deref(), Some("end_turn"));
+}
+
+#[test]
+fn response_from_events_text_then_run_completed() {
+    let events = vec![
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "Done!".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::RunCompleted {
+                message: "ok".into(),
+            },
+            ext: None,
+        },
+    ];
+    let resp = response_from_events(&events, "claude-sonnet-4-20250514", None);
+    assert_eq!(resp.content.len(), 1);
+    assert_eq!(resp.stop_reason.as_deref(), Some("end_turn"));
+}
+
+#[test]
+fn response_from_events_tool_call_then_run_completed_keeps_tool_use() {
+    let events = vec![
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "read_file".into(),
+                tool_use_id: Some("tu_99".into()),
+                parent_tool_use_id: None,
+                input: json!({"path": "x.rs"}),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+            ext: None,
+        },
+    ];
+    let resp = response_from_events(&events, "claude-sonnet-4-20250514", None);
+    assert_eq!(resp.stop_reason.as_deref(), Some("tool_use"));
+}
+
+#[test]
+fn response_from_events_multiple_text_messages() {
+    let events = vec![
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "Part one.".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "Part two.".into(),
+            },
+            ext: None,
+        },
+    ];
+    let resp = response_from_events(&events, "test-model", None);
+    assert_eq!(resp.content.len(), 2);
+    assert_eq!(resp.stop_reason.as_deref(), Some("end_turn"));
+}
+
+#[test]
+fn response_from_events_ignores_unknown_event_kinds() {
+    let events = vec![
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantDelta {
+                text: "streaming delta".into(),
+            },
+            ext: None,
+        },
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "Final message".into(),
+            },
+            ext: None,
+        },
+    ];
+    let resp = response_from_events(&events, "test-model", None);
+    assert_eq!(resp.content.len(), 1);
+    match &resp.content[0] {
+        ContentBlock::Text { text } => assert_eq!(text, "Final message"),
+        other => panic!("expected Text, got {other:?}"),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 11. Additional token usage tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn usage_zero_tokens_roundtrip() {
+    let usage = Usage {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_input_tokens: None,
+        cache_read_input_tokens: None,
+    };
+    let json = serde_json::to_string(&usage).unwrap();
+    let back: Usage = serde_json::from_str(&json).unwrap();
+    assert_eq!(usage, back);
+}
+
+#[test]
+fn usage_large_token_counts() {
+    let usage = Usage {
+        input_tokens: 1_000_000,
+        output_tokens: 500_000,
+        cache_creation_input_tokens: Some(200_000),
+        cache_read_input_tokens: Some(800_000),
+    };
+    let json = serde_json::to_string(&usage).unwrap();
+    let back: Usage = serde_json::from_str(&json).unwrap();
+    assert_eq!(usage, back);
+}
+
+#[test]
+fn usage_in_message_delta_event_mapped() {
+    let claude_event = ClaudeStreamEvent::MessageDelta {
+        delta: ClaudeMessageDelta {
+            stop_reason: Some("end_turn".into()),
+            stop_sequence: None,
+        },
+        usage: Some(ClaudeUsage {
+            input_tokens: 150,
+            output_tokens: 75,
+            cache_creation_input_tokens: Some(10),
+            cache_read_input_tokens: Some(20),
+        }),
+    };
+    let shim_event = stream_event_from_claude(&claude_event);
+    match shim_event {
+        StreamEvent::MessageDelta { usage, .. } => {
+            let u = usage.unwrap();
+            assert_eq!(u.input_tokens, 150);
+            assert_eq!(u.output_tokens, 75);
+            assert_eq!(u.cache_creation_input_tokens, Some(10));
+            assert_eq!(u.cache_read_input_tokens, Some(20));
+        }
+        other => panic!("expected MessageDelta, got {other:?}"),
+    }
+}
+
+#[test]
+fn usage_message_delta_no_usage() {
+    let claude_event = ClaudeStreamEvent::MessageDelta {
+        delta: ClaudeMessageDelta {
+            stop_reason: Some("max_tokens".into()),
+            stop_sequence: None,
+        },
+        usage: None,
+    };
+    let shim_event = stream_event_from_claude(&claude_event);
+    match shim_event {
+        StreamEvent::MessageDelta { usage, delta } => {
+            assert!(usage.is_none());
+            assert_eq!(delta.stop_reason.as_deref(), Some("max_tokens"));
+        }
+        other => panic!("expected MessageDelta, got {other:?}"),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 12. Additional serialization roundtrips
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn message_response_full_serde_roundtrip() {
+    let resp = MessageResponse {
+        id: "msg_roundtrip".into(),
+        response_type: "message".into(),
+        role: "assistant".into(),
+        content: vec![
+            ContentBlock::Thinking {
+                thinking: "Let me think...".into(),
+                signature: Some("sig_rt".into()),
+            },
+            ContentBlock::Text {
+                text: "Here is the answer".into(),
+            },
+            ContentBlock::ToolUse {
+                id: "tu_rt".into(),
+                name: "bash".into(),
+                input: json!({"cmd": "echo test"}),
+            },
+        ],
+        model: "claude-opus-4-20250514".into(),
+        stop_reason: Some("tool_use".into()),
+        stop_sequence: Some("STOP".into()),
+        usage: Usage {
+            input_tokens: 500,
+            output_tokens: 200,
+            cache_creation_input_tokens: Some(50),
+            cache_read_input_tokens: Some(100),
+        },
+    };
+    let json = serde_json::to_string(&resp).unwrap();
+    let back: MessageResponse = serde_json::from_str(&json).unwrap();
+    assert_eq!(resp, back);
+}
+
+#[test]
+fn stream_delta_all_variants_serde_roundtrip() {
+    let deltas = vec![
+        StreamDelta::TextDelta {
+            text: "hello world".into(),
+        },
+        StreamDelta::InputJsonDelta {
+            partial_json: r#"{"key":"val"#.into(),
+        },
+        StreamDelta::ThinkingDelta {
+            thinking: "reasoning step".into(),
+        },
+        StreamDelta::SignatureDelta {
+            signature: "sig_frag".into(),
+        },
+    ];
+    for delta in &deltas {
+        let json = serde_json::to_string(delta).unwrap();
+        let back: StreamDelta = serde_json::from_str(&json).unwrap();
+        assert_eq!(*delta, back);
+    }
+}
+
+#[test]
+fn content_block_all_variants_serde_roundtrip() {
+    let blocks = vec![
+        ContentBlock::Text {
+            text: "Hello".into(),
+        },
+        ContentBlock::ToolUse {
+            id: "tu_1".into(),
+            name: "bash".into(),
+            input: json!({"cmd": "ls"}),
+        },
+        ContentBlock::ToolResult {
+            tool_use_id: "tu_1".into(),
+            content: Some("output".into()),
+            is_error: Some(false),
+        },
+        ContentBlock::ToolResult {
+            tool_use_id: "tu_2".into(),
+            content: None,
+            is_error: None,
+        },
+        ContentBlock::Thinking {
+            thinking: "think".into(),
+            signature: Some("sig".into()),
+        },
+        ContentBlock::Image {
+            source: ImageSource::Base64 {
+                media_type: "image/png".into(),
+                data: "abc".into(),
+            },
+        },
+        ContentBlock::Image {
+            source: ImageSource::Url {
+                url: "https://example.com/img.png".into(),
+            },
+        },
+    ];
+    for block in &blocks {
+        let json = serde_json::to_string(block).unwrap();
+        let back: ContentBlock = serde_json::from_str(&json).unwrap();
+        assert_eq!(*block, back);
+    }
+}
+
+#[test]
+fn message_delta_payload_serde_roundtrip_all_none() {
+    let payload = MessageDeltaPayload {
+        stop_reason: None,
+        stop_sequence: None,
+    };
+    let json = serde_json::to_string(&payload).unwrap();
+    let back: MessageDeltaPayload = serde_json::from_str(&json).unwrap();
+    assert_eq!(payload, back);
+}
+
+#[test]
+fn message_delta_payload_serde_roundtrip_with_stop_sequence() {
+    let payload = MessageDeltaPayload {
+        stop_reason: Some("stop_sequence".into()),
+        stop_sequence: Some("###".into()),
+    };
+    let json = serde_json::to_string(&payload).unwrap();
+    let back: MessageDeltaPayload = serde_json::from_str(&json).unwrap();
+    assert_eq!(payload, back);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 13. Additional client tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+async fn client_stream_empty_messages_error() {
+    let client = AnthropicClient::new();
+    let req = MessageRequest {
+        messages: vec![],
+        ..simple_request("ignored")
+    };
+    let err = client.create_stream(req).await.unwrap_err();
+    assert!(matches!(err, ShimError::InvalidRequest(_)));
+}
+
+#[tokio::test]
+async fn client_custom_handler_returns_error_propagated() {
+    let mut client = AnthropicClient::new();
+    client.set_handler(Box::new(|_| {
+        Err(ShimError::Internal("backend unavailable".into()))
+    }));
+    let err = client.create(simple_request("test")).await.unwrap_err();
+    match err {
+        ShimError::Internal(msg) => assert!(msg.contains("backend unavailable")),
+        other => panic!("expected Internal, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn client_custom_stream_handler_returns_error_propagated() {
+    let mut client = AnthropicClient::new();
+    client.set_stream_handler(Box::new(|_| {
+        Err(ShimError::ApiError {
+            error_type: "overloaded_error".into(),
+            message: "busy".into(),
+        })
+    }));
+    let err = client
+        .create_stream(simple_request("test"))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, ShimError::ApiError { .. }));
+}
+
+#[test]
+fn event_stream_empty_has_zero_size_hint() {
+    let stream = EventStream::from_vec(vec![]);
+    assert_eq!(Stream::size_hint(&stream), (0, Some(0)));
+}
+
+#[tokio::test]
+async fn event_stream_collect_all_returns_all_events() {
+    let events = vec![
+        StreamEvent::Ping {},
+        StreamEvent::ContentBlockDelta {
+            index: 0,
+            delta: StreamDelta::TextDelta {
+                text: "token".into(),
+            },
+        },
+        StreamEvent::MessageStop {},
+    ];
+    let stream = EventStream::from_vec(events.clone());
+    let collected = stream.collect_all().await;
+    assert_eq!(collected.len(), 3);
+    assert_eq!(collected, events);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 14. More edge cases
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn edge_response_from_claude_empty_content() {
+    let claude_resp = make_claude_response(vec![]);
+    let resp = response_from_claude(&claude_resp);
+    assert!(resp.content.is_empty());
+    assert_eq!(resp.response_type, "message");
+}
+
+#[test]
+fn edge_response_from_claude_many_content_blocks() {
+    let blocks: Vec<ClaudeContentBlock> = (0..10)
+        .map(|i| ClaudeContentBlock::Text {
+            text: format!("block {i}"),
+        })
+        .collect();
+    let claude_resp = make_claude_response(blocks);
+    let resp = response_from_claude(&claude_resp);
+    assert_eq!(resp.content.len(), 10);
+}
+
+#[test]
+fn edge_request_with_stream_true() {
+    let req = MessageRequest {
+        stream: Some(true),
+        ..simple_request("test")
+    };
+    let json = serde_json::to_value(&req).unwrap();
+    assert_eq!(json["stream"], true);
+}
+
+#[test]
+fn edge_request_with_stream_false() {
+    let req = MessageRequest {
+        stream: Some(false),
+        ..simple_request("test")
+    };
+    let json = serde_json::to_value(&req).unwrap();
+    assert_eq!(json["stream"], false);
+}
+
+#[test]
+fn edge_max_tokens_one() {
+    let req = MessageRequest {
+        max_tokens: 1,
+        ..simple_request("test")
+    };
+    let claude_req = request_to_claude(&req);
+    assert_eq!(claude_req.max_tokens, 1);
+}
+
+#[test]
+fn edge_max_tokens_large() {
+    let req = MessageRequest {
+        max_tokens: 200_000,
+        ..simple_request("test")
+    };
+    let claude_req = request_to_claude(&req);
+    assert_eq!(claude_req.max_tokens, 200_000);
+}
+
+#[test]
+fn edge_response_type_always_message() {
+    let resp = response_from_claude(&make_claude_response(vec![]));
+    assert_eq!(resp.response_type, "message");
+    let json = serde_json::to_value(&resp).unwrap();
+    assert_eq!(json["type"], "message");
+    assert!(json.get("response_type").is_none());
+}
+
+#[test]
+fn edge_message_response_stop_sequence_present() {
+    let resp = MessageResponse {
+        id: "msg_ss".into(),
+        response_type: "message".into(),
+        role: "assistant".into(),
+        content: vec![ContentBlock::Text {
+            text: "stopped".into(),
+        }],
+        model: "claude-sonnet-4-20250514".into(),
+        stop_reason: Some("stop_sequence".into()),
+        stop_sequence: Some("###".into()),
+        usage: Usage {
+            input_tokens: 10,
+            output_tokens: 5,
+            cache_creation_input_tokens: None,
+            cache_read_input_tokens: None,
+        },
+    };
+    let json = serde_json::to_string(&resp).unwrap();
+    let back: MessageResponse = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.stop_sequence.as_deref(), Some("###"));
+}
