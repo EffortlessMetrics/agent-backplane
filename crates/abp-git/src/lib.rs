@@ -142,7 +142,7 @@ pub fn git_change_stats(path: &Path) -> Option<ChangeStats> {
                     // Renames, copies, etc. — treat as modified.
                     if kind.starts_with('R') || kind.starts_with('C') {
                         // For renames the second column is "old\tnew".
-                        if let Some(new_name) = file.split('\t').last() {
+                        if let Some(new_name) = file.split('\t').next_back() {
                             stats.modified.push(PathBuf::from(new_name.trim()));
                         }
                     }
@@ -194,13 +194,13 @@ pub fn git_blame(path: &Path, file: &Path) -> Option<Vec<BlameLine>> {
     let mut current_line_no: usize = 0;
 
     for raw in output.lines() {
-        if raw.starts_with('\t') {
+        if let Some(stripped) = raw.strip_prefix('\t') {
             // Content line — ends the block for this source line.
             lines.push(BlameLine {
                 commit: current_commit.clone(),
                 author: current_author.clone(),
                 line_no: current_line_no,
-                content: raw[1..].to_string(),
+                content: stripped.to_string(),
             });
         } else if raw.starts_with("author ") {
             current_author = raw["author ".len()..].to_string();

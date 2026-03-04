@@ -933,8 +933,10 @@ mod gemini {
                     json!({"city": "NYC"}),
                 )]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let calls = resp.function_calls();
         assert_eq!(calls.len(), 1);
@@ -983,6 +985,7 @@ mod gemini {
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: Some("application/json".into()),
             response_schema: Some(json!({"type": "object"})),
+            candidate_count: None,
         };
         // Convert to dialect and back
         let dialect = abp_gemini_sdk::dialect::GeminiGenerationConfig {
@@ -1046,6 +1049,7 @@ mod gemini {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("chunk")]),
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
         };
