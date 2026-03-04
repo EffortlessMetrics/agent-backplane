@@ -33,6 +33,7 @@
 pub mod compare;
 pub mod emulation;
 pub mod negotiate;
+pub mod preflight;
 pub mod registry;
 pub mod report;
 
@@ -2076,11 +2077,10 @@ mod tests {
         reg.register("test-backend", m);
         assert!(reg.get("test-backend").is_some());
         assert!(reg.contains("test-backend"));
-        assert!(
-            reg.get("test-backend")
-                .unwrap()
-                .contains_key(&Capability::Streaming)
-        );
+        assert!(reg
+            .get("test-backend")
+            .unwrap()
+            .contains_key(&Capability::Streaming));
         assert!(reg.get("missing").is_none());
         assert!(!reg.contains("missing"));
     }
@@ -2131,10 +2131,9 @@ mod tests {
     #[test]
     fn registry_negotiate_by_name_missing() {
         let reg = CapabilityRegistry::new();
-        assert!(
-            reg.negotiate_by_name("nope", &[Capability::Streaming])
-                .is_none()
-        );
+        assert!(reg
+            .negotiate_by_name("nope", &[Capability::Streaming])
+            .is_none());
     }
 
     #[test]
@@ -2154,11 +2153,9 @@ mod tests {
         let reg = CapabilityRegistry::with_defaults();
         let results = reg.query_capability(&Capability::Streaming);
         assert_eq!(results.len(), 6);
-        assert!(
-            results
-                .iter()
-                .all(|(_, level)| matches!(level, SupportLevel::Native))
-        );
+        assert!(results
+            .iter()
+            .all(|(_, level)| matches!(level, SupportLevel::Native)));
     }
 
     #[test]
@@ -2167,11 +2164,9 @@ mod tests {
         let result = reg
             .compare("anthropic/claude-3.5-sonnet", "openai/gpt-4o")
             .unwrap();
-        assert!(
-            result
-                .unsupported_caps()
-                .contains(&Capability::ExtendedThinking)
-        );
+        assert!(result
+            .unsupported_caps()
+            .contains(&Capability::ExtendedThinking));
     }
 
     #[test]
@@ -2582,16 +2577,12 @@ mod tests {
         let res = negotiate_dialects("src", &src, "tgt", &tgt);
         let regressions = res.regressions();
         assert_eq!(regressions.len(), 2);
-        assert!(
-            regressions
-                .iter()
-                .any(|t| t.capability == Capability::Vision && t.kind == TransitionKind::Downgrade)
-        );
-        assert!(
-            regressions
-                .iter()
-                .any(|t| t.capability == Capability::Audio && t.kind == TransitionKind::Lost)
-        );
+        assert!(regressions
+            .iter()
+            .any(|t| t.capability == Capability::Vision && t.kind == TransitionKind::Downgrade));
+        assert!(regressions
+            .iter()
+            .any(|t| t.capability == Capability::Audio && t.kind == TransitionKind::Lost));
     }
 
     #[test]
@@ -2629,11 +2620,9 @@ mod tests {
         let mismatches = report_mismatches(&result, &reg);
         assert_eq!(mismatches.len(), 1);
         // Claude supports ExtendedThinking natively
-        assert!(
-            mismatches[0]
-                .alternative_backends
-                .contains(&"anthropic/claude-3.5-sonnet".to_owned())
-        );
+        assert!(mismatches[0]
+            .alternative_backends
+            .contains(&"anthropic/claude-3.5-sonnet".to_owned()));
     }
 
     #[test]
@@ -2804,24 +2793,21 @@ mod tests {
             .unwrap();
         // Claude has ExtendedThinking natively, OpenAI doesn't
         assert!(res.losses > 0 || res.downgrades > 0);
-        assert!(
-            res.transitions
-                .iter()
-                .any(|t| t.capability == Capability::ExtendedThinking)
-        );
+        assert!(res
+            .transitions
+            .iter()
+            .any(|t| t.capability == Capability::ExtendedThinking));
     }
 
     #[test]
     fn registry_negotiate_dialects_missing_name() {
         let reg = CapabilityRegistry::with_defaults();
-        assert!(
-            reg.negotiate_dialects("nonexistent", "openai/gpt-4o")
-                .is_none()
-        );
-        assert!(
-            reg.negotiate_dialects("openai/gpt-4o", "nonexistent")
-                .is_none()
-        );
+        assert!(reg
+            .negotiate_dialects("nonexistent", "openai/gpt-4o")
+            .is_none());
+        assert!(reg
+            .negotiate_dialects("openai/gpt-4o", "nonexistent")
+            .is_none());
     }
 
     #[test]

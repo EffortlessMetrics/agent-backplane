@@ -18,3 +18,4 @@ serde_json.workspace = true
 
 [dev-dependencies]
 abp-sdk-types = { path = "../abp-sdk-types", version = "0.1.0" }
+uuid.workspace = true

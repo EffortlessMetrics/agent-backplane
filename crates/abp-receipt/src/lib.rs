@@ -39,7 +39,8 @@ pub mod version;
 
 pub use builder::ReceiptBuilder;
 pub use chain::{
-    ChainBuilder, ChainError, ChainGap, ChainSummary, ReceiptChain, TamperEvidence, TamperKind,
+    ChainBuilder, ChainError, ChainExportError, ChainGap, ChainSummary, ExportedChain,
+    ExportedEntry, ReceiptChain, TamperEvidence, TamperKind,
 };
 pub use diff::{FieldDiff, ReceiptDiff, diff_receipts};
 pub use validate::{ReceiptValidator, ValidationError};

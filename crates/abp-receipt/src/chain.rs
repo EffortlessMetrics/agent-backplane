@@ -182,6 +182,84 @@ pub struct ChainSummary {
     pub gap_count: usize,
 }
 
+// ── Export / Import types ──────────────────────────────────────────
+
+/// Current version tag for the chain export format.
+const EXPORT_VERSION: &str = "abp-chain/v1";
+
+/// Errors from chain export and import operations.
+#[derive(Debug)]
+pub enum ChainExportError {
+    /// JSON serialization/deserialization failure.
+    Json(serde_json::Error),
+    /// The export version does not match the expected version.
+    VersionMismatch {
+        /// The version this library expects.
+        expected: String,
+        /// The version found in the export payload.
+        found: String,
+    },
+    /// The declared chain length does not match the number of entries.
+    LengthMismatch {
+        /// Declared length in the header.
+        declared: usize,
+        /// Actual number of entries.
+        actual: usize,
+    },
+    /// A chain integrity error was detected after rebuild.
+    Integrity(ChainError),
+}
+
+impl fmt::Display for ChainExportError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Json(e) => write!(f, "json error: {e}"),
+            Self::VersionMismatch { expected, found } => {
+                write!(f, "version mismatch: expected {expected}, found {found}")
+            }
+            Self::LengthMismatch { declared, actual } => {
+                write!(f, "length mismatch: declared {declared}, actual {actual}")
+            }
+            Self::Integrity(e) => write!(f, "chain integrity error: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for ChainExportError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Json(e) => Some(e),
+            Self::Integrity(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+/// A single entry in an exported chain, bundling the receipt with its
+/// chain-level metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportedEntry {
+    /// Sequence number in the chain.
+    pub sequence: u64,
+    /// Hash of the preceding receipt (`None` for the first entry).
+    pub parent_hash: Option<String>,
+    /// The receipt itself.
+    pub receipt: Receipt,
+}
+
+/// Serializable representation of an entire receipt chain for audit export.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportedChain {
+    /// Format version identifier.
+    pub version: String,
+    /// Timestamp of the export.
+    pub exported_at: DateTime<Utc>,
+    /// Declared chain length.
+    pub chain_length: usize,
+    /// Ordered chain entries.
+    pub entries: Vec<ExportedEntry>,
+}
+
 // ── ReceiptChain ───────────────────────────────────────────────────
 
 /// An ordered chain of [`Receipt`]s with integrity verification,
@@ -527,6 +605,100 @@ impl ReceiptChain {
         self.receipts
             .iter()
             .find(|r| r.receipt_sha256.as_deref() == Some(hash))
+    }
+
+    /// Serialize the entire chain for audit purposes.
+    ///
+    /// Produces an [`ExportedChain`] that captures receipts together with
+    /// their sequence numbers and parent hash linkage so that the chain
+    /// can be independently verified after import.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainExportError::Json`] if serialization fails.
+    pub fn export_chain(&self) -> Result<String, ChainExportError> {
+        let entries: Vec<ExportedEntry> = self
+            .receipts
+            .iter()
+            .enumerate()
+            .map(|(i, r)| ExportedEntry {
+                sequence: self.sequences.get(i).copied().unwrap_or(i as u64),
+                parent_hash: self.parent_hashes.get(i).cloned().flatten(),
+                receipt: r.clone(),
+            })
+            .collect();
+
+        let exported = ExportedChain {
+            version: EXPORT_VERSION.to_string(),
+            exported_at: Utc::now(),
+            chain_length: self.receipts.len(),
+            entries,
+        };
+
+        serde_json::to_string_pretty(&exported).map_err(ChainExportError::Json)
+    }
+
+    /// Deserialize and verify an imported chain.
+    ///
+    /// Parses JSON produced by [`export_chain`](Self::export_chain),
+    /// rebuilds the chain, and verifies hash integrity and parent linkage.
+    ///
+    /// # Errors
+    ///
+    /// - [`ChainExportError::Json`] if deserialization fails.
+    /// - [`ChainExportError::VersionMismatch`] if the export version is unsupported.
+    /// - [`ChainExportError::LengthMismatch`] if the declared length does not
+    ///   match the number of entries.
+    /// - [`ChainExportError::Integrity`] if chain verification fails after rebuild.
+    pub fn import_chain(json: &str) -> Result<Self, ChainExportError> {
+        let exported: ExportedChain = serde_json::from_str(json).map_err(ChainExportError::Json)?;
+
+        if exported.version != EXPORT_VERSION {
+            return Err(ChainExportError::VersionMismatch {
+                expected: EXPORT_VERSION.to_string(),
+                found: exported.version,
+            });
+        }
+
+        if exported.chain_length != exported.entries.len() {
+            return Err(ChainExportError::LengthMismatch {
+                declared: exported.chain_length,
+                actual: exported.entries.len(),
+            });
+        }
+
+        let mut chain = Self::new();
+        for (i, entry) in exported.entries.into_iter().enumerate() {
+            // Verify parent hash linkage from the export metadata.
+            let expected_parent = if i > 0 {
+                chain.receipts.last().and_then(|r| r.receipt_sha256.clone())
+            } else {
+                None
+            };
+            if entry.parent_hash != expected_parent {
+                return Err(ChainExportError::Integrity(ChainError::ParentMismatch {
+                    index: i,
+                }));
+            }
+
+            // Verify hash integrity.
+            verify_receipt_hash(&entry.receipt, i).map_err(ChainExportError::Integrity)?;
+
+            let parent_hash = chain.receipts.last().and_then(|r| r.receipt_sha256.clone());
+
+            let id = entry.receipt.meta.run_id;
+            if chain.seen_ids.contains(&id) {
+                return Err(ChainExportError::Integrity(ChainError::DuplicateId { id }));
+            }
+
+            chain.seen_ids.insert(id);
+            chain.sequences.push(entry.sequence);
+            chain.parent_hashes.push(parent_hash);
+            chain.next_sequence = entry.sequence + 1;
+            chain.receipts.push(entry.receipt);
+        }
+
+        Ok(chain)
     }
 }
 
