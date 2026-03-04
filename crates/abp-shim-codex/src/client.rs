@@ -133,6 +133,54 @@ impl Client {
         let _stream = resp.bytes_stream();
         Ok(tokio_stream::empty())
     }
+
+    /// Return a [`ResponsesApi`] handle for the Responses API.
+    ///
+    /// Provides the `client.responses().create(req)` / `.stream(req)` pattern
+    /// matching the OpenAI Codex SDK surface.
+    pub fn responses(&self) -> ResponsesApi<'_> {
+        ResponsesApi { client: self }
+    }
+}
+
+// ── Responses API handle ────────────────────────────────────────────────
+
+/// Scoped handle for the `/v1/responses` endpoint.
+///
+/// Obtained via [`Client::responses()`]. Provides `create()` and `stream()`
+/// methods that mirror the OpenAI Codex SDK's builder-chain pattern.
+#[derive(Debug)]
+pub struct ResponsesApi<'c> {
+    client: &'c Client,
+}
+
+impl<'c> ResponsesApi<'c> {
+    /// Create a response (non-streaming).
+    ///
+    /// Sends a POST to `/v1/responses` with the given request and returns
+    /// a [`CodexResponse`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError`] on transport or API errors.
+    pub async fn create(&self, request: &CodexRequest) -> Result<CodexResponse> {
+        self.client.chat_completion(request).await
+    }
+
+    /// Create a streaming response.
+    ///
+    /// Sends a POST to `/v1/responses` with `stream: true` and returns
+    /// a stream of [`CodexStreamEvent`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError`] on transport or API errors.
+    pub async fn stream(
+        &self,
+        request: &CodexRequest,
+    ) -> Result<impl Stream<Item = Result<CodexStreamEvent>>> {
+        self.client.stream_chat_completion(request).await
+    }
 }
 
 // ── Builder ─────────────────────────────────────────────────────────────
@@ -241,5 +289,29 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(client.base_url(), "https://custom.openai.example/v1");
+    }
+
+    #[test]
+    fn responses_api_is_accessible() {
+        let client = Client::new("sk-test").unwrap();
+        let api = client.responses();
+        // ResponsesApi holds a reference to the client
+        assert!(format!("{api:?}").contains("ResponsesApi"));
+    }
+
+    #[test]
+    fn responses_api_url_matches_endpoint() {
+        let client = Client::new("sk-test").unwrap();
+        let _api = client.responses();
+        let expected = format!("{}/responses", client.base_url());
+        assert_eq!(expected, "https://api.openai.com/v1/responses");
+    }
+
+    #[test]
+    fn client_api_key_stored() {
+        let client = Client::new("sk-codex-test-123").unwrap();
+        let headers = client.default_headers();
+        let auth = headers.get(AUTHORIZATION).unwrap().to_str().unwrap();
+        assert!(auth.contains("sk-codex-test-123"));
     }
 }

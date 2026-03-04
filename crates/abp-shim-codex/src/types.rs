@@ -437,3 +437,269 @@ pub struct Usage {
     /// Total tokens (input + output).
     pub total_tokens: u64,
 }
+
+// ── ResponseItem ────────────────────────────────────────────────────────
+
+/// A response output item matching the Codex Responses API surface.
+///
+/// Covers all item types returned in the `output` array: messages,
+/// function calls/outputs, file search calls, code interpreter calls, etc.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ResponseItem {
+    /// An assistant or system message.
+    Message {
+        /// Role of the message author.
+        role: String,
+        /// Content parts of the message.
+        content: Vec<ResponseContentPart>,
+    },
+    /// A function call emitted by the model.
+    FunctionCall {
+        /// Unique ID for this function call.
+        id: String,
+        /// Call ID for correlation with function call output.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        call_id: Option<String>,
+        /// Function name.
+        name: String,
+        /// JSON-encoded arguments.
+        arguments: String,
+    },
+    /// Output from a function call (fed back as input).
+    FunctionCallOutput {
+        /// The call ID this output corresponds to.
+        call_id: String,
+        /// The function output text.
+        output: String,
+    },
+    /// A file search call result.
+    FileSearchCall {
+        /// Unique ID for this call.
+        id: String,
+        /// The search queries issued.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        queries: Vec<String>,
+        /// Search results returned.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        results: Vec<FileSearchResult>,
+    },
+    /// A code interpreter call result.
+    CodeInterpreterCall {
+        /// Unique ID for this call.
+        id: String,
+        /// The code that was executed.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        code: Option<String>,
+        /// Output logs from execution.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        outputs: Vec<CodeInterpreterOutput>,
+    },
+    /// A reasoning summary item.
+    Reasoning {
+        /// Summary text fragments.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        summary: Vec<ReasoningSummaryPart>,
+    },
+}
+
+/// Content part within a [`ResponseItem::Message`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ResponseContentPart {
+    /// A text output part.
+    OutputText {
+        /// The text content.
+        text: String,
+    },
+    /// A refusal part (when the model declines).
+    Refusal {
+        /// The refusal reason.
+        refusal: String,
+    },
+}
+
+/// A single file search result.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FileSearchResult {
+    /// File ID or path.
+    pub file_id: String,
+    /// The file name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_name: Option<String>,
+    /// Relevance score (0.0 to 1.0).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<f64>,
+    /// Matched text snippet.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+}
+
+/// Output from a code interpreter execution.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum CodeInterpreterOutput {
+    /// Log/text output.
+    Logs {
+        /// The log text.
+        logs: String,
+    },
+    /// An image output.
+    Image {
+        /// File ID of the generated image.
+        file_id: String,
+    },
+}
+
+/// A part of a reasoning summary.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ReasoningSummaryPart {
+    /// The summary text.
+    pub text: String,
+}
+
+// ── ResponseConfig ──────────────────────────────────────────────────────
+
+/// Configuration for a Codex Responses API request.
+///
+/// Matches the top-level parameters of the `/v1/responses` endpoint,
+/// providing a typed config object separate from the input messages.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResponseConfig {
+    /// System-level instructions prepended to the conversation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instructions: Option<String>,
+    /// Model identifier (e.g. `"codex-mini-latest"`, `"o3-mini"`).
+    pub model: String,
+    /// Tool definitions available to the model.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<crate::tools::ToolDefinition>,
+    /// Sampling temperature.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
+    /// Maximum output tokens.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_output_tokens: Option<u32>,
+    /// Top-p (nucleus) sampling parameter.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f64>,
+    /// Reasoning configuration (effort level).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<ReasoningConfig>,
+    /// Output text format.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<CodexTextFormat>,
+    /// Whether to stream the response.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub stream: bool,
+    /// Previous response ID for multi-turn conversations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_response_id: Option<String>,
+    /// Arbitrary metadata key-value pairs.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, serde_json::Value>,
+}
+
+impl Default for ResponseConfig {
+    fn default() -> Self {
+        Self {
+            instructions: None,
+            model: "codex-mini-latest".into(),
+            tools: Vec::new(),
+            temperature: None,
+            max_output_tokens: None,
+            top_p: None,
+            reasoning: None,
+            text: None,
+            stream: false,
+            previous_response_id: None,
+            metadata: BTreeMap::new(),
+        }
+    }
+}
+
+/// Reasoning configuration for models that support it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ReasoningConfig {
+    /// Reasoning effort level.
+    pub effort: ReasoningEffort,
+    /// Whether to include reasoning summary in the response.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub summary: bool,
+}
+
+/// Reasoning effort levels.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReasoningEffort {
+    /// Low reasoning effort — faster, less thorough.
+    Low,
+    /// Medium (default) reasoning effort.
+    Medium,
+    /// High reasoning effort — slower, more thorough.
+    High,
+}
+
+// ── Response ────────────────────────────────────────────────────────────
+
+/// The top-level response object from the Codex Responses API.
+///
+/// Returned by both the synchronous and streaming (final event) endpoints.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Response {
+    /// Unique response identifier (e.g. `"resp_abc123"`).
+    pub id: String,
+    /// Object type, always `"response"`.
+    #[serde(default = "default_object_type")]
+    pub object: String,
+    /// Response status (`"completed"`, `"in_progress"`, `"failed"`, `"cancelled"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Model used for the response.
+    pub model: String,
+    /// Output items produced by the model.
+    pub output: Vec<ResponseItem>,
+    /// Token usage statistics.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<Usage>,
+    /// Arbitrary metadata echoed back from the request.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, serde_json::Value>,
+}
+
+fn default_object_type() -> String {
+    "response".into()
+}
+
+impl Response {
+    /// Get all text content from message output items.
+    #[must_use]
+    pub fn text(&self) -> String {
+        let mut parts = Vec::new();
+        for item in &self.output {
+            if let ResponseItem::Message { content, .. } = item {
+                for part in content {
+                    if let ResponseContentPart::OutputText { text } = part {
+                        parts.push(text.as_str());
+                    }
+                }
+            }
+        }
+        parts.join("")
+    }
+
+    /// Get all function calls from the output.
+    #[must_use]
+    pub fn function_calls(&self) -> Vec<&ResponseItem> {
+        self.output
+            .iter()
+            .filter(|item| matches!(item, ResponseItem::FunctionCall { .. }))
+            .collect()
+    }
+
+    /// Whether the response completed successfully.
+    #[must_use]
+    pub fn is_completed(&self) -> bool {
+        self.status.as_deref() == Some("completed")
+    }
+}

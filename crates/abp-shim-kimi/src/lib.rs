@@ -11,6 +11,10 @@
 pub mod client;
 /// Conversion layer between Kimi shim types and ABP core types.
 pub mod convert;
+/// Kimi-specific error types and classification.
+pub mod error;
+/// Kimi built-in tools: search, file, code, browser.
+pub mod tools;
 /// Translation between Kimi-specific extension types and ABP core types.
 pub mod translate;
 /// Kimi-specific shim types (messages, usage, request builder).
@@ -27,6 +31,12 @@ use tokio_stream::Stream;
 pub use abp_kimi_sdk::dialect::{
     KimiBuiltinFunction, KimiBuiltinTool, KimiFunctionDef, KimiRole, KimiTool, KimiToolDef,
 };
+
+// Re-export error types.
+pub use error::{KimiErrorBody, KimiErrorKind, KimiErrorResponse, KimiShimError};
+
+// Re-export built-in tool types.
+pub use tools::{BrowserTool, BuiltinTools, CodeTool, FileTool, SearchTool};
 
 // Re-export types and convert modules for backward compatibility.
 pub use convert::*;
@@ -58,6 +68,7 @@ pub type ProcessFn = Box<dyn Fn(&WorkOrder) -> Receipt + Send + Sync>;
 
 /// Drop-in compatible Kimi client that routes through ABP.
 pub struct KimiClient {
+    api_key: Option<String>,
     model: String,
     processor: Option<ProcessFn>,
 }
@@ -66,15 +77,27 @@ impl std::fmt::Debug for KimiClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KimiClient")
             .field("model", &self.model)
+            .field("has_api_key", &self.api_key.is_some())
             .finish()
     }
 }
 
 impl KimiClient {
-    /// Create a new client targeting the given model.
+    /// Create a new client with an API key, using the default model.
     #[must_use]
-    pub fn new(model: impl Into<String>) -> Self {
+    pub fn new(api_key: impl Into<String>) -> Self {
         Self {
+            api_key: Some(api_key.into()),
+            model: "moonshot-v1-8k".into(),
+            processor: None,
+        }
+    }
+
+    /// Create a new client targeting a specific model (without API key).
+    #[must_use]
+    pub fn with_model(model: impl Into<String>) -> Self {
+        Self {
+            api_key: None,
             model: model.into(),
             processor: None,
         }
@@ -87,10 +110,23 @@ impl KimiClient {
         self
     }
 
+    /// Override the model name.
+    #[must_use]
+    pub fn model_name(mut self, model: impl Into<String>) -> Self {
+        self.model = model.into();
+        self
+    }
+
     /// Get the configured model name.
     #[must_use]
     pub fn model(&self) -> &str {
         &self.model
+    }
+
+    /// Get the API key, if configured.
+    #[must_use]
+    pub fn api_key(&self) -> Option<&str> {
+        self.api_key.as_deref()
     }
 
     /// Create a chat completion (non-streaming).
@@ -106,6 +142,41 @@ impl KimiClient {
         };
 
         Ok(receipt_to_response(&receipt, &request.model))
+    }
+
+    /// Chat completions API — send a request and receive a response.
+    ///
+    /// This is the primary entry point, matching the Moonshot Chat Completions
+    /// endpoint (`POST /v1/chat/completions`).
+    pub async fn chat_completions(&self, request: KimiRequest) -> Result<KimiResponse> {
+        self.create(request).await
+    }
+
+    /// File upload stub — submit a file for use with `ref_file_ids`.
+    ///
+    /// In this shim, file upload is a no-op that returns a synthetic file ID.
+    /// A real implementation would POST to the Kimi Files API.
+    pub async fn file_upload(
+        &self,
+        filename: &str,
+        _content: &[u8],
+    ) -> Result<String> {
+        let file_id = format!("file-{}", uuid::Uuid::new_v4().as_simple());
+        tracing_log(format!("file_upload stub: {filename} → {file_id}"));
+        Ok(file_id)
+    }
+
+    /// Web search convenience — send a query with `use_search` enabled.
+    ///
+    /// Constructs a request with `use_search: true` and the given query as
+    /// the user message, then returns the response.
+    pub async fn search(&self, query: impl Into<String>) -> Result<KimiResponse> {
+        let req = KimiRequestBuilder::new()
+            .model(&self.model)
+            .messages(vec![Message::user(query)])
+            .use_search(true)
+            .build();
+        self.chat_completions(req).await
     }
 
     /// Create a streaming chat completion.
@@ -127,6 +198,10 @@ impl KimiClient {
         let chunks = events_to_stream_chunks(&receipt.trace, &model);
         Ok(Box::pin(tokio_stream::iter(chunks)))
     }
+}
+
+fn tracing_log(_msg: String) {
+    // Stub: in a real build this would use tracing::debug!
 }
 
 // ── Test helpers ────────────────────────────────────────────────────────
@@ -184,6 +259,12 @@ mod tests {
         Box::new(move |_wo| mock_receipt_with_usage(events.clone(), usage.clone()))
     }
 
+    fn client_with(events: Vec<AgentEvent>) -> KimiClient {
+        KimiClient::new("sk-test-key")
+            .model_name("moonshot-v1-8k")
+            .with_processor(make_processor(events))
+    }
+
     // ── 1. Simple chat completion roundtrip ─────────────────────────────
 
     #[tokio::test]
@@ -195,7 +276,9 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client = KimiClient::new("sk-test")
+            .model_name("moonshot-v1-8k")
+            .with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .model("moonshot-v1-8k")
             .messages(vec![Message::user("Hi")])
@@ -224,7 +307,7 @@ mod tests {
                 ext: None,
             },
         ];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("Hi")])
             .stream(true)
@@ -253,7 +336,7 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("Search for rust async")])
             .build();
@@ -278,7 +361,7 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![
                 Message::system("You are a helpful assistant."),
@@ -302,7 +385,7 @@ mod tests {
             kind: AgentEventKind::AssistantMessage { text: "4".into() },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![
                 Message::user("What is 2+2?"),
@@ -358,7 +441,7 @@ mod tests {
             kind: AgentEventKind::AssistantMessage { text: "ok".into() },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-128k").with_processor(make_processor(events));
+        let client = KimiClient::with_model("moonshot-v1-128k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .model("moonshot-v1-128k")
             .messages(vec![Message::user("test")])
@@ -380,7 +463,7 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("test")])
             .build();
@@ -462,7 +545,7 @@ mod tests {
 
     #[tokio::test]
     async fn no_processor_returns_error() {
-        let client = KimiClient::new("moonshot-v1-8k");
+        let client = KimiClient::with_model("moonshot-v1-8k");
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("test")])
             .build();
@@ -550,7 +633,7 @@ mod tests {
                 ext: None,
             },
         ];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("Search")])
             .build();
@@ -566,12 +649,181 @@ mod tests {
 
     #[tokio::test]
     async fn no_processor_stream_returns_error() {
-        let client = KimiClient::new("moonshot-v1-8k");
+        let client = KimiClient::with_model("moonshot-v1-8k");
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("test")])
             .build();
 
         let result = client.create_stream(req).await;
         assert!(result.is_err());
+    }
+
+    // ── 20. new(api_key) stores key ─────────────────────────────────────
+
+    #[test]
+    fn new_with_api_key_stores_key() {
+        let client = KimiClient::new("sk-test-abc123");
+        assert_eq!(client.api_key(), Some("sk-test-abc123"));
+        assert_eq!(client.model(), "moonshot-v1-8k");
+    }
+
+    // ── 21. with_model has no api key ───────────────────────────────────
+
+    #[test]
+    fn with_model_has_no_api_key() {
+        let client = KimiClient::with_model("moonshot-v1-128k");
+        assert!(client.api_key().is_none());
+        assert_eq!(client.model(), "moonshot-v1-128k");
+    }
+
+    // ── 22. model_name override ─────────────────────────────────────────
+
+    #[test]
+    fn model_name_override() {
+        let client = KimiClient::new("sk-key").model_name("moonshot-v1-128k");
+        assert_eq!(client.model(), "moonshot-v1-128k");
+        assert_eq!(client.api_key(), Some("sk-key"));
+    }
+
+    // ── 23. chat_completions alias works ────────────────────────────────
+
+    #[tokio::test]
+    async fn chat_completions_alias() {
+        let events = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "via chat_completions".into(),
+            },
+            ext: None,
+        }];
+        let client = client_with(events);
+        let req = KimiRequestBuilder::new()
+            .messages(vec![Message::user("test")])
+            .build();
+
+        let resp = client.chat_completions(req).await.unwrap();
+        assert_eq!(
+            resp.choices[0].message.content.as_deref(),
+            Some("via chat_completions")
+        );
+    }
+
+    // ── 24. file_upload returns synthetic ID ────────────────────────────
+
+    #[tokio::test]
+    async fn file_upload_returns_file_id() {
+        let client = KimiClient::new("sk-test");
+        let file_id = client.file_upload("test.pdf", b"hello").await.unwrap();
+        assert!(file_id.starts_with("file-"));
+        assert!(file_id.len() > 10);
+    }
+
+    // ── 25. search convenience method ───────────────────────────────────
+
+    #[tokio::test]
+    async fn search_convenience_enables_use_search() {
+        let processor: ProcessFn = Box::new(|_wo| {
+            mock_receipt(vec![AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "search result".into(),
+                },
+                ext: None,
+            }])
+        });
+        let client = KimiClient::new("sk-test").with_processor(processor);
+        let resp = client.search("what is Rust?").await.unwrap();
+        assert_eq!(
+            resp.choices[0].message.content.as_deref(),
+            Some("search result")
+        );
+    }
+
+    // ── 26. debug format includes api_key presence ──────────────────────
+
+    #[test]
+    fn debug_format_shows_has_api_key() {
+        let client = KimiClient::new("sk-secret");
+        let dbg = format!("{:?}", client);
+        assert!(dbg.contains("has_api_key: true"));
+        assert!(!dbg.contains("sk-secret"));
+    }
+
+    // ── 27. debug format without api key ────────────────────────────────
+
+    #[test]
+    fn debug_format_no_api_key() {
+        let client = KimiClient::with_model("moonshot-v1-8k");
+        let dbg = format!("{:?}", client);
+        assert!(dbg.contains("has_api_key: false"));
+    }
+
+    // ── 28. chat_completions without processor errors ───────────────────
+
+    #[tokio::test]
+    async fn chat_completions_without_processor_errors() {
+        let client = KimiClient::new("sk-test");
+        let req = KimiRequestBuilder::new()
+            .messages(vec![Message::user("test")])
+            .build();
+        let err = client.chat_completions(req).await.unwrap_err();
+        assert!(matches!(err, ShimError::Internal(_)));
+    }
+
+    // ── 29. file_upload different filenames ──────────────────────────────
+
+    #[tokio::test]
+    async fn file_upload_unique_ids() {
+        let client = KimiClient::new("sk-test");
+        let id1 = client.file_upload("a.pdf", b"a").await.unwrap();
+        let id2 = client.file_upload("b.pdf", b"b").await.unwrap();
+        assert_ne!(id1, id2);
+    }
+
+    // ── 30. search with empty query ─────────────────────────────────────
+
+    #[tokio::test]
+    async fn search_with_empty_query() {
+        let client = client_with(vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "empty".into(),
+            },
+            ext: None,
+        }]);
+        let resp = client.search("").await.unwrap();
+        assert_eq!(resp.choices[0].message.content.as_deref(), Some("empty"));
+    }
+
+    // ── 31. tool helpers from tools module ──────────────────────────────
+
+    #[test]
+    fn builtin_tools_all_has_four() {
+        let bt = crate::tools::BuiltinTools::all();
+        assert_eq!(bt.enabled_count(), 4);
+    }
+
+    // ── 32. error classification ────────────────────────────────────────
+
+    #[test]
+    fn error_rate_limit_classification() {
+        let err = crate::error::KimiShimError::from_status_and_body(
+            429,
+            "rate limit".into(),
+        );
+        assert!(err.is_rate_limit());
+        assert!(err.is_retryable());
+    }
+
+    // ── 33. error auth classification ───────────────────────────────────
+
+    #[test]
+    fn error_auth_classification() {
+        let err = crate::error::KimiShimError::from_status_and_body(
+            401,
+            "unauthorized".into(),
+        );
+        assert!(err.is_auth_error());
+        assert!(!err.is_retryable());
     }
 }

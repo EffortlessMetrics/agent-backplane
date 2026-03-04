@@ -11,14 +11,30 @@
 pub mod client;
 /// Conversion layer between Codex Responses API types and ABP core types.
 pub mod convert;
+/// Codex-compatible error types.
+pub mod error;
 /// Translation functions between Codex-specific shim types and ABP core types.
 pub mod translate;
+/// Built-in Codex tool definitions (code interpreter, file search, function).
+pub mod tools;
 /// Codex Responses API types (builder, usage statistics).
 pub mod types;
 
 // Re-export everything from types and convert for backward compatibility.
 pub use convert::*;
 pub use types::*;
+
+// Re-export key error types.
+pub use error::{ApiErrorBody, ApiErrorEnvelope, CodexError, CodexResult};
+
+// Re-export key tool types.
+pub use tools::{
+    CodeInterpreterTool, FileSearchTool, FunctionTool, ToolDefinition, from_codex_tools,
+    to_codex_tools,
+};
+
+// Re-export client types for the `responses()` API pattern.
+pub use client::{Client as CodexHttpClient, ClientBuilder, ResponsesApi};
 
 use std::pin::Pin;
 

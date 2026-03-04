@@ -431,7 +431,7 @@ fn t20_stream_assistant_message_includes_role() {
 #[tokio::test]
 async fn t21_stream_client_roundtrip() {
     let events = vec![delta_event("Hel"), delta_event("lo!")];
-    let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+    let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
     let req = KimiRequestBuilder::new()
         .messages(vec![Message::user("Hi")])
         .stream(true)
@@ -788,7 +788,7 @@ async fn t51_receipt_to_response_usage() {
     let usage = sample_usage();
     let events = vec![assistant_event("ok")];
     let client =
-        KimiClient::new("moonshot-v1-8k").with_processor(make_processor_with_usage(events, usage));
+        KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor_with_usage(events, usage));
     let req = KimiRequestBuilder::new()
         .messages(vec![Message::user("test")])
         .build();
@@ -929,7 +929,7 @@ fn t60_response_to_ir_basic() {
 #[tokio::test]
 async fn t61_8k_model_roundtrip() {
     let events = vec![assistant_event("8k response")];
-    let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+    let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
     let req = KimiRequestBuilder::new()
         .model("moonshot-v1-8k")
         .messages(vec![Message::user("test")])
@@ -945,7 +945,7 @@ async fn t61_8k_model_roundtrip() {
 #[tokio::test]
 async fn t62_32k_model_roundtrip() {
     let events = vec![assistant_event("32k response")];
-    let client = KimiClient::new("moonshot-v1-32k").with_processor(make_processor(events));
+    let client = KimiClient::with_model("moonshot-v1-32k").with_processor(make_processor(events));
     let req = KimiRequestBuilder::new()
         .model("moonshot-v1-32k")
         .messages(vec![Message::user("test")])
@@ -957,7 +957,7 @@ async fn t62_32k_model_roundtrip() {
 #[tokio::test]
 async fn t63_128k_model_roundtrip() {
     let events = vec![assistant_event("128k response")];
-    let client = KimiClient::new("moonshot-v1-128k").with_processor(make_processor(events));
+    let client = KimiClient::with_model("moonshot-v1-128k").with_processor(make_processor(events));
     let req = KimiRequestBuilder::new()
         .model("moonshot-v1-128k")
         .messages(vec![Message::user("analyze this very long document")])
@@ -1165,7 +1165,7 @@ fn t75_tool_call_accumulator_empty() {
 
 #[tokio::test]
 async fn t76_no_processor_returns_error() {
-    let client = KimiClient::new("moonshot-v1-8k");
+    let client = KimiClient::with_model("moonshot-v1-8k");
     let req = KimiRequestBuilder::new()
         .messages(vec![Message::user("test")])
         .build();
@@ -1175,7 +1175,7 @@ async fn t76_no_processor_returns_error() {
 
 #[tokio::test]
 async fn t77_no_processor_stream_returns_error() {
-    let client = KimiClient::new("moonshot-v1-8k");
+    let client = KimiClient::with_model("moonshot-v1-8k");
     let req = KimiRequestBuilder::new()
         .messages(vec![Message::user("test")])
         .build();
@@ -1185,14 +1185,14 @@ async fn t77_no_processor_stream_returns_error() {
 
 #[test]
 fn t78_client_debug_impl() {
-    let client = KimiClient::new("moonshot-v1-8k");
+    let client = KimiClient::with_model("moonshot-v1-8k");
     let debug = format!("{client:?}");
     assert!(debug.contains("moonshot-v1-8k"));
 }
 
 #[test]
 fn t79_client_model_accessor() {
-    let client = KimiClient::new("moonshot-v1-128k");
+    let client = KimiClient::with_model("moonshot-v1-128k");
     assert_eq!(client.model(), "moonshot-v1-128k");
 }
 
@@ -1562,3 +1562,4 @@ fn t99_assistant_with_tool_calls_constructor() {
 fn t100_backend_name_constant() {
     assert_eq!(abp_kimi_sdk::BACKEND_NAME, "sidecar:kimi");
 }
+
