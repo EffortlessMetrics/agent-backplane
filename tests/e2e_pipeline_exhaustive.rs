@@ -506,7 +506,7 @@ async fn full_pipeline_receipt_verify_hash() {
 
 #[tokio::test]
 async fn middleware_logging_before_and_after() {
-    let chain = MiddlewareChain::new().with(LoggingMiddleware);
+    let chain = MiddlewareChain::new().with(LoggingMiddleware::default());
     let wo = passthrough_wo("logging test");
     let ctx = MiddlewareContext::new("mock");
     chain.run_before(&wo, &ctx).await.unwrap();
@@ -560,9 +560,9 @@ async fn middleware_policy_blocks_conflicting_tools() {
 #[tokio::test]
 async fn middleware_chain_order_matters() {
     let chain = MiddlewareChain::new()
-        .with(LoggingMiddleware)
+        .with(LoggingMiddleware::default())
         .with(PolicyMiddleware)
-        .with(LoggingMiddleware);
+        .with(LoggingMiddleware::default());
     assert_eq!(chain.len(), 3);
     let names = chain.names();
     assert_eq!(names, vec!["logging", "policy", "logging"]);
@@ -641,7 +641,7 @@ async fn middleware_chain_empty_is_noop() {
 async fn middleware_full_chain_with_successful_run() {
     let metrics = Arc::new(RunMetrics::new());
     let chain = MiddlewareChain::new()
-        .with(LoggingMiddleware)
+        .with(LoggingMiddleware::default())
         .with(TelemetryMiddleware::new(Arc::clone(&metrics)))
         .with(PolicyMiddleware);
 

@@ -2104,7 +2104,7 @@ mod middleware_chain {
     #[tokio::test]
     async fn chain_names_returns_registration_order() {
         let chain = MiddlewareChain::new()
-            .with(LoggingMiddleware)
+            .with(LoggingMiddleware::default())
             .with(PolicyMiddleware)
             .with(AuditMiddleware::new());
         assert_eq!(chain.names(), vec!["logging", "policy", "audit"]);
@@ -2112,7 +2112,7 @@ mod middleware_chain {
 
     #[tokio::test]
     async fn chain_push_appends_after_with() {
-        let mut chain = MiddlewareChain::new().with(LoggingMiddleware);
+        let mut chain = MiddlewareChain::new().with(LoggingMiddleware::default());
         chain.push(PolicyMiddleware);
         assert_eq!(chain.names(), vec!["logging", "policy"]);
     }
@@ -2156,7 +2156,7 @@ mod middleware_chain {
     #[tokio::test]
     async fn audit_middleware_records_work_order_ids() {
         let audit = AuditMiddleware::new();
-        let chain = MiddlewareChain::new().with(LoggingMiddleware);
+        let chain = MiddlewareChain::new().with(LoggingMiddleware::default());
         let wo = sample_wo();
         let ctx = MiddlewareContext::new("mock");
         chain.run_before(&wo, &ctx).await.unwrap();
