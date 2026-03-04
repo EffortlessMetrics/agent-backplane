@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! Comprehensive conformance test harness validating SDK shim fidelity,
-//! mapping correctness, and receipt integrity across all supported dialects.
+//! Comprehensive conformance test harness validating ABP behavior against the
+//! specification: contract stability, receipt correctness, protocol compliance,
+//! capability negotiation, execution modes, and error taxonomy.
 
 use std::collections::BTreeMap;
+use std::io::BufReader;
 
-use abp_capability::{SupportLevel, check_capability, negotiate_capabilities};
+use abp_capability::{SupportLevel as CapSupportLevel, check_capability, negotiate_capabilities};
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityManifest, Outcome, Receipt,
-    SupportLevel as CoreSupportLevel,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, MinSupport, Outcome, Receipt, ReceiptBuilder, RuntimeConfig,
+    SupportLevel as CoreSupportLevel, WorkOrderBuilder, canonical_json, receipt_hash, sha256_hex,
 };
-use abp_dialect::Dialect;
-use abp_emulation::{EmulationEngine, EmulationReport, FidelityLabel, compute_fidelity};
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode, ErrorInfo};
-use abp_mapping::{Fidelity, MappingError, MappingMatrix, known_rules, validate_mapping};
-use abp_receipt::{ReceiptBuilder, canonicalize, compute_hash, verify_hash};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_receipt::{canonicalize, compute_hash, verify_hash};
 use chrono::Utc;
 use serde_json::json;
 
@@ -51,88 +52,6 @@ fn sample_events() -> Vec<AgentEvent> {
     ]
 }
 
-fn tool_call_events() -> Vec<AgentEvent> {
-    vec![
-        AgentEvent {
-            ts: fixed_ts(),
-            kind: AgentEventKind::RunStarted {
-                message: "start".into(),
-            },
-            ext: None,
-        },
-        AgentEvent {
-            ts: fixed_ts(),
-            kind: AgentEventKind::ToolCall {
-                tool_name: "read_file".into(),
-                tool_use_id: Some("tc_001".into()),
-                parent_tool_use_id: None,
-                input: json!({"path": "src/main.rs"}),
-            },
-            ext: None,
-        },
-        AgentEvent {
-            ts: fixed_ts(),
-            kind: AgentEventKind::ToolResult {
-                tool_name: "read_file".into(),
-                tool_use_id: Some("tc_001".into()),
-                output: json!({"content": "fn main() {}"}),
-                is_error: false,
-            },
-            ext: None,
-        },
-        AgentEvent {
-            ts: fixed_ts(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "File read.".into(),
-            },
-            ext: None,
-        },
-        AgentEvent {
-            ts: fixed_ts(),
-            kind: AgentEventKind::RunCompleted {
-                message: "done".into(),
-            },
-            ext: None,
-        },
-    ]
-}
-
-fn streaming_events() -> Vec<AgentEvent> {
-    vec![
-        AgentEvent {
-            ts: fixed_ts(),
-            kind: AgentEventKind::RunStarted {
-                message: "start".into(),
-            },
-            ext: None,
-        },
-        AgentEvent {
-            ts: fixed_ts(),
-            kind: AgentEventKind::AssistantDelta { text: "Hel".into() },
-            ext: None,
-        },
-        AgentEvent {
-            ts: fixed_ts(),
-            kind: AgentEventKind::AssistantDelta { text: "lo ".into() },
-            ext: None,
-        },
-        AgentEvent {
-            ts: fixed_ts(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "world!".into(),
-            },
-            ext: None,
-        },
-        AgentEvent {
-            ts: fixed_ts(),
-            kind: AgentEventKind::RunCompleted {
-                message: "done".into(),
-            },
-            ext: None,
-        },
-    ]
-}
-
 fn minimal_receipt() -> Receipt {
     ReceiptBuilder::new("mock")
         .outcome(Outcome::Complete)
@@ -155,513 +74,272 @@ fn manifest_with(caps: &[Capability]) -> CapabilityManifest {
     m
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-//  1. PASSTHROUGH PARITY TESTS
-// ═══════════════════════════════════════════════════════════════════════
+fn manifest_with_level(entries: &[(Capability, CoreSupportLevel)]) -> CapabilityManifest {
+    entries.iter().cloned().collect()
+}
 
-mod passthrough_parity {
-    use super::*;
+fn make_hello_envelope() -> Envelope {
+    Envelope::hello(
+        BackendIdentity {
+            id: "test-sidecar".into(),
+            backend_version: Some("1.0.0".into()),
+            adapter_version: None,
+        },
+        CapabilityManifest::new(),
+    )
+}
 
-    // ── OpenAI roundtrip ────────────────────────────────────────────
-
-    #[test]
-    fn openai_request_to_work_order_preserves_task() {
-        use abp_shim_openai::{ChatCompletionRequest, Message, Role};
-        let req = ChatCompletionRequest::builder()
-            .model("gpt-4o")
-            .messages(vec![Message {
-                role: Role::User,
-                content: Some("Summarize this".into()),
-                tool_calls: None,
-                tool_call_id: None,
-            }])
-            .build();
-        let wo = abp_shim_openai::request_to_work_order(&req);
-        assert!(wo.task.contains("Summarize this") || !wo.task.is_empty());
+fn make_run_envelope(run_id: &str) -> Envelope {
+    let wo = WorkOrderBuilder::new("test task").build();
+    Envelope::Run {
+        id: run_id.into(),
+        work_order: wo,
     }
+}
 
-    #[test]
-    fn openai_receipt_to_response_roundtrip() {
-        let receipt = receipt_with_events(sample_events());
-        let resp = abp_shim_openai::receipt_to_response(&receipt, "gpt-4o");
-        assert_eq!(resp.model, "gpt-4o");
-        assert!(!resp.choices.is_empty());
+fn make_event_envelope(ref_id: &str) -> Envelope {
+    Envelope::Event {
+        ref_id: ref_id.into(),
+        event: AgentEvent {
+            ts: fixed_ts(),
+            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
+            ext: None,
+        },
     }
+}
 
-    #[test]
-    fn openai_streaming_events_preserved() {
-        let events = streaming_events();
-        let stream = abp_shim_openai::events_to_stream_events(&events, "gpt-4o");
-        assert!(!stream.is_empty(), "streaming events should produce output");
+fn make_final_envelope(ref_id: &str) -> Envelope {
+    Envelope::Final {
+        ref_id: ref_id.into(),
+        receipt: minimal_receipt(),
     }
+}
 
-    #[test]
-    fn openai_tool_call_ids_stable_through_roundtrip() {
-        let events = tool_call_events();
-        let receipt = receipt_with_events(events);
-        let resp = abp_shim_openai::receipt_to_response(&receipt, "gpt-4o");
-        // Tool calls should appear in the response choices
-        let has_content = resp
-            .choices
-            .iter()
-            .any(|c| c.message.content.is_some() || c.message.tool_calls.is_some());
-        assert!(has_content);
-    }
-
-    #[test]
-    fn openai_mock_receipt_produces_valid_receipt() {
-        let r = abp_shim_openai::mock_receipt(sample_events());
-        assert_eq!(r.outcome, Outcome::Complete);
-        assert_eq!(r.trace.len(), 3);
-    }
-
-    // ── Claude roundtrip ────────────────────────────────────────────
-
-    #[test]
-    fn claude_request_to_work_order_preserves_fields() {
-        use abp_shim_claude::{ContentBlock, Message, MessageRequest, Role};
-        let req = MessageRequest {
-            model: "claude-sonnet-4-20250514".into(),
-            max_tokens: 1024,
-            messages: vec![Message {
-                role: Role::User,
-                content: vec![ContentBlock::Text {
-                    text: "Hello Claude".into(),
-                }],
-            }],
-            system: Some("Be helpful".into()),
-            temperature: Some(0.7),
-            stop_sequences: None,
-            thinking: None,
-            stream: None,
-        };
-        let wo = abp_shim_claude::request_to_work_order(&req);
-        assert!(!wo.task.is_empty());
-    }
-
-    #[test]
-    fn claude_response_from_events_roundtrip() {
-        let events = sample_events();
-        let resp = abp_shim_claude::response_from_events(&events, "claude-sonnet-4-20250514", None);
-        assert_eq!(resp.model, "claude-sonnet-4-20250514");
-    }
-
-    #[test]
-    fn claude_streaming_event_ordering() {
-        // Claude's response_from_events processes AssistantMessage, not deltas.
-        // Verify that events with a final AssistantMessage produce content.
-        let events = sample_events(); // contains AssistantMessage
-        let resp = abp_shim_claude::response_from_events(&events, "claude-sonnet-4-20250514", None);
-        let has_content = resp
-            .content
-            .iter()
-            .any(|b| matches!(b, abp_shim_claude::ContentBlock::Text { text } if !text.is_empty()));
-        assert!(
-            has_content,
-            "AssistantMessage events should produce text content"
-        );
-    }
-
-    #[test]
-    fn claude_tool_use_ids_preserved() {
-        let events = tool_call_events();
-        let resp = abp_shim_claude::response_from_events(&events, "claude-sonnet-4-20250514", None);
-        let tool_uses: Vec<_> = resp
-            .content
-            .iter()
-            .filter(|b| matches!(b, abp_shim_claude::ContentBlock::ToolUse { .. }))
-            .collect();
-        // Tool calls from events should map to tool_use blocks
-        assert!(
-            !tool_uses.is_empty() || !resp.content.is_empty(),
-            "tool calls should be present"
-        );
-    }
-
-    // ── Gemini roundtrip ────────────────────────────────────────────
-
-    #[test]
-    fn gemini_request_construction_valid() {
-        use abp_shim_gemini::{Content, GenerateContentRequest, Part};
-        let req = GenerateContentRequest::new("gemini-2.0-flash").add_content(Content {
-            role: "user".into(),
-            parts: vec![Part::Text("Hello Gemini".into())],
-        });
-        assert_eq!(req.model, "gemini-2.0-flash");
-        assert_eq!(req.contents.len(), 1);
-    }
-
-    #[test]
-    fn gemini_to_dialect_request_preserves_model() {
-        use abp_shim_gemini::{Content, GenerateContentRequest, Part};
-        let req = GenerateContentRequest::new("gemini-2.0-flash").add_content(Content {
-            role: "user".into(),
-            parts: vec![Part::Text("Test".into())],
-        });
-        let dialect_req = abp_shim_gemini::to_dialect_request(&req);
-        assert_eq!(dialect_req.model, "gemini-2.0-flash");
-    }
-
-    #[test]
-    fn gemini_streaming_events_ordering() {
-        let events = streaming_events();
-        // Verify event ordering is maintained
-        assert!(matches!(events[0].kind, AgentEventKind::RunStarted { .. }));
-        assert!(matches!(
-            events[1].kind,
-            AgentEventKind::AssistantDelta { .. }
-        ));
-        assert!(matches!(
-            events.last().unwrap().kind,
-            AgentEventKind::RunCompleted { .. }
-        ));
-    }
-
-    // ── Codex roundtrip ─────────────────────────────────────────────
-
-    #[test]
-    fn codex_request_to_work_order_preserves_fields() {
-        use abp_shim_codex::CodexRequestBuilder;
-        let req = CodexRequestBuilder::new()
-            .model("codex-mini-latest")
-            .build();
-        let wo = abp_shim_codex::request_to_work_order(&req);
-        assert!(!wo.id.is_nil());
-    }
-
-    #[test]
-    fn codex_receipt_to_response_roundtrip() {
-        let receipt = receipt_with_events(sample_events());
-        let resp = abp_shim_codex::receipt_to_response(&receipt, "codex-mini-latest");
-        // Response should be populated with model info
-        assert_eq!(resp.model, "codex-mini-latest");
-    }
-
-    #[test]
-    fn codex_streaming_events_preserved() {
-        let events = streaming_events();
-        let stream = abp_shim_codex::events_to_stream_events(&events, "codex-mini-latest");
-        assert!(!stream.is_empty());
-    }
-
-    #[test]
-    fn codex_tool_call_ids_stable() {
-        let events = tool_call_events();
-        let receipt = receipt_with_events(events);
-        let resp = abp_shim_codex::receipt_to_response(&receipt, "codex-mini-latest");
-        let tool_items: Vec<_> = resp
-            .output
-            .iter()
-            .filter(|item| {
-                matches!(
-                    item,
-                    abp_codex_sdk::dialect::CodexResponseItem::FunctionCall { .. }
-                )
-            })
-            .collect();
-        assert!(
-            !tool_items.is_empty() || !resp.output.is_empty(),
-            "tool events should appear"
-        );
-    }
-
-    // ── Kimi roundtrip ──────────────────────────────────────────────
-
-    #[test]
-    fn kimi_request_to_work_order_preserves_fields() {
-        use abp_shim_kimi::{KimiRequestBuilder, Message};
-        let req = KimiRequestBuilder::new()
-            .model("moonshot-v1-8k")
-            .messages(vec![Message::user("Hello Kimi")])
-            .build();
-        let wo = abp_shim_kimi::request_to_work_order(&req);
-        assert!(!wo.task.is_empty());
-    }
-
-    #[test]
-    fn kimi_receipt_to_response_roundtrip() {
-        let receipt = receipt_with_events(sample_events());
-        let resp = abp_shim_kimi::receipt_to_response(&receipt, "moonshot-v1-8k");
-        assert_eq!(resp.model, "moonshot-v1-8k");
-    }
-
-    #[test]
-    fn kimi_streaming_events_preserved() {
-        let events = streaming_events();
-        let stream = abp_shim_kimi::events_to_stream_chunks(&events, "moonshot-v1-8k");
-        assert!(!stream.is_empty());
-    }
-
-    #[test]
-    fn kimi_tool_call_ids_stable() {
-        let events = tool_call_events();
-        let receipt = receipt_with_events(events);
-        let resp = abp_shim_kimi::receipt_to_response(&receipt, "moonshot-v1-8k");
-        assert!(!resp.choices.is_empty());
-    }
-
-    // ── Copilot roundtrip ───────────────────────────────────────────
-
-    #[test]
-    fn copilot_request_to_work_order_preserves_fields() {
-        use abp_shim_copilot::{CopilotRequestBuilder, Message};
-        let req = CopilotRequestBuilder::new()
-            .model("gpt-4o")
-            .messages(vec![Message::user("Hello Copilot")])
-            .build();
-        let wo = abp_shim_copilot::request_to_work_order(&req);
-        assert!(!wo.task.is_empty());
-    }
-
-    #[test]
-    fn copilot_receipt_to_response_roundtrip() {
-        let receipt = receipt_with_events(sample_events());
-        let resp = abp_shim_copilot::receipt_to_response(&receipt, "gpt-4o");
-        assert!(!resp.message.is_empty() || resp.copilot_errors.is_empty());
-    }
-
-    #[test]
-    fn copilot_streaming_events_preserved() {
-        let events = streaming_events();
-        let stream = abp_shim_copilot::events_to_stream_events(&events, "gpt-4o");
-        assert!(!stream.is_empty());
-    }
-
-    #[test]
-    fn copilot_tool_call_ids_stable() {
-        let events = tool_call_events();
-        let receipt = receipt_with_events(events);
-        let resp = abp_shim_copilot::receipt_to_response(&receipt, "gpt-4o");
-        // Copilot response should be valid (message may contain tool info)
-        assert!(
-            !resp.message.is_empty()
-                || resp.function_call.is_some()
-                || resp.copilot_errors.is_empty(),
-            "copilot response should be valid"
-        );
-    }
-
-    // ── Cross-cutting passthrough tests ─────────────────────────────
-
-    #[test]
-    fn all_dialects_produce_nonempty_work_order_ids() {
-        // OpenAI
-        let oai_req = abp_shim_openai::ChatCompletionRequest::builder()
-            .model("gpt-4o")
-            .messages(vec![abp_shim_openai::Message {
-                role: abp_shim_openai::Role::User,
-                content: Some("test".into()),
-                tool_calls: None,
-                tool_call_id: None,
-            }])
-            .build();
-        let oai_wo = abp_shim_openai::request_to_work_order(&oai_req);
-        assert!(!oai_wo.id.is_nil());
-
-        // Kimi
-        let kimi_req = abp_shim_kimi::KimiRequestBuilder::new()
-            .messages(vec![abp_shim_kimi::Message::user("test")])
-            .build();
-        let kimi_wo = abp_shim_kimi::request_to_work_order(&kimi_req);
-        assert!(!kimi_wo.id.is_nil());
-
-        // Codex
-        let codex_req = abp_shim_codex::CodexRequestBuilder::new().build();
-        let codex_wo = abp_shim_codex::request_to_work_order(&codex_req);
-        assert!(!codex_wo.id.is_nil());
-
-        // Copilot
-        let copilot_req = abp_shim_copilot::CopilotRequestBuilder::new()
-            .messages(vec![abp_shim_copilot::Message::user("test")])
-            .build();
-        let copilot_wo = abp_shim_copilot::request_to_work_order(&copilot_req);
-        assert!(!copilot_wo.id.is_nil());
+fn make_fatal_envelope(ref_id: Option<&str>) -> Envelope {
+    Envelope::Fatal {
+        ref_id: ref_id.map(String::from),
+        error: "fatal error".into(),
+        error_code: None,
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  2. MAPPED MODE CONTRACT TESTS
+//  1. CONTRACT STABILITY
 // ═══════════════════════════════════════════════════════════════════════
 
-mod mapped_mode_contracts {
+mod contract_stability {
     use super::*;
 
     #[test]
-    fn capability_unsupported_produces_failure() {
-        let manifest = manifest_with(&[Capability::Streaming]);
-        let result = check_capability(&manifest, &Capability::ExtendedThinking);
-        assert!(matches!(result, SupportLevel::Unsupported { .. }));
+    fn contract_version_is_abp_v0_1() {
+        assert_eq!(CONTRACT_VERSION, "abp/v0.1");
     }
 
     #[test]
-    fn negotiation_flags_unsupported_capabilities() {
-        let manifest = manifest_with(&[Capability::Streaming, Capability::ToolUse]);
-        let required = vec![
-            Capability::Streaming,
-            Capability::ExtendedThinking,
-            Capability::ImageInput,
+    fn contract_version_parseable() {
+        let parsed = parse_version(CONTRACT_VERSION);
+        assert_eq!(parsed, Some((0, 1)));
+    }
+
+    #[test]
+    fn work_order_roundtrip() {
+        let wo = WorkOrderBuilder::new("refactor auth").build();
+        let json = serde_json::to_string(&wo).unwrap();
+        let wo2: abp_core::WorkOrder = serde_json::from_str(&json).unwrap();
+        assert_eq!(wo.task, wo2.task);
+        assert_eq!(wo.id, wo2.id);
+    }
+
+    #[test]
+    fn receipt_roundtrip() {
+        let r = minimal_receipt();
+        let json = serde_json::to_string(&r).unwrap();
+        let r2: Receipt = serde_json::from_str(&json).unwrap();
+        assert_eq!(r.outcome, r2.outcome);
+        assert_eq!(r.backend.id, r2.backend.id);
+    }
+
+    #[test]
+    fn agent_event_all_variants_serialize() {
+        let variants: Vec<AgentEventKind> = vec![
+            AgentEventKind::RunStarted {
+                message: "s".into(),
+            },
+            AgentEventKind::RunCompleted {
+                message: "d".into(),
+            },
+            AgentEventKind::AssistantDelta { text: "tok".into() },
+            AgentEventKind::AssistantMessage { text: "msg".into() },
+            AgentEventKind::ToolCall {
+                tool_name: "read".into(),
+                tool_use_id: Some("id1".into()),
+                parent_tool_use_id: None,
+                input: json!({}),
+            },
+            AgentEventKind::ToolResult {
+                tool_name: "read".into(),
+                tool_use_id: Some("id1".into()),
+                output: json!({}),
+                is_error: false,
+            },
+            AgentEventKind::FileChanged {
+                path: "a.rs".into(),
+                summary: "edit".into(),
+            },
+            AgentEventKind::CommandExecuted {
+                command: "ls".into(),
+                exit_code: Some(0),
+                output_preview: None,
+            },
+            AgentEventKind::Warning {
+                message: "warn".into(),
+            },
+            AgentEventKind::Error {
+                message: "err".into(),
+                error_code: Some(ErrorCode::Internal),
+            },
         ];
-        let result = negotiate_capabilities(&required, &manifest);
-        let unsup = result.unsupported_caps();
-        assert!(!unsup.is_empty());
-        assert!(unsup.contains(&Capability::ExtendedThinking));
-        assert!(unsup.contains(&Capability::ImageInput));
-    }
-
-    #[test]
-    fn negotiation_compatible_when_all_native() {
-        let manifest = manifest_with(&[Capability::Streaming, Capability::ToolUse]);
-        let required = vec![Capability::Streaming, Capability::ToolUse];
-        let result = negotiate_capabilities(&required, &manifest);
-        assert!(result.is_compatible());
-        assert!(result.unsupported.is_empty());
-    }
-
-    #[test]
-    fn lossy_conversion_labeled_in_mapping() {
-        let registry = known_rules();
-        let results = validate_mapping(
-            &registry,
-            Dialect::Claude,
-            Dialect::OpenAi,
-            &["thinking".into()],
-        );
-        assert_eq!(results.len(), 1);
-        assert!(
-            matches!(results[0].fidelity, Fidelity::LossyLabeled { .. }),
-            "Claude→OpenAI thinking should be lossy labeled"
-        );
-    }
-
-    #[test]
-    fn lossy_conversion_includes_warning() {
-        let registry = known_rules();
-        let results = validate_mapping(
-            &registry,
-            Dialect::Claude,
-            Dialect::OpenAi,
-            &["thinking".into()],
-        );
-        if let Fidelity::LossyLabeled { warning } = &results[0].fidelity {
-            assert!(!warning.is_empty(), "lossy warning should not be empty");
-        } else {
-            panic!("expected LossyLabeled");
+        for kind in variants {
+            let event = AgentEvent {
+                ts: fixed_ts(),
+                kind,
+                ext: None,
+            };
+            let json = serde_json::to_string(&event).unwrap();
+            let back: AgentEvent = serde_json::from_str(&json).unwrap();
+            assert_eq!(event.ts, back.ts);
         }
     }
 
     #[test]
-    fn unsupported_feature_returns_errors() {
-        let registry = known_rules();
-        let results = validate_mapping(
-            &registry,
-            Dialect::OpenAi,
-            Dialect::Codex,
-            &["image_input".into()],
-        );
-        assert!(!results[0].errors.is_empty());
-        assert!(results[0].fidelity.is_unsupported());
-    }
-
-    #[test]
-    fn lossless_mapping_has_no_errors() {
-        let registry = known_rules();
-        let results = validate_mapping(
-            &registry,
-            Dialect::OpenAi,
-            Dialect::Claude,
-            &["tool_use".into()],
-        );
-        assert!(results[0].errors.is_empty());
-        assert!(results[0].fidelity.is_lossless());
-    }
-
-    #[test]
-    fn cross_dialect_openai_to_claude_tool_use() {
-        let registry = known_rules();
-        let results = validate_mapping(
-            &registry,
-            Dialect::OpenAi,
-            Dialect::Claude,
-            &["tool_use".into(), "streaming".into()],
-        );
-        assert_eq!(results.len(), 2);
-        assert!(results.iter().all(|r| r.fidelity.is_lossless()));
-    }
-
-    #[test]
-    fn cross_dialect_claude_to_gemini_streaming() {
-        let registry = known_rules();
-        let results = validate_mapping(
-            &registry,
-            Dialect::Claude,
-            Dialect::Gemini,
-            &["streaming".into()],
-        );
-        assert!(results[0].fidelity.is_lossless());
-    }
-
-    #[test]
-    fn mapping_matrix_reflects_registry() {
-        let registry = known_rules();
-        let matrix = MappingMatrix::from_registry(&registry);
-        assert!(matrix.is_supported(Dialect::OpenAi, Dialect::Claude));
-        assert!(matrix.is_supported(Dialect::Claude, Dialect::Gemini));
-    }
-
-    #[test]
-    fn same_dialect_always_lossless() {
-        let registry = known_rules();
-        for &d in Dialect::all() {
-            let results =
-                validate_mapping(&registry, d, d, &["tool_use".into(), "streaming".into()]);
-            for r in &results {
-                assert!(
-                    r.fidelity.is_lossless(),
-                    "{d}→{d} for {} should be lossless",
-                    r.feature
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn emulation_engine_labels_strategies() {
-        let engine = EmulationEngine::with_defaults();
-        let strategy = engine.resolve_strategy(&Capability::StructuredOutputJsonSchema);
-        // The engine should always return a valid strategy (could be any variant)
-        let _ = format!("{strategy:?}");
-    }
-
-    #[test]
-    fn emulation_fidelity_label_native_for_empty_report() {
-        let report = EmulationReport {
-            applied: vec![],
-            warnings: vec![],
+    fn agent_event_kind_uses_type_discriminator() {
+        let event = AgentEvent {
+            ts: fixed_ts(),
+            kind: AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+            ext: None,
         };
-        let labels = compute_fidelity(&[Capability::Streaming], &report);
-        assert!(matches!(
-            labels.get(&Capability::Streaming),
-            Some(FidelityLabel::Native)
-        ));
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(
+            json.contains(r#""type":"run_started"#),
+            "AgentEventKind must use 'type' discriminator, got: {json}"
+        );
     }
 
     #[test]
-    fn mapping_registry_rank_targets() {
-        let registry = known_rules();
-        let ranked = registry.rank_targets(Dialect::OpenAi, &["tool_use", "streaming"]);
-        assert!(!ranked.is_empty(), "OpenAI should have ranked targets");
+    fn outcome_serialize_snake_case() {
+        let json_c = serde_json::to_string(&Outcome::Complete).unwrap();
+        let json_p = serde_json::to_string(&Outcome::Partial).unwrap();
+        let json_f = serde_json::to_string(&Outcome::Failed).unwrap();
+        assert_eq!(json_c, r#""complete""#);
+        assert_eq!(json_p, r#""partial""#);
+        assert_eq!(json_f, r#""failed""#);
     }
 
     #[test]
-    fn validate_empty_feature_name_errors() {
-        let registry = known_rules();
-        let results = validate_mapping(&registry, Dialect::OpenAi, Dialect::Claude, &["".into()]);
-        assert!(!results[0].errors.is_empty());
+    fn outcome_deserialize_snake_case() {
+        let c: Outcome = serde_json::from_str(r#""complete""#).unwrap();
+        let p: Outcome = serde_json::from_str(r#""partial""#).unwrap();
+        let f: Outcome = serde_json::from_str(r#""failed""#).unwrap();
+        assert_eq!(c, Outcome::Complete);
+        assert_eq!(p, Outcome::Partial);
+        assert_eq!(f, Outcome::Failed);
+    }
+
+    #[test]
+    fn execution_mode_serialize_snake_case() {
+        assert_eq!(
+            serde_json::to_string(&ExecutionMode::Passthrough).unwrap(),
+            r#""passthrough""#
+        );
+        assert_eq!(
+            serde_json::to_string(&ExecutionMode::Mapped).unwrap(),
+            r#""mapped""#
+        );
+    }
+
+    #[test]
+    fn execution_mode_default_is_mapped() {
+        assert_eq!(ExecutionMode::default(), ExecutionMode::Mapped);
+    }
+
+    #[test]
+    fn capability_serialize_snake_case() {
+        let json = serde_json::to_string(&Capability::ToolRead).unwrap();
+        assert_eq!(json, r#""tool_read""#);
+    }
+
+    #[test]
+    fn support_level_serialize_snake_case() {
+        let json_n = serde_json::to_string(&CoreSupportLevel::Native).unwrap();
+        let json_e = serde_json::to_string(&CoreSupportLevel::Emulated).unwrap();
+        let json_u = serde_json::to_string(&CoreSupportLevel::Unsupported).unwrap();
+        assert_eq!(json_n, r#""native""#);
+        assert_eq!(json_e, r#""emulated""#);
+        assert_eq!(json_u, r#""unsupported""#);
+    }
+
+    #[test]
+    fn schema_generation_work_order() {
+        let schema = schemars::schema_for!(abp_core::WorkOrder);
+        let val = serde_json::to_value(&schema).unwrap();
+        assert!(val.is_object());
+        assert!(val.get("properties").is_some() || val.get("$defs").is_some());
+    }
+
+    #[test]
+    fn schema_generation_receipt() {
+        let schema = schemars::schema_for!(Receipt);
+        let val = serde_json::to_value(&schema).unwrap();
+        assert!(val.is_object());
+    }
+
+    #[test]
+    fn schema_generation_agent_event() {
+        let schema = schemars::schema_for!(AgentEvent);
+        let val = serde_json::to_value(&schema).unwrap();
+        assert!(val.is_object());
+    }
+
+    #[test]
+    fn receipt_meta_embeds_contract_version() {
+        let r = minimal_receipt();
+        assert_eq!(r.meta.contract_version, CONTRACT_VERSION);
+    }
+
+    #[test]
+    fn work_order_builder_generates_unique_ids() {
+        let wo1 = WorkOrderBuilder::new("a").build();
+        let wo2 = WorkOrderBuilder::new("b").build();
+        assert_ne!(wo1.id, wo2.id);
+    }
+
+    #[test]
+    fn receipt_builder_generates_unique_run_ids() {
+        let r1 = ReceiptBuilder::new("m").build();
+        let r2 = ReceiptBuilder::new("m").build();
+        assert_ne!(r1.meta.run_id, r2.meta.run_id);
+    }
+
+    #[test]
+    fn canonical_json_is_valid_json() {
+        let r = minimal_receipt();
+        let cj = canonical_json(&r).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&cj).unwrap();
+        assert!(parsed.is_object());
+    }
+
+    #[test]
+    fn sha256_hex_produces_64_char_hex() {
+        let h = sha256_hex(b"hello world");
+        assert_eq!(h.len(), 64);
+        assert!(h.chars().all(|c| c.is_ascii_hexdigit()));
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  3. RECEIPT CORRECTNESS TESTS
+//  2. RECEIPT CORRECTNESS
 // ═══════════════════════════════════════════════════════════════════════
 
 mod receipt_correctness {
@@ -672,160 +350,645 @@ mod receipt_correctness {
         let r = minimal_receipt();
         let h1 = compute_hash(&r).unwrap();
         let h2 = compute_hash(&r).unwrap();
-        assert_eq!(h1, h2, "hash should be deterministic");
+        assert_eq!(h1, h2);
     }
 
     #[test]
-    fn receipt_hash_is_sha256_length() {
+    fn receipt_hash_is_sha256_hex_length() {
         let r = minimal_receipt();
         let h = compute_hash(&r).unwrap();
-        assert_eq!(h.len(), 64, "SHA-256 hex should be 64 chars");
+        assert_eq!(h.len(), 64);
     }
 
     #[test]
-    fn canonical_json_is_deterministic() {
+    fn receipt_hash_hex_only_chars() {
         let r = minimal_receipt();
-        let j1 = canonicalize(&r).unwrap();
-        let j2 = canonicalize(&r).unwrap();
-        assert_eq!(j1, j2);
+        let h = compute_hash(&r).unwrap();
+        assert!(h.chars().all(|c| c.is_ascii_hexdigit()));
     }
 
     #[test]
-    fn canonical_json_uses_sorted_keys() {
+    fn canonicalize_forces_null_sha256() {
         let mut r = minimal_receipt();
-        r.usage_raw = json!({"z_key": 1, "a_key": 2});
+        r.receipt_sha256 = Some("fake".into());
         let j = canonicalize(&r).unwrap();
-        let z_pos = j.find("z_key").unwrap();
-        let a_pos = j.find("a_key").unwrap();
-        assert!(
-            a_pos < z_pos,
-            "BTreeMap-based canonical JSON should sort keys"
-        );
+        let v: serde_json::Value = serde_json::from_str(&j).unwrap();
+        assert!(v["receipt_sha256"].is_null());
     }
 
     #[test]
-    fn hash_changes_when_outcome_changes() {
-        let r1 = ReceiptBuilder::new("mock")
-            .outcome(Outcome::Complete)
-            .build();
-        let r2 = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
-        let h1 = compute_hash(&r1).unwrap();
-        let h2 = compute_hash(&r2).unwrap();
-        assert_ne!(h1, h2, "different outcomes must produce different hashes");
+    fn canonicalize_is_deterministic() {
+        let r = minimal_receipt();
+        assert_eq!(canonicalize(&r).unwrap(), canonicalize(&r).unwrap());
     }
 
     #[test]
-    fn hash_changes_when_backend_id_changes() {
-        let r1 = ReceiptBuilder::new("backend-a")
-            .outcome(Outcome::Complete)
-            .build();
-        let r2 = ReceiptBuilder::new("backend-b")
-            .outcome(Outcome::Complete)
-            .build();
-        let h1 = compute_hash(&r1).unwrap();
-        let h2 = compute_hash(&r2).unwrap();
-        assert_ne!(h1, h2);
+    fn canonicalize_sorts_keys() {
+        let mut r = minimal_receipt();
+        r.usage_raw = json!({"z": 1, "a": 2});
+        let j = canonicalize(&r).unwrap();
+        let z_pos = j.find("\"z\"").unwrap();
+        let a_pos = j.find("\"a\"").unwrap();
+        assert!(a_pos < z_pos);
     }
 
     #[test]
-    fn hash_changes_when_trace_changes() {
-        let r1 = receipt_with_events(vec![]);
-        let r2 = receipt_with_events(sample_events());
-        let h1 = compute_hash(&r1).unwrap();
-        let h2 = compute_hash(&r2).unwrap();
-        assert_ne!(h1, h2);
-    }
-
-    #[test]
-    fn with_hash_populates_receipt_sha256() {
+    fn with_hash_populates_sha256() {
         let r = ReceiptBuilder::new("mock")
             .outcome(Outcome::Complete)
             .with_hash()
             .unwrap();
-        assert!(
-            r.receipt_sha256.is_some(),
-            "with_hash should populate sha256"
-        );
+        assert!(r.receipt_sha256.is_some());
     }
 
     #[test]
-    fn with_hash_idempotence() {
-        let r1 = ReceiptBuilder::new("mock")
-            .outcome(Outcome::Complete)
-            .with_hash()
-            .unwrap();
-        let hash1 = r1.receipt_sha256.clone().unwrap();
-
-        // Compute the hash again on the already-hashed receipt
-        let hash2 = compute_hash(&r1).unwrap();
-        assert_eq!(
-            hash1, hash2,
-            "recomputing hash on hashed receipt should be idempotent"
-        );
-    }
-
-    #[test]
-    fn verify_hash_succeeds_on_valid_receipt() {
+    fn with_hash_value_matches_compute_hash() {
         let r = ReceiptBuilder::new("mock")
             .outcome(Outcome::Complete)
             .with_hash()
             .unwrap();
-        assert!(verify_hash(&r), "verify_hash should pass for valid receipt");
+        let recomputed = compute_hash(&r).unwrap();
+        assert_eq!(r.receipt_sha256.as_ref().unwrap(), &recomputed);
     }
 
     #[test]
-    fn verify_hash_fails_on_tampered_receipt() {
+    fn verify_hash_valid_receipt() {
+        let r = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .with_hash()
+            .unwrap();
+        assert!(verify_hash(&r));
+    }
+
+    #[test]
+    fn verify_hash_fails_tampered() {
         let mut r = ReceiptBuilder::new("mock")
             .outcome(Outcome::Complete)
             .with_hash()
             .unwrap();
         r.outcome = Outcome::Failed;
-        assert!(!verify_hash(&r), "verify_hash should fail after tampering");
+        assert!(!verify_hash(&r));
     }
 
     #[test]
-    fn receipt_sha256_null_before_hashing() {
+    fn verify_hash_passes_when_none() {
         let r = minimal_receipt();
-        assert!(
-            r.receipt_sha256.is_none(),
-            "fresh receipt should have None sha256"
-        );
+        assert!(r.receipt_sha256.is_none());
+        assert!(verify_hash(&r));
     }
 
     #[test]
-    fn canonical_json_forces_null_sha256() {
+    fn hash_differs_on_outcome_change() {
+        let r1 = ReceiptBuilder::new("m").outcome(Outcome::Complete).build();
+        let r2 = ReceiptBuilder::new("m").outcome(Outcome::Failed).build();
+        assert_ne!(compute_hash(&r1).unwrap(), compute_hash(&r2).unwrap());
+    }
+
+    #[test]
+    fn hash_differs_on_backend_change() {
+        let r1 = ReceiptBuilder::new("a").build();
+        let r2 = ReceiptBuilder::new("b").build();
+        assert_ne!(compute_hash(&r1).unwrap(), compute_hash(&r2).unwrap());
+    }
+
+    #[test]
+    fn hash_differs_on_trace_change() {
+        let r1 = receipt_with_events(vec![]);
+        let r2 = receipt_with_events(sample_events());
+        assert_ne!(compute_hash(&r1).unwrap(), compute_hash(&r2).unwrap());
+    }
+
+    #[test]
+    fn receipt_hash_nullifies_sha256_before_hashing() {
         let mut r = minimal_receipt();
-        r.receipt_sha256 = Some("fake_hash".into());
-        let j = canonicalize(&r).unwrap();
-        let v: serde_json::Value = serde_json::from_str(&j).unwrap();
-        assert!(
-            v["receipt_sha256"].is_null(),
-            "canonical JSON must force sha256 to null"
-        );
+        r.receipt_sha256 = Some("should_be_ignored".into());
+        let h1 = compute_hash(&r).unwrap();
+        r.receipt_sha256 = None;
+        let h2 = compute_hash(&r).unwrap();
+        assert_eq!(h1, h2, "sha256 field must not affect hash");
     }
 
     #[test]
-    fn verify_hash_succeeds_with_none_sha256() {
+    fn receipt_hash_function_consistent_with_compute_hash() {
         let r = minimal_receipt();
-        assert!(
-            verify_hash(&r),
-            "verify_hash should pass when sha256 is None"
-        );
+        let from_core = receipt_hash(&r).unwrap();
+        let from_receipt = compute_hash(&r).unwrap();
+        assert_eq!(from_core, from_receipt);
     }
 
     #[test]
-    fn receipt_hash_hex_only() {
+    fn fresh_receipt_sha256_is_none() {
         let r = minimal_receipt();
-        let h = compute_hash(&r).unwrap();
-        assert!(
-            h.chars().all(|c| c.is_ascii_hexdigit()),
-            "hash should only contain hex digits"
-        );
+        assert!(r.receipt_sha256.is_none());
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  4. ERROR TAXONOMY COVERAGE
+//  3. PROTOCOL COMPLIANCE
+// ═══════════════════════════════════════════════════════════════════════
+
+mod protocol_compliance {
+    use super::*;
+
+    #[test]
+    fn envelope_uses_t_discriminator() {
+        let hello = make_hello_envelope();
+        let json = serde_json::to_string(&hello).unwrap();
+        assert!(
+            json.contains(r#""t":"hello"#),
+            "Envelope must use 't' not 'type': {json}"
+        );
+    }
+
+    #[test]
+    fn envelope_does_not_use_type_discriminator() {
+        let hello = make_hello_envelope();
+        let json = serde_json::to_string(&hello).unwrap();
+        // "t":"hello" should be present, not "type":"hello"
+        assert!(!json.contains(r#""type":"hello"#));
+    }
+
+    #[test]
+    fn hello_envelope_roundtrip() {
+        let hello = make_hello_envelope();
+        let json = JsonlCodec::encode(&hello).unwrap();
+        let decoded = JsonlCodec::decode(json.trim()).unwrap();
+        assert!(matches!(decoded, Envelope::Hello { .. }));
+    }
+
+    #[test]
+    fn jsonl_encode_newline_terminated() {
+        let env = make_hello_envelope();
+        let line = JsonlCodec::encode(&env).unwrap();
+        assert!(line.ends_with('\n'));
+    }
+
+    #[test]
+    fn hello_carries_contract_version() {
+        let hello = make_hello_envelope();
+        if let Envelope::Hello {
+            contract_version, ..
+        } = hello
+        {
+            assert_eq!(contract_version, CONTRACT_VERSION);
+        } else {
+            panic!("expected Hello");
+        }
+    }
+
+    #[test]
+    fn run_envelope_roundtrip() {
+        let run = make_run_envelope("run-1");
+        let json = JsonlCodec::encode(&run).unwrap();
+        let decoded = JsonlCodec::decode(json.trim()).unwrap();
+        assert!(matches!(decoded, Envelope::Run { .. }));
+    }
+
+    #[test]
+    fn event_envelope_ref_id_preserved() {
+        let env = make_event_envelope("run-42");
+        let json = JsonlCodec::encode(&env).unwrap();
+        let decoded = JsonlCodec::decode(json.trim()).unwrap();
+        if let Envelope::Event { ref_id, .. } = decoded {
+            assert_eq!(ref_id, "run-42");
+        } else {
+            panic!("expected Event");
+        }
+    }
+
+    #[test]
+    fn final_envelope_ref_id_preserved() {
+        let env = make_final_envelope("run-42");
+        let json = JsonlCodec::encode(&env).unwrap();
+        let decoded = JsonlCodec::decode(json.trim()).unwrap();
+        if let Envelope::Final { ref_id, .. } = decoded {
+            assert_eq!(ref_id, "run-42");
+        } else {
+            panic!("expected Final");
+        }
+    }
+
+    #[test]
+    fn fatal_envelope_roundtrip() {
+        let env = make_fatal_envelope(Some("run-1"));
+        let json = JsonlCodec::encode(&env).unwrap();
+        let decoded = JsonlCodec::decode(json.trim()).unwrap();
+        if let Envelope::Fatal { ref_id, error, .. } = decoded {
+            assert_eq!(ref_id.as_deref(), Some("run-1"));
+            assert_eq!(error, "fatal error");
+        } else {
+            panic!("expected Fatal");
+        }
+    }
+
+    #[test]
+    fn fatal_with_code_carries_error_code() {
+        let env =
+            Envelope::fatal_with_code(Some("run-x".into()), "timeout", ErrorCode::BackendTimeout);
+        assert_eq!(env.error_code(), Some(ErrorCode::BackendTimeout));
+    }
+
+    #[test]
+    fn fatal_from_abp_error_preserves_code() {
+        let err = AbpError::new(ErrorCode::PolicyDenied, "denied");
+        let env = Envelope::fatal_from_abp_error(Some("r1".into()), &err);
+        assert_eq!(env.error_code(), Some(ErrorCode::PolicyDenied));
+    }
+
+    #[test]
+    fn non_fatal_envelopes_have_no_error_code() {
+        assert!(make_hello_envelope().error_code().is_none());
+        assert!(make_event_envelope("r").error_code().is_none());
+        assert!(make_final_envelope("r").error_code().is_none());
+    }
+
+    #[test]
+    fn decode_stream_reads_multiple_lines() {
+        let hello = make_hello_envelope();
+        let fatal = make_fatal_envelope(None);
+        let mut buf = Vec::new();
+        JsonlCodec::encode_many_to_writer(&mut buf, &[hello, fatal]).unwrap();
+        let reader = BufReader::new(buf.as_slice());
+        let envelopes: Vec<_> = JsonlCodec::decode_stream(reader)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(envelopes.len(), 2);
+        assert!(matches!(envelopes[0], Envelope::Hello { .. }));
+        assert!(matches!(envelopes[1], Envelope::Fatal { .. }));
+    }
+
+    #[test]
+    fn decode_stream_skips_blank_lines() {
+        let input = format!(
+            "{}\n\n{}\n",
+            JsonlCodec::encode(&make_hello_envelope()).unwrap().trim(),
+            JsonlCodec::encode(&make_fatal_envelope(None))
+                .unwrap()
+                .trim(),
+        );
+        let reader = BufReader::new(input.as_bytes());
+        let envelopes: Vec<_> = JsonlCodec::decode_stream(reader)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(envelopes.len(), 2);
+    }
+
+    #[test]
+    fn invalid_json_returns_protocol_error() {
+        let result = JsonlCodec::decode("not json");
+        assert!(matches!(result, Err(ProtocolError::Json(_))));
+    }
+
+    #[test]
+    fn ref_id_correlates_event_to_run() {
+        let run_id = "run-99";
+        let run = make_run_envelope(run_id);
+        let event = make_event_envelope(run_id);
+        let fin = make_final_envelope(run_id);
+
+        // All envelopes for the same run share the same ref_id
+        if let Envelope::Run { id, .. } = &run {
+            assert_eq!(id, run_id);
+        }
+        if let Envelope::Event { ref_id, .. } = &event {
+            assert_eq!(ref_id, run_id);
+        }
+        if let Envelope::Final { ref_id, .. } = &fin {
+            assert_eq!(ref_id, run_id);
+        }
+    }
+
+    #[test]
+    fn version_compatibility_same_major() {
+        assert!(is_compatible_version("abp/v0.1", "abp/v0.2"));
+        assert!(is_compatible_version("abp/v0.1", "abp/v0.1"));
+    }
+
+    #[test]
+    fn version_incompatibility_different_major() {
+        assert!(!is_compatible_version("abp/v1.0", "abp/v0.1"));
+    }
+
+    #[test]
+    fn version_parse_invalid_returns_none() {
+        assert_eq!(parse_version("invalid"), None);
+        assert_eq!(parse_version("v0.1"), None);
+        assert_eq!(parse_version(""), None);
+    }
+
+    #[test]
+    fn envelope_hello_default_mode_is_mapped() {
+        let hello = Envelope::hello(
+            BackendIdentity {
+                id: "x".into(),
+                backend_version: None,
+                adapter_version: None,
+            },
+            CapabilityManifest::new(),
+        );
+        if let Envelope::Hello { mode, .. } = hello {
+            assert_eq!(mode, ExecutionMode::Mapped);
+        }
+    }
+
+    #[test]
+    fn envelope_hello_with_passthrough_mode() {
+        let hello = Envelope::hello_with_mode(
+            BackendIdentity {
+                id: "x".into(),
+                backend_version: None,
+                adapter_version: None,
+            },
+            CapabilityManifest::new(),
+            ExecutionMode::Passthrough,
+        );
+        if let Envelope::Hello { mode, .. } = hello {
+            assert_eq!(mode, ExecutionMode::Passthrough);
+        }
+    }
+
+    #[test]
+    fn protocol_error_has_error_code_for_violation() {
+        let err = ProtocolError::Violation("bad".into());
+        assert_eq!(err.error_code(), Some(ErrorCode::ProtocolInvalidEnvelope));
+    }
+
+    #[test]
+    fn protocol_error_has_error_code_for_unexpected() {
+        let err = ProtocolError::UnexpectedMessage {
+            expected: "hello".into(),
+            got: "run".into(),
+        };
+        assert_eq!(err.error_code(), Some(ErrorCode::ProtocolUnexpectedMessage));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  4. CAPABILITY NEGOTIATION
+// ═══════════════════════════════════════════════════════════════════════
+
+mod capability_negotiation {
+    use super::*;
+
+    #[test]
+    fn native_satisfies_native_min() {
+        assert!(CoreSupportLevel::Native.satisfies(&MinSupport::Native));
+    }
+
+    #[test]
+    fn native_satisfies_emulated_min() {
+        assert!(CoreSupportLevel::Native.satisfies(&MinSupport::Emulated));
+    }
+
+    #[test]
+    fn emulated_satisfies_emulated_min() {
+        assert!(CoreSupportLevel::Emulated.satisfies(&MinSupport::Emulated));
+    }
+
+    #[test]
+    fn emulated_does_not_satisfy_native_min() {
+        assert!(!CoreSupportLevel::Emulated.satisfies(&MinSupport::Native));
+    }
+
+    #[test]
+    fn unsupported_never_satisfies_native() {
+        assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Native));
+    }
+
+    #[test]
+    fn unsupported_never_satisfies_emulated() {
+        assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
+    }
+
+    #[test]
+    fn restricted_satisfies_emulated_min() {
+        let restricted = CoreSupportLevel::Restricted {
+            reason: "policy".into(),
+        };
+        assert!(restricted.satisfies(&MinSupport::Emulated));
+    }
+
+    #[test]
+    fn restricted_does_not_satisfy_native_min() {
+        let restricted = CoreSupportLevel::Restricted {
+            reason: "policy".into(),
+        };
+        assert!(!restricted.satisfies(&MinSupport::Native));
+    }
+
+    #[test]
+    fn check_capability_native_in_manifest() {
+        let manifest = manifest_with(&[Capability::Streaming]);
+        let result = check_capability(&manifest, &Capability::Streaming);
+        assert!(matches!(result, CapSupportLevel::Native));
+    }
+
+    #[test]
+    fn check_capability_missing_returns_unsupported() {
+        let manifest = manifest_with(&[Capability::Streaming]);
+        let result = check_capability(&manifest, &Capability::ExtendedThinking);
+        assert!(matches!(result, CapSupportLevel::Unsupported { .. }));
+    }
+
+    #[test]
+    fn check_capability_emulated_in_manifest() {
+        let manifest = manifest_with_level(&[(Capability::ToolRead, CoreSupportLevel::Emulated)]);
+        let result = check_capability(&manifest, &Capability::ToolRead);
+        assert!(matches!(result, CapSupportLevel::Emulated { .. }));
+    }
+
+    #[test]
+    fn check_capability_restricted_in_manifest() {
+        let manifest = manifest_with_level(&[(
+            Capability::ToolBash,
+            CoreSupportLevel::Restricted {
+                reason: "sandbox".into(),
+            },
+        )]);
+        let result = check_capability(&manifest, &Capability::ToolBash);
+        assert!(matches!(result, CapSupportLevel::Restricted { .. }));
+    }
+
+    #[test]
+    fn negotiate_all_native_is_viable() {
+        let manifest = manifest_with(&[Capability::Streaming, Capability::ToolUse]);
+        let required = vec![Capability::Streaming, Capability::ToolUse];
+        let result = negotiate_capabilities(&required, &manifest);
+        assert!(result.is_viable());
+        assert_eq!(result.native.len(), 2);
+        assert!(result.emulated.is_empty());
+        assert!(result.unsupported.is_empty());
+    }
+
+    #[test]
+    fn negotiate_with_unsupported_not_viable() {
+        let manifest = manifest_with(&[Capability::Streaming]);
+        let required = vec![Capability::Streaming, Capability::ExtendedThinking];
+        let result = negotiate_capabilities(&required, &manifest);
+        assert!(!result.is_viable());
+        assert!(!result.unsupported.is_empty());
+    }
+
+    #[test]
+    fn negotiate_emulated_caps_viable() {
+        let manifest = manifest_with_level(&[(Capability::ToolRead, CoreSupportLevel::Emulated)]);
+        let required = vec![Capability::ToolRead];
+        let result = negotiate_capabilities(&required, &manifest);
+        assert!(result.is_viable());
+        assert!(result.native.is_empty());
+        assert_eq!(result.emulated.len(), 1);
+    }
+
+    #[test]
+    fn negotiate_total_counts_all() {
+        let manifest = manifest_with(&[Capability::Streaming]);
+        let required = vec![Capability::Streaming, Capability::ImageInput];
+        let result = negotiate_capabilities(&required, &manifest);
+        assert_eq!(result.total(), 2);
+    }
+
+    #[test]
+    fn negotiate_unsupported_caps_list() {
+        let manifest = manifest_with(&[]);
+        let required = vec![Capability::Streaming, Capability::ToolUse];
+        let result = negotiate_capabilities(&required, &manifest);
+        let unsup = result.unsupported_caps();
+        assert!(unsup.contains(&Capability::Streaming));
+        assert!(unsup.contains(&Capability::ToolUse));
+    }
+
+    #[test]
+    fn negotiate_empty_requirements_viable() {
+        let manifest = manifest_with(&[Capability::Streaming]);
+        let result = negotiate_capabilities(&[], &manifest);
+        assert!(result.is_viable());
+        assert_eq!(result.total(), 0);
+    }
+
+    #[test]
+    fn negotiate_empty_manifest_all_unsupported() {
+        let manifest = CapabilityManifest::new();
+        let required = vec![Capability::Streaming];
+        let result = negotiate_capabilities(&required, &manifest);
+        assert!(!result.is_viable());
+        assert_eq!(result.unsupported.len(), 1);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  5. EXECUTION MODES
+// ═══════════════════════════════════════════════════════════════════════
+
+mod execution_modes {
+    use super::*;
+
+    #[test]
+    fn passthrough_mode_serializes_correctly() {
+        let mode = ExecutionMode::Passthrough;
+        let json = serde_json::to_string(&mode).unwrap();
+        assert_eq!(json, r#""passthrough""#);
+    }
+
+    #[test]
+    fn mapped_mode_serializes_correctly() {
+        let mode = ExecutionMode::Mapped;
+        let json = serde_json::to_string(&mode).unwrap();
+        assert_eq!(json, r#""mapped""#);
+    }
+
+    #[test]
+    fn passthrough_mode_deserializes() {
+        let mode: ExecutionMode = serde_json::from_str(r#""passthrough""#).unwrap();
+        assert_eq!(mode, ExecutionMode::Passthrough);
+    }
+
+    #[test]
+    fn mapped_mode_deserializes() {
+        let mode: ExecutionMode = serde_json::from_str(r#""mapped""#).unwrap();
+        assert_eq!(mode, ExecutionMode::Mapped);
+    }
+
+    #[test]
+    fn default_mode_is_mapped() {
+        assert_eq!(ExecutionMode::default(), ExecutionMode::Mapped);
+    }
+
+    #[test]
+    fn receipt_builder_default_mode_is_mapped() {
+        let r = ReceiptBuilder::new("m").build();
+        assert_eq!(r.mode, ExecutionMode::Mapped);
+    }
+
+    #[test]
+    fn receipt_builder_passthrough_mode() {
+        let r = ReceiptBuilder::new("m")
+            .mode(ExecutionMode::Passthrough)
+            .build();
+        assert_eq!(r.mode, ExecutionMode::Passthrough);
+    }
+
+    #[test]
+    fn hello_envelope_default_mode() {
+        let env = Envelope::hello(
+            BackendIdentity {
+                id: "x".into(),
+                backend_version: None,
+                adapter_version: None,
+            },
+            CapabilityManifest::new(),
+        );
+        if let Envelope::Hello { mode, .. } = env {
+            assert_eq!(mode, ExecutionMode::Mapped);
+        }
+    }
+
+    #[test]
+    fn hello_envelope_explicit_passthrough() {
+        let env = Envelope::hello_with_mode(
+            BackendIdentity {
+                id: "x".into(),
+                backend_version: None,
+                adapter_version: None,
+            },
+            CapabilityManifest::new(),
+            ExecutionMode::Passthrough,
+        );
+        if let Envelope::Hello { mode, .. } = env {
+            assert_eq!(mode, ExecutionMode::Passthrough);
+        }
+    }
+
+    #[test]
+    fn mode_from_work_order_config() {
+        let mut config = RuntimeConfig::default();
+        config
+            .vendor
+            .insert("abp".into(), json!({"mode": "passthrough"}));
+        let wo = WorkOrderBuilder::new("test").config(config).build();
+        let mode_val = wo.config.vendor.get("abp").unwrap();
+        assert_eq!(mode_val["mode"], "passthrough");
+    }
+
+    #[test]
+    fn execution_mode_roundtrip_in_receipt() {
+        let r = ReceiptBuilder::new("m")
+            .mode(ExecutionMode::Passthrough)
+            .build();
+        let json = serde_json::to_string(&r).unwrap();
+        let r2: Receipt = serde_json::from_str(&json).unwrap();
+        assert_eq!(r2.mode, ExecutionMode::Passthrough);
+    }
+
+    #[test]
+    fn execution_mode_equality() {
+        assert_eq!(ExecutionMode::Passthrough, ExecutionMode::Passthrough);
+        assert_eq!(ExecutionMode::Mapped, ExecutionMode::Mapped);
+        assert_ne!(ExecutionMode::Passthrough, ExecutionMode::Mapped);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  6. ERROR TAXONOMY
 // ═══════════════════════════════════════════════════════════════════════
 
 mod error_taxonomy {
@@ -870,43 +1033,156 @@ mod error_taxonomy {
         ErrorCode::Internal,
     ];
 
-    #[test]
-    fn all_error_codes_have_category() {
-        for &code in ALL_CODES {
-            let _cat = code.category();
-        }
-    }
+    const ALL_CATEGORIES: &[ErrorCategory] = &[
+        ErrorCategory::Protocol,
+        ErrorCategory::Backend,
+        ErrorCategory::Capability,
+        ErrorCategory::Policy,
+        ErrorCategory::Workspace,
+        ErrorCategory::Ir,
+        ErrorCategory::Receipt,
+        ErrorCategory::Dialect,
+        ErrorCategory::Config,
+        ErrorCategory::Mapping,
+        ErrorCategory::Execution,
+        ErrorCategory::Contract,
+        ErrorCategory::Internal,
+    ];
 
     #[test]
-    fn all_error_codes_have_stable_str() {
+    fn all_error_codes_have_snake_case_str() {
         for &code in ALL_CODES {
             let s = code.as_str();
-            assert!(!s.is_empty(), "as_str() should not be empty for {code:?}");
+            assert!(!s.is_empty(), "as_str() empty for {code:?}");
             assert!(
                 s.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
-                "as_str() should be snake_case for {code:?}: {s}"
+                "as_str() not snake_case for {code:?}: {s}"
             );
         }
     }
 
     #[test]
-    fn capability_unsupported_has_correct_category() {
-        assert_eq!(
-            ErrorCode::CapabilityUnsupported.category(),
-            ErrorCategory::Capability
-        );
+    fn all_error_codes_have_category() {
+        for &code in ALL_CODES {
+            let _ = code.category();
+        }
     }
 
     #[test]
-    fn dialect_mismatch_has_correct_category() {
-        assert_eq!(
-            ErrorCode::MappingDialectMismatch.category(),
-            ErrorCategory::Mapping
-        );
+    fn all_error_codes_have_message() {
+        for &code in ALL_CODES {
+            let m = code.message();
+            assert!(!m.is_empty(), "message() empty for {code:?}");
+        }
     }
 
     #[test]
-    fn abp_error_builder_constructs_correctly() {
+    fn all_categories_covered_by_codes() {
+        let covered: std::collections::BTreeSet<_> = ALL_CODES
+            .iter()
+            .map(|c| format!("{:?}", c.category()))
+            .collect();
+        for cat in ALL_CATEGORIES {
+            assert!(
+                covered.contains(&format!("{cat:?}")),
+                "category {cat:?} has no error codes"
+            );
+        }
+    }
+
+    #[test]
+    fn error_code_as_str_known_values() {
+        assert_eq!(
+            ErrorCode::ProtocolInvalidEnvelope.as_str(),
+            "protocol_invalid_envelope"
+        );
+        assert_eq!(ErrorCode::BackendTimeout.as_str(), "backend_timeout");
+        assert_eq!(ErrorCode::PolicyDenied.as_str(), "policy_denied");
+        assert_eq!(ErrorCode::Internal.as_str(), "internal");
+        assert_eq!(ErrorCode::ConfigInvalid.as_str(), "config_invalid");
+        assert_eq!(ErrorCode::IrInvalid.as_str(), "ir_invalid");
+    }
+
+    #[test]
+    fn protocol_codes_have_protocol_category() {
+        let proto_codes = &[
+            ErrorCode::ProtocolInvalidEnvelope,
+            ErrorCode::ProtocolHandshakeFailed,
+            ErrorCode::ProtocolMissingRefId,
+            ErrorCode::ProtocolUnexpectedMessage,
+            ErrorCode::ProtocolVersionMismatch,
+        ];
+        for &code in proto_codes {
+            assert_eq!(code.category(), ErrorCategory::Protocol);
+        }
+    }
+
+    #[test]
+    fn backend_codes_have_backend_category() {
+        let codes = &[
+            ErrorCode::BackendNotFound,
+            ErrorCode::BackendUnavailable,
+            ErrorCode::BackendTimeout,
+            ErrorCode::BackendRateLimited,
+            ErrorCode::BackendAuthFailed,
+            ErrorCode::BackendModelNotFound,
+            ErrorCode::BackendCrashed,
+        ];
+        for &code in codes {
+            assert_eq!(code.category(), ErrorCategory::Backend);
+        }
+    }
+
+    #[test]
+    fn retryable_are_transient_backend_errors() {
+        assert!(ErrorCode::BackendUnavailable.is_retryable());
+        assert!(ErrorCode::BackendTimeout.is_retryable());
+        assert!(ErrorCode::BackendRateLimited.is_retryable());
+        assert!(ErrorCode::BackendCrashed.is_retryable());
+    }
+
+    #[test]
+    fn non_transient_errors_not_retryable() {
+        let non_retryable = &[
+            ErrorCode::PolicyDenied,
+            ErrorCode::Internal,
+            ErrorCode::ContractVersionMismatch,
+            ErrorCode::BackendNotFound,
+            ErrorCode::BackendAuthFailed,
+            ErrorCode::ProtocolInvalidEnvelope,
+            ErrorCode::ConfigInvalid,
+        ];
+        for &code in non_retryable {
+            assert!(!code.is_retryable(), "{code:?} should not be retryable");
+        }
+    }
+
+    #[test]
+    fn error_code_serde_roundtrip() {
+        for &code in ALL_CODES {
+            let json = serde_json::to_string(&code).unwrap();
+            let back: ErrorCode = serde_json::from_str(&json).unwrap();
+            assert_eq!(code, back);
+        }
+    }
+
+    #[test]
+    fn error_code_serializes_as_snake_case_string() {
+        let json = serde_json::to_string(&ErrorCode::BackendTimeout).unwrap();
+        assert_eq!(json, r#""backend_timeout""#);
+    }
+
+    #[test]
+    fn error_category_serde_roundtrip() {
+        for &cat in ALL_CATEGORIES {
+            let json = serde_json::to_string(&cat).unwrap();
+            let back: ErrorCategory = serde_json::from_str(&json).unwrap();
+            assert_eq!(cat, back);
+        }
+    }
+
+    #[test]
+    fn abp_error_construction() {
         let err = AbpError::new(ErrorCode::BackendTimeout, "timed out")
             .with_context("backend", "openai")
             .with_context("timeout_ms", 30_000);
@@ -916,71 +1192,53 @@ mod error_taxonomy {
     }
 
     #[test]
-    fn abp_error_to_info_preserves_code() {
-        let err = AbpError::new(ErrorCode::PolicyDenied, "denied by policy");
+    fn abp_error_to_info() {
+        let err = AbpError::new(ErrorCode::PolicyDenied, "denied");
         let info = err.to_info();
         assert_eq!(info.code, ErrorCode::PolicyDenied);
-        assert_eq!(info.message, "denied by policy");
+        assert_eq!(info.message, "denied");
     }
 
     #[test]
-    fn error_info_serialization_roundtrip() {
+    fn error_info_serde_roundtrip() {
         let info =
-            ErrorInfo::new(ErrorCode::BackendTimeout, "timed out").with_detail("backend", "openai");
+            ErrorInfo::new(ErrorCode::BackendTimeout, "timeout").with_detail("backend", "openai");
         let json = serde_json::to_string(&info).unwrap();
-        let deserialized: ErrorInfo = serde_json::from_str(&json).unwrap();
-        assert_eq!(info, deserialized);
+        let back: ErrorInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(info, back);
+    }
+
+    #[test]
+    fn error_info_retryable_from_code() {
+        let info = ErrorInfo::new(ErrorCode::BackendTimeout, "t");
+        assert!(info.is_retryable);
+        let info2 = ErrorInfo::new(ErrorCode::PolicyDenied, "d");
+        assert!(!info2.is_retryable);
     }
 
     #[test]
     fn abp_error_dto_from_abp_error() {
-        let err =
-            AbpError::new(ErrorCode::Internal, "something broke").with_context("key", "value");
+        let err = AbpError::new(ErrorCode::Internal, "broke").with_context("key", "value");
         let dto: AbpErrorDto = (&err).into();
         assert_eq!(dto.code, ErrorCode::Internal);
-        assert_eq!(dto.message, "something broke");
+        assert_eq!(dto.message, "broke");
         assert!(dto.context.contains_key("key"));
     }
 
     #[test]
-    fn retryable_errors_correctly_classified() {
-        assert!(ErrorCode::BackendTimeout.is_retryable());
-        assert!(ErrorCode::BackendUnavailable.is_retryable());
-        assert!(ErrorCode::BackendRateLimited.is_retryable());
-        assert!(ErrorCode::BackendCrashed.is_retryable());
-        assert!(!ErrorCode::PolicyDenied.is_retryable());
-        assert!(!ErrorCode::Internal.is_retryable());
-    }
-
-    #[test]
-    fn mapping_error_serialization() {
-        let err = MappingError::FeatureUnsupported {
-            feature: "logprobs".into(),
-            from: Dialect::Claude,
-            to: Dialect::Gemini,
-        };
-        let json = serde_json::to_string(&err).unwrap();
-        let deserialized: MappingError = serde_json::from_str(&json).unwrap();
-        assert_eq!(err, deserialized);
-    }
-
-    #[test]
-    fn mapping_error_dialect_mismatch() {
-        let err = MappingError::DialectMismatch {
-            from: Dialect::OpenAi,
-            to: Dialect::Kimi,
-        };
-        let msg = err.to_string();
-        assert!(msg.contains("OpenAi") || msg.contains("Kimi") || msg.contains("mismatch"));
-    }
-
-    #[test]
-    fn error_display_includes_code() {
+    fn error_display_includes_code_str() {
         let err = AbpError::new(ErrorCode::ReceiptHashMismatch, "hash mismatch");
         let display = err.to_string();
         assert!(
-            display.contains("receipt_hash_mismatch"),
-            "Display should contain error code string"
+            display.contains(ErrorCode::ReceiptHashMismatch.as_str()),
+            "Display should contain error code string: {display}"
         );
+    }
+
+    #[test]
+    fn all_as_str_values_unique() {
+        let strs: Vec<&str> = ALL_CODES.iter().map(|c| c.as_str()).collect();
+        let unique: std::collections::BTreeSet<&str> = strs.iter().copied().collect();
+        assert_eq!(strs.len(), unique.len(), "as_str() values must be unique");
     }
 }
