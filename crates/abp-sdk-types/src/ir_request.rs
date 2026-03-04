@@ -2,7 +2,7 @@
 #![allow(dead_code, unused_imports)]
 //! Normalized chat request types for the IR layer.
 //!
-//! [`IrChatRequest`] captures the full request surface area that every
+//! `IrChatRequest` captures the full request surface area that every
 //! dialect adapter lowers into before the mapping engine re-raises it
 //! into the target dialect.
 
@@ -230,10 +230,7 @@ mod tests {
 
     #[test]
     fn chat_request_minimal() {
-        let req = IrChatRequest::new(
-            "gpt-4o",
-            vec![IrMessage::text(IrRole::User, "Hello")],
-        );
+        let req = IrChatRequest::new("gpt-4o", vec![IrMessage::text(IrRole::User, "Hello")]);
         assert_eq!(req.model, "gpt-4o");
         assert_eq!(req.messages.len(), 1);
         assert!(!req.is_streaming());
@@ -270,11 +267,8 @@ mod tests {
             description: "Search the web".into(),
             parameters: serde_json::json!({"type": "object"}),
         };
-        let req = IrChatRequest::new(
-            "gpt-4o",
-            vec![IrMessage::text(IrRole::User, "Find info")],
-        )
-        .with_tool(tool);
+        let req = IrChatRequest::new("gpt-4o", vec![IrMessage::text(IrRole::User, "Find info")])
+            .with_tool(tool);
         assert!(req.has_tools());
         assert_eq!(req.tools.len(), 1);
         assert_eq!(req.tools[0].name, "search");
@@ -282,15 +276,12 @@ mod tests {
 
     #[test]
     fn chat_request_streaming() {
-        let req = IrChatRequest::new(
-            "gpt-4o",
-            vec![IrMessage::text(IrRole::User, "Hello")],
-        )
-        .with_stream(IrStreamConfig {
-            enabled: true,
-            include_usage: Some(true),
-            extra: BTreeMap::new(),
-        });
+        let req = IrChatRequest::new("gpt-4o", vec![IrMessage::text(IrRole::User, "Hello")])
+            .with_stream(IrStreamConfig {
+                enabled: true,
+                include_usage: Some(true),
+                extra: BTreeMap::new(),
+            });
         assert!(req.is_streaming());
     }
 
@@ -334,10 +325,7 @@ mod tests {
 
     #[test]
     fn chat_request_serde_omits_defaults() {
-        let req = IrChatRequest::new(
-            "gpt-4o",
-            vec![IrMessage::text(IrRole::User, "Hi")],
-        );
+        let req = IrChatRequest::new("gpt-4o", vec![IrMessage::text(IrRole::User, "Hi")]);
         let json = serde_json::to_string(&req).unwrap();
         assert!(!json.contains("max_tokens"));
         assert!(!json.contains("tool_choice"));

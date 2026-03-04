@@ -53,7 +53,9 @@ impl SseParser {
 
         // Process complete lines
         while let Some(newline_pos) = self.buffer.find('\n') {
-            let line = self.buffer[..newline_pos].trim_end_matches('\r').to_string();
+            let line = self.buffer[..newline_pos]
+                .trim_end_matches('\r')
+                .to_string();
             self.buffer = self.buffer[newline_pos + 1..].to_string();
 
             if let Some(event) = self.process_line(&line) {
@@ -284,7 +286,10 @@ mod tests {
 
     #[test]
     fn crlf_line_endings() {
-        let body = format!("{}\r\n\r\ndata: [DONE]\r\n\r\n", make_chunk_line("c1", Some("Hi"), None));
+        let body = format!(
+            "{}\r\n\r\ndata: [DONE]\r\n\r\n",
+            make_chunk_line("c1", Some("Hi"), None)
+        );
         let events = parse_sse_stream(&body);
         assert_eq!(events.len(), 2);
         assert!(matches!(&events[0], SseEvent::Chunk(_)));

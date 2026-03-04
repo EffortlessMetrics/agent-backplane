@@ -308,7 +308,9 @@ mod tests {
     #[test]
     fn run_status_response_includes_receipt() {
         use abp_core::{Outcome, ReceiptBuilder};
-        let receipt = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+        let receipt = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .build();
         let run_id = receipt.meta.run_id;
         let resp = RunStatusResponse {
             run_id,

@@ -333,7 +333,10 @@ mod tests {
         let json = body_json(resp).await;
         let backends = json["backends"].as_array().unwrap();
         // "sidecar:node" should have backend_type "sidecar".
-        let sidecar = backends.iter().find(|b| b["name"] == "sidecar:node").unwrap();
+        let sidecar = backends
+            .iter()
+            .find(|b| b["name"] == "sidecar:node")
+            .unwrap();
         assert_eq!(sidecar["backend_type"], "sidecar");
     }
 
@@ -569,8 +572,8 @@ mod tests {
 
     #[tokio::test]
     async fn router_integrates_with_middleware_layer() {
-        use axum::middleware;
         use crate::middleware::request_id_middleware;
+        use axum::middleware;
 
         let state = test_state();
         let app = api_v1_router(state).layer(middleware::from_fn(request_id_middleware));
@@ -587,8 +590,8 @@ mod tests {
 
     #[tokio::test]
     async fn router_integrates_with_bearer_auth() {
-        use axum::middleware;
         use crate::middleware::BearerAuth;
+        use axum::middleware;
 
         let state = test_state();
         let auth = BearerAuth::new(Some("secret-token".into()));

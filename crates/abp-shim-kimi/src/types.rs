@@ -219,7 +219,6 @@ pub struct KimiChatRequest {
     pub stream: Option<bool>,
 
     // ── Kimi extensions ─────────────────────────────────────────────
-
     /// Enable Kimi's built-in web search.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_search: Option<bool>,

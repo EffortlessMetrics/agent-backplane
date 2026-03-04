@@ -79,7 +79,10 @@ fn sse_comments_and_non_data_ignored() {
 
 #[test]
 fn sse_crlf_handling() {
-    let body = format!("{}\r\n\r\ndata: [DONE]\r\n\r\n", sse_chunk("c1", Some("Y"), None));
+    let body = format!(
+        "{}\r\n\r\ndata: [DONE]\r\n\r\n",
+        sse_chunk("c1", Some("Y"), None)
+    );
     let events = parse_sse_stream(&body);
     assert_eq!(events.len(), 2);
 }
@@ -88,7 +91,10 @@ fn sse_crlf_handling() {
 fn sse_many_chunks_then_done() {
     let mut body = String::new();
     for i in 0..10 {
-        body.push_str(&format!("{}\n\n", sse_chunk("c1", Some(&format!("{}", i)), None)));
+        body.push_str(&format!(
+            "{}\n\n",
+            sse_chunk("c1", Some(&format!("{}", i)), None)
+        ));
     }
     body.push_str("data: [DONE]\n\n");
     let events = parse_sse_stream(&body);
@@ -215,17 +221,15 @@ fn parallel_assembler_empty_finish() {
 #[test]
 fn parallel_assembler_feed_all_convenience() {
     let mut asm = ParallelToolCallAssembler::new();
-    asm.feed_all(&[
-        StreamToolCall {
-            index: 0,
-            id: Some("x".into()),
-            call_type: Some("function".into()),
-            function: Some(StreamFunctionCall {
-                name: Some("f1".into()),
-                arguments: Some("{}".into()),
-            }),
-        },
-    ]);
+    asm.feed_all(&[StreamToolCall {
+        index: 0,
+        id: Some("x".into()),
+        call_type: Some("function".into()),
+        function: Some(StreamFunctionCall {
+            name: Some("f1".into()),
+            arguments: Some("{}".into()),
+        }),
+    }]);
     assert_eq!(asm.len(), 1);
 }
 

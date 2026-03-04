@@ -26,7 +26,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use abp_core::{
-    AgentEvent, ArtifactRef, BackendIdentity, CapabilityManifest, CONTRACT_VERSION, ExecutionMode,
+    AgentEvent, ArtifactRef, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode,
     Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport, receipt_hash,
 };
 
@@ -211,11 +211,7 @@ impl TypedReceiptBuilder {
         let duration_ms = self
             .duration
             .map(|d| d.as_millis() as u64)
-            .unwrap_or_else(|| {
-                (finished_at - self.started_at)
-                    .num_milliseconds()
-                    .max(0) as u64
-            });
+            .unwrap_or_else(|| (finished_at - self.started_at).num_milliseconds().max(0) as u64);
 
         let mut usage_raw = self.usage_raw;
         if let Some(model) = &self.model_name {
@@ -270,10 +266,7 @@ impl TypedReceiptBuilder {
     ///
     /// Infers timing from the first and last event timestamps when available.
     #[must_use]
-    pub fn from_events(
-        backend_id: impl Into<String>,
-        events: Vec<AgentEvent>,
-    ) -> Receipt {
+    pub fn from_events(backend_id: impl Into<String>, events: Vec<AgentEvent>) -> Receipt {
         let started_at = events.first().map(|e| e.ts).unwrap_or_else(Utc::now);
         let finished_at = events.last().map(|e| e.ts).unwrap_or_else(Utc::now);
         let duration_ms = (finished_at - started_at).num_milliseconds().max(0) as u64;
@@ -344,9 +337,7 @@ mod tests {
     fn receipt_hash_is_deterministic() {
         // Two receipts with same content should get same hash
         // (but different run_ids, so they'll differ — test that hash is present)
-        let r = TypedReceiptBuilder::new("test")
-            .build_with_hash()
-            .unwrap();
+        let r = TypedReceiptBuilder::new("test").build_with_hash().unwrap();
         assert!(r.receipt_sha256.is_some());
     }
 
@@ -368,17 +359,13 @@ mod tests {
     #[test]
     fn receipt_with_events() {
         let events = vec![text_event("hello"), warning_event("careful")];
-        let receipt = TypedReceiptBuilder::new("b")
-            .add_events(events)
-            .build();
+        let receipt = TypedReceiptBuilder::new("b").add_events(events).build();
         assert_eq!(receipt.trace.len(), 2);
     }
 
     #[test]
     fn receipt_with_token_usage() {
-        let receipt = TypedReceiptBuilder::new("b")
-            .token_usage(1000, 500)
-            .build();
+        let receipt = TypedReceiptBuilder::new("b").token_usage(1000, 500).build();
         assert_eq!(receipt.usage.input_tokens, Some(1000));
         assert_eq!(receipt.usage.output_tokens, Some(500));
     }
@@ -393,9 +380,7 @@ mod tests {
 
     #[test]
     fn receipt_with_model() {
-        let receipt = TypedReceiptBuilder::new("b")
-            .model("gpt-4")
-            .build();
+        let receipt = TypedReceiptBuilder::new("b").model("gpt-4").build();
         assert_eq!(receipt.usage_raw["model"], "gpt-4");
     }
 

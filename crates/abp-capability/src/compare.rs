@@ -5,7 +5,7 @@
 //! Provides functions to compare two capability sets, identify gaps,
 //! compute a compatibility score, and generate human-readable reports.
 
-use crate::{check_capability, EmulationStrategy, SupportLevel};
+use crate::{EmulationStrategy, SupportLevel, check_capability};
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -585,10 +585,10 @@ mod tests {
     #[test]
     fn compare_mixed_scenario() {
         let required = manifest(&[
-            (Capability::Streaming, CoreSupportLevel::Native),     // match
-            (Capability::ToolUse, CoreSupportLevel::Native),       // downgrade
-            (Capability::Vision, CoreSupportLevel::Native),        // gap
-            (Capability::Audio, CoreSupportLevel::Emulated),       // upgrade
+            (Capability::Streaming, CoreSupportLevel::Native), // match
+            (Capability::ToolUse, CoreSupportLevel::Native),   // downgrade
+            (Capability::Vision, CoreSupportLevel::Native),    // gap
+            (Capability::Audio, CoreSupportLevel::Emulated),   // upgrade
         ]);
         let available = manifest(&[
             (Capability::Streaming, CoreSupportLevel::Native),
@@ -597,11 +597,11 @@ mod tests {
             (Capability::Logprobs, CoreSupportLevel::Native), // extra
         ]);
         let result = compare(&required, &available);
-        assert_eq!(result.match_count, 1);     // Streaming
+        assert_eq!(result.match_count, 1); // Streaming
         assert_eq!(result.downgrade_count, 1); // ToolUse
-        assert_eq!(result.gap_count, 1);       // Vision
-        assert_eq!(result.upgrade_count, 1);   // Audio
-        assert_eq!(result.extra_count, 1);     // Logprobs
+        assert_eq!(result.gap_count, 1); // Vision
+        assert_eq!(result.upgrade_count, 1); // Audio
+        assert_eq!(result.extra_count, 1); // Logprobs
         assert!(!result.is_compatible());
         // Score: (1 + 1 + 0.5 + 0) / 4 = 2.5/4 = 0.625
         assert!((result.score - 0.625).abs() < f64::EPSILON);
@@ -609,9 +609,7 @@ mod tests {
 
     #[test]
     fn compare_unsupported_in_required_is_skipped() {
-        let required = manifest(&[
-            (Capability::Streaming, CoreSupportLevel::Unsupported),
-        ]);
+        let required = manifest(&[(Capability::Streaming, CoreSupportLevel::Unsupported)]);
         let available: CapabilityManifest = BTreeMap::new();
         let result = compare(&required, &available);
         assert_eq!(result.gap_count, 0);
@@ -679,8 +677,7 @@ mod tests {
     fn report_compatible() {
         let required = manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
         let available = manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
-        let report =
-            generate_compatibility_report("source", &required, "target", &available);
+        let report = generate_compatibility_report("source", &required, "target", &available);
         assert!(report.result.is_compatible());
         assert!(report.summary[0].contains("compatible"));
         assert_eq!(report.required_label, "source");
@@ -694,8 +691,7 @@ mod tests {
             (Capability::Vision, CoreSupportLevel::Native),
         ]);
         let available = manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
-        let report =
-            generate_compatibility_report("source", &required, "target", &available);
+        let report = generate_compatibility_report("source", &required, "target", &available);
         assert!(!report.result.is_compatible());
         let text = format!("{report}");
         assert!(text.contains("gap"));
@@ -706,8 +702,7 @@ mod tests {
     fn report_with_downgrades_lists_them() {
         let required = manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
         let available = manifest(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
-        let report =
-            generate_compatibility_report("source", &required, "target", &available);
+        let report = generate_compatibility_report("source", &required, "target", &available);
         assert!(report.result.is_compatible()); // downgrade is not a gap
         let text = format!("{report}");
         assert!(text.contains("Downgraded"));
@@ -818,8 +813,7 @@ mod tests {
     fn compatibility_report_serde_roundtrip() {
         let required = manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
         let available = manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
-        let report =
-            generate_compatibility_report("source", &required, "target", &available);
+        let report = generate_compatibility_report("source", &required, "target", &available);
         let json = serde_json::to_string(&report).unwrap();
         let back: CompatibilityReport = serde_json::from_str(&json).unwrap();
         assert_eq!(back.required_label, "source");

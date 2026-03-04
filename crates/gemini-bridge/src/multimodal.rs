@@ -2,7 +2,7 @@
 #![allow(dead_code, unused_imports)]
 //! Extended multimodal content types for the Gemini API.
 //!
-//! Adds [`FileData`] (Google Cloud Storage references) and [`VideoMetadata`]
+//! Adds `FileData` (Google Cloud Storage references) and `VideoMetadata`
 //! on top of the existing [`InlineData`](crate::gemini_types::InlineData).
 
 use serde::{Deserialize, Serialize};
@@ -64,10 +64,7 @@ impl VideoMetadata {
 
     /// Create metadata for a video segment.
     #[must_use]
-    pub fn segment(
-        start: impl Into<String>,
-        end: impl Into<String>,
-    ) -> Self {
+    pub fn segment(start: impl Into<String>, end: impl Into<String>) -> Self {
         Self {
             start_offset: Some(start.into()),
             end_offset: Some(end.into()),
@@ -185,10 +182,7 @@ pub fn classify_mime(mime: &str) -> MediaCategory {
         MediaCategory::Audio
     } else if mime.starts_with("video/") {
         MediaCategory::Video
-    } else if mime.starts_with("text/")
-        || mime == "application/pdf"
-        || mime == "application/json"
-    {
+    } else if mime.starts_with("text/") || mime == "application/pdf" || mime == "application/json" {
         MediaCategory::Document
     } else {
         MediaCategory::Unknown
@@ -354,6 +348,9 @@ mod tests {
 
     #[test]
     fn classify_mime_unknown() {
-        assert_eq!(classify_mime("application/octet-stream"), MediaCategory::Unknown);
+        assert_eq!(
+            classify_mime("application/octet-stream"),
+            MediaCategory::Unknown
+        );
     }
 }

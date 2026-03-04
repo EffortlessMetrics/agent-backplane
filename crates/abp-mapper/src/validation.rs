@@ -872,9 +872,7 @@ mod tests {
         use abp_core::ir::IrMessage;
         let conv = IrConversation::from_messages(vec![IrMessage::new(
             IrRole::Assistant,
-            vec![IrContentBlock::Thinking {
-                text: "hmm".into(),
-            }],
+            vec![IrContentBlock::Thinking { text: "hmm".into() }],
         )]);
         let err = validate_mapping(Dialect::Claude, Dialect::OpenAi, &conv).unwrap_err();
         assert!(err.has_code("unsupported_thinking"));
@@ -982,9 +980,7 @@ mod tests {
         use abp_core::ir::IrMessage;
         let conv = IrConversation::from_messages(vec![IrMessage::new(
             IrRole::Assistant,
-            vec![IrContentBlock::Thinking {
-                text: "hmm".into(),
-            }],
+            vec![IrContentBlock::Thinking { text: "hmm".into() }],
         )]);
         let err = validate_mapping(Dialect::Claude, Dialect::OpenAi, &conv).unwrap_err();
         let msg = err.to_string();

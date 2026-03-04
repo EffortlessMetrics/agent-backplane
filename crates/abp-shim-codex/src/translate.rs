@@ -179,16 +179,14 @@ pub fn agent_event_to_codex_stream(
             output_index: 0,
             text: text.clone(),
         }),
-        AgentEventKind::AssistantMessage { text } => {
-            Some(CodexShimStreamEvent::OutputItemDone {
-                sequence,
-                output_index: 0,
-                item: CodexResponseItem::Message {
-                    role: "assistant".into(),
-                    content: vec![CodexContentPart::OutputText { text: text.clone() }],
-                },
-            })
-        }
+        AgentEventKind::AssistantMessage { text } => Some(CodexShimStreamEvent::OutputItemDone {
+            sequence,
+            output_index: 0,
+            item: CodexResponseItem::Message {
+                role: "assistant".into(),
+                content: vec![CodexContentPart::OutputText { text: text.clone() }],
+            },
+        }),
         AgentEventKind::ToolCall {
             tool_name,
             tool_use_id,
@@ -224,8 +222,8 @@ pub fn agent_event_to_codex_stream(
 
 /// Convert a [`CodexToolCall`] into an ABP [`AgentEvent`] (tool call kind).
 pub fn tool_call_to_event(tc: &CodexToolCall) -> AgentEvent {
-    let input =
-        serde_json::from_str(&tc.arguments).unwrap_or(serde_json::Value::String(tc.arguments.clone()));
+    let input = serde_json::from_str(&tc.arguments)
+        .unwrap_or(serde_json::Value::String(tc.arguments.clone()));
     AgentEvent {
         ts: Utc::now(),
         kind: AgentEventKind::ToolCall {
@@ -416,7 +414,10 @@ mod tests {
         assert_eq!(resp.output.len(), 1);
         match &resp.output[0] {
             CodexResponseItem::FunctionCall {
-                id, name, arguments, ..
+                id,
+                name,
+                arguments,
+                ..
             } => {
                 assert_eq!(id, "fc_1");
                 assert_eq!(name, "shell");
@@ -430,9 +431,7 @@ mod tests {
     fn receipt_to_codex_maps_usage() {
         let events = vec![AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "ok".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "ok".into() },
             ext: None,
         }];
         let receipt = crate::mock_receipt_with_usage(
@@ -504,9 +503,7 @@ mod tests {
         };
         let se = agent_event_to_codex_stream(&event, "codex-mini-latest", 1).unwrap();
         match se {
-            CodexShimStreamEvent::TextDelta {
-                sequence, text, ..
-            } => {
+            CodexShimStreamEvent::TextDelta { sequence, text, .. } => {
                 assert_eq!(sequence, 1);
                 assert_eq!(text, "Hello");
             }
@@ -524,10 +521,7 @@ mod tests {
             ext: None,
         };
         let se = agent_event_to_codex_stream(&event, "codex-mini-latest", 2).unwrap();
-        assert!(matches!(
-            se,
-            CodexShimStreamEvent::OutputItemDone { .. }
-        ));
+        assert!(matches!(se, CodexShimStreamEvent::OutputItemDone { .. }));
     }
 
     #[test]
@@ -648,7 +642,10 @@ mod tests {
                 ..
             } => {
                 assert_eq!(tool_use_id.as_deref(), Some("tc_1"));
-                assert_eq!(output, &serde_json::Value::String("file1.rs\nfile2.rs".into()));
+                assert_eq!(
+                    output,
+                    &serde_json::Value::String("file1.rs\nfile2.rs".into())
+                );
                 assert!(!is_error);
             }
             other => panic!("expected ToolResult, got {other:?}"),
@@ -770,9 +767,7 @@ mod tests {
             model: "codex-mini-latest".into(),
             output: vec![CodexResponseItem::Message {
                 role: "assistant".into(),
-                content: vec![CodexContentPart::OutputText {
-                    text: "hi".into(),
-                }],
+                content: vec![CodexContentPart::OutputText { text: "hi".into() }],
             }],
             usage: Some(Usage {
                 input_tokens: 10,

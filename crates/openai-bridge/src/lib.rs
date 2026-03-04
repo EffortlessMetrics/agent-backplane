@@ -14,8 +14,6 @@
 //! - **Normalized** (feature `normalized`): `OpenAiBridge::run_normalized()` -- maps
 //!   raw JSON events to typed `AgentEvent` and `Receipt` from `abp-core`.
 
-/// OpenAI Chat Completions API types (request, response, streaming, tool calls).
-pub mod openai_types;
 /// Bridge configuration types.
 pub mod config;
 /// Node.js and host-script discovery helpers.
@@ -28,6 +26,8 @@ pub mod error;
 pub mod function_calling;
 /// Normalized event mapping (feature-gated).
 pub mod normalized;
+/// OpenAI Chat Completions API types (request, response, streaming, tool calls).
+pub mod openai_types;
 /// Raw passthrough and mapped-mode run functions.
 pub mod raw;
 /// SSE stream parser for OpenAI streaming responses.

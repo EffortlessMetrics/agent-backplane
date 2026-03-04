@@ -322,7 +322,12 @@ mod tests {
 
     #[test]
     fn ir_role_serde_roundtrip() {
-        for role in [IrRole::System, IrRole::User, IrRole::Assistant, IrRole::Tool] {
+        for role in [
+            IrRole::System,
+            IrRole::User,
+            IrRole::Assistant,
+            IrRole::Tool,
+        ] {
             let json = serde_json::to_string(&role).unwrap();
             let back: IrRole = serde_json::from_str(&json).unwrap();
             assert_eq!(role, back);
@@ -565,10 +570,7 @@ mod tests {
     fn message_multipart_text_content() {
         let msg = IrMessage::new(
             IrRole::User,
-            vec![
-                IrContentPart::text("Hello "),
-                IrContentPart::text("world"),
-            ],
+            vec![IrContentPart::text("Hello "), IrContentPart::text("world")],
         );
         assert_eq!(msg.text_content(), "Hello world");
     }

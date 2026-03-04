@@ -3,7 +3,7 @@
 
 //! Mapping rules for dialect translation.
 //!
-//! Provides the [`MappingRule`] trait and concrete implementations for
+//! Provides the `MappingRule` trait and concrete implementations for
 //! transforming IR conversations between different agent-SDK dialects.
 //!
 //! ## Rule types
@@ -20,8 +20,8 @@ use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 use serde::{Deserialize, Serialize};
 
-use crate::capabilities::{dialect_capabilities, Support};
 use crate::MapError;
+use crate::capabilities::{Support, dialect_capabilities};
 
 // ── MappingRule trait ───────────────────────────────────────────────────
 
@@ -87,9 +87,12 @@ impl MappingRule for ToolMappingRule {
         let from_caps = dialect_capabilities(from_dialect);
 
         let has_tools = request.messages.iter().any(|m| {
-            m.content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::ToolUse { .. } | IrContentBlock::ToolResult { .. }))
+            m.content.iter().any(|b| {
+                matches!(
+                    b,
+                    IrContentBlock::ToolUse { .. } | IrContentBlock::ToolResult { .. }
+                )
+            })
         });
 
         if has_tools && !to_caps.tool_use.is_native() {
@@ -99,56 +102,56 @@ impl MappingRule for ToolMappingRule {
             });
         }
 
-        let messages =
-            if from_caps.tool_role.is_native() && !to_caps.tool_role.is_native() {
-                // Dedicated Tool role → User role
-                request
-                    .messages
-                    .iter()
-                    .map(|msg| {
-                        if msg.role == IrRole::Tool {
-                            IrMessage {
-                                role: IrRole::User,
-                                content: msg.content.clone(),
-                                metadata: msg.metadata.clone(),
-                            }
-                        } else {
-                            msg.clone()
+        let messages = if from_caps.tool_role.is_native() && !to_caps.tool_role.is_native() {
+            // Dedicated Tool role → User role
+            request
+                .messages
+                .iter()
+                .map(|msg| {
+                    if msg.role == IrRole::Tool {
+                        IrMessage {
+                            role: IrRole::User,
+                            content: msg.content.clone(),
+                            metadata: msg.metadata.clone(),
                         }
-                    })
-                    .collect()
-            } else if !from_caps.tool_role.is_native() && to_caps.tool_role.is_native() {
-                // Extract tool results from User → dedicated Tool role
-                let mut result = Vec::new();
-                for msg in &request.messages {
-                    if msg.role == IrRole::User {
-                        let (tool_results, other): (Vec<_>, Vec<_>) =
-                            msg.content.iter().cloned().partition(|b| {
-                                matches!(b, IrContentBlock::ToolResult { .. })
-                            });
+                    } else {
+                        msg.clone()
+                    }
+                })
+                .collect()
+        } else if !from_caps.tool_role.is_native() && to_caps.tool_role.is_native() {
+            // Extract tool results from User → dedicated Tool role
+            let mut result = Vec::new();
+            for msg in &request.messages {
+                if msg.role == IrRole::User {
+                    let (tool_results, other): (Vec<_>, Vec<_>) = msg
+                        .content
+                        .iter()
+                        .cloned()
+                        .partition(|b| matches!(b, IrContentBlock::ToolResult { .. }));
 
-                        if !tool_results.is_empty() {
-                            if !other.is_empty() {
-                                result.push(IrMessage {
-                                    role: IrRole::User,
-                                    content: other,
-                                    metadata: msg.metadata.clone(),
-                                });
-                            }
-                            for block in tool_results {
-                                result.push(IrMessage::new(IrRole::Tool, vec![block]));
-                            }
-                        } else {
-                            result.push(msg.clone());
+                    if !tool_results.is_empty() {
+                        if !other.is_empty() {
+                            result.push(IrMessage {
+                                role: IrRole::User,
+                                content: other,
+                                metadata: msg.metadata.clone(),
+                            });
+                        }
+                        for block in tool_results {
+                            result.push(IrMessage::new(IrRole::Tool, vec![block]));
                         }
                     } else {
                         result.push(msg.clone());
                     }
+                } else {
+                    result.push(msg.clone());
                 }
-                result
-            } else {
-                request.messages.clone()
-            };
+            }
+            result
+        } else {
+            request.messages.clone()
+        };
 
         Ok(IrConversation::from_messages(messages))
     }
@@ -209,9 +212,7 @@ impl MappingRule for ContentMappingRule {
                                 text: format!("[Thinking] {text}"),
                             }
                         }
-                        IrContentBlock::Image { media_type, .. }
-                            if !to_caps.images.is_native() =>
-                        {
+                        IrContentBlock::Image { media_type, .. } if !to_caps.images.is_native() => {
                             IrContentBlock::Text {
                                 text: format!("[Image: {media_type}]"),
                             }
@@ -614,9 +615,7 @@ mod tests {
                 IrRole::Tool,
                 vec![IrContentBlock::ToolResult {
                     tool_use_id: "t1".into(),
-                    content: vec![IrContentBlock::Text {
-                        text: "ok".into(),
-                    }],
+                    content: vec![IrContentBlock::Text { text: "ok".into() }],
                     is_error: false,
                 }],
             ),
@@ -629,9 +628,7 @@ mod tests {
     fn tool_rule_no_tools_passthrough() {
         let rule = ToolMappingRule::new();
         let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hello")]);
-        let result = rule
-            .apply(Dialect::OpenAi, Dialect::Claude, &conv)
-            .unwrap();
+        let result = rule.apply(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
         assert_eq!(result, conv);
     }
 
@@ -663,7 +660,9 @@ mod tests {
         )]);
         let result = rule.apply(Dialect::Claude, Dialect::OpenAi, &conv).unwrap();
         let asst = &result.messages[0];
-        assert!(matches!(&asst.content[0], IrContentBlock::Text { text } if text.starts_with("[Thinking]")));
+        assert!(
+            matches!(&asst.content[0], IrContentBlock::Text { text } if text.starts_with("[Thinking]"))
+        );
         assert!(matches!(&asst.content[1], IrContentBlock::Text { text } if text == "Answer"));
     }
 
@@ -672,13 +671,9 @@ mod tests {
         let rule = ContentMappingRule::new();
         let conv = IrConversation::from_messages(vec![IrMessage::new(
             IrRole::Assistant,
-            vec![IrContentBlock::Thinking {
-                text: "hmm".into(),
-            }],
+            vec![IrContentBlock::Thinking { text: "hmm".into() }],
         )]);
-        let result = rule
-            .apply(Dialect::Claude, Dialect::Claude, &conv)
-            .unwrap();
+        let result = rule.apply(Dialect::Claude, Dialect::Claude, &conv).unwrap();
         assert!(matches!(
             &result.messages[0].content[0],
             IrContentBlock::Thinking { .. }
@@ -718,9 +713,7 @@ mod tests {
     fn content_rule_preserves_text() {
         let rule = ContentMappingRule::new();
         let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hello")]);
-        let result = rule
-            .apply(Dialect::OpenAi, Dialect::Claude, &conv)
-            .unwrap();
+        let result = rule.apply(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
         assert_eq!(result.messages[0].text_content(), "hello");
     }
 
@@ -734,14 +727,10 @@ mod tests {
         metadata.insert("generic_key".into(), json!("value"));
         let conv = IrConversation::from_messages(vec![IrMessage {
             role: IrRole::User,
-            content: vec![IrContentBlock::Text {
-                text: "hi".into(),
-            }],
+            content: vec![IrContentBlock::Text { text: "hi".into() }],
             metadata,
         }]);
-        let result = rule
-            .apply(Dialect::OpenAi, Dialect::Claude, &conv)
-            .unwrap();
+        let result = rule.apply(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
         assert!(!result.messages[0].metadata.contains_key("openai_logprobs"));
         assert!(result.messages[0].metadata.contains_key("generic_key"));
     }
@@ -753,14 +742,10 @@ mod tests {
         metadata.insert("openai_logprobs".into(), json!(true));
         let conv = IrConversation::from_messages(vec![IrMessage {
             role: IrRole::User,
-            content: vec![IrContentBlock::Text {
-                text: "hi".into(),
-            }],
+            content: vec![IrContentBlock::Text { text: "hi".into() }],
             metadata,
         }]);
-        let result = rule
-            .apply(Dialect::OpenAi, Dialect::OpenAi, &conv)
-            .unwrap();
+        let result = rule.apply(Dialect::OpenAi, Dialect::OpenAi, &conv).unwrap();
         assert!(result.messages[0].metadata.contains_key("openai_logprobs"));
     }
 
@@ -773,14 +758,10 @@ mod tests {
         metadata.insert("shared".into(), json!(1));
         let conv = IrConversation::from_messages(vec![IrMessage {
             role: IrRole::User,
-            content: vec![IrContentBlock::Text {
-                text: "hi".into(),
-            }],
+            content: vec![IrContentBlock::Text { text: "hi".into() }],
             metadata,
         }]);
-        let result = rule
-            .apply(Dialect::Claude, Dialect::OpenAi, &conv)
-            .unwrap();
+        let result = rule.apply(Dialect::Claude, Dialect::OpenAi, &conv).unwrap();
         assert!(!result.messages[0].metadata.contains_key("claude_cache"));
         assert!(!result.messages[0].metadata.contains_key("anthropic_beta"));
         assert!(result.messages[0].metadata.contains_key("shared"));
@@ -812,9 +793,7 @@ mod tests {
     fn stream_rule_passthrough_to_streaming() {
         let rule = StreamMappingRule::new();
         let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hi")]);
-        let result = rule
-            .apply(Dialect::OpenAi, Dialect::Claude, &conv)
-            .unwrap();
+        let result = rule.apply(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
         assert_eq!(result, conv);
     }
 
@@ -885,9 +864,7 @@ mod tests {
                     IrContentBlock::Thinking {
                         text: "Let me think".into(),
                     },
-                    IrContentBlock::Text {
-                        text: "42".into(),
-                    },
+                    IrContentBlock::Text { text: "42".into() },
                 ],
             ),
         ]);
@@ -967,9 +944,7 @@ mod tests {
             IrMessage::new(
                 IrRole::Assistant,
                 vec![
-                    IrContentBlock::Thinking {
-                        text: "hmm".into(),
-                    },
+                    IrContentBlock::Thinking { text: "hmm".into() },
                     IrContentBlock::Text {
                         text: "I see".into(),
                     },

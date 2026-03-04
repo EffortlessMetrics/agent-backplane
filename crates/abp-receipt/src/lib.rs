@@ -8,6 +8,8 @@
 //! chain verification, a fluent receipt builder, field-level diffing,
 //! structured validation, pluggable storage, and serialization helpers.
 
+/// In-memory receipt archive with work-order-level querying.
+pub mod archive;
 mod builder;
 mod chain;
 mod diff;
@@ -19,6 +21,8 @@ pub mod serde_formats;
 pub mod stats;
 /// Pluggable receipt storage with an in-memory implementation.
 pub mod store;
+/// Receipt aggregation summaries (success rate, tokens, error distribution).
+pub mod summary;
 mod validate;
 /// Receipt verification and batch auditing utilities.
 pub mod verify;

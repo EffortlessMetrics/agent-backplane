@@ -14,14 +14,14 @@
 //! - **Normalized** (feature `normalized`): maps raw JSON events to typed
 //!   `WorkOrder`, `Receipt`, and streaming events from `abp-core`.
 
-/// Google Gemini GenerateContent API types (request, response, streaming, content blocks).
-pub mod gemini_types;
 /// Bridge configuration types.
 pub mod config;
 /// Error types for bridge operations.
 pub mod error;
 /// Extended function calling helpers (builders, validation, extraction).
 pub mod function_calling;
+/// Google Gemini GenerateContent API types (request, response, streaming, content blocks).
+pub mod gemini_types;
 /// Extended multimodal content types (Blob, FileData, VideoMetadata).
 pub mod multimodal;
 /// Extended safety helpers (profiles, analysis, typed block reasons).

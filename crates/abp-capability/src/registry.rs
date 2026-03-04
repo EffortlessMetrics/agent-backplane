@@ -6,7 +6,7 @@
 //! so it can be shared across threads safely.
 
 use crate::{
-    check_capability, negotiate_capabilities, EmulationStrategy, NegotiationResult, SupportLevel,
+    EmulationStrategy, NegotiationResult, SupportLevel, check_capability, negotiate_capabilities,
 };
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
 use serde::{Deserialize, Serialize};
@@ -270,7 +270,10 @@ impl SharedCapabilityRegistry {
     /// Among backends that have zero unsupported capabilities, selects the one
     /// with the most native support. Ties are broken by backend ID (alphabetical).
     #[must_use]
-    pub fn best_backend_for(&self, requirements: &[Capability]) -> Option<(String, NegotiationResult)> {
+    pub fn best_backend_for(
+        &self,
+        requirements: &[Capability],
+    ) -> Option<(String, NegotiationResult)> {
         let store = self.inner.read().expect("registry lock poisoned");
         store
             .iter()
@@ -306,10 +309,7 @@ mod tests {
         }
     }
 
-    fn make_set_with_desc(
-        entries: &[(Capability, CoreSupportLevel)],
-        desc: &str,
-    ) -> CapabilitySet {
+    fn make_set_with_desc(entries: &[(Capability, CoreSupportLevel)], desc: &str) -> CapabilitySet {
         let manifest: CapabilityManifest = entries.iter().cloned().collect();
         CapabilitySet {
             manifest,
@@ -453,8 +453,14 @@ mod tests {
     #[test]
     fn registry_backend_ids() {
         let reg = SharedCapabilityRegistry::new();
-        reg.register("alpha", make_set(&[(Capability::Streaming, CoreSupportLevel::Native)]));
-        reg.register("beta", make_set(&[(Capability::ToolUse, CoreSupportLevel::Native)]));
+        reg.register(
+            "alpha",
+            make_set(&[(Capability::Streaming, CoreSupportLevel::Native)]),
+        );
+        reg.register(
+            "beta",
+            make_set(&[(Capability::ToolUse, CoreSupportLevel::Native)]),
+        );
 
         let ids = reg.backend_ids();
         assert_eq!(ids.len(), 2);
@@ -507,8 +513,7 @@ mod tests {
             make_set(&[(Capability::Streaming, CoreSupportLevel::Native)]),
         );
 
-        let found =
-            reg.find_backends_supporting(&[Capability::Streaming, Capability::ToolUse]);
+        let found = reg.find_backends_supporting(&[Capability::Streaming, Capability::ToolUse]);
         assert_eq!(found, vec!["full".to_owned()]);
     }
 
@@ -560,7 +565,14 @@ mod tests {
         );
 
         let result = reg
-            .negotiate("backend-a", &[Capability::Streaming, Capability::ToolUse, Capability::Vision])
+            .negotiate(
+                "backend-a",
+                &[
+                    Capability::Streaming,
+                    Capability::ToolUse,
+                    Capability::Vision,
+                ],
+            )
             .unwrap();
         assert_eq!(result.native.len(), 1);
         assert_eq!(result.emulated.len(), 1);
@@ -570,7 +582,10 @@ mod tests {
     #[test]
     fn registry_negotiate_missing_backend() {
         let reg = SharedCapabilityRegistry::new();
-        assert!(reg.negotiate("nonexistent", &[Capability::Streaming]).is_none());
+        assert!(
+            reg.negotiate("nonexistent", &[Capability::Streaming])
+                .is_none()
+        );
     }
 
     // ---- best_backend_for ------------------------------------------------
@@ -672,8 +687,7 @@ mod tests {
                 let reg = reg.clone();
                 std::thread::spawn(move || {
                     let id = format!("backend-{i}");
-                    let set =
-                        make_set(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+                    let set = make_set(&[(Capability::Streaming, CoreSupportLevel::Native)]);
                     reg.register(&id, set);
                 })
             })
@@ -733,7 +747,10 @@ mod tests {
         let json = serde_json::to_string(&entry).unwrap();
         let back: BackendEntry = serde_json::from_str(&json).unwrap();
         assert_eq!(back.backend_id, "test-backend");
-        assert_eq!(back.capabilities.description, Some("A test backend".to_owned()));
+        assert_eq!(
+            back.capabilities.description,
+            Some("A test backend".to_owned())
+        );
     }
 
     // ---- default impl ---------------------------------------------------

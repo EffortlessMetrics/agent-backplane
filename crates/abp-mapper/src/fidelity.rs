@@ -3,16 +3,16 @@
 
 //! Fidelity reporting for dialect mapping.
 //!
-//! Provides [`FidelityReport`] generation that describes how faithfully a
+//! Provides `FidelityReport` generation that describes how faithfully a
 //! conversation can be mapped from one dialect to another. Each feature
-//! used in the request is classified by [`FidelityLevel`].
+//! used in the request is classified by `FidelityLevel`.
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrRole};
 use abp_dialect::Dialect;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::capabilities::{dialect_capabilities, Support};
+use crate::capabilities::{Support, dialect_capabilities};
 
 // ── FidelityLevel ───────────────────────────────────────────────────────
 
@@ -338,12 +338,8 @@ mod tests {
             IrMessage::new(
                 IrRole::Assistant,
                 vec![
-                    IrContentBlock::Thinking {
-                        text: "hmm".into(),
-                    },
-                    IrContentBlock::Text {
-                        text: "42".into(),
-                    },
+                    IrContentBlock::Thinking { text: "hmm".into() },
+                    IrContentBlock::Text { text: "42".into() },
                 ],
             ),
         ]);
@@ -557,11 +553,8 @@ mod tests {
 
     #[test]
     fn report_types_are_debug_clone() {
-        let report = generate_fidelity_report(
-            Dialect::OpenAi,
-            Dialect::Claude,
-            &IrConversation::new(),
-        );
+        let report =
+            generate_fidelity_report(Dialect::OpenAi, Dialect::Claude, &IrConversation::new());
         let _ = format!("{:?}", report);
         let _ = report.clone();
 

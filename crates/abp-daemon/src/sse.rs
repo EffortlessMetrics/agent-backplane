@@ -11,8 +11,8 @@ use serde::Serialize;
 use std::convert::Infallible;
 use std::time::Duration;
 use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt;
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::api_types::SseEventData;
 
@@ -56,9 +56,7 @@ pub fn format_sse_error(message: &str) -> SseEvent {
     let payload = serde_json::json!({
         "error": message,
     });
-    SseEvent::default()
-        .event("error")
-        .data(payload.to_string())
+    SseEvent::default().event("error").data(payload.to_string())
 }
 
 /// Format a "done" sentinel SSE event signalling the end of the stream.
@@ -118,9 +116,8 @@ pub fn replay_event_stream(
         .chain(std::iter::once(Ok(format_sse_done())))
         .collect();
 
-    Sse::new(tokio_stream::iter(items)).keep_alive(
-        KeepAlive::new().interval(Duration::from_secs(30)),
-    )
+    Sse::new(tokio_stream::iter(items))
+        .keep_alive(KeepAlive::new().interval(Duration::from_secs(30)))
 }
 
 // ---------------------------------------------------------------------------
@@ -161,17 +158,13 @@ mod tests {
 
     #[test]
     fn event_type_assistant_delta() {
-        let kind = AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        };
+        let kind = AgentEventKind::AssistantDelta { text: "hi".into() };
         assert_eq!(sse_event_type(&kind), "assistant_delta");
     }
 
     #[test]
     fn event_type_assistant_message() {
-        let kind = AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        };
+        let kind = AgentEventKind::AssistantMessage { text: "hi".into() };
         assert_eq!(sse_event_type(&kind), "assistant_message");
     }
 
@@ -209,9 +202,7 @@ mod tests {
 
     #[test]
     fn format_sse_event_increments_seq() {
-        let event = make_event(AgentEventKind::AssistantDelta {
-            text: "tok".into(),
-        });
+        let event = make_event(AgentEventKind::AssistantDelta { text: "tok".into() });
         let sse0 = format_sse_event(0, &event).unwrap();
         let sse1 = format_sse_event(1, &event).unwrap();
         // Both should succeed with different sequence numbers.
@@ -299,9 +290,7 @@ mod tests {
             make_event(AgentEventKind::RunStarted {
                 message: "a".into(),
             }),
-            make_event(AgentEventKind::AssistantMessage {
-                text: "b".into(),
-            }),
+            make_event(AgentEventKind::AssistantMessage { text: "b".into() }),
         ];
 
         let _sse = replay_event_stream(events);
@@ -318,9 +307,7 @@ mod tests {
             make_event(AgentEventKind::RunStarted {
                 message: "a".into(),
             }),
-            make_event(AgentEventKind::AssistantDelta {
-                text: "b".into(),
-            }),
+            make_event(AgentEventKind::AssistantDelta { text: "b".into() }),
             make_event(AgentEventKind::RunCompleted {
                 message: "c".into(),
             }),

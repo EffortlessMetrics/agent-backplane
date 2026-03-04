@@ -1345,3 +1345,913 @@ fn version_error_display() {
     let e = VersionError::InvalidFormat("bad".into());
     assert_eq!(e.to_string(), "invalid version format: \"bad\"");
 }
+
+// ══════════════════════════════════════════════════════════════════
+// New tests: chain enhancements, archive, summary, verification
+// ══════════════════════════════════════════════════════════════════
+
+// ── chain_length / find_by_hash ────────────────────────────────────
+
+#[test]
+fn chain_length_empty() {
+    let chain = ReceiptChain::new();
+    assert_eq!(chain.chain_length(), 0);
+}
+
+#[test]
+fn chain_length_matches_len() {
+    let mut chain = ReceiptChain::new();
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    chain
+        .push(
+            ReceiptBuilder::new("a")
+                .started_at(ts1)
+                .finished_at(ts1)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    chain
+        .push(
+            ReceiptBuilder::new("b")
+                .started_at(ts2)
+                .finished_at(ts2)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    assert_eq!(chain.chain_length(), 2);
+    assert_eq!(chain.chain_length(), chain.len());
+}
+
+#[test]
+fn find_by_hash_existing() {
+    let mut chain = ReceiptChain::new();
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let hash = r.receipt_sha256.clone().unwrap();
+    let run_id = r.meta.run_id;
+    chain.push(r).unwrap();
+
+    let found = chain.find_by_hash(&hash).unwrap();
+    assert_eq!(found.meta.run_id, run_id);
+}
+
+#[test]
+fn find_by_hash_missing() {
+    let mut chain = ReceiptChain::new();
+    chain
+        .push(ReceiptBuilder::new("mock").with_hash().unwrap())
+        .unwrap();
+    assert!(chain.find_by_hash("nonexistent").is_none());
+}
+
+#[test]
+fn find_by_hash_empty_chain() {
+    let chain = ReceiptChain::new();
+    assert!(chain.find_by_hash("anything").is_none());
+}
+
+#[test]
+fn find_by_hash_multiple_receipts() {
+    let mut chain = ReceiptChain::new();
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    let ts3 = Utc.with_ymd_and_hms(2025, 3, 1, 0, 0, 0).unwrap();
+
+    let r1 = ReceiptBuilder::new("a")
+        .started_at(ts1)
+        .finished_at(ts1)
+        .with_hash()
+        .unwrap();
+    let r2 = ReceiptBuilder::new("b")
+        .started_at(ts2)
+        .finished_at(ts2)
+        .with_hash()
+        .unwrap();
+    let r3 = ReceiptBuilder::new("c")
+        .started_at(ts3)
+        .finished_at(ts3)
+        .with_hash()
+        .unwrap();
+    let hash2 = r2.receipt_sha256.clone().unwrap();
+    chain.push(r1).unwrap();
+    chain.push(r2).unwrap();
+    chain.push(r3).unwrap();
+
+    let found = chain.find_by_hash(&hash2).unwrap();
+    assert_eq!(found.backend.id, "b");
+}
+
+// ── Chain building and verification ────────────────────────────────
+
+#[test]
+fn chain_verify_chain_empty() {
+    let chain = ReceiptChain::new();
+    assert_eq!(chain.verify_chain(), Err(ChainError::EmptyChain));
+}
+
+#[test]
+fn chain_verify_chain_single() {
+    let mut chain = ReceiptChain::new();
+    chain
+        .push(ReceiptBuilder::new("m").with_hash().unwrap())
+        .unwrap();
+    assert!(chain.verify_chain().is_ok());
+}
+
+#[test]
+fn chain_verify_chain_multiple_valid() {
+    let mut chain = ReceiptChain::new();
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    let ts3 = Utc.with_ymd_and_hms(2025, 3, 1, 0, 0, 0).unwrap();
+    chain
+        .push(
+            ReceiptBuilder::new("a")
+                .started_at(ts1)
+                .finished_at(ts1)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    chain
+        .push(
+            ReceiptBuilder::new("b")
+                .started_at(ts2)
+                .finished_at(ts2)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    chain
+        .push(
+            ReceiptBuilder::new("c")
+                .started_at(ts3)
+                .finished_at(ts3)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    assert!(chain.verify_chain().is_ok());
+}
+
+// ── Chain integrity / tamper detection ──────────────────────────────
+
+#[test]
+fn chain_detect_tampering_clean_chain() {
+    let mut chain = ReceiptChain::new();
+    chain
+        .push(ReceiptBuilder::new("m").with_hash().unwrap())
+        .unwrap();
+    assert!(chain.detect_tampering().is_empty());
+}
+
+#[test]
+fn chain_detect_tampering_hash_mismatch() {
+    let r = ReceiptBuilder::new("mock").with_hash().unwrap();
+    let mut chain = ReceiptChain::new();
+    chain.push(r).unwrap();
+    // Tamper with the outcome after insertion
+    // We have to access the internal receipt indirectly
+    // Instead, build a chain with skip_validation
+    let mut r2 = ReceiptBuilder::new("mock").with_hash().unwrap();
+    r2.outcome = Outcome::Failed; // tamper
+    let chain2 = ChainBuilder::new()
+        .skip_validation()
+        .append(r2)
+        .unwrap()
+        .build();
+    let evidence = chain2.detect_tampering();
+    assert!(!evidence.is_empty());
+    assert!(matches!(
+        evidence[0].kind,
+        TamperKind::HashMismatch { .. }
+    ));
+}
+
+#[test]
+fn chain_detect_tampering_returns_all_issues() {
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    let mut r1 = ReceiptBuilder::new("a")
+        .started_at(ts1)
+        .finished_at(ts1)
+        .with_hash()
+        .unwrap();
+    let mut r2 = ReceiptBuilder::new("b")
+        .started_at(ts2)
+        .finished_at(ts2)
+        .with_hash()
+        .unwrap();
+    r1.outcome = Outcome::Failed; // tamper
+    r2.outcome = Outcome::Failed; // tamper
+    let chain = ChainBuilder::new()
+        .skip_validation()
+        .append(r1)
+        .unwrap()
+        .append(r2)
+        .unwrap()
+        .build();
+    let evidence = chain.detect_tampering();
+    // At least one issue per tampered receipt
+    assert!(evidence.len() >= 2);
+}
+
+#[test]
+fn chain_tamper_evidence_display() {
+    let ev = TamperEvidence {
+        index: 0,
+        sequence: 0,
+        kind: TamperKind::HashMismatch {
+            stored: "aaa".into(),
+            computed: "bbb".into(),
+        },
+    };
+    let s = ev.to_string();
+    assert!(s.contains("index=0"));
+    assert!(s.contains("hash mismatch"));
+}
+
+#[test]
+fn chain_gap_display() {
+    let gap = ChainGap {
+        expected: 2,
+        actual: 5,
+        after_index: 1,
+    };
+    let s = gap.to_string();
+    assert!(s.contains("gap"));
+    assert!(s.contains("expected seq 2"));
+}
+
+// ── Chain builder tests ────────────────────────────────────────────
+
+#[test]
+fn chain_builder_basic() {
+    let chain = ChainBuilder::new()
+        .append(ReceiptBuilder::new("x").with_hash().unwrap())
+        .unwrap()
+        .build();
+    assert_eq!(chain.len(), 1);
+    assert_eq!(chain.sequence_at(0), Some(0));
+}
+
+#[test]
+fn chain_builder_skip_validation() {
+    let mut r = ReceiptBuilder::new("mock").with_hash().unwrap();
+    r.outcome = Outcome::Failed; // tamper
+    // Should succeed with skip_validation
+    let chain = ChainBuilder::new()
+        .skip_validation()
+        .append(r)
+        .unwrap()
+        .build();
+    assert_eq!(chain.len(), 1);
+}
+
+#[test]
+fn chain_builder_with_sequence_gap() {
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    let chain = ChainBuilder::new()
+        .append_with_sequence(
+            ReceiptBuilder::new("a")
+                .started_at(ts1)
+                .finished_at(ts1)
+                .with_hash()
+                .unwrap(),
+            0,
+        )
+        .unwrap()
+        .append_with_sequence(
+            ReceiptBuilder::new("b")
+                .started_at(ts2)
+                .finished_at(ts2)
+                .with_hash()
+                .unwrap(),
+            5, // gap!
+        )
+        .unwrap()
+        .build();
+    assert_eq!(chain.len(), 2);
+    let gaps = chain.find_gaps();
+    assert_eq!(gaps.len(), 1);
+    assert_eq!(gaps[0].expected, 1);
+    assert_eq!(gaps[0].actual, 5);
+}
+
+#[test]
+fn chain_parent_hash_linkage() {
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    let mut chain = ReceiptChain::new();
+    let r1 = ReceiptBuilder::new("a")
+        .started_at(ts1)
+        .finished_at(ts1)
+        .with_hash()
+        .unwrap();
+    let r1_hash = r1.receipt_sha256.clone().unwrap();
+    chain.push(r1).unwrap();
+    chain
+        .push(
+            ReceiptBuilder::new("b")
+                .started_at(ts2)
+                .finished_at(ts2)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    // First receipt has no parent
+    assert!(chain.parent_hash_at(0).is_none());
+    // Second receipt's parent is first receipt's hash
+    assert_eq!(chain.parent_hash_at(1), Some(r1_hash.as_str()));
+}
+
+#[test]
+fn chain_serde_roundtrip() {
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    let mut chain = ReceiptChain::new();
+    chain
+        .push(
+            ReceiptBuilder::new("a")
+                .started_at(ts1)
+                .finished_at(ts1)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    chain
+        .push(
+            ReceiptBuilder::new("b")
+                .started_at(ts2)
+                .finished_at(ts2)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+
+    let json = serde_json::to_string(&chain).unwrap();
+    let chain2: ReceiptChain = serde_json::from_str(&json).unwrap();
+    assert_eq!(chain2.len(), 2);
+    assert!(chain2.verify().is_ok());
+}
+
+#[test]
+fn chain_summary_basic() {
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 1, 0).unwrap();
+    let mut chain = ReceiptChain::new();
+    chain
+        .push(
+            ReceiptBuilder::new("mock")
+                .outcome(Outcome::Complete)
+                .started_at(ts1)
+                .finished_at(ts1)
+                .usage_tokens(100, 200)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+    chain
+        .push(
+            ReceiptBuilder::new("mock")
+                .outcome(Outcome::Failed)
+                .started_at(ts2)
+                .finished_at(ts2)
+                .usage_tokens(50, 75)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+
+    let summary = chain.chain_summary();
+    assert_eq!(summary.total_receipts, 2);
+    assert_eq!(summary.complete_count, 1);
+    assert_eq!(summary.failed_count, 1);
+    assert_eq!(summary.total_input_tokens, 150);
+    assert_eq!(summary.total_output_tokens, 275);
+    assert!(summary.all_hashes_valid);
+    assert_eq!(summary.gap_count, 0);
+}
+
+// ── Receipt verification tests ─────────────────────────────────────
+
+#[test]
+fn verify_receipt_valid() {
+    use crate::verify::verify_receipt;
+
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let result = verify_receipt(&r);
+    assert!(result.is_verified());
+    assert!(result.issues.is_empty());
+}
+
+#[test]
+fn verify_receipt_invalid_hash() {
+    use crate::verify::verify_receipt;
+
+    let mut r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    r.outcome = Outcome::Failed; // tamper
+    let result = verify_receipt(&r);
+    assert!(!result.hash_valid);
+    assert!(!result.is_verified());
+}
+
+#[test]
+fn verify_receipt_wrong_contract() {
+    use crate::verify::verify_receipt;
+
+    let mut r = ReceiptBuilder::new("mock").build();
+    r.meta.contract_version = "wrong/v99".into();
+    let result = verify_receipt(&r);
+    assert!(!result.contract_valid);
+    assert!(!result.is_verified());
+}
+
+#[test]
+fn verify_receipt_bad_timestamps() {
+    use crate::verify::verify_receipt;
+
+    let mut r = ReceiptBuilder::new("mock").build();
+    r.meta.duration_ms = 999999; // inconsistent
+    let result = verify_receipt(&r);
+    assert!(!result.timestamps_valid);
+}
+
+#[test]
+fn verify_receipt_no_hash_passes() {
+    use crate::verify::verify_receipt;
+
+    let r = ReceiptBuilder::new("mock").build();
+    let result = verify_receipt(&r);
+    assert!(result.hash_valid);
+}
+
+#[test]
+fn verify_receipt_display_verified() {
+    use crate::verify::verify_receipt;
+
+    let r = ReceiptBuilder::new("mock").with_hash().unwrap();
+    let result = verify_receipt(&r);
+    assert!(result.to_string().contains("verified"));
+}
+
+#[test]
+fn verify_receipt_display_failed() {
+    use crate::verify::verify_receipt;
+
+    let mut r = ReceiptBuilder::new("mock").with_hash().unwrap();
+    r.outcome = Outcome::Failed;
+    let result = verify_receipt(&r);
+    assert!(result.to_string().contains("failed"));
+}
+
+#[test]
+fn auditor_batch_clean() {
+    use crate::verify::ReceiptAuditor;
+
+    let auditor = ReceiptAuditor::new();
+    let r1 = ReceiptBuilder::new("a").with_hash().unwrap();
+    let r2 = ReceiptBuilder::new("b").with_hash().unwrap();
+    let report = auditor.audit_batch(&[r1, r2]);
+    assert!(report.is_clean());
+    assert_eq!(report.total, 2);
+    assert_eq!(report.valid, 2);
+}
+
+#[test]
+fn auditor_batch_detects_invalid() {
+    use crate::verify::ReceiptAuditor;
+
+    let auditor = ReceiptAuditor::new();
+    let mut r = ReceiptBuilder::new("a").with_hash().unwrap();
+    r.outcome = Outcome::Failed; // tamper
+    let report = auditor.audit_batch(&[r]);
+    assert!(!report.is_clean());
+    assert_eq!(report.invalid, 1);
+}
+
+#[test]
+fn auditor_report_display() {
+    use crate::verify::ReceiptAuditor;
+
+    let auditor = ReceiptAuditor::new();
+    let r = ReceiptBuilder::new("a").with_hash().unwrap();
+    let report = auditor.audit_batch(&[r]);
+    let s = report.to_string();
+    assert!(s.contains("AuditReport"));
+    assert!(s.contains("total: 1"));
+}
+
+// ── Archive tests ──────────────────────────────────────────────────
+
+#[test]
+fn archive_new_is_empty() {
+    use crate::archive::ReceiptArchive;
+
+    let archive = ReceiptArchive::new();
+    assert!(archive.is_empty());
+    assert_eq!(archive.len(), 0);
+}
+
+#[test]
+fn archive_store_and_retrieve() {
+    use crate::archive::{ArchiveQuery, ReceiptArchive};
+
+    let mut archive = ReceiptArchive::new();
+    let r = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let id = r.meta.run_id;
+    archive.store(r).unwrap();
+
+    assert_eq!(archive.len(), 1);
+    let got = archive.retrieve(id).unwrap();
+    assert_eq!(got.backend.id, "mock");
+}
+
+#[test]
+fn archive_retrieve_missing() {
+    use crate::archive::ReceiptArchive;
+
+    let archive = ReceiptArchive::new();
+    assert!(archive.retrieve(Uuid::new_v4()).is_none());
+}
+
+#[test]
+fn archive_rejects_duplicate() {
+    use crate::archive::{ArchiveError, ReceiptArchive};
+
+    let mut archive = ReceiptArchive::new();
+    let id = Uuid::new_v4();
+    let r1 = ReceiptBuilder::new("a").run_id(id).build();
+    let r2 = ReceiptBuilder::new("b").run_id(id).build();
+    archive.store(r1).unwrap();
+    assert!(matches!(archive.store(r2), Err(ArchiveError::DuplicateId(_))));
+}
+
+#[test]
+fn archive_search_all() {
+    use crate::archive::{ArchiveQuery, ReceiptArchive};
+
+    let mut archive = ReceiptArchive::new();
+    archive.store(ReceiptBuilder::new("a").build()).unwrap();
+    archive.store(ReceiptBuilder::new("b").build()).unwrap();
+
+    let results = archive.search(&ArchiveQuery::default());
+    assert_eq!(results.len(), 2);
+}
+
+#[test]
+fn archive_search_by_backend() {
+    use crate::archive::{ArchiveQuery, ReceiptArchive};
+
+    let mut archive = ReceiptArchive::new();
+    archive.store(ReceiptBuilder::new("alpha").build()).unwrap();
+    archive.store(ReceiptBuilder::new("beta").build()).unwrap();
+
+    let query = ArchiveQuery {
+        backend_id: Some("alpha".into()),
+        ..Default::default()
+    };
+    let results = archive.search(&query);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].backend.id, "alpha");
+}
+
+#[test]
+fn archive_search_by_work_order_id() {
+    use crate::archive::{ArchiveQuery, ReceiptArchive};
+
+    let mut archive = ReceiptArchive::new();
+    let wo_id = Uuid::new_v4();
+    archive
+        .store(ReceiptBuilder::new("a").work_order_id(wo_id).build())
+        .unwrap();
+    archive.store(ReceiptBuilder::new("b").build()).unwrap();
+
+    let query = ArchiveQuery {
+        work_order_id: Some(wo_id),
+        ..Default::default()
+    };
+    let results = archive.search(&query);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].meta.work_order_id, wo_id);
+}
+
+#[test]
+fn archive_search_by_time_range() {
+    use crate::archive::{ArchiveQuery, ReceiptArchive};
+
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 6, 1, 0, 0, 0).unwrap();
+    let t3 = Utc.with_ymd_and_hms(2025, 12, 1, 0, 0, 0).unwrap();
+
+    let mut archive = ReceiptArchive::new();
+    archive
+        .store(
+            ReceiptBuilder::new("early")
+                .started_at(t1)
+                .finished_at(t1)
+                .build(),
+        )
+        .unwrap();
+    archive
+        .store(
+            ReceiptBuilder::new("mid")
+                .started_at(t2)
+                .finished_at(t2)
+                .build(),
+        )
+        .unwrap();
+    archive
+        .store(
+            ReceiptBuilder::new("late")
+                .started_at(t3)
+                .finished_at(t3)
+                .build(),
+        )
+        .unwrap();
+
+    let query = ArchiveQuery {
+        after: Some(Utc.with_ymd_and_hms(2025, 3, 1, 0, 0, 0).unwrap()),
+        before: Some(Utc.with_ymd_and_hms(2025, 9, 1, 0, 0, 0).unwrap()),
+        ..Default::default()
+    };
+    let results = archive.search(&query);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].backend.id, "mid");
+}
+
+#[test]
+fn archive_search_combined_filters() {
+    use crate::archive::{ArchiveQuery, ReceiptArchive};
+
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 6, 1, 0, 0, 0).unwrap();
+    let wo = Uuid::new_v4();
+
+    let mut archive = ReceiptArchive::new();
+    archive
+        .store(
+            ReceiptBuilder::new("alpha")
+                .work_order_id(wo)
+                .started_at(t1)
+                .finished_at(t1)
+                .build(),
+        )
+        .unwrap();
+    archive
+        .store(
+            ReceiptBuilder::new("alpha")
+                .work_order_id(wo)
+                .started_at(t2)
+                .finished_at(t2)
+                .build(),
+        )
+        .unwrap();
+    archive
+        .store(
+            ReceiptBuilder::new("beta")
+                .work_order_id(wo)
+                .started_at(t2)
+                .finished_at(t2)
+                .build(),
+        )
+        .unwrap();
+
+    let query = ArchiveQuery {
+        work_order_id: Some(wo),
+        backend_id: Some("alpha".into()),
+        after: Some(Utc.with_ymd_and_hms(2025, 3, 1, 0, 0, 0).unwrap()),
+        ..Default::default()
+    };
+    let results = archive.search(&query);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].backend.id, "alpha");
+}
+
+#[test]
+fn archive_search_no_match() {
+    use crate::archive::{ArchiveQuery, ReceiptArchive};
+
+    let mut archive = ReceiptArchive::new();
+    archive.store(ReceiptBuilder::new("a").build()).unwrap();
+
+    let query = ArchiveQuery {
+        backend_id: Some("nonexistent".into()),
+        ..Default::default()
+    };
+    let results = archive.search(&query);
+    assert!(results.is_empty());
+}
+
+#[test]
+fn archive_error_display() {
+    use crate::archive::ArchiveError;
+
+    let id = Uuid::nil();
+    let e = ArchiveError::DuplicateId(id);
+    assert!(e.to_string().contains("duplicate"));
+}
+
+// ── Summary tests ──────────────────────────────────────────────────
+
+#[test]
+fn summary_empty_receipts() {
+    use crate::summary::AggregateSummary;
+
+    let summary = AggregateSummary::from_receipts(&[]);
+    assert_eq!(summary.total_receipts, 0);
+    assert_eq!(summary.success_rate, 0.0);
+    assert_eq!(summary.avg_duration_ms, 0.0);
+    assert_eq!(summary.total_tokens, 0);
+    assert!(summary.most_common_backend.is_none());
+}
+
+#[test]
+fn summary_single_complete() {
+    use crate::summary::AggregateSummary;
+
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .usage_tokens(100, 200)
+        .build();
+    let summary = AggregateSummary::from_receipts(&[r]);
+    assert_eq!(summary.total_receipts, 1);
+    assert!((summary.success_rate - 1.0).abs() < f64::EPSILON);
+    assert_eq!(summary.total_tokens, 300);
+    assert_eq!(summary.total_input_tokens, 100);
+    assert_eq!(summary.total_output_tokens, 200);
+    assert_eq!(summary.complete_count, 1);
+    assert_eq!(summary.failed_count, 0);
+}
+
+#[test]
+fn summary_mixed_outcomes() {
+    use crate::summary::AggregateSummary;
+
+    let receipts = vec![
+        ReceiptBuilder::new("a").outcome(Outcome::Complete).build(),
+        ReceiptBuilder::new("b").outcome(Outcome::Failed).build(),
+        ReceiptBuilder::new("c").outcome(Outcome::Partial).build(),
+        ReceiptBuilder::new("d").outcome(Outcome::Complete).build(),
+    ];
+    let summary = AggregateSummary::from_receipts(&receipts);
+    assert_eq!(summary.total_receipts, 4);
+    assert!((summary.success_rate - 0.5).abs() < f64::EPSILON);
+    assert_eq!(summary.complete_count, 2);
+    assert_eq!(summary.failed_count, 1);
+    assert_eq!(summary.partial_count, 1);
+}
+
+#[test]
+fn summary_error_distribution() {
+    use crate::summary::AggregateSummary;
+
+    let receipts = vec![
+        ReceiptBuilder::new("a").error("timeout").build(),
+        ReceiptBuilder::new("b").error("timeout").build(),
+        ReceiptBuilder::new("c").error("auth failed").build(),
+    ];
+    let summary = AggregateSummary::from_receipts(&receipts);
+    assert_eq!(summary.error_distribution.get("timeout"), Some(&2));
+    assert_eq!(summary.error_distribution.get("auth failed"), Some(&1));
+    assert_eq!(summary.error_distribution.len(), 2);
+}
+
+#[test]
+fn summary_backend_distribution() {
+    use crate::summary::AggregateSummary;
+
+    let receipts = vec![
+        ReceiptBuilder::new("openai").build(),
+        ReceiptBuilder::new("openai").build(),
+        ReceiptBuilder::new("anthropic").build(),
+    ];
+    let summary = AggregateSummary::from_receipts(&receipts);
+    assert_eq!(summary.backend_distribution.get("openai"), Some(&2));
+    assert_eq!(summary.backend_distribution.get("anthropic"), Some(&1));
+}
+
+#[test]
+fn summary_most_common_backend() {
+    use crate::summary::AggregateSummary;
+
+    let receipts = vec![
+        ReceiptBuilder::new("openai").build(),
+        ReceiptBuilder::new("openai").build(),
+        ReceiptBuilder::new("anthropic").build(),
+    ];
+    let summary = AggregateSummary::from_receipts(&receipts);
+    assert_eq!(summary.most_common_backend, Some("openai".to_string()));
+}
+
+#[test]
+fn summary_avg_duration() {
+    use crate::summary::AggregateSummary;
+
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 10).unwrap();
+    let t3 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 20).unwrap();
+
+    let receipts = vec![
+        ReceiptBuilder::new("a")
+            .started_at(t1)
+            .finished_at(t2)
+            .build(), // 10s
+        ReceiptBuilder::new("b")
+            .started_at(t1)
+            .finished_at(t3)
+            .build(), // 20s
+    ];
+    let summary = AggregateSummary::from_receipts(&receipts);
+    assert_eq!(summary.total_duration_ms, 30_000);
+    assert!((summary.avg_duration_ms - 15_000.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn summary_total_tokens_combined() {
+    use crate::summary::AggregateSummary;
+
+    let receipts = vec![
+        ReceiptBuilder::new("a").usage_tokens(50, 100).build(),
+        ReceiptBuilder::new("b").usage_tokens(30, 60).build(),
+    ];
+    let summary = AggregateSummary::from_receipts(&receipts);
+    assert_eq!(summary.total_input_tokens, 80);
+    assert_eq!(summary.total_output_tokens, 160);
+    assert_eq!(summary.total_tokens, 240);
+}
+
+// ── Serde roundtrip tests ──────────────────────────────────────────
+
+#[test]
+fn chain_json_roundtrip_preserves_hashes() {
+    let ts1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let ts2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    let mut chain = ReceiptChain::new();
+    let r1 = ReceiptBuilder::new("a")
+        .started_at(ts1)
+        .finished_at(ts1)
+        .with_hash()
+        .unwrap();
+    let h1 = r1.receipt_sha256.clone().unwrap();
+    chain.push(r1).unwrap();
+    chain
+        .push(
+            ReceiptBuilder::new("b")
+                .started_at(ts2)
+                .finished_at(ts2)
+                .with_hash()
+                .unwrap(),
+        )
+        .unwrap();
+
+    let json = serde_json::to_string(&chain).unwrap();
+    let chain2: ReceiptChain = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        chain2.get(0).unwrap().receipt_sha256.as_deref(),
+        Some(h1.as_str())
+    );
+}
+
+#[test]
+fn receipt_json_roundtrip_with_usage() {
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .usage_tokens(500, 1000)
+        .model("gpt-4o")
+        .with_hash()
+        .unwrap();
+    let json = crate::serde_formats::to_json(&r).unwrap();
+    let r2 = crate::serde_formats::from_json(&json).unwrap();
+    assert_eq!(r.usage.input_tokens, r2.usage.input_tokens);
+    assert_eq!(r.usage.output_tokens, r2.usage.output_tokens);
+    assert_eq!(r.receipt_sha256, r2.receipt_sha256);
+}
+
+#[test]
+fn receipt_bytes_roundtrip_preserves_all() {
+    let r = ReceiptBuilder::new("test")
+        .outcome(Outcome::Partial)
+        .backend_version("2.0")
+        .adapter_version("1.5")
+        .usage_tokens(10, 20)
+        .with_hash()
+        .unwrap();
+    let bytes = crate::serde_formats::to_bytes(&r).unwrap();
+    let r2 = crate::serde_formats::from_bytes(&bytes).unwrap();
+    assert_eq!(r.meta.run_id, r2.meta.run_id);
+    assert_eq!(r.outcome, r2.outcome);
+    assert_eq!(r.backend.backend_version, r2.backend.backend_version);
+}

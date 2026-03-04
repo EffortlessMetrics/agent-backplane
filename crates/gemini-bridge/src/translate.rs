@@ -10,21 +10,21 @@ mod inner {
     use std::collections::BTreeMap;
 
     use abp_core::{
-        AgentEvent, AgentEventKind, ContextPacket, ContextSnippet, Outcome, Receipt,
-        RuntimeConfig, UsageNormalized, WorkOrder, WorkOrderBuilder,
+        AgentEvent, AgentEventKind, ContextPacket, ContextSnippet, Outcome, Receipt, RuntimeConfig,
+        UsageNormalized, WorkOrder, WorkOrderBuilder,
     };
     use abp_sdk_types::ir::{
         IrContentPart, IrMessage, IrRole, IrToolCall, IrToolDefinition, IrToolResult, IrUsage,
     };
     use chrono::Utc;
 
+    use crate::error::BridgeError;
     use crate::gemini_types::{
-        Candidate, Content, FunctionCall, FunctionDeclaration, FunctionResponse,
-        GenerateContentRequest, GenerateContentResponse, GenerationConfig, GeminiTool,
-        HarmCategory, InlineData, Part, PromptFeedback, SafetyRating, SafetySetting,
+        Candidate, Content, FunctionCall, FunctionDeclaration, FunctionResponse, GeminiTool,
+        GenerateContentRequest, GenerateContentResponse, GenerationConfig, HarmCategory,
+        InlineData, Part, PromptFeedback, SafetyRating, SafetySetting,
         StreamGenerateContentResponse, UsageMetadata,
     };
-    use crate::error::BridgeError;
     use crate::multimodal::FileData;
 
     // ── Role mapping ────────────────────────────────────────────────────
@@ -79,9 +79,7 @@ mod inner {
     #[must_use]
     pub fn part_to_ir(part: &Part) -> IrContentPart {
         match part {
-            Part::Text(text) => IrContentPart::Text {
-                text: text.clone(),
-            },
+            Part::Text(text) => IrContentPart::Text { text: text.clone() },
             Part::InlineData(data) => IrContentPart::Image {
                 url: None,
                 base64: Some(data.data.clone()),
@@ -113,21 +111,15 @@ mod inner {
                 media_type,
                 ..
             } => Part::InlineData(InlineData {
-                mime_type: media_type
-                    .clone()
-                    .unwrap_or_else(|| "image/png".into()),
+                mime_type: media_type.clone().unwrap_or_else(|| "image/png".into()),
                 data: b64.clone(),
             }),
-            IrContentPart::Image { url: Some(url), .. } => {
-                Part::Text(format!("[image: {}]", url))
-            }
+            IrContentPart::Image { url: Some(url), .. } => Part::Text(format!("[image: {}]", url)),
             IrContentPart::Image { .. } => Part::Text("[image]".into()),
-            IrContentPart::Audio { media_type, data } => {
-                Part::InlineData(InlineData {
-                    mime_type: media_type.clone(),
-                    data: data.clone(),
-                })
-            }
+            IrContentPart::Audio { media_type, data } => Part::InlineData(InlineData {
+                mime_type: media_type.clone(),
+                data: data.clone(),
+            }),
             IrContentPart::File {
                 name: _,
                 data: Some(d),
@@ -471,67 +463,59 @@ mod inner {
         event: &AgentEvent,
     ) -> Option<StreamGenerateContentResponse> {
         match &event.kind {
-            AgentEventKind::AssistantDelta { text } => {
-                Some(StreamGenerateContentResponse {
-                    candidates: vec![Candidate {
-                        content: Content {
-                            role: Some("model".into()),
-                            parts: vec![Part::Text(text.clone())],
-                        },
-                        finish_reason: None,
-                        safety_ratings: None,
-                        citation_metadata: None,
-                    }],
-                    usage_metadata: None,
-                })
-            }
-            AgentEventKind::AssistantMessage { text } => {
-                Some(StreamGenerateContentResponse {
-                    candidates: vec![Candidate {
-                        content: Content {
-                            role: Some("model".into()),
-                            parts: vec![Part::Text(text.clone())],
-                        },
-                        finish_reason: Some("STOP".into()),
-                        safety_ratings: None,
-                        citation_metadata: None,
-                    }],
-                    usage_metadata: None,
-                })
-            }
+            AgentEventKind::AssistantDelta { text } => Some(StreamGenerateContentResponse {
+                candidates: vec![Candidate {
+                    content: Content {
+                        role: Some("model".into()),
+                        parts: vec![Part::Text(text.clone())],
+                    },
+                    finish_reason: None,
+                    safety_ratings: None,
+                    citation_metadata: None,
+                }],
+                usage_metadata: None,
+            }),
+            AgentEventKind::AssistantMessage { text } => Some(StreamGenerateContentResponse {
+                candidates: vec![Candidate {
+                    content: Content {
+                        role: Some("model".into()),
+                        parts: vec![Part::Text(text.clone())],
+                    },
+                    finish_reason: Some("STOP".into()),
+                    safety_ratings: None,
+                    citation_metadata: None,
+                }],
+                usage_metadata: None,
+            }),
             AgentEventKind::ToolCall {
                 tool_name, input, ..
-            } => {
-                Some(StreamGenerateContentResponse {
-                    candidates: vec![Candidate {
-                        content: Content {
-                            role: Some("model".into()),
-                            parts: vec![Part::FunctionCall(FunctionCall {
-                                name: tool_name.clone(),
-                                args: input.clone(),
-                            })],
-                        },
-                        finish_reason: None,
-                        safety_ratings: None,
-                        citation_metadata: None,
-                    }],
-                    usage_metadata: None,
-                })
-            }
-            AgentEventKind::RunCompleted { .. } => {
-                Some(StreamGenerateContentResponse {
-                    candidates: vec![Candidate {
-                        content: Content {
-                            role: Some("model".into()),
-                            parts: vec![],
-                        },
-                        finish_reason: Some("STOP".into()),
-                        safety_ratings: None,
-                        citation_metadata: None,
-                    }],
-                    usage_metadata: None,
-                })
-            }
+            } => Some(StreamGenerateContentResponse {
+                candidates: vec![Candidate {
+                    content: Content {
+                        role: Some("model".into()),
+                        parts: vec![Part::FunctionCall(FunctionCall {
+                            name: tool_name.clone(),
+                            args: input.clone(),
+                        })],
+                    },
+                    finish_reason: None,
+                    safety_ratings: None,
+                    citation_metadata: None,
+                }],
+                usage_metadata: None,
+            }),
+            AgentEventKind::RunCompleted { .. } => Some(StreamGenerateContentResponse {
+                candidates: vec![Candidate {
+                    content: Content {
+                        role: Some("model".into()),
+                        parts: vec![],
+                    },
+                    finish_reason: Some("STOP".into()),
+                    safety_ratings: None,
+                    citation_metadata: None,
+                }],
+                usage_metadata: None,
+            }),
             _ => None,
         }
     }
@@ -539,9 +523,7 @@ mod inner {
     // ── Error translation ───────────────────────────────────────────────
 
     /// Convert a Gemini API error into a [`BridgeError`].
-    pub fn api_error_to_bridge(
-        error: &crate::gemini_types::GeminiErrorResponse,
-    ) -> BridgeError {
+    pub fn api_error_to_bridge(error: &crate::gemini_types::GeminiErrorResponse) -> BridgeError {
         let detail = &error.error;
         match detail.code {
             401 => BridgeError::Config(format!("authentication failed: {}", detail.message)),

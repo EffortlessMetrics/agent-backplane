@@ -4,7 +4,7 @@
 //!
 //! These functions handle serialization, newline termination, and frame
 //! construction for the ABP sidecar protocol. They work with the
-//! value-based [`Frame`](crate::Frame) type and accept typed `abp-core`
+//! value-based [`Frame`] type and accept typed `abp-core`
 //! values, converting them to JSON for wire transmission.
 //!
 //! # Example
@@ -50,8 +50,7 @@ pub fn send_hello(
     backend_id: &str,
     capabilities: &CapabilityManifest,
 ) -> Result<(), SidecarError> {
-    let caps_value =
-        serde_json::to_value(capabilities).map_err(SidecarError::Serialize)?;
+    let caps_value = serde_json::to_value(capabilities).map_err(SidecarError::Serialize)?;
     let frame = Frame::Hello {
         contract_version: abp_core::CONTRACT_VERSION.to_string(),
         backend: serde_json::json!({ "id": backend_id }),
@@ -73,7 +72,9 @@ pub fn read_run(reader: &mut impl BufRead) -> Result<WorkOrder, SidecarError> {
         let mut line = String::new();
         let n = reader.read_line(&mut line).map_err(SidecarError::Stdout)?;
         if n == 0 {
-            return Err(SidecarError::Protocol("unexpected EOF waiting for run".into()));
+            return Err(SidecarError::Protocol(
+                "unexpected EOF waiting for run".into(),
+            ));
         }
         let trimmed = line.trim();
         if trimmed.is_empty() {
@@ -157,7 +158,9 @@ pub fn send_fatal(
 
 fn write_frame(writer: &mut impl Write, frame: &Frame) -> Result<(), SidecarError> {
     let line = JsonlCodec::encode(frame)?;
-    writer.write_all(line.as_bytes()).map_err(SidecarError::Stdin)?;
+    writer
+        .write_all(line.as_bytes())
+        .map_err(SidecarError::Stdin)?;
     writer.flush().map_err(SidecarError::Stdin)?;
     Ok(())
 }
@@ -165,9 +168,9 @@ fn write_frame(writer: &mut impl Write, frame: &Frame) -> Result<(), SidecarErro
 #[cfg(test)]
 mod tests {
     use super::*;
-    use abp_core::CapabilityManifest;
     use crate::events::text_event;
     use crate::receipt_builder::TypedReceiptBuilder;
+    use abp_core::CapabilityManifest;
 
     #[test]
     fn send_hello_produces_valid_jsonl() {
@@ -249,9 +252,7 @@ mod tests {
                 deny_network: vec![],
                 require_approval_for: vec![],
             },
-            requirements: abp_core::CapabilityRequirements {
-                required: vec![],
-            },
+            requirements: abp_core::CapabilityRequirements { required: vec![] },
             config: abp_core::RuntimeConfig {
                 model: Some("test-model".into()),
                 vendor: Default::default(),
@@ -297,9 +298,7 @@ mod tests {
                 deny_network: vec![],
                 require_approval_for: vec![],
             },
-            requirements: abp_core::CapabilityRequirements {
-                required: vec![],
-            },
+            requirements: abp_core::CapabilityRequirements { required: vec![] },
             config: abp_core::RuntimeConfig {
                 model: Some("m".into()),
                 vendor: Default::default(),

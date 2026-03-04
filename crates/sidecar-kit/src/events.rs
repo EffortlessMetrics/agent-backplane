@@ -97,9 +97,7 @@ pub fn text_event(text: impl Into<String>) -> AgentEvent {
 pub fn delta_event(delta: impl Into<String>) -> AgentEvent {
     AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantDelta {
-            text: delta.into(),
-        },
+        kind: AgentEventKind::AssistantDelta { text: delta.into() },
         ext: None,
     }
 }
@@ -249,7 +247,11 @@ mod tests {
 
     #[test]
     fn tool_call_event_fields() {
-        let e = tool_call_event("read_file", Some("tc-1".into()), serde_json::json!({"path": "a.rs"}));
+        let e = tool_call_event(
+            "read_file",
+            Some("tc-1".into()),
+            serde_json::json!({"path": "a.rs"}),
+        );
         match &e.kind {
             AgentEventKind::ToolCall {
                 tool_name,
@@ -268,7 +270,12 @@ mod tests {
 
     #[test]
     fn tool_result_event_fields() {
-        let e = tool_result_event("read_file", Some("tc-1".into()), serde_json::json!("ok"), false);
+        let e = tool_result_event(
+            "read_file",
+            Some("tc-1".into()),
+            serde_json::json!("ok"),
+            false,
+        );
         match &e.kind {
             AgentEventKind::ToolResult {
                 tool_name,
@@ -289,7 +296,10 @@ mod tests {
     fn error_event_embeds_code_in_message() {
         let e = error_event("E001", "something broke");
         match &e.kind {
-            AgentEventKind::Error { message, error_code } => {
+            AgentEventKind::Error {
+                message,
+                error_code,
+            } => {
                 assert!(message.contains("E001"));
                 assert!(message.contains("something broke"));
                 assert!(error_code.is_none());

@@ -291,8 +291,14 @@ mod tests {
 
     #[test]
     fn encoding_format_values() {
-        assert_eq!(serde_json::to_string(&EncodingFormat::Float).unwrap(), r#""float""#);
-        assert_eq!(serde_json::to_string(&EncodingFormat::Base64).unwrap(), r#""base64""#);
+        assert_eq!(
+            serde_json::to_string(&EncodingFormat::Float).unwrap(),
+            r#""float""#
+        );
+        assert_eq!(
+            serde_json::to_string(&EncodingFormat::Base64).unwrap(),
+            r#""base64""#
+        );
     }
 
     // ── EmbeddingInput serde ───────────────────────────────────────

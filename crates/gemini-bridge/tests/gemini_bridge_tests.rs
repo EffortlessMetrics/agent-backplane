@@ -858,10 +858,7 @@ mod translation_tests {
             .finished_at(now)
             .build();
         let resp = receipt_to_gemini(&receipt);
-        assert_eq!(
-            resp.candidates[0].finish_reason,
-            Some("MAX_TOKENS".into())
-        );
+        assert_eq!(resp.candidates[0].finish_reason, Some("MAX_TOKENS".into()));
     }
 
     #[test]
@@ -1157,7 +1154,12 @@ mod translation_tests {
     fn part_text_to_ir() {
         let part = Part::text("Hello");
         let ir = part_to_ir(&part);
-        assert_eq!(ir, IrContentPart::Text { text: "Hello".into() });
+        assert_eq!(
+            ir,
+            IrContentPart::Text {
+                text: "Hello".into()
+            }
+        );
     }
 
     #[test]
@@ -1165,7 +1167,11 @@ mod translation_tests {
         let part = Part::inline_data("image/png", "abc123");
         let ir = part_to_ir(&part);
         match ir {
-            IrContentPart::Image { base64, media_type, url } => {
+            IrContentPart::Image {
+                base64,
+                media_type,
+                url,
+            } => {
                 assert_eq!(base64, Some("abc123".into()));
                 assert_eq!(media_type, Some("image/png".into()));
                 assert!(url.is_none());
@@ -1179,7 +1185,11 @@ mod translation_tests {
         let part = Part::function_call("search", json!({"q": "rust"}));
         let ir = part_to_ir(&part);
         match ir {
-            IrContentPart::ToolUse { id, name, arguments } => {
+            IrContentPart::ToolUse {
+                id,
+                name,
+                arguments,
+            } => {
                 assert_eq!(name, "search");
                 assert_eq!(arguments, json!({"q": "rust"}));
                 assert_eq!(id, "fc_search");
@@ -1193,7 +1203,11 @@ mod translation_tests {
         let part = Part::function_response("search", json!({"results": []}));
         let ir = part_to_ir(&part);
         match ir {
-            IrContentPart::ToolResult { call_id, content, is_error } => {
+            IrContentPart::ToolResult {
+                call_id,
+                content,
+                is_error,
+            } => {
                 assert_eq!(call_id, "fc_search");
                 assert!(!is_error);
                 assert!(content.contains("results"));
@@ -1552,10 +1566,8 @@ mod function_calling_tests {
         let call_back: Part = serde_json::from_str(&call_json).unwrap();
         assert_eq!(call_part, call_back);
 
-        let resp_part = Part::function_response(
-            "get_weather",
-            json!({"temperature": 22, "unit": "celsius"}),
-        );
+        let resp_part =
+            Part::function_response("get_weather", json!({"temperature": 22, "unit": "celsius"}));
         let resp_json = serde_json::to_string(&resp_part).unwrap();
         let resp_back: Part = serde_json::from_str(&resp_json).unwrap();
         assert_eq!(resp_part, resp_back);
@@ -1611,8 +1623,8 @@ mod function_calling_tests {
 // ═══════════════════════════════════════════════════════════════════════
 
 mod multimodal_tests {
-    use gemini_bridge::multimodal::*;
     use gemini_bridge::gemini_types::*;
+    use gemini_bridge::multimodal::*;
 
     #[test]
     fn file_data_roundtrip_serde() {
@@ -1665,11 +1677,10 @@ mod multimodal_tests {
     #[test]
     fn multimodal_request_with_inline_blob() {
         let blob = Blob::png("base64imagedata");
-        let req = GenerateContentRequest::new("gemini-2.5-flash")
-            .add_content(Content::user(vec![
-                Part::text("Describe this image"),
-                blob.into_part(),
-            ]));
+        let req = GenerateContentRequest::new("gemini-2.5-flash").add_content(Content::user(vec![
+            Part::text("Describe this image"),
+            blob.into_part(),
+        ]));
         let json = serde_json::to_string(&req).unwrap();
         let back: GenerateContentRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(req, back);
@@ -1682,7 +1693,10 @@ mod multimodal_tests {
         assert_eq!(classify_mime("audio/wav"), MediaCategory::Audio);
         assert_eq!(classify_mime("video/mp4"), MediaCategory::Video);
         assert_eq!(classify_mime("application/pdf"), MediaCategory::Document);
-        assert_eq!(classify_mime("application/x-custom"), MediaCategory::Unknown);
+        assert_eq!(
+            classify_mime("application/x-custom"),
+            MediaCategory::Unknown
+        );
     }
 }
 
@@ -1802,7 +1816,10 @@ mod safety_tests {
 
         // BlockLowAndAbove blocks Low+
         assert!(is_blocked_by(&low, HarmBlockThreshold::BlockLowAndAbove));
-        assert!(!is_blocked_by(&negligible, HarmBlockThreshold::BlockLowAndAbove));
+        assert!(!is_blocked_by(
+            &negligible,
+            HarmBlockThreshold::BlockLowAndAbove
+        ));
     }
 
     #[test]

@@ -6,8 +6,8 @@
 //! [`crate::gemini_types`].
 
 use crate::gemini_types::{
-    FunctionCall, FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration, FunctionResponse,
-    GeminiTool, ToolConfig,
+    FunctionCall, FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration,
+    FunctionResponse, GeminiTool, ToolConfig,
 };
 use serde_json::Value;
 
@@ -166,9 +166,7 @@ pub fn validate_config_against_tools(
 // ── Extraction helpers ──────────────────────────────────────────────────
 
 /// Extract all [`FunctionCall`] parts from a list of parts.
-pub fn extract_function_calls(
-    parts: &[crate::gemini_types::Part],
-) -> Vec<&FunctionCall> {
+pub fn extract_function_calls(parts: &[crate::gemini_types::Part]) -> Vec<&FunctionCall> {
     parts
         .iter()
         .filter_map(|p| match p {
@@ -179,9 +177,7 @@ pub fn extract_function_calls(
 }
 
 /// Extract all [`FunctionResponse`] parts from a list of parts.
-pub fn extract_function_responses(
-    parts: &[crate::gemini_types::Part],
-) -> Vec<&FunctionResponse> {
+pub fn extract_function_responses(parts: &[crate::gemini_types::Part]) -> Vec<&FunctionResponse> {
     parts
         .iter()
         .filter_map(|p| match p {
@@ -201,10 +197,7 @@ mod tests {
         let decl = FunctionDeclarationBuilder::new("test", "A test function").build();
         assert_eq!(decl.name, "test");
         assert_eq!(decl.description, "A test function");
-        assert_eq!(
-            decl.parameters,
-            json!({"type": "object", "properties": {}})
-        );
+        assert_eq!(decl.parameters, json!({"type": "object", "properties": {}}));
     }
 
     #[test]
@@ -225,9 +218,7 @@ mod tests {
     #[test]
     fn tool_builder_single_function() {
         let tool = GeminiToolBuilder::new()
-            .add_function(
-                FunctionDeclarationBuilder::new("f1", "First function").build(),
-            )
+            .add_function(FunctionDeclarationBuilder::new("f1", "First function").build())
             .build();
         assert_eq!(tool.function_declarations.len(), 1);
     }

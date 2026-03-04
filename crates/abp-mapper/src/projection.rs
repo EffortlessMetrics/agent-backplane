@@ -3,13 +3,13 @@
 
 //! Projection matrix — the core cross-dialect mapping engine.
 //!
-//! Maps `(source_dialect, target_dialect)` pairs to [`MappingRuleSet`]s and
-//! applies dialect-specific transformations to [`IrChatRequest`] and
-//! [`IrChatResponse`].
+//! Maps `(source_dialect, target_dialect)` pairs to `MappingRuleSet`s and
+//! applies dialect-specific transformations to `IrChatRequest` and
+//! `IrChatResponse`.
 //!
-//! The [`ProjectionMatrix`] registers built-in mappings for all 7 supported
+//! The `ProjectionMatrix` registers built-in mappings for all 7 supported
 //! dialects (OpenAI, Claude, Gemini, Codex, Kimi, Copilot, Generic) and
-//! provides [`project_request`] / [`project_response`] free functions for
+//! provides `project_request` / `project_response` free functions for
 //! one-shot translation.
 
 use std::collections::BTreeMap;
@@ -370,11 +370,11 @@ impl ProjectionMatrix {
         target: ProjectionDialect,
         request: &IrChatRequest,
     ) -> Result<IrChatRequest, MappingError> {
-        let rule = self.get_rule(source, target).ok_or_else(|| {
-            MappingError::UnmappableRequest {
-                reason: format!("no projection rule for {source} -> {target}"),
-            }
-        })?;
+        let rule =
+            self.get_rule(source, target)
+                .ok_or_else(|| MappingError::UnmappableRequest {
+                    reason: format!("no projection rule for {source} -> {target}"),
+                })?;
         apply_request_rule(rule, source, target, request)
     }
 
@@ -385,11 +385,11 @@ impl ProjectionMatrix {
         target: ProjectionDialect,
         response: &IrChatResponse,
     ) -> Result<IrChatResponse, MappingError> {
-        let rule = self.get_rule(source, target).ok_or_else(|| {
-            MappingError::UnmappableRequest {
-                reason: format!("no projection rule for {source} -> {target}"),
-            }
-        })?;
+        let rule =
+            self.get_rule(source, target)
+                .ok_or_else(|| MappingError::UnmappableRequest {
+                    reason: format!("no projection rule for {source} -> {target}"),
+                })?;
         apply_response_rule(rule, source, target, response)
     }
 }
@@ -702,9 +702,11 @@ fn strip_tool_content_parts(parts: &mut Vec<IrContentPart>) {
 }
 
 fn has_image_content(messages: &[IrMessage]) -> bool {
-    messages
-        .iter()
-        .any(|m| m.content.iter().any(|p| matches!(p, IrContentPart::Image { .. })))
+    messages.iter().any(|m| {
+        m.content
+            .iter()
+            .any(|p| matches!(p, IrContentPart::Image { .. }))
+    })
 }
 
 fn strip_image_content(messages: &mut [IrMessage]) {
@@ -718,9 +720,11 @@ fn strip_image_parts(parts: &mut Vec<IrContentPart>) {
 }
 
 fn has_audio_content(messages: &[IrMessage]) -> bool {
-    messages
-        .iter()
-        .any(|m| m.content.iter().any(|p| matches!(p, IrContentPart::Audio { .. })))
+    messages.iter().any(|m| {
+        m.content
+            .iter()
+            .any(|p| matches!(p, IrContentPart::Audio { .. }))
+    })
 }
 
 fn strip_audio_content(messages: &mut [IrMessage]) {
@@ -735,10 +739,7 @@ fn strip_audio_parts(parts: &mut Vec<IrContentPart>) {
 
 // ── Fidelity entry builder ─────────────────────────────────────────────
 
-fn build_fidelity_entries(
-    src: ProjectionDialect,
-    tgt: ProjectionDialect,
-) -> Vec<FeatureFidelity> {
+fn build_fidelity_entries(src: ProjectionDialect, tgt: ProjectionDialect) -> Vec<FeatureFidelity> {
     let rule = build_rule_set(src, tgt);
     vec![
         fidelity_from_strategy("system_messages", rule.system_messages),
@@ -804,12 +805,13 @@ mod tests {
     }
 
     fn request_with_tools() -> IrChatRequest {
-        IrChatRequest::new("gpt-4o", vec![IrMessage::text(IrRole::User, "Search")])
-            .with_tool(IrToolDefinition {
+        IrChatRequest::new("gpt-4o", vec![IrMessage::text(IrRole::User, "Search")]).with_tool(
+            IrToolDefinition {
                 name: "search".into(),
                 description: "Search the web".into(),
                 parameters: serde_json::json!({"type": "object"}),
-            })
+            },
+        )
     }
 
     fn request_with_images() -> IrChatRequest {
@@ -839,12 +841,13 @@ mod tests {
     }
 
     fn streaming_request() -> IrChatRequest {
-        IrChatRequest::new("gpt-4o", vec![IrMessage::text(IrRole::User, "Hello")])
-            .with_stream(IrStreamConfig {
+        IrChatRequest::new("gpt-4o", vec![IrMessage::text(IrRole::User, "Hello")]).with_stream(
+            IrStreamConfig {
                 enabled: true,
                 include_usage: Some(true),
                 extra: BTreeMap::new(),
-            })
+            },
+        )
     }
 
     fn simple_response() -> IrChatResponse {
@@ -1075,12 +1078,14 @@ mod tests {
             ProjectionDialect::Claude,
             MappingRuleSet::identity(),
         );
-        assert!(m
-            .get_rule(ProjectionDialect::OpenAi, ProjectionDialect::Claude)
-            .is_some());
-        assert!(m
-            .get_rule(ProjectionDialect::Claude, ProjectionDialect::OpenAi)
-            .is_none());
+        assert!(
+            m.get_rule(ProjectionDialect::OpenAi, ProjectionDialect::Claude)
+                .is_some()
+        );
+        assert!(
+            m.get_rule(ProjectionDialect::Claude, ProjectionDialect::OpenAi)
+                .is_none()
+        );
     }
 
     #[test]
@@ -1259,8 +1264,7 @@ mod tests {
     fn response_generic_passthrough() {
         let resp = response_with_tool_calls();
         let result =
-            project_response(ProjectionDialect::OpenAi, ProjectionDialect::Generic, &resp)
-                .unwrap();
+            project_response(ProjectionDialect::OpenAi, ProjectionDialect::Generic, &resp).unwrap();
         assert_eq!(result, resp);
     }
 

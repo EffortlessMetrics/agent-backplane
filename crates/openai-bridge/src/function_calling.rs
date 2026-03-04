@@ -81,7 +81,11 @@ pub struct StrictToolDefinition {
 
 impl ToolDefinition {
     /// Build a function-type tool definition.
-    pub fn function(name: impl Into<String>, description: impl Into<String>, parameters: serde_json::Value) -> Self {
+    pub fn function(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        parameters: serde_json::Value,
+    ) -> Self {
         Self {
             tool_type: "function".into(),
             function: FunctionDefinition {
@@ -95,7 +99,11 @@ impl ToolDefinition {
 
 impl ToolCall {
     /// Build a function-type tool call.
-    pub fn function(id: impl Into<String>, name: impl Into<String>, arguments: impl Into<String>) -> Self {
+    pub fn function(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        arguments: impl Into<String>,
+    ) -> Self {
         Self {
             id: id.into(),
             call_type: "function".into(),
@@ -486,7 +494,11 @@ mod tests {
 
     #[test]
     fn tool_choice_mode_all_variants_serde() {
-        for mode in [ToolChoiceMode::None, ToolChoiceMode::Auto, ToolChoiceMode::Required] {
+        for mode in [
+            ToolChoiceMode::None,
+            ToolChoiceMode::Auto,
+            ToolChoiceMode::Required,
+        ] {
             let json = serde_json::to_string(&mode).unwrap();
             let back: ToolChoiceMode = serde_json::from_str(&json).unwrap();
             assert_eq!(mode, back);

@@ -2,8 +2,8 @@
 #![allow(dead_code, unused_imports)]
 //! Normalized chat response and streaming types for the IR layer.
 //!
-//! [`IrChatResponse`] carries the full non-streaming response, while
-//! [`IrStreamChunk`] represents a single incremental update during
+//! `IrChatResponse` carries the full non-streaming response, while
+//! `IrStreamChunk` represents a single incremental update during
 //! server-sent-event streaming.
 
 use serde::{Deserialize, Serialize};
@@ -144,7 +144,9 @@ impl IrChatResponse {
     /// Returns `true` if any choice contains tool calls.
     #[must_use]
     pub fn has_tool_calls(&self) -> bool {
-        self.choices.iter().any(|c| !c.message.tool_calls.is_empty())
+        self.choices
+            .iter()
+            .any(|c| !c.message.tool_calls.is_empty())
     }
 }
 
@@ -313,10 +315,7 @@ mod tests {
         assert_eq!(resp.text_content(), "Hello!");
         assert_eq!(resp.choices.len(), 1);
         assert_eq!(resp.choices[0].index, 0);
-        assert_eq!(
-            resp.choices[0].finish_reason,
-            Some(IrFinishReason::Stop)
-        );
+        assert_eq!(resp.choices[0].finish_reason, Some(IrFinishReason::Stop));
         assert!(!resp.has_tool_calls());
     }
 

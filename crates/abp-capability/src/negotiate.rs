@@ -7,12 +7,12 @@
 //! against the negotiation result.
 //!
 //! It also provides [`negotiate`] for detailed negotiation with
-//! [`NegotiationReport`] output, and [`EmulationPlan`] describing how each
+//! [`NegotiationReport`] output, and `EmulationPlan` describing how each
 //! emulated capability would be fulfilled.
 
 use crate::{
-    default_emulation_strategy, check_capability, negotiate_capabilities,
-    EmulationStrategy, NegotiationResult, SupportLevel,
+    EmulationStrategy, NegotiationResult, SupportLevel, check_capability,
+    default_emulation_strategy, negotiate_capabilities,
 };
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
 use serde::{Deserialize, Serialize};
@@ -222,7 +222,11 @@ pub struct EmulationPlanEntry {
 
 impl fmt::Display for EmulationPlanEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}: {} ({})", self.capability, self.strategy, self.detail)
+        write!(
+            f,
+            "{:?}: {} ({})",
+            self.capability, self.strategy, self.detail
+        )
     }
 }
 
@@ -582,8 +586,7 @@ mod tests {
         manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
         manifest.insert(Capability::ToolUse, CoreSupportLevel::Native);
 
-        let report =
-            negotiate(&[Capability::Streaming, Capability::ToolUse], &manifest);
+        let report = negotiate(&[Capability::Streaming, Capability::ToolUse], &manifest);
         assert_eq!(report.met.len(), 2);
         assert!(report.emulated.is_empty());
         assert!(report.missing.is_empty());
@@ -598,7 +601,11 @@ mod tests {
         manifest.insert(Capability::ToolUse, CoreSupportLevel::Emulated);
 
         let report = negotiate(
-            &[Capability::Streaming, Capability::ToolUse, Capability::Vision],
+            &[
+                Capability::Streaming,
+                Capability::ToolUse,
+                Capability::Vision,
+            ],
             &manifest,
         );
         assert_eq!(report.met.len(), 1);
@@ -611,10 +618,7 @@ mod tests {
     #[test]
     fn negotiate_report_all_missing() {
         let manifest = CapabilityManifest::new();
-        let report = negotiate(
-            &[Capability::Streaming, Capability::Vision],
-            &manifest,
-        );
+        let report = negotiate(&[Capability::Streaming, Capability::Vision], &manifest);
         assert!(report.met.is_empty());
         assert!(report.emulated.is_empty());
         assert_eq!(report.missing.len(), 2);
@@ -635,10 +639,7 @@ mod tests {
     fn negotiate_report_display() {
         let mut manifest = CapabilityManifest::new();
         manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
-        let report = negotiate(
-            &[Capability::Streaming, Capability::Vision],
-            &manifest,
-        );
+        let report = negotiate(&[Capability::Streaming, Capability::Vision], &manifest);
         let s = format!("{report}");
         assert!(s.contains("1 met"));
         assert!(s.contains("1 missing"));
@@ -650,7 +651,11 @@ mod tests {
         manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
         manifest.insert(Capability::ToolUse, CoreSupportLevel::Emulated);
         let report = negotiate(
-            &[Capability::Streaming, Capability::ToolUse, Capability::Vision],
+            &[
+                Capability::Streaming,
+                Capability::ToolUse,
+                Capability::Vision,
+            ],
             &manifest,
         );
         let json = serde_json::to_string(&report).unwrap();
@@ -678,10 +683,7 @@ mod tests {
         manifest.insert(Capability::ToolRead, CoreSupportLevel::Emulated);
         manifest.insert(Capability::Vision, CoreSupportLevel::Emulated);
 
-        let report = negotiate(
-            &[Capability::ToolRead, Capability::Vision],
-            &manifest,
-        );
+        let report = negotiate(&[Capability::ToolRead, Capability::Vision], &manifest);
         assert_eq!(report.emulated.len(), 2);
         // Both should have emulation strategies
         for entry in &report.emulated {

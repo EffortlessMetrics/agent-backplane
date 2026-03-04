@@ -27,12 +27,37 @@ pub mod ir;
 /// machine-readable issue codes.
 pub mod validate;
 
+/// Cross-dialect compatibility analysis.
+///
+/// Compares two dialects and produces a [`CompatibilityReport`](compat::CompatibilityReport)
+/// detailing native matches, emulation opportunities, and feature gaps.
+pub mod compat;
+
+/// Dialect feature enumeration and feature-set queries.
+///
+/// [`DialectFeature`](features::DialectFeature) enumerates capabilities
+/// that agent backends may support.  [`DialectFeatureSet`](features::DialectFeatureSet)
+/// wraps a collection of `(DialectFeature, FeatureSupport)` pairs with
+/// query helpers.
+pub mod features;
+
+/// Static feature matrix mapping every `(Dialect, DialectFeature)` to a
+/// support level across all known dialects.
+pub mod matrix;
+
 /// Dialect registry for parser/serializer lookup.
 ///
 /// Stores `DialectEntry` records — one per registered dialect — each
 /// carrying codec functions that lift raw JSON into IR and lower IR
 /// back to raw JSON.
 pub mod registry;
+
+/// API version tracking and compatibility constraints per dialect.
+///
+/// [`DialectVersion`](version::DialectVersion) pairs a dialect with a
+/// version string.  [`VersionConstraint`](version::VersionConstraint)
+/// expresses min / exact / range requirements.
+pub mod version;
 
 use std::collections::BTreeMap;
 

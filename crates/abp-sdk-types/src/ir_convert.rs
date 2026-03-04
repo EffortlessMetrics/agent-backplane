@@ -2,8 +2,8 @@
 #![allow(dead_code, unused_imports)]
 //! Conversion traits and fidelity reporting for IR translation.
 //!
-//! [`IntoIr`] and [`FromIr`] provide the bidirectional contract that every
-//! dialect adapter implements.  [`FidelityReport`] captures what was lost
+//! `IntoIr` and `FromIr` provide the bidirectional contract that every
+//! dialect adapter implements.  `FidelityReport` captures what was lost
 //! (or approximated) during translation so callers can make informed
 //! decisions about whether the mapping is acceptable.
 

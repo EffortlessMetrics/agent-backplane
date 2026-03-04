@@ -145,11 +145,26 @@ mod tests {
 
     #[test]
     fn media_type_from_mime() {
-        assert_eq!(ImageMediaType::from_mime("image/jpeg"), Some(ImageMediaType::Jpeg));
-        assert_eq!(ImageMediaType::from_mime("image/jpg"), Some(ImageMediaType::Jpeg));
-        assert_eq!(ImageMediaType::from_mime("image/png"), Some(ImageMediaType::Png));
-        assert_eq!(ImageMediaType::from_mime("image/gif"), Some(ImageMediaType::Gif));
-        assert_eq!(ImageMediaType::from_mime("image/webp"), Some(ImageMediaType::Webp));
+        assert_eq!(
+            ImageMediaType::from_mime("image/jpeg"),
+            Some(ImageMediaType::Jpeg)
+        );
+        assert_eq!(
+            ImageMediaType::from_mime("image/jpg"),
+            Some(ImageMediaType::Jpeg)
+        );
+        assert_eq!(
+            ImageMediaType::from_mime("image/png"),
+            Some(ImageMediaType::Png)
+        );
+        assert_eq!(
+            ImageMediaType::from_mime("image/gif"),
+            Some(ImageMediaType::Gif)
+        );
+        assert_eq!(
+            ImageMediaType::from_mime("image/webp"),
+            Some(ImageMediaType::Webp)
+        );
         assert_eq!(ImageMediaType::from_mime("image/tiff"), None);
         assert_eq!(ImageMediaType::from_mime("text/plain"), None);
     }

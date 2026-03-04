@@ -221,10 +221,7 @@ pub fn assert_valid_final(line: &str) {
         "expected final frame, got: {}",
         v["t"]
     );
-    assert!(
-        v["ref_id"].is_string(),
-        "final frame must have ref_id"
-    );
+    assert!(v["ref_id"].is_string(), "final frame must have ref_id");
     assert!(
         v["receipt"].is_object(),
         "final frame must have receipt object"
@@ -244,14 +241,8 @@ pub fn assert_valid_event(line: &str) {
         "expected event frame, got: {}",
         v["t"]
     );
-    assert!(
-        v["ref_id"].is_string(),
-        "event frame must have ref_id"
-    );
-    assert!(
-        v["event"].is_object(),
-        "event frame must have event object"
-    );
+    assert!(v["ref_id"].is_string(), "event frame must have ref_id");
+    assert!(v["event"].is_object(), "event frame must have event object");
 }
 
 /// Assert that a JSONL line is a valid `fatal` frame.
@@ -267,10 +258,7 @@ pub fn assert_valid_fatal(line: &str) {
         "expected fatal frame, got: {}",
         v["t"]
     );
-    assert!(
-        v["error"].is_string(),
-        "fatal frame must have error string"
-    );
+    assert!(v["error"].is_string(), "fatal frame must have error string");
 }
 
 // ── SidecarTestHarness ──────────────────────────────────────────────
@@ -352,7 +340,9 @@ impl SidecarTestHarness {
     /// Check if any frame is a fatal frame.
     #[must_use]
     pub fn has_fatal(&self) -> bool {
-        self.frames().iter().any(|f| matches!(f, Frame::Fatal { .. }))
+        self.frames()
+            .iter()
+            .any(|f| matches!(f, Frame::Fatal { .. }))
     }
 
     /// Count the number of event frames.
@@ -434,14 +424,12 @@ mod tests {
 
     #[test]
     fn mock_stdin_from_frames() {
-        let frames = vec![
-            Frame::Hello {
-                contract_version: "abp/v0.1".into(),
-                backend: serde_json::json!({"id": "test"}),
-                capabilities: serde_json::json!({}),
-                mode: Value::Null,
-            },
-        ];
+        let frames = vec![Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: serde_json::json!({"id": "test"}),
+            capabilities: serde_json::json!({}),
+            mode: Value::Null,
+        }];
         let mock = MockStdin::from_frames(&frames);
         let reader = io::BufReader::new(mock);
         let lines: Vec<String> = reader.lines().map(|l| l.unwrap()).collect();

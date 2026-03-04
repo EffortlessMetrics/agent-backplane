@@ -342,9 +342,11 @@ mod protocol_sequence {
         ];
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+        );
     }
 }
 
@@ -575,8 +577,7 @@ mod envelope_format {
 
     #[test]
     fn encode_produces_newline_terminated_json() {
-        let envelopes: Vec<Envelope> =
-            vec![hello_env(), run_env(), event_env("r"), final_env("r")];
+        let envelopes: Vec<Envelope> = vec![hello_env(), run_env(), event_env("r"), final_env("r")];
         for env in &envelopes {
             let json = JsonlCodec::encode(env).unwrap();
             assert!(json.ends_with('\n'), "envelope must be newline-terminated");
@@ -648,10 +649,12 @@ mod envelope_format {
         };
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+        assert!(
+            result
+                .errors
+                .iter()
+                .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+        );
     }
 
     #[test]
@@ -916,8 +919,7 @@ mod capability_negotiation {
     #[test]
     fn handshake_validator_checks_required_capabilities() {
         let hello = Envelope::hello(test_identity(), CapabilityManifest::new());
-        let validator =
-            HandshakeValidator::new().require_capabilities(vec![Capability::Streaming]);
+        let validator = HandshakeValidator::new().require_capabilities(vec![Capability::Streaming]);
         let err = validator.validate_hello(&hello).unwrap_err();
         assert!(err.to_string().contains("missing required capability"));
     }
@@ -925,8 +927,7 @@ mod capability_negotiation {
     #[test]
     fn handshake_validator_passes_when_capabilities_present() {
         let hello = Envelope::hello(test_identity(), test_capabilities());
-        let validator =
-            HandshakeValidator::new().require_capabilities(vec![Capability::Streaming]);
+        let validator = HandshakeValidator::new().require_capabilities(vec![Capability::Streaming]);
         assert!(validator.validate_hello(&hello).is_ok());
     }
 
@@ -1086,15 +1087,21 @@ mod error_handling {
     #[test]
     fn sequence_error_display_formats() {
         assert!(SequenceError::MissingHello.to_string().contains("Hello"));
-        assert!(SequenceError::MissingTerminal
-            .to_string()
-            .contains("terminal"));
-        assert!(SequenceError::MultipleTerminals
-            .to_string()
-            .contains("multiple"));
-        assert!(SequenceError::OutOfOrderEvents
-            .to_string()
-            .contains("Event"));
+        assert!(
+            SequenceError::MissingTerminal
+                .to_string()
+                .contains("terminal")
+        );
+        assert!(
+            SequenceError::MultipleTerminals
+                .to_string()
+                .contains("multiple")
+        );
+        assert!(
+            SequenceError::OutOfOrderEvents
+                .to_string()
+                .contains("Event")
+        );
     }
 }
 

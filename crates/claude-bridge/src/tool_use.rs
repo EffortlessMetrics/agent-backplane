@@ -87,7 +87,11 @@ pub struct CachedToolDefinition {
 impl CachedToolDefinition {
     /// Create a new cached tool definition with ephemeral cache control.
     #[must_use]
-    pub fn ephemeral(name: impl Into<String>, description: impl Into<String>, schema: serde_json::Value) -> Self {
+    pub fn ephemeral(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        schema: serde_json::Value,
+    ) -> Self {
         Self {
             name: name.into(),
             description: description.into(),
@@ -218,11 +222,8 @@ mod tests {
 
     #[test]
     fn cached_tool_def_ephemeral_roundtrip() {
-        let tool = CachedToolDefinition::ephemeral(
-            "read_file",
-            "Read a file",
-            json!({"type": "object"}),
-        );
+        let tool =
+            CachedToolDefinition::ephemeral("read_file", "Read a file", json!({"type": "object"}));
         let v = serde_json::to_value(&tool).unwrap();
         assert_eq!(v["cache_control"]["type"], "ephemeral");
         let rt: CachedToolDefinition = serde_json::from_value(v).unwrap();

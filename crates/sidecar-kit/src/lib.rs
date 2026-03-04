@@ -69,9 +69,9 @@ pub use typed_middleware::{
 };
 
 pub use events::{
-    command_event, delta_event, error_event, file_changed_event, run_completed_event,
-    run_started_event, text_event, tool_call_event, tool_result_event, warning_event,
-    EventBuilder as TypedEventBuilder,
+    EventBuilder as TypedEventBuilder, command_event, delta_event, error_event, file_changed_event,
+    run_completed_event, run_started_event, text_event, tool_call_event, tool_result_event,
+    warning_event,
 };
 pub use protocol_helpers::{read_run, send_event, send_fatal, send_final, send_hello};
 pub use receipt_builder::TypedReceiptBuilder;

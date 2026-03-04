@@ -6,8 +6,7 @@
 //! utilities on top of the core safety types in [`crate::gemini_types`].
 
 use crate::gemini_types::{
-    HarmBlockThreshold, HarmCategory, HarmProbability, PromptFeedback, SafetyRating,
-    SafetySetting,
+    HarmBlockThreshold, HarmCategory, HarmProbability, PromptFeedback, SafetyRating, SafetySetting,
 };
 use serde::{Deserialize, Serialize};
 
@@ -110,7 +109,9 @@ pub fn probability_severity(p: HarmProbability) -> u8 {
 /// Find the highest-severity rating from a slice, if any.
 #[must_use]
 pub fn max_severity(ratings: &[SafetyRating]) -> Option<&SafetyRating> {
-    ratings.iter().max_by_key(|r| probability_severity(r.probability))
+    ratings
+        .iter()
+        .max_by_key(|r| probability_severity(r.probability))
 }
 
 /// Returns `true` if any rating in the slice is at or above the given threshold.
@@ -173,7 +174,10 @@ mod tests {
 
     #[test]
     fn block_reason_from_str_opt() {
-        assert_eq!(BlockReason::from_str_opt("SAFETY"), Some(BlockReason::Safety));
+        assert_eq!(
+            BlockReason::from_str_opt("SAFETY"),
+            Some(BlockReason::Safety)
+        );
         assert_eq!(BlockReason::from_str_opt("OTHER"), Some(BlockReason::Other));
         assert_eq!(
             BlockReason::from_str_opt("BLOCKLIST"),
@@ -224,9 +228,18 @@ mod tests {
 
     #[test]
     fn probability_severity_ordering() {
-        assert!(probability_severity(HarmProbability::Negligible) < probability_severity(HarmProbability::Low));
-        assert!(probability_severity(HarmProbability::Low) < probability_severity(HarmProbability::Medium));
-        assert!(probability_severity(HarmProbability::Medium) < probability_severity(HarmProbability::High));
+        assert!(
+            probability_severity(HarmProbability::Negligible)
+                < probability_severity(HarmProbability::Low)
+        );
+        assert!(
+            probability_severity(HarmProbability::Low)
+                < probability_severity(HarmProbability::Medium)
+        );
+        assert!(
+            probability_severity(HarmProbability::Medium)
+                < probability_severity(HarmProbability::High)
+        );
     }
 
     // ── max_severity ────────────────────────────────────────────────
@@ -321,8 +334,14 @@ mod tests {
             category: HarmCategory::HarmCategoryHarassment,
             probability: HarmProbability::Low,
         };
-        assert!(is_blocked_by(&medium, HarmBlockThreshold::BlockMediumAndAbove));
-        assert!(!is_blocked_by(&low, HarmBlockThreshold::BlockMediumAndAbove));
+        assert!(is_blocked_by(
+            &medium,
+            HarmBlockThreshold::BlockMediumAndAbove
+        ));
+        assert!(!is_blocked_by(
+            &low,
+            HarmBlockThreshold::BlockMediumAndAbove
+        ));
     }
 
     #[test]
@@ -336,7 +355,10 @@ mod tests {
             probability: HarmProbability::Negligible,
         };
         assert!(is_blocked_by(&low, HarmBlockThreshold::BlockLowAndAbove));
-        assert!(!is_blocked_by(&negligible, HarmBlockThreshold::BlockLowAndAbove));
+        assert!(!is_blocked_by(
+            &negligible,
+            HarmBlockThreshold::BlockLowAndAbove
+        ));
     }
 
     // ── Prompt feedback ─────────────────────────────────────────────

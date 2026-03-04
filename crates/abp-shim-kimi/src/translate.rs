@@ -459,8 +459,7 @@ mod tests {
         };
         let wo = kimi_to_work_order(&req);
         let plugins_val = wo.config.vendor.get("kimi.plugins").unwrap();
-        let plugins: Vec<KimiPluginConfig> =
-            serde_json::from_value(plugins_val.clone()).unwrap();
+        let plugins: Vec<KimiPluginConfig> = serde_json::from_value(plugins_val.clone()).unwrap();
         assert_eq!(plugins.len(), 1);
         assert_eq!(plugins[0].plugin_id, "plugin-calc");
     }
@@ -500,14 +499,8 @@ mod tests {
         assert_eq!(resp.model, "moonshot-v1-8k");
         assert_eq!(resp.object, "chat.completion");
         assert_eq!(resp.choices.len(), 1);
-        assert_eq!(
-            resp.choices[0].message.content.as_deref(),
-            Some("Hello!")
-        );
-        assert_eq!(
-            resp.choices[0].finish_reason.as_deref(),
-            Some("stop")
-        );
+        assert_eq!(resp.choices[0].message.content.as_deref(), Some("Hello!"));
+        assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("stop"));
         assert!(resp.search_results.is_none());
     }
 
@@ -526,10 +519,7 @@ mod tests {
         let receipt = make_receipt(events);
         let resp = receipt_to_kimi(&receipt, "moonshot-v1-8k");
 
-        assert_eq!(
-            resp.choices[0].finish_reason.as_deref(),
-            Some("tool_calls")
-        );
+        assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("tool_calls"));
         let tcs = resp.choices[0].message.tool_calls.as_ref().unwrap();
         assert_eq!(tcs.len(), 1);
         assert_eq!(tcs[0].id, "call_123");
@@ -575,9 +565,7 @@ mod tests {
         };
         let events = vec![AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantMessage {
-                text: "ok".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "ok".into() },
             ext: None,
         }];
         let receipt = mock_receipt_with_usage(events, usage);
@@ -604,10 +592,7 @@ mod tests {
 
         let content = resp.choices[0].message.content.as_deref().unwrap();
         assert!(content.contains("rate limit"));
-        assert_eq!(
-            resp.choices[0].finish_reason.as_deref(),
-            Some("stop")
-        );
+        assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("stop"));
     }
 
     #[test]
@@ -615,26 +600,19 @@ mod tests {
         let events = vec![
             AgentEvent {
                 ts: Utc::now(),
-                kind: AgentEventKind::AssistantDelta {
-                    text: "Hel".into(),
-                },
+                kind: AgentEventKind::AssistantDelta { text: "Hel".into() },
                 ext: None,
             },
             AgentEvent {
                 ts: Utc::now(),
-                kind: AgentEventKind::AssistantDelta {
-                    text: "lo!".into(),
-                },
+                kind: AgentEventKind::AssistantDelta { text: "lo!".into() },
                 ext: None,
             },
         ];
         let receipt = make_receipt(events);
         let resp = receipt_to_kimi(&receipt, "moonshot-v1-8k");
 
-        assert_eq!(
-            resp.choices[0].message.content.as_deref(),
-            Some("Hello!")
-        );
+        assert_eq!(resp.choices[0].message.content.as_deref(), Some("Hello!"));
     }
 
     // ── agent_event_to_kimi_stream tests ────────────────────────────────
@@ -652,10 +630,7 @@ mod tests {
         assert_eq!(se.id, "run-1");
         assert_eq!(se.object, "chat.completion.chunk");
         assert_eq!(se.model, "moonshot-v1-8k");
-        assert_eq!(
-            se.choices[0].delta.content.as_deref(),
-            Some("chunk")
-        );
+        assert_eq!(se.choices[0].delta.content.as_deref(), Some("chunk"));
         assert!(se.choices[0].delta.role.is_none());
         assert!(se.choices[0].finish_reason.is_none());
     }
@@ -671,10 +646,7 @@ mod tests {
         };
         let se = agent_event_to_kimi_stream(&event, "moonshot-v1-8k", "run-1").unwrap();
         assert_eq!(se.choices[0].delta.role.as_deref(), Some("assistant"));
-        assert_eq!(
-            se.choices[0].delta.content.as_deref(),
-            Some("full")
-        );
+        assert_eq!(se.choices[0].delta.content.as_deref(), Some("full"));
     }
 
     #[test]
@@ -709,10 +681,7 @@ mod tests {
         let se = agent_event_to_kimi_stream(&event, "moonshot-v1-8k", "run-1").unwrap();
         let content = se.choices[0].delta.content.as_deref().unwrap();
         assert!(content.contains("something broke"));
-        assert_eq!(
-            se.choices[0].finish_reason.as_deref(),
-            Some("stop")
-        );
+        assert_eq!(se.choices[0].finish_reason.as_deref(), Some("stop"));
     }
 
     #[test]

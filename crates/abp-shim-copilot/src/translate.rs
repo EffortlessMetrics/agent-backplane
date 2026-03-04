@@ -291,9 +291,7 @@ pub fn receipt_trace_to_copilot_stream(
     let mut stream = Vec::new();
 
     // Opening references event
-    stream.push(CopilotLocalStreamEvent::CopilotReferences {
-        references: vec![],
-    });
+    stream.push(CopilotLocalStreamEvent::CopilotReferences { references: vec![] });
 
     // Map all trace events
     for event in events {
@@ -440,10 +438,7 @@ mod tests {
         assert_eq!(CopilotIntent::Generate.to_string(), "generate");
         assert_eq!(CopilotIntent::Fix.to_string(), "fix");
         assert_eq!(CopilotIntent::Test.to_string(), "test");
-        assert_eq!(
-            CopilotIntent::Custom("doc".into()).to_string(),
-            "doc"
-        );
+        assert_eq!(CopilotIntent::Custom("doc".into()).to_string(), "doc");
     }
 
     // ── 2. Intent maps to work order vendor ─────────────────────────────
@@ -773,16 +768,12 @@ mod tests {
         let events = vec![
             AgentEvent {
                 ts: Utc::now(),
-                kind: AgentEventKind::AssistantDelta {
-                    text: "Hi".into(),
-                },
+                kind: AgentEventKind::AssistantDelta { text: "Hi".into() },
                 ext: None,
             },
             AgentEvent {
                 ts: Utc::now(),
-                kind: AgentEventKind::AssistantDelta {
-                    text: "!".into(),
-                },
+                kind: AgentEventKind::AssistantDelta { text: "!".into() },
                 ext: None,
             },
         ];
@@ -806,10 +797,7 @@ mod tests {
             &stream[3],
             CopilotLocalStreamEvent::Metadata { .. }
         ));
-        assert!(matches!(
-            &stream[4],
-            CopilotLocalStreamEvent::Done {}
-        ));
+        assert!(matches!(&stream[4], CopilotLocalStreamEvent::Done {}));
     }
 
     // ── 7. Round-trip translation ───────────────────────────────────────
@@ -818,10 +806,7 @@ mod tests {
     fn roundtrip_request_to_work_order_to_response() {
         let req = CopilotChatRequest {
             model: "gpt-4o".into(),
-            messages: make_messages(&[
-                ("system", "You are helpful"),
-                ("user", "Say hello"),
-            ]),
+            messages: make_messages(&[("system", "You are helpful"), ("user", "Say hello")]),
             tools: None,
             intent: Some(CopilotIntent::Generate),
             doc_context: Some(CopilotDocContext {
@@ -858,8 +843,14 @@ mod tests {
         assert!(wo.config.vendor.contains_key("copilot_doc_context"));
         assert!(wo.config.vendor.contains_key("copilot_references"));
         assert!(wo.config.vendor.contains_key("copilot_skills"));
-        assert_eq!(wo.config.vendor.get("temperature"), Some(&serde_json::json!(0.7)));
-        assert_eq!(wo.config.vendor.get("max_tokens"), Some(&serde_json::json!(1000)));
+        assert_eq!(
+            wo.config.vendor.get("temperature"),
+            Some(&serde_json::json!(0.7))
+        );
+        assert_eq!(
+            wo.config.vendor.get("max_tokens"),
+            Some(&serde_json::json!(1000))
+        );
 
         // Simulate receipt
         let events = vec![AgentEvent {
@@ -1028,10 +1019,7 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         let back: CopilotChatResponse = serde_json::from_str(&json).unwrap();
         assert_eq!(back.message, "Hello!");
-        assert_eq!(
-            back.metadata.unwrap().intent,
-            Some(CopilotIntent::Explain)
-        );
+        assert_eq!(back.metadata.unwrap().intent, Some(CopilotIntent::Explain));
     }
 
     // ── 11. Optional fields skip serialization ──────────────────────────
@@ -1106,9 +1094,7 @@ mod tests {
     #[test]
     fn stream_event_serde_roundtrip() {
         let events = vec![
-            CopilotLocalStreamEvent::CopilotReferences {
-                references: vec![],
-            },
+            CopilotLocalStreamEvent::CopilotReferences { references: vec![] },
             CopilotLocalStreamEvent::TextDelta {
                 text: "hello".into(),
             },

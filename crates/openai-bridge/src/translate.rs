@@ -13,9 +13,8 @@ mod inner {
 
     use crate::error::BridgeError;
     use crate::openai_types::{
-        ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse,
-        ChatMessage, ChatMessageRole, FunctionCall, FunctionDefinition,
-        ToolCall, ToolDefinition, Usage,
+        ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, ChatMessage,
+        ChatMessageRole, FunctionCall, FunctionDefinition, ToolCall, ToolDefinition, Usage,
     };
 
     // ── Role mapping ────────────────────────────────────────────────────
@@ -55,8 +54,8 @@ mod inner {
 
         if let Some(tool_calls) = &msg.tool_calls {
             for tc in tool_calls {
-                let input = serde_json::from_str(&tc.function.arguments)
-                    .unwrap_or(serde_json::Value::Null);
+                let input =
+                    serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::Value::Null);
                 blocks.push(IrContentBlock::ToolUse {
                     id: tc.id.clone(),
                     name: tc.function.name.clone(),
@@ -329,14 +328,11 @@ mod inner {
             let mut blocks = Vec::new();
 
             if !self.text.is_empty() {
-                blocks.push(IrContentBlock::Text {
-                    text: self.text,
-                });
+                blocks.push(IrContentBlock::Text { text: self.text });
             }
 
             for tc in self.tool_calls {
-                let input = serde_json::from_str(&tc.arguments)
-                    .unwrap_or(serde_json::Value::Null);
+                let input = serde_json::from_str(&tc.arguments).unwrap_or(serde_json::Value::Null);
                 blocks.push(IrContentBlock::ToolUse {
                     id: tc.id,
                     name: tc.name,
@@ -408,25 +404,16 @@ mod inner {
 
     /// Extract an IR text delta from a single [`ChatCompletionChunk`], if present.
     pub fn chunk_text_delta(chunk: &ChatCompletionChunk) -> Option<String> {
-        chunk
-            .choices
-            .first()
-            .and_then(|c| c.delta.content.clone())
+        chunk.choices.first().and_then(|c| c.delta.content.clone())
     }
 
     /// Extract the finish reason from a [`ChatCompletionChunk`], if present.
     pub fn chunk_finish_reason(chunk: &ChatCompletionChunk) -> Option<String> {
-        chunk
-            .choices
-            .first()
-            .and_then(|c| c.finish_reason.clone())
+        chunk.choices.first().and_then(|c| c.finish_reason.clone())
     }
 
     /// Convert a completed stream (accumulated text + tool calls) into an IR message.
-    pub fn stream_to_ir_message(
-        text: &str,
-        tool_calls: &[ToolCall],
-    ) -> IrMessage {
+    pub fn stream_to_ir_message(text: &str, tool_calls: &[ToolCall]) -> IrMessage {
         let mut blocks = Vec::new();
 
         if !text.is_empty() {
@@ -436,8 +423,8 @@ mod inner {
         }
 
         for tc in tool_calls {
-            let input = serde_json::from_str(&tc.function.arguments)
-                .unwrap_or(serde_json::Value::Null);
+            let input =
+                serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::Value::Null);
             blocks.push(IrContentBlock::ToolUse {
                 id: tc.id.clone(),
                 name: tc.function.name.clone(),
@@ -459,9 +446,7 @@ mod inner {
 
     /// Convert a [`ToolChoice`](crate::function_calling::ToolChoice) to a `serde_json::Value`
     /// suitable for the `tool_choice` field of a [`ChatCompletionRequest`].
-    pub fn tool_choice_to_value(
-        choice: &crate::function_calling::ToolChoice,
-    ) -> serde_json::Value {
+    pub fn tool_choice_to_value(choice: &crate::function_calling::ToolChoice) -> serde_json::Value {
         serde_json::to_value(choice).unwrap_or(serde_json::Value::Null)
     }
 

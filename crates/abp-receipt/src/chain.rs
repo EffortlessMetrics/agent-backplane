@@ -512,6 +512,22 @@ impl ReceiptChain {
     pub fn as_slice(&self) -> &[Receipt] {
         &self.receipts
     }
+
+    /// Returns the number of receipts in the chain (alias for [`len`](Self::len)).
+    #[must_use]
+    pub fn chain_length(&self) -> usize {
+        self.receipts.len()
+    }
+
+    /// Find a receipt by its `receipt_sha256` hash value.
+    ///
+    /// Returns `None` if no receipt in the chain has the given hash.
+    #[must_use]
+    pub fn find_by_hash(&self, hash: &str) -> Option<&Receipt> {
+        self.receipts
+            .iter()
+            .find(|r| r.receipt_sha256.as_deref() == Some(hash))
+    }
 }
 
 impl<'a> IntoIterator for &'a ReceiptChain {

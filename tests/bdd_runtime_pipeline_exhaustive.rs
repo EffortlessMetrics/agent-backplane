@@ -10,8 +10,8 @@
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use abp_core::{
     AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
@@ -873,9 +873,7 @@ async fn test_given_no_matching_backend_then_unknown_backend_error_returned() {
     // Given a runtime with only mock
     let rt = Runtime::with_default_backends();
     // When requesting non-existent backend
-    let result = rt
-        .run_streaming("nonexistent", passthrough_wo("err"))
-        .await;
+    let result = rt.run_streaming("nonexistent", passthrough_wo("err")).await;
     // Then UnknownBackend error returned
     assert!(result.is_err());
     let err = result.err().unwrap();
@@ -1027,7 +1025,11 @@ fn test_given_deny_read_policy_when_reading_secrets_then_denied() {
     let engine = PolicyEngine::new(&policy).unwrap();
     // When reading secrets
     assert!(!engine.can_read_path(Path::new(".env")).allowed);
-    assert!(!engine.can_read_path(Path::new("secrets/api_key.txt")).allowed);
+    assert!(
+        !engine
+            .can_read_path(Path::new("secrets/api_key.txt"))
+            .allowed
+    );
     // Allowed paths
     assert!(engine.can_read_path(Path::new("src/lib.rs")).allowed);
 }
@@ -1069,7 +1071,11 @@ fn test_given_nested_path_deny_when_deep_path_written_then_blocked() {
     };
     let engine = PolicyEngine::new(&policy).unwrap();
     // When writing to deeply nested .git path
-    assert!(!engine.can_write_path(Path::new(".git/objects/ab/1234")).allowed);
+    assert!(
+        !engine
+            .can_write_path(Path::new(".git/objects/ab/1234"))
+            .allowed
+    );
     assert!(!engine.can_write_path(Path::new(".git/HEAD")).allowed);
     // Non-git paths allowed
     assert!(engine.can_write_path(Path::new("src/lib.rs")).allowed);
@@ -1305,9 +1311,7 @@ fn test_given_workspace_failed_error_then_is_retryable() {
 #[test]
 fn test_given_runtime_errors_when_error_code_checked_then_correct_codes() {
     // Given various runtime errors
-    let unknown = RuntimeError::UnknownBackend {
-        name: "foo".into(),
-    };
+    let unknown = RuntimeError::UnknownBackend { name: "foo".into() };
     let ws = RuntimeError::WorkspaceFailed(anyhow::anyhow!("fail"));
     let policy = RuntimeError::PolicyFailed(anyhow::anyhow!("fail"));
     let backend = RuntimeError::BackendFailed(anyhow::anyhow!("fail"));
@@ -1432,7 +1436,9 @@ fn test_given_receipt_builder_with_passthrough_mode_then_mode_is_passthrough() {
 #[test]
 fn test_given_receipt_builder_default_mode_then_mapped() {
     // Given default receipt builder
-    let receipt = ReceiptBuilder::new("test").outcome(Outcome::Complete).build();
+    let receipt = ReceiptBuilder::new("test")
+        .outcome(Outcome::Complete)
+        .build();
     // Then mode is Mapped (the default)
     assert_eq!(receipt.mode, ExecutionMode::Mapped);
 }
@@ -1491,7 +1497,10 @@ fn test_given_receipt_without_hash_when_verify_hash_called_then_true() {
         .outcome(Outcome::Complete)
         .build();
     // When verified
-    assert!(verify_hash(&receipt), "verify_hash returns true when no hash is stored");
+    assert!(
+        verify_hash(&receipt),
+        "verify_hash returns true when no hash is stored"
+    );
 }
 
 #[test]
@@ -1619,7 +1628,10 @@ async fn test_given_runtime_run_when_receipt_chain_checked_then_receipt_appended
     receipt.unwrap();
     // Then receipt was appended to chain
     let chain = chain.lock().await;
-    assert!(chain.len() >= 1, "receipt chain should have at least 1 entry");
+    assert!(
+        chain.len() >= 1,
+        "receipt chain should have at least 1 entry"
+    );
 }
 
 #[tokio::test]
@@ -1866,7 +1878,10 @@ fn test_given_command_executed_event_when_serialized_then_roundtrips() {
     let ev2: AgentEvent = serde_json::from_str(&json).unwrap();
     assert!(matches!(
         ev2.kind,
-        AgentEventKind::CommandExecuted { exit_code: Some(0), .. }
+        AgentEventKind::CommandExecuted {
+            exit_code: Some(0),
+            ..
+        }
     ));
 }
 
@@ -2129,7 +2144,10 @@ fn test_given_mock_backend_when_capabilities_checked_then_streaming_native() {
     let backend = MockBackend;
     let caps = backend.capabilities();
     assert!(caps.contains_key(&Capability::Streaming));
-    assert_eq!(caps.get(&Capability::Streaming), Some(&SupportLevel::Native));
+    assert_eq!(
+        caps.get(&Capability::Streaming),
+        Some(&SupportLevel::Native)
+    );
 }
 
 #[test]
@@ -2152,17 +2170,26 @@ fn test_given_backend_identity_when_serialized_then_roundtrips() {
 
 #[test]
 fn test_given_outcome_complete_when_serialized_then_snake_case() {
-    assert_eq!(serde_json::to_string(&Outcome::Complete).unwrap(), "\"complete\"");
+    assert_eq!(
+        serde_json::to_string(&Outcome::Complete).unwrap(),
+        "\"complete\""
+    );
 }
 
 #[test]
 fn test_given_outcome_partial_when_serialized_then_snake_case() {
-    assert_eq!(serde_json::to_string(&Outcome::Partial).unwrap(), "\"partial\"");
+    assert_eq!(
+        serde_json::to_string(&Outcome::Partial).unwrap(),
+        "\"partial\""
+    );
 }
 
 #[test]
 fn test_given_outcome_failed_when_serialized_then_snake_case() {
-    assert_eq!(serde_json::to_string(&Outcome::Failed).unwrap(), "\"failed\"");
+    assert_eq!(
+        serde_json::to_string(&Outcome::Failed).unwrap(),
+        "\"failed\""
+    );
 }
 
 #[test]
