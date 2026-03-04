@@ -1,0 +1,46 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: req
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are GitHub Copilot."
+    },
+    {
+      "role": "user",
+      "content": "Fix the bug in auth.rs"
+    }
+  ],
+  "temperature": 0.3,
+  "max_tokens": 4096,
+  "stream": true,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read file contents",
+        "parameters": {
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "intent": "code-review",
+  "references": [
+    {
+      "type": "file",
+      "id": "ref-1",
+      "uri": "file:///src/auth.rs",
+      "content": "fn login() {}"
+    }
+  ]
+}

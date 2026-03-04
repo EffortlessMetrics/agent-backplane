@@ -8,6 +8,7 @@
 
 use std::collections::BTreeMap;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::Dialect;
@@ -152,6 +153,229 @@ impl DialectRegistry {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
+    }
+
+    /// Auto-detect the dialect of a raw JSON request and parse it into IR.
+    ///
+    /// Combines [`DialectDetector`](crate::DialectDetector) with the
+    /// registry's parser to detect and parse in one step. Returns the
+    /// detection result alongside the parsed IR, or an error if detection
+    /// fails or the detected dialect is not registered.
+    pub fn detect_and_parse(
+        &self,
+        value: &Value,
+    ) -> Result<(crate::DetectionResult, IrRequest), DialectError> {
+        let detector = crate::DialectDetector::new();
+        let detection = detector.detect(value).ok_or_else(|| DialectError {
+            dialect: Dialect::OpenAi,
+            message: "could not detect dialect from request JSON".into(),
+        })?;
+        let ir = self.parse(detection.dialect, value)?;
+        Ok((detection, ir))
+    }
+
+    /// Validate a raw JSON request against the given dialect using the
+    /// [`validate`](crate::validate) module's `RequestValidator`.
+    #[must_use]
+    pub fn validate_request(
+        &self,
+        dialect: Dialect,
+        value: &Value,
+    ) -> crate::validate::ValidationResult {
+        crate::validate::RequestValidator::new().validate(dialect, value)
+    }
+
+    /// Return the [`DialectFeatures`] for a registered dialect.
+    #[must_use]
+    pub fn features(&self, dialect: Dialect) -> Option<DialectFeatures> {
+        self.entries
+            .get(&dialect)
+            .map(|_| builtin_features(dialect))
+    }
+
+    /// Return the [`DialectVersionInfo`] for a registered dialect.
+    #[must_use]
+    pub fn version_info(&self, dialect: Dialect) -> Option<DialectVersionInfo> {
+        self.entries.get(&dialect).map(|e| DialectVersionInfo {
+            dialect,
+            api_version: e.version,
+            label: dialect.label(),
+        })
+    }
+
+    /// Compare two dialects and return a [`DialectComparison`] describing
+    /// shared and divergent feature support.
+    #[must_use]
+    pub fn compare(&self, a: Dialect, b: Dialect) -> Option<DialectComparison> {
+        let fa = self.features(a)?;
+        let fb = self.features(b)?;
+        Some(DialectComparison::from_features(a, fa, b, fb))
+    }
+}
+
+// ── Feature matrix ──────────────────────────────────────────────────────
+
+/// Describes which capabilities a dialect supports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DialectFeatures {
+    /// Supports streaming responses.
+    pub streaming: bool,
+    /// Supports tool / function calling.
+    pub tool_use: bool,
+    /// Supports vision / image inputs.
+    pub vision: bool,
+    /// Supports a separate system prompt field.
+    pub system_prompt: bool,
+    /// Supports multi-turn conversation history.
+    pub multi_turn: bool,
+    /// Supports structured JSON output mode.
+    pub json_mode: bool,
+}
+
+impl DialectFeatures {
+    /// Returns the list of feature names this dialect supports.
+    #[must_use]
+    pub fn supported_names(&self) -> Vec<&'static str> {
+        let mut v = Vec::new();
+        if self.streaming {
+            v.push("streaming");
+        }
+        if self.tool_use {
+            v.push("tool_use");
+        }
+        if self.vision {
+            v.push("vision");
+        }
+        if self.system_prompt {
+            v.push("system_prompt");
+        }
+        if self.multi_turn {
+            v.push("multi_turn");
+        }
+        if self.json_mode {
+            v.push("json_mode");
+        }
+        v
+    }
+}
+
+/// Returns the built-in feature set for a dialect.
+#[must_use]
+pub fn builtin_features(dialect: Dialect) -> DialectFeatures {
+    match dialect {
+        Dialect::OpenAi => DialectFeatures {
+            streaming: true,
+            tool_use: true,
+            vision: true,
+            system_prompt: true,
+            multi_turn: true,
+            json_mode: true,
+        },
+        Dialect::Claude => DialectFeatures {
+            streaming: true,
+            tool_use: true,
+            vision: true,
+            system_prompt: true,
+            multi_turn: true,
+            json_mode: false,
+        },
+        Dialect::Gemini => DialectFeatures {
+            streaming: true,
+            tool_use: true,
+            vision: true,
+            system_prompt: true,
+            multi_turn: true,
+            json_mode: true,
+        },
+        Dialect::Codex => DialectFeatures {
+            streaming: true,
+            tool_use: true,
+            vision: false,
+            system_prompt: true,
+            multi_turn: false,
+            json_mode: false,
+        },
+        Dialect::Kimi => DialectFeatures {
+            streaming: true,
+            tool_use: false,
+            vision: false,
+            system_prompt: true,
+            multi_turn: true,
+            json_mode: false,
+        },
+        Dialect::Copilot => DialectFeatures {
+            streaming: true,
+            tool_use: true,
+            vision: false,
+            system_prompt: true,
+            multi_turn: true,
+            json_mode: false,
+        },
+    }
+}
+
+// ── Version tracking ────────────────────────────────────────────────────
+
+/// Structured version information for a dialect.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DialectVersionInfo {
+    /// The dialect tag.
+    pub dialect: Dialect,
+    /// API version string (e.g. `"v1"`, `"2023-06-01"`).
+    pub api_version: &'static str,
+    /// Human-readable label.
+    pub label: &'static str,
+}
+
+// ── Dialect comparison ──────────────────────────────────────────────────
+
+/// Result of comparing two dialects' feature sets.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DialectComparison {
+    /// First dialect.
+    pub a: Dialect,
+    /// Second dialect.
+    pub b: Dialect,
+    /// Features supported by both.
+    pub shared: Vec<&'static str>,
+    /// Features supported only by `a`.
+    pub only_a: Vec<&'static str>,
+    /// Features supported only by `b`.
+    pub only_b: Vec<&'static str>,
+}
+
+impl DialectComparison {
+    fn from_features(a: Dialect, fa: DialectFeatures, b: Dialect, fb: DialectFeatures) -> Self {
+        let set_a = fa.supported_names();
+        let set_b = fb.supported_names();
+        let shared: Vec<&'static str> = set_a
+            .iter()
+            .filter(|f| set_b.contains(f))
+            .copied()
+            .collect();
+        let only_a: Vec<&'static str> = set_a
+            .iter()
+            .filter(|f| !set_b.contains(f))
+            .copied()
+            .collect();
+        let only_b: Vec<&'static str> = set_b
+            .iter()
+            .filter(|f| !set_a.contains(f))
+            .copied()
+            .collect();
+        Self {
+            a,
+            b,
+            shared,
+            only_a,
+            only_b,
+        }
+    }
+
+    /// Returns `true` when both dialects support exactly the same features.
+    #[must_use]
+    pub fn is_fully_compatible(&self) -> bool {
+        self.only_a.is_empty() && self.only_b.is_empty()
     }
 }
 
@@ -1389,4 +1613,263 @@ fn parse_gemini_response(value: &Value) -> Option<IrResponse> {
         usage,
         metadata: BTreeMap::new(),
     })
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Tests
+// ═══════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn reg() -> DialectRegistry {
+        DialectRegistry::with_builtins()
+    }
+
+    // ── Auto-detection from request JSON ────────────────────────────
+
+    #[test]
+    fn detect_and_parse_openai() {
+        let req = json!({
+            "model": "gpt-4",
+            "messages": [{"role": "user", "content": "hello"}]
+        });
+        let (det, ir) = reg().detect_and_parse(&req).unwrap();
+        assert_eq!(det.dialect, Dialect::OpenAi);
+        assert_eq!(ir.model.as_deref(), Some("gpt-4"));
+        assert_eq!(ir.messages.len(), 1);
+    }
+
+    #[test]
+    fn detect_and_parse_claude() {
+        let req = json!({
+            "model": "claude-3-opus",
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
+        });
+        let (det, ir) = reg().detect_and_parse(&req).unwrap();
+        assert_eq!(det.dialect, Dialect::Claude);
+        assert_eq!(ir.model.as_deref(), Some("claude-3-opus"));
+    }
+
+    #[test]
+    fn detect_and_parse_gemini() {
+        let req = json!({
+            "contents": [{"parts": [{"text": "hello"}]}]
+        });
+        let (det, ir) = reg().detect_and_parse(&req).unwrap();
+        assert_eq!(det.dialect, Dialect::Gemini);
+        assert!(!ir.messages.is_empty());
+    }
+
+    #[test]
+    fn detect_and_parse_fails_for_empty() {
+        let err = reg().detect_and_parse(&json!({}));
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn detect_and_parse_fails_for_non_object() {
+        assert!(reg().detect_and_parse(&json!(42)).is_err());
+    }
+
+    // ── Feature matrix ──────────────────────────────────────────────
+
+    #[test]
+    fn features_all_builtins_present() {
+        let r = reg();
+        for &d in Dialect::all() {
+            assert!(r.features(d).is_some(), "missing features for {d:?}");
+        }
+    }
+
+    #[test]
+    fn features_openai_supports_all() {
+        let f = builtin_features(Dialect::OpenAi);
+        assert!(f.streaming);
+        assert!(f.tool_use);
+        assert!(f.vision);
+        assert!(f.system_prompt);
+        assert!(f.multi_turn);
+        assert!(f.json_mode);
+    }
+
+    #[test]
+    fn features_kimi_no_tool_use() {
+        let f = builtin_features(Dialect::Kimi);
+        assert!(!f.tool_use);
+        assert!(f.streaming);
+    }
+
+    #[test]
+    fn features_codex_no_multi_turn() {
+        let f = builtin_features(Dialect::Codex);
+        assert!(!f.multi_turn);
+        assert!(f.tool_use);
+    }
+
+    #[test]
+    fn supported_names_reflects_fields() {
+        let f = DialectFeatures {
+            streaming: true,
+            tool_use: false,
+            vision: true,
+            system_prompt: false,
+            multi_turn: false,
+            json_mode: false,
+        };
+        let names = f.supported_names();
+        assert!(names.contains(&"streaming"));
+        assert!(names.contains(&"vision"));
+        assert!(!names.contains(&"tool_use"));
+        assert_eq!(names.len(), 2);
+    }
+
+    #[test]
+    fn features_not_found_for_unregistered() {
+        let r = DialectRegistry::new(); // empty
+        assert!(r.features(Dialect::OpenAi).is_none());
+    }
+
+    // ── Version tracking ────────────────────────────────────────────
+
+    #[test]
+    fn version_info_all_builtins() {
+        let r = reg();
+        for &d in Dialect::all() {
+            let vi = r.version_info(d).unwrap();
+            assert_eq!(vi.dialect, d);
+            assert!(!vi.api_version.is_empty());
+            assert_eq!(vi.label, d.label());
+        }
+    }
+
+    #[test]
+    fn version_info_openai() {
+        let vi = reg().version_info(Dialect::OpenAi).unwrap();
+        assert_eq!(vi.api_version, "v1");
+        assert_eq!(vi.label, "OpenAI");
+    }
+
+    #[test]
+    fn version_info_none_for_unregistered() {
+        assert!(
+            DialectRegistry::new()
+                .version_info(Dialect::OpenAi)
+                .is_none()
+        );
+    }
+
+    // ── Comparison utilities ────────────────────────────────────────
+
+    #[test]
+    fn compare_openai_and_claude() {
+        let cmp = reg().compare(Dialect::OpenAi, Dialect::Claude).unwrap();
+        assert_eq!(cmp.a, Dialect::OpenAi);
+        assert_eq!(cmp.b, Dialect::Claude);
+        assert!(cmp.shared.contains(&"streaming"));
+        assert!(cmp.shared.contains(&"tool_use"));
+        // json_mode is OpenAI-only vs Claude
+        assert!(cmp.only_a.contains(&"json_mode"));
+        assert!(!cmp.is_fully_compatible());
+    }
+
+    #[test]
+    fn compare_identical_is_fully_compatible() {
+        let cmp = reg().compare(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+        assert!(cmp.is_fully_compatible());
+        assert!(cmp.shared.len() >= 6);
+        assert!(cmp.only_a.is_empty());
+        assert!(cmp.only_b.is_empty());
+    }
+
+    #[test]
+    fn compare_none_for_unregistered() {
+        let r = DialectRegistry::new();
+        assert!(r.compare(Dialect::OpenAi, Dialect::Claude).is_none());
+    }
+
+    #[test]
+    fn compare_kimi_vs_codex() {
+        let cmp = reg().compare(Dialect::Kimi, Dialect::Codex).unwrap();
+        // Kimi has multi_turn but Codex does not
+        assert!(cmp.only_a.contains(&"multi_turn"));
+        // Codex has tool_use but Kimi does not
+        assert!(cmp.only_b.contains(&"tool_use"));
+    }
+
+    // ── Validate through registry ───────────────────────────────────
+
+    #[test]
+    fn validate_request_openai_valid() {
+        let r = reg().validate_request(
+            Dialect::OpenAi,
+            &json!({
+                "model": "gpt-4",
+                "messages": [{"role": "user", "content": "hi"}]
+            }),
+        );
+        assert!(r.is_valid());
+    }
+
+    #[test]
+    fn validate_request_openai_missing_model() {
+        let r = reg().validate_request(
+            Dialect::OpenAi,
+            &json!({"messages": [{"role": "user", "content": "hi"}]}),
+        );
+        assert!(!r.is_valid());
+    }
+
+    #[test]
+    fn validate_request_gemini_valid() {
+        let r = reg().validate_request(
+            Dialect::Gemini,
+            &json!({"model": "gemini-pro", "contents": [{"parts": [{"text": "hi"}]}]}),
+        );
+        assert!(r.is_valid());
+    }
+
+    // ── Existing registry behaviour ─────────────────────────────────
+
+    #[test]
+    fn builtins_has_six_entries() {
+        assert_eq!(reg().len(), 6);
+    }
+
+    #[test]
+    fn list_dialects_returns_all() {
+        let dialects = reg().list_dialects();
+        for &d in Dialect::all() {
+            assert!(dialects.contains(&d));
+        }
+    }
+
+    #[test]
+    fn supports_pair_true_for_builtins() {
+        assert!(reg().supports_pair(Dialect::OpenAi, Dialect::Claude));
+    }
+
+    #[test]
+    fn supports_pair_false_for_empty() {
+        assert!(!DialectRegistry::new().supports_pair(Dialect::OpenAi, Dialect::Claude));
+    }
+
+    #[test]
+    fn dialect_features_serde_roundtrip() {
+        let f = builtin_features(Dialect::OpenAi);
+        let json = serde_json::to_string(&f).unwrap();
+        let back: DialectFeatures = serde_json::from_str(&json).unwrap();
+        assert_eq!(f, back);
+    }
+
+    #[test]
+    fn dialect_version_info_serde_roundtrip() {
+        let vi = reg().version_info(Dialect::Claude).unwrap();
+        let json = serde_json::to_value(&vi).unwrap();
+        assert_eq!(json["api_version"], "v1");
+        assert_eq!(json["label"], "Claude");
+        assert_eq!(json["dialect"], "claude");
+    }
 }

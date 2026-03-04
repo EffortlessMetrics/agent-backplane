@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": "run-001",
+  "error": "Sidecar process crashed",
+  "error_code": "backend_crashed"
+}

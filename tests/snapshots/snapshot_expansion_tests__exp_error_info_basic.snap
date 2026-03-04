@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: e
+---
+{
+  "code": "backend_timeout",
+  "message": "Request timed out after 30s",
+  "details": {},
+  "is_retryable": true
+}

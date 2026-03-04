@@ -11,6 +11,7 @@ use std::task::{Context, Poll};
 use tokio::sync::mpsc;
 
 pub mod aggregate;
+pub mod backpressure;
 pub mod buffer;
 pub mod buffered;
 pub mod collector;
@@ -20,6 +21,7 @@ pub mod tee;
 pub mod timeout;
 
 pub use aggregate::{StreamAggregator, StreamSummary, ToolCallAggregate};
+pub use backpressure::{BackpressurePolicy, BackpressuredSender, SendOutcome};
 pub use buffer::StreamBuffer;
 pub use buffered::BufferedStream;
 pub use collector::EventCollector;
@@ -74,6 +76,41 @@ impl EventFilter {
         Self::new(|ev| !matches!(ev.kind, AgentEventKind::Error { .. }))
     }
 
+    /// Filter events matching any of the given kind names.
+    pub fn by_kinds(kind_names: &[&str]) -> Self {
+        let names: Vec<String> = kind_names.iter().map(|s| s.to_string()).collect();
+        Self::new(move |ev| {
+            let name = event_kind_name(&ev.kind);
+            names.iter().any(|n| *n == name)
+        })
+    }
+
+    /// Combine two filters with logical AND — both must match.
+    pub fn and(self, other: EventFilter) -> Self {
+        let a = self.predicate;
+        let b = other.predicate;
+        Self {
+            predicate: Arc::new(move |ev| a(ev) && b(ev)),
+        }
+    }
+
+    /// Combine two filters with logical OR — either must match.
+    pub fn or(self, other: EventFilter) -> Self {
+        let a = self.predicate;
+        let b = other.predicate;
+        Self {
+            predicate: Arc::new(move |ev| a(ev) || b(ev)),
+        }
+    }
+
+    /// Negate a filter — passes events that the original rejects.
+    pub fn not(self) -> Self {
+        let inner = self.predicate;
+        Self {
+            predicate: Arc::new(move |ev| !inner(ev)),
+        }
+    }
+
     /// Returns `true` if the event passes the filter.
     pub fn matches(&self, event: &AgentEvent) -> bool {
         (self.predicate)(event)
@@ -110,6 +147,45 @@ impl EventTransform {
     /// Identity transform — passes events through unchanged.
     pub fn identity() -> Self {
         Self::new(|ev| ev)
+    }
+
+    /// Transform the text content of `AssistantDelta` and `AssistantMessage`
+    /// events, leaving all other events unchanged.
+    pub fn map_text<F>(f: F) -> Self
+    where
+        F: Fn(&str) -> String + Send + Sync + 'static,
+    {
+        Self::new(move |mut ev| {
+            ev.kind = match ev.kind {
+                AgentEventKind::AssistantDelta { text } => {
+                    AgentEventKind::AssistantDelta { text: f(&text) }
+                }
+                AgentEventKind::AssistantMessage { text } => {
+                    AgentEventKind::AssistantMessage { text: f(&text) }
+                }
+                other => other,
+            };
+            ev
+        })
+    }
+
+    /// Add a metadata key-value pair to every event's `ext` map.
+    pub fn add_metadata(key: impl Into<String>, value: serde_json::Value) -> Self {
+        let key = key.into();
+        Self::new(move |mut ev| {
+            let ext = ev.ext.get_or_insert_with(std::collections::BTreeMap::new);
+            ext.insert(key.clone(), value.clone());
+            ev
+        })
+    }
+
+    /// Chain two transforms: apply `self` first, then `other`.
+    pub fn chain(self, other: EventTransform) -> Self {
+        let a = self.transform;
+        let b = other.transform;
+        Self {
+            transform: Arc::new(move |ev| b(a(ev))),
+        }
     }
 
     /// Apply the transform to an event.
@@ -179,6 +255,8 @@ struct StatsInner {
     total_events: u64,
     total_delta_bytes: u64,
     error_count: u64,
+    first_event_at: Option<std::time::Instant>,
+    last_event_at: Option<std::time::Instant>,
 }
 
 impl EventStats {
@@ -190,6 +268,12 @@ impl EventStats {
     /// Record an event's statistics.
     pub fn observe(&self, event: &AgentEvent) {
         let mut inner = self.inner.lock().expect("stats lock poisoned");
+        let now = std::time::Instant::now();
+        if inner.first_event_at.is_none() {
+            inner.first_event_at = Some(now);
+        }
+        inner.last_event_at = Some(now);
+
         let name = event_kind_name(&event.kind);
         *inner.counts.entry(name).or_insert(0) += 1;
         inner.total_events += 1;
@@ -247,7 +331,69 @@ impl EventStats {
         inner.total_events = 0;
         inner.total_delta_bytes = 0;
         inner.error_count = 0;
+        inner.first_event_at = None;
+        inner.last_event_at = None;
     }
+
+    /// Elapsed time between the first and last observed event.
+    ///
+    /// Returns [`std::time::Duration::ZERO`] if fewer than two events have
+    /// been recorded.
+    pub fn elapsed(&self) -> std::time::Duration {
+        let inner = self.inner.lock().expect("stats lock poisoned");
+        match (inner.first_event_at, inner.last_event_at) {
+            (Some(first), Some(last)) => last.duration_since(first),
+            _ => std::time::Duration::ZERO,
+        }
+    }
+
+    /// Events per second based on the time between first and last event.
+    ///
+    /// Returns `0.0` if fewer than two events or no measurable time.
+    pub fn events_per_second(&self) -> f64 {
+        let inner = self.inner.lock().expect("stats lock poisoned");
+        match (inner.first_event_at, inner.last_event_at) {
+            (Some(first), Some(last)) => {
+                let secs = last.duration_since(first).as_secs_f64();
+                if secs > 0.0 {
+                    inner.total_events as f64 / secs
+                } else {
+                    0.0
+                }
+            }
+            _ => 0.0,
+        }
+    }
+
+    /// Return a [`StatsSnapshot`] of the current state.
+    pub fn snapshot(&self) -> StatsSnapshot {
+        let inner = self.inner.lock().expect("stats lock poisoned");
+        StatsSnapshot {
+            total_events: inner.total_events,
+            total_delta_bytes: inner.total_delta_bytes,
+            error_count: inner.error_count,
+            kind_counts: inner.counts.clone(),
+            elapsed: match (inner.first_event_at, inner.last_event_at) {
+                (Some(first), Some(last)) => last.duration_since(first),
+                _ => std::time::Duration::ZERO,
+            },
+        }
+    }
+}
+
+/// Point-in-time snapshot of [`EventStats`].
+#[derive(Debug, Clone)]
+pub struct StatsSnapshot {
+    /// Total number of events observed.
+    pub total_events: u64,
+    /// Total bytes from `AssistantDelta` text payloads.
+    pub total_delta_bytes: u64,
+    /// Number of error events.
+    pub error_count: u64,
+    /// Per-kind event counts.
+    pub kind_counts: HashMap<String, u64>,
+    /// Elapsed time between first and last event.
+    pub elapsed: std::time::Duration,
 }
 
 // ---------------------------------------------------------------------------
@@ -347,31 +493,33 @@ impl EventMultiplexer {
         all
     }
 
-    /// Merge streams into a single output channel, emitting events in
-    /// approximately timestamp order using buffered merging.
+    /// Merge streams into a single output channel using true interleaved
+    /// fan-in. Events are forwarded as they arrive from any source stream,
+    /// without waiting for all streams to close first.
     ///
     /// Returns the receiving end of the merged stream.
     pub fn merge(self, buffer: usize) -> mpsc::Receiver<AgentEvent> {
         let (tx, rx) = mpsc::channel(buffer);
-        let receivers = self.receivers;
 
-        tokio::spawn(async move {
-            // Simple fan-in: collect then sort.
-            let mut all = Vec::new();
-            for mut r in receivers {
+        for mut r in self.receivers {
+            let tx = tx.clone();
+            tokio::spawn(async move {
                 while let Some(ev) = r.recv().await {
-                    all.push(ev);
+                    if tx.send(ev).await.is_err() {
+                        break;
+                    }
                 }
-            }
-            all.sort_by_key(|ev| ev.ts);
-            for ev in all {
-                if tx.send(ev).await.is_err() {
-                    break;
-                }
-            }
-        });
+            });
+        }
+        // Drop the original sender so the channel closes when all tasks finish.
+        drop(tx);
 
         rx
+    }
+
+    /// Number of source streams.
+    pub fn stream_count(&self) -> usize {
+        self.receivers.len()
     }
 }
 
@@ -1210,5 +1358,303 @@ mod tests {
         sender.await.unwrap();
 
         assert_eq!(events.len(), 3);
+    }
+
+    // -----------------------------------------------------------------------
+    // EventFilter combinator tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn filter_by_kinds_matches_multiple() {
+        let filter = EventFilter::by_kinds(&["assistant_delta", "error"]);
+        assert!(filter.matches(&delta_event("hi")));
+        assert!(filter.matches(&error_event("bad")));
+        assert!(!filter.matches(&tool_call_event("read")));
+        assert!(!filter.matches(&run_started_event()));
+    }
+
+    #[test]
+    fn filter_by_kinds_empty_matches_nothing() {
+        let filter = EventFilter::by_kinds(&[]);
+        assert!(!filter.matches(&delta_event("hi")));
+        assert!(!filter.matches(&error_event("bad")));
+    }
+
+    #[test]
+    fn filter_and_both_must_pass() {
+        let f = EventFilter::by_kind("assistant_delta").and(EventFilter::new(
+            |ev| matches!(&ev.kind, AgentEventKind::AssistantDelta { text } if text.len() > 3),
+        ));
+        assert!(f.matches(&delta_event("long text")));
+        assert!(!f.matches(&delta_event("hi"))); // too short
+        assert!(!f.matches(&error_event("long error text"))); // wrong kind
+    }
+
+    #[test]
+    fn filter_or_either_passes() {
+        let f = EventFilter::by_kind("error").or(EventFilter::by_kind("warning"));
+        assert!(f.matches(&error_event("e")));
+        assert!(f.matches(&warning_event("w")));
+        assert!(!f.matches(&delta_event("d")));
+    }
+
+    #[test]
+    fn filter_not_inverts() {
+        let f = EventFilter::by_kind("error").not();
+        assert!(!f.matches(&error_event("e")));
+        assert!(f.matches(&delta_event("d")));
+        assert!(f.matches(&warning_event("w")));
+    }
+
+    #[test]
+    fn filter_complex_composition() {
+        // (delta OR tool_call) AND NOT error
+        let f = EventFilter::by_kinds(&["assistant_delta", "tool_call"])
+            .and(EventFilter::errors_only().not());
+        assert!(f.matches(&delta_event("hi")));
+        assert!(f.matches(&tool_call_event("read")));
+        assert!(!f.matches(&error_event("e")));
+        assert!(!f.matches(&warning_event("w")));
+    }
+
+    // -----------------------------------------------------------------------
+    // EventTransform utility tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn transform_map_text_modifies_delta() {
+        let t = EventTransform::map_text(|s| s.to_uppercase());
+        let result = t.apply(delta_event("hello"));
+        match &result.kind {
+            AgentEventKind::AssistantDelta { text } => assert_eq!(text, "HELLO"),
+            _ => panic!("expected AssistantDelta"),
+        }
+    }
+
+    #[test]
+    fn transform_map_text_modifies_message() {
+        let t = EventTransform::map_text(|s| format!("[prefix] {s}"));
+        let ev = make_event(AgentEventKind::AssistantMessage {
+            text: "content".to_string(),
+        });
+        let result = t.apply(ev);
+        match &result.kind {
+            AgentEventKind::AssistantMessage { text } => {
+                assert_eq!(text, "[prefix] content")
+            }
+            _ => panic!("expected AssistantMessage"),
+        }
+    }
+
+    #[test]
+    fn transform_map_text_leaves_other_events() {
+        let t = EventTransform::map_text(|s| s.to_uppercase());
+        let ev = error_event("oops");
+        let result = t.apply(ev);
+        match &result.kind {
+            AgentEventKind::Error { message, .. } => assert_eq!(message, "oops"),
+            _ => panic!("expected Error"),
+        }
+    }
+
+    #[test]
+    fn transform_add_metadata_sets_ext() {
+        let t = EventTransform::add_metadata("source", serde_json::json!("test"));
+        let result = t.apply(delta_event("x"));
+        let ext = result.ext.unwrap();
+        assert_eq!(ext.get("source").unwrap(), &serde_json::json!("test"));
+    }
+
+    #[test]
+    fn transform_add_metadata_preserves_existing() {
+        let t = EventTransform::add_metadata("new_key", serde_json::json!(42));
+        let mut ev = delta_event("x");
+        let mut ext = BTreeMap::new();
+        ext.insert("existing".to_string(), serde_json::json!("value"));
+        ev.ext = Some(ext);
+
+        let result = t.apply(ev);
+        let ext = result.ext.unwrap();
+        assert_eq!(ext.get("existing").unwrap(), &serde_json::json!("value"));
+        assert_eq!(ext.get("new_key").unwrap(), &serde_json::json!(42));
+    }
+
+    #[test]
+    fn transform_chain_applies_both() {
+        let t = EventTransform::map_text(|s| s.to_uppercase()).chain(EventTransform::add_metadata(
+            "done",
+            serde_json::json!(true),
+        ));
+        let result = t.apply(delta_event("hello"));
+        match &result.kind {
+            AgentEventKind::AssistantDelta { text } => assert_eq!(text, "HELLO"),
+            _ => panic!("expected AssistantDelta"),
+        }
+        assert_eq!(
+            result.ext.unwrap().get("done").unwrap(),
+            &serde_json::json!(true)
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // EventStats enhanced tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn stats_snapshot_captures_state() {
+        let s = EventStats::new();
+        s.observe(&delta_event("hello"));
+        s.observe(&error_event("e"));
+        s.observe(&tool_call_event("read"));
+        let snap = s.snapshot();
+        assert_eq!(snap.total_events, 3);
+        assert_eq!(snap.total_delta_bytes, 5);
+        assert_eq!(snap.error_count, 1);
+        assert_eq!(snap.kind_counts.get("assistant_delta"), Some(&1));
+        assert_eq!(snap.kind_counts.get("error"), Some(&1));
+        assert_eq!(snap.kind_counts.get("tool_call"), Some(&1));
+    }
+
+    #[test]
+    fn stats_elapsed_zero_with_no_events() {
+        let s = EventStats::new();
+        assert_eq!(s.elapsed(), std::time::Duration::ZERO);
+        assert_eq!(s.events_per_second(), 0.0);
+    }
+
+    #[test]
+    fn stats_reset_clears_timestamps() {
+        let s = EventStats::new();
+        s.observe(&delta_event("a"));
+        s.reset();
+        assert_eq!(s.elapsed(), std::time::Duration::ZERO);
+        assert_eq!(s.events_per_second(), 0.0);
+        let snap = s.snapshot();
+        assert_eq!(snap.total_events, 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // BackpressuredSender tests
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn backpressure_block_policy_sends_all() {
+        use crate::backpressure::{BackpressurePolicy, BackpressuredSender, SendOutcome};
+
+        let (tx, rx) = mpsc::channel(16);
+        let mut sender = BackpressuredSender::new(tx, BackpressurePolicy::Block);
+
+        assert_eq!(sender.send(delta_event("a")).await, SendOutcome::Sent);
+        assert_eq!(sender.send(delta_event("b")).await, SendOutcome::Sent);
+        assert_eq!(sender.dropped_count(), 0);
+        assert_eq!(sender.policy(), BackpressurePolicy::Block);
+
+        drop(sender);
+        let stream = EventStream::new(rx);
+        let events = stream.collect_all().await;
+        assert_eq!(events.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn backpressure_drop_newest_on_full_channel() {
+        use crate::backpressure::{BackpressurePolicy, BackpressuredSender, SendOutcome};
+
+        let (tx, rx) = mpsc::channel(2);
+        let mut sender = BackpressuredSender::new(tx, BackpressurePolicy::DropNewest);
+
+        assert_eq!(sender.send(delta_event("1")).await, SendOutcome::Sent);
+        assert_eq!(sender.send(delta_event("2")).await, SendOutcome::Sent);
+        // Channel full — this should be dropped.
+        assert_eq!(sender.send(delta_event("3")).await, SendOutcome::Dropped);
+        assert_eq!(sender.dropped_count(), 1);
+
+        drop(sender);
+        let stream = EventStream::new(rx);
+        let events = stream.collect_all().await;
+        assert_eq!(events.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn backpressure_closed_channel_returns_closed() {
+        use crate::backpressure::{BackpressurePolicy, BackpressuredSender, SendOutcome};
+
+        let (tx, rx) = mpsc::channel(16);
+        drop(rx);
+        let mut sender = BackpressuredSender::new(tx, BackpressurePolicy::Block);
+
+        assert_eq!(sender.send(delta_event("a")).await, SendOutcome::Closed);
+        assert!(sender.is_closed());
+    }
+
+    // -----------------------------------------------------------------------
+    // EventMultiplexer interleaved merge tests
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn multiplexer_merge_interleaved_fan_in() {
+        let (tx1, rx1) = mpsc::channel(16);
+        let (tx2, rx2) = mpsc::channel(16);
+        let (tx3, rx3) = mpsc::channel(16);
+
+        // Send events from 3 streams.
+        for i in 0..3 {
+            tx1.send(delta_event(&format!("s1-{i}"))).await.unwrap();
+            tx2.send(delta_event(&format!("s2-{i}"))).await.unwrap();
+            tx3.send(delta_event(&format!("s3-{i}"))).await.unwrap();
+        }
+        drop(tx1);
+        drop(tx2);
+        drop(tx3);
+
+        let mux = EventMultiplexer::new(vec![rx1, rx2, rx3]);
+        assert_eq!(mux.stream_count(), 3);
+        let mut merged_rx = mux.merge(16);
+
+        let mut events = Vec::new();
+        while let Some(ev) = merged_rx.recv().await {
+            events.push(ev);
+        }
+        // All 9 events should arrive.
+        assert_eq!(events.len(), 9);
+    }
+
+    #[tokio::test]
+    async fn multiplexer_merge_empty() {
+        let mux = EventMultiplexer::new(vec![]);
+        let mut merged_rx = mux.merge(16);
+        assert!(merged_rx.recv().await.is_none());
+    }
+
+    // -----------------------------------------------------------------------
+    // Pipeline integration with new combinators
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn pipeline_with_map_text_transform() {
+        let p = StreamPipelineBuilder::new()
+            .transform(EventTransform::map_text(|s| s.to_uppercase()))
+            .build();
+
+        let result = p.process(delta_event("hello")).unwrap();
+        match &result.kind {
+            AgentEventKind::AssistantDelta { text } => assert_eq!(text, "HELLO"),
+            _ => panic!("expected AssistantDelta"),
+        }
+    }
+
+    #[test]
+    fn pipeline_with_combined_filters() {
+        let stats = EventStats::new();
+        let p = StreamPipelineBuilder::new()
+            .filter(EventFilter::by_kind("assistant_delta").or(EventFilter::by_kind("tool_call")))
+            .with_stats(stats.clone())
+            .build();
+
+        p.process(delta_event("ok"));
+        p.process(tool_call_event("read"));
+        p.process(error_event("bad"));
+        p.process(warning_event("w"));
+
+        assert_eq!(stats.total_events(), 2);
     }
 }

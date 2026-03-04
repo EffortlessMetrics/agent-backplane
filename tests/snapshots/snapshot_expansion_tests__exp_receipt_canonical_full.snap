@@ -1,0 +1,70 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: pretty
+---
+{
+  "meta": {
+    "run_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "work_order_id": "11111111-2222-3333-4444-555555555555",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-06-01T10:00:00Z",
+    "finished_at": "2025-06-01T10:05:00Z",
+    "duration_ms": 300000
+  },
+  "backend": {
+    "id": "sidecar:claude",
+    "backend_version": "2.0.0",
+    "adapter_version": "0.3.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_read": "native",
+    "tool_write": {
+      "restricted": {
+        "reason": "read-only mode"
+      }
+    }
+  },
+  "mode": "mapped",
+  "usage_raw": {
+    "completion_tokens": 1200,
+    "prompt_tokens": 2000
+  },
+  "usage": {
+    "input_tokens": 2000,
+    "output_tokens": 1200,
+    "cache_read_tokens": 300,
+    "cache_write_tokens": 80,
+    "request_units": 1,
+    "estimated_cost_usd": 0.018
+  },
+  "trace": [
+    {
+      "ts": "2025-06-01T10:00:00Z",
+      "type": "run_started",
+      "message": "begin"
+    },
+    {
+      "ts": "2025-06-01T10:00:00Z",
+      "type": "run_completed",
+      "message": "end"
+    }
+  ],
+  "artifacts": [
+    {
+      "kind": "patch",
+      "path": "output/changes.patch"
+    },
+    {
+      "kind": "log",
+      "path": "output/run.log"
+    }
+  ],
+  "verification": {
+    "git_diff": "+new line\n-old line",
+    "git_status": "M src/lib.rs\nA src/new.rs",
+    "harness_ok": true
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

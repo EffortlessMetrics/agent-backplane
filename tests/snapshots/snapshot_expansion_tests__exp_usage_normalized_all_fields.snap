@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: u
+---
+{
+  "input_tokens": 1000,
+  "output_tokens": 500,
+  "cache_read_tokens": 200,
+  "cache_write_tokens": 50,
+  "request_units": 2,
+  "estimated_cost_usd": 0.025
+}

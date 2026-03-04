@@ -1,0 +1,27 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: resp
+---
+{
+  "id": "msg_02tooluse",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01abc",
+      "name": "read_file",
+      "input": {
+        "path": "src/lib.rs"
+      }
+    }
+  ],
+  "model": "claude-sonnet-4-20250514",
+  "stop_reason": "tool_use",
+  "usage": {
+    "input_tokens": 300,
+    "output_tokens": 50,
+    "cache_creation_input_tokens": 100,
+    "cache_read_input_tokens": 200
+  }
+}

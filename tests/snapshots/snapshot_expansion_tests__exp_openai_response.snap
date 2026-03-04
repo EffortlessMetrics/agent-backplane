@@ -1,0 +1,26 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: resp
+---
+{
+  "id": "chatcmpl-test123",
+  "object": "chat.completion",
+  "created": 1717200000,
+  "model": "gpt-4o-2024-05-13",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! How can I help?"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 8,
+    "total_tokens": 18
+  },
+  "system_fingerprint": "fp_abc123"
+}

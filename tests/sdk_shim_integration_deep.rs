@@ -246,6 +246,9 @@ mod openai {
             seed: Some(42),
             response_format: Some(ResponseFormat::JsonObject),
             user: Some("user_123".into()),
+            stream_options: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: ChatCompletionRequest = serde_json::from_str(&json).unwrap();
@@ -272,6 +275,9 @@ mod openai {
             seed: None,
             response_format: None,
             user: None,
+            stream_options: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(!json.contains("temperature"));
@@ -300,6 +306,8 @@ mod openai {
                 prompt_tokens: 10,
                 completion_tokens: 5,
                 total_tokens: 15,
+                prompt_tokens_details: None,
+                completion_tokens_details: None,
             }),
             system_fingerprint: Some("fp_abc".into()),
         };
@@ -379,6 +387,8 @@ mod openai {
                 prompt_tokens: 50,
                 completion_tokens: 25,
                 total_tokens: 75,
+                prompt_tokens_details: None,
+                completion_tokens_details: None,
             }),
         };
         let json = serde_json::to_string(&chunk).unwrap();
@@ -443,6 +453,9 @@ mod openai {
             seed: None,
             response_format: None,
             user: None,
+            stream_options: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.task, "Second");
@@ -473,6 +486,9 @@ mod openai {
             seed: None,
             response_format: None,
             user: None,
+            stream_options: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.context.snippets.len(), 1);
@@ -499,6 +515,9 @@ mod openai {
             seed: None,
             response_format: None,
             user: None,
+            stream_options: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.config.model.as_deref(), Some("gpt-4-turbo"));
@@ -522,6 +541,9 @@ mod openai {
             seed: None,
             response_format: None,
             user: None,
+            stream_options: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.task, "");
@@ -616,6 +638,8 @@ mod claude {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: MessagesRequest = serde_json::from_str(&json).unwrap();
@@ -663,6 +687,8 @@ mod claude {
             temperature: Some(0.5),
             top_p: Some(0.9),
             top_k: Some(40),
+            tool_choice: None,
+            thinking: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: MessagesRequest = serde_json::from_str(&json).unwrap();
@@ -843,6 +869,8 @@ mod claude {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         assert!(wo.task.contains("Fix the bug"));
@@ -869,6 +897,8 @@ mod claude {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         assert!(wo.config.vendor.contains_key("tools"));
@@ -891,6 +921,8 @@ mod claude {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         assert!(wo.config.vendor.contains_key("system"));
@@ -915,6 +947,8 @@ mod claude {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         assert!(wo.config.vendor.contains_key("metadata"));
@@ -2255,6 +2289,9 @@ mod cross_sdk {
             seed: None,
             response_format: None,
             user: None,
+            stream_options: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let wo: WorkOrder = oai_req.into();
         assert_eq!(wo.task, "");

@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: staged
+---
+{
+  "root": "/project",
+  "mode": "staged",
+  "include": [
+    "**/*.rs"
+  ],
+  "exclude": [
+    "target/**"
+  ]
+}

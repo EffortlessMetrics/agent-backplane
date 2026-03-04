@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: "make_event(AgentEventKind::AssistantMessage\n{ text: \"I've completed the refactoring of the cache module.\".into(), })"
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "assistant_message",
+  "text": "I've completed the refactoring of the cache module."
+}

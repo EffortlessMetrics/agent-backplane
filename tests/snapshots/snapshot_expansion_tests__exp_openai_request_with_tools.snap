@@ -1,0 +1,52 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: req
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a coding assistant."
+    },
+    {
+      "role": "user",
+      "content": "Read the file src/lib.rs"
+    }
+  ],
+  "temperature": 0.7,
+  "max_tokens": 4096,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read a file from disk",
+        "parameters": {
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "strict": true
+      }
+    }
+  ],
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  },
+  "top_p": 0.9,
+  "frequency_penalty": 0.1,
+  "presence_penalty": 0.1,
+  "stop": [
+    "###"
+  ],
+  "n": 1,
+  "seed": 42,
+  "user": "user-123",
+  "parallel_tool_calls": true,
+  "service_tier": "auto"
+}

@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: e
+---
+{
+  "code": "policy_denied",
+  "message": "Tool 'bash' is not allowed",
+  "details": {
+    "policy_rule": "disallowed_tools",
+    "tool": "bash"
+  },
+  "is_retryable": false
+}

@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: req
+---
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Hello Gemini"
+        }
+      ]
+    }
+  ]
+}

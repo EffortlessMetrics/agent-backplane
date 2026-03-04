@@ -1,0 +1,26 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: resp
+---
+{
+  "id": "chatcmpl-copilot1",
+  "object": "chat.completion",
+  "created": 1717200000,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "I found the bug in auth.rs."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 100,
+    "completion_tokens": 50,
+    "total_tokens": 150,
+    "copilot_tokens": 25
+  }
+}

@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: line
+---
+{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"test","backend_version":null,"adapter_version":null},"capabilities":{"streaming":"native"},"mode":"mapped"}

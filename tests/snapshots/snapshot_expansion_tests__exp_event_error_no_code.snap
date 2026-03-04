@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: "make_event(AgentEventKind::Error\n{ message: \"Unknown failure\".into(), error_code: None, })"
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "error",
+  "message": "Unknown failure"
+}

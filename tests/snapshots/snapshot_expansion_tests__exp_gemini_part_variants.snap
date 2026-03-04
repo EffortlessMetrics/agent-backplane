@@ -1,0 +1,28 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: parts
+---
+[
+  {
+    "text": "plain text"
+  },
+  {
+    "functionCall": {
+      "name": "search",
+      "args": {
+        "query": "rust"
+      }
+    }
+  },
+  {
+    "functionResponse": {
+      "name": "search",
+      "response": {
+        "results": [
+          "crate1",
+          "crate2"
+        ]
+      }
+    }
+  }
+]

@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: e
+---
+{
+  "code": "protocol_invalid_envelope",
+  "message": "Missing 't' discriminator field",
+  "details": {
+    "raw_line": "{\"invalid\": true}"
+  },
+  "is_retryable": false
+}

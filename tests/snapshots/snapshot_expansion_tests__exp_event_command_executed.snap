@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: "make_event(AgentEventKind::CommandExecuted\n{\n    command: \"cargo test --lib\".into(), exit_code: Some(0), output_preview:\n    Some(\"test result: ok. 42 passed\".into()),\n})"
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "command_executed",
+  "command": "cargo test --lib",
+  "exit_code": 0,
+  "output_preview": "test result: ok. 42 passed"
+}

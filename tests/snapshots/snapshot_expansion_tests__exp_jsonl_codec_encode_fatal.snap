@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: line
+---
+{"t":"fatal","ref_id":"run-x","error":"boom","error_code":"internal"}

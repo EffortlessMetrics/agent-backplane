@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: pretty
+---
+{
+  "streaming": "native",
+  "tool_read": "native",
+  "tool_write": "emulated",
+  "tool_bash": {
+    "restricted": {
+      "reason": "sandboxed"
+    }
+  },
+  "vision": "unsupported"
+}

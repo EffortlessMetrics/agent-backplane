@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: req
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello Claude"
+    }
+  ],
+  "max_tokens": 1024
+}

@@ -1,0 +1,17 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: pretty
+---
+{
+  "t": "hello",
+  "contract_version": "abp/v0.1",
+  "backend": {
+    "id": "sidecar:node",
+    "backend_version": "1.0.0",
+    "adapter_version": "0.2.0"
+  },
+  "capabilities": {
+    "streaming": "native"
+  },
+  "mode": "mapped"
+}

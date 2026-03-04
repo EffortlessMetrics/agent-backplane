@@ -1,0 +1,29 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: resp
+---
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "functionCall": {
+              "name": "get_weather",
+              "args": {
+                "location": "Seattle"
+              }
+            }
+          }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 20,
+    "candidatesTokenCount": 15,
+    "totalTokenCount": 35
+  }
+}

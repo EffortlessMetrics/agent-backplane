@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: report
+---
+{
+  "source_dialect": "openai",
+  "target_dialect": "openai",
+  "entries": []
+}
