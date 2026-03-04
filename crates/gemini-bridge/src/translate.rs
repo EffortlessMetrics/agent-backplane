@@ -13,14 +13,19 @@ mod inner {
         AgentEvent, AgentEventKind, ContextPacket, ContextSnippet, Outcome, Receipt,
         RuntimeConfig, UsageNormalized, WorkOrder, WorkOrderBuilder,
     };
+    use abp_sdk_types::ir::{
+        IrContentPart, IrMessage, IrRole, IrToolCall, IrToolDefinition, IrToolResult, IrUsage,
+    };
     use chrono::Utc;
 
     use crate::gemini_types::{
-        Candidate, Content, FunctionCall, FunctionResponse, GenerateContentRequest,
-        GenerateContentResponse, GenerationConfig, GeminiTool, HarmCategory, InlineData, Part,
-        PromptFeedback, SafetyRating, SafetySetting, StreamGenerateContentResponse, UsageMetadata,
+        Candidate, Content, FunctionCall, FunctionDeclaration, FunctionResponse,
+        GenerateContentRequest, GenerateContentResponse, GenerationConfig, GeminiTool,
+        HarmCategory, InlineData, Part, PromptFeedback, SafetyRating, SafetySetting,
+        StreamGenerateContentResponse, UsageMetadata,
     };
     use crate::error::BridgeError;
+    use crate::multimodal::FileData;
 
     // ── Role mapping ────────────────────────────────────────────────────
 
@@ -42,6 +47,255 @@ mod inner {
             "system" => "user",
             _ => "user",
         }
+    }
+
+    // ── IR role mapping ─────────────────────────────────────────────────
+
+    /// Map a Gemini wire-role to an [`IrRole`].
+    #[must_use]
+    pub fn gemini_role_to_ir(role: Option<&str>) -> IrRole {
+        match role {
+            Some("model") => IrRole::Assistant,
+            Some("user") => IrRole::User,
+            None => IrRole::System,
+            _ => IrRole::User,
+        }
+    }
+
+    /// Map an [`IrRole`] back to the Gemini wire-role string.
+    #[must_use]
+    pub fn ir_role_to_gemini(role: IrRole) -> Option<&'static str> {
+        match role {
+            IrRole::System => None,
+            IrRole::User => Some("user"),
+            IrRole::Assistant => Some("model"),
+            IrRole::Tool => Some("user"),
+        }
+    }
+
+    // ── Part ↔ IrContentPart ────────────────────────────────────────────
+
+    /// Convert a Gemini [`Part`] into an [`IrContentPart`].
+    #[must_use]
+    pub fn part_to_ir(part: &Part) -> IrContentPart {
+        match part {
+            Part::Text(text) => IrContentPart::Text {
+                text: text.clone(),
+            },
+            Part::InlineData(data) => IrContentPart::Image {
+                url: None,
+                base64: Some(data.data.clone()),
+                media_type: Some(data.mime_type.clone()),
+            },
+            Part::FunctionCall(fc) => IrContentPart::ToolUse {
+                id: format!("fc_{}", fc.name),
+                name: fc.name.clone(),
+                arguments: fc.args.clone(),
+            },
+            Part::FunctionResponse(fr) => IrContentPart::ToolResult {
+                call_id: format!("fc_{}", fr.name),
+                content: fr.response.to_string(),
+                is_error: false,
+            },
+        }
+    }
+
+    /// Convert an [`IrContentPart`] back into a Gemini [`Part`].
+    ///
+    /// Not all IR parts have a direct Gemini equivalent; audio and file
+    /// attachments are serialised as text placeholders.
+    #[must_use]
+    pub fn ir_to_part(part: &IrContentPart) -> Part {
+        match part {
+            IrContentPart::Text { text } => Part::Text(text.clone()),
+            IrContentPart::Image {
+                base64: Some(b64),
+                media_type,
+                ..
+            } => Part::InlineData(InlineData {
+                mime_type: media_type
+                    .clone()
+                    .unwrap_or_else(|| "image/png".into()),
+                data: b64.clone(),
+            }),
+            IrContentPart::Image { url: Some(url), .. } => {
+                Part::Text(format!("[image: {}]", url))
+            }
+            IrContentPart::Image { .. } => Part::Text("[image]".into()),
+            IrContentPart::Audio { media_type, data } => {
+                Part::InlineData(InlineData {
+                    mime_type: media_type.clone(),
+                    data: data.clone(),
+                })
+            }
+            IrContentPart::File {
+                name: _,
+                data: Some(d),
+                media_type,
+                ..
+            } => Part::InlineData(InlineData {
+                mime_type: media_type
+                    .clone()
+                    .unwrap_or_else(|| "application/octet-stream".into()),
+                data: d.clone(),
+            }),
+            IrContentPart::File { name, url, .. } => {
+                let desc = url.as_deref().unwrap_or(name.as_str());
+                Part::Text(format!("[file: {}]", desc))
+            }
+            IrContentPart::ToolUse {
+                id: _,
+                name,
+                arguments,
+            } => Part::FunctionCall(FunctionCall {
+                name: name.clone(),
+                args: arguments.clone(),
+            }),
+            IrContentPart::ToolResult {
+                call_id,
+                content,
+                is_error: _,
+            } => {
+                // Try to parse content as JSON, fall back to string value
+                let response = serde_json::from_str(content)
+                    .unwrap_or_else(|_| serde_json::Value::String(content.clone()));
+                // Derive function name from call_id convention "fc_{name}"
+                let name = call_id
+                    .strip_prefix("fc_")
+                    .unwrap_or(call_id.as_str())
+                    .to_string();
+                Part::FunctionResponse(FunctionResponse { name, response })
+            }
+        }
+    }
+
+    // ── Content ↔ IrMessage ─────────────────────────────────────────────
+
+    /// Convert a Gemini [`Content`] block into an [`IrMessage`].
+    #[must_use]
+    pub fn content_to_ir(content: &Content) -> IrMessage {
+        let role = gemini_role_to_ir(content.role.as_deref());
+
+        let mut ir_parts = Vec::new();
+        let mut tool_calls = Vec::new();
+
+        for part in &content.parts {
+            match part {
+                Part::FunctionCall(fc) => {
+                    tool_calls.push(IrToolCall {
+                        id: format!("fc_{}", fc.name),
+                        name: fc.name.clone(),
+                        arguments: fc.args.clone(),
+                    });
+                }
+                other => {
+                    ir_parts.push(part_to_ir(other));
+                }
+            }
+        }
+
+        IrMessage {
+            role,
+            content: ir_parts,
+            tool_calls,
+            metadata: BTreeMap::new(),
+        }
+    }
+
+    /// Convert an [`IrMessage`] back into a Gemini [`Content`] block.
+    #[must_use]
+    pub fn ir_to_content(msg: &IrMessage) -> Content {
+        let mut parts: Vec<Part> = msg.content.iter().map(ir_to_part).collect();
+
+        // Append tool calls as FunctionCall parts
+        for tc in &msg.tool_calls {
+            parts.push(Part::FunctionCall(FunctionCall {
+                name: tc.name.clone(),
+                args: tc.arguments.clone(),
+            }));
+        }
+
+        Content {
+            role: ir_role_to_gemini(msg.role).map(String::from),
+            parts,
+        }
+    }
+
+    // ── FunctionDeclaration ↔ IrToolDefinition ──────────────────────────
+
+    /// Convert a Gemini [`FunctionDeclaration`] into an [`IrToolDefinition`].
+    #[must_use]
+    pub fn declaration_to_ir(decl: &FunctionDeclaration) -> IrToolDefinition {
+        IrToolDefinition {
+            name: decl.name.clone(),
+            description: decl.description.clone(),
+            parameters: decl.parameters.clone(),
+        }
+    }
+
+    /// Convert an [`IrToolDefinition`] into a Gemini [`FunctionDeclaration`].
+    #[must_use]
+    pub fn ir_to_declaration(def: &IrToolDefinition) -> FunctionDeclaration {
+        FunctionDeclaration {
+            name: def.name.clone(),
+            description: def.description.clone(),
+            parameters: def.parameters.clone(),
+        }
+    }
+
+    /// Convert all tool definitions from a slice of [`GeminiTool`]s into IR.
+    #[must_use]
+    pub fn tools_to_ir(tools: &[GeminiTool]) -> Vec<IrToolDefinition> {
+        tools
+            .iter()
+            .flat_map(|t| t.function_declarations.iter())
+            .map(declaration_to_ir)
+            .collect()
+    }
+
+    /// Pack IR tool definitions back into a single [`GeminiTool`].
+    #[must_use]
+    pub fn ir_to_tools(defs: &[IrToolDefinition]) -> GeminiTool {
+        GeminiTool {
+            function_declarations: defs.iter().map(ir_to_declaration).collect(),
+        }
+    }
+
+    // ── UsageMetadata ↔ IrUsage ─────────────────────────────────────────
+
+    /// Convert Gemini [`UsageMetadata`] into [`IrUsage`].
+    #[must_use]
+    pub fn usage_to_ir(usage: &UsageMetadata) -> IrUsage {
+        IrUsage {
+            prompt_tokens: usage.prompt_token_count,
+            completion_tokens: usage.candidates_token_count,
+            total_tokens: usage.total_token_count,
+            cached_tokens: 0,
+        }
+    }
+
+    /// Convert [`IrUsage`] into Gemini [`UsageMetadata`].
+    #[must_use]
+    pub fn ir_to_usage(usage: &IrUsage) -> UsageMetadata {
+        UsageMetadata {
+            prompt_token_count: usage.prompt_tokens,
+            candidates_token_count: usage.completion_tokens,
+            total_token_count: usage.total_tokens,
+        }
+    }
+
+    // ── Safety metadata passthrough ─────────────────────────────────────
+
+    /// Encode safety ratings into a JSON value for metadata passthrough.
+    #[must_use]
+    pub fn safety_ratings_to_metadata(ratings: &[SafetyRating]) -> serde_json::Value {
+        serde_json::to_value(ratings).unwrap_or(serde_json::Value::Null)
+    }
+
+    /// Encode safety settings into a JSON value for metadata passthrough.
+    #[must_use]
+    pub fn safety_settings_to_metadata(settings: &[SafetySetting]) -> serde_json::Value {
+        serde_json::to_value(settings).unwrap_or(serde_json::Value::Null)
     }
 
     // ── gemini_to_work_order ────────────────────────────────────────────

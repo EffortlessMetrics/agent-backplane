@@ -20,6 +20,12 @@ pub mod gemini_types;
 pub mod config;
 /// Error types for bridge operations.
 pub mod error;
+/// Extended function calling helpers (builders, validation, extraction).
+pub mod function_calling;
+/// Extended multimodal content types (Blob, FileData, VideoMetadata).
+pub mod multimodal;
+/// Extended safety helpers (profiles, analysis, typed block reasons).
+pub mod safety;
 /// Translation between Gemini API types and ABP contract types (feature-gated on `normalized`).
 pub mod translate;
 

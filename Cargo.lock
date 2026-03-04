@@ -355,6 +355,7 @@ version = "0.1.0"
 dependencies = [
  "abp-core",
  "abp-dialect",
+ "abp-sdk-types",
  "chrono",
  "serde",
  "serde_json",
@@ -1740,6 +1741,7 @@ name = "gemini-bridge"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-sdk-types",
  "chrono",
  "futures",
  "proptest",
