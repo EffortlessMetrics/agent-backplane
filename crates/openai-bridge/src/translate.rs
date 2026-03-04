@@ -403,6 +403,75 @@ mod inner {
             other => BridgeError::Run(format!("{other}: {}", error.error.message)),
         }
     }
+
+    // ── Streaming chunk translation ─────────────────────────────────────
+
+    /// Extract an IR text delta from a single [`ChatCompletionChunk`], if present.
+    pub fn chunk_text_delta(chunk: &ChatCompletionChunk) -> Option<String> {
+        chunk
+            .choices
+            .first()
+            .and_then(|c| c.delta.content.clone())
+    }
+
+    /// Extract the finish reason from a [`ChatCompletionChunk`], if present.
+    pub fn chunk_finish_reason(chunk: &ChatCompletionChunk) -> Option<String> {
+        chunk
+            .choices
+            .first()
+            .and_then(|c| c.finish_reason.clone())
+    }
+
+    /// Convert a completed stream (accumulated text + tool calls) into an IR message.
+    pub fn stream_to_ir_message(
+        text: &str,
+        tool_calls: &[ToolCall],
+    ) -> IrMessage {
+        let mut blocks = Vec::new();
+
+        if !text.is_empty() {
+            blocks.push(IrContentBlock::Text {
+                text: text.to_string(),
+            });
+        }
+
+        for tc in tool_calls {
+            let input = serde_json::from_str(&tc.function.arguments)
+                .unwrap_or(serde_json::Value::Null);
+            blocks.push(IrContentBlock::ToolUse {
+                id: tc.id.clone(),
+                name: tc.function.name.clone(),
+                input,
+            });
+        }
+
+        IrMessage::new(IrRole::Assistant, blocks)
+    }
+
+    // ── Embedding usage translation ─────────────────────────────────────
+
+    /// Convert embedding usage to IR usage (output_tokens = 0 for embeddings).
+    pub fn embedding_usage_to_ir(usage: &crate::embeddings::EmbeddingUsage) -> IrUsage {
+        IrUsage::from_io(usage.prompt_tokens, 0)
+    }
+
+    // ── Function calling translation ────────────────────────────────────
+
+    /// Convert a [`ToolChoice`](crate::function_calling::ToolChoice) to a `serde_json::Value`
+    /// suitable for the `tool_choice` field of a [`ChatCompletionRequest`].
+    pub fn tool_choice_to_value(
+        choice: &crate::function_calling::ToolChoice,
+    ) -> serde_json::Value {
+        serde_json::to_value(choice).unwrap_or(serde_json::Value::Null)
+    }
+
+    /// Try to parse a `serde_json::Value` as a [`ToolChoice`](crate::function_calling::ToolChoice).
+    pub fn tool_choice_from_value(
+        value: &serde_json::Value,
+    ) -> Result<crate::function_calling::ToolChoice, BridgeError> {
+        serde_json::from_value(value.clone())
+            .map_err(|e| BridgeError::Run(format!("invalid tool_choice: {e}")))
+    }
 }
 
 #[cfg(feature = "normalized")]

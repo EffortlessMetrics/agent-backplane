@@ -20,12 +20,18 @@ pub mod openai_types;
 pub mod config;
 /// Node.js and host-script discovery helpers.
 pub mod discovery;
+/// OpenAI Embeddings API types.
+pub mod embeddings;
 /// Error types for bridge operations.
 pub mod error;
+/// Full function / tool calling types, builders, and parallel assembly.
+pub mod function_calling;
 /// Normalized event mapping (feature-gated).
 pub mod normalized;
 /// Raw passthrough and mapped-mode run functions.
 pub mod raw;
+/// SSE stream parser for OpenAI streaming responses.
+pub mod streaming;
 /// Translation between OpenAI API types and ABP IR (feature-gated on `normalized`).
 pub mod translate;
 
