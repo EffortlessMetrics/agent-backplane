@@ -6,18 +6,26 @@
 //! Async receipt storage, indexing, and chain validation for the Agent Backplane.
 
 mod chain;
+mod diff;
 mod error;
+mod export;
 mod file;
 mod filter;
 mod index;
 mod memory;
+mod stats;
 
-pub use chain::{ChainValidation, ChainValidationError, validate_chain};
+pub use chain::{
+    ChainValidation, ChainValidationError, validate_chain, validate_chain_with_parents,
+};
+pub use diff::{FieldDiff, ReceiptDiff, diff_receipts};
 pub use error::StoreError;
+pub use export::{export_json, export_jsonl, import_json, import_jsonl};
 pub use file::FileReceiptStore;
 pub use filter::ReceiptFilter;
 pub use index::ReceiptIndex;
 pub use memory::InMemoryReceiptStore;
+pub use stats::ReceiptStats;
 
 // Re-export core types for convenience.
 pub use abp_core::{Outcome, Receipt};

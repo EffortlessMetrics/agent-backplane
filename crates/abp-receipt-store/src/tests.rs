@@ -8,8 +8,11 @@ use uuid::Uuid;
 use abp_core::{Outcome, Receipt};
 
 use crate::chain::{ChainValidationError, validate_chain};
+use crate::diff::diff_receipts;
+use crate::export::{export_json, export_jsonl, import_json, import_jsonl};
 use crate::filter::ReceiptFilter;
 use crate::index::ReceiptIndex;
+use crate::stats::ReceiptStats;
 use crate::{FileReceiptStore, InMemoryReceiptStore, ReceiptStore};
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -51,6 +54,12 @@ fn make_receipt_at(backend: &str, outcome: Outcome, ts: chrono::DateTime<Utc>) -
 fn make_receipt_with_id(backend: &str, outcome: Outcome, id: Uuid) -> Receipt {
     let mut r = make_receipt(backend, outcome);
     r.meta.run_id = id;
+    r
+}
+
+fn make_receipt_for_work_order(backend: &str, outcome: Outcome, woid: Uuid) -> Receipt {
+    let mut r = make_receipt(backend, outcome);
+    r.meta.work_order_id = woid;
     r
 }
 
@@ -1038,4 +1047,436 @@ fn filter_paginate_offset_only() {
     };
     let result = f.paginate(vec![1, 2, 3, 4, 5]);
     assert_eq!(result, vec![4, 5]);
+}
+
+// ── Work order ID filter ──────────────────────────────────────────
+
+#[test]
+fn filter_matches_work_order_id() {
+    let woid = Uuid::new_v4();
+    let r = make_receipt_for_work_order("mock", Outcome::Complete, woid);
+    let f = ReceiptFilter {
+        work_order_id: Some(woid.to_string()),
+        ..Default::default()
+    };
+    assert!(f.matches(&r));
+}
+
+#[test]
+fn filter_rejects_wrong_work_order_id() {
+    let r = make_receipt_for_work_order("mock", Outcome::Complete, Uuid::new_v4());
+    let f = ReceiptFilter {
+        work_order_id: Some(Uuid::new_v4().to_string()),
+        ..Default::default()
+    };
+    assert!(!f.matches(&r));
+}
+
+#[tokio::test]
+async fn memory_filter_by_work_order_id() {
+    let woid = Uuid::new_v4();
+    let store = InMemoryReceiptStore::new();
+    store
+        .store(&make_receipt_for_work_order("a", Outcome::Complete, woid))
+        .await
+        .unwrap();
+    store
+        .store(&make_receipt("b", Outcome::Complete))
+        .await
+        .unwrap();
+
+    let filter = ReceiptFilter {
+        work_order_id: Some(woid.to_string()),
+        ..Default::default()
+    };
+    let results = store.list(filter).await.unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].meta.work_order_id, woid);
+}
+
+// ── get_by_work_order_id on InMemoryReceiptStore ──────────────────
+
+#[tokio::test]
+async fn memory_get_by_work_order_id() {
+    let woid = Uuid::new_v4();
+    let store = InMemoryReceiptStore::new();
+    store
+        .store(&make_receipt_for_work_order("a", Outcome::Complete, woid))
+        .await
+        .unwrap();
+    store
+        .store(&make_receipt_for_work_order("b", Outcome::Failed, woid))
+        .await
+        .unwrap();
+    store
+        .store(&make_receipt("c", Outcome::Complete))
+        .await
+        .unwrap();
+
+    let results = store.get_by_work_order_id(&woid.to_string()).await.unwrap();
+    assert_eq!(results.len(), 2);
+    for r in &results {
+        assert_eq!(r.meta.work_order_id, woid);
+    }
+}
+
+#[tokio::test]
+async fn memory_get_by_work_order_id_empty() {
+    let store = InMemoryReceiptStore::new();
+    let results = store
+        .get_by_work_order_id(&Uuid::new_v4().to_string())
+        .await
+        .unwrap();
+    assert!(results.is_empty());
+}
+
+// ── InMemoryReceiptStore index integration ────────────────────────
+
+#[tokio::test]
+async fn memory_index_reflects_inserts_and_deletes() {
+    let store = InMemoryReceiptStore::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+
+    store.store(&r).await.unwrap();
+    let idx = store.index().await;
+    assert_eq!(idx.len(), 1);
+    assert!(idx.by_backend("mock").contains(&id));
+
+    store.delete(&id).await.unwrap();
+    let idx = store.index().await;
+    assert!(idx.is_empty());
+}
+
+// ── ReceiptIndex work_order_id ────────────────────────────────────
+
+#[test]
+fn index_by_work_order_id() {
+    let woid = Uuid::new_v4();
+    let mut idx = ReceiptIndex::new();
+    let r1 = make_receipt_for_work_order("a", Outcome::Complete, woid);
+    let r2 = make_receipt_for_work_order("b", Outcome::Failed, woid);
+    let r3 = make_receipt("c", Outcome::Complete);
+
+    idx.insert(&r1);
+    idx.insert(&r2);
+    idx.insert(&r3);
+
+    let ids = idx.by_work_order_id(&woid.to_string());
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&r1.meta.run_id.to_string()));
+    assert!(ids.contains(&r2.meta.run_id.to_string()));
+}
+
+#[test]
+fn index_by_work_order_id_nonexistent() {
+    let idx = ReceiptIndex::new();
+    assert!(idx.by_work_order_id(&Uuid::new_v4().to_string()).is_empty());
+}
+
+#[test]
+fn index_remove_cleans_work_order() {
+    let woid = Uuid::new_v4();
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt_for_work_order("mock", Outcome::Complete, woid);
+    idx.insert(&r);
+    assert_eq!(idx.by_work_order_id(&woid.to_string()).len(), 1);
+
+    idx.remove(&r);
+    assert!(idx.by_work_order_id(&woid.to_string()).is_empty());
+}
+
+// ── ReceiptStats ──────────────────────────────────────────────────
+
+#[test]
+fn stats_empty() {
+    let stats = ReceiptStats::from_receipts(&[]);
+    assert_eq!(stats.total, 0);
+    assert!(stats.avg_duration_ms.is_none());
+    assert!(stats.success_rate.is_none());
+}
+
+#[test]
+fn stats_single_receipt() {
+    let mut r = make_receipt("mock", Outcome::Complete);
+    r.meta.duration_ms = 100;
+    r.usage.input_tokens = Some(500);
+    r.usage.output_tokens = Some(200);
+
+    let stats = ReceiptStats::from_receipts(&[r]);
+    assert_eq!(stats.total, 1);
+    assert_eq!(stats.total_input_tokens, 500);
+    assert_eq!(stats.total_output_tokens, 200);
+    assert!((stats.avg_duration_ms.unwrap() - 100.0).abs() < f64::EPSILON);
+    assert!((stats.success_rate.unwrap() - 1.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn stats_multiple_receipts() {
+    let mut r1 = make_receipt("a", Outcome::Complete);
+    r1.meta.duration_ms = 100;
+    r1.usage.input_tokens = Some(500);
+
+    let mut r2 = make_receipt("a", Outcome::Failed);
+    r2.meta.duration_ms = 300;
+    r2.usage.input_tokens = Some(300);
+
+    let mut r3 = make_receipt("b", Outcome::Complete);
+    r3.meta.duration_ms = 200;
+    r3.usage.output_tokens = Some(100);
+
+    let stats = ReceiptStats::from_receipts(&[r1, r2, r3]);
+    assert_eq!(stats.total, 3);
+    assert_eq!(*stats.by_backend.get("a").unwrap(), 2);
+    assert_eq!(*stats.by_backend.get("b").unwrap(), 1);
+    assert_eq!(stats.min_duration_ms, Some(100));
+    assert_eq!(stats.max_duration_ms, Some(300));
+    assert!((stats.avg_duration_ms.unwrap() - 200.0).abs() < f64::EPSILON);
+    assert_eq!(stats.total_input_tokens, 800);
+    assert_eq!(stats.total_output_tokens, 100);
+    // 2 Complete out of 3
+    assert!((stats.success_rate.unwrap() - 2.0 / 3.0).abs() < 0.001);
+}
+
+#[test]
+fn stats_by_outcome_counts() {
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Failed);
+    let r3 = make_receipt("c", Outcome::Partial);
+    let r4 = make_receipt("d", Outcome::Failed);
+
+    let stats = ReceiptStats::from_receipts(&[r1, r2, r3, r4]);
+    assert_eq!(*stats.by_outcome.get("Complete").unwrap(), 1);
+    assert_eq!(*stats.by_outcome.get("Failed").unwrap(), 2);
+    assert_eq!(*stats.by_outcome.get("Partial").unwrap(), 1);
+}
+
+// ── Receipt diffing ───────────────────────────────────────────────
+
+#[test]
+fn diff_identical_receipts() {
+    let r = make_receipt("mock", Outcome::Complete);
+    let diff = diff_receipts(&r, &r);
+    assert!(diff.is_empty());
+}
+
+#[test]
+fn diff_different_outcome() {
+    let r1 = make_receipt("mock", Outcome::Complete);
+    let mut r2 = r1.clone();
+    r2.outcome = Outcome::Failed;
+
+    let diff = diff_receipts(&r1, &r2);
+    assert!(!diff.is_empty());
+    assert!(diff.differences.iter().any(|d| d.field == "outcome"));
+}
+
+#[test]
+fn diff_different_backend() {
+    let r1 = make_receipt("alpha", Outcome::Complete);
+    let mut r2 = r1.clone();
+    r2.backend.id = "beta".to_string();
+
+    let diff = diff_receipts(&r1, &r2);
+    assert!(diff.differences.iter().any(|d| d.field == "backend.id"));
+}
+
+#[test]
+fn diff_different_usage() {
+    let mut r1 = make_receipt("mock", Outcome::Complete);
+    let mut r2 = r1.clone();
+    r1.usage.input_tokens = Some(100);
+    r2.usage.input_tokens = Some(200);
+
+    let diff = diff_receipts(&r1, &r2);
+    assert!(
+        diff.differences
+            .iter()
+            .any(|d| d.field == "usage.input_tokens")
+    );
+}
+
+#[test]
+fn diff_different_duration() {
+    let mut r1 = make_receipt("mock", Outcome::Complete);
+    let mut r2 = r1.clone();
+    r1.meta.duration_ms = 100;
+    r2.meta.duration_ms = 999;
+
+    let diff = diff_receipts(&r1, &r2);
+    assert!(
+        diff.differences
+            .iter()
+            .any(|d| d.field == "meta.duration_ms")
+    );
+}
+
+#[test]
+fn diff_ids() {
+    let r1 = make_receipt("mock", Outcome::Complete);
+    let r2 = make_receipt("mock", Outcome::Complete);
+
+    let diff = diff_receipts(&r1, &r2);
+    assert_eq!(diff.left_id, r1.meta.run_id.to_string());
+    assert_eq!(diff.right_id, r2.meta.run_id.to_string());
+}
+
+// ── Export / Import ───────────────────────────────────────────────
+
+#[test]
+fn export_import_json_roundtrip() {
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Failed);
+    let receipts = vec![r1.clone(), r2.clone()];
+
+    let json = export_json(&receipts).unwrap();
+    let imported = import_json(&json).unwrap();
+
+    assert_eq!(imported.len(), 2);
+    assert_eq!(imported[0].meta.run_id, r1.meta.run_id);
+    assert_eq!(imported[1].meta.run_id, r2.meta.run_id);
+}
+
+#[test]
+fn export_import_jsonl_roundtrip() {
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Failed);
+    let receipts = vec![r1.clone(), r2.clone()];
+
+    let jsonl = export_jsonl(&receipts).unwrap();
+    let imported = import_jsonl(&jsonl).unwrap();
+
+    assert_eq!(imported.len(), 2);
+    assert_eq!(imported[0].meta.run_id, r1.meta.run_id);
+    assert_eq!(imported[1].meta.run_id, r2.meta.run_id);
+}
+
+#[test]
+fn export_json_empty() {
+    let json = export_json(&[]).unwrap();
+    let imported = import_json(&json).unwrap();
+    assert!(imported.is_empty());
+}
+
+#[test]
+fn export_jsonl_empty() {
+    let jsonl = export_jsonl(&[]).unwrap();
+    let imported = import_jsonl(&jsonl).unwrap();
+    assert!(imported.is_empty());
+}
+
+#[test]
+fn import_jsonl_skips_blank_lines() {
+    let r = make_receipt("mock", Outcome::Complete);
+    let line = serde_json::to_string(&r).unwrap();
+    let data = format!("\n{line}\n\n{line}\n\n");
+    let imported = import_jsonl(&data).unwrap();
+    assert_eq!(imported.len(), 2);
+}
+
+#[test]
+fn import_json_bad_data() {
+    let result = import_json("not json");
+    assert!(result.is_err());
+}
+
+#[test]
+fn import_jsonl_bad_line() {
+    let result = import_jsonl("not json\n");
+    assert!(result.is_err());
+}
+
+// ── Chain validation with parent hashes ───────────────────────────
+
+#[test]
+fn chain_with_parents_valid_linked() {
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+
+    let r1 = make_hashed_receipt_at("a", Outcome::Complete, t1);
+    let parent_hash = r1.receipt_sha256.clone().unwrap();
+    let r2 = make_hashed_receipt_at("b", Outcome::Complete, t2);
+
+    let result = crate::chain::validate_chain_with_parents(&[r1, r2], &[None, Some(parent_hash)]);
+    assert!(result.valid, "errors: {:?}", result.errors);
+}
+
+#[test]
+fn chain_with_parents_broken_link() {
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+
+    let r1 = make_hashed_receipt_at("a", Outcome::Complete, t1);
+    let r2 = make_hashed_receipt_at("b", Outcome::Complete, t2);
+
+    let result = crate::chain::validate_chain_with_parents(
+        &[r1, r2],
+        &[None, Some("wrong_hash".to_string())],
+    );
+    assert!(!result.valid);
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("parent hash mismatch"))
+    );
+}
+
+#[test]
+fn chain_with_parents_genesis_should_not_have_parent() {
+    let r1 = make_hashed_receipt("a", Outcome::Complete);
+    let result = crate::chain::validate_chain_with_parents(&[r1], &[Some("some_hash".to_string())]);
+    assert!(!result.valid);
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("genesis receipt"))
+    );
+}
+
+#[test]
+fn chain_with_parents_missing_prev_hash() {
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+
+    // r1 has no hash.
+    let r1 = make_receipt_at("a", Outcome::Complete, t1);
+    let r2 = make_receipt_at("b", Outcome::Complete, t2);
+
+    let result = crate::chain::validate_chain_with_parents(
+        &[r1, r2],
+        &[None, Some("expected_parent".to_string())],
+    );
+    assert!(!result.valid);
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("previous receipt has no hash"))
+    );
+}
+
+// ── Concurrent access with index ──────────────────────────────────
+
+#[tokio::test]
+async fn concurrent_writers_preserve_index() {
+    let store = Arc::new(InMemoryReceiptStore::new());
+    let mut handles = Vec::new();
+
+    for _ in 0..20 {
+        let s = Arc::clone(&store);
+        handles.push(tokio::spawn(async move {
+            let r = make_receipt("concurrent", Outcome::Complete);
+            s.store(&r).await.unwrap();
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+
+    let idx = store.index().await;
+    assert_eq!(idx.len(), 20);
+    assert_eq!(idx.by_backend("concurrent").len(), 20);
 }

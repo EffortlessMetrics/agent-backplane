@@ -88,7 +88,7 @@ pub struct WorkOrder {
 }
 
 /// Strategy for how the agent produces its output.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecutionLane {
     /// Agent proposes a patch/diff. No direct mutation of the user's repo.
@@ -115,7 +115,7 @@ pub struct WorkspaceSpec {
 }
 
 /// How the runtime treats the workspace before handing it to a backend.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkspaceMode {
     /// Use the workspace as-is.

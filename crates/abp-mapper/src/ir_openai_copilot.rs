@@ -60,9 +60,23 @@ impl OpenAiCopilotIrMapper {
         ir: &IrConversation,
     ) -> Result<IrConversation, MapError> {
         match (from, to) {
-            (Dialect::OpenAi, Dialect::Copilot) | (Dialect::Copilot, Dialect::OpenAi) => {
+            (Dialect::OpenAi, Dialect::Copilot) => {
+                // Copilot does not support image content blocks — reject early.
+                for msg in &ir.messages {
+                    if msg
+                        .content
+                        .iter()
+                        .any(|b| matches!(b, IrContentBlock::Image { .. }))
+                    {
+                        return Err(MapError::UnmappableContent {
+                            field: "content".into(),
+                            reason: "Copilot does not support image content blocks".into(),
+                        });
+                    }
+                }
                 Ok(self.filter_all_thinking(ir))
             }
+            (Dialect::Copilot, Dialect::OpenAi) => Ok(self.filter_all_thinking(ir)),
             _ => Err(MapError::UnsupportedPair { from, to }),
         }
     }

@@ -2009,6 +2009,7 @@ async fn mem_list_filter_with_all_none_is_default() {
         outcome: None,
         backend: None,
         time_range: None,
+        work_order_id: None,
         limit: None,
         offset: None,
     };

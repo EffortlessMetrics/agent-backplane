@@ -267,24 +267,25 @@ fn openai_codex_simple_conversation() {
     let mapped = m
         .map_request(Dialect::OpenAi, Dialect::Codex, &conv)
         .unwrap();
-    // System message is dropped for Codex
-    assert_eq!(mapped.len(), 2);
+    // System message is emulated as [System]-prefixed user message for Codex
+    assert_eq!(mapped.len(), 3);
     assert_eq!(mapped.messages[0].role, IrRole::User);
-    assert_eq!(mapped.messages[1].role, IrRole::Assistant);
+    assert!(mapped.messages[0].text_content().starts_with("[System]"));
+    assert_eq!(mapped.messages[1].role, IrRole::User);
+    assert_eq!(mapped.messages[2].role, IrRole::Assistant);
 }
 
 #[test]
 fn openai_codex_system_message_lost() {
-    // Codex has no system instruction — system messages are dropped.
+    // Codex has no system instruction — system messages are emulated as user messages.
     let m = OpenAiCodexIrMapper;
     let conv = system_only_conversation();
     let mapped = m
         .map_request(Dialect::OpenAi, Dialect::Codex, &conv)
         .unwrap();
-    assert!(
-        mapped.is_empty(),
-        "system message should be lost in Codex mapping"
-    );
+    assert_eq!(mapped.len(), 1);
+    assert_eq!(mapped.messages[0].role, IrRole::User);
+    assert!(mapped.messages[0].text_content().starts_with("[System]"));
 }
 
 #[test]

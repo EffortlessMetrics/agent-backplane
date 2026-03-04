@@ -17,6 +17,8 @@ pub struct ReceiptIndex {
     by_outcome: BTreeMap<String, HashSet<String>>,
     /// started_at → run_id (BTreeMap for range queries)
     by_time: BTreeMap<DateTime<Utc>, Vec<String>>,
+    /// work_order_id → set of run_id strings
+    by_work_order: HashMap<String, HashSet<String>>,
 }
 
 impl ReceiptIndex {
@@ -41,7 +43,11 @@ impl ReceiptIndex {
         self.by_time
             .entry(receipt.meta.started_at)
             .or_default()
-            .push(id);
+            .push(id.clone());
+        self.by_work_order
+            .entry(receipt.meta.work_order_id.to_string())
+            .or_default()
+            .insert(id);
     }
 
     /// Remove a receipt from the index.
@@ -64,6 +70,13 @@ impl ReceiptIndex {
             ids.retain(|i| i != &id);
             if ids.is_empty() {
                 self.by_time.remove(&receipt.meta.started_at);
+            }
+        }
+        let woid = receipt.meta.work_order_id.to_string();
+        if let Some(set) = self.by_work_order.get_mut(&woid) {
+            set.remove(&id);
+            if set.is_empty() {
+                self.by_work_order.remove(&woid);
             }
         }
     }
@@ -91,6 +104,15 @@ impl ReceiptIndex {
             }
         }
         result
+    }
+
+    /// Query receipt IDs matching a given work order ID.
+    #[must_use]
+    pub fn by_work_order_id(&self, work_order_id: &str) -> HashSet<String> {
+        self.by_work_order
+            .get(work_order_id)
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Total number of unique receipt IDs tracked across all backend entries.

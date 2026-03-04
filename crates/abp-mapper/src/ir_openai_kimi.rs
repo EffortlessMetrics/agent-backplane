@@ -60,9 +60,23 @@ impl OpenAiKimiIrMapper {
         ir: &IrConversation,
     ) -> Result<IrConversation, MapError> {
         match (from, to) {
-            (Dialect::OpenAi, Dialect::Kimi) | (Dialect::Kimi, Dialect::OpenAi) => {
+            (Dialect::OpenAi, Dialect::Kimi) => {
+                // Kimi does not support image content blocks — reject early.
+                for msg in &ir.messages {
+                    if msg
+                        .content
+                        .iter()
+                        .any(|b| matches!(b, IrContentBlock::Image { .. }))
+                    {
+                        return Err(MapError::UnmappableContent {
+                            field: "content".into(),
+                            reason: "Kimi does not support image content blocks".into(),
+                        });
+                    }
+                }
                 Ok(self.filter_all_thinking(ir))
             }
+            (Dialect::Kimi, Dialect::OpenAi) => Ok(self.filter_all_thinking(ir)),
             _ => Err(MapError::UnsupportedPair { from, to }),
         }
     }

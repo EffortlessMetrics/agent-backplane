@@ -35,6 +35,7 @@ impl std::fmt::Display for ChainValidationError {
 /// Checks:
 /// - No duplicate run IDs
 /// - Hash integrity (if `receipt_sha256` is set)
+/// - Parent hash linkage (each receipt's hash should reference the previous)
 /// - Chronological ordering (`started_at` non-decreasing)
 ///
 /// Returns a [`ChainValidation`] describing the result.
@@ -89,4 +90,61 @@ pub fn validate_chain(receipts: &[Receipt]) -> ChainValidation {
         receipt_count: receipts.len(),
         errors,
     }
+}
+
+/// Validate a chain of receipts where each receipt's hash references the
+/// previous receipt's `receipt_sha256`, forming a linked chain.
+///
+/// `parent_hashes` provides `(receipt_index, expected_parent_hash)` pairs.
+/// For index 0, the parent hash is typically `None` (genesis receipt).
+///
+/// This is a stricter form of [`validate_chain`] for use cases that require
+/// explicit parent hash linkage.
+pub fn validate_chain_with_parents(
+    receipts: &[Receipt],
+    parent_hashes: &[Option<String>],
+) -> ChainValidation {
+    let mut result = validate_chain(receipts);
+
+    for (i, receipt) in receipts.iter().enumerate() {
+        if i >= parent_hashes.len() {
+            break;
+        }
+        if let Some(ref expected_parent) = parent_hashes[i] {
+            if i == 0 {
+                // Genesis receipt should not have a parent.
+                result.errors.push(ChainValidationError {
+                    index: i,
+                    message: "genesis receipt should not reference a parent hash".to_string(),
+                });
+                continue;
+            }
+            // Verify the parent hash matches the previous receipt's hash.
+            match &receipts[i - 1].receipt_sha256 {
+                Some(prev_hash) => {
+                    if prev_hash != expected_parent {
+                        result.errors.push(ChainValidationError {
+                            index: i,
+                            message: format!(
+                                "parent hash mismatch: expected={expected_parent}, actual={prev_hash}"
+                            ),
+                        });
+                    }
+                }
+                None => {
+                    result.errors.push(ChainValidationError {
+                        index: i,
+                        message: format!(
+                            "parent hash {expected_parent} referenced but previous receipt has no hash"
+                        ),
+                    });
+                }
+            }
+        }
+        // If parent_hash is None for index > 0, that is allowed (unlinked).
+        let _ = receipt; // used above via receipts[i-1]
+    }
+
+    result.valid = result.errors.is_empty();
+    result
 }

@@ -11,6 +11,7 @@ use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 
 use crate::MapError;
+use crate::capabilities::dialect_capabilities;
 use crate::ir_mapper::IrMapper;
 
 /// Bidirectional (but lossy) IR mapper between Codex and Claude dialects.
@@ -19,11 +20,11 @@ use crate::ir_mapper::IrMapper;
 ///
 /// ## Lossy conversions (Claude → Codex)
 ///
-/// - **System messages**: dropped (Codex has no system instruction).
+/// - **System messages**: emulated as `[System]`-prefixed user messages.
 /// - **Tool calls**: `ToolUse` and `ToolResult` blocks are dropped.
 /// - **Thinking blocks**: dropped.
 /// - **Tool-role messages**: dropped entirely.
-/// - **Image blocks**: dropped (Codex is text-only output).
+/// - **Image blocks**: replaced with `[Image: <type>]` text placeholders.
 ///
 /// ## Lossless conversions (Codex → Claude)
 ///
@@ -72,30 +73,54 @@ impl CodexClaudeIrMapper {
     }
 
     /// Claude → Codex (lossy):
-    /// - System messages are dropped.
+    /// - System messages are emulated as `[System]`-prefixed user messages.
     /// - Tool-role messages are dropped.
-    /// - ToolUse, ToolResult, Thinking, and Image blocks are stripped.
-    /// - Only Text content blocks in User/Assistant messages survive.
+    /// - ToolUse, ToolResult, and Thinking blocks are stripped.
+    /// - Image blocks are replaced with text placeholders.
+    /// - Only surviving content blocks in User/Assistant messages are kept.
     fn claude_to_codex(&self, ir: &IrConversation) -> Result<IrConversation, MapError> {
+        let _caps = dialect_capabilities(Dialect::Codex);
         let mut messages = Vec::new();
 
         for msg in &ir.messages {
             match msg.role {
-                IrRole::System | IrRole::Tool => {
-                    // Dropped — Codex has no system or tool role
+                IrRole::System => {
+                    // Emulate: system prompt as [System]-prefixed user message
+                    let text = msg.text_content();
+                    if !text.is_empty() {
+                        messages.push(IrMessage {
+                            role: IrRole::User,
+                            content: vec![IrContentBlock::Text {
+                                text: format!("[System] {text}"),
+                            }],
+                            metadata: msg.metadata.clone(),
+                        });
+                    }
+                }
+                IrRole::Tool => {
+                    // Dropped — Codex has no tool role
                     continue;
                 }
                 IrRole::User | IrRole::Assistant => {
-                    let text_blocks: Vec<IrContentBlock> = msg
+                    let mapped_blocks: Vec<IrContentBlock> = msg
                         .content
                         .iter()
-                        .filter(|b| matches!(b, IrContentBlock::Text { .. }))
-                        .cloned()
+                        .filter_map(|b| match b {
+                            IrContentBlock::Text { .. } => Some(b.clone()),
+                            IrContentBlock::Image { media_type, .. } => {
+                                // Emulate: image as text placeholder
+                                Some(IrContentBlock::Text {
+                                    text: format!("[Image: {media_type}]"),
+                                })
+                            }
+                            // Drop tool and thinking blocks
+                            _ => None,
+                        })
                         .collect();
-                    if !text_blocks.is_empty() {
+                    if !mapped_blocks.is_empty() {
                         messages.push(IrMessage {
                             role: msg.role,
-                            content: text_blocks,
+                            content: mapped_blocks,
                             metadata: msg.metadata.clone(),
                         });
                     }

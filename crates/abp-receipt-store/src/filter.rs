@@ -14,6 +14,8 @@ pub struct ReceiptFilter {
     pub backend: Option<String>,
     /// Only return receipts whose `started_at` falls within this range (inclusive).
     pub time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
+    /// Only return receipts for this work order ID.
+    pub work_order_id: Option<String>,
     /// Maximum number of results to return.
     pub limit: Option<usize>,
     /// Number of results to skip (for pagination).
@@ -36,6 +38,11 @@ impl ReceiptFilter {
         }
         if let Some((start, end)) = self.time_range {
             if receipt.meta.started_at < start || receipt.meta.started_at > end {
+                return false;
+            }
+        }
+        if let Some(ref woid) = self.work_order_id {
+            if receipt.meta.work_order_id.to_string() != *woid {
                 return false;
             }
         }

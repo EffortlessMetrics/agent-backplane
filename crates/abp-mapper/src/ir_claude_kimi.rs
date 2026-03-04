@@ -71,7 +71,23 @@ impl ClaudeKimiIrMapper {
     /// - User messages containing only ToolResult blocks are converted to
     ///   Tool-role messages (Kimi's convention).
     /// - ToolUse content blocks in assistant messages are preserved.
+    /// - **Fails early** if the conversation contains image blocks
+    ///   (Kimi does not support images).
     fn claude_to_kimi(&self, ir: &IrConversation) -> Result<IrConversation, MapError> {
+        // Kimi does not support image content blocks — reject early.
+        for msg in &ir.messages {
+            if msg
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::Image { .. }))
+            {
+                return Err(MapError::UnmappableContent {
+                    field: "content".into(),
+                    reason: "Kimi does not support image content blocks".into(),
+                });
+            }
+        }
+
         let mut messages = Vec::with_capacity(ir.messages.len());
 
         for msg in &ir.messages {

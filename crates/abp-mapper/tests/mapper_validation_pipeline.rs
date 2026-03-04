@@ -328,7 +328,9 @@ fn lossy_openai_to_codex_drops_images() {
     let result = mapper
         .map_request(Dialect::OpenAi, Dialect::Codex, &ir)
         .unwrap();
-    assert!(result.is_empty());
+    // Images are emulated as text placeholders, not dropped
+    assert_eq!(result.len(), 1);
+    assert!(result.messages[0].text_content().contains("[Image:"));
 }
 
 #[test]

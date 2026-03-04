@@ -895,6 +895,376 @@ pub fn copilot_manifest() -> CapabilityManifest {
     ])
 }
 
+// ---------------------------------------------------------------------------
+// Support-level transitions
+// ---------------------------------------------------------------------------
+
+/// Direction of a support-level change when mapping between dialects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransitionKind {
+    /// Support level stays the same.
+    Unchanged,
+    /// Target provides stronger support than source (e.g. Emulated → Native).
+    Upgrade,
+    /// Target provides weaker support than source (e.g. Native → Emulated).
+    Downgrade,
+    /// Capability is lost entirely (source had it, target does not).
+    Lost,
+}
+
+impl fmt::Display for TransitionKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unchanged => write!(f, "unchanged"),
+            Self::Upgrade => write!(f, "upgrade"),
+            Self::Downgrade => write!(f, "downgrade"),
+            Self::Lost => write!(f, "lost"),
+        }
+    }
+}
+
+/// Tracks how a single capability's support level changes between dialects.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapabilityTransition {
+    /// The capability being tracked.
+    pub capability: Capability,
+    /// Support level label in the source dialect.
+    pub from: String,
+    /// Support level label in the target dialect.
+    pub to: String,
+    /// Classification of the transition.
+    pub kind: TransitionKind,
+}
+
+/// Convert a `CoreSupportLevel` to a short label string.
+fn support_level_label(level: &CoreSupportLevel) -> String {
+    match level {
+        CoreSupportLevel::Native => "native".to_owned(),
+        CoreSupportLevel::Emulated => "emulated".to_owned(),
+        CoreSupportLevel::Unsupported => "unsupported".to_owned(),
+        CoreSupportLevel::Restricted { reason } => format!("restricted ({reason})"),
+    }
+}
+
+/// Classify the transition between two `CoreSupportLevel` values.
+#[must_use]
+pub fn classify_transition(from: &CoreSupportLevel, to: &CoreSupportLevel) -> TransitionKind {
+    let rank = |l: &CoreSupportLevel| -> u8 {
+        match l {
+            CoreSupportLevel::Native => 3,
+            CoreSupportLevel::Restricted { .. } => 2,
+            CoreSupportLevel::Emulated => 1,
+            CoreSupportLevel::Unsupported => 0,
+        }
+    };
+    let r_from = rank(from);
+    let r_to = rank(to);
+    if r_to == 0 && r_from > 0 {
+        TransitionKind::Lost
+    } else if r_to > r_from {
+        TransitionKind::Upgrade
+    } else if r_to < r_from {
+        TransitionKind::Downgrade
+    } else {
+        TransitionKind::Unchanged
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Capability mismatch reporting
+// ---------------------------------------------------------------------------
+
+/// A mismatch for a single capability, with actionable suggestions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapabilityMismatch {
+    /// The capability that is mismatched.
+    pub capability: Capability,
+    /// Why this is a mismatch.
+    pub reason: String,
+    /// Suggested emulation strategy if emulation is possible.
+    pub emulation: Option<EmulationStrategy>,
+    /// Names of alternative backends that support this capability natively.
+    pub alternative_backends: Vec<String>,
+}
+
+impl fmt::Display for CapabilityMismatch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}: {}", self.capability, self.reason)?;
+        if let Some(ref em) = self.emulation {
+            write!(f, " (can emulate via {em})")?;
+        }
+        if !self.alternative_backends.is_empty() {
+            write!(
+                f,
+                " [alternatives: {}]",
+                self.alternative_backends.join(", ")
+            )?;
+        }
+        Ok(())
+    }
+}
+
+/// Generate mismatch reports with suggestions for all unsupported capabilities
+/// in a negotiation result.
+///
+/// Uses the registry to suggest alternative backends that natively support each
+/// unsupported capability.
+#[must_use]
+pub fn report_mismatches(
+    result: &NegotiationResult,
+    registry: &CapabilityRegistry,
+) -> Vec<CapabilityMismatch> {
+    result
+        .unsupported
+        .iter()
+        .map(|(cap, reason)| {
+            let alternatives: Vec<String> = registry
+                .query_capability(cap)
+                .into_iter()
+                .filter(|(_, level)| matches!(level, SupportLevel::Native))
+                .map(|(name, _)| name.to_owned())
+                .collect();
+
+            CapabilityMismatch {
+                capability: cap.clone(),
+                reason: reason.clone(),
+                emulation: None,
+                alternative_backends: alternatives,
+            }
+        })
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Context-aware emulation strategy selection
+// ---------------------------------------------------------------------------
+
+/// Select an emulation strategy considering both the capability and the
+/// target manifest.
+///
+/// If the target declares `Emulated` or `Restricted` for the capability,
+/// [`ServerFallback`](EmulationStrategy::ServerFallback) is preferred since
+/// the backend can at least partially handle it. Otherwise falls back to
+/// [`default_emulation_strategy`].
+#[must_use]
+pub fn select_emulation_strategy(
+    cap: &Capability,
+    target_manifest: &CapabilityManifest,
+) -> EmulationStrategy {
+    match target_manifest.get(cap) {
+        Some(CoreSupportLevel::Emulated) | Some(CoreSupportLevel::Restricted { .. }) => {
+            EmulationStrategy::ServerFallback
+        }
+        _ => default_emulation_strategy(cap),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Dialect negotiation
+// ---------------------------------------------------------------------------
+
+/// Full result of negotiating capabilities between source and target dialects.
+///
+/// Goes beyond simple compatible/incompatible by tracking every transition,
+/// providing mismatch suggestions, and computing an emulation plan.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DialectNegotiationResult {
+    /// Source dialect name.
+    pub source: String,
+    /// Target dialect name.
+    pub target: String,
+    /// Per-capability transition details.
+    pub transitions: Vec<CapabilityTransition>,
+    /// Capabilities that require emulation, with context-aware strategy.
+    pub emulation_plan: Vec<(Capability, EmulationStrategy)>,
+    /// Number of capabilities that were upgraded.
+    pub upgrades: usize,
+    /// Number of capabilities that were downgraded.
+    pub downgrades: usize,
+    /// Number of capabilities that were lost.
+    pub losses: usize,
+}
+
+impl DialectNegotiationResult {
+    /// Returns `true` if no capabilities are lost.
+    #[must_use]
+    pub fn is_viable(&self) -> bool {
+        self.losses == 0
+    }
+
+    /// Returns only the transitions that are downgrades or losses.
+    #[must_use]
+    pub fn regressions(&self) -> Vec<&CapabilityTransition> {
+        self.transitions
+            .iter()
+            .filter(|t| matches!(t.kind, TransitionKind::Downgrade | TransitionKind::Lost))
+            .collect()
+    }
+}
+
+impl fmt::Display for DialectNegotiationResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} → {}: {} upgrades, {} downgrades, {} lost",
+            self.source, self.target, self.upgrades, self.downgrades, self.losses,
+        )
+    }
+}
+
+/// Negotiate capabilities between two dialect manifests.
+///
+/// Compares every capability present in the source manifest against the target,
+/// producing per-capability transitions and an emulation plan for capabilities
+/// that need it.
+#[must_use]
+pub fn negotiate_dialects(
+    source_name: &str,
+    source_manifest: &CapabilityManifest,
+    target_name: &str,
+    target_manifest: &CapabilityManifest,
+) -> DialectNegotiationResult {
+    let mut transitions = Vec::new();
+    let mut emulation_plan = Vec::new();
+    let mut upgrades = 0usize;
+    let mut downgrades = 0usize;
+    let mut losses = 0usize;
+
+    for (cap, src_level) in source_manifest {
+        if matches!(src_level, CoreSupportLevel::Unsupported) {
+            continue;
+        }
+
+        let tgt_level = target_manifest
+            .get(cap)
+            .cloned()
+            .unwrap_or(CoreSupportLevel::Unsupported);
+
+        let kind = classify_transition(src_level, &tgt_level);
+
+        match kind {
+            TransitionKind::Upgrade => upgrades += 1,
+            TransitionKind::Downgrade => {
+                downgrades += 1;
+                emulation_plan.push((cap.clone(), select_emulation_strategy(cap, target_manifest)));
+            }
+            TransitionKind::Lost => {
+                losses += 1;
+                emulation_plan.push((cap.clone(), select_emulation_strategy(cap, target_manifest)));
+            }
+            TransitionKind::Unchanged => {}
+        }
+
+        transitions.push(CapabilityTransition {
+            capability: cap.clone(),
+            from: support_level_label(src_level),
+            to: support_level_label(&tgt_level),
+            kind,
+        });
+    }
+
+    DialectNegotiationResult {
+        source: source_name.to_owned(),
+        target: target_name.to_owned(),
+        transitions,
+        emulation_plan,
+        upgrades,
+        downgrades,
+        losses,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Runtime capability checking
+// ---------------------------------------------------------------------------
+
+/// Result of a pre-execution runtime capability check.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeCheckResult {
+    /// Whether execution can proceed.
+    pub can_proceed: bool,
+    /// Capabilities confirmed available (native or emulated).
+    pub available: Vec<Capability>,
+    /// Capabilities that are missing and block execution.
+    pub blocking: Vec<(Capability, String)>,
+    /// Capabilities available via emulation (non-blocking but notable).
+    pub emulated: Vec<(Capability, EmulationStrategy)>,
+}
+
+impl fmt::Display for RuntimeCheckResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.can_proceed {
+            write!(
+                f,
+                "ready: {} available, {} emulated",
+                self.available.len(),
+                self.emulated.len(),
+            )
+        } else {
+            write!(f, "blocked: {} missing capabilities", self.blocking.len(),)
+        }
+    }
+}
+
+/// Check required capabilities at runtime before execution begins.
+///
+/// Returns a [`RuntimeCheckResult`] indicating whether execution can proceed.
+/// Under [`Strict`](negotiate::NegotiationPolicy::Strict) policy, any
+/// unsupported capability blocks execution. Under
+/// [`BestEffort`](negotiate::NegotiationPolicy::BestEffort), only truly
+/// unsupported (not emulatable) capabilities block.
+/// [`Permissive`](negotiate::NegotiationPolicy::Permissive) never blocks.
+#[must_use]
+pub fn check_runtime_capabilities(
+    required: &[Capability],
+    manifest: &CapabilityManifest,
+    policy: negotiate::NegotiationPolicy,
+) -> RuntimeCheckResult {
+    let result = negotiate_capabilities(required, manifest);
+
+    let blocking: Vec<(Capability, String)> = match policy {
+        negotiate::NegotiationPolicy::Strict | negotiate::NegotiationPolicy::BestEffort => {
+            result.unsupported.clone()
+        }
+        negotiate::NegotiationPolicy::Permissive => vec![],
+    };
+
+    RuntimeCheckResult {
+        can_proceed: blocking.is_empty(),
+        available: result.native,
+        blocking,
+        emulated: result.emulated,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CapabilityRegistry extensions
+// ---------------------------------------------------------------------------
+
+impl CapabilityRegistry {
+    /// Negotiate between two named dialects, producing detailed transitions.
+    ///
+    /// Returns `None` if either name is not registered.
+    #[must_use]
+    pub fn negotiate_dialects(
+        &self,
+        source: &str,
+        target: &str,
+    ) -> Option<DialectNegotiationResult> {
+        let src = self.manifests.get(source)?;
+        let tgt = self.manifests.get(target)?;
+        Some(negotiate_dialects(source, src, target, tgt))
+    }
+
+    /// For each unsupported capability in a negotiation result, suggest
+    /// registered backends that support it natively.
+    #[must_use]
+    pub fn suggest_alternatives(&self, result: &NegotiationResult) -> Vec<CapabilityMismatch> {
+        report_mismatches(result, self)
+    }
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
@@ -2036,5 +2406,424 @@ mod tests {
             default_emulation_strategy(&Capability::Embeddings),
             EmulationStrategy::Approximate
         );
+    }
+
+    // ---- classify_transition ----------------------------------------------
+
+    #[test]
+    fn transition_unchanged_native_to_native() {
+        assert_eq!(
+            classify_transition(&CoreSupportLevel::Native, &CoreSupportLevel::Native),
+            TransitionKind::Unchanged,
+        );
+    }
+
+    #[test]
+    fn transition_upgrade_emulated_to_native() {
+        assert_eq!(
+            classify_transition(&CoreSupportLevel::Emulated, &CoreSupportLevel::Native),
+            TransitionKind::Upgrade,
+        );
+    }
+
+    #[test]
+    fn transition_downgrade_native_to_emulated() {
+        assert_eq!(
+            classify_transition(&CoreSupportLevel::Native, &CoreSupportLevel::Emulated),
+            TransitionKind::Downgrade,
+        );
+    }
+
+    #[test]
+    fn transition_lost_native_to_unsupported() {
+        assert_eq!(
+            classify_transition(&CoreSupportLevel::Native, &CoreSupportLevel::Unsupported),
+            TransitionKind::Lost,
+        );
+    }
+
+    #[test]
+    fn transition_lost_emulated_to_unsupported() {
+        assert_eq!(
+            classify_transition(&CoreSupportLevel::Emulated, &CoreSupportLevel::Unsupported),
+            TransitionKind::Lost,
+        );
+    }
+
+    #[test]
+    fn transition_kind_display() {
+        assert_eq!(TransitionKind::Unchanged.to_string(), "unchanged");
+        assert_eq!(TransitionKind::Upgrade.to_string(), "upgrade");
+        assert_eq!(TransitionKind::Downgrade.to_string(), "downgrade");
+        assert_eq!(TransitionKind::Lost.to_string(), "lost");
+    }
+
+    #[test]
+    fn transition_kind_serde_roundtrip() {
+        for kind in [
+            TransitionKind::Unchanged,
+            TransitionKind::Upgrade,
+            TransitionKind::Downgrade,
+            TransitionKind::Lost,
+        ] {
+            let json = serde_json::to_string(&kind).unwrap();
+            let back: TransitionKind = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, kind);
+        }
+    }
+
+    // ---- negotiate_dialects -----------------------------------------------
+
+    #[test]
+    fn dialect_negotiation_same_manifest() {
+        let m = manifest_from(&[
+            (Capability::Streaming, CoreSupportLevel::Native),
+            (Capability::ToolUse, CoreSupportLevel::Native),
+        ]);
+        let res = negotiate_dialects("a", &m, "b", &m);
+        assert!(res.is_viable());
+        assert_eq!(res.upgrades, 0);
+        assert_eq!(res.downgrades, 0);
+        assert_eq!(res.losses, 0);
+        assert!(res.emulation_plan.is_empty());
+    }
+
+    #[test]
+    fn dialect_negotiation_detects_downgrade() {
+        let src = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let tgt = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
+        let res = negotiate_dialects("src", &src, "tgt", &tgt);
+        assert!(res.is_viable());
+        assert_eq!(res.downgrades, 1);
+        assert_eq!(res.losses, 0);
+        assert_eq!(res.emulation_plan.len(), 1);
+    }
+
+    #[test]
+    fn dialect_negotiation_detects_upgrade() {
+        let src = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
+        let tgt = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let res = negotiate_dialects("src", &src, "tgt", &tgt);
+        assert!(res.is_viable());
+        assert_eq!(res.upgrades, 1);
+        assert_eq!(res.downgrades, 0);
+        assert!(res.emulation_plan.is_empty());
+    }
+
+    #[test]
+    fn dialect_negotiation_detects_loss() {
+        let src = manifest_from(&[(Capability::Vision, CoreSupportLevel::Native)]);
+        let tgt: CapabilityManifest = BTreeMap::new();
+        let res = negotiate_dialects("src", &src, "tgt", &tgt);
+        assert!(!res.is_viable());
+        assert_eq!(res.losses, 1);
+        assert_eq!(res.emulation_plan.len(), 1);
+    }
+
+    #[test]
+    fn dialect_negotiation_skips_source_unsupported() {
+        let src = manifest_from(&[(Capability::Audio, CoreSupportLevel::Unsupported)]);
+        let tgt = manifest_from(&[(Capability::Audio, CoreSupportLevel::Native)]);
+        let res = negotiate_dialects("src", &src, "tgt", &tgt);
+        // Unsupported in source means we don't care about it
+        assert!(res.transitions.is_empty());
+        assert!(res.is_viable());
+    }
+
+    #[test]
+    fn dialect_negotiation_display() {
+        let src = manifest_from(&[
+            (Capability::Streaming, CoreSupportLevel::Native),
+            (Capability::Vision, CoreSupportLevel::Native),
+        ]);
+        let tgt = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let res = negotiate_dialects("claude", &src, "openai", &tgt);
+        let s = format!("{res}");
+        assert!(s.contains("claude"));
+        assert!(s.contains("openai"));
+        assert!(s.contains("1 lost"));
+    }
+
+    #[test]
+    fn dialect_negotiation_regressions() {
+        let src = manifest_from(&[
+            (Capability::Streaming, CoreSupportLevel::Native),
+            (Capability::Vision, CoreSupportLevel::Native),
+            (Capability::Audio, CoreSupportLevel::Native),
+        ]);
+        let tgt = manifest_from(&[
+            (Capability::Streaming, CoreSupportLevel::Native),
+            (Capability::Vision, CoreSupportLevel::Emulated),
+            // Audio missing = lost
+        ]);
+        let res = negotiate_dialects("src", &src, "tgt", &tgt);
+        let regressions = res.regressions();
+        assert_eq!(regressions.len(), 2);
+        assert!(
+            regressions
+                .iter()
+                .any(|t| t.capability == Capability::Vision && t.kind == TransitionKind::Downgrade)
+        );
+        assert!(
+            regressions
+                .iter()
+                .any(|t| t.capability == Capability::Audio && t.kind == TransitionKind::Lost)
+        );
+    }
+
+    #[test]
+    fn dialect_negotiation_serde_roundtrip() {
+        let src = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let tgt = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
+        let res = negotiate_dialects("a", &src, "b", &tgt);
+        let json = serde_json::to_string(&res).unwrap();
+        let back: DialectNegotiationResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, res);
+    }
+
+    // ---- report_mismatches ------------------------------------------------
+
+    #[test]
+    fn report_mismatches_empty_when_all_native() {
+        let result = NegotiationResult {
+            native: vec![Capability::Streaming],
+            emulated: vec![],
+            unsupported: vec![],
+        };
+        let reg = CapabilityRegistry::with_defaults();
+        let mismatches = report_mismatches(&result, &reg);
+        assert!(mismatches.is_empty());
+    }
+
+    #[test]
+    fn report_mismatches_suggests_alternatives() {
+        let result = NegotiationResult {
+            native: vec![],
+            emulated: vec![],
+            unsupported: vec![(Capability::ExtendedThinking, "not available".into())],
+        };
+        let reg = CapabilityRegistry::with_defaults();
+        let mismatches = report_mismatches(&result, &reg);
+        assert_eq!(mismatches.len(), 1);
+        // Claude supports ExtendedThinking natively
+        assert!(
+            mismatches[0]
+                .alternative_backends
+                .contains(&"anthropic/claude-3.5-sonnet".to_owned())
+        );
+    }
+
+    #[test]
+    fn mismatch_display() {
+        let m = CapabilityMismatch {
+            capability: Capability::Vision,
+            reason: "not available".into(),
+            emulation: Some(EmulationStrategy::Approximate),
+            alternative_backends: vec!["openai/gpt-4o".into()],
+        };
+        let s = format!("{m}");
+        assert!(s.contains("Vision"));
+        assert!(s.contains("approximate"));
+        assert!(s.contains("openai/gpt-4o"));
+    }
+
+    // ---- select_emulation_strategy ----------------------------------------
+
+    #[test]
+    fn select_strategy_server_fallback_when_target_emulates() {
+        let tgt = manifest_from(&[(Capability::Vision, CoreSupportLevel::Emulated)]);
+        assert_eq!(
+            select_emulation_strategy(&Capability::Vision, &tgt),
+            EmulationStrategy::ServerFallback,
+        );
+    }
+
+    #[test]
+    fn select_strategy_server_fallback_when_target_restricted() {
+        let tgt = manifest_from(&[(
+            Capability::ToolBash,
+            CoreSupportLevel::Restricted {
+                reason: "sandboxed".into(),
+            },
+        )]);
+        assert_eq!(
+            select_emulation_strategy(&Capability::ToolBash, &tgt),
+            EmulationStrategy::ServerFallback,
+        );
+    }
+
+    #[test]
+    fn select_strategy_falls_back_to_default() {
+        let tgt: CapabilityManifest = BTreeMap::new();
+        assert_eq!(
+            select_emulation_strategy(&Capability::Vision, &tgt),
+            default_emulation_strategy(&Capability::Vision),
+        );
+    }
+
+    // ---- check_runtime_capabilities ---------------------------------------
+
+    #[test]
+    fn runtime_check_strict_all_native() {
+        let m = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let res = check_runtime_capabilities(
+            &[Capability::Streaming],
+            &m,
+            negotiate::NegotiationPolicy::Strict,
+        );
+        assert!(res.can_proceed);
+        assert_eq!(res.available, vec![Capability::Streaming]);
+        assert!(res.blocking.is_empty());
+    }
+
+    #[test]
+    fn runtime_check_strict_blocks_unsupported() {
+        let m: CapabilityManifest = BTreeMap::new();
+        let res = check_runtime_capabilities(
+            &[Capability::Vision],
+            &m,
+            negotiate::NegotiationPolicy::Strict,
+        );
+        assert!(!res.can_proceed);
+        assert_eq!(res.blocking.len(), 1);
+        assert_eq!(res.blocking[0].0, Capability::Vision);
+    }
+
+    #[test]
+    fn runtime_check_permissive_never_blocks() {
+        let m: CapabilityManifest = BTreeMap::new();
+        let res = check_runtime_capabilities(
+            &[Capability::Vision, Capability::Audio],
+            &m,
+            negotiate::NegotiationPolicy::Permissive,
+        );
+        assert!(res.can_proceed);
+        assert!(res.blocking.is_empty());
+    }
+
+    #[test]
+    fn runtime_check_best_effort_blocks_unsupported() {
+        let m = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let res = check_runtime_capabilities(
+            &[Capability::Streaming, Capability::Vision],
+            &m,
+            negotiate::NegotiationPolicy::BestEffort,
+        );
+        assert!(!res.can_proceed);
+        assert_eq!(res.available, vec![Capability::Streaming]);
+        assert_eq!(res.blocking.len(), 1);
+    }
+
+    #[test]
+    fn runtime_check_emulated_not_blocking() {
+        let m = manifest_from(&[(Capability::ToolUse, CoreSupportLevel::Emulated)]);
+        let res = check_runtime_capabilities(
+            &[Capability::ToolUse],
+            &m,
+            negotiate::NegotiationPolicy::Strict,
+        );
+        assert!(res.can_proceed);
+        assert!(res.available.is_empty());
+        assert_eq!(res.emulated.len(), 1);
+    }
+
+    #[test]
+    fn runtime_check_display_ready() {
+        let m = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let res = check_runtime_capabilities(
+            &[Capability::Streaming],
+            &m,
+            negotiate::NegotiationPolicy::Strict,
+        );
+        let s = format!("{res}");
+        assert!(s.contains("ready"));
+    }
+
+    #[test]
+    fn runtime_check_display_blocked() {
+        let m: CapabilityManifest = BTreeMap::new();
+        let res = check_runtime_capabilities(
+            &[Capability::Vision],
+            &m,
+            negotiate::NegotiationPolicy::Strict,
+        );
+        let s = format!("{res}");
+        assert!(s.contains("blocked"));
+    }
+
+    #[test]
+    fn runtime_check_serde_roundtrip() {
+        let m = manifest_from(&[
+            (Capability::Streaming, CoreSupportLevel::Native),
+            (Capability::ToolUse, CoreSupportLevel::Emulated),
+        ]);
+        let res = check_runtime_capabilities(
+            &[
+                Capability::Streaming,
+                Capability::ToolUse,
+                Capability::Vision,
+            ],
+            &m,
+            negotiate::NegotiationPolicy::Strict,
+        );
+        let json = serde_json::to_string(&res).unwrap();
+        let back: RuntimeCheckResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, res);
+    }
+
+    // ---- Registry dialect negotiation -------------------------------------
+
+    #[test]
+    fn registry_negotiate_dialects_claude_to_openai() {
+        let reg = CapabilityRegistry::with_defaults();
+        let res = reg
+            .negotiate_dialects("anthropic/claude-3.5-sonnet", "openai/gpt-4o")
+            .unwrap();
+        // Claude has ExtendedThinking natively, OpenAI doesn't
+        assert!(res.losses > 0 || res.downgrades > 0);
+        assert!(
+            res.transitions
+                .iter()
+                .any(|t| t.capability == Capability::ExtendedThinking)
+        );
+    }
+
+    #[test]
+    fn registry_negotiate_dialects_missing_name() {
+        let reg = CapabilityRegistry::with_defaults();
+        assert!(
+            reg.negotiate_dialects("nonexistent", "openai/gpt-4o")
+                .is_none()
+        );
+        assert!(
+            reg.negotiate_dialects("openai/gpt-4o", "nonexistent")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn registry_suggest_alternatives_for_unsupported() {
+        let reg = CapabilityRegistry::with_defaults();
+        let result = NegotiationResult {
+            native: vec![],
+            emulated: vec![],
+            unsupported: vec![(Capability::Streaming, "missing".into())],
+        };
+        let suggestions = reg.suggest_alternatives(&result);
+        assert_eq!(suggestions.len(), 1);
+        // All backends support streaming natively
+        assert!(!suggestions[0].alternative_backends.is_empty());
+    }
+
+    #[test]
+    fn registry_negotiate_dialects_same_backend_no_regressions() {
+        let reg = CapabilityRegistry::with_defaults();
+        let res = reg
+            .negotiate_dialects("openai/gpt-4o", "openai/gpt-4o")
+            .unwrap();
+        assert!(res.is_viable());
+        assert_eq!(res.downgrades, 0);
+        assert_eq!(res.losses, 0);
+        assert!(res.regressions().is_empty());
     }
 }

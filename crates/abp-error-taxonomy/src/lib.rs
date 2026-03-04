@@ -10,3 +10,8 @@ pub use classification::{
     ClassificationCategory, ErrorClassification, ErrorClassifier, ErrorSeverity, RecoveryAction,
     RecoverySuggestion,
 };
+
+pub mod context;
+pub mod docs;
+pub mod mapping;
+pub mod recovery;

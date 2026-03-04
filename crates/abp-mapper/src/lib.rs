@@ -55,6 +55,12 @@ mod map_error;
 mod openai_to_claude;
 mod openai_to_gemini;
 
+/// Per-dialect capability descriptors.
+pub mod capabilities;
+/// Emulation strategies for partially-supported features.
+pub mod emulation;
+/// IR-level structural validation.
+pub mod validate_ir;
 /// Validation pipeline for mapping correctness.
 pub mod validation;
 

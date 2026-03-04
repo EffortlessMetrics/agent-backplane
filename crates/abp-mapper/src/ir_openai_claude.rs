@@ -63,7 +63,26 @@ impl OpenAiClaudeIrMapper {
     /// OpenAI → Claude: tool_calls become ToolUse content blocks;
     /// system messages stay as-is in IR (both dialects use IrRole::System);
     /// thinking blocks are preserved (Claude supports them natively).
+    ///
+    /// **Fails early** if a system message contains image blocks
+    /// (Claude does not support images in system prompts).
     fn openai_to_claude(&self, ir: &IrConversation) -> Result<IrConversation, MapError> {
+        // Reject system messages with image blocks — Claude's system
+        // prompt does not support image content.
+        for msg in &ir.messages {
+            if msg.role == IrRole::System
+                && msg
+                    .content
+                    .iter()
+                    .any(|b| matches!(b, IrContentBlock::Image { .. }))
+            {
+                return Err(MapError::UnmappableContent {
+                    field: "system".into(),
+                    reason: "Claude system prompt does not support image content blocks".into(),
+                });
+            }
+        }
+
         let mut messages = Vec::with_capacity(ir.messages.len());
 
         for msg in &ir.messages {

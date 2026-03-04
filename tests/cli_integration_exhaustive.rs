@@ -14,6 +14,7 @@ use std::path::PathBuf;
 
 // ─── helpers ────────────────────────────────────────────────────────────
 
+#[allow(deprecated)]
 fn abp() -> Command {
     Command::cargo_bin("abp").expect("binary `abp` should be built")
 }
@@ -852,7 +853,7 @@ fn run_workspace_mode_staged() {
 
 #[test]
 fn run_workspace_mode_invalid_fails() {
-    let tmp = tempfile::tempdir().unwrap();
+    let _tmp = tempfile::tempdir().unwrap();
     abp()
         .args([
             "run",
@@ -885,7 +886,7 @@ fn run_lane_workspace_first() {
 
 #[test]
 fn run_lane_invalid_fails() {
-    let tmp = tempfile::tempdir().unwrap();
+    let _tmp = tempfile::tempdir().unwrap();
     abp()
         .args([
             "run",
@@ -1364,7 +1365,7 @@ fn schema_invalid_kind_fails() {
 #[test]
 fn validate_valid_work_order() {
     let tmp = tempfile::tempdir().unwrap();
-    let path = tmp.path().join("wo.json");
+    let _path = tmp.path().join("wo.json");
     // Use the mock backend to produce a valid receipt, then validate it
     let receipt_path = run_mock(&tmp, "validate test", &[]);
     abp()
@@ -1565,7 +1566,7 @@ fn receipt_diff_identical_files() {
 fn receipt_diff_different_files() {
     let tmp = tempfile::tempdir().unwrap();
     let r1 = run_mock(&tmp, "diff first", &[]);
-    let r2_path = tmp.path().join("receipt2.json");
+    let _r2_path = tmp.path().join("receipt2.json");
     // Create a second receipt by running again
     let tmp2 = tempfile::tempdir().unwrap();
     let r2 = run_mock(&tmp2, "diff second", &[]);
@@ -1738,8 +1739,8 @@ fn mock_receipt_duration_is_non_negative() {
     let path = run_mock(&tmp, "duration test", &[]);
     let content = std::fs::read_to_string(&path).unwrap();
     let val: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let dur = val["meta"]["duration_ms"].as_u64().unwrap_or(0);
-    assert!(dur >= 0, "duration should be non-negative");
+    let dur = val["meta"]["duration_ms"].as_u64();
+    assert!(dur.is_some(), "duration should be present and non-negative");
 }
 
 #[test]
