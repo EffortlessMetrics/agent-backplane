@@ -793,3 +793,373 @@ fn invalid_env_format_fails() {
         .assert()
         .failure();
 }
+
+// ── 22. Schema subcommand ───────────────────────────────────────────
+
+#[test]
+fn schema_work_order_outputs_valid_json_schema() {
+    let output = abp()
+        .args(["schema", "work-order"])
+        .output()
+        .expect("execute abp");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("schema output should be valid JSON");
+    assert!(parsed.is_object(), "schema should be a JSON object");
+}
+
+#[test]
+fn schema_receipt_outputs_valid_json_schema() {
+    let output = abp()
+        .args(["schema", "receipt"])
+        .output()
+        .expect("execute abp");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let _: serde_json::Value =
+        serde_json::from_str(&stdout).expect("receipt schema should be valid JSON");
+}
+
+#[test]
+fn schema_config_outputs_valid_json_schema() {
+    let output = abp()
+        .args(["schema", "config"])
+        .output()
+        .expect("execute abp");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let _: serde_json::Value =
+        serde_json::from_str(&stdout).expect("config schema should be valid JSON");
+}
+
+#[test]
+fn schema_invalid_kind_rejected() {
+    abp()
+        .args(["schema", "nonexistent"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("invalid value"));
+}
+
+// ── 23. Validate subcommand ─────────────────────────────────────────
+
+#[test]
+fn validate_valid_work_order_file() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let wo = abp_core::WorkOrderBuilder::new("test task").build();
+    let wo_path = tmp.path().join("wo.json");
+    std::fs::write(&wo_path, serde_json::to_string_pretty(&wo).unwrap()).unwrap();
+
+    abp()
+        .args(["validate", wo_path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("valid work_order"));
+}
+
+#[test]
+fn validate_valid_receipt_file() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let path = tmp.path().join("receipt.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&receipt).unwrap()).unwrap();
+
+    abp()
+        .args(["validate", path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("valid receipt"));
+}
+
+#[test]
+fn validate_invalid_json_file_fails() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let path = tmp.path().join("bad.json");
+    std::fs::write(&path, "not json").unwrap();
+
+    abp()
+        .args(["validate", path.to_str().unwrap()])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn validate_nonexistent_file_fails() {
+    abp()
+        .args(["validate", "/nonexistent/path/file.json"])
+        .assert()
+        .failure();
+}
+
+// ── 24. Inspect subcommand ──────────────────────────────────────────
+
+#[test]
+fn inspect_valid_receipt_shows_hash_valid() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let path = tmp.path().join("receipt.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&receipt).unwrap()).unwrap();
+
+    abp()
+        .args(["inspect", path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("VALID"))
+        .stdout(predicate::str::contains("backend: mock"));
+}
+
+#[test]
+fn inspect_tampered_receipt_shows_hash_invalid() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let mut receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    receipt.receipt_sha256 = Some("0000000000000000".into());
+    let path = tmp.path().join("receipt.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&receipt).unwrap()).unwrap();
+
+    abp()
+        .args(["inspect", path.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("INVALID"));
+}
+
+#[test]
+fn inspect_nonexistent_file_fails() {
+    abp()
+        .args(["inspect", "/nonexistent/receipt.json"])
+        .assert()
+        .failure();
+}
+
+// ── 25. Receipt verify subcommand ───────────────────────────────────
+
+#[test]
+fn receipt_verify_valid_hash() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let path = tmp.path().join("receipt.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&receipt).unwrap()).unwrap();
+
+    abp()
+        .args(["receipt", "verify", path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("VALID"));
+}
+
+#[test]
+fn receipt_verify_tampered_hash_fails() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let mut receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    receipt.receipt_sha256 = Some("tampered".into());
+    let path = tmp.path().join("receipt.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&receipt).unwrap()).unwrap();
+
+    abp()
+        .args(["receipt", "verify", path.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("INVALID"));
+}
+
+// ── 26. Receipt diff subcommand ─────────────────────────────────────
+
+#[test]
+fn receipt_diff_identical_shows_no_differences() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let json = serde_json::to_string_pretty(&receipt).unwrap();
+    let p1 = tmp.path().join("r1.json");
+    let p2 = tmp.path().join("r2.json");
+    std::fs::write(&p1, &json).unwrap();
+    std::fs::write(&p2, &json).unwrap();
+
+    abp()
+        .args([
+            "receipt",
+            "diff",
+            p1.to_str().unwrap(),
+            p2.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("no differences"));
+}
+
+#[test]
+fn receipt_diff_different_shows_changes() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let r1 = abp_core::ReceiptBuilder::new("mock")
+        .outcome(abp_core::Outcome::Complete)
+        .with_hash()
+        .unwrap();
+    let r2 = abp_core::ReceiptBuilder::new("other")
+        .outcome(abp_core::Outcome::Failed)
+        .with_hash()
+        .unwrap();
+    let p1 = tmp.path().join("r1.json");
+    let p2 = tmp.path().join("r2.json");
+    std::fs::write(&p1, serde_json::to_string_pretty(&r1).unwrap()).unwrap();
+    std::fs::write(&p2, serde_json::to_string_pretty(&r2).unwrap()).unwrap();
+
+    abp()
+        .args([
+            "receipt",
+            "diff",
+            p1.to_str().unwrap(),
+            p2.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("outcome"))
+        .stdout(predicate::str::contains("backend"));
+}
+
+// ── 27. Events file output ──────────────────────────────────────────
+
+#[test]
+fn events_flag_writes_events_file() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt_path = tmp.path().join("receipt.json");
+    let events_path = tmp.path().join("events.jsonl");
+    abp()
+        .args([
+            "run",
+            "--backend",
+            "mock",
+            "--task",
+            "events file test",
+            "--events",
+            events_path.to_str().unwrap(),
+            "--root",
+            tmp.path().to_str().unwrap(),
+            "--workspace-mode",
+            "pass-through",
+            "--out",
+            receipt_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    assert!(events_path.exists(), "events file should be created");
+    let content = std::fs::read_to_string(&events_path).expect("read events file");
+    for line in content.lines() {
+        let _: serde_json::Value = serde_json::from_str(line).unwrap_or_else(|e| {
+            panic!("each event line should be valid JSON: {e}\n  line: {line}")
+        });
+    }
+}
+
+// ── 28. Output flag for receipt destination ─────────────────────────
+
+#[test]
+fn output_flag_writes_receipt_to_specified_path() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let receipt_path = tmp.path().join("custom_receipt.json");
+    abp()
+        .args([
+            "run",
+            "--backend",
+            "mock",
+            "--task",
+            "output flag test",
+            "--output",
+            receipt_path.to_str().unwrap(),
+            "--root",
+            tmp.path().to_str().unwrap(),
+            "--workspace-mode",
+            "pass-through",
+        ])
+        .assert()
+        .success();
+
+    assert!(receipt_path.exists(), "receipt should be at --output path");
+    let content = std::fs::read_to_string(&receipt_path).expect("read receipt");
+    let json: serde_json::Value = serde_json::from_str(&content).expect("parse receipt JSON");
+    assert!(json.get("outcome").is_some());
+}
+
+// ── 29. Config check subcommand from CLI ────────────────────────────
+
+#[test]
+fn config_check_no_file_defaults_ok() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    abp()
+        .current_dir(tmp.path())
+        .args(["config", "check"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("ok"));
+}
+
+#[test]
+fn config_check_with_explicit_config_flag() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    let config_path = tmp.path().join("custom.toml");
+    std::fs::write(
+        &config_path,
+        r#"
+default_backend = "mock"
+[backends.mock]
+type = "mock"
+"#,
+    )
+    .unwrap();
+
+    abp()
+        .args(["config", "check", "--config", config_path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("ok"));
+}
+
+// ── 30. Subcommand help texts ───────────────────────────────────────
+
+#[test]
+fn schema_help_shows_kind_options() {
+    abp()
+        .args(["schema", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("work-order"))
+        .stdout(predicate::str::contains("receipt"))
+        .stdout(predicate::str::contains("config"));
+}
+
+#[test]
+fn receipt_help_shows_subcommands() {
+    abp()
+        .args(["receipt", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("verify"))
+        .stdout(predicate::str::contains("diff"));
+}
+
+#[test]
+fn config_help_shows_check_subcommand() {
+    abp()
+        .args(["config", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("check"));
+}

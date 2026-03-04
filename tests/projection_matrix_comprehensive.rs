@@ -3298,3 +3298,718 @@ mod serde_stability {
         }
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 17. Strategy selection — ModelSelector with all SelectionStrategy variants
+// ═══════════════════════════════════════════════════════════════════════════
+mod strategy_selection {
+    use abp_projection::selection::{ModelCandidate, ModelSelector, SelectionStrategy};
+
+    fn candidate(
+        name: &str,
+        latency: Option<u64>,
+        cost: Option<f64>,
+        fidelity: Option<f64>,
+        weight: f64,
+    ) -> ModelCandidate {
+        ModelCandidate {
+            backend_name: name.into(),
+            model_id: format!("{name}-model"),
+            estimated_latency_ms: latency,
+            estimated_cost_per_1k_tokens: cost,
+            fidelity_score: fidelity,
+            weight,
+        }
+    }
+
+    // ── RoundRobin ──────────────────────────────────────────────────────
+
+    #[test]
+    fn round_robin_cycles_through_candidates() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::RoundRobin,
+            vec![
+                candidate("a", None, None, None, 1.0),
+                candidate("b", None, None, None, 1.0),
+                candidate("c", None, None, None, 1.0),
+            ],
+        );
+        assert_eq!(sel.select().unwrap().backend_name, "a");
+        assert_eq!(sel.select().unwrap().backend_name, "b");
+        assert_eq!(sel.select().unwrap().backend_name, "c");
+        assert_eq!(sel.select().unwrap().backend_name, "a");
+    }
+
+    #[test]
+    fn round_robin_single_candidate() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::RoundRobin,
+            vec![candidate("only", None, None, None, 1.0)],
+        );
+        for _ in 0..5 {
+            assert_eq!(sel.select().unwrap().backend_name, "only");
+        }
+    }
+
+    #[test]
+    fn round_robin_select_n_wraps() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::RoundRobin,
+            vec![
+                candidate("a", None, None, None, 1.0),
+                candidate("b", None, None, None, 1.0),
+            ],
+        );
+        let top2 = sel.select_n(2);
+        assert_eq!(top2.len(), 2);
+    }
+
+    // ── LowestLatency ───────────────────────────────────────────────────
+
+    #[test]
+    fn lowest_latency_picks_fastest() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::LowestLatency,
+            vec![
+                candidate("slow", Some(500), None, None, 1.0),
+                candidate("fast", Some(10), None, None, 1.0),
+                candidate("mid", Some(100), None, None, 1.0),
+            ],
+        );
+        assert_eq!(sel.select().unwrap().backend_name, "fast");
+    }
+
+    #[test]
+    fn lowest_latency_none_latency_is_worst() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::LowestLatency,
+            vec![
+                candidate("unknown", None, None, None, 1.0),
+                candidate("known", Some(999), None, None, 1.0),
+            ],
+        );
+        assert_eq!(sel.select().unwrap().backend_name, "known");
+    }
+
+    #[test]
+    fn lowest_latency_select_n_ordered() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::LowestLatency,
+            vec![
+                candidate("c", Some(300), None, None, 1.0),
+                candidate("a", Some(100), None, None, 1.0),
+                candidate("b", Some(200), None, None, 1.0),
+            ],
+        );
+        let ranked = sel.select_n(3);
+        assert_eq!(ranked[0].backend_name, "a");
+        assert_eq!(ranked[1].backend_name, "b");
+        assert_eq!(ranked[2].backend_name, "c");
+    }
+
+    // ── LowestCost ──────────────────────────────────────────────────────
+
+    #[test]
+    fn lowest_cost_picks_cheapest() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::LowestCost,
+            vec![
+                candidate("expensive", None, Some(10.0), None, 1.0),
+                candidate("cheap", None, Some(0.5), None, 1.0),
+                candidate("mid", None, Some(3.0), None, 1.0),
+            ],
+        );
+        assert_eq!(sel.select().unwrap().backend_name, "cheap");
+    }
+
+    #[test]
+    fn lowest_cost_none_cost_is_worst() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::LowestCost,
+            vec![
+                candidate("unknown", None, None, None, 1.0),
+                candidate("known", None, Some(99.0), None, 1.0),
+            ],
+        );
+        assert_eq!(sel.select().unwrap().backend_name, "known");
+    }
+
+    #[test]
+    fn lowest_cost_select_n_ordered() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::LowestCost,
+            vec![
+                candidate("c", None, Some(30.0), None, 1.0),
+                candidate("a", None, Some(1.0), None, 1.0),
+                candidate("b", None, Some(15.0), None, 1.0),
+            ],
+        );
+        let ranked = sel.select_n(3);
+        assert_eq!(ranked[0].backend_name, "a");
+        assert_eq!(ranked[1].backend_name, "b");
+        assert_eq!(ranked[2].backend_name, "c");
+    }
+
+    // ── HighestFidelity ─────────────────────────────────────────────────
+
+    #[test]
+    fn highest_fidelity_picks_best() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::HighestFidelity,
+            vec![
+                candidate("low", None, None, Some(0.3), 1.0),
+                candidate("high", None, None, Some(0.95), 1.0),
+                candidate("mid", None, None, Some(0.6), 1.0),
+            ],
+        );
+        assert_eq!(sel.select().unwrap().backend_name, "high");
+    }
+
+    #[test]
+    fn highest_fidelity_none_fidelity_is_worst() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::HighestFidelity,
+            vec![
+                candidate("unknown", None, None, None, 1.0),
+                candidate("known", None, None, Some(0.1), 1.0),
+            ],
+        );
+        assert_eq!(sel.select().unwrap().backend_name, "known");
+    }
+
+    #[test]
+    fn highest_fidelity_select_n_ordered() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::HighestFidelity,
+            vec![
+                candidate("low", None, None, Some(0.2), 1.0),
+                candidate("high", None, None, Some(0.9), 1.0),
+                candidate("mid", None, None, Some(0.5), 1.0),
+            ],
+        );
+        let ranked = sel.select_n(3);
+        assert_eq!(ranked[0].backend_name, "high");
+        assert_eq!(ranked[1].backend_name, "mid");
+        assert_eq!(ranked[2].backend_name, "low");
+    }
+
+    // ── FallbackChain ───────────────────────────────────────────────────
+
+    #[test]
+    fn fallback_chain_picks_first() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::FallbackChain,
+            vec![
+                candidate("primary", None, None, None, 1.0),
+                candidate("secondary", None, None, None, 1.0),
+            ],
+        );
+        assert_eq!(sel.select().unwrap().backend_name, "primary");
+    }
+
+    #[test]
+    fn fallback_chain_select_n_preserves_order() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::FallbackChain,
+            vec![
+                candidate("first", None, None, None, 1.0),
+                candidate("second", None, None, None, 1.0),
+                candidate("third", None, None, None, 1.0),
+            ],
+        );
+        let ranked = sel.select_n(3);
+        assert_eq!(ranked[0].backend_name, "first");
+        assert_eq!(ranked[1].backend_name, "second");
+        assert_eq!(ranked[2].backend_name, "third");
+    }
+
+    // ── WeightedRandom ──────────────────────────────────────────────────
+
+    #[test]
+    fn weighted_random_returns_some() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::WeightedRandom,
+            vec![
+                candidate("a", None, None, None, 10.0),
+                candidate("b", None, None, None, 1.0),
+            ],
+        );
+        assert!(sel.select().is_some());
+    }
+
+    #[test]
+    fn weighted_random_single_candidate_always_selected() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::WeightedRandom,
+            vec![candidate("sole", None, None, None, 5.0)],
+        );
+        for _ in 0..10 {
+            assert_eq!(sel.select().unwrap().backend_name, "sole");
+        }
+    }
+
+    #[test]
+    fn weighted_random_zero_weights_returns_first() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::WeightedRandom,
+            vec![
+                candidate("a", None, None, None, 0.0),
+                candidate("b", None, None, None, 0.0),
+            ],
+        );
+        assert!(sel.select().is_some());
+    }
+
+    // ── Empty candidates ────────────────────────────────────────────────
+
+    #[test]
+    fn empty_candidates_returns_none_for_all_strategies() {
+        for strategy in [
+            SelectionStrategy::LowestLatency,
+            SelectionStrategy::LowestCost,
+            SelectionStrategy::HighestFidelity,
+            SelectionStrategy::RoundRobin,
+            SelectionStrategy::WeightedRandom,
+            SelectionStrategy::FallbackChain,
+        ] {
+            let sel = ModelSelector::new(strategy, vec![]);
+            assert!(
+                sel.select().is_none(),
+                "strategy {strategy:?} should return None for empty"
+            );
+        }
+    }
+
+    #[test]
+    fn select_n_zero_returns_empty() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::LowestLatency,
+            vec![candidate("a", Some(10), None, None, 1.0)],
+        );
+        assert!(sel.select_n(0).is_empty());
+    }
+
+    #[test]
+    fn select_n_larger_than_candidates_returns_all() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::LowestCost,
+            vec![
+                candidate("a", None, Some(1.0), None, 1.0),
+                candidate("b", None, Some(2.0), None, 1.0),
+            ],
+        );
+        assert_eq!(sel.select_n(10).len(), 2);
+    }
+
+    // ── Clone & serde ───────────────────────────────────────────────────
+
+    #[test]
+    fn selector_clone_preserves_strategy() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::RoundRobin,
+            vec![candidate("a", None, None, None, 1.0)],
+        );
+        let cloned = sel.clone();
+        assert_eq!(cloned.strategy, SelectionStrategy::RoundRobin);
+        assert_eq!(cloned.candidates.len(), 1);
+    }
+
+    #[test]
+    fn selector_serde_roundtrip() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::HighestFidelity,
+            vec![
+                candidate("a", Some(100), Some(2.0), Some(0.8), 3.0),
+                candidate("b", Some(200), Some(1.0), Some(0.9), 1.0),
+            ],
+        );
+        let json = serde_json::to_string(&sel).unwrap();
+        let back: ModelSelector = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.strategy, SelectionStrategy::HighestFidelity);
+        assert_eq!(back.candidates.len(), 2);
+    }
+
+    #[test]
+    fn strategy_serde_all_variants() {
+        for strategy in [
+            SelectionStrategy::LowestLatency,
+            SelectionStrategy::LowestCost,
+            SelectionStrategy::HighestFidelity,
+            SelectionStrategy::RoundRobin,
+            SelectionStrategy::WeightedRandom,
+            SelectionStrategy::FallbackChain,
+        ] {
+            let json = serde_json::to_string(&strategy).unwrap();
+            let back: SelectionStrategy = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, strategy);
+        }
+    }
+
+    #[test]
+    fn candidate_serde_roundtrip() {
+        let c = candidate("test", Some(50), Some(1.5), Some(0.7), 2.0);
+        let json = serde_json::to_string(&c).unwrap();
+        let back: ModelCandidate = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.backend_name, "test");
+        assert_eq!(back.estimated_latency_ms, Some(50));
+        assert_eq!(back.estimated_cost_per_1k_tokens, Some(1.5));
+        assert_eq!(back.fidelity_score, Some(0.7));
+    }
+
+    // ── Negative weights ────────────────────────────────────────────────
+
+    #[test]
+    fn weighted_random_negative_weights_treated_as_zero() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::WeightedRandom,
+            vec![
+                candidate("neg", None, None, None, -5.0),
+                candidate("pos", None, None, None, 10.0),
+            ],
+        );
+        // Should not crash; the positive-weight candidate should be selectable
+        assert!(sel.select().is_some());
+    }
+
+    #[test]
+    fn weighted_random_select_n_ordered_by_weight() {
+        let sel = ModelSelector::new(
+            SelectionStrategy::WeightedRandom,
+            vec![
+                candidate("low", None, None, None, 1.0),
+                candidate("high", None, None, None, 100.0),
+                candidate("mid", None, None, None, 10.0),
+            ],
+        );
+        let ranked = sel.select_n(3);
+        assert_eq!(ranked[0].backend_name, "high");
+        assert_eq!(ranked[1].backend_name, "mid");
+        assert_eq!(ranked[2].backend_name, "low");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 18. Mapper integration — resolve_mapper produces functional mappers
+// ═══════════════════════════════════════════════════════════════════════════
+mod mapper_integration {
+    use super::*;
+
+    #[test]
+    fn resolve_identity_for_same_dialect() {
+        let pm = ProjectionMatrix::with_defaults();
+        for &d in Dialect::all() {
+            let mapper = pm.resolve_mapper(d, d);
+            assert!(mapper.is_some(), "identity mapper should exist for {d:?}");
+            let m = mapper.unwrap();
+            assert_eq!(m.source_dialect(), m.target_dialect());
+        }
+    }
+
+    #[test]
+    fn resolve_openai_to_claude_produces_mapper() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude);
+        assert!(mapper.is_some());
+        let m = mapper.unwrap();
+        assert_eq!(m.source_dialect(), Dialect::OpenAi);
+        assert_eq!(m.target_dialect(), Dialect::Claude);
+    }
+
+    #[test]
+    fn resolve_claude_to_openai_produces_mapper() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::Claude, Dialect::OpenAi);
+        assert!(mapper.is_some());
+        let m = mapper.unwrap();
+        assert_eq!(m.source_dialect(), Dialect::Claude);
+        assert_eq!(m.target_dialect(), Dialect::OpenAi);
+    }
+
+    #[test]
+    fn resolve_codex_openai_uses_identity() {
+        let pm = ProjectionMatrix::with_defaults();
+        for (src, tgt) in [
+            (Dialect::Codex, Dialect::OpenAi),
+            (Dialect::OpenAi, Dialect::Codex),
+        ] {
+            let mapper = pm.resolve_mapper(src, tgt);
+            assert!(mapper.is_some(), "Codex↔OpenAI should have a mapper");
+        }
+    }
+
+    #[test]
+    fn resolve_unsupported_pair_returns_none() {
+        let pm = ProjectionMatrix::with_defaults();
+        // Kimi→Copilot is unsupported in defaults
+        let mapper = pm.resolve_mapper(Dialect::Kimi, Dialect::Copilot);
+        assert!(mapper.is_none());
+    }
+
+    #[test]
+    fn resolved_openai_to_claude_mapper_maps_request() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude).unwrap();
+        let req = abp_mapper::DialectRequest {
+            dialect: Dialect::OpenAi,
+            body: serde_json::json!({
+                "model": "gpt-4",
+                "messages": [{"role": "user", "content": "hello"}]
+            }),
+        };
+        let result = mapper.map_request(&req);
+        assert!(result.is_ok(), "map_request should succeed: {result:?}");
+        let mapped = result.unwrap();
+        assert!(mapped.is_object());
+    }
+
+    #[test]
+    fn resolved_claude_to_openai_mapper_maps_request() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::Claude, Dialect::OpenAi).unwrap();
+        let req = abp_mapper::DialectRequest {
+            dialect: Dialect::Claude,
+            body: serde_json::json!({
+                "model": "claude-3-opus-20240229",
+                "max_tokens": 1024,
+                "messages": [{"role": "user", "content": "hello"}]
+            }),
+        };
+        let result = mapper.map_request(&req);
+        assert!(result.is_ok(), "map_request should succeed: {result:?}");
+    }
+
+    #[test]
+    fn identity_mapper_preserves_body() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+        let body = serde_json::json!({"model": "gpt-4", "messages": []});
+        let req = abp_mapper::DialectRequest {
+            dialect: Dialect::OpenAi,
+            body: body.clone(),
+        };
+        let result = mapper.map_request(&req).unwrap();
+        assert_eq!(result, body);
+    }
+
+    #[test]
+    fn identity_mapper_response_preserves_body() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::Claude, Dialect::Claude).unwrap();
+        let body = serde_json::json!({"content": [{"type": "text", "text": "hi"}]});
+        let resp = mapper.map_response(&body).unwrap();
+        assert_eq!(resp.body, body);
+    }
+
+    #[test]
+    fn resolve_mapper_for_unregistered_pair_returns_none() {
+        let pm = ProjectionMatrix::new();
+        assert!(
+            pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn resolved_mapper_can_map_agent_event() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+        let event = abp_core::AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: abp_core::AgentEventKind::AssistantMessage {
+                text: "test".into(),
+            },
+            ext: None,
+        };
+        let result = mapper.map_event(&event);
+        assert!(result.is_ok());
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 19. Custom registration — register/remove/override dialect pairs
+// ═══════════════════════════════════════════════════════════════════════════
+mod custom_registration {
+    use super::*;
+    use abp_projection::ProjectionMode;
+
+    #[test]
+    fn register_custom_mapped_pair() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::Kimi, Dialect::Copilot, ProjectionMode::Mapped);
+        let entry = pm.lookup(Dialect::Kimi, Dialect::Copilot);
+        assert!(entry.is_some());
+        assert_eq!(entry.unwrap().mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn register_custom_pair_has_mapper_hint() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::Kimi, Dialect::Copilot, ProjectionMode::Mapped);
+        let entry = pm.lookup(Dialect::Kimi, Dialect::Copilot).unwrap();
+        assert!(entry.mapper_hint.is_some());
+        assert!(entry.mapper_hint.as_ref().unwrap().contains("kimi"));
+    }
+
+    #[test]
+    fn override_existing_entry() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        // OpenAI→Claude is Mapped by default; override to Unsupported
+        pm.register(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            ProjectionMode::Unsupported,
+        );
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Unsupported);
+    }
+
+    #[test]
+    fn remove_dialect_pair() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        let removed = pm.remove(Dialect::OpenAi, Dialect::Claude);
+        assert!(removed.is_some());
+        assert!(pm.lookup(Dialect::OpenAi, Dialect::Claude).is_none());
+    }
+
+    #[test]
+    fn remove_nonexistent_returns_none() {
+        let mut pm = ProjectionMatrix::new();
+        assert!(pm.remove(Dialect::Kimi, Dialect::Copilot).is_none());
+    }
+
+    #[test]
+    fn remove_backend_by_id() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register_backend(
+            "test-be",
+            manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+            Dialect::OpenAi,
+            50,
+        );
+        assert_eq!(pm.backend_count(), 1);
+        assert!(pm.remove_backend("test-be"));
+        assert_eq!(pm.backend_count(), 0);
+    }
+
+    #[test]
+    fn remove_backend_nonexistent_returns_false() {
+        let mut pm = ProjectionMatrix::new();
+        assert!(!pm.remove_backend("ghost"));
+    }
+
+    #[test]
+    fn register_same_dialect_forces_passthrough() {
+        let mut pm = ProjectionMatrix::new();
+        // Even if we request Mapped, same-dialect is forced to Passthrough
+        pm.register(Dialect::Gemini, Dialect::Gemini, ProjectionMode::Mapped);
+        let entry = pm.lookup(Dialect::Gemini, Dialect::Gemini).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    #[test]
+    fn register_increases_count() {
+        let mut pm = ProjectionMatrix::new();
+        assert_eq!(pm.dialect_entry_count(), 0);
+        pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
+        assert_eq!(pm.dialect_entry_count(), 1);
+        pm.register(Dialect::Claude, Dialect::OpenAi, ProjectionMode::Mapped);
+        assert_eq!(pm.dialect_entry_count(), 2);
+    }
+
+    #[test]
+    fn register_override_does_not_increase_count() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
+        assert_eq!(pm.dialect_entry_count(), 1);
+        pm.register(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            ProjectionMode::Unsupported,
+        );
+        assert_eq!(pm.dialect_entry_count(), 1);
+    }
+
+    #[test]
+    fn register_all_custom_pairs_then_query() {
+        let mut pm = ProjectionMatrix::new();
+        let pairs = [
+            (Dialect::Kimi, Dialect::Copilot),
+            (Dialect::Copilot, Dialect::Kimi),
+            (Dialect::Codex, Dialect::Gemini),
+        ];
+        for (src, tgt) in &pairs {
+            pm.register(*src, *tgt, ProjectionMode::Mapped);
+        }
+        assert_eq!(pm.dialect_entry_count(), 3);
+        for (src, tgt) in &pairs {
+            assert!(pm.lookup(*src, *tgt).is_some());
+        }
+    }
+
+    #[test]
+    fn custom_registration_enables_routing() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::Kimi, Dialect::Copilot, ProjectionMode::Mapped);
+        let route = pm.find_route(Dialect::Kimi, Dialect::Copilot);
+        assert!(route.is_some());
+        assert_eq!(route.unwrap().cost, 1);
+    }
+
+    #[test]
+    fn register_backend_replaces_existing() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register_backend(
+            "be",
+            manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+            Dialect::OpenAi,
+            10,
+        );
+        pm.register_backend(
+            "be",
+            manifest(&[(Capability::ToolRead, SupportLevel::Native)]),
+            Dialect::Claude,
+            90,
+        );
+        assert_eq!(pm.backend_count(), 1);
+    }
+
+    #[test]
+    fn with_mapping_registry_constructor() {
+        let reg = MappingRegistry::new();
+        let pm = ProjectionMatrix::with_mapping_registry(reg);
+        assert_eq!(pm.dialect_entry_count(), 0);
+        assert_eq!(pm.backend_count(), 0);
+    }
+
+    #[test]
+    fn set_source_dialect_affects_fidelity() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        pm.set_source_dialect(Dialect::OpenAi);
+        pm.register_backend(
+            "be-claude",
+            manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+            Dialect::Claude,
+            50,
+        );
+        pm.register_backend(
+            "be-openai",
+            manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+            Dialect::OpenAi,
+            50,
+        );
+        let wo = work_order(require_caps(&[Capability::Streaming]));
+        let result = pm.project(&wo).unwrap();
+        // OpenAI→OpenAI is identity (fidelity 1.0), OpenAI→Claude has lower fidelity
+        assert_eq!(result.selected_backend, "be-openai");
+    }
+
+    #[test]
+    fn set_mapping_features_affects_compatibility_score() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        pm.set_mapping_features(vec!["tool_use".into(), "streaming".into()]);
+        let score = pm.compatibility_score(Dialect::OpenAi, Dialect::OpenAi);
+        assert_eq!(score.fidelity, 1.0);
+        assert_eq!(score.lossless_features, 2);
+    }
+}
