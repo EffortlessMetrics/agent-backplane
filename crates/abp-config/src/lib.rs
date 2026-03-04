@@ -7,6 +7,7 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+use abp_config_env::read_config_env_overrides;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -215,16 +216,17 @@ pub fn parse_toml(content: &str) -> Result<BackplaneConfig, ConfigError> {
 /// - `ABP_RECEIPTS_DIR`
 /// - `ABP_WORKSPACE_DIR`
 pub fn apply_env_overrides(config: &mut BackplaneConfig) {
-    if let Ok(val) = std::env::var("ABP_DEFAULT_BACKEND") {
+    let overrides = read_config_env_overrides();
+    if let Some(val) = overrides.default_backend {
         config.default_backend = Some(val);
     }
-    if let Ok(val) = std::env::var("ABP_LOG_LEVEL") {
+    if let Some(val) = overrides.log_level {
         config.log_level = Some(val);
     }
-    if let Ok(val) = std::env::var("ABP_RECEIPTS_DIR") {
+    if let Some(val) = overrides.receipts_dir {
         config.receipts_dir = Some(val);
     }
-    if let Ok(val) = std::env::var("ABP_WORKSPACE_DIR") {
+    if let Some(val) = overrides.workspace_dir {
         config.workspace_dir = Some(val);
     }
 }

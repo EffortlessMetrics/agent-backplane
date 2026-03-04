@@ -73,6 +73,7 @@ dependencies = [
  "abp-claude-sdk",
  "abp-codex-sdk",
  "abp-config",
+ "abp-config-env",
  "abp-copilot-sdk",
  "abp-core",
  "abp-gemini-sdk",
@@ -116,6 +117,7 @@ dependencies = [
 name = "abp-config"
 version = "0.1.0"
 dependencies = [
+ "abp-config-env",
  "schemars",
  "serde",
  "serde_json",
@@ -123,6 +125,10 @@ dependencies = [
  "thiserror 2.0.18",
  "toml",
 ]
+
+[[package]]
+name = "abp-config-env"
+version = "0.1.0"
 
 [[package]]
 name = "abp-copilot-sdk"

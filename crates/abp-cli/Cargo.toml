@@ -16,6 +16,7 @@ path = "src/main.rs"
 
 [dependencies]
 abp-config = { path = "../abp-config", version = "0.1.0" }
+abp-config-env = { path = "../abp-config-env", version = "0.1.0" }
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-codex-sdk = { path = "../abp-codex-sdk", version = "0.1.0" }
 abp-copilot-sdk = { path = "../abp-copilot-sdk", version = "0.1.0" }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Configuration loading and validation for the Agent Backplane CLI.
 
+use abp_config_env::read_config_env_overrides;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -128,13 +129,14 @@ pub fn merge_configs(base: BackplaneConfig, overlay: BackplaneConfig) -> Backpla
 /// - `ABP_LOG_LEVEL` — overrides `log_level`
 /// - `ABP_RECEIPTS_DIR` — overrides `receipts_dir`
 pub fn apply_env_overrides(config: &mut BackplaneConfig) {
-    if let Ok(val) = std::env::var("ABP_DEFAULT_BACKEND") {
+    let overrides = read_config_env_overrides();
+    if let Some(val) = overrides.default_backend {
         config.default_backend = Some(val);
     }
-    if let Ok(val) = std::env::var("ABP_LOG_LEVEL") {
+    if let Some(val) = overrides.log_level {
         config.log_level = Some(val);
     }
-    if let Ok(val) = std::env::var("ABP_RECEIPTS_DIR") {
+    if let Some(val) = overrides.receipts_dir {
         config.receipts_dir = Some(val);
     }
 }
