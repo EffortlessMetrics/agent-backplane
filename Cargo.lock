@@ -168,6 +168,7 @@ dependencies = [
  "abp-host",
  "abp-integrations",
  "abp-kimi-sdk",
+ "abp-run-tracker",
  "abp-runtime",
  "anyhow",
  "axum",
@@ -410,6 +411,17 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror 2.0.18",
+ "uuid",
+]
+
+[[package]]
+name = "abp-run-tracker"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "anyhow",
+ "serde",
+ "tokio",
  "uuid",
 ]
 

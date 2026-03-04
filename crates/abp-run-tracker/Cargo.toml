@@ -1,0 +1,18 @@
+[package]
+name = "abp-run-tracker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Run lifecycle tracking primitives for Agent Backplane services"
+readme = "README.md"
+keywords = ["agent", "backplane", "run", "tracking", "daemon"]
+categories = ["asynchronous", "development-tools"]
+
+[dependencies]
+anyhow.workspace = true
+abp-core = { path = "../abp-core", version = "0.1.0" }
+serde.workspace = true
+tokio.workspace = true
+uuid.workspace = true

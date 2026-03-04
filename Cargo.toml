@@ -38,6 +38,7 @@ members = [
   "crates/abp-receipt",
   "crates/abp-protocol",
   "crates/abp-runtime",
+  "crates/abp-run-tracker",
   "crates/abp-shim-claude",
   "crates/abp-shim-codex",
   "crates/abp-shim-copilot",
