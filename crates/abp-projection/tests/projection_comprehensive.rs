@@ -2040,13 +2040,13 @@ mod default_matrix_structure {
     }
 
     #[test]
-    fn mapped_pair_count_is_eight() {
+    fn mapped_pair_count_is_eighteen() {
         let pm = ProjectionMatrix::with_defaults();
         let count = pm
             .dialect_entries()
             .filter(|e| e.mode == ProjectionMode::Mapped)
             .count();
-        assert_eq!(count, 8);
+        assert_eq!(count, 18);
     }
 
     #[test]

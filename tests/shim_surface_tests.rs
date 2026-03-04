@@ -432,12 +432,14 @@ fn gemini_response_with_text() {
                 "Hello from Gemini",
             )]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: Some(abp_shim_gemini::UsageMetadata {
             prompt_token_count: 5,
             candidates_token_count: 10,
             total_token_count: 15,
         }),
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("Hello from Gemini"));
     assert_eq!(resp.candidates.len(), 1);
@@ -689,6 +691,7 @@ fn openai_stream_event_serde() {
                 tool_calls: None,
             },
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage: None,
     };
@@ -726,8 +729,10 @@ fn gemini_stream_event_with_text() {
         candidates: vec![abp_shim_gemini::Candidate {
             content: abp_shim_gemini::Content::model(vec![abp_shim_gemini::Part::text("chunk")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(evt.text(), Some("chunk"));
 }
@@ -1563,6 +1568,7 @@ fn gemini_gen_config_from_dialect_roundtrip() {
         max_output_tokens: Some(1024),
         top_p: Some(0.9),
         top_k: Some(40),
+        candidate_count: None,
         stop_sequences: Some(vec!["END".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(json!({"type": "object"})),
@@ -1595,8 +1601,10 @@ fn gemini_response_function_calls_extraction() {
                 abp_shim_gemini::Part::function_call("read", json!({"path": "main.rs"})),
             ]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let calls = resp.function_calls();
     assert_eq!(calls.len(), 2);

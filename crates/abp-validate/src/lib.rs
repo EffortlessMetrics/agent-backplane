@@ -3,17 +3,23 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+mod composite;
+mod dialect;
 mod envelope;
 mod error;
 mod event;
 mod receipt;
+mod rule_builder;
 mod schema;
 mod work_order;
 
+pub use composite::CompositeValidator;
+pub use dialect::{DialectRequestValidator, DialectResponseValidator};
 pub use envelope::{EnvelopeValidator, RawEnvelopeValidator, validate_hello_version};
 pub use error::{ValidationError, ValidationErrorKind, ValidationErrors};
 pub use event::EventValidator;
 pub use receipt::ReceiptValidator;
+pub use rule_builder::{CustomValidator, RuleBuilder};
 pub use schema::{JsonType, SchemaValidator};
 pub use work_order::WorkOrderValidator;
 

@@ -45,3 +45,37 @@ impl Default for BackendHealth {
         }
     }
 }
+
+impl BackendHealth {
+    /// Record a successful health check and update status to [`HealthStatus::Healthy`].
+    pub fn record_success(&mut self, latency_ms: u64) {
+        self.status = HealthStatus::Healthy;
+        self.last_check = Some(Utc::now());
+        self.latency_ms = Some(latency_ms);
+        self.consecutive_failures = 0;
+        self.error_rate = 0.0;
+    }
+
+    /// Record a failed health check, incrementing the consecutive failure count.
+    ///
+    /// Transitions status to [`HealthStatus::Degraded`] on the first failure
+    /// and [`HealthStatus::Unhealthy`] after `unhealthy_threshold` consecutive failures.
+    pub fn record_failure(&mut self, unhealthy_threshold: u32) {
+        self.consecutive_failures += 1;
+        self.last_check = Some(Utc::now());
+        if self.consecutive_failures >= unhealthy_threshold {
+            self.status = HealthStatus::Unhealthy;
+            self.error_rate = 1.0;
+        } else {
+            self.status = HealthStatus::Degraded;
+            self.error_rate = self.consecutive_failures as f64 / unhealthy_threshold as f64;
+        }
+    }
+
+    /// Returns `true` if the backend is considered operational
+    /// ([`HealthStatus::Healthy`] or [`HealthStatus::Degraded`]).
+    #[must_use]
+    pub fn is_operational(&self) -> bool {
+        matches!(self.status, HealthStatus::Healthy | HealthStatus::Degraded)
+    }
+}

@@ -5,12 +5,16 @@ use std::collections::HashMap;
 
 use crate::health::{BackendHealth, HealthStatus};
 use crate::metadata::BackendMetadata;
+use crate::metrics::BackendMetrics;
+use crate::selection::{SelectionStrategy, select_backend};
 
-/// A registry that tracks [`BackendMetadata`] and [`BackendHealth`] by name.
+/// A registry that tracks [`BackendMetadata`], [`BackendHealth`], and
+/// [`BackendMetrics`] by name.
 #[derive(Debug, Default, Clone)]
 pub struct BackendRegistry {
     metadata: HashMap<String, BackendMetadata>,
     health: HashMap<String, BackendHealth>,
+    metrics: HashMap<String, BackendMetrics>,
 }
 
 impl BackendRegistry {
@@ -98,6 +102,71 @@ impl BackendRegistry {
     /// Remove a backend by name, returning its metadata if it existed.
     pub fn remove(&mut self, name: &str) -> Option<BackendMetadata> {
         self.health.remove(name);
+        self.metrics.remove(name);
         self.metadata.remove(name)
+    }
+
+    // ── Metrics ────────────────────────────────────────────────────────
+
+    /// Return the metrics for the named backend.
+    #[must_use]
+    pub fn metrics(&self, name: &str) -> Option<&BackendMetrics> {
+        self.metrics.get(name)
+    }
+
+    /// Return a mutable reference to the metrics for the named backend,
+    /// creating a default entry if none exists.
+    pub fn metrics_mut(&mut self, name: &str) -> &mut BackendMetrics {
+        self.metrics.entry(name.to_string()).or_default()
+    }
+
+    // ── Capability filtering ───────────────────────────────────────────
+
+    /// Return sorted names of backends that support streaming.
+    #[must_use]
+    pub fn by_streaming_support(&self) -> Vec<&str> {
+        let mut out: Vec<&str> = self
+            .metadata
+            .iter()
+            .filter(|(_, m)| m.supports_streaming)
+            .map(|(k, _)| k.as_str())
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// Return sorted names of backends that support tool use.
+    #[must_use]
+    pub fn by_tool_support(&self) -> Vec<&str> {
+        let mut out: Vec<&str> = self
+            .metadata
+            .iter()
+            .filter(|(_, m)| m.supports_tools)
+            .map(|(k, _)| k.as_str())
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// Return sorted names of backends whose health is
+    /// [`HealthStatus::Healthy`] or [`HealthStatus::Degraded`].
+    #[must_use]
+    pub fn operational_backends(&self) -> Vec<&str> {
+        let mut out: Vec<&str> = self
+            .health
+            .iter()
+            .filter(|(_, h)| h.is_operational())
+            .map(|(k, _)| k.as_str())
+            .collect();
+        out.sort();
+        out
+    }
+
+    // ── Selection ──────────────────────────────────────────────────────
+
+    /// Select a backend using the given [`SelectionStrategy`].
+    #[must_use]
+    pub fn select(&self, strategy: &SelectionStrategy) -> Option<String> {
+        select_backend(self, strategy)
     }
 }

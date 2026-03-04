@@ -811,11 +811,11 @@ fn kimi_copilot_unsupported() {
 }
 
 #[test]
-fn kimi_to_claude_unsupported() {
+fn kimi_to_claude_mapped() {
     let pm = ProjectionMatrix::with_defaults();
     assert_eq!(
         pm.lookup(Dialect::Kimi, Dialect::Claude).unwrap().mode,
-        ProjectionMode::Unsupported
+        ProjectionMode::Mapped
     );
 }
 
@@ -831,13 +831,13 @@ fn default_matrix_covers_all_pairs_exhaustive() {
 }
 
 #[test]
-fn default_mapped_count_is_eight() {
+fn default_mapped_count_is_eighteen() {
     let pm = ProjectionMatrix::with_defaults();
     let mapped = pm
         .dialect_entries()
         .filter(|e| e.mode == ProjectionMode::Mapped)
         .count();
-    assert_eq!(mapped, 8);
+    assert_eq!(mapped, 18);
 }
 
 // ── 9. Load balancing — round-robin across equivalent backends ──────────

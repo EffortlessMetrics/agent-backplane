@@ -73,7 +73,6 @@ fn dialect_response_with_text(text: &str) -> GeminiResponse {
             safety_ratings: None,
             citation_metadata: None,
         }],
-        prompt_feedback: None,
         usage_metadata: None,
     }
 }
@@ -335,6 +334,7 @@ fn from_dialect_response_multiple_candidates() {
         ],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let shim_resp = from_dialect_response(&resp);
     assert_eq!(shim_resp.candidates.len(), 2);
@@ -348,8 +348,10 @@ fn response_text_accessor_returns_none_for_non_text() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::function_call("fn", json!({}))]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.text().is_none());
 }
@@ -359,6 +361,7 @@ fn response_text_accessor_empty_candidates() {
     let resp = GenerateContentResponse {
         candidates: vec![],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.text().is_none());
 }
@@ -565,8 +568,10 @@ fn response_function_calls_accessor() {
                 Part::function_call("fn_b", json!({"y": 2})),
             ]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let calls = resp.function_calls();
     assert_eq!(calls.len(), 2);
@@ -581,8 +586,10 @@ fn response_function_calls_empty_when_no_calls() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("no calls")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.function_calls().is_empty());
 }
@@ -592,6 +599,7 @@ fn response_function_calls_empty_candidates() {
     let resp = GenerateContentResponse {
         candidates: vec![],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.function_calls().is_empty());
 }
@@ -892,6 +900,7 @@ fn generation_config_to_dialect_roundtrip() {
         temperature: Some(0.7),
         top_p: Some(0.9),
         top_k: Some(40),
+        candidate_count: None,
         stop_sequences: Some(vec!["END".into(), "STOP".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(json!({"type": "object"})),
@@ -1399,8 +1408,10 @@ fn stream_event_text_accessor() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("hello")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(event.text(), Some("hello"));
 }
@@ -1411,8 +1422,10 @@ fn stream_event_text_accessor_no_text() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::function_call("fn", json!({}))]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(event.text().is_none());
 }
@@ -1422,6 +1435,7 @@ fn stream_event_text_accessor_empty_candidates() {
     let event = StreamEvent {
         candidates: vec![],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(event.text().is_none());
 }
@@ -1756,6 +1770,7 @@ fn candidate_with_finish_reason() {
     let c = Candidate {
         content: Content::model(vec![Part::text("done")]),
         finish_reason: Some("STOP".into()),
+        safety_ratings: None,
     };
     assert_eq!(c.finish_reason.as_deref(), Some("STOP"));
 }
@@ -1765,6 +1780,7 @@ fn candidate_without_finish_reason() {
     let c = Candidate {
         content: Content::model(vec![Part::text("partial")]),
         finish_reason: None,
+        safety_ratings: None,
     };
     assert!(c.finish_reason.is_none());
 }
@@ -1864,6 +1880,7 @@ fn map_response_produces_assistant_message() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 1);

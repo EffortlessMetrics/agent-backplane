@@ -572,7 +572,7 @@ fn mode_counts_partition_all_entries() {
         .count();
     assert_eq!(passthrough + mapped + unsupported, total);
     assert_eq!(passthrough, 6);
-    assert_eq!(mapped, 8);
+    assert_eq!(mapped, 18);
     assert_eq!(total, 36);
 }
 

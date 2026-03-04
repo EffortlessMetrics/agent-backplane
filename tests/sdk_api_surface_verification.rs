@@ -101,6 +101,7 @@ fn openai_response_serde_roundtrip() {
             index: 0,
             message: abp_shim_openai::Message::assistant("Hi there!"),
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         }],
         usage: Some(abp_shim_openai::Usage {
             prompt_tokens: 10,
@@ -134,6 +135,7 @@ fn openai_streaming_event_format() {
                 tool_calls: None,
             },
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage: None,
     };
@@ -867,8 +869,10 @@ fn gemini_response_text_extraction() {
                 "The answer is 42".into(),
             )]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("The answer is 42"));
 }
@@ -882,8 +886,10 @@ fn gemini_response_function_calls_extraction() {
                 abp_shim_gemini::Part::function_call("calc", json!({"expr": "1+1"})),
             ]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let calls = resp.function_calls();
     assert_eq!(calls.len(), 2);
@@ -946,8 +952,10 @@ fn gemini_stream_event_text_extraction() {
                 "delta text".into(),
             )]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(ev.text(), Some("delta text"));
 }
@@ -1088,6 +1096,7 @@ fn cross_sdk_response_text_extraction() {
             index: 0,
             message: abp_shim_openai::Message::assistant(text),
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         }],
         usage: None,
     };
@@ -1125,8 +1134,10 @@ fn cross_sdk_response_text_extraction() {
                 text.into(),
             )]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(gemini_resp.text(), Some(text));
 }
@@ -1215,6 +1226,7 @@ fn cross_sdk_stop_reason_formats() {
         index: 0,
         message: abp_shim_openai::Message::assistant("done"),
         finish_reason: Some("stop".into()),
+        safety_ratings: None,
     };
     assert_eq!(openai_choice.finish_reason.as_deref(), Some("stop"));
 
@@ -1242,6 +1254,7 @@ fn cross_sdk_stop_reason_formats() {
     let gemini_candidate = abp_shim_gemini::Candidate {
         content: abp_shim_gemini::Content::model(vec![abp_shim_gemini::Part::text("done")]),
         finish_reason: Some("STOP".into()),
+        safety_ratings: None,
     };
     assert_eq!(gemini_candidate.finish_reason.as_deref(), Some("STOP"));
 }
@@ -1336,6 +1349,7 @@ fn cross_sdk_streaming_object_types() {
     let gemini_stream = abp_shim_gemini::StreamEvent {
         candidates: vec![],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(gemini_stream.candidates.is_empty());
 }

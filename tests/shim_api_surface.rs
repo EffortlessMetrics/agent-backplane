@@ -595,8 +595,10 @@ mod gemini_shim {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("Hello!")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         assert_eq!(resp.text(), Some("Hello!"));
     }
@@ -615,6 +617,7 @@ mod gemini_shim {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("hey")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: Some(UsageMetadata {
                 prompt_token_count: 10,
@@ -681,8 +684,10 @@ mod gemini_shim {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::function_call("search", json!({"q": "rust"}))]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let calls = resp.function_calls();
         assert_eq!(calls.len(), 1);
@@ -741,8 +746,10 @@ mod gemini_shim {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("hi")]),
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         assert_serialize_deserialize(&se);
     }

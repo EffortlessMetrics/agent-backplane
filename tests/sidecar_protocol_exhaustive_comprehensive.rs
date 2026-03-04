@@ -2056,6 +2056,7 @@ fn envelope_fatal_from_abp_error_builder() {
         message: "bad envelope".into(),
         source: None,
         context: BTreeMap::new(),
+        location: None,
     };
     let env = Envelope::fatal_from_abp_error(Some("r1".into()), &abp_err);
     if let Envelope::Fatal {

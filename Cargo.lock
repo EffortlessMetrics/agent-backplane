@@ -703,6 +703,7 @@ name = "abp-validate"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-dialect",
  "abp-protocol",
  "chrono",
  "serde",

@@ -13,6 +13,7 @@ readme = "README.md"
 
 [dependencies]
 abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
 abp-protocol = { path = "../abp-protocol", version = "0.1.0" }
 serde_json.workspace = true
 thiserror.workspace = true

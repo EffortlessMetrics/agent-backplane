@@ -243,6 +243,7 @@ mod openai {
             tools: None,
             tool_choice: None,
             stream: None,
+            stream_options: None,
             top_p: None,
             frequency_penalty: None,
             presence_penalty: None,
@@ -251,6 +252,8 @@ mod openai {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.task, "Hello world");
@@ -273,6 +276,7 @@ mod openai {
             tools: None,
             tool_choice: None,
             stream: None,
+            stream_options: None,
             top_p: None,
             frequency_penalty: None,
             presence_penalty: None,
@@ -281,6 +285,8 @@ mod openai {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.task, "second");
@@ -303,6 +309,7 @@ mod openai {
             tools: None,
             tool_choice: None,
             stream: None,
+            stream_options: None,
             top_p: None,
             frequency_penalty: None,
             presence_penalty: None,
@@ -311,6 +318,8 @@ mod openai {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let wo: WorkOrder = req.into();
         assert!(!wo.context.snippets.is_empty());
@@ -329,6 +338,7 @@ mod openai {
             tools: None,
             tool_choice: None,
             stream: None,
+            stream_options: None,
             top_p: None,
             frequency_penalty: None,
             presence_penalty: None,
@@ -337,6 +347,8 @@ mod openai {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.config.model.as_deref(), Some("gpt-4-turbo"));
@@ -354,6 +366,7 @@ mod openai {
             tools: None,
             tool_choice: None,
             stream: None,
+            stream_options: None,
             top_p: None,
             frequency_penalty: None,
             presence_penalty: None,
@@ -362,6 +375,8 @@ mod openai {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.task, "");
@@ -494,6 +509,7 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage: None,
         };
@@ -520,6 +536,7 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage: None,
         };
@@ -874,6 +891,8 @@ mod claude {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.task, "Hello Claude");
@@ -896,6 +915,8 @@ mod claude {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         // System prompt stored in vendor config, not snippets
@@ -920,6 +941,8 @@ mod claude {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.config.model.as_deref(), Some("claude-opus-4-20250514"));

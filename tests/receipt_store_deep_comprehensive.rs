@@ -1921,6 +1921,7 @@ fn receipt_filter_clone() {
     let f = ReceiptFilter {
         backend: Some("test".into()),
         outcome: Some(Outcome::Complete),
+        work_order_id: None,
         limit: Some(10),
         offset: Some(5),
         time_range: Some((ts(0), ts(100))),

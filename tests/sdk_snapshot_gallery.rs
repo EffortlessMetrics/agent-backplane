@@ -91,8 +91,10 @@ mod openai {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         insta::assert_json_snapshot!("openai_request_minimal", req);
     }
@@ -118,8 +120,10 @@ mod openai {
             top_p: None,
             max_tokens: Some(512),
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         insta::assert_json_snapshot!("openai_request_multimodal", req);
     }
@@ -149,8 +153,10 @@ mod openai {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         insta::assert_json_snapshot!("openai_request_tool_result", req);
     }
@@ -170,6 +176,7 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
+                safety_ratings: None,
             }],
             usage: Some(Usage {
                 prompt_tokens: 25,
@@ -202,6 +209,7 @@ mod openai {
                     }]),
                 },
                 finish_reason: Some("tool_calls".into()),
+                safety_ratings: None,
             }],
             usage: Some(Usage {
                 prompt_tokens: 50,
@@ -227,6 +235,7 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: None,
+                safety_ratings: None,
             }],
         };
         insta::assert_json_snapshot!("openai_stream_chunk_text", chunk);
@@ -255,6 +264,7 @@ mod openai {
                     }]),
                 },
                 finish_reason: None,
+                safety_ratings: None,
             }],
         };
         insta::assert_json_snapshot!("openai_stream_chunk_tool_call", chunk);
@@ -271,6 +281,7 @@ mod openai {
                 index: 0,
                 delta: StreamDelta::default(),
                 finish_reason: Some("stop".into()),
+                safety_ratings: None,
             }],
         };
         insta::assert_json_snapshot!("openai_stream_chunk_finish", chunk);
@@ -344,8 +355,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         insta::assert_json_snapshot!("claude_request_minimal", req);
     }
@@ -374,8 +387,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         insta::assert_json_snapshot!("claude_request_content_blocks", req);
     }
@@ -398,6 +413,7 @@ mod claude {
                     content: ClaudeContent::Blocks(vec![ContentBlock::ToolResult {
                         tool_use_id: "toolu_01A".into(),
                         content: "4".into(),
+                        is_error: None,
                     }]),
                 },
             ],
@@ -407,8 +423,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         insta::assert_json_snapshot!("claude_request_tool_result", req);
     }
@@ -798,8 +816,10 @@ mod codex {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         insta::assert_json_snapshot!("codex_request_minimal", req);
     }
@@ -819,6 +839,7 @@ mod codex {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
+                safety_ratings: None,
             }],
             usage: Some(CodexUsage {
                 prompt_tokens: 120,
@@ -851,6 +872,7 @@ mod codex {
                     }]),
                 },
                 finish_reason: Some("tool_calls".into()),
+                safety_ratings: None,
             }],
             usage: Some(CodexUsage {
                 prompt_tokens: 80,
@@ -922,6 +944,7 @@ mod codex {
                     tool_calls: None,
                 },
                 finish_reason: None,
+                safety_ratings: None,
             }],
         };
         insta::assert_json_snapshot!("codex_stream_chunk_text", chunk);
@@ -996,6 +1019,7 @@ mod kimi {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
             use_search: None,
@@ -1019,6 +1043,7 @@ mod kimi {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
+                safety_ratings: None,
             }],
             usage: Some(KimiUsage {
                 prompt_tokens: 60,
@@ -1052,6 +1077,7 @@ mod kimi {
                     }]),
                 },
                 finish_reason: Some("tool_calls".into()),
+                safety_ratings: None,
             }],
             usage: Some(KimiUsage {
                 prompt_tokens: 40,
@@ -1078,6 +1104,7 @@ mod kimi {
                     tool_calls: None,
                 },
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage: None,
         };
@@ -1095,6 +1122,7 @@ mod kimi {
                 index: 0,
                 delta: StreamDelta::default(),
                 finish_reason: Some("stop".into()),
+                safety_ratings: None,
             }],
             usage: Some(KimiUsage {
                 prompt_tokens: 60,
@@ -1202,6 +1230,7 @@ mod copilot {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
             intent: None,
@@ -1225,6 +1254,7 @@ mod copilot {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
+                safety_ratings: None,
             }],
             usage: Some(CopilotUsage {
                 prompt_tokens: 200,
@@ -1258,6 +1288,7 @@ mod copilot {
                     }]),
                 },
                 finish_reason: Some("tool_calls".into()),
+                safety_ratings: None,
             }],
             usage: Some(CopilotUsage {
                 prompt_tokens: 100,
@@ -1284,6 +1315,7 @@ mod copilot {
                     tool_calls: None,
                 },
                 finish_reason: None,
+                safety_ratings: None,
             }],
         };
         insta::assert_json_snapshot!("copilot_stream_chunk_text", chunk);
@@ -1312,6 +1344,7 @@ mod copilot {
                     }]),
                 },
                 finish_reason: None,
+                safety_ratings: None,
             }],
         };
         insta::assert_json_snapshot!("copilot_stream_chunk_tool_call", chunk);

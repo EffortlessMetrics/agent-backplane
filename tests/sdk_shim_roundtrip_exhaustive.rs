@@ -412,8 +412,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         }
     }
 
@@ -578,8 +580,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert!(wo.task.contains("こんにちは"));
@@ -656,6 +660,7 @@ mod gemini {
             temperature: Some(0.7),
             top_p: Some(0.9),
             top_k: Some(40),
+            candidate_count: None,
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: Some("application/json".into()),
             response_schema: Some(json!({"type": "object"})),
@@ -1143,6 +1148,7 @@ mod kimi {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
+                safety_ratings: None,
             }],
             usage: None,
             refs: None,
@@ -1926,6 +1932,7 @@ mod field_preservation {
             temperature: Some(0.8),
             top_p: Some(0.95),
             top_k: Some(50),
+            candidate_count: None,
             stop_sequences: Some(vec!["STOP".into(), "END".into()]),
             response_mime_type: Some("text/plain".into()),
             response_schema: Some(json!({"type": "string"})),
@@ -1956,12 +1963,14 @@ mod field_preservation {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: Some(vec![ClaudeTool {
                 name: "calculator".into(),
                 description: Some("Does math".into()),
                 input_schema: json!({"type": "object"}),
             }]),
             tool_choice: None,
+            thinking: None,
         };
         let wo = abp_shim_claude::convert::to_work_order(&req);
         assert!(wo.config.vendor.contains_key("tools"));

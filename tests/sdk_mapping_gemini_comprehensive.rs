@@ -92,6 +92,7 @@ fn make_response(parts: Vec<GeminiPart>, finish_reason: Option<&str>) -> GeminiR
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     }
 }
 
@@ -658,6 +659,7 @@ mod function_call_mapping {
             }],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let events = dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
@@ -1396,6 +1398,7 @@ mod multi_modal_content {
             }],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let events = dialect::map_response(&resp);
         assert!(events.is_empty());
@@ -1452,6 +1455,7 @@ mod candidate_selection {
             ],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let events = dialect::map_response(&resp);
         assert_eq!(events.len(), 3);
@@ -1476,6 +1480,7 @@ mod candidate_selection {
             ],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(shim_resp.candidates.len(), 2);
@@ -1488,13 +1493,16 @@ mod candidate_selection {
                 Candidate {
                     content: Content::model(vec![Part::text("first")]),
                     finish_reason: Some("STOP".into()),
+                    safety_ratings: None,
                 },
                 Candidate {
                     content: Content::model(vec![Part::text("second")]),
                     finish_reason: Some("STOP".into()),
+                    safety_ratings: None,
                 },
             ],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         assert_eq!(resp.text().unwrap(), "first");
     }
@@ -1504,6 +1512,7 @@ mod candidate_selection {
         let resp = GenerateContentResponse {
             candidates: vec![],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         assert!(resp.text().is_none());
     }
@@ -1518,13 +1527,16 @@ mod candidate_selection {
                         Part::function_call("fn_b", json!({})),
                     ]),
                     finish_reason: None,
+                    safety_ratings: None,
                 },
                 Candidate {
                     content: Content::model(vec![Part::function_call("fn_c", json!({}))]),
                     finish_reason: None,
+                    safety_ratings: None,
                 },
             ],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let calls = resp.function_calls();
         assert_eq!(calls.len(), 2);
@@ -1543,6 +1555,7 @@ mod candidate_selection {
             }],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(
@@ -1562,6 +1575,7 @@ mod candidate_selection {
             }],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert!(shim_resp.candidates[0].finish_reason.is_none());
@@ -1724,6 +1738,7 @@ mod finish_reason_mapping {
             }],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(
@@ -1746,6 +1761,7 @@ mod finish_reason_mapping {
             }],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(
@@ -1772,6 +1788,7 @@ mod finish_reason_mapping {
             }],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(
@@ -1798,6 +1815,7 @@ mod finish_reason_mapping {
             }],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(

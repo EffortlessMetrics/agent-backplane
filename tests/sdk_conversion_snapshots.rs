@@ -352,6 +352,7 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: Some(vec![ClaudeTool {
                 name: "get_weather".into(),
                 description: Some("Get current weather for a location".into()),
@@ -364,6 +365,7 @@ mod claude {
                 }),
             }]),
             tool_choice: Some(ClaudeToolChoice::Auto {}),
+            thinking: None,
         }
     }
 
@@ -380,8 +382,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         }
     }
 

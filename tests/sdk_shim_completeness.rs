@@ -567,6 +567,7 @@ fn gemini_generation_config() {
             temperature: Some(0.7),
             top_p: Some(0.9),
             top_k: Some(40),
+            candidate_count: None,
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: None,
             response_schema: None,
@@ -606,6 +607,7 @@ fn gemini_from_dialect_response() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
 
     let resp = from_dialect_response(&dialect_resp);

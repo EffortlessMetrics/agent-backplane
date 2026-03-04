@@ -11,6 +11,9 @@
 //! for *implementing* a sidecar that speaks the JSONL protocol over
 //! stdin/stdout.
 
+pub mod negotiation;
+pub mod state_machine;
+
 use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use async_trait::async_trait;

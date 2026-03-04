@@ -114,6 +114,45 @@ impl ValidationErrors {
         if self.is_empty() { Ok(()) } else { Err(self) }
     }
 
+    /// Merge all errors from `other` into this collection.
+    pub fn merge(&mut self, other: ValidationErrors) {
+        self.errors.extend(other.errors);
+    }
+
+    /// Filter errors to only those matching the given `kind`.
+    #[must_use]
+    pub fn filter_by_kind(&self, kind: &ValidationErrorKind) -> Vec<&ValidationError> {
+        self.errors.iter().filter(|e| &e.kind == kind).collect()
+    }
+
+    /// Filter errors to those whose path starts with the given prefix.
+    #[must_use]
+    pub fn filter_by_path_prefix(&self, prefix: &str) -> Vec<&ValidationError> {
+        self.errors
+            .iter()
+            .filter(|e| e.path.starts_with(prefix))
+            .collect()
+    }
+
+    /// Format errors as a multi-line report, one error per line.
+    #[must_use]
+    pub fn format_report(&self) -> String {
+        if self.errors.is_empty() {
+            return "No validation errors.".to_string();
+        }
+        let mut out = format!("{} validation error(s):\n", self.errors.len());
+        for (i, e) in self.errors.iter().enumerate() {
+            out.push_str(&format!(
+                "  {}. [{}] ({}) {}\n",
+                i + 1,
+                e.path,
+                e.kind,
+                e.message
+            ));
+        }
+        out
+    }
+
     fn summary(&self) -> String {
         self.errors
             .iter()

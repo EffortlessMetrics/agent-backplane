@@ -497,8 +497,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert_eq!(wo.task, "Explain monads");
@@ -516,8 +518,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert_eq!(wo.task, "You are helpful");
@@ -534,8 +538,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert_eq!(wo.task, "Claude shim request");
@@ -555,8 +561,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         let temp = wo.config.vendor.get("temperature").and_then(|v| v.as_f64());
@@ -577,8 +585,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         let max = wo.config.vendor.get("max_tokens").and_then(|v| v.as_u64());
@@ -606,8 +616,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&wo_req);
         let resp = convert::from_receipt(&receipt, &wo);
@@ -635,8 +647,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&wo_req);
         let resp = convert::from_receipt(&receipt, &wo);
@@ -667,8 +681,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&wo_req);
         let resp = convert::from_receipt(&receipt, &wo);
@@ -694,8 +710,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&wo_req);
         let resp = convert::from_receipt(&receipt, &wo);
@@ -1775,8 +1793,10 @@ mod cross_shim {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let _wo = abp_shim_claude::convert::to_work_order(&claude_req);
 
@@ -1886,8 +1906,10 @@ mod work_order_validity {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = abp_shim_claude::convert::to_work_order(&req);
         assert_valid_work_order(&wo);
@@ -1988,8 +2010,10 @@ mod receipt_consumption {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = abp_shim_claude::convert::to_work_order(&wo_req);
         let resp = abp_shim_claude::convert::from_receipt(&receipt, &wo);

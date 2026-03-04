@@ -848,8 +848,10 @@ mod gemini {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("hello world")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         assert_eq!(resp.text(), Some("hello world"));
     }
@@ -860,8 +862,10 @@ mod gemini {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::function_call("search", json!({"q": "test"}))]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let fcs = resp.function_calls();
         assert_eq!(fcs.len(), 1);

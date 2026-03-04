@@ -156,8 +156,10 @@ mod openai {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         }
     }
 
@@ -198,6 +200,7 @@ mod openai {
             stream: Some(true),
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert_eq!(wo.task, "Hi");
@@ -218,6 +221,7 @@ mod openai {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: Some(vec![Tool {
                 tool_type: "function".into(),
                 function: FunctionDef {
@@ -227,6 +231,7 @@ mod openai {
                 },
             }]),
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert!(wo.config.vendor.contains_key("tools"));
@@ -342,8 +347,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         }
     }
 
@@ -380,8 +387,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert_eq!(
@@ -401,8 +410,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert_eq!(wo.task, "System prompt as task");
@@ -514,6 +525,7 @@ mod gemini {
             temperature: Some(0.5),
             top_p: Some(0.95),
             top_k: Some(40),
+            candidate_count: None,
             stop_sequences: None,
             response_mime_type: None,
             response_schema: None,
@@ -874,8 +886,10 @@ mod cross_sdk {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = openai_convert::to_work_order(&req);
         assert_eq!(wo.task, "Translate me");
@@ -905,8 +919,10 @@ mod cross_sdk {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = claude_convert::to_work_order(&req);
         assert_eq!(wo.task, "Cross SDK test");
@@ -931,8 +947,10 @@ mod cross_sdk {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = openai_convert::to_work_order(&req);
 
@@ -1041,6 +1059,7 @@ mod tool_calls {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: Some(vec![
                 Tool {
                     tool_type: "function".into(),
@@ -1060,6 +1079,7 @@ mod tool_calls {
                 },
             ]),
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         let tools = wo.config.vendor.get("tools").unwrap();
@@ -1084,12 +1104,14 @@ mod tool_calls {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: Some(vec![ClaudeTool {
                 name: "calculator".into(),
                 description: Some("Math".into()),
                 input_schema: json!({"type": "object"}),
             }]),
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert!(wo.config.vendor.contains_key("tools"));
@@ -1177,8 +1199,10 @@ mod system_messages {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert_eq!(
@@ -1206,8 +1230,10 @@ mod system_messages {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         // Task should come from the user message, not system
@@ -1258,8 +1284,10 @@ mod edge_cases {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert_eq!(wo.task, "chat completion");
@@ -1279,8 +1307,10 @@ mod edge_cases {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert_eq!(wo.task, "Claude shim request");
@@ -1300,8 +1330,10 @@ mod edge_cases {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = openai_convert::to_work_order(&req);
         let receipt = mock_receipt(vec![]);
@@ -1351,8 +1383,10 @@ mod edge_cases {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert!(!wo.config.vendor.contains_key("tools"));
@@ -1372,8 +1406,10 @@ mod edge_cases {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         let receipt = mock_receipt(vec![
@@ -1410,8 +1446,10 @@ mod edge_cases {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         assert_eq!(wo.task, "Block 1 Block 2");
@@ -1431,8 +1469,10 @@ mod edge_cases {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         let receipt = mock_receipt(vec![delta_event("Hello "), delta_event("World")]);

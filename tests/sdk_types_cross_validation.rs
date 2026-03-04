@@ -254,6 +254,7 @@ fn response_types_for_each_sdk_are_complete() {
                 tool_call_id: None,
             },
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         }],
         usage: Some(OpenAiUsage {
             prompt_tokens: 10,
@@ -297,6 +298,7 @@ fn response_types_for_each_sdk_are_complete() {
                 parts: vec![GeminiPart::Text("hi".into())],
             },
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: Some(GeminiUsageMetadata {
             prompt_token_count: 10,
@@ -345,6 +347,7 @@ fn response_types_for_each_sdk_are_complete() {
                 tool_calls: None,
             },
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         }],
         usage: Some(KimiUsage {
             prompt_tokens: 10,
@@ -452,6 +455,7 @@ fn streaming_types_for_each_sdk_exist() {
             index: 0,
             delta: OpenAiStreamDelta::default(),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage: None,
     };
@@ -476,6 +480,7 @@ fn streaming_types_for_each_sdk_exist() {
             index: 0,
             delta: KimiChunkDelta::default(),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage: None,
         refs: None,

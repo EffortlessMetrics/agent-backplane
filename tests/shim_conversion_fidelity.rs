@@ -1207,8 +1207,10 @@ fn gemini_response_text_extraction() {
                 "Hello from Gemini!",
             )]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("Hello from Gemini!"));
 }
@@ -1226,8 +1228,10 @@ fn gemini_response_function_calls_extraction() {
                 json!({"q": "rust"}),
             )]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let fcs = resp.function_calls();
     assert_eq!(fcs.len(), 1);

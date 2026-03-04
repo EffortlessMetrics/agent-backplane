@@ -154,6 +154,9 @@ fn openai_simple_request(task: &str) -> ChatCompletionRequest {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     }
 }
 
@@ -173,6 +176,8 @@ fn claude_simple_request(task: &str) -> MessagesRequest {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     }
 }
 
@@ -279,6 +284,9 @@ fn openai_with_system_prompt_roundtrip() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.task, "Explain Rust");
@@ -331,6 +339,9 @@ fn openai_with_tools_roundtrip() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.task, "Search for Rust");
@@ -382,6 +393,9 @@ fn openai_multi_turn_roundtrip() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     // Last user message becomes the task
@@ -418,6 +432,9 @@ fn openai_streaming_config_roundtrip() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.task, "Stream this");
@@ -466,6 +483,8 @@ fn claude_with_system_prompt_roundtrip() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.task, "Explain traits");
@@ -504,6 +523,8 @@ fn claude_with_tools_roundtrip() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
     assert!(wo.config.vendor.contains_key("tools"));
@@ -558,6 +579,8 @@ fn claude_multi_turn_roundtrip() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
     assert!(wo.task.contains("Tell me more"));
@@ -618,6 +641,8 @@ fn claude_content_blocks_roundtrip() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
     assert!(wo.task.contains("Look at this"));
@@ -826,6 +851,9 @@ fn openai_request_with_tools_to_claude_response() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
 
@@ -880,6 +908,9 @@ fn openai_multi_system_to_claude_response() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.context.snippets.len(), 2);
@@ -937,6 +968,8 @@ fn claude_request_with_tools_to_openai_response() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
 
@@ -975,6 +1008,8 @@ fn claude_with_system_to_openai_response() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
     assert!(wo.config.vendor.contains_key("system"));
@@ -1036,6 +1071,9 @@ fn openai_request_with_tools_to_gemini_response() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
 
@@ -1205,6 +1243,8 @@ fn claude_request_with_tools_to_gemini_response() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
 
@@ -1647,6 +1687,9 @@ fn tool_definitions_roundtrip_through_vendor_map() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.task, "Search");
@@ -1780,6 +1823,9 @@ fn openai_response_format_no_claude_equivalent() {
         n: None,
         seed: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.task, "JSON please");
@@ -1942,6 +1988,9 @@ fn openai_frequency_penalty_not_in_work_order() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.task, "Penalty test");
@@ -2050,6 +2099,8 @@ fn claude_metadata_preserved_in_work_order() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
     assert!(wo.config.vendor.contains_key("metadata"));
@@ -2077,6 +2128,9 @@ fn empty_messages_openai() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert!(wo.task.is_empty());
@@ -2096,6 +2150,8 @@ fn empty_messages_claude() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
     assert!(wo.task.is_empty());
@@ -2136,6 +2192,9 @@ fn empty_tools_list_openai() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.task, "No tools");
@@ -2161,6 +2220,9 @@ fn none_tools_openai() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.task, "None tools");
@@ -2749,6 +2811,8 @@ fn claude_system_blocks_roundtrip() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
     // System blocks get joined in vendor map
@@ -2862,6 +2926,9 @@ fn work_order_preserves_model_openai() {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
+        stream_options: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.config.model.as_deref(), Some("gpt-4o-mini"));
@@ -2884,6 +2951,8 @@ fn work_order_preserves_model_claude() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.config.model.as_deref(), Some("claude-opus-4-20250514"));

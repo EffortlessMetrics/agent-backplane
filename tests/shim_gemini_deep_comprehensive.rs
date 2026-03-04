@@ -91,6 +91,7 @@ fn dialect_text_response(text: &str) -> GeminiResponse {
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     }
 }
 
@@ -231,6 +232,7 @@ fn request_serde_roundtrip_full() {
             temperature: Some(0.5),
             top_p: Some(0.8),
             top_k: Some(20),
+            candidate_count: None,
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: Some("application/json".into()),
             response_schema: Some(json!({"type": "string"})),
@@ -257,8 +259,10 @@ fn response_text_accessor_returns_first_text() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("hello")]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("hello"));
 }
@@ -272,8 +276,10 @@ fn response_text_accessor_skips_non_text() {
                 Part::text("after"),
             ]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("after"));
 }
@@ -283,6 +289,7 @@ fn response_text_accessor_returns_none_on_empty() {
     let resp = GenerateContentResponse {
         candidates: vec![],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.text().is_none());
 }
@@ -297,8 +304,10 @@ fn response_function_calls_accessor() {
                 Part::function_call("b", json!({"y": 2})),
             ]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let calls = resp.function_calls();
     assert_eq!(calls.len(), 2);
@@ -311,6 +320,7 @@ fn response_function_calls_empty_when_no_candidates() {
     let resp = GenerateContentResponse {
         candidates: vec![],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.function_calls().is_empty());
 }
@@ -321,12 +331,14 @@ fn response_serde_roundtrip() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("hello")]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: Some(UsageMetadata {
             prompt_token_count: 5,
             candidates_token_count: 3,
             total_token_count: 8,
         }),
+        prompt_feedback: None,
     };
     let json = serde_json::to_string(&resp).unwrap();
     let back: GenerateContentResponse = serde_json::from_str(&json).unwrap();
@@ -341,13 +353,16 @@ fn response_with_multiple_candidates() {
             Candidate {
                 content: Content::model(vec![Part::text("opt1")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             },
             Candidate {
                 content: Content::model(vec![Part::text("opt2")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             },
         ],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("opt1"));
     assert_eq!(resp.candidates.len(), 2);
@@ -484,8 +499,10 @@ fn stream_event_text_accessor() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("delta")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(event.text(), Some("delta"));
 }
@@ -496,8 +513,10 @@ fn stream_event_text_returns_none_for_no_text() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::function_call("f", json!({}))]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(event.text().is_none());
 }
@@ -507,6 +526,7 @@ fn stream_event_text_returns_none_for_empty_candidates() {
     let event = StreamEvent {
         candidates: vec![],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(event.text().is_none());
 }
@@ -568,6 +588,7 @@ fn stream_event_serde_roundtrip() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("chunk")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: Some(UsageMetadata {
             prompt_token_count: 1,
@@ -668,6 +689,7 @@ fn from_dialect_response_preserves_finish_reason() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let shim_resp = from_dialect_response(&resp);
     assert_eq!(
@@ -693,6 +715,7 @@ fn from_dialect_response_function_call() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let shim_resp = from_dialect_response(&resp);
     let calls = shim_resp.function_calls();
@@ -1519,6 +1542,7 @@ fn generation_config_all_fields_roundtrip() {
         temperature: Some(0.7),
         top_p: Some(0.95),
         top_k: Some(40),
+        candidate_count: None,
         stop_sequences: Some(vec!["DONE".into(), "END".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(json!({"type": "object", "properties": {"x": {"type": "number"}}})),
@@ -1543,6 +1567,7 @@ fn gen_config_dialect_roundtrip() {
         temperature: Some(1.0),
         top_p: Some(0.8),
         top_k: Some(10),
+        candidate_count: None,
         stop_sequences: Some(vec!["STOP".into()]),
         response_mime_type: Some("text/plain".into()),
         response_schema: None,
@@ -1622,6 +1647,7 @@ fn candidate_with_text_content() {
     let candidate = Candidate {
         content: Content::model(vec![Part::text("Generated text")]),
         finish_reason: Some("STOP".into()),
+        safety_ratings: None,
     };
     assert_eq!(candidate.finish_reason.as_deref(), Some("STOP"));
     match &candidate.content.parts[0] {
@@ -1635,6 +1661,7 @@ fn candidate_with_no_finish_reason() {
     let candidate = Candidate {
         content: Content::model(vec![Part::text("partial")]),
         finish_reason: None,
+        safety_ratings: None,
     };
     assert!(candidate.finish_reason.is_none());
 }
@@ -1644,6 +1671,7 @@ fn candidate_with_function_call_content() {
     let candidate = Candidate {
         content: Content::model(vec![Part::function_call("get_time", json!({"tz": "UTC"}))]),
         finish_reason: Some("STOP".into()),
+        safety_ratings: None,
     };
     match &candidate.content.parts[0] {
         Part::FunctionCall { name, args } => {
@@ -1663,6 +1691,7 @@ fn candidate_with_mixed_content() {
             Part::text("Done."),
         ]),
         finish_reason: Some("STOP".into()),
+        safety_ratings: None,
     };
     assert_eq!(candidate.content.parts.len(), 3);
 }
@@ -1893,6 +1922,7 @@ fn from_dialect_response_multiple_candidates() {
         ],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let shim_resp = from_dialect_response(&resp);
     assert_eq!(shim_resp.candidates.len(), 2);
@@ -1915,6 +1945,7 @@ fn from_dialect_response_inline_data() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let shim_resp = from_dialect_response(&resp);
     match &shim_resp.candidates[0].content.parts[0] {
@@ -2022,6 +2053,7 @@ fn map_response_function_call() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 1);
@@ -2048,6 +2080,7 @@ fn map_response_function_response() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 1);
@@ -2074,6 +2107,7 @@ fn map_response_inline_data_ignored() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let events = dialect::map_response(&resp);
     assert!(events.is_empty());
@@ -2143,6 +2177,7 @@ fn map_response_multiple_parts() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 2);

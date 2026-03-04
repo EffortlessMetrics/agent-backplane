@@ -616,6 +616,7 @@ mod gemini {
                 temperature: Some(0.5),
                 top_p: None,
                 top_k: None,
+                candidate_count: None,
                 stop_sequences: None,
                 response_mime_type: None,
                 response_schema: None,
@@ -707,6 +708,7 @@ mod gemini {
             }],
             prompt_feedback: None,
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(shim_resp.candidates.len(), 1);

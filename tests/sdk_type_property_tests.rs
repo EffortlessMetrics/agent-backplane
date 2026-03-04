@@ -261,6 +261,7 @@ fn arb_openai_choice() -> impl Strategy<Value = Choice> {
             index,
             message,
             finish_reason: fr,
+            safety_ratings: None,
         }
     })
 }
@@ -309,6 +310,7 @@ fn arb_stream_choice() -> impl Strategy<Value = StreamChoice> {
             index,
             delta,
             finish_reason: fr,
+            safety_ratings: None,
         })
 }
 
@@ -710,6 +712,7 @@ fn arb_codex_choice() -> impl Strategy<Value = CodexChoice> {
                 tool_calls,
             },
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         })
 }
 
@@ -864,6 +867,7 @@ fn arb_kimi_choice() -> impl Strategy<Value = KimiChoice> {
                 tool_calls,
             },
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         })
 }
 
@@ -1001,6 +1005,7 @@ fn arb_copilot_choice() -> impl Strategy<Value = CopilotChatChoice> {
                 tool_calls,
             },
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         })
 }
 

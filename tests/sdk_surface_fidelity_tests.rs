@@ -168,6 +168,7 @@ mod openai {
         let e = abp_shim_openai::client::ClientError::Api {
             status: 429,
             body: "rate limited".into(),
+            parsed: None,
         };
         assert!(e.to_string().contains("429"));
     }
@@ -594,6 +595,7 @@ mod gemini {
                 temperature: Some(0.5),
                 top_p: Some(0.9),
                 top_k: Some(40),
+                candidate_count: None,
                 stop_sequences: None,
                 response_mime_type: None,
                 response_schema: None,
@@ -638,8 +640,10 @@ mod gemini {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("Hello!")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         assert_eq!(resp.text(), Some("Hello!"));
     }
@@ -653,8 +657,10 @@ mod gemini {
                     json!({"city": "NYC"}),
                 )]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let calls = resp.function_calls();
         assert_eq!(calls.len(), 1);
@@ -669,8 +675,10 @@ mod gemini {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("chunk")]),
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         assert_eq!(se.text(), Some("chunk"));
     }

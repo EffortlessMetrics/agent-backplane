@@ -2,7 +2,7 @@
 
 //! Per-dialect capability descriptors for capability-aware mapping.
 //!
-//! [`DialectCapabilities`] describes the feature surface of each agent-SDK
+//! `DialectCapabilities` describes the feature surface of each agent-SDK
 //! dialect. Mappers use this to decide whether a feature can be mapped
 //! directly, needs emulation, or must fail with a clear error.
 

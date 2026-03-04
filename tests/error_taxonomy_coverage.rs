@@ -892,6 +892,8 @@ fn dto_serde_roundtrip_all_codes() {
             message: format!("msg for {}", code.as_str()),
             context: BTreeMap::new(),
             source_message: None,
+            location: None,
+            cause_chain: Vec::new(),
         };
         let json = serde_json::to_string(&dto).unwrap();
         let back: AbpErrorDto = serde_json::from_str(&json).unwrap();

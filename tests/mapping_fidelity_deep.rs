@@ -735,6 +735,7 @@ mod stop_reason_mapping {
         let candidate = abp_shim_gemini::Candidate {
             content: abp_shim_gemini::Content::model(vec![abp_shim_gemini::Part::text("Done")]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         };
         assert_eq!(candidate.finish_reason.as_deref(), Some("STOP"));
     }

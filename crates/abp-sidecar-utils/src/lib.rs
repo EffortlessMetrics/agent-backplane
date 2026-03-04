@@ -13,15 +13,25 @@
 //!   detects out-of-order events, produces typed event streams.
 //! - [`health::ProtocolHealth`] — Heartbeat, timeout detection, and graceful
 //!   shutdown signaling.
+//! - [`process::SidecarProcess`] — Process management helpers for sidecar
+//!   child processes.
+//! - [`stdio::StdioPipes`] — Stdio pipe setup and buffered I/O wrappers.
+//! - [`timeout::TimeoutManager`] — Per-phase timeout management for the
+//!   sidecar protocol lifecycle.
+//! - [`discovery::SidecarRegistry`] — Sidecar discovery and registration.
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
 pub mod codec;
+pub mod discovery;
 pub mod event_stream;
 pub mod frame;
 pub mod handshake;
 pub mod health;
+pub mod process;
+pub mod stdio;
 pub mod testing;
+pub mod timeout;
 pub mod validate;
 
 // Re-export the most commonly used items for convenience.

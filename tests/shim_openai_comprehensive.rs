@@ -943,6 +943,7 @@ fn map_chunk_text_delta() {
                 tool_calls: None,
             },
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage: None,
     };
@@ -970,6 +971,7 @@ fn map_chunk_empty_content_no_event() {
                 tool_calls: None,
             },
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage: None,
     };
@@ -1571,6 +1573,7 @@ fn response_serialization_roundtrip() {
             index: 0,
             message: Message::assistant("Hello!"),
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         }],
         usage: Some(Usage {
             prompt_tokens: 10,
@@ -1715,6 +1718,7 @@ fn sdk_dialect_map_response_assistant_message() {
                 tool_call_id: None,
             },
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         }],
         usage: None,
     };
@@ -1748,6 +1752,7 @@ fn sdk_dialect_map_response_tool_call() {
                 tool_call_id: None,
             },
             finish_reason: Some("tool_calls".into()),
+            safety_ratings: None,
         }],
         usage: None,
     };
@@ -1787,6 +1792,7 @@ fn sdk_dialect_map_response_empty_content() {
                 tool_call_id: None,
             },
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         }],
         usage: None,
     };
@@ -1917,6 +1923,7 @@ fn stream_event_serde_roundtrip() {
                 tool_calls: None,
             },
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage: None,
     };

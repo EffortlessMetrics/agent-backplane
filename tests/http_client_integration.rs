@@ -55,8 +55,10 @@ mod openai {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         }
     }
 
@@ -179,7 +181,7 @@ mod openai {
         let client = make_client(&server.uri(), "sk-test");
         let err = client.chat_completion(&sample_request()).await.unwrap_err();
         match err {
-            abp_shim_openai::client::ClientError::Api { status, body } => {
+            abp_shim_openai::client::ClientError::Api { status, body, .. } => {
                 assert_eq!(status, 400);
                 assert!(body.contains("invalid request"));
             }
@@ -218,7 +220,7 @@ mod openai {
         let client = make_client(&server.uri(), "sk-test");
         let err = client.chat_completion(&sample_request()).await.unwrap_err();
         match err {
-            abp_shim_openai::client::ClientError::Api { status, body } => {
+            abp_shim_openai::client::ClientError::Api { status, body, .. } => {
                 assert_eq!(status, 429);
                 assert!(body.contains("rate limited"));
             }
@@ -238,7 +240,7 @@ mod openai {
         let client = make_client(&server.uri(), "sk-test");
         let err = client.chat_completion(&sample_request()).await.unwrap_err();
         match err {
-            abp_shim_openai::client::ClientError::Api { status, body } => {
+            abp_shim_openai::client::ClientError::Api { status, body, .. } => {
                 assert_eq!(status, 500);
                 assert!(body.contains("internal server error"));
             }
@@ -323,8 +325,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         }
     }
 
@@ -1303,6 +1307,7 @@ mod kimi {
             max_tokens: Some(1024),
             temperature: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             use_search: None,
         }
@@ -1546,8 +1551,10 @@ mod timeout {
             top_p: None,
             max_tokens: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         }
     }
 

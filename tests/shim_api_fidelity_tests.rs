@@ -766,8 +766,10 @@ mod gemini {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("Hello!")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         assert_eq!(resp.text(), Some("Hello!"));
     }
@@ -781,8 +783,10 @@ mod gemini {
                     Part::function_call("fn_b", json!({"y": 2})),
                 ]),
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let calls = resp.function_calls();
         assert_eq!(calls.len(), 2);

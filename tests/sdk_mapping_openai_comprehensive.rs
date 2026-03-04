@@ -113,6 +113,7 @@ fn simple_response(text: &str) -> OpenAIResponse {
             index: 0,
             message: msg("assistant", Some(text)),
             finish_reason: Some("stop".into()),
+            safety_ratings: None,
         }],
         usage: None,
     }
@@ -128,6 +129,7 @@ fn make_chunk(id: &str, delta: ChunkDelta, finish_reason: Option<&str>) -> ChatC
             index: 0,
             delta,
             finish_reason: finish_reason.map(Into::into),
+            safety_ratings: None,
         }],
         usage: None,
     }
@@ -812,6 +814,7 @@ mod streaming_sse_mapping {
                     tool_calls: None,
                 },
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage: None,
         };
@@ -832,6 +835,7 @@ mod streaming_sse_mapping {
                 index: 0,
                 delta: ChunkDelta::default(),
                 finish_reason: Some("stop".into()),
+                safety_ratings: None,
             }],
             usage: Some(ChunkUsage {
                 prompt_tokens: 100,
@@ -1421,6 +1425,7 @@ mod token_usage_mapping {
                 index: 0,
                 message: msg("assistant", Some("Hi")),
                 finish_reason: Some("stop".into()),
+                safety_ratings: None,
             }],
             usage: Some(OpenAIUsage {
                 prompt_tokens: 10,
@@ -1909,6 +1914,7 @@ mod response_mapping {
                     vec![make_tool_call("c1", "search", r#"{"q":"test"}"#)],
                 ),
                 finish_reason: Some("tool_calls".into()),
+                safety_ratings: None,
             }],
             usage: None,
         };

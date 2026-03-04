@@ -215,6 +215,9 @@ pub enum MinSupport {
 
     /// Native or emulated is acceptable.
     Emulated,
+
+    /// Any support level is acceptable (including unsupported).
+    Any,
 }
 
 /// A discrete feature that a backend may support (tools, hooks, MCP, etc.).
@@ -342,7 +345,7 @@ pub enum Capability {
 /// assert!(!emulated.satisfies(&MinSupport::Native));
 /// assert!(emulated.satisfies(&MinSupport::Emulated));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportLevel {
     /// First-class support built into the backend.
@@ -364,6 +367,8 @@ impl SupportLevel {
     #[must_use]
     pub fn satisfies(&self, min: &MinSupport) -> bool {
         match (min, self) {
+            (MinSupport::Any, _) => true,
+
             (MinSupport::Native, SupportLevel::Native) => true,
             (MinSupport::Native, _) => false,
 

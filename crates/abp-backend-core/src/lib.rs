@@ -5,11 +5,15 @@
 
 pub mod health;
 pub mod metadata;
+pub mod metrics;
 pub mod registry;
+pub mod selection;
 
 pub use health::{BackendHealth, HealthStatus};
 pub use metadata::{BackendMetadata, RateLimit};
+pub use metrics::BackendMetrics;
 pub use registry::BackendRegistry;
+pub use selection::{SelectionStrategy, select_backend};
 
 use abp_core::{
     AgentEvent, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
@@ -37,6 +41,26 @@ pub trait Backend: Send + Sync {
         work_order: WorkOrder,
         events_tx: mpsc::Sender<AgentEvent>,
     ) -> Result<abp_core::Receipt>;
+}
+
+/// Extended backend trait with lifecycle hooks.
+///
+/// Backends that require initialisation or graceful shutdown can implement
+/// this trait instead of (or in addition to) [`Backend`].
+#[async_trait]
+pub trait LifecycleBackend: Backend {
+    /// Perform any one-time initialisation (connect, warm caches, etc.).
+    async fn init(&self) -> Result<()>;
+
+    /// Gracefully shut down the backend, releasing resources.
+    async fn shutdown(&self) -> Result<()>;
+}
+
+/// Trait for backends that can report their own health.
+#[async_trait]
+pub trait HealthCheckable: Send + Sync {
+    /// Perform a health probe and return the current health snapshot.
+    async fn check_health(&self) -> BackendHealth;
 }
 
 /// Checks that all required capabilities are satisfied by the given manifest.
