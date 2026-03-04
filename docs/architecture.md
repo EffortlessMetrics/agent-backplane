@@ -100,9 +100,10 @@ else exists to faithfully translate SDK semantics into that contract and back ou
 
 ## Crate Hierarchy
 
-The project uses a micro-crate architecture where each crate has a single clear
-purpose and one primary dependency edge. This keeps compile units small and makes
-it possible for downstream consumers to depend on only what they need.
+The project uses a micro-crate architecture (**54 crates**) where each crate has
+a single clear purpose and one primary dependency edge. This keeps compile units
+small and makes it possible for downstream consumers to depend on only what they
+need.
 
 ```
 abp-glob ──────────┐
@@ -134,7 +135,10 @@ abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend
   │             claude-bridge                           │             │
   │             gemini-bridge                        abp-stream   abp-daemon
   │             openai-bridge
-  │                                            abp-ratelimit
+  │             codex-bridge                     abp-ratelimit
+  │             copilot-bridge
+  │             kimi-bridge
+  │
   ├── abp-sidecar-proto
   └── abp-sidecar-utils
 
@@ -146,6 +150,9 @@ Supporting crates:
   abp-git           Standalone git helpers (init, status, diff)
   abp-sidecar-sdk   Vendor SDK registration helpers
   abp-ratelimit     Rate limiting primitives for backend calls
+  abp-retry         Retry and circuit-breaker middleware
+  abp-validate      Validation utilities for work orders, receipts, events
+  abp-receipt-store Receipt persistence and retrieval
 
 Vendor SDK microcrates (abp-claude-sdk, abp-codex-sdk, abp-openai-sdk,
 abp-gemini-sdk, abp-kimi-sdk, abp-copilot-sdk) depend on abp-core +
@@ -414,6 +421,21 @@ Standalone bridge for OpenAI Chat Completions built on `sidecar-kit`. Provides
 three modes: raw passthrough, mapped-raw (task string to JSON), and optional
 normalized mode that maps events to typed ABP contracts.
 
+### codex-bridge — Codex Sidecar Bridge
+
+Codex Responses API bridge that translates between OpenAI Codex/Responses API
+types and the ABP intermediate representation. Built on `sidecar-kit` transport.
+
+### copilot-bridge — Copilot Sidecar Bridge
+
+Standalone GitHub Copilot bridge providing Copilot-specific types and
+translation to/from the ABP intermediate representation. Built on `sidecar-kit`.
+
+### kimi-bridge — Kimi Sidecar Bridge
+
+Standalone Kimi SDK bridge implementing Kimi-specific types and IR translation.
+Built on `sidecar-kit` transport.
+
 ### abp-ratelimit — Rate Limiting
 
 Rate limiting primitives for backend calls. Provides configurable strategies
@@ -500,6 +522,21 @@ HTTP API for programmatic access. Exposes routes for health, metrics, backends,
 capabilities, configuration, validation, schema retrieval, run management
 (submit, list, get, cancel, delete), receipt management, event streaming, and
 WebSocket connections.
+
+### abp-retry — Retry Middleware
+
+Retry and circuit-breaker middleware for backend calls. Provides configurable
+retry policies with exponential backoff and jitter.
+
+### abp-validate — Validation Utilities
+
+Validation utilities for work orders, receipts, events, and envelopes. Used by
+the CLI `validate` subcommand and the daemon `/validate` endpoint.
+
+### abp-receipt-store — Receipt Persistence
+
+Receipt persistence and retrieval. Stores receipts on disk and provides lookup
+by run ID.
 
 ---
 

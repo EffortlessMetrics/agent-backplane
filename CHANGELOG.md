@@ -57,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **abp-sidecar-utils** — Reusable sidecar protocol utilities
 - **sidecar-kit** — Low-level sidecar transport construction kit
 - **claude-bridge** — Claude sidecar bridge with config discovery
+- **codex-bridge** — Codex Responses API bridge with IR translation layer
+- **copilot-bridge** — Standalone GitHub Copilot bridge using sidecar-kit transport
+- **kimi-bridge** — Standalone Kimi SDK bridge using sidecar-kit transport
 - **gemini-bridge** — Standalone Gemini SDK bridge using sidecar-kit transport (raw passthrough + optional normalized mode)
 - **openai-bridge** — Standalone OpenAI Chat Completions bridge using sidecar-kit transport (raw/mapped-raw/normalized modes)
 
@@ -81,6 +84,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Wave 94**: Middleware system with 8 built-in middlewares (logging, retry, timeout, auth,
+  rate-limit, metrics, cache, circuit-breaker); backend registry deepening with health checks,
+  discovery, connection pooling, and metrics; workspace pool, merge, quota, and lifecycle
+  modules; 83 exhaustive E2E sidecar integration tests; fuzz target expansion
+- **Wave 93**: Telemetry MetricEvent, SpanTracker, and Exporter trait; config hot-reload;
+  error recovery patterns; snapshot expansion; 48 new BDD scenarios (stories 7-16)
+- **Wave 92**: Sidecar conformance suite; receipt chain verification; capability preflight
+  checks; 45 proptest property tests for IR translation roundtrips; comprehensive SDK mapping
+  documentation
+- **Wave 91**: Codex, Copilot, and Kimi IR translators; TranslationEngine for cross-dialect
+  IR translation; codex-bridge, copilot-bridge, kimi-bridge crates; runtime integration tests
+- **Wave 90**: Claude, OpenAI, and Gemini IR translators; thread-safety improvements;
+  error Display trait tests
 - All 6 SDK shim converters (`to_work_order`, `from_receipt`, `from_agent_event`) for
   OpenAI, Claude, Gemini, Codex, Kimi, and Copilot dialects
 - IR layer for vendor-neutral intermediate representation of agent events

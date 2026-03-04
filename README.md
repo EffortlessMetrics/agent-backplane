@@ -27,7 +27,7 @@ faithfully map SDK semantics into that contract and back out.
 
 ## Architecture
 
-The workspace contains **51 crates** organized in layers:
+The workspace contains **54 crates** organized in layers:
 
 ```
 abp-glob ──────────┐
@@ -52,6 +52,9 @@ abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend
   │             claude-bridge                           │             │
   │             gemini-bridge                        abp-stream   abp-daemon
   │             openai-bridge
+  │             codex-bridge
+  │             copilot-bridge
+  │             kimi-bridge
   │                                            abp-ratelimit
   ├── abp-sidecar-proto
   └── abp-sidecar-utils
@@ -152,6 +155,9 @@ Receipt { status: success, events: [...], receipt_sha256: "ab3f…" }
 | [`sidecar-kit`](crates/sidecar-kit) | Value-based JSONL transport layer for sidecar processes |
 | [`claude-bridge`](crates/claude-bridge) | Standalone Claude SDK bridge built on sidecar-kit |
 | [`gemini-bridge`](crates/gemini-bridge) | Standalone Gemini SDK bridge built on sidecar-kit |
+| [`codex-bridge`](crates/codex-bridge) | Codex Responses API bridge — IR translation layer built on sidecar-kit |
+| [`copilot-bridge`](crates/copilot-bridge) | Standalone GitHub Copilot bridge built on sidecar-kit transport |
+| [`kimi-bridge`](crates/kimi-bridge) | Standalone Kimi SDK bridge built on sidecar-kit transport |
 | [`openai-bridge`](crates/openai-bridge) | Standalone OpenAI Chat Completions bridge built on sidecar-kit |
 
 ## SDK Support Matrix
