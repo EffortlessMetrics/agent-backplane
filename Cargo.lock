@@ -781,6 +781,7 @@ dependencies = [
  "async-trait",
  "axum",
  "chrono",
+ "clap",
  "claude-bridge",
  "criterion",
  "cucumber",

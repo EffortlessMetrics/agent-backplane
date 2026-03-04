@@ -184,6 +184,7 @@ futures = { workspace = true }
 wiremock = { workspace = true }
 reqwest = { workspace = true }
 serial_test = "3.4.0"
+clap = { workspace = true }
 
 [[test]]
 name = "bdd"
