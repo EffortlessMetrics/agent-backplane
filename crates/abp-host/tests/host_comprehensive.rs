@@ -15,10 +15,10 @@
 //! - Edge cases & error handling
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, CapabilityRequirements,
-    ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, RunMetadata,
-    RuntimeConfig, UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
+    Receipt, RunMetadata, RuntimeConfig, UsageNormalized, VerificationReport, WorkOrder,
+    WorkspaceMode, WorkspaceSpec,
 };
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
@@ -30,9 +30,7 @@ use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
 use abp_host::pool::{PoolConfig, PoolEntryState, PoolStats, SidecarPool};
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
-use abp_host::retry::{
-    compute_delay, is_retryable, RetryAttempt, RetryConfig, RetryMetadata,
-};
+use abp_host::retry::{RetryAttempt, RetryConfig, RetryMetadata, compute_delay, is_retryable};
 use abp_host::{HostError, SidecarHello, SidecarSpec};
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -252,7 +250,10 @@ fn sidecar_hello_clone() {
 
 #[test]
 fn host_error_spawn_display() {
-    let err = HostError::Spawn(std::io::Error::new(std::io::ErrorKind::NotFound, "not found"));
+    let err = HostError::Spawn(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "not found",
+    ));
     let msg = format!("{}", err);
     assert!(msg.contains("spawn"));
     assert!(msg.contains("not found"));
@@ -450,8 +451,14 @@ fn process_status_roundtrip_all_variants() {
 #[test]
 fn process_status_equality() {
     assert_eq!(ProcessStatus::NotStarted, ProcessStatus::NotStarted);
-    assert_ne!(ProcessStatus::Running { pid: 1 }, ProcessStatus::Running { pid: 2 });
-    assert_eq!(ProcessStatus::Exited { code: 0 }, ProcessStatus::Exited { code: 0 });
+    assert_ne!(
+        ProcessStatus::Running { pid: 1 },
+        ProcessStatus::Running { pid: 2 }
+    );
+    assert_eq!(
+        ProcessStatus::Exited { code: 0 },
+        ProcessStatus::Exited { code: 0 }
+    );
     assert_ne!(ProcessStatus::Killed, ProcessStatus::TimedOut);
 }
 
@@ -517,7 +524,10 @@ fn process_info_serialize_roundtrip() {
     let json = serde_json::to_string(&info).unwrap();
     let deserialized: ProcessInfo = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.spec.command, "node");
-    assert!(matches!(deserialized.status, ProcessStatus::Running { pid: 999 }));
+    assert!(matches!(
+        deserialized.status,
+        ProcessStatus::Running { pid: 999 }
+    ));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -566,8 +576,12 @@ fn health_status_equality() {
 fn health_status_roundtrip_all_variants() {
     let variants = vec![
         HealthStatus::Healthy,
-        HealthStatus::Degraded { reason: "slow".into() },
-        HealthStatus::Unhealthy { reason: "down".into() },
+        HealthStatus::Degraded {
+            reason: "slow".into(),
+        },
+        HealthStatus::Unhealthy {
+            reason: "down".into(),
+        },
         HealthStatus::Unknown,
     ];
     for v in &variants {
@@ -597,7 +611,11 @@ fn health_monitor_default_is_empty() {
 #[test]
 fn health_monitor_record_healthy() {
     let mut monitor = HealthMonitor::new();
-    monitor.record_check("sidecar-a", HealthStatus::Healthy, Some(Duration::from_millis(5)));
+    monitor.record_check(
+        "sidecar-a",
+        HealthStatus::Healthy,
+        Some(Duration::from_millis(5)),
+    );
     assert_eq!(monitor.total_checks(), 1);
     assert!(monitor.all_healthy());
 
@@ -612,7 +630,9 @@ fn health_monitor_record_unhealthy() {
     let mut monitor = HealthMonitor::new();
     monitor.record_check(
         "bad-sidecar",
-        HealthStatus::Unhealthy { reason: "crash".into() },
+        HealthStatus::Unhealthy {
+            reason: "crash".into(),
+        },
         None,
     );
     assert!(!monitor.all_healthy());
@@ -627,7 +647,9 @@ fn health_monitor_consecutive_failures_increment() {
     for _ in 0..5 {
         monitor.record_check(
             "flaky",
-            HealthStatus::Unhealthy { reason: "fail".into() },
+            HealthStatus::Unhealthy {
+                reason: "fail".into(),
+            },
             None,
         );
     }
@@ -658,7 +680,11 @@ fn health_monitor_unhealthy_sidecars() {
     monitor.record_check("ok", HealthStatus::Healthy, None);
     monitor.record_check("bad1", HealthStatus::Unhealthy { reason: "a".into() }, None);
     monitor.record_check("bad2", HealthStatus::Unhealthy { reason: "b".into() }, None);
-    monitor.record_check("degraded", HealthStatus::Degraded { reason: "c".into() }, None);
+    monitor.record_check(
+        "degraded",
+        HealthStatus::Degraded { reason: "c".into() },
+        None,
+    );
 
     let unhealthy = monitor.unhealthy_sidecars();
     assert_eq!(unhealthy.len(), 2);
@@ -712,7 +738,13 @@ fn health_monitor_generate_report_all_healthy() {
 fn health_monitor_report_unhealthy_overrides() {
     let mut monitor = HealthMonitor::new();
     monitor.record_check("a", HealthStatus::Healthy, None);
-    monitor.record_check("b", HealthStatus::Unhealthy { reason: "bad".into() }, None);
+    monitor.record_check(
+        "b",
+        HealthStatus::Unhealthy {
+            reason: "bad".into(),
+        },
+        None,
+    );
     let report = monitor.generate_report();
     assert!(matches!(report.overall, HealthStatus::Unhealthy { .. }));
 }
@@ -721,7 +753,13 @@ fn health_monitor_report_unhealthy_overrides() {
 fn health_monitor_report_degraded_when_no_unhealthy() {
     let mut monitor = HealthMonitor::new();
     monitor.record_check("a", HealthStatus::Healthy, None);
-    monitor.record_check("b", HealthStatus::Degraded { reason: "slow".into() }, None);
+    monitor.record_check(
+        "b",
+        HealthStatus::Degraded {
+            reason: "slow".into(),
+        },
+        None,
+    );
     let report = monitor.generate_report();
     assert!(matches!(report.overall, HealthStatus::Degraded { .. }));
 }
@@ -1410,13 +1448,19 @@ fn compute_delay_zero_base() {
 
 #[test]
 fn is_retryable_spawn_error() {
-    let err = HostError::Spawn(std::io::Error::new(std::io::ErrorKind::NotFound, "not found"));
+    let err = HostError::Spawn(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "not found",
+    ));
     assert!(is_retryable(&err));
 }
 
 #[test]
 fn is_retryable_stdout_error() {
-    let err = HostError::Stdout(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "broken"));
+    let err = HostError::Stdout(std::io::Error::new(
+        std::io::ErrorKind::BrokenPipe,
+        "broken",
+    ));
     assert!(is_retryable(&err));
 }
 
@@ -1464,7 +1508,10 @@ fn is_not_retryable_protocol() {
 
 #[test]
 fn is_not_retryable_stdin() {
-    let err = HostError::Stdin(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "broken"));
+    let err = HostError::Stdin(std::io::Error::new(
+        std::io::ErrorKind::BrokenPipe,
+        "broken",
+    ));
     assert!(!is_retryable(&err));
 }
 
@@ -1648,9 +1695,7 @@ fn encode_decode_fatal_envelope() {
     let encoded = JsonlCodec::encode(&env).unwrap();
     let decoded = JsonlCodec::decode(encoded.trim_end()).unwrap();
     match decoded {
-        Envelope::Fatal {
-            ref_id, error, ..
-        } => {
+        Envelope::Fatal { ref_id, error, .. } => {
             assert_eq!(ref_id.as_deref(), Some("run-001"));
             assert_eq!(error, "critical failure");
         }
@@ -2118,7 +2163,8 @@ fn lifecycle_error_is_std_error() {
 fn process_config_large_env_vars() {
     let mut cfg = ProcessConfig::default();
     for i in 0..100 {
-        cfg.env_vars.insert(format!("VAR_{}", i), format!("val_{}", i));
+        cfg.env_vars
+            .insert(format!("VAR_{}", i), format!("val_{}", i));
     }
     assert_eq!(cfg.env_vars.len(), 100);
 
@@ -2235,8 +2281,8 @@ async fn retry_async_succeeds_first_try() {
 #[tokio::test]
 async fn retry_async_fails_then_succeeds() {
     use abp_host::retry::retry_async;
-    use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicU32, Ordering};
 
     let cfg = RetryConfig {
         max_retries: 3,

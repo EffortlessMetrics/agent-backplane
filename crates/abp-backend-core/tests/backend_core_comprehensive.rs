@@ -4,15 +4,15 @@
 //! mock implementations, trait object safety, serialization, and edge cases.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use abp_backend_core::health::{BackendHealth, HealthStatus};
 use abp_backend_core::metadata::{BackendMetadata, RateLimit};
 use abp_backend_core::registry::BackendRegistry;
 use abp_backend_core::{
-    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
-    Backend,
+    Backend, ensure_capability_requirements, extract_execution_mode,
+    validate_passthrough_compatibility,
 };
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
@@ -116,9 +116,7 @@ impl Backend for MockBackend {
                 ext: None,
             })
             .await;
-        Ok(ReceiptBuilder::new(&self.id)
-            .work_order_id(run_id)
-            .build())
+        Ok(ReceiptBuilder::new(&self.id).work_order_id(run_id).build())
     }
 }
 
@@ -279,7 +277,10 @@ async fn failing_backend_returns_error() {
 async fn failing_backend_error_message() {
     let b = FailingBackend;
     let (tx, _rx) = mpsc::channel(16);
-    let err = b.run(Uuid::new_v4(), make_work_order(), tx).await.unwrap_err();
+    let err = b
+        .run(Uuid::new_v4(), make_work_order(), tx)
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("intentional failure"));
 }
 
@@ -331,10 +332,7 @@ fn backend_boxed_trait_object() {
 async fn backend_arc_trait_object() {
     let b: Arc<dyn Backend> = Arc::new(MockBackend::new("arc"));
     let (tx, _rx) = mpsc::channel(16);
-    let receipt = b
-        .run(Uuid::new_v4(), make_work_order(), tx)
-        .await
-        .unwrap();
+    let receipt = b.run(Uuid::new_v4(), make_work_order(), tx).await.unwrap();
     assert_eq!(receipt.backend.id, "arc");
 }
 
@@ -558,10 +556,7 @@ fn extract_mode_defaults_to_mapped() {
 #[test]
 fn extract_mode_nested_abp_object() {
     let mut vendor = BTreeMap::new();
-    vendor.insert(
-        "abp".into(),
-        serde_json::json!({"mode": "passthrough"}),
-    );
+    vendor.insert("abp".into(), serde_json::json!({"mode": "passthrough"}));
     let wo = make_work_order_with_vendor(vendor);
     assert_eq!(extract_execution_mode(&wo), ExecutionMode::Passthrough);
 }
@@ -585,10 +580,7 @@ fn extract_mode_flat_key() {
 #[test]
 fn extract_mode_nested_takes_precedence_over_flat() {
     let mut vendor = BTreeMap::new();
-    vendor.insert(
-        "abp".into(),
-        serde_json::json!({"mode": "passthrough"}),
-    );
+    vendor.insert("abp".into(), serde_json::json!({"mode": "passthrough"}));
     vendor.insert("abp.mode".into(), serde_json::json!("mapped"));
     let wo = make_work_order_with_vendor(vendor);
     assert_eq!(extract_execution_mode(&wo), ExecutionMode::Passthrough);

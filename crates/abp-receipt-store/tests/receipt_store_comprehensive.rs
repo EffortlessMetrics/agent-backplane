@@ -14,8 +14,8 @@ use uuid::Uuid;
 
 use abp_core::{Outcome, Receipt};
 use abp_receipt_store::{
-    validate_chain, ChainValidation, ChainValidationError, FileReceiptStore,
-    InMemoryReceiptStore, ReceiptFilter, ReceiptIndex, ReceiptStore, StoreError,
+    ChainValidation, ChainValidationError, FileReceiptStore, InMemoryReceiptStore, ReceiptFilter,
+    ReceiptIndex, ReceiptStore, StoreError, validate_chain,
 };
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -66,11 +66,7 @@ fn make_hashed_receipt(backend: &str, outcome: Outcome) -> Receipt {
     r
 }
 
-fn make_hashed_receipt_at(
-    backend: &str,
-    outcome: Outcome,
-    ts: chrono::DateTime<Utc>,
-) -> Receipt {
+fn make_hashed_receipt_at(backend: &str, outcome: Outcome, ts: chrono::DateTime<Utc>) -> Receipt {
     let mut r = make_receipt_at(backend, outcome, ts);
     r.receipt_sha256 = Some(abp_core::receipt_hash(&r).unwrap());
     r
@@ -1160,7 +1156,12 @@ fn chain_detects_duplicate_ids() {
     let r2 = make_receipt_with_id("b", Outcome::Failed, id);
     let result = validate_chain(&[r1, r2]);
     assert!(!result.valid);
-    assert!(result.errors.iter().any(|e| e.message.contains("duplicate")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("duplicate"))
+    );
 }
 
 #[test]
@@ -1445,9 +1446,18 @@ fn index_clone() {
 #[tokio::test]
 async fn filter_default_matches_all_outcomes() {
     let store = InMemoryReceiptStore::new();
-    store.store(&make_receipt("a", Outcome::Complete)).await.unwrap();
-    store.store(&make_receipt("b", Outcome::Failed)).await.unwrap();
-    store.store(&make_receipt("c", Outcome::Partial)).await.unwrap();
+    store
+        .store(&make_receipt("a", Outcome::Complete))
+        .await
+        .unwrap();
+    store
+        .store(&make_receipt("b", Outcome::Failed))
+        .await
+        .unwrap();
+    store
+        .store(&make_receipt("c", Outcome::Partial))
+        .await
+        .unwrap();
     let results = store.list(ReceiptFilter::default()).await.unwrap();
     assert_eq!(results.len(), 3);
 }
@@ -1455,8 +1465,14 @@ async fn filter_default_matches_all_outcomes() {
 #[tokio::test]
 async fn filter_outcome_rejects_mismatch_via_store() {
     let store = InMemoryReceiptStore::new();
-    store.store(&make_receipt("a", Outcome::Failed)).await.unwrap();
-    store.store(&make_receipt("b", Outcome::Partial)).await.unwrap();
+    store
+        .store(&make_receipt("a", Outcome::Failed))
+        .await
+        .unwrap();
+    store
+        .store(&make_receipt("b", Outcome::Partial))
+        .await
+        .unwrap();
     let filter = ReceiptFilter {
         outcome: Some(Outcome::Complete),
         ..Default::default()
@@ -1467,7 +1483,10 @@ async fn filter_outcome_rejects_mismatch_via_store() {
 #[tokio::test]
 async fn filter_backend_rejects_mismatch_via_store() {
     let store = InMemoryReceiptStore::new();
-    store.store(&make_receipt("other", Outcome::Complete)).await.unwrap();
+    store
+        .store(&make_receipt("other", Outcome::Complete))
+        .await
+        .unwrap();
     let filter = ReceiptFilter {
         backend: Some("wanted".to_string()),
         ..Default::default()
@@ -1479,7 +1498,10 @@ async fn filter_backend_rejects_mismatch_via_store() {
 async fn filter_time_range_rejects_before_via_store() {
     let store = InMemoryReceiptStore::new();
     let t = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
-    store.store(&make_receipt_at("x", Outcome::Complete, t)).await.unwrap();
+    store
+        .store(&make_receipt_at("x", Outcome::Complete, t))
+        .await
+        .unwrap();
     let filter = ReceiptFilter {
         time_range: Some((
             Utc.with_ymd_and_hms(2025, 6, 1, 0, 0, 0).unwrap(),
@@ -1494,7 +1516,10 @@ async fn filter_time_range_rejects_before_via_store() {
 async fn filter_time_range_rejects_after_via_store() {
     let store = InMemoryReceiptStore::new();
     let t = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
-    store.store(&make_receipt_at("x", Outcome::Complete, t)).await.unwrap();
+    store
+        .store(&make_receipt_at("x", Outcome::Complete, t))
+        .await
+        .unwrap();
     let filter = ReceiptFilter {
         time_range: Some((
             Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap(),
@@ -1520,7 +1545,10 @@ async fn filter_paginate_empty_store_via_list() {
 async fn filter_paginate_no_limit_no_offset_via_store() {
     let store = InMemoryReceiptStore::new();
     for _ in 0..5 {
-        store.store(&make_receipt("x", Outcome::Complete)).await.unwrap();
+        store
+            .store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
     }
     let filter = ReceiptFilter::default();
     assert_eq!(store.list(filter).await.unwrap().len(), 5);
@@ -1530,7 +1558,10 @@ async fn filter_paginate_no_limit_no_offset_via_store() {
 async fn filter_paginate_limit_only_via_store() {
     let store = InMemoryReceiptStore::new();
     for _ in 0..5 {
-        store.store(&make_receipt("x", Outcome::Complete)).await.unwrap();
+        store
+            .store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
     }
     let filter = ReceiptFilter {
         limit: Some(2),
@@ -1543,7 +1574,10 @@ async fn filter_paginate_limit_only_via_store() {
 async fn filter_paginate_offset_only_via_store() {
     let store = InMemoryReceiptStore::new();
     for _ in 0..5 {
-        store.store(&make_receipt("x", Outcome::Complete)).await.unwrap();
+        store
+            .store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
     }
     let filter = ReceiptFilter {
         offset: Some(3),
@@ -1556,7 +1590,10 @@ async fn filter_paginate_offset_only_via_store() {
 async fn filter_paginate_both_via_store() {
     let store = InMemoryReceiptStore::new();
     for _ in 0..10 {
-        store.store(&make_receipt("x", Outcome::Complete)).await.unwrap();
+        store
+            .store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
     }
     let filter = ReceiptFilter {
         limit: Some(2),
@@ -1570,7 +1607,10 @@ async fn filter_paginate_both_via_store() {
 async fn filter_paginate_offset_past_end_via_store() {
     let store = InMemoryReceiptStore::new();
     for _ in 0..3 {
-        store.store(&make_receipt("x", Outcome::Complete)).await.unwrap();
+        store
+            .store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
     }
     let filter = ReceiptFilter {
         offset: Some(100),
@@ -1583,7 +1623,10 @@ async fn filter_paginate_offset_past_end_via_store() {
 async fn filter_paginate_limit_larger_than_remaining_via_store() {
     let store = InMemoryReceiptStore::new();
     for _ in 0..5 {
-        store.store(&make_receipt("x", Outcome::Complete)).await.unwrap();
+        store
+            .store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
     }
     let filter = ReceiptFilter {
         limit: Some(10),
@@ -1986,7 +2029,13 @@ async fn mem_purge_all_receipts() {
         store.delete(id).await.unwrap();
     }
     assert_eq!(store.count().await.unwrap(), 0);
-    assert!(store.list(ReceiptFilter::default()).await.unwrap().is_empty());
+    assert!(
+        store
+            .list(ReceiptFilter::default())
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]

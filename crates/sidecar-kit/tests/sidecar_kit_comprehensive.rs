@@ -74,7 +74,10 @@ fn frame_final_round_trip() {
         receipt: json!({"outcome": "complete"}),
     };
     let s = serde_json::to_string(&f).unwrap();
-    assert!(matches!(serde_json::from_str::<Frame>(&s).unwrap(), Frame::Final { .. }));
+    assert!(matches!(
+        serde_json::from_str::<Frame>(&s).unwrap(),
+        Frame::Final { .. }
+    ));
 }
 
 #[test]
@@ -84,7 +87,9 @@ fn frame_fatal_round_trip() {
         error: "boom".into(),
     };
     let s = serde_json::to_string(&f).unwrap();
-    assert!(matches!(serde_json::from_str::<Frame>(&s).unwrap(), Frame::Fatal { error, .. } if error == "boom"));
+    assert!(
+        matches!(serde_json::from_str::<Frame>(&s).unwrap(), Frame::Fatal { error, .. } if error == "boom")
+    );
 }
 
 #[test]
@@ -105,7 +110,9 @@ fn frame_cancel_round_trip() {
         reason: Some("timeout".into()),
     };
     let s = serde_json::to_string(&f).unwrap();
-    assert!(matches!(serde_json::from_str::<Frame>(&s).unwrap(), Frame::Cancel { ref_id, .. } if ref_id == "run-1"));
+    assert!(
+        matches!(serde_json::from_str::<Frame>(&s).unwrap(), Frame::Cancel { ref_id, .. } if ref_id == "run-1")
+    );
 }
 
 #[test]
@@ -125,8 +132,14 @@ fn frame_ping_pong_round_trip() {
     let pong = Frame::Pong { seq: 42 };
     let s1 = serde_json::to_string(&ping).unwrap();
     let s2 = serde_json::to_string(&pong).unwrap();
-    assert!(matches!(serde_json::from_str::<Frame>(&s1).unwrap(), Frame::Ping { seq: 42 }));
-    assert!(matches!(serde_json::from_str::<Frame>(&s2).unwrap(), Frame::Pong { seq: 42 }));
+    assert!(matches!(
+        serde_json::from_str::<Frame>(&s1).unwrap(),
+        Frame::Ping { seq: 42 }
+    ));
+    assert!(matches!(
+        serde_json::from_str::<Frame>(&s2).unwrap(),
+        Frame::Pong { seq: 42 }
+    ));
 }
 
 #[test]
@@ -392,9 +405,15 @@ fn buf_reader_from_bytes_helper() {
 fn write_then_read_frames_round_trip() {
     let frames = vec![
         hello_frame("test-backend"),
-        Frame::Run { id: "r1".into(), work_order: json!({"task": "x"}) },
+        Frame::Run {
+            id: "r1".into(),
+            work_order: json!({"task": "x"}),
+        },
         event_frame("r1", event_text_delta("chunk")),
-        Frame::Final { ref_id: "r1".into(), receipt: json!({"outcome": "complete"}) },
+        Frame::Final {
+            ref_id: "r1".into(),
+            receipt: json!({"outcome": "complete"}),
+        },
     ];
     let mut buf = Vec::new();
     write_frames(&mut buf, &frames).unwrap();
@@ -423,7 +442,11 @@ fn validate_hello_empty_version() {
     };
     let v = validate_frame(&f, DEFAULT_MAX_FRAME_SIZE);
     assert!(!v.valid);
-    assert!(v.issues.iter().any(|i| i.contains("contract_version is empty")));
+    assert!(
+        v.issues
+            .iter()
+            .any(|i| i.contains("contract_version is empty"))
+    );
 }
 
 #[test]
@@ -454,7 +477,10 @@ fn validate_hello_missing_backend_id() {
 
 #[test]
 fn validate_run_empty_id() {
-    let f = Frame::Run { id: "".into(), work_order: json!({}) };
+    let f = Frame::Run {
+        id: "".into(),
+        work_order: json!({}),
+    };
     let v = validate_frame(&f, DEFAULT_MAX_FRAME_SIZE);
     assert!(!v.valid);
     assert!(v.issues.iter().any(|i| i.contains("run id is empty")));
@@ -462,29 +488,45 @@ fn validate_run_empty_id() {
 
 #[test]
 fn validate_event_empty_ref_id() {
-    let f = Frame::Event { ref_id: "".into(), event: json!({}) };
+    let f = Frame::Event {
+        ref_id: "".into(),
+        event: json!({}),
+    };
     let v = validate_frame(&f, DEFAULT_MAX_FRAME_SIZE);
     assert!(!v.valid);
 }
 
 #[test]
 fn validate_final_empty_ref_id() {
-    let f = Frame::Final { ref_id: "".into(), receipt: json!({}) };
+    let f = Frame::Final {
+        ref_id: "".into(),
+        receipt: json!({}),
+    };
     let v = validate_frame(&f, DEFAULT_MAX_FRAME_SIZE);
     assert!(!v.valid);
 }
 
 #[test]
 fn validate_fatal_empty_error() {
-    let f = Frame::Fatal { ref_id: None, error: "".into() };
+    let f = Frame::Fatal {
+        ref_id: None,
+        error: "".into(),
+    };
     let v = validate_frame(&f, DEFAULT_MAX_FRAME_SIZE);
     assert!(!v.valid);
-    assert!(v.issues.iter().any(|i| i.contains("fatal error message is empty")));
+    assert!(
+        v.issues
+            .iter()
+            .any(|i| i.contains("fatal error message is empty"))
+    );
 }
 
 #[test]
 fn validate_cancel_empty_ref_id() {
-    let f = Frame::Cancel { ref_id: "".into(), reason: None };
+    let f = Frame::Cancel {
+        ref_id: "".into(),
+        reason: None,
+    };
     let v = validate_frame(&f, DEFAULT_MAX_FRAME_SIZE);
     assert!(!v.valid);
 }
@@ -559,15 +601,24 @@ fn make_hello() -> Frame {
 }
 
 fn make_run(id: &str) -> Frame {
-    Frame::Run { id: id.into(), work_order: json!({}) }
+    Frame::Run {
+        id: id.into(),
+        work_order: json!({}),
+    }
 }
 
 fn make_event(ref_id: &str) -> Frame {
-    Frame::Event { ref_id: ref_id.into(), event: json!({}) }
+    Frame::Event {
+        ref_id: ref_id.into(),
+        event: json!({}),
+    }
 }
 
 fn make_final(ref_id: &str) -> Frame {
-    Frame::Final { ref_id: ref_id.into(), receipt: json!({}) }
+    Frame::Final {
+        ref_id: ref_id.into(),
+        receipt: json!({}),
+    }
 }
 
 #[test]
@@ -622,7 +673,11 @@ fn protocol_event_before_run_faults() {
 fn protocol_fatal_during_awaiting_run() {
     let mut ps = ProtocolState::new();
     ps.advance(&make_hello()).unwrap();
-    ps.advance(&Frame::Fatal { ref_id: None, error: "die".into() }).unwrap();
+    ps.advance(&Frame::Fatal {
+        ref_id: None,
+        error: "die".into(),
+    })
+    .unwrap();
     assert_eq!(ps.phase(), ProtocolPhase::Completed);
 }
 
@@ -631,7 +686,11 @@ fn protocol_fatal_during_streaming() {
     let mut ps = ProtocolState::new();
     ps.advance(&make_hello()).unwrap();
     ps.advance(&make_run("r1")).unwrap();
-    ps.advance(&Frame::Fatal { ref_id: Some("r1".into()), error: "die".into() }).unwrap();
+    ps.advance(&Frame::Fatal {
+        ref_id: Some("r1".into()),
+        error: "die".into(),
+    })
+    .unwrap();
     assert_eq!(ps.phase(), ProtocolPhase::Completed);
 }
 
@@ -640,7 +699,11 @@ fn protocol_fatal_streaming_no_ref_id() {
     let mut ps = ProtocolState::new();
     ps.advance(&make_hello()).unwrap();
     ps.advance(&make_run("r1")).unwrap();
-    ps.advance(&Frame::Fatal { ref_id: None, error: "die".into() }).unwrap();
+    ps.advance(&Frame::Fatal {
+        ref_id: None,
+        error: "die".into(),
+    })
+    .unwrap();
     assert_eq!(ps.phase(), ProtocolPhase::Completed);
 }
 
@@ -934,7 +997,11 @@ fn builder_fatal_frame_no_ref() {
 fn builder_hello_frame() {
     let f = hello_frame("my-backend");
     match f {
-        Frame::Hello { contract_version, backend, .. } => {
+        Frame::Hello {
+            contract_version,
+            backend,
+            ..
+        } => {
             assert_eq!(contract_version, "abp/v0.1");
             assert_eq!(backend["id"], "my-backend");
         }
@@ -1176,7 +1243,10 @@ fn redact_stage_removes_fields() {
 #[test]
 fn redact_stage_rejects_non_object() {
     let stage = RedactStage::new(vec!["x".into()]);
-    assert!(matches!(stage.process(json!(42)), Err(PipelineError::InvalidEvent)));
+    assert!(matches!(
+        stage.process(json!(42)),
+        Err(PipelineError::InvalidEvent)
+    ));
 }
 
 #[test]
@@ -1192,14 +1262,19 @@ fn validate_stage_fails_on_missing_field() {
     let stage = ValidateStage::new(vec!["type".into(), "required_field".into()]);
     let ev = json!({"type": "test"});
     let res = stage.process(ev);
-    assert!(matches!(res, Err(PipelineError::StageError { stage, message })
-        if stage == "validate" && message.contains("required_field")));
+    assert!(
+        matches!(res, Err(PipelineError::StageError { stage, message })
+        if stage == "validate" && message.contains("required_field"))
+    );
 }
 
 #[test]
 fn validate_stage_rejects_non_object() {
     let stage = ValidateStage::new(vec![]);
-    assert!(matches!(stage.process(json!("str")), Err(PipelineError::InvalidEvent)));
+    assert!(matches!(
+        stage.process(json!("str")),
+        Err(PipelineError::InvalidEvent)
+    ));
 }
 
 #[test]
@@ -1400,7 +1475,9 @@ fn redact_transformer_text_message() {
 #[test]
 fn redact_transformer_run_started() {
     let rt = RedactTransformer::new(vec!["secret".into()]);
-    let ev = make_agent_event(AgentEventKind::RunStarted { message: "secret launch".into() });
+    let ev = make_agent_event(AgentEventKind::RunStarted {
+        message: "secret launch".into(),
+    });
     let out = rt.transform(ev).unwrap();
     match &out.kind {
         AgentEventKind::RunStarted { message } => assert!(message.contains("[REDACTED]")),
@@ -1411,7 +1488,9 @@ fn redact_transformer_run_started() {
 #[test]
 fn redact_transformer_run_completed() {
     let rt = RedactTransformer::new(vec!["token".into()]);
-    let ev = make_agent_event(AgentEventKind::RunCompleted { message: "used token abc".into() });
+    let ev = make_agent_event(AgentEventKind::RunCompleted {
+        message: "used token abc".into(),
+    });
     let out = rt.transform(ev).unwrap();
     match &out.kind {
         AgentEventKind::RunCompleted { message } => assert!(message.contains("[REDACTED]")),
@@ -1460,7 +1539,9 @@ fn redact_transformer_tool_result_output() {
 #[test]
 fn redact_transformer_warning() {
     let rt = RedactTransformer::new(vec!["pw".into()]);
-    let ev = make_agent_event(AgentEventKind::Warning { message: "pw exposed".into() });
+    let ev = make_agent_event(AgentEventKind::Warning {
+        message: "pw exposed".into(),
+    });
     let out = rt.transform(ev).unwrap();
     match &out.kind {
         AgentEventKind::Warning { message } => assert!(!message.contains("pw")),
@@ -1509,7 +1590,11 @@ fn redact_transformer_command_executed() {
     });
     let out = rt.transform(ev).unwrap();
     match &out.kind {
-        AgentEventKind::CommandExecuted { command, output_preview, .. } => {
+        AgentEventKind::CommandExecuted {
+            command,
+            output_preview,
+            ..
+        } => {
             assert!(!command.contains("API_KEY"));
             assert!(!output_preview.as_ref().unwrap().contains("API_KEY"));
         }
@@ -1544,12 +1629,16 @@ fn throttle_transformer_allows_up_to_max() {
 fn throttle_transformer_per_kind() {
     let tt = ThrottleTransformer::new(1);
     let ev_delta = make_agent_event(AgentEventKind::AssistantDelta { text: "a".into() });
-    let ev_warn = make_agent_event(AgentEventKind::Warning { message: "w".into() });
+    let ev_warn = make_agent_event(AgentEventKind::Warning {
+        message: "w".into(),
+    });
     assert!(tt.transform(ev_delta).is_some());
     assert!(tt.transform(ev_warn).is_some());
     // Second of each kind gets throttled
     let ev_delta2 = make_agent_event(AgentEventKind::AssistantDelta { text: "b".into() });
-    let ev_warn2 = make_agent_event(AgentEventKind::Warning { message: "w2".into() });
+    let ev_warn2 = make_agent_event(AgentEventKind::Warning {
+        message: "w2".into(),
+    });
     assert!(tt.transform(ev_delta2).is_none());
     assert!(tt.transform(ev_warn2).is_none());
 }
@@ -1594,7 +1683,9 @@ fn filter_transformer_passes_matching() {
         matches!(&ev.kind, AgentEventKind::Warning { .. })
     }));
     assert_eq!(ft.name(), "filter");
-    let warn = make_agent_event(AgentEventKind::Warning { message: "x".into() });
+    let warn = make_agent_event(AgentEventKind::Warning {
+        message: "x".into(),
+    });
     assert!(ft.transform(warn).is_some());
 }
 
@@ -1648,7 +1739,9 @@ fn transformer_chain_processes_in_order() {
         .with(Box::new(TimestampTransformer::new()));
     let ev = AgentEvent {
         ts: Utc.timestamp_opt(0, 0).unwrap(),
-        kind: AgentEventKind::AssistantDelta { text: "my SECRET".into() },
+        kind: AgentEventKind::AssistantDelta {
+            text: "my SECRET".into(),
+        },
         ext: None,
     };
     let out = chain.process(ev).unwrap();
@@ -1670,12 +1763,13 @@ fn transformer_chain_short_circuits_on_filter() {
 
 #[test]
 fn transformer_chain_process_batch() {
-    let chain = TransformerChain::new()
-        .with(Box::new(ThrottleTransformer::new(1)));
+    let chain = TransformerChain::new().with(Box::new(ThrottleTransformer::new(1)));
     let events = vec![
         make_agent_event(AgentEventKind::AssistantDelta { text: "a".into() }),
         make_agent_event(AgentEventKind::AssistantDelta { text: "b".into() }),
-        make_agent_event(AgentEventKind::Warning { message: "w".into() }),
+        make_agent_event(AgentEventKind::Warning {
+            message: "w".into(),
+        }),
     ];
     let results = chain.process_batch(events);
     // 1 delta allowed, 1 warning allowed
@@ -1698,7 +1792,9 @@ fn metrics_middleware_counts() {
     let mw = MetricsMiddleware::new();
     let mut ev1 = make_agent_event(AgentEventKind::AssistantDelta { text: "a".into() });
     let mut ev2 = make_agent_event(AgentEventKind::AssistantDelta { text: "b".into() });
-    let mut ev3 = make_agent_event(AgentEventKind::Warning { message: "w".into() });
+    let mut ev3 = make_agent_event(AgentEventKind::Warning {
+        message: "w".into(),
+    });
     mw.on_event(&mut ev1);
     mw.on_event(&mut ev2);
     mw.on_event(&mut ev3);
@@ -1721,7 +1817,9 @@ fn typed_filter_middleware_drops_matching() {
     let mw = sidecar_kit::typed_middleware::FilterMiddleware::new(|ev| {
         matches!(&ev.kind, AgentEventKind::Warning { .. })
     });
-    let mut warn = make_agent_event(AgentEventKind::Warning { message: "w".into() });
+    let mut warn = make_agent_event(AgentEventKind::Warning {
+        message: "w".into(),
+    });
     assert_eq!(mw.on_event(&mut warn), MiddlewareAction::Skip);
 
     let mut delta = make_agent_event(AgentEventKind::AssistantDelta { text: "x".into() });
@@ -1787,7 +1885,9 @@ fn sidecar_middleware_chain_push() {
 #[test]
 fn sidecar_middleware_chain_short_circuits_on_skip() {
     let chain = SidecarMiddlewareChain::new()
-        .with(sidecar_kit::typed_middleware::FilterMiddleware::new(|_| true))
+        .with(sidecar_kit::typed_middleware::FilterMiddleware::new(|_| {
+            true
+        }))
         .with(MetricsMiddleware::new());
 
     let mut ev = make_agent_event(AgentEventKind::AssistantDelta { text: "hi".into() });
