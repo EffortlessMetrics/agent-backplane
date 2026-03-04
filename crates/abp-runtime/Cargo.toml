@@ -20,6 +20,7 @@ abp-projection = { path = "../abp-projection", version = "0.1.0" }
 abp-policy = { path = "../abp-policy", version = "0.1.0" }
 abp-receipt = { path = "../abp-receipt", version = "0.1.0" }
 abp-stream = { path = "../abp-stream", version = "0.1.0" }
+abp-serde = { path = "../abp-serde", version = "0.1.0" }
 abp-workspace = { path = "../abp-workspace", version = "0.1.0" }
 serde.workspace = true
 anyhow.workspace = true
