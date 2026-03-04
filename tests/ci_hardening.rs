@@ -492,6 +492,10 @@ fn verify_error_types_implement_std_error() {
                 if name == "ErrorSeverity" || name == "ErrorAction" {
                     continue;
                 }
+                // ErrorClassification is a recovery classification, not an error type.
+                if name == "ErrorClassification" {
+                    continue;
+                }
 
                 // Check for thiserror derive OR manual std::error::Error impl.
                 let mut found = false;
