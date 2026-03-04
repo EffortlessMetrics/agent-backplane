@@ -4,7 +4,7 @@ use abp_cli::config::{
     BackendConfig, BackplaneConfig, apply_env_overrides, load_config, merge_configs,
     validate_config,
 };
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 // ---------------------------------------------------------------------------
 // 1. Load valid TOML config
@@ -45,7 +45,7 @@ fn load_none_returns_defaults() {
     let config = load_config(None).unwrap();
     assert!(config.backends.is_empty());
     assert!(config.default_backend.is_none());
-    assert!(config.log_level.is_none());
+    assert_eq!(config.log_level.as_deref(), Some("info"));
     assert!(config.receipts_dir.is_none());
 }
 
@@ -71,14 +71,16 @@ fn merge_overlay_wins() {
     let base = BackplaneConfig {
         default_backend: Some("mock".into()),
         log_level: Some("warn".into()),
+        workspace_dir: None,
         receipts_dir: Some("/tmp/base".into()),
-        backends: HashMap::from([("mock".into(), BackendConfig::Mock {})]),
+        backends: BTreeMap::from([("mock".into(), BackendConfig::Mock {})]),
     };
     let overlay = BackplaneConfig {
         default_backend: Some("openai".into()),
         log_level: None,
+        workspace_dir: None,
         receipts_dir: None,
-        backends: HashMap::from([(
+        backends: BTreeMap::from([(
             "openai".into(),
             BackendConfig::Sidecar {
                 command: "node".into(),
@@ -159,7 +161,7 @@ fn default_config_is_empty_and_valid() {
     let config = BackplaneConfig::default();
     assert!(config.backends.is_empty());
     assert!(config.default_backend.is_none());
-    assert!(config.log_level.is_none());
+    assert_eq!(config.log_level.as_deref(), Some("info"));
     assert!(config.receipts_dir.is_none());
     validate_config(&config).unwrap();
 }
@@ -208,8 +210,9 @@ fn config_roundtrip() {
     let original = BackplaneConfig {
         default_backend: Some("mock".into()),
         log_level: Some("debug".into()),
+        workspace_dir: None,
         receipts_dir: Some("./data/receipts".into()),
-        backends: HashMap::from([
+        backends: BTreeMap::from([
             ("mock".into(), BackendConfig::Mock {}),
             (
                 "sc".into(),
@@ -237,7 +240,7 @@ fn config_roundtrip() {
 #[test]
 fn validate_detects_empty_sidecar_command() {
     let config = BackplaneConfig {
-        backends: HashMap::from([(
+        backends: BTreeMap::from([(
             "bad".into(),
             BackendConfig::Sidecar {
                 command: "  ".into(),
@@ -257,7 +260,7 @@ fn validate_detects_empty_sidecar_command() {
 #[test]
 fn validate_detects_excessive_timeout() {
     let config = BackplaneConfig {
-        backends: HashMap::from([(
+        backends: BTreeMap::from([(
             "s".into(),
             BackendConfig::Sidecar {
                 command: "node".into(),
@@ -320,14 +323,14 @@ timeout_secs = 600
 #[test]
 fn merge_preserves_base_only_backends() {
     let base = BackplaneConfig {
-        backends: HashMap::from([
+        backends: BTreeMap::from([
             ("a".into(), BackendConfig::Mock {}),
             ("b".into(), BackendConfig::Mock {}),
         ]),
         ..Default::default()
     };
     let overlay = BackplaneConfig {
-        backends: HashMap::from([(
+        backends: BTreeMap::from([(
             "b".into(),
             BackendConfig::Sidecar {
                 command: "node".into(),
