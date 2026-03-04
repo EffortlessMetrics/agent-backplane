@@ -2506,3 +2506,1774 @@ mod claude_passthrough {
         assert_eq!(ext.get("dialect").and_then(|v| v.as_str()), Some("claude"));
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// 14. OpenAI ↔ Claude via IrMapper
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_openai_claude {
+    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+    use abp_dialect::Dialect;
+    use abp_mapper::{IrMapper, MapError, OpenAiClaudeIrMapper};
+    use serde_json::json;
+
+    fn simple_conv() -> IrConversation {
+        IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "You are helpful."),
+            IrMessage::text(IrRole::User, "Hello"),
+            IrMessage::text(IrRole::Assistant, "Hi!"),
+        ])
+    }
+
+    #[test]
+    fn openai_to_claude_preserves_simple_text() {
+        let m = OpenAiClaudeIrMapper;
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &simple_conv())
+            .unwrap();
+        assert_eq!(r.len(), 3);
+        assert_eq!(r.messages[0].role, IrRole::System);
+        assert_eq!(r.messages[1].text_content(), "Hello");
+        assert_eq!(r.messages[2].text_content(), "Hi!");
+    }
+
+    #[test]
+    fn claude_to_openai_preserves_simple_text() {
+        let m = OpenAiClaudeIrMapper;
+        let r = m
+            .map_request(Dialect::Claude, Dialect::OpenAi, &simple_conv())
+            .unwrap();
+        assert_eq!(r.len(), 3);
+        for (orig, mapped) in simple_conv().messages.iter().zip(r.messages.iter()) {
+            assert_eq!(orig.text_content(), mapped.text_content());
+        }
+    }
+
+    #[test]
+    fn openai_to_claude_tool_role_becomes_user() {
+        let m = OpenAiClaudeIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "c1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "result".into(),
+                }],
+                is_error: false,
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].role, IrRole::User);
+    }
+
+    #[test]
+    fn claude_to_openai_user_tool_results_split_to_tool_role() {
+        let m = OpenAiClaudeIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::User,
+            vec![
+                IrContentBlock::ToolResult {
+                    tool_use_id: "t1".into(),
+                    content: vec![IrContentBlock::Text { text: "r1".into() }],
+                    is_error: false,
+                },
+                IrContentBlock::ToolResult {
+                    tool_use_id: "t2".into(),
+                    content: vec![IrContentBlock::Text { text: "r2".into() }],
+                    is_error: false,
+                },
+            ],
+        )]);
+        let r = m
+            .map_request(Dialect::Claude, Dialect::OpenAi, &conv)
+            .unwrap();
+        assert_eq!(r.messages.len(), 2);
+        assert!(r.messages.iter().all(|m| m.role == IrRole::Tool));
+    }
+
+    #[test]
+    fn claude_to_openai_thinking_blocks_dropped() {
+        let m = OpenAiClaudeIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking { text: "hmm".into() },
+                IrContentBlock::Text {
+                    text: "answer".into(),
+                },
+            ],
+        )]);
+        let r = m
+            .map_request(Dialect::Claude, Dialect::OpenAi, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].content.len(), 1);
+        assert!(matches!(
+            &r.messages[0].content[0],
+            IrContentBlock::Text { text } if text == "answer"
+        ));
+    }
+
+    #[test]
+    fn openai_to_claude_thinking_preserved() {
+        let m = OpenAiClaudeIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking {
+                    text: "step by step".into(),
+                },
+                IrContentBlock::Text { text: "42".into() },
+            ],
+        )]);
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].content.len(), 2);
+    }
+
+    #[test]
+    fn openai_to_claude_image_preserved() {
+        let m = OpenAiClaudeIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::User,
+            vec![IrContentBlock::Image {
+                media_type: "image/png".into(),
+                data: "abc123".into(),
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        assert!(matches!(
+            &r.messages[0].content[0],
+            IrContentBlock::Image { media_type, .. } if media_type == "image/png"
+        ));
+    }
+
+    #[test]
+    fn unsupported_pair_returns_error() {
+        let m = OpenAiClaudeIrMapper;
+        let err = m
+            .map_request(Dialect::Gemini, Dialect::Kimi, &simple_conv())
+            .unwrap_err();
+        assert!(matches!(err, MapError::UnsupportedPair { .. }));
+    }
+
+    #[test]
+    fn roundtrip_openai_claude_simple_lossless() {
+        let m = OpenAiClaudeIrMapper;
+        let orig = simple_conv();
+        let claude = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &orig)
+            .unwrap();
+        let back = m
+            .map_request(Dialect::Claude, Dialect::OpenAi, &claude)
+            .unwrap();
+        assert_eq!(orig.len(), back.len());
+        for (o, b) in orig.messages.iter().zip(back.messages.iter()) {
+            assert_eq!(o.role, b.role);
+            assert_eq!(o.text_content(), b.text_content());
+        }
+    }
+
+    #[test]
+    fn roundtrip_tool_calls_preserved() {
+        let m = OpenAiClaudeIrMapper;
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::User, "weather"),
+            IrMessage::new(
+                IrRole::Assistant,
+                vec![IrContentBlock::ToolUse {
+                    id: "c1".into(),
+                    name: "get_weather".into(),
+                    input: json!({"city": "NYC"}),
+                }],
+            ),
+            IrMessage::new(
+                IrRole::Tool,
+                vec![IrContentBlock::ToolResult {
+                    tool_use_id: "c1".into(),
+                    content: vec![IrContentBlock::Text { text: "72F".into() }],
+                    is_error: false,
+                }],
+            ),
+        ]);
+        let claude = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        let back = m
+            .map_request(Dialect::Claude, Dialect::OpenAi, &claude)
+            .unwrap();
+        assert_eq!(back.tool_calls().len(), 1);
+    }
+
+    #[test]
+    fn response_mapping_same_as_request() {
+        let m = OpenAiClaudeIrMapper;
+        let conv = simple_conv();
+        let req = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        let resp = m
+            .map_response(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        assert_eq!(req, resp);
+    }
+
+    #[test]
+    fn supported_pairs_correct() {
+        let m = OpenAiClaudeIrMapper;
+        let pairs = m.supported_pairs();
+        assert!(pairs.contains(&(Dialect::OpenAi, Dialect::Claude)));
+        assert!(pairs.contains(&(Dialect::Claude, Dialect::OpenAi)));
+        assert_eq!(pairs.len(), 2);
+    }
+
+    #[test]
+    fn claude_to_openai_mixed_user_content_splits() {
+        let m = OpenAiClaudeIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::User,
+            vec![
+                IrContentBlock::Text {
+                    text: "here is the result".into(),
+                },
+                IrContentBlock::ToolResult {
+                    tool_use_id: "t1".into(),
+                    content: vec![IrContentBlock::Text {
+                        text: "output".into(),
+                    }],
+                    is_error: false,
+                },
+            ],
+        )]);
+        let r = m
+            .map_request(Dialect::Claude, Dialect::OpenAi, &conv)
+            .unwrap();
+        // Text goes to User, tool result goes to Tool
+        assert!(r.messages.iter().any(|m| m.role == IrRole::User));
+        assert!(r.messages.iter().any(|m| m.role == IrRole::Tool));
+    }
+
+    #[test]
+    fn metadata_preserved_through_mapping() {
+        let m = OpenAiClaudeIrMapper;
+        let mut msg = IrMessage::text(IrRole::User, "hi");
+        msg.metadata.insert("key".into(), json!("val"));
+        let conv = IrConversation::from_messages(vec![msg]);
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].metadata.get("key"), Some(&json!("val")));
+    }
+
+    #[test]
+    fn empty_conversation_maps_to_empty() {
+        let m = OpenAiClaudeIrMapper;
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &IrConversation::new())
+            .unwrap();
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn tool_error_flag_preserved() {
+        let m = OpenAiClaudeIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "t1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "fail".into(),
+                }],
+                is_error: true,
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        if let IrContentBlock::ToolResult { is_error, .. } = &r.messages[0].content[0] {
+            assert!(is_error);
+        } else {
+            panic!("expected ToolResult");
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 15. OpenAI ↔ Gemini via IrMapper
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_openai_gemini {
+    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+    use abp_dialect::Dialect;
+    use abp_mapper::{IrMapper, OpenAiGeminiIrMapper};
+    use serde_json::json;
+
+    #[test]
+    fn openai_to_gemini_simple() {
+        let m = OpenAiGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "sys"),
+            IrMessage::text(IrRole::User, "hi"),
+            IrMessage::text(IrRole::Assistant, "hello"),
+        ]);
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
+        assert_eq!(r.len(), 3);
+        assert_eq!(r.messages[0].role, IrRole::System);
+    }
+
+    #[test]
+    fn openai_to_gemini_tool_role_becomes_user() {
+        let m = OpenAiGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "c1".into(),
+                content: vec![IrContentBlock::Text { text: "res".into() }],
+                is_error: false,
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].role, IrRole::User);
+    }
+
+    #[test]
+    fn openai_to_gemini_thinking_dropped() {
+        let m = OpenAiGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking { text: "hmm".into() },
+                IrContentBlock::Text { text: "ok".into() },
+            ],
+        )]);
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].content.len(), 1);
+    }
+
+    #[test]
+    fn gemini_to_openai_user_tool_results_become_tool_role() {
+        let m = OpenAiGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::User,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "t1".into(),
+                content: vec![IrContentBlock::Text { text: "val".into() }],
+                is_error: false,
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::Gemini, Dialect::OpenAi, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].role, IrRole::Tool);
+    }
+
+    #[test]
+    fn roundtrip_openai_gemini_simple() {
+        let m = OpenAiGeminiIrMapper;
+        let orig = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "sys"),
+            IrMessage::text(IrRole::User, "q"),
+            IrMessage::text(IrRole::Assistant, "a"),
+        ]);
+        let gem = m
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &orig)
+            .unwrap();
+        let back = m
+            .map_request(Dialect::Gemini, Dialect::OpenAi, &gem)
+            .unwrap();
+        assert_eq!(orig.len(), back.len());
+        for (o, b) in orig.messages.iter().zip(back.messages.iter()) {
+            assert_eq!(o.role, b.role);
+        }
+    }
+
+    #[test]
+    fn openai_to_gemini_tool_use_preserved() {
+        let m = OpenAiGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "c1".into(),
+                name: "search".into(),
+                input: json!({"q": "rust"}),
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
+        assert_eq!(r.tool_calls().len(), 1);
+    }
+
+    #[test]
+    fn gemini_to_openai_thinking_dropped() {
+        let m = OpenAiGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking {
+                    text: "think".into(),
+                },
+                IrContentBlock::Text {
+                    text: "done".into(),
+                },
+            ],
+        )]);
+        let r = m
+            .map_request(Dialect::Gemini, Dialect::OpenAi, &conv)
+            .unwrap();
+        assert!(
+            !r.messages[0]
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
+        );
+    }
+
+    #[test]
+    fn supported_pairs() {
+        let m = OpenAiGeminiIrMapper;
+        let pairs = m.supported_pairs();
+        assert!(pairs.contains(&(Dialect::OpenAi, Dialect::Gemini)));
+        assert!(pairs.contains(&(Dialect::Gemini, Dialect::OpenAi)));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 16. Claude ↔ Gemini via IrMapper
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_claude_gemini {
+    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+    use abp_dialect::Dialect;
+    use abp_mapper::{ClaudeGeminiIrMapper, IrMapper, MapError};
+
+    #[test]
+    fn claude_to_gemini_thinking_dropped() {
+        let m = ClaudeGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking {
+                    text: "deep thought".into(),
+                },
+                IrContentBlock::Text { text: "42".into() },
+            ],
+        )]);
+        let r = m
+            .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].content.len(), 1);
+        assert_eq!(r.messages[0].text_content(), "42");
+    }
+
+    #[test]
+    fn claude_to_gemini_system_preserved() {
+        let m = ClaudeGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "Be concise."),
+            IrMessage::text(IrRole::User, "hi"),
+        ]);
+        let r = m
+            .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].role, IrRole::System);
+        assert_eq!(r.messages[0].text_content(), "Be concise.");
+    }
+
+    #[test]
+    fn claude_to_gemini_tool_role_becomes_user() {
+        let m = ClaudeGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "t1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "result".into(),
+                }],
+                is_error: false,
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].role, IrRole::User);
+    }
+
+    #[test]
+    fn gemini_to_claude_tool_role_becomes_user() {
+        let m = ClaudeGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "t1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "data".into(),
+                }],
+                is_error: false,
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::Gemini, Dialect::Claude, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].role, IrRole::User);
+    }
+
+    #[test]
+    fn claude_to_gemini_system_with_image_fails() {
+        let m = ClaudeGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::System,
+            vec![IrContentBlock::Image {
+                media_type: "image/png".into(),
+                data: "abc".into(),
+            }],
+        )]);
+        let err = m
+            .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+            .unwrap_err();
+        assert!(matches!(err, MapError::UnmappableContent { .. }));
+    }
+
+    #[test]
+    fn gemini_to_claude_preserves_all_roles() {
+        let m = ClaudeGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "sys"),
+            IrMessage::text(IrRole::User, "hi"),
+            IrMessage::text(IrRole::Assistant, "hey"),
+        ]);
+        let r = m
+            .map_request(Dialect::Gemini, Dialect::Claude, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].role, IrRole::System);
+        assert_eq!(r.messages[1].role, IrRole::User);
+        assert_eq!(r.messages[2].role, IrRole::Assistant);
+    }
+
+    #[test]
+    fn roundtrip_claude_gemini_text() {
+        let m = ClaudeGeminiIrMapper;
+        let orig = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::User, "hello"),
+            IrMessage::text(IrRole::Assistant, "hi"),
+        ]);
+        let gem = m
+            .map_request(Dialect::Claude, Dialect::Gemini, &orig)
+            .unwrap();
+        let back = m
+            .map_request(Dialect::Gemini, Dialect::Claude, &gem)
+            .unwrap();
+        assert_eq!(orig.len(), back.len());
+        for (o, b) in orig.messages.iter().zip(back.messages.iter()) {
+            assert_eq!(o.text_content(), b.text_content());
+        }
+    }
+
+    #[test]
+    fn unsupported_pair() {
+        let m = ClaudeGeminiIrMapper;
+        let err = m
+            .map_request(Dialect::OpenAi, Dialect::Kimi, &IrConversation::new())
+            .unwrap_err();
+        assert!(matches!(err, MapError::UnsupportedPair { .. }));
+    }
+
+    #[test]
+    fn image_content_preserved_gemini_to_claude() {
+        let m = ClaudeGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::User,
+            vec![IrContentBlock::Image {
+                media_type: "image/jpeg".into(),
+                data: "imgdata".into(),
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::Gemini, Dialect::Claude, &conv)
+            .unwrap();
+        assert!(matches!(
+            &r.messages[0].content[0],
+            IrContentBlock::Image { media_type, .. } if media_type == "image/jpeg"
+        ));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 17. Kimi ↔ OpenAI via IrMapper (near identity)
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_kimi_openai {
+    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+    use abp_dialect::Dialect;
+    use abp_mapper::{IrMapper, OpenAiKimiIrMapper};
+    use serde_json::json;
+
+    #[test]
+    fn kimi_to_openai_near_identity() {
+        let m = OpenAiKimiIrMapper;
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "sys"),
+            IrMessage::text(IrRole::User, "hi"),
+            IrMessage::text(IrRole::Assistant, "hey"),
+        ]);
+        let r = m
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &conv)
+            .unwrap();
+        assert_eq!(r.len(), 3);
+        assert_eq!(r.messages[0].role, IrRole::System);
+        assert_eq!(r.messages[1].role, IrRole::User);
+        assert_eq!(r.messages[2].role, IrRole::Assistant);
+    }
+
+    #[test]
+    fn openai_to_kimi_near_identity() {
+        let m = OpenAiKimiIrMapper;
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::User, "question"),
+            IrMessage::text(IrRole::Assistant, "answer"),
+        ]);
+        let r = m
+            .map_request(Dialect::OpenAi, Dialect::Kimi, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].text_content(), "question");
+        assert_eq!(r.messages[1].text_content(), "answer");
+    }
+
+    #[test]
+    fn kimi_to_openai_thinking_dropped() {
+        let m = OpenAiKimiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking { text: "hmm".into() },
+                IrContentBlock::Text { text: "yes".into() },
+            ],
+        )]);
+        let r = m
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].content.len(), 1);
+    }
+
+    #[test]
+    fn kimi_openai_tool_calls_preserved() {
+        let m = OpenAiKimiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "c1".into(),
+                name: "web_search".into(),
+                input: json!({"q": "test"}),
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &conv)
+            .unwrap();
+        assert_eq!(r.tool_calls().len(), 1);
+    }
+
+    #[test]
+    fn kimi_openai_roundtrip_lossless_for_text() {
+        let m = OpenAiKimiIrMapper;
+        let orig = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::User, "abc"),
+            IrMessage::text(IrRole::Assistant, "xyz"),
+        ]);
+        let kimi = m
+            .map_request(Dialect::OpenAi, Dialect::Kimi, &orig)
+            .unwrap();
+        let back = m
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &kimi)
+            .unwrap();
+        assert_eq!(orig, back);
+    }
+
+    #[test]
+    fn kimi_openai_tool_role_preserved() {
+        let m = OpenAiKimiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "t1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "output".into(),
+                }],
+                is_error: false,
+            }],
+        )]);
+        let r = m
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].role, IrRole::Tool);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 18. Tool call mapping across dialects
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_tool_call_mapping {
+    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+    use abp_dialect::Dialect;
+    use abp_mapper::{
+        ClaudeGeminiIrMapper, ClaudeKimiIrMapper, GeminiKimiIrMapper, IrMapper,
+        OpenAiClaudeIrMapper, OpenAiGeminiIrMapper, OpenAiKimiIrMapper,
+    };
+    use serde_json::json;
+
+    fn tool_conv() -> IrConversation {
+        IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::User, "Do it"),
+            IrMessage::new(
+                IrRole::Assistant,
+                vec![
+                    IrContentBlock::Text {
+                        text: "On it.".into(),
+                    },
+                    IrContentBlock::ToolUse {
+                        id: "call_1".into(),
+                        name: "read_file".into(),
+                        input: json!({"path": "/tmp/a.rs"}),
+                    },
+                ],
+            ),
+            IrMessage::new(
+                IrRole::Tool,
+                vec![IrContentBlock::ToolResult {
+                    tool_use_id: "call_1".into(),
+                    content: vec![IrContentBlock::Text {
+                        text: "fn main() {}".into(),
+                    }],
+                    is_error: false,
+                }],
+            ),
+        ])
+    }
+
+    #[test]
+    fn openai_to_claude_tool_call_name_preserved() {
+        let r = OpenAiClaudeIrMapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &tool_conv())
+            .unwrap();
+        let calls = r.tool_calls();
+        assert_eq!(calls.len(), 1);
+        if let IrContentBlock::ToolUse { name, .. } = calls[0] {
+            assert_eq!(name, "read_file");
+        }
+    }
+
+    #[test]
+    fn openai_to_claude_tool_input_preserved() {
+        let r = OpenAiClaudeIrMapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &tool_conv())
+            .unwrap();
+        if let IrContentBlock::ToolUse { input, .. } = &r.tool_calls()[0] {
+            assert_eq!(input, &json!({"path": "/tmp/a.rs"}));
+        }
+    }
+
+    #[test]
+    fn openai_to_gemini_tool_call_preserved() {
+        let r = OpenAiGeminiIrMapper
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &tool_conv())
+            .unwrap();
+        assert_eq!(r.tool_calls().len(), 1);
+    }
+
+    #[test]
+    fn claude_to_gemini_tool_use_in_assistant() {
+        let r = ClaudeGeminiIrMapper
+            .map_request(Dialect::Claude, Dialect::Gemini, &tool_conv())
+            .unwrap();
+        let asst_msgs: Vec<_> = r.messages_by_role(IrRole::Assistant);
+        assert!(!asst_msgs.is_empty());
+        assert!(
+            asst_msgs[0]
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolUse { .. }))
+        );
+    }
+
+    #[test]
+    fn kimi_to_openai_tool_call_identity() {
+        let r = OpenAiKimiIrMapper
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &tool_conv())
+            .unwrap();
+        assert_eq!(r.tool_calls().len(), 1);
+        if let IrContentBlock::ToolUse { name, input, .. } = &r.tool_calls()[0] {
+            assert_eq!(name, "read_file");
+            assert_eq!(input, &json!({"path": "/tmp/a.rs"}));
+        }
+    }
+
+    #[test]
+    fn claude_to_kimi_tool_result_split() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::User,
+            vec![
+                IrContentBlock::ToolResult {
+                    tool_use_id: "t1".into(),
+                    content: vec![IrContentBlock::Text { text: "r1".into() }],
+                    is_error: false,
+                },
+                IrContentBlock::ToolResult {
+                    tool_use_id: "t2".into(),
+                    content: vec![IrContentBlock::Text { text: "r2".into() }],
+                    is_error: false,
+                },
+            ],
+        )]);
+        let r = ClaudeKimiIrMapper
+            .map_request(Dialect::Claude, Dialect::Kimi, &conv)
+            .unwrap();
+        let tool_msgs: Vec<_> = r.messages_by_role(IrRole::Tool);
+        assert_eq!(tool_msgs.len(), 2);
+    }
+
+    #[test]
+    fn gemini_to_kimi_user_tool_results_become_tool_role() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::User,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "t1".into(),
+                content: vec![IrContentBlock::Text { text: "val".into() }],
+                is_error: false,
+            }],
+        )]);
+        let r = GeminiKimiIrMapper
+            .map_request(Dialect::Gemini, Dialect::Kimi, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].role, IrRole::Tool);
+    }
+
+    #[test]
+    fn kimi_to_gemini_tool_role_becomes_user() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "t1".into(),
+                content: vec![IrContentBlock::Text { text: "val".into() }],
+                is_error: false,
+            }],
+        )]);
+        let r = GeminiKimiIrMapper
+            .map_request(Dialect::Kimi, Dialect::Gemini, &conv)
+            .unwrap();
+        assert_eq!(r.messages[0].role, IrRole::User);
+    }
+
+    #[test]
+    fn tool_error_flag_survives_all_mappers() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "t1".into(),
+                content: vec![IrContentBlock::Text { text: "err".into() }],
+                is_error: true,
+            }],
+        )]);
+        // OpenAI→Claude
+        let r = OpenAiClaudeIrMapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        if let IrContentBlock::ToolResult { is_error, .. } = &r.messages[0].content[0] {
+            assert!(is_error, "error flag lost in OpenAI→Claude");
+        }
+        // OpenAI→Gemini
+        let r = OpenAiGeminiIrMapper
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
+        if let IrContentBlock::ToolResult { is_error, .. } = &r.messages[0].content[0] {
+            assert!(is_error, "error flag lost in OpenAI→Gemini");
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 19. System message handling across dialects
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_system_message_handling {
+    use abp_core::ir::{IrConversation, IrMessage, IrRole};
+    use abp_ir::lower::{lower_to_claude, lower_to_gemini, lower_to_openai};
+    use abp_ir::normalize::{dedup_system, extract_system};
+
+    #[test]
+    fn openai_keeps_system_inline() {
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "Be nice."),
+            IrMessage::text(IrRole::User, "hi"),
+        ]);
+        let lowered = lower_to_openai(&conv, &[]);
+        let msgs = lowered["messages"].as_array().unwrap();
+        assert_eq!(msgs[0]["role"], "system");
+        assert_eq!(msgs[0]["content"], "Be nice.");
+    }
+
+    #[test]
+    fn claude_extracts_system_to_top_level() {
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "Be nice."),
+            IrMessage::text(IrRole::User, "hi"),
+        ]);
+        let lowered = lower_to_claude(&conv, &[]);
+        assert_eq!(lowered["system"], "Be nice.");
+        let msgs = lowered["messages"].as_array().unwrap();
+        assert!(msgs.iter().all(|m| m["role"] != "system"));
+    }
+
+    #[test]
+    fn gemini_extracts_system_instruction() {
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "Be concise."),
+            IrMessage::text(IrRole::User, "hi"),
+        ]);
+        let lowered = lower_to_gemini(&conv, &[]);
+        assert_eq!(
+            lowered["system_instruction"]["parts"][0]["text"],
+            "Be concise."
+        );
+    }
+
+    #[test]
+    fn dedup_system_merges_multiple() {
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "Rule 1."),
+            IrMessage::text(IrRole::User, "hi"),
+            IrMessage::text(IrRole::System, "Rule 2."),
+        ]);
+        let deduped = dedup_system(&conv);
+        let sys_msgs: Vec<_> = deduped.messages_by_role(IrRole::System);
+        assert_eq!(sys_msgs.len(), 1);
+        assert_eq!(sys_msgs[0].text_content(), "Rule 1.\nRule 2.");
+    }
+
+    #[test]
+    fn extract_system_returns_none_when_absent() {
+        let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hi")]);
+        let (sys, _rest) = extract_system(&conv);
+        assert!(sys.is_none());
+    }
+
+    #[test]
+    fn extract_system_merges_and_removes() {
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "A"),
+            IrMessage::text(IrRole::System, "B"),
+            IrMessage::text(IrRole::User, "q"),
+        ]);
+        let (sys, rest) = extract_system(&conv);
+        assert_eq!(sys.unwrap(), "A\nB");
+        assert!(rest.messages_by_role(IrRole::System).is_empty());
+        assert_eq!(rest.len(), 1);
+    }
+
+    #[test]
+    fn no_system_in_any_lowered_format_when_absent() {
+        let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hi")]);
+        let openai = lower_to_openai(&conv, &[]);
+        assert!(
+            openai["messages"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|m| m["role"] != "system")
+        );
+        let claude = lower_to_claude(&conv, &[]);
+        assert!(claude.get("system").is_none());
+        let gemini = lower_to_gemini(&conv, &[]);
+        assert!(gemini.get("system_instruction").is_none());
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 20. Role mapping across dialects
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_role_mapping {
+    use abp_core::ir::IrRole;
+    use abp_ir::lower::ir_role_to_dialect;
+    use abp_ir::normalize::normalize_role;
+    use abp_sdk_types::Dialect;
+
+    #[test]
+    fn openai_roles_standard() {
+        assert_eq!(
+            ir_role_to_dialect(IrRole::System, Dialect::OpenAi),
+            "system"
+        );
+        assert_eq!(ir_role_to_dialect(IrRole::User, Dialect::OpenAi), "user");
+        assert_eq!(
+            ir_role_to_dialect(IrRole::Assistant, Dialect::OpenAi),
+            "assistant"
+        );
+        assert_eq!(ir_role_to_dialect(IrRole::Tool, Dialect::OpenAi), "tool");
+    }
+
+    #[test]
+    fn claude_tool_maps_to_user() {
+        assert_eq!(ir_role_to_dialect(IrRole::Tool, Dialect::Claude), "user");
+    }
+
+    #[test]
+    fn gemini_assistant_maps_to_model() {
+        assert_eq!(
+            ir_role_to_dialect(IrRole::Assistant, Dialect::Gemini),
+            "model"
+        );
+    }
+
+    #[test]
+    fn gemini_tool_maps_to_user() {
+        assert_eq!(ir_role_to_dialect(IrRole::Tool, Dialect::Gemini), "user");
+    }
+
+    #[test]
+    fn kimi_matches_openai_roles() {
+        for role in [
+            IrRole::System,
+            IrRole::User,
+            IrRole::Assistant,
+            IrRole::Tool,
+        ] {
+            assert_eq!(
+                ir_role_to_dialect(role, Dialect::Kimi),
+                ir_role_to_dialect(role, Dialect::OpenAi),
+                "Kimi role mismatch for {role:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn copilot_matches_openai_roles() {
+        for role in [
+            IrRole::System,
+            IrRole::User,
+            IrRole::Assistant,
+            IrRole::Tool,
+        ] {
+            assert_eq!(
+                ir_role_to_dialect(role, Dialect::Copilot),
+                ir_role_to_dialect(role, Dialect::OpenAi),
+                "Copilot role mismatch for {role:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn codex_matches_openai_roles() {
+        for role in [
+            IrRole::System,
+            IrRole::User,
+            IrRole::Assistant,
+            IrRole::Tool,
+        ] {
+            assert_eq!(
+                ir_role_to_dialect(role, Dialect::Codex),
+                ir_role_to_dialect(role, Dialect::OpenAi),
+                "Codex role mismatch for {role:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn all_dialects_map_user_to_user() {
+        for d in Dialect::all() {
+            assert_eq!(ir_role_to_dialect(IrRole::User, *d), "user");
+        }
+    }
+
+    #[test]
+    fn normalize_gemini_model_role() {
+        assert_eq!(normalize_role("model"), Some(IrRole::Assistant));
+    }
+
+    #[test]
+    fn normalize_legacy_function_role() {
+        assert_eq!(normalize_role("function"), Some(IrRole::Tool));
+    }
+
+    #[test]
+    fn normalize_developer_role() {
+        assert_eq!(normalize_role("developer"), Some(IrRole::System));
+    }
+
+    #[test]
+    fn normalize_human_role() {
+        assert_eq!(normalize_role("human"), Some(IrRole::User));
+    }
+
+    #[test]
+    fn normalize_bot_role() {
+        assert_eq!(normalize_role("bot"), Some(IrRole::Assistant));
+    }
+
+    #[test]
+    fn normalize_unknown_role_returns_none() {
+        assert_eq!(normalize_role("narrator"), None);
+        assert_eq!(normalize_role(""), None);
+        assert_eq!(normalize_role("SYSTEM"), None);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 21. Loss detection: which conversions are lossy/lossless
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_loss_detection {
+    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+    use abp_dialect::Dialect;
+    use abp_mapper::{
+        ClaudeGeminiIrMapper, CodexClaudeIrMapper, IrMapper, OpenAiClaudeIrMapper,
+        OpenAiCodexIrMapper, OpenAiGeminiIrMapper, OpenAiKimiIrMapper,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn openai_claude_text_only_is_lossless() {
+        let m = OpenAiClaudeIrMapper;
+        let orig = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::User, "hello"),
+            IrMessage::text(IrRole::Assistant, "hi"),
+        ]);
+        let claude = m
+            .map_request(Dialect::OpenAi, Dialect::Claude, &orig)
+            .unwrap();
+        let back = m
+            .map_request(Dialect::Claude, Dialect::OpenAi, &claude)
+            .unwrap();
+        assert_eq!(orig, back, "text roundtrip should be lossless");
+    }
+
+    #[test]
+    fn thinking_blocks_lost_claude_to_openai() {
+        let m = OpenAiClaudeIrMapper;
+        let orig = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking {
+                    text: "thinking...".into(),
+                },
+                IrContentBlock::Text {
+                    text: "done".into(),
+                },
+            ],
+        )]);
+        let openai = m
+            .map_request(Dialect::Claude, Dialect::OpenAi, &orig)
+            .unwrap();
+        assert!(
+            !openai.messages[0]
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::Thinking { .. })),
+            "thinking should be dropped for OpenAI"
+        );
+    }
+
+    #[test]
+    fn thinking_blocks_lost_claude_to_gemini() {
+        let m = ClaudeGeminiIrMapper;
+        let orig = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking {
+                    text: "deep".into(),
+                },
+                IrContentBlock::Text {
+                    text: "result".into(),
+                },
+            ],
+        )]);
+        let gem = m
+            .map_request(Dialect::Claude, Dialect::Gemini, &orig)
+            .unwrap();
+        assert_eq!(
+            gem.messages[0].content.len(),
+            1,
+            "thinking should be dropped"
+        );
+    }
+
+    #[test]
+    fn codex_is_heavily_lossy() {
+        let m = OpenAiCodexIrMapper;
+        let orig = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "You are helpful."),
+            IrMessage::text(IrRole::User, "hello"),
+            IrMessage::new(
+                IrRole::Assistant,
+                vec![
+                    IrContentBlock::Text {
+                        text: "result".into(),
+                    },
+                    IrContentBlock::ToolUse {
+                        id: "t1".into(),
+                        name: "search".into(),
+                        input: json!({"q": "rust"}),
+                    },
+                    IrContentBlock::Image {
+                        media_type: "image/png".into(),
+                        data: "abc".into(),
+                    },
+                    IrContentBlock::Thinking { text: "hmm".into() },
+                ],
+            ),
+            IrMessage::new(
+                IrRole::Tool,
+                vec![IrContentBlock::ToolResult {
+                    tool_use_id: "t1".into(),
+                    content: vec![IrContentBlock::Text {
+                        text: "output".into(),
+                    }],
+                    is_error: false,
+                }],
+            ),
+        ]);
+        let codex = m
+            .map_request(Dialect::OpenAi, Dialect::Codex, &orig)
+            .unwrap();
+        // System dropped, Tool dropped, only user + assistant text survive
+        assert!(codex.messages_by_role(IrRole::System).is_empty());
+        assert!(codex.messages_by_role(IrRole::Tool).is_empty());
+        let asst = &codex.messages_by_role(IrRole::Assistant)[0];
+        assert_eq!(asst.content.len(), 1); // only Text survives
+    }
+
+    #[test]
+    fn codex_to_openai_is_lossless() {
+        let m = OpenAiCodexIrMapper;
+        let orig = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::User, "hello"),
+            IrMessage::text(IrRole::Assistant, "world"),
+        ]);
+        let back = m
+            .map_request(Dialect::Codex, Dialect::OpenAi, &orig)
+            .unwrap();
+        assert_eq!(orig, back, "Codex→OpenAI should be lossless");
+    }
+
+    #[test]
+    fn codex_claude_lossy_system_dropped() {
+        let m = CodexClaudeIrMapper;
+        let orig = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "sys"),
+            IrMessage::text(IrRole::User, "hi"),
+        ]);
+        let codex = m
+            .map_request(Dialect::Claude, Dialect::Codex, &orig)
+            .unwrap();
+        assert!(codex.messages_by_role(IrRole::System).is_empty());
+    }
+
+    #[test]
+    fn openai_kimi_roundtrip_text_lossless() {
+        let m = OpenAiKimiIrMapper;
+        let orig = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "sys"),
+            IrMessage::text(IrRole::User, "hi"),
+            IrMessage::text(IrRole::Assistant, "hey"),
+        ]);
+        let kimi = m
+            .map_request(Dialect::OpenAi, Dialect::Kimi, &orig)
+            .unwrap();
+        let back = m
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &kimi)
+            .unwrap();
+        assert_eq!(orig, back, "OpenAI↔Kimi text roundtrip should be lossless");
+    }
+
+    #[test]
+    fn openai_gemini_roundtrip_text_lossless() {
+        let m = OpenAiGeminiIrMapper;
+        let orig = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "sys"),
+            IrMessage::text(IrRole::User, "hi"),
+            IrMessage::text(IrRole::Assistant, "hey"),
+        ]);
+        let gem = m
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &orig)
+            .unwrap();
+        let back = m
+            .map_request(Dialect::Gemini, Dialect::OpenAi, &gem)
+            .unwrap();
+        assert_eq!(orig.len(), back.len());
+        for (o, b) in orig.messages.iter().zip(back.messages.iter()) {
+            assert_eq!(o.role, b.role);
+            assert_eq!(o.text_content(), b.text_content());
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 22. Error cases: unmappable features produce typed errors
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_error_cases {
+    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+    use abp_dialect::Dialect;
+    use abp_mapper::{
+        ClaudeGeminiIrMapper, CodexClaudeIrMapper, IrMapper, MapError, OpenAiClaudeIrMapper,
+        default_ir_mapper,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn unsupported_pair_openai_claude_mapper() {
+        let m = OpenAiClaudeIrMapper;
+        let err = m
+            .map_request(Dialect::Gemini, Dialect::Codex, &IrConversation::new())
+            .unwrap_err();
+        match err {
+            MapError::UnsupportedPair { from, to } => {
+                assert_eq!(from, Dialect::Gemini);
+                assert_eq!(to, Dialect::Codex);
+            }
+            _ => panic!("expected UnsupportedPair"),
+        }
+    }
+
+    #[test]
+    fn claude_gemini_system_image_unmappable() {
+        let m = ClaudeGeminiIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::System,
+            vec![IrContentBlock::Image {
+                media_type: "image/png".into(),
+                data: "base64".into(),
+            }],
+        )]);
+        let err = m
+            .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+            .unwrap_err();
+        assert!(matches!(err, MapError::UnmappableContent { .. }));
+    }
+
+    #[test]
+    fn codex_claude_unmappable_tool() {
+        let m = CodexClaudeIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "t1".into(),
+                name: "apply_patch".into(),
+                input: json!({"patch": "diff"}),
+            }],
+        )]);
+        let err = m
+            .map_request(Dialect::Codex, Dialect::Claude, &conv)
+            .unwrap_err();
+        match err {
+            MapError::UnmappableTool { name, .. } => {
+                assert_eq!(name, "apply_patch");
+            }
+            _ => panic!("expected UnmappableTool"),
+        }
+    }
+
+    #[test]
+    fn codex_claude_apply_diff_unmappable() {
+        let m = CodexClaudeIrMapper;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "t1".into(),
+                name: "apply_diff".into(),
+                input: json!({}),
+            }],
+        )]);
+        let err = m
+            .map_request(Dialect::Codex, Dialect::Claude, &conv)
+            .unwrap_err();
+        assert!(matches!(err, MapError::UnmappableTool { .. }));
+    }
+
+    #[test]
+    fn factory_returns_none_for_kimi_copilot() {
+        assert!(default_ir_mapper(Dialect::Kimi, Dialect::Copilot).is_none());
+    }
+
+    #[test]
+    fn factory_returns_none_for_codex_gemini() {
+        assert!(default_ir_mapper(Dialect::Codex, Dialect::Gemini).is_none());
+    }
+
+    #[test]
+    fn map_error_serde_roundtrip_unsupported() {
+        let err = MapError::UnsupportedPair {
+            from: Dialect::OpenAi,
+            to: Dialect::Claude,
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        let back: MapError = serde_json::from_str(&json).unwrap();
+        assert_eq!(err, back);
+    }
+
+    #[test]
+    fn map_error_serde_roundtrip_unmappable_content() {
+        let err = MapError::UnmappableContent {
+            field: "system".into(),
+            reason: "image in system".into(),
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        let back: MapError = serde_json::from_str(&json).unwrap();
+        assert_eq!(err, back);
+    }
+
+    #[test]
+    fn map_error_serde_roundtrip_unmappable_tool() {
+        let err = MapError::UnmappableTool {
+            name: "bash".into(),
+            reason: "restricted".into(),
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        let back: MapError = serde_json::from_str(&json).unwrap();
+        assert_eq!(err, back);
+    }
+
+    #[test]
+    fn map_error_display_contains_context() {
+        let err = MapError::UnsupportedPair {
+            from: Dialect::Kimi,
+            to: Dialect::Copilot,
+        };
+        let display = err.to_string();
+        assert!(display.contains("Kimi"));
+        assert!(display.contains("Copilot"));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 23. IrMapper factory and supported pairs
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_factory {
+    use abp_core::ir::{IrConversation, IrMessage, IrRole};
+    use abp_dialect::Dialect;
+    use abp_mapper::{default_ir_mapper, supported_ir_pairs};
+
+    #[test]
+    fn identity_mapper_for_all_dialects() {
+        for &d in Dialect::all() {
+            let m = default_ir_mapper(d, d);
+            assert!(m.is_some(), "no identity mapper for {d}");
+        }
+    }
+
+    #[test]
+    fn identity_mapper_preserves_conversation() {
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::User, "hello"),
+            IrMessage::text(IrRole::Assistant, "hi"),
+        ]);
+        for &d in Dialect::all() {
+            let m = default_ir_mapper(d, d).unwrap();
+            let r = m.map_request(d, d, &conv).unwrap();
+            assert_eq!(r, conv, "identity mapper should preserve {d}");
+        }
+    }
+
+    #[test]
+    fn all_supported_pairs_have_mappers() {
+        for (from, to) in supported_ir_pairs() {
+            let m = default_ir_mapper(from, to);
+            assert!(
+                m.is_some(),
+                "supported_ir_pairs lists ({from}, {to}) but no mapper found"
+            );
+        }
+    }
+
+    #[test]
+    fn supported_pairs_includes_cross_dialect() {
+        let pairs = supported_ir_pairs();
+        assert!(pairs.contains(&(Dialect::OpenAi, Dialect::Claude)));
+        assert!(pairs.contains(&(Dialect::Claude, Dialect::OpenAi)));
+        assert!(pairs.contains(&(Dialect::OpenAi, Dialect::Gemini)));
+        assert!(pairs.contains(&(Dialect::Gemini, Dialect::OpenAi)));
+        assert!(pairs.contains(&(Dialect::Claude, Dialect::Gemini)));
+        assert!(pairs.contains(&(Dialect::Gemini, Dialect::Claude)));
+        assert!(pairs.contains(&(Dialect::OpenAi, Dialect::Kimi)));
+        assert!(pairs.contains(&(Dialect::Kimi, Dialect::OpenAi)));
+        assert!(pairs.contains(&(Dialect::OpenAi, Dialect::Copilot)));
+        assert!(pairs.contains(&(Dialect::Copilot, Dialect::OpenAi)));
+    }
+
+    #[test]
+    fn factory_mapper_can_map_simple_conv() {
+        let pairs = [
+            (Dialect::OpenAi, Dialect::Claude),
+            (Dialect::Claude, Dialect::Gemini),
+            (Dialect::OpenAi, Dialect::Gemini),
+            (Dialect::Kimi, Dialect::OpenAi),
+            (Dialect::OpenAi, Dialect::Copilot),
+        ];
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::User, "q"),
+            IrMessage::text(IrRole::Assistant, "a"),
+        ]);
+        for (from, to) in pairs {
+            let m = default_ir_mapper(from, to).unwrap();
+            let r = m.map_request(from, to, &conv);
+            assert!(r.is_ok(), "factory mapper failed for ({from}, {to})");
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 24. Streaming format mapping (lowered output differences)
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_streaming_format {
+    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
+    use abp_ir::lower::{lower_to_claude, lower_to_gemini, lower_to_openai};
+    use serde_json::json;
+
+    #[test]
+    fn openai_tool_calls_in_assistant_message() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Text {
+                    text: "checking".into(),
+                },
+                IrContentBlock::ToolUse {
+                    id: "c1".into(),
+                    name: "search".into(),
+                    input: json!({"q": "test"}),
+                },
+            ],
+        )]);
+        let lowered = lower_to_openai(&conv, &[]);
+        let msg = &lowered["messages"][0];
+        assert_eq!(msg["content"], "checking");
+        assert_eq!(msg["tool_calls"][0]["type"], "function");
+        assert_eq!(msg["tool_calls"][0]["function"]["name"], "search");
+    }
+
+    #[test]
+    fn claude_tool_use_as_content_blocks() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Text {
+                    text: "checking".into(),
+                },
+                IrContentBlock::ToolUse {
+                    id: "c1".into(),
+                    name: "search".into(),
+                    input: json!({"q": "test"}),
+                },
+            ],
+        )]);
+        let lowered = lower_to_claude(&conv, &[]);
+        let content = lowered["messages"][0]["content"].as_array().unwrap();
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[1]["type"], "tool_use");
+        assert_eq!(content[1]["name"], "search");
+    }
+
+    #[test]
+    fn gemini_function_call_as_parts() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "c1".into(),
+                name: "search".into(),
+                input: json!({"q": "test"}),
+            }],
+        )]);
+        let lowered = lower_to_gemini(&conv, &[]);
+        let part = &lowered["contents"][0]["parts"][0];
+        assert_eq!(part["functionCall"]["name"], "search");
+    }
+
+    #[test]
+    fn openai_tool_result_as_tool_message() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "c1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "result".into(),
+                }],
+                is_error: false,
+            }],
+        )]);
+        let lowered = lower_to_openai(&conv, &[]);
+        let msg = &lowered["messages"][0];
+        assert_eq!(msg["role"], "tool");
+        assert_eq!(msg["tool_call_id"], "c1");
+    }
+
+    #[test]
+    fn claude_tool_result_as_content_block() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::User,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "c1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "result".into(),
+                }],
+                is_error: false,
+            }],
+        )]);
+        let lowered = lower_to_claude(&conv, &[]);
+        let block = &lowered["messages"][0]["content"][0];
+        assert_eq!(block["type"], "tool_result");
+        assert_eq!(block["tool_use_id"], "c1");
+    }
+
+    #[test]
+    fn gemini_function_response_as_part() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::User,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "c1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "result".into(),
+                }],
+                is_error: false,
+            }],
+        )]);
+        let lowered = lower_to_gemini(&conv, &[]);
+        let part = &lowered["contents"][0]["parts"][0];
+        assert!(part.get("functionResponse").is_some());
+    }
+
+    #[test]
+    fn openai_tools_use_function_type() {
+        let tools = vec![IrToolDefinition {
+            name: "calc".into(),
+            description: "Math".into(),
+            parameters: json!({"type": "object"}),
+        }];
+        let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hi")]);
+        let lowered = lower_to_openai(&conv, &tools);
+        assert_eq!(lowered["tools"][0]["type"], "function");
+        assert_eq!(lowered["tools"][0]["function"]["name"], "calc");
+    }
+
+    #[test]
+    fn claude_tools_use_input_schema() {
+        let tools = vec![IrToolDefinition {
+            name: "calc".into(),
+            description: "Math".into(),
+            parameters: json!({"type": "object"}),
+        }];
+        let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hi")]);
+        let lowered = lower_to_claude(&conv, &tools);
+        assert!(lowered["tools"][0].get("input_schema").is_some());
+        assert!(lowered["tools"][0].get("parameters").is_none());
+    }
+
+    #[test]
+    fn gemini_tools_use_function_declarations() {
+        let tools = vec![IrToolDefinition {
+            name: "calc".into(),
+            description: "Math".into(),
+            parameters: json!({"type": "object"}),
+        }];
+        let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hi")]);
+        let lowered = lower_to_gemini(&conv, &tools);
+        assert!(lowered["tools"][0].get("function_declarations").is_some());
+    }
+
+    #[test]
+    fn gemini_thinking_blocks_not_in_output() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking { text: "hmm".into() },
+                IrContentBlock::Text {
+                    text: "answer".into(),
+                },
+            ],
+        )]);
+        let lowered = lower_to_gemini(&conv, &[]);
+        let parts = lowered["contents"][0]["parts"].as_array().unwrap();
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0]["text"], "answer");
+    }
+
+    #[test]
+    fn claude_thinking_blocks_in_output() {
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking { text: "hmm".into() },
+                IrContentBlock::Text {
+                    text: "answer".into(),
+                },
+            ],
+        )]);
+        let lowered = lower_to_claude(&conv, &[]);
+        let content = lowered["messages"][0]["content"].as_array().unwrap();
+        assert_eq!(content.len(), 2);
+        assert_eq!(content[0]["type"], "thinking");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 25. Model name mapping
+// ═══════════════════════════════════════════════════════════════════════
+
+mod ir_model_name_mapping {
+    use abp_claude_sdk::dialect as claude_dialect;
+    use abp_gemini_sdk::dialect as gemini_dialect;
+    use abp_kimi_sdk::dialect as kimi_dialect;
+    use abp_openai_sdk::dialect as openai_dialect;
+
+    #[test]
+    fn openai_canonical_model_roundtrip() {
+        let canonical = openai_dialect::to_canonical_model("gpt-4o");
+        assert_eq!(canonical, "openai/gpt-4o");
+        let back = openai_dialect::from_canonical_model(&canonical);
+        assert_eq!(back, "gpt-4o");
+    }
+
+    #[test]
+    fn claude_canonical_model_roundtrip() {
+        let canonical = claude_dialect::to_canonical_model("claude-3-5-sonnet-20241022");
+        assert!(canonical.contains("claude-3-5-sonnet"));
+        let back = claude_dialect::from_canonical_model(&canonical);
+        assert_eq!(back, "claude-3-5-sonnet-20241022");
+    }
+
+    #[test]
+    fn gemini_canonical_model_roundtrip() {
+        let canonical = gemini_dialect::to_canonical_model("gemini-1.5-pro");
+        assert!(canonical.contains("gemini-1.5-pro"));
+        let back = gemini_dialect::from_canonical_model(&canonical);
+        assert_eq!(back, "gemini-1.5-pro");
+    }
+
+    #[test]
+    fn kimi_canonical_model_roundtrip() {
+        let canonical = kimi_dialect::to_canonical_model("moonshot-v1-8k");
+        assert!(canonical.contains("moonshot-v1-8k"));
+        let back = kimi_dialect::from_canonical_model(&canonical);
+        assert_eq!(back, "moonshot-v1-8k");
+    }
+
+    #[test]
+    fn cross_vendor_models_distinguishable() {
+        let openai = openai_dialect::to_canonical_model("gpt-4");
+        let claude = claude_dialect::to_canonical_model("claude-3-opus");
+        let gemini = gemini_dialect::to_canonical_model("gemini-pro");
+        assert_ne!(openai, claude);
+        assert_ne!(claude, gemini);
+        assert_ne!(openai, gemini);
+    }
+}
