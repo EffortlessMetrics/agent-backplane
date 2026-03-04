@@ -159,7 +159,7 @@ fn jitter(attempt: u32) -> f64 {
 
 /// An ordered list of backend names to try when the primary backend fails.
 ///
-/// Call [`next`](Self::next) to advance through the chain. Once all backends
+/// Call [`next_backend`](Self::next_backend) to advance through the chain. Once all backends
 /// have been consumed the iterator yields `None`.
 #[derive(Debug, Clone)]
 pub struct FallbackChain {
@@ -192,7 +192,7 @@ impl FallbackChain {
         self.index = 0;
     }
 
-    /// Returns the number of backends remaining (not yet consumed by [`next`](Self::next)).
+    /// Returns the number of backends remaining (not yet consumed by [`next_backend`](Self::next_backend)).
     #[must_use]
     pub fn remaining(&self) -> usize {
         self.backends.len().saturating_sub(self.index)

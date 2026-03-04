@@ -13,7 +13,9 @@ use std::path::Path;
 
 use abp_config::{
     BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
-    merge_configs, parse_toml, validate_config,
+    merge_configs, parse_toml,
+    validate::{ConfigDiff, ConfigValidator, Severity, ValidationIssue, diff_configs},
+    validate_config,
 };
 
 // ===========================================================================
@@ -1550,6 +1552,472 @@ fn o01_env_overrides_file_values() {
     let cfg = load_config(Some(&path)).unwrap();
     // Race-tolerant: parallel tests may also set ABP_LOG_LEVEL
     assert!(cfg.log_level.is_some(), "log_level should be set");
+}
+
+// ===========================================================================
+// Q. diff_configs tests (tests 123-137)
+// ===========================================================================
+
+#[test]
+fn q01_diff_identical_configs_empty() {
+    let cfg = full_config();
+    let diffs = diff_configs(&cfg, &cfg);
+    assert!(
+        diffs.is_empty(),
+        "identical configs should produce no diffs"
+    );
+}
+
+#[test]
+fn q02_diff_default_configs_empty() {
+    let a = BackplaneConfig::default();
+    let b = BackplaneConfig::default();
+    let diffs = diff_configs(&a, &b);
+    assert!(diffs.is_empty());
+}
+
+#[test]
+fn q03_diff_detects_log_level_change() {
+    let a = full_config();
+    let mut b = a.clone();
+    b.log_level = Some("debug".into());
+    let diffs = diff_configs(&a, &b);
+    assert_eq!(diffs.len(), 1);
+    assert_eq!(diffs[0].path, "log_level");
+    assert!(diffs[0].old_value.contains("info"));
+    assert!(diffs[0].new_value.contains("debug"));
+}
+
+#[test]
+fn q04_diff_detects_field_none_to_some() {
+    let mut a = full_config();
+    a.workspace_dir = None;
+    let b = full_config();
+    let diffs = diff_configs(&a, &b);
+    let d = diffs.iter().find(|d| d.path == "workspace_dir").unwrap();
+    assert_eq!(d.old_value, "<none>");
+    assert!(d.new_value.contains("/tmp/ws"));
+}
+
+#[test]
+fn q05_diff_detects_field_some_to_none() {
+    let a = full_config();
+    let mut b = a.clone();
+    b.receipts_dir = None;
+    let diffs = diff_configs(&a, &b);
+    let d = diffs.iter().find(|d| d.path == "receipts_dir").unwrap();
+    assert_eq!(d.new_value, "<none>");
+}
+
+#[test]
+fn q06_diff_detects_added_backend() {
+    let a = full_config();
+    let mut b = a.clone();
+    b.backends.insert("extra".into(), BackendEntry::Mock {});
+    let diffs = diff_configs(&a, &b);
+    let d = diffs.iter().find(|d| d.path == "backends.extra").unwrap();
+    assert_eq!(d.old_value, "<absent>");
+    assert_eq!(d.new_value, "mock");
+}
+
+#[test]
+fn q07_diff_detects_removed_backend() {
+    let a = full_config();
+    let mut b = a.clone();
+    b.backends.remove("mock");
+    let diffs = diff_configs(&a, &b);
+    let d = diffs.iter().find(|d| d.path == "backends.mock").unwrap();
+    assert_eq!(d.new_value, "<absent>");
+    assert_eq!(d.old_value, "mock");
+}
+
+#[test]
+fn q08_diff_detects_changed_backend_command() {
+    let a = full_config();
+    let mut b = a.clone();
+    b.backends.insert(
+        "node".into(),
+        BackendEntry::Sidecar {
+            command: "python".into(),
+            args: vec![],
+            timeout_secs: Some(60),
+        },
+    );
+    let diffs = diff_configs(&a, &b);
+    assert!(diffs.iter().any(|d| d.path == "backends.node"));
+}
+
+#[test]
+fn q09_diff_multiple_field_changes() {
+    let a = full_config();
+    let mut b = a.clone();
+    b.log_level = Some("trace".into());
+    b.default_backend = Some("openai".into());
+    b.receipts_dir = None;
+    let diffs = diff_configs(&a, &b);
+    assert!(diffs.len() >= 3, "should detect at least 3 changes");
+}
+
+#[test]
+fn q10_diff_after_merge_shows_changes() {
+    let base = full_config();
+    let overlay = BackplaneConfig {
+        log_level: Some("trace".into()),
+        backends: BTreeMap::from([("new_be".into(), BackendEntry::Mock {})]),
+        ..Default::default()
+    };
+    let merged = merge_configs(base.clone(), overlay);
+    let diffs = diff_configs(&base, &merged);
+    assert!(diffs.iter().any(|d| d.path == "log_level"));
+    assert!(diffs.iter().any(|d| d.path == "backends.new_be"));
+}
+
+#[test]
+fn q11_diff_default_vs_full_shows_many_diffs() {
+    let a = BackplaneConfig::default();
+    let b = full_config();
+    let diffs = diff_configs(&a, &b);
+    // At minimum: default_backend, workspace_dir, receipts_dir, plus backends
+    assert!(diffs.len() >= 4);
+}
+
+#[test]
+fn q12_config_diff_display() {
+    let d = ConfigDiff {
+        path: "log_level".into(),
+        old_value: "\"info\"".into(),
+        new_value: "\"debug\"".into(),
+    };
+    let s = d.to_string();
+    assert!(s.contains("log_level"));
+    assert!(s.contains("->"));
+    assert!(s.contains("info"));
+    assert!(s.contains("debug"));
+}
+
+#[test]
+fn q13_diff_sidecar_format_contains_command() {
+    let a = BackplaneConfig {
+        backends: BTreeMap::from([(
+            "sc".into(),
+            BackendEntry::Sidecar {
+                command: "node".into(),
+                args: vec!["host.js".into()],
+                timeout_secs: Some(60),
+            },
+        )]),
+        ..Default::default()
+    };
+    let b = BackplaneConfig::default();
+    let diffs = diff_configs(&a, &b);
+    let d = diffs.iter().find(|d| d.path == "backends.sc").unwrap();
+    assert!(
+        d.old_value.contains("node"),
+        "should format sidecar command"
+    );
+    assert_eq!(d.new_value, "<absent>");
+}
+
+#[test]
+fn q14_diff_symmetry() {
+    let a = full_config();
+    let mut b = a.clone();
+    b.log_level = Some("debug".into());
+    let fwd = diff_configs(&a, &b);
+    let rev = diff_configs(&b, &a);
+    assert_eq!(fwd.len(), rev.len());
+    assert_eq!(fwd[0].old_value, rev[0].new_value);
+    assert_eq!(fwd[0].new_value, rev[0].old_value);
+}
+
+#[test]
+fn q15_diff_unchanged_backends_not_reported() {
+    let a = full_config();
+    let mut b = a.clone();
+    b.log_level = Some("warn".into());
+    let diffs = diff_configs(&a, &b);
+    assert!(!diffs.iter().any(|d| d.path.starts_with("backends.")));
+}
+
+// ===========================================================================
+// R. ConfigValidator tests (tests 138-152)
+// ===========================================================================
+
+#[test]
+fn r01_validator_valid_config_no_issues() {
+    let cfg = full_config();
+    let issues = ConfigValidator::validate(&cfg).unwrap();
+    assert!(issues.is_empty(), "fully-specified config: {issues:?}");
+}
+
+#[test]
+fn r02_validator_default_config_returns_issues() {
+    let cfg = BackplaneConfig::default();
+    let issues = ConfigValidator::validate(&cfg).unwrap();
+    assert!(!issues.is_empty());
+    assert!(issues.iter().any(|i| i.severity == Severity::Info));
+    assert!(issues.iter().any(|i| i.severity == Severity::Warning));
+}
+
+#[test]
+fn r03_validator_invalid_log_level_error() {
+    let cfg = BackplaneConfig {
+        log_level: Some("verbose".into()),
+        ..full_config()
+    };
+    let err = ConfigValidator::validate(&cfg).unwrap_err();
+    let reasons = extract_reasons(err);
+    assert!(reasons.iter().any(|r| r.contains("invalid log_level")));
+}
+
+#[test]
+fn r04_validator_empty_command_error() {
+    let mut cfg = full_config();
+    cfg.backends.insert(
+        "bad".into(),
+        BackendEntry::Sidecar {
+            command: "  ".into(),
+            args: vec![],
+            timeout_secs: None,
+        },
+    );
+    let reasons = extract_reasons(ConfigValidator::validate(&cfg).unwrap_err());
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
+}
+
+#[test]
+fn r05_validator_empty_backend_name_error() {
+    let mut cfg = full_config();
+    cfg.backends.insert("".into(), BackendEntry::Mock {});
+    let reasons = extract_reasons(ConfigValidator::validate(&cfg).unwrap_err());
+    assert!(reasons.iter().any(|r| r.contains("name must not be empty")));
+}
+
+#[test]
+fn r06_validator_zero_timeout_error() {
+    let mut cfg = full_config();
+    cfg.backends.insert(
+        "z".into(),
+        BackendEntry::Sidecar {
+            command: "node".into(),
+            args: vec![],
+            timeout_secs: Some(0),
+        },
+    );
+    let reasons = extract_reasons(ConfigValidator::validate(&cfg).unwrap_err());
+    assert!(reasons.iter().any(|r| r.contains("out of range")));
+}
+
+#[test]
+fn r07_validator_large_timeout_warning_issue() {
+    let mut cfg = full_config();
+    cfg.backends.insert(
+        "big".into(),
+        BackendEntry::Sidecar {
+            command: "node".into(),
+            args: vec![],
+            timeout_secs: Some(7_200),
+        },
+    );
+    let issues = ConfigValidator::validate(&cfg).unwrap();
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Warning && i.message.contains("large timeout"))
+    );
+}
+
+#[test]
+fn r08_validator_no_backends_info_issue() {
+    let cfg = BackplaneConfig {
+        backends: BTreeMap::new(),
+        ..full_config()
+    };
+    let issues = ConfigValidator::validate(&cfg).unwrap();
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Info && i.message.contains("no backends"))
+    );
+}
+
+#[test]
+fn r09_validate_at_filters_info() {
+    let cfg = BackplaneConfig::default();
+    let all = ConfigValidator::validate(&cfg).unwrap();
+    let warnings_only = ConfigValidator::validate_at(&cfg, Severity::Warning).unwrap();
+    assert!(all.len() > warnings_only.len());
+    assert!(
+        warnings_only
+            .iter()
+            .all(|i| i.severity >= Severity::Warning)
+    );
+}
+
+#[test]
+fn r10_validate_at_error_filters_all_soft() {
+    let cfg = BackplaneConfig::default();
+    let errors_only = ConfigValidator::validate_at(&cfg, Severity::Error).unwrap();
+    assert!(errors_only.is_empty(), "default config has no errors");
+}
+
+#[test]
+fn r11_validator_agrees_with_free_fn_on_errors() {
+    let cfg = BackplaneConfig {
+        log_level: Some("bad".into()),
+        ..full_config()
+    };
+    assert!(ConfigValidator::validate(&cfg).is_err());
+    assert!(validate_config(&cfg).is_err());
+}
+
+#[test]
+fn r12_validator_agrees_with_free_fn_on_valid() {
+    let cfg = full_config();
+    assert!(ConfigValidator::validate(&cfg).is_ok());
+    assert!(validate_config(&cfg).is_ok());
+}
+
+#[test]
+fn r13_validator_idempotent() {
+    let cfg = full_config();
+    let a = ConfigValidator::validate(&cfg).unwrap();
+    let b = ConfigValidator::validate(&cfg).unwrap();
+    assert_eq!(a, b);
+}
+
+#[test]
+fn r14_validator_all_valid_log_levels() {
+    for level in &["error", "warn", "info", "debug", "trace"] {
+        let cfg = BackplaneConfig {
+            log_level: Some((*level).into()),
+            ..full_config()
+        };
+        ConfigValidator::validate(&cfg)
+            .unwrap_or_else(|e| panic!("log_level '{level}' should be valid: {e}"));
+    }
+}
+
+#[test]
+fn r15_validator_missing_optional_fields_warns() {
+    let cfg = BackplaneConfig {
+        default_backend: None,
+        receipts_dir: None,
+        ..full_config()
+    };
+    let issues = ConfigValidator::validate(&cfg).unwrap();
+    let warning_msgs: Vec<&str> = issues
+        .iter()
+        .filter(|i| i.severity == Severity::Warning)
+        .map(|i| i.message.as_str())
+        .collect();
+    assert!(warning_msgs.iter().any(|m| m.contains("default_backend")));
+    assert!(warning_msgs.iter().any(|m| m.contains("receipts_dir")));
+}
+
+// ===========================================================================
+// S. Severity and ValidationIssue tests (tests 153-162)
+// ===========================================================================
+
+#[test]
+fn s01_severity_ordering() {
+    assert!(Severity::Info < Severity::Warning);
+    assert!(Severity::Warning < Severity::Error);
+    assert!(Severity::Info < Severity::Error);
+}
+
+#[test]
+fn s02_severity_display() {
+    assert_eq!(Severity::Info.to_string(), "info");
+    assert_eq!(Severity::Warning.to_string(), "warning");
+    assert_eq!(Severity::Error.to_string(), "error");
+}
+
+#[test]
+fn s03_severity_eq_and_clone() {
+    let a = Severity::Warning;
+    let b = a;
+    assert_eq!(a, b);
+}
+
+#[test]
+fn s04_validation_issue_display_includes_severity() {
+    let i = ValidationIssue {
+        severity: Severity::Warning,
+        message: "something is off".into(),
+    };
+    let s = i.to_string();
+    assert!(s.contains("[warning]"));
+    assert!(s.contains("something is off"));
+}
+
+#[test]
+fn s05_validation_issue_display_info() {
+    let i = ValidationIssue {
+        severity: Severity::Info,
+        message: "informational".into(),
+    };
+    assert!(i.to_string().contains("[info]"));
+}
+
+#[test]
+fn s06_validation_issue_display_error() {
+    let i = ValidationIssue {
+        severity: Severity::Error,
+        message: "critical".into(),
+    };
+    assert!(i.to_string().contains("[error]"));
+}
+
+#[test]
+fn s07_validation_issue_eq() {
+    let a = ValidationIssue {
+        severity: Severity::Warning,
+        message: "msg".into(),
+    };
+    let b = a.clone();
+    assert_eq!(a, b);
+}
+
+#[test]
+fn s08_validation_issue_neq_different_severity() {
+    let a = ValidationIssue {
+        severity: Severity::Info,
+        message: "msg".into(),
+    };
+    let b = ValidationIssue {
+        severity: Severity::Warning,
+        message: "msg".into(),
+    };
+    assert_ne!(a, b);
+}
+
+#[test]
+fn s09_validation_issue_neq_different_message() {
+    let a = ValidationIssue {
+        severity: Severity::Warning,
+        message: "msg1".into(),
+    };
+    let b = ValidationIssue {
+        severity: Severity::Warning,
+        message: "msg2".into(),
+    };
+    assert_ne!(a, b);
+}
+
+#[test]
+fn s10_config_diff_eq() {
+    let a = ConfigDiff {
+        path: "log_level".into(),
+        old_value: "a".into(),
+        new_value: "b".into(),
+    };
+    let b = a.clone();
+    assert_eq!(a, b);
 }
 
 #[test]

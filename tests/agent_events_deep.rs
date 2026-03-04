@@ -753,7 +753,7 @@ fn event_aggregation_summary() {
 #[test]
 fn event_replay_capability() {
     // Record events, then replay them into a new aggregator.
-    let original_events = vec![
+    let original_events = [
         ev(AgentEventKind::RunStarted {
             message: "go".into(),
         }),
