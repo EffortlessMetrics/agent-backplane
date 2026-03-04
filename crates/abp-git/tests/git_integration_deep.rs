@@ -61,22 +61,6 @@ fn commit(path: &Path, msg: &str) {
     );
 }
 
-fn commit_allow_empty(path: &Path, msg: &str) {
-    git_ok(
-        path,
-        &[
-            "-c",
-            "user.name=test",
-            "-c",
-            "user.email=t@t",
-            "commit",
-            "--allow-empty",
-            "-m",
-            msg,
-        ],
-    );
-}
-
 // ════════════════════════════════════════════════════════════════════════
 // (a) Repository operations — 10 tests
 // ════════════════════════════════════════════════════════════════════════
@@ -184,7 +168,11 @@ fn repo_commit_message_retrievable() {
     ensure_git_repo(dir.path());
 
     let msg = git(dir.path(), &["log", "-1", "--format=%s"]);
-    assert_eq!(msg.trim(), "baseline", "initial commit message should be 'baseline'");
+    assert_eq!(
+        msg.trim(),
+        "baseline",
+        "initial commit message should be 'baseline'"
+    );
 }
 
 #[test]
@@ -310,8 +298,14 @@ fn diff_for_deleted_tracked_file() {
     fs::remove_file(dir.path().join("bye.txt")).unwrap();
 
     let diff = git_diff(dir.path()).unwrap();
-    assert!(diff.contains("bye.txt"), "deleted file should appear in diff");
-    assert!(diff.contains("-farewell"), "old content should be shown as removed");
+    assert!(
+        diff.contains("bye.txt"),
+        "deleted file should appear in diff"
+    );
+    assert!(
+        diff.contains("-farewell"),
+        "old content should be shown as removed"
+    );
 }
 
 #[test]
@@ -409,8 +403,14 @@ fn diff_large_file_handling() {
 fn error_not_a_git_repo() {
     let dir = tmp();
     // No git init — status and diff should return None.
-    assert!(git_status(dir.path()).is_none(), "status should be None for non-repo");
-    assert!(git_diff(dir.path()).is_none(), "diff should be None for non-repo");
+    assert!(
+        git_status(dir.path()).is_none(),
+        "status should be None for non-repo"
+    );
+    assert!(
+        git_diff(dir.path()).is_none(),
+        "diff should be None for non-repo"
+    );
 }
 
 #[test]
@@ -513,7 +513,10 @@ fn status_porcelain_format_is_stable() {
 
     let status = git_status(dir.path()).unwrap();
     // Modified but not staged → " M p.txt"
-    let line = status.lines().next().expect("should have at least one line");
+    let line = status
+        .lines()
+        .next()
+        .expect("should have at least one line");
     assert!(
         line.len() >= 4,
         "porcelain line should be at least 4 chars: {line}"
@@ -543,7 +546,10 @@ fn ensure_git_repo_does_not_clobber_existing_commits() {
     let count_after = git(dir.path(), &["rev-list", "--count", "HEAD"])
         .trim()
         .to_string();
-    assert_eq!(count_before, count_after, "existing commits must be preserved");
+    assert_eq!(
+        count_before, count_after,
+        "existing commits must be preserved"
+    );
 }
 
 #[test]
