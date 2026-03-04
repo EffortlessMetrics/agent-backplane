@@ -7,7 +7,7 @@
 //! 3. Conversion completeness
 //! 4. Error type consistency
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ═══════════════════════════════════════════════════════════════════════
 // OpenAI Shim
@@ -117,8 +117,14 @@ mod openai {
     fn t07_openai_tool_type_renamed() {
         let tool = Tool::function("read", "Read a file", json!({}));
         let val: Value = serde_json::to_value(&tool).unwrap();
-        assert_eq!(val["type"], "function", "Tool.tool_type should serialize as 'type'");
-        assert!(val.get("tool_type").is_none(), "tool_type should not appear");
+        assert_eq!(
+            val["type"], "function",
+            "Tool.tool_type should serialize as 'type'"
+        );
+        assert!(
+            val.get("tool_type").is_none(),
+            "tool_type should not appear"
+        );
     }
 
     #[test]
@@ -205,7 +211,9 @@ mod openai {
         let e2 = ShimError::Internal("oops".into());
         assert!(e2.to_string().contains("oops"));
 
-        let e3: ShimError = serde_json::from_str::<Value>("not json").unwrap_err().into();
+        let e3: ShimError = serde_json::from_str::<Value>("not json")
+            .unwrap_err()
+            .into();
         assert!(e3.to_string().contains("serde"));
     }
 
@@ -343,7 +351,10 @@ mod claude {
             },
         };
         let val: Value = serde_json::to_value(&resp).unwrap();
-        assert_eq!(val["type"], "message", "response_type should serialize as 'type'");
+        assert_eq!(
+            val["type"], "message",
+            "response_type should serialize as 'type'"
+        );
         assert!(val.get("response_type").is_none());
     }
 
@@ -415,7 +426,9 @@ mod claude {
             media_type: "image/png".into(),
             data: "abc123".into(),
         };
-        let block = ContentBlock::Image { source: b64.clone() };
+        let block = ContentBlock::Image {
+            source: b64.clone(),
+        };
         let ir = content_block_to_ir(&block);
         let back = content_block_from_ir(&ir);
         assert_eq!(back, block);
@@ -908,7 +921,10 @@ mod codex {
         let wo = request_to_work_order(&req);
         assert_eq!(wo.config.model.as_deref(), Some("o3-mini"));
         assert_eq!(wo.config.vendor.get("temperature"), Some(&json!(0.7)));
-        assert_eq!(wo.config.vendor.get("max_output_tokens"), Some(&json!(2048)));
+        assert_eq!(
+            wo.config.vendor.get("max_output_tokens"),
+            Some(&json!(2048))
+        );
     }
 
     #[test]

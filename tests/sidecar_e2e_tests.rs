@@ -245,9 +245,7 @@ fn handshake_hello_then_run_sequence() {
 #[test]
 fn handshake_event_ref_id_matches_run_id() {
     let run_id = "test-run-42";
-    let event = make_event(AgentEventKind::AssistantDelta {
-        text: "hi".into(),
-    });
+    let event = make_event(AgentEventKind::AssistantDelta { text: "hi".into() });
     let env = Envelope::Event {
         ref_id: run_id.into(),
         event,
@@ -336,8 +334,8 @@ fn error_decode_stream_with_bad_line() {
 
 #[test]
 fn error_decode_stream_blank_lines_skipped() {
-    let hello_line = JsonlCodec::encode(&Envelope::hello(mock_identity(), mock_capabilities()))
-        .unwrap();
+    let hello_line =
+        JsonlCodec::encode(&Envelope::hello(mock_identity(), mock_capabilities())).unwrap();
     let input = format!("\n\n{}\n\n", hello_line.trim_end());
     let reader = BufReader::new(input.as_bytes());
     let results: Vec<_> = JsonlCodec::decode_stream(reader)
@@ -566,13 +564,17 @@ fn event_stream_tool_use_events() {
     assert_eq!(decoded.len(), 2);
     match &decoded[0] {
         Envelope::Event { event, .. } => {
-            assert!(matches!(&event.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "read_file"));
+            assert!(
+                matches!(&event.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "read_file")
+            );
         }
         other => panic!("expected Event, got {other:?}"),
     }
     match &decoded[1] {
         Envelope::Event { event, .. } => {
-            assert!(matches!(&event.kind, AgentEventKind::ToolResult { is_error, .. } if !is_error));
+            assert!(
+                matches!(&event.kind, AgentEventKind::ToolResult { is_error, .. } if !is_error)
+            );
         }
         other => panic!("expected Event, got {other:?}"),
     }
@@ -775,7 +777,11 @@ async fn mock_backend_streams_events() {
         events.push(ev);
     }
 
-    assert!(events.len() >= 4, "expected at least 4 events, got {}", events.len());
+    assert!(
+        events.len() >= 4,
+        "expected at least 4 events, got {}",
+        events.len()
+    );
 
     // First event should be RunStarted.
     assert!(matches!(events[0].kind, AgentEventKind::RunStarted { .. }));
@@ -841,7 +847,11 @@ async fn mock_backend_concurrent_runs() {
         let handle = tokio::spawn(async move {
             let (tx, _rx) = mpsc::channel(64);
             let receipt = MockBackend
-                .run(Uuid::new_v4(), test_work_order(&format!("concurrent-{i}")), tx)
+                .run(
+                    Uuid::new_v4(),
+                    test_work_order(&format!("concurrent-{i}")),
+                    tx,
+                )
                 .await
                 .unwrap();
             assert_eq!(receipt.outcome, Outcome::Complete);
@@ -930,9 +940,7 @@ fn receipt_builder_partial_outcome() {
 
 #[test]
 fn receipt_builder_failed_outcome() {
-    let receipt = ReceiptBuilder::new("test")
-        .outcome(Outcome::Failed)
-        .build();
+    let receipt = ReceiptBuilder::new("test").outcome(Outcome::Failed).build();
     assert_eq!(receipt.outcome, Outcome::Failed);
 }
 

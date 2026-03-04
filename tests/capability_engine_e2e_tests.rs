@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Deep capability negotiation and registry end-to-end tests.
 
+use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_capability::{
-    check_capability, generate_report, negotiate, negotiate_capabilities, CapabilityRegistry,
-    CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
-};
-use abp_capability::negotiate::{
-    apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy,
+    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
+    check_capability, generate_report, negotiate, negotiate_capabilities,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -55,7 +53,10 @@ fn reg_register_and_get() {
     reg.register("test-backend", m);
     let got = reg.get("test-backend").unwrap();
     assert!(got.contains_key(&Capability::Streaming));
-    assert!(matches!(got.get(&Capability::Streaming), Some(CoreSupportLevel::Native)));
+    assert!(matches!(
+        got.get(&Capability::Streaming),
+        Some(CoreSupportLevel::Native)
+    ));
 }
 
 #[test]
@@ -78,8 +79,14 @@ fn reg_query_by_name_absent() {
 #[test]
 fn reg_list_all_capabilities() {
     let mut reg = CapabilityRegistry::new();
-    reg.register("a", manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]));
-    reg.register("b", manifest(&[(Capability::Vision, CoreSupportLevel::Emulated)]));
+    reg.register(
+        "a",
+        manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]),
+    );
+    reg.register(
+        "b",
+        manifest(&[(Capability::Vision, CoreSupportLevel::Emulated)]),
+    );
     let names = reg.names();
     assert_eq!(names.len(), 2);
     assert!(names.contains(&"a"));
@@ -99,13 +106,19 @@ fn reg_update_capabilities() {
         manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]),
     );
     let m = reg.get("backend").unwrap();
-    assert!(matches!(m.get(&Capability::Streaming), Some(CoreSupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::Streaming),
+        Some(CoreSupportLevel::Native)
+    ));
 }
 
 #[test]
 fn reg_remove_capabilities() {
     let mut reg = CapabilityRegistry::new();
-    reg.register("rm-me", manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]));
+    reg.register(
+        "rm-me",
+        manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]),
+    );
     assert!(reg.unregister("rm-me"));
     assert!(!reg.contains("rm-me"));
 }
@@ -161,7 +174,10 @@ fn reg_negotiate_by_name_known() {
 #[test]
 fn reg_negotiate_by_name_unknown() {
     let reg = CapabilityRegistry::new();
-    assert!(reg.negotiate_by_name("unknown", &[Capability::Streaming]).is_none());
+    assert!(
+        reg.negotiate_by_name("unknown", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]
@@ -216,7 +232,11 @@ fn nego_multiple_all_supported() {
         (Capability::Vision, CoreSupportLevel::Native),
     ]);
     let r = negotiate_capabilities(
-        &[Capability::Streaming, Capability::ToolUse, Capability::Vision],
+        &[
+            Capability::Streaming,
+            Capability::ToolUse,
+            Capability::Vision,
+        ],
         &m,
     );
     assert!(r.is_viable());
@@ -230,7 +250,11 @@ fn nego_multiple_one_missing() {
         (Capability::ToolUse, CoreSupportLevel::Native),
     ]);
     let r = negotiate_capabilities(
-        &[Capability::Streaming, Capability::ToolUse, Capability::Vision],
+        &[
+            Capability::Streaming,
+            Capability::ToolUse,
+            Capability::Vision,
+        ],
         &m,
     );
     assert!(!r.is_viable());
@@ -287,7 +311,9 @@ fn nego_explicit_unsupported_in_manifest() {
 fn nego_restricted_counted_as_emulated() {
     let m = manifest(&[(
         Capability::ToolBash,
-        CoreSupportLevel::Restricted { reason: "sandbox".into() },
+        CoreSupportLevel::Restricted {
+            reason: "sandbox".into(),
+        },
     )]);
     let r = negotiate_capabilities(&[Capability::ToolBash], &m);
     assert!(r.is_viable());
@@ -303,7 +329,11 @@ fn nego_preserves_order() {
         (Capability::ToolRead, CoreSupportLevel::Native),
     ]);
     let r = negotiate_capabilities(
-        &[Capability::ToolRead, Capability::Streaming, Capability::ToolWrite],
+        &[
+            Capability::ToolRead,
+            Capability::Streaming,
+            Capability::ToolWrite,
+        ],
         &m,
     );
     assert_eq!(r.native[0], Capability::ToolRead);
@@ -342,7 +372,12 @@ fn nego_mixed_native_emulated_unsupported() {
         (Capability::Audio, CoreSupportLevel::Unsupported),
     ]);
     let r = negotiate_capabilities(
-        &[Capability::Streaming, Capability::ToolUse, Capability::Audio, Capability::Vision],
+        &[
+            Capability::Streaming,
+            Capability::ToolUse,
+            Capability::Audio,
+            Capability::Vision,
+        ],
         &m,
     );
     assert_eq!(r.native.len(), 1);
@@ -415,7 +450,9 @@ fn support_absent_from_manifest_is_unsupported() {
 fn support_restricted_with_reason() {
     let m = manifest(&[(
         Capability::ToolBash,
-        CoreSupportLevel::Restricted { reason: "sandboxed".into() },
+        CoreSupportLevel::Restricted {
+            reason: "sandboxed".into(),
+        },
     )]);
     let level = check_capability(&m, &Capability::ToolBash);
     match level {
@@ -431,19 +468,25 @@ fn support_level_display_native() {
 
 #[test]
 fn support_level_display_emulated() {
-    let level = SupportLevel::Emulated { method: "polyfill".into() };
+    let level = SupportLevel::Emulated {
+        method: "polyfill".into(),
+    };
     assert_eq!(format!("{level}"), "emulated (polyfill)");
 }
 
 #[test]
 fn support_level_display_restricted() {
-    let level = SupportLevel::Restricted { reason: "sandbox".into() };
+    let level = SupportLevel::Restricted {
+        reason: "sandbox".into(),
+    };
     assert_eq!(format!("{level}"), "restricted (sandbox)");
 }
 
 #[test]
 fn support_level_display_unsupported() {
-    let level = SupportLevel::Unsupported { reason: "N/A".into() };
+    let level = SupportLevel::Unsupported {
+        reason: "N/A".into(),
+    };
     assert_eq!(format!("{level}"), "unsupported (N/A)");
 }
 
@@ -459,7 +502,10 @@ fn support_core_satisfies_emulated_accepts_native_emulated_restricted() {
     assert!(CoreSupportLevel::Native.satisfies(&MinSupport::Emulated));
     assert!(CoreSupportLevel::Emulated.satisfies(&MinSupport::Emulated));
     assert!(
-        CoreSupportLevel::Restricted { reason: "test".into() }.satisfies(&MinSupport::Emulated)
+        CoreSupportLevel::Restricted {
+            reason: "test".into()
+        }
+        .satisfies(&MinSupport::Emulated)
     );
     assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
 }
@@ -514,19 +560,28 @@ fn manifest_create_from_backend() {
     let m = abp_capability::openai_gpt4o_manifest();
     assert!(m.contains_key(&Capability::Streaming));
     assert!(m.contains_key(&Capability::ToolUse));
-    assert!(matches!(m.get(&Capability::Streaming), Some(CoreSupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::Streaming),
+        Some(CoreSupportLevel::Native)
+    ));
 }
 
 #[test]
 fn manifest_claude_has_extended_thinking() {
     let m = abp_capability::claude_35_sonnet_manifest();
-    assert!(matches!(m.get(&Capability::ExtendedThinking), Some(CoreSupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::ExtendedThinking),
+        Some(CoreSupportLevel::Native)
+    ));
 }
 
 #[test]
 fn manifest_gemini_has_code_execution() {
     let m = abp_capability::gemini_15_pro_manifest();
-    assert!(matches!(m.get(&Capability::CodeExecution), Some(CoreSupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::CodeExecution),
+        Some(CoreSupportLevel::Native)
+    ));
 }
 
 #[test]
@@ -544,7 +599,10 @@ fn manifest_merge_overwrites_on_conflict() {
     let mut m1 = manifest(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
     let m2 = manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
     m1.extend(m2);
-    assert!(matches!(m1.get(&Capability::Streaming), Some(CoreSupportLevel::Native)));
+    assert!(matches!(
+        m1.get(&Capability::Streaming),
+        Some(CoreSupportLevel::Native)
+    ));
 }
 
 #[test]
@@ -586,17 +644,32 @@ fn manifest_serialize_roundtrip() {
     let json = serde_json::to_string(&m).unwrap();
     let back: CapabilityManifest = serde_json::from_str(&json).unwrap();
     assert_eq!(back.len(), m.len());
-    assert!(matches!(back.get(&Capability::Streaming), Some(CoreSupportLevel::Native)));
-    assert!(matches!(back.get(&Capability::ToolUse), Some(CoreSupportLevel::Emulated)));
-    assert!(matches!(back.get(&Capability::Audio), Some(CoreSupportLevel::Unsupported)));
+    assert!(matches!(
+        back.get(&Capability::Streaming),
+        Some(CoreSupportLevel::Native)
+    ));
+    assert!(matches!(
+        back.get(&Capability::ToolUse),
+        Some(CoreSupportLevel::Emulated)
+    ));
+    assert!(matches!(
+        back.get(&Capability::Audio),
+        Some(CoreSupportLevel::Unsupported)
+    ));
 }
 
 #[test]
 fn manifest_deserialize_from_json() {
     let json = r#"{"streaming":"native","tool_use":"emulated"}"#;
     let m: CapabilityManifest = serde_json::from_str(json).unwrap();
-    assert!(matches!(m.get(&Capability::Streaming), Some(CoreSupportLevel::Native)));
-    assert!(matches!(m.get(&Capability::ToolUse), Some(CoreSupportLevel::Emulated)));
+    assert!(matches!(
+        m.get(&Capability::Streaming),
+        Some(CoreSupportLevel::Native)
+    ));
+    assert!(matches!(
+        m.get(&Capability::ToolUse),
+        Some(CoreSupportLevel::Emulated)
+    ));
 }
 
 #[test]
@@ -612,7 +685,9 @@ fn manifest_empty_is_valid() {
 fn manifest_restricted_roundtrip() {
     let m = manifest(&[(
         Capability::ToolBash,
-        CoreSupportLevel::Restricted { reason: "sandboxed only".into() },
+        CoreSupportLevel::Restricted {
+            reason: "sandboxed only".into(),
+        },
     )]);
     let json = serde_json::to_string(&m).unwrap();
     let back: CapabilityManifest = serde_json::from_str(&json).unwrap();
@@ -627,24 +702,48 @@ fn manifest_restricted_roundtrip() {
 #[test]
 fn manifest_kimi_unsupported_audio() {
     let m = abp_capability::kimi_manifest();
-    assert!(matches!(m.get(&Capability::Audio), Some(CoreSupportLevel::Unsupported)));
+    assert!(matches!(
+        m.get(&Capability::Audio),
+        Some(CoreSupportLevel::Unsupported)
+    ));
 }
 
 #[test]
 fn manifest_codex_has_tool_suite() {
     let m = abp_capability::codex_manifest();
-    assert!(matches!(m.get(&Capability::ToolRead), Some(CoreSupportLevel::Native)));
-    assert!(matches!(m.get(&Capability::ToolWrite), Some(CoreSupportLevel::Native)));
-    assert!(matches!(m.get(&Capability::ToolEdit), Some(CoreSupportLevel::Native)));
-    assert!(matches!(m.get(&Capability::ToolBash), Some(CoreSupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::ToolRead),
+        Some(CoreSupportLevel::Native)
+    ));
+    assert!(matches!(
+        m.get(&Capability::ToolWrite),
+        Some(CoreSupportLevel::Native)
+    ));
+    assert!(matches!(
+        m.get(&Capability::ToolEdit),
+        Some(CoreSupportLevel::Native)
+    ));
+    assert!(matches!(
+        m.get(&Capability::ToolBash),
+        Some(CoreSupportLevel::Native)
+    ));
 }
 
 #[test]
 fn manifest_copilot_has_web_tools() {
     let m = abp_capability::copilot_manifest();
-    assert!(matches!(m.get(&Capability::ToolWebSearch), Some(CoreSupportLevel::Native)));
-    assert!(matches!(m.get(&Capability::ToolWebFetch), Some(CoreSupportLevel::Native)));
-    assert!(matches!(m.get(&Capability::ToolAskUser), Some(CoreSupportLevel::Native)));
+    assert!(matches!(
+        m.get(&Capability::ToolWebSearch),
+        Some(CoreSupportLevel::Native)
+    ));
+    assert!(matches!(
+        m.get(&Capability::ToolWebFetch),
+        Some(CoreSupportLevel::Native)
+    ));
+    assert!(matches!(
+        m.get(&Capability::ToolAskUser),
+        Some(CoreSupportLevel::Native)
+    ));
 }
 
 // ===========================================================================
@@ -810,7 +909,11 @@ fn policy_allowlist_restricts_tools_independent_of_capability() {
         (Capability::ToolWrite, CoreSupportLevel::Native),
     ]);
     let neg = negotiate_capabilities(
-        &[Capability::ToolRead, Capability::ToolBash, Capability::ToolWrite],
+        &[
+            Capability::ToolRead,
+            Capability::ToolBash,
+            Capability::ToolWrite,
+        ],
         &m,
     );
     assert!(neg.is_viable());
@@ -854,7 +957,11 @@ fn policy_permissive_negotiation_with_restricted_policy() {
         ..PolicyProfile::default()
     };
     let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(!engine.can_write_path(std::path::Path::new("secret/key.pem")).allowed);
+    assert!(
+        !engine
+            .can_write_path(std::path::Path::new("secret/key.pem"))
+            .allowed
+    );
 }
 
 // ===========================================================================
@@ -929,7 +1036,9 @@ fn policy_permissive_passes_all_unsupported() {
 fn policy_strict_allows_restricted() {
     let m = manifest(&[(
         Capability::ToolBash,
-        CoreSupportLevel::Restricted { reason: "sandboxed".into() },
+        CoreSupportLevel::Restricted {
+            reason: "sandboxed".into(),
+        },
     )]);
     let r = pre_negotiate(&[Capability::ToolBash], &m);
     assert!(apply_policy(&r, NegotiationPolicy::Strict).is_ok());
@@ -1047,7 +1156,9 @@ fn emulation_strategy_serde_approximate() {
 #[test]
 fn reg_compare_claude_vs_gemini() {
     let reg = CapabilityRegistry::with_defaults();
-    let r = reg.compare("anthropic/claude-3.5-sonnet", "google/gemini-1.5-pro").unwrap();
+    let r = reg
+        .compare("anthropic/claude-3.5-sonnet", "google/gemini-1.5-pro")
+        .unwrap();
     // Both are large models, should have reasonable overlap
     assert!(r.total() > 0);
 }

@@ -8,16 +8,15 @@ use std::time::Duration;
 use abp_backend_core::Backend;
 use abp_backend_mock::MockBackend;
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, Capability, CapabilityManifest, ExecutionMode,
-    Outcome, Receipt, SupportLevel, VerificationReport,
-    WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, SupportLevel, VerificationReport, WorkOrderBuilder,
 };
 use abp_error::ErrorCode;
 use abp_receipt::{
     ReceiptBuilder, ReceiptChain, ReceiptValidator, canonicalize, compute_hash, diff_receipts,
-    verify_hash,
     store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore},
     verify::{ReceiptAuditor, verify_receipt},
+    verify_hash,
 };
 use chrono::{Duration as ChronoDuration, Utc};
 use uuid::Uuid;
@@ -289,7 +288,10 @@ fn t17_canonical_json_keys_are_sorted() {
         let keys: Vec<&String> = map.keys().collect();
         let mut sorted = keys.clone();
         sorted.sort();
-        assert_eq!(keys, sorted, "top-level keys should be alphabetically sorted");
+        assert_eq!(
+            keys, sorted,
+            "top-level keys should be alphabetically sorted"
+        );
     } else {
         panic!("expected JSON object");
     }
@@ -361,7 +363,10 @@ fn t21_hash_ignores_existing_receipt_sha256() {
     r_with_hash.receipt_sha256 = Some(h1.clone());
     let h2 = compute_hash(&r_with_hash).unwrap();
 
-    assert_eq!(h1, h2, "hash must be identical regardless of stored receipt_sha256");
+    assert_eq!(
+        h1, h2,
+        "hash must be identical regardless of stored receipt_sha256"
+    );
 }
 
 #[test]
@@ -386,7 +391,8 @@ fn t24_verify_hash_passes_for_correct_hash() {
 #[test]
 fn t25_verify_hash_fails_for_tampered_hash() {
     let mut r = fixed_receipt_with_hash("mock");
-    r.receipt_sha256 = Some("0000000000000000000000000000000000000000000000000000000000000000".into());
+    r.receipt_sha256 =
+        Some("0000000000000000000000000000000000000000000000000000000000000000".into());
     assert!(!verify_hash(&r));
 }
 
@@ -426,7 +432,10 @@ fn t28_json_roundtrip_preserves_hash() {
     let json = serde_json::to_string_pretty(&r).unwrap();
     let deserialized: Receipt = serde_json::from_str(&json).unwrap();
 
-    assert_eq!(deserialized.receipt_sha256.as_ref().unwrap(), &original_hash);
+    assert_eq!(
+        deserialized.receipt_sha256.as_ref().unwrap(),
+        &original_hash
+    );
     let recomputed = compute_hash(&deserialized).unwrap();
     assert_eq!(recomputed, original_hash);
 }
@@ -1102,9 +1111,7 @@ fn t63_validator_rejects_tampered_hash() {
 #[test]
 fn t64_auditor_clean_batch() {
     let auditor = ReceiptAuditor::new();
-    let receipts: Vec<Receipt> = (0..5)
-        .map(|i| make_chain_receipt("mock", i * 10))
-        .collect();
+    let receipts: Vec<Receipt> = (0..5).map(|i| make_chain_receipt("mock", i * 10)).collect();
     let report = auditor.audit_batch(&receipts);
     assert!(report.is_clean(), "issues: {:?}", report.issues);
     assert_eq!(report.total, 5);
@@ -1268,9 +1275,7 @@ fn t75_receipt_with_ext_data() {
         .finished_at(start)
         .add_event(AgentEvent {
             ts: start,
-            kind: AgentEventKind::AssistantMessage {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
             ext: Some(ext),
         })
         .with_hash()
@@ -1319,7 +1324,10 @@ fn t77_receipt_with_verification_report() {
     assert!(verify_hash(&r));
     let json = serde_json::to_string(&r).unwrap();
     let rt: Receipt = serde_json::from_str(&json).unwrap();
-    assert_eq!(rt.verification.git_diff.as_deref(), Some("diff --git a/foo b/foo\n+bar"));
+    assert_eq!(
+        rt.verification.git_diff.as_deref(),
+        Some("diff --git a/foo b/foo\n+bar")
+    );
     assert!(verify_hash(&rt));
 }
 

@@ -6,7 +6,7 @@
 //! `WorkspaceManager` APIs.
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
-use abp_workspace::diff::{diff_workspace, DiffAnalyzer, DiffPolicy, PolicyResult};
+use abp_workspace::diff::{DiffAnalyzer, DiffPolicy, PolicyResult, diff_workspace};
 use abp_workspace::{WorkspaceManager, WorkspaceStager};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -227,7 +227,11 @@ fn stage_empty_directories_are_created() {
 fn stage_large_number_of_files() {
     let src = tempdir().unwrap();
     for i in 0..120 {
-        fs::write(src.path().join(format!("file_{i:04}.txt")), format!("content {i}")).unwrap();
+        fs::write(
+            src.path().join(format!("file_{i:04}.txt")),
+            format!("content {i}"),
+        )
+        .unwrap();
     }
 
     let ws = WorkspaceStager::new()
@@ -282,7 +286,11 @@ fn stage_unicode_filenames() {
 fn stage_binary_files() {
     let src = tempdir().unwrap();
     // Write binary content (non-UTF-8 bytes).
-    fs::write(src.path().join("image.bin"), [0x89, 0x50, 0x4E, 0x47, 0x00, 0xFF]).unwrap();
+    fs::write(
+        src.path().join("image.bin"),
+        [0x89, 0x50, 0x4E, 0x47, 0x00, 0xFF],
+    )
+    .unwrap();
     fs::write(src.path().join("text.txt"), "hello").unwrap();
 
     let ws = WorkspaceStager::new()
@@ -383,11 +391,7 @@ fn stage_source_git_directory_excluded() {
     let src = tempdir().unwrap();
     // Simulate a .git directory in source.
     fs::create_dir_all(src.path().join(".git").join("objects")).unwrap();
-    fs::write(
-        src.path().join(".git").join("HEAD"),
-        "ref: refs/heads/main",
-    )
-    .unwrap();
+    fs::write(src.path().join(".git").join("HEAD"), "ref: refs/heads/main").unwrap();
     fs::write(src.path().join("file.txt"), "content").unwrap();
 
     let ws = WorkspaceStager::new()
@@ -516,7 +520,10 @@ fn git_baseline_commit_exists() {
         .unwrap();
 
     let log = git(ws.path(), &["log", "--oneline"]);
-    assert!(log.contains("baseline"), "log should contain baseline commit: {log}");
+    assert!(
+        log.contains("baseline"),
+        "log should contain baseline commit: {log}"
+    );
 }
 
 #[test]
@@ -614,12 +621,19 @@ fn git_can_create_diff_after_modification() {
         .unwrap();
 
     // Modify a file.
-    fs::write(ws.path().join("main.rs"), "fn main() { println!(\"changed\"); }").unwrap();
+    fs::write(
+        ws.path().join("main.rs"),
+        "fn main() { println!(\"changed\"); }",
+    )
+    .unwrap();
 
     let diff = WorkspaceManager::git_diff(ws.path());
     assert!(diff.is_some());
     let diff_text = diff.unwrap();
-    assert!(diff_text.contains("changed"), "diff should show change: {diff_text}");
+    assert!(
+        diff_text.contains("changed"),
+        "diff should show change: {diff_text}"
+    );
 }
 
 #[test]
@@ -793,7 +807,11 @@ fn diff_counts_additions_and_deletions() {
         .stage()
         .unwrap();
 
-    fs::write(ws.path().join("file.txt"), "line1\nmodified\nline3\nnew_line\n").unwrap();
+    fs::write(
+        ws.path().join("file.txt"),
+        "line1\nmodified\nline3\nnew_line\n",
+    )
+    .unwrap();
 
     let summary = diff_workspace(&ws).unwrap();
     assert!(summary.total_additions > 0);
@@ -925,10 +943,7 @@ fn diff_new_file_in_subdirectory() {
 
     let summary = diff_workspace(&ws).unwrap();
     assert_eq!(summary.added.len(), 1);
-    assert_eq!(
-        summary.added[0],
-        PathBuf::from("sub/deep/new.txt")
-    );
+    assert_eq!(summary.added[0], PathBuf::from("sub/deep/new.txt"));
 }
 
 // ===========================================================================
@@ -1071,12 +1086,7 @@ fn stage_failure_nonexistent_source() {
         .source_root("/nonexistent/path/that/should/not/exist")
         .stage();
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("does not exist")
-    );
+    assert!(result.unwrap_err().to_string().contains("does not exist"));
 }
 
 #[test]
@@ -1290,8 +1300,16 @@ fn stage_nested_directories_with_mixed_patterns() {
     fs::create_dir_all(src.path().join("src").join("core")).unwrap();
     fs::create_dir_all(src.path().join("tests")).unwrap();
     fs::create_dir_all(src.path().join("docs")).unwrap();
-    fs::write(src.path().join("src").join("core").join("main.rs"), "fn main() {}").unwrap();
-    fs::write(src.path().join("src").join("core").join("config.toml"), "[config]").unwrap();
+    fs::write(
+        src.path().join("src").join("core").join("main.rs"),
+        "fn main() {}",
+    )
+    .unwrap();
+    fs::write(
+        src.path().join("src").join("core").join("config.toml"),
+        "[config]",
+    )
+    .unwrap();
     fs::write(src.path().join("tests").join("test.rs"), "#[test]").unwrap();
     fs::write(src.path().join("docs").join("guide.md"), "# Guide").unwrap();
 
@@ -1320,7 +1338,11 @@ fn diff_after_adding_multiple_new_files() {
         .unwrap();
 
     for i in 0..10 {
-        fs::write(ws.path().join(format!("new_{i}.txt")), format!("content {i}")).unwrap();
+        fs::write(
+            ws.path().join(format!("new_{i}.txt")),
+            format!("content {i}"),
+        )
+        .unwrap();
     }
 
     let summary = diff_workspace(&ws).unwrap();
@@ -1332,7 +1354,11 @@ fn diff_after_adding_multiple_new_files() {
 fn diff_after_deleting_all_files() {
     let src = tempdir().unwrap();
     for i in 0..5 {
-        fs::write(src.path().join(format!("f_{i}.txt")), format!("content {i}")).unwrap();
+        fs::write(
+            src.path().join(format!("f_{i}.txt")),
+            format!("content {i}"),
+        )
+        .unwrap();
     }
 
     let ws = WorkspaceStager::new()
@@ -1460,8 +1486,10 @@ fn diff_policy_fail_too_many_additions() {
 #[test]
 fn diff_policy_result_is_pass_method() {
     assert!(PolicyResult::Pass.is_pass());
-    assert!(!PolicyResult::Fail {
-        violations: vec!["x".into()]
-    }
-    .is_pass());
+    assert!(
+        !PolicyResult::Fail {
+            violations: vec!["x".into()]
+        }
+        .is_pass()
+    );
 }

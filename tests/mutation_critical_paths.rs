@@ -8,7 +8,7 @@
 // ─── Receipt hash computation ────────────────────────────────────────────────
 
 mod receipt_hash {
-    use abp_receipt::{canonicalize, compute_hash, verify_hash, ReceiptBuilder};
+    use abp_receipt::{ReceiptBuilder, canonicalize, compute_hash, verify_hash};
 
     fn minimal_receipt() -> abp_core::Receipt {
         ReceiptBuilder::new("test-backend").build()
@@ -198,7 +198,11 @@ mod policy_engine {
             ..Default::default()
         };
         let engine = PolicyEngine::new(&p).unwrap();
-        assert!(engine.can_write_path(Path::new("public/index.html")).allowed);
+        assert!(
+            engine
+                .can_write_path(Path::new("public/index.html"))
+                .allowed
+        );
     }
 
     #[test]
@@ -272,8 +276,7 @@ mod composed_policy {
             deny_read: vec!["**/.env".into()],
             ..Default::default()
         };
-        let engine =
-            ComposedEngine::new(vec![deny_env], PolicyPrecedence::DenyOverrides).unwrap();
+        let engine = ComposedEngine::new(vec![deny_env], PolicyPrecedence::DenyOverrides).unwrap();
         match engine.check_read(".env") {
             PolicyDecision::Deny { .. } => {}
             other => panic!("expected Deny for .env, got {other:?}"),
@@ -299,8 +302,8 @@ mod composed_policy {
 
 mod capability_negotiation {
     use abp_capability::{
-        check_capability, generate_report, negotiate::apply_policy,
-        negotiate::NegotiationPolicy, negotiate_capabilities,
+        check_capability, generate_report, negotiate::NegotiationPolicy, negotiate::apply_policy,
+        negotiate_capabilities,
     };
     use abp_core::{Capability, CapabilityManifest, SupportLevel};
 
@@ -505,14 +508,8 @@ mod error_codes {
             ErrorCode::BackendNotFound.category(),
             ErrorCategory::Backend
         );
-        assert_eq!(
-            ErrorCode::BackendTimeout.category(),
-            ErrorCategory::Backend
-        );
-        assert_eq!(
-            ErrorCode::BackendCrashed.category(),
-            ErrorCategory::Backend
-        );
+        assert_eq!(ErrorCode::BackendTimeout.category(), ErrorCategory::Backend);
+        assert_eq!(ErrorCode::BackendCrashed.category(), ErrorCategory::Backend);
     }
 
     #[test]
@@ -619,7 +616,7 @@ mod error_codes {
 // ─── Dialect detection scoring ───────────────────────────────────────────────
 
 mod dialect_detection {
-    use abp_dialect::{detect::detect_dialect, Dialect, DialectDetector};
+    use abp_dialect::{Dialect, DialectDetector, detect::detect_dialect};
     use serde_json::json;
 
     #[test]
@@ -648,7 +645,10 @@ mod dialect_detection {
     #[test]
     fn empty_object_returns_none() {
         let result = detect_dialect(&json!({}));
-        assert!(result.is_none(), "empty object should not match any dialect");
+        assert!(
+            result.is_none(),
+            "empty object should not match any dialect"
+        );
     }
 
     #[test]

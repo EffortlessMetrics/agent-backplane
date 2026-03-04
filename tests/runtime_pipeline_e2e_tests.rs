@@ -4,12 +4,12 @@
 //! Covers: full pipeline flow, backend selection, event streaming,
 //! receipt generation, and error propagation.
 
-use abp_backend_mock::scenarios::{MockScenario, ScenarioMockBackend};
 use abp_backend_mock::MockBackend;
+use abp_backend_mock::scenarios::{MockScenario, ScenarioMockBackend};
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
-    ExecutionMode, MinSupport, Outcome, Receipt, SupportLevel, WorkOrder,
-    WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement,
+    CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt, SupportLevel, WorkOrder,
+    WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
 use abp_runtime::{ProjectionMatrix, Runtime, RuntimeError};
@@ -34,11 +34,7 @@ fn passthrough_wo(task: &str) -> WorkOrder {
 }
 
 /// Collect all events from a RunHandle, then return the receipt.
-async fn collect_run(
-    rt: &Runtime,
-    backend: &str,
-    wo: WorkOrder,
-) -> (Vec<AgentEvent>, Receipt) {
+async fn collect_run(rt: &Runtime, backend: &str, wo: WorkOrder) -> (Vec<AgentEvent>, Receipt) {
     let handle = rt.run_streaming(backend, wo).await.unwrap();
     let events: Vec<AgentEvent> = handle.events.collect().await;
     let receipt = handle.receipt.await.unwrap().unwrap();
@@ -159,14 +155,8 @@ mod full_pipeline {
     #[tokio::test]
     async fn run_handle_run_id_is_unique() {
         let rt = Runtime::with_default_backends();
-        let h1 = rt
-            .run_streaming("mock", simple_wo("a"))
-            .await
-            .unwrap();
-        let h2 = rt
-            .run_streaming("mock", simple_wo("b"))
-            .await
-            .unwrap();
+        let h1 = rt.run_streaming("mock", simple_wo("a")).await.unwrap();
+        let h2 = rt.run_streaming("mock", simple_wo("b")).await.unwrap();
         assert_ne!(h1.run_id, h2.run_id);
         // Consume to avoid drop panics.
         let _ = h1.receipt.await;
@@ -865,10 +855,7 @@ mod metrics_telemetry {
         let (_, _) = collect_run(&rt, "mock", simple_wo("metrics")).await;
         let snap_after = rt.metrics().snapshot();
         assert_eq!(snap_after.total_runs, snap_before.total_runs + 1);
-        assert_eq!(
-            snap_after.successful_runs,
-            snap_before.successful_runs + 1
-        );
+        assert_eq!(snap_after.successful_runs, snap_before.successful_runs + 1);
     }
 
     #[tokio::test]
@@ -880,10 +867,7 @@ mod metrics_telemetry {
         let mut rt = Runtime::new();
         rt.register_backend("fail", backend);
         let snap_before = rt.metrics().snapshot();
-        let handle = rt
-            .run_streaming("fail", simple_wo("fail"))
-            .await
-            .unwrap();
+        let handle = rt.run_streaming("fail", simple_wo("fail")).await.unwrap();
         let _: Vec<_> = handle.events.collect().await;
         let _ = handle.receipt.await;
         let snap_after = rt.metrics().snapshot();
@@ -946,8 +930,7 @@ mod error_taxonomy {
 
     #[test]
     fn classified_error_round_trips() {
-        let abp_err =
-            abp_error::AbpError::new(abp_error::ErrorCode::BackendTimeout, "timed out");
+        let abp_err = abp_error::AbpError::new(abp_error::ErrorCode::BackendTimeout, "timed out");
         let rt_err: RuntimeError = abp_err.into();
         assert_eq!(rt_err.error_code(), abp_error::ErrorCode::BackendTimeout);
     }
@@ -970,20 +953,16 @@ mod error_taxonomy {
 
     #[test]
     fn classified_retryable_propagates() {
-        let abp_err = abp_error::AbpError::new(
-            abp_error::ErrorCode::BackendRateLimited,
-            "rate limited",
-        );
+        let abp_err =
+            abp_error::AbpError::new(abp_error::ErrorCode::BackendRateLimited, "rate limited");
         let rt_err: RuntimeError = abp_err.into();
         assert!(rt_err.is_retryable());
     }
 
     #[test]
     fn classified_non_retryable_propagates() {
-        let abp_err = abp_error::AbpError::new(
-            abp_error::ErrorCode::ContractSchemaViolation,
-            "bad schema",
-        );
+        let abp_err =
+            abp_error::AbpError::new(abp_error::ErrorCode::ContractSchemaViolation, "bad schema");
         let rt_err: RuntimeError = abp_err.into();
         assert!(!rt_err.is_retryable());
     }
@@ -1117,8 +1096,7 @@ mod concurrent_stress {
         }
         assert_eq!(receipts.len(), 10);
         // All receipts should have unique run ids.
-        let ids: std::collections::HashSet<_> =
-            receipts.iter().map(|r| r.meta.run_id).collect();
+        let ids: std::collections::HashSet<_> = receipts.iter().map(|r| r.meta.run_id).collect();
         assert_eq!(ids.len(), 10);
     }
 
@@ -1172,8 +1150,7 @@ mod concurrent_stress {
     async fn rapid_sequential_runs() {
         let rt = Runtime::with_default_backends();
         for i in 0..20 {
-            let (_, receipt) =
-                collect_run(&rt, "mock", simple_wo(&format!("rapid-{i}"))).await;
+            let (_, receipt) = collect_run(&rt, "mock", simple_wo(&format!("rapid-{i}"))).await;
             assert_eq!(receipt.outcome, Outcome::Complete);
         }
     }

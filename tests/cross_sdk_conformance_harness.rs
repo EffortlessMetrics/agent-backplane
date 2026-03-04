@@ -8,13 +8,13 @@
 
 use abp_capability::{
     self, check_capability, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
-    generate_report, gemini_15_pro_manifest, kimi_manifest, negotiate, openai_gpt4o_manifest,
+    gemini_15_pro_manifest, generate_report, kimi_manifest, negotiate, openai_gpt4o_manifest,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement,
-    CapabilityRequirements, MinSupport, Outcome, Receipt, ReceiptBuilder, UsageNormalized,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome, Receipt, ReceiptBuilder,
+    UsageNormalized,
 };
 use abp_dialect::Dialect;
 use abp_error::ErrorCode;
@@ -421,7 +421,9 @@ mod claude_passthrough {
         };
         let ir = content_block_to_ir(&block);
         let back = content_block_from_ir(&ir);
-        assert!(matches!(back, ContentBlock::Thinking { thinking, .. } if thinking == "Let me think..."));
+        assert!(
+            matches!(back, ContentBlock::Thinking { thinking, .. } if thinking == "Let me think...")
+        );
     }
 
     #[test]
@@ -533,7 +535,13 @@ mod gemini_passthrough {
             .add_content(Content::user(vec![Part::text("test")]));
         let (ir, gen_cfg, _) = request_to_ir(&req).unwrap();
         let wo = ir_to_work_order(&ir, "gemini-1.5-flash", &gen_cfg);
-        assert!(wo.config.model.as_deref().unwrap().contains("gemini-1.5-flash"));
+        assert!(
+            wo.config
+                .model
+                .as_deref()
+                .unwrap()
+                .contains("gemini-1.5-flash")
+        );
     }
 }
 
@@ -781,10 +789,7 @@ mod cross_dialect_mapping {
     fn t02_identity_mapping_for_each_dialect() {
         for &d in ALL_DIALECTS {
             let mapper = default_ir_mapper(d, d);
-            assert!(
-                mapper.is_some(),
-                "identity mapper should exist for {d:?}",
-            );
+            assert!(mapper.is_some(), "identity mapper should exist for {d:?}",);
         }
     }
 
@@ -1164,9 +1169,7 @@ mod receipt_compatibility {
     #[test]
     fn t06_receipt_outcome_variants() {
         for outcome in [Outcome::Complete, Outcome::Partial, Outcome::Failed] {
-            let receipt = ReceiptBuilder::new("test")
-                .outcome(outcome.clone())
-                .build();
+            let receipt = ReceiptBuilder::new("test").outcome(outcome.clone()).build();
             assert_eq!(receipt.outcome, outcome);
         }
     }

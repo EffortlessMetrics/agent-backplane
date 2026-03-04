@@ -16,8 +16,8 @@ use abp_core::{
     CapabilityRequirements, ExecutionMode, MinSupport, Outcome, PolicyProfile, ReceiptBuilder,
     SupportLevel, WorkOrderBuilder, WorkspaceMode,
 };
-use abp_dialect::DialectDetector;
 use abp_dialect::Dialect;
+use abp_dialect::DialectDetector;
 use abp_ir::lower::{lower_for_dialect, lower_to_claude, lower_to_gemini, lower_to_openai};
 use abp_ir::normalize::normalize;
 use abp_mapper::{
@@ -161,7 +161,10 @@ async fn given_work_order_with_tool_use_cap_when_mock_backend_then_capability_er
         Err(_) => {} // capability check failed before execution
         Ok(handle) => {
             let receipt_result = handle.receipt.await.unwrap();
-            assert!(receipt_result.is_err(), "should fail due to unsatisfied capability");
+            assert!(
+                receipt_result.is_err(),
+                "should fail due to unsatisfied capability"
+            );
         }
     }
 }
@@ -189,10 +192,9 @@ async fn given_work_order_with_unknown_backend_then_unknown_backend_error() {
 async fn given_passthrough_work_order_when_executed_then_receipt_shows_mode() {
     let rt = Runtime::with_default_backends();
     let mut wo = simple_work_order();
-    wo.config.vendor.insert(
-        "abp".to_string(),
-        json!({"mode": "passthrough"}),
-    );
+    wo.config
+        .vendor
+        .insert("abp".to_string(), json!({"mode": "passthrough"}));
     let handle = rt.run_streaming("mock", wo).await.unwrap();
     let receipt = handle.receipt.await.unwrap().unwrap();
     // MockBackend extracts mode via extract_execution_mode, which reads the vendor flag.
@@ -363,7 +365,11 @@ fn given_permissive_policy_when_checking_anything_then_all_allowed() {
     assert!(engine.can_use_tool("Read").allowed);
     assert!(engine.can_use_tool("Write").allowed);
     assert!(engine.can_read_path(Path::new("any/file.rs")).allowed);
-    assert!(engine.can_write_path(Path::new("any/other/file.txt")).allowed);
+    assert!(
+        engine
+            .can_write_path(Path::new("any/other/file.txt"))
+            .allowed
+    );
 }
 
 /// Given a policy with both allowlist and denylist,
@@ -670,7 +676,10 @@ fn given_workspace_staging_when_git_init_then_git_dir_exists() {
         .stage()
         .unwrap();
 
-    assert!(ws.path().join(".git").exists(), "git repo should be initialized");
+    assert!(
+        ws.path().join(".git").exists(),
+        "git repo should be initialized"
+    );
 }
 
 /// Given a staged workspace with git init,
@@ -892,7 +901,10 @@ fn given_lower_for_dialect_when_called_for_all_then_all_produce_valid_json() {
 
     for dialect in abp_sdk_types::Dialect::all() {
         let result = lower_for_dialect(*dialect, &conv, &tools);
-        assert!(result.is_object(), "lowered output for {dialect:?} should be a JSON object");
+        assert!(
+            result.is_object(),
+            "lowered output for {dialect:?} should be a JSON object"
+        );
     }
 }
 
@@ -925,7 +937,11 @@ fn given_ir_normalization_when_applied_then_text_trimmed() {
     let normalized = normalize(&conv);
     for msg in &normalized.messages {
         let text: String = msg.text_content();
-        assert_eq!(text, text.trim(), "text should be trimmed after normalization");
+        assert_eq!(
+            text,
+            text.trim(),
+            "text should be trimmed after normalization"
+        );
     }
 }
 
@@ -951,7 +967,7 @@ fn given_openai_request_when_converted_to_work_order_then_fields_populated() {
 /// Then the task is populated from messages.
 #[test]
 fn given_claude_request_when_converted_to_work_order_then_task_populated() {
-    use abp_shim_claude::{Message, MessageRequest, Role, ContentBlock, request_to_work_order};
+    use abp_shim_claude::{ContentBlock, Message, MessageRequest, Role, request_to_work_order};
 
     let request = MessageRequest {
         model: "claude-3-5-sonnet-20241022".into(),
@@ -1002,7 +1018,10 @@ fn given_projection_matrix_with_backends_when_projected_then_backend_selected() 
 fn given_projection_defaults_when_looking_up_openai_claude_then_entry_exists() {
     let matrix = ProjectionMatrix::with_defaults();
     let entry = matrix.lookup(Dialect::OpenAi, Dialect::Claude);
-    assert!(entry.is_some(), "OpenAI->Claude should have a default projection entry");
+    assert!(
+        entry.is_some(),
+        "OpenAI->Claude should have a default projection entry"
+    );
 }
 
 /// Given a projection matrix,
@@ -1099,10 +1118,7 @@ fn given_agent_event_with_ext_when_roundtripped_then_ext_preserved() {
     let json = serde_json::to_string(&event).unwrap();
     let restored: AgentEvent = serde_json::from_str(&json).unwrap();
     assert!(restored.ext.is_some());
-    assert_eq!(
-        restored.ext.unwrap()["raw_message"],
-        json!({"foo": "bar"})
-    );
+    assert_eq!(restored.ext.unwrap()["raw_message"], json!({"foo": "bar"}));
 }
 
 /// Given an Outcome enum,
@@ -1124,9 +1140,7 @@ fn given_outcome_when_serialized_then_snake_case() {
 /// Then error_code maps correctly and is_retryable is accurate.
 #[test]
 fn given_runtime_errors_then_error_code_and_retryable_correct() {
-    let unknown = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let unknown = RuntimeError::UnknownBackend { name: "x".into() };
     assert!(!unknown.is_retryable());
 
     let backend_fail = RuntimeError::BackendFailed(anyhow::anyhow!("crash"));

@@ -112,7 +112,10 @@ fn every_code_has_valid_category() {
     let valid: HashSet<ErrorCategory> = ALL_CATEGORIES.iter().copied().collect();
     for &code in ALL_CODES {
         let cat = code.category();
-        assert!(valid.contains(&cat), "{code:?} has unknown category {cat:?}");
+        assert!(
+            valid.contains(&cat),
+            "{code:?} has unknown category {cat:?}"
+        );
     }
 }
 
@@ -191,7 +194,10 @@ fn non_retryable_codes_count() {
 fn every_category_has_at_least_one_code() {
     let mut category_codes: HashMap<ErrorCategory, Vec<ErrorCode>> = HashMap::new();
     for &code in ALL_CODES {
-        category_codes.entry(code.category()).or_default().push(code);
+        category_codes
+            .entry(code.category())
+            .or_default()
+            .push(code);
     }
     for &cat in ALL_CATEGORIES {
         assert!(
@@ -639,7 +645,10 @@ fn error_classification_serde_roundtrip() {
         let cl = classifier.classify(&code);
         let json = serde_json::to_string(&cl).unwrap();
         let back: ErrorClassification = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, cl, "ErrorClassification roundtrip failed for {code:?}");
+        assert_eq!(
+            back, cl,
+            "ErrorClassification roundtrip failed for {code:?}"
+        );
     }
 }
 

@@ -444,9 +444,7 @@ mod gemini {
 
     fn tool_request() -> GenerateContentRequest {
         GenerateContentRequest::new("gemini-2.5-flash")
-            .add_content(Content::user(vec![Part::text(
-                "What's the weather in SF?",
-            )]))
+            .add_content(Content::user(vec![Part::text("What's the weather in SF?")]))
             .tools(vec![ToolDeclaration {
                 function_declarations: vec![FunctionDeclaration {
                     name: "get_weather".into(),
@@ -521,8 +519,7 @@ mod gemini {
 
     #[test]
     fn receipt_to_response() {
-        let (ir_req, gen_config, safety) =
-            convert::request_to_ir(&simple_request()).unwrap();
+        let (ir_req, gen_config, safety) = convert::request_to_ir(&simple_request()).unwrap();
         let _wo = convert::ir_to_work_order(&ir_req, "gemini-2.5-flash", &gen_config);
         let receipt = make_test_receipt("gemini");
         let ir = convert::receipt_to_ir(&receipt);
