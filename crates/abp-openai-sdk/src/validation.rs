@@ -6,6 +6,7 @@
 //! This module provides typed errors for those cases so callers fail
 //! early with clear diagnostics rather than silently dropping parameters.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -14,7 +15,7 @@ use std::fmt;
 // ---------------------------------------------------------------------------
 
 /// An unmappable parameter detected during mapped-mode translation.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct UnmappableParam {
     /// Name of the parameter that cannot be mapped.
     pub param: String,
@@ -31,7 +32,7 @@ impl fmt::Display for UnmappableParam {
 impl std::error::Error for UnmappableParam {}
 
 /// A collection of validation errors for a single request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ValidationErrors {
     /// The individual unmappable parameters found.
     pub errors: Vec<UnmappableParam>,
@@ -59,7 +60,7 @@ impl std::error::Error for ValidationErrors {}
 
 /// Extended request fields that may be present in an OpenAI request
 /// but are not universally supported across backends.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
 pub struct ExtendedRequestFields {
     /// Whether `logprobs` was requested.
     #[serde(skip_serializing_if = "Option::is_none")]

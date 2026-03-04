@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Structured output `response_format` types for the OpenAI Chat Completions API.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -10,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// The `response_format` parameter for Chat Completions requests.
 ///
 /// Controls the output format of the model response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ResponseFormat {
     /// Plain text output (default behavior).
@@ -25,7 +26,7 @@ pub enum ResponseFormat {
 }
 
 /// A JSON Schema specification for structured output.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct JsonSchemaSpec {
     /// Human-readable name for this schema.
     pub name: String,

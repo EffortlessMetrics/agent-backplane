@@ -7,6 +7,7 @@
 
 use abp_core::{AgentEvent, AgentEventKind, Outcome, Receipt, WorkOrder, WorkOrderBuilder};
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::response_format::ResponseFormat;
@@ -16,7 +17,7 @@ use crate::response_format::ResponseFormat;
 // ---------------------------------------------------------------------------
 
 /// A Chat Completions API request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ChatCompletionRequest {
     /// Model identifier (e.g. `gpt-4o`).
     pub model: String,
@@ -37,6 +38,9 @@ pub struct ChatCompletionRequest {
     /// Whether to stream the response.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
+    /// Options for streaming responses (e.g. `include_usage`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stream_options: Option<StreamOptions>,
     /// Nucleus sampling parameter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f64>,
@@ -61,10 +65,27 @@ pub struct ChatCompletionRequest {
     /// A unique identifier for the end-user.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
+    /// Whether the model may make multiple tool calls in parallel.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parallel_tool_calls: Option<bool>,
+    /// The service tier to use for the request (e.g. `"auto"`, `"default"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_tier: Option<String>,
+}
+
+/// Options controlling streaming behavior.
+///
+/// Used in [`ChatCompletionRequest::stream_options`] when `stream: true`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct StreamOptions {
+    /// If `true`, the final streaming chunk will include a `usage` field
+    /// with token counts for the entire request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_usage: Option<bool>,
 }
 
 /// A message in a Chat Completions conversation.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "role", rename_all = "snake_case")]
 pub enum Message {
     /// System instruction message.
@@ -96,7 +117,7 @@ pub enum Message {
 }
 
 /// A tool definition.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct Tool {
     /// Tool type — always `"function"`.
     #[serde(rename = "type")]
@@ -106,7 +127,7 @@ pub struct Tool {
 }
 
 /// A function definition inside a [`Tool`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct FunctionDefinition {
     /// Function name.
     pub name: String,
@@ -122,7 +143,7 @@ pub struct FunctionDefinition {
 }
 
 /// A tool call emitted by the model.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ToolCall {
     /// Unique identifier for this tool call.
     pub id: String,
@@ -134,7 +155,7 @@ pub struct ToolCall {
 }
 
 /// The function invocation inside a [`ToolCall`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct FunctionCall {
     /// Name of the function to invoke.
     pub name: String,
@@ -147,7 +168,7 @@ pub struct FunctionCall {
 // ---------------------------------------------------------------------------
 
 /// A Chat Completions API response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ChatCompletionResponse {
     /// Unique response identifier (e.g. `chatcmpl-...`).
     pub id: String,
@@ -168,7 +189,7 @@ pub struct ChatCompletionResponse {
 }
 
 /// A single choice in the response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct Choice {
     /// Zero-based index of this choice.
     pub index: u32,
@@ -179,7 +200,7 @@ pub struct Choice {
 }
 
 /// The assistant message inside a [`Choice`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct AssistantMessage {
     /// Role — always `"assistant"`.
     #[serde(default = "default_assistant_role")]
@@ -197,7 +218,7 @@ fn default_assistant_role() -> String {
 }
 
 /// The reason a model stopped generating tokens.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FinishReason {
     /// Natural stop or hit a stop sequence.
@@ -211,7 +232,7 @@ pub enum FinishReason {
 }
 
 /// Token usage statistics.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct Usage {
     /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,
@@ -219,6 +240,34 @@ pub struct Usage {
     pub completion_tokens: u64,
     /// Total tokens (prompt + completion).
     pub total_tokens: u64,
+    /// Detailed breakdown of completion token usage.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completion_tokens_details: Option<CompletionTokensDetails>,
+    /// Detailed breakdown of prompt token usage.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_tokens_details: Option<PromptTokensDetails>,
+}
+
+/// Detailed breakdown of completion token counts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct CompletionTokensDetails {
+    /// Tokens used for reasoning (chain-of-thought) by o-series models.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_tokens: Option<u64>,
+    /// Tokens that were accepted from a prediction request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accepted_prediction_tokens: Option<u64>,
+    /// Tokens that were rejected from a prediction request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rejected_prediction_tokens: Option<u64>,
+}
+
+/// Detailed breakdown of prompt token counts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct PromptTokensDetails {
+    /// Tokens that were retrieved from cache.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cached_tokens: Option<u64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -226,7 +275,7 @@ pub struct Usage {
 // ---------------------------------------------------------------------------
 
 /// A single streaming chunk (SSE `chat.completion.chunk`).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct StreamChunk {
     /// Unique chunk identifier.
     pub id: String,
@@ -244,7 +293,7 @@ pub struct StreamChunk {
 }
 
 /// A single choice inside a [`StreamChunk`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct StreamChoice {
     /// Zero-based index.
     pub index: u32,
@@ -255,7 +304,7 @@ pub struct StreamChoice {
 }
 
 /// The delta payload inside a streaming choice.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, JsonSchema)]
 pub struct Delta {
     /// Role (only in the first chunk).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -377,6 +426,8 @@ impl From<Receipt> for ChatCompletionResponse {
                     prompt_tokens: input,
                     completion_tokens: output,
                     total_tokens: input + output,
+                    completion_tokens_details: None,
+                    prompt_tokens_details: None,
                 })
             } else {
                 None
@@ -593,6 +644,8 @@ mod tests {
             prompt_tokens: 100,
             completion_tokens: 50,
             total_tokens: 150,
+            completion_tokens_details: None,
+            prompt_tokens_details: None,
         };
         let json = serde_json::to_string(&usage).unwrap();
         let parsed: Usage = serde_json::from_str(&json).unwrap();
@@ -624,6 +677,7 @@ mod tests {
             }]),
             tool_choice: None,
             stream: None,
+            stream_options: None,
             top_p: None,
             frequency_penalty: None,
             presence_penalty: None,
@@ -632,6 +686,8 @@ mod tests {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: ChatCompletionRequest = serde_json::from_str(&json).unwrap();
@@ -648,6 +704,7 @@ mod tests {
             tools: None,
             tool_choice: None,
             stream: None,
+            stream_options: None,
             top_p: None,
             frequency_penalty: None,
             presence_penalty: None,
@@ -656,6 +713,8 @@ mod tests {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(!json.contains("temperature"));
@@ -687,6 +746,8 @@ mod tests {
                 prompt_tokens: 10,
                 completion_tokens: 5,
                 total_tokens: 15,
+                completion_tokens_details: None,
+                prompt_tokens_details: None,
             }),
             system_fingerprint: Some("fp_abc123".into()),
         };
@@ -734,6 +795,8 @@ mod tests {
                 prompt_tokens: 20,
                 completion_tokens: 10,
                 total_tokens: 30,
+                completion_tokens_details: None,
+                prompt_tokens_details: None,
             }),
         };
         let json = serde_json::to_string(&chunk).unwrap();
@@ -752,6 +815,7 @@ mod tests {
             tools: None,
             tool_choice: None,
             stream: None,
+            stream_options: None,
             top_p: None,
             frequency_penalty: None,
             presence_penalty: None,
@@ -760,6 +824,8 @@ mod tests {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
         }
     }
 
@@ -1112,6 +1178,9 @@ mod tests {
             tools: None,
             tool_choice: Some(json!("auto")),
             stream: Some(true),
+            stream_options: Some(StreamOptions {
+                include_usage: Some(true),
+            }),
             top_p: Some(0.9),
             frequency_penalty: Some(0.5),
             presence_penalty: Some(0.3),
@@ -1120,6 +1189,8 @@ mod tests {
             seed: Some(42),
             response_format: Some(ResponseFormat::json_object()),
             user: Some("user-123".into()),
+            parallel_tool_calls: Some(true),
+            service_tier: Some("auto".into()),
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: ChatCompletionRequest = serde_json::from_str(&json).unwrap();

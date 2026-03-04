@@ -27,6 +27,12 @@ pub mod dialect;
 /// and `lowering::from_ir` lowers back to OpenAI messages.
 pub mod lowering;
 
+/// Model listing types for the `/v1/models` endpoint.
+///
+/// Contains `Model`, `ModelList`, and `ModelDeleted` types matching
+/// the OpenAI REST API surface for model enumeration and management.
+pub mod models;
+
 /// Structured output `response_format` types for the Chat Completions API.
 ///
 /// Models the `text`, `json_object`, and `json_schema` variants of the

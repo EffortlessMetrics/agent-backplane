@@ -46,6 +46,7 @@ fn make_api_request(messages: Vec<Message>) -> ChatCompletionRequest {
         tools: None,
         tool_choice: None,
         stream: None,
+        stream_options: None,
         top_p: None,
         frequency_penalty: None,
         presence_penalty: None,
@@ -54,6 +55,8 @@ fn make_api_request(messages: Vec<Message>) -> ChatCompletionRequest {
         seed: None,
         response_format: None,
         user: None,
+        parallel_tool_calls: None,
+        service_tier: None,
     }
 }
 
@@ -1835,6 +1838,8 @@ fn api_usage_serde_roundtrip() {
         prompt_tokens: 100,
         completion_tokens: 50,
         total_tokens: 150,
+        completion_tokens_details: None,
+        prompt_tokens_details: None,
     };
     let json = serde_json::to_string(&u).unwrap();
     let parsed: Usage = serde_json::from_str(&json).unwrap();
@@ -1847,6 +1852,8 @@ fn api_usage_zero_values() {
         prompt_tokens: 0,
         completion_tokens: 0,
         total_tokens: 0,
+        completion_tokens_details: None,
+        prompt_tokens_details: None,
     };
     let json = serde_json::to_string(&u).unwrap();
     let parsed: Usage = serde_json::from_str(&json).unwrap();
@@ -1874,6 +1881,7 @@ fn api_request_full_serde_roundtrip() {
         tools: None,
         tool_choice: None,
         stream: Some(true),
+        stream_options: None,
         top_p: Some(0.9),
         frequency_penalty: Some(0.1),
         presence_penalty: Some(0.2),
@@ -1882,6 +1890,8 @@ fn api_request_full_serde_roundtrip() {
         seed: Some(42),
         response_format: Some(ResponseFormat::json_object()),
         user: Some("user-123".into()),
+        parallel_tool_calls: None,
+        service_tier: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let parsed: ChatCompletionRequest = serde_json::from_str(&json).unwrap();
@@ -1927,6 +1937,8 @@ fn api_response_serde_roundtrip() {
             prompt_tokens: 10,
             completion_tokens: 5,
             total_tokens: 15,
+            completion_tokens_details: None,
+            prompt_tokens_details: None,
         }),
         system_fingerprint: Some("fp_abc123".into()),
     };

@@ -6,6 +6,7 @@
 //! and [`abp_core::WorkOrder`] / [`abp_core::Receipt`].
 
 use abp_core::{AgentEventKind, Outcome, Receipt, WorkOrder, WorkOrderBuilder};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -14,7 +15,7 @@ use std::collections::BTreeMap;
 // ---------------------------------------------------------------------------
 
 /// A Codex / Responses API session request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexSessionRequest {
     /// Model identifier (e.g. `codex-mini-latest`).
     pub model: String,
@@ -41,7 +42,7 @@ pub struct CodexSessionRequest {
 }
 
 /// An input item in a Codex session request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexInputItem {
     /// A conversation message.
@@ -65,7 +66,7 @@ pub enum CodexInputItem {
 // ---------------------------------------------------------------------------
 
 /// A Codex / Responses API session response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexSessionResponse {
     /// Unique response identifier (e.g. `resp_...`).
     pub id: String,
@@ -83,7 +84,7 @@ pub struct CodexSessionResponse {
 }
 
 /// An output item in a Codex session response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexOutputItem {
     /// An assistant message with content parts.
@@ -108,7 +109,7 @@ pub enum CodexOutputItem {
 }
 
 /// A content part within a Codex output message.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexContentPart {
     /// Text output from the model.
@@ -119,7 +120,7 @@ pub enum CodexContentPart {
 }
 
 /// Token usage reported by the Codex / Responses API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexUsage {
     /// Tokens consumed by the input.
     pub input_tokens: u64,
@@ -134,7 +135,7 @@ pub struct CodexUsage {
 // ---------------------------------------------------------------------------
 
 /// A tool definition for the Codex / Responses API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexTool {
     /// Tool type — typically `"function"`.
     #[serde(rename = "type")]
@@ -144,7 +145,7 @@ pub struct CodexTool {
 }
 
 /// A function definition inside a [`CodexTool`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexFunctionDef {
     /// Function name.
     pub name: String,

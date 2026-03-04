@@ -263,6 +263,54 @@ pub fn extract_intent(wo: &WorkOrder) -> Option<String> {
     copilot.get("intent")?.as_str().map(String::from)
 }
 
+// ── From/Into trait implementations ─────────────────────────────────────
+
+/// Convert a [`CopilotChatRequest`] into an ABP [`WorkOrder`].
+///
+/// Delegates to [`to_work_order`] for the conversion logic.
+impl From<CopilotChatRequest> for WorkOrder {
+    fn from(req: CopilotChatRequest) -> Self {
+        to_work_order(&req)
+    }
+}
+
+/// Convert a [`CopilotChatRequest`] reference into an ABP [`WorkOrder`].
+impl From<&CopilotChatRequest> for WorkOrder {
+    fn from(req: &CopilotChatRequest) -> Self {
+        to_work_order(req)
+    }
+}
+
+/// Convert an ABP [`Receipt`] into a [`CopilotChatResponse`].
+///
+/// Uses the default model (`gpt-4o`) when the originating work order is
+/// not available. For model-accurate conversion, use [`from_receipt`]
+/// directly.
+impl From<Receipt> for CopilotChatResponse {
+    fn from(receipt: Receipt) -> Self {
+        let model = "gpt-4o".to_string();
+        let wo = WorkOrderBuilder::new("").model(&model).build();
+        from_receipt(&receipt, &wo)
+    }
+}
+
+/// Convert a `(Receipt, WorkOrder)` pair into a [`CopilotChatResponse`].
+///
+/// This provides the most accurate conversion by using the work order's
+/// model information.
+impl From<(Receipt, WorkOrder)> for CopilotChatResponse {
+    fn from((receipt, wo): (Receipt, WorkOrder)) -> Self {
+        from_receipt(&receipt, &wo)
+    }
+}
+
+/// Convert a `(&Receipt, &WorkOrder)` pair into a [`CopilotChatResponse`].
+impl From<(&Receipt, &WorkOrder)> for CopilotChatResponse {
+    fn from((receipt, wo): (&Receipt, &WorkOrder)) -> Self {
+        from_receipt(receipt, wo)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,5 +570,47 @@ mod tests {
     fn extract_intent_returns_none_when_absent() {
         let wo = WorkOrderBuilder::new("task").build();
         assert!(extract_intent(&wo).is_none());
+    }
+
+    // ── From/Into trait tests ───────────────────────────────────────
+
+    #[test]
+    fn from_request_to_work_order_trait() {
+        let req = sample_request();
+        let wo: WorkOrder = req.into();
+        assert_eq!(wo.task, "Review my code");
+        assert_eq!(wo.config.model.as_deref(), Some("gpt-4o"));
+    }
+
+    #[test]
+    fn from_ref_request_to_work_order_trait() {
+        let req = sample_request();
+        let wo: WorkOrder = (&req).into();
+        assert_eq!(wo.task, "Review my code");
+    }
+
+    #[test]
+    fn from_receipt_to_response_trait() {
+        let wo = WorkOrderBuilder::new("task").model("gpt-4o").build();
+        let receipt = sample_receipt(&wo);
+        let resp: CopilotChatResponse = receipt.into();
+        assert_eq!(resp.object, "chat.completion");
+        assert!(resp.choices[0].message.content.is_some());
+    }
+
+    #[test]
+    fn from_receipt_wo_pair_to_response_trait() {
+        let wo = WorkOrderBuilder::new("task").model("gpt-4-turbo").build();
+        let receipt = sample_receipt(&wo);
+        let resp: CopilotChatResponse = (receipt, wo).into();
+        assert_eq!(resp.model, "gpt-4-turbo");
+    }
+
+    #[test]
+    fn from_receipt_wo_ref_pair_to_response_trait() {
+        let wo = WorkOrderBuilder::new("task").model("o3-mini").build();
+        let receipt = sample_receipt(&wo);
+        let resp: CopilotChatResponse = (&receipt, &wo).into();
+        assert_eq!(resp.model, "o3-mini");
     }
 }

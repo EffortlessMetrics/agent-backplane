@@ -5,6 +5,7 @@ use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Version string for this dialect adapter.
@@ -306,7 +307,7 @@ pub struct GeminiUsageMetadata {
 // ---------------------------------------------------------------------------
 
 /// Harm categories for Gemini safety configuration.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum HarmCategory {
     /// Harassment content.
@@ -322,7 +323,7 @@ pub enum HarmCategory {
 }
 
 /// Threshold levels for blocking harmful content.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum HarmBlockThreshold {
     /// Do not block any content.
@@ -415,7 +416,7 @@ pub struct GeminiTool {
 }
 
 /// Function-calling mode for Gemini requests.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum FunctionCallingMode {
     /// Model decides whether to call functions.

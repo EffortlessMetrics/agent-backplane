@@ -660,6 +660,7 @@ fn stream_event_text_accessor() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("chunk")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
     };
@@ -672,6 +673,7 @@ fn stream_event_text_returns_none_for_function_call() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::function_call("fn", json!({}))]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
     };
@@ -913,6 +915,7 @@ fn gen_config_to_dialect_all_fields() {
         temperature: Some(0.7),
         top_p: Some(0.9),
         top_k: Some(40),
+        candidate_count: None,
         stop_sequences: Some(vec!["END".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(json!({"type": "object"})),
@@ -968,6 +971,7 @@ fn generation_config_serde_roundtrip() {
         temperature: Some(0.8),
         top_p: Some(0.95),
         top_k: Some(40),
+        candidate_count: None,
         stop_sequences: Some(vec!["END".into(), "STOP".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(json!({"type": "object"})),
@@ -1377,8 +1381,10 @@ fn response_function_calls_accessor_filters_text() {
                 Part::function_call("fn_b", json!({"y": 2})),
             ]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let calls = resp.function_calls();
     assert_eq!(calls.len(), 2);
@@ -1391,6 +1397,7 @@ fn response_function_calls_empty_for_no_candidates() {
     let resp = GenerateContentResponse {
         candidates: vec![],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.function_calls().is_empty());
 }
@@ -1401,8 +1408,10 @@ fn response_text_none_when_only_function_calls() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::function_call("fn", json!({}))]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.text().is_none());
 }
@@ -1515,6 +1524,7 @@ fn stream_event_serde_roundtrip() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("chunk")]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: Some(UsageMetadata {
             prompt_token_count: 10,

@@ -6,13 +6,14 @@
 //! for direct (de)serialization of JSON payloads exchanged with the GitHub
 //! Copilot API surface.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 // ── Reference types ─────────────────────────────────────────────────────
 
 /// Discriminator for the kind of context reference attached to a request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReferenceType {
     /// A file from the workspace or repository.
@@ -28,7 +29,7 @@ pub enum ReferenceType {
 }
 
 /// A structured context reference supplied alongside a Copilot chat request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct Reference {
     /// The kind of reference.
     #[serde(rename = "type")]
@@ -49,7 +50,7 @@ pub struct Reference {
 // ── Chat message ────────────────────────────────────────────────────────
 
 /// A single message in the Copilot chat conversation.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotChatMessage {
     /// Message role (`system`, `user`, `assistant`, or `tool`).
     pub role: String,
@@ -68,7 +69,7 @@ pub struct CopilotChatMessage {
 }
 
 /// A tool call inside an assistant message.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotToolCall {
     /// Unique identifier for this tool call.
     pub id: String,
@@ -80,7 +81,7 @@ pub struct CopilotToolCall {
 }
 
 /// Function name + arguments inside a [`CopilotToolCall`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotFunctionCall {
     /// Name of the function to invoke.
     pub name: String,
@@ -91,7 +92,7 @@ pub struct CopilotFunctionCall {
 // ── Chat request ────────────────────────────────────────────────────────
 
 /// OpenAI-compatible chat completions request with Copilot extensions.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotChatRequest {
     /// Model identifier (e.g. `gpt-4o`).
     pub model: String,
@@ -125,7 +126,7 @@ pub struct CopilotChatRequest {
 }
 
 /// A function tool definition.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotTool {
     /// Tool type (always `"function"`).
     #[serde(rename = "type")]
@@ -135,7 +136,7 @@ pub struct CopilotTool {
 }
 
 /// Function definition inside a [`CopilotTool`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotToolFunction {
     /// Function name.
     pub name: String,
@@ -148,7 +149,7 @@ pub struct CopilotToolFunction {
 // ── Chat response ───────────────────────────────────────────────────────
 
 /// OpenAI-compatible chat completions response with Copilot metadata.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotChatResponse {
     /// Unique response identifier.
     pub id: String,
@@ -166,7 +167,7 @@ pub struct CopilotChatResponse {
 }
 
 /// A single choice in the chat completion response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotChatChoice {
     /// Zero-based index.
     pub index: u32,
@@ -178,7 +179,7 @@ pub struct CopilotChatChoice {
 }
 
 /// The assistant message inside a response [`CopilotChatChoice`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotChatChoiceMessage {
     /// Always `"assistant"`.
     pub role: String,
@@ -193,7 +194,7 @@ pub struct CopilotChatChoiceMessage {
 // ── Streaming types ─────────────────────────────────────────────────────
 
 /// A streaming chunk from the Copilot chat completions API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotStreamChunk {
     /// Chunk identifier.
     pub id: String,
@@ -208,7 +209,7 @@ pub struct CopilotStreamChunk {
 }
 
 /// A single choice inside a streaming chunk.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotStreamChoice {
     /// Zero-based choice index.
     pub index: u32,
@@ -220,7 +221,7 @@ pub struct CopilotStreamChoice {
 }
 
 /// An incremental delta inside a streaming choice.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotStreamDelta {
     /// Role (usually only in the first chunk).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -234,7 +235,7 @@ pub struct CopilotStreamDelta {
 }
 
 /// A tool call fragment inside a streaming delta.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotStreamToolCall {
     /// Index of the tool call in the array.
     pub index: u32,
@@ -250,7 +251,7 @@ pub struct CopilotStreamToolCall {
 }
 
 /// Incremental function call data inside a streaming tool call.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotStreamFunctionCall {
     /// Function name (first fragment only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -263,7 +264,7 @@ pub struct CopilotStreamFunctionCall {
 // ── Token usage ─────────────────────────────────────────────────────────
 
 /// Token usage statistics with Copilot-specific extensions.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotUsage {
     /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,
@@ -274,4 +275,123 @@ pub struct CopilotUsage {
     /// Copilot-specific token accounting.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub copilot_tokens: Option<u32>,
+}
+
+// ── Copilot-specific code suggestion types ──────────────────────────────
+
+/// The type of code completion requested from Copilot.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CompletionType {
+    /// Inline ghost-text completion (single line or multi-line).
+    Inline,
+    /// Full function/block completion.
+    Block,
+    /// Fill-in-the-middle (FIM) completion.
+    FillInMiddle,
+}
+
+/// A request for Copilot code completions (ghost text / inline suggestions).
+///
+/// This represents the Copilot-specific code completion API surface,
+/// distinct from the chat completions endpoint. It carries editor context
+/// (file path, cursor position, surrounding code) to produce inline
+/// code suggestions.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct CopilotCompletionRequest {
+    /// Model identifier for completions (e.g. `copilot-codex`).
+    pub model: String,
+    /// The code prefix (text before the cursor).
+    pub prompt: String,
+    /// Optional code suffix (text after the cursor) for fill-in-the-middle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suffix: Option<String>,
+    /// Maximum tokens to generate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<u32>,
+    /// Sampling temperature (0.0–1.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
+    /// Nucleus sampling parameter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f64>,
+    /// Number of completions to generate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub n: Option<u32>,
+    /// Stop sequences.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop: Option<Vec<String>>,
+    /// The type of completion being requested.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completion_type: Option<CompletionType>,
+    /// Programming language of the source file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// File path for the source being edited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_path: Option<String>,
+    /// Zero-based cursor line position in the editor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor_line: Option<u32>,
+    /// Zero-based cursor column position in the editor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor_column: Option<u32>,
+}
+
+/// A single code suggestion returned by the Copilot completion API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct CopilotCompletionChoice {
+    /// Zero-based index of this suggestion.
+    pub index: u32,
+    /// The generated code text.
+    pub text: String,
+    /// Reason the model stopped generating (`"stop"`, `"length"`, etc.).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finish_reason: Option<String>,
+}
+
+/// A response from the Copilot code completions API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct CopilotCompletionResponse {
+    /// Unique response identifier.
+    pub id: String,
+    /// Object type (always `"text_completion"`).
+    pub object: String,
+    /// Unix timestamp of creation.
+    pub created: u64,
+    /// Model that generated the completions.
+    pub model: String,
+    /// One or more completion choices.
+    pub choices: Vec<CopilotCompletionChoice>,
+    /// Token usage statistics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usage: Option<CopilotUsage>,
+}
+
+/// A panel-style code suggestion with metadata for ranking/filtering.
+///
+/// Used when Copilot presents multiple suggestions in a panel UI rather
+/// than inline ghost text. Each suggestion carries a confidence score
+/// and display range information.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct CopilotCodeSuggestion {
+    /// Unique identifier for this suggestion.
+    pub id: String,
+    /// The suggested code text.
+    pub text: String,
+    /// Confidence score (0.0–1.0) for ranking suggestions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub score: Option<f64>,
+    /// The start line in the original file where the suggestion applies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub range_start_line: Option<u32>,
+    /// The end line in the original file where the suggestion applies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub range_end_line: Option<u32>,
+    /// Programming language of the suggestion.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// The type of completion that produced this suggestion.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completion_type: Option<CompletionType>,
 }

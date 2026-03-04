@@ -111,7 +111,7 @@ impl GeminiClient {
 mod tests {
     use super::*;
     use abp_core::ir::{IrContentBlock, IrConversation, IrRole, IrUsage};
-    use abp_core::{Outcome, ReceiptBuilder};
+    use abp_core::{AgentEventKind, Outcome, ReceiptBuilder};
     use abp_gemini_sdk::dialect::{
         self, GeminiCandidate, GeminiContent, GeminiPart, GeminiResponse, GeminiStreamChunk,
         GeminiUsageMetadata,
@@ -263,8 +263,10 @@ mod tests {
                     Part::function_call("fn_b", json!({"y": 2})),
                 ]),
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let calls = response.function_calls();
         assert_eq!(calls.len(), 2);
@@ -357,6 +359,7 @@ mod tests {
             temperature: Some(0.7),
             top_p: Some(0.9),
             top_k: Some(40),
+            candidate_count: None,
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: Some("application/json".into()),
             response_schema: Some(json!({"type": "object"})),
@@ -406,6 +409,7 @@ mod tests {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("hello")]),
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
         };
@@ -624,5 +628,348 @@ mod tests {
         let dialect = tool_decl_to_dialect(&tool);
         assert_eq!(dialect.function_declarations.len(), 1);
         assert_eq!(dialect.function_declarations[0].name, "get_time");
+    }
+
+    // ── From<GenerateContentRequest> for WorkOrder ──────────────────────
+
+    #[test]
+    fn from_request_extracts_task() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("Explain Rust")]));
+        let wo: abp_core::WorkOrder = req.into();
+        assert_eq!(wo.task, "Explain Rust");
+        assert_eq!(wo.config.model.as_deref(), Some("google/gemini-2.5-flash"));
+    }
+
+    #[test]
+    fn from_request_uses_last_user_text() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("First")]))
+            .add_content(Content::model(vec![Part::text("Reply")]))
+            .add_content(Content::user(vec![Part::text("Second")]));
+        let wo: abp_core::WorkOrder = req.into();
+        assert_eq!(wo.task, "Second");
+    }
+
+    #[test]
+    fn from_request_system_instruction_to_context() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .system_instruction(Content::user(vec![Part::text("Be concise.")]))
+            .add_content(Content::user(vec![Part::text("Hello")]));
+        let wo: abp_core::WorkOrder = req.into();
+        assert_eq!(wo.context.snippets.len(), 1);
+        assert_eq!(wo.context.snippets[0].content, "Be concise.");
+    }
+
+    #[test]
+    fn from_request_preserves_vendor_fields() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("hi")]))
+            .tools(vec![ToolDeclaration {
+                function_declarations: vec![FunctionDeclaration {
+                    name: "f".into(),
+                    description: "d".into(),
+                    parameters: json!({}),
+                }],
+            }])
+            .generation_config(GenerationConfig {
+                temperature: Some(0.5),
+                ..Default::default()
+            });
+        let wo: abp_core::WorkOrder = req.into();
+        assert!(wo.config.vendor.contains_key("tools"));
+        assert!(wo.config.vendor.contains_key("generation_config"));
+        assert_eq!(wo.config.vendor["dialect"], "gemini");
+    }
+
+    #[test]
+    fn from_request_empty_contents() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash");
+        let wo: abp_core::WorkOrder = req.into();
+        assert!(wo.task.is_empty());
+    }
+
+    // ── From<Receipt> for GenerateContentResponse ───────────────────────
+
+    #[test]
+    fn from_receipt_text_response() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "Hello!".into(),
+                },
+                ext: None,
+            })
+            .build();
+        let resp: GenerateContentResponse = receipt.into();
+        assert_eq!(resp.text(), Some("Hello!"));
+        assert_eq!(resp.candidates[0].finish_reason.as_deref(), Some("STOP"));
+    }
+
+    #[test]
+    fn from_receipt_tool_call() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::ToolCall {
+                    tool_name: "search".into(),
+                    tool_use_id: None,
+                    parent_tool_use_id: None,
+                    input: json!({"q": "rust"}),
+                },
+                ext: None,
+            })
+            .build();
+        let resp: GenerateContentResponse = receipt.into();
+        let calls = resp.function_calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, "search");
+    }
+
+    #[test]
+    fn from_receipt_partial_outcome() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Partial)
+            .build();
+        let resp: GenerateContentResponse = receipt.into();
+        assert_eq!(
+            resp.candidates[0].finish_reason.as_deref(),
+            Some("MAX_TOKENS")
+        );
+    }
+
+    #[test]
+    fn from_receipt_failed_outcome() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Failed)
+            .build();
+        let resp: GenerateContentResponse = receipt.into();
+        assert_eq!(resp.candidates[0].finish_reason.as_deref(), Some("OTHER"));
+    }
+
+    #[test]
+    fn from_receipt_with_usage() {
+        let usage = abp_core::UsageNormalized {
+            input_tokens: Some(100),
+            output_tokens: Some(50),
+            ..Default::default()
+        };
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .usage(usage)
+            .build();
+        let resp: GenerateContentResponse = receipt.into();
+        let meta = resp.usage_metadata.unwrap();
+        assert_eq!(meta.prompt_token_count, 100);
+        assert_eq!(meta.candidates_token_count, 50);
+        assert_eq!(meta.total_token_count, 150);
+    }
+
+    // ── FinishReason ────────────────────────────────────────────────────
+
+    #[test]
+    fn finish_reason_from_str() {
+        assert_eq!(FinishReason::from_str_opt("STOP"), Some(FinishReason::Stop));
+        assert_eq!(
+            FinishReason::from_str_opt("MAX_TOKENS"),
+            Some(FinishReason::MaxTokens)
+        );
+        assert_eq!(
+            FinishReason::from_str_opt("SAFETY"),
+            Some(FinishReason::Safety)
+        );
+        assert_eq!(
+            FinishReason::from_str_opt("RECITATION"),
+            Some(FinishReason::Recitation)
+        );
+        assert_eq!(
+            FinishReason::from_str_opt("OTHER"),
+            Some(FinishReason::Other)
+        );
+        assert_eq!(FinishReason::from_str_opt("UNKNOWN"), None);
+    }
+
+    #[test]
+    fn finish_reason_serde_roundtrip() {
+        let reason = FinishReason::Stop;
+        let json = serde_json::to_string(&reason).unwrap();
+        assert_eq!(json, "\"STOP\"");
+        let back: FinishReason = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, reason);
+    }
+
+    #[test]
+    fn candidate_finish_reason_typed() {
+        let c = Candidate {
+            content: Content::model(vec![Part::text("hi")]),
+            finish_reason: Some("STOP".into()),
+            safety_ratings: None,
+        };
+        assert_eq!(c.finish_reason_typed(), Some(FinishReason::Stop));
+
+        let c2 = Candidate {
+            content: Content::model(vec![]),
+            finish_reason: None,
+            safety_ratings: None,
+        };
+        assert_eq!(c2.finish_reason_typed(), None);
+    }
+
+    // ── HarmProbability / SafetyRating ──────────────────────────────────
+
+    #[test]
+    fn harm_probability_serde_roundtrip() {
+        let p = HarmProbability::Medium;
+        let json = serde_json::to_string(&p).unwrap();
+        assert_eq!(json, "\"MEDIUM\"");
+        let back: HarmProbability = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, p);
+    }
+
+    #[test]
+    fn safety_rating_serde_roundtrip() {
+        let rating = SafetyRating {
+            category: HarmCategory::HarmCategoryHarassment,
+            probability: HarmProbability::Low,
+        };
+        let json = serde_json::to_string(&rating).unwrap();
+        let back: SafetyRating = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, rating);
+    }
+
+    #[test]
+    fn candidate_with_safety_ratings() {
+        let c = Candidate {
+            content: Content::model(vec![Part::text("safe")]),
+            finish_reason: Some("STOP".into()),
+            safety_ratings: Some(vec![SafetyRating {
+                category: HarmCategory::HarmCategoryHarassment,
+                probability: HarmProbability::Negligible,
+            }]),
+        };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: Candidate = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.safety_ratings.as_ref().unwrap().len(), 1);
+    }
+
+    // ── PromptFeedback ──────────────────────────────────────────────────
+
+    #[test]
+    fn prompt_feedback_serde_roundtrip() {
+        let pf = PromptFeedback {
+            block_reason: Some("SAFETY".into()),
+            safety_ratings: Some(vec![SafetyRating {
+                category: HarmCategory::HarmCategoryDangerousContent,
+                probability: HarmProbability::High,
+            }]),
+        };
+        let json = serde_json::to_string(&pf).unwrap();
+        let back: PromptFeedback = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, pf);
+    }
+
+    #[test]
+    fn response_with_prompt_feedback() {
+        let resp = GenerateContentResponse {
+            candidates: vec![Candidate {
+                content: Content::model(vec![]),
+                finish_reason: Some("SAFETY".into()),
+                safety_ratings: None,
+            }],
+            usage_metadata: None,
+            prompt_feedback: Some(PromptFeedback {
+                block_reason: Some("SAFETY".into()),
+                safety_ratings: None,
+            }),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("promptFeedback"));
+        let back: GenerateContentResponse = serde_json::from_str(&json).unwrap();
+        assert!(back.prompt_feedback.is_some());
+    }
+
+    // ── candidate_count in GenerationConfig ─────────────────────────────
+
+    #[test]
+    fn generation_config_candidate_count() {
+        let cfg = GenerationConfig {
+            candidate_count: Some(3),
+            ..Default::default()
+        };
+        let dialect = gen_config_to_dialect(&cfg);
+        assert_eq!(dialect.candidate_count, Some(3));
+        let back = gen_config_from_dialect(&dialect);
+        assert_eq!(back.candidate_count, Some(3));
+    }
+
+    #[test]
+    fn generation_config_candidate_count_serde() {
+        let cfg = GenerationConfig {
+            candidate_count: Some(5),
+            temperature: Some(0.8),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&cfg).unwrap();
+        assert!(json.contains("candidateCount"));
+        let back: GenerationConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.candidate_count, Some(5));
+    }
+
+    // ── JsonSchema generation ───────────────────────────────────────────
+
+    #[test]
+    fn json_schema_for_request() {
+        let schema = schemars::schema_for!(GenerateContentRequest);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("GenerateContentRequest"));
+    }
+
+    #[test]
+    fn json_schema_for_response() {
+        let schema = schemars::schema_for!(GenerateContentResponse);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("GenerateContentResponse"));
+    }
+
+    #[test]
+    fn json_schema_for_part() {
+        let schema = schemars::schema_for!(Part);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("Part"));
+    }
+
+    #[test]
+    fn json_schema_for_stream_event() {
+        let schema = schemars::schema_for!(StreamEvent);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("StreamEvent"));
+    }
+
+    // ── Roundtrip: Request → WorkOrder → Receipt → Response ─────────────
+
+    #[test]
+    fn full_roundtrip_from_traits() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("Hello")]));
+
+        let wo: abp_core::WorkOrder = req.into();
+        assert_eq!(wo.task, "Hello");
+
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .work_order_id(wo.id)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantMessage { text: "Hi!".into() },
+                ext: None,
+            })
+            .build();
+
+        let resp: GenerateContentResponse = receipt.into();
+        assert_eq!(resp.text(), Some("Hi!"));
+        assert!(resp.prompt_feedback.is_none());
     }
 }

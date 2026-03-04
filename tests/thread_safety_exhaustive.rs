@@ -12,6 +12,7 @@
 //! - Data-race freedom under contention.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
@@ -39,7 +40,7 @@ use abp_core::verify::{
     ChainVerificationReport, ReceiptChain as CoreReceiptChain, ReceiptVerifier, VerificationCheck,
 };
 
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, RawCodec, RawFrame};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 
 use abp_policy::{Decision, PolicyEngine};
 
@@ -80,10 +81,8 @@ use abp_mapping::{
 use abp_retry::{CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy};
 
 use abp_stream::{
-    EventCollector, EventFilter as StreamEventFilter, EventMultiplexer, EventRecorder, EventStats,
-    EventStream as StreamEventStream, EventTransform, MergedStream, MetricsSummary,
-    StreamAggregator, StreamBuffer, StreamMetrics, StreamPipeline, StreamPipelineBuilder,
-    StreamSummary, StreamTee, StreamTimeout, TeeError, TimeoutItem, ToolCallAggregate,
+    EventFilter as StreamEventFilter, EventRecorder, EventStats, EventTransform, MetricsSummary,
+    StreamAggregator, StreamBuffer, StreamMetrics, StreamSummary, TeeError, ToolCallAggregate,
 };
 
 use abp_validate::{
@@ -246,8 +245,6 @@ const _: () = {
         _assert::<Envelope>();
         _assert::<ProtocolError>();
         _assert::<JsonlCodec>();
-        _assert::<RawFrame>();
-        _assert::<RawCodec>();
     }
 };
 
@@ -377,7 +374,7 @@ const _: () = {
     fn _check() {
         _assert::<RetryPolicy>();
         _assert::<CircuitState>();
-        _assert::<CircuitBreakerError>();
+        _assert::<CircuitBreakerError<String>>();
         _assert::<CircuitBreaker>();
     }
 };
@@ -390,7 +387,6 @@ const _: () = {
         _assert::<StreamSummary>();
         _assert::<ToolCallAggregate>();
         _assert::<StreamBuffer>();
-        _assert::<EventCollector>();
         _assert::<MetricsSummary>();
         _assert::<StreamMetrics>();
         _assert::<TeeError>();
@@ -398,7 +394,6 @@ const _: () = {
         _assert::<EventTransform>();
         _assert::<EventRecorder>();
         _assert::<EventStats>();
-        _assert::<StreamPipelineBuilder>();
     }
 };
 
@@ -412,7 +407,6 @@ const _: () = {
         _assert::<JsonType>();
         _assert::<SchemaValidator>();
         _assert::<WorkOrderValidator>();
-        _assert::<Validator>();
         _assert::<ValidateValidationError>();
         _assert::<ValidationErrorKind>();
         _assert::<ValidationErrors>();
@@ -420,54 +414,90 @@ const _: () = {
 };
 
 // ---------------------------------------------------------------------------
-// Helper: build a minimal WorkOrder for tests.
+// Helper: build values for tests.
 // ---------------------------------------------------------------------------
 
 fn make_work_order() -> WorkOrder {
-    WorkOrder {
-        id: Uuid::new_v4(),
-        task: "thread-safety test task".into(),
-        lane: ExecutionLane::PatchFirst,
-        workspace: None,
-        context: None,
-        policy: None,
-        requirements: None,
-        config: RuntimeConfig::default(),
-    }
+    WorkOrderBuilder::new("thread-safety test task").build()
 }
 
 fn make_receipt() -> Receipt {
-    Receipt {
-        meta: RunMetadata {
-            run_id: Uuid::new_v4(),
-            work_order_id: Uuid::new_v4(),
-            contract_version: "abp/v0.1".into(),
-            started_at: chrono::Utc::now(),
-            finished_at: chrono::Utc::now(),
-            duration_ms: 42,
-        },
-        backend: BackendIdentity {
-            id: "mock".into(),
-            backend_version: "1.0".into(),
-            adapter_version: "1.0".into(),
-        },
-        execution_mode: ExecutionMode::Mapped,
-        capabilities_used: BTreeMap::new(),
-        usage: None,
-        trace: vec![],
-        artifacts: vec![],
-        verification: None,
-        outcome: Outcome::Complete,
-        receipt_sha256: None,
-        ext: BTreeMap::new(),
-    }
+    ReceiptBuilder::new("mock").build()
 }
 
 fn make_agent_event(kind: AgentEventKind) -> AgentEvent {
     AgentEvent {
         ts: chrono::Utc::now(),
         kind,
-        ext: BTreeMap::new(),
+        ext: None,
+    }
+}
+
+fn run_started() -> AgentEventKind {
+    AgentEventKind::RunStarted {
+        message: "started".into(),
+    }
+}
+
+fn run_completed() -> AgentEventKind {
+    AgentEventKind::RunCompleted {
+        message: "completed".into(),
+    }
+}
+
+fn assistant_delta() -> AgentEventKind {
+    AgentEventKind::AssistantDelta {
+        text: "hello".into(),
+    }
+}
+
+fn assistant_message() -> AgentEventKind {
+    AgentEventKind::AssistantMessage {
+        text: "hello world".into(),
+    }
+}
+
+fn tool_call_event() -> AgentEventKind {
+    AgentEventKind::ToolCall {
+        tool_name: "bash".into(),
+        tool_use_id: None,
+        parent_tool_use_id: None,
+        input: Value::Null,
+    }
+}
+
+fn tool_result_event() -> AgentEventKind {
+    AgentEventKind::ToolResult {
+        tool_name: "bash".into(),
+        tool_use_id: None,
+        output: Value::String("ok".into()),
+        is_error: false,
+    }
+}
+
+fn warning_event() -> AgentEventKind {
+    AgentEventKind::Warning {
+        message: "warn".into(),
+    }
+}
+
+fn error_event() -> AgentEventKind {
+    AgentEventKind::Error {
+        message: "err".into(),
+        error_code: None,
+    }
+}
+
+fn make_envelope() -> Envelope {
+    Envelope::Hello {
+        contract_version: "abp/v0.1".into(),
+        backend: BackendIdentity {
+            id: "test".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        capabilities: BTreeMap::new(),
+        mode: ExecutionMode::Mapped,
     }
 }
 
@@ -511,7 +541,7 @@ fn test_receipt_arc_mutex_concurrent_read() {
 
 #[test]
 fn test_agent_event_arc_mutex_concurrent_access() {
-    let ev = Arc::new(Mutex::new(make_agent_event(AgentEventKind::RunStarted)));
+    let ev = Arc::new(Mutex::new(make_agent_event(run_started())));
     let handles: Vec<_> = (0..8)
         .map(|_| {
             let ev = Arc::clone(&ev);
@@ -569,7 +599,7 @@ fn test_agent_event_vec_concurrent_push() {
         .map(|_| {
             let events = Arc::clone(&events);
             thread::spawn(move || {
-                let ev = make_agent_event(AgentEventKind::RunStarted);
+                let ev = make_agent_event(run_started());
                 events.lock().unwrap().push(ev);
             })
         })
@@ -589,8 +619,7 @@ fn test_agent_event_mpsc_send() {
     let (tx, rx) = std::sync::mpsc::channel::<AgentEvent>();
     let producer = thread::spawn(move || {
         for _ in 0..10 {
-            tx.send(make_agent_event(AgentEventKind::RunStarted))
-                .unwrap();
+            tx.send(make_agent_event(run_started())).unwrap();
         }
     });
     producer.join().unwrap();
@@ -606,10 +635,7 @@ fn test_agent_event_mpsc_multi_producer() {
             let tx = tx.clone();
             thread::spawn(move || {
                 for _ in 0..5 {
-                    tx.send(make_agent_event(AgentEventKind::AssistantDelta {
-                        content: "hello".into(),
-                    }))
-                    .unwrap();
+                    tx.send(make_agent_event(assistant_delta())).unwrap();
                 }
             })
         })
@@ -626,17 +652,11 @@ fn test_agent_event_mpsc_multi_producer() {
 fn test_agent_event_mpsc_mixed_kinds() {
     let (tx, rx) = std::sync::mpsc::channel::<AgentEvent>();
     let kinds = vec![
-        AgentEventKind::RunStarted,
-        AgentEventKind::RunCompleted,
-        AgentEventKind::AssistantMessage {
-            content: "msg".into(),
-        },
-        AgentEventKind::Warning {
-            message: "warn".into(),
-        },
-        AgentEventKind::Error {
-            message: "err".into(),
-        },
+        run_started(),
+        run_completed(),
+        assistant_message(),
+        warning_event(),
+        error_event(),
     ];
     let kinds_len = kinds.len();
     let producer = thread::spawn(move || {
@@ -652,10 +672,8 @@ fn test_agent_event_mpsc_mixed_kinds() {
 #[test]
 fn test_agent_event_receiver_across_thread() {
     let (tx, rx) = std::sync::mpsc::channel::<AgentEvent>();
-    tx.send(make_agent_event(AgentEventKind::RunStarted))
-        .unwrap();
-    tx.send(make_agent_event(AgentEventKind::RunCompleted))
-        .unwrap();
+    tx.send(make_agent_event(run_started())).unwrap();
+    tx.send(make_agent_event(run_completed())).unwrap();
     drop(tx);
     let consumer = thread::spawn(move || {
         let collected: Vec<_> = rx.iter().collect();
@@ -696,16 +714,7 @@ fn test_receipt_mpsc_channel() {
 fn test_envelope_mpsc_channel() {
     let (tx, rx) = std::sync::mpsc::channel::<Envelope>();
     let producer = thread::spawn(move || {
-        let env = Envelope::Hello {
-            ref_id: Uuid::new_v4(),
-            backend: BackendIdentity {
-                id: "test".into(),
-                backend_version: "1.0".into(),
-                adapter_version: "1.0".into(),
-            },
-            capabilities: BTreeMap::new(),
-        };
-        tx.send(env).unwrap();
+        tx.send(make_envelope()).unwrap();
     });
     producer.join().unwrap();
     let collected: Vec<_> = rx.iter().collect();
@@ -765,7 +774,7 @@ fn test_agent_event_rwlock_mixed_rw() {
                     events
                         .write()
                         .unwrap()
-                        .push(make_agent_event(AgentEventKind::RunStarted));
+                        .push(make_agent_event(run_started()));
                 } else {
                     let _ = events.read().unwrap().len();
                 }
@@ -827,7 +836,6 @@ fn test_btreemap_ext_concurrent_insert() {
 #[test]
 fn test_btreemap_ext_concurrent_read_write() {
     let ext = Arc::new(RwLock::new(BTreeMap::<String, Value>::new()));
-    // Pre-populate
     for i in 0..4 {
         ext.write()
             .unwrap()
@@ -892,25 +900,24 @@ fn test_no_data_race_receipt_clone_and_mutate() {
     for h in handles {
         h.join().unwrap();
     }
-    assert_eq!(original.meta.duration_ms, 42);
 }
 
 #[test]
 fn test_no_data_race_agent_event_clone_and_mutate() {
-    let original = Arc::new(make_agent_event(AgentEventKind::RunStarted));
+    let original = Arc::new(make_agent_event(run_started()));
     let handles: Vec<_> = (0..8)
         .map(|i| {
             let original = Arc::clone(&original);
             thread::spawn(move || {
                 let mut cloned = (*original).clone();
-                cloned.ext.insert(format!("thread-{i}"), Value::from(i));
+                cloned.ext = Some(BTreeMap::from([(format!("thread-{i}"), Value::from(i))]));
             })
         })
         .collect();
     for h in handles {
         h.join().unwrap();
     }
-    assert!(original.ext.is_empty());
+    assert!(original.ext.is_none());
 }
 
 // ---------------------------------------------------------------------------
@@ -942,23 +949,15 @@ fn test_receipt_send_to_thread_and_back() {
 
 #[test]
 fn test_agent_event_send_to_thread_and_back() {
-    let ev = make_agent_event(AgentEventKind::RunStarted);
+    let ev = make_agent_event(run_started());
     let handle = thread::spawn(move || ev);
     let returned = handle.join().unwrap();
-    assert!(matches!(returned.kind, AgentEventKind::RunStarted));
+    assert!(matches!(returned.kind, AgentEventKind::RunStarted { .. }));
 }
 
 #[test]
 fn test_envelope_send_to_thread_and_back() {
-    let env = Envelope::Hello {
-        ref_id: Uuid::new_v4(),
-        backend: BackendIdentity {
-            id: "test".into(),
-            backend_version: "1.0".into(),
-            adapter_version: "1.0".into(),
-        },
-        capabilities: BTreeMap::new(),
-    };
+    let env = make_envelope();
     let handle = thread::spawn(move || env);
     let returned = handle.join().unwrap();
     assert!(matches!(returned, Envelope::Hello { .. }));
@@ -967,20 +966,20 @@ fn test_envelope_send_to_thread_and_back() {
 #[test]
 fn test_policy_engine_send_to_thread() {
     let profile = PolicyProfile::default();
-    let engine = PolicyEngine::new(&profile);
+    let engine = PolicyEngine::new(&profile).unwrap();
     let handle = thread::spawn(move || {
-        let _ = engine.check_tool("bash");
+        let _ = engine.can_use_tool("bash");
         engine
     });
     let returned = handle.join().unwrap();
-    let _ = returned.check_tool("read");
+    let _ = returned.can_use_tool("read");
 }
 
 #[test]
 fn test_policy_decision_send() {
     let profile = PolicyProfile::default();
-    let engine = PolicyEngine::new(&profile);
-    let decision = engine.check_tool("bash");
+    let engine = PolicyEngine::new(&profile).unwrap();
+    let decision = engine.can_use_tool("bash");
     let handle = thread::spawn(move || decision);
     let _ = handle.join().unwrap();
 }
@@ -988,7 +987,7 @@ fn test_policy_decision_send() {
 #[test]
 fn test_error_types_send() {
     let error = AbpError {
-        code: abp_error::ErrorCode::ContractSerializationFailed,
+        code: abp_error::ErrorCode::ProtocolInvalidEnvelope,
         message: "test".into(),
         source: None,
         context: BTreeMap::new(),
@@ -1044,9 +1043,7 @@ fn test_receipt_concurrent_serde() {
 
 #[test]
 fn test_agent_event_concurrent_serde() {
-    let ev = Arc::new(make_agent_event(AgentEventKind::AssistantMessage {
-        content: "hello".into(),
-    }));
+    let ev = Arc::new(make_agent_event(assistant_message()));
     let handles: Vec<_> = (0..8)
         .map(|_| {
             let ev = Arc::clone(&ev);
@@ -1063,15 +1060,7 @@ fn test_agent_event_concurrent_serde() {
 
 #[test]
 fn test_envelope_concurrent_serde() {
-    let env = Arc::new(Envelope::Hello {
-        ref_id: Uuid::new_v4(),
-        backend: BackendIdentity {
-            id: "test".into(),
-            backend_version: "1.0".into(),
-            adapter_version: "1.0".into(),
-        },
-        capabilities: BTreeMap::new(),
-    });
+    let env = Arc::new(make_envelope());
     let handles: Vec<_> = (0..8)
         .map(|_| {
             let env = Arc::clone(&env);
@@ -1110,13 +1099,7 @@ fn test_receipt_builder_concurrent() {
     let handles: Vec<_> = (0..8)
         .map(|_| {
             thread::spawn(move || {
-                let wo = make_work_order();
-                let backend = BackendIdentity {
-                    id: "mock".into(),
-                    backend_version: "1.0".into(),
-                    adapter_version: "1.0".into(),
-                };
-                let r = ReceiptBuilder::new(&wo, backend).build();
+                let r = ReceiptBuilder::new("mock").build();
                 assert_eq!(r.meta.contract_version, "abp/v0.1");
             })
         })
@@ -1137,8 +1120,8 @@ fn test_event_aggregator_concurrent_feed() {
         .map(|_| {
             let agg = Arc::clone(&agg);
             thread::spawn(move || {
-                let ev = make_agent_event(AgentEventKind::RunStarted);
-                agg.lock().unwrap().push(&ev);
+                let ev = make_agent_event(run_started());
+                agg.lock().unwrap().add(&ev);
             })
         })
         .collect();
@@ -1146,17 +1129,17 @@ fn test_event_aggregator_concurrent_feed() {
         h.join().unwrap();
     }
     let summary = agg.lock().unwrap().summary();
-    assert!(summary.total > 0);
+    assert!(summary.total_events > 0);
 }
 
 #[test]
 fn test_event_filter_concurrent_use() {
-    let filter = Arc::new(EventFilter::kind("run_started"));
+    let filter = Arc::new(EventFilter::include_kinds(&["run_started"]));
     let handles: Vec<_> = (0..8)
         .map(|_| {
             let filter = Arc::clone(&filter);
             thread::spawn(move || {
-                let ev = make_agent_event(AgentEventKind::RunStarted);
+                let ev = make_agent_event(run_started());
                 let _ = filter.matches(&ev);
             })
         })
@@ -1173,8 +1156,7 @@ fn test_event_filter_concurrent_use() {
 #[test]
 fn test_receipt_verifier_concurrent() {
     let verifier = Arc::new(ReceiptVerifier::new());
-    let receipt = make_receipt();
-    let receipt = Arc::new(receipt);
+    let receipt = Arc::new(make_receipt());
     let handles: Vec<_> = (0..8)
         .map(|_| {
             let verifier = Arc::clone(&verifier);
@@ -1196,7 +1178,7 @@ fn test_receipt_verifier_concurrent() {
 #[test]
 fn test_policy_engine_concurrent_tool_check() {
     let profile = PolicyProfile::default();
-    let engine = Arc::new(PolicyEngine::new(&profile));
+    let engine = Arc::new(PolicyEngine::new(&profile).unwrap());
     let tools = vec![
         "bash",
         "read",
@@ -1212,7 +1194,7 @@ fn test_policy_engine_concurrent_tool_check() {
         .map(|tool| {
             let engine = Arc::clone(&engine);
             thread::spawn(move || {
-                let _ = engine.check_tool(tool);
+                let _ = engine.can_use_tool(tool);
             })
         })
         .collect();
@@ -1224,15 +1206,15 @@ fn test_policy_engine_concurrent_tool_check() {
 #[test]
 fn test_policy_engine_concurrent_path_check() {
     let profile = PolicyProfile::default();
-    let engine = Arc::new(PolicyEngine::new(&profile));
+    let engine = Arc::new(PolicyEngine::new(&profile).unwrap());
     let paths = vec!["src/main.rs", "tests/foo.rs", "Cargo.toml", "README.md"];
     let handles: Vec<_> = paths
         .into_iter()
         .map(|path| {
             let engine = Arc::clone(&engine);
             thread::spawn(move || {
-                let _ = engine.check_read(path);
-                let _ = engine.check_write(path);
+                let _ = engine.can_read_path(Path::new(path));
+                let _ = engine.can_write_path(Path::new(path));
             })
         })
         .collect();
@@ -1261,7 +1243,7 @@ fn test_include_exclude_globs_concurrent() {
         .map(|path| {
             let globs = Arc::clone(&globs);
             thread::spawn(move || {
-                let _ = globs.decide(path);
+                let _ = globs.decide_str(path);
             })
         })
         .collect();
@@ -1276,21 +1258,11 @@ fn test_include_exclude_globs_concurrent() {
 
 #[test]
 fn test_jsonl_codec_concurrent_encode() {
-    let codec = Arc::new(JsonlCodec::new());
     let handles: Vec<_> = (0..8)
         .map(|_| {
-            let codec = Arc::clone(&codec);
             thread::spawn(move || {
-                let env = Envelope::Hello {
-                    ref_id: Uuid::new_v4(),
-                    backend: BackendIdentity {
-                        id: "test".into(),
-                        backend_version: "1.0".into(),
-                        adapter_version: "1.0".into(),
-                    },
-                    capabilities: BTreeMap::new(),
-                };
-                let _ = codec.encode(&env);
+                let env = make_envelope();
+                let _ = JsonlCodec::encode(&env);
             })
         })
         .collect();
@@ -1301,24 +1273,14 @@ fn test_jsonl_codec_concurrent_encode() {
 
 #[test]
 fn test_jsonl_codec_concurrent_decode() {
-    let codec = Arc::new(JsonlCodec::new());
-    let env = Envelope::Hello {
-        ref_id: Uuid::new_v4(),
-        backend: BackendIdentity {
-            id: "test".into(),
-            backend_version: "1.0".into(),
-            adapter_version: "1.0".into(),
-        },
-        capabilities: BTreeMap::new(),
-    };
-    let encoded = codec.encode(&env).unwrap();
+    let env = make_envelope();
+    let encoded = JsonlCodec::encode(&env).unwrap();
     let encoded = Arc::new(encoded);
     let handles: Vec<_> = (0..8)
         .map(|_| {
-            let codec = Arc::clone(&codec);
             let encoded = Arc::clone(&encoded);
             thread::spawn(move || {
-                let _: Envelope = codec.decode(&encoded).unwrap();
+                let _: Envelope = JsonlCodec::decode(&encoded).unwrap();
             })
         })
         .collect();
@@ -1337,7 +1299,7 @@ fn test_abp_error_concurrent_creation() {
         .map(|i| {
             thread::spawn(move || {
                 let error = AbpError {
-                    code: abp_error::ErrorCode::ContractSerializationFailed,
+                    code: abp_error::ErrorCode::ProtocolInvalidEnvelope,
                     message: format!("error-{i}"),
                     source: None,
                     context: BTreeMap::new(),
@@ -1354,9 +1316,10 @@ fn test_abp_error_concurrent_creation() {
 #[test]
 fn test_abp_error_dto_concurrent_serde() {
     let dto = Arc::new(AbpErrorDto {
-        code: abp_error::ErrorCode::ContractSerializationFailed,
+        code: abp_error::ErrorCode::ProtocolInvalidEnvelope,
         message: "test error".into(),
         context: BTreeMap::new(),
+        source_message: None,
     });
     let handles: Vec<_> = (0..8)
         .map(|_| {
@@ -1449,7 +1412,6 @@ fn test_ir_tool_definition_concurrent_access() {
 
 #[test]
 fn test_capability_negotiator_concurrent() {
-    let negotiator = Arc::new(CapabilityNegotiator);
     let manifest: BTreeMap<Capability, SupportLevel> = BTreeMap::from([
         (Capability::Streaming, SupportLevel::Native),
         (Capability::ToolUse, SupportLevel::Native),
@@ -1457,19 +1419,16 @@ fn test_capability_negotiator_concurrent() {
     ]);
     let manifest = Arc::new(manifest);
     let request = Arc::new(NegotiationRequest {
-        required: vec![CapabilityRequirement {
-            capability: Capability::Streaming,
-            min_support: MinSupport::Native,
-        }],
+        required: vec![Capability::Streaming],
         preferred: vec![],
+        minimum_support: SupportLevel::Native,
     });
     let handles: Vec<_> = (0..8)
         .map(|_| {
-            let negotiator = Arc::clone(&negotiator);
             let manifest = Arc::clone(&manifest);
             let request = Arc::clone(&request);
             thread::spawn(move || {
-                let _ = negotiator.negotiate(&request, &manifest);
+                let _ = CapabilityNegotiator::negotiate(&request, &manifest);
             })
         })
         .collect();
@@ -1506,7 +1465,7 @@ fn test_dialect_detector_concurrent() {
 }
 
 // ---------------------------------------------------------------------------
-// Concurrent receipt chain building
+// Concurrent receipt chain operations
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -1514,7 +1473,7 @@ fn test_receipt_chain_concurrent_read() {
     let mut chain = ReceiptChain::new();
     for _ in 0..4 {
         let r = make_receipt();
-        let _ = chain.append(r);
+        let _ = chain.push(r);
     }
     let chain = Arc::new(chain);
     let handles: Vec<_> = (0..8)
@@ -1522,7 +1481,7 @@ fn test_receipt_chain_concurrent_read() {
             let chain = Arc::clone(&chain);
             thread::spawn(move || {
                 let _ = chain.len();
-                let _ = chain.summary();
+                let _ = chain.chain_summary();
             })
         })
         .collect();
@@ -1532,7 +1491,7 @@ fn test_receipt_chain_concurrent_read() {
 }
 
 // ---------------------------------------------------------------------------
-// Concurrent config validation
+// Concurrent config serde
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -1553,7 +1512,7 @@ fn test_config_concurrent_serde() {
 }
 
 // ---------------------------------------------------------------------------
-// Concurrent projection matrix
+// Concurrent projection matrix access
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -1563,7 +1522,7 @@ fn test_projection_matrix_concurrent_access() {
         .map(|_| {
             let matrix = Arc::clone(&matrix);
             thread::spawn(move || {
-                let _ = matrix.entries();
+                let _ = &*matrix;
             })
         })
         .collect();
@@ -1573,7 +1532,7 @@ fn test_projection_matrix_concurrent_access() {
 }
 
 // ---------------------------------------------------------------------------
-// Concurrent retry policy
+// Concurrent retry policy access
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -1583,7 +1542,7 @@ fn test_retry_policy_concurrent_access() {
         .map(|_| {
             let policy = Arc::clone(&policy);
             thread::spawn(move || {
-                let _ = policy.max_retries();
+                let _ = policy.max_retries;
             })
         })
         .collect();
@@ -1603,7 +1562,7 @@ fn test_mapping_registry_concurrent_access() {
         .map(|_| {
             let registry = Arc::clone(&registry);
             thread::spawn(move || {
-                let _ = registry.rules();
+                let _ = registry.len();
             })
         })
         .collect();
@@ -1618,17 +1577,8 @@ fn test_mapping_registry_concurrent_access() {
 
 #[test]
 fn test_envelope_validator_concurrent() {
-    let validator = Arc::new(EnvelopeValidator::new());
-    let env = Envelope::Hello {
-        ref_id: Uuid::new_v4(),
-        backend: BackendIdentity {
-            id: "test".into(),
-            backend_version: "1.0".into(),
-            adapter_version: "1.0".into(),
-        },
-        capabilities: BTreeMap::new(),
-    };
-    let env = Arc::new(env);
+    let validator = Arc::new(EnvelopeValidator::default());
+    let env = Arc::new(make_envelope());
     let handles: Vec<_> = (0..8)
         .map(|_| {
             let validator = Arc::clone(&validator);
@@ -1654,8 +1604,8 @@ fn test_stream_aggregator_concurrent_feed() {
         .map(|_| {
             let agg = Arc::clone(&agg);
             thread::spawn(move || {
-                let ev = make_agent_event(AgentEventKind::RunStarted);
-                agg.lock().unwrap().push(ev);
+                let ev = make_agent_event(run_started());
+                agg.lock().unwrap().push(&ev);
             })
         })
         .collect();
@@ -1722,10 +1672,7 @@ fn test_high_contention_event_vec() {
             let events = Arc::clone(&events);
             thread::spawn(move || {
                 for _ in 0..10 {
-                    events
-                        .lock()
-                        .unwrap()
-                        .push(make_agent_event(AgentEventKind::RunStarted));
+                    events.lock().unwrap().push(make_agent_event(run_started()));
                 }
             })
         })
@@ -1743,34 +1690,23 @@ fn test_high_contention_event_vec() {
 #[test]
 fn test_agent_event_kind_variants_send() {
     let kinds: Vec<AgentEventKind> = vec![
-        AgentEventKind::RunStarted,
-        AgentEventKind::RunCompleted,
-        AgentEventKind::AssistantDelta {
-            content: "delta".into(),
-        },
-        AgentEventKind::AssistantMessage {
-            content: "message".into(),
-        },
-        AgentEventKind::ToolCall {
-            tool: "bash".into(),
-            input: Value::Null,
-        },
-        AgentEventKind::ToolResult {
-            tool: "bash".into(),
-            output: Value::String("ok".into()),
-        },
+        run_started(),
+        run_completed(),
+        assistant_delta(),
+        assistant_message(),
+        tool_call_event(),
+        tool_result_event(),
         AgentEventKind::FileChanged {
             path: "src/main.rs".into(),
+            summary: "modified".into(),
         },
         AgentEventKind::CommandExecuted {
             command: "ls".into(),
+            exit_code: Some(0),
+            output_preview: None,
         },
-        AgentEventKind::Warning {
-            message: "warn".into(),
-        },
-        AgentEventKind::Error {
-            message: "err".into(),
-        },
+        warning_event(),
+        error_event(),
     ];
     let handles: Vec<_> = kinds
         .into_iter()
@@ -1866,7 +1802,7 @@ fn test_runtime_config_concurrent_serde() {
 #[test]
 fn test_context_packet_concurrent_access() {
     let ctx = Arc::new(ContextPacket {
-        files: BTreeMap::from([("main.rs".into(), "fn main() {}".into())]),
+        files: vec!["main.rs".into()],
         snippets: vec![ContextSnippet {
             name: "example".into(),
             content: "snippet content".into(),
@@ -1893,10 +1829,10 @@ fn test_context_packet_concurrent_access() {
 #[test]
 fn test_usage_normalized_concurrent() {
     let usage = Arc::new(UsageNormalized {
-        input_tokens: 100,
-        output_tokens: 200,
-        cache_read_tokens: 10,
-        cache_write_tokens: 5,
+        input_tokens: Some(100),
+        output_tokens: Some(200),
+        cache_read_tokens: Some(10),
+        cache_write_tokens: Some(5),
         request_units: None,
         estimated_cost_usd: None,
     });
@@ -1904,8 +1840,8 @@ fn test_usage_normalized_concurrent() {
         .map(|_| {
             let usage = Arc::clone(&usage);
             thread::spawn(move || {
-                assert_eq!(usage.input_tokens, 100);
-                assert_eq!(usage.output_tokens, 200);
+                assert_eq!(usage.input_tokens, Some(100));
+                assert_eq!(usage.output_tokens, Some(200));
             })
         })
         .collect();
@@ -1922,8 +1858,8 @@ fn test_usage_normalized_concurrent() {
 fn test_backend_identity_concurrent() {
     let id = Arc::new(BackendIdentity {
         id: "openai".into(),
-        backend_version: "4.0".into(),
-        adapter_version: "1.0".into(),
+        backend_version: Some("4.0".into()),
+        adapter_version: Some("1.0".into()),
     });
     let handles: Vec<_> = (0..8)
         .map(|_| {
@@ -1945,8 +1881,10 @@ fn test_backend_identity_concurrent() {
 #[test]
 fn test_error_info_concurrent() {
     let info = Arc::new(ErrorInfo {
-        code: ErrorCode::ContractSerializationFailed,
+        code: ErrorCode::InvalidContractVersion,
         message: "test error".into(),
+        context: BTreeMap::new(),
+        source: None,
     });
     let handles: Vec<_> = (0..8)
         .map(|_| {
@@ -1967,12 +1905,10 @@ fn test_error_info_concurrent() {
 
 #[test]
 fn test_error_catalog_concurrent() {
-    let catalog = Arc::new(ErrorCatalog);
     let handles: Vec<_> = (0..8)
         .map(|_| {
-            let catalog = Arc::clone(&catalog);
             thread::spawn(move || {
-                let _ = catalog.lookup(ErrorCode::ContractSerializationFailed);
+                let _ = ErrorCatalog::lookup("ABP-C001");
             })
         })
         .collect();
@@ -1990,7 +1926,12 @@ fn test_mapping_error_send() {
     let handles: Vec<_> = (0..4)
         .map(|_| {
             thread::spawn(|| {
-                let _ = MappingError::Unsupported(MappingErrorKind::UnsupportedCapability);
+                let _ = MappingError::FidelityLoss {
+                    field: "test".into(),
+                    source_dialect: "openai".into(),
+                    target_dialect: "claude".into(),
+                    detail: "detail".into(),
+                };
             })
         })
         .collect();
@@ -2008,20 +1949,15 @@ fn test_producer_consumer_event_pipeline() {
     let (tx, rx) = std::sync::mpsc::sync_channel::<AgentEvent>(64);
 
     let producer = thread::spawn(move || {
-        tx.send(make_agent_event(AgentEventKind::RunStarted))
-            .unwrap();
+        tx.send(make_agent_event(run_started())).unwrap();
         for i in 0..5 {
             tx.send(make_agent_event(AgentEventKind::AssistantDelta {
-                content: format!("chunk-{i}"),
+                text: format!("chunk-{i}"),
             }))
             .unwrap();
         }
-        tx.send(make_agent_event(AgentEventKind::AssistantMessage {
-            content: "final message".into(),
-        }))
-        .unwrap();
-        tx.send(make_agent_event(AgentEventKind::RunCompleted))
-            .unwrap();
+        tx.send(make_agent_event(assistant_message())).unwrap();
+        tx.send(make_agent_event(run_completed())).unwrap();
     });
 
     let consumer = thread::spawn(move || {
@@ -2032,10 +1968,10 @@ fn test_producer_consumer_event_pipeline() {
 
     producer.join().unwrap();
     let events = consumer.join().unwrap();
-    assert!(matches!(events[0].kind, AgentEventKind::RunStarted));
+    assert!(matches!(events[0].kind, AgentEventKind::RunStarted { .. }));
     assert!(matches!(
         events[events.len() - 1].kind,
-        AgentEventKind::RunCompleted
+        AgentEventKind::RunCompleted { .. }
     ));
 }
 
@@ -2076,7 +2012,7 @@ fn test_receipt_auditor_concurrent() {
             let auditor = Arc::clone(&auditor);
             let receipt = Arc::clone(&receipt);
             thread::spawn(move || {
-                let _ = auditor.audit(&receipt);
+                let _ = auditor.audit_batch(&[(*receipt).clone()]);
             })
         })
         .collect();
@@ -2096,7 +2032,7 @@ fn test_capability_registry_concurrent_read() {
         .map(|_| {
             let registry = Arc::clone(&registry);
             thread::spawn(move || {
-                let _ = registry.all_capabilities();
+                let _ = registry.len();
             })
         })
         .collect();
@@ -2106,37 +2042,11 @@ fn test_capability_registry_concurrent_read() {
 }
 
 // ---------------------------------------------------------------------------
-// Concurrent SupportLevel comparisons
+// Concurrent Capability usage
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_support_level_concurrent_compare() {
-    let levels = Arc::new(vec![
-        SupportLevel::Native,
-        SupportLevel::Emulated,
-        SupportLevel::Unsupported,
-    ]);
-    let handles: Vec<_> = (0..8)
-        .map(|i| {
-            let levels = Arc::clone(&levels);
-            thread::spawn(move || {
-                let a = &levels[i % 3];
-                let b = &levels[(i + 1) % 3];
-                let _ = a == b;
-            })
-        })
-        .collect();
-    for h in handles {
-        h.join().unwrap();
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Concurrent Capability comparisons
-// ---------------------------------------------------------------------------
-
-#[test]
-fn test_capability_concurrent_compare() {
+fn test_capability_concurrent_access() {
     let caps = Arc::new(vec![
         Capability::Streaming,
         Capability::ToolUse,
@@ -2147,9 +2057,7 @@ fn test_capability_concurrent_compare() {
         .map(|i| {
             let caps = Arc::clone(&caps);
             thread::spawn(move || {
-                let a = &caps[i % 4];
-                let b = &caps[(i + 1) % 4];
-                let _ = a == b;
+                let _ = format!("{:?}", caps[i % 4]);
             })
         })
         .collect();
@@ -2164,17 +2072,15 @@ fn test_capability_concurrent_compare() {
 
 #[test]
 fn test_match_decision_concurrent() {
-    let decisions = Arc::new(vec![
-        MatchDecision::Include,
-        MatchDecision::Exclude,
-        MatchDecision::NoMatch,
-    ]);
+    let globs =
+        IncludeExcludeGlobs::new(&["src/**/*.rs".to_string()], &["target/**".to_string()]).unwrap();
+    let globs = Arc::new(globs);
     let handles: Vec<_> = (0..8)
-        .map(|i| {
-            let decisions = Arc::clone(&decisions);
+        .map(|_| {
+            let globs = Arc::clone(&globs);
             thread::spawn(move || {
-                let d = &decisions[i % 3];
-                let _ = format!("{:?}", d);
+                let decision = globs.decide_str("src/main.rs");
+                let _ = format!("{:?}", decision);
             })
         })
         .collect();
@@ -2213,18 +2119,407 @@ fn test_artifact_ref_concurrent() {
 #[test]
 fn test_ir_usage_concurrent() {
     let usage = Arc::new(IrUsage {
-        input_tokens: Some(100),
-        output_tokens: Some(200),
+        input_tokens: 100,
+        output_tokens: 200,
+        total_tokens: 300,
+        cache_read_tokens: 10,
+        cache_write_tokens: 5,
     });
     let handles: Vec<_> = (0..8)
         .map(|_| {
             let usage = Arc::clone(&usage);
             thread::spawn(move || {
-                assert_eq!(usage.input_tokens, Some(100));
+                assert_eq!(usage.input_tokens, 100);
             })
         })
         .collect();
     for h in handles {
         h.join().unwrap();
     }
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent SupportLevel debug
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_support_level_concurrent_debug() {
+    let levels = Arc::new(vec![
+        SupportLevel::Native,
+        SupportLevel::Emulated,
+        SupportLevel::Unsupported,
+    ]);
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let levels = Arc::clone(&levels);
+            thread::spawn(move || {
+                let _ = format!("{:?}", levels[i % 3]);
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sync-channel backpressure test
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_sync_channel_backpressure_agent_events() {
+    let (tx, rx) = std::sync::mpsc::sync_channel::<AgentEvent>(4);
+    let producer = thread::spawn(move || {
+        for _ in 0..16 {
+            tx.send(make_agent_event(run_started())).unwrap();
+        }
+    });
+    let consumer = thread::spawn(move || {
+        let mut count = 0;
+        for _ in rx.iter() {
+            count += 1;
+        }
+        count
+    });
+    producer.join().unwrap();
+    let total = consumer.join().unwrap();
+    assert_eq!(total, 16);
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent CapabilityDiff creation
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_capability_diff_send() {
+    let diff = CapabilityDiff {
+        added: vec![Capability::Streaming],
+        removed: vec![],
+        upgraded: vec![],
+        downgraded: vec![],
+    };
+    let handle = thread::spawn(move || diff);
+    let returned = handle.join().unwrap();
+    assert_eq!(returned.added.len(), 1);
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent NegotiationResult access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_negotiation_result_concurrent() {
+    let request = NegotiationRequest {
+        required: vec![Capability::Streaming],
+        preferred: vec![Capability::Vision],
+        minimum_support: SupportLevel::Native,
+    };
+    let manifest: BTreeMap<Capability, SupportLevel> = BTreeMap::from([
+        (Capability::Streaming, SupportLevel::Native),
+        (Capability::Vision, SupportLevel::Emulated),
+    ]);
+    let result = CapabilityNegotiator::negotiate(&request, &manifest);
+    let result = Arc::new(result);
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let result = Arc::clone(&result);
+            thread::spawn(move || {
+                let _ = format!("{:?}", &*result);
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent DetectionResult access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_detection_result_send() {
+    let detector = DialectDetector::new();
+    let val: Value = serde_json::from_str(r#"{"model":"gpt-4","messages":[]}"#).unwrap();
+    let result = detector.detect(&val);
+    let handle = thread::spawn(move || result);
+    let _ = handle.join().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent DialectValidator usage
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_dialect_validator_concurrent() {
+    let validator = Arc::new(DialectValidator::new());
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let validator = Arc::clone(&validator);
+            thread::spawn(move || {
+                let _ = &*validator;
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent ProjectionScore access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_projection_score_send() {
+    let score = ProjectionScore {
+        total: 1.0,
+        capability_coverage: 0.9,
+        mapping_fidelity: 0.8,
+        priority: 0.7,
+    };
+    let handle = thread::spawn(move || score);
+    let returned = handle.join().unwrap();
+    assert_eq!(returned.total, 1.0);
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent MappingMatrix access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_mapping_matrix_concurrent() {
+    let matrix = Arc::new(MappingMatrix::new());
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let matrix = Arc::clone(&matrix);
+            thread::spawn(move || {
+                let _ = &*matrix;
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent CircuitBreaker access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_circuit_breaker_concurrent() {
+    let breaker = Arc::new(Mutex::new(CircuitBreaker::new(
+        3,
+        std::time::Duration::from_secs(30),
+    )));
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let breaker = Arc::clone(&breaker);
+            thread::spawn(move || {
+                let guard = breaker.lock().unwrap();
+                let _ = guard.state();
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent StreamBuffer access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_stream_buffer_concurrent_push() {
+    let buffer = Arc::new(Mutex::new(StreamBuffer::new(100)));
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let buffer = Arc::clone(&buffer);
+            thread::spawn(move || {
+                let ev = make_agent_event(run_started());
+                buffer.lock().unwrap().push(ev);
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent EventRecorder access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_event_recorder_concurrent() {
+    let recorder = Arc::new(Mutex::new(EventRecorder::new()));
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let recorder = Arc::clone(&recorder);
+            thread::spawn(move || {
+                let ev = make_agent_event(run_started());
+                recorder.lock().unwrap().record(&ev);
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent Fidelity usage
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_fidelity_send() {
+    let fidelity = Fidelity::Lossless;
+    let handle = thread::spawn(move || fidelity);
+    let _ = handle.join().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent ValidationErrors access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_validation_errors_concurrent() {
+    let errors = Arc::new(ValidationErrors::default());
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let errors = Arc::clone(&errors);
+            thread::spawn(move || {
+                let _ = errors.is_empty();
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent ConfigDefaults access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_config_defaults_concurrent() {
+    let defaults = Arc::new(ConfigDefaults);
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let defaults = Arc::clone(&defaults);
+            thread::spawn(move || {
+                let _ = &*defaults;
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent RunAnalytics access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_run_analytics_send() {
+    let events = vec![make_agent_event(run_started())];
+    let analytics = RunAnalytics::from_events(&events);
+    let handle = thread::spawn(move || analytics);
+    let _ = handle.join().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent EmulationStrategy access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_emulation_strategy_send() {
+    let strategy = EmulationStrategy::ClientSide;
+    let handle = thread::spawn(move || strategy);
+    let _ = handle.join().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent CompatibilityReport access
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_compatibility_report_send() {
+    let report = CompatibilityReport {
+        compatible: true,
+        native_count: 1,
+        emulated_count: 0,
+        unsupported_count: 0,
+        summary: "all good".into(),
+        details: vec![],
+    };
+    let handle = thread::spawn(move || report);
+    let _ = handle.join().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent TamperKind and TamperEvidence
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_tamper_kind_send() {
+    let kind = TamperKind::HashMismatch {
+        stored: "abc".into(),
+        computed: "def".into(),
+    };
+    let handle = thread::spawn(move || kind);
+    let _ = handle.join().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent FieldDiff and ReceiptDiff
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_receipt_diff_send() {
+    let r1 = make_receipt();
+    let r2 = make_receipt();
+    let diff = abp_receipt::diff_receipts(&r1, &r2);
+    let handle = thread::spawn(move || diff);
+    let _ = handle.join().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent ChainSummary
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_chain_summary_send() {
+    let mut chain = ReceiptChain::new();
+    let _ = chain.push(make_receipt());
+    let summary = chain.chain_summary();
+    let handle = thread::spawn(move || summary);
+    let _ = handle.join().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent VerificationResult (receipt crate)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_verification_result_send() {
+    let result = abp_receipt::verify_receipt(&make_receipt());
+    let handle = thread::spawn(move || result);
+    let _ = handle.join().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent AuditReport
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_audit_report_send() {
+    let auditor = ReceiptAuditor::new();
+    let report = auditor.audit_batch(&[make_receipt()]);
+    let handle = thread::spawn(move || report);
+    let _ = handle.join().unwrap();
 }

@@ -6,19 +6,26 @@
 //! See <https://ai.google.dev/api/rest>.
 
 use abp_gemini_sdk::dialect::{FunctionCallingMode, HarmBlockThreshold, HarmCategory};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 // ── Part ────────────────────────────────────────────────────────────────
 
 /// A part within a content block, mirroring the Gemini SDK `Part` type.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+///
+/// Serialises to the real Gemini JSON format:
+/// - `{"text": "…"}`
+/// - `{"inlineData": {"mimeType": "…", "data": "…"}}`
+/// - `{"functionCall": {"name": "…", "args": {…}}}`
+/// - `{"functionResponse": {"name": "…", "response": {…}}}`
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum Part {
     /// Plain text content.
     Text(String),
     /// Inline binary data (e.g. images).
     InlineData {
-        /// MIME type of the data.
+        /// MIME type of the data (e.g. `"image/png"`).
         mime_type: String,
         /// Base64-encoded binary data.
         data: String,
@@ -77,7 +84,10 @@ impl Part {
 // ── Content ─────────────────────────────────────────────────────────────
 
 /// A content block in the Gemini API format.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// Represents a single conversation turn or system instruction.
+/// The `role` is typically `"user"` or `"model"`.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Content {
     /// Role of the content author (`user` or `model`).
     pub role: String,
@@ -108,7 +118,9 @@ impl Content {
 // ── Safety settings ─────────────────────────────────────────────────────
 
 /// Safety settings applied to a request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+///
+/// Controls the blocking threshold for a particular [`HarmCategory`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SafetySetting {
     /// The harm category to configure.
@@ -117,39 +129,105 @@ pub struct SafetySetting {
     pub threshold: HarmBlockThreshold,
 }
 
+/// Probability rating for a safety category in a response.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum HarmProbability {
+    /// Negligible probability of harm.
+    Negligible,
+    /// Low probability of harm.
+    Low,
+    /// Medium probability of harm.
+    Medium,
+    /// High probability of harm.
+    High,
+}
+
+/// Per-category safety rating on a response candidate.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SafetyRating {
+    /// The evaluated harm category.
+    pub category: HarmCategory,
+    /// Assessed probability of harm.
+    pub probability: HarmProbability,
+}
+
+// ── Finish reason ───────────────────────────────────────────────────────
+
+/// Reason the model stopped generating content.
+///
+/// Maps to the `finishReason` field in the Gemini API response.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinishReason {
+    /// Natural stop point.
+    Stop,
+    /// Hit the maximum token limit.
+    MaxTokens,
+    /// Content was filtered by safety settings.
+    Safety,
+    /// Model made a recitation (verbatim quote).
+    Recitation,
+    /// Other / unspecified reason.
+    Other,
+}
+
+impl FinishReason {
+    /// Parse a finish reason from a raw string value.
+    ///
+    /// Returns `None` if the string does not match a known reason.
+    #[must_use]
+    pub fn from_str_opt(s: &str) -> Option<Self> {
+        match s {
+            "STOP" => Some(Self::Stop),
+            "MAX_TOKENS" => Some(Self::MaxTokens),
+            "SAFETY" => Some(Self::Safety),
+            "RECITATION" => Some(Self::Recitation),
+            "OTHER" => Some(Self::Other),
+            _ => None,
+        }
+    }
+}
+
 // ── Generation config ───────────────────────────────────────────────────
 
-/// Generation configuration parameters.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// Sampling and output parameters for content generation.
+///
+/// All fields are optional; omitted fields use the model's defaults.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerationConfig {
     /// Maximum number of output tokens.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
-    /// Sampling temperature.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Sampling temperature (0.0–2.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
     /// Top-p (nucleus) sampling parameter.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f64>,
     /// Top-k sampling parameter.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top_k: Option<u32>,
+    /// Number of candidate completions to return.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub candidate_count: Option<u32>,
     /// Stop sequences that halt generation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop_sequences: Option<Vec<String>>,
     /// MIME type for the response (e.g. `application/json`).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_mime_type: Option<String>,
     /// JSON Schema for structured output.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_schema: Option<serde_json::Value>,
 }
 
 // ── Usage metadata ──────────────────────────────────────────────────────
 
 /// Token usage metadata returned in a response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageMetadata {
     /// Tokens consumed by the prompt.
@@ -160,29 +238,48 @@ pub struct UsageMetadata {
     pub total_token_count: u64,
 }
 
+// ── Prompt feedback ─────────────────────────────────────────────────────
+
+/// Prompt-level safety feedback returned by the API.
+///
+/// When the API blocks or filters a prompt, this structure explains why.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptFeedback {
+    /// Block reason (e.g. `"SAFETY"`), if the prompt was blocked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block_reason: Option<String>,
+    /// Safety ratings for the prompt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safety_ratings: Option<Vec<SafetyRating>>,
+}
+
 // ── Request ─────────────────────────────────────────────────────────────
 
 /// A request to the Gemini `generateContent` endpoint.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// Mirrors the Google Gemini REST API request body. Use the builder
+/// methods to construct requests fluently.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct GenerateContentRequest {
     /// Model identifier (e.g. `gemini-2.5-flash`).
     pub model: String,
     /// Conversation content blocks.
     pub contents: Vec<Content>,
     /// Optional system instruction content.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub system_instruction: Option<Content>,
     /// Generation configuration parameters.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub generation_config: Option<GenerationConfig>,
     /// Safety settings for content filtering.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub safety_settings: Option<Vec<SafetySetting>>,
     /// Tool definitions available to the model.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<ToolDeclaration>>,
     /// Function-calling configuration.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_config: Option<ToolConfig>,
 }
 
@@ -246,16 +343,20 @@ impl GenerateContentRequest {
 
 // ── Tool declarations ───────────────────────────────────────────────────
 
-/// A tool declaration wrapping function declarations.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// A tool declaration wrapping one or more function declarations.
+///
+/// Corresponds to the `tools` array element in the Gemini API request.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolDeclaration {
     /// Function declarations available to the model.
     pub function_declarations: Vec<FunctionDeclaration>,
 }
 
-/// A function declaration for tool use.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// A function the model may call.
+///
+/// Describes the function's name, purpose, and parameter schema.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct FunctionDeclaration {
     /// Function name.
     pub name: String,
@@ -265,16 +366,18 @@ pub struct FunctionDeclaration {
     pub parameters: serde_json::Value,
 }
 
-/// Controls function-calling behavior.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Top-level tool-calling configuration.
+///
+/// Controls function-calling behavior for the entire request.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolConfig {
     /// Function-calling behaviour configuration.
     pub function_calling_config: FunctionCallingConfig,
 }
 
-/// Detailed function-calling configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Detailed function-calling constraints.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FunctionCallingConfig {
     /// The function-calling mode.
@@ -286,24 +389,42 @@ pub struct FunctionCallingConfig {
 
 // ── Response types ──────────────────────────────────────────────────────
 
-/// A single candidate in a response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// A single candidate completion in a response.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct Candidate {
     /// The generated content.
     pub content: Content,
-    /// Reason the model stopped generating.
-    #[serde(default)]
+    /// Reason the model stopped generating (e.g. `"STOP"`, `"MAX_TOKENS"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finish_reason: Option<String>,
+    /// Per-category safety ratings for this candidate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safety_ratings: Option<Vec<SafetyRating>>,
+}
+
+impl Candidate {
+    /// Parse the `finish_reason` string into a typed [`FinishReason`].
+    #[must_use]
+    pub fn finish_reason_typed(&self) -> Option<FinishReason> {
+        self.finish_reason
+            .as_deref()
+            .and_then(FinishReason::from_str_opt)
+    }
 }
 
 /// The response from a `generateContent` call.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct GenerateContentResponse {
     /// Response candidates from the model.
     pub candidates: Vec<Candidate>,
     /// Token usage metadata.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usage_metadata: Option<UsageMetadata>,
+    /// Prompt-level safety feedback.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt_feedback: Option<PromptFeedback>,
 }
 
 impl GenerateContentResponse {
@@ -339,13 +460,17 @@ impl GenerateContentResponse {
 
 // ── Streaming types ─────────────────────────────────────────────────────
 
-/// A streaming response event.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// A streaming response event from `streamGenerateContent`.
+///
+/// Each chunk may contain incremental text deltas, tool calls,
+/// or usage metadata (typically in the final chunk).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct StreamEvent {
     /// Response candidates in this chunk.
     pub candidates: Vec<Candidate>,
     /// Token usage metadata (usually in the final chunk).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usage_metadata: Option<UsageMetadata>,
 }
 

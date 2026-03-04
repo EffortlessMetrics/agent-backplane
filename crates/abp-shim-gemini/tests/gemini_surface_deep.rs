@@ -139,6 +139,7 @@ fn generate_content_request_serde_roundtrip_full() {
             temperature: Some(0.7),
             top_p: Some(0.9),
             top_k: Some(40),
+            candidate_count: None,
             max_output_tokens: Some(2048),
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: Some("application/json".into()),
@@ -163,8 +164,10 @@ fn generate_content_response_text_accessor() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("Hello!")]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("Hello!"));
 }
@@ -174,6 +177,7 @@ fn generate_content_response_text_none_when_empty_candidates() {
     let resp = GenerateContentResponse {
         candidates: vec![],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.text().is_none());
 }
@@ -187,8 +191,10 @@ fn generate_content_response_text_skips_non_text_parts() {
                 Part::text("after call"),
             ]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("after call"));
 }
@@ -199,12 +205,14 @@ fn generate_content_response_serde_roundtrip() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("test")]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: Some(UsageMetadata {
             prompt_token_count: 10,
             candidates_token_count: 5,
             total_token_count: 15,
         }),
+        prompt_feedback: None,
     };
     let json_str = serde_json::to_string(&resp).unwrap();
     let back: GenerateContentResponse = serde_json::from_str(&json_str).unwrap();
@@ -218,8 +226,10 @@ fn generate_content_response_function_calls_empty_when_only_text() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("just text")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.function_calls().is_empty());
 }
@@ -234,6 +244,7 @@ fn stream_event_text_accessor_returns_delta() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("chunk1")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
     };
@@ -246,6 +257,7 @@ fn stream_event_serde_roundtrip() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("delta")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: Some(UsageMetadata {
             prompt_token_count: 5,
@@ -694,6 +706,7 @@ fn generation_config_to_dialect_roundtrip() {
         temperature: Some(0.3),
         top_p: Some(0.85),
         top_k: Some(50),
+        candidate_count: None,
         max_output_tokens: Some(4096),
         stop_sequences: Some(vec!["HALT".into()]),
         response_mime_type: Some("application/json".into()),
@@ -723,6 +736,7 @@ fn generation_config_camel_case_json_keys() {
         temperature: Some(1.0),
         top_p: Some(0.95),
         top_k: Some(10),
+        candidate_count: None,
         stop_sequences: None,
         response_mime_type: None,
         response_schema: None,

@@ -5,6 +5,7 @@ use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -86,7 +87,7 @@ pub fn capability_manifest() -> CapabilityManifest {
 // ---------------------------------------------------------------------------
 
 /// The type of a Copilot reference attached to a message or response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CopilotReferenceType {
     /// A file reference (path + optional content).
@@ -103,7 +104,7 @@ pub enum CopilotReferenceType {
 ///
 /// References provide structured context (files, snippets, repos, web results)
 /// that the Copilot agent can use during processing.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotReference {
     /// The reference type discriminator.
     #[serde(rename = "type")]
@@ -122,7 +123,7 @@ pub struct CopilotReference {
 // ---------------------------------------------------------------------------
 
 /// A vendor-agnostic tool definition used as the ABP canonical form.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CanonicalToolDef {
     /// Tool name.
     pub name: String,
@@ -133,7 +134,7 @@ pub struct CanonicalToolDef {
 }
 
 /// The type of a Copilot tool.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CopilotToolType {
     /// A standard function tool.
@@ -145,7 +146,7 @@ pub enum CopilotToolType {
 /// Copilot-style tool definition.
 ///
 /// Supports both standard function tools and confirmation prompt tools.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotTool {
     /// The tool type.
     #[serde(rename = "type")]
@@ -159,7 +160,7 @@ pub struct CopilotTool {
 }
 
 /// Function definition inside a Copilot tool.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotFunctionDef {
     /// Function name.
     pub name: String,
@@ -173,7 +174,7 @@ pub struct CopilotFunctionDef {
 ///
 /// When the agent needs user confirmation before proceeding with a
 /// sensitive action, it emits a confirmation tool call.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotConfirmation {
     /// Unique identifier for this confirmation.
     pub id: String,
@@ -218,7 +219,7 @@ pub fn tool_def_from_copilot(tool: &CopilotTool) -> Option<CanonicalToolDef> {
 // ---------------------------------------------------------------------------
 
 /// A single message in the Copilot conversation format.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotMessage {
     /// Message role (`system`, `user`, or `assistant`).
     pub role: String,
@@ -237,7 +238,7 @@ pub struct CopilotMessage {
 // ---------------------------------------------------------------------------
 
 /// Vendor-specific configuration for the GitHub Copilot agent API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CopilotConfig {
     /// GitHub token for API authentication.
     pub token: String,
@@ -271,7 +272,7 @@ impl Default for CopilotConfig {
 ///
 /// Combines conversation messages with tool definitions, references,
 /// and turn history for multi-turn interactions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CopilotRequest {
     /// Model identifier (e.g. `gpt-4o`).
     pub model: String,
@@ -289,7 +290,7 @@ pub struct CopilotRequest {
 }
 
 /// An entry in the turn history for multi-turn conversations.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotTurnEntry {
     /// The user message for this turn.
     pub request: String,
@@ -302,7 +303,7 @@ pub struct CopilotTurnEntry {
 // ---------------------------------------------------------------------------
 
 /// A non-streaming response from the Copilot agent API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotResponse {
     /// The assistant's reply text.
     pub message: String,
@@ -321,7 +322,7 @@ pub struct CopilotResponse {
 }
 
 /// An error reported by the Copilot agent.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotError {
     /// Error type identifier.
     #[serde(rename = "type")]
@@ -337,7 +338,7 @@ pub struct CopilotError {
 }
 
 /// A function call emitted by the Copilot agent.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CopilotFunctionCall {
     /// Name of the function to invoke.
     pub name: String,
@@ -356,7 +357,7 @@ pub struct CopilotFunctionCall {
 ///
 /// These events are delivered as SSE data lines; the `event:` prefix
 /// determines which variant applies.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CopilotStreamEvent {
     /// References emitted at the start of a response.

@@ -6,6 +6,7 @@
 //! [`CodexFileChange`] for file mutations, and [`CodexCommand`] for shell
 //! command execution.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 // ── Request ─────────────────────────────────────────────────────────────
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Extends the OpenAI format with an `instructions` field that carries
 /// the Codex CLI system prompt separately from the message array.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexRequest {
     /// Model identifier (e.g. `codex-mini-latest`).
     pub model: String,
@@ -46,7 +47,7 @@ pub struct CodexRequest {
 // ── Messages ────────────────────────────────────────────────────────────
 
 /// A chat message discriminated by `role`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "role", rename_all = "snake_case")]
 pub enum CodexMessage {
     /// System prompt.
@@ -80,7 +81,7 @@ pub enum CodexMessage {
 // ── Response ────────────────────────────────────────────────────────────
 
 /// Codex chat completion response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexResponse {
     /// Unique response identifier.
     pub id: String,
@@ -98,7 +99,7 @@ pub struct CodexResponse {
 }
 
 /// A single choice in the completion response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexChoice {
     /// Zero-based index.
     pub index: u32,
@@ -110,7 +111,7 @@ pub struct CodexChoice {
 }
 
 /// The assistant message inside a response [`CodexChoice`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexChoiceMessage {
     /// Always `"assistant"`.
     pub role: String,
@@ -125,7 +126,7 @@ pub struct CodexChoiceMessage {
 // ── Streaming ───────────────────────────────────────────────────────────
 
 /// A streaming chunk from the Codex API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexStreamChunk {
     /// Chunk identifier.
     pub id: String,
@@ -140,7 +141,7 @@ pub struct CodexStreamChunk {
 }
 
 /// A single choice inside a streaming chunk.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexStreamChoice {
     /// Zero-based choice index.
     pub index: u32,
@@ -152,7 +153,7 @@ pub struct CodexStreamChoice {
 }
 
 /// An incremental delta inside a streaming choice.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexStreamDelta {
     /// Role (usually only in the first chunk).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -166,7 +167,7 @@ pub struct CodexStreamDelta {
 }
 
 /// A tool call fragment inside a streaming delta.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexStreamToolCall {
     /// Index of the tool call in the array.
     pub index: u32,
@@ -182,7 +183,7 @@ pub struct CodexStreamToolCall {
 }
 
 /// Incremental function call data inside a streaming tool call.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexStreamFunctionCall {
     /// Function name (first fragment only).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -195,7 +196,7 @@ pub struct CodexStreamFunctionCall {
 // ── Usage ───────────────────────────────────────────────────────────────
 
 /// Token usage statistics.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexUsage {
     /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,
@@ -208,7 +209,7 @@ pub struct CodexUsage {
 // ── Tool types ──────────────────────────────────────────────────────────
 
 /// A function tool definition for the Codex API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexTool {
     /// Tool type (always `"function"`).
     #[serde(rename = "type")]
@@ -218,7 +219,7 @@ pub struct CodexTool {
 }
 
 /// The function definition inside a [`CodexTool`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexFunctionDef {
     /// Function name.
     pub name: String,
@@ -229,7 +230,7 @@ pub struct CodexFunctionDef {
 }
 
 /// A tool call emitted by the model.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexToolCall {
     /// Unique identifier for this tool call.
     pub id: String,
@@ -241,7 +242,7 @@ pub struct CodexToolCall {
 }
 
 /// The function invocation inside a [`CodexToolCall`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexFunctionCall {
     /// Name of the function to invoke.
     pub name: String,
@@ -250,7 +251,7 @@ pub struct CodexFunctionCall {
 }
 
 /// Controls which (if any) tool the model should call.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(untagged)]
 pub enum CodexToolChoice {
     /// A string shorthand: `"none"`, `"auto"`, or `"required"`.
@@ -266,7 +267,7 @@ pub enum CodexToolChoice {
 }
 
 /// String-form tool choice modes.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CodexToolChoiceMode {
     /// Model will not call any tool.
@@ -278,7 +279,7 @@ pub enum CodexToolChoiceMode {
 }
 
 /// A reference to a specific function in a forced tool choice.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexToolChoiceFunctionRef {
     /// Name of the function to force.
     pub name: String,
@@ -287,7 +288,7 @@ pub struct CodexToolChoiceFunctionRef {
 // ── Codex-specific action types ─────────────────────────────────────────
 
 /// Represents a file change that Codex can make.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexFileChange {
     /// Relative path to the file being changed.
     pub path: String,
@@ -302,7 +303,7 @@ pub struct CodexFileChange {
 }
 
 /// The kind of file operation within a [`CodexFileChange`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FileOperation {
     /// Create a new file.
@@ -316,7 +317,7 @@ pub enum FileOperation {
 }
 
 /// Represents a shell command that Codex can execute.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexCommand {
     /// The shell command string to execute.
     pub command: String,

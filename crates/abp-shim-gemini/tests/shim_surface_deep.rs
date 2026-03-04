@@ -95,6 +95,7 @@ fn req_builder_chains_all_setters() {
             temperature: Some(0.3),
             top_p: Some(0.8),
             top_k: Some(20),
+            candidate_count: None,
             max_output_tokens: Some(1024),
             stop_sequences: Some(vec!["STOP".into()]),
             response_mime_type: Some("text/plain".into()),
@@ -447,8 +448,10 @@ fn response_text_accessor_first_candidate() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("Hello!")]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("Hello!"));
 }
@@ -458,6 +461,7 @@ fn response_text_none_when_no_candidates() {
     let resp = GenerateContentResponse {
         candidates: vec![],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.text().is_none());
 }
@@ -471,8 +475,10 @@ fn response_function_calls_accessor() {
                 Part::function_call("tool_b", json!({"x": 1})),
             ]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let calls = resp.function_calls();
     assert_eq!(calls.len(), 2);
@@ -486,8 +492,10 @@ fn response_function_calls_empty_for_text_only() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("just text")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert!(resp.function_calls().is_empty());
 }
@@ -572,6 +580,7 @@ fn stream_event_text_accessor() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("delta")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
     };
@@ -860,6 +869,7 @@ fn gen_config_to_dialect_all_fields() {
         temperature: Some(0.7),
         top_p: Some(0.9),
         top_k: Some(40),
+        candidate_count: None,
         max_output_tokens: Some(2048),
         stop_sequences: Some(vec!["END".into(), "HALT".into()]),
         response_mime_type: Some("application/json".into()),
@@ -880,6 +890,7 @@ fn gen_config_roundtrip_through_dialect() {
         temperature: Some(1.5),
         top_p: Some(0.95),
         top_k: Some(64),
+        candidate_count: None,
         max_output_tokens: Some(8192),
         stop_sequences: None,
         response_mime_type: None,
@@ -1221,12 +1232,14 @@ fn serde_roundtrip_generate_content_response() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("test output")]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: Some(UsageMetadata {
             prompt_token_count: 20,
             candidates_token_count: 10,
             total_token_count: 30,
         }),
+        prompt_feedback: None,
     };
     let json_str = serde_json::to_string(&resp).unwrap();
     let back: GenerateContentResponse = serde_json::from_str(&json_str).unwrap();
@@ -1240,6 +1253,7 @@ fn serde_roundtrip_stream_event() {
         candidates: vec![Candidate {
             content: Content::model(vec![Part::text("delta")]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: Some(UsageMetadata {
             prompt_token_count: 5,
@@ -1308,6 +1322,7 @@ fn serde_roundtrip_generation_config() {
         temperature: Some(0.9),
         top_p: Some(0.95),
         top_k: Some(50),
+        candidate_count: None,
         max_output_tokens: Some(4096),
         stop_sequences: Some(vec!["END".into()]),
         response_mime_type: Some("text/plain".into()),
@@ -1541,13 +1556,16 @@ fn multiple_candidates_response() {
             Candidate {
                 content: Content::model(vec![Part::text("candidate 1")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             },
             Candidate {
                 content: Content::model(vec![Part::text("candidate 2")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             },
         ],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     // text() returns first candidate
     assert_eq!(resp.text(), Some("candidate 1"));
@@ -1564,8 +1582,10 @@ fn candidate_with_mixed_parts_text_and_function_call() {
                 Part::function_call("search", json!({"q": "test"})),
             ]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("Let me search."));
     assert_eq!(resp.function_calls().len(), 1);

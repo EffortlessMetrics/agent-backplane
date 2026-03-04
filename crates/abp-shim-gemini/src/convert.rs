@@ -19,8 +19,9 @@ use chrono::Utc;
 
 use crate::GeminiError;
 use crate::types::{
-    Candidate, Content, GenerateContentRequest, GenerateContentResponse, GenerationConfig, Part,
-    SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
+    Candidate, Content, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
+    HarmProbability, Part, PromptFeedback, SafetyRating, SafetySetting, StreamEvent, ToolConfig,
+    ToolDeclaration, UsageMetadata,
 };
 
 // ── Shim ↔ Dialect conversions ──────────────────────────────────────────
@@ -100,7 +101,7 @@ pub fn gen_config_to_dialect(cfg: &GenerationConfig) -> GeminiGenerationConfig {
         temperature: cfg.temperature,
         top_p: cfg.top_p,
         top_k: cfg.top_k,
-        candidate_count: None,
+        candidate_count: cfg.candidate_count,
         stop_sequences: cfg.stop_sequences.clone(),
         response_mime_type: cfg.response_mime_type.clone(),
         response_schema: cfg.response_schema.clone(),
@@ -115,6 +116,7 @@ pub fn gen_config_from_dialect(cfg: &GeminiGenerationConfig) -> GenerationConfig
         temperature: cfg.temperature,
         top_p: cfg.top_p,
         top_k: cfg.top_k,
+        candidate_count: cfg.candidate_count,
         stop_sequences: cfg.stop_sequences.clone(),
         response_mime_type: cfg.response_mime_type.clone(),
         response_schema: cfg.response_schema.clone(),
@@ -178,6 +180,15 @@ pub fn from_dialect_response(resp: &GeminiResponse) -> GenerateContentResponse {
             .map(|c| Candidate {
                 content: content_from_dialect(&c.content),
                 finish_reason: c.finish_reason.clone(),
+                safety_ratings: c.safety_ratings.as_ref().map(|ratings| {
+                    ratings
+                        .iter()
+                        .map(|r| SafetyRating {
+                            category: r.category,
+                            probability: dialect_probability_to_shim(r.probability),
+                        })
+                        .collect()
+                }),
             })
             .collect(),
         usage_metadata: resp.usage_metadata.as_ref().map(|u| UsageMetadata {
@@ -185,6 +196,29 @@ pub fn from_dialect_response(resp: &GeminiResponse) -> GenerateContentResponse {
             candidates_token_count: u.candidates_token_count,
             total_token_count: u.total_token_count,
         }),
+        prompt_feedback: resp.prompt_feedback.as_ref().map(|pf| PromptFeedback {
+            block_reason: pf.block_reason.clone(),
+            safety_ratings: pf.safety_ratings.as_ref().map(|ratings| {
+                ratings
+                    .iter()
+                    .map(|r| SafetyRating {
+                        category: r.category,
+                        probability: dialect_probability_to_shim(r.probability),
+                    })
+                    .collect()
+            }),
+        }),
+    }
+}
+
+/// Map a dialect [`abp_gemini_sdk::dialect::HarmProbability`] to a shim [`HarmProbability`].
+#[must_use]
+fn dialect_probability_to_shim(p: abp_gemini_sdk::dialect::HarmProbability) -> HarmProbability {
+    match p {
+        abp_gemini_sdk::dialect::HarmProbability::Negligible => HarmProbability::Negligible,
+        abp_gemini_sdk::dialect::HarmProbability::Low => HarmProbability::Low,
+        abp_gemini_sdk::dialect::HarmProbability::Medium => HarmProbability::Medium,
+        abp_gemini_sdk::dialect::HarmProbability::High => HarmProbability::High,
     }
 }
 
@@ -198,6 +232,15 @@ pub fn from_dialect_stream_chunk(chunk: &GeminiStreamChunk) -> StreamEvent {
             .map(|c| Candidate {
                 content: content_from_dialect(&c.content),
                 finish_reason: c.finish_reason.clone(),
+                safety_ratings: c.safety_ratings.as_ref().map(|ratings| {
+                    ratings
+                        .iter()
+                        .map(|r| SafetyRating {
+                            category: r.category,
+                            probability: dialect_probability_to_shim(r.probability),
+                        })
+                        .collect()
+                }),
             })
             .collect(),
         usage_metadata: chunk.usage_metadata.as_ref().map(|u| UsageMetadata {
@@ -381,6 +424,7 @@ pub fn ir_to_response(
         vec![Candidate {
             content: Content::model(vec![Part::text("")]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }]
     } else {
         dialect_contents
@@ -389,6 +433,7 @@ pub fn ir_to_response(
             .map(|c| Candidate {
                 content: content_from_dialect(c),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             })
             .collect()
     };
@@ -400,6 +445,7 @@ pub fn ir_to_response(
             .map(|c| Candidate {
                 content: content_from_dialect(c),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             })
             .collect()
     } else {
@@ -411,6 +457,7 @@ pub fn ir_to_response(
     Ok(GenerateContentResponse {
         candidates,
         usage_metadata,
+        prompt_feedback: None,
     })
 }
 
@@ -442,6 +489,7 @@ pub fn receipt_to_stream_events(receipt: &Receipt) -> Vec<StreamEvent> {
                     candidates: vec![Candidate {
                         content: Content::model(vec![Part::text(text.clone())]),
                         finish_reason: None,
+                        safety_ratings: None,
                     }],
                     usage_metadata: None,
                 });
@@ -456,6 +504,7 @@ pub fn receipt_to_stream_events(receipt: &Receipt) -> Vec<StreamEvent> {
                             input.clone(),
                         )]),
                         finish_reason: None,
+                        safety_ratings: None,
                     }],
                     usage_metadata: None,
                 });
@@ -491,5 +540,133 @@ pub fn usage_from_ir(usage: &IrUsage) -> UsageMetadata {
         prompt_token_count: usage.input_tokens,
         candidates_token_count: usage.output_tokens,
         total_token_count: usage.total_tokens,
+    }
+}
+
+// ── From/Into trait implementations ─────────────────────────────────────
+
+impl From<GenerateContentRequest> for abp_core::WorkOrder {
+    /// Convert a shim [`GenerateContentRequest`] into an ABP [`WorkOrder`].
+    ///
+    /// The last user-role text part becomes the task. System instructions
+    /// are stored as context snippets. Tools, generation config, safety
+    /// settings, and tool config are preserved in `config.vendor`.
+    fn from(req: GenerateContentRequest) -> Self {
+        use std::collections::BTreeMap;
+
+        let task = req
+            .contents
+            .iter()
+            .rev()
+            .filter(|c| c.role == "user")
+            .flat_map(|c| c.parts.iter())
+            .find_map(|p| match p {
+                Part::Text(t) => Some(t.clone()),
+                _ => None,
+            })
+            .unwrap_or_default();
+
+        let snippets: Vec<abp_core::ContextSnippet> = req
+            .system_instruction
+            .iter()
+            .flat_map(|sys| sys.parts.iter())
+            .filter_map(|p| match p {
+                Part::Text(t) => Some(abp_core::ContextSnippet {
+                    name: "system_instruction".into(),
+                    content: t.clone(),
+                }),
+                _ => None,
+            })
+            .collect();
+
+        let mut vendor = BTreeMap::new();
+        vendor.insert("dialect".into(), serde_json::Value::String("gemini".into()));
+        if let Ok(v) = serde_json::to_value(&req.contents) {
+            vendor.insert("contents".into(), v);
+        }
+        if let Some(tools) = &req.tools {
+            if let Ok(v) = serde_json::to_value(tools) {
+                vendor.insert("tools".into(), v);
+            }
+        }
+        if let Some(gen_cfg) = &req.generation_config {
+            if let Ok(v) = serde_json::to_value(gen_cfg) {
+                vendor.insert("generation_config".into(), v);
+            }
+        }
+        if let Some(safety) = &req.safety_settings {
+            if let Ok(v) = serde_json::to_value(safety) {
+                vendor.insert("safety_settings".into(), v);
+            }
+        }
+        if let Some(tool_cfg) = &req.tool_config {
+            if let Ok(v) = serde_json::to_value(tool_cfg) {
+                vendor.insert("tool_config".into(), v);
+            }
+        }
+
+        let config = abp_core::RuntimeConfig {
+            model: Some(dialect::to_canonical_model(&req.model)),
+            vendor,
+            ..abp_core::RuntimeConfig::default()
+        };
+
+        let mut builder = WorkOrderBuilder::new(task).config(config);
+        if !snippets.is_empty() {
+            builder = builder.context(abp_core::ContextPacket {
+                files: vec![],
+                snippets,
+            });
+        }
+        builder.build()
+    }
+}
+
+impl From<Receipt> for GenerateContentResponse {
+    /// Convert an ABP [`Receipt`] into a Gemini [`GenerateContentResponse`].
+    ///
+    /// Assistant text and tool-call events from the receipt trace are mapped
+    /// to Gemini content parts. The outcome determines the finish reason.
+    fn from(receipt: Receipt) -> Self {
+        let mut parts = Vec::new();
+
+        for event in &receipt.trace {
+            match &event.kind {
+                AgentEventKind::AssistantMessage { text } => {
+                    parts.push(Part::text(text.clone()));
+                }
+                AgentEventKind::ToolCall {
+                    tool_name, input, ..
+                } => {
+                    parts.push(Part::function_call(tool_name.clone(), input.clone()));
+                }
+                AgentEventKind::ToolResult {
+                    tool_name, output, ..
+                } => {
+                    parts.push(Part::function_response(tool_name.clone(), output.clone()));
+                }
+                _ => {}
+            }
+        }
+
+        let finish_reason = match receipt.outcome {
+            Outcome::Complete => Some("STOP".into()),
+            Outcome::Partial => Some("MAX_TOKENS".into()),
+            Outcome::Failed => Some("OTHER".into()),
+        };
+
+        let candidate = Candidate {
+            content: Content::model(parts),
+            finish_reason,
+            safety_ratings: None,
+        };
+
+        let usage_metadata = make_usage_metadata(&receipt.usage);
+
+        GenerateContentResponse {
+            candidates: vec![candidate],
+            usage_metadata,
+            prompt_feedback: None,
+        }
     }
 }
