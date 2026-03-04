@@ -38,8 +38,8 @@ use abp_receipt::serde_formats;
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore, ReceiptSummary};
 use abp_receipt::{
     ChainBuilder, ChainError, ChainSummary, ReceiptAuditor, ReceiptBuilder, ReceiptChain,
-    ReceiptValidator, TamperEvidence, TamperKind, ValidationError,
-    canonicalize, compute_hash, diff_receipts, verify_hash, verify_receipt,
+    ReceiptValidator, TamperEvidence, TamperKind, ValidationError, canonicalize, compute_hash,
+    diff_receipts, verify_hash, verify_receipt,
 };
 use chrono::{TimeZone, Utc};
 use std::collections::BTreeMap;
