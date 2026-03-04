@@ -57,6 +57,7 @@ members = [
   "crates/abp-validate",
   "crates/abp-workspace",
   "crates/claude-bridge",
+  "crates/gemini-bridge",
   "crates/sidecar-kit",
   "xtask",
 ]
