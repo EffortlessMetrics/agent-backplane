@@ -6,6 +6,7 @@
 //! convenience re-export.
 
 use crate::{BackendEntry, BackplaneConfig, ConfigError, is_valid_hostname};
+use crate::{LARGE_TIMEOUT_THRESHOLD, MAX_TIMEOUT_SECS, VALID_LOG_LEVELS};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
@@ -50,19 +51,6 @@ impl fmt::Display for ValidationIssue {
         write!(f, "[{}] {}", self.severity, self.message)
     }
 }
-
-// ---------------------------------------------------------------------------
-// Constants (mirrored from lib so this module is self-contained)
-// ---------------------------------------------------------------------------
-
-/// Maximum allowed timeout in seconds (24 hours).
-const MAX_TIMEOUT_SECS: u64 = 86_400;
-
-/// Threshold above which a timeout generates a warning.
-const LARGE_TIMEOUT_THRESHOLD: u64 = 3_600;
-
-/// Recognised log levels.
-const VALID_LOG_LEVELS: &[&str] = &["error", "warn", "info", "debug", "trace"];
 
 // ---------------------------------------------------------------------------
 // ConfigValidator

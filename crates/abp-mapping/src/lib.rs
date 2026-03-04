@@ -155,6 +155,263 @@ pub struct MappingValidation {
     pub errors: Vec<MappingError>,
 }
 
+// ── Rule Metadata ───────────────────────────────────────────────────────
+
+/// Documentation and metadata attached to a mapping rule.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::RuleMetadata;
+///
+/// let meta = RuleMetadata::new("Maps OpenAI function_call to Claude tool_use blocks");
+/// assert_eq!(meta.description, "Maps OpenAI function_call to Claude tool_use blocks");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuleMetadata {
+    /// Human-readable description of the mapping rule.
+    pub description: String,
+    /// Version when this rule was introduced.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since_version: Option<String>,
+    /// Additional notes or caveats.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notes: Vec<String>,
+}
+
+impl RuleMetadata {
+    /// Creates metadata with a description.
+    #[must_use]
+    pub fn new(description: impl Into<String>) -> Self {
+        Self {
+            description: description.into(),
+            since_version: None,
+            notes: Vec::new(),
+        }
+    }
+
+    /// Sets the version when this rule was introduced.
+    #[must_use]
+    pub fn with_version(mut self, version: impl Into<String>) -> Self {
+        self.since_version = Some(version.into());
+        self
+    }
+
+    /// Adds a note.
+    #[must_use]
+    pub fn with_note(mut self, note: impl Into<String>) -> Self {
+        self.notes.push(note.into());
+        self
+    }
+}
+
+// ── Bidirectional Report ────────────────────────────────────────────────
+
+/// Result of validating both directions of a mapping (A→B and B→A).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BidirectionalReport {
+    /// Dialect A.
+    pub dialect_a: Dialect,
+    /// Dialect B.
+    pub dialect_b: Dialect,
+    /// Feature being validated.
+    pub feature: String,
+    /// Fidelity of A→B mapping, if a rule exists.
+    pub forward_fidelity: Option<Fidelity>,
+    /// Fidelity of B→A mapping, if a rule exists.
+    pub reverse_fidelity: Option<Fidelity>,
+    /// Whether both directions have rules registered.
+    pub is_symmetric: bool,
+    /// Detected asymmetries or issues.
+    pub warnings: Vec<String>,
+}
+
+// ── Fidelity Report ─────────────────────────────────────────────────────
+
+/// Aggregated fidelity loss report for a dialect pair across features.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FidelityReport {
+    /// Source dialect.
+    pub source: Dialect,
+    /// Target dialect.
+    pub target: Dialect,
+    /// Features with lossless mapping.
+    pub lossless: Vec<String>,
+    /// Features with lossy mapping: `(feature, warning)`.
+    pub lossy: Vec<(String, String)>,
+    /// Features that are explicitly unsupported.
+    pub unsupported: Vec<String>,
+    /// Features with no mapping rule at all.
+    pub unmapped: Vec<String>,
+}
+
+impl FidelityReport {
+    /// Returns the total number of features analyzed.
+    #[must_use]
+    pub fn total_features(&self) -> usize {
+        self.lossless.len() + self.lossy.len() + self.unsupported.len() + self.unmapped.len()
+    }
+
+    /// Returns `true` if all features are lossless.
+    #[must_use]
+    pub fn is_all_lossless(&self) -> bool {
+        self.lossy.is_empty() && self.unsupported.is_empty() && self.unmapped.is_empty()
+    }
+
+    /// Returns `true` if any features are unsupported or unmapped.
+    #[must_use]
+    pub fn has_blockers(&self) -> bool {
+        !self.unsupported.is_empty() || !self.unmapped.is_empty()
+    }
+}
+
+// ── Chain Validation ────────────────────────────────────────────────────
+
+/// Result of validating a mapping chain (e.g. A→B→C).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChainValidation {
+    /// The ordered chain of dialects.
+    pub chain: Vec<Dialect>,
+    /// Feature being validated.
+    pub feature: String,
+    /// Fidelity at each hop.
+    pub hops: Vec<Fidelity>,
+    /// Overall (worst-case) fidelity of the chain.
+    pub overall_fidelity: Fidelity,
+    /// Errors encountered along the chain.
+    pub errors: Vec<MappingError>,
+}
+
+// ── Token Usage ─────────────────────────────────────────────────────────
+
+/// Normalized token usage across dialects.
+///
+/// Different providers report token usage with varying field names and
+/// semantics. This struct provides a common representation.
+///
+/// # Examples
+///
+/// ```
+/// use abp_mapping::TokenUsage;
+/// use abp_dialect::Dialect;
+/// use std::collections::HashMap;
+///
+/// let mut fields = HashMap::new();
+/// fields.insert("prompt_tokens".into(), 100u64);
+/// fields.insert("completion_tokens".into(), 50);
+/// let usage = TokenUsage::normalize(Dialect::OpenAi, &fields);
+/// assert_eq!(usage.input_tokens, 100);
+/// assert_eq!(usage.output_tokens, 50);
+/// assert_eq!(usage.total_tokens, 150);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TokenUsage {
+    /// Input/prompt tokens.
+    pub input_tokens: u64,
+    /// Output/completion tokens.
+    pub output_tokens: u64,
+    /// Reasoning/thinking tokens (if reported).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_tokens: Option<u64>,
+    /// Cache read tokens (if reported).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read_tokens: Option<u64>,
+    /// Cache write/creation tokens (if reported).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_write_tokens: Option<u64>,
+    /// Total tokens.
+    pub total_tokens: u64,
+}
+
+impl TokenUsage {
+    /// Normalizes dialect-specific token usage fields into a common
+    /// representation.
+    ///
+    /// Recognized field names per dialect:
+    /// - **OpenAI**: `prompt_tokens`, `completion_tokens`,
+    ///   `reasoning_tokens`, `total_tokens`
+    /// - **Claude**: `input_tokens`, `output_tokens`,
+    ///   `cache_creation_input_tokens`, `cache_read_input_tokens`
+    /// - **Gemini**: `promptTokenCount`, `candidatesTokenCount`,
+    ///   `thoughtsTokenCount`, `totalTokenCount`
+    /// - **Others**: Falls back to OpenAI-style field names.
+    #[must_use]
+    pub fn normalize(dialect: Dialect, fields: &HashMap<String, u64>) -> Self {
+        let get = |k: &str| fields.get(k).copied();
+
+        let (input, output, reasoning, cache_read, cache_write) = match dialect {
+            Dialect::Claude => (
+                get("input_tokens").unwrap_or(0),
+                get("output_tokens").unwrap_or(0),
+                None,
+                get("cache_read_input_tokens"),
+                get("cache_creation_input_tokens"),
+            ),
+            Dialect::Gemini => (
+                get("promptTokenCount").unwrap_or(0),
+                get("candidatesTokenCount").unwrap_or(0),
+                get("thoughtsTokenCount"),
+                None,
+                None,
+            ),
+            // OpenAI, Codex, Kimi, Copilot all use OpenAI-style fields.
+            _ => (
+                get("prompt_tokens").unwrap_or(0),
+                get("completion_tokens").unwrap_or(0),
+                get("reasoning_tokens"),
+                get("cached_tokens"),
+                None,
+            ),
+        };
+
+        let total = get("total_tokens")
+            .or_else(|| get("totalTokenCount"))
+            .unwrap_or_else(|| input + output + reasoning.unwrap_or(0));
+
+        Self {
+            input_tokens: input,
+            output_tokens: output,
+            reasoning_tokens: reasoning,
+            cache_read_tokens: cache_read,
+            cache_write_tokens: cache_write,
+            total_tokens: total,
+        }
+    }
+}
+
+// ── Streaming Events ────────────────────────────────────────────────────
+
+/// Well-known streaming event kinds that require mapping between dialects.
+pub mod streaming_events {
+    /// Content text delta.
+    pub const CONTENT_DELTA: &str = "content_delta";
+    /// Tool/function call delta.
+    pub const TOOL_CALL_DELTA: &str = "tool_call_delta";
+    /// Thinking/reasoning delta.
+    pub const THINKING_DELTA: &str = "thinking_delta";
+    /// Message/response started.
+    pub const MESSAGE_START: &str = "message_start";
+    /// Message/response completed.
+    pub const MESSAGE_STOP: &str = "message_stop";
+    /// Stream error.
+    pub const ERROR: &str = "error";
+}
+
+/// A mapping rule for streaming events between dialects.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StreamingEventMapping {
+    /// Source dialect.
+    pub source_dialect: Dialect,
+    /// Target dialect.
+    pub target_dialect: Dialect,
+    /// Canonical event kind in the source dialect.
+    pub source_event: String,
+    /// Corresponding event kind in the target dialect.
+    pub target_event: String,
+    /// Fidelity of the event mapping.
+    pub fidelity: Fidelity,
+}
+
 // ── MappingRegistry ─────────────────────────────────────────────────────
 
 /// Key for registry lookups.
@@ -188,6 +445,8 @@ struct RuleKey {
 #[derive(Debug, Clone, Default)]
 pub struct MappingRegistry {
     rules: HashMap<RuleKey, MappingRule>,
+    metadata: HashMap<RuleKey, RuleMetadata>,
+    streaming: HashMap<RuleKey, StreamingEventMapping>,
 }
 
 impl MappingRegistry {
@@ -264,6 +523,258 @@ impl MappingRegistry {
         }
         results.sort_by_key(|b| std::cmp::Reverse(b.1));
         results
+    }
+
+    /// Attaches metadata to a rule identified by source, target, and feature.
+    pub fn set_metadata(
+        &mut self,
+        source: Dialect,
+        target: Dialect,
+        feature: &str,
+        meta: RuleMetadata,
+    ) {
+        let key = RuleKey {
+            source,
+            target,
+            feature: feature.to_owned(),
+        };
+        self.metadata.insert(key, meta);
+    }
+
+    /// Retrieves metadata for a rule.
+    #[must_use]
+    pub fn get_metadata(
+        &self,
+        source: Dialect,
+        target: Dialect,
+        feature: &str,
+    ) -> Option<&RuleMetadata> {
+        let key = RuleKey {
+            source,
+            target,
+            feature: feature.to_owned(),
+        };
+        self.metadata.get(&key)
+    }
+
+    /// Inserts a streaming event mapping.
+    pub fn insert_streaming_rule(&mut self, rule: StreamingEventMapping) {
+        let key = RuleKey {
+            source: rule.source_dialect,
+            target: rule.target_dialect,
+            feature: rule.source_event.clone(),
+        };
+        self.streaming.insert(key, rule);
+    }
+
+    /// Looks up a streaming event mapping by source dialect, target dialect,
+    /// and source event kind.
+    #[must_use]
+    pub fn lookup_streaming(
+        &self,
+        source: Dialect,
+        target: Dialect,
+        event: &str,
+    ) -> Option<&StreamingEventMapping> {
+        let key = RuleKey {
+            source,
+            target,
+            feature: event.to_owned(),
+        };
+        self.streaming.get(&key)
+    }
+
+    /// Validates that both directions of a mapping (A→B and B→A) exist and
+    /// reports any asymmetries.
+    #[must_use]
+    pub fn validate_bidirectional(
+        &self,
+        a: Dialect,
+        b: Dialect,
+        feature: &str,
+    ) -> BidirectionalReport {
+        let forward = self.lookup(a, b, feature).map(|r| r.fidelity.clone());
+        let reverse = self.lookup(b, a, feature).map(|r| r.fidelity.clone());
+        let is_symmetric = forward.is_some() && reverse.is_some();
+
+        let mut warnings = Vec::new();
+
+        if forward.is_none() && reverse.is_some() {
+            warnings.push(format!(
+                "missing {}->{} rule for `{feature}`, but {}->{} exists",
+                a.label(),
+                b.label(),
+                b.label(),
+                a.label(),
+            ));
+        } else if forward.is_some() && reverse.is_none() {
+            warnings.push(format!(
+                "missing {}->{} rule for `{feature}`, but {}->{} exists",
+                b.label(),
+                a.label(),
+                a.label(),
+                b.label(),
+            ));
+        }
+
+        if let (Some(f), Some(r)) = (&forward, &reverse) {
+            match (
+                f.is_lossless(),
+                r.is_lossless(),
+                f.is_unsupported(),
+                r.is_unsupported(),
+            ) {
+                (true, false, _, false) | (false, true, false, _) => {
+                    warnings.push(format!(
+                        "asymmetric fidelity for `{feature}`: {}->{} differs from {}->{}",
+                        a.label(),
+                        b.label(),
+                        b.label(),
+                        a.label(),
+                    ));
+                }
+                (_, _, true, false) | (_, _, false, true) => {
+                    warnings.push(format!(
+                        "asymmetric support for `{feature}`: one direction is unsupported"
+                    ));
+                }
+                _ => {}
+            }
+        }
+
+        BidirectionalReport {
+            dialect_a: a,
+            dialect_b: b,
+            feature: feature.to_owned(),
+            forward_fidelity: forward,
+            reverse_fidelity: reverse,
+            is_symmetric,
+            warnings,
+        }
+    }
+
+    /// Validates a mapping chain (e.g. A→B→C) for a feature and computes
+    /// the overall (worst-case) fidelity.
+    #[must_use]
+    pub fn validate_chain(&self, chain: &[Dialect], feature: &str) -> ChainValidation {
+        let mut hops = Vec::new();
+        let mut errors = Vec::new();
+        let mut worst = Fidelity::Lossless;
+
+        if chain.len() < 2 {
+            return ChainValidation {
+                chain: chain.to_vec(),
+                feature: feature.to_owned(),
+                hops,
+                overall_fidelity: Fidelity::Unsupported {
+                    reason: "chain must contain at least 2 dialects".into(),
+                },
+                errors: vec![MappingError::InvalidInput {
+                    reason: "chain must contain at least 2 dialects".into(),
+                }],
+            };
+        }
+
+        for window in chain.windows(2) {
+            let (src, tgt) = (window[0], window[1]);
+            match self.lookup(src, tgt, feature) {
+                Some(rule) => {
+                    let fidelity = rule.fidelity.clone();
+                    worst = worse_fidelity(&worst, &fidelity);
+                    if let Fidelity::LossyLabeled { ref warning } = fidelity {
+                        errors.push(MappingError::FidelityLoss {
+                            feature: feature.to_owned(),
+                            warning: format!("{}->{}: {warning}", src.label(), tgt.label()),
+                        });
+                    }
+                    if fidelity.is_unsupported() {
+                        errors.push(MappingError::FeatureUnsupported {
+                            feature: feature.to_owned(),
+                            from: src,
+                            to: tgt,
+                        });
+                    }
+                    hops.push(fidelity);
+                }
+                None => {
+                    let fid = Fidelity::Unsupported {
+                        reason: format!("no rule for {}->{}", src.label(), tgt.label()),
+                    };
+                    worst = worse_fidelity(&worst, &fid);
+                    errors.push(MappingError::FeatureUnsupported {
+                        feature: feature.to_owned(),
+                        from: src,
+                        to: tgt,
+                    });
+                    hops.push(fid);
+                }
+            }
+        }
+
+        ChainValidation {
+            chain: chain.to_vec(),
+            feature: feature.to_owned(),
+            hops,
+            overall_fidelity: worst,
+            errors,
+        }
+    }
+
+    /// Generates a fidelity report for a dialect pair across the given
+    /// features.
+    #[must_use]
+    pub fn fidelity_report(
+        &self,
+        source: Dialect,
+        target: Dialect,
+        features: &[&str],
+    ) -> FidelityReport {
+        let mut report = FidelityReport {
+            source,
+            target,
+            lossless: Vec::new(),
+            lossy: Vec::new(),
+            unsupported: Vec::new(),
+            unmapped: Vec::new(),
+        };
+
+        for &feat in features {
+            match self.lookup(source, target, feat) {
+                Some(rule) => match &rule.fidelity {
+                    Fidelity::Lossless => report.lossless.push(feat.to_owned()),
+                    Fidelity::LossyLabeled { warning } => {
+                        report.lossy.push((feat.to_owned(), warning.clone()));
+                    }
+                    Fidelity::Unsupported { .. } => {
+                        report.unsupported.push(feat.to_owned());
+                    }
+                },
+                None => report.unmapped.push(feat.to_owned()),
+            }
+        }
+
+        report
+    }
+}
+
+/// Returns the worse of two fidelity levels (unsupported > lossy > lossless).
+fn worse_fidelity(a: &Fidelity, b: &Fidelity) -> Fidelity {
+    match (a, b) {
+        (Fidelity::Unsupported { .. }, _) | (_, Fidelity::Unsupported { .. }) => {
+            if a.is_unsupported() {
+                a.clone()
+            } else {
+                b.clone()
+            }
+        }
+        (Fidelity::LossyLabeled { .. }, _) | (_, Fidelity::LossyLabeled { .. }) => {
+            if matches!(a, Fidelity::LossyLabeled { .. }) {
+                a.clone()
+            } else {
+                b.clone()
+            }
+        }
+        _ => Fidelity::Lossless,
     }
 }
 
@@ -1439,5 +1950,594 @@ mod tests {
         let json = serde_json::to_string(&v).unwrap();
         let v2: MappingValidation = serde_json::from_str(&json).unwrap();
         assert_eq!(v, v2);
+    }
+
+    // ── Bidirectional validation ────────────────────────────────────────
+
+    #[test]
+    fn bidirectional_symmetric_lossless() {
+        let reg = known_rules();
+        let report =
+            reg.validate_bidirectional(Dialect::OpenAi, Dialect::Claude, features::TOOL_USE);
+        assert!(report.is_symmetric);
+        assert!(report.forward_fidelity.as_ref().unwrap().is_lossless());
+        assert!(report.reverse_fidelity.as_ref().unwrap().is_lossless());
+        assert!(report.warnings.is_empty());
+    }
+
+    #[test]
+    fn bidirectional_asymmetric_fidelity() {
+        let mut reg = MappingRegistry::new();
+        reg.insert(MappingRule {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            feature: "test_feat".into(),
+            fidelity: Fidelity::Lossless,
+        });
+        reg.insert(MappingRule {
+            source_dialect: Dialect::Claude,
+            target_dialect: Dialect::OpenAi,
+            feature: "test_feat".into(),
+            fidelity: Fidelity::LossyLabeled {
+                warning: "lossy reverse".into(),
+            },
+        });
+        let report = reg.validate_bidirectional(Dialect::OpenAi, Dialect::Claude, "test_feat");
+        assert!(report.is_symmetric);
+        assert!(!report.warnings.is_empty());
+    }
+
+    #[test]
+    fn bidirectional_missing_reverse() {
+        let mut reg = MappingRegistry::new();
+        reg.insert(MappingRule {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            feature: "one_way".into(),
+            fidelity: Fidelity::Lossless,
+        });
+        let report = reg.validate_bidirectional(Dialect::OpenAi, Dialect::Claude, "one_way");
+        assert!(!report.is_symmetric);
+        assert!(report.forward_fidelity.is_some());
+        assert!(report.reverse_fidelity.is_none());
+        assert!(!report.warnings.is_empty());
+    }
+
+    #[test]
+    fn bidirectional_missing_forward() {
+        let mut reg = MappingRegistry::new();
+        reg.insert(MappingRule {
+            source_dialect: Dialect::Claude,
+            target_dialect: Dialect::OpenAi,
+            feature: "one_way".into(),
+            fidelity: Fidelity::Lossless,
+        });
+        let report = reg.validate_bidirectional(Dialect::OpenAi, Dialect::Claude, "one_way");
+        assert!(!report.is_symmetric);
+        assert!(report.forward_fidelity.is_none());
+        assert!(report.reverse_fidelity.is_some());
+        assert!(!report.warnings.is_empty());
+    }
+
+    #[test]
+    fn bidirectional_both_missing() {
+        let reg = MappingRegistry::new();
+        let report = reg.validate_bidirectional(Dialect::OpenAi, Dialect::Claude, "ghost");
+        assert!(!report.is_symmetric);
+        assert!(report.forward_fidelity.is_none());
+        assert!(report.reverse_fidelity.is_none());
+    }
+
+    #[test]
+    fn bidirectional_asymmetric_unsupported() {
+        let mut reg = MappingRegistry::new();
+        reg.insert(MappingRule {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Codex,
+            feature: "img".into(),
+            fidelity: Fidelity::Unsupported {
+                reason: "no images".into(),
+            },
+        });
+        reg.insert(MappingRule {
+            source_dialect: Dialect::Codex,
+            target_dialect: Dialect::OpenAi,
+            feature: "img".into(),
+            fidelity: Fidelity::Lossless,
+        });
+        let report = reg.validate_bidirectional(Dialect::OpenAi, Dialect::Codex, "img");
+        assert!(report.is_symmetric);
+        assert!(!report.warnings.is_empty());
+        assert!(
+            report.warnings[0].contains("asymmetric"),
+            "warning should mention asymmetry"
+        );
+    }
+
+    // ── Chain validation ────────────────────────────────────────────────
+
+    #[test]
+    fn chain_all_lossless() {
+        let reg = known_rules();
+        let result = reg.validate_chain(
+            &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini],
+            features::STREAMING,
+        );
+        assert!(result.overall_fidelity.is_lossless());
+        assert_eq!(result.hops.len(), 2);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn chain_with_lossy_hop() {
+        let reg = known_rules();
+        let result = reg.validate_chain(
+            &[Dialect::Claude, Dialect::OpenAi, Dialect::Gemini],
+            features::THINKING,
+        );
+        assert!(!result.overall_fidelity.is_lossless());
+        assert!(!result.errors.is_empty());
+    }
+
+    #[test]
+    fn chain_with_unsupported_hop() {
+        let reg = known_rules();
+        let result = reg.validate_chain(
+            &[Dialect::OpenAi, Dialect::Codex, Dialect::Claude],
+            features::IMAGE_INPUT,
+        );
+        assert!(result.overall_fidelity.is_unsupported());
+    }
+
+    #[test]
+    fn chain_too_short() {
+        let reg = known_rules();
+        let result = reg.validate_chain(&[Dialect::OpenAi], features::STREAMING);
+        assert!(result.overall_fidelity.is_unsupported());
+        assert!(!result.errors.is_empty());
+    }
+
+    #[test]
+    fn chain_four_hops() {
+        let reg = known_rules();
+        let result = reg.validate_chain(
+            &[
+                Dialect::OpenAi,
+                Dialect::Claude,
+                Dialect::Gemini,
+                Dialect::Codex,
+            ],
+            features::STREAMING,
+        );
+        assert!(result.overall_fidelity.is_lossless());
+        assert_eq!(result.hops.len(), 3);
+    }
+
+    #[test]
+    fn chain_lossy_then_unsupported() {
+        let reg = known_rules();
+        // thinking is lossy between Claude→OpenAI, and image_input is
+        // unsupported to Codex; use image_input for a mixed chain.
+        let result = reg.validate_chain(
+            &[Dialect::OpenAi, Dialect::Claude, Dialect::Codex],
+            features::IMAGE_INPUT,
+        );
+        assert!(result.overall_fidelity.is_unsupported());
+    }
+
+    // ── Token normalization ─────────────────────────────────────────────
+
+    #[test]
+    fn token_normalize_openai() {
+        let mut fields = HashMap::new();
+        fields.insert("prompt_tokens".into(), 100);
+        fields.insert("completion_tokens".into(), 50);
+        fields.insert("total_tokens".into(), 150);
+        let usage = TokenUsage::normalize(Dialect::OpenAi, &fields);
+        assert_eq!(usage.input_tokens, 100);
+        assert_eq!(usage.output_tokens, 50);
+        assert_eq!(usage.total_tokens, 150);
+    }
+
+    #[test]
+    fn token_normalize_openai_with_reasoning() {
+        let mut fields = HashMap::new();
+        fields.insert("prompt_tokens".into(), 100);
+        fields.insert("completion_tokens".into(), 50);
+        fields.insert("reasoning_tokens".into(), 30);
+        fields.insert("total_tokens".into(), 180);
+        let usage = TokenUsage::normalize(Dialect::OpenAi, &fields);
+        assert_eq!(usage.reasoning_tokens, Some(30));
+        assert_eq!(usage.total_tokens, 180);
+    }
+
+    #[test]
+    fn token_normalize_claude() {
+        let mut fields = HashMap::new();
+        fields.insert("input_tokens".into(), 200);
+        fields.insert("output_tokens".into(), 80);
+        fields.insert("cache_read_input_tokens".into(), 10);
+        let usage = TokenUsage::normalize(Dialect::Claude, &fields);
+        assert_eq!(usage.input_tokens, 200);
+        assert_eq!(usage.output_tokens, 80);
+        assert_eq!(usage.cache_read_tokens, Some(10));
+        assert_eq!(usage.total_tokens, 280);
+    }
+
+    #[test]
+    fn token_normalize_claude_with_cache_write() {
+        let mut fields = HashMap::new();
+        fields.insert("input_tokens".into(), 200);
+        fields.insert("output_tokens".into(), 80);
+        fields.insert("cache_creation_input_tokens".into(), 15);
+        let usage = TokenUsage::normalize(Dialect::Claude, &fields);
+        assert_eq!(usage.cache_write_tokens, Some(15));
+    }
+
+    #[test]
+    fn token_normalize_gemini() {
+        let mut fields = HashMap::new();
+        fields.insert("promptTokenCount".into(), 300);
+        fields.insert("candidatesTokenCount".into(), 120);
+        fields.insert("totalTokenCount".into(), 420);
+        let usage = TokenUsage::normalize(Dialect::Gemini, &fields);
+        assert_eq!(usage.input_tokens, 300);
+        assert_eq!(usage.output_tokens, 120);
+        assert_eq!(usage.total_tokens, 420);
+    }
+
+    #[test]
+    fn token_normalize_gemini_with_thoughts() {
+        let mut fields = HashMap::new();
+        fields.insert("promptTokenCount".into(), 300);
+        fields.insert("candidatesTokenCount".into(), 120);
+        fields.insert("thoughtsTokenCount".into(), 50);
+        let usage = TokenUsage::normalize(Dialect::Gemini, &fields);
+        assert_eq!(usage.reasoning_tokens, Some(50));
+        // total computed from input + output + reasoning
+        assert_eq!(usage.total_tokens, 470);
+    }
+
+    #[test]
+    fn token_normalize_empty_fields() {
+        let fields = HashMap::new();
+        let usage = TokenUsage::normalize(Dialect::OpenAi, &fields);
+        assert_eq!(usage.input_tokens, 0);
+        assert_eq!(usage.output_tokens, 0);
+        assert_eq!(usage.total_tokens, 0);
+    }
+
+    #[test]
+    fn token_normalize_codex_uses_openai_fields() {
+        let mut fields = HashMap::new();
+        fields.insert("prompt_tokens".into(), 50);
+        fields.insert("completion_tokens".into(), 25);
+        let usage = TokenUsage::normalize(Dialect::Codex, &fields);
+        assert_eq!(usage.input_tokens, 50);
+        assert_eq!(usage.output_tokens, 25);
+        assert_eq!(usage.total_tokens, 75);
+    }
+
+    // ── Fidelity report ─────────────────────────────────────────────────
+
+    #[test]
+    fn fidelity_report_mixed() {
+        let reg = known_rules();
+        let all_feats = [
+            features::TOOL_USE,
+            features::STREAMING,
+            features::THINKING,
+            features::IMAGE_INPUT,
+            features::CODE_EXEC,
+        ];
+        let report = reg.fidelity_report(Dialect::OpenAi, Dialect::Codex, &all_feats);
+        assert!(!report.lossless.is_empty() || !report.lossy.is_empty());
+        assert!(!report.unsupported.is_empty()); // image_input
+        assert_eq!(report.total_features(), all_feats.len());
+    }
+
+    #[test]
+    fn fidelity_report_all_lossless() {
+        let reg = known_rules();
+        let report = reg.fidelity_report(Dialect::OpenAi, Dialect::Claude, &[features::STREAMING]);
+        assert!(report.is_all_lossless());
+        assert!(!report.has_blockers());
+    }
+
+    #[test]
+    fn fidelity_report_has_blockers() {
+        let reg = known_rules();
+        let report = reg.fidelity_report(Dialect::OpenAi, Dialect::Codex, &[features::IMAGE_INPUT]);
+        assert!(report.has_blockers());
+    }
+
+    #[test]
+    fn fidelity_report_unmapped() {
+        let reg = MappingRegistry::new();
+        let report = reg.fidelity_report(Dialect::OpenAi, Dialect::Claude, &["unknown_feat"]);
+        assert_eq!(report.unmapped.len(), 1);
+        assert!(report.has_blockers());
+    }
+
+    #[test]
+    fn fidelity_report_total_features() {
+        let reg = known_rules();
+        let feats = [features::TOOL_USE, features::STREAMING];
+        let report = reg.fidelity_report(Dialect::OpenAi, Dialect::Claude, &feats);
+        assert_eq!(report.total_features(), 2);
+    }
+
+    // ── Streaming event mapping ─────────────────────────────────────────
+
+    #[test]
+    fn streaming_rule_insert_lookup() {
+        let mut reg = MappingRegistry::new();
+        reg.insert_streaming_rule(StreamingEventMapping {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            source_event: streaming_events::CONTENT_DELTA.into(),
+            target_event: "content_block_delta".into(),
+            fidelity: Fidelity::Lossless,
+        });
+        let rule = reg.lookup_streaming(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            streaming_events::CONTENT_DELTA,
+        );
+        assert!(rule.is_some());
+        assert_eq!(rule.unwrap().target_event, "content_block_delta");
+    }
+
+    #[test]
+    fn streaming_rule_miss() {
+        let reg = MappingRegistry::new();
+        assert!(
+            reg.lookup_streaming(Dialect::OpenAi, Dialect::Claude, "nonexistent")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn streaming_multiple_events() {
+        let mut reg = MappingRegistry::new();
+        reg.insert_streaming_rule(StreamingEventMapping {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            source_event: streaming_events::CONTENT_DELTA.into(),
+            target_event: "content_block_delta".into(),
+            fidelity: Fidelity::Lossless,
+        });
+        reg.insert_streaming_rule(StreamingEventMapping {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            source_event: streaming_events::TOOL_CALL_DELTA.into(),
+            target_event: "input_json_delta".into(),
+            fidelity: Fidelity::LossyLabeled {
+                warning: "schema differs".into(),
+            },
+        });
+        assert!(
+            reg.lookup_streaming(
+                Dialect::OpenAi,
+                Dialect::Claude,
+                streaming_events::CONTENT_DELTA,
+            )
+            .is_some()
+        );
+        assert!(
+            reg.lookup_streaming(
+                Dialect::OpenAi,
+                Dialect::Claude,
+                streaming_events::TOOL_CALL_DELTA,
+            )
+            .is_some()
+        );
+    }
+
+    #[test]
+    fn streaming_event_fidelity() {
+        let mut reg = MappingRegistry::new();
+        reg.insert_streaming_rule(StreamingEventMapping {
+            source_dialect: Dialect::Claude,
+            target_dialect: Dialect::OpenAi,
+            source_event: streaming_events::THINKING_DELTA.into(),
+            target_event: "reasoning_delta".into(),
+            fidelity: Fidelity::LossyLabeled {
+                warning: "no native thinking block in OpenAI".into(),
+            },
+        });
+        let rule = reg
+            .lookup_streaming(
+                Dialect::Claude,
+                Dialect::OpenAi,
+                streaming_events::THINKING_DELTA,
+            )
+            .unwrap();
+        assert!(!rule.fidelity.is_lossless());
+    }
+
+    // ── Rule metadata ───────────────────────────────────────────────────
+
+    #[test]
+    fn metadata_set_and_get() {
+        let mut reg = MappingRegistry::new();
+        reg.insert(MappingRule {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            feature: "tool_use".into(),
+            fidelity: Fidelity::Lossless,
+        });
+        reg.set_metadata(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            "tool_use",
+            RuleMetadata::new("Maps function_call to tool_use blocks")
+                .with_version("0.1.0")
+                .with_note("Schema differences are normalized"),
+        );
+        let meta = reg
+            .get_metadata(Dialect::OpenAi, Dialect::Claude, "tool_use")
+            .unwrap();
+        assert_eq!(meta.description, "Maps function_call to tool_use blocks");
+        assert_eq!(meta.since_version.as_deref(), Some("0.1.0"));
+        assert_eq!(meta.notes.len(), 1);
+    }
+
+    #[test]
+    fn metadata_miss() {
+        let reg = MappingRegistry::new();
+        assert!(
+            reg.get_metadata(Dialect::OpenAi, Dialect::Claude, "tool_use")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn metadata_builder_chain() {
+        let meta = RuleMetadata::new("desc")
+            .with_version("1.0")
+            .with_note("note1")
+            .with_note("note2");
+        assert_eq!(meta.description, "desc");
+        assert_eq!(meta.since_version.as_deref(), Some("1.0"));
+        assert_eq!(meta.notes.len(), 2);
+    }
+
+    #[test]
+    fn metadata_serde_roundtrip() {
+        let meta = RuleMetadata::new("test desc")
+            .with_version("0.1.0")
+            .with_note("important");
+        let json = serde_json::to_string(&meta).unwrap();
+        let meta2: RuleMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(meta, meta2);
+    }
+
+    // ── worse_fidelity helper ───────────────────────────────────────────
+
+    #[test]
+    fn worse_fidelity_both_lossless() {
+        assert_eq!(
+            worse_fidelity(&Fidelity::Lossless, &Fidelity::Lossless),
+            Fidelity::Lossless
+        );
+    }
+
+    #[test]
+    fn worse_fidelity_lossy_wins() {
+        let lossy = Fidelity::LossyLabeled {
+            warning: "w".into(),
+        };
+        assert!(!worse_fidelity(&Fidelity::Lossless, &lossy).is_lossless());
+        assert!(!worse_fidelity(&lossy, &Fidelity::Lossless).is_lossless());
+    }
+
+    #[test]
+    fn worse_fidelity_unsupported_wins() {
+        let unsup = Fidelity::Unsupported { reason: "r".into() };
+        let lossy = Fidelity::LossyLabeled {
+            warning: "w".into(),
+        };
+        assert!(worse_fidelity(&lossy, &unsup).is_unsupported());
+        assert!(worse_fidelity(&unsup, &Fidelity::Lossless).is_unsupported());
+    }
+
+    // ── Token usage serde ───────────────────────────────────────────────
+
+    #[test]
+    fn token_usage_serde_roundtrip() {
+        let usage = TokenUsage {
+            input_tokens: 100,
+            output_tokens: 50,
+            reasoning_tokens: Some(20),
+            cache_read_tokens: None,
+            cache_write_tokens: None,
+            total_tokens: 170,
+        };
+        let json = serde_json::to_string(&usage).unwrap();
+        let usage2: TokenUsage = serde_json::from_str(&json).unwrap();
+        assert_eq!(usage, usage2);
+    }
+
+    #[test]
+    fn token_usage_serde_omits_none() {
+        let usage = TokenUsage {
+            input_tokens: 10,
+            output_tokens: 5,
+            reasoning_tokens: None,
+            cache_read_tokens: None,
+            cache_write_tokens: None,
+            total_tokens: 15,
+        };
+        let json = serde_json::to_string(&usage).unwrap();
+        assert!(!json.contains("reasoning_tokens"));
+        assert!(!json.contains("cache_read_tokens"));
+    }
+
+    // ── Streaming event mapping serde ───────────────────────────────────
+
+    #[test]
+    fn streaming_event_mapping_serde_roundtrip() {
+        let mapping = StreamingEventMapping {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            source_event: "content_delta".into(),
+            target_event: "content_block_delta".into(),
+            fidelity: Fidelity::Lossless,
+        };
+        let json = serde_json::to_string(&mapping).unwrap();
+        let mapping2: StreamingEventMapping = serde_json::from_str(&json).unwrap();
+        assert_eq!(mapping, mapping2);
+    }
+
+    // ── BidirectionalReport serde ───────────────────────────────────────
+
+    #[test]
+    fn bidirectional_report_serde_roundtrip() {
+        let report = BidirectionalReport {
+            dialect_a: Dialect::OpenAi,
+            dialect_b: Dialect::Claude,
+            feature: "tool_use".into(),
+            forward_fidelity: Some(Fidelity::Lossless),
+            reverse_fidelity: Some(Fidelity::Lossless),
+            is_symmetric: true,
+            warnings: vec![],
+        };
+        let json = serde_json::to_string(&report).unwrap();
+        let report2: BidirectionalReport = serde_json::from_str(&json).unwrap();
+        assert_eq!(report, report2);
+    }
+
+    // ── ChainValidation serde ───────────────────────────────────────────
+
+    #[test]
+    fn chain_validation_serde_roundtrip() {
+        let cv = ChainValidation {
+            chain: vec![Dialect::OpenAi, Dialect::Claude],
+            feature: "streaming".into(),
+            hops: vec![Fidelity::Lossless],
+            overall_fidelity: Fidelity::Lossless,
+            errors: vec![],
+        };
+        let json = serde_json::to_string(&cv).unwrap();
+        let cv2: ChainValidation = serde_json::from_str(&json).unwrap();
+        assert_eq!(cv, cv2);
+    }
+
+    // ── FidelityReport serde ────────────────────────────────────────────
+
+    #[test]
+    fn fidelity_report_serde_roundtrip() {
+        let fr = FidelityReport {
+            source: Dialect::OpenAi,
+            target: Dialect::Claude,
+            lossless: vec!["streaming".into()],
+            lossy: vec![("thinking".into(), "mapped to system".into())],
+            unsupported: vec![],
+            unmapped: vec![],
+        };
+        let json = serde_json::to_string(&fr).unwrap();
+        let fr2: FidelityReport = serde_json::from_str(&json).unwrap();
+        assert_eq!(fr, fr2);
     }
 }
