@@ -91,6 +91,7 @@ else exists to faithfully translate SDK semantics into that contract and back ou
                                           │   hosts/node  hosts/claude       │
                                           │   hosts/python hosts/gemini      │
                                           │   hosts/copilot hosts/kimi       │
+                                          │   hosts/codex                    │
                                           └──────────────────────────────────┘
 ```
 
@@ -108,9 +109,10 @@ abp-glob ──────────┐
 abp-core ──────────┤                         │
   │   │            └── abp-workspace ────────┤
   │   │                      │               │
+  │   ├── abp-ir ─── abp-mapper             │
   │   ├── abp-dialect ─── abp-mapping        │
   │   │                                      │
-  │   ├── abp-error                          │
+  │   ├── abp-error ─── abp-error-taxonomy   │
   │   │                                      │
   │   ├── abp-capability ─── abp-projection  │
   │   │                                      │
@@ -120,7 +122,9 @@ abp-core ──────────┤                         │
   │   │     │                                │
   │   │     └── abp-telemetry                │
   │   │                                      │
-  │   └── abp-config                         │
+  │   ├── abp-config                         │
+  │   │                                      │
+  │   └── abp-sdk-types                      │
   │                                          │
 abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
   │                  │              │                abp-backend-sidecar
@@ -128,10 +132,12 @@ abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend
   │                  │         abp-integrations ─── abp-runtime ─── abp-cli
   │             claude-bridge                           │             │
   │                                                 abp-stream   abp-daemon
-  └── abp-sidecar-proto
+  ├── abp-sidecar-proto
+  └── abp-sidecar-utils
 
 SDK shims (drop-in client replacements):
-  abp-shim-openai, abp-shim-claude, abp-shim-gemini
+  abp-shim-openai, abp-shim-claude, abp-shim-gemini,
+  abp-shim-codex,  abp-shim-kimi,   abp-shim-copilot
 
 Supporting crates:
   abp-git           Standalone git helpers (init, status, diff)
@@ -268,12 +274,50 @@ enum (`OpenAi`, `Claude`, `Gemini`, `Codex`, `Kimi`, `Copilot`) and provides:
 - `DialectValidator`: validates a JSON value conforms to a specific dialect.
 - `Dialect::label()`, `Dialect::all()` for iteration and display.
 
+### abp-ir — Intermediate Representation
+
+Re-exports the core IR types from `abp_core::ir` and adds normalization passes
+and vendor-specific lowering functions:
+
+- `normalize` module: dedup system messages, trim text, merge adjacent blocks,
+  strip metadata, extract system prompts.
+- `lower` module: lowering functions that transform normalized IR into
+  vendor-specific request formats (OpenAI, Claude, Gemini, and others).
+
+### abp-mapper — Dialect Mapping Engine
+
+Concrete cross-dialect translation at both JSON and IR levels:
+
+- **JSON-level mappers**: `IdentityMapper`, `OpenAiToClaudeMapper`,
+  `ClaudeToOpenAiMapper`, `OpenAiToGeminiMapper`, `GeminiToOpenAiMapper`.
+- **IR-level mappers**: `IrMapper` trait with implementations for all dialect
+  pairs (`OpenAiClaudeIrMapper`, `OpenAiGeminiIrMapper`, `ClaudeGeminiIrMapper`,
+  `OpenAiCodexIrMapper`, `OpenAiKimiIrMapper`, `ClaudeKimiIrMapper`,
+  `OpenAiCopilotIrMapper`, `GeminiKimiIrMapper`, `CodexClaudeIrMapper`).
+- `default_ir_mapper()`: factory that resolves the correct mapper for a dialect
+  pair.
+
+### abp-sdk-types — SDK Dialect Type Definitions
+
+Pure data model crate defining vendor-specific request/response types with no
+networking logic. Provides modules for each vendor (`claude`, `codex`, `copilot`,
+`gemini`, `kimi`, `openai`) plus shared `common` and `convert` utilities.
+
 ### abp-error — Unified Error Taxonomy
 
 Stable, machine-readable error codes for all ABP errors. Every error carries
 an `ErrorCode` (SCREAMING_SNAKE_CASE string tag), a human-readable message,
 optional cause chain, and structured context. 20 error codes across 10
 categories. See [error_codes.md](error_codes.md) for the full reference.
+
+### abp-error-taxonomy — Error Classification Helpers
+
+Re-exports and extends the error taxonomy from `abp-error` with classification,
+severity, and recovery suggestion types:
+
+- `ErrorClassifier`: classifies errors by code into categories.
+- `ErrorSeverity`: severity levels for error triage.
+- `RecoveryAction` / `RecoverySuggestion`: machine-readable recovery guidance.
 
 ### abp-mapping — Cross-Dialect Mapping Validation
 
@@ -378,16 +422,29 @@ Sidecar-side utilities for implementing services that speak ABP's JSONL
 protocol. Complements the host-side `abp-host` and `sidecar-kit` crates by
 providing helpers for the sidecar process itself.
 
+### abp-sidecar-utils — Reusable Protocol Utilities
+
+Higher-level reusable utilities for sidecar protocol implementations:
+
+- `StreamingCodec`: JSONL codec with chunked reading support.
+- `HandshakeManager`: async hello handshake with configurable timeout.
+- `EventStreamProcessor`: event validation and processing.
+- `ProtocolHealth`: heartbeat monitoring and graceful shutdown.
+
 ### SDK Shims
 
 Drop-in SDK client replacements that transparently route through ABP:
 
-- `abp-shim-openai` — OpenAI SDK shim
+- `abp-shim-openai` — OpenAI Chat Completions SDK shim
 - `abp-shim-claude` — Anthropic Claude SDK shim
 - `abp-shim-gemini` — Gemini SDK shim
+- `abp-shim-codex` — OpenAI Codex SDK shim
+- `abp-shim-kimi` — Kimi (Moonshot) SDK shim
+- `abp-shim-copilot` — GitHub Copilot SDK shim
 
 These shims allow existing code that uses vendor SDKs to route through ABP's
-intermediate representation without code changes.
+intermediate representation without code changes. Each provides `convert`
+and `types` modules mirroring the vendor's API surface.
 
 ### abp-runtime — Orchestration
 
