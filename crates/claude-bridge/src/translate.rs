@@ -13,9 +13,13 @@ mod inner {
 
     use crate::claude_types::{
         ApiError, ContentBlock, ImageSource, Message, MessageContent, MessagesRequest,
-        MessagesResponse, Role, StreamDelta, StreamEvent, SystemMessage, ToolDefinition, Usage,
+        MessagesResponse, Role, StreamDelta, StreamEvent, SystemMessage, ThinkingConfig,
+        ToolChoice, ToolDefinition, Usage,
     };
     use crate::error::BridgeError;
+    use crate::thinking::ThinkingBlock;
+    use crate::tool_use::{CachedToolDefinition, RichToolResult, ToolResultContent};
+    use crate::vision::ImageMediaType;
 
     // ── Role mapping ────────────────────────────────────────────────────
 
@@ -122,6 +126,116 @@ mod inner {
                 },
             },
         }
+    }
+
+    // ── Rich tool result → IR ───────────────────────────────────────────
+
+    /// Convert a [`RichToolResult`] to an IR [`IrContentBlock::ToolResult`].
+    ///
+    /// Image parts inside the rich result are converted to IR image blocks
+    /// nested within the tool result.
+    pub fn rich_tool_result_to_ir(result: &RichToolResult) -> IrContentBlock {
+        let nested: Vec<IrContentBlock> = result
+            .content
+            .iter()
+            .map(|part| match part {
+                ToolResultContent::Text { text } => IrContentBlock::Text { text: text.clone() },
+                ToolResultContent::Image { source } => match source {
+                    ImageSource::Base64 { media_type, data } => IrContentBlock::Image {
+                        media_type: media_type.clone(),
+                        data: data.clone(),
+                    },
+                    ImageSource::Url { url } => IrContentBlock::Text {
+                        text: format!("[image: {url}]"),
+                    },
+                },
+            })
+            .collect();
+        IrContentBlock::ToolResult {
+            tool_use_id: result.tool_use_id.clone(),
+            content: nested,
+            is_error: result.is_error.unwrap_or(false),
+        }
+    }
+
+    // ── ThinkingBlock → IR ──────────────────────────────────────────────
+
+    /// Convert a [`ThinkingBlock`] to an IR [`IrContentBlock::Thinking`].
+    ///
+    /// The signature is deliberately dropped — it is Claude-specific and
+    /// not meaningful in the cross-dialect IR.
+    pub fn thinking_block_to_ir(block: &ThinkingBlock) -> IrContentBlock {
+        IrContentBlock::Thinking {
+            text: block.thinking.clone(),
+        }
+    }
+
+    /// Convert an IR [`IrContentBlock::Thinking`] to a [`ThinkingBlock`].
+    ///
+    /// The resulting block has no signature since the IR doesn't carry one.
+    pub fn thinking_block_from_ir(block: &IrContentBlock) -> Option<ThinkingBlock> {
+        match block {
+            IrContentBlock::Thinking { text } => Some(ThinkingBlock::new(text.clone())),
+            _ => None,
+        }
+    }
+
+    // ── CachedToolDefinition → IR ───────────────────────────────────────
+
+    /// Convert a [`CachedToolDefinition`] to an IR [`IrToolDefinition`].
+    ///
+    /// Cache-control metadata is dropped (not part of the IR).
+    pub fn cached_tool_def_to_ir(tool: &CachedToolDefinition) -> IrToolDefinition {
+        IrToolDefinition {
+            name: tool.name.clone(),
+            description: tool.description.clone(),
+            parameters: tool.input_schema.clone(),
+        }
+    }
+
+    /// Convert an IR [`IrToolDefinition`] to a [`CachedToolDefinition`]
+    /// with no cache control.
+    pub fn cached_tool_def_from_ir(tool: &IrToolDefinition) -> CachedToolDefinition {
+        CachedToolDefinition {
+            name: tool.name.clone(),
+            description: tool.description.clone(),
+            input_schema: tool.parameters.clone(),
+            cache_control: None,
+        }
+    }
+
+    // ── ImageMediaType → IR ─────────────────────────────────────────────
+
+    /// Build an IR image block from a typed [`ImageMediaType`] and base64 data.
+    pub fn typed_image_to_ir(media_type: ImageMediaType, data: &str) -> IrContentBlock {
+        IrContentBlock::Image {
+            media_type: media_type.as_str().to_string(),
+            data: data.to_string(),
+        }
+    }
+
+    // ── ToolChoice → IR metadata ────────────────────────────────────────
+
+    /// Convert a [`ToolChoice`] to a JSON value for stashing in IR metadata.
+    pub fn tool_choice_to_value(choice: &ToolChoice) -> serde_json::Value {
+        serde_json::to_value(choice).unwrap_or(serde_json::Value::Null)
+    }
+
+    /// Attempt to recover a [`ToolChoice`] from a JSON value.
+    pub fn tool_choice_from_value(value: &serde_json::Value) -> Option<ToolChoice> {
+        serde_json::from_value(value.clone()).ok()
+    }
+
+    // ── ThinkingConfig → IR metadata ────────────────────────────────────
+
+    /// Convert a [`ThinkingConfig`] to a JSON value for stashing in IR metadata.
+    pub fn thinking_config_to_value(config: &ThinkingConfig) -> serde_json::Value {
+        serde_json::to_value(config).unwrap_or(serde_json::Value::Null)
+    }
+
+    /// Attempt to recover a [`ThinkingConfig`] from a JSON value.
+    pub fn thinking_config_from_value(value: &serde_json::Value) -> Option<ThinkingConfig> {
+        serde_json::from_value(value.clone()).ok()
     }
 
     // ── Message mapping ─────────────────────────────────────────────────
