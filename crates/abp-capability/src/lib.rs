@@ -11,6 +11,8 @@
 //! It also provides a [`CapabilityRegistry`] that stores manifests for known
 //! dialects/backends and pre-populated manifests for common models.
 
+pub mod negotiate;
+
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirements, SupportLevel as CoreSupportLevel,
 };

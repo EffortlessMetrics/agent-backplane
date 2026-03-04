@@ -16,11 +16,14 @@ pub mod serde_formats;
 /// Pluggable receipt storage with an in-memory implementation.
 pub mod store;
 mod validate;
+/// Receipt verification and batch auditing utilities.
+pub mod verify;
 
 pub use builder::ReceiptBuilder;
 pub use chain::{ChainError, ReceiptChain};
 pub use diff::{FieldDiff, ReceiptDiff, diff_receipts};
 pub use validate::{ReceiptValidator, ValidationError};
+pub use verify::{AuditIssue, AuditReport, ReceiptAuditor, VerificationResult, verify_receipt};
 
 // Re-export core receipt types so consumers can depend on abp-receipt alone.
 pub use abp_core::{

@@ -161,9 +161,10 @@ fn jitter(attempt: u32) -> f64 {
 ///
 /// Call [`next_backend`](Self::next_backend) to advance through the chain. Once all backends
 /// have been consumed the iterator yields `None`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FallbackChain {
     backends: Vec<String>,
+    #[serde(skip, default)]
     index: usize,
 }
 

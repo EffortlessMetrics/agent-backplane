@@ -8,10 +8,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
+pub mod aggregate;
 pub mod buffer;
 pub mod metrics;
 pub mod tee;
 
+pub use aggregate::{StreamAggregator, StreamSummary, ToolCallAggregate};
 pub use buffer::StreamBuffer;
 pub use metrics::{MetricsSummary, StreamMetrics};
 pub use tee::{StreamTee, TeeError};

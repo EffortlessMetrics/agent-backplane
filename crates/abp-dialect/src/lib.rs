@@ -23,6 +23,10 @@ pub mod detect;
 /// that serve as the lingua franca between vendor-specific formats.
 pub mod ir;
 
+/// Enhanced request/response validation with severity levels and
+/// machine-readable issue codes.
+pub mod validate;
+
 /// Dialect registry for parser/serializer lookup.
 ///
 /// Stores `DialectEntry` records — one per registered dialect — each

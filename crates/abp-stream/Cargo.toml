@@ -13,6 +13,7 @@ categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core", version = "0.1.0" }
+serde = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]

@@ -441,6 +441,7 @@ dependencies = [
 name = "abp-runtime"
 version = "0.1.0"
 dependencies = [
+ "abp-backend-core",
  "abp-capability",
  "abp-core",
  "abp-dialect",
@@ -587,10 +588,17 @@ dependencies = [
 name = "abp-sidecar-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-core",
+ "abp-error",
  "abp-host",
  "abp-integrations",
+ "abp-protocol",
  "abp-runtime",
  "anyhow",
+ "chrono",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -613,6 +621,7 @@ version = "0.1.0"
 dependencies = [
  "abp-core",
  "chrono",
+ "serde",
  "serde_json",
  "tokio",
 ]
