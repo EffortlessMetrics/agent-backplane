@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(dead_code, unused_imports)]
 //! Pre-execution capability negotiation with policy-based enforcement.
 //!
 //! This module provides [`pre_negotiate`] to validate backend support before
 //! running a work order, and [`apply_policy`] to enforce a [`NegotiationPolicy`]
 //! against the negotiation result.
+//!
+//! It also provides [`negotiate`] for detailed negotiation with
+//! [`NegotiationReport`] output, and [`EmulationPlan`] describing how each
+//! emulated capability would be fulfilled.
 
-use crate::{NegotiationResult, negotiate_capabilities};
-use abp_core::{Capability, CapabilityManifest};
+use crate::{
+    default_emulation_strategy, check_capability, negotiate_capabilities,
+    EmulationStrategy, NegotiationResult, SupportLevel,
+};
+use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -179,6 +187,166 @@ pub fn apply_policy(
             }
         }
         NegotiationPolicy::Permissive => Ok(()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// NegotiationReport: detailed negotiation output
+// ---------------------------------------------------------------------------
+
+/// A single emulation plan entry describing how a capability will be emulated.
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::negotiate::EmulationPlanEntry;
+/// use abp_capability::EmulationStrategy;
+/// use abp_core::Capability;
+///
+/// let entry = EmulationPlanEntry {
+///     capability: Capability::ToolUse,
+///     strategy: EmulationStrategy::ServerFallback,
+///     detail: "via function calling API".into(),
+/// };
+/// assert_eq!(entry.capability, Capability::ToolUse);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EmulationPlanEntry {
+    /// The capability being emulated.
+    pub capability: Capability,
+    /// The strategy used for emulation.
+    pub strategy: EmulationStrategy,
+    /// Human-readable detail of how emulation works.
+    pub detail: String,
+}
+
+impl fmt::Display for EmulationPlanEntry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}: {} ({})", self.capability, self.strategy, self.detail)
+    }
+}
+
+/// Comprehensive negotiation report with full detail of outcomes.
+///
+/// Categorizes every required capability as met (natively satisfied),
+/// emulated (can approximate), or missing (unsupported).
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::negotiate::negotiate;
+/// use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
+///
+/// let mut manifest = CapabilityManifest::new();
+/// manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
+/// manifest.insert(Capability::ToolUse, CoreSupportLevel::Emulated);
+///
+/// let report = negotiate(
+///     &[Capability::Streaming, Capability::ToolUse, Capability::Vision],
+///     &manifest,
+/// );
+/// assert_eq!(report.met.len(), 1);
+/// assert_eq!(report.emulated.len(), 1);
+/// assert_eq!(report.missing.len(), 1);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NegotiationReport {
+    /// Capabilities that are natively satisfied by the backend.
+    pub met: Vec<Capability>,
+    /// Capabilities that can be emulated/approximated, with strategy.
+    pub emulated: Vec<EmulationPlanEntry>,
+    /// Capabilities that are unsupported and cannot be fulfilled.
+    pub missing: Vec<(Capability, String)>,
+}
+
+impl NegotiationReport {
+    /// Returns `true` if all required capabilities are met or emulated.
+    #[must_use]
+    pub fn is_fully_met(&self) -> bool {
+        self.missing.is_empty()
+    }
+
+    /// Returns `true` if any capabilities are missing.
+    #[must_use]
+    pub fn has_missing(&self) -> bool {
+        !self.missing.is_empty()
+    }
+
+    /// Total number of capabilities evaluated.
+    #[must_use]
+    pub fn total(&self) -> usize {
+        self.met.len() + self.emulated.len() + self.missing.len()
+    }
+}
+
+impl fmt::Display for NegotiationReport {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} met, {} emulated, {} missing",
+            self.met.len(),
+            self.emulated.len(),
+            self.missing.len(),
+        )
+    }
+}
+
+/// Negotiate required capabilities against a backend manifest, producing
+/// a detailed [`NegotiationReport`].
+///
+/// Each capability is classified as met (natively supported), emulated
+/// (with an [`EmulationPlanEntry`] describing the strategy), or missing.
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::negotiate::negotiate;
+/// use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
+///
+/// let mut manifest = CapabilityManifest::new();
+/// manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
+///
+/// let report = negotiate(&[Capability::Streaming], &manifest);
+/// assert!(report.is_fully_met());
+/// assert_eq!(report.met, vec![Capability::Streaming]);
+/// ```
+#[must_use]
+pub fn negotiate(required: &[Capability], manifest: &CapabilityManifest) -> NegotiationReport {
+    let mut met = Vec::new();
+    let mut emulated = Vec::new();
+    let mut missing = Vec::new();
+
+    for cap in required {
+        match check_capability(manifest, cap) {
+            SupportLevel::Native => {
+                met.push(cap.clone());
+            }
+            SupportLevel::Emulated { method } => {
+                let strategy = default_emulation_strategy(cap);
+                emulated.push(EmulationPlanEntry {
+                    capability: cap.clone(),
+                    strategy,
+                    detail: method,
+                });
+            }
+            SupportLevel::Restricted { reason } => {
+                let strategy = default_emulation_strategy(cap);
+                emulated.push(EmulationPlanEntry {
+                    capability: cap.clone(),
+                    strategy,
+                    detail: format!("restricted: {reason}"),
+                });
+            }
+            SupportLevel::Unsupported { reason } => {
+                missing.push((cap.clone(), reason));
+            }
+        }
+    }
+
+    NegotiationReport {
+        met,
+        emulated,
+        missing,
     }
 }
 
@@ -404,5 +572,147 @@ mod tests {
         let json = serde_json::to_string(&policy).unwrap();
         let parsed: NegotiationPolicy = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, policy);
+    }
+
+    // ---- NegotiationReport -----------------------------------------------
+
+    #[test]
+    fn negotiate_report_all_met() {
+        let mut manifest = CapabilityManifest::new();
+        manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
+        manifest.insert(Capability::ToolUse, CoreSupportLevel::Native);
+
+        let report =
+            negotiate(&[Capability::Streaming, Capability::ToolUse], &manifest);
+        assert_eq!(report.met.len(), 2);
+        assert!(report.emulated.is_empty());
+        assert!(report.missing.is_empty());
+        assert!(report.is_fully_met());
+        assert!(!report.has_missing());
+    }
+
+    #[test]
+    fn negotiate_report_partial() {
+        let mut manifest = CapabilityManifest::new();
+        manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
+        manifest.insert(Capability::ToolUse, CoreSupportLevel::Emulated);
+
+        let report = negotiate(
+            &[Capability::Streaming, Capability::ToolUse, Capability::Vision],
+            &manifest,
+        );
+        assert_eq!(report.met.len(), 1);
+        assert_eq!(report.emulated.len(), 1);
+        assert_eq!(report.missing.len(), 1);
+        assert!(!report.is_fully_met());
+        assert!(report.has_missing());
+    }
+
+    #[test]
+    fn negotiate_report_all_missing() {
+        let manifest = CapabilityManifest::new();
+        let report = negotiate(
+            &[Capability::Streaming, Capability::Vision],
+            &manifest,
+        );
+        assert!(report.met.is_empty());
+        assert!(report.emulated.is_empty());
+        assert_eq!(report.missing.len(), 2);
+        assert!(report.has_missing());
+    }
+
+    #[test]
+    fn negotiate_report_empty_requirements() {
+        let mut manifest = CapabilityManifest::new();
+        manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
+        let report = negotiate(&[], &manifest);
+        assert!(report.is_fully_met());
+        assert!(!report.has_missing());
+        assert!(report.met.is_empty());
+    }
+
+    #[test]
+    fn negotiate_report_display() {
+        let mut manifest = CapabilityManifest::new();
+        manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
+        let report = negotiate(
+            &[Capability::Streaming, Capability::Vision],
+            &manifest,
+        );
+        let s = format!("{report}");
+        assert!(s.contains("1 met"));
+        assert!(s.contains("1 missing"));
+    }
+
+    #[test]
+    fn negotiate_report_serde_roundtrip() {
+        let mut manifest = CapabilityManifest::new();
+        manifest.insert(Capability::Streaming, CoreSupportLevel::Native);
+        manifest.insert(Capability::ToolUse, CoreSupportLevel::Emulated);
+        let report = negotiate(
+            &[Capability::Streaming, Capability::ToolUse, Capability::Vision],
+            &manifest,
+        );
+        let json = serde_json::to_string(&report).unwrap();
+        let back: NegotiationReport = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.met.len(), 1);
+        assert_eq!(back.emulated.len(), 1);
+        assert_eq!(back.missing.len(), 1);
+    }
+
+    #[test]
+    fn emulation_plan_entry_display() {
+        let entry = EmulationPlanEntry {
+            capability: Capability::ToolUse,
+            strategy: EmulationStrategy::ServerFallback,
+            detail: "via function calling".into(),
+        };
+        let s = format!("{entry}");
+        assert!(s.contains("ToolUse"));
+        assert!(s.contains("server fallback"));
+    }
+
+    #[test]
+    fn negotiate_report_emulated_strategy_selection() {
+        let mut manifest = CapabilityManifest::new();
+        manifest.insert(Capability::ToolRead, CoreSupportLevel::Emulated);
+        manifest.insert(Capability::Vision, CoreSupportLevel::Emulated);
+
+        let report = negotiate(
+            &[Capability::ToolRead, Capability::Vision],
+            &manifest,
+        );
+        assert_eq!(report.emulated.len(), 2);
+        // Both should have emulation strategies
+        for entry in &report.emulated {
+            assert!(!entry.detail.is_empty());
+        }
+    }
+
+    #[test]
+    fn negotiate_report_restricted_classified_as_emulated() {
+        let mut manifest = CapabilityManifest::new();
+        manifest.insert(
+            Capability::ToolBash,
+            CoreSupportLevel::Restricted {
+                reason: "sandboxed".into(),
+            },
+        );
+
+        let report = negotiate(&[Capability::ToolBash], &manifest);
+        assert!(report.met.is_empty());
+        assert_eq!(report.emulated.len(), 1);
+        assert!(report.missing.is_empty());
+    }
+
+    #[test]
+    fn negotiate_report_explicit_unsupported() {
+        let mut manifest = CapabilityManifest::new();
+        manifest.insert(Capability::Vision, CoreSupportLevel::Unsupported);
+
+        let report = negotiate(&[Capability::Vision], &manifest);
+        assert!(report.met.is_empty());
+        assert!(report.emulated.is_empty());
+        assert_eq!(report.missing.len(), 1);
     }
 }
