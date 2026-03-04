@@ -26,17 +26,18 @@ use abp_backend_core::{
 use abp_backend_mock::MockBackend;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
-    PolicyProfile, Receipt, ReceiptBuilder, SupportLevel, UsageNormalized, WorkOrder,
-    WorkOrderBuilder, canonical_json, receipt_hash, sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, BackendIdentity,
+    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
+    MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, SupportLevel, UsageNormalized,
+    WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_dialect::Dialect;
+use abp_error::ErrorCode;
 use abp_mapper::{
-    IrIdentityMapper, IrMapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper, default_ir_mapper,
+    default_ir_mapper, IrIdentityMapper, IrMapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper,
 };
 use abp_policy::{Decision, PolicyEngine};
-use abp_protocol::{Envelope, JsonlCodec, is_compatible_version};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
 use abp_receipt::{compute_hash, verify_hash};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1130,4 +1131,1070 @@ fn story6_given_backend_metrics_when_runs_recorded_then_stats_correct() {
     assert!((avg - 116.666).abs() < 1.0); // (100+200+50)/3
     let rate = metrics.success_rate().unwrap();
     assert!((rate - 0.666).abs() < 0.01);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 7: SDK shim usage stories
+//
+// "As an OpenAI user, I want to use ABP as a drop-in replacement so that
+// I can keep my existing code and benefit from multi-backend routing."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story7_given_openai_user_when_creating_work_order_then_builder_accepts_standard_fields() {
+    // Given: An OpenAI user constructing a work order through the ABP builder
+    // When: Setting standard fields that mirror OpenAI API parameters
+    let wo = WorkOrderBuilder::new("Summarize this document")
+        .root(".")
+        .model("gpt-4o")
+        .max_turns(5)
+        .build();
+
+    // Then: The work order captures all fields in a vendor-agnostic way
+    assert_eq!(wo.task, "Summarize this document");
+    assert_eq!(wo.config.model.as_deref(), Some("gpt-4o"));
+    assert_eq!(wo.config.max_turns, Some(5));
+}
+
+#[test]
+fn story7_given_openai_user_when_ir_conversation_built_then_roles_map_to_standard_ir() {
+    // Given: An OpenAI-style chat completion request (system + user + assistant)
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "You are a helpful assistant."),
+        IrMessage::text(IrRole::User, "What is Rust?"),
+        IrMessage::text(IrRole::Assistant, "Rust is a systems programming language."),
+    ]);
+
+    // When: Inspecting the IR representation
+    // Then: All standard roles are mapped correctly
+    assert_eq!(conv.messages[0].role, IrRole::System);
+    assert_eq!(conv.messages[1].role, IrRole::User);
+    assert_eq!(conv.messages[2].role, IrRole::Assistant);
+    assert_eq!(
+        conv.system_message().unwrap().text_content(),
+        "You are a helpful assistant."
+    );
+}
+
+#[test]
+fn story7_given_openai_user_when_tool_call_in_ir_then_function_calling_semantics_preserved() {
+    // Given: An OpenAI function-call style tool use in IR
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "Read config.toml"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "call_abc".into(),
+                name: "read_file".into(),
+                input: json!({"path": "config.toml"}),
+            }],
+        ),
+    ]);
+
+    // When: Extracting tool calls
+    let tool_calls = conv.tool_calls();
+
+    // Then: The tool call is extractable with correct semantics
+    assert_eq!(tool_calls.len(), 1);
+    if let IrContentBlock::ToolUse { name, input, .. } = tool_calls[0] {
+        assert_eq!(name, "read_file");
+        assert_eq!(input["path"], "config.toml");
+    } else {
+        panic!("expected ToolUse block");
+    }
+}
+
+#[test]
+fn story7_given_openai_user_when_mock_backend_selected_then_capabilities_include_streaming() {
+    // Given: An OpenAI user who expects streaming support
+    let backend = MockBackend;
+
+    // When: Querying ABP for the mock backend's capabilities
+    let caps = backend.capabilities();
+
+    // Then: Streaming is available (OpenAI always supports streaming)
+    assert!(
+        caps.get(&Capability::Streaming).is_some(),
+        "backend should declare streaming capability"
+    );
+}
+
+#[tokio::test]
+async fn story7_given_openai_user_when_work_order_run_then_receipt_has_contract_version() {
+    // Given: An OpenAI user running a task through ABP
+    let wo = make_work_order("Translate Python to Rust");
+    let backend = MockBackend;
+    let (tx, _rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The work order completes
+    let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: The receipt carries the ABP contract version (not OpenAI's version)
+    assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
+    assert!(receipt.meta.contract_version.starts_with("abp/v"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 8: Cross-SDK translation stories
+//
+// "When I send a Claude request through the OpenAI endpoint, ABP should
+// faithfully translate the request while preserving all semantics."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story8_given_claude_request_when_mapped_to_openai_then_system_prompt_preserved() {
+    // Given: A Claude-style request with a system prompt
+    let ir = IrConversation::from_messages(vec![
+        IrMessage::text(
+            IrRole::System,
+            "You are Claude, an AI assistant by Anthropic.",
+        ),
+        IrMessage::text(IrRole::User, "Explain quantum computing"),
+    ]);
+
+    // When: Mapped from Claude dialect to OpenAI dialect
+    let mapper = OpenAiClaudeIrMapper;
+    let mapped = mapper
+        .map_request(Dialect::Claude, Dialect::OpenAi, &ir)
+        .unwrap();
+
+    // Then: The system prompt text is faithfully preserved
+    assert_eq!(
+        mapped.messages[0].text_content(),
+        "You are Claude, an AI assistant by Anthropic."
+    );
+    assert_eq!(mapped.messages[0].role, IrRole::System);
+}
+
+#[test]
+fn story8_given_openai_request_when_mapped_to_gemini_then_message_order_preserved() {
+    // Given: A multi-turn OpenAI conversation
+    let ir = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "First question"),
+        IrMessage::text(IrRole::Assistant, "First answer"),
+        IrMessage::text(IrRole::User, "Follow-up question"),
+    ]);
+
+    // When: Mapped to Gemini dialect
+    let mapper = OpenAiGeminiIrMapper;
+    let mapped = mapper
+        .map_request(Dialect::OpenAi, Dialect::Gemini, &ir)
+        .unwrap();
+
+    // Then: Message ordering is preserved across the dialect boundary
+    assert_eq!(mapped.messages.len(), 3);
+    assert_eq!(mapped.messages[0].text_content(), "First question");
+    assert_eq!(mapped.messages[1].text_content(), "First answer");
+    assert_eq!(mapped.messages[2].text_content(), "Follow-up question");
+}
+
+#[test]
+fn story8_given_openai_to_claude_when_tool_result_mapped_then_content_preserved() {
+    // Given: An OpenAI tool-result block in IR
+    let ir = IrConversation::from_messages(vec![IrMessage::new(
+        IrRole::Tool,
+        vec![IrContentBlock::ToolResult {
+            tool_use_id: "call_xyz".into(),
+            content: vec![IrContentBlock::Text {
+                text: "file contents here".into(),
+            }],
+            is_error: false,
+        }],
+    )]);
+
+    // When: Mapped to Claude dialect
+    let mapper = OpenAiClaudeIrMapper;
+    let mapped = mapper
+        .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
+        .unwrap();
+
+    // Then: The tool result content and error flag are preserved
+    let msg = &mapped.messages[0];
+    if let IrContentBlock::ToolResult {
+        content, is_error, ..
+    } = &msg.content[0]
+    {
+        assert_eq!(content.len(), 1);
+        if let IrContentBlock::Text { text } = &content[0] {
+            assert_eq!(text, "file contents here");
+        } else {
+            panic!("expected Text block inside ToolResult");
+        }
+        assert!(!is_error);
+    } else {
+        panic!("expected ToolResult block");
+    }
+}
+
+#[test]
+fn story8_given_gemini_to_openai_when_roundtripped_then_no_data_loss() {
+    // Given: A conversation in Gemini dialect
+    let ir = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "Be concise."),
+        IrMessage::text(IrRole::User, "What is 2+2?"),
+    ]);
+
+    // When: Roundtripped Gemini -> OpenAI -> Gemini
+    let mapper = OpenAiGeminiIrMapper;
+    let to_openai = mapper
+        .map_request(Dialect::Gemini, Dialect::OpenAi, &ir)
+        .unwrap();
+    let back = mapper
+        .map_request(Dialect::OpenAi, Dialect::Gemini, &to_openai)
+        .unwrap();
+
+    // Then: No data is lost in the round trip
+    assert_eq!(back.messages.len(), ir.messages.len());
+    for (orig, rt) in ir.messages.iter().zip(back.messages.iter()) {
+        assert_eq!(orig.text_content(), rt.text_content());
+        assert_eq!(orig.role, rt.role);
+    }
+}
+
+#[test]
+fn story8_given_unsupported_dialect_pair_when_factory_called_then_none_returned() {
+    // Given: A dialect pair with no known mapper (e.g. Kimi -> Copilot)
+    // When: The mapper factory is queried
+    let result = default_ir_mapper(Dialect::Kimi, Dialect::Copilot);
+
+    // Then: No mapper is available (returns None)
+    assert!(
+        result.is_none(),
+        "no mapper should exist for unsupported dialect pair"
+    );
+}
+
+#[test]
+fn story8_given_identity_mapper_when_response_mapped_then_exact_passthrough() {
+    // Given: A response conversation going through identity mapping
+    let ir = IrConversation::from_messages(vec![IrMessage::text(
+        IrRole::Assistant,
+        "Here is your answer.",
+    )]);
+
+    // When: The identity mapper maps the response
+    let mapper = IrIdentityMapper;
+    let mapped = mapper
+        .map_response(Dialect::OpenAi, Dialect::OpenAi, &ir)
+        .unwrap();
+
+    // Then: The response is bit-for-bit identical
+    assert_eq!(mapped.messages[0].text_content(), "Here is your answer.");
+    assert_eq!(mapped.messages[0].role, IrRole::Assistant);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 9: Error handling stories
+//
+// "When the backend returns a rate-limit error, ABP should surface it
+// through the protocol with a structured error code."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story9_given_rate_limit_error_when_fatal_envelope_created_then_error_code_set() {
+    // Given: A backend returning a rate-limit error
+    // When: The error is wrapped in a Fatal envelope with an error code
+    let env = Envelope::fatal_with_code(
+        Some("run-42".into()),
+        "rate limit exceeded: 429",
+        ErrorCode::BackendRateLimited,
+    );
+
+    // Then: The envelope carries both the error message and structured code
+    if let Envelope::Fatal {
+        error, error_code, ..
+    } = &env
+    {
+        assert_eq!(error, "rate limit exceeded: 429");
+        assert_eq!(*error_code, Some(ErrorCode::BackendRateLimited));
+    } else {
+        panic!("expected Fatal envelope");
+    }
+}
+
+#[test]
+fn story9_given_auth_failure_when_fatal_encoded_then_code_roundtrips() {
+    // Given: An authentication failure error
+    let env = Envelope::fatal_with_code(
+        Some("run-99".into()),
+        "invalid API key",
+        ErrorCode::BackendAuthFailed,
+    );
+
+    // When: Encoded and decoded through JSONL
+    let json = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: The error code survives the roundtrip
+    if let Envelope::Fatal {
+        error, error_code, ..
+    } = decoded
+    {
+        assert_eq!(error, "invalid API key");
+        assert_eq!(error_code, Some(ErrorCode::BackendAuthFailed));
+    } else {
+        panic!("expected Fatal envelope");
+    }
+}
+
+#[test]
+fn story9_given_backend_timeout_when_fatal_created_then_ref_id_links_to_run() {
+    // Given: A backend that timed out during a run
+    let env = Envelope::fatal_with_code(
+        Some("run-timeout-1".into()),
+        "backend timed out after 30s",
+        ErrorCode::BackendTimeout,
+    );
+
+    // When: Inspecting the fatal envelope
+    // Then: The ref_id links back to the originating run
+    if let Envelope::Fatal { ref_id, .. } = &env {
+        assert_eq!(ref_id.as_deref(), Some("run-timeout-1"));
+    } else {
+        panic!("expected Fatal envelope");
+    }
+}
+
+#[test]
+fn story9_given_model_not_found_when_fatal_encoded_then_error_code_preserved() {
+    // Given: A request for a model that doesn't exist
+    let env = Envelope::fatal_with_code(
+        Some("run-model".into()),
+        "model 'gpt-5-turbo' not found",
+        ErrorCode::BackendModelNotFound,
+    );
+
+    // When: Roundtripped through JSONL
+    let json = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: The specific error code is preserved
+    assert_eq!(decoded.error_code(), Some(ErrorCode::BackendModelNotFound));
+}
+
+#[test]
+fn story9_given_fatal_without_ref_when_encoded_then_ref_id_is_none() {
+    // Given: A fatal error that occurs before a run starts (no ref_id)
+    let env = Envelope::Fatal {
+        ref_id: None,
+        error: "startup failure: config invalid".into(),
+        error_code: Some(ErrorCode::ConfigInvalid),
+    };
+
+    // When: Encoded and decoded
+    let json = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: ref_id remains None
+    if let Envelope::Fatal { ref_id, .. } = decoded {
+        assert!(ref_id.is_none());
+    } else {
+        panic!("expected Fatal envelope");
+    }
+}
+
+#[test]
+fn story9_given_policy_denied_error_when_checked_then_decision_explains_reason() {
+    // Given: A policy that denies the "Bash" tool
+    let policy = PolicyProfile {
+        disallowed_tools: vec!["Bash".into()],
+        ..Default::default()
+    };
+    let engine = PolicyEngine::new(&policy).unwrap();
+
+    // When: An agent attempts to use Bash
+    let decision = engine.can_use_tool("Bash");
+
+    // Then: The denial includes a reason for auditability
+    assert!(!decision.allowed);
+    assert!(
+        decision.reason.is_some(),
+        "denied decisions should include a reason"
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 10: Capability negotiation stories
+//
+// "When I request vision support but the backend lacks it, ABP should
+// detect the mismatch and report it clearly."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story10_given_vision_required_when_backend_lacks_it_then_mismatch_detectable() {
+    // Given: A work order requiring native vision support
+    let reqs = CapabilityRequirements {
+        required: vec![CapabilityRequirement {
+            capability: Capability::Vision,
+            min_support: MinSupport::Native,
+        }],
+    };
+    let wo = WorkOrderBuilder::new("Analyze this image")
+        .root(".")
+        .requirements(reqs)
+        .build();
+
+    // When: Checking against a backend that doesn't declare vision
+    let caps: CapabilityManifest = BTreeMap::new();
+
+    // Then: The required capability is absent from the manifest
+    let missing: Vec<_> = wo
+        .requirements
+        .required
+        .iter()
+        .filter(|r| caps.get(&r.capability).is_none())
+        .collect();
+    assert_eq!(missing.len(), 1);
+    assert_eq!(missing[0].capability, Capability::Vision);
+}
+
+#[test]
+fn story10_given_streaming_required_as_native_when_backend_emulates_then_insufficient() {
+    // Given: A requirement for native streaming
+    let req = CapabilityRequirement {
+        capability: Capability::Streaming,
+        min_support: MinSupport::Native,
+    };
+
+    // When: The backend only emulates streaming
+    let mut caps: CapabilityManifest = BTreeMap::new();
+    caps.insert(Capability::Streaming, SupportLevel::Emulated);
+
+    // Then: The emulated level does not satisfy the native requirement
+    let level = caps.get(&req.capability).unwrap();
+    let satisfies = matches!(level, SupportLevel::Native);
+    assert!(
+        !satisfies,
+        "emulated should not satisfy a native requirement"
+    );
+}
+
+#[test]
+fn story10_given_tool_use_required_when_backend_supports_native_then_satisfied() {
+    // Given: A requirement for tool use at any support level
+    let req = CapabilityRequirement {
+        capability: Capability::ToolUse,
+        min_support: MinSupport::Any,
+    };
+
+    // When: The backend natively supports tool use
+    let mut caps: CapabilityManifest = BTreeMap::new();
+    caps.insert(Capability::ToolUse, SupportLevel::Native);
+
+    // Then: The requirement is satisfied
+    let level = caps.get(&req.capability);
+    assert!(level.is_some());
+    assert!(matches!(
+        level.unwrap(),
+        SupportLevel::Native | SupportLevel::Emulated
+    ));
+}
+
+#[test]
+fn story10_given_multiple_capabilities_required_when_some_missing_then_all_gaps_identified() {
+    // Given: Requirements for vision, streaming, and tool use
+    let reqs = CapabilityRequirements {
+        required: vec![
+            CapabilityRequirement {
+                capability: Capability::Vision,
+                min_support: MinSupport::Any,
+            },
+            CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Native,
+            },
+            CapabilityRequirement {
+                capability: Capability::ToolUse,
+                min_support: MinSupport::Any,
+            },
+        ],
+    };
+
+    // When: Backend only supports streaming (native)
+    let mut caps: CapabilityManifest = BTreeMap::new();
+    caps.insert(Capability::Streaming, SupportLevel::Native);
+
+    // Then: Vision and ToolUse are identified as missing
+    let gaps: Vec<_> = reqs
+        .required
+        .iter()
+        .filter(|r| caps.get(&r.capability).is_none())
+        .collect();
+    assert_eq!(gaps.len(), 2);
+    let gap_caps: Vec<_> = gaps.iter().map(|g| &g.capability).collect();
+    assert!(gap_caps.contains(&&Capability::Vision));
+    assert!(gap_caps.contains(&&Capability::ToolUse));
+}
+
+#[test]
+fn story10_given_restricted_capability_when_checked_then_reason_available() {
+    // Given: A backend that restricts a capability with a reason
+    let mut caps: CapabilityManifest = BTreeMap::new();
+    caps.insert(
+        Capability::CodeExecution,
+        SupportLevel::Restricted {
+            reason: "sandboxed environment only".into(),
+        },
+    );
+
+    // When: Querying the capability
+    let level = caps.get(&Capability::CodeExecution).unwrap();
+
+    // Then: The restriction reason is accessible
+    if let SupportLevel::Restricted { reason } = level {
+        assert_eq!(reason, "sandboxed environment only");
+    } else {
+        panic!("expected Restricted support level");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 11: Receipt verification stories
+//
+// "After a run completes, the receipt should be hash-verified to ensure
+// no tampering occurred during transmission."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story11_given_completed_receipt_when_hash_verified_then_valid() {
+    // Given: A receipt with a computed hash
+    let receipt = make_receipt("verify-backend").with_hash().unwrap();
+
+    // When: The receipt is verified
+    let valid = verify_hash(&receipt);
+
+    // Then: Verification passes
+    assert!(valid, "freshly hashed receipt should verify");
+}
+
+#[test]
+fn story11_given_tampered_receipt_when_hash_verified_then_invalid() {
+    // Given: A receipt with a computed hash
+    let mut receipt = make_receipt("tamper-test").with_hash().unwrap();
+
+    // When: The receipt is tampered with after hashing
+    receipt.outcome = Outcome::Failed;
+
+    // Then: Verification fails (hash no longer matches content)
+    let valid = verify_hash(&receipt);
+    assert!(!valid, "tampered receipt should fail verification");
+}
+
+#[test]
+fn story11_given_receipt_without_hash_when_verified_then_passes_vacuously() {
+    // Given: A receipt with no hash set
+    let receipt = make_receipt("no-hash-backend");
+    assert!(receipt.receipt_sha256.is_none());
+
+    // When: Verified
+    let valid = verify_hash(&receipt);
+
+    // Then: Passes vacuously (no hash to verify against)
+    assert!(valid, "receipt with no hash should pass verification");
+}
+
+#[test]
+fn story11_given_receipt_with_events_when_hashed_then_events_contribute_to_hash() {
+    // Given: Two receipts — one with events, one without
+    let receipt_no_events = make_receipt("events-test");
+    let receipt_with_events = make_receipt_with_events(vec![
+        make_event(AgentEventKind::RunStarted {
+            message: "starting run".into(),
+        }),
+        make_event(AgentEventKind::AssistantMessage {
+            text: "Hello!".into(),
+        }),
+    ]);
+
+    // When: Both are hashed
+    let hash_no_events = receipt_hash(&receipt_no_events).unwrap();
+    let hash_with_events = receipt_hash(&receipt_with_events).unwrap();
+
+    // Then: The hashes differ because events are part of the hash input
+    assert_ne!(hash_no_events, hash_with_events);
+}
+
+#[test]
+fn story11_given_receipt_when_compute_hash_called_then_matches_receipt_hash() {
+    // Given: A receipt
+    let receipt = make_receipt("dual-hash-test");
+
+    // When: Hashed via both the core function and the receipt crate
+    let hash_core = receipt_hash(&receipt).unwrap();
+    let hash_crate = compute_hash(&receipt).unwrap();
+
+    // Then: Both produce the same hash
+    assert_eq!(hash_core, hash_crate);
+}
+
+#[tokio::test]
+async fn story11_given_mock_run_when_receipt_returned_then_hash_verifies() {
+    // Given: A real mock backend run
+    let wo = make_work_order("Full verification test");
+    let backend = MockBackend;
+    let (tx, _rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The run completes and receipt is returned
+    let receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: The receipt's hash verifies successfully
+    assert!(receipt.receipt_sha256.is_some());
+    assert!(verify_hash(&receipt), "mock backend receipt should verify");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 12: Configuration stories
+//
+// "When I configure a work order with specific settings, ABP should
+// honor those settings throughout the execution pipeline."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story12_given_budget_limit_when_work_order_built_then_budget_captured() {
+    // Given: An operator sets a max budget of $0.50
+    let wo = WorkOrderBuilder::new("Expensive analysis")
+        .root(".")
+        .max_budget_usd(0.50)
+        .build();
+
+    // When: Inspecting the work order
+    // Then: The budget constraint is captured
+    assert_eq!(wo.config.max_budget_usd, Some(0.50));
+}
+
+#[test]
+fn story12_given_max_turns_when_work_order_built_then_turns_limit_set() {
+    // Given: A developer limits the agent to 10 turns
+    let wo = WorkOrderBuilder::new("Iterative refactor")
+        .root(".")
+        .max_turns(10)
+        .build();
+
+    // When: Inspecting the work order
+    // Then: The turns limit is set
+    assert_eq!(wo.config.max_turns, Some(10));
+}
+
+#[test]
+fn story12_given_policy_in_work_order_when_built_then_policy_attached() {
+    // Given: A work order with an embedded policy
+    let policy = PolicyProfile {
+        disallowed_tools: vec!["Bash".into(), "WebFetch".into()],
+        ..Default::default()
+    };
+    let wo = WorkOrderBuilder::new("Safe analysis")
+        .root(".")
+        .policy(policy)
+        .build();
+
+    // When: Inspecting the work order's policy
+    // Then: The policy restrictions are present
+    assert_eq!(wo.policy.disallowed_tools.len(), 2);
+    assert!(wo.policy.disallowed_tools.contains(&"Bash".into()));
+}
+
+#[test]
+fn story12_given_model_override_when_work_order_built_then_model_set() {
+    // Given: A user overrides the model to a specific version
+    let wo = WorkOrderBuilder::new("Use specific model")
+        .root(".")
+        .model("claude-3.5-sonnet")
+        .build();
+
+    // When: Inspecting the work order
+    // Then: The model override is captured
+    assert_eq!(wo.config.model.as_deref(), Some("claude-3.5-sonnet"));
+}
+
+#[test]
+fn story12_given_no_model_when_work_order_built_then_model_is_none() {
+    // Given: A work order with no explicit model
+    let wo = WorkOrderBuilder::new("Default model").root(".").build();
+
+    // When: Inspecting the model field
+    // Then: Model is None, allowing the backend to choose
+    assert!(wo.config.model.is_none());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 13: Streaming stories
+//
+// "When I request streaming output, ABP should deliver events
+// incrementally through the channel."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+async fn story13_given_streaming_request_when_mock_runs_then_events_arrive_in_order() {
+    // Given: A work order for a streaming-capable backend
+    let wo = make_work_order("Stream me results");
+    let backend = MockBackend;
+    let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The backend runs and streams events
+    let _receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: Events arrive and the first is RunStarted
+    let mut events = Vec::new();
+    while let Ok(ev) = rx.try_recv() {
+        events.push(ev);
+    }
+    assert!(!events.is_empty(), "streaming should produce events");
+    assert!(
+        matches!(&events[0].kind, AgentEventKind::RunStarted { .. }),
+        "first streamed event should be RunStarted"
+    );
+}
+
+#[tokio::test]
+async fn story13_given_streaming_run_when_completed_then_last_event_is_run_completed() {
+    // Given: A streaming run
+    let wo = make_work_order("Complete the stream");
+    let backend = MockBackend;
+    let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+
+    // When: The run finishes
+    let _receipt = backend.run(Uuid::new_v4(), wo, tx).await.unwrap();
+
+    // Then: The last streamed event is RunCompleted
+    let mut events = Vec::new();
+    while let Ok(ev) = rx.try_recv() {
+        events.push(ev);
+    }
+    let last = events.last().expect("should have events");
+    assert!(
+        matches!(&last.kind, AgentEventKind::RunCompleted { .. }),
+        "last streamed event should be RunCompleted"
+    );
+}
+
+#[test]
+fn story13_given_delta_event_when_encoded_as_envelope_then_preserves_text() {
+    // Given: An assistant delta (incremental streaming token)
+    let event = make_event(AgentEventKind::AssistantDelta {
+        text: "Hello".into(),
+    });
+    let env = Envelope::Event {
+        ref_id: "stream-run-1".into(),
+        event,
+    };
+
+    // When: Encoded to JSONL and decoded
+    let json = JsonlCodec::encode(&env).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: The delta text is preserved
+    if let Envelope::Event { event, .. } = decoded {
+        if let AgentEventKind::AssistantDelta { text } = &event.kind {
+            assert_eq!(text, "Hello");
+        } else {
+            panic!("expected AssistantDelta event");
+        }
+    } else {
+        panic!("expected Event envelope");
+    }
+}
+
+#[test]
+fn story13_given_multiple_deltas_when_encoded_then_each_is_separate_jsonl_line() {
+    // Given: Multiple streaming delta events
+    let deltas = vec!["Hello", " world", "!"];
+    let envelopes: Vec<String> = deltas
+        .iter()
+        .map(|text| {
+            let event = make_event(AgentEventKind::AssistantDelta {
+                text: (*text).into(),
+            });
+            let env = Envelope::Event {
+                ref_id: "stream-1".into(),
+                event,
+            };
+            JsonlCodec::encode(&env).unwrap()
+        })
+        .collect();
+
+    // When: Each is encoded
+    // Then: Each produces exactly one JSONL line (ends with \n, no embedded newlines)
+    for line in &envelopes {
+        assert!(line.ends_with('\n'));
+        assert_eq!(line.matches('\n').count(), 1, "should be exactly one line");
+    }
+    assert_eq!(envelopes.len(), 3);
+}
+
+#[test]
+fn story13_given_backend_metadata_when_streaming_supported_then_flag_true() {
+    // Given: Backend metadata declaring streaming support
+    let meta = make_backend_metadata("stream-backend", "openai");
+
+    // When: Checking streaming support
+    // Then: The flag is true
+    assert!(meta.supports_streaming);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 14: Multi-backend failover stories
+//
+// "When the primary backend fails, the fallback should be selected
+// from the remaining healthy backends."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story14_given_primary_unhealthy_when_fallback_selected_then_healthy_backend_chosen() {
+    // Given: A registry with one unhealthy primary and one healthy fallback
+    let mut registry = BackendRegistry::new();
+    registry.register_with_metadata("primary", make_backend_metadata("primary", "openai"));
+    registry.register_with_metadata("fallback", make_backend_metadata("fallback", "anthropic"));
+
+    // Make primary unhealthy
+    let mut health = BackendHealth::default();
+    health.record_failure(1);
+    registry.update_health("primary", health);
+
+    // Make fallback healthy
+    register_healthy_backend_health(&mut registry, "fallback");
+
+    // When: Selecting the first healthy backend
+    let selected = registry.select(&SelectionStrategy::FirstHealthy);
+
+    // Then: The fallback is selected
+    assert!(selected.is_some());
+    assert_eq!(selected.unwrap(), "fallback");
+}
+
+#[test]
+fn story14_given_all_backends_unhealthy_when_selected_then_none_returned() {
+    // Given: A registry where all backends are unhealthy
+    let mut registry = BackendRegistry::new();
+    registry.register_with_metadata("backend-a", make_backend_metadata("backend-a", "openai"));
+    registry.register_with_metadata("backend-b", make_backend_metadata("backend-b", "anthropic"));
+
+    let mut health_a = BackendHealth::default();
+    health_a.record_failure(1);
+    registry.update_health("backend-a", health_a);
+
+    let mut health_b = BackendHealth::default();
+    health_b.record_failure(1);
+    registry.update_health("backend-b", health_b);
+
+    // When: Attempting to select any healthy backend
+    let selected = registry.select(&SelectionStrategy::FirstHealthy);
+
+    // Then: No backend is available
+    assert!(selected.is_none(), "all unhealthy should return None");
+}
+
+#[test]
+fn story14_given_degraded_backend_when_selected_by_preference_then_not_available() {
+    // Given: A backend in Degraded state (one failure, high threshold)
+    let mut registry = BackendRegistry::new();
+    registry.register_with_metadata("degraded", make_backend_metadata("degraded", "openai"));
+
+    let mut health = BackendHealth::default();
+    health.record_failure(5); // threshold=5 -> 1 failure = Degraded
+    assert_eq!(health.status, HealthStatus::Degraded);
+    assert!(health.is_operational(), "degraded should be operational");
+    registry.update_health("degraded", health);
+
+    // When: Selecting by preference
+    let selected = registry.select(&SelectionStrategy::ByPreference("degraded".into()));
+
+    // Then: ByPreference requires Healthy, so Degraded is NOT selected
+    assert!(
+        selected.is_none(),
+        "ByPreference requires Healthy status, Degraded is not sufficient"
+    );
+}
+
+#[test]
+fn story14_given_multiple_healthy_when_select_by_dialect_then_correct_dialect_chosen() {
+    // Given: Multiple healthy backends with different dialects
+    let mut registry = BackendRegistry::new();
+    register_healthy_backend(&mut registry, "gpt4", "openai");
+    register_healthy_backend(&mut registry, "claude", "anthropic");
+    register_healthy_backend(&mut registry, "gemini", "google");
+
+    // When: Selecting by "anthropic" dialect
+    let selected = registry.select(&SelectionStrategy::ByDialect("anthropic".into()));
+
+    // Then: The Claude backend is selected
+    assert_eq!(selected, Some("claude".into()));
+}
+
+#[test]
+fn story14_given_backend_recovers_when_success_recorded_then_health_restored() {
+    // Given: An unhealthy backend
+    let mut registry = BackendRegistry::new();
+    registry.register_with_metadata("recovering", make_backend_metadata("recovering", "openai"));
+    let mut health = BackendHealth::default();
+    health.record_failure(1);
+    assert_eq!(health.status, HealthStatus::Unhealthy);
+
+    // When: A success is recorded (backend recovered)
+    health.record_success(50);
+    registry.update_health("recovering", health);
+
+    // Then: The backend is healthy again and selectable
+    let selected = registry.select(&SelectionStrategy::ByPreference("recovering".into()));
+    assert!(selected.is_some(), "recovered backend should be selectable");
+}
+
+#[test]
+fn story14_given_registry_when_backend_removed_then_not_selectable() {
+    // Given: A registry with a healthy backend
+    let mut registry = BackendRegistry::new();
+    register_healthy_backend(&mut registry, "removable", "openai");
+    assert!(registry.contains("removable"));
+
+    // When: The backend is removed
+    registry.remove("removable");
+
+    // Then: It is no longer selectable
+    assert!(!registry.contains("removable"));
+    let selected = registry.select(&SelectionStrategy::ByPreference("removable".into()));
+    assert!(selected.is_none());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 15: Protocol version and compatibility stories
+//
+// "As a sidecar, I want to verify that my protocol version is compatible
+// with the control plane so I can gracefully reject incompatible versions."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story15_given_matching_versions_when_checked_then_compatible() {
+    // Given: The same contract version on both sides
+    // When: Checking compatibility
+    let result = is_compatible_version(CONTRACT_VERSION, CONTRACT_VERSION);
+
+    // Then: They are compatible
+    assert!(result);
+}
+
+#[test]
+fn story15_given_different_major_version_when_checked_then_incompatible() {
+    // Given: A hypothetical future major version bump
+    let future_version = "abp/v1.0";
+
+    // When: Checking against current v0.1
+    let result = is_compatible_version(future_version, CONTRACT_VERSION);
+
+    // Then: Incompatible (major version differs)
+    assert!(!result);
+}
+
+#[test]
+fn story15_given_valid_version_when_parsed_then_major_minor_extracted() {
+    // Given: The current contract version string
+    // When: Parsed
+    let parsed = parse_version(CONTRACT_VERSION);
+
+    // Then: Major and minor components are extracted
+    assert!(parsed.is_some());
+    let (major, minor) = parsed.unwrap();
+    assert_eq!(major, 0);
+    assert_eq!(minor, 1);
+}
+
+#[test]
+fn story15_given_invalid_version_string_when_parsed_then_none() {
+    // Given: A malformed version string
+    let bad = "not-a-version";
+
+    // When: Parsed
+    let result = parse_version(bad);
+
+    // Then: None is returned
+    assert!(result.is_none());
+}
+
+#[test]
+fn story15_given_hello_envelope_when_sent_then_contract_version_included() {
+    // Given: A sidecar sending a hello envelope
+    let hello = make_hello_envelope("version-test-sidecar");
+
+    // When: Encoded to JSONL
+    let json = JsonlCodec::encode(&hello).unwrap();
+
+    // Then: The contract version is embedded in the envelope
+    assert!(
+        json.contains(CONTRACT_VERSION),
+        "hello envelope should include the contract version"
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 16: Advanced policy and path stories
+//
+// "As an operator, I want fine-grained path controls so agents cannot
+// read or write sensitive files."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story16_given_deny_write_to_ci_when_workflow_edited_then_denied() {
+    // Given: A policy denying writes to CI configuration
+    let policy = PolicyProfile {
+        deny_write: vec![".github/**".into(), ".gitlab-ci.yml".into()],
+        ..Default::default()
+    };
+    let engine = PolicyEngine::new(&policy).unwrap();
+
+    // When: An agent tries to edit a GitHub Actions workflow
+    let decision = engine.can_write_path(Path::new(".github/workflows/ci.yml"));
+
+    // Then: The write is denied
+    assert!(!decision.allowed);
+}
+
+#[test]
+fn story16_given_deny_read_env_when_production_env_read_then_denied() {
+    // Given: A policy denying reads on environment files
+    let policy = PolicyProfile {
+        deny_read: vec!["**/.env*".into()],
+        ..Default::default()
+    };
+    let engine = PolicyEngine::new(&policy).unwrap();
+
+    // When: Reading .env.production
+    let decision = engine.can_read_path(Path::new(".env.production"));
+
+    // Then: The read is denied
+    assert!(!decision.allowed);
+}
+
+#[test]
+fn story16_given_combined_tool_and_path_policy_when_checked_then_both_enforced() {
+    // Given: A policy with both tool and path restrictions
+    let policy = PolicyProfile {
+        disallowed_tools: vec!["Bash".into()],
+        deny_write: vec!["**/secrets/**".into()],
+        deny_read: vec!["**/.env".into()],
+        ..Default::default()
+    };
+    let engine = PolicyEngine::new(&policy).unwrap();
+
+    // When: Checking various operations
+    // Then: Tool restrictions are enforced
+    assert!(!engine.can_use_tool("Bash").allowed);
+    assert!(engine.can_use_tool("Read").allowed);
+    // And: Path restrictions are enforced
+    assert!(
+        !engine
+            .can_write_path(Path::new("secrets/api_key.txt"))
+            .allowed
+    );
+    assert!(!engine.can_read_path(Path::new(".env")).allowed);
+    // And: Unrestricted paths remain accessible
+    assert!(engine.can_write_path(Path::new("src/main.rs")).allowed);
+    assert!(engine.can_read_path(Path::new("Cargo.toml")).allowed);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Helpers for new stories
+// ═══════════════════════════════════════════════════════════════════════════
+
+fn register_healthy_backend_health(registry: &mut BackendRegistry, name: &str) {
+    let mut health = BackendHealth::default();
+    health.record_success(50);
+    registry.update_health(name, health);
 }
