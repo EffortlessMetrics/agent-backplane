@@ -304,6 +304,55 @@ impl RouteTable {
     }
 }
 
+// ---------------------------------------------------------------------------
+// CancelRunHandler + ReceiptHandler traits
+// ---------------------------------------------------------------------------
+
+/// `POST /v1/cancel/:id` — cancel a queued or running work order.
+pub trait CancelRunHandler: Send + Sync {
+    /// Handle a cancel request.
+    fn cancel_run(
+        &self,
+        run_id: Uuid,
+    ) -> impl Future<Output = Result<(), RouteError>> + Send;
+}
+
+/// `GET /v1/receipt/:id` — retrieve receipt for a completed run.
+pub trait ReceiptHandler: Send + Sync {
+    /// Handle a receipt retrieval request.
+    fn get_receipt(
+        &self,
+        run_id: Uuid,
+    ) -> impl Future<Output = Result<serde_json::Value, RouteError>> + Send;
+}
+
+// ---------------------------------------------------------------------------
+// v1_routes — Axum router for /v1 endpoints
+// ---------------------------------------------------------------------------
+
+/// Build an Axum [`Router`] for the `/v1` daemon HTTP API endpoints.
+///
+/// Routes:
+/// - `POST /v1/run`         — submit work order
+/// - `GET  /v1/status/:id`  — check run status
+/// - `GET  /v1/receipt/:id` — get receipt
+/// - `GET  /v1/backends`    — list backends
+/// - `GET  /v1/health`      — health check
+/// - `POST /v1/cancel/:id`  — cancel run
+pub fn v1_routes(state: std::sync::Arc<crate::state::ServerState>) -> axum::Router {
+    use axum::routing::{get, post};
+    use crate::handlers;
+
+    axum::Router::new()
+        .route("/v1/run", post(handlers::run_handler))
+        .route("/v1/status/{run_id}", get(handlers::status_handler))
+        .route("/v1/receipt/{run_id}", get(handlers::receipt_handler))
+        .route("/v1/backends", get(handlers::backends_handler))
+        .route("/v1/health", get(handlers::health_handler))
+        .route("/v1/cancel/{run_id}", post(handlers::cancel_handler))
+        .with_state(state)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

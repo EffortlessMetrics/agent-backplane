@@ -8,8 +8,12 @@ pub mod api;
 pub mod api_types;
 /// Framework-agnostic request/response types.
 pub mod handler;
+/// Request handlers for the `/v1` daemon HTTP endpoints.
+pub mod handlers;
 /// Middleware stack for the daemon HTTP API.
 pub mod middleware;
+/// API request/response models with JSON schema support.
+pub mod models;
 /// Priority-based run queue.
 pub mod queue;
 /// Axum router for the `/api/v1` HTTP endpoints.

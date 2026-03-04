@@ -387,3 +387,57 @@ impl Default for ServerState {
         Self::new(Vec::new())
     }
 }
+
+// ---------------------------------------------------------------------------
+// DaemonState — convenience wrapper
+// ---------------------------------------------------------------------------
+
+/// Shared daemon state wrapped in `Arc` for use across route handlers.
+///
+/// This is a thin wrapper around `Arc<ServerState>` that provides helper
+/// methods for constructing and accessing the underlying state.
+#[derive(Clone)]
+pub struct DaemonState {
+    inner: Arc<ServerState>,
+}
+
+impl DaemonState {
+    /// Create a new daemon state pre-populated with the given backend names.
+    pub fn new(backend_names: Vec<String>) -> Self {
+        Self {
+            inner: Arc::new(ServerState::new(backend_names)),
+        }
+    }
+
+    /// Return the inner `Arc<ServerState>` for use with Axum's `State` extractor.
+    pub fn inner(&self) -> Arc<ServerState> {
+        self.inner.clone()
+    }
+
+    /// Return a reference to the backend list.
+    pub fn backends(&self) -> &BackendList {
+        &self.inner.backends
+    }
+
+    /// Return a reference to the run registry.
+    pub fn registry(&self) -> &RunRegistry {
+        &self.inner.registry
+    }
+
+    /// Server uptime in whole seconds.
+    pub fn uptime_secs(&self) -> u64 {
+        self.inner.uptime_secs()
+    }
+}
+
+impl Default for DaemonState {
+    fn default() -> Self {
+        Self::new(Vec::new())
+    }
+}
+
+impl From<Arc<ServerState>> for DaemonState {
+    fn from(inner: Arc<ServerState>) -> Self {
+        Self { inner }
+    }
+}
