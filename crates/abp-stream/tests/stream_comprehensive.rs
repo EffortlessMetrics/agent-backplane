@@ -1152,7 +1152,7 @@ fn buffer_drain_then_push() {
 #[test]
 #[should_panic(expected = "capacity must be > 0")]
 fn buffer_zero_capacity_panics() {
-    StreamBuffer::new(0);
+    let _ = StreamBuffer::new(0);
 }
 
 #[test]
