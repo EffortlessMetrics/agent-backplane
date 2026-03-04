@@ -52,6 +52,7 @@ name = "abp-capability"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-sdk-types",
  "serde",
  "serde_json",
 ]
@@ -317,6 +318,7 @@ name = "abp-ir"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-sdk-types",
  "proptest",
  "serde",
  "serde_json",
