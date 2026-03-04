@@ -8,8 +8,12 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod defaults;
 pub mod diff;
+pub mod env;
 pub mod hot_validate;
+pub mod migrate;
+pub mod schema;
 pub mod store;
 pub mod validate;
 pub mod watcher;
