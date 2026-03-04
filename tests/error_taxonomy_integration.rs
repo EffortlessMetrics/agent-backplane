@@ -94,14 +94,14 @@ fn all_error_codes_serde_roundtrip() {
 }
 
 #[test]
-fn error_code_serializes_to_screaming_snake_case() {
+fn error_code_serializes_to_snake_case() {
     for code in ALL_CODES {
         let json = serde_json::to_string(code).unwrap();
         let s = json.trim_matches('"');
-        // Must be uppercase with underscores only.
+        // Must be lowercase with underscores only.
         assert!(
-            s.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
-            "code {code:?} serializes to {s}, which is not SCREAMING_SNAKE_CASE"
+            s.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
+            "code {code:?} serializes to {s}, which is not snake_case"
         );
     }
 }
@@ -188,7 +188,7 @@ fn error_codes_stable_strings() {
         ("dialect_unknown", ErrorCode::DialectUnknown),
         ("dialect_mapping_failed", ErrorCode::DialectMappingFailed),
         ("config_invalid", ErrorCode::ConfigInvalid),
-        ("INTERNAL", ErrorCode::Internal),
+        ("internal", ErrorCode::Internal),
     ];
 
     for (stable_str, code) in expected {
@@ -350,7 +350,7 @@ fn dto_roundtrip_preserves_all_error_codes() {
 #[test]
 fn display_format_bracket_code_message() {
     let err = AbpError::new(ErrorCode::BackendNotFound, "no such backend");
-    assert_eq!(err.to_string(), "[BACKEND_NOT_FOUND] no such backend");
+    assert_eq!(err.to_string(), "[backend_not_found] no such backend");
 }
 
 #[test]
@@ -358,7 +358,7 @@ fn display_format_with_context_includes_json() {
     let err =
         AbpError::new(ErrorCode::BackendTimeout, "timed out").with_context("timeout_ms", 5000);
     let s = err.to_string();
-    assert!(s.starts_with("[BACKEND_TIMEOUT] timed out"));
+    assert!(s.starts_with("[backend_timeout] timed out"));
     assert!(s.contains("timeout_ms"));
     assert!(s.contains("5000"));
 }

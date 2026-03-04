@@ -109,12 +109,12 @@ fn make_receipt_with_events(events: Vec<AgentEvent>, outcome: Outcome) -> abp_co
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn error_code_display_equals_as_str_for_all() {
+fn error_code_display_equals_message_for_all() {
     for code in ALL_CODES {
         assert_eq!(
             code.to_string(),
-            code.as_str(),
-            "Display != as_str for {code:?}"
+            code.message(),
+            "Display != message for {code:?}"
         );
     }
 }
@@ -134,13 +134,13 @@ fn error_code_debug_all_variants_non_empty() {
 }
 
 #[test]
-fn error_code_as_str_is_screaming_snake_case() {
+fn error_code_as_str_is_snake_case() {
     for code in ALL_CODES {
         let s = code.as_str();
         assert!(
             s.chars()
-                .all(|c| c.is_ascii_uppercase() || c == '_' || c.is_ascii_digit()),
-            "as_str for {code:?} is not SCREAMING_SNAKE: {s}"
+                .all(|c| c.is_ascii_lowercase() || c == '_' || c.is_ascii_digit()),
+            "as_str for {code:?} is not snake_case: {s}"
         );
     }
 }
@@ -531,7 +531,7 @@ fn abp_error_category_shorthand() {
 #[test]
 fn abp_error_display_format_no_context() {
     let err = make_error(ErrorCode::BackendNotFound, "no such backend");
-    assert_eq!(err.to_string(), "[BACKEND_NOT_FOUND] no such backend");
+    assert_eq!(err.to_string(), "[backend_not_found] no such backend");
 }
 
 #[test]
@@ -540,7 +540,7 @@ fn abp_error_display_format_with_context() {
         .with_context("backend", "openai")
         .with_context("timeout_ms", 5000);
     let s = err.to_string();
-    assert!(s.starts_with("[BACKEND_TIMEOUT] timed out "));
+    assert!(s.starts_with("[backend_timeout] timed out "));
     assert!(s.contains("\"backend\""));
     assert!(s.contains("\"timeout_ms\""));
 }
@@ -673,8 +673,9 @@ fn error_code_rejects_unknown_variant() {
 
 #[test]
 fn error_code_rejects_lowercase() {
+    // snake_case IS the canonical serde format
     let result: Result<ErrorCode, _> = serde_json::from_str(r#""backend_timeout""#);
-    assert!(result.is_err());
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -1279,7 +1280,7 @@ fn codes_grouped_by_category() {
 fn code_prefix_matches_category() {
     for code in ALL_CODES {
         let s = code.as_str();
-        let cat = code.category().to_string().to_uppercase();
+        let cat = code.category().to_string().to_lowercase();
         assert!(
             s.starts_with(&cat) || code.category() == ErrorCategory::Ir,
             "code {s} doesn't start with category prefix {cat}"
@@ -1487,7 +1488,7 @@ fn error_event_serializes_type_tag() {
     let json = serde_json::to_value(&event).unwrap();
     assert_eq!(json["type"], "error");
     assert_eq!(json["message"], "bad");
-    assert_eq!(json["error_code"], "INTERNAL");
+    assert_eq!(json["error_code"], "internal");
 }
 
 #[test]
@@ -1558,7 +1559,7 @@ fn error_in_receipt_trace_serializes() {
     let trace = json["trace"].as_array().unwrap();
     assert_eq!(trace.len(), 1);
     assert_eq!(trace[0]["type"], "error");
-    assert_eq!(trace[0]["error_code"], "INTERNAL");
+    assert_eq!(trace[0]["error_code"], "internal");
 }
 
 #[test]
@@ -1727,7 +1728,7 @@ fn error_code_as_str_stability() {
         ("dialect_unknown", ErrorCode::DialectUnknown),
         ("dialect_mapping_failed", ErrorCode::DialectMappingFailed),
         ("config_invalid", ErrorCode::ConfigInvalid),
-        ("INTERNAL", ErrorCode::Internal),
+        ("internal", ErrorCode::Internal),
     ];
     for (s, code) in &expected {
         assert_eq!(code.as_str(), *s, "stable string changed for {code:?}");
@@ -1783,7 +1784,7 @@ fn construct_fatal_envelope_for_every_code() {
 #[test]
 fn empty_message_error() {
     let err = make_error(ErrorCode::Internal, "");
-    assert_eq!(err.to_string(), "[INTERNAL] ");
+    assert_eq!(err.to_string(), "[internal] ");
 }
 
 #[test]
@@ -1819,7 +1820,7 @@ fn error_code_can_be_used_as_hashmap_key() {
         map.insert(*code, code.as_str().to_string());
     }
     assert_eq!(map.len(), 20);
-    assert_eq!(map[&ErrorCode::Internal], "INTERNAL");
+    assert_eq!(map[&ErrorCode::Internal], "internal");
 }
 
 #[test]

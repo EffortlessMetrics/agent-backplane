@@ -174,8 +174,8 @@ fn abp_error_display_includes_context_when_present() {
 fn abp_error_display_omits_context_when_empty() {
     let err = AbpError::new(ErrorCode::Internal, "oops");
     let s = err.to_string();
-    // Should be exactly "[INTERNAL] oops" with no trailing JSON
-    assert_eq!(s, "[INTERNAL] oops");
+    // Should be exactly "[internal] oops" with no trailing JSON
+    assert_eq!(s, "[internal] oops");
 }
 
 #[test]
@@ -690,7 +690,7 @@ fn error_dto_snapshot_minimal() {
         source_message: None,
     };
     let json = serde_json::to_string(&dto).unwrap();
-    assert_eq!(json, r#"{"code":"INTERNAL","message":"oops","context":{}}"#);
+    assert_eq!(json, r#"{"code":"internal","message":"oops","context":{}}"#);
 }
 
 #[test]
@@ -1182,13 +1182,13 @@ fn abp_error_context_overwrite_preserves_count() {
 }
 
 #[test]
-fn all_error_codes_serialize_to_screaming_snake() {
+fn all_error_codes_serialize_to_snake_case() {
     for code in ALL_CODES {
         let json = serde_json::to_string(code).unwrap();
         let inner = json.trim_matches('"');
         assert!(
-            inner.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
-            "{inner} is not SCREAMING_SNAKE_CASE"
+            inner.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
+            "{inner} is not snake_case"
         );
     }
 }

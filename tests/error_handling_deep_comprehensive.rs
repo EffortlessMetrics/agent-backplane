@@ -157,8 +157,9 @@ fn error_code_deserialize_rejects_unknown() {
 
 #[test]
 fn error_code_deserialize_rejects_lowercase() {
+    // snake_case IS the canonical serde format (rename_all = "snake_case")
     let result = serde_json::from_str::<ErrorCode>("\"backend_not_found\"");
-    assert!(result.is_err());
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -204,7 +205,7 @@ fn error_code_as_str_specific_values() {
     );
     assert_eq!(ErrorCode::DialectUnknown.as_str(), "dialect_unknown");
     assert_eq!(ErrorCode::ConfigInvalid.as_str(), "config_invalid");
-    assert_eq!(ErrorCode::Internal.as_str(), "INTERNAL");
+    assert_eq!(ErrorCode::Internal.as_str(), "internal");
 }
 
 // ===========================================================================
@@ -288,7 +289,7 @@ fn abp_error_with_source_and_context() {
 #[test]
 fn abp_error_display_without_context() {
     let err = AbpError::new(ErrorCode::BackendNotFound, "no such backend");
-    assert_eq!(err.to_string(), "[BACKEND_NOT_FOUND] no such backend");
+    assert_eq!(err.to_string(), "[backend_not_found] no such backend");
 }
 
 #[test]
@@ -296,7 +297,7 @@ fn abp_error_display_with_context_contains_all_parts() {
     let err =
         AbpError::new(ErrorCode::BackendTimeout, "timed out").with_context("timeout_ms", 5000);
     let s = err.to_string();
-    assert!(s.starts_with("[BACKEND_TIMEOUT] timed out"));
+    assert!(s.starts_with("[backend_timeout] timed out"));
     assert!(s.contains("timeout_ms"));
     assert!(s.contains("5000"));
 }

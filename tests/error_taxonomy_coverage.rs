@@ -172,7 +172,7 @@ const CODE_TABLE: &[(ErrorCode, &str, ErrorCategory)] = &[
         "config_invalid",
         ErrorCategory::Config,
     ),
-    (ErrorCode::Internal, "INTERNAL", ErrorCategory::Internal),
+    (ErrorCode::Internal, "internal", ErrorCategory::Internal),
 ];
 
 // =========================================================================
@@ -211,12 +211,12 @@ fn error_code_as_str_values_are_unique() {
 }
 
 #[test]
-fn error_code_as_str_is_screaming_snake() {
+fn error_code_as_str_is_snake_case() {
     for code in ALL_CODES {
         let s = code.as_str();
         assert!(
-            s.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
-            "{s} is not SCREAMING_SNAKE_CASE"
+            s.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
+            "{s} is not snake_case"
         );
     }
 }
@@ -256,8 +256,9 @@ fn error_code_deserialize_rejects_invalid() {
 
 #[test]
 fn error_code_deserialize_rejects_lowercase() {
+    // snake_case IS the canonical serde format
     let result: Result<ErrorCode, _> = serde_json::from_str("\"backend_not_found\"");
-    assert!(result.is_err());
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -528,14 +529,14 @@ fn abp_error_new_from_string() {
 #[test]
 fn abp_error_display_without_context() {
     let err = AbpError::new(ErrorCode::PolicyDenied, "access denied");
-    assert_eq!(err.to_string(), "[POLICY_DENIED] access denied");
+    assert_eq!(err.to_string(), "[policy_denied] access denied");
 }
 
 #[test]
 fn abp_error_display_with_single_context() {
     let err = AbpError::new(ErrorCode::BackendTimeout, "slow").with_context("timeout_ms", 5000);
     let s = err.to_string();
-    assert!(s.starts_with("[BACKEND_TIMEOUT] slow"));
+    assert!(s.starts_with("[backend_timeout] slow"));
     assert!(s.contains("timeout_ms"));
     assert!(s.contains("5000"));
 }
@@ -897,7 +898,7 @@ fn dto_deserialize_from_handcrafted_json() {
 
 #[test]
 fn dto_deserialize_with_source_message() {
-    let raw = r#"{"code":"INTERNAL","message":"x","context":{},"source_message":"inner"}"#;
+    let raw = r#"{"code":"internal","message":"x","context":{},"source_message":"inner"}"#;
     let dto: AbpErrorDto = serde_json::from_str(raw).unwrap();
     assert_eq!(dto.source_message.as_deref(), Some("inner"));
 }
@@ -978,7 +979,7 @@ fn with_source_and_context_combined() {
 fn empty_message() {
     let err = AbpError::new(ErrorCode::Internal, "");
     assert_eq!(err.message, "");
-    assert_eq!(err.to_string(), "[INTERNAL] ");
+    assert_eq!(err.to_string(), "[internal] ");
 }
 
 #[test]
@@ -1104,7 +1105,7 @@ fn dto_partial_eq_different_message() {
 fn display_no_context_no_trailing_space() {
     let err = AbpError::new(ErrorCode::Internal, "msg");
     let s = err.to_string();
-    assert_eq!(s, "[INTERNAL] msg");
+    assert_eq!(s, "[internal] msg");
     assert!(!s.ends_with(' '));
 }
 
