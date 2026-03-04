@@ -343,8 +343,8 @@ mod mapper_factory_operations {
     }
 
     #[test]
-    fn factory_returns_none_for_copilot_to_openai() {
-        assert!(default_ir_mapper(Dialect::Copilot, Dialect::OpenAi).is_none());
+    fn factory_returns_some_for_copilot_to_openai() {
+        assert!(default_ir_mapper(Dialect::Copilot, Dialect::OpenAi).is_some());
     }
 
     #[test]
@@ -372,8 +372,8 @@ mod mapper_factory_operations {
     #[test]
     fn supported_pairs_count_is_correct() {
         let pairs = supported_ir_pairs();
-        // 6 identity + 6 cross-dialect = 12
-        assert_eq!(pairs.len(), 12);
+        // 6 identity + 18 cross-dialect = 24
+        assert_eq!(pairs.len(), 24);
     }
 
     #[test]
