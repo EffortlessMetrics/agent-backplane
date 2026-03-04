@@ -459,8 +459,8 @@ fn daemon_api_health_response() {
     let resp = HealthResponse {
         status: "ok".into(),
         version: "abp/v0.1".into(),
-        uptime_seconds: 3600,
-        backends_count: 3,
+        uptime_secs: 3600,
+        backends: vec!["mock".into(), "openai".into(), "claude".into()],
     };
     insta::assert_json_snapshot!(resp);
 }
@@ -519,8 +519,8 @@ fn daemon_api_response_health() {
     let resp = ApiResponse::Health(HealthResponse {
         status: "ok".into(),
         version: "abp/v0.1".into(),
-        uptime_seconds: 120,
-        backends_count: 2,
+        uptime_secs: 120,
+        backends: vec!["mock".into(), "sidecar".into()],
     });
     insta::assert_json_snapshot!(resp);
 }

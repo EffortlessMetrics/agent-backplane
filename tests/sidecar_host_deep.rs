@@ -618,8 +618,7 @@ fn compute_delay_exponential_backoff() {
 #[test]
 fn is_retryable_classifies_errors_correctly() {
     // Retryable errors.
-    assert!(is_retryable(&HostError::Spawn(std::io::Error::new(
-        std::io::ErrorKind::Other,
+    assert!(is_retryable(&HostError::Spawn(std::io::Error::other(
         "err"
     ))));
     assert!(is_retryable(&HostError::Exited { code: Some(1) }));

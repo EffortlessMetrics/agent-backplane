@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Cross-dialect type conversion utilities.
 //!
-//! Provides a [`DialectConverter`] trait for translating canonical messages,
-//! tools, and responses between vendor dialects, along with a [`RoleMapper`]
-//! helper for role-name mapping and a [`ConversionReport`] for tracking
+//! Provides a [`DialectConverter`](crate::convert::DialectConverter) trait for translating canonical messages,
+//! tools, and responses between vendor dialects, along with a [`RoleMapper`](crate::convert::RoleMapper)
+//! helper for role-name mapping and a [`ConversionReport`](crate::convert::ConversionReport) for tracking
 //! conversion outcomes.
 
 use crate::Dialect;

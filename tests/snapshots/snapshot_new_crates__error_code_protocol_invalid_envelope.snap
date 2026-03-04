@@ -2,4 +2,4 @@
 source: tests/snapshot_new_crates.rs
 expression: "ErrorCode::ProtocolInvalidEnvelope"
 ---
-"PROTOCOL_INVALID_ENVELOPE"
+"protocol_invalid_envelope"

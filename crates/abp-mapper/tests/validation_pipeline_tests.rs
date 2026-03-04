@@ -324,7 +324,7 @@ fn validation_result_serde_roundtrip() {
     };
     let json = serde_json::to_string(&result).unwrap();
     let back: ValidationResult = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.valid, true);
+    assert!(back.valid);
     assert_eq!(back.field_coverage, 100.0);
 }
 

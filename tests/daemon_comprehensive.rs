@@ -1319,14 +1319,14 @@ fn api_health_response_serde_roundtrip() {
     let resp = HealthResponse {
         status: "ok".into(),
         version: abp_core::CONTRACT_VERSION.into(),
-        uptime_seconds: 123,
-        backends_count: 3,
+        uptime_secs: 123,
+        backends: vec!["a".into(), "b".into(), "c".into()],
     };
     let json = serde_json::to_string(&resp).unwrap();
     let back: HealthResponse = serde_json::from_str(&json).unwrap();
     assert_eq!(back.status, "ok");
-    assert_eq!(back.uptime_seconds, 123);
-    assert_eq!(back.backends_count, 3);
+    assert_eq!(back.uptime_secs, 123);
+    assert_eq!(back.backends.len(), 3);
 }
 
 // --- api::BackendDetail ---
@@ -1446,8 +1446,8 @@ fn api_response_health_serde() {
     let resp = ApiResponse::Health(HealthResponse {
         status: "ok".into(),
         version: "v0.1".into(),
-        uptime_seconds: 0,
-        backends_count: 1,
+        uptime_secs: 0,
+        backends: vec!["mock".into()],
     });
     let json = serde_json::to_string(&resp).unwrap();
     let back: ApiResponse = serde_json::from_str(&json).unwrap();

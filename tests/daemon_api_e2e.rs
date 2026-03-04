@@ -1189,15 +1189,15 @@ fn api_response_health_roundtrip() {
     let resp = ApiResponse::Health(HealthResponse {
         status: "ok".into(),
         version: abp_core::CONTRACT_VERSION.into(),
-        uptime_seconds: 123,
-        backends_count: 2,
+        uptime_secs: 123,
+        backends: vec!["mock".into(), "sidecar".into()],
     });
     let json = serde_json::to_string(&resp).unwrap();
     let back: ApiResponse = serde_json::from_str(&json).unwrap();
     match back {
         ApiResponse::Health(h) => {
             assert_eq!(h.status, "ok");
-            assert_eq!(h.uptime_seconds, 123);
+            assert_eq!(h.uptime_secs, 123);
         }
         _ => panic!("wrong variant"),
     }

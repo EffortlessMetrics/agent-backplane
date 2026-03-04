@@ -22,7 +22,7 @@ impl StreamTee {
     /// Broadcast an event to all active senders.
     ///
     /// Returns `Ok(())` if at least one sender accepted the event, or if
-    /// there are no senders. Returns [`Err(TeeError::AllReceiversClosed)`]
+    /// there are no senders. Returns `Err(TeeError::AllReceiversClosed)`
     /// only when every sender has been closed.
     pub async fn send(&self, event: &AgentEvent) -> Result<(), TeeError> {
         if self.senders.is_empty() {

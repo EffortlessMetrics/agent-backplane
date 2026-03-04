@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Request fingerprinting for dialect identification.
 //!
-//! Provides [`DialectFingerprint`] definitions and free functions
-//! ([`detect_dialect`], [`detect_from_headers`]) that examine raw JSON
+//! Provides [`DialectFingerprint`](crate::detect::DialectFingerprint) definitions and free functions
+//! ([`detect_dialect`](crate::detect::detect_dialect), [`detect_from_headers`](crate::detect::detect_from_headers)) that examine raw JSON
 //! requests and HTTP headers to identify which SDK dialect produced them.
 
 use std::collections::BTreeMap;

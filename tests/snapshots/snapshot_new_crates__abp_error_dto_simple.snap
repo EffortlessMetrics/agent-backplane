@@ -3,7 +3,7 @@ source: tests/snapshot_new_crates.rs
 expression: dto
 ---
 {
-  "code": "BACKEND_NOT_FOUND",
+  "code": "backend_not_found",
   "message": "no such backend: openai",
   "context": {}
 }

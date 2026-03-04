@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Request/response validation and normalization for each dialect.
 //!
-//! Provides [`RequestValidator`] which checks that a raw JSON value
-//! conforms to a specific [`Dialect`]'s expected schema, returning
-//! structured [`ValidationIssue`]s with machine-readable codes and
+//! Provides [`RequestValidator`](crate::validate::RequestValidator) which checks that a raw JSON value
+//! conforms to a specific [`Dialect`](crate::Dialect)'s expected schema, returning
+//! structured [`ValidationIssue`](crate::validate::ValidationIssue)s with machine-readable codes and
 //! severity levels.
 
 use serde::{Deserialize, Serialize};
