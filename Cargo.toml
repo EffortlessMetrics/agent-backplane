@@ -43,6 +43,7 @@ members = [
   "crates/abp-shim-copilot",
   "crates/abp-shim-kimi",
   "crates/abp-shim-openai",
+  "crates/abp-serde-duration",
   "crates/abp-sidecar-proto",
   "crates/abp-sidecar-sdk",
   "crates/abp-stream",

@@ -20,13 +20,13 @@ pub struct RetryConfig {
     /// `0` means only the initial attempt (no retries).
     pub max_retries: u32,
     /// Base delay for exponential backoff.
-    #[serde(with = "duration_millis")]
+    #[serde(with = "abp_serde_duration::duration_millis")]
     pub base_delay: Duration,
     /// Maximum delay cap for exponential backoff.
-    #[serde(with = "duration_millis")]
+    #[serde(with = "abp_serde_duration::duration_millis")]
     pub max_delay: Duration,
     /// Overall wall-clock timeout across all attempts.
-    #[serde(with = "duration_millis")]
+    #[serde(with = "abp_serde_duration::duration_millis")]
     pub overall_timeout: Duration,
     /// Jitter factor in `[0.0, 1.0]`. 0 = no jitter, 1 = full jitter.
     pub jitter_factor: f64,
@@ -44,21 +44,6 @@ impl Default for RetryConfig {
     }
 }
 
-/// Serde helper — `Duration` as integer milliseconds.
-mod duration_millis {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use std::time::Duration;
-
-    pub fn serialize<S: Serializer>(val: &Duration, ser: S) -> Result<S::Ok, S::Error> {
-        val.as_millis().serialize(ser)
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<Duration, D::Error> {
-        let ms: u64 = u64::deserialize(de)?;
-        Ok(Duration::from_millis(ms))
-    }
-}
-
 // ── Metadata ────────────────────────────────────────────────────────
 
 /// Record of a single failed attempt.
@@ -69,7 +54,7 @@ pub struct RetryAttempt {
     /// Error message from this attempt.
     pub error: String,
     /// Backoff delay applied before the next attempt.
-    #[serde(with = "duration_millis")]
+    #[serde(with = "abp_serde_duration::duration_millis")]
     pub delay: Duration,
 }
 
@@ -81,7 +66,7 @@ pub struct RetryMetadata {
     /// Records of each *failed* attempt.
     pub failed_attempts: Vec<RetryAttempt>,
     /// Wall-clock time spanning all attempts.
-    #[serde(with = "duration_millis")]
+    #[serde(with = "abp_serde_duration::duration_millis")]
     pub total_duration: Duration,
 }
 

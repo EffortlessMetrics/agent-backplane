@@ -19,7 +19,7 @@ pub struct ProcessConfig {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "option_duration_millis"
+        with = "abp_serde_duration::option_duration_millis"
     )]
     pub timeout: Option<Duration>,
     /// Whether to inherit the parent process's environment variables.
@@ -29,24 +29,6 @@ pub struct ProcessConfig {
 
 fn default_true() -> bool {
     true
-}
-
-/// Serde helper for `Option<Duration>` as milliseconds.
-mod option_duration_millis {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use std::time::Duration;
-
-    pub fn serialize<S: Serializer>(val: &Option<Duration>, ser: S) -> Result<S::Ok, S::Error> {
-        match val {
-            Some(d) => d.as_millis().serialize(ser),
-            None => ser.serialize_none(),
-        }
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<Option<Duration>, D::Error> {
-        let opt: Option<u64> = Option::deserialize(de)?;
-        Ok(opt.map(Duration::from_millis))
-    }
 }
 
 impl Default for ProcessConfig {
