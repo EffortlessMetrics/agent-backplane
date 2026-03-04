@@ -154,23 +154,19 @@ impl Validator<serde_json::Value> for RawEnvelopeValidator {
 
         // run/event/final should have ref_id or id
         match obj.get("t").and_then(|t| t.as_str()) {
-            Some("run") => {
-                if !obj.contains_key("id") {
-                    errs.add(
-                        "id",
-                        ValidationErrorKind::Required,
-                        "run envelope must contain 'id'",
-                    );
-                }
+            Some("run") if !obj.contains_key("id") => {
+                errs.add(
+                    "id",
+                    ValidationErrorKind::Required,
+                    "run envelope must contain 'id'",
+                );
             }
-            Some("event" | "final") => {
-                if !obj.contains_key("ref_id") {
-                    errs.add(
-                        "ref_id",
-                        ValidationErrorKind::Required,
-                        "event/final envelope must contain 'ref_id'",
-                    );
-                }
+            Some("event" | "final") if !obj.contains_key("ref_id") => {
+                errs.add(
+                    "ref_id",
+                    ValidationErrorKind::Required,
+                    "event/final envelope must contain 'ref_id'",
+                );
             }
             _ => {}
         }
