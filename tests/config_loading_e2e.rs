@@ -35,6 +35,7 @@ fn full_config() -> BackplaneConfig {
                 },
             ),
         ]),
+        ..Default::default()
     }
 }
 
@@ -374,6 +375,7 @@ fn merge_base_preserved_when_overlay_none() {
         log_level: Some("debug".into()),
         receipts_dir: Some("/receipts".into()),
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let overlay = BackplaneConfig {
         default_backend: None,
@@ -381,6 +383,7 @@ fn merge_base_preserved_when_overlay_none() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let merged = merge_configs(base, overlay);
     assert_eq!(merged.default_backend.as_deref(), Some("mock"));
@@ -397,6 +400,7 @@ fn merge_both_none_stays_none() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let overlay = BackplaneConfig {
         default_backend: None,
@@ -404,6 +408,7 @@ fn merge_both_none_stays_none() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let merged = merge_configs(base, overlay);
     assert!(merged.default_backend.is_none());
@@ -544,6 +549,7 @@ fn merge_empty_with_full() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let full = full_config();
     let merged = merge_configs(empty, full.clone());
@@ -559,6 +565,7 @@ fn merge_full_with_empty() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let full = full_config();
     let merged = merge_configs(full.clone(), empty);
@@ -605,6 +612,7 @@ fn apply_env_overrides_on_empty_config() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     apply_env_overrides(&mut cfg);
     // May or may not have values set depending on env — just don't panic.
@@ -1136,6 +1144,7 @@ fn toml_roundtrip_empty_backends() {
         log_level: Some("warn".into()),
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let s = toml::to_string(&cfg).unwrap();
     let back: BackplaneConfig = toml::from_str(&s).unwrap();
@@ -1161,6 +1170,7 @@ fn toml_skip_serializing_none_fields() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let s = toml::to_string(&cfg).unwrap();
     assert!(!s.contains("default_backend"));
@@ -1457,6 +1467,7 @@ fn merged_config_accumulates_warnings() {
         log_level: None,
         workspace_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let overlay = BackplaneConfig {
         backends: BTreeMap::from([(

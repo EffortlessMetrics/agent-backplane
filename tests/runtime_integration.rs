@@ -843,6 +843,7 @@ command = ""
                 m.insert("mock".into(), BackendEntry::Mock {});
                 m
             },
+            ..Default::default()
         };
         let json = serde_json::to_string(&config).unwrap();
         let decoded: BackplaneConfig = serde_json::from_str(&json).unwrap();

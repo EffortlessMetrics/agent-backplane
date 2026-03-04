@@ -1092,6 +1092,7 @@ fn snapshot_backplane_config_full() {
         log_level: Some("debug".into()),
         receipts_dir: Some("/tmp/receipts".into()),
         backends,
+        ..Default::default()
     };
     insta::assert_json_snapshot!(cfg);
 }

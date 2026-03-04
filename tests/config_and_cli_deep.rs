@@ -824,6 +824,7 @@ fn config_roundtrip_toml_serialize_deserialize() {
         log_level: Some("debug".into()),
         receipts_dir: Some("/r".into()),
         backends: BTreeMap::from([("m".into(), BackendEntry::Mock {})]),
+        ..Default::default()
     };
     let serialized = toml::to_string(&cfg).unwrap();
     let deserialized: BackplaneConfig = toml::from_str(&serialized).unwrap();
@@ -918,6 +919,7 @@ fn config_validation_valid_with_all_fields_set() {
                 },
             ),
         ]),
+        ..Default::default()
     };
     let warnings = validate_config(&cfg).unwrap();
     // Should have no missing-field advisories

@@ -41,6 +41,7 @@ fn full_config() -> BackplaneConfig {
         log_level: Some("info".into()),
         receipts_dir: Some("/tmp/receipts".into()),
         backends,
+        ..Default::default()
     }
 }
 
@@ -1067,6 +1068,7 @@ fn merge_preserves_base_when_overlay_is_empty() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let m = merge_configs(base.clone(), overlay);
     assert_eq!(m.default_backend, base.default_backend);

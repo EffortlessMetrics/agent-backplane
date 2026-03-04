@@ -780,7 +780,7 @@ fn feature_receipt_hash_matches_content() {
                 .unwrap()
         });
 
-        let valid = when!("verifying the hash", { verify_hash(&receipt) });
+        let valid = when!("verifying the hash", verify_hash(&receipt));
 
         then!("the hash is valid", {
             assert!(valid);

@@ -23,6 +23,7 @@ fn identity_config() -> BackplaneConfig {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     }
 }
 
@@ -123,6 +124,7 @@ fn arb_valid_config() -> BoxedStrategy<BackplaneConfig> {
                 log_level,
                 receipts_dir,
                 backends,
+                ..Default::default()
             },
         )
         .boxed()
@@ -144,6 +146,7 @@ fn arb_fully_populated_config() -> BoxedStrategy<BackplaneConfig> {
                 log_level,
                 receipts_dir,
                 backends,
+                ..Default::default()
             },
         )
         .boxed()
@@ -158,6 +161,7 @@ fn arb_minimal_config() -> BoxedStrategy<BackplaneConfig> {
             log_level: None,
             receipts_dir: None,
             backends,
+            ..Default::default()
         })
         .boxed()
 }

@@ -2,7 +2,11 @@
 # Run with: cargo mutants --no-shuffle
 
 # ── Timeout per mutation ─────────────────────────────────────────────────
-timeout = 90          # seconds; allow headroom for slower crates
+timeout = 120          # seconds; allow headroom for slower crates
+minimum_test_timeout = 20  # seconds; floor for fast tests
+
+# ── Build-time limit ─────────────────────────────────────────────────────
+build_timeout = 300    # seconds; cap incremental rebuild time
 
 # ── Focus on the core, deterministic crates ──────────────────────────────
 examine_re = [
@@ -19,12 +23,23 @@ examine_re = [
   "^crates/abp-emulation/",
   "^crates/abp-telemetry/",
   "^crates/abp-dialect/",
+  "^crates/abp-ir/",
 ]
 
-# ── Interesting mutation targets (public functions that should kill mutants) ──
+# ── Critical source files — highest mutation-testing priority ─────────────
 # Receipt hashing — hash computation must be exact
-# examine_globs would go here if cargo-mutants supports it; for now we rely
-# on examine_re above to include the right crates.
+# examine_re already covers these, but these files are the most important:
+#   crates/abp-receipt/src/lib.rs          (canonicalize, compute_hash, verify_hash)
+#   crates/abp-receipt/src/builder.rs      (with_hash)
+#   crates/abp-core/src/lib.rs             (CONTRACT_VERSION, Outcome, ExecutionMode)
+#   crates/abp-policy/src/lib.rs           (PolicyEngine: can_use_tool, can_read_path, can_write_path)
+#   crates/abp-policy/src/compose.rs       (ComposedEngine: check_tool, check_read, check_write)
+#   crates/abp-capability/src/lib.rs       (negotiate_capabilities, check_capability)
+#   crates/abp-capability/src/negotiate.rs (apply_policy, NegotiationPolicy)
+#   crates/abp-error/src/lib.rs            (ErrorCode::category, is_retryable, as_str)
+#   crates/abp-dialect/src/detect.rs       (detect_dialect, score_fingerprint)
+#   crates/abp-glob/src/lib.rs             (IncludeExcludeGlobs::decide_path, MatchDecision::is_allowed)
+#   crates/abp-ir/src/normalize.rs         (normalize_role, dedup_system, trim_text, strip_empty)
 
 # ── Skip test modules, fuzz harnesses, and xtask helpers ─────────────────
 exclude_re = [

@@ -33,6 +33,7 @@ fn full_cfg() -> BackplaneConfig {
         log_level: Some("info".into()),
         receipts_dir: Some("/tmp/receipts".into()),
         backends,
+        ..Default::default()
     }
 }
 
@@ -830,6 +831,7 @@ fn merge_base_preserved_when_overlay_none() {
         log_level: Some("trace".into()),
         receipts_dir: Some("/r".into()),
         backends: BTreeMap::from([("m".into(), BackendEntry::Mock {})]),
+        ..Default::default()
     };
     let overlay = BackplaneConfig {
         default_backend: None,
@@ -837,6 +839,7 @@ fn merge_base_preserved_when_overlay_none() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let m = merge_configs(base, overlay);
     assert_eq!(m.default_backend.as_deref(), Some("x"));
@@ -910,6 +913,7 @@ fn merge_three_layers() {
         workspace_dir: None,
         log_level: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let m = merge_configs(merge_configs(a, b), c);
     assert_eq!(m.default_backend.as_deref(), Some("a"));
@@ -937,6 +941,7 @@ fn merge_both_none_stays_none() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let b = a.clone();
     let m = merge_configs(a, b);
@@ -1068,6 +1073,7 @@ fn toml_serialization_skips_none_fields() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let s = toml::to_string(&c).unwrap();
     assert!(!s.contains("default_backend"));
@@ -1084,6 +1090,7 @@ fn json_serialization_skips_none_fields() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let j = serde_json::to_string(&c).unwrap();
     assert!(!j.contains("default_backend"));
@@ -1259,6 +1266,7 @@ fn env_override_does_not_touch_unset_vars() {
         receipts_dir: Some("/r".into()),
         workspace_dir: Some("/w".into()),
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     apply_env_overrides(&mut c);
     assert_eq!(c.default_backend.as_deref(), Some("keep"));

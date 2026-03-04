@@ -954,6 +954,7 @@ fn golden_backplane_config_full() {
         log_level: Some("debug".into()),
         receipts_dir: Some("/tmp/receipts".into()),
         backends,
+        ..Default::default()
     };
     assert_json_snapshot!("golden_backplane_config_full", c);
 }

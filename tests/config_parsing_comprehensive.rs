@@ -614,6 +614,7 @@ fn merge_preserves_base_when_overlay_fields_none() {
         log_level: Some("debug".into()),
         receipts_dir: Some("/receipts".into()),
         backends: BTreeMap::from([("m".into(), BackendEntry::Mock {})]),
+        ..Default::default()
     };
     let overlay = BackplaneConfig {
         default_backend: None,
@@ -621,6 +622,7 @@ fn merge_preserves_base_when_overlay_fields_none() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let merged = merge_configs(base, overlay);
     assert_eq!(merged.default_backend.as_deref(), Some("mock"));
@@ -721,6 +723,7 @@ fn merge_both_empty_gives_empty() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let overlay = BackplaneConfig {
         default_backend: None,
@@ -728,6 +731,7 @@ fn merge_both_empty_gives_empty() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let merged = merge_configs(base, overlay);
     assert!(merged.default_backend.is_none());
@@ -965,6 +969,7 @@ fn backend_full_config_toml_roundtrip() {
                 },
             ),
         ]),
+        ..Default::default()
     };
     let serialized = toml::to_string(&cfg).unwrap();
     let deserialized: BackplaneConfig = toml::from_str(&serialized).unwrap();

@@ -40,6 +40,7 @@ fn full_config() -> BackplaneConfig {
                 },
             ),
         ]),
+        ..Default::default()
     }
 }
 
@@ -650,6 +651,7 @@ fn e09_merge_base_empty_overlay_full() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let overlay = full_config();
     let merged = merge_configs(base, overlay);
@@ -666,6 +668,7 @@ fn e10_merge_full_base_empty_overlay() {
         log_level: None,
         receipts_dir: None,
         backends: BTreeMap::new(),
+        ..Default::default()
     };
     let merged = merge_configs(base, overlay);
     assert_eq!(merged.default_backend.as_deref(), Some("mock"));

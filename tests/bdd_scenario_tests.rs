@@ -16,7 +16,8 @@ use abp_core::{
     CapabilityRequirements, ExecutionMode, MinSupport, Outcome, PolicyProfile, ReceiptBuilder,
     SupportLevel, WorkOrderBuilder, WorkspaceMode,
 };
-use abp_dialect::{Dialect, DialectDetector};
+use abp_dialect::DialectDetector;
+use abp_dialect::Dialect;
 use abp_ir::lower::{lower_for_dialect, lower_to_claude, lower_to_gemini, lower_to_openai};
 use abp_ir::normalize::normalize;
 use abp_mapper::{
@@ -174,7 +175,7 @@ async fn given_work_order_with_unknown_backend_then_unknown_backend_error() {
     let result = rt.run_streaming("nonexistent_backend", wo).await;
 
     assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.err().unwrap();
     assert!(
         matches!(err, RuntimeError::UnknownBackend { .. }),
         "expected UnknownBackend, got: {err:?}"
@@ -889,7 +890,7 @@ fn given_lower_for_dialect_when_called_for_all_then_all_produce_valid_json() {
     ]);
     let tools = vec![];
 
-    for dialect in Dialect::all() {
+    for dialect in abp_sdk_types::Dialect::all() {
         let result = lower_for_dialect(*dialect, &conv, &tools);
         assert!(result.is_object(), "lowered output for {dialect:?} should be a JSON object");
     }
