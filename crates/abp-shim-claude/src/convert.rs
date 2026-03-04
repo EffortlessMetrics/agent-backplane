@@ -566,11 +566,11 @@ mod tests {
     fn to_work_order_omits_none_fields() {
         let req = simple_request("hi");
         let wo = to_work_order(&req);
-        assert!(wo.config.vendor.get("temperature").is_none());
-        assert!(wo.config.vendor.get("top_p").is_none());
-        assert!(wo.config.vendor.get("top_k").is_none());
-        assert!(wo.config.vendor.get("stream").is_none());
-        assert!(wo.config.vendor.get("system").is_none());
+        assert!(!wo.config.vendor.contains_key("temperature"));
+        assert!(!wo.config.vendor.contains_key("top_p"));
+        assert!(!wo.config.vendor.contains_key("top_k"));
+        assert!(!wo.config.vendor.contains_key("stream"));
+        assert!(!wo.config.vendor.contains_key("system"));
     }
 
     // ── 4. Tools mapping ────────────────────────────────────────────────
@@ -594,7 +594,7 @@ mod tests {
         let mut req = simple_request("hi");
         req.tool_choice = Some(ClaudeToolChoice::Auto {});
         let wo = to_work_order(&req);
-        assert!(wo.config.vendor.get("tool_choice").is_some());
+        assert!(wo.config.vendor.contains_key("tool_choice"));
     }
 
     // ── 5. Content block types ──────────────────────────────────────────
@@ -1056,7 +1056,7 @@ mod tests {
         }]);
 
         let wo = to_work_order(&req);
-        assert!(wo.config.vendor.get("tools").is_some());
+        assert!(wo.config.vendor.contains_key("tools"));
 
         let receipt = make_receipt(
             vec![tool_call_event(

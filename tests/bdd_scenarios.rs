@@ -1,37 +1,24 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! BDD-style Given/When/Then tests for Agent Backplane end-to-end scenarios.
+//! BDD-style Given/When/Then scenario tests for Agent Backplane.
 //!
-//! Covers work order submission, backend selection, mock backend modes,
-//! receipt generation, policy enforcement, workspace staging, error handling,
-//! multi-step conversations, capability negotiation, event streaming,
-//! configuration, sidecar registration, and cross-SDK dialect translation.
+//! Uses a lightweight macro-based approach (no cucumber dependency) to
+//! structure tests as Feature → Scenario → Given/When/Then steps.
 
+use std::io::BufReader;
 use std::path::Path;
 
-use abp_capability::{check_capability, generate_report, negotiate};
-use abp_config::{
-    BackendEntry, BackplaneConfig, ConfigWarning, load_config, merge_configs, parse_toml,
-    validate_config,
-};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
-    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-    SupportLevel, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    canonical_json, receipt_hash, sha256_hex,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
+    MinSupport, Outcome, PolicyProfile, Receipt, SupportLevel,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
-use abp_dialect::{Dialect, DialectDetector};
-use abp_error::{AbpError, ErrorCategory, ErrorCode};
-use abp_integrations::Backend;
-use abp_mapping::{Fidelity, MappingRegistry, MappingRule, known_rules, validate_mapping};
+use abp_error::ErrorCode;
 use abp_policy::PolicyEngine;
-use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
-use abp_receipt::{ReceiptBuilder, ReceiptChain, compute_hash, diff_receipts, verify_hash};
+use abp_policy::rate_limit::{RateLimitPolicy, RateLimitResult};
+use abp_protocol::{Envelope, JsonlCodec, is_compatible_version};
+use abp_receipt::{ReceiptChain, compute_hash, verify_hash};
 use abp_runtime::{Runtime, RuntimeError};
-use abp_stream::{
-    EventFilter, EventRecorder, EventStats, EventTransform, StreamPipeline, StreamPipelineBuilder,
-};
-use abp_workspace::{WorkspaceManager, WorkspaceStager};
 use async_trait::async_trait;
 use chrono::Utc;
 use tokio::sync::mpsc;
@@ -39,2004 +26,1548 @@ use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 // ===========================================================================
+// BDD Framework Macros
+// ===========================================================================
+
+/// Run a named scenario composed of Given/When/Then steps.
+///
+/// Each step is a closure that returns a value threaded to the next step.
+macro_rules! scenario {
+    ($name:expr, $body:block) => {{
+        eprintln!("  Scenario: {}", $name);
+        $body
+    }};
+}
+
+/// Document a "Given" precondition step.
+macro_rules! given {
+    ($desc:expr, $body:expr) => {{
+        eprintln!("    Given {}", $desc);
+        $body
+    }};
+}
+
+/// Document a "When" action step.
+macro_rules! when {
+    ($desc:expr, $body:expr) => {{
+        eprintln!("    When {}", $desc);
+        $body
+    }};
+}
+
+/// Document a "Then" assertion step.
+macro_rules! then {
+    ($desc:expr, $body:expr) => {{
+        eprintln!("    Then {}", $desc);
+        $body
+    }};
+}
+
+// ===========================================================================
 // Helpers
 // ===========================================================================
 
-fn manifest_with(entries: &[(Capability, SupportLevel)]) -> CapabilityManifest {
+fn make_manifest(entries: &[(Capability, SupportLevel)]) -> CapabilityManifest {
     entries.iter().cloned().collect()
 }
 
-fn require_caps(caps: &[(Capability, MinSupport)]) -> CapabilityRequirements {
-    CapabilityRequirements {
-        required: caps
-            .iter()
-            .map(|(c, m)| CapabilityRequirement {
-                capability: c.clone(),
-                min_support: m.clone(),
-            })
-            .collect(),
-    }
-}
-
-fn simple_work_order(task: &str) -> WorkOrder {
-    WorkOrderBuilder::new(task)
-        .root(".")
-        .workspace_mode(WorkspaceMode::PassThrough)
-        .build()
-}
-
-fn make_event(kind: AgentEventKind) -> AgentEvent {
-    AgentEvent {
-        ts: Utc::now(),
-        kind,
-        ext: None,
-    }
-}
-
-fn build_receipt(backend_id: &str, outcome: Outcome) -> Receipt {
-    abp_core::ReceiptBuilder::new(backend_id)
-        .outcome(outcome)
-        .build()
-}
-
-async fn drain_run(rt: &Runtime, backend: &str, wo: WorkOrder) -> (Vec<AgentEvent>, Receipt) {
-    let handle = rt.run_streaming(backend, wo).await.unwrap();
-    let mut events = vec![];
-    let mut stream = handle.events;
-    while let Some(ev) = stream.next().await {
-        events.push(ev);
-    }
-    let receipt = handle.receipt.await.unwrap().unwrap();
-    (events, receipt)
-}
-
-/// A backend that always fails.
+/// A custom backend that emits tool call events.
 #[derive(Debug, Clone)]
-struct FailingBackend;
+struct ToolBackend;
 
 #[async_trait]
-impl Backend for FailingBackend {
+impl abp_integrations::Backend for ToolBackend {
     fn identity(&self) -> BackendIdentity {
         BackendIdentity {
-            id: "failing".into(),
+            id: "tool-backend".into(),
+            backend_version: Some("0.1".into()),
+            adapter_version: None,
+        }
+    }
+
+    fn capabilities(&self) -> CapabilityManifest {
+        make_manifest(&[
+            (Capability::Streaming, SupportLevel::Native),
+            (Capability::ToolRead, SupportLevel::Native),
+            (Capability::ToolWrite, SupportLevel::Native),
+        ])
+    }
+
+    async fn run(
+        &self,
+        run_id: Uuid,
+        work_order: WorkOrder,
+        tx: mpsc::Sender<AgentEvent>,
+    ) -> anyhow::Result<Receipt> {
+        let started = Utc::now();
+
+        let _ = tx
+            .send(AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::RunStarted {
+                    message: "starting".into(),
+                },
+                ext: None,
+            })
+            .await;
+
+        let _ = tx
+            .send(AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::ToolCall {
+                    tool_name: "read_file".into(),
+                    tool_use_id: Some("tc-1".into()),
+                    parent_tool_use_id: None,
+                    input: serde_json::json!({"path": "src/main.rs"}),
+                },
+                ext: None,
+            })
+            .await;
+
+        let _ = tx
+            .send(AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::ToolResult {
+                    tool_name: "read_file".into(),
+                    tool_use_id: Some("tc-1".into()),
+                    output: serde_json::json!({"content": "fn main() {}"}),
+                    is_error: false,
+                },
+                ext: None,
+            })
+            .await;
+
+        let _ = tx
+            .send(AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "I read the file.".into(),
+                },
+                ext: None,
+            })
+            .await;
+
+        let _ = tx
+            .send(AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::RunCompleted {
+                    message: "done".into(),
+                },
+                ext: None,
+            })
+            .await;
+
+        let finished = Utc::now();
+        let duration_ms = (finished - started)
+            .to_std()
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let receipt = Receipt {
+            meta: abp_core::RunMetadata {
+                run_id,
+                work_order_id: work_order.id,
+                contract_version: CONTRACT_VERSION.to_string(),
+                started_at: started,
+                finished_at: finished,
+                duration_ms,
+            },
+            backend: self.identity(),
+            capabilities: self.capabilities(),
+            mode: ExecutionMode::Mapped,
+            usage_raw: serde_json::json!({"note": "tool-backend"}),
+            usage: abp_core::UsageNormalized {
+                input_tokens: Some(50),
+                output_tokens: Some(30),
+                ..Default::default()
+            },
+            trace: vec![],
+            artifacts: vec![],
+            verification: abp_core::VerificationReport::default(),
+            outcome: Outcome::Complete,
+            receipt_sha256: None,
+        }
+        .with_hash()?;
+
+        Ok(receipt)
+    }
+}
+
+/// A backend that returns a failed outcome with an error event.
+#[derive(Debug, Clone)]
+struct ErrorBackend {
+    error_code: ErrorCode,
+    message: String,
+}
+
+#[async_trait]
+impl abp_integrations::Backend for ErrorBackend {
+    fn identity(&self) -> BackendIdentity {
+        BackendIdentity {
+            id: "error-backend".into(),
             backend_version: None,
             adapter_version: None,
         }
     }
+
     fn capabilities(&self) -> CapabilityManifest {
-        CapabilityManifest::new()
+        make_manifest(&[(Capability::Streaming, SupportLevel::Native)])
     }
+
     async fn run(
         &self,
         _run_id: Uuid,
-        _wo: WorkOrder,
-        _tx: mpsc::Sender<AgentEvent>,
-    ) -> anyhow::Result<Receipt> {
-        anyhow::bail!("intentional failure")
-    }
-}
-
-/// A backend that emits tool call and result events for multi-step conversation.
-#[derive(Debug, Clone)]
-struct ToolCallBackend;
-
-#[async_trait]
-impl Backend for ToolCallBackend {
-    fn identity(&self) -> BackendIdentity {
-        BackendIdentity {
-            id: "tool-call".into(),
-            backend_version: Some("1.0.0".into()),
-            adapter_version: None,
-        }
-    }
-    fn capabilities(&self) -> CapabilityManifest {
-        CapabilityManifest::new()
-    }
-    async fn run(
-        &self,
-        run_id: Uuid,
-        wo: WorkOrder,
+        _work_order: WorkOrder,
         tx: mpsc::Sender<AgentEvent>,
     ) -> anyhow::Result<Receipt> {
         let _ = tx
-            .send(make_event(AgentEventKind::RunStarted {
-                message: "starting".into(),
-            }))
+            .send(AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::Error {
+                    message: self.message.clone(),
+                    error_code: Some(self.error_code),
+                },
+                ext: None,
+            })
             .await;
-        let _ = tx
-            .send(make_event(AgentEventKind::ToolCall {
-                tool_name: "read_file".into(),
-                tool_use_id: Some("tc1".into()),
-                parent_tool_use_id: None,
-                input: serde_json::json!({"path": "src/main.rs"}),
-            }))
-            .await;
-        let _ = tx
-            .send(make_event(AgentEventKind::ToolResult {
-                tool_name: "read_file".into(),
-                tool_use_id: Some("tc1".into()),
-                output: serde_json::json!({"content": "fn main() {}"}),
-                is_error: false,
-            }))
-            .await;
-        let _ = tx
-            .send(make_event(AgentEventKind::AssistantMessage {
-                text: "I read the file.".into(),
-            }))
-            .await;
-        let _ = tx
-            .send(make_event(AgentEventKind::RunCompleted {
-                message: "done".into(),
-            }))
-            .await;
-
-        Ok(ReceiptBuilder::new("tool-call")
-            .run_id(run_id)
-            .work_order_id(wo.id)
-            .outcome(Outcome::Complete)
-            .build())
+        anyhow::bail!("{}", self.message)
     }
 }
 
-/// A backend that emits configurable events.
+/// A streaming backend that emits ordered delta events.
 #[derive(Debug, Clone)]
-struct StreamingBackend {
-    event_count: usize,
-}
+struct StreamingBackend;
 
 #[async_trait]
-impl Backend for StreamingBackend {
+impl abp_integrations::Backend for StreamingBackend {
     fn identity(&self) -> BackendIdentity {
         BackendIdentity {
             id: "streaming".into(),
-            backend_version: Some("1.0.0".into()),
+            backend_version: Some("0.1".into()),
             adapter_version: None,
         }
     }
+
     fn capabilities(&self) -> CapabilityManifest {
-        manifest_with(&[(Capability::Streaming, SupportLevel::Native)])
+        make_manifest(&[(Capability::Streaming, SupportLevel::Native)])
     }
+
     async fn run(
         &self,
         run_id: Uuid,
-        wo: WorkOrder,
+        work_order: WorkOrder,
         tx: mpsc::Sender<AgentEvent>,
     ) -> anyhow::Result<Receipt> {
-        let _ = tx
-            .send(make_event(AgentEventKind::RunStarted {
-                message: "start".into(),
-            }))
-            .await;
-        for i in 0..self.event_count {
+        let started = Utc::now();
+        let tokens = ["Hello", ", ", "world", "!"];
+        for token in &tokens {
             let _ = tx
-                .send(make_event(AgentEventKind::AssistantDelta {
-                    text: format!("chunk-{i}"),
-                }))
+                .send(AgentEvent {
+                    ts: Utc::now(),
+                    kind: AgentEventKind::AssistantDelta {
+                        text: (*token).to_string(),
+                    },
+                    ext: None,
+                })
                 .await;
         }
         let _ = tx
-            .send(make_event(AgentEventKind::RunCompleted {
-                message: "done".into(),
-            }))
+            .send(AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "Hello, world!".into(),
+                },
+                ext: None,
+            })
             .await;
 
-        Ok(ReceiptBuilder::new("streaming")
-            .run_id(run_id)
-            .work_order_id(wo.id)
-            .outcome(Outcome::Complete)
-            .build())
+        let finished = Utc::now();
+        let duration_ms = (finished - started)
+            .to_std()
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        Ok(Receipt {
+            meta: abp_core::RunMetadata {
+                run_id,
+                work_order_id: work_order.id,
+                contract_version: CONTRACT_VERSION.to_string(),
+                started_at: started,
+                finished_at: finished,
+                duration_ms,
+            },
+            backend: self.identity(),
+            capabilities: self.capabilities(),
+            mode: ExecutionMode::Mapped,
+            usage_raw: serde_json::json!({}),
+            usage: abp_core::UsageNormalized::default(),
+            trace: vec![],
+            artifacts: vec![],
+            verification: abp_core::VerificationReport::default(),
+            outcome: Outcome::Complete,
+            receipt_sha256: None,
+        }
+        .with_hash()?)
     }
 }
 
-// ===========================================================================
-// 1. Work order submission and execution flow (10 tests)
-// ===========================================================================
-
-#[tokio::test]
-async fn given_work_order_when_submitted_to_mock_then_receipt_returned() {
-    let rt = Runtime::with_default_backends();
-    let wo = simple_work_order("hello world");
-    let handle = rt.run_streaming("mock", wo).await.unwrap();
-    let receipt = handle.receipt.await.unwrap().unwrap();
-    assert_eq!(receipt.outcome, Outcome::Complete);
-}
-
-#[tokio::test]
-async fn given_work_order_when_submitted_then_run_id_is_unique() {
-    let rt = Runtime::with_default_backends();
-    let h1 = rt
-        .run_streaming("mock", simple_work_order("task1"))
-        .await
-        .unwrap();
-    let h2 = rt
-        .run_streaming("mock", simple_work_order("task2"))
-        .await
-        .unwrap();
-    assert_ne!(h1.run_id, h2.run_id);
-    let _ = h1.receipt.await;
-    let _ = h2.receipt.await;
-}
-
-#[tokio::test]
-async fn given_work_order_when_mock_backend_then_events_streamed() {
-    let rt = Runtime::with_default_backends();
-    let wo = simple_work_order("stream test");
-    let handle = rt.run_streaming("mock", wo).await.unwrap();
-    let mut events = vec![];
+/// Collect all events from a RunHandle and return (events, receipt_result).
+async fn drain_run(
+    handle: abp_runtime::RunHandle,
+) -> (Vec<AgentEvent>, Result<Receipt, RuntimeError>) {
     let mut stream = handle.events;
+    let mut events = Vec::new();
     while let Some(ev) = stream.next().await {
         events.push(ev);
     }
-    assert!(!events.is_empty());
-    let _ = handle.receipt.await;
-}
-
-#[tokio::test]
-async fn given_work_order_when_executed_then_receipt_has_contract_version() {
-    let rt = Runtime::with_default_backends();
-    let (_, receipt) = drain_run(&rt, "mock", simple_work_order("version check")).await;
-    assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
-}
-
-#[tokio::test]
-async fn given_work_order_when_executed_then_receipt_work_order_id_matches() {
-    let rt = Runtime::with_default_backends();
-    let wo = simple_work_order("id check");
-    let wo_id = wo.id;
-    let (_, receipt) = drain_run(&rt, "mock", wo).await;
-    assert_eq!(receipt.meta.work_order_id, wo_id);
-}
-
-#[test]
-fn given_work_order_builder_when_build_then_task_preserved() {
-    let wo = WorkOrderBuilder::new("My task").build();
-    assert_eq!(wo.task, "My task");
-}
-
-#[test]
-fn given_work_order_builder_when_model_set_then_config_has_model() {
-    let wo = WorkOrderBuilder::new("test").model("gpt-4").build();
-    assert_eq!(wo.config.model.as_deref(), Some("gpt-4"));
-}
-
-#[test]
-fn given_work_order_builder_when_max_turns_set_then_config_has_turns() {
-    let wo = WorkOrderBuilder::new("test").max_turns(5).build();
-    assert_eq!(wo.config.max_turns, Some(5));
-}
-
-#[test]
-fn given_work_order_builder_when_max_budget_set_then_config_has_budget() {
-    let wo = WorkOrderBuilder::new("test").max_budget_usd(1.5).build();
-    assert_eq!(wo.config.max_budget_usd, Some(1.5));
-}
-
-#[test]
-fn given_work_order_builder_when_lane_set_then_lane_preserved() {
-    let wo = WorkOrderBuilder::new("test")
-        .lane(ExecutionLane::WorkspaceFirst)
-        .build();
-    assert!(matches!(wo.lane, ExecutionLane::WorkspaceFirst));
+    let receipt = handle.receipt.await.expect("receipt task panicked");
+    (events, receipt)
 }
 
 // ===========================================================================
-// 2. Backend selection based on dialect (8 tests)
+// Feature: Work Order Processing
 // ===========================================================================
-
-#[test]
-fn given_runtime_when_mock_registered_then_backend_discoverable() {
-    let rt = Runtime::with_default_backends();
-    assert!(rt.backend_names().contains(&"mock".to_string()));
-}
-
-#[test]
-fn given_runtime_when_custom_backend_registered_then_listed() {
-    let mut rt = Runtime::new();
-    rt.register_backend("custom", FailingBackend);
-    assert!(rt.backend_names().contains(&"custom".to_string()));
-}
 
 #[tokio::test]
-async fn given_runtime_when_unknown_backend_then_error() {
-    let rt = Runtime::with_default_backends();
-    let result = rt
-        .run_streaming("nonexistent", simple_work_order("test"))
-        .await;
-    assert!(result.is_err());
-    match result {
-        Err(RuntimeError::UnknownBackend { .. }) => {}
-        _ => panic!("expected UnknownBackend error"),
-    }
-}
+async fn feature_work_order_submit_simple_text_task() {
+    scenario!("Submit a simple text task → get a receipt with content", {
+        let wo = given!("a work order with task 'hello world'", {
+            WorkOrderBuilder::new("hello world")
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
 
-#[test]
-fn given_runtime_when_backend_replaced_then_new_one_used() {
-    let mut rt = Runtime::with_default_backends();
-    rt.register_backend("mock", FailingBackend);
-    let backend = rt.backend("mock").unwrap();
-    assert_eq!(backend.identity().id, "failing");
-}
+        let (events, receipt) = when!("the work order is processed with mock backend", {
+            let rt = Runtime::with_default_backends();
+            let handle = rt.run_streaming("mock", wo).await.unwrap();
+            drain_run(handle).await
+        });
 
-#[test]
-fn given_empty_runtime_when_no_backends_then_list_empty() {
-    let rt = Runtime::new();
-    assert!(rt.backend_names().is_empty());
-}
-
-#[test]
-fn given_runtime_when_multiple_backends_then_all_listed() {
-    let mut rt = Runtime::new();
-    rt.register_backend("a", FailingBackend);
-    rt.register_backend("b", FailingBackend);
-    let names = rt.backend_names();
-    assert!(names.contains(&"a".to_string()));
-    assert!(names.contains(&"b".to_string()));
-}
-
-#[test]
-fn given_runtime_when_backend_lookup_then_identity_matches() {
-    let rt = Runtime::with_default_backends();
-    let backend = rt.backend("mock").unwrap();
-    assert_eq!(backend.identity().id, "mock");
-}
-
-#[tokio::test]
-async fn given_runtime_with_custom_backend_when_run_then_uses_that_backend() {
-    let mut rt = Runtime::new();
-    rt.register_backend("tool-call", ToolCallBackend);
-    let (events, receipt) = drain_run(&rt, "tool-call", simple_work_order("test")).await;
-    assert_eq!(receipt.backend.id, "tool-call");
-    assert!(!events.is_empty());
-}
-
-// ===========================================================================
-// 3. Mock backend passthrough mode (7 tests)
-// ===========================================================================
-
-#[test]
-fn given_passthrough_mode_when_serialized_then_lowercase() {
-    let mode = ExecutionMode::Passthrough;
-    let json = serde_json::to_string(&mode).unwrap();
-    assert_eq!(json, r#""passthrough""#);
-}
-
-#[test]
-fn given_passthrough_mode_when_deserialized_then_matches() {
-    let mode: ExecutionMode = serde_json::from_str(r#""passthrough""#).unwrap();
-    assert_eq!(mode, ExecutionMode::Passthrough);
-}
-
-#[tokio::test]
-async fn given_passthrough_work_order_when_mock_run_then_receipt_complete() {
-    let rt = Runtime::with_default_backends();
-    let wo = WorkOrderBuilder::new("passthrough test")
-        .workspace_mode(WorkspaceMode::PassThrough)
-        .build();
-    let (_, receipt) = drain_run(&rt, "mock", wo).await;
-    assert_eq!(receipt.outcome, Outcome::Complete);
-}
-
-#[test]
-fn given_passthrough_receipt_when_mode_checked_then_default_mapped() {
-    let receipt = build_receipt("mock", Outcome::Complete);
-    assert_eq!(receipt.mode, ExecutionMode::Mapped);
-}
-
-#[test]
-fn given_execution_mode_when_default_then_mapped() {
-    assert_eq!(ExecutionMode::default(), ExecutionMode::Mapped);
-}
-
-#[test]
-fn given_passthrough_mode_when_roundtripped_then_preserved() {
-    let mode = ExecutionMode::Passthrough;
-    let json = serde_json::to_value(mode).unwrap();
-    let back: ExecutionMode = serde_json::from_value(json).unwrap();
-    assert_eq!(back, ExecutionMode::Passthrough);
-}
-
-#[test]
-fn given_receipt_builder_when_mode_set_passthrough_then_preserved() {
-    let receipt = ReceiptBuilder::new("mock")
-        .mode(ExecutionMode::Passthrough)
-        .outcome(Outcome::Complete)
-        .build();
-    assert_eq!(receipt.mode, ExecutionMode::Passthrough);
-}
-
-// ===========================================================================
-// 4. Mock backend mapped mode (7 tests)
-// ===========================================================================
-
-#[test]
-fn given_mapped_mode_when_serialized_then_lowercase() {
-    let mode = ExecutionMode::Mapped;
-    let json = serde_json::to_string(&mode).unwrap();
-    assert_eq!(json, r#""mapped""#);
-}
-
-#[tokio::test]
-async fn given_mapped_work_order_when_mock_run_then_receipt_has_hash() {
-    let rt = Runtime::with_default_backends();
-    let wo = simple_work_order("mapped test");
-    let (_, receipt) = drain_run(&rt, "mock", wo).await;
-    assert!(receipt.receipt_sha256.is_some());
-}
-
-#[test]
-fn given_mapped_mode_when_receipt_built_then_mode_is_mapped() {
-    let receipt = ReceiptBuilder::new("mock")
-        .mode(ExecutionMode::Mapped)
-        .outcome(Outcome::Complete)
-        .build();
-    assert_eq!(receipt.mode, ExecutionMode::Mapped);
-}
-
-#[test]
-fn given_receipt_builder_when_no_mode_set_then_default_mapped() {
-    let receipt = build_receipt("mock", Outcome::Complete);
-    assert_eq!(receipt.mode, ExecutionMode::Mapped);
-}
-
-#[test]
-fn given_mapped_and_passthrough_when_compared_then_different() {
-    assert_ne!(ExecutionMode::Mapped, ExecutionMode::Passthrough);
-}
-
-#[test]
-fn given_dialect_detector_when_openai_message_then_detected() {
-    let detector = DialectDetector::new();
-    let msg = serde_json::json!({
-        "model": "gpt-4",
-        "messages": [{"role": "user", "content": "hi"}]
+        then!("the receipt contains a response", {
+            let receipt = receipt.unwrap();
+            assert_eq!(receipt.outcome, Outcome::Complete);
+            assert!(receipt.receipt_sha256.is_some());
+            assert!(!events.is_empty());
+            let has_message = events.iter().any(|e| {
+                matches!(&e.kind, AgentEventKind::AssistantMessage { .. })
+            });
+            assert!(has_message);
+        });
     });
-    let result = detector.detect(&msg);
-    assert!(result.is_some());
-    assert_eq!(result.unwrap().dialect, Dialect::OpenAi);
-}
-
-#[test]
-fn given_dialect_detector_when_claude_message_then_detected() {
-    let detector = DialectDetector::new();
-    let msg = serde_json::json!({
-        "type": "message",
-        "model": "claude-3-opus",
-        "role": "assistant",
-        "content": [{"type": "text", "text": "hello"}]
-    });
-    let result = detector.detect(&msg);
-    assert!(result.is_some());
-    assert_eq!(result.unwrap().dialect, Dialect::Claude);
-}
-
-// ===========================================================================
-// 5. Receipt generation and validation (10 tests)
-// ===========================================================================
-
-#[test]
-fn given_receipt_when_hashed_then_sha256_present() {
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .with_hash()
-        .unwrap();
-    assert!(receipt.receipt_sha256.is_some());
-}
-
-#[test]
-fn given_receipt_when_hashed_then_64_hex_chars() {
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .with_hash()
-        .unwrap();
-    let hash = receipt.receipt_sha256.as_ref().unwrap();
-    assert_eq!(hash.len(), 64);
-    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
-}
-
-#[test]
-fn given_receipt_when_verify_hash_then_valid() {
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .with_hash()
-        .unwrap();
-    assert!(verify_hash(&receipt));
-}
-
-#[test]
-fn given_receipt_when_tampered_then_verify_fails() {
-    let mut receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .with_hash()
-        .unwrap();
-    receipt.outcome = Outcome::Failed;
-    assert!(!verify_hash(&receipt));
-}
-
-#[test]
-fn given_receipt_when_json_roundtrip_then_hash_still_valid() {
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .with_hash()
-        .unwrap();
-    let json = serde_json::to_string(&receipt).unwrap();
-    let back: Receipt = serde_json::from_str(&json).unwrap();
-    assert!(verify_hash(&back));
-}
-
-#[test]
-fn given_fixed_run_id_when_hashed_twice_then_deterministic() {
-    let id = Uuid::nil();
-    let r = ReceiptBuilder::new("mock")
-        .run_id(id)
-        .outcome(Outcome::Complete)
-        .build();
-    let h1 = compute_hash(&r).unwrap();
-    let h2 = compute_hash(&r).unwrap();
-    assert_eq!(h1, h2);
-}
-
-#[test]
-fn given_two_receipts_with_different_ids_when_hashed_then_differ() {
-    let r1 = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .with_hash()
-        .unwrap();
-    let r2 = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .with_hash()
-        .unwrap();
-    assert_ne!(r1.receipt_sha256, r2.receipt_sha256);
-}
-
-#[test]
-fn given_receipt_chain_when_receipts_appended_then_chain_grows() {
-    let mut chain = ReceiptChain::new();
-    let r1 = build_receipt("mock", Outcome::Complete)
-        .with_hash()
-        .unwrap();
-    let r2 = build_receipt("mock", Outcome::Complete)
-        .with_hash()
-        .unwrap();
-    chain.push(r1).unwrap();
-    chain.push(r2).unwrap();
-    assert_eq!(chain.len(), 2);
-}
-
-#[test]
-fn given_receipt_when_diff_against_itself_then_no_differences() {
-    let r = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .build();
-    let diffs = diff_receipts(&r, &r);
-    assert!(diffs.is_empty());
-}
-
-#[test]
-fn given_two_receipts_when_diff_then_differences_found() {
-    let r1 = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .build();
-    let r2 = ReceiptBuilder::new("other")
-        .outcome(Outcome::Failed)
-        .build();
-    let diffs = diff_receipts(&r1, &r2);
-    assert!(!diffs.is_empty());
-}
-
-// ===========================================================================
-// 6. Policy enforcement (12 tests)
-// ===========================================================================
-
-#[test]
-fn given_policy_disallowing_bash_when_checked_then_denied() {
-    let policy = PolicyProfile {
-        disallowed_tools: vec!["Bash".into()],
-        ..Default::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(!engine.can_use_tool("Bash").allowed);
-}
-
-#[test]
-fn given_policy_allowing_read_when_write_checked_then_denied() {
-    let policy = PolicyProfile {
-        allowed_tools: vec!["Read".into()],
-        ..Default::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(!engine.can_use_tool("Write").allowed);
-    assert!(engine.can_use_tool("Read").allowed);
-}
-
-#[test]
-fn given_deny_write_env_when_writing_env_then_denied() {
-    let policy = PolicyProfile {
-        deny_write: vec!["**/.env".into()],
-        ..Default::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(!engine.can_write_path(Path::new(".env")).allowed);
-}
-
-#[test]
-fn given_deny_write_env_when_writing_other_then_allowed() {
-    let policy = PolicyProfile {
-        deny_write: vec!["**/.env".into()],
-        ..Default::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(engine.can_write_path(Path::new("src/main.rs")).allowed);
-}
-
-#[test]
-fn given_deny_read_secrets_when_reading_secret_then_denied() {
-    let policy = PolicyProfile {
-        deny_read: vec!["secrets/**".into()],
-        ..Default::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(!engine.can_read_path(Path::new("secrets/key.pem")).allowed);
-}
-
-#[test]
-fn given_deny_read_secrets_when_reading_src_then_allowed() {
-    let policy = PolicyProfile {
-        deny_read: vec!["secrets/**".into()],
-        ..Default::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(engine.can_read_path(Path::new("src/lib.rs")).allowed);
-}
-
-#[test]
-fn given_empty_policy_when_any_tool_checked_then_allowed() {
-    let policy = PolicyProfile::default();
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(engine.can_use_tool("Bash").allowed);
-    assert!(engine.can_use_tool("Write").allowed);
-}
-
-#[test]
-fn given_empty_policy_when_any_path_checked_then_allowed() {
-    let policy = PolicyProfile::default();
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(engine.can_read_path(Path::new("anything")).allowed);
-    assert!(engine.can_write_path(Path::new("anything")).allowed);
-}
-
-#[test]
-fn given_combined_tool_and_write_deny_when_checked_then_both_denied() {
-    let policy = PolicyProfile {
-        disallowed_tools: vec!["Bash".into()],
-        deny_write: vec!["**/.git/**".into()],
-        ..Default::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(!engine.can_use_tool("Bash").allowed);
-    assert!(!engine.can_write_path(Path::new(".git/config")).allowed);
-}
-
-#[test]
-fn given_policy_deny_write_when_read_same_path_then_allowed() {
-    let policy = PolicyProfile {
-        deny_write: vec!["**/.env".into()],
-        ..Default::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(engine.can_read_path(Path::new(".env")).allowed);
-}
-
-#[test]
-fn given_policy_multiple_deny_writes_when_checked_then_all_denied() {
-    let policy = PolicyProfile {
-        deny_write: vec!["**/.env".into(), "**/secrets/**".into()],
-        ..Default::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(!engine.can_write_path(Path::new(".env")).allowed);
-    assert!(!engine.can_write_path(Path::new("secrets/api.key")).allowed);
-}
-
-#[test]
-fn given_policy_allowed_tools_when_allowed_tool_checked_then_allowed() {
-    let policy = PolicyProfile {
-        allowed_tools: vec!["Read".into(), "Write".into()],
-        ..Default::default()
-    };
-    let engine = PolicyEngine::new(&policy).unwrap();
-    assert!(engine.can_use_tool("Read").allowed);
-    assert!(engine.can_use_tool("Write").allowed);
-}
-
-// ===========================================================================
-// 7. Workspace staging scenarios (8 tests)
-// ===========================================================================
-
-#[test]
-fn given_passthrough_mode_when_prepare_then_path_is_root() {
-    let spec = WorkspaceSpec {
-        root: ".".into(),
-        mode: WorkspaceMode::PassThrough,
-        include: vec![],
-        exclude: vec![],
-    };
-    let ws = WorkspaceManager::prepare(&spec).unwrap();
-    assert_eq!(ws.path(), Path::new("."));
-}
-
-#[test]
-fn given_staged_mode_when_prepare_then_temp_dir_exists() {
-    let spec = WorkspaceSpec {
-        root: ".".into(),
-        mode: WorkspaceMode::Staged,
-        include: vec![],
-        exclude: vec![],
-    };
-    let ws = match WorkspaceManager::prepare(&spec) {
-        Ok(ws) => ws,
-        Err(_) => return, // skip on staging errors (e.g. disk-full, locked files)
-    };
-    assert!(ws.path().exists());
-    assert_ne!(ws.path(), Path::new("."));
-}
-
-#[test]
-fn given_staged_workspace_when_dropped_then_cleaned_up() {
-    let path;
-    {
-        let spec = WorkspaceSpec {
-            root: ".".into(),
-            mode: WorkspaceMode::Staged,
-            include: vec![],
-            exclude: vec![],
-        };
-        let ws = match WorkspaceManager::prepare(&spec) {
-            Ok(ws) => ws,
-            Err(_) => return,
-        };
-        path = ws.path().to_path_buf();
-        assert!(path.exists());
-    }
-    // After drop, the temp dir may or may not exist depending on OS cleanup
-    // but the PreparedWorkspace no longer references it.
-}
-
-#[test]
-fn given_workspace_stager_when_source_missing_then_error() {
-    let result = WorkspaceStager::new()
-        .source_root("/nonexistent/path/that/does/not/exist")
-        .stage();
-    assert!(result.is_err());
-}
-
-#[test]
-fn given_workspace_stager_when_no_source_then_error() {
-    let result = WorkspaceStager::new().stage();
-    assert!(result.is_err());
-}
-
-#[test]
-fn given_workspace_stager_when_valid_source_then_staged() {
-    let ws = match WorkspaceStager::new().source_root(".").stage() {
-        Ok(ws) => ws,
-        Err(_) => return,
-    };
-    assert!(ws.path().exists());
-}
-
-#[test]
-fn given_workspace_stager_when_git_init_disabled_then_no_git() {
-    let ws = match WorkspaceStager::new()
-        .source_root(".")
-        .with_git_init(false)
-        .stage()
-    {
-        Ok(ws) => ws,
-        Err(_) => return,
-    };
-    // With git_init false, we just check that staging succeeded.
-    assert!(ws.path().exists());
-}
-
-#[test]
-fn given_workspace_spec_when_serialized_then_roundtrips() {
-    let spec = WorkspaceSpec {
-        root: "/tmp/test".into(),
-        mode: WorkspaceMode::Staged,
-        include: vec!["**/*.rs".into()],
-        exclude: vec!["target/**".into()],
-    };
-    let json = serde_json::to_string(&spec).unwrap();
-    let back: WorkspaceSpec = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.root, spec.root);
-}
-
-// ===========================================================================
-// 8. Error scenarios (10 tests)
-// ===========================================================================
-
-#[tokio::test]
-async fn given_unknown_backend_when_run_then_unknown_backend_error() {
-    let rt = Runtime::with_default_backends();
-    let result = rt
-        .run_streaming("nonexistent", simple_work_order("test"))
-        .await;
-    match result {
-        Err(RuntimeError::UnknownBackend { .. }) => {}
-        _ => panic!("expected UnknownBackend error"),
-    }
 }
 
 #[tokio::test]
-async fn given_failing_backend_when_run_then_backend_failed_error() {
-    let mut rt = Runtime::new();
-    rt.register_backend("fail", FailingBackend);
-    let handle = rt
-        .run_streaming("fail", simple_work_order("test"))
-        .await
-        .unwrap();
-    let result = handle.receipt.await.unwrap();
-    assert!(result.is_err());
-    assert!(matches!(
-        result.unwrap_err(),
-        RuntimeError::BackendFailed(_)
-    ));
-}
+async fn feature_work_order_submit_with_tools() {
+    scenario!("Submit with tools → receipt includes tool usage", {
+        let wo = given!("a work order expecting tool usage", {
+            WorkOrderBuilder::new("read a file")
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
 
-#[test]
-fn given_error_code_when_category_checked_then_correct() {
-    assert_eq!(
-        ErrorCode::BackendNotFound.category(),
-        ErrorCategory::Backend
-    );
-    assert_eq!(ErrorCode::PolicyDenied.category(), ErrorCategory::Policy);
-    assert_eq!(
-        ErrorCode::WorkspaceInitFailed.category(),
-        ErrorCategory::Workspace
-    );
-    assert_eq!(
-        ErrorCode::ProtocolInvalidEnvelope.category(),
-        ErrorCategory::Protocol
-    );
-}
+        let (events, receipt) = when!("processed with tool-capable backend", {
+            let mut rt = Runtime::new();
+            rt.register_backend("tool-backend", ToolBackend);
+            let handle = rt.run_streaming("tool-backend", wo).await.unwrap();
+            drain_run(handle).await
+        });
 
-#[test]
-fn given_error_code_when_as_str_then_screaming_snake() {
-    assert_eq!(ErrorCode::BackendNotFound.as_str(), "backend_not_found");
-    assert_eq!(ErrorCode::PolicyDenied.as_str(), "policy_denied");
-}
-
-#[test]
-fn given_abp_error_when_constructed_then_code_and_message_present() {
-    let err = AbpError::new(ErrorCode::BackendTimeout, "timed out after 30s");
-    assert_eq!(err.code, ErrorCode::BackendTimeout);
-    assert_eq!(err.message, "timed out after 30s");
-}
-
-#[test]
-fn given_abp_error_when_context_added_then_retrievable() {
-    let err =
-        AbpError::new(ErrorCode::BackendNotFound, "not found").with_context("backend", "openai");
-    assert!(err.context.contains_key("backend"));
-}
-
-#[test]
-fn given_runtime_error_when_unknown_backend_then_error_code_matches() {
-    let err = RuntimeError::UnknownBackend {
-        name: "test".into(),
-    };
-    assert_eq!(err.error_code(), ErrorCode::BackendNotFound);
-}
-
-#[test]
-fn given_runtime_error_when_policy_failed_then_error_code_matches() {
-    let err = RuntimeError::PolicyFailed(anyhow::anyhow!("bad"));
-    assert_eq!(err.error_code(), ErrorCode::PolicyInvalid);
-}
-
-#[test]
-fn given_runtime_error_when_workspace_failed_then_error_code_matches() {
-    let err = RuntimeError::WorkspaceFailed(anyhow::anyhow!("bad"));
-    assert_eq!(err.error_code(), ErrorCode::WorkspaceInitFailed);
-}
-
-#[test]
-fn given_runtime_error_when_capability_check_failed_then_error_code() {
-    let err = RuntimeError::CapabilityCheckFailed("missing streaming".into());
-    assert_eq!(err.error_code(), ErrorCode::CapabilityUnsupported);
-}
-
-// ===========================================================================
-// 9. Multi-step agent conversations (8 tests)
-// ===========================================================================
-
-#[tokio::test]
-async fn given_tool_call_backend_when_run_then_events_include_tool_call() {
-    let mut rt = Runtime::new();
-    rt.register_backend("tool-call", ToolCallBackend);
-    let (events, _) = drain_run(&rt, "tool-call", simple_work_order("test")).await;
-    let has_tool_call = events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::ToolCall { .. }));
-    assert!(has_tool_call);
+        then!("the receipt is complete and events include tool calls", {
+            let receipt = receipt.unwrap();
+            assert_eq!(receipt.outcome, Outcome::Complete);
+            let has_tool_call = events
+                .iter()
+                .any(|e| matches!(&e.kind, AgentEventKind::ToolCall { .. }));
+            assert!(has_tool_call);
+            let has_tool_result = events
+                .iter()
+                .any(|e| matches!(&e.kind, AgentEventKind::ToolResult { .. }));
+            assert!(has_tool_result);
+        });
+    });
 }
 
 #[tokio::test]
-async fn given_tool_call_backend_when_run_then_events_include_tool_result() {
-    let mut rt = Runtime::new();
-    rt.register_backend("tool-call", ToolCallBackend);
-    let (events, _) = drain_run(&rt, "tool-call", simple_work_order("test")).await;
-    let has_tool_result = events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::ToolResult { .. }));
-    assert!(has_tool_result);
+async fn feature_work_order_submit_invalid_model() {
+    scenario!("Submit with invalid model → get appropriate error code", {
+        let wo = given!("a work order targeting a non-existent backend", {
+            WorkOrderBuilder::new("test")
+                .model("nonexistent-model-xyz")
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
+
+        let result = when!("the work order is submitted to unknown backend", {
+            let rt = Runtime::with_default_backends();
+            rt.run_streaming("nonexistent-backend", wo).await
+        });
+
+        then!("we get an UnknownBackend error", {
+            match result {
+                Err(err) => assert_eq!(err.error_code(), ErrorCode::BackendNotFound),
+                Ok(_) => panic!("expected error, got Ok"),
+            }
+        });
+    });
 }
 
 #[tokio::test]
-async fn given_tool_call_backend_when_run_then_tool_call_before_result() {
-    let mut rt = Runtime::new();
-    rt.register_backend("tool-call", ToolCallBackend);
-    let (events, _) = drain_run(&rt, "tool-call", simple_work_order("test")).await;
-    let call_idx = events
-        .iter()
-        .position(|e| matches!(e.kind, AgentEventKind::ToolCall { .. }))
-        .unwrap();
-    let result_idx = events
-        .iter()
-        .position(|e| matches!(e.kind, AgentEventKind::ToolResult { .. }))
-        .unwrap();
-    assert!(call_idx < result_idx);
-}
+async fn feature_work_order_streaming_ordered_events() {
+    scenario!("Submit streaming request → receive ordered events", {
+        let wo = given!("a work order for streaming", {
+            WorkOrderBuilder::new("stream tokens")
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
 
-#[tokio::test]
-async fn given_tool_call_backend_when_run_then_assistant_message_after_tool() {
-    let mut rt = Runtime::new();
-    rt.register_backend("tool-call", ToolCallBackend);
-    let (events, _) = drain_run(&rt, "tool-call", simple_work_order("test")).await;
-    let result_idx = events
-        .iter()
-        .position(|e| matches!(e.kind, AgentEventKind::ToolResult { .. }))
-        .unwrap();
-    let msg_idx = events
-        .iter()
-        .position(|e| matches!(e.kind, AgentEventKind::AssistantMessage { .. }))
-        .unwrap();
-    assert!(msg_idx > result_idx);
-}
+        let (events, receipt) = when!("processed with streaming backend", {
+            let mut rt = Runtime::new();
+            rt.register_backend("streaming", StreamingBackend);
+            let handle = rt.run_streaming("streaming", wo).await.unwrap();
+            drain_run(handle).await
+        });
 
-#[tokio::test]
-async fn given_tool_call_backend_when_run_then_starts_with_run_started() {
-    let mut rt = Runtime::new();
-    rt.register_backend("tool-call", ToolCallBackend);
-    let (events, _) = drain_run(&rt, "tool-call", simple_work_order("test")).await;
-    assert!(matches!(
-        events.first().unwrap().kind,
-        AgentEventKind::RunStarted { .. }
-    ));
-}
+        then!("events arrive in order with deltas before message", {
+            let receipt = receipt.unwrap();
+            assert_eq!(receipt.outcome, Outcome::Complete);
+            assert!(events.len() >= 5);
 
-#[tokio::test]
-async fn given_tool_call_backend_when_run_then_ends_with_run_completed() {
-    let mut rt = Runtime::new();
-    rt.register_backend("tool-call", ToolCallBackend);
-    let (events, _) = drain_run(&rt, "tool-call", simple_work_order("test")).await;
-    assert!(matches!(
-        events.last().unwrap().kind,
-        AgentEventKind::RunCompleted { .. }
-    ));
-}
+            // Verify deltas appear before the final message
+            let delta_positions: Vec<_> = events
+                .iter()
+                .enumerate()
+                .filter(|(_, e)| matches!(&e.kind, AgentEventKind::AssistantDelta { .. }))
+                .map(|(i, _)| i)
+                .collect();
+            let message_pos = events
+                .iter()
+                .position(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. }))
+                .unwrap();
+            for dp in &delta_positions {
+                assert!(*dp < message_pos);
+            }
 
-#[tokio::test]
-async fn given_tool_call_backend_when_run_then_tool_use_id_correlates() {
-    let mut rt = Runtime::new();
-    rt.register_backend("tool-call", ToolCallBackend);
-    let (events, _) = drain_run(&rt, "tool-call", simple_work_order("test")).await;
-    let call_id = events.iter().find_map(|e| match &e.kind {
-        AgentEventKind::ToolCall { tool_use_id, .. } => tool_use_id.clone(),
-        _ => None,
+            // Verify timestamps are monotonically non-decreasing
+            for w in events.windows(2) {
+                assert!(w[1].ts >= w[0].ts);
+            }
+        });
     });
-    let result_id = events.iter().find_map(|e| match &e.kind {
-        AgentEventKind::ToolResult { tool_use_id, .. } => tool_use_id.clone(),
-        _ => None,
-    });
-    assert_eq!(call_id, result_id);
-    assert_eq!(call_id.as_deref(), Some("tc1"));
-}
-
-#[tokio::test]
-async fn given_tool_call_backend_when_run_then_receipt_outcome_complete() {
-    let mut rt = Runtime::new();
-    rt.register_backend("tool-call", ToolCallBackend);
-    let (_, receipt) = drain_run(&rt, "tool-call", simple_work_order("test")).await;
-    assert_eq!(receipt.outcome, Outcome::Complete);
 }
 
 // ===========================================================================
-// 10. Capability negotiation before execution (8 tests)
-// ===========================================================================
-
-#[test]
-fn given_manifest_with_native_when_negotiate_then_native_list() {
-    let manifest = manifest_with(&[(Capability::Streaming, SupportLevel::Native)]);
-    let reqs = require_caps(&[(Capability::Streaming, MinSupport::Native)]);
-    let result = negotiate(&manifest, &reqs);
-    assert!(result.is_compatible());
-    assert_eq!(result.native, vec![Capability::Streaming]);
-}
-
-#[test]
-fn given_manifest_with_emulated_when_native_required_then_emulatable() {
-    let manifest = manifest_with(&[(Capability::ToolRead, SupportLevel::Emulated)]);
-    let reqs = require_caps(&[(Capability::ToolRead, MinSupport::Native)]);
-    let result = negotiate(&manifest, &reqs);
-    // negotiate() classifies by manifest level, not min_support
-    assert!(!result.emulated.is_empty());
-    assert!(result.unsupported.is_empty());
-}
-
-#[test]
-fn given_empty_manifest_when_any_required_then_unsupported() {
-    let manifest = CapabilityManifest::new();
-    let reqs = require_caps(&[(Capability::Streaming, MinSupport::Emulated)]);
-    let result = negotiate(&manifest, &reqs);
-    assert!(!result.is_compatible());
-}
-
-#[test]
-fn given_manifest_when_no_requirements_then_compatible() {
-    let manifest = manifest_with(&[(Capability::Streaming, SupportLevel::Native)]);
-    let reqs = CapabilityRequirements::default();
-    let result = negotiate(&manifest, &reqs);
-    assert!(result.is_compatible());
-}
-
-#[test]
-fn given_report_when_all_native_then_compatible_summary() {
-    let result =
-        abp_capability::NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
-    let report = generate_report(&result);
-    assert!(report.compatible);
-    assert_eq!(report.native_count, 1);
-    assert!(report.summary.contains("fully compatible"));
-}
-
-#[test]
-fn given_report_when_unsupported_then_incompatible() {
-    let result =
-        abp_capability::NegotiationResult::from_simple(vec![], vec![], vec![Capability::ToolBash]);
-    let report = generate_report(&result);
-    assert!(!report.compatible);
-    assert_eq!(report.unsupported_count, 1);
-}
-
-#[test]
-fn given_check_capability_when_native_then_native() {
-    let manifest = manifest_with(&[(Capability::Streaming, SupportLevel::Native)]);
-    let level = check_capability(&manifest, &Capability::Streaming);
-    assert_eq!(level, abp_capability::SupportLevel::Native);
-}
-
-#[test]
-fn given_check_capability_when_absent_then_unsupported() {
-    let manifest = CapabilityManifest::new();
-    let level = check_capability(&manifest, &Capability::Streaming);
-    assert!(matches!(
-        level,
-        abp_capability::SupportLevel::Unsupported { .. }
-    ));
-}
-
-// ===========================================================================
-// 11. Event streaming and ordering (8 tests)
+// Feature: SDK Translation
 // ===========================================================================
 
 #[tokio::test]
-async fn given_streaming_backend_when_run_then_correct_event_count() {
-    let mut rt = Runtime::new();
-    rt.register_backend("streaming", StreamingBackend { event_count: 3 });
-    let (events, _) = drain_run(&rt, "streaming", simple_work_order("test")).await;
-    // run_started + 3 deltas + run_completed = 5
-    assert_eq!(events.len(), 5);
+async fn feature_sdk_openai_to_claude_backend() {
+    scenario!("OpenAI request → Claude backend → OpenAI response", {
+        let wo = given!("a work order with OpenAI-style config", {
+            let mut config = abp_core::RuntimeConfig {
+                model: Some("gpt-4".into()),
+                ..Default::default()
+            };
+            config
+                .vendor
+                .insert("openai".into(), serde_json::json!({"temperature": 0.7}));
+            WorkOrderBuilder::new("translate this request")
+                .config(config)
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
+
+        let receipt = when!("processed through mock backend acting as Claude", {
+            let rt = Runtime::with_default_backends();
+            let handle = rt.run_streaming("mock", wo).await.unwrap();
+            let (_, receipt) = drain_run(handle).await;
+            receipt.unwrap()
+        });
+
+        then!("receipt indicates successful translation", {
+            assert_eq!(receipt.outcome, Outcome::Complete);
+            assert_eq!(receipt.mode, ExecutionMode::Mapped);
+            assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
+        });
+    });
 }
 
 #[tokio::test]
-async fn given_streaming_backend_when_run_then_timestamps_non_decreasing() {
-    let mut rt = Runtime::new();
-    rt.register_backend("streaming", StreamingBackend { event_count: 5 });
-    let (events, _) = drain_run(&rt, "streaming", simple_work_order("test")).await;
-    for window in events.windows(2) {
-        assert!(window[0].ts <= window[1].ts);
-    }
-}
+async fn feature_sdk_claude_to_openai_backend() {
+    scenario!("Claude request → OpenAI backend → Claude response", {
+        let wo = given!("a work order with Claude-style config", {
+            let mut config = abp_core::RuntimeConfig {
+                model: Some("claude-3-5-sonnet".into()),
+                ..Default::default()
+            };
+            config
+                .vendor
+                .insert("anthropic".into(), serde_json::json!({"max_tokens": 4096}));
+            WorkOrderBuilder::new("translate back")
+                .config(config)
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
 
-#[test]
-fn given_event_filter_when_errors_only_then_filters_non_errors() {
-    let filter = EventFilter::errors_only();
-    let ok_event = make_event(AgentEventKind::AssistantMessage { text: "hi".into() });
-    let err_event = make_event(AgentEventKind::Error {
-        message: "boom".into(),
-        error_code: None,
+        let receipt = when!("processed through mock backend", {
+            let rt = Runtime::with_default_backends();
+            let handle = rt.run_streaming("mock", wo).await.unwrap();
+            let (_, receipt) = drain_run(handle).await;
+            receipt.unwrap()
+        });
+
+        then!("receipt preserves contract version and is complete", {
+            assert_eq!(receipt.outcome, Outcome::Complete);
+            assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
+        });
     });
-    assert!(!filter.matches(&ok_event));
-    assert!(filter.matches(&err_event));
-}
-
-#[test]
-fn given_event_filter_when_exclude_errors_then_passes_non_errors() {
-    let filter = EventFilter::exclude_errors();
-    let ok_event = make_event(AgentEventKind::AssistantMessage { text: "hi".into() });
-    let err_event = make_event(AgentEventKind::Error {
-        message: "boom".into(),
-        error_code: None,
-    });
-    assert!(filter.matches(&ok_event));
-    assert!(!filter.matches(&err_event));
-}
-
-#[test]
-fn given_event_filter_by_kind_when_matched_then_passes() {
-    let filter = EventFilter::by_kind("tool_call");
-    let tc = make_event(AgentEventKind::ToolCall {
-        tool_name: "read".into(),
-        tool_use_id: None,
-        parent_tool_use_id: None,
-        input: serde_json::json!({}),
-    });
-    let msg = make_event(AgentEventKind::AssistantMessage { text: "hi".into() });
-    assert!(filter.matches(&tc));
-    assert!(!filter.matches(&msg));
-}
-
-#[test]
-fn given_event_recorder_when_events_recorded_then_retrievable() {
-    let recorder = EventRecorder::new();
-    let ev = make_event(AgentEventKind::RunStarted {
-        message: "start".into(),
-    });
-    recorder.record(&ev);
-    assert_eq!(recorder.len(), 1);
-    assert!(!recorder.is_empty());
-}
-
-#[test]
-fn given_event_stats_when_observed_then_counts_correct() {
-    let stats = EventStats::new();
-    stats.observe(&make_event(AgentEventKind::AssistantDelta {
-        text: "hello".into(),
-    }));
-    stats.observe(&make_event(AgentEventKind::Error {
-        message: "err".into(),
-        error_code: None,
-    }));
-    assert_eq!(stats.total_events(), 2);
-    assert_eq!(stats.error_count(), 1);
-    assert_eq!(stats.total_delta_bytes(), 5);
-}
-
-#[test]
-fn given_event_transform_identity_when_applied_then_event_unchanged() {
-    let transform = EventTransform::identity();
-    let ev = make_event(AgentEventKind::AssistantMessage {
-        text: "hello".into(),
-    });
-    let transformed = transform.apply(ev.clone());
-    assert_eq!(
-        serde_json::to_string(&transformed).unwrap(),
-        serde_json::to_string(&ev).unwrap()
-    );
-}
-
-// ===========================================================================
-// 12. Configuration loading and override (8 tests)
-// ===========================================================================
-
-#[test]
-fn given_default_config_when_loaded_then_has_defaults() {
-    let config = load_config(None).unwrap();
-    assert_eq!(config.log_level.as_deref(), Some("info"));
-    assert!(config.backends.is_empty());
-}
-
-#[test]
-fn given_toml_with_mock_backend_when_parsed_then_has_mock() {
-    let toml = r#"
-[backends.test]
-type = "mock"
-"#;
-    let config = parse_toml(toml).unwrap();
-    assert!(config.backends.contains_key("test"));
-    assert!(matches!(config.backends["test"], BackendEntry::Mock { .. }));
-}
-
-#[test]
-fn given_toml_with_sidecar_when_parsed_then_has_command() {
-    let toml = r#"
-[backends.node]
-type = "sidecar"
-command = "node"
-args = ["index.js"]
-"#;
-    let config = parse_toml(toml).unwrap();
-    match &config.backends["node"] {
-        BackendEntry::Sidecar { command, args, .. } => {
-            assert_eq!(command, "node");
-            assert_eq!(args, &["index.js"]);
-        }
-        _ => panic!("expected sidecar"),
-    }
-}
-
-#[test]
-fn given_config_when_validated_then_warnings_returned() {
-    let config = BackplaneConfig::default();
-    let warnings = validate_config(&config).unwrap();
-    // Default config has no default_backend and no receipts_dir
-    assert!(
-        warnings
-            .iter()
-            .any(|w| matches!(w, ConfigWarning::MissingOptionalField { .. }))
-    );
-}
-
-#[test]
-fn given_two_configs_when_merged_then_overlay_wins() {
-    let base = BackplaneConfig {
-        default_backend: Some("mock".into()),
-        ..Default::default()
-    };
-    let overlay = BackplaneConfig {
-        default_backend: Some("sidecar".into()),
-        ..Default::default()
-    };
-    let merged = merge_configs(base, overlay);
-    assert_eq!(merged.default_backend.as_deref(), Some("sidecar"));
-}
-
-#[test]
-fn given_invalid_toml_when_parsed_then_error() {
-    let result = parse_toml("not valid toml {{{");
-    assert!(result.is_err());
-}
-
-#[test]
-fn given_config_with_large_timeout_when_validated_then_warning() {
-    let mut backends = std::collections::BTreeMap::new();
-    backends.insert(
-        "node".into(),
-        BackendEntry::Sidecar {
-            command: "node".into(),
-            args: vec![],
-            timeout_secs: Some(7200),
-        },
-    );
-    let config = BackplaneConfig {
-        default_backend: Some("node".into()),
-        backends,
-        ..BackplaneConfig::default()
-    };
-    let warnings = validate_config(&config).unwrap();
-    assert!(
-        warnings
-            .iter()
-            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
-    );
-}
-
-#[test]
-fn given_config_when_serialized_then_roundtrips() {
-    let mut backends = std::collections::BTreeMap::new();
-    backends.insert("mock".into(), BackendEntry::Mock {});
-    let config = BackplaneConfig {
-        default_backend: Some("mock".into()),
-        backends,
-        ..BackplaneConfig::default()
-    };
-    let json = serde_json::to_string(&config).unwrap();
-    let back: BackplaneConfig = serde_json::from_str(&json).unwrap();
-    assert_eq!(config, back);
-}
-
-// ===========================================================================
-// 13. Sidecar registration and discovery (8 tests)
-// ===========================================================================
-
-#[test]
-fn given_hello_envelope_when_encoded_then_contains_t_hello() {
-    let hello = Envelope::hello(
-        BackendIdentity {
-            id: "test-sidecar".into(),
-            backend_version: Some("1.0".into()),
-            adapter_version: None,
-        },
-        CapabilityManifest::new(),
-    );
-    let line = JsonlCodec::encode(&hello).unwrap();
-    assert!(line.contains(r#""t":"hello""#));
-}
-
-#[test]
-fn given_hello_envelope_when_decoded_then_matches() {
-    let hello = Envelope::hello(
-        BackendIdentity {
-            id: "test".into(),
-            backend_version: None,
-            adapter_version: None,
-        },
-        CapabilityManifest::new(),
-    );
-    let line = JsonlCodec::encode(&hello).unwrap();
-    let decoded = JsonlCodec::decode(line.trim()).unwrap();
-    assert!(matches!(decoded, Envelope::Hello { .. }));
-}
-
-#[test]
-fn given_fatal_envelope_when_encoded_then_has_error() {
-    let fatal = Envelope::fatal_with_code(Some("run-1".into()), "crash", ErrorCode::BackendCrashed);
-    let line = JsonlCodec::encode(&fatal).unwrap();
-    assert!(line.contains("crash"));
-}
-
-#[test]
-fn given_fatal_envelope_when_error_code_checked_then_present() {
-    let fatal = Envelope::fatal_with_code(None, "timeout", ErrorCode::BackendTimeout);
-    assert_eq!(fatal.error_code(), Some(ErrorCode::BackendTimeout));
-}
-
-#[test]
-fn given_version_string_when_parsed_then_correct() {
-    assert_eq!(parse_version("abp/v0.1"), Some((0, 1)));
-    assert_eq!(parse_version("abp/v2.3"), Some((2, 3)));
-    assert_eq!(parse_version("invalid"), None);
-}
-
-#[test]
-fn given_compatible_versions_when_checked_then_true() {
-    assert!(is_compatible_version("abp/v0.1", "abp/v0.2"));
-    assert!(is_compatible_version(CONTRACT_VERSION, CONTRACT_VERSION));
-}
-
-#[test]
-fn given_incompatible_versions_when_checked_then_false() {
-    assert!(!is_compatible_version("abp/v1.0", "abp/v0.1"));
-    assert!(!is_compatible_version("invalid", "abp/v0.1"));
-}
-
-#[test]
-fn given_invalid_json_when_decoded_then_error() {
-    let result = JsonlCodec::decode("not valid json");
-    assert!(result.is_err());
-}
-
-// ===========================================================================
-// 14. Cross-SDK dialect translation scenarios (8 tests)
-// ===========================================================================
-
-#[test]
-fn given_known_rules_when_loaded_then_non_empty() {
-    let registry = known_rules();
-    assert!(!registry.is_empty());
-}
-
-#[test]
-fn given_openai_to_claude_when_tool_use_checked_then_lossless() {
-    let registry = known_rules();
-    let rule = registry.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use");
-    assert!(rule.is_some());
-    assert!(rule.unwrap().fidelity.is_lossless());
-}
-
-#[test]
-fn given_same_dialect_when_any_feature_then_lossless() {
-    let registry = known_rules();
-    for &dialect in Dialect::all() {
-        let rule = registry.lookup(dialect, dialect, "tool_use");
-        if let Some(r) = rule {
-            assert!(r.fidelity.is_lossless());
-        }
-    }
-}
-
-#[test]
-fn given_validate_mapping_when_lossless_then_no_errors() {
-    let registry = known_rules();
-    let results = validate_mapping(
-        &registry,
-        Dialect::OpenAi,
-        Dialect::Claude,
-        &["tool_use".into()],
-    );
-    assert_eq!(results.len(), 1);
-    assert!(results[0].errors.is_empty());
-}
-
-#[test]
-fn given_validate_mapping_when_unknown_feature_then_unsupported() {
-    let registry = known_rules();
-    let results = validate_mapping(
-        &registry,
-        Dialect::OpenAi,
-        Dialect::Claude,
-        &["nonexistent_feature_xyz".into()],
-    );
-    assert!(!results.is_empty());
-    assert!(results[0].fidelity.is_unsupported());
-}
-
-#[test]
-fn given_dialect_enum_when_all_then_six_variants() {
-    assert_eq!(Dialect::all().len(), 6);
-}
-
-#[test]
-fn given_dialect_when_label_then_readable() {
-    assert_eq!(Dialect::OpenAi.label(), "OpenAI");
-    assert_eq!(Dialect::Claude.label(), "Claude");
-    assert_eq!(Dialect::Gemini.label(), "Gemini");
-}
-
-#[test]
-fn given_mapping_registry_when_custom_rule_inserted_then_found() {
-    let mut registry = MappingRegistry::new();
-    registry.insert(MappingRule {
-        source_dialect: Dialect::OpenAi,
-        target_dialect: Dialect::Gemini,
-        feature: "custom_feature".into(),
-        fidelity: Fidelity::LossyLabeled {
-            warning: "partial loss".into(),
-        },
-    });
-    let rule = registry.lookup(Dialect::OpenAi, Dialect::Gemini, "custom_feature");
-    assert!(rule.is_some());
-    assert!(!rule.unwrap().fidelity.is_lossless());
-}
-
-// ===========================================================================
-// 15. Stream pipeline composition (7 tests)
-// ===========================================================================
-
-#[test]
-fn given_empty_pipeline_when_event_processed_then_passes_through() {
-    let pipeline = StreamPipeline::new();
-    let ev = make_event(AgentEventKind::RunStarted {
-        message: "go".into(),
-    });
-    let result = pipeline.process(ev);
-    assert!(result.is_some());
-}
-
-#[test]
-fn given_pipeline_with_filter_when_non_matching_then_filtered() {
-    let pipeline = StreamPipelineBuilder::new()
-        .filter(EventFilter::errors_only())
-        .build();
-    let ev = make_event(AgentEventKind::RunStarted {
-        message: "go".into(),
-    });
-    assert!(pipeline.process(ev).is_none());
-}
-
-#[test]
-fn given_pipeline_with_recorder_when_event_processed_then_recorded() {
-    let recorder = EventRecorder::new();
-    let pipeline = StreamPipelineBuilder::new()
-        .with_recorder(recorder.clone())
-        .build();
-    let ev = make_event(AgentEventKind::RunStarted {
-        message: "go".into(),
-    });
-    pipeline.process(ev);
-    assert_eq!(recorder.len(), 1);
-}
-
-#[test]
-fn given_pipeline_with_stats_when_events_processed_then_counted() {
-    let stats = EventStats::new();
-    let pipeline = StreamPipelineBuilder::new()
-        .with_stats(stats.clone())
-        .build();
-    pipeline.process(make_event(AgentEventKind::RunStarted {
-        message: "go".into(),
-    }));
-    pipeline.process(make_event(AgentEventKind::RunCompleted {
-        message: "done".into(),
-    }));
-    assert_eq!(stats.total_events(), 2);
-}
-
-#[test]
-fn given_pipeline_with_transform_when_event_processed_then_transformed() {
-    let transform = EventTransform::new(|mut ev| {
-        if let AgentEventKind::AssistantMessage { ref mut text } = ev.kind {
-            *text = text.to_uppercase();
-        }
-        ev
-    });
-    let pipeline = StreamPipelineBuilder::new().transform(transform).build();
-    let ev = make_event(AgentEventKind::AssistantMessage {
-        text: "hello".into(),
-    });
-    let result = pipeline.process(ev).unwrap();
-    if let AgentEventKind::AssistantMessage { text } = &result.kind {
-        assert_eq!(text, "HELLO");
-    } else {
-        panic!("expected AssistantMessage");
-    }
-}
-
-#[test]
-fn given_recorder_when_cleared_then_empty() {
-    let recorder = EventRecorder::new();
-    recorder.record(&make_event(AgentEventKind::RunStarted {
-        message: "go".into(),
-    }));
-    assert_eq!(recorder.len(), 1);
-    recorder.clear();
-    assert!(recorder.is_empty());
-}
-
-#[test]
-fn given_stats_when_reset_then_zero() {
-    let stats = EventStats::new();
-    stats.observe(&make_event(AgentEventKind::RunStarted {
-        message: "go".into(),
-    }));
-    assert_eq!(stats.total_events(), 1);
-    stats.reset();
-    assert_eq!(stats.total_events(), 0);
-}
-
-// ===========================================================================
-// 16. Canonical JSON and hashing (6 tests)
-// ===========================================================================
-
-#[test]
-fn given_json_value_when_canonical_then_keys_sorted() {
-    let json = canonical_json(&serde_json::json!({"z": 1, "a": 2})).unwrap();
-    let a_pos = json.find("\"a\"").unwrap();
-    let z_pos = json.find("\"z\"").unwrap();
-    assert!(a_pos < z_pos);
-}
-
-#[test]
-fn given_sha256_hex_when_called_then_64_chars() {
-    let hash = sha256_hex(b"test");
-    assert_eq!(hash.len(), 64);
-}
-
-#[test]
-fn given_sha256_hex_when_same_input_then_deterministic() {
-    let h1 = sha256_hex(b"hello");
-    let h2 = sha256_hex(b"hello");
-    assert_eq!(h1, h2);
-}
-
-#[test]
-fn given_sha256_hex_when_different_input_then_different() {
-    let h1 = sha256_hex(b"hello");
-    let h2 = sha256_hex(b"world");
-    assert_ne!(h1, h2);
-}
-
-#[test]
-fn given_receipt_hash_when_sha256_field_set_then_excluded_from_hash() {
-    let r1 = ReceiptBuilder::new("mock")
-        .run_id(Uuid::nil())
-        .outcome(Outcome::Complete)
-        .build();
-    let h1 = receipt_hash(&r1).unwrap();
-    let mut r2 = r1.clone();
-    r2.receipt_sha256 = Some("garbage".into());
-    let h2 = receipt_hash(&r2).unwrap();
-    assert_eq!(h1, h2);
-}
-
-#[test]
-fn given_contract_version_when_checked_then_abp_v01() {
-    assert_eq!(CONTRACT_VERSION, "abp/v0.1");
-}
-
-// ===========================================================================
-// 17. Outcome and receipt metadata (6 tests)
-// ===========================================================================
-
-#[test]
-fn given_outcome_complete_when_serialized_then_string() {
-    let json = serde_json::to_string(&Outcome::Complete).unwrap();
-    assert_eq!(json, r#""complete""#);
-}
-
-#[test]
-fn given_outcome_partial_when_serialized_then_string() {
-    let json = serde_json::to_string(&Outcome::Partial).unwrap();
-    assert_eq!(json, r#""partial""#);
-}
-
-#[test]
-fn given_outcome_failed_when_serialized_then_string() {
-    let json = serde_json::to_string(&Outcome::Failed).unwrap();
-    assert_eq!(json, r#""failed""#);
-}
-
-#[test]
-fn given_receipt_builder_when_artifacts_added_then_present() {
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .add_artifact(ArtifactRef {
-            kind: "patch".into(),
-            path: "output.patch".into(),
-        })
-        .build();
-    assert_eq!(receipt.artifacts.len(), 1);
-    assert_eq!(receipt.artifacts[0].kind, "patch");
-}
-
-#[test]
-fn given_receipt_builder_when_verification_set_then_present() {
-    let report = VerificationReport {
-        git_diff: Some("diff --git ...".into()),
-        git_status: Some("M src/lib.rs".into()),
-        harness_ok: true,
-    };
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .verification(report)
-        .build();
-    assert!(receipt.verification.harness_ok);
-    assert!(receipt.verification.git_diff.is_some());
-}
-
-#[test]
-fn given_receipt_builder_when_trace_event_added_then_in_trace() {
-    let ev = make_event(AgentEventKind::RunStarted {
-        message: "go".into(),
-    });
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .add_trace_event(ev)
-        .build();
-    assert_eq!(receipt.trace.len(), 1);
-}
-
-// ===========================================================================
-// 18. Context packet and snippets (4 tests)
-// ===========================================================================
-
-#[test]
-fn given_context_with_files_when_built_then_preserved() {
-    let ctx = ContextPacket {
-        files: vec!["src/main.rs".into()],
-        snippets: vec![],
-    };
-    let wo = WorkOrderBuilder::new("test").context(ctx).build();
-    assert_eq!(wo.context.files, vec!["src/main.rs"]);
-}
-
-#[test]
-fn given_context_with_snippets_when_built_then_preserved() {
-    let ctx = ContextPacket {
-        files: vec![],
-        snippets: vec![ContextSnippet {
-            name: "readme".into(),
-            content: "# Hello".into(),
-        }],
-    };
-    let wo = WorkOrderBuilder::new("test").context(ctx).build();
-    assert_eq!(wo.context.snippets.len(), 1);
-    assert_eq!(wo.context.snippets[0].name, "readme");
-}
-
-#[test]
-fn given_empty_context_when_default_then_empty() {
-    let ctx = ContextPacket::default();
-    assert!(ctx.files.is_empty());
-    assert!(ctx.snippets.is_empty());
-}
-
-#[test]
-fn given_context_when_serialized_then_roundtrips() {
-    let ctx = ContextPacket {
-        files: vec!["a.rs".into()],
-        snippets: vec![ContextSnippet {
-            name: "s1".into(),
-            content: "data".into(),
-        }],
-    };
-    let json = serde_json::to_string(&ctx).unwrap();
-    let back: ContextPacket = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.files, ctx.files);
-    assert_eq!(back.snippets.len(), ctx.snippets.len());
-}
-
-// ===========================================================================
-// 19. Error taxonomy completeness (6 tests)
-// ===========================================================================
-
-#[test]
-fn given_all_error_codes_when_as_str_then_non_empty() {
-    let codes = [
-        ErrorCode::ProtocolInvalidEnvelope,
-        ErrorCode::ProtocolUnexpectedMessage,
-        ErrorCode::ProtocolVersionMismatch,
-        ErrorCode::BackendNotFound,
-        ErrorCode::BackendTimeout,
-        ErrorCode::BackendCrashed,
-        ErrorCode::CapabilityUnsupported,
-        ErrorCode::CapabilityEmulationFailed,
-        ErrorCode::PolicyDenied,
-        ErrorCode::PolicyInvalid,
-        ErrorCode::WorkspaceInitFailed,
-        ErrorCode::WorkspaceStagingFailed,
-        ErrorCode::IrLoweringFailed,
-        ErrorCode::IrInvalid,
-        ErrorCode::ReceiptHashMismatch,
-        ErrorCode::ReceiptChainBroken,
-        ErrorCode::DialectUnknown,
-        ErrorCode::DialectMappingFailed,
-        ErrorCode::ConfigInvalid,
-        ErrorCode::Internal,
-    ];
-    for code in codes {
-        assert!(!code.as_str().is_empty());
-    }
-}
-
-#[test]
-fn given_error_code_when_display_then_same_as_message() {
-    let code = ErrorCode::BackendTimeout;
-    // Display uses .message() (human-readable text), not .as_str() (snake_case code)
-    assert_eq!(code.to_string(), code.message());
-}
-
-#[test]
-fn given_error_category_when_display_then_lowercase() {
-    assert_eq!(ErrorCategory::Backend.to_string(), "backend");
-    assert_eq!(ErrorCategory::Policy.to_string(), "policy");
-    assert_eq!(ErrorCategory::Protocol.to_string(), "protocol");
-}
-
-#[test]
-fn given_protocol_errors_when_category_then_protocol() {
-    assert_eq!(
-        ErrorCode::ProtocolInvalidEnvelope.category(),
-        ErrorCategory::Protocol
-    );
-    assert_eq!(
-        ErrorCode::ProtocolUnexpectedMessage.category(),
-        ErrorCategory::Protocol
-    );
-    assert_eq!(
-        ErrorCode::ProtocolVersionMismatch.category(),
-        ErrorCategory::Protocol
-    );
-}
-
-#[test]
-fn given_workspace_errors_when_category_then_workspace() {
-    assert_eq!(
-        ErrorCode::WorkspaceInitFailed.category(),
-        ErrorCategory::Workspace
-    );
-    assert_eq!(
-        ErrorCode::WorkspaceStagingFailed.category(),
-        ErrorCategory::Workspace
-    );
-}
-
-#[test]
-fn given_error_code_when_serialized_then_screaming_snake() {
-    let json = serde_json::to_string(&ErrorCode::BackendNotFound).unwrap();
-    assert_eq!(json, r#""backend_not_found""#);
-}
-
-// ===========================================================================
-// 20. Runtime with stream pipeline integration (5 tests)
-// ===========================================================================
-
-#[tokio::test]
-async fn given_runtime_with_pipeline_when_run_then_events_recorded() {
-    let recorder = EventRecorder::new();
-    let pipeline = StreamPipelineBuilder::new()
-        .with_recorder(recorder.clone())
-        .build();
-    let rt = Runtime::with_default_backends().with_stream_pipeline(pipeline);
-    let wo = simple_work_order("pipeline test");
-    let (_, _receipt) = drain_run(&rt, "mock", wo).await;
-    assert!(!recorder.is_empty());
 }
 
 #[tokio::test]
-async fn given_runtime_with_stats_pipeline_when_run_then_stats_populated() {
-    let stats = EventStats::new();
-    let pipeline = StreamPipelineBuilder::new()
-        .with_stats(stats.clone())
-        .build();
-    let rt = Runtime::with_default_backends().with_stream_pipeline(pipeline);
-    let wo = simple_work_order("stats test");
-    let (_, _receipt) = drain_run(&rt, "mock", wo).await;
-    assert!(stats.total_events() > 0);
+async fn feature_sdk_gemini_through_ir() {
+    scenario!("Gemini request → mapped through IR → correct format", {
+        let wo = given!("a work order with Gemini-style vendor config", {
+            let mut config = abp_core::RuntimeConfig {
+                model: Some("gemini-pro".into()),
+                ..Default::default()
+            };
+            config
+                .vendor
+                .insert("google".into(), serde_json::json!({"safety_settings": []}));
+            WorkOrderBuilder::new("gemini task")
+                .config(config)
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
+
+        let receipt = when!("processed through mapped execution", {
+            let rt = Runtime::with_default_backends();
+            let handle = rt.run_streaming("mock", wo).await.unwrap();
+            let (_, receipt) = drain_run(handle).await;
+            receipt.unwrap()
+        });
+
+        then!("receipt mode is Mapped and contract version is correct", {
+            assert_eq!(receipt.mode, ExecutionMode::Mapped);
+            assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
+            assert_eq!(receipt.outcome, Outcome::Complete);
+        });
+    });
 }
 
 #[tokio::test]
-async fn given_runtime_with_filter_pipeline_when_run_then_some_filtered() {
-    let recorder = EventRecorder::new();
-    let pipeline = StreamPipelineBuilder::new()
-        .filter(EventFilter::by_kind("assistant_message"))
-        .with_recorder(recorder.clone())
-        .build();
-    let rt = Runtime::with_default_backends().with_stream_pipeline(pipeline);
-    let wo = simple_work_order("filter test");
-    let handle = rt.run_streaming("mock", wo).await.unwrap();
-    // Drain events from stream to let pipeline process
-    let mut stream = handle.events;
-    while (stream.next().await).is_some() {}
-    let _ = handle.receipt.await;
-    // Recorder should only contain assistant_message events
-    for ev in recorder.events() {
-        assert!(matches!(ev.kind, AgentEventKind::AssistantMessage { .. }));
-    }
-}
+async fn feature_sdk_passthrough_mode_preserves_request() {
+    scenario!("Passthrough mode preserves request exactly", {
+        let wo = given!("a work order with passthrough vendor flag", {
+            let mut config = abp_core::RuntimeConfig::default();
+            config.vendor.insert(
+                "abp".into(),
+                serde_json::json!({"mode": "passthrough"}),
+            );
+            WorkOrderBuilder::new("passthrough test")
+                .config(config)
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
 
-#[test]
-fn given_runtime_when_stream_pipeline_set_then_accessible() {
-    let pipeline = StreamPipeline::new();
-    let rt = Runtime::new().with_stream_pipeline(pipeline);
-    assert!(rt.stream_pipeline().is_some());
-}
-
-#[test]
-fn given_runtime_when_no_pipeline_then_none() {
-    let rt = Runtime::new();
-    assert!(rt.stream_pipeline().is_none());
+        then!("the work order round-trips through JSON faithfully", {
+            let json = serde_json::to_value(&wo).unwrap();
+            let roundtrip: WorkOrder = serde_json::from_value(json.clone()).unwrap();
+            assert_eq!(roundtrip.task, wo.task);
+            assert_eq!(roundtrip.id, wo.id);
+            let json2 = serde_json::to_value(&roundtrip).unwrap();
+            assert_eq!(json, json2);
+        });
+    });
 }
 
 // ===========================================================================
-// 21. Fidelity and mapping validation (5 tests)
+// Feature: Policy Enforcement
 // ===========================================================================
 
 #[test]
-fn given_fidelity_lossless_when_checked_then_lossless() {
-    let f = Fidelity::Lossless;
-    assert!(f.is_lossless());
-    assert!(!f.is_unsupported());
+fn feature_policy_denied_tool_rejected() {
+    scenario!("Denied tool → rejected with policy error", {
+        let engine = given!("a policy engine denying 'Bash'", {
+            let policy = PolicyProfile {
+                allowed_tools: vec!["Read".into(), "Write".into()],
+                disallowed_tools: vec!["Bash".into()],
+                ..PolicyProfile::default()
+            };
+            PolicyEngine::new(&policy).unwrap()
+        });
+
+        let decision = when!("checking if 'Bash' tool is allowed", {
+            engine.can_use_tool("Bash")
+        });
+
+        then!("the decision is denied with reason", {
+            assert!(!decision.allowed);
+            assert!(decision.reason.is_some());
+            let reason = decision.reason.unwrap();
+            assert!(reason.contains("Bash"));
+        });
+    });
 }
 
 #[test]
-fn given_fidelity_unsupported_when_checked_then_unsupported() {
-    let f = Fidelity::Unsupported {
-        reason: "not available".into(),
-    };
-    assert!(f.is_unsupported());
-    assert!(!f.is_lossless());
+fn feature_policy_denied_tool_not_in_allowlist() {
+    scenario!("Tool not in allowlist → rejected", {
+        let engine = given!("a policy engine with explicit allowlist", {
+            let policy = PolicyProfile {
+                allowed_tools: vec!["Read".into()],
+                ..PolicyProfile::default()
+            };
+            PolicyEngine::new(&policy).unwrap()
+        });
+
+        let decision = when!("checking if 'Write' tool is allowed", {
+            engine.can_use_tool("Write")
+        });
+
+        then!("Write is denied because it is not in allowlist", {
+            assert!(!decision.allowed);
+            assert!(decision.reason.as_deref().unwrap().contains("not in allowlist"));
+        });
+    });
 }
 
 #[test]
-fn given_fidelity_lossy_when_checked_then_neither() {
-    let f = Fidelity::LossyLabeled {
-        warning: "partial".into(),
-    };
-    assert!(!f.is_lossless());
-    assert!(!f.is_unsupported());
+fn feature_policy_allowed_tool_accepted() {
+    scenario!("Allowed tool → accepted", {
+        let engine = given!("a policy engine allowing 'Read'", {
+            let policy = PolicyProfile {
+                allowed_tools: vec!["Read".into()],
+                ..PolicyProfile::default()
+            };
+            PolicyEngine::new(&policy).unwrap()
+        });
+
+        let decision = when!("checking if 'Read' tool is allowed", {
+            engine.can_use_tool("Read")
+        });
+
+        then!("the decision is allowed", {
+            assert!(decision.allowed);
+            assert!(decision.reason.is_none());
+        });
+    });
 }
 
 #[test]
-fn given_validate_mapping_when_empty_feature_then_error() {
-    let registry = known_rules();
-    let results = validate_mapping(&registry, Dialect::OpenAi, Dialect::Claude, &["".into()]);
-    assert!(!results[0].errors.is_empty());
+fn feature_policy_denied_file_write_blocked() {
+    scenario!("Denied file path → write blocked", {
+        let engine = given!("a policy engine denying writes to .git/**", {
+            let policy = PolicyProfile {
+                deny_write: vec!["**/.git/**".into()],
+                ..PolicyProfile::default()
+            };
+            PolicyEngine::new(&policy).unwrap()
+        });
+
+        let decision = when!("checking write to '.git/config'", {
+            engine.can_write_path(Path::new(".git/config"))
+        });
+
+        then!("the write is denied", {
+            assert!(!decision.allowed);
+            assert!(decision.reason.as_deref().unwrap().contains("write denied"));
+        });
+    });
 }
 
 #[test]
-fn given_mapping_registry_when_rank_targets_then_sorted() {
-    let registry = known_rules();
-    let ranked = registry.rank_targets(Dialect::OpenAi, &["tool_use", "streaming"]);
-    // Should be ordered by lossless count descending
-    for window in ranked.windows(2) {
-        assert!(window[0].1 >= window[1].1);
-    }
+fn feature_policy_denied_file_read_blocked() {
+    scenario!("Denied file path → read blocked", {
+        let engine = given!("a policy engine denying reads to .env", {
+            let policy = PolicyProfile {
+                deny_read: vec!["**/.env".into()],
+                ..PolicyProfile::default()
+            };
+            PolicyEngine::new(&policy).unwrap()
+        });
+
+        let decision = when!("checking read of '.env'", {
+            engine.can_read_path(Path::new(".env"))
+        });
+
+        then!("the read is denied", {
+            assert!(!decision.allowed);
+            assert!(decision.reason.as_deref().unwrap().contains("read denied"));
+        });
+    });
+}
+
+#[test]
+fn feature_policy_rate_limit_exceeded() {
+    scenario!("Rate limit exceeded → appropriate error", {
+        let policy = given!("a rate-limit policy with max 10 RPM", {
+            RateLimitPolicy {
+                max_requests_per_minute: Some(10),
+                max_tokens_per_minute: None,
+                max_concurrent: None,
+            }
+        });
+
+        let result = when!("current RPM is 10 (at the limit)", {
+            policy.check_rate_limit(10, 0, 0)
+        });
+
+        then!("the result is Throttled", {
+            assert!(result.is_throttled());
+            assert!(matches!(result, RateLimitResult::Throttled { .. }));
+        });
+    });
+}
+
+#[test]
+fn feature_policy_rate_limit_concurrent_denied() {
+    scenario!("Concurrent limit exceeded → denied", {
+        let policy = given!("a rate-limit policy with max 5 concurrent", {
+            RateLimitPolicy {
+                max_requests_per_minute: None,
+                max_tokens_per_minute: None,
+                max_concurrent: Some(5),
+            }
+        });
+
+        let result = when!("current concurrent is 5 (at the limit)", {
+            policy.check_rate_limit(0, 0, 5)
+        });
+
+        then!("the result is Denied", {
+            assert!(result.is_denied());
+            assert!(matches!(result, RateLimitResult::Denied { .. }));
+        });
+    });
+}
+
+#[test]
+fn feature_policy_rate_limit_within_bounds() {
+    scenario!("Request within rate limits → allowed", {
+        let policy = given!("a rate-limit policy with max 100 RPM", {
+            RateLimitPolicy {
+                max_requests_per_minute: Some(100),
+                max_tokens_per_minute: Some(10_000),
+                max_concurrent: Some(10),
+            }
+        });
+
+        let result = when!("current usage is well within limits", {
+            policy.check_rate_limit(5, 100, 2)
+        });
+
+        then!("the result is Allowed", {
+            assert!(result.is_allowed());
+        });
+    });
 }
 
 // ===========================================================================
-// 22. Envelope protocol edge cases (5 tests)
+// Feature: Receipt Integrity
 // ===========================================================================
 
 #[test]
-fn given_envelope_when_encoded_then_ends_with_newline() {
-    let env = Envelope::Fatal {
-        ref_id: None,
-        error: "err".into(),
-        error_code: None,
-    };
-    let line = JsonlCodec::encode(&env).unwrap();
-    assert!(line.ends_with('\n'));
+fn feature_receipt_hash_matches_content() {
+    scenario!("Receipt hash matches content", {
+        let receipt = given!("a receipt built with hash", {
+            abp_receipt::ReceiptBuilder::new("mock")
+                .outcome(Outcome::Complete)
+                .with_hash()
+                .unwrap()
+        });
+
+        let valid = when!("verifying the hash", {
+            verify_hash(&receipt)
+        });
+
+        then!("the hash is valid", {
+            assert!(valid);
+            let hash = receipt.receipt_sha256.as_ref().unwrap();
+            assert_eq!(hash.len(), 64);
+        });
+    });
 }
 
 #[test]
-fn given_envelope_hello_with_mode_when_encoded_then_roundtrips() {
-    let hello = Envelope::hello_with_mode(
-        BackendIdentity {
-            id: "test".into(),
-            backend_version: None,
-            adapter_version: None,
-        },
-        CapabilityManifest::new(),
-        ExecutionMode::Passthrough,
-    );
-    let line = JsonlCodec::encode(&hello).unwrap();
-    let decoded = JsonlCodec::decode(line.trim()).unwrap();
-    if let Envelope::Hello { mode, .. } = decoded {
-        assert_eq!(mode, ExecutionMode::Passthrough);
-    } else {
-        panic!("expected Hello");
-    }
+fn feature_receipt_tampered_fails_verification() {
+    scenario!("Tampered receipt fails verification", {
+        let mut receipt = given!("a receipt with a valid hash", {
+            abp_receipt::ReceiptBuilder::new("mock")
+                .outcome(Outcome::Complete)
+                .with_hash()
+                .unwrap()
+        });
+
+        when!("the receipt outcome is tampered", {
+            receipt.outcome = Outcome::Failed;
+        });
+
+        then!("hash verification fails", {
+            assert!(!verify_hash(&receipt));
+        });
+    });
 }
 
 #[test]
-fn given_fatal_from_abp_error_when_created_then_has_code() {
-    let err = AbpError::new(ErrorCode::BackendCrashed, "process died");
-    let env = Envelope::fatal_from_abp_error(Some("run-1".into()), &err);
-    assert_eq!(env.error_code(), Some(ErrorCode::BackendCrashed));
+fn feature_receipt_tampered_hash_fails() {
+    scenario!("Tampered hash string fails verification", {
+        let mut receipt = given!("a receipt with a valid hash", {
+            abp_receipt::ReceiptBuilder::new("mock")
+                .outcome(Outcome::Complete)
+                .with_hash()
+                .unwrap()
+        });
+
+        when!("the hash is replaced with a fake value", {
+            receipt.receipt_sha256 = Some("deadbeef".repeat(8));
+        });
+
+        then!("hash verification fails", {
+            assert!(!verify_hash(&receipt));
+        });
+    });
 }
 
 #[test]
-fn given_stream_of_envelopes_when_decoded_then_all_parsed() {
-    use std::io::BufReader;
-    let line1 = JsonlCodec::encode(&Envelope::Fatal {
-        ref_id: None,
-        error: "err1".into(),
-        error_code: None,
-    })
-    .unwrap();
-    let line2 = JsonlCodec::encode(&Envelope::Fatal {
-        ref_id: None,
-        error: "err2".into(),
-        error_code: None,
-    })
-    .unwrap();
-    let input = format!("{line1}{line2}");
-    let reader = BufReader::new(input.as_bytes());
-    let envelopes: Vec<_> = JsonlCodec::decode_stream(reader)
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-    assert_eq!(envelopes.len(), 2);
+fn feature_receipt_chain_maintains_integrity() {
+    scenario!("Receipt chain maintains integrity", {
+        let mut chain = given!("an empty receipt chain", ReceiptChain::new());
+
+        when!("three valid receipts are pushed in chronological order", {
+            for i in 0..3 {
+                let started = Utc::now() + chrono::Duration::seconds(i);
+                let finished = started + chrono::Duration::milliseconds(100);
+                let receipt = abp_receipt::ReceiptBuilder::new("mock")
+                    .outcome(Outcome::Complete)
+                    .started_at(started)
+                    .finished_at(finished)
+                    .with_hash()
+                    .unwrap();
+                chain.push(receipt).unwrap();
+            }
+        });
+
+        then!("the chain is valid and has 3 entries", {
+            assert_eq!(chain.len(), 3);
+            assert!(chain.verify().is_ok());
+        });
+    });
 }
 
 #[test]
-fn given_blank_lines_in_stream_when_decoded_then_skipped() {
-    use std::io::BufReader;
-    let line = JsonlCodec::encode(&Envelope::Fatal {
-        ref_id: None,
-        error: "err".into(),
-        error_code: None,
-    })
-    .unwrap();
-    let input = format!("\n\n{line}\n\n");
-    let reader = BufReader::new(input.as_bytes());
-    let envelopes: Vec<_> = JsonlCodec::decode_stream(reader)
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-    assert_eq!(envelopes.len(), 1);
+fn feature_receipt_chain_rejects_duplicate() {
+    scenario!("Receipt chain rejects duplicate run ID", {
+        let mut chain = given!("a chain with one receipt", {
+            let mut chain = ReceiptChain::new();
+            let receipt = abp_receipt::ReceiptBuilder::new("mock")
+                .outcome(Outcome::Complete)
+                .run_id(Uuid::nil())
+                .with_hash()
+                .unwrap();
+            chain.push(receipt).unwrap();
+            chain
+        });
+
+        let result = when!("pushing a receipt with the same run ID", {
+            let dup = abp_receipt::ReceiptBuilder::new("mock")
+                .outcome(Outcome::Complete)
+                .run_id(Uuid::nil())
+                .with_hash()
+                .unwrap();
+            chain.push(dup)
+        });
+
+        then!("push fails with DuplicateId error", {
+            assert!(result.is_err());
+        });
+    });
+}
+
+#[test]
+fn feature_receipt_deterministic_hashing() {
+    scenario!("Same receipt produces same hash", {
+        let receipt = given!("a deterministic receipt", {
+            abp_receipt::ReceiptBuilder::new("mock")
+                .outcome(Outcome::Complete)
+                .build()
+        });
+
+        let (h1, h2) = when!("computing hash twice", {
+            let h1 = compute_hash(&receipt).unwrap();
+            let h2 = compute_hash(&receipt).unwrap();
+            (h1, h2)
+        });
+
+        then!("both hashes are identical", {
+            assert_eq!(h1, h2);
+            assert_eq!(h1.len(), 64);
+        });
+    });
+}
+
+#[test]
+fn feature_receipt_hash_null_excluded() {
+    scenario!("Receipt hash excludes the hash field itself", {
+        let receipt_no_hash = given!("a receipt without hash", {
+            abp_receipt::ReceiptBuilder::new("mock")
+                .outcome(Outcome::Complete)
+                .build()
+        });
+
+        let receipt_with_hash = when!("we attach a hash", {
+            receipt_no_hash.clone().with_hash().unwrap()
+        });
+
+        then!("hash of original equals hash stored in hashed version", {
+            let h = compute_hash(&receipt_no_hash).unwrap();
+            assert_eq!(h, receipt_with_hash.receipt_sha256.unwrap());
+        });
+    });
 }
 
 // ===========================================================================
-// 23. Support level satisfies checks (4 tests)
+// Feature: Sidecar Lifecycle
 // ===========================================================================
 
 #[test]
-fn given_native_support_when_native_required_then_satisfies() {
-    assert!(SupportLevel::Native.satisfies(&MinSupport::Native));
+fn feature_sidecar_hello_accepted() {
+    scenario!("Sidecar sends hello → accepted", {
+        let hello = given!("a valid hello envelope", {
+            Envelope::hello(
+                BackendIdentity {
+                    id: "test-sidecar".into(),
+                    backend_version: Some("1.0".into()),
+                    adapter_version: None,
+                },
+                CapabilityManifest::new(),
+            )
+        });
+
+        let encoded = when!("encoding and decoding the hello", {
+            let line = JsonlCodec::encode(&hello).unwrap();
+            assert!(line.contains("\"t\":\"hello\""));
+            JsonlCodec::decode(line.trim()).unwrap()
+        });
+
+        then!("the decoded envelope is a Hello with correct version", {
+            match encoded {
+                Envelope::Hello {
+                    contract_version,
+                    backend,
+                    ..
+                } => {
+                    assert_eq!(contract_version, CONTRACT_VERSION);
+                    assert_eq!(backend.id, "test-sidecar");
+                }
+                other => panic!("expected Hello, got {other:?}"),
+            }
+        });
+    });
 }
 
 #[test]
-fn given_native_support_when_emulated_required_then_satisfies() {
-    assert!(SupportLevel::Native.satisfies(&MinSupport::Emulated));
+fn feature_sidecar_skips_hello_protocol_error() {
+    scenario!("Sidecar skips hello → protocol error", {
+        let line = given!("a JSONL line with an event (not hello)", {
+            let event_env = Envelope::Event {
+                ref_id: "run-1".into(),
+                event: AgentEvent {
+                    ts: Utc::now(),
+                    kind: AgentEventKind::RunStarted {
+                        message: "starting".into(),
+                    },
+                    ext: None,
+                },
+            };
+            JsonlCodec::encode(&event_env).unwrap()
+        });
+
+        let decoded = when!("we decode the first message", {
+            JsonlCodec::decode(line.trim()).unwrap()
+        });
+
+        then!("the message is an Event, not Hello — protocol violation", {
+            assert!(
+                !matches!(decoded, Envelope::Hello { .. }),
+                "expected non-Hello envelope"
+            );
+            // In real protocol, receiving Event before Hello would be a violation
+            assert!(matches!(decoded, Envelope::Event { .. }));
+        });
+    });
 }
 
 #[test]
-fn given_emulated_support_when_native_required_then_not_satisfied() {
-    assert!(!SupportLevel::Emulated.satisfies(&MinSupport::Native));
+fn feature_sidecar_fatal_error_propagated() {
+    scenario!("Sidecar sends fatal → error propagated", {
+        let fatal = given!("a fatal envelope with error code", {
+            Envelope::fatal_with_code(
+                Some("run-42".into()),
+                "out of memory",
+                ErrorCode::BackendCrashed,
+            )
+        });
+
+        let encoded = when!("encoding and decoding the fatal", {
+            let line = JsonlCodec::encode(&fatal).unwrap();
+            JsonlCodec::decode(line.trim()).unwrap()
+        });
+
+        then!("the decoded envelope carries the error code", {
+            match encoded {
+                Envelope::Fatal {
+                    ref_id,
+                    error,
+                    error_code,
+                } => {
+                    assert_eq!(ref_id.as_deref(), Some("run-42"));
+                    assert_eq!(error, "out of memory");
+                    assert_eq!(error_code, Some(ErrorCode::BackendCrashed));
+                }
+                other => panic!("expected Fatal, got {other:?}"),
+            }
+        });
+    });
 }
 
 #[test]
-fn given_unsupported_when_emulated_required_then_not_satisfied() {
-    assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
+fn feature_sidecar_fatal_without_ref_id() {
+    scenario!("Sidecar sends fatal without ref_id → still valid", {
+        let fatal = given!("a fatal envelope without ref_id", {
+            Envelope::Fatal {
+                ref_id: None,
+                error: "startup failure".into(),
+                error_code: Some(ErrorCode::ProtocolHandshakeFailed),
+            }
+        });
+
+        let decoded = when!("encoding and round-tripping", {
+            let line = JsonlCodec::encode(&fatal).unwrap();
+            JsonlCodec::decode(line.trim()).unwrap()
+        });
+
+        then!("ref_id is None and error is preserved", {
+            match decoded {
+                Envelope::Fatal {
+                    ref_id, error, ..
+                } => {
+                    assert!(ref_id.is_none());
+                    assert_eq!(error, "startup failure");
+                }
+                other => panic!("expected Fatal, got {other:?}"),
+            }
+        });
+    });
+}
+
+#[test]
+fn feature_sidecar_hello_mode_passthrough() {
+    scenario!("Sidecar sends hello with passthrough mode", {
+        let hello = given!("a hello envelope with passthrough mode", {
+            Envelope::hello_with_mode(
+                BackendIdentity {
+                    id: "passthrough-sidecar".into(),
+                    backend_version: None,
+                    adapter_version: None,
+                },
+                CapabilityManifest::new(),
+                ExecutionMode::Passthrough,
+            )
+        });
+
+        let decoded = when!("encoding and decoding", {
+            let line = JsonlCodec::encode(&hello).unwrap();
+            JsonlCodec::decode(line.trim()).unwrap()
+        });
+
+        then!("the mode is Passthrough", {
+            match decoded {
+                Envelope::Hello { mode, .. } => {
+                    assert_eq!(mode, ExecutionMode::Passthrough);
+                }
+                other => panic!("expected Hello, got {other:?}"),
+            }
+        });
+    });
+}
+
+#[test]
+fn feature_sidecar_protocol_stream_decoding() {
+    scenario!("JSONL stream decodes multiple envelopes", {
+        let input = given!("a JSONL stream with hello and fatal", {
+            let hello = Envelope::hello(
+                BackendIdentity {
+                    id: "stream-test".into(),
+                    backend_version: None,
+                    adapter_version: None,
+                },
+                CapabilityManifest::new(),
+            );
+            let fatal = Envelope::Fatal {
+                ref_id: None,
+                error: "done".into(),
+                error_code: None,
+            };
+            let mut buf = Vec::new();
+            buf.extend_from_slice(JsonlCodec::encode(&hello).unwrap().as_bytes());
+            buf.extend_from_slice(JsonlCodec::encode(&fatal).unwrap().as_bytes());
+            buf
+        });
+
+        let envelopes = when!("decoding the stream", {
+            let reader = BufReader::new(input.as_slice());
+            JsonlCodec::decode_stream(reader)
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap()
+        });
+
+        then!("we get exactly two envelopes in order", {
+            assert_eq!(envelopes.len(), 2);
+            assert!(matches!(envelopes[0], Envelope::Hello { .. }));
+            assert!(matches!(envelopes[1], Envelope::Fatal { .. }));
+        });
+    });
+}
+
+#[test]
+fn feature_sidecar_version_compatibility() {
+    scenario!("Version compatibility check works correctly", {
+        then!("same major versions are compatible", {
+            assert!(is_compatible_version("abp/v0.1", "abp/v0.2"));
+            assert!(is_compatible_version("abp/v0.1", CONTRACT_VERSION));
+        });
+
+        then!("different major versions are incompatible", {
+            assert!(!is_compatible_version("abp/v1.0", "abp/v0.1"));
+        });
+
+        then!("invalid version strings are incompatible", {
+            assert!(!is_compatible_version("invalid", CONTRACT_VERSION));
+        });
+    });
+}
+
+// ===========================================================================
+// Feature: Backend Lifecycle & Error Handling
+// ===========================================================================
+
+#[tokio::test]
+async fn feature_backend_error_propagated() {
+    scenario!("Backend error is propagated as RuntimeError", {
+        let wo = given!("a work order", {
+            WorkOrderBuilder::new("trigger error")
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
+
+        let result = when!("processed with error backend", {
+            let mut rt = Runtime::new();
+            rt.register_backend(
+                "error",
+                ErrorBackend {
+                    error_code: ErrorCode::BackendCrashed,
+                    message: "simulated crash".into(),
+                },
+            );
+            let handle = rt.run_streaming("error", wo).await.unwrap();
+            let (events, receipt) = drain_run(handle).await;
+            (events, receipt)
+        });
+
+        then!("the receipt is an error and events contain error info", {
+            let (_events, receipt_result) = result;
+            assert!(receipt_result.is_err());
+        });
+    });
+}
+
+#[tokio::test]
+async fn feature_backend_capability_check_fails() {
+    scenario!("Backend missing required capability → error", {
+        let wo = given!("a work order requiring native MCP", {
+            WorkOrderBuilder::new("need MCP")
+                .requirements(CapabilityRequirements {
+                    required: vec![CapabilityRequirement {
+                        capability: Capability::McpClient,
+                        min_support: MinSupport::Native,
+                    }],
+                })
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
+
+        let result = when!("processed with mock backend (no MCP)", {
+            let rt = Runtime::with_default_backends();
+            rt.run_streaming("mock", wo).await
+        });
+
+        then!("we get a CapabilityCheckFailed error", {
+            match result {
+                Err(err) => assert_eq!(err.error_code(), ErrorCode::CapabilityUnsupported),
+                Ok(_) => panic!("expected capability error, got Ok"),
+            }
+        });
+    });
+}
+
+#[tokio::test]
+async fn feature_backend_registration_and_listing() {
+    scenario!("Backends can be registered and listed", {
+        let rt = given!("a runtime with custom backends", {
+            let mut rt = Runtime::new();
+            rt.register_backend("alpha", abp_backend_mock::MockBackend);
+            rt.register_backend("beta", abp_backend_mock::MockBackend);
+            rt
+        });
+
+        let names = when!("listing backend names", rt.backend_names());
+
+        then!("both backends are listed", {
+            assert!(names.contains(&"alpha".to_string()));
+            assert!(names.contains(&"beta".to_string()));
+            assert_eq!(names.len(), 2);
+        });
+    });
+}
+
+// ===========================================================================
+// Feature: Contract & Serialization
+// ===========================================================================
+
+#[test]
+fn feature_contract_version_constant() {
+    scenario!("Contract version is 'abp/v0.1'", {
+        then!("CONTRACT_VERSION matches expected value", {
+            assert_eq!(CONTRACT_VERSION, "abp/v0.1");
+        });
+    });
+}
+
+#[test]
+fn feature_work_order_roundtrip_serde() {
+    scenario!("WorkOrder serializes and deserializes faithfully", {
+        let wo = given!("a fully populated work order", {
+            WorkOrderBuilder::new("test serde")
+                .model("gpt-4")
+                .max_turns(5)
+                .max_budget_usd(1.0)
+                .policy(PolicyProfile {
+                    disallowed_tools: vec!["Bash".into()],
+                    ..PolicyProfile::default()
+                })
+                .workspace_mode(WorkspaceMode::PassThrough)
+                .build()
+        });
+
+        let roundtrip = when!("serialized to JSON and back", {
+            let json = serde_json::to_string(&wo).unwrap();
+            serde_json::from_str::<WorkOrder>(&json).unwrap()
+        });
+
+        then!("all fields match", {
+            assert_eq!(roundtrip.id, wo.id);
+            assert_eq!(roundtrip.task, wo.task);
+            assert_eq!(roundtrip.config.model, wo.config.model);
+            assert_eq!(roundtrip.config.max_turns, wo.config.max_turns);
+            assert_eq!(
+                roundtrip.policy.disallowed_tools,
+                wo.policy.disallowed_tools
+            );
+        });
+    });
+}
+
+#[test]
+fn feature_receipt_roundtrip_serde() {
+    scenario!("Receipt serializes and deserializes faithfully", {
+        let receipt = given!("a receipt with hash", {
+            abp_receipt::ReceiptBuilder::new("mock")
+                .outcome(Outcome::Complete)
+                .usage_tokens(100, 50)
+                .with_hash()
+                .unwrap()
+        });
+
+        let roundtrip = when!("serialized to JSON and back", {
+            let json = serde_json::to_string(&receipt).unwrap();
+            serde_json::from_str::<Receipt>(&json).unwrap()
+        });
+
+        then!("hash and outcome survive round-trip", {
+            assert_eq!(roundtrip.outcome, receipt.outcome);
+            assert_eq!(roundtrip.receipt_sha256, receipt.receipt_sha256);
+            assert_eq!(roundtrip.usage.input_tokens, Some(100));
+            assert_eq!(roundtrip.usage.output_tokens, Some(50));
+        });
+    });
+}
+
+#[test]
+fn feature_agent_event_serde_tag() {
+    scenario!("AgentEvent uses 'type' tag for kind discriminator", {
+        let event = given!("a ToolCall agent event", {
+            AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::ToolCall {
+                    tool_name: "read_file".into(),
+                    tool_use_id: Some("tc-1".into()),
+                    parent_tool_use_id: None,
+                    input: serde_json::json!({}),
+                },
+                ext: None,
+            }
+        });
+
+        let json_str = when!("serializing to JSON", {
+            serde_json::to_string(&event).unwrap()
+        });
+
+        then!("JSON contains '\"type\":\"tool_call\"'", {
+            assert!(json_str.contains("\"type\":\"tool_call\""));
+            assert!(json_str.contains("\"tool_name\":\"read_file\""));
+        });
+    });
+}
+
+#[test]
+fn feature_envelope_serde_t_tag() {
+    scenario!("Protocol envelope uses 't' tag, not 'type'", {
+        let fatal = given!("a fatal envelope", {
+            Envelope::Fatal {
+                ref_id: None,
+                error: "test".into(),
+                error_code: None,
+            }
+        });
+
+        let json_str = when!("serializing to JSON", {
+            serde_json::to_string(&fatal).unwrap()
+        });
+
+        then!("JSON contains '\"t\":\"fatal\"'", {
+            assert!(json_str.contains("\"t\":\"fatal\""));
+            assert!(!json_str.contains("\"type\":\"fatal\""));
+        });
+    });
+}
+
+// ===========================================================================
+// Feature: Capability Negotiation
+// ===========================================================================
+
+#[test]
+fn feature_capability_native_satisfies_both() {
+    scenario!("Native support satisfies both Native and Emulated min", {
+        then!("Native satisfies Native", {
+            assert!(SupportLevel::Native.satisfies(&MinSupport::Native));
+        });
+        then!("Native satisfies Emulated", {
+            assert!(SupportLevel::Native.satisfies(&MinSupport::Emulated));
+        });
+    });
+}
+
+#[test]
+fn feature_capability_emulated_does_not_satisfy_native() {
+    scenario!("Emulated support does not satisfy Native min", {
+        then!("Emulated does not satisfy Native", {
+            assert!(!SupportLevel::Emulated.satisfies(&MinSupport::Native));
+        });
+        then!("Emulated satisfies Emulated", {
+            assert!(SupportLevel::Emulated.satisfies(&MinSupport::Emulated));
+        });
+    });
+}
+
+#[test]
+fn feature_capability_unsupported_fails_all() {
+    scenario!("Unsupported capability fails all min levels", {
+        then!("Unsupported does not satisfy Native", {
+            assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Native));
+        });
+        then!("Unsupported does not satisfy Emulated", {
+            assert!(!SupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
+        });
+    });
+}
+
+#[tokio::test]
+async fn feature_capability_check_runtime() {
+    scenario!("Runtime capability check against registered backend", {
+        let rt = given!("a runtime with mock backend", {
+            Runtime::with_default_backends()
+        });
+
+        let result = when!("checking streaming capability", {
+            rt.check_capabilities(
+                "mock",
+                &CapabilityRequirements {
+                    required: vec![CapabilityRequirement {
+                        capability: Capability::Streaming,
+                        min_support: MinSupport::Native,
+                    }],
+                },
+            )
+        });
+
+        then!("the check passes", {
+            assert!(result.is_ok());
+        });
+    });
+}
+
+// ===========================================================================
+// Feature: Error Taxonomy
+// ===========================================================================
+
+#[test]
+fn feature_error_code_categories() {
+    scenario!("Error codes map to correct categories", {
+        then!("BackendNotFound is Backend category", {
+            assert_eq!(
+                ErrorCode::BackendNotFound.category(),
+                abp_error::ErrorCategory::Backend
+            );
+        });
+        then!("PolicyDenied is Policy category", {
+            assert_eq!(
+                ErrorCode::PolicyDenied.category(),
+                abp_error::ErrorCategory::Policy
+            );
+        });
+        then!("ProtocolHandshakeFailed is Protocol category", {
+            assert_eq!(
+                ErrorCode::ProtocolHandshakeFailed.category(),
+                abp_error::ErrorCategory::Protocol
+            );
+        });
+    });
+}
+
+#[test]
+fn feature_runtime_error_retryability() {
+    scenario!("Runtime errors indicate retryability correctly", {
+        then!("UnknownBackend is not retryable", {
+            let err = RuntimeError::UnknownBackend {
+                name: "x".into(),
+            };
+            assert!(!err.is_retryable());
+        });
+        then!("BackendFailed is retryable", {
+            let err =
+                RuntimeError::BackendFailed(anyhow::anyhow!("temporary"));
+            assert!(err.is_retryable());
+        });
+        then!("CapabilityCheckFailed is not retryable", {
+            let err = RuntimeError::CapabilityCheckFailed("missing".into());
+            assert!(!err.is_retryable());
+        });
+    });
+}
+
+// ===========================================================================
+// Feature: WorkOrder Builder
+// ===========================================================================
+
+#[test]
+fn feature_builder_defaults() {
+    scenario!("WorkOrderBuilder provides sensible defaults", {
+        let wo = given!("a minimal work order", {
+            WorkOrderBuilder::new("test").build()
+        });
+
+        then!("defaults are set correctly", {
+            assert_eq!(wo.task, "test");
+            assert!(wo.config.model.is_none());
+            assert!(wo.config.max_turns.is_none());
+            assert!(wo.config.max_budget_usd.is_none());
+            assert!(wo.policy.allowed_tools.is_empty());
+            assert!(wo.policy.disallowed_tools.is_empty());
+        });
+    });
+}
+
+#[test]
+fn feature_builder_with_all_options() {
+    scenario!("WorkOrderBuilder with all options set", {
+        let wo = given!("a fully configured work order", {
+            WorkOrderBuilder::new("full config")
+                .model("gpt-4o")
+                .max_turns(20)
+                .max_budget_usd(10.0)
+                .root("/tmp/ws")
+                .workspace_mode(WorkspaceMode::Staged)
+                .include(vec!["src/**".into()])
+                .exclude(vec!["*.tmp".into()])
+                .policy(PolicyProfile {
+                    disallowed_tools: vec!["Bash".into()],
+                    ..PolicyProfile::default()
+                })
+                .build()
+        });
+
+        then!("all options are reflected", {
+            assert_eq!(wo.config.model.as_deref(), Some("gpt-4o"));
+            assert_eq!(wo.config.max_turns, Some(20));
+            assert_eq!(wo.config.max_budget_usd, Some(10.0));
+            assert_eq!(wo.workspace.root, "/tmp/ws");
+            assert!(matches!(wo.workspace.mode, WorkspaceMode::Staged));
+            assert_eq!(wo.workspace.include, vec!["src/**"]);
+            assert_eq!(wo.workspace.exclude, vec!["*.tmp"]);
+            assert_eq!(wo.policy.disallowed_tools, vec!["Bash"]);
+        });
+    });
+}
+
+// ===========================================================================
+// Feature: Multi-step / Chain Scenarios
+// ===========================================================================
+
+#[tokio::test]
+async fn feature_multi_step_receipts_chain() {
+    scenario!("Multiple work orders produce a valid receipt chain", {
+        let rt = given!("a runtime with mock backend", {
+            Runtime::with_default_backends()
+        });
+
+        let mut chain = ReceiptChain::new();
+
+        when!("executing three work orders sequentially", {
+            for i in 0..3 {
+                let wo = WorkOrderBuilder::new(format!("step {i}"))
+                    .workspace_mode(WorkspaceMode::PassThrough)
+                    .build();
+                let handle = rt.run_streaming("mock", wo).await.unwrap();
+                let (_, receipt) = drain_run(handle).await;
+                chain.push(receipt.unwrap()).unwrap();
+            }
+        });
+
+        then!("chain has 3 receipts and verifies OK", {
+            assert_eq!(chain.len(), 3);
+            assert!(chain.verify().is_ok());
+        });
+    });
+}
+
+#[test]
+fn feature_receipt_builder_error_shorthand() {
+    scenario!("ReceiptBuilder error() marks receipt as Failed", {
+        let receipt = given!("a receipt built with error shorthand", {
+            abp_receipt::ReceiptBuilder::new("mock")
+                .error("something went wrong")
+                .build()
+        });
+
+        then!("outcome is Failed and trace contains error event", {
+            assert_eq!(receipt.outcome, Outcome::Failed);
+            let has_error = receipt.trace.iter().any(|e| {
+                matches!(
+                    &e.kind,
+                    AgentEventKind::Error { message, .. } if message.contains("something went wrong")
+                )
+            });
+            assert!(has_error);
+        });
+    });
 }

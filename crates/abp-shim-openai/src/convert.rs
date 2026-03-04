@@ -4,9 +4,9 @@
 //! This module provides the three main conversion functions that form the core
 //! of the drop-in OpenAI API replacement:
 //!
-//! - [`to_work_order`] — OpenAI request → ABP `WorkOrder`
-//! - [`from_receipt`] — ABP `Receipt` + `WorkOrder` → OpenAI response
-//! - [`from_agent_event`] — ABP streaming event → OpenAI SSE chunk
+//! - [`to_work_order`](crate::convert::to_work_order) — OpenAI request → ABP `WorkOrder`
+//! - [`from_receipt`](crate::convert::from_receipt) — ABP `Receipt` + `WorkOrder` → OpenAI response
+//! - [`from_agent_event`](crate::convert::from_agent_event) — ABP streaming event → OpenAI SSE chunk
 
 use std::collections::BTreeMap;
 

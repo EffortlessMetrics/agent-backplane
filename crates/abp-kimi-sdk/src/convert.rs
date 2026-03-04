@@ -2,8 +2,8 @@
 //! Conversion between Kimi (Moonshot) wire-format types and ABP contract types.
 //!
 //! Kimi extends the OpenAI chat-completions format with `use_search` and
-//! [`SearchOptions`] for built-in web search.  These helpers bridge between
-//! those SDK-specific types and the vendor-agnostic [`WorkOrder`] / [`Receipt`].
+//! `SearchOptions` for built-in web search.  These helpers bridge between
+//! those SDK-specific types and the vendor-agnostic `WorkOrder` / `Receipt`.
 
 use crate::types::{
     ChatMessage, Choice, ChoiceMessage, KimiChatRequest, KimiChatResponse, KimiUsage,

@@ -2,9 +2,9 @@
 //! Conversion between Copilot wire-format types and ABP contract types.
 //!
 //! Copilot extends the OpenAI chat-completions format with `intent` and
-//! [`Reference`] types (file, selection, terminal, web page, git diff).
+//! `Reference` types (file, selection, terminal, web page, git diff).
 //! These helpers bridge between those SDK-specific types and the
-//! vendor-agnostic [`WorkOrder`] / [`Receipt`].
+//! vendor-agnostic `WorkOrder` / `Receipt`.
 
 use crate::types::{
     CopilotChatChoice, CopilotChatChoiceMessage, CopilotChatMessage, CopilotChatRequest,

@@ -2,9 +2,9 @@
 //! Conversion between Codex CLI wire-format types and ABP contract types.
 //!
 //! Codex extends the OpenAI chat-completions format with an `instructions`
-//! field for system prompts and [`CodexFileChange`] / [`CodexCommand`] for
+//! field for system prompts and `CodexFileChange` / `CodexCommand` for
 //! workspace mutations.  The helpers here bridge between those SDK-specific
-//! types and the vendor-agnostic [`WorkOrder`] / [`Receipt`] contract.
+//! types and the vendor-agnostic `WorkOrder` / `Receipt` contract.
 
 use crate::types::{
     CodexChoice, CodexChoiceMessage, CodexFileChange, CodexMessage, CodexRequest, CodexResponse,

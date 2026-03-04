@@ -3,9 +3,9 @@
 //!
 //! Provides three main entry points:
 //!
-//! - [`to_work_order`] — convert an incoming Gemini request into an ABP [`WorkOrder`].
-//! - [`from_receipt`] — project an ABP [`Receipt`] back into a Gemini response.
-//! - [`from_agent_event`] — map a single streaming [`AgentEvent`] to a Gemini SSE JSON value.
+//! - [`to_work_order`](crate::convert::to_work_order) — convert an incoming Gemini request into an ABP `WorkOrder`.
+//! - [`from_receipt`](crate::convert::from_receipt) — project an ABP `Receipt` back into a Gemini response.
+//! - [`from_agent_event`](crate::convert::from_agent_event) — map a single streaming `AgentEvent` to a Gemini SSE JSON value.
 //!
 //! Helper functions for role mapping and part-type conversion are also exposed.
 
