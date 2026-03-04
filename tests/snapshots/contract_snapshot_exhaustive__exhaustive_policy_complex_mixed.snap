@@ -1,0 +1,37 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: p
+---
+{
+  "allowed_tools": [
+    "read_file",
+    "write_file",
+    "edit_file",
+    "glob",
+    "grep"
+  ],
+  "disallowed_tools": [
+    "bash",
+    "exec"
+  ],
+  "deny_read": [
+    ".env",
+    "secrets/**",
+    "**/*.pem"
+  ],
+  "deny_write": [
+    "Cargo.lock",
+    ".github/**",
+    "LICENSE*"
+  ],
+  "allow_network": [
+    "api.github.com",
+    "crates.io"
+  ],
+  "deny_network": [
+    "*"
+  ],
+  "require_approval_for": [
+    "delete_file"
+  ]
+}

@@ -67,6 +67,8 @@ pub mod projection;
 pub mod rules;
 /// IR-level structural validation.
 pub mod validate_ir;
+/// Request rewriting engine for cross-dialect translation.
+pub mod rewrite;
 /// Validation pipeline for mapping correctness.
 pub mod validation;
 

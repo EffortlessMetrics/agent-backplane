@@ -1,0 +1,14 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: e
+---
+{
+  "ts": "2025-07-01T12:00:00Z",
+  "type": "tool_result",
+  "tool_name": "read_file",
+  "tool_use_id": "tu_xyz",
+  "output": {
+    "error": "ENOENT: no such file or directory"
+  },
+  "is_error": true
+}

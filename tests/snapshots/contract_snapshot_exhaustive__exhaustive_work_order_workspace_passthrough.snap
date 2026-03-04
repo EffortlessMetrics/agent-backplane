@@ -1,0 +1,43 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: wo
+---
+{
+  "id": "01010101-0202-4303-8404-050505050505",
+  "task": "passthrough workspace",
+  "lane": "workspace_first",
+  "workspace": {
+    "root": "/mnt/repo",
+    "mode": "pass_through",
+    "include": [
+      "**/*.py"
+    ],
+    "exclude": [
+      "__pycache__/**",
+      ".venv/**"
+    ]
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": []
+  },
+  "config": {
+    "model": null,
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

@@ -1,0 +1,18 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: snap_json(&env)
+---
+{
+  "t": "hello",
+  "contract_version": "abp/v0.1",
+  "backend": {
+    "id": "sidecar:claude",
+    "backend_version": "3.5.0",
+    "adapter_version": "0.2.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_use": "emulated"
+  },
+  "mode": "mapped"
+}

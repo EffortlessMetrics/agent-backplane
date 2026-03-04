@@ -1,0 +1,46 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: env
+---
+{
+  "t": "run",
+  "id": "run-exhaustive-001",
+  "work_order": {
+    "id": "01010101-0202-4303-8404-050505050505",
+    "task": "Fix the login page",
+    "lane": "patch_first",
+    "workspace": {
+      "root": "/app",
+      "mode": "staged",
+      "include": [
+        "src/**"
+      ],
+      "exclude": []
+    },
+    "context": {
+      "files": [
+        "README.md"
+      ],
+      "snippets": []
+    },
+    "policy": {
+      "allowed_tools": [],
+      "disallowed_tools": [],
+      "deny_read": [],
+      "deny_write": [],
+      "allow_network": [],
+      "deny_network": [],
+      "require_approval_for": []
+    },
+    "requirements": {
+      "required": []
+    },
+    "config": {
+      "model": "gpt-4o",
+      "vendor": {},
+      "env": {},
+      "max_budget_usd": null,
+      "max_turns": null
+    }
+  }
+}

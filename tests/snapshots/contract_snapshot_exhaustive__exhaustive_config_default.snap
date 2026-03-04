@@ -1,0 +1,8 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: "BackplaneConfig::default()"
+---
+{
+  "log_level": "info",
+  "backends": {}
+}

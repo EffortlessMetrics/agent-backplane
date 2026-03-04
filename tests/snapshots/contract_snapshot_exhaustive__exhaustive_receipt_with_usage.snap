@@ -1,0 +1,47 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: snap_json(&r)
+---
+{
+  "meta": {
+    "run_id": "01010101-0202-4303-8404-050505050505",
+    "work_order_id": "a1a1a1a1-b2b2-4c3c-8d4d-e5e5e5e5e5e5",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-07-01T12:00:00Z",
+    "finished_at": "2025-07-01T12:10:00Z",
+    "duration_ms": 600000
+  },
+  "backend": {
+    "id": "sidecar:claude",
+    "backend_version": "3.5.0",
+    "adapter_version": "0.2.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_use": "emulated"
+  },
+  "mode": "mapped",
+  "usage_raw": {
+    "cached_tokens": 500,
+    "completion_tokens": 1200,
+    "prompt_tokens": 2500,
+    "total_tokens": 3700
+  },
+  "usage": {
+    "input_tokens": 2500,
+    "output_tokens": 1200,
+    "cache_read_tokens": 500,
+    "cache_write_tokens": 200,
+    "request_units": 4,
+    "estimated_cost_usd": 0.035
+  },
+  "trace": [],
+  "artifacts": [],
+  "verification": {
+    "git_diff": null,
+    "git_status": null,
+    "harness_ok": false
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

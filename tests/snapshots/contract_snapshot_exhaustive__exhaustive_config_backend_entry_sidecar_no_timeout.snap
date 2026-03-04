@@ -1,0 +1,11 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: "BackendEntry::Sidecar\n{\n    command: \"python3\".into(), args: vec![\"sidecar.py\".into()], timeout_secs:\n    None,\n}"
+---
+{
+  "type": "sidecar",
+  "command": "python3",
+  "args": [
+    "sidecar.py"
+  ]
+}

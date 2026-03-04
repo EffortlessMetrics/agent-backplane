@@ -1,0 +1,43 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: wo
+---
+{
+  "id": "01010101-0202-4303-8404-050505050505",
+  "task": "env-heavy task",
+  "lane": "patch_first",
+  "workspace": {
+    "root": ".",
+    "mode": "staged",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": []
+  },
+  "config": {
+    "model": null,
+    "vendor": {},
+    "env": {
+      "HOME": "/home/agent",
+      "NODE_ENV": "production",
+      "PATH": "/usr/bin:/usr/local/bin",
+      "RUST_LOG": "abp=debug"
+    },
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

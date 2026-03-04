@@ -18,3 +18,7 @@ pub use abp_backend_core::{
 };
 pub use abp_backend_mock::MockBackend;
 pub use abp_backend_sidecar::SidecarBackend;
+pub use selector::{
+    BackendHealth, BackendSelector, CandidateEvaluation, DialectMatch, FallbackStrategy,
+    SelectionCriteria, SelectionError, SelectionReport,
+};

@@ -18,8 +18,8 @@ use serde_json::json;
 use std::collections::{BTreeMap, HashSet};
 use std::error::Error as StdError;
 use std::io;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 // =========================================================================
@@ -1610,8 +1610,13 @@ impl ErrorClassifier<ErrorCode> for AbpCodeClassifier {
 async fn resilience_retry_retryable_error_triggers_retry() {
     let counter = Arc::new(AtomicU32::new(0));
     let c = counter.clone();
-    let policy =
-        RetryPolicy::new(3, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        3,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     let _: Result<(), String> = retry_with_policy(&policy, || {
         let c = c.clone();
         async move {
@@ -1627,8 +1632,13 @@ async fn resilience_retry_retryable_error_triggers_retry() {
 async fn resilience_retry_non_retryable_fails_fast() {
     let counter = Arc::new(AtomicU32::new(0));
     let c = counter.clone();
-    let policy =
-        RetryPolicy::new(5, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        5,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     let opts = RetryOptions {
         policy: &policy,
         classifier: &AbpCodeClassifier,
@@ -1655,8 +1665,13 @@ async fn resilience_retry_non_retryable_fails_fast() {
 async fn resilience_retry_max_retries_respected() {
     let counter = Arc::new(AtomicU32::new(0));
     let c = counter.clone();
-    let policy =
-        RetryPolicy::new(2, Duration::from_millis(1), Duration::from_millis(10), 1.0, false);
+    let policy = RetryPolicy::new(
+        2,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        1.0,
+        false,
+    );
     let _: Result<(), String> = retry_with_policy(&policy, || {
         let c = c.clone();
         async move {
@@ -1670,8 +1685,13 @@ async fn resilience_retry_max_retries_respected() {
 
 #[tokio::test]
 async fn resilience_retry_exponential_backoff_increases_delay() {
-    let policy =
-        RetryPolicy::new(4, Duration::from_millis(10), Duration::from_secs(5), 2.0, false);
+    let policy = RetryPolicy::new(
+        4,
+        Duration::from_millis(10),
+        Duration::from_secs(5),
+        2.0,
+        false,
+    );
     let d0 = policy.delay_for_attempt(0);
     let d1 = policy.delay_for_attempt(1);
     let d2 = policy.delay_for_attempt(2);
@@ -1697,8 +1717,13 @@ async fn resilience_retry_delay_capped_at_max() {
 async fn resilience_retry_success_on_second_attempt() {
     let counter = Arc::new(AtomicU32::new(0));
     let c = counter.clone();
-    let policy =
-        RetryPolicy::new(3, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        3,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     let result: Result<&str, String> = retry_with_policy(&policy, || {
         let c = c.clone();
         async move {
@@ -1733,8 +1758,13 @@ async fn resilience_retry_no_retry_policy_attempts_once() {
 #[tokio::test]
 async fn resilience_retry_metrics_tracks_attempts() {
     let metrics = RetryMetrics::new();
-    let policy =
-        RetryPolicy::new(2, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        2,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     let opts = RetryOptions {
         policy: &policy,
         classifier: &AlwaysRetry,
@@ -1766,8 +1796,13 @@ async fn resilience_retry_classifier_retry_after_honors_response() {
 #[tokio::test]
 async fn resilience_retry_budget_exhausted_stops_retries() {
     let budget = RetryBudget::new(1, 0.0);
-    let policy =
-        RetryPolicy::new(5, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        5,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     let metrics = RetryMetrics::new();
     let opts = RetryOptions {
         policy: &policy,
@@ -1975,8 +2010,13 @@ async fn resilience_timeout_total_timeout_wraps_retries() {
 async fn resilience_timeout_recovery_after_timeout() {
     let counter = Arc::new(AtomicU32::new(0));
     let c = counter.clone();
-    let policy =
-        RetryPolicy::new(3, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        3,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     let result: Result<&str, String> = retry_with_policy(&policy, || {
         let c = c.clone();
         async move {
@@ -1995,8 +2035,9 @@ async fn resilience_timeout_recovery_after_timeout() {
 async fn resilience_timeout_circuit_breaker_prevents_timeout_waste() {
     let cb = CircuitBreaker::new(2, Duration::from_secs(60));
     for _ in 0..2 {
-        let _: Result<(), CircuitBreakerError<String>> =
-            cb.call(|| async { Err::<(), String>("timeout".into()) }).await;
+        let _: Result<(), CircuitBreakerError<String>> = cb
+            .call(|| async { Err::<(), String>("timeout".into()) })
+            .await;
     }
     assert_eq!(cb.state(), CircuitState::Open);
     let start = Instant::now();
@@ -2053,8 +2094,13 @@ async fn resilience_timeout_partial_work_preserved() {
 
 #[tokio::test]
 async fn resilience_timeout_per_attempt_with_retry() {
-    let policy =
-        RetryPolicy::new(2, Duration::from_millis(5), Duration::from_millis(50), 2.0, false);
+    let policy = RetryPolicy::new(
+        2,
+        Duration::from_millis(5),
+        Duration::from_millis(50),
+        2.0,
+        false,
+    );
     let counter = Arc::new(AtomicU32::new(0));
     let c = counter.clone();
     let result: Result<String, String> = retry_with_policy(&policy, || {
@@ -2080,20 +2126,15 @@ async fn resilience_timeout_per_attempt_with_retry() {
 #[tokio::test]
 async fn resilience_timeout_fast_success_no_delay() {
     let start = Instant::now();
-    let result = tokio::time::timeout(Duration::from_secs(5), async {
-        Ok::<_, String>("instant")
-    })
-    .await;
+    let result =
+        tokio::time::timeout(Duration::from_secs(5), async { Ok::<_, String>("instant") }).await;
     assert!(result.is_ok());
     assert!(start.elapsed() < Duration::from_millis(50));
 }
 
 #[tokio::test]
 async fn resilience_timeout_zero_timeout_does_not_panic() {
-    let result = tokio::time::timeout(Duration::ZERO, async {
-        Ok::<_, String>("instant")
-    })
-    .await;
+    let result = tokio::time::timeout(Duration::ZERO, async { Ok::<_, String>("instant") }).await;
     // Zero timeout is inherently racy; just verify no panic
     let _ = result;
 }
@@ -2105,8 +2146,13 @@ async fn resilience_timeout_zero_timeout_does_not_panic() {
 #[tokio::test]
 async fn resilience_partial_stream_continues_after_error() {
     let mut results = Vec::new();
-    let policy =
-        RetryPolicy::new(1, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        1,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     for i in 0..5u32 {
         let result: Result<String, String> = retry_with_policy(&policy, || async move {
             if i == 2 {
@@ -2129,8 +2175,13 @@ async fn resilience_partial_stream_continues_after_error() {
 async fn resilience_partial_event_ordering_preserved() {
     let events = Arc::new(std::sync::Mutex::new(Vec::new()));
     let counter = Arc::new(AtomicU32::new(0));
-    let policy =
-        RetryPolicy::new(2, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        2,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     for i in 0..5u32 {
         let e = events.clone();
         let c = counter.clone();
@@ -2229,8 +2280,13 @@ async fn resilience_partial_mixed_batch() {
         ErrorCode::BackendRateLimited,
         ErrorCode::BackendAuthFailed,
     ];
-    let policy =
-        RetryPolicy::new(1, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        1,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     let mut fast_fails = 0u32;
     for code in &codes {
         let code = *code;
@@ -2319,8 +2375,9 @@ async fn resilience_cascade_half_open_failure_reopens() {
     let _: Result<(), CircuitBreakerError<String>> =
         cb.call(|| async { Err::<(), String>("fail".into()) }).await;
     tokio::time::sleep(Duration::from_millis(60)).await;
-    let _: Result<(), CircuitBreakerError<String>> =
-        cb.call(|| async { Err::<(), String>("still failing".into()) }).await;
+    let _: Result<(), CircuitBreakerError<String>> = cb
+        .call(|| async { Err::<(), String>("still failing".into()) })
+        .await;
     assert_eq!(cb.state(), CircuitState::Open);
 }
 
@@ -2329,8 +2386,9 @@ async fn resilience_cascade_backend_failure_isolation() {
     let cb_a = CircuitBreaker::new(2, Duration::from_secs(30));
     let cb_b = CircuitBreaker::new(2, Duration::from_secs(30));
     for _ in 0..2 {
-        let _: Result<(), CircuitBreakerError<String>> =
-            cb_a.call(|| async { Err::<(), String>("fail".into()) }).await;
+        let _: Result<(), CircuitBreakerError<String>> = cb_a
+            .call(|| async { Err::<(), String>("fail".into()) })
+            .await;
     }
     assert_eq!(cb_a.state(), CircuitState::Open);
     assert_eq!(cb_b.state(), CircuitState::Closed);
@@ -2342,8 +2400,13 @@ async fn resilience_cascade_backend_failure_isolation() {
 #[tokio::test]
 async fn resilience_cascade_retry_with_circuit_breaker() {
     let cb = CircuitBreaker::new(2, Duration::from_secs(60));
-    let policy =
-        RetryPolicy::new(5, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        5,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     let metrics = RetryMetrics::new();
     let opts = RetryOptions {
         policy: &policy,
@@ -2379,7 +2442,10 @@ async fn resilience_cascade_fallback_chain() {
         .await;
     let mut result = None;
     for (name, cb) in &cbs {
-        match cb.call(|| async { Ok::<_, String>(format!("{name} ok")) }).await {
+        match cb
+            .call(|| async { Ok::<_, String>(format!("{name} ok")) })
+            .await
+        {
             Ok(v) => {
                 result = Some(v);
                 break;
@@ -2442,7 +2508,10 @@ async fn resilience_cascade_retry_budget_prevents_storm() {
         .await;
         total_attempts += counter.load(Ordering::SeqCst);
     }
-    assert!(total_attempts < 55, "budget should limit retries: {total_attempts}");
+    assert!(
+        total_attempts < 55,
+        "budget should limit retries: {total_attempts}"
+    );
 }
 
 #[tokio::test]
@@ -2473,8 +2542,13 @@ async fn resilience_cross_ratelimit_with_retry() {
             burst: 2,
         },
     );
-    let policy =
-        RetryPolicy::new(3, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        3,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     let result: Result<String, String> = retry_with_policy(&policy, || async {
         match limiter.try_acquire("test") {
             Ok(_permit) => Ok("permitted".to_string()),
@@ -2497,8 +2571,13 @@ async fn resilience_cross_error_chain_depth() {
 #[tokio::test]
 async fn resilience_cross_metrics_comprehensive() {
     let metrics = RetryMetrics::new();
-    let policy =
-        RetryPolicy::new(2, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let policy = RetryPolicy::new(
+        2,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
     let cb = CircuitBreaker::new(5, Duration::from_secs(60));
     let budget = RetryBudget::new(10, 1.0);
     let opts = RetryOptions {
@@ -2564,6 +2643,9 @@ async fn resilience_cross_recovery_category_retryability() {
         RecoveryCategory::MappingFailure,
         RecoveryCategory::PolicyViolation,
     ] {
-        assert!(!category::is_retryable(cat), "{cat:?} should NOT be retryable");
+        assert!(
+            !category::is_retryable(cat),
+            "{cat:?} should NOT be retryable"
+        );
     }
 }

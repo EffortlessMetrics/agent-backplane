@@ -1,0 +1,10 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": null,
+  "error": "handshake timed out after 30s",
+  "error_code": "protocol_handshake_failed"
+}

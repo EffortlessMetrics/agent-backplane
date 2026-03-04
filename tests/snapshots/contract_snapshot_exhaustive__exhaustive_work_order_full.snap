@@ -1,0 +1,92 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: wo
+---
+{
+  "id": "01010101-0202-4303-8404-050505050505",
+  "task": "Refactor auth module and add tests",
+  "lane": "workspace_first",
+  "workspace": {
+    "root": "/home/dev/project",
+    "mode": "staged",
+    "include": [
+      "src/**/*.rs",
+      "tests/**"
+    ],
+    "exclude": [
+      "target/**",
+      "node_modules/**"
+    ]
+  },
+  "context": {
+    "files": [
+      "README.md",
+      "src/auth.rs"
+    ],
+    "snippets": [
+      {
+        "name": "error_log",
+        "content": "thread 'main' panicked at auth.rs:42"
+      },
+      {
+        "name": "spec",
+        "content": "Auth tokens must expire after 1 hour"
+      }
+    ]
+  },
+  "policy": {
+    "allowed_tools": [
+      "read",
+      "write",
+      "edit"
+    ],
+    "disallowed_tools": [
+      "bash"
+    ],
+    "deny_read": [
+      ".env",
+      "secrets/**"
+    ],
+    "deny_write": [
+      "Cargo.lock"
+    ],
+    "allow_network": [
+      "api.github.com"
+    ],
+    "deny_network": [
+      "*.evil.com"
+    ],
+    "require_approval_for": [
+      "delete"
+    ]
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "tool_read",
+        "min_support": "native"
+      },
+      {
+        "capability": "streaming",
+        "min_support": "emulated"
+      },
+      {
+        "capability": "extended_thinking",
+        "min_support": "any"
+      }
+    ]
+  },
+  "config": {
+    "model": "claude-3.5-sonnet",
+    "vendor": {
+      "temperature": 0.7,
+      "top_p": 0.95
+    },
+    "env": {
+      "CI": "true",
+      "LANG": "en_US.UTF-8"
+    },
+    "max_budget_usd": 5.0,
+    "max_turns": 50
+  }
+}

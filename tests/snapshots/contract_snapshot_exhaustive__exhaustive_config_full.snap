@@ -1,0 +1,45 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: cfg
+---
+{
+  "default_backend": "claude",
+  "workspace_dir": "/tmp/abp-workspaces",
+  "log_level": "debug",
+  "receipts_dir": "/var/log/abp/receipts",
+  "bind_address": "127.0.0.1",
+  "port": 8080,
+  "policy_profiles": [
+    "profiles/strict.json",
+    "profiles/default.json"
+  ],
+  "backends": {
+    "claude": {
+      "type": "sidecar",
+      "command": "node",
+      "args": [
+        "hosts/claude/index.js"
+      ],
+      "timeout_secs": 300
+    },
+    "mock": {
+      "type": "mock"
+    },
+    "node": {
+      "type": "sidecar",
+      "command": "node",
+      "args": [
+        "hosts/node/index.js"
+      ],
+      "timeout_secs": 120
+    },
+    "python": {
+      "type": "sidecar",
+      "command": "python3",
+      "args": [
+        "hosts/python/main.py"
+      ],
+      "timeout_secs": 60
+    }
+  }
+}

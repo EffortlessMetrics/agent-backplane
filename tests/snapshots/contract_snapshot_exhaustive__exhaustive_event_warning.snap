@@ -1,0 +1,9 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: e
+---
+{
+  "ts": "2025-07-01T12:00:00Z",
+  "type": "warning",
+  "message": "budget 80% consumed, 2 turns remaining"
+}

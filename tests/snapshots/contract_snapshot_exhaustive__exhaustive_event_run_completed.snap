@@ -1,0 +1,9 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: e
+---
+{
+  "ts": "2025-07-01T12:10:00Z",
+  "type": "run_completed",
+  "message": "task finished successfully with 3 files modified"
+}
