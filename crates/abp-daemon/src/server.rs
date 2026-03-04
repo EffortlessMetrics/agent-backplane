@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Axum-based HTTP server scaffolding for the ABP daemon.
 //!
-//! Provides [`DaemonServer`] — the top-level entry point for starting the
-//! HTTP control-plane — and [`router`] for building the Axum router used
-//! in tests and production.
+//! Provides [`DaemonServer`](crate::server::DaemonServer) — the top-level
+//! entry point for starting the HTTP control-plane — and
+//! [`router()`](crate::server::router) for building the Axum router used in
+//! tests and production.
 
 use crate::api::{
     BackendInfo as ApiBackendInfo, ErrorResponse, HealthResponse, ListBackendsResponse,
