@@ -76,7 +76,26 @@ impl ClaudeGeminiIrMapper {
     ///   (Gemini models `functionResponse` in user turns).
     /// - `ToolUse` / `ToolResult` content blocks are preserved as-is in IR.
     /// - Image blocks are preserved.
+    /// - **Fails early** if a system message contains image blocks
+    ///   (Gemini `system_instruction` only supports text parts).
     fn claude_to_gemini(&self, ir: &IrConversation) -> Result<IrConversation, MapError> {
+        // Early failure: system prompts with image blocks cannot be mapped
+        // to Gemini because system_instruction only supports text parts.
+        for msg in &ir.messages {
+            if msg.role == IrRole::System
+                && msg
+                    .content
+                    .iter()
+                    .any(|b| matches!(b, IrContentBlock::Image { .. }))
+            {
+                return Err(MapError::UnmappableContent {
+                    field: "system".into(),
+                    reason: "Gemini system_instruction does not support image content blocks"
+                        .into(),
+                });
+            }
+        }
+
         let mut messages = Vec::with_capacity(ir.messages.len());
 
         for msg in &ir.messages {

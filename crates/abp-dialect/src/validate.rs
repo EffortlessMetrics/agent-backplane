@@ -263,6 +263,16 @@ fn check_messages_roles(msgs: &[Value], field_prefix: &str, issues: &mut Vec<Val
 
 // ── Per-dialect validators ──────────────────────────────────────────────
 
+/// Valid role values for OpenAI chat-completions requests.
+const OPENAI_VALID_ROLES: &[&str] = &[
+    "system",
+    "user",
+    "assistant",
+    "tool",
+    "function",
+    "developer",
+];
+
 fn validate_openai(obj: &serde_json::Map<String, Value>, issues: &mut Vec<ValidationIssue>) {
     require_field(obj, "model", issues);
     require_field(obj, "messages", issues);
@@ -270,6 +280,23 @@ fn validate_openai(obj: &serde_json::Map<String, Value>, issues: &mut Vec<Valida
     if require_array(obj, "messages", issues) {
         if let Some(Value::Array(msgs)) = obj.get("messages") {
             check_messages_roles(msgs, "messages", issues);
+
+            // Validate that role values are among known OpenAI roles.
+            for (i, msg) in msgs.iter().enumerate() {
+                if let Some(role) = msg.get("role").and_then(Value::as_str) {
+                    if !OPENAI_VALID_ROLES.contains(&role) {
+                        issues.push(ValidationIssue {
+                            severity: Severity::Warning,
+                            field: format!("messages[{i}].role"),
+                            message: format!(
+                                "unrecognized role \"{role}\"; expected one of: {}",
+                                OPENAI_VALID_ROLES.join(", ")
+                            ),
+                            code: "unknown_role".into(),
+                        });
+                    }
+                }
+            }
 
             if msgs.is_empty() {
                 issues.push(ValidationIssue {
@@ -305,6 +332,9 @@ fn validate_claude(obj: &serde_json::Map<String, Value>, issues: &mut Vec<Valida
                 }
             }
 
+            // Claude messages should alternate between user and assistant.
+            check_claude_alternation(msgs, issues);
+
             if msgs.is_empty() {
                 issues.push(ValidationIssue {
                     severity: Severity::Warning,
@@ -329,6 +359,34 @@ fn validate_claude(obj: &serde_json::Map<String, Value>, issues: &mut Vec<Valida
     }
 }
 
+/// Warns when Claude messages do not alternate between user and assistant.
+fn check_claude_alternation(msgs: &[Value], issues: &mut Vec<ValidationIssue>) {
+    let roles: Vec<Option<&str>> = msgs.iter().map(|m| m.get("role").and_then(Value::as_str)).collect();
+
+    for window in roles.windows(2) {
+        if let [Some(prev), Some(curr)] = window {
+            if prev == curr && (*prev == "user" || *prev == "assistant") {
+                // Find the index of this pair
+                let idx = roles
+                    .windows(2)
+                    .position(|w| {
+                        w[0] == Some(prev) && w[1] == Some(curr) && prev == curr
+                    })
+                    .unwrap_or(0);
+                issues.push(ValidationIssue {
+                    severity: Severity::Warning,
+                    field: format!("messages[{}].role", idx + 1),
+                    message: format!(
+                        "consecutive \"{prev}\" messages; Claude expects alternating user/assistant"
+                    ),
+                    code: "non_alternating_roles".into(),
+                });
+                break; // Report once to avoid noise
+            }
+        }
+    }
+}
+
 fn validate_gemini(obj: &serde_json::Map<String, Value>, issues: &mut Vec<ValidationIssue>) {
     require_field(obj, "model", issues);
     require_field(obj, "contents", issues);
@@ -344,7 +402,16 @@ fn validate_gemini(obj: &serde_json::Map<String, Value>, issues: &mut Vec<Valida
                         code: "missing_required_field".into(),
                     });
                 } else if let Some(parts) = c.get("parts") {
-                    if !parts.is_array() {
+                    if let Some(parts_arr) = parts.as_array() {
+                        if parts_arr.is_empty() {
+                            issues.push(ValidationIssue {
+                                severity: Severity::Warning,
+                                field: format!("contents[{i}].parts"),
+                                message: "parts array is empty".into(),
+                                code: "empty_parts".into(),
+                            });
+                        }
+                    } else {
                         issues.push(ValidationIssue {
                             severity: Severity::Error,
                             field: format!("contents[{i}].parts"),
@@ -357,9 +424,9 @@ fn validate_gemini(obj: &serde_json::Map<String, Value>, issues: &mut Vec<Valida
 
             if contents.is_empty() {
                 issues.push(ValidationIssue {
-                    severity: Severity::Warning,
+                    severity: Severity::Error,
                     field: "contents".into(),
-                    message: "contents array is empty".into(),
+                    message: "contents array must not be empty".into(),
                     code: "empty_contents".into(),
                 });
             }
@@ -496,5 +563,90 @@ mod tests {
         assert!(!r.is_valid());
         assert_eq!(r.error_count(), 1);
         assert_eq!(r.issues[0].code, "invalid_type");
+    }
+
+    // ── OpenAI role validation ──────────────────────────────────────
+
+    #[test]
+    fn openai_unknown_role_produces_warning() {
+        let r = v().validate(
+            Dialect::OpenAi,
+            &json!({"model": "gpt-4", "messages": [{"role": "narrator", "content": "hi"}]}),
+        );
+        assert!(r.is_valid()); // warning, not error
+        assert!(r.issues.iter().any(|i| i.code == "unknown_role"));
+    }
+
+    #[test]
+    fn openai_valid_roles_no_warning() {
+        let r = v().validate(
+            Dialect::OpenAi,
+            &json!({
+                "model": "gpt-4",
+                "messages": [
+                    {"role": "system", "content": "be nice"},
+                    {"role": "user", "content": "hi"},
+                    {"role": "assistant", "content": "hello"}
+                ]
+            }),
+        );
+        assert!(r.is_valid());
+        assert!(!r.has_warnings());
+    }
+
+    // ── Claude alternation ──────────────────────────────────────────
+
+    #[test]
+    fn claude_alternating_roles_no_warning() {
+        let r = v().validate(
+            Dialect::Claude,
+            &json!({
+                "model": "claude-3",
+                "messages": [
+                    {"role": "user", "content": "q1"},
+                    {"role": "assistant", "content": "a1"},
+                    {"role": "user", "content": "q2"}
+                ],
+                "max_tokens": 100
+            }),
+        );
+        assert!(r.is_valid());
+        assert!(!r.issues.iter().any(|i| i.code == "non_alternating_roles"));
+    }
+
+    #[test]
+    fn claude_consecutive_user_produces_warning() {
+        let r = v().validate(
+            Dialect::Claude,
+            &json!({
+                "model": "claude-3",
+                "messages": [
+                    {"role": "user", "content": "q1"},
+                    {"role": "user", "content": "q2"}
+                ],
+                "max_tokens": 100
+            }),
+        );
+        assert!(r.is_valid()); // warning, not error
+        assert!(r.issues.iter().any(|i| i.code == "non_alternating_roles"));
+    }
+
+    // ── Gemini empty contents/parts ─────────────────────────────────
+
+    #[test]
+    fn gemini_empty_contents_is_error() {
+        let r = v().validate(Dialect::Gemini, &json!({"model": "gemini-pro", "contents": []}));
+        assert!(!r.is_valid());
+        assert!(r.issues.iter().any(|i| i.code == "empty_contents"));
+    }
+
+    #[test]
+    fn gemini_empty_parts_produces_warning() {
+        let r = v().validate(
+            Dialect::Gemini,
+            &json!({"model": "gemini-pro", "contents": [{"parts": []}]}),
+        );
+        assert!(r.is_valid()); // warning only
+        assert!(r.issues.iter().any(|i| i.code == "empty_parts"));
     }
 }

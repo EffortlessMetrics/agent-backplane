@@ -244,7 +244,8 @@ impl Mapper for ClaudeToOpenAiMapper {
 /// Maps a Claude user message to OpenAI format.
 ///
 /// Claude user messages may contain `tool_result` blocks; those are extracted
-/// into separate OpenAI `tool` messages.
+/// into separate OpenAI `tool` messages. Image blocks are mapped to OpenAI
+/// `image_url` content parts.
 fn map_claude_user_message(msg: &Value) -> Value {
     let content = msg.get("content").cloned().unwrap_or(Value::Null);
 
@@ -274,18 +275,50 @@ fn map_claude_user_message(msg: &Value) -> Value {
                     "content": content_str
                 })
             } else {
-                // Mixed or text-only blocks → extract text
-                let text: Vec<String> = blocks
+                // Check for image blocks — use multimodal content format
+                let has_images = blocks
                     .iter()
-                    .filter_map(|b| {
-                        if b.get("type").and_then(Value::as_str) == Some("text") {
-                            b.get("text").and_then(Value::as_str).map(String::from)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                json!({"role": "user", "content": text.join("\n")})
+                    .any(|b| b.get("type").and_then(Value::as_str) == Some("image"));
+                if has_images {
+                    let parts: Vec<Value> = blocks
+                        .iter()
+                        .filter_map(|b| {
+                            let btype = b.get("type").and_then(Value::as_str).unwrap_or("");
+                            match btype {
+                                "text" => {
+                                    let text = b.get("text").and_then(Value::as_str).unwrap_or("");
+                                    Some(json!({"type": "text", "text": text}))
+                                }
+                                "image" => {
+                                    let source = b.get("source")?;
+                                    let media_type = source
+                                        .get("media_type")
+                                        .and_then(Value::as_str)
+                                        .unwrap_or("image/png");
+                                    let data =
+                                        source.get("data").and_then(Value::as_str).unwrap_or("");
+                                    let url = format!("data:{media_type};base64,{data}");
+                                    Some(json!({"type": "image_url", "image_url": {"url": url}}))
+                                }
+                                _ => None,
+                            }
+                        })
+                        .collect();
+                    json!({"role": "user", "content": parts})
+                } else {
+                    // Text-only blocks → extract text
+                    let text: Vec<String> = blocks
+                        .iter()
+                        .filter_map(|b| {
+                            if b.get("type").and_then(Value::as_str) == Some("text") {
+                                b.get("text").and_then(Value::as_str).map(String::from)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    json!({"role": "user", "content": text.join("\n")})
+                }
             }
         }
         _ => json!({"role": "user", "content": content}),
@@ -796,5 +829,43 @@ mod tests {
         assert_eq!(back["tools"][0]["type"], "function");
         assert_eq!(back["tools"][0]["function"]["name"], "search");
         assert!(back["tools"][0]["function"]["parameters"]["properties"]["query"].is_object());
+    }
+
+    #[test]
+    fn image_content_mapped_to_image_url() {
+        let mapper = ClaudeToOpenAiMapper;
+        let req = DialectRequest {
+            dialect: Dialect::Claude,
+            body: json!({
+                "model": "claude-3-5-sonnet-20241022",
+                "max_tokens": 1024,
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "What is this?"},
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": "iVBOR..."
+                            }
+                        }
+                    ]
+                }]
+            }),
+        };
+        let result = mapper.map_request(&req).unwrap();
+        let msg = &result["messages"][0];
+        assert_eq!(msg["role"], "user");
+        let parts = msg["content"].as_array().unwrap();
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0]["type"], "text");
+        assert_eq!(parts[0]["text"], "What is this?");
+        assert_eq!(parts[1]["type"], "image_url");
+        assert!(parts[1]["image_url"]["url"]
+            .as_str()
+            .unwrap()
+            .starts_with("data:image/png;base64,"));
     }
 }

@@ -124,6 +124,18 @@ pub struct BackplaneConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub receipts_dir: Option<String>,
 
+    /// Network bind address (e.g. `"127.0.0.1"`, `"0.0.0.0"`, `"::1"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bind_address: Option<String>,
+
+    /// Network port number (1–65 535).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+
+    /// Paths to policy profile files that should be loaded at startup.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub policy_profiles: Vec<String>,
+
     /// Named backend definitions.
     #[serde(default)]
     pub backends: BTreeMap<String, BackendEntry>,
@@ -136,6 +148,9 @@ impl Default for BackplaneConfig {
             workspace_dir: None,
             log_level: Some("info".into()),
             receipts_dir: None,
+            bind_address: None,
+            port: None,
+            policy_profiles: Vec::new(),
             backends: BTreeMap::new(),
         }
     }
@@ -199,6 +214,26 @@ pub fn load_config(path: Option<&Path>) -> Result<BackplaneConfig, ConfigError> 
     Ok(config)
 }
 
+/// Load a [`BackplaneConfig`] from a TOML file at `path`.
+///
+/// This is a convenience wrapper around [`load_config`] that always requires
+/// a path.  Environment variable overrides are **not** applied automatically;
+/// call [`apply_env_overrides`] afterwards if needed.
+pub fn load_from_file(path: &Path) -> Result<BackplaneConfig, ConfigError> {
+    let content = std::fs::read_to_string(path).map_err(|_| ConfigError::FileNotFound {
+        path: path.display().to_string(),
+    })?;
+    load_from_str(&content)
+}
+
+/// Parse a TOML string into a [`BackplaneConfig`].
+///
+/// This is a convenience alias for [`parse_toml`] with a more discoverable
+/// name.  Environment variable overrides are **not** applied automatically.
+pub fn load_from_str(toml_str: &str) -> Result<BackplaneConfig, ConfigError> {
+    parse_toml(toml_str)
+}
+
 /// Parse a TOML string into a [`BackplaneConfig`].
 pub fn parse_toml(content: &str) -> Result<BackplaneConfig, ConfigError> {
     toml::from_str::<BackplaneConfig>(content).map_err(|e| ConfigError::ParseError {
@@ -217,6 +252,8 @@ pub fn parse_toml(content: &str) -> Result<BackplaneConfig, ConfigError> {
 /// - `ABP_LOG_LEVEL`
 /// - `ABP_RECEIPTS_DIR`
 /// - `ABP_WORKSPACE_DIR`
+/// - `ABP_BIND_ADDRESS`
+/// - `ABP_PORT`
 pub fn apply_env_overrides(config: &mut BackplaneConfig) {
     if let Ok(val) = std::env::var("ABP_DEFAULT_BACKEND") {
         config.default_backend = Some(val);
@@ -229,6 +266,14 @@ pub fn apply_env_overrides(config: &mut BackplaneConfig) {
     }
     if let Ok(val) = std::env::var("ABP_WORKSPACE_DIR") {
         config.workspace_dir = Some(val);
+    }
+    if let Ok(val) = std::env::var("ABP_BIND_ADDRESS") {
+        config.bind_address = Some(val);
+    }
+    if let Ok(val) = std::env::var("ABP_PORT") {
+        if let Ok(p) = val.parse::<u16>() {
+            config.port = Some(p);
+        }
     }
 }
 
@@ -249,6 +294,34 @@ pub fn validate_config(config: &BackplaneConfig) -> Result<Vec<ConfigWarning>, C
         && !VALID_LOG_LEVELS.contains(&level.as_str())
     {
         errors.push(format!("invalid log_level '{level}'"));
+    }
+
+    // Validate port (u16 already guarantees <= 65535, but 0 is invalid).
+    if let Some(p) = config.port {
+        if p == 0 {
+            errors.push("port must be between 1 and 65535".into());
+        }
+    }
+
+    // Validate bind_address (must parse as an IP address or be a non-empty
+    // hostname-like string).
+    if let Some(ref addr) = config.bind_address {
+        if addr.trim().is_empty() {
+            errors.push("bind_address must not be empty".into());
+        } else if addr.parse::<std::net::IpAddr>().is_err()
+            && !is_valid_hostname(addr)
+        {
+            errors.push(format!("bind_address '{addr}' is not a valid IP address or hostname"));
+        }
+    }
+
+    // Validate policy profile paths exist on disk (when specified).
+    for path_str in &config.policy_profiles {
+        if path_str.trim().is_empty() {
+            errors.push("policy profile path must not be empty".into());
+        } else if !Path::new(path_str).exists() {
+            errors.push(format!("policy profile path does not exist: {path_str}"));
+        }
     }
 
     // Validate each backend entry.
@@ -316,13 +389,42 @@ pub fn validate_config(config: &BackplaneConfig) -> Result<Vec<ConfigWarning>, C
 pub fn merge_configs(base: BackplaneConfig, overlay: BackplaneConfig) -> BackplaneConfig {
     let mut backends = base.backends;
     backends.extend(overlay.backends);
+    let policy_profiles = if overlay.policy_profiles.is_empty() {
+        base.policy_profiles
+    } else {
+        overlay.policy_profiles
+    };
     BackplaneConfig {
         default_backend: overlay.default_backend.or(base.default_backend),
         workspace_dir: overlay.workspace_dir.or(base.workspace_dir),
         log_level: overlay.log_level.or(base.log_level),
         receipts_dir: overlay.receipts_dir.or(base.receipts_dir),
+        bind_address: overlay.bind_address.or(base.bind_address),
+        port: overlay.port.or(base.port),
+        policy_profiles,
         backends,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/// Check whether `s` looks like a valid hostname (RFC 952 / RFC 1123).
+pub(crate) fn is_valid_hostname(s: &str) -> bool {
+    if s.is_empty() || s.len() > 253 {
+        return false;
+    }
+    // Allow `localhost` and dotted labels like `my-host.example.com`.
+    s.split('.').all(|label| {
+        !label.is_empty()
+            && label.len() <= 63
+            && label
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-')
+            && !label.starts_with('-')
+            && !label.ends_with('-')
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -530,6 +632,7 @@ mod tests {
             log_level: Some("debug".into()),
             receipts_dir: Some("/receipts".into()),
             backends: BTreeMap::from([("m".into(), BackendEntry::Mock {})]),
+            ..Default::default()
         };
         let merged = merge_configs(base.clone(), BackplaneConfig::default());
         // overlay log_level is Some("info"), so it will override base.
@@ -608,6 +711,7 @@ mod tests {
             log_level: Some("debug".into()),
             receipts_dir: Some("/r".into()),
             backends: BTreeMap::from([("m".into(), BackendEntry::Mock {})]),
+            ..Default::default()
         };
         let serialized = toml::to_string(&cfg).unwrap();
         let deserialized: BackplaneConfig = toml::from_str(&serialized).unwrap();

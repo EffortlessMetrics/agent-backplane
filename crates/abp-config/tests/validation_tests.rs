@@ -30,6 +30,7 @@ fn fully_valid_config() -> BackplaneConfig {
         log_level: Some("info".into()),
         receipts_dir: Some("/tmp/receipts".into()),
         backends,
+        ..Default::default()
     }
 }
 

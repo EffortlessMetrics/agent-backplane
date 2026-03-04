@@ -6,7 +6,10 @@
 //!
 //! Structured telemetry and metrics collection for Agent Backplane runs.
 
+pub mod hooks;
+pub mod metrics;
 pub mod pipeline;
+pub mod spans;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

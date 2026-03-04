@@ -47,6 +47,15 @@ pub enum MapError {
         /// Human-readable explanation.
         reason: String,
     },
+
+    /// A content block or content combination cannot be represented in the target dialect.
+    #[error("unmappable content in `{field}`: {reason}")]
+    UnmappableContent {
+        /// Field or location of the unmappable content.
+        field: String,
+        /// Human-readable explanation of why the content cannot be mapped.
+        reason: String,
+    },
 }
 
 #[cfg(test)]
@@ -139,6 +148,28 @@ mod tests {
         let err = MapError::IncompatibleCapability {
             capability: "vision".into(),
             reason: "no image support".into(),
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        let back: MapError = serde_json::from_str(&json).unwrap();
+        assert_eq!(err, back);
+    }
+
+    #[test]
+    fn unmappable_content_display() {
+        let err = MapError::UnmappableContent {
+            field: "system".into(),
+            reason: "image blocks in system prompt".into(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("system"));
+        assert!(msg.contains("image blocks"));
+    }
+
+    #[test]
+    fn unmappable_content_serialize_roundtrip() {
+        let err = MapError::UnmappableContent {
+            field: "system".into(),
+            reason: "image blocks in system prompt".into(),
         };
         let json = serde_json::to_string(&err).unwrap();
         let back: MapError = serde_json::from_str(&json).unwrap();

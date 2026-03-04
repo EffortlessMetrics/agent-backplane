@@ -138,6 +138,10 @@ pub fn builtin_fingerprints() -> BTreeMap<Dialect, DialectFingerprint> {
 
 /// Examines a raw JSON request and returns the most likely [`Dialect`].
 ///
+/// Combines fingerprint-based scoring (model prefixes, field markers) with
+/// deeper structural analysis of array contents and nested fields for
+/// higher-accuracy detection.
+///
 /// Returns `None` when the input is not a JSON object or no fingerprint
 /// matched with positive confidence.
 #[must_use]
@@ -148,11 +152,14 @@ pub fn detect_dialect(request_json: &Value) -> Option<DialectDetectionResult> {
     let mut best: Option<DialectDetectionResult> = None;
 
     for (&dialect, fp) in &fingerprints {
-        let (score, evidence) = score_fingerprint(obj, fp);
+        let (fp_score, mut evidence) = score_fingerprint(obj, fp);
+        let (struct_score, struct_ev) = score_structure(dialect, obj);
+        evidence.extend(struct_ev);
+        let score = (fp_score + struct_score).min(1.0);
         if score > 0.0 && best.as_ref().is_none_or(|b| score > b.confidence) {
             best = Some(DialectDetectionResult {
                 dialect,
-                confidence: score.min(1.0),
+                confidence: score,
                 evidence,
             });
         }
@@ -244,6 +251,167 @@ fn score_headers(
     (score, evidence)
 }
 
+// ── Structural scoring ──────────────────────────────────────────────────
+
+/// Deep structural analysis that goes beyond key-presence checks.
+///
+/// Examines nested array contents and field formats to provide additional
+/// confidence when the request structure matches a dialect's conventions.
+fn score_structure(
+    dialect: crate::Dialect,
+    obj: &serde_json::Map<String, Value>,
+) -> (f64, Vec<String>) {
+    match dialect {
+        crate::Dialect::OpenAi => score_openai_structure(obj),
+        crate::Dialect::Claude => score_claude_structure(obj),
+        crate::Dialect::Gemini => score_gemini_structure(obj),
+        crate::Dialect::Codex => score_codex_structure(obj),
+        crate::Dialect::Kimi => score_kimi_structure(obj),
+        crate::Dialect::Copilot => score_copilot_structure(obj),
+    }
+}
+
+/// OpenAI: messages with string role fields and valid role values.
+fn score_openai_structure(obj: &serde_json::Map<String, Value>) -> (f64, Vec<String>) {
+    let mut score = 0.0_f64;
+    let mut ev = Vec::new();
+    let valid_roles = ["system", "user", "assistant", "tool", "function", "developer"];
+
+    if let Some(Value::Array(msgs)) = obj.get("messages") {
+        let roles_valid = msgs.iter().all(|m| {
+            m.get("role")
+                .and_then(Value::as_str)
+                .is_some_and(|r| valid_roles.contains(&r))
+        });
+        if !msgs.is_empty() && roles_valid {
+            score += 0.10;
+            ev.push("messages have valid OpenAI roles".into());
+        }
+    }
+
+    (score, ev)
+}
+
+/// Claude: content block format (array of `{type, ...}` objects) in messages.
+fn score_claude_structure(obj: &serde_json::Map<String, Value>) -> (f64, Vec<String>) {
+    let mut score = 0.0_f64;
+    let mut ev = Vec::new();
+
+    // Check model prefix without going through fingerprints
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        if model.to_lowercase().starts_with("claude-") {
+            score += 0.15;
+            ev.push("model starts with \"claude-\"".into());
+        }
+    }
+
+    // Content block format: messages[].content is an array of typed objects
+    if let Some(Value::Array(msgs)) = obj.get("messages") {
+        let has_content_blocks = msgs.iter().any(|m| {
+            m.get("content")
+                .and_then(Value::as_array)
+                .is_some_and(|blocks| {
+                    blocks
+                        .iter()
+                        .any(|b| b.get("type").and_then(Value::as_str).is_some())
+                })
+        });
+        if has_content_blocks {
+            score += 0.15;
+            ev.push("messages contain typed content blocks".into());
+        }
+    }
+
+    (score, ev)
+}
+
+/// Gemini: `contents[].parts` verified as arrays with content.
+fn score_gemini_structure(obj: &serde_json::Map<String, Value>) -> (f64, Vec<String>) {
+    let mut score = 0.0_f64;
+    let mut ev = Vec::new();
+
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        if model.to_lowercase().starts_with("gemini-")
+            || model.to_lowercase().starts_with("models/gemini-")
+        {
+            score += 0.15;
+            ev.push("model starts with \"gemini-\"".into());
+        }
+    }
+
+    if let Some(Value::Array(contents)) = obj.get("contents") {
+        let has_parts_arrays = contents.iter().any(|c| {
+            c.get("parts")
+                .and_then(Value::as_array)
+                .is_some_and(|p| !p.is_empty())
+        });
+        if has_parts_arrays {
+            score += 0.10;
+            ev.push("contents entries have non-empty parts arrays".into());
+        }
+    }
+
+    (score, ev)
+}
+
+/// Codex: `instructions` field or `items` with typed entries.
+fn score_codex_structure(obj: &serde_json::Map<String, Value>) -> (f64, Vec<String>) {
+    let mut score = 0.0_f64;
+    let mut ev = Vec::new();
+
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        if model.to_lowercase().starts_with("codex-") {
+            score += 0.15;
+            ev.push("model starts with \"codex-\"".into());
+        }
+    }
+
+    if obj.contains_key("instructions") {
+        score += 0.10;
+        ev.push("has \"instructions\" field".into());
+    }
+
+    (score, ev)
+}
+
+/// Kimi: `moonshot-` model prefix or search-related options.
+fn score_kimi_structure(obj: &serde_json::Map<String, Value>) -> (f64, Vec<String>) {
+    let mut score = 0.0_f64;
+    let mut ev = Vec::new();
+
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        if model.to_lowercase().starts_with("moonshot-") {
+            score += 0.15;
+            ev.push("model starts with \"moonshot-\"".into());
+        }
+    }
+
+    if obj.get("search_plus").is_some_and(Value::is_boolean) {
+        score += 0.05;
+        ev.push("\"search_plus\" is a boolean".into());
+    }
+
+    (score, ev)
+}
+
+/// Copilot: `references` array with typed items, or `agent_mode` flag.
+fn score_copilot_structure(obj: &serde_json::Map<String, Value>) -> (f64, Vec<String>) {
+    let mut score = 0.0_f64;
+    let mut ev = Vec::new();
+
+    if let Some(Value::Array(refs)) = obj.get("references") {
+        let has_typed_refs = refs
+            .iter()
+            .any(|r| r.get("type").and_then(Value::as_str).is_some());
+        if has_typed_refs {
+            score += 0.10;
+            ev.push("references contain typed entries".into());
+        }
+    }
+
+    (score, ev)
+}
+
 // ── Unit tests ──────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -274,5 +442,58 @@ mod tests {
     #[test]
     fn headers_returns_none_for_empty() {
         assert!(detect_from_headers(&BTreeMap::new()).is_none());
+    }
+
+    // ── Structural scoring tests ────────────────────────────────────
+
+    #[test]
+    fn openai_structural_boost_from_valid_roles() {
+        let plain = json!({"messages": [{"role": "user", "content": "hi"}]});
+        let r = detect_dialect(&plain).expect("should detect");
+        assert_eq!(r.dialect, Dialect::OpenAi);
+        assert!(r.evidence.iter().any(|e| e.contains("roles")));
+    }
+
+    #[test]
+    fn claude_structural_boost_from_content_blocks() {
+        let v = json!({
+            "model": "claude-3-opus",
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
+        });
+        let r = detect_dialect(&v).expect("should detect");
+        assert_eq!(r.dialect, Dialect::Claude);
+        assert!(r.evidence.iter().any(|e| e.contains("content blocks")));
+    }
+
+    #[test]
+    fn gemini_structural_boost_from_parts_arrays() {
+        let v = json!({"model": "gemini-1.5-pro", "contents": [{"parts": [{"text": "hi"}]}]});
+        let r = detect_dialect(&v).expect("should detect");
+        assert_eq!(r.dialect, Dialect::Gemini);
+        assert!(r.evidence.iter().any(|e| e.contains("parts arrays")));
+    }
+
+    #[test]
+    fn codex_structural_boost_from_instructions() {
+        let v = json!({"model": "codex-mini", "instructions": "fix the bug", "items": [{"type": "message"}]});
+        let r = detect_dialect(&v).expect("should detect");
+        assert_eq!(r.dialect, Dialect::Codex);
+        assert!(r.evidence.iter().any(|e| e.contains("instructions")));
+    }
+
+    #[test]
+    fn kimi_structural_boost_from_moonshot_prefix() {
+        let v = json!({"model": "moonshot-v1-32k", "refs": ["doc"]});
+        let r = detect_dialect(&v).expect("should detect");
+        assert_eq!(r.dialect, Dialect::Kimi);
+        assert!(r.evidence.iter().any(|e| e.contains("moonshot-")));
+    }
+
+    #[test]
+    fn copilot_structural_boost_from_typed_references() {
+        let v = json!({"references": [{"type": "file", "path": "src/main.rs"}]});
+        let r = detect_dialect(&v).expect("should detect");
+        assert_eq!(r.dialect, Dialect::Copilot);
+        assert!(r.evidence.iter().any(|e| e.contains("typed entries")));
     }
 }

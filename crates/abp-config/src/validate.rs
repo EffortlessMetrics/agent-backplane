@@ -5,7 +5,7 @@
 //! [`diff_configs`] for debugging, and [`from_env_overrides`] as a
 //! convenience re-export.
 
-use crate::{BackendEntry, BackplaneConfig, ConfigError};
+use crate::{BackendEntry, BackplaneConfig, ConfigError, is_valid_hostname};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
@@ -223,6 +223,26 @@ pub fn diff_configs(a: &BackplaneConfig, b: &BackplaneConfig) -> Vec<ConfigDiff>
     );
     diff_option_field(&mut diffs, "log_level", &a.log_level, &b.log_level);
     diff_option_field(&mut diffs, "receipts_dir", &a.receipts_dir, &b.receipts_dir);
+    diff_option_field(
+        &mut diffs,
+        "bind_address",
+        &a.bind_address,
+        &b.bind_address,
+    );
+
+    // Port
+    let port_a = a.port.map(|p| p.to_string());
+    let port_b = b.port.map(|p| p.to_string());
+    diff_option_field(&mut diffs, "port", &port_a, &port_b);
+
+    // Policy profiles
+    if a.policy_profiles != b.policy_profiles {
+        diffs.push(ConfigDiff {
+            path: "policy_profiles".into(),
+            old_value: format!("{:?}", a.policy_profiles),
+            new_value: format!("{:?}", b.policy_profiles),
+        });
+    }
 
     // Backends: compare keyed entries.
     let all_keys: BTreeSet<&String> = a.backends.keys().chain(b.backends.keys()).collect();
@@ -397,6 +417,49 @@ impl ConfigValidator {
                         "invalid log_level '{level}'; expected one of: {}",
                         VALID_LOG_LEVELS.join(", ")
                     ),
+                    severity: IssueSeverity::Error,
+                });
+            }
+        }
+
+        // -- port ------------------------------------------------------------
+        if let Some(p) = config.port {
+            if p == 0 {
+                errors.push(ConfigIssue {
+                    field: "port".into(),
+                    message: "port must be between 1 and 65535".into(),
+                    severity: IssueSeverity::Error,
+                });
+            }
+        }
+
+        // -- bind_address ----------------------------------------------------
+        if let Some(ref addr) = config.bind_address {
+            if addr.trim().is_empty() {
+                errors.push(ConfigIssue {
+                    field: "bind_address".into(),
+                    message: "bind_address must not be empty".into(),
+                    severity: IssueSeverity::Error,
+                });
+            } else if addr.parse::<std::net::IpAddr>().is_err()
+                && !is_valid_hostname(addr)
+            {
+                errors.push(ConfigIssue {
+                    field: "bind_address".into(),
+                    message: format!(
+                        "bind_address '{addr}' is not a valid IP address or hostname"
+                    ),
+                    severity: IssueSeverity::Error,
+                });
+            }
+        }
+
+        // -- policy_profiles -------------------------------------------------
+        for (i, path_str) in config.policy_profiles.iter().enumerate() {
+            if path_str.trim().is_empty() {
+                errors.push(ConfigIssue {
+                    field: format!("policy_profiles[{i}]"),
+                    message: "policy profile path must not be empty".into(),
                     severity: IssueSeverity::Error,
                 });
             }

@@ -11,11 +11,14 @@ Configuration loading, validation, and merging for Agent Backplane.
 
 ## Usage
 
-```rust
+```rust,no_run
 use abp_config::{load_config, validate_config, merge_configs, BackplaneConfig};
 
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let config = load_config(Some("backplane.toml".as_ref()))?;
 validate_config(&config)?;
+# Ok(())
+# }
 ```
 
 ## License

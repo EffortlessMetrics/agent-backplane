@@ -108,7 +108,24 @@ impl CodexClaudeIrMapper {
 
     /// Codex → Claude (lossless):
     /// Codex output is simple text that maps cleanly to Claude format.
+    ///
+    /// **Fails early** if the conversation contains Codex-specific file
+    /// operation tools (`apply_patch`, `apply_diff`) that have no Claude
+    /// equivalent.
     fn codex_to_claude(&self, ir: &IrConversation) -> Result<IrConversation, MapError> {
+        const UNMAPPABLE_TOOLS: &[&str] = &["apply_patch", "apply_diff"];
+        for msg in &ir.messages {
+            for block in &msg.content {
+                if let IrContentBlock::ToolUse { name, .. } = block {
+                    if UNMAPPABLE_TOOLS.contains(&name.as_str()) {
+                        return Err(MapError::UnmappableTool {
+                            name: name.clone(),
+                            reason: "Codex file operation has no Claude equivalent".into(),
+                        });
+                    }
+                }
+            }
+        }
         Ok(ir.clone())
     }
 }

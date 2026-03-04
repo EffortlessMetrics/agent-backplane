@@ -30,6 +30,7 @@ fn fully_valid_config() -> BackplaneConfig {
                 },
             ),
         ]),
+        ..Default::default()
     }
 }
 
@@ -1054,6 +1055,7 @@ type = "mock"
                 timeout_secs: Some(300),
             },
         )]),
+        ..Default::default()
     };
 
     let step1 = merge_configs(file_config, env_overlay);

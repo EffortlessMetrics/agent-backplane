@@ -16,6 +16,8 @@
 //! - [`IdentityMapper`] — passthrough mapper that performs no transformation.
 //! - [`OpenAiToClaudeMapper`] — maps OpenAI chat-completions format to Claude messages API.
 //! - [`ClaudeToOpenAiMapper`] — maps Claude messages API format to OpenAI chat-completions.
+//! - [`OpenAiToGeminiMapper`] — maps OpenAI chat-completions format to Gemini API.
+//! - [`GeminiToOpenAiMapper`] — maps Gemini API format to OpenAI chat-completions.
 //!
 //! ## IR-level mappers
 //!
@@ -36,6 +38,7 @@
 mod claude_to_openai;
 mod error;
 mod factory;
+mod gemini_to_openai;
 mod identity;
 mod ir_claude_gemini;
 mod ir_claude_kimi;
@@ -50,6 +53,7 @@ mod ir_openai_gemini;
 mod ir_openai_kimi;
 mod map_error;
 mod openai_to_claude;
+mod openai_to_gemini;
 
 /// Validation pipeline for mapping correctness.
 pub mod validation;
@@ -57,6 +61,7 @@ pub mod validation;
 pub use claude_to_openai::ClaudeToOpenAiMapper;
 pub use error::MappingError;
 pub use factory::{default_ir_mapper, supported_ir_pairs};
+pub use gemini_to_openai::GeminiToOpenAiMapper;
 pub use identity::IdentityMapper;
 pub use ir_claude_gemini::ClaudeGeminiIrMapper;
 pub use ir_claude_kimi::ClaudeKimiIrMapper;
@@ -71,6 +76,7 @@ pub use ir_openai_gemini::OpenAiGeminiIrMapper;
 pub use ir_openai_kimi::OpenAiKimiIrMapper;
 pub use map_error::MapError;
 pub use openai_to_claude::OpenAiToClaudeMapper;
+pub use openai_to_gemini::OpenAiToGeminiMapper;
 
 use abp_core::AgentEvent;
 use abp_dialect::Dialect;
