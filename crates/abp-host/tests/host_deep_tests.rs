@@ -6,19 +6,16 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use abp_core::{
-    BackendIdentity, Capability, CapabilityManifest, CONTRACT_VERSION, ExecutionMode,
-    SupportLevel,
+    BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest, ExecutionMode, SupportLevel,
 };
 use abp_host::health::{HealthMonitor, HealthStatus};
 use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
 use abp_host::pool::{PoolConfig, PoolEntryState, PoolStats, SidecarPool};
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
-use abp_host::retry::{compute_delay, is_retryable, RetryConfig, RetryMetadata};
+use abp_host::retry::{RetryConfig, RetryMetadata, compute_delay, is_retryable};
 use abp_host::{HostError, SidecarHello, SidecarSpec};
-use abp_protocol::{
-    is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError,
-};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 
 // ═══════════════════════════════════════════════════════════════════════
 // 1. SidecarSpec construction
@@ -620,8 +617,7 @@ fn sidecar_config_env_passthrough() {
 fn process_config_env_vars_passthrough() {
     let mut cfg = ProcessConfig::default();
     cfg.env_vars.insert("MY_VAR".into(), "hello".into());
-    cfg.env_vars
-        .insert("ANOTHER_VAR".into(), "world".into());
+    cfg.env_vars.insert("ANOTHER_VAR".into(), "world".into());
     assert_eq!(cfg.env_vars.len(), 2);
 }
 
@@ -869,13 +865,7 @@ fn health_uptime_percentage() {
     let mut mon = HealthMonitor::new();
     mon.record_check("s1", HealthStatus::Healthy, None);
     mon.record_check("s1", HealthStatus::Healthy, None);
-    mon.record_check(
-        "s1",
-        HealthStatus::Unhealthy {
-            reason: "x".into(),
-        },
-        None,
-    );
+    mon.record_check("s1", HealthStatus::Unhealthy { reason: "x".into() }, None);
     let pct = mon.uptime_percentage("s1");
     // 2 healthy out of 3
     assert!((pct - 66.66666666666667).abs() < 0.01);
@@ -887,12 +877,8 @@ fn health_uptime_percentage() {
 
 #[test]
 fn retryable_errors_classified_correctly() {
-    assert!(is_retryable(&HostError::Spawn(std::io::Error::other(
-        "e"
-    ))));
-    assert!(is_retryable(&HostError::Stdout(std::io::Error::other(
-        "e"
-    ))));
+    assert!(is_retryable(&HostError::Spawn(std::io::Error::other("e"))));
+    assert!(is_retryable(&HostError::Stdout(std::io::Error::other("e"))));
     assert!(is_retryable(&HostError::Exited { code: Some(1) }));
     assert!(is_retryable(&HostError::SidecarCrashed {
         exit_code: Some(1),

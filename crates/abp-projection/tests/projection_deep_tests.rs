@@ -36,7 +36,9 @@ fn require_caps(caps: &[Capability]) -> CapabilityRequirements {
 }
 
 fn wo(reqs: CapabilityRequirements) -> abp_core::WorkOrder {
-    WorkOrderBuilder::new("deep test").requirements(reqs).build()
+    WorkOrderBuilder::new("deep test")
+        .requirements(reqs)
+        .build()
 }
 
 fn wo_dialect(dialect: &str, reqs: CapabilityRequirements) -> abp_core::WorkOrder {
@@ -448,12 +450,8 @@ fn projection_error_equality() {
     let a = ProjectionError::EmptyMatrix;
     let b = ProjectionError::EmptyMatrix;
     assert_eq!(a, b);
-    let c = ProjectionError::NoSuitableBackend {
-        reason: "x".into(),
-    };
-    let d = ProjectionError::NoSuitableBackend {
-        reason: "y".into(),
-    };
+    let c = ProjectionError::NoSuitableBackend { reason: "x".into() };
+    let d = ProjectionError::NoSuitableBackend { reason: "y".into() };
     assert_ne!(c, d);
 }
 

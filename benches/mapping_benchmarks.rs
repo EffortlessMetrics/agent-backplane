@@ -9,12 +9,14 @@ use std::collections::BTreeMap;
 use abp_capability::{check_capability, negotiate};
 use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement,
-    CapabilityRequirements, MinSupport, Outcome, Receipt, ReceiptBuilder, SupportLevel,
-    WorkOrder, WorkOrderBuilder, canonical_json, receipt_hash,
+    CapabilityRequirements, MinSupport, Outcome, Receipt, ReceiptBuilder, SupportLevel, WorkOrder,
+    WorkOrderBuilder, canonical_json, receipt_hash,
 };
 use abp_gemini_sdk::lowering as gemini_lowering;
 use abp_glob::IncludeExcludeGlobs;
-use abp_openai_sdk::api::{ChatCompletionRequest, FunctionCall, Message, Tool, ToolCall, FunctionDefinition};
+use abp_openai_sdk::api::{
+    ChatCompletionRequest, FunctionCall, FunctionDefinition, Message, Tool, ToolCall,
+};
 use abp_openai_sdk::dialect::{OpenAIFunctionCall, OpenAIMessage, OpenAIToolCall};
 use abp_openai_sdk::lowering as openai_lowering;
 use chrono::Utc;
@@ -208,13 +210,9 @@ fn bench_work_order_from_openai(c: &mut Criterion) {
         let req_json = serde_json::to_string(&req).unwrap();
         group.throughput(Throughput::Bytes(req_json.len() as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("messages", msg_count),
-            &req,
-            |b, r| {
-                b.iter(|| WorkOrder::from(black_box(r.clone())));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("messages", msg_count), &req, |b, r| {
+            b.iter(|| WorkOrder::from(black_box(r.clone())));
+        });
     }
 
     group.finish();
@@ -243,7 +241,12 @@ fn bench_receipt_hashing(c: &mut Criterion) {
 
     // Canonical JSON on a nested structure
     let nested: BTreeMap<String, Vec<String>> = (0..100)
-        .map(|i| (format!("key_{i:04}"), (0..20).map(|j| format!("v{j}")).collect()))
+        .map(|i| {
+            (
+                format!("key_{i:04}"),
+                (0..20).map(|j| format!("v{j}")).collect(),
+            )
+        })
         .collect();
     let nested_len = serde_json::to_string(&nested).unwrap().len();
     group.throughput(Throughput::Bytes(nested_len as u64));

@@ -10,15 +10,13 @@
 
 use std::collections::BTreeMap;
 
-use abp_core::{
-    AgentEvent, AgentEventKind, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder,
-};
+use abp_core::{AgentEvent, AgentEventKind, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder};
 use abp_sdk_types::Dialect;
 use serde_json::json;
 
 use crate::types::{
-    ClaudeContent, ClaudeTool, ClaudeUsage, ContentBlock, MessageDeltaBody,
-    MessagesRequest, MessagesResponse, StreamDelta, StreamEvent,
+    ClaudeContent, ClaudeTool, ClaudeUsage, ContentBlock, MessageDeltaBody, MessagesRequest,
+    MessagesResponse, StreamDelta, StreamEvent,
 };
 
 // ---------------------------------------------------------------------------
@@ -43,10 +41,7 @@ pub fn to_work_order(req: &MessagesRequest) -> WorkOrder {
         "dialect".to_string(),
         serde_json::to_value(Dialect::Claude).unwrap_or_default(),
     );
-    vendor.insert(
-        "max_tokens".to_string(),
-        json!(req.max_tokens),
-    );
+    vendor.insert("max_tokens".to_string(), json!(req.max_tokens));
 
     if let Some(ref system) = req.system {
         vendor.insert("system".to_string(), json!(system));
@@ -88,7 +83,10 @@ pub fn to_work_order(req: &MessagesRequest) -> WorkOrder {
         ..Default::default()
     };
 
-    WorkOrderBuilder::new(task).model(&req.model).config(config).build()
+    WorkOrderBuilder::new(task)
+        .model(&req.model)
+        .config(config)
+        .build()
 }
 
 // ---------------------------------------------------------------------------
@@ -307,9 +305,7 @@ pub fn usage_from_raw(raw: &serde_json::Value) -> ClaudeUsage {
     let cache_creation = raw
         .get("cache_creation_input_tokens")
         .and_then(|v| v.as_u64());
-    let cache_read = raw
-        .get("cache_read_input_tokens")
-        .and_then(|v| v.as_u64());
+    let cache_read = raw.get("cache_read_input_tokens").and_then(|v| v.as_u64());
 
     ClaudeUsage {
         input_tokens,
@@ -326,9 +322,9 @@ pub fn usage_from_raw(raw: &serde_json::Value) -> ClaudeUsage {
 #[must_use]
 pub fn content_block_to_event_kind(block: &ContentBlock) -> Option<AgentEventKind> {
     match block {
-        ContentBlock::Text { text } => Some(AgentEventKind::AssistantMessage {
-            text: text.clone(),
-        }),
+        ContentBlock::Text { text } => {
+            Some(AgentEventKind::AssistantMessage { text: text.clone() })
+        }
         ContentBlock::ToolUse { id, name, input } => Some(AgentEventKind::ToolCall {
             tool_name: name.clone(),
             tool_use_id: Some(id.clone()),
@@ -684,10 +680,7 @@ mod tests {
     fn from_receipt_stop_reason_end_turn() {
         let req = simple_request("hi");
         let wo = to_work_order(&req);
-        let receipt = make_receipt(
-            vec![text_event("done"), run_completed_event()],
-            json!({}),
-        );
+        let receipt = make_receipt(vec![text_event("done"), run_completed_event()], json!({}));
         let resp = from_receipt(&receipt, &wo);
         assert_eq!(resp.stop_reason.as_deref(), Some("end_turn"));
     }
@@ -697,7 +690,11 @@ mod tests {
         let req = simple_request("hi");
         let wo = to_work_order(&req);
         let receipt = make_receipt(
-            vec![tool_call_event("read_file", "tu_1", json!({"path": "a.rs"}))],
+            vec![tool_call_event(
+                "read_file",
+                "tu_1",
+                json!({"path": "a.rs"}),
+            )],
             json!({}),
         );
         let resp = from_receipt(&receipt, &wo);
@@ -1069,7 +1066,9 @@ mod tests {
 
         let resp = from_receipt(&receipt, &wo);
         assert_eq!(resp.stop_reason.as_deref(), Some("tool_use"));
-        assert!(matches!(&resp.content[0], ContentBlock::ToolUse { name, .. } if name == "read_file"));
+        assert!(
+            matches!(&resp.content[0], ContentBlock::ToolUse { name, .. } if name == "read_file")
+        );
     }
 
     #[test]
@@ -1202,10 +1201,7 @@ mod tests {
     fn from_receipt_multiple_text_blocks() {
         let req = simple_request("hi");
         let wo = to_work_order(&req);
-        let receipt = make_receipt(
-            vec![text_event("first"), text_event("second")],
-            json!({}),
-        );
+        let receipt = make_receipt(vec![text_event("first"), text_event("second")], json!({}));
         let resp = from_receipt(&receipt, &wo);
         assert_eq!(resp.content.len(), 2);
     }

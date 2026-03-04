@@ -4,7 +4,7 @@
 //! Each helper returns a [`tracing::Span`] pre-populated with the relevant
 //! fields so callers can simply `.enter()` or `.in_scope(|| …)`.
 
-use tracing::{info_span, Span};
+use tracing::{Span, info_span};
 
 /// Create a tracing span for processing a work-order request.
 ///

@@ -276,9 +276,7 @@ mod claude {
                 },
                 ClaudeMessage {
                     role: "assistant".into(),
-                    content: ClaudeContent::Text(
-                        "Quantum computing uses qubits...".into(),
-                    ),
+                    content: ClaudeContent::Text("Quantum computing uses qubits...".into()),
                 },
             ],
             max_tokens: 4096,
@@ -630,8 +628,7 @@ mod gemini {
                 content: Content {
                     role: Some("model".into()),
                     parts: vec![Part::Text(
-                        "Photosynthesis converts light energy into chemical energy."
-                            .into(),
+                        "Photosynthesis converts light energy into chemical energy.".into(),
                     )],
                 },
                 finish_reason: Some("STOP".into()),
@@ -695,10 +692,7 @@ mod gemini {
         let tc = ToolConfig {
             function_calling_config: FunctionCallingConfig {
                 mode: FunctionCallingMode::Any,
-                allowed_function_names: Some(vec![
-                    "get_weather".into(),
-                    "get_time".into(),
-                ]),
+                allowed_function_names: Some(vec!["get_weather".into(), "get_time".into()]),
             },
         };
         insta::assert_json_snapshot!("gemini_tool_config_restricted", tc);
@@ -823,8 +817,7 @@ mod codex {
                         call_type: "function".into(),
                         function: CodexFunctionCall {
                             name: "apply_edit".into(),
-                            arguments: r#"{"path":"src/main.rs","content":"fn main() {}"}"#
-                                .into(),
+                            arguments: r#"{"path":"src/main.rs","content":"fn main() {}"}"#.into(),
                         },
                     }]),
                 },
@@ -856,9 +849,7 @@ mod codex {
             path: "src/main.rs".into(),
             operation: FileOperation::Patch,
             content: None,
-            diff: Some(
-                "@@ -1,3 +1,3 @@\n-fn main() {\n+fn main() -> Result<()> {".into(),
-            ),
+            diff: Some("@@ -1,3 +1,3 @@\n-fn main() {\n+fn main() -> Result<()> {".into()),
         };
         insta::assert_json_snapshot!("codex_file_change_patch", fc);
     }
@@ -1201,9 +1192,7 @@ mod copilot {
                 index: 0,
                 message: CopilotChatChoiceMessage {
                     role: "assistant".into(),
-                    content: Some(
-                        "This code defines the main entry point of the program.".into(),
-                    ),
+                    content: Some("This code defines the main entry point of the program.".into()),
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),

@@ -3,12 +3,12 @@
 
 use std::collections::BTreeMap;
 
+use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_capability::{
     CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
     check_capability, default_emulation_strategy, generate_report, negotiate,
     negotiate_capabilities,
 };
-use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
     SupportLevel as CoreSupportLevel,
@@ -88,8 +88,14 @@ fn register_single_capability_manifest() {
 #[test]
 fn register_multiple_manifests() {
     let mut reg = CapabilityRegistry::new();
-    reg.register("a", manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]));
-    reg.register("b", manifest(&[(Capability::Vision, CoreSupportLevel::Emulated)]));
+    reg.register(
+        "a",
+        manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]),
+    );
+    reg.register(
+        "b",
+        manifest(&[(Capability::Vision, CoreSupportLevel::Emulated)]),
+    );
     assert_eq!(reg.len(), 2);
     let mut names = reg.names();
     names.sort();
@@ -108,8 +114,14 @@ fn register_for_dialect_key() {
 #[test]
 fn register_overwrites_previous() {
     let mut reg = CapabilityRegistry::new();
-    reg.register("x", manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]));
-    reg.register("x", manifest(&[(Capability::Streaming, CoreSupportLevel::Emulated)]));
+    reg.register(
+        "x",
+        manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]),
+    );
+    reg.register(
+        "x",
+        manifest(&[(Capability::Streaming, CoreSupportLevel::Emulated)]),
+    );
     assert_eq!(reg.len(), 1);
     let m = reg.get("x").unwrap();
     assert!(matches!(
@@ -184,7 +196,11 @@ fn query_capability_by_support_level() {
 fn query_capability_streaming_all_native() {
     let reg = CapabilityRegistry::with_defaults();
     let results = reg.query_capability(&Capability::Streaming);
-    assert!(results.iter().all(|(_, l)| matches!(l, SupportLevel::Native)));
+    assert!(
+        results
+            .iter()
+            .all(|(_, l)| matches!(l, SupportLevel::Native))
+    );
 }
 
 // ===========================================================================
@@ -194,7 +210,10 @@ fn query_capability_streaming_all_native() {
 #[test]
 fn check_capability_native_variant() {
     let m = manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
-    assert_eq!(check_capability(&m, &Capability::Streaming), SupportLevel::Native);
+    assert_eq!(
+        check_capability(&m, &Capability::Streaming),
+        SupportLevel::Native
+    );
 }
 
 #[test]
@@ -247,7 +266,11 @@ fn check_capability_restricted_variant() {
 #[test]
 fn support_level_display_all_variants() {
     assert_eq!(SupportLevel::Native.to_string(), "native");
-    assert!(SupportLevel::Emulated { method: "x".into() }.to_string().contains("emulated"));
+    assert!(
+        SupportLevel::Emulated { method: "x".into() }
+            .to_string()
+            .contains("emulated")
+    );
     assert!(
         SupportLevel::Restricted { reason: "y".into() }
             .to_string()
@@ -304,7 +327,10 @@ fn negotiate_by_name_returns_result() {
 #[test]
 fn negotiate_by_name_missing_returns_none() {
     let reg = CapabilityRegistry::new();
-    assert!(reg.negotiate_by_name("missing", &[Capability::Streaming]).is_none());
+    assert!(
+        reg.negotiate_by_name("missing", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]
@@ -342,7 +368,9 @@ fn negotiate_emulated_gets_default_strategy() {
 fn negotiate_restricted_classified_as_emulated() {
     let m = manifest(&[(
         Capability::ToolBash,
-        CoreSupportLevel::Restricted { reason: "sandbox".into() },
+        CoreSupportLevel::Restricted {
+            reason: "sandbox".into(),
+        },
     )]);
     let r = negotiate_capabilities(&[Capability::ToolBash], &m);
     assert!(r.native.is_empty());
@@ -432,11 +460,7 @@ fn apply_policy_strict_rejects_any_unsupported() {
 
 #[test]
 fn apply_policy_strict_accepts_emulated_only() {
-    let r = NegotiationResult::from_simple(
-        vec![],
-        vec![Capability::Streaming],
-        vec![],
-    );
+    let r = NegotiationResult::from_simple(vec![], vec![Capability::Streaming], vec![]);
     assert!(apply_policy(&r, NegotiationPolicy::Strict).is_ok());
 }
 
@@ -462,11 +486,8 @@ fn apply_policy_permissive_accepts_everything() {
 
 #[test]
 fn apply_policy_error_contains_unsupported_list() {
-    let r = NegotiationResult::from_simple(
-        vec![],
-        vec![],
-        vec![Capability::Vision, Capability::Audio],
-    );
+    let r =
+        NegotiationResult::from_simple(vec![], vec![], vec![Capability::Vision, Capability::Audio]);
     let err = apply_policy(&r, NegotiationPolicy::Strict).unwrap_err();
     assert_eq!(err.unsupported.len(), 2);
     assert_eq!(err.unsupported[0].0, Capability::Vision);
@@ -489,9 +510,15 @@ fn apply_policy_cascading_strict_then_permissive() {
 fn serde_support_level_all_variants() {
     let levels = vec![
         SupportLevel::Native,
-        SupportLevel::Emulated { method: "polyfill".into() },
-        SupportLevel::Restricted { reason: "sandbox".into() },
-        SupportLevel::Unsupported { reason: "n/a".into() },
+        SupportLevel::Emulated {
+            method: "polyfill".into(),
+        },
+        SupportLevel::Restricted {
+            reason: "sandbox".into(),
+        },
+        SupportLevel::Unsupported {
+            reason: "n/a".into(),
+        },
     ];
     for level in &levels {
         let json = serde_json::to_string(level).unwrap();
@@ -569,7 +596,10 @@ fn serde_negotiation_policy_snake_case_format() {
 #[test]
 fn empty_registry_negotiate_by_name_returns_none() {
     let reg = CapabilityRegistry::new();
-    assert!(reg.negotiate_by_name("anything", &[Capability::Streaming]).is_none());
+    assert!(
+        reg.negotiate_by_name("anything", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]
@@ -587,8 +617,14 @@ fn empty_registry_compare_returns_none() {
 #[test]
 fn duplicate_registration_replaces_manifest() {
     let mut reg = CapabilityRegistry::new();
-    reg.register("x", manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]));
-    reg.register("x", manifest(&[(Capability::Vision, CoreSupportLevel::Native)]));
+    reg.register(
+        "x",
+        manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]),
+    );
+    reg.register(
+        "x",
+        manifest(&[(Capability::Vision, CoreSupportLevel::Native)]),
+    );
     let m = reg.get("x").unwrap();
     assert!(!m.contains_key(&Capability::Streaming));
     assert!(m.contains_key(&Capability::Vision));
@@ -619,21 +655,13 @@ fn negotiate_empty_required_empty_manifest() {
 
 #[test]
 fn negotiation_result_from_simple_uses_client_side_strategy() {
-    let r = NegotiationResult::from_simple(
-        vec![],
-        vec![Capability::ToolRead],
-        vec![],
-    );
+    let r = NegotiationResult::from_simple(vec![], vec![Capability::ToolRead], vec![]);
     assert_eq!(r.emulated[0].1, EmulationStrategy::ClientSide);
 }
 
 #[test]
 fn negotiation_result_from_simple_uses_not_available_reason() {
-    let r = NegotiationResult::from_simple(
-        vec![],
-        vec![],
-        vec![Capability::Audio],
-    );
+    let r = NegotiationResult::from_simple(vec![], vec![], vec![Capability::Audio]);
     assert_eq!(r.unsupported[0].1, "not available");
 }
 
@@ -716,8 +744,14 @@ fn cross_dialect_streaming_universally_native() {
     let reg = CapabilityRegistry::with_defaults();
     for d in Dialect::all() {
         let key = dialect_registry_key(*d);
-        let r = reg.negotiate_by_name(key, &[Capability::Streaming]).unwrap();
-        assert!(r.is_viable(), "{} should support streaming natively", d.label());
+        let r = reg
+            .negotiate_by_name(key, &[Capability::Streaming])
+            .unwrap();
+        assert!(
+            r.is_viable(),
+            "{} should support streaming natively",
+            d.label()
+        );
         assert_eq!(r.native.len(), 1);
     }
 }
@@ -733,7 +767,11 @@ fn cross_dialect_extended_thinking_only_claude() {
         if *d == Dialect::Claude {
             assert!(r.is_viable(), "Claude should support ExtendedThinking");
         } else {
-            assert!(!r.is_viable(), "{} should not support ExtendedThinking natively", d.label());
+            assert!(
+                !r.is_viable(),
+                "{} should not support ExtendedThinking natively",
+                d.label()
+            );
         }
     }
 }
@@ -745,7 +783,11 @@ fn cross_dialect_compare_claude_to_openai() {
         .compare("anthropic/claude-3.5-sonnet", "openai/gpt-4o")
         .unwrap();
     // Claude has ExtendedThinking and CacheControl natively; OpenAI lacks them
-    assert!(result.unsupported_caps().contains(&Capability::ExtendedThinking));
+    assert!(
+        result
+            .unsupported_caps()
+            .contains(&Capability::ExtendedThinking)
+    );
 }
 
 #[test]
@@ -764,7 +806,11 @@ fn cross_dialect_compare_same_backend_is_viable() {
     for d in Dialect::all() {
         let key = dialect_registry_key(*d);
         let result = reg.compare(key, key).unwrap();
-        assert!(result.is_viable(), "{} compared to itself should be viable", d.label());
+        assert!(
+            result.is_viable(),
+            "{} compared to itself should be viable",
+            d.label()
+        );
     }
 }
 

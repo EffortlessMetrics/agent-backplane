@@ -223,12 +223,7 @@ pub fn diff_configs(a: &BackplaneConfig, b: &BackplaneConfig) -> Vec<ConfigDiff>
     );
     diff_option_field(&mut diffs, "log_level", &a.log_level, &b.log_level);
     diff_option_field(&mut diffs, "receipts_dir", &a.receipts_dir, &b.receipts_dir);
-    diff_option_field(
-        &mut diffs,
-        "bind_address",
-        &a.bind_address,
-        &b.bind_address,
-    );
+    diff_option_field(&mut diffs, "bind_address", &a.bind_address, &b.bind_address);
 
     // Port
     let port_a = a.port.map(|p| p.to_string());
@@ -441,14 +436,10 @@ impl ConfigValidator {
                     message: "bind_address must not be empty".into(),
                     severity: IssueSeverity::Error,
                 });
-            } else if addr.parse::<std::net::IpAddr>().is_err()
-                && !is_valid_hostname(addr)
-            {
+            } else if addr.parse::<std::net::IpAddr>().is_err() && !is_valid_hostname(addr) {
                 errors.push(ConfigIssue {
                     field: "bind_address".into(),
-                    message: format!(
-                        "bind_address '{addr}' is not a valid IP address or hostname"
-                    ),
+                    message: format!("bind_address '{addr}' is not a valid IP address or hostname"),
                     severity: IssueSeverity::Error,
                 });
             }

@@ -45,10 +45,7 @@ fn make_event(kind: AgentEventKind) -> AgentEvent {
     }
 }
 
-async fn run_to_completion(
-    rt: &Runtime,
-    wo: WorkOrder,
-) -> (Vec<AgentEvent>, abp_core::Receipt) {
+async fn run_to_completion(rt: &Runtime, wo: WorkOrder) -> (Vec<AgentEvent>, abp_core::Receipt) {
     let handle = rt.run_streaming("mock", wo).await.expect("run_streaming");
     let events: Vec<_> = handle.events.collect().await;
     let receipt = handle.receipt.await.expect("join").expect("receipt");
@@ -116,20 +113,14 @@ fn error_workspace_failed_display() {
 fn error_policy_failed_display() {
     let err = RuntimeError::PolicyFailed(anyhow::anyhow!("bad glob"));
     let msg = err.to_string();
-    assert!(
-        msg.contains("policy compilation failed"),
-        "display: {msg}"
-    );
+    assert!(msg.contains("policy compilation failed"), "display: {msg}");
 }
 
 #[test]
 fn error_backend_failed_display() {
     let err = RuntimeError::BackendFailed(anyhow::anyhow!("crash"));
     let msg = err.to_string();
-    assert!(
-        msg.contains("backend execution failed"),
-        "display: {msg}"
-    );
+    assert!(msg.contains("backend execution failed"), "display: {msg}");
 }
 
 #[test]
@@ -155,9 +146,7 @@ fn error_no_projection_match_display() {
 
 #[test]
 fn error_trait_is_implemented() {
-    let err = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "x".into() };
     // Must be usable as &dyn Error
     let _dyn_err: &dyn std::error::Error = &err;
 }
@@ -190,9 +179,7 @@ fn backend_failed_has_source() {
 
 #[test]
 fn unknown_backend_has_no_source() {
-    let err = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "x".into() };
     assert!(
         std::error::Error::source(&err).is_none(),
         "UnknownBackend should not have a source"
@@ -351,10 +338,7 @@ fn multiplexer_no_subscribers_error() {
         message: "x".into(),
     }));
     assert!(result.is_err());
-    assert!(matches!(
-        result.unwrap_err(),
-        MultiplexError::NoSubscribers
-    ));
+    assert!(matches!(result.unwrap_err(), MultiplexError::NoSubscribers));
 }
 
 // ===========================================================================
@@ -450,9 +434,7 @@ async fn unknown_backend_returns_error() {
 
 #[test]
 fn error_code_mapping_unknown_backend() {
-    let err = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "x".into() };
     assert_eq!(err.error_code(), abp_error::ErrorCode::BackendNotFound);
 }
 
@@ -497,9 +479,7 @@ fn is_retryable_workspace_failed() {
 
 #[test]
 fn is_not_retryable_unknown_backend() {
-    let err = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "x".into() };
     assert!(!err.is_retryable());
 }
 
@@ -511,9 +491,7 @@ fn is_not_retryable_policy_failed() {
 
 #[test]
 fn into_abp_error_preserves_code() {
-    let err = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let err = RuntimeError::UnknownBackend { name: "x".into() };
     let code = err.error_code();
     let abp_err = err.into_abp_error();
     assert_eq!(abp_err.code, code);
@@ -588,9 +566,7 @@ fn all_agent_event_kinds_constructable() {
         AgentEventKind::AssistantDelta {
             text: "token".into(),
         },
-        AgentEventKind::AssistantMessage {
-            text: "msg".into(),
-        },
+        AgentEventKind::AssistantMessage { text: "msg".into() },
         AgentEventKind::ToolCall {
             tool_name: "bash".into(),
             tool_use_id: Some("t1".into()),

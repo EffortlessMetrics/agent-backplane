@@ -6,8 +6,7 @@
 //! those SDK-specific types and the vendor-agnostic `WorkOrder` / `Receipt`.
 
 use crate::types::{
-    ChatMessage, Choice, ChoiceMessage, KimiChatRequest, KimiChatResponse, KimiUsage,
-    SearchOptions,
+    ChatMessage, Choice, ChoiceMessage, KimiChatRequest, KimiChatResponse, KimiUsage, SearchOptions,
 };
 use abp_core::{AgentEventKind, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder};
 use abp_sdk_types::Dialect;
@@ -335,7 +334,9 @@ mod tests {
 
     #[test]
     fn from_receipt_produces_valid_response() {
-        let wo = WorkOrderBuilder::new("task").model("moonshot-v1-8k").build();
+        let wo = WorkOrderBuilder::new("task")
+            .model("moonshot-v1-8k")
+            .build();
         let receipt = sample_receipt(&wo);
         let resp = from_receipt(&receipt, &wo);
         assert_eq!(resp.object, "chat.completion");
@@ -344,7 +345,9 @@ mod tests {
 
     #[test]
     fn from_receipt_includes_assistant_text() {
-        let wo = WorkOrderBuilder::new("task").model("moonshot-v1-8k").build();
+        let wo = WorkOrderBuilder::new("task")
+            .model("moonshot-v1-8k")
+            .build();
         let receipt = sample_receipt(&wo);
         let resp = from_receipt(&receipt, &wo);
         let text = resp.choices[0].message.content.as_deref().unwrap();

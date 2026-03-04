@@ -16,14 +16,14 @@ use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode, ErrorInfo};
 use abp_error_taxonomy::{
     ClassificationCategory, ErrorClassification, ErrorClassifier, ErrorSeverity, RecoveryAction,
 };
+use abp_protocol::ProtocolError;
 use abp_protocol::batch::BatchValidationError;
 use abp_protocol::builder::BuilderError;
 use abp_protocol::compress::CompressError;
 use abp_protocol::validate::{SequenceError, ValidationError};
 use abp_protocol::version::VersionError;
-use abp_protocol::ProtocolError;
-use abp_runtime::multiplex::MultiplexError;
 use abp_runtime::RuntimeError;
+use abp_runtime::multiplex::MultiplexError;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -322,9 +322,7 @@ fn runtime_error_all_variants_implement_display() {
 
 #[test]
 fn runtime_error_all_variants_implement_error_trait() {
-    let err: Box<dyn StdError> = Box::new(RuntimeError::UnknownBackend {
-        name: "x".into(),
-    });
+    let err: Box<dyn StdError> = Box::new(RuntimeError::UnknownBackend { name: "x".into() });
     // Ensure the trait object works.
     let _ = err.to_string();
     let _ = err.source();
@@ -607,8 +605,8 @@ fn error_info_json_roundtrip() {
 
 #[test]
 fn abp_error_dto_json_roundtrip() {
-    let err = AbpError::new(ErrorCode::PolicyDenied, "tool xyz denied")
-        .with_context("tool", "rm -rf /");
+    let err =
+        AbpError::new(ErrorCode::PolicyDenied, "tool xyz denied").with_context("tool", "rm -rf /");
     let dto: AbpErrorDto = (&err).into();
     let json = serde_json::to_string(&dto).unwrap();
     let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
@@ -731,9 +729,16 @@ fn mapping_error_all_variants_have_stable_codes() {
         },
     ];
     let codes: HashSet<&str> = all_mapping_errors.iter().map(|e| e.code()).collect();
-    assert_eq!(codes.len(), 6, "expected 6 unique stable mapping error codes");
+    assert_eq!(
+        codes.len(),
+        6,
+        "expected 6 unique stable mapping error codes"
+    );
     for code in &codes {
-        assert!(code.starts_with("ABP_E_"), "code {code} must start with ABP_E_");
+        assert!(
+            code.starts_with("ABP_E_"),
+            "code {code} must start with ABP_E_"
+        );
     }
 }
 
@@ -878,9 +883,7 @@ fn runtime_retryable_matches_error_taxonomy() {
     assert!(workspace_failed.is_retryable());
 
     // Config/policy errors should not be retryable.
-    let unknown = RuntimeError::UnknownBackend {
-        name: "x".into(),
-    };
+    let unknown = RuntimeError::UnknownBackend { name: "x".into() };
     assert!(!unknown.is_retryable());
 
     let policy = RuntimeError::PolicyFailed(anyhow::anyhow!("bad glob"));
@@ -916,7 +919,11 @@ fn fatal_mapping_errors_are_classified_fatal() {
         },
     ];
     for err in &fatal_errors {
-        assert_eq!(err.kind(), MappingErrorKind::Fatal, "expected Fatal for {err}");
+        assert_eq!(
+            err.kind(),
+            MappingErrorKind::Fatal,
+            "expected Fatal for {err}"
+        );
         assert!(err.is_fatal());
     }
 }

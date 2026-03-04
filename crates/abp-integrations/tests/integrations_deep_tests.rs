@@ -829,9 +829,12 @@ fn health_checker_empty_is_healthy() {
 fn health_checker_degraded_status() {
     let mut checker = HealthChecker::new();
     checker.add_check("net", HealthStatus::Healthy);
-    checker.add_check("disk", HealthStatus::Degraded {
-        reason: "low space".into(),
-    });
+    checker.add_check(
+        "disk",
+        HealthStatus::Degraded {
+            reason: "low space".into(),
+        },
+    );
     assert!(!checker.is_healthy());
     assert_eq!(checker.unhealthy_checks().len(), 1);
 }

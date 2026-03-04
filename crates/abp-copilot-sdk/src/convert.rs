@@ -10,7 +10,9 @@ use crate::types::{
     CopilotChatChoice, CopilotChatChoiceMessage, CopilotChatMessage, CopilotChatRequest,
     CopilotChatResponse, CopilotUsage, Reference, ReferenceType,
 };
-use abp_core::{AgentEventKind, ContextSnippet, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder};
+use abp_core::{
+    AgentEventKind, ContextSnippet, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder,
+};
 use abp_sdk_types::Dialect;
 use std::collections::BTreeMap;
 
@@ -102,7 +104,10 @@ pub fn to_work_order(req: &CopilotChatRequest) -> WorkOrder {
         snippets: context_snippets,
     };
 
-    WorkOrderBuilder::new(task).config(config).context(context).build()
+    WorkOrderBuilder::new(task)
+        .config(config)
+        .context(context)
+        .build()
 }
 
 /// Extract the task string from Copilot chat messages.
@@ -160,11 +165,7 @@ pub fn from_receipt(receipt: &Receipt, wo: &WorkOrder) -> CopilotChatResponse {
         id: receipt.meta.run_id.to_string(),
         object: "chat.completion".into(),
         created: receipt.meta.started_at.timestamp() as u64,
-        model: wo
-            .config
-            .model
-            .clone()
-            .unwrap_or_else(|| "gpt-4o".into()),
+        model: wo.config.model.clone().unwrap_or_else(|| "gpt-4o".into()),
         choices: vec![CopilotChatChoice {
             index: 0,
             message: CopilotChatChoiceMessage {
@@ -207,10 +208,7 @@ pub fn file_reference(id: impl Into<String>, uri: impl Into<String>) -> Referenc
 }
 
 /// Create a selection [`Reference`] with inline content.
-pub fn selection_reference(
-    id: impl Into<String>,
-    content: impl Into<String>,
-) -> Reference {
+pub fn selection_reference(id: impl Into<String>, content: impl Into<String>) -> Reference {
     Reference {
         ref_type: ReferenceType::Selection,
         id: id.into(),
@@ -221,7 +219,10 @@ pub fn selection_reference(
 }
 
 /// Create a repository [`Reference`] stored via metadata.
-pub fn repo_reference(id: impl Into<String>, metadata: BTreeMap<String, serde_json::Value>) -> Reference {
+pub fn repo_reference(
+    id: impl Into<String>,
+    metadata: BTreeMap<String, serde_json::Value>,
+) -> Reference {
     Reference {
         ref_type: ReferenceType::Terminal,
         id: id.into(),
@@ -359,7 +360,11 @@ mod tests {
     fn to_work_order_maps_file_refs_to_context() {
         let req = sample_request();
         let wo = to_work_order(&req);
-        assert!(wo.context.files.contains(&"file:///src/main.rs".to_string()));
+        assert!(
+            wo.context
+                .files
+                .contains(&"file:///src/main.rs".to_string())
+        );
     }
 
     #[test]

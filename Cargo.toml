@@ -153,6 +153,7 @@ abp-shim-gemini = { path = "crates/abp-shim-gemini" }
 abp-shim-codex = { path = "crates/abp-shim-codex" }
 abp-shim-kimi = { path = "crates/abp-shim-kimi" }
 abp-shim-copilot = { path = "crates/abp-shim-copilot" }
+abp-ir = { path = "crates/abp-ir" }
 abp-projection = { path = "crates/abp-projection" }
 abp-stream = { path = "crates/abp-stream" }
 abp-backend-core = { path = "crates/abp-backend-core" }

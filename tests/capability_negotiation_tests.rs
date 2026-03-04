@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Comprehensive tests for capability negotiation and registry.
 
+use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_capability::{
     CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
     check_capability, default_emulation_strategy, generate_report, negotiate,
     negotiate_capabilities,
 };
-use abp_capability::negotiate::{
-    NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate,
+use abp_core::negotiate::{
+    CapabilityDiff, CapabilityNegotiator, CapabilityReport as CoreCapabilityReport,
+    DialectSupportLevel, NegotiationRequest, check_capabilities, dialect_manifest,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
     SupportLevel as CoreSupportLevel, WorkOrderBuilder,
-};
-use abp_core::negotiate::{
-    CapabilityDiff, CapabilityNegotiator, CapabilityReport as CoreCapabilityReport,
-    DialectSupportLevel, NegotiationRequest, check_capabilities, dialect_manifest,
 };
 use abp_integrations::capability::CapabilityMatrix;
 use std::collections::BTreeMap;
@@ -52,9 +50,18 @@ fn backend_declares_capabilities_via_manifest() {
         (Capability::Vision, CoreSupportLevel::Unsupported),
     ]);
     assert_eq!(m.len(), 3);
-    assert!(matches!(m[&Capability::Streaming], CoreSupportLevel::Native));
-    assert!(matches!(m[&Capability::ToolUse], CoreSupportLevel::Emulated));
-    assert!(matches!(m[&Capability::Vision], CoreSupportLevel::Unsupported));
+    assert!(matches!(
+        m[&Capability::Streaming],
+        CoreSupportLevel::Native
+    ));
+    assert!(matches!(
+        m[&Capability::ToolUse],
+        CoreSupportLevel::Emulated
+    ));
+    assert!(matches!(
+        m[&Capability::Vision],
+        CoreSupportLevel::Unsupported
+    ));
 }
 
 #[test]
@@ -307,10 +314,7 @@ fn emulated_capabilities_labeled_in_negotiation_result() {
         (Capability::Streaming, CoreSupportLevel::Native),
         (Capability::ToolUse, CoreSupportLevel::Emulated),
     ]);
-    let result = negotiate_capabilities(
-        &[Capability::Streaming, Capability::ToolUse],
-        &m,
-    );
+    let result = negotiate_capabilities(&[Capability::Streaming, Capability::ToolUse], &m);
     assert_eq!(result.native, vec![Capability::Streaming]);
     assert_eq!(result.emulated.len(), 1);
     assert_eq!(result.emulated[0].0, Capability::ToolUse);
@@ -453,10 +457,22 @@ fn capability_manifest_json_roundtrip() {
     let json = serde_json::to_string(&m).unwrap();
     let back: CapabilityManifest = serde_json::from_str(&json).unwrap();
     assert_eq!(m.len(), back.len());
-    assert!(matches!(back[&Capability::Streaming], CoreSupportLevel::Native));
-    assert!(matches!(back[&Capability::ToolUse], CoreSupportLevel::Emulated));
-    assert!(matches!(back[&Capability::Vision], CoreSupportLevel::Unsupported));
-    assert!(matches!(back[&Capability::ToolBash], CoreSupportLevel::Restricted { .. }));
+    assert!(matches!(
+        back[&Capability::Streaming],
+        CoreSupportLevel::Native
+    ));
+    assert!(matches!(
+        back[&Capability::ToolUse],
+        CoreSupportLevel::Emulated
+    ));
+    assert!(matches!(
+        back[&Capability::Vision],
+        CoreSupportLevel::Unsupported
+    ));
+    assert!(matches!(
+        back[&Capability::ToolBash],
+        CoreSupportLevel::Restricted { .. }
+    ));
 }
 
 #[test]
@@ -530,7 +546,10 @@ fn all_default_backends_support_streaming_natively() {
     for name in reg.names() {
         let m = reg.get(name).unwrap();
         assert!(
-            matches!(m.get(&Capability::Streaming), Some(CoreSupportLevel::Native)),
+            matches!(
+                m.get(&Capability::Streaming),
+                Some(CoreSupportLevel::Native)
+            ),
             "backend {name} should natively support streaming"
         );
     }
@@ -564,21 +583,21 @@ fn tool_specific_capabilities() {
         .map(|t| (t.clone(), CoreSupportLevel::Native))
         .collect();
     for tool in &tools {
-        assert!(matches!(
-            check_capability(&m, tool),
-            SupportLevel::Native
-        ));
+        assert!(matches!(check_capability(&m, tool), SupportLevel::Native));
     }
 }
 
 #[test]
 fn matrix_tool_capability_query() {
     let mut matrix = CapabilityMatrix::new();
-    matrix.register("codex", vec![
-        Capability::ToolRead,
-        Capability::ToolWrite,
-        Capability::ToolBash,
-    ]);
+    matrix.register(
+        "codex",
+        vec![
+            Capability::ToolRead,
+            Capability::ToolWrite,
+            Capability::ToolBash,
+        ],
+    );
     matrix.register("gpt4", vec![Capability::ToolUse]);
     assert!(matrix.supports("codex", &Capability::ToolRead));
     assert!(matrix.supports("codex", &Capability::ToolBash));
@@ -612,11 +631,20 @@ fn multimodal_capabilities_in_default_manifests() {
     let reg = CapabilityRegistry::with_defaults();
     // GPT-4o supports vision natively
     let gpt4o = reg.get("openai/gpt-4o").unwrap();
-    assert!(matches!(gpt4o.get(&Capability::Vision), Some(CoreSupportLevel::Native)));
+    assert!(matches!(
+        gpt4o.get(&Capability::Vision),
+        Some(CoreSupportLevel::Native)
+    ));
     // Gemini supports vision and PDF natively
     let gemini = reg.get("google/gemini-1.5-pro").unwrap();
-    assert!(matches!(gemini.get(&Capability::Vision), Some(CoreSupportLevel::Native)));
-    assert!(matches!(gemini.get(&Capability::PdfInput), Some(CoreSupportLevel::Native)));
+    assert!(matches!(
+        gemini.get(&Capability::Vision),
+        Some(CoreSupportLevel::Native)
+    ));
+    assert!(matches!(
+        gemini.get(&Capability::PdfInput),
+        Some(CoreSupportLevel::Native)
+    ));
 }
 
 // ===========================================================================
@@ -639,7 +667,10 @@ fn max_tokens_in_default_backends() {
     for name in reg.names() {
         let m = reg.get(name).unwrap();
         assert!(
-            matches!(m.get(&Capability::MaxTokens), Some(CoreSupportLevel::Native)),
+            matches!(
+                m.get(&Capability::MaxTokens),
+                Some(CoreSupportLevel::Native)
+            ),
             "backend {name} should support MaxTokens"
         );
     }
@@ -704,10 +735,7 @@ fn pre_execution_negotiation_validates_feasibility() {
         (Capability::Streaming, CoreSupportLevel::Native),
         (Capability::ToolUse, CoreSupportLevel::Native),
     ]);
-    let result = pre_negotiate(
-        &[Capability::Streaming, Capability::ToolUse],
-        &m,
-    );
+    let result = pre_negotiate(&[Capability::Streaming, Capability::ToolUse], &m);
     assert!(result.is_viable());
     assert!(apply_policy(&result, NegotiationPolicy::Strict).is_ok());
 }
@@ -831,11 +859,8 @@ fn negotiation_result_emulated_caps_helper() {
 
 #[test]
 fn negotiation_result_unsupported_caps_helper() {
-    let result = NegotiationResult::from_simple(
-        vec![],
-        vec![],
-        vec![Capability::Vision, Capability::Audio],
-    );
+    let result =
+        NegotiationResult::from_simple(vec![], vec![], vec![Capability::Vision, Capability::Audio]);
     let caps = result.unsupported_caps();
     assert_eq!(caps.len(), 2);
 }
@@ -920,7 +945,10 @@ fn registry_negotiate_by_name() {
 #[test]
 fn registry_negotiate_by_name_unknown_returns_none() {
     let reg = CapabilityRegistry::new();
-    assert!(reg.negotiate_by_name("unknown", &[Capability::Streaming]).is_none());
+    assert!(
+        reg.negotiate_by_name("unknown", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]
@@ -1054,10 +1082,7 @@ fn generate_report_summary_compatible() {
 
 #[test]
 fn generate_report_summary_incompatible() {
-    let result = negotiate_capabilities(
-        &[Capability::Streaming],
-        &manifest(&[]),
-    );
+    let result = negotiate_capabilities(&[Capability::Streaming], &manifest(&[]));
     let report = generate_report(&result);
     assert!(!report.compatible);
     assert!(report.summary.contains("incompatible"));

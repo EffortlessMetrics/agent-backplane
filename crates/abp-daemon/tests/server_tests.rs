@@ -2,7 +2,7 @@
 //! Integration tests for the daemon HTTP server scaffolding.
 
 use abp_daemon::api::{HealthResponse, ListBackendsResponse, RunResponse, RunStatus};
-use abp_daemon::server::{router, DaemonServer, VersionResponse};
+use abp_daemon::server::{DaemonServer, VersionResponse, router};
 use abp_daemon::state::ServerState;
 use axum::body::Body;
 use axum::http::{self, Request, StatusCode};
@@ -15,27 +15,16 @@ use tower::ServiceExt;
 // ---------------------------------------------------------------------------
 
 fn test_state() -> Arc<ServerState> {
-    Arc::new(ServerState::new(vec![
-        "mock".into(),
-        "sidecar:node".into(),
-    ]))
+    Arc::new(ServerState::new(vec!["mock".into(), "sidecar:node".into()]))
 }
 
 fn empty_state() -> Arc<ServerState> {
     Arc::new(ServerState::new(vec![]))
 }
 
-async fn send_get(
-    state: Arc<ServerState>,
-    uri: &str,
-) -> http::Response<Body> {
+async fn send_get(state: Arc<ServerState>, uri: &str) -> http::Response<Body> {
     router(state)
-        .oneshot(
-            Request::builder()
-                .uri(uri)
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
         .await
         .unwrap()
 }

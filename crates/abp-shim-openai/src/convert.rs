@@ -19,7 +19,7 @@ use chrono::Utc;
 
 use crate::types::{
     ChatCompletionRequest, ChatCompletionResponse, ChatMessage, Choice, ChoiceMessage,
-    FunctionCall, MessageContent, StreamChunk, StreamChoice, StreamDelta, StreamFunctionCall,
+    FunctionCall, MessageContent, StreamChoice, StreamChunk, StreamDelta, StreamFunctionCall,
     StreamToolCall, Tool, ToolCall, Usage,
 };
 
@@ -83,12 +83,7 @@ pub fn to_work_order(req: &ChatCompletionRequest) -> WorkOrder {
 /// Walks the receipt trace to reconstruct the assistant message content
 /// and any tool calls. Extracts usage from `receipt.usage`.
 pub fn from_receipt(receipt: &Receipt, wo: &WorkOrder) -> ChatCompletionResponse {
-    let model = wo
-        .config
-        .model
-        .as_deref()
-        .unwrap_or("gpt-4o")
-        .to_string();
+    let model = wo.config.model.as_deref().unwrap_or("gpt-4o").to_string();
 
     let mut content: Option<String> = None;
     let mut tool_calls: Vec<ToolCall> = Vec::new();
@@ -415,7 +410,9 @@ mod tests {
         events: Vec<AgentEvent>,
         usage: UsageNormalized,
     ) -> abp_core::Receipt {
-        let mut builder = ReceiptBuilder::new("mock").outcome(Outcome::Complete).usage(usage);
+        let mut builder = ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .usage(usage);
         for e in events {
             builder = builder.add_trace_event(e);
         }
@@ -499,8 +496,7 @@ mod tests {
     fn to_work_order_sets_dialect() {
         let req = minimal_request();
         let wo = to_work_order(&req);
-        let dialect: Dialect =
-            serde_json::from_value(wo.config.vendor["dialect"].clone()).unwrap();
+        let dialect: Dialect = serde_json::from_value(wo.config.vendor["dialect"].clone()).unwrap();
         assert_eq!(dialect, Dialect::OpenAi);
     }
 
@@ -629,10 +625,7 @@ mod tests {
         assert_eq!(resp.object, "chat.completion");
         assert_eq!(resp.model, "gpt-4o");
         assert_eq!(resp.choices.len(), 1);
-        assert_eq!(
-            resp.choices[0].message.content.as_deref(),
-            Some("Hello!")
-        );
+        assert_eq!(resp.choices[0].message.content.as_deref(), Some("Hello!"));
         assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("stop"));
     }
 
@@ -677,21 +670,14 @@ mod tests {
     #[test]
     fn from_receipt_assembles_deltas() {
         let events = vec![
-            make_event(AgentEventKind::AssistantDelta {
-                text: "Hel".into(),
-            }),
-            make_event(AgentEventKind::AssistantDelta {
-                text: "lo!".into(),
-            }),
+            make_event(AgentEventKind::AssistantDelta { text: "Hel".into() }),
+            make_event(AgentEventKind::AssistantDelta { text: "lo!".into() }),
         ];
         let receipt = mock_receipt(events);
         let wo = WorkOrderBuilder::new("test").model("gpt-4o").build();
         let resp = from_receipt(&receipt, &wo);
 
-        assert_eq!(
-            resp.choices[0].message.content.as_deref(),
-            Some("Hello!")
-        );
+        assert_eq!(resp.choices[0].message.content.as_deref(), Some("Hello!"));
     }
 
     // 19
@@ -836,10 +822,7 @@ mod tests {
         let chunk = from_agent_event(&event, "gpt-4o", "chunk-1").unwrap();
 
         assert_eq!(chunk.choices[0].delta.role.as_deref(), Some("assistant"));
-        assert_eq!(
-            chunk.choices[0].delta.content.as_deref(),
-            Some("Full msg")
-        );
+        assert_eq!(chunk.choices[0].delta.content.as_deref(), Some("Full msg"));
     }
 
     // 28
@@ -854,8 +837,19 @@ mod tests {
         let chunk = from_agent_event(&event, "gpt-4o", "chunk-1").unwrap();
 
         let tc = &chunk.choices[0].delta.tool_calls.as_ref().unwrap()[0];
-        assert_eq!(tc.function.as_ref().unwrap().name.as_deref(), Some("search"));
-        assert!(tc.function.as_ref().unwrap().arguments.as_ref().unwrap().contains("rust"));
+        assert_eq!(
+            tc.function.as_ref().unwrap().name.as_deref(),
+            Some("search")
+        );
+        assert!(
+            tc.function
+                .as_ref()
+                .unwrap()
+                .arguments
+                .as_ref()
+                .unwrap()
+                .contains("rust")
+        );
         assert_eq!(tc.id.as_deref(), Some("call_s1"));
         assert_eq!(tc.call_type.as_deref(), Some("function"));
     }
@@ -1151,9 +1145,7 @@ mod tests {
     // 48
     #[test]
     fn from_agent_event_preserves_model() {
-        let event = make_event(AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        });
+        let event = make_event(AgentEventKind::AssistantDelta { text: "hi".into() });
         let chunk = from_agent_event(&event, "o3-mini", "c1").unwrap();
         assert_eq!(chunk.model, "o3-mini");
     }
@@ -1161,9 +1153,7 @@ mod tests {
     // 49
     #[test]
     fn from_agent_event_preserves_chunk_id() {
-        let event = make_event(AgentEventKind::AssistantDelta {
-            text: "hi".into(),
-        });
+        let event = make_event(AgentEventKind::AssistantDelta { text: "hi".into() });
         let chunk = from_agent_event(&event, "gpt-4o", "chatcmpl-xyz").unwrap();
         assert_eq!(chunk.id, "chatcmpl-xyz");
     }

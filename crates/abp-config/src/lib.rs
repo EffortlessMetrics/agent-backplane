@@ -308,10 +308,10 @@ pub fn validate_config(config: &BackplaneConfig) -> Result<Vec<ConfigWarning>, C
     if let Some(ref addr) = config.bind_address {
         if addr.trim().is_empty() {
             errors.push("bind_address must not be empty".into());
-        } else if addr.parse::<std::net::IpAddr>().is_err()
-            && !is_valid_hostname(addr)
-        {
-            errors.push(format!("bind_address '{addr}' is not a valid IP address or hostname"));
+        } else if addr.parse::<std::net::IpAddr>().is_err() && !is_valid_hostname(addr) {
+            errors.push(format!(
+                "bind_address '{addr}' is not a valid IP address or hostname"
+            ));
         }
     }
 
@@ -419,9 +419,7 @@ pub(crate) fn is_valid_hostname(s: &str) -> bool {
     s.split('.').all(|label| {
         !label.is_empty()
             && label.len() <= 63
-            && label
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '-')
+            && label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
             && !label.starts_with('-')
             && !label.ends_with('-')
     })

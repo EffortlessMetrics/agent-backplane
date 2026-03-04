@@ -121,11 +121,7 @@ fn all_codes_json_matches_as_str() {
 #[test]
 fn all_codes_have_non_empty_message() {
     for code in ALL_CODES {
-        assert!(
-            !code.message().is_empty(),
-            "{:?} has empty message",
-            code
-        );
+        assert!(!code.message().is_empty(), "{:?} has empty message", code);
     }
 }
 
@@ -201,14 +197,31 @@ fn classify_protocol_missing_ref_id() {
 fn classify_retriable_backend_codes() {
     let c = classifier();
     let retriable = [
-        (ErrorCode::BackendUnavailable, ClassificationCategory::ServerError),
-        (ErrorCode::BackendTimeout, ClassificationCategory::TimeoutError),
-        (ErrorCode::BackendRateLimited, ClassificationCategory::RateLimit),
-        (ErrorCode::BackendCrashed, ClassificationCategory::ServerError),
+        (
+            ErrorCode::BackendUnavailable,
+            ClassificationCategory::ServerError,
+        ),
+        (
+            ErrorCode::BackendTimeout,
+            ClassificationCategory::TimeoutError,
+        ),
+        (
+            ErrorCode::BackendRateLimited,
+            ClassificationCategory::RateLimit,
+        ),
+        (
+            ErrorCode::BackendCrashed,
+            ClassificationCategory::ServerError,
+        ),
     ];
     for (code, expected_cat) in &retriable {
         let cl = c.classify(code);
-        assert_eq!(cl.severity, ErrorSeverity::Retriable, "wrong severity for {:?}", code);
+        assert_eq!(
+            cl.severity,
+            ErrorSeverity::Retriable,
+            "wrong severity for {:?}",
+            code
+        );
         assert_eq!(cl.category, *expected_cat, "wrong category for {:?}", code);
     }
 }
@@ -217,13 +230,27 @@ fn classify_retriable_backend_codes() {
 fn classify_fatal_backend_codes() {
     let c = classifier();
     let fatal = [
-        (ErrorCode::BackendNotFound, ClassificationCategory::ServerError),
-        (ErrorCode::BackendAuthFailed, ClassificationCategory::Authentication),
-        (ErrorCode::BackendModelNotFound, ClassificationCategory::ModelNotFound),
+        (
+            ErrorCode::BackendNotFound,
+            ClassificationCategory::ServerError,
+        ),
+        (
+            ErrorCode::BackendAuthFailed,
+            ClassificationCategory::Authentication,
+        ),
+        (
+            ErrorCode::BackendModelNotFound,
+            ClassificationCategory::ModelNotFound,
+        ),
     ];
     for (code, expected_cat) in &fatal {
         let cl = c.classify(code);
-        assert_eq!(cl.severity, ErrorSeverity::Fatal, "wrong severity for {:?}", code);
+        assert_eq!(
+            cl.severity,
+            ErrorSeverity::Fatal,
+            "wrong severity for {:?}",
+            code
+        );
         assert_eq!(cl.category, *expected_cat, "wrong category for {:?}", code);
     }
 }
@@ -232,7 +259,8 @@ fn classify_fatal_backend_codes() {
 fn classify_mapping_codes() {
     let c = classifier();
     assert_eq!(
-        c.classify(&ErrorCode::MappingUnsupportedCapability).category,
+        c.classify(&ErrorCode::MappingUnsupportedCapability)
+            .category,
         ClassificationCategory::CapabilityUnsupported
     );
     assert_eq!(
@@ -258,7 +286,12 @@ fn classify_execution_codes_are_all_fatal() {
         ErrorCode::ExecutionPermissionDenied,
     ] {
         let cl = c.classify(code);
-        assert_eq!(cl.severity, ErrorSeverity::Fatal, "{:?} should be Fatal", code);
+        assert_eq!(
+            cl.severity,
+            ErrorSeverity::Fatal,
+            "{:?} should be Fatal",
+            code
+        );
     }
 }
 
@@ -271,7 +304,12 @@ fn classify_contract_codes_are_all_fatal() {
         ErrorCode::ContractInvalidReceipt,
     ] {
         let cl = c.classify(code);
-        assert_eq!(cl.severity, ErrorSeverity::Fatal, "{:?} should be Fatal", code);
+        assert_eq!(
+            cl.severity,
+            ErrorSeverity::Fatal,
+            "{:?} should be Fatal",
+            code
+        );
     }
 }
 
@@ -292,7 +330,10 @@ fn classify_policy_invalid_is_invalid_request() {
 #[test]
 fn classify_workspace_codes_are_server_error() {
     let c = classifier();
-    for code in &[ErrorCode::WorkspaceInitFailed, ErrorCode::WorkspaceStagingFailed] {
+    for code in &[
+        ErrorCode::WorkspaceInitFailed,
+        ErrorCode::WorkspaceStagingFailed,
+    ] {
         let cl = c.classify(code);
         assert_eq!(cl.category, ClassificationCategory::ServerError);
     }
@@ -314,7 +355,10 @@ fn classify_ir_codes() {
 #[test]
 fn classify_receipt_codes_are_invalid_request() {
     let c = classifier();
-    for code in &[ErrorCode::ReceiptHashMismatch, ErrorCode::ReceiptChainBroken] {
+    for code in &[
+        ErrorCode::ReceiptHashMismatch,
+        ErrorCode::ReceiptChainBroken,
+    ] {
         let cl = c.classify(code);
         assert_eq!(cl.category, ClassificationCategory::InvalidRequest);
     }
@@ -364,9 +408,18 @@ fn severity_all_variants_serde_roundtrip() {
 
 #[test]
 fn severity_serializes_as_snake_case() {
-    assert_eq!(serde_json::to_string(&ErrorSeverity::Fatal).unwrap(), "\"fatal\"");
-    assert_eq!(serde_json::to_string(&ErrorSeverity::Retriable).unwrap(), "\"retriable\"");
-    assert_eq!(serde_json::to_string(&ErrorSeverity::Degraded).unwrap(), "\"degraded\"");
+    assert_eq!(
+        serde_json::to_string(&ErrorSeverity::Fatal).unwrap(),
+        "\"fatal\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ErrorSeverity::Retriable).unwrap(),
+        "\"retriable\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ErrorSeverity::Degraded).unwrap(),
+        "\"degraded\""
+    );
     assert_eq!(
         serde_json::to_string(&ErrorSeverity::Informational).unwrap(),
         "\"informational\""
@@ -459,7 +512,11 @@ fn retriable_codes_get_retry_with_delay() {
     ] {
         let cl = c.classify(code);
         assert_eq!(cl.recovery.action, RecoveryAction::Retry, "{:?}", code);
-        assert!(cl.recovery.delay_ms.is_some(), "{:?} should have delay", code);
+        assert!(
+            cl.recovery.delay_ms.is_some(),
+            "{:?} should have delay",
+            code
+        );
     }
 }
 
@@ -824,8 +881,8 @@ fn error_info_with_details() {
 
 #[test]
 fn abp_error_to_info_preserves_code_and_message() {
-    let err = AbpError::new(ErrorCode::BackendNotFound, "not found")
-        .with_context("backend", "openai");
+    let err =
+        AbpError::new(ErrorCode::BackendNotFound, "not found").with_context("backend", "openai");
     let info = err.to_info();
     assert_eq!(info.code, ErrorCode::BackendNotFound);
     assert_eq!(info.message, "not found");
@@ -845,8 +902,8 @@ fn abp_error_to_info_infers_retryable() {
 
 #[test]
 fn dto_from_abp_error_and_back() {
-    let err = AbpError::new(ErrorCode::ConfigInvalid, "bad config")
-        .with_context("file", "config.toml");
+    let err =
+        AbpError::new(ErrorCode::ConfigInvalid, "bad config").with_context("file", "config.toml");
     let dto: AbpErrorDto = (&err).into();
     let back: AbpError = dto.into();
     assert_eq!(back.code, ErrorCode::ConfigInvalid);

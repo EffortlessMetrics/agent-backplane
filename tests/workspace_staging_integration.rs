@@ -174,8 +174,8 @@ fn combined_include_exclude_via_workspace_spec() {
 
 #[test]
 fn glob_decision_consistency_with_staging() {
-    let globs = IncludeExcludeGlobs::new(&patterns(&["src/**"]), &patterns(&["src/lib.rs"]))
-        .unwrap();
+    let globs =
+        IncludeExcludeGlobs::new(&patterns(&["src/**"]), &patterns(&["src/lib.rs"])).unwrap();
 
     assert!(globs.decide_str("src/main.rs").is_allowed());
     assert!(!globs.decide_str("src/lib.rs").is_allowed());
@@ -299,11 +299,7 @@ fn git_directory_not_copied_from_source() {
 
     // Create a fake .git dir in the source.
     fs::create_dir_all(src.path().join(".git").join("objects")).unwrap();
-    fs::write(
-        src.path().join(".git").join("HEAD"),
-        "ref: refs/heads/main",
-    )
-    .unwrap();
+    fs::write(src.path().join(".git").join("HEAD"), "ref: refs/heads/main").unwrap();
 
     let ws = WorkspaceStager::new()
         .source_root(src.path())
@@ -350,7 +346,13 @@ fn deeply_nested_directory_structure_preserved() {
         .stage()
         .unwrap();
 
-    let staged_leaf = ws.path().join("a").join("b").join("c").join("d").join("leaf.txt");
+    let staged_leaf = ws
+        .path()
+        .join("a")
+        .join("b")
+        .join("c")
+        .join("d")
+        .join("leaf.txt");
     assert!(staged_leaf.is_file());
     assert_eq!(fs::read_to_string(staged_leaf).unwrap(), "deep content");
 }
@@ -679,7 +681,10 @@ fn staging_area_cleaned_up_on_drop() {
         assert!(path_copy.exists());
     }
     // After `ws` is dropped, the temp directory should be cleaned up.
-    assert!(!path_copy.exists(), "staging dir should be cleaned up on drop");
+    assert!(
+        !path_copy.exists(),
+        "staging dir should be cleaned up on drop"
+    );
 }
 
 #[test]
@@ -806,7 +811,11 @@ fn staging_preserves_file_count() {
     let src = tempfile::tempdir().unwrap();
     let file_count = 20;
     for i in 0..file_count {
-        fs::write(src.path().join(format!("file_{i}.txt")), format!("content {i}")).unwrap();
+        fs::write(
+            src.path().join(format!("file_{i}.txt")),
+            format!("content {i}"),
+        )
+        .unwrap();
     }
 
     let ws = WorkspaceStager::new()
@@ -862,7 +871,13 @@ fn exclude_nested_directory_pattern() {
         .unwrap();
 
     assert!(ws.path().join("src").join("main.rs").is_file());
-    assert!(!ws.path().join("src").join("generated").join("out.rs").exists());
+    assert!(
+        !ws.path()
+            .join("src")
+            .join("generated")
+            .join("out.rs")
+            .exists()
+    );
 }
 
 fn count_files_recursive(path: &Path) -> usize {

@@ -200,7 +200,8 @@ pub fn normalize_tool_schemas(tools: &[IrToolDefinition]) -> Vec<IrToolDefinitio
         .map(|t| {
             let mut params = t.parameters.clone();
             if let Some(obj) = params.as_object_mut() {
-                obj.entry("type").or_insert_with(|| serde_json::json!("object"));
+                obj.entry("type")
+                    .or_insert_with(|| serde_json::json!("object"));
             }
             IrToolDefinition {
                 name: t.name.clone(),
@@ -279,9 +280,7 @@ mod tests {
         meta.insert("vendor_id".to_string(), serde_json::json!("abc"));
         let msg = IrMessage {
             role: IrRole::User,
-            content: vec![IrContentBlock::Text {
-                text: "hi".into(),
-            }],
+            content: vec![IrContentBlock::Text { text: "hi".into() }],
             metadata: meta,
         };
         let conv = IrConversation::from_messages(vec![msg]);
@@ -296,9 +295,7 @@ mod tests {
         meta.insert("x".to_string(), serde_json::json!(1));
         let msg = IrMessage {
             role: IrRole::User,
-            content: vec![IrContentBlock::Text {
-                text: "hi".into(),
-            }],
+            content: vec![IrContentBlock::Text { text: "hi".into() }],
             metadata: meta,
         };
         let conv = IrConversation::from_messages(vec![msg]);

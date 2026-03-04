@@ -17,7 +17,7 @@ use abp_core::{
 // ── OpenAI SDK types ────────────────────────────────────────────────────────
 use abp_openai_sdk::api::{
     AssistantMessage, ChatCompletionRequest, ChatCompletionResponse, Choice, Delta, FinishReason,
-    FunctionCall, FunctionDefinition, Message, StreamChunk, StreamChoice, Tool, ToolCall, Usage,
+    FunctionCall, FunctionDefinition, Message, StreamChoice, StreamChunk, Tool, ToolCall, Usage,
 };
 
 // ── Claude SDK types ────────────────────────────────────────────────────────
@@ -45,9 +45,9 @@ use abp_codex_sdk::types::{
 // ── Kimi SDK types ──────────────────────────────────────────────────────────
 use abp_kimi_sdk::types::{
     ChatMessage as KimiChatMessage, Choice as KimiChoice, ChoiceMessage as KimiChoiceMessage,
-    FunctionCall as KimiFunctionCall, FunctionDef as KimiFunctionDef,
-    KimiChatRequest, KimiChatResponse, KimiUsage, SearchMode, SearchOptions,
-    Tool as KimiTool, ToolCall as KimiToolCall,
+    FunctionCall as KimiFunctionCall, FunctionDef as KimiFunctionDef, KimiChatRequest,
+    KimiChatResponse, KimiUsage, SearchMode, SearchOptions, Tool as KimiTool,
+    ToolCall as KimiToolCall,
 };
 
 // ── Copilot SDK types ───────────────────────────────────────────────────────
@@ -130,17 +130,35 @@ fn arb_openai_message() -> BoxedStrategy<Message> {
     prop_oneof![
         safe_text().prop_map(|c| Message::System { content: c }),
         safe_text().prop_map(|c| Message::User { content: c }),
-        (prop::option::of(safe_text()), prop::option::of(prop::collection::vec(arb_openai_tool_call(), 0..2)))
-            .prop_map(|(c, tc)| Message::Assistant { content: c, tool_calls: tc }),
-        (safe_string(), safe_text())
-            .prop_map(|(id, c)| Message::Tool { tool_call_id: id, content: c }),
+        (
+            prop::option::of(safe_text()),
+            prop::option::of(prop::collection::vec(arb_openai_tool_call(), 0..2))
+        )
+            .prop_map(|(c, tc)| Message::Assistant {
+                content: c,
+                tool_calls: tc
+            }),
+        (safe_string(), safe_text()).prop_map(|(id, c)| Message::Tool {
+            tool_call_id: id,
+            content: c
+        }),
     ]
     .boxed()
 }
 
 fn arb_openai_function_def() -> impl Strategy<Value = FunctionDefinition> {
-    (safe_string(), prop::option::of(safe_text()), prop::option::of(json_obj()), prop::option::of(prop::bool::ANY))
-        .prop_map(|(name, desc, params, strict)| FunctionDefinition { name, description: desc, parameters: params, strict })
+    (
+        safe_string(),
+        prop::option::of(safe_text()),
+        prop::option::of(json_obj()),
+        prop::option::of(prop::bool::ANY),
+    )
+        .prop_map(|(name, desc, params, strict)| FunctionDefinition {
+            name,
+            description: desc,
+            parameters: params,
+            strict,
+        })
 }
 
 fn arb_openai_tool() -> impl Strategy<Value = Tool> {
@@ -175,27 +193,32 @@ fn arb_chat_completion_request() -> impl Strategy<Value = ChatCompletionRequest>
         prop::option::of(small_u32()),
         prop::option::of(prop::collection::vec(arb_openai_tool(), 0..2)),
     )
-        .prop_map(|(model, messages, temp, max_tokens, tools)| ChatCompletionRequest {
-            model,
-            messages,
-            temperature: temp,
-            max_tokens,
-            tools,
-            tool_choice: None,
-            stream: Some(false),
-            top_p: None,
-            frequency_penalty: None,
-            presence_penalty: None,
-            stop: None,
-            n: None,
-            seed: None,
-            response_format: None,
-            user: None,
-        })
+        .prop_map(
+            |(model, messages, temp, max_tokens, tools)| ChatCompletionRequest {
+                model,
+                messages,
+                temperature: temp,
+                max_tokens,
+                tools,
+                tool_choice: None,
+                stream: Some(false),
+                top_p: None,
+                frequency_penalty: None,
+                presence_penalty: None,
+                stop: None,
+                n: None,
+                seed: None,
+                response_format: None,
+                user: None,
+            },
+        )
 }
 
 fn arb_assistant_message() -> impl Strategy<Value = AssistantMessage> {
-    (prop::option::of(safe_text()), prop::option::of(prop::collection::vec(arb_openai_tool_call(), 0..2)))
+    (
+        prop::option::of(safe_text()),
+        prop::option::of(prop::collection::vec(arb_openai_tool_call(), 0..2)),
+    )
         .prop_map(|(content, tool_calls)| AssistantMessage {
             role: "assistant".into(),
             content,
@@ -221,30 +244,43 @@ fn arb_chat_completion_response() -> impl Strategy<Value = ChatCompletionRespons
         prop::collection::vec(arb_openai_choice(), 1..3),
         prop::option::of(arb_openai_usage()),
     )
-        .prop_map(|(id, created, model, choices, usage)| ChatCompletionResponse {
-            id,
-            object: "chat.completion".into(),
-            created,
-            model,
-            choices,
-            usage,
-            system_fingerprint: None,
-        })
+        .prop_map(
+            |(id, created, model, choices, usage)| ChatCompletionResponse {
+                id,
+                object: "chat.completion".into(),
+                created,
+                model,
+                choices,
+                usage,
+                system_fingerprint: None,
+            },
+        )
 }
 
 fn arb_delta() -> impl Strategy<Value = Delta> {
-    (prop::option::of(safe_string()), prop::option::of(safe_text()), prop::option::of(prop::collection::vec(arb_openai_tool_call(), 0..1)))
-        .prop_map(|(role, content, tool_calls)| Delta { role, content, tool_calls })
+    (
+        prop::option::of(safe_string()),
+        prop::option::of(safe_text()),
+        prop::option::of(prop::collection::vec(arb_openai_tool_call(), 0..1)),
+    )
+        .prop_map(|(role, content, tool_calls)| Delta {
+            role,
+            content,
+            tool_calls,
+        })
 }
 
 fn arb_stream_choice() -> impl Strategy<Value = StreamChoice> {
-    (small_u32(), arb_delta(), prop::option::of(arb_finish_reason())).prop_map(
-        |(index, delta, fr)| StreamChoice {
+    (
+        small_u32(),
+        arb_delta(),
+        prop::option::of(arb_finish_reason()),
+    )
+        .prop_map(|(index, delta, fr)| StreamChoice {
             index,
             delta,
             finish_reason: fr,
-        },
-    )
+        })
 }
 
 fn arb_stream_chunk() -> impl Strategy<Value = StreamChunk> {
@@ -282,12 +318,22 @@ fn arb_content_block() -> BoxedStrategy<ClaudeContentBlock> {
         safe_text().prop_map(|t| ClaudeContentBlock::Text { text: t }),
         (safe_string(), safe_string(), json_obj())
             .prop_map(|(id, name, input)| ClaudeContentBlock::ToolUse { id, name, input }),
-        (safe_string(), prop::option::of(safe_text()), prop::option::of(prop::bool::ANY))
+        (
+            safe_string(),
+            prop::option::of(safe_text()),
+            prop::option::of(prop::bool::ANY)
+        )
             .prop_map(|(id, content, is_error)| ClaudeContentBlock::ToolResult {
-                tool_use_id: id, content, is_error
+                tool_use_id: id,
+                content,
+                is_error
             }),
-        (safe_text(), prop::option::of(safe_string()))
-            .prop_map(|(thinking, sig)| ClaudeContentBlock::Thinking { thinking, signature: sig }),
+        (safe_text(), prop::option::of(safe_string())).prop_map(|(thinking, sig)| {
+            ClaudeContentBlock::Thinking {
+                thinking,
+                signature: sig,
+            }
+        }),
     ]
     .boxed()
 }
@@ -309,12 +355,10 @@ fn arb_claude_message() -> impl Strategy<Value = ClaudeMessage> {
 }
 
 fn arb_claude_tool_def() -> impl Strategy<Value = ClaudeToolDef> {
-    (safe_string(), safe_text(), json_obj()).prop_map(|(name, description, schema)| {
-        ClaudeToolDef {
-            name,
-            description,
-            input_schema: schema,
-        }
+    (safe_string(), safe_text(), json_obj()).prop_map(|(name, description, schema)| ClaudeToolDef {
+        name,
+        description,
+        input_schema: schema,
     })
 }
 
@@ -326,19 +370,21 @@ fn arb_messages_request() -> impl Strategy<Value = MessagesRequest> {
         prop::option::of(prop::collection::vec(arb_claude_tool_def(), 0..2)),
         opt_safe_f64(),
     )
-        .prop_map(|(model, messages, max_tokens, tools, temp)| MessagesRequest {
-            model,
-            messages,
-            max_tokens,
-            system: None,
-            tools,
-            metadata: None,
-            stream: Some(false),
-            stop_sequences: None,
-            temperature: temp,
-            top_p: None,
-            top_k: None,
-        })
+        .prop_map(
+            |(model, messages, max_tokens, tools, temp)| MessagesRequest {
+                model,
+                messages,
+                max_tokens,
+                system: None,
+                tools,
+                metadata: None,
+                stream: Some(false),
+                stop_sequences: None,
+                temperature: temp,
+                top_p: None,
+                top_k: None,
+            },
+        )
 }
 
 fn arb_messages_response() -> impl Strategy<Value = MessagesResponse> {
@@ -389,10 +435,13 @@ fn arb_claude_response() -> impl Strategy<Value = ClaudeResponse> {
 
 fn arb_claude_stream_event() -> BoxedStrategy<ClaudeStreamEvent> {
     prop_oneof![
-        arb_claude_response()
-            .prop_map(|m| ClaudeStreamEvent::MessageStart { message: m }),
-        (small_u32(), arb_content_block())
-            .prop_map(|(i, cb)| ClaudeStreamEvent::ContentBlockStart { index: i, content_block: cb }),
+        arb_claude_response().prop_map(|m| ClaudeStreamEvent::MessageStart { message: m }),
+        (small_u32(), arb_content_block()).prop_map(|(i, cb)| {
+            ClaudeStreamEvent::ContentBlockStart {
+                index: i,
+                content_block: cb,
+            }
+        }),
         (small_u32(), arb_claude_stream_delta())
             .prop_map(|(i, d)| ClaudeStreamEvent::ContentBlockDelta { index: i, delta: d }),
         small_u32().prop_map(|i| ClaudeStreamEvent::ContentBlockStop { index: i }),
@@ -409,22 +458,23 @@ fn arb_claude_stream_event() -> BoxedStrategy<ClaudeStreamEvent> {
 fn arb_part() -> BoxedStrategy<Part> {
     prop_oneof![
         safe_text().prop_map(Part::Text),
-        (safe_string(), safe_string())
-            .prop_map(|(name, args)| Part::FunctionCall {
-                name,
-                args: serde_json::json!({ "arg": args }),
-            }),
-        (safe_string(), safe_string())
-            .prop_map(|(name, resp)| Part::FunctionResponse {
-                name,
-                response: serde_json::json!({ "result": resp }),
-            }),
+        (safe_string(), safe_string()).prop_map(|(name, args)| Part::FunctionCall {
+            name,
+            args: serde_json::json!({ "arg": args }),
+        }),
+        (safe_string(), safe_string()).prop_map(|(name, resp)| Part::FunctionResponse {
+            name,
+            response: serde_json::json!({ "result": resp }),
+        }),
     ]
     .boxed()
 }
 
 fn arb_content() -> impl Strategy<Value = Content> {
-    (prop::option::of(safe_string()), prop::collection::vec(arb_part(), 1..3))
+    (
+        prop::option::of(safe_string()),
+        prop::collection::vec(arb_part(), 1..3),
+    )
         .prop_map(|(role, parts)| Content { role, parts })
 }
 
@@ -448,11 +498,10 @@ fn arb_harm_probability() -> impl Strategy<Value = HarmProbability> {
 }
 
 fn arb_safety_rating() -> impl Strategy<Value = SafetyRating> {
-    (arb_harm_category(), arb_harm_probability())
-        .prop_map(|(category, probability)| SafetyRating {
-            category,
-            probability,
-        })
+    (arb_harm_category(), arb_harm_probability()).prop_map(|(category, probability)| SafetyRating {
+        category,
+        probability,
+    })
 }
 
 fn arb_usage_metadata() -> impl Strategy<Value = UsageMetadata> {
@@ -485,8 +534,9 @@ fn arb_function_declaration() -> impl Strategy<Value = FunctionDeclaration> {
 }
 
 fn arb_gemini_tool() -> impl Strategy<Value = GeminiTool> {
-    prop::collection::vec(arb_function_declaration(), 1..3)
-        .prop_map(|fds| GeminiTool { function_declarations: fds })
+    prop::collection::vec(arb_function_declaration(), 1..3).prop_map(|fds| GeminiTool {
+        function_declarations: fds,
+    })
 }
 
 fn arb_function_calling_mode() -> impl Strategy<Value = FunctionCallingMode> {
@@ -498,7 +548,12 @@ fn arb_function_calling_mode() -> impl Strategy<Value = FunctionCallingMode> {
 }
 
 fn arb_generation_config() -> impl Strategy<Value = GenerationConfig> {
-    (opt_safe_f64(), opt_safe_f64(), prop::option::of(small_u32()), prop::option::of(small_u32()))
+    (
+        opt_safe_f64(),
+        opt_safe_f64(),
+        prop::option::of(small_u32()),
+        prop::option::of(small_u32()),
+    )
         .prop_map(|(temp, top_p, top_k, max_tokens)| GenerationConfig {
             temperature: temp,
             top_p,
@@ -545,10 +600,18 @@ fn arb_codex_message() -> BoxedStrategy<CodexMessage> {
     prop_oneof![
         safe_text().prop_map(|c| CodexMessage::System { content: c }),
         safe_text().prop_map(|c| CodexMessage::User { content: c }),
-        (prop::option::of(safe_text()), prop::option::of(prop::collection::vec(arb_codex_tool_call(), 0..2)))
-            .prop_map(|(c, tc)| CodexMessage::Assistant { content: c, tool_calls: tc }),
-        (safe_text(), safe_string())
-            .prop_map(|(c, id)| CodexMessage::Tool { content: c, tool_call_id: id }),
+        (
+            prop::option::of(safe_text()),
+            prop::option::of(prop::collection::vec(arb_codex_tool_call(), 0..2))
+        )
+            .prop_map(|(c, tc)| CodexMessage::Assistant {
+                content: c,
+                tool_calls: tc
+            }),
+        (safe_text(), safe_string()).prop_map(|(c, id)| CodexMessage::Tool {
+            content: c,
+            tool_call_id: id
+        }),
     ]
     .boxed()
 }
@@ -649,7 +712,12 @@ fn arb_file_operation() -> impl Strategy<Value = FileOperation> {
 }
 
 fn arb_codex_file_change() -> impl Strategy<Value = CodexFileChange> {
-    (safe_string(), arb_file_operation(), prop::option::of(safe_text()), prop::option::of(safe_text()))
+    (
+        safe_string(),
+        arb_file_operation(),
+        prop::option::of(safe_text()),
+        prop::option::of(safe_text()),
+    )
         .prop_map(|(path, op, content, diff)| CodexFileChange {
             path,
             operation: op,
@@ -671,11 +739,10 @@ fn arb_search_mode() -> impl Strategy<Value = SearchMode> {
 }
 
 fn arb_search_options() -> impl Strategy<Value = SearchOptions> {
-    (arb_search_mode(), prop::option::of(small_u32()))
-        .prop_map(|(mode, count)| SearchOptions {
-            mode,
-            result_count: count,
-        })
+    (arb_search_mode(), prop::option::of(small_u32())).prop_map(|(mode, count)| SearchOptions {
+        mode,
+        result_count: count,
+    })
 }
 
 fn arb_kimi_tool_call() -> impl Strategy<Value = KimiToolCall> {
@@ -693,10 +760,18 @@ fn arb_kimi_message() -> BoxedStrategy<KimiChatMessage> {
     prop_oneof![
         safe_text().prop_map(|c| KimiChatMessage::System { content: c }),
         safe_text().prop_map(|c| KimiChatMessage::User { content: c }),
-        (prop::option::of(safe_text()), prop::option::of(prop::collection::vec(arb_kimi_tool_call(), 0..2)))
-            .prop_map(|(c, tc)| KimiChatMessage::Assistant { content: c, tool_calls: tc }),
-        (safe_text(), safe_string())
-            .prop_map(|(c, id)| KimiChatMessage::Tool { content: c, tool_call_id: id }),
+        (
+            prop::option::of(safe_text()),
+            prop::option::of(prop::collection::vec(arb_kimi_tool_call(), 0..2))
+        )
+            .prop_map(|(c, tc)| KimiChatMessage::Assistant {
+                content: c,
+                tool_calls: tc
+            }),
+        (safe_text(), safe_string()).prop_map(|(c, id)| KimiChatMessage::Tool {
+            content: c,
+            tool_call_id: id
+        }),
     ]
     .boxed()
 }
@@ -730,18 +805,20 @@ fn arb_kimi_request() -> impl Strategy<Value = KimiChatRequest> {
         prop::option::of(prop::collection::vec(arb_kimi_tool(), 0..2)),
         prop::option::of(arb_search_options()),
     )
-        .prop_map(|(model, messages, temp, max_tokens, tools, search)| KimiChatRequest {
-            model,
-            messages,
-            temperature: temp,
-            top_p: None,
-            max_tokens,
-            stream: Some(false),
-            tools,
-            tool_choice: None,
-            use_search: None,
-            search_options: search,
-        })
+        .prop_map(
+            |(model, messages, temp, max_tokens, tools, search)| KimiChatRequest {
+                model,
+                messages,
+                temperature: temp,
+                top_p: None,
+                max_tokens,
+                stream: Some(false),
+                tools,
+                tool_choice: None,
+                use_search: None,
+                search_options: search,
+            },
+        )
 }
 
 fn arb_kimi_choice() -> impl Strategy<Value = KimiChoice> {
@@ -794,7 +871,12 @@ fn arb_reference_type() -> impl Strategy<Value = ReferenceType> {
 }
 
 fn arb_reference() -> impl Strategy<Value = Reference> {
-    (arb_reference_type(), safe_string(), prop::option::of(safe_string()), prop::option::of(safe_text()))
+    (
+        arb_reference_type(),
+        safe_string(),
+        prop::option::of(safe_string()),
+        prop::option::of(safe_text()),
+    )
         .prop_map(|(ref_type, id, uri, content)| Reference {
             ref_type,
             id,
@@ -860,18 +942,20 @@ fn arb_copilot_request() -> impl Strategy<Value = CopilotChatRequest> {
         prop::option::of(prop::collection::vec(arb_copilot_tool(), 0..2)),
         prop::option::of(prop::collection::vec(arb_reference(), 0..3)),
     )
-        .prop_map(|(model, messages, temp, max_tokens, tools, refs)| CopilotChatRequest {
-            model,
-            messages,
-            temperature: temp,
-            top_p: None,
-            max_tokens,
-            stream: Some(false),
-            tools,
-            tool_choice: None,
-            intent: None,
-            references: refs,
-        })
+        .prop_map(
+            |(model, messages, temp, max_tokens, tools, refs)| CopilotChatRequest {
+                model,
+                messages,
+                temperature: temp,
+                top_p: None,
+                max_tokens,
+                stream: Some(false),
+                tools,
+                tool_choice: None,
+                intent: None,
+                references: refs,
+            },
+        )
 }
 
 fn arb_copilot_choice() -> impl Strategy<Value = CopilotChatChoice> {
@@ -914,11 +998,17 @@ fn arb_copilot_response() -> impl Strategy<Value = CopilotChatResponse> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn arb_execution_lane() -> impl Strategy<Value = ExecutionLane> {
-    prop_oneof![Just(ExecutionLane::PatchFirst), Just(ExecutionLane::WorkspaceFirst)]
+    prop_oneof![
+        Just(ExecutionLane::PatchFirst),
+        Just(ExecutionLane::WorkspaceFirst)
+    ]
 }
 
 fn arb_workspace_mode() -> impl Strategy<Value = WorkspaceMode> {
-    prop_oneof![Just(WorkspaceMode::PassThrough), Just(WorkspaceMode::Staged)]
+    prop_oneof![
+        Just(WorkspaceMode::PassThrough),
+        Just(WorkspaceMode::Staged)
+    ]
 }
 
 fn arb_capability() -> impl Strategy<Value = Capability> {
@@ -949,18 +1039,25 @@ fn arb_support_level() -> impl Strategy<Value = SupportLevel> {
 }
 
 fn arb_execution_mode() -> impl Strategy<Value = ExecutionMode> {
-    prop_oneof![Just(ExecutionMode::Passthrough), Just(ExecutionMode::Mapped)]
+    prop_oneof![
+        Just(ExecutionMode::Passthrough),
+        Just(ExecutionMode::Mapped)
+    ]
 }
 
 fn arb_outcome() -> impl Strategy<Value = Outcome> {
-    prop_oneof![Just(Outcome::Complete), Just(Outcome::Partial), Just(Outcome::Failed)]
+    prop_oneof![
+        Just(Outcome::Complete),
+        Just(Outcome::Partial),
+        Just(Outcome::Failed)
+    ]
 }
 
 fn arb_work_order() -> impl Strategy<Value = WorkOrder> {
     (
-        safe_string(),                  // task
+        safe_string(), // task
         arb_execution_lane(),
-        safe_string(),                  // workspace root
+        safe_string(), // workspace root
         arb_workspace_mode(),
         prop::option::of(safe_string()), // model
     )
@@ -993,24 +1090,27 @@ fn arb_agent_event_kind() -> BoxedStrategy<AgentEventKind> {
         safe_text().prop_map(|m| AgentEventKind::RunCompleted { message: m }),
         safe_text().prop_map(|t| AgentEventKind::AssistantDelta { text: t }),
         safe_text().prop_map(|t| AgentEventKind::AssistantMessage { text: t }),
-        (safe_string(), json_obj())
-            .prop_map(|(name, input)| AgentEventKind::ToolCall {
-                tool_name: name,
-                tool_use_id: None,
-                parent_tool_use_id: None,
-                input,
-            }),
-        (safe_string(), json_obj())
-            .prop_map(|(name, output)| AgentEventKind::ToolResult {
-                tool_name: name,
-                tool_use_id: None,
-                output,
-                is_error: false,
-            }),
-        (safe_string(), safe_text())
-            .prop_map(|(p, s)| AgentEventKind::FileChanged { path: p, summary: s }),
+        (safe_string(), json_obj()).prop_map(|(name, input)| AgentEventKind::ToolCall {
+            tool_name: name,
+            tool_use_id: None,
+            parent_tool_use_id: None,
+            input,
+        }),
+        (safe_string(), json_obj()).prop_map(|(name, output)| AgentEventKind::ToolResult {
+            tool_name: name,
+            tool_use_id: None,
+            output,
+            is_error: false,
+        }),
+        (safe_string(), safe_text()).prop_map(|(p, s)| AgentEventKind::FileChanged {
+            path: p,
+            summary: s
+        }),
         safe_text().prop_map(|m| AgentEventKind::Warning { message: m }),
-        safe_text().prop_map(|m| AgentEventKind::Error { message: m, error_code: None }),
+        safe_text().prop_map(|m| AgentEventKind::Error {
+            message: m,
+            error_code: None
+        }),
     ]
     .boxed()
 }
@@ -1024,7 +1124,11 @@ fn arb_agent_event() -> impl Strategy<Value = AgentEvent> {
 }
 
 fn arb_receipt() -> impl Strategy<Value = Receipt> {
-    (arb_execution_mode(), arb_outcome(), prop::collection::vec(arb_agent_event(), 0..3))
+    (
+        arb_execution_mode(),
+        arb_outcome(),
+        prop::collection::vec(arb_agent_event(), 0..3),
+    )
         .prop_map(|(mode, outcome, trace)| {
             let now = Utc::now();
             Receipt {

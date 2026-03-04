@@ -326,10 +326,7 @@ fn map_assistant_to_gemini(msg: &Value) -> Result<Value, MappingError> {
 
 /// Maps an OpenAI tool-result message to a Gemini functionResponse part.
 fn map_tool_result_to_gemini(msg: &Value) -> Value {
-    let tool_name = msg
-        .get("name")
-        .and_then(Value::as_str)
-        .unwrap_or("unknown");
+    let tool_name = msg.get("name").and_then(Value::as_str).unwrap_or("unknown");
     let content = msg.get("content").cloned().unwrap_or(Value::Null);
 
     json!({
@@ -348,13 +345,13 @@ fn map_tools_openai_to_gemini(tools: &[Value]) -> Result<Vec<Value>, MappingErro
     let mut declarations = Vec::new();
 
     for tool in tools {
-        let function =
-            tool.get("function")
-                .ok_or_else(|| MappingError::IncompatibleTypes {
-                    source_type: "openai_tool".into(),
-                    target_type: "gemini_function_declaration".into(),
-                    reason: "OpenAI tool missing `function` field".into(),
-                })?;
+        let function = tool
+            .get("function")
+            .ok_or_else(|| MappingError::IncompatibleTypes {
+                source_type: "openai_tool".into(),
+                target_type: "gemini_function_declaration".into(),
+                reason: "OpenAI tool missing `function` field".into(),
+            })?;
 
         let name = function.get("name").and_then(Value::as_str).unwrap_or("");
         let description = function
@@ -414,7 +411,10 @@ mod tests {
             }),
         };
         let result = mapper.map_request(&req).unwrap();
-        assert_eq!(result["system_instruction"]["parts"][0]["text"], "You are helpful.");
+        assert_eq!(
+            result["system_instruction"]["parts"][0]["text"],
+            "You are helpful."
+        );
         let contents = result["contents"].as_array().unwrap();
         assert_eq!(contents.len(), 1);
         assert_eq!(contents[0]["role"], "user");
@@ -602,10 +602,7 @@ mod tests {
             ext: None,
         };
         let result = mapper.map_event(&event).unwrap();
-        assert_eq!(
-            result["candidates"][0]["content"]["parts"][0]["text"],
-            "Hi"
-        );
+        assert_eq!(result["candidates"][0]["content"]["parts"][0]["text"], "Hi");
         assert_eq!(result["candidates"][0]["content"]["role"], "model");
     }
 

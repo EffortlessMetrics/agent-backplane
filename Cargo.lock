@@ -693,6 +693,7 @@ dependencies = [
  "abp-glob",
  "abp-host",
  "abp-integrations",
+ "abp-ir",
  "abp-kimi-sdk",
  "abp-mapper",
  "abp-mapping",

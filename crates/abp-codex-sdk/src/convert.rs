@@ -10,9 +10,7 @@ use crate::types::{
     CodexChoice, CodexChoiceMessage, CodexFileChange, CodexMessage, CodexRequest, CodexResponse,
     CodexUsage, FileOperation,
 };
-use abp_core::{
-    AgentEvent, AgentEventKind, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder,
-};
+use abp_core::{AgentEvent, AgentEventKind, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder};
 use abp_sdk_types::Dialect;
 use std::collections::BTreeMap;
 
@@ -30,7 +28,10 @@ pub fn to_work_order(req: &CodexRequest) -> WorkOrder {
     let mut codex_meta = serde_json::Map::new();
 
     if let Some(instr) = &req.instructions {
-        codex_meta.insert("instructions".into(), serde_json::Value::String(instr.clone()));
+        codex_meta.insert(
+            "instructions".into(),
+            serde_json::Value::String(instr.clone()),
+        );
     }
 
     codex_meta.insert(
@@ -41,13 +42,17 @@ pub fn to_work_order(req: &CodexRequest) -> WorkOrder {
     if let Some(temp) = req.temperature {
         codex_meta.insert(
             "temperature".into(),
-            serde_json::Value::Number(serde_json::Number::from_f64(temp).unwrap_or_else(|| 0.into())),
+            serde_json::Value::Number(
+                serde_json::Number::from_f64(temp).unwrap_or_else(|| 0.into()),
+            ),
         );
     }
     if let Some(top_p) = req.top_p {
         codex_meta.insert(
             "top_p".into(),
-            serde_json::Value::Number(serde_json::Number::from_f64(top_p).unwrap_or_else(|| 0.into())),
+            serde_json::Value::Number(
+                serde_json::Number::from_f64(top_p).unwrap_or_else(|| 0.into()),
+            ),
         );
     }
     if let Some(stream) = req.stream {
@@ -346,7 +351,9 @@ mod tests {
 
     #[test]
     fn from_receipt_produces_valid_response() {
-        let wo = WorkOrderBuilder::new("task").model("codex-mini-latest").build();
+        let wo = WorkOrderBuilder::new("task")
+            .model("codex-mini-latest")
+            .build();
         let receipt = sample_receipt(&wo);
         let resp = from_receipt(&receipt, &wo);
         assert_eq!(resp.object, "chat.completion");
@@ -355,7 +362,9 @@ mod tests {
 
     #[test]
     fn from_receipt_includes_assistant_text() {
-        let wo = WorkOrderBuilder::new("task").model("codex-mini-latest").build();
+        let wo = WorkOrderBuilder::new("task")
+            .model("codex-mini-latest")
+            .build();
         let receipt = sample_receipt(&wo);
         let resp = from_receipt(&receipt, &wo);
         let text = resp.choices[0].message.content.as_deref().unwrap();

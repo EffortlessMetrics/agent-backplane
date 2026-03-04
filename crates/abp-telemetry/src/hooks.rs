@@ -167,7 +167,12 @@ mod tests {
 
     #[test]
     fn on_error_does_not_panic() {
-        on_error("wo-1", "E001", "something broke", ErrorClassification::Transient);
+        on_error(
+            "wo-1",
+            "E001",
+            "something broke",
+            ErrorClassification::Transient,
+        );
         on_error("wo-2", "E002", "bad input", ErrorClassification::Permanent);
         on_error("wo-3", "E999", "mystery", ErrorClassification::Unknown);
     }

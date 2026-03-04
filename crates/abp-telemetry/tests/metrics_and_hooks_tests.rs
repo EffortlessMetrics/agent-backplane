@@ -3,11 +3,9 @@
 #![allow(clippy::float_cmp)]
 
 use abp_telemetry::hooks::{
-    on_error, on_request_complete, on_request_start, ErrorClassification, RequestOutcome,
+    ErrorClassification, RequestOutcome, on_error, on_request_complete, on_request_start,
 };
-use abp_telemetry::metrics::{
-    ActiveRequestGauge, ErrorCounter, RequestCounter, TokenAccumulator,
-};
+use abp_telemetry::metrics::{ActiveRequestGauge, ErrorCounter, RequestCounter, TokenAccumulator};
 use abp_telemetry::spans::{backend_span, event_span, request_span};
 
 use std::sync::Arc;
@@ -258,9 +256,24 @@ fn hooks_error_lifecycle() {
 
 #[test]
 fn hooks_on_error_all_classifications() {
-    on_error("wo-1", "E001", "transient error", ErrorClassification::Transient);
-    on_error("wo-2", "E002", "permanent error", ErrorClassification::Permanent);
-    on_error("wo-3", "E003", "unknown error", ErrorClassification::Unknown);
+    on_error(
+        "wo-1",
+        "E001",
+        "transient error",
+        ErrorClassification::Transient,
+    );
+    on_error(
+        "wo-2",
+        "E002",
+        "permanent error",
+        ErrorClassification::Permanent,
+    );
+    on_error(
+        "wo-3",
+        "E003",
+        "unknown error",
+        ErrorClassification::Unknown,
+    );
 }
 
 #[test]
@@ -294,7 +307,12 @@ fn metrics_and_hooks_integration() {
     // Simulate a failed request.
     gauge.increment();
     let start = on_request_start("wo-int-2", "sidecar:node");
-    on_error("wo-int-2", "timeout", "deadline exceeded", ErrorClassification::Transient);
+    on_error(
+        "wo-int-2",
+        "timeout",
+        "deadline exceeded",
+        ErrorClassification::Transient,
+    );
     err_counter.increment("timeout");
     let outcome = RequestOutcome::Error {
         code: "timeout".into(),

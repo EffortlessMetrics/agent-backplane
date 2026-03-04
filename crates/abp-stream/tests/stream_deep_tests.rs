@@ -7,8 +7,8 @@ use std::sync::Arc;
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_stream::{
     EventFilter, EventRecorder, EventStats, EventStream, EventTransform, StreamAggregator,
-    StreamBuffer, StreamMetrics, StreamPipeline, StreamPipelineBuilder, StreamSummary,
-    StreamTee, TeeError, ToolCallAggregate,
+    StreamBuffer, StreamMetrics, StreamPipeline, StreamPipelineBuilder, StreamSummary, StreamTee,
+    TeeError, ToolCallAggregate,
 };
 use chrono::Utc;
 use tokio::sync::mpsc;
@@ -208,7 +208,11 @@ fn aggregator_non_error_events_not_in_errors() {
 #[test]
 fn aggregator_tool_call_with_id() {
     let mut agg = StreamAggregator::new();
-    agg.push(&tool_call("read_file", "tc1", serde_json::json!({"path": "a.txt"})));
+    agg.push(&tool_call(
+        "read_file",
+        "tc1",
+        serde_json::json!({"path": "a.txt"}),
+    ));
     let calls = agg.tool_calls();
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].id, "tc1");
@@ -229,7 +233,11 @@ fn aggregator_tool_call_without_id_generates_key() {
 fn aggregator_tool_result_matches_call() {
     let mut agg = StreamAggregator::new();
     agg.push(&tool_call("read_file", "tc1", serde_json::json!({})));
-    agg.push(&tool_result("read_file", "tc1", serde_json::json!("contents")));
+    agg.push(&tool_result(
+        "read_file",
+        "tc1",
+        serde_json::json!("contents"),
+    ));
     let calls = agg.tool_calls();
     assert_eq!(calls.len(), 1);
     assert!(calls[0].result.is_some());
@@ -239,7 +247,11 @@ fn aggregator_tool_result_matches_call() {
 #[test]
 fn aggregator_tool_result_no_matching_call_ignored() {
     let mut agg = StreamAggregator::new();
-    agg.push(&tool_result("read_file", "unknown_id", serde_json::json!("data")));
+    agg.push(&tool_result(
+        "read_file",
+        "unknown_id",
+        serde_json::json!("data"),
+    ));
     assert!(agg.tool_calls().is_empty());
 }
 
@@ -480,9 +492,9 @@ fn filter_exclude_errors_rejects_errors() {
 
 #[test]
 fn filter_custom_predicate_text_length() {
-    let filter = EventFilter::new(|ev| {
-        matches!(&ev.kind, AgentEventKind::AssistantDelta { text } if text.len() >= 5)
-    });
+    let filter = EventFilter::new(
+        |ev| matches!(&ev.kind, AgentEventKind::AssistantDelta { text } if text.len() >= 5),
+    );
     assert!(filter.matches(&delta("hello")));
     assert!(!filter.matches(&delta("hi")));
 }
@@ -553,7 +565,10 @@ fn transform_add_metadata_to_ext() {
 #[test]
 fn transform_redact_error_message() {
     let t = EventTransform::new(|mut ev| {
-        if let AgentEventKind::Error { ref mut message, .. } = ev.kind {
+        if let AgentEventKind::Error {
+            ref mut message, ..
+        } = ev.kind
+        {
             *message = "[REDACTED]".to_string();
         }
         ev
@@ -601,7 +616,10 @@ fn transform_chain_two_transforms() {
 #[test]
 fn transform_non_error_passthrough() {
     let t = EventTransform::new(|mut ev| {
-        if let AgentEventKind::Error { ref mut message, .. } = ev.kind {
+        if let AgentEventKind::Error {
+            ref mut message, ..
+        } = ev.kind
+        {
             *message = "[REDACTED]".to_string();
         }
         ev
@@ -647,9 +665,7 @@ async fn stream_buffer_acts_as_ring() {
     let recent = buf.recent(3);
     assert_eq!(recent.len(), 3);
     // First should be "b" since "a" was evicted
-    assert!(
-        matches!(&recent[0].kind, AgentEventKind::AssistantDelta { text } if text == "b")
-    );
+    assert!(matches!(&recent[0].kind, AgentEventKind::AssistantDelta { text } if text == "b"));
 }
 
 #[tokio::test]
@@ -704,7 +720,11 @@ fn aggregator_preserves_text_order() {
 fn aggregator_tool_calls_preserve_order() {
     let mut agg = StreamAggregator::new();
     for i in 0..5 {
-        agg.push(&tool_call(&format!("tool_{i}"), &format!("tc{i}"), serde_json::json!({})));
+        agg.push(&tool_call(
+            &format!("tool_{i}"),
+            &format!("tc{i}"),
+            serde_json::json!({}),
+        ));
     }
     for (i, tc) in agg.tool_calls().iter().enumerate() {
         assert_eq!(tc.name, format!("tool_{i}"));
@@ -1121,10 +1141,30 @@ async fn pipeline_pipe_through_stream() {
 fn event_kind_name_all_variants() {
     use abp_stream::event_kind_name;
 
-    assert_eq!(event_kind_name(&AgentEventKind::RunStarted { message: String::new() }), "run_started");
-    assert_eq!(event_kind_name(&AgentEventKind::RunCompleted { message: String::new() }), "run_completed");
-    assert_eq!(event_kind_name(&AgentEventKind::AssistantDelta { text: String::new() }), "assistant_delta");
-    assert_eq!(event_kind_name(&AgentEventKind::AssistantMessage { text: String::new() }), "assistant_message");
+    assert_eq!(
+        event_kind_name(&AgentEventKind::RunStarted {
+            message: String::new()
+        }),
+        "run_started"
+    );
+    assert_eq!(
+        event_kind_name(&AgentEventKind::RunCompleted {
+            message: String::new()
+        }),
+        "run_completed"
+    );
+    assert_eq!(
+        event_kind_name(&AgentEventKind::AssistantDelta {
+            text: String::new()
+        }),
+        "assistant_delta"
+    );
+    assert_eq!(
+        event_kind_name(&AgentEventKind::AssistantMessage {
+            text: String::new()
+        }),
+        "assistant_message"
+    );
     assert_eq!(
         event_kind_name(&AgentEventKind::ToolCall {
             tool_name: String::new(),
@@ -1144,15 +1184,33 @@ fn event_kind_name_all_variants() {
         "tool_result"
     );
     assert_eq!(
-        event_kind_name(&AgentEventKind::FileChanged { path: String::new(), summary: String::new() }),
+        event_kind_name(&AgentEventKind::FileChanged {
+            path: String::new(),
+            summary: String::new()
+        }),
         "file_changed"
     );
     assert_eq!(
-        event_kind_name(&AgentEventKind::CommandExecuted { command: String::new(), exit_code: None, output_preview: None }),
+        event_kind_name(&AgentEventKind::CommandExecuted {
+            command: String::new(),
+            exit_code: None,
+            output_preview: None
+        }),
         "command_executed"
     );
-    assert_eq!(event_kind_name(&AgentEventKind::Warning { message: String::new() }), "warning");
-    assert_eq!(event_kind_name(&AgentEventKind::Error { message: String::new(), error_code: None }), "error");
+    assert_eq!(
+        event_kind_name(&AgentEventKind::Warning {
+            message: String::new()
+        }),
+        "warning"
+    );
+    assert_eq!(
+        event_kind_name(&AgentEventKind::Error {
+            message: String::new(),
+            error_code: None
+        }),
+        "error"
+    );
 }
 
 // ===========================================================================

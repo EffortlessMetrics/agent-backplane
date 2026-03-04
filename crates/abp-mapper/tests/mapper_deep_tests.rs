@@ -6,13 +6,13 @@
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
+use abp_mapper::validation::{DefaultMappingValidator, MappingValidator, ValidationPipeline};
 use abp_mapper::{
     ClaudeGeminiIrMapper, ClaudeKimiIrMapper, CodexClaudeIrMapper, DialectRequest,
     GeminiKimiIrMapper, IdentityMapper, IrMapper, MapError, Mapper, OpenAiClaudeIrMapper,
     OpenAiCodexIrMapper, OpenAiCopilotIrMapper, OpenAiGeminiIrMapper, OpenAiKimiIrMapper,
     default_ir_mapper, supported_ir_pairs,
 };
-use abp_mapper::validation::{DefaultMappingValidator, MappingValidator, ValidationPipeline};
 use serde_json::json;
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -86,10 +86,7 @@ fn supported_ir_pairs_is_not_empty() {
 fn supported_ir_pairs_includes_all_identity() {
     let pairs = supported_ir_pairs();
     for &d in Dialect::all() {
-        assert!(
-            pairs.contains(&(d, d)),
-            "missing identity pair ({d}, {d})"
-        );
+        assert!(pairs.contains(&(d, d)), "missing identity pair ({d}, {d})");
     }
 }
 
@@ -212,10 +209,7 @@ fn user_role_preserved_across_all_supported_pairs() {
         let mapper = default_ir_mapper(from, to).unwrap();
         let mapped = mapper.map_request(from, to, &ir).unwrap();
         let user_msgs = mapped.messages_by_role(IrRole::User);
-        assert!(
-            !user_msgs.is_empty(),
-            "user role lost in {from}→{to}"
-        );
+        assert!(!user_msgs.is_empty(), "user role lost in {from}→{to}");
     }
 }
 
@@ -230,7 +224,13 @@ fn assistant_role_preserved_openai_to_claude() {
         .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
         .unwrap();
     assert!(mapped.last_assistant().is_some());
-    assert!(mapped.last_assistant().unwrap().text_content().contains("hello"));
+    assert!(
+        mapped
+            .last_assistant()
+            .unwrap()
+            .text_content()
+            .contains("hello")
+    );
 }
 
 #[test]
@@ -253,7 +253,10 @@ fn tool_role_remapped_to_user_in_openai_to_claude() {
             .iter()
             .any(|b| matches!(b, IrContentBlock::ToolResult { .. }))
     });
-    assert!(has_tool_result, "ToolResult should appear in a User message");
+    assert!(
+        has_tool_result,
+        "ToolResult should appear in a User message"
+    );
 }
 
 // =========================================================================
@@ -354,7 +357,10 @@ fn empty_conversation_maps_to_empty() {
     for (from, to) in supported_ir_pairs() {
         let mapper = default_ir_mapper(from, to).unwrap();
         let mapped = mapper.map_request(from, to, &ir).unwrap();
-        assert!(mapped.is_empty(), "empty conv became non-empty for {from}→{to}");
+        assert!(
+            mapped.is_empty(),
+            "empty conv became non-empty for {from}→{to}"
+        );
     }
 }
 

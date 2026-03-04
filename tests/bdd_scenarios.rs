@@ -8,10 +8,9 @@ use std::io::BufReader;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
-    MinSupport, Outcome, PolicyProfile, Receipt, SupportLevel,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
 use abp_error::ErrorCode;
 use abp_policy::PolicyEngine;
@@ -348,9 +347,9 @@ async fn feature_work_order_submit_simple_text_task() {
             assert_eq!(receipt.outcome, Outcome::Complete);
             assert!(receipt.receipt_sha256.is_some());
             assert!(!events.is_empty());
-            let has_message = events.iter().any(|e| {
-                matches!(&e.kind, AgentEventKind::AssistantMessage { .. })
-            });
+            let has_message = events
+                .iter()
+                .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. }));
             assert!(has_message);
         });
     });
@@ -559,10 +558,9 @@ async fn feature_sdk_passthrough_mode_preserves_request() {
     scenario!("Passthrough mode preserves request exactly", {
         let wo = given!("a work order with passthrough vendor flag", {
             let mut config = abp_core::RuntimeConfig::default();
-            config.vendor.insert(
-                "abp".into(),
-                serde_json::json!({"mode": "passthrough"}),
-            );
+            config
+                .vendor
+                .insert("abp".into(), serde_json::json!({"mode": "passthrough"}));
             WorkOrderBuilder::new("passthrough test")
                 .config(config)
                 .workspace_mode(WorkspaceMode::PassThrough)
@@ -626,7 +624,13 @@ fn feature_policy_denied_tool_not_in_allowlist() {
 
         then!("Write is denied because it is not in allowlist", {
             assert!(!decision.allowed);
-            assert!(decision.reason.as_deref().unwrap().contains("not in allowlist"));
+            assert!(
+                decision
+                    .reason
+                    .as_deref()
+                    .unwrap()
+                    .contains("not in allowlist")
+            );
         });
     });
 }
@@ -776,9 +780,7 @@ fn feature_receipt_hash_matches_content() {
                 .unwrap()
         });
 
-        let valid = when!("verifying the hash", {
-            verify_hash(&receipt)
-        });
+        let valid = when!("verifying the hash", { verify_hash(&receipt) });
 
         then!("the hash is valid", {
             assert!(valid);
@@ -986,14 +988,17 @@ fn feature_sidecar_skips_hello_protocol_error() {
             JsonlCodec::decode(line.trim()).unwrap()
         });
 
-        then!("the message is an Event, not Hello — protocol violation", {
-            assert!(
-                !matches!(decoded, Envelope::Hello { .. }),
-                "expected non-Hello envelope"
-            );
-            // In real protocol, receiving Event before Hello would be a violation
-            assert!(matches!(decoded, Envelope::Event { .. }));
-        });
+        then!(
+            "the message is an Event, not Hello — protocol violation",
+            {
+                assert!(
+                    !matches!(decoded, Envelope::Hello { .. }),
+                    "expected non-Hello envelope"
+                );
+                // In real protocol, receiving Event before Hello would be a violation
+                assert!(matches!(decoded, Envelope::Event { .. }));
+            }
+        );
     });
 }
 
@@ -1048,9 +1053,7 @@ fn feature_sidecar_fatal_without_ref_id() {
 
         then!("ref_id is None and error is preserved", {
             match decoded {
-                Envelope::Fatal {
-                    ref_id, error, ..
-                } => {
+                Envelope::Fatal { ref_id, error, .. } => {
                     assert!(ref_id.is_none());
                     assert_eq!(error, "startup failure");
                 }
@@ -1448,14 +1451,11 @@ fn feature_error_code_categories() {
 fn feature_runtime_error_retryability() {
     scenario!("Runtime errors indicate retryability correctly", {
         then!("UnknownBackend is not retryable", {
-            let err = RuntimeError::UnknownBackend {
-                name: "x".into(),
-            };
+            let err = RuntimeError::UnknownBackend { name: "x".into() };
             assert!(!err.is_retryable());
         });
         then!("BackendFailed is retryable", {
-            let err =
-                RuntimeError::BackendFailed(anyhow::anyhow!("temporary"));
+            let err = RuntimeError::BackendFailed(anyhow::anyhow!("temporary"));
             assert!(err.is_retryable());
         });
         then!("CapabilityCheckFailed is not retryable", {

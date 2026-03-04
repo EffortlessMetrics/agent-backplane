@@ -179,11 +179,8 @@ pub fn lower_to_claude(conv: &IrConversation, tools: &[IrToolDefinition]) -> ser
         .filter(|m| m.role != IrRole::System)
         .map(|m| {
             let role = ir_role_to_dialect(m.role, Dialect::Claude);
-            let content: Vec<serde_json::Value> = m
-                .content
-                .iter()
-                .map(lower_claude_content_block)
-                .collect();
+            let content: Vec<serde_json::Value> =
+                m.content.iter().map(lower_claude_content_block).collect();
             serde_json::json!({"role": role, "content": content})
         })
         .collect();
@@ -271,11 +268,8 @@ pub fn lower_to_gemini(conv: &IrConversation, tools: &[IrToolDefinition]) -> ser
         .filter(|m| m.role != IrRole::System)
         .map(|m| {
             let role = ir_role_to_dialect(m.role, Dialect::Gemini);
-            let parts: Vec<serde_json::Value> = m
-                .content
-                .iter()
-                .filter_map(lower_gemini_part)
-                .collect();
+            let parts: Vec<serde_json::Value> =
+                m.content.iter().filter_map(lower_gemini_part).collect();
             serde_json::json!({"role": role, "parts": parts})
         })
         .collect();
@@ -401,7 +395,10 @@ mod tests {
 
     #[test]
     fn openai_roles() {
-        assert_eq!(ir_role_to_dialect(IrRole::System, Dialect::OpenAi), "system");
+        assert_eq!(
+            ir_role_to_dialect(IrRole::System, Dialect::OpenAi),
+            "system"
+        );
         assert_eq!(ir_role_to_dialect(IrRole::User, Dialect::OpenAi), "user");
         assert_eq!(
             ir_role_to_dialect(IrRole::Assistant, Dialect::OpenAi),
@@ -505,9 +502,7 @@ mod tests {
         let conv = IrConversation::new().push(IrMessage::new(
             IrRole::Assistant,
             vec![
-                IrContentBlock::Text {
-                    text: "hi".into(),
-                },
+                IrContentBlock::Text { text: "hi".into() },
                 IrContentBlock::ToolUse {
                     id: "c1".into(),
                     name: "search".into(),
@@ -549,9 +544,7 @@ mod tests {
         let conv = IrConversation::new().push(IrMessage::new(
             IrRole::Assistant,
             vec![
-                IrContentBlock::Thinking {
-                    text: "hmm".into(),
-                },
+                IrContentBlock::Thinking { text: "hmm".into() },
                 IrContentBlock::Text {
                     text: "answer".into(),
                 },

@@ -149,10 +149,7 @@ pub fn to_work_order(req: &GenerateContentRequest) -> WorkOrder {
     let mut vendor = BTreeMap::new();
 
     // Tag dialect.
-    vendor.insert(
-        "dialect".into(),
-        serde_json::Value::String("gemini".into()),
-    );
+    vendor.insert("dialect".into(), serde_json::Value::String("gemini".into()));
 
     // Preserve full contents for round-tripping.
     if let Ok(v) = serde_json::to_value(&req.contents) {
@@ -388,11 +385,11 @@ pub fn generation_config_to_map(cfg: &GenerationConfig) -> BTreeMap<String, serd
 #[cfg(test)]
 mod tests {
     use super::*;
-    use abp_core::{AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, UsageNormalized};
     use crate::types::{
         FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration, GeminiTool,
         HarmBlockThreshold, HarmCategory, SafetySetting, ToolConfig,
     };
+    use abp_core::{AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, UsageNormalized};
     use chrono::Utc;
 
     // ── Helper factories ────────────────────────────────────────────────

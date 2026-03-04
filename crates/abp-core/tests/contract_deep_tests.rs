@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Deep tests for abp-core contract types.
 
-use abp_core::ir::{
-    IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage,
-};
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::*;
 use chrono::{TimeZone, Utc};
 use serde_json::json;
@@ -390,9 +388,7 @@ fn agent_event_run_completed() {
 
 #[test]
 fn agent_event_assistant_delta() {
-    let e = make_event(AgentEventKind::AssistantDelta {
-        text: "tok".into(),
-    });
+    let e = make_event(AgentEventKind::AssistantDelta { text: "tok".into() });
     assert!(matches!(e.kind, AgentEventKind::AssistantDelta { .. }));
 }
 
@@ -481,9 +477,7 @@ fn agent_event_ext_field() {
     ext.insert("raw_message".into(), json!({"foo": "bar"}));
     let e = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::AssistantMessage {
-            text: "hi".into(),
-        },
+        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
         ext: Some(ext),
     };
     assert!(e.ext.is_some());
@@ -495,12 +489,18 @@ fn agent_event_ext_field() {
 #[test]
 fn error_code_as_str_is_snake_case() {
     let codes = [
-        (abp_error::ErrorCode::ProtocolInvalidEnvelope, "protocol_invalid_envelope"),
+        (
+            abp_error::ErrorCode::ProtocolInvalidEnvelope,
+            "protocol_invalid_envelope",
+        ),
         (abp_error::ErrorCode::BackendNotFound, "backend_not_found"),
         (abp_error::ErrorCode::BackendTimeout, "backend_timeout"),
         (abp_error::ErrorCode::PolicyDenied, "policy_denied"),
         (abp_error::ErrorCode::Internal, "internal"),
-        (abp_error::ErrorCode::ReceiptHashMismatch, "receipt_hash_mismatch"),
+        (
+            abp_error::ErrorCode::ReceiptHashMismatch,
+            "receipt_hash_mismatch",
+        ),
         (abp_error::ErrorCode::ConfigInvalid, "config_invalid"),
     ];
     for (code, expected) in &codes {
@@ -678,7 +678,12 @@ fn ir_tool_definition_serde_roundtrip() {
 
 #[test]
 fn ir_role_variants() {
-    for role in [IrRole::System, IrRole::User, IrRole::Assistant, IrRole::Tool] {
+    for role in [
+        IrRole::System,
+        IrRole::User,
+        IrRole::Assistant,
+        IrRole::Tool,
+    ] {
         let json = serde_json::to_string(&role).unwrap();
         let back: IrRole = serde_json::from_str(&json).unwrap();
         assert_eq!(back, role);
@@ -697,8 +702,7 @@ fn ir_message_with_text() {
 #[test]
 fn ir_message_with_metadata() {
     let mut msg = IrMessage::text(IrRole::Tool, "result");
-    msg.metadata
-        .insert("tool_call_id".into(), json!("tc-1"));
+    msg.metadata.insert("tool_call_id".into(), json!("tc-1"));
     assert_eq!(msg.metadata["tool_call_id"], "tc-1");
 }
 
@@ -742,10 +746,8 @@ fn runtime_config_vendor_map() {
 #[test]
 fn runtime_config_nested_vendor() {
     let mut cfg = RuntimeConfig::default();
-    cfg.vendor.insert(
-        "abp".into(),
-        json!({"mode": "passthrough", "debug": true}),
-    );
+    cfg.vendor
+        .insert("abp".into(), json!({"mode": "passthrough", "debug": true}));
     let json = serde_json::to_string(&cfg).unwrap();
     let back: RuntimeConfig = serde_json::from_str(&json).unwrap();
     assert_eq!(back.vendor["abp"]["mode"], "passthrough");
@@ -800,12 +802,8 @@ fn serde_roundtrip_agent_event_all_variants() {
         AgentEventKind::RunCompleted {
             message: "c".into(),
         },
-        AgentEventKind::AssistantDelta {
-            text: "d".into(),
-        },
-        AgentEventKind::AssistantMessage {
-            text: "m".into(),
-        },
+        AgentEventKind::AssistantDelta { text: "d".into() },
+        AgentEventKind::AssistantMessage { text: "m".into() },
         AgentEventKind::ToolCall {
             tool_name: "t".into(),
             tool_use_id: None,
@@ -1136,9 +1134,7 @@ fn ir_usage_default() {
 
 #[test]
 fn agent_event_kind_tagged_with_type() {
-    let e = make_event(AgentEventKind::AssistantMessage {
-        text: "hi".into(),
-    });
+    let e = make_event(AgentEventKind::AssistantMessage { text: "hi".into() });
     let json = serde_json::to_string(&e).unwrap();
     // AgentEventKind uses #[serde(tag = "type")]
     assert!(json.contains(r#""type":"assistant_message""#));

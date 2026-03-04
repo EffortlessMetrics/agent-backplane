@@ -113,11 +113,19 @@ fn hello_must_be_first_in_sequence() {
     let seq = vec![
         hello(),
         run_env(&wo),
-        event_env(&wo.id.to_string(), AgentEventKind::RunStarted { message: "go".into() }),
+        event_env(
+            &wo.id.to_string(),
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
         final_env(&wo.id.to_string()),
     ];
     let errors = EnvelopeValidator::new().validate_sequence(&seq);
-    assert!(errors.is_empty(), "valid sequence should have no errors: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "valid sequence should have no errors: {errors:?}"
+    );
 }
 
 #[test]
@@ -198,7 +206,11 @@ fn run_envelope_contains_work_order() {
 fn run_envelope_roundtrips_work_order_id() {
     let wo = work_order();
     let decoded = roundtrip(&run_env(&wo));
-    if let Envelope::Run { id, work_order: decoded_wo } = decoded {
+    if let Envelope::Run {
+        id,
+        work_order: decoded_wo,
+    } = decoded
+    {
         assert_eq!(id, wo.id.to_string());
         assert_eq!(decoded_wo.id, wo.id);
     } else {
@@ -210,7 +222,10 @@ fn run_envelope_roundtrips_work_order_id() {
 fn run_envelope_preserves_task_field() {
     let wo = WorkOrderBuilder::new("important task with special chars: <>&\"").build();
     let decoded = roundtrip(&run_env(&wo));
-    if let Envelope::Run { work_order: dwo, .. } = decoded {
+    if let Envelope::Run {
+        work_order: dwo, ..
+    } = decoded
+    {
         assert_eq!(dwo.task, "important task with special chars: <>&\"");
     } else {
         panic!("expected Run");
@@ -223,7 +238,12 @@ fn run_envelope_preserves_task_field() {
 
 #[test]
 fn event_envelope_carries_ref_id() {
-    let env = event_env("run-42", AgentEventKind::RunStarted { message: "go".into() });
+    let env = event_env(
+        "run-42",
+        AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
+    );
     let v = to_value(&env);
     assert_eq!(v["ref_id"], "run-42");
     assert_eq!(v["t"], "event");
@@ -231,7 +251,12 @@ fn event_envelope_carries_ref_id() {
 
 #[test]
 fn event_run_started_roundtrip() {
-    let env = event_env("r1", AgentEventKind::RunStarted { message: "starting".into() });
+    let env = event_env(
+        "r1",
+        AgentEventKind::RunStarted {
+            message: "starting".into(),
+        },
+    );
     let decoded = roundtrip(&env);
     if let Envelope::Event { event, .. } = decoded {
         assert!(matches!(event.kind, AgentEventKind::RunStarted { .. }));
@@ -242,7 +267,12 @@ fn event_run_started_roundtrip() {
 
 #[test]
 fn event_assistant_delta_roundtrip() {
-    let env = event_env("r1", AgentEventKind::AssistantDelta { text: "Hello ".into() });
+    let env = event_env(
+        "r1",
+        AgentEventKind::AssistantDelta {
+            text: "Hello ".into(),
+        },
+    );
     let decoded = roundtrip(&env);
     if let Envelope::Event { event, .. } = decoded {
         if let AgentEventKind::AssistantDelta { text } = &event.kind {
@@ -268,7 +298,13 @@ fn event_tool_call_roundtrip() {
     );
     let decoded = roundtrip(&env);
     if let Envelope::Event { event, .. } = decoded {
-        if let AgentEventKind::ToolCall { tool_name, tool_use_id, input, .. } = &event.kind {
+        if let AgentEventKind::ToolCall {
+            tool_name,
+            tool_use_id,
+            input,
+            ..
+        } = &event.kind
+        {
             assert_eq!(tool_name, "read_file");
             assert_eq!(tool_use_id.as_deref(), Some("tu_001"));
             assert_eq!(input["path"], "src/main.rs");
@@ -380,9 +416,24 @@ fn valid_sequence_hello_run_events_final() {
     let seq = vec![
         hello(),
         run_env(&wo),
-        event_env(&rid, AgentEventKind::RunStarted { message: "go".into() }),
-        event_env(&rid, AgentEventKind::AssistantMessage { text: "done".into() }),
-        event_env(&rid, AgentEventKind::RunCompleted { message: "ok".into() }),
+        event_env(
+            &rid,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
+        event_env(
+            &rid,
+            AgentEventKind::AssistantMessage {
+                text: "done".into(),
+            },
+        ),
+        event_env(
+            &rid,
+            AgentEventKind::RunCompleted {
+                message: "ok".into(),
+            },
+        ),
         final_env(&rid),
     ];
     let errors = EnvelopeValidator::new().validate_sequence(&seq);
@@ -421,7 +472,12 @@ fn event_before_run_is_out_of_order() {
     let rid = wo.id.to_string();
     let seq = vec![
         hello(),
-        event_env(&rid, AgentEventKind::RunStarted { message: "too early".into() }),
+        event_env(
+            &rid,
+            AgentEventKind::RunStarted {
+                message: "too early".into(),
+            },
+        ),
         run_env(&wo),
         final_env(&rid),
     ];
@@ -435,7 +491,11 @@ fn hello_not_first_is_detected() {
     let rid = wo.id.to_string();
     let seq = vec![run_env(&wo), hello(), final_env(&rid)];
     let errors = EnvelopeValidator::new().validate_sequence(&seq);
-    assert!(errors.iter().any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+    );
 }
 
 #[test]
@@ -530,7 +590,12 @@ fn two_sequential_runs_produce_independent_streams() {
     let envelopes_run1 = [
         hello(),
         run_env(&wo1),
-        event_env(&rid1, AgentEventKind::RunStarted { message: "run1".into() }),
+        event_env(
+            &rid1,
+            AgentEventKind::RunStarted {
+                message: "run1".into(),
+            },
+        ),
         final_env(&rid1),
     ];
     JsonlCodec::encode_many_to_writer(&mut buf, &envelopes_run1).unwrap();
@@ -546,7 +611,12 @@ fn two_sequential_runs_produce_independent_streams() {
     let mut buf2 = Vec::new();
     let envelopes_run2 = [
         run_env(&wo2),
-        event_env(&rid2, AgentEventKind::RunStarted { message: "run2".into() }),
+        event_env(
+            &rid2,
+            AgentEventKind::RunStarted {
+                message: "run2".into(),
+            },
+        ),
         final_env(&rid2),
     ];
     JsonlCodec::encode_many_to_writer(&mut buf2, &envelopes_run2).unwrap();
@@ -577,7 +647,10 @@ fn large_work_order_task_roundtrips() {
     let wo = WorkOrderBuilder::new(&big_task).build();
     let env = run_env(&wo);
     let decoded = roundtrip(&env);
-    if let Envelope::Run { work_order: dwo, .. } = decoded {
+    if let Envelope::Run {
+        work_order: dwo, ..
+    } = decoded
+    {
         assert_eq!(dwo.task.len(), 100_000);
     } else {
         panic!("expected Run");
@@ -587,7 +660,12 @@ fn large_work_order_task_roundtrips() {
 #[test]
 fn large_event_text_roundtrips() {
     let big_text = "y".repeat(200_000);
-    let env = event_env("r1", AgentEventKind::AssistantMessage { text: big_text.clone() });
+    let env = event_env(
+        "r1",
+        AgentEventKind::AssistantMessage {
+            text: big_text.clone(),
+        },
+    );
     let decoded = roundtrip(&env);
     if let Envelope::Event { event, .. } = decoded {
         if let AgentEventKind::AssistantMessage { text } = &event.kind {
@@ -607,7 +685,10 @@ fn large_payload_triggers_validation_warning() {
     let result = EnvelopeValidator::new().validate(&env);
     assert!(result.valid);
     assert!(result.warnings.iter().any(|w| {
-        matches!(w, abp_protocol::validate::ValidationWarning::LargePayload { .. })
+        matches!(
+            w,
+            abp_protocol::validate::ValidationWarning::LargePayload { .. }
+        )
     }));
 }
 
@@ -622,15 +703,28 @@ fn all_events_share_run_ref_id() {
     let seq = vec![
         hello(),
         run_env(&wo),
-        event_env(&rid, AgentEventKind::RunStarted { message: "go".into() }),
+        event_env(
+            &rid,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
         event_env(&rid, AgentEventKind::AssistantDelta { text: "tok".into() }),
-        event_env(&rid, AgentEventKind::ToolCall {
-            tool_name: "bash".into(),
-            tool_use_id: None,
-            parent_tool_use_id: None,
-            input: serde_json::json!("ls"),
-        }),
-        event_env(&rid, AgentEventKind::RunCompleted { message: "done".into() }),
+        event_env(
+            &rid,
+            AgentEventKind::ToolCall {
+                tool_name: "bash".into(),
+                tool_use_id: None,
+                parent_tool_use_id: None,
+                input: serde_json::json!("ls"),
+            },
+        ),
+        event_env(
+            &rid,
+            AgentEventKind::RunCompleted {
+                message: "done".into(),
+            },
+        ),
         final_env(&rid),
     ];
     let errors = EnvelopeValidator::new().validate_sequence(&seq);
@@ -644,11 +738,20 @@ fn mismatched_ref_id_detected() {
     let seq = vec![
         hello(),
         run_env(&wo),
-        event_env("wrong-ref-id", AgentEventKind::RunStarted { message: "go".into() }),
+        event_env(
+            "wrong-ref-id",
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
         final_env(&rid),
     ];
     let errors = EnvelopeValidator::new().validate_sequence(&seq);
-    assert!(errors.iter().any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -657,11 +760,20 @@ fn final_ref_id_must_match_run_id() {
     let seq = vec![
         hello(),
         run_env(&wo),
-        event_env(&wo.id.to_string(), AgentEventKind::RunStarted { message: "go".into() }),
+        event_env(
+            &wo.id.to_string(),
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
         final_env("wrong-final-ref"),
     ];
     let errors = EnvelopeValidator::new().validate_sequence(&seq);
-    assert!(errors.iter().any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 // =========================================================================
@@ -685,8 +797,14 @@ fn hello_capabilities_roundtrip() {
 fn hello_capabilities_support_levels_preserved() {
     let decoded = roundtrip(&hello());
     if let Envelope::Hello { capabilities, .. } = decoded {
-        assert!(matches!(capabilities[&Capability::ToolRead], SupportLevel::Native));
-        assert!(matches!(capabilities[&Capability::Streaming], SupportLevel::Emulated));
+        assert!(matches!(
+            capabilities[&Capability::ToolRead],
+            SupportLevel::Native
+        ));
+        assert!(matches!(
+            capabilities[&Capability::Streaming],
+            SupportLevel::Emulated
+        ));
     } else {
         panic!("expected Hello");
     }
@@ -708,7 +826,9 @@ fn restricted_capability_roundtrip() {
     let mut m = BTreeMap::new();
     m.insert(
         Capability::ToolBash,
-        SupportLevel::Restricted { reason: "sandbox only".into() },
+        SupportLevel::Restricted {
+            reason: "sandbox only".into(),
+        },
     );
     let env = Envelope::hello(backend(), m);
     let decoded = roundtrip(&env);
@@ -752,7 +872,12 @@ fn ext_field_roundtrips_on_event() {
 
 #[test]
 fn ext_field_none_omitted_in_json() {
-    let env = event_env("r1", AgentEventKind::RunStarted { message: "go".into() });
+    let env = event_env(
+        "r1",
+        AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
+    );
     let json = JsonlCodec::encode(&env).unwrap();
     assert!(!json.contains("\"ext\""));
 }
@@ -760,15 +885,20 @@ fn ext_field_none_omitted_in_json() {
 #[test]
 fn ext_field_with_nested_object() {
     let mut ext = BTreeMap::new();
-    ext.insert("raw_message".into(), serde_json::json!({
-        "role": "assistant",
-        "content": [{"type": "text", "text": "hello"}]
-    }));
+    ext.insert(
+        "raw_message".into(),
+        serde_json::json!({
+            "role": "assistant",
+            "content": [{"type": "text", "text": "hello"}]
+        }),
+    );
     let env = Envelope::Event {
         ref_id: "r1".into(),
         event: AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::AssistantMessage { text: "hello".into() },
+            kind: AgentEventKind::AssistantMessage {
+                text: "hello".into(),
+            },
             ext: Some(ext),
         },
     };
@@ -789,7 +919,9 @@ fn ext_field_with_empty_map() {
         ref_id: "r1".into(),
         event: AgentEvent {
             ts: Utc::now(),
-            kind: AgentEventKind::RunStarted { message: "go".into() },
+            kind: AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
             ext: Some(BTreeMap::new()),
         },
     };
@@ -811,12 +943,21 @@ fn ext_field_with_empty_map() {
 #[test]
 fn validator_rejects_empty_backend_id() {
     let env = Envelope::hello(
-        BackendIdentity { id: String::new(), backend_version: None, adapter_version: None },
+        BackendIdentity {
+            id: String::new(),
+            backend_version: None,
+            adapter_version: None,
+        },
         BTreeMap::new(),
     );
     let result = EnvelopeValidator::new().validate(&env);
     assert!(!result.valid);
-    assert!(result.errors.iter().any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id"))
+    );
 }
 
 #[test]
@@ -829,28 +970,50 @@ fn validator_rejects_invalid_contract_version() {
     };
     let result = EnvelopeValidator::new().validate(&env);
     assert!(!result.valid);
-    assert!(result.errors.iter().any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]
 fn validator_rejects_empty_run_id() {
     let wo = work_order();
-    let env = Envelope::Run { id: String::new(), work_order: wo };
+    let env = Envelope::Run {
+        id: String::new(),
+        work_order: wo,
+    };
     let result = EnvelopeValidator::new().validate(&env);
     assert!(!result.valid);
-    assert!(result.errors.iter().any(|e| matches!(e, ValidationError::EmptyField { field } if field == "id")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "id"))
+    );
 }
 
 #[test]
 fn validator_rejects_empty_event_ref_id() {
-    let env = event_env("", AgentEventKind::RunStarted { message: "go".into() });
+    let env = event_env(
+        "",
+        AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
+    );
     let result = EnvelopeValidator::new().validate(&env);
     assert!(!result.valid);
 }
 
 #[test]
 fn validator_rejects_empty_fatal_error() {
-    let env = Envelope::Fatal { ref_id: None, error: String::new(), error_code: None };
+    let env = Envelope::Fatal {
+        ref_id: None,
+        error: String::new(),
+        error_code: None,
+    };
     let result = EnvelopeValidator::new().validate(&env);
     assert!(!result.valid);
 }
@@ -881,19 +1044,42 @@ fn event_kind_uses_type_discriminator_not_t() {
 #[test]
 fn all_event_kinds_serialize_with_type_field() {
     let kinds: Vec<AgentEventKind> = vec![
-        AgentEventKind::RunStarted { message: "m".into() },
-        AgentEventKind::RunCompleted { message: "m".into() },
+        AgentEventKind::RunStarted {
+            message: "m".into(),
+        },
+        AgentEventKind::RunCompleted {
+            message: "m".into(),
+        },
         AgentEventKind::AssistantDelta { text: "t".into() },
         AgentEventKind::AssistantMessage { text: "t".into() },
-        AgentEventKind::Warning { message: "w".into() },
-        AgentEventKind::Error { message: "e".into(), error_code: None },
-        AgentEventKind::FileChanged { path: "p".into(), summary: "s".into() },
-        AgentEventKind::CommandExecuted { command: "c".into(), exit_code: None, output_preview: None },
+        AgentEventKind::Warning {
+            message: "w".into(),
+        },
+        AgentEventKind::Error {
+            message: "e".into(),
+            error_code: None,
+        },
+        AgentEventKind::FileChanged {
+            path: "p".into(),
+            summary: "s".into(),
+        },
+        AgentEventKind::CommandExecuted {
+            command: "c".into(),
+            exit_code: None,
+            output_preview: None,
+        },
     ];
     for kind in kinds {
-        let ev = AgentEvent { ts: Utc::now(), kind, ext: None };
+        let ev = AgentEvent {
+            ts: Utc::now(),
+            kind,
+            ext: None,
+        };
         let v = serde_json::to_value(&ev).unwrap();
-        assert!(v.get("type").is_some(), "kind should have 'type' field: {v}");
+        assert!(
+            v.get("type").is_some(),
+            "kind should have 'type' field: {v}"
+        );
     }
 }
 
@@ -901,7 +1087,10 @@ fn all_event_kinds_serialize_with_type_field() {
 fn event_kind_rename_snake_case() {
     let ev = AgentEvent {
         ts: Utc::now(),
-        kind: AgentEventKind::FileChanged { path: "a.rs".into(), summary: "added".into() },
+        kind: AgentEventKind::FileChanged {
+            path: "a.rs".into(),
+            summary: "added".into(),
+        },
         ext: None,
     };
     let v = serde_json::to_value(&ev).unwrap();
@@ -929,7 +1118,12 @@ fn encode_many_to_writer_multiple_envelopes() {
     let envs = vec![
         hello(),
         run_env(&wo),
-        event_env(&rid, AgentEventKind::RunStarted { message: "go".into() }),
+        event_env(
+            &rid,
+            AgentEventKind::RunStarted {
+                message: "go".into(),
+            },
+        ),
         final_env(&rid),
     ];
     let mut buf = Vec::new();

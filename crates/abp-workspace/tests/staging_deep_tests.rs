@@ -6,7 +6,7 @@
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
 use abp_workspace::diff::{
-    diff_workspace, ChangeType, DiffAnalyzer, DiffPolicy, DiffSummary, PolicyResult, WorkspaceDiff,
+    ChangeType, DiffAnalyzer, DiffPolicy, DiffSummary, PolicyResult, WorkspaceDiff, diff_workspace,
 };
 use abp_workspace::snapshot::{capture, compare};
 use abp_workspace::{WorkspaceManager, WorkspaceStager};
@@ -276,11 +276,7 @@ fn include_only_rs_files() {
 fn include_multiple_patterns() {
     let src = tempdir().unwrap();
     populate_source(src.path());
-    let spec = staged_spec_globs(
-        src.path(),
-        vec!["**/*.rs".into(), "*.md".into()],
-        vec![],
-    );
+    let spec = staged_spec_globs(src.path(), vec!["**/*.rs".into(), "*.md".into()], vec![]);
     let ws = WorkspaceManager::prepare(&spec).unwrap();
     let files = collect_files(ws.path());
     assert!(files.contains(&"src/main.rs".to_string()));
@@ -360,7 +356,13 @@ fn deep_nested_dirs_copied() {
     fs::write(deep.join("deep.txt"), "deep content").unwrap();
 
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    let dest_file = ws.path().join("a").join("b").join("c").join("d").join("deep.txt");
+    let dest_file = ws
+        .path()
+        .join("a")
+        .join("b")
+        .join("c")
+        .join("d")
+        .join("deep.txt");
     assert!(dest_file.exists());
     assert_eq!(fs::read_to_string(dest_file).unwrap(), "deep content");
 }
@@ -403,11 +405,7 @@ fn empty_directories_handling() {
 fn empty_dir_inside_populated_dir() {
     let src = tempdir().unwrap();
     fs::create_dir_all(src.path().join("parent").join("child_empty")).unwrap();
-    fs::write(
-        src.path().join("parent").join("sibling.txt"),
-        "content",
-    )
-    .unwrap();
+    fs::write(src.path().join("parent").join("sibling.txt"), "content").unwrap();
 
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     assert!(ws.path().join("parent").join("sibling.txt").exists());
@@ -560,7 +558,12 @@ fn diff_policy_fail_too_many_additions() {
 #[test]
 fn diff_policy_fail_denied_path() {
     let diff = WorkspaceDiff {
-        files_modified: vec![make_file_change("secret/key.pem", ChangeType::Modified, 1, 1)],
+        files_modified: vec![make_file_change(
+            "secret/key.pem",
+            ChangeType::Modified,
+            1,
+            1,
+        )],
         files_added: vec![],
         files_deleted: vec![],
         total_additions: 1,
@@ -727,7 +730,11 @@ fn many_files_copied_correctly() {
     let src = tempdir().unwrap();
     let count = 100;
     for i in 0..count {
-        fs::write(src.path().join(format!("file_{i:03}.txt")), format!("data {i}")).unwrap();
+        fs::write(
+            src.path().join(format!("file_{i:03}.txt")),
+            format!("data {i}"),
+        )
+        .unwrap();
     }
 
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
@@ -751,11 +758,7 @@ fn large_file_content_preserved() {
 fn deeply_nested_many_files() {
     let src = tempdir().unwrap();
     for i in 0..5 {
-        let dir = src
-            .path()
-            .join(format!("l1_{i}"))
-            .join("l2")
-            .join("l3");
+        let dir = src.path().join(format!("l1_{i}")).join("l2").join("l3");
         fs::create_dir_all(&dir).unwrap();
         for j in 0..5 {
             fs::write(dir.join(format!("f_{j}.txt")), format!("{i}-{j}")).unwrap();

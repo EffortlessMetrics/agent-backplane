@@ -4,11 +4,10 @@
 //! validation.
 #![allow(clippy::field_reassign_with_default)]
 
-use abp_config::{
-    load_from_file, load_from_str, validate_config, BackendEntry, BackplaneConfig,
-    ConfigError,
-};
 use abp_config::validate::ConfigValidator;
+use abp_config::{
+    BackendEntry, BackplaneConfig, ConfigError, load_from_file, load_from_str, validate_config,
+};
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::Path;
@@ -335,10 +334,7 @@ fn backend_names_are_unique() {
         },
     );
     // BTreeMap deduplicates — only one "dup" key.
-    assert_eq!(
-        cfg.backends.keys().filter(|k| *k == "dup").count(),
-        1
-    );
+    assert_eq!(cfg.backends.keys().filter(|k| *k == "dup").count(), 1);
 }
 
 // ===========================================================================

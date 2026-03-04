@@ -8,8 +8,8 @@
 
 use abp_core::ArtifactRef;
 use abp_receipt::{
-    AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder, UsageNormalized,
-    canonicalize, compute_hash, verify_hash,
+    AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder, UsageNormalized, canonicalize,
+    compute_hash, verify_hash,
 };
 use chrono::{TimeZone, Utc};
 use std::collections::BTreeMap;
@@ -312,7 +312,10 @@ fn verify_hash_fails_with_garbage_hash() {
 
 #[test]
 fn hash_stability_100_iterations() {
-    let r = base_builder().model("stable-model").usage_tokens(10, 20).build();
+    let r = base_builder()
+        .model("stable-model")
+        .usage_tokens(10, 20)
+        .build();
     let reference = compute_hash(&r).unwrap();
     for _ in 0..100 {
         assert_eq!(compute_hash(&r).unwrap(), reference);
@@ -547,9 +550,7 @@ fn trace_affects_hash() {
     let r_with_trace = base_builder()
         .add_event(AgentEvent {
             ts,
-            kind: AgentEventKind::AssistantDelta {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "hi".into() },
             ext: None,
         })
         .build();
@@ -717,10 +718,7 @@ fn serde_roundtrip_preserves_all_fields() {
 
 #[test]
 fn serde_roundtrip_compact_bytes() {
-    let r = base_builder()
-        .usage_tokens(10, 20)
-        .with_hash()
-        .unwrap();
+    let r = base_builder().usage_tokens(10, 20).with_hash().unwrap();
     let bytes = abp_receipt::serde_formats::to_bytes(&r).unwrap();
     let r2 = abp_receipt::serde_formats::from_bytes(&bytes).unwrap();
     assert_eq!(r.receipt_sha256, r2.receipt_sha256);

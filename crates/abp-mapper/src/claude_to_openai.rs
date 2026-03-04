@@ -863,9 +863,11 @@ mod tests {
         assert_eq!(parts[0]["type"], "text");
         assert_eq!(parts[0]["text"], "What is this?");
         assert_eq!(parts[1]["type"], "image_url");
-        assert!(parts[1]["image_url"]["url"]
-            .as_str()
-            .unwrap()
-            .starts_with("data:image/png;base64,"));
+        assert!(
+            parts[1]["image_url"]["url"]
+                .as_str()
+                .unwrap()
+                .starts_with("data:image/png;base64,")
+        );
     }
 }

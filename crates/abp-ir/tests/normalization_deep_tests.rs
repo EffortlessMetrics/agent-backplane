@@ -414,9 +414,7 @@ mod construction {
         meta.insert("source".to_string(), json!("test"));
         let msg = IrMessage {
             role: IrRole::User,
-            content: vec![IrContentBlock::Text {
-                text: "hi".into(),
-            }],
+            content: vec![IrContentBlock::Text { text: "hi".into() }],
             metadata: meta.clone(),
         };
         assert_eq!(msg.metadata, meta);
@@ -432,18 +430,30 @@ mod role_mapping {
 
     #[test]
     fn openai_roles_map_directly() {
-        assert_eq!(ir_role_to_dialect_role(IrRole::System, Dialect::OpenAi), "system");
-        assert_eq!(ir_role_to_dialect_role(IrRole::User, Dialect::OpenAi), "user");
+        assert_eq!(
+            ir_role_to_dialect_role(IrRole::System, Dialect::OpenAi),
+            "system"
+        );
+        assert_eq!(
+            ir_role_to_dialect_role(IrRole::User, Dialect::OpenAi),
+            "user"
+        );
         assert_eq!(
             ir_role_to_dialect_role(IrRole::Assistant, Dialect::OpenAi),
             "assistant"
         );
-        assert_eq!(ir_role_to_dialect_role(IrRole::Tool, Dialect::OpenAi), "tool");
+        assert_eq!(
+            ir_role_to_dialect_role(IrRole::Tool, Dialect::OpenAi),
+            "tool"
+        );
     }
 
     #[test]
     fn claude_tool_role_maps_to_user() {
-        assert_eq!(ir_role_to_dialect_role(IrRole::Tool, Dialect::Claude), "user");
+        assert_eq!(
+            ir_role_to_dialect_role(IrRole::Tool, Dialect::Claude),
+            "user"
+        );
     }
 
     #[test]
@@ -456,7 +466,10 @@ mod role_mapping {
 
     #[test]
     fn gemini_tool_maps_to_user() {
-        assert_eq!(ir_role_to_dialect_role(IrRole::Tool, Dialect::Gemini), "user");
+        assert_eq!(
+            ir_role_to_dialect_role(IrRole::Tool, Dialect::Gemini),
+            "user"
+        );
     }
 
     #[test]
@@ -469,7 +482,12 @@ mod role_mapping {
     #[test]
     fn kimi_codex_copilot_match_openai_roles() {
         let openai_compatible = [Dialect::Kimi, Dialect::Codex, Dialect::Copilot];
-        let roles = [IrRole::System, IrRole::User, IrRole::Assistant, IrRole::Tool];
+        let roles = [
+            IrRole::System,
+            IrRole::User,
+            IrRole::Assistant,
+            IrRole::Tool,
+        ];
         for dialect in &openai_compatible {
             for role in &roles {
                 assert_eq!(
@@ -703,7 +721,11 @@ mod normalization {
             ],
         ));
         let n = merge_adjacent_text(&conv);
-        assert_eq!(n.messages[0].content.len(), 3, "non-adjacent text blocks should not merge");
+        assert_eq!(
+            n.messages[0].content.len(),
+            3,
+            "non-adjacent text blocks should not merge"
+        );
     }
 }
 
@@ -783,7 +805,9 @@ mod lowering {
     #[test]
     fn gemini_tool_uses_function_declarations() {
         let lowered = lower_to_gemini(&sample_conv(), &sample_tools());
-        let decls = lowered["tools"][0]["function_declarations"].as_array().unwrap();
+        let decls = lowered["tools"][0]["function_declarations"]
+            .as_array()
+            .unwrap();
         assert_eq!(decls.len(), 1);
         assert_eq!(decls[0]["name"], "calc");
     }
@@ -824,7 +848,10 @@ mod lowering {
         let tools = sample_tools();
         let openai = lower_to_openai_like(&conv, &tools);
         let copilot = lower_to_copilot(&conv, &tools);
-        assert_eq!(openai, copilot, "Copilot should use OpenAI-compatible format");
+        assert_eq!(
+            openai, copilot,
+            "Copilot should use OpenAI-compatible format"
+        );
     }
 }
 
@@ -1090,8 +1117,7 @@ mod content_merging {
 
     #[test]
     fn single_text_block_unchanged() {
-        let conv =
-            IrConversation::new().push(IrMessage::text(IrRole::User, "hello"));
+        let conv = IrConversation::new().push(IrMessage::text(IrRole::User, "hello"));
         let merged = merge_adjacent_text(&conv);
         assert_eq!(merged.messages[0].content.len(), 1);
         assert_eq!(merged.messages[0].text_content(), "hello");
@@ -1182,9 +1208,7 @@ mod serde_roundtrip {
     #[test]
     fn ir_content_block_tags() {
         let blocks = [
-            IrContentBlock::Text {
-                text: "t".into(),
-            },
+            IrContentBlock::Text { text: "t".into() },
             IrContentBlock::Image {
                 media_type: "image/png".into(),
                 data: "d".into(),
@@ -1199,9 +1223,7 @@ mod serde_roundtrip {
                 content: vec![],
                 is_error: false,
             },
-            IrContentBlock::Thinking {
-                text: "th".into(),
-            },
+            IrContentBlock::Thinking { text: "th".into() },
         ];
         let expected_tags = ["text", "image", "tool_use", "tool_result", "thinking"];
         for (block, expected_tag) in blocks.iter().zip(expected_tags.iter()) {
@@ -1215,7 +1237,12 @@ mod serde_roundtrip {
 
     #[test]
     fn ir_role_serde() {
-        let roles = [IrRole::System, IrRole::User, IrRole::Assistant, IrRole::Tool];
+        let roles = [
+            IrRole::System,
+            IrRole::User,
+            IrRole::Assistant,
+            IrRole::Tool,
+        ];
         let expected = ["\"system\"", "\"user\"", "\"assistant\"", "\"tool\""];
         for (role, exp) in roles.iter().zip(expected.iter()) {
             let json = serde_json::to_string(role).unwrap();
@@ -1386,7 +1413,10 @@ mod edge_cases {
         let conv = IrConversation::new();
         for dialect in Dialect::all() {
             let lowered = lower_for_dialect(*dialect, &conv, &[]);
-            assert!(lowered.is_object(), "{dialect}: should produce valid JSON object");
+            assert!(
+                lowered.is_object(),
+                "{dialect}: should produce valid JSON object"
+            );
         }
     }
 }

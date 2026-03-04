@@ -361,7 +361,10 @@ fn validate_claude(obj: &serde_json::Map<String, Value>, issues: &mut Vec<Valida
 
 /// Warns when Claude messages do not alternate between user and assistant.
 fn check_claude_alternation(msgs: &[Value], issues: &mut Vec<ValidationIssue>) {
-    let roles: Vec<Option<&str>> = msgs.iter().map(|m| m.get("role").and_then(Value::as_str)).collect();
+    let roles: Vec<Option<&str>> = msgs
+        .iter()
+        .map(|m| m.get("role").and_then(Value::as_str))
+        .collect();
 
     for window in roles.windows(2) {
         if let [Some(prev), Some(curr)] = window {
@@ -369,9 +372,7 @@ fn check_claude_alternation(msgs: &[Value], issues: &mut Vec<ValidationIssue>) {
                 // Find the index of this pair
                 let idx = roles
                     .windows(2)
-                    .position(|w| {
-                        w[0] == Some(prev) && w[1] == Some(curr) && prev == curr
-                    })
+                    .position(|w| w[0] == Some(prev) && w[1] == Some(curr) && prev == curr)
                     .unwrap_or(0);
                 issues.push(ValidationIssue {
                     severity: Severity::Warning,
@@ -635,7 +636,10 @@ mod tests {
 
     #[test]
     fn gemini_empty_contents_is_error() {
-        let r = v().validate(Dialect::Gemini, &json!({"model": "gemini-pro", "contents": []}));
+        let r = v().validate(
+            Dialect::Gemini,
+            &json!({"model": "gemini-pro", "contents": []}),
+        );
         assert!(!r.is_valid());
         assert!(r.issues.iter().any(|i| i.code == "empty_contents"));
     }

@@ -5,8 +5,8 @@
 //! cross-SDK translation, streaming, tool calls, system messages, and edge cases.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
-    Receipt, RunMetadata, UsageNormalized, VerificationReport, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -219,10 +219,8 @@ mod openai {
     fn openai_usage_conversion() {
         let req = minimal_request();
         let wo = convert::to_work_order(&req);
-        let receipt = mock_receipt_with_usage(
-            vec![assistant_event("test")],
-            usage_with_tokens(100, 50),
-        );
+        let receipt =
+            mock_receipt_with_usage(vec![assistant_event("test")], usage_with_tokens(100, 50));
         let resp = convert::from_receipt(&receipt, &wo);
         let usage = resp.usage.unwrap();
         assert_eq!(usage.prompt_tokens, 100);
@@ -246,7 +244,10 @@ mod openai {
         assert!(chunk.is_some());
         let chunk = chunk.unwrap();
         let tc = chunk.choices[0].delta.tool_calls.as_ref().unwrap();
-        assert_eq!(tc[0].function.as_ref().unwrap().name.as_deref(), Some("read_file"));
+        assert_eq!(
+            tc[0].function.as_ref().unwrap().name.as_deref(),
+            Some("read_file")
+        );
     }
 
     #[test]
@@ -279,12 +280,14 @@ mod openai {
         let wo = convert::to_work_order(&req);
         let receipt = mock_receipt(vec![error_event("something went wrong")]);
         let resp = convert::from_receipt(&receipt, &wo);
-        assert!(resp.choices[0]
-            .message
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("Error"));
+        assert!(
+            resp.choices[0]
+                .message
+                .content
+                .as_deref()
+                .unwrap()
+                .contains("Error")
+        );
     }
 }
 
@@ -352,7 +355,10 @@ mod claude {
             tool_choice: None,
         };
         let wo = convert::to_work_order(&req);
-        assert_eq!(wo.config.vendor.get("system").unwrap(), &json!("You are a pirate."));
+        assert_eq!(
+            wo.config.vendor.get("system").unwrap(),
+            &json!("You are a pirate.")
+        );
     }
 
     #[test]
@@ -514,9 +520,8 @@ mod gemini {
         let client = GeminiClient::new("gemini-2.5-flash");
         let stream = rt.block_on(client.generate_stream(req)).unwrap();
 
-        let events: Vec<_> = rt.block_on(async {
-            tokio_stream::StreamExt::collect::<Vec<_>>(stream).await
-        });
+        let events: Vec<_> =
+            rt.block_on(async { tokio_stream::StreamExt::collect::<Vec<_>>(stream).await });
         assert!(!events.is_empty());
     }
 
@@ -540,8 +545,8 @@ mod gemini {
 mod codex {
     use super::*;
     use abp_shim_codex::{
-        codex_message, events_to_stream_events, ir_usage_to_usage, receipt_to_response,
-        request_to_ir, request_to_work_order, CodexRequestBuilder,
+        CodexRequestBuilder, codex_message, events_to_stream_events, ir_usage_to_usage,
+        receipt_to_response, request_to_ir, request_to_work_order,
     };
 
     #[test]
@@ -572,7 +577,10 @@ mod codex {
 
         let wo = request_to_work_order(&req);
         assert_eq!(wo.config.vendor.get("temperature").unwrap(), &json!(0.3));
-        assert_eq!(wo.config.vendor.get("max_output_tokens").unwrap(), &json!(2048));
+        assert_eq!(
+            wo.config.vendor.get("max_output_tokens").unwrap(),
+            &json!(2048)
+        );
     }
 
     #[test]
@@ -591,10 +599,7 @@ mod codex {
 
     #[test]
     fn codex_streaming_events() {
-        let events = vec![
-            delta_event("Hello "),
-            assistant_event("World"),
-        ];
+        let events = vec![delta_event("Hello "), assistant_event("World")];
         let stream = events_to_stream_events(&events, "codex-mini-latest");
         // Should have: ResponseCreated, delta, message done, ResponseCompleted
         assert!(stream.len() >= 3);
@@ -637,8 +642,8 @@ mod codex {
 mod kimi {
     use super::*;
     use abp_shim_kimi::{
-        events_to_stream_chunks, ir_to_messages, ir_usage_to_usage, messages_to_ir, receipt_to_response,
-        request_to_work_order, KimiRequestBuilder, Message,
+        KimiRequestBuilder, Message, events_to_stream_chunks, ir_to_messages, ir_usage_to_usage,
+        messages_to_ir, receipt_to_response, request_to_work_order,
     };
 
     #[test]
@@ -657,10 +662,7 @@ mod kimi {
         assert_eq!(resp.model, "moonshot-v1-8k");
         assert_eq!(resp.choices.len(), 1);
         assert_eq!(resp.choices[0].message.content.as_deref(), Some("Hello!"));
-        assert_eq!(
-            resp.choices[0].finish_reason.as_deref(),
-            Some("stop")
-        );
+        assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("stop"));
     }
 
     #[test]
@@ -692,14 +694,14 @@ mod kimi {
 
     #[test]
     fn kimi_streaming_chunks() {
-        let events = vec![
-            delta_event("chunk1"),
-            assistant_event("chunk2"),
-        ];
+        let events = vec![delta_event("chunk1"), assistant_event("chunk2")];
         let chunks = events_to_stream_chunks(&events, "moonshot-v1-8k");
         // delta + message + final stop chunk
         assert!(chunks.len() >= 3);
-        assert_eq!(chunks.last().unwrap().choices[0].finish_reason.as_deref(), Some("stop"));
+        assert_eq!(
+            chunks.last().unwrap().choices[0].finish_reason.as_deref(),
+            Some("stop")
+        );
     }
 
     #[test]
@@ -732,8 +734,8 @@ mod copilot {
     use super::*;
     use abp_copilot_sdk::dialect::{CopilotReference, CopilotReferenceType};
     use abp_shim_copilot::{
-        events_to_stream_events, ir_to_messages, ir_usage_to_tuple, messages_to_ir,
-        receipt_to_response, request_to_work_order, CopilotRequestBuilder, Message,
+        CopilotRequestBuilder, Message, events_to_stream_events, ir_to_messages, ir_usage_to_tuple,
+        messages_to_ir, receipt_to_response, request_to_work_order,
     };
 
     #[test]
@@ -785,10 +787,7 @@ mod copilot {
 
     #[test]
     fn copilot_streaming_events() {
-        let events = vec![
-            delta_event("Hello "),
-            assistant_event("World"),
-        ];
+        let events = vec![delta_event("Hello "), assistant_event("World")];
         let stream = events_to_stream_events(&events, "gpt-4o");
         // CopilotReferences + TextDelta + TextDelta + Done
         assert!(stream.len() >= 3);
@@ -986,9 +985,8 @@ mod streaming {
         let client = GeminiClient::new("gemini-2.5-flash");
         let stream = rt.block_on(client.generate_stream(req)).unwrap();
 
-        let events: Vec<_> = rt.block_on(async {
-            tokio_stream::StreamExt::collect::<Vec<_>>(stream).await
-        });
+        let events: Vec<_> =
+            rt.block_on(async { tokio_stream::StreamExt::collect::<Vec<_>>(stream).await });
         assert!(!events.is_empty());
     }
 }
@@ -1076,7 +1074,9 @@ mod tool_calls {
         // OpenAI
         {
             use abp_shim_openai::convert;
-            let wo = abp_core::WorkOrderBuilder::new("test").model("gpt-4o").build();
+            let wo = abp_core::WorkOrderBuilder::new("test")
+                .model("gpt-4o")
+                .build();
             let resp = convert::from_receipt(&receipt, &wo);
             let tc = resp.choices[0].message.tool_calls.as_ref().unwrap();
             assert_eq!(tc[0].function.name, "my_tool");
@@ -1086,7 +1086,9 @@ mod tool_calls {
         // Claude
         {
             use abp_shim_claude::convert;
-            let wo = abp_core::WorkOrderBuilder::new("test").model("claude-sonnet-4-20250514").build();
+            let wo = abp_core::WorkOrderBuilder::new("test")
+                .model("claude-sonnet-4-20250514")
+                .build();
             let resp = convert::from_receipt(&receipt, &wo);
             let tu = &resp.content[0];
             if let abp_shim_claude::types::ContentBlock::ToolUse { id, name, .. } = tu {
@@ -1187,10 +1189,7 @@ mod system_messages {
     fn kimi_system_message_ir_roundtrip() {
         use abp_shim_kimi::*;
 
-        let messages = vec![
-            Message::system("You are a pirate"),
-            Message::user("Hello"),
-        ];
+        let messages = vec![Message::system("You are a pirate"), Message::user("Hello")];
         let ir = messages_to_ir(&messages);
         let back = ir_to_messages(&ir);
         // System message should survive IR roundtrip
@@ -1295,9 +1294,7 @@ mod edge_cases {
     fn kimi_empty_messages() {
         use abp_shim_kimi::*;
 
-        let req = KimiRequestBuilder::new()
-            .messages(vec![])
-            .build();
+        let req = KimiRequestBuilder::new().messages(vec![]).build();
         let wo = request_to_work_order(&req);
         assert_eq!(wo.task, "kimi completion");
     }
@@ -1306,9 +1303,7 @@ mod edge_cases {
     fn copilot_empty_messages() {
         use abp_shim_copilot::*;
 
-        let req = CopilotRequestBuilder::new()
-            .messages(vec![])
-            .build();
+        let req = CopilotRequestBuilder::new().messages(vec![]).build();
         let wo = request_to_work_order(&req);
         assert_eq!(wo.task, "copilot completion");
     }
@@ -1411,10 +1406,7 @@ mod edge_cases {
             tool_choice: None,
         };
         let wo = convert::to_work_order(&req);
-        let receipt = mock_receipt(vec![
-            delta_event("Hello "),
-            delta_event("World"),
-        ]);
+        let receipt = mock_receipt(vec![delta_event("Hello "), delta_event("World")]);
         let resp = convert::from_receipt(&receipt, &wo);
         assert_eq!(
             resp.choices[0].message.content.as_deref(),

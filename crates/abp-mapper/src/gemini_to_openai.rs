@@ -231,9 +231,7 @@ fn extract_text_from_parts(value: &Value) -> String {
 fn map_gemini_user_message(content: &Value) -> Result<Value, MappingError> {
     if let Some(Value::Array(parts)) = content.get("parts") {
         // Check for functionResponse parts → emit as tool messages
-        let has_fn_response = parts
-            .iter()
-            .any(|p| p.get("functionResponse").is_some());
+        let has_fn_response = parts.iter().any(|p| p.get("functionResponse").is_some());
 
         if has_fn_response && parts.len() == 1 {
             let fr = parts[0].get("functionResponse").unwrap();
@@ -299,7 +297,11 @@ fn map_gemini_model_message(content: &Value) -> Result<Vec<Value>, MappingError>
         if let Some(text) = part.get("text").and_then(Value::as_str) {
             text_parts.push(text.to_owned());
         } else if let Some(fc) = part.get("functionCall") {
-            let name = fc.get("name").and_then(Value::as_str).unwrap_or("").to_owned();
+            let name = fc
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned();
             let args = fc.get("args").cloned().unwrap_or(json!({}));
             let args_str = serde_json::to_string(&args).unwrap_or_else(|_| "{}".into());
             tool_calls.push(json!({
@@ -548,10 +550,12 @@ mod tests {
         let parts = msg["content"].as_array().unwrap();
         assert_eq!(parts[0]["type"], "text");
         assert_eq!(parts[1]["type"], "image_url");
-        assert!(parts[1]["image_url"]["url"]
-            .as_str()
-            .unwrap()
-            .starts_with("data:image/png;base64,"));
+        assert!(
+            parts[1]["image_url"]["url"]
+                .as_str()
+                .unwrap()
+                .starts_with("data:image/png;base64,")
+        );
     }
 
     #[test]

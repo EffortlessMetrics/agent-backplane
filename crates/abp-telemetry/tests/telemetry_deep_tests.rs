@@ -32,13 +32,7 @@ fn ev(event_type: TelemetryEventType) -> TelemetryEvent {
 }
 
 fn ev_run(event_type: TelemetryEventType, run_id: &str) -> TelemetryEvent {
-    make_event(
-        event_type,
-        "2025-01-01T00:00:00Z",
-        Some(run_id),
-        None,
-        None,
-    )
+    make_event(event_type, "2025-01-01T00:00:00Z", Some(run_id), None, None)
 }
 
 fn ev_backend(event_type: TelemetryEventType, backend: &str) -> TelemetryEvent {
@@ -86,7 +80,13 @@ fn ev_full(
     backend: &str,
     duration_ms: u64,
 ) -> TelemetryEvent {
-    make_event(event_type, ts, Some(run_id), Some(backend), Some(duration_ms))
+    make_event(
+        event_type,
+        ts,
+        Some(run_id),
+        Some(backend),
+        Some(duration_ms),
+    )
 }
 
 fn simple_run(backend: &str, duration_ms: u64, errors: u64) -> RunMetrics {
@@ -574,10 +574,7 @@ fn events_with_identical_timestamps_all_preserved() {
 fn trace_id_in_metadata_survives_collection() {
     let mut c = TelemetryCollector::new();
     let mut meta = BTreeMap::new();
-    meta.insert(
-        "trace_id".to_string(),
-        serde_json::json!("abc-123-trace"),
-    );
+    meta.insert("trace_id".to_string(), serde_json::json!("abc-123-trace"));
     meta.insert("span_id".to_string(), serde_json::json!("span-456"));
     let event = TelemetryEvent {
         timestamp: "2025-01-01T00:00:00Z".to_string(),
@@ -596,10 +593,7 @@ fn trace_id_in_metadata_survives_collection() {
 #[test]
 fn trace_id_preserved_after_serde_roundtrip() {
     let mut meta = BTreeMap::new();
-    meta.insert(
-        "trace_id".to_string(),
-        serde_json::json!("trace-roundtrip"),
-    );
+    meta.insert("trace_id".to_string(), serde_json::json!("trace-roundtrip"));
     meta.insert("span_id".to_string(), serde_json::json!("span-rt"));
     let event = TelemetryEvent {
         timestamp: "2025-01-01T00:00:00Z".to_string(),
@@ -624,10 +618,7 @@ fn multiple_events_share_trace_id() {
         TelemetryEventType::RunCompleted,
     ] {
         let mut meta = BTreeMap::new();
-        meta.insert(
-            "trace_id".to_string(),
-            serde_json::json!("shared-trace"),
-        );
+        meta.insert("trace_id".to_string(), serde_json::json!("shared-trace"));
         c.record(TelemetryEvent {
             timestamp: "2025-01-01T00:00:00Z".to_string(),
             event_type: etype.clone(),
@@ -747,7 +738,11 @@ fn telemetry_span_serde_roundtrip() {
 
 #[test]
 fn export_format_serde_roundtrip() {
-    for fmt in &[ExportFormat::Json, ExportFormat::Csv, ExportFormat::Structured] {
+    for fmt in &[
+        ExportFormat::Json,
+        ExportFormat::Csv,
+        ExportFormat::Structured,
+    ] {
         let json = serde_json::to_string(fmt).unwrap();
         let fmt2: ExportFormat = serde_json::from_str(&json).unwrap();
         assert_eq!(*fmt, fmt2);
@@ -761,10 +756,7 @@ fn event_with_rich_metadata_serde() {
     meta.insert("number".to_string(), serde_json::json!(42));
     meta.insert("boolean".to_string(), serde_json::json!(true));
     meta.insert("null".to_string(), serde_json::json!(null));
-    meta.insert(
-        "array".to_string(),
-        serde_json::json!([1, 2, 3]),
-    );
+    meta.insert("array".to_string(), serde_json::json!([1, 2, 3]));
     let event = TelemetryEvent {
         timestamp: "2025-01-01T00:00:00Z".to_string(),
         event_type: TelemetryEventType::MappingPerformed,

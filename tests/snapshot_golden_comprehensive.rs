@@ -1150,10 +1150,7 @@ fn error_code_display_backend_timeout() {
 
 #[test]
 fn error_code_display_policy_denied() {
-    assert_eq!(
-        abp_error::ErrorCode::PolicyDenied.as_str(),
-        "policy_denied",
-    );
+    assert_eq!(abp_error::ErrorCode::PolicyDenied.as_str(), "policy_denied",);
 }
 
 #[test]

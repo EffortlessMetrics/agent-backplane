@@ -275,7 +275,14 @@ fn score_structure(
 fn score_openai_structure(obj: &serde_json::Map<String, Value>) -> (f64, Vec<String>) {
     let mut score = 0.0_f64;
     let mut ev = Vec::new();
-    let valid_roles = ["system", "user", "assistant", "tool", "function", "developer"];
+    let valid_roles = [
+        "system",
+        "user",
+        "assistant",
+        "tool",
+        "function",
+        "developer",
+    ];
 
     if let Some(Value::Array(msgs)) = obj.get("messages") {
         let roles_valid = msgs.iter().all(|m| {

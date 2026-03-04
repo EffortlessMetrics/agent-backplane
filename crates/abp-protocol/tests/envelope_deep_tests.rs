@@ -198,9 +198,7 @@ fn tag_field_is_t_not_type_for_run() {
 fn tag_field_is_t_not_type_for_event() {
     let env = Envelope::Event {
         ref_id: "r".into(),
-        event: mk_event(AgentEventKind::AssistantDelta {
-            text: "tok".into(),
-        }),
+        event: mk_event(AgentEventKind::AssistantDelta { text: "tok".into() }),
     };
     let v = serde_json::to_value(&env).unwrap();
     assert_eq!(v["t"], "event");
@@ -287,7 +285,9 @@ fn parse_fatal_from_json_string() {
     let json = r#"{"t":"fatal","ref_id":null,"error":"sidecar died"}"#;
     let env = JsonlCodec::decode(json).unwrap();
     if let Envelope::Fatal {
-        ref_id, error, error_code,
+        ref_id,
+        error,
+        error_code,
     } = env
     {
         assert!(ref_id.is_none());
@@ -746,9 +746,7 @@ fn final_receipt_with_trace_events() {
         mk_event(AgentEventKind::RunStarted {
             message: "go".into(),
         }),
-        mk_event(AgentEventKind::AssistantDelta {
-            text: "tok".into(),
-        }),
+        mk_event(AgentEventKind::AssistantDelta { text: "tok".into() }),
         mk_event(AgentEventKind::RunCompleted {
             message: "done".into(),
         }),
@@ -1204,8 +1202,7 @@ fn large_assistant_message_roundtrip() {
 
 #[test]
 fn large_tool_call_input_roundtrip() {
-    let large_input: serde_json::Value =
-        serde_json::json!({"data": "X".repeat(50_000)});
+    let large_input: serde_json::Value = serde_json::json!({"data": "X".repeat(50_000)});
     let env = Envelope::Event {
         ref_id: "run-large-tool".into(),
         event: mk_event(AgentEventKind::ToolCall {
