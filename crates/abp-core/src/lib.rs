@@ -1,12 +1,40 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #![doc = include_str!("../README.md")]
-//! abp-core
+//!
+//! # Contract types
+//!
+//! `abp-core` is the foundational crate of the Agent Backplane workspace.
+//! It defines every type that crosses a crate boundary: work orders,
+//! receipts, agent events, capabilities, policies, and configuration.
+//!
+//! **If you only take one dependency from this workspace, take this one.**
+//!
+//! ## Key types
+//!
+//! | Type | Purpose |
+//! |------|---------|
+//! | [`WorkOrder`] | A single unit of work dispatched to a backend |
+//! | [`Receipt`] | Outcome metadata produced after a run completes |
+//! | [`AgentEvent`] / [`AgentEventKind`] | Streaming events emitted during execution |
+//! | [`Capability`] / [`CapabilityManifest`] | Feature flags a backend advertises |
+//! | [`PolicyProfile`] | Tool / path / network security restrictions |
+//! | [`ExecutionMode`] | Passthrough vs. mapped dialect translation |
+//!
+//! ## Companion crates
+//!
+//! * `abp-protocol` — JSONL wire format for sidecar communication
+//! * `abp-mapper` — cross-dialect request/response translation
+//! * `abp-capability` — capability negotiation and registry
+//! * `abp-error` — unified error taxonomy with stable error codes
+//! * `abp-runtime` — orchestration: workspace prep, backend selection, receipt hashing
+//!
+//! ## Receipt hashing
+//!
+//! `receipt_hash()` sets `receipt_sha256` to `null` before hashing so the
+//! stored hash is never self-referential.  Prefer [`Receipt::with_hash`]
+//! over calling `receipt_hash()` directly.
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
-//!
-//! The stable contract for Agent Backplane.
-//!
-//! If you only take one dependency, take this one.
 
 /// Event aggregation and analytics.
 pub mod aggregate;

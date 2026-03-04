@@ -2,14 +2,33 @@
 #![doc = include_str!("../README.md")]
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
-//! Capability negotiation between work-order requirements and backend manifests.
+//! # Capability negotiation
 //!
-//! This crate provides functions to compare a [`CapabilityManifest`] against
-//! [`CapabilityRequirements`] and produce structured negotiation results,
-//! per-capability support checks, and human-readable compatibility reports.
+//! `abp-capability` compares what a backend can do (its `CapabilityManifest`)
+//! against what a work order needs (`CapabilityRequirements`) and produces a
+//! structured [`NegotiationResult`].
 //!
-//! It also provides a [`CapabilityRegistry`] that stores manifests for known
-//! dialects/backends and pre-populated manifests for common models.
+//! ## Core workflow
+//!
+//! 1. Build or look up a `CapabilityManifest` (e.g. from a sidecar `hello`).
+//! 2. Call [`negotiate_capabilities`] (or the [`negotiate()`](negotiate())
+//!    function for the structured `CapabilityRequirements` form) to classify
+//!    each requirement as native, emulated, or unsupported.
+//! 3. Inspect [`NegotiationResult::is_viable`] — if all required capabilities
+//!    can be satisfied (natively or via emulation), the backend is a match.
+//! 4. Optionally call [`generate_report`] for a human-readable summary.
+//!
+//! ## Registry
+//!
+//! [`CapabilityRegistry`] stores manifests for known backends and ships with
+//! pre-populated manifests for six dialects (OpenAI, Claude, Gemini, Kimi,
+//! Codex, Copilot) via [`CapabilityRegistry::with_defaults`].
+//!
+//! ## Emulation plan
+//!
+//! When a capability is not natively supported, the [`emulation`] module and
+//! [`EmulationStrategy`] describe how ABP can bridge the gap — client-side
+//! polyfill, server fallback, or best-effort approximation.
 
 pub mod compare;
 pub mod emulation;

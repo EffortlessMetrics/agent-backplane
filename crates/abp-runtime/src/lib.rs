@@ -1,14 +1,44 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #![doc = include_str!("../README.md")]
-//! abp-runtime
 //!
-//! Orchestration layer.
+//! # Runtime orchestration
 //!
-//! Responsibilities:
-//! - prepare a workspace (pass-through or staged)
-//! - enforce/record policy (best-effort in v0.1)
-//! - select a backend and stream events
-//! - produce a canonical receipt with verification metadata
+//! `abp-runtime` is the top-level orchestrator for the Agent Backplane.  It
+//! owns the full lifecycle of a work-order run:
+//!
+//! 1. **Workspace preparation** — copies or stages the workspace via
+//!    `abp-workspace`, initialises git for verification diffs.
+//! 2. **Policy compilation** — compiles the work order's `PolicyProfile`
+//!    into a `PolicyEngine` (from `abp-policy`).
+//! 3. **Capability negotiation** — checks that the selected backend
+//!    satisfies the work order's capability requirements (via
+//!    `abp-capability`), applying emulation where configured.
+//! 4. **Backend execution** — dispatches the work order to a registered
+//!    `Backend` implementation and streams `AgentEvent`s back to the caller.
+//! 5. **Receipt production** — builds a canonical `Receipt` with
+//!    verification metadata, traces, and a SHA-256 hash.
+//!
+//! ## Key types
+//!
+//! * [`Runtime`] — the central orchestrator; register backends, then call
+//!   `run_streaming` or `run_projected`.
+//! * [`RunHandle`] — handle returned from a run: provides the event stream
+//!   and a receipt future.
+//! * [`RuntimeError`] — error enum covering all runtime failure modes.
+//! * [`BackendRegistry`] — named backend lookup table.
+//!
+//! ## Middleware & pipeline
+//!
+//! The [`middleware`] module provides pre/post-run hooks, and [`pipeline`]
+//! offers a processing pipeline for work-order pre-processing.  The
+//! [`stream`] module integrates with `abp-stream` for event filtering,
+//! transformation, and recording.
+//!
+//! ## Projection-based routing
+//!
+//! When a [`ProjectionMatrix`] is attached (via [`Runtime::with_projection`]),
+//! the runtime can automatically select the best-fit backend for a work
+//! order using [`Runtime::run_projected`].
 
 #![deny(unsafe_code)]
 #![warn(missing_docs)]

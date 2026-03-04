@@ -1,10 +1,46 @@
 #![doc = include_str!("../README.md")]
-//! Unified error taxonomy with stable error codes for the Agent Backplane.
 //!
-//! Every ABP error carries an [`ErrorCode`] (a machine-readable, stable string
-//! tag), a human-readable message, an optional cause chain, and arbitrary
-//! key-value context.  Use the builder returned by [`AbpError::new`] to
-//! construct errors fluently.
+//! # Error taxonomy
+//!
+//! `abp-error` provides a unified, machine-readable error system for the
+//! entire Agent Backplane workspace.
+//!
+//! ## Key types
+//!
+//! | Type | Purpose |
+//! |------|---------|
+//! | [`ErrorCode`] | Stable `snake_case` tag (e.g. `backend_timeout`) |
+//! | [`ErrorCategory`] | Broad family a code belongs to (protocol, backend, …) |
+//! | [`AbpError`] | Full error: code + message + cause chain + context |
+//! | [`ErrorInfo`] | Lightweight serialisable descriptor (no cause chain) |
+//! | [`AbpErrorDto`] | Wire-safe snapshot of an `AbpError` |
+//! | [`ErrorStats`] | Tracks occurrence counts by code and category |
+//!
+//! ## Error codes
+//!
+//! Every ABP error carries an [`ErrorCode`] variant.  Codes are grouped by
+//! [`ErrorCategory`] (Protocol, Backend, Capability, Policy, Workspace, IR,
+//! Receipt, Dialect, Config, Mapping, Execution, Contract, Internal).
+//! Each code's string representation is guaranteed stable across patch
+//! releases.
+//!
+//! ## Building errors
+//!
+//! ```
+//! use abp_error::{AbpError, ErrorCode};
+//!
+//! let err = AbpError::new(ErrorCode::BackendTimeout, "timed out after 30 s")
+//!     .with_context("backend", "openai")
+//!     .with_context("timeout_ms", 30_000);
+//! assert!(err.is_retryable());
+//! ```
+//!
+//! ## Companion modules
+//!
+//! * [`recovery`] — retry / fallback / degrade / abort strategies per error
+//! * [`diagnostic`] — probable-cause analysis and suggested fixes
+//! * [`aggregate`] — time-windowed error trending
+//! * [`vendor_map`] — maps vendor HTTP errors to `ErrorCode`
 
 #![deny(unsafe_code)]
 #![warn(missing_docs)]

@@ -3,37 +3,55 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
-//! # abp-mapper
+//! # Dialect mapping engine
 //!
-//! Dialect mapping engine for the Agent Backplane.
+//! `abp-mapper` translates requests, responses, and streaming events between
+//! different agent-SDK dialects (OpenAI, Claude, Gemini, Codex, Kimi, Copilot).
 //!
-//! Provides the [`Mapper`] trait and concrete implementations that translate
-//! requests, responses, and events between different agent-SDK dialects
-//! (OpenAI, Claude, Gemini, Codex, Kimi, Copilot).
+//! ## Architecture
 //!
-//! ## JSON-level mappers
+//! Translation happens at two levels:
 //!
-//! - [`IdentityMapper`] — passthrough mapper that performs no transformation.
-//! - [`OpenAiToClaudeMapper`] — maps OpenAI chat-completions format to Claude messages API.
-//! - [`ClaudeToOpenAiMapper`] — maps Claude messages API format to OpenAI chat-completions.
-//! - [`OpenAiToGeminiMapper`] — maps OpenAI chat-completions format to Gemini API.
-//! - [`GeminiToOpenAiMapper`] — maps Gemini API format to OpenAI chat-completions.
+//! * **JSON-level** — the [`Mapper`] trait operates on raw `serde_json::Value`
+//!   payloads.  Implementations like [`OpenAiToClaudeMapper`] convert one
+//!   vendor's JSON schema into another's.
 //!
-//! ## IR-level mappers
+//! * **IR-level** — the [`IrMapper`] trait translates via the intermediate
+//!   representation defined in `abp-ir`.  Use [`default_ir_mapper`] to obtain
+//!   the correct mapper for a given dialect pair, or [`supported_ir_pairs`]
+//!   to enumerate all implemented pairs.
 //!
-//! - [`IrMapper`] — trait for IR-level cross-dialect translation.
-//! - [`IrIdentityMapper`] — passthrough IR mapper.
-//! - [`OpenAiClaudeIrMapper`] — bidirectional OpenAI ↔ Claude IR mapper.
-//! - [`OpenAiGeminiIrMapper`] — bidirectional OpenAI ↔ Gemini IR mapper.
-//! - [`ClaudeGeminiIrMapper`] — bidirectional Claude ↔ Gemini IR mapper.
-//! - [`OpenAiCodexIrMapper`] — lossy OpenAI ↔ Codex IR mapper (Codex is output-only).
-//! - [`OpenAiKimiIrMapper`] — bidirectional OpenAI ↔ Kimi IR mapper.
-//! - [`ClaudeKimiIrMapper`] — bidirectional Claude ↔ Kimi IR mapper.
-//! - [`OpenAiCopilotIrMapper`] — bidirectional OpenAI ↔ Copilot IR mapper.
-//! - [`GeminiKimiIrMapper`] — bidirectional Gemini ↔ Kimi IR mapper.
-//! - [`CodexClaudeIrMapper`] — lossy Codex ↔ Claude IR mapper (Codex is output-only).
-//! - [`MapError`] — typed errors for IR mapping failures.
-//! - [`default_ir_mapper`] — factory for resolving IR mappers by dialect pair.
+//! ## Projection matrix
+//!
+//! The [`projection`] module contains the cross-dialect mapping engine that
+//! scores backend candidates and selects the best fit for a work order.
+//!
+//! ## Request rewriting
+//!
+//! The [`rewrite`] module provides a rule-driven engine for transforming
+//! requests before they reach a backend, and the [`rules`] module defines
+//! individual mapping rules.
+//!
+//! ## Fidelity and validation
+//!
+//! [`fidelity`] reports information-loss metrics for a mapping, and
+//! [`validation`] runs a pipeline of checks to verify mapping correctness.
+//!
+//! ## Quick start
+//!
+//! ```
+//! use abp_mapper::{Mapper, IdentityMapper, DialectRequest};
+//! use abp_dialect::Dialect;
+//! use serde_json::json;
+//!
+//! let mapper = IdentityMapper;
+//! let req = DialectRequest {
+//!     dialect: Dialect::OpenAi,
+//!     body: json!({"model": "gpt-4", "messages": []}),
+//! };
+//! let mapped = mapper.map_request(&req).unwrap();
+//! assert_eq!(mapped, req.body);
+//! ```
 
 mod claude_to_openai;
 mod error;
