@@ -7,9 +7,7 @@
 //! receipt generation, error handling, and edge cases — all without
 //! spawning actual sidecar processes unless explicitly needed.
 
-use abp_backend_core::{
-    ensure_capability_requirements, Backend, BackendMetadata, BackendRegistry,
-};
+use abp_backend_core::{Backend, BackendMetadata, BackendRegistry, ensure_capability_requirements};
 use abp_backend_sidecar::SidecarBackend;
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
@@ -642,8 +640,7 @@ mod serde_spec {
     #[test]
     fn spec_special_chars_in_env_value() {
         let mut s = spec("node");
-        s.env
-            .insert("MSG".into(), "hello \"world\" \n\ttab".into());
+        s.env.insert("MSG".into(), "hello \"world\" \n\ttab".into());
         let json = serde_json::to_string(&s).unwrap();
         let d: SidecarSpec = serde_json::from_str(&json).unwrap();
         assert_eq!(d.env["MSG"], "hello \"world\" \n\ttab");
@@ -886,10 +883,7 @@ mod receipt_construction {
 
     #[test]
     fn receipt_hash_is_hex() {
-        let r = ReceiptBuilder::new("sidecar")
-            .build()
-            .with_hash()
-            .unwrap();
+        let r = ReceiptBuilder::new("sidecar").build().with_hash().unwrap();
         let hash = r.receipt_sha256.as_ref().unwrap();
         assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
     }
@@ -1122,15 +1116,10 @@ mod event_types {
     #[test]
     fn event_with_ext() {
         let mut ext = BTreeMap::new();
-        ext.insert(
-            "raw_message".into(),
-            serde_json::json!({"vendor": "data"}),
-        );
+        ext.insert("raw_message".into(), serde_json::json!({"vendor": "data"}));
         let ev = AgentEvent {
             ts: chrono::Utc::now(),
-            kind: AgentEventKind::AssistantDelta {
-                text: "hi".into(),
-            },
+            kind: AgentEventKind::AssistantDelta { text: "hi".into() },
             ext: Some(ext),
         };
         assert!(ev.ext.is_some());
@@ -1373,8 +1362,7 @@ mod error_handling {
 
     #[test]
     fn host_error_implements_std_error() {
-        let err: Box<dyn std::error::Error> =
-            Box::new(abp_host::HostError::Fatal("test".into()));
+        let err: Box<dyn std::error::Error> = Box::new(abp_host::HostError::Fatal("test".into()));
         let _ = err.to_string();
     }
 
