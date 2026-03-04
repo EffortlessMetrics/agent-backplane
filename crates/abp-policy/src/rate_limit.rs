@@ -101,7 +101,7 @@ impl RateLimitPolicy {
         // TPM limit → throttle.
         if let Some(max) = self.max_tokens_per_minute {
             if current_tpm >= max {
-                let retry_ms = if max == 0 { 60_000 } else { 60_000 / max };
+                let retry_ms = 60_000_u64.checked_div(max).unwrap_or(60_000);
                 return RateLimitResult::Throttled {
                     retry_after_ms: retry_ms,
                 };

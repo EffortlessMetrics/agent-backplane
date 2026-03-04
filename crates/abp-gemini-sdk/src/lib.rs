@@ -27,6 +27,12 @@ pub mod dialect;
 /// and `lowering::from_ir` lowers back to Gemini contents.
 pub mod lowering;
 
+/// Gemini GenerateContent API request and response types.
+///
+/// Standalone types that mirror the Google Gemini REST API surface
+/// for `generateContent` and `streamGenerateContent` endpoints.
+pub mod types;
+
 use abp_runtime::Runtime;
 use abp_sidecar_sdk::{register_sidecar_backend, sidecar_script as resolve_sidecar_script};
 use anyhow::{Context, Result};

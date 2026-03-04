@@ -7,6 +7,9 @@
 //!
 //! Drop-in OpenAI SDK shim that routes through ABP's intermediate representation.
 
+/// Strongly-typed OpenAI Chat Completions API types using a role-tagged message enum.
+pub mod types;
+
 use std::pin::Pin;
 
 use abp_core::ir::{IrConversation, IrRole, IrToolDefinition, IrUsage};

@@ -2,9 +2,10 @@
 
 //! Validation pipeline for dialect mapping correctness.
 //!
-//! Provides the [`MappingValidator`] trait, a [`DefaultMappingValidator`]
-//! implementation, and a [`ValidationPipeline`] that chains
-//! pre-validate → map → post-validate in a single pass.
+//! Provides the [`MappingValidator`] trait, a
+//! [`DefaultMappingValidator`](crate::validation::DefaultMappingValidator)
+//! implementation, and a [`ValidationPipeline`](crate::validation::ValidationPipeline)
+//! that chains pre-validate → map → post-validate in a single pass.
 
 use std::collections::BTreeSet;
 
