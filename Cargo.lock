@@ -414,6 +414,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-retry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "abp-runtime"
 version = "0.1.0"
 dependencies = [
@@ -426,6 +433,7 @@ dependencies = [
  "abp-policy",
  "abp-projection",
  "abp-receipt",
+ "abp-retry",
  "abp-stream",
  "abp-workspace",
  "anyhow",
@@ -624,6 +632,7 @@ dependencies = [
  "abp-projection",
  "abp-protocol",
  "abp-receipt",
+ "abp-retry",
  "abp-runtime",
  "abp-shim-claude",
  "abp-shim-codex",

@@ -19,6 +19,7 @@ abp-integrations = { path = "../abp-integrations", version = "0.1.0" }
 abp-projection = { path = "../abp-projection", version = "0.1.0" }
 abp-policy = { path = "../abp-policy", version = "0.1.0" }
 abp-receipt = { path = "../abp-receipt", version = "0.1.0" }
+abp-retry = { path = "../abp-retry", version = "0.1.0" }
 abp-stream = { path = "../abp-stream", version = "0.1.0" }
 abp-workspace = { path = "../abp-workspace", version = "0.1.0" }
 serde.workspace = true
@@ -37,6 +38,7 @@ abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
 abp-projection = { path = "../abp-projection", version = "0.1.0" }
 abp-receipt = { path = "../abp-receipt", version = "0.1.0" }
+abp-retry = { path = "../abp-retry", version = "0.1.0" }
 chrono.workspace = true
 tempfile.workspace = true
 insta.workspace = true

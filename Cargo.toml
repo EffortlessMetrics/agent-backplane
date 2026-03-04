@@ -36,6 +36,7 @@ members = [
   "crates/abp-policy",
   "crates/abp-projection",
   "crates/abp-receipt",
+  "crates/abp-retry",
   "crates/abp-protocol",
   "crates/abp-runtime",
   "crates/abp-shim-claude",
@@ -131,6 +132,7 @@ abp-dialect = { path = "crates/abp-dialect" }
 abp-error = { path = "crates/abp-error" }
 abp-capability = { path = "crates/abp-capability" }
 abp-receipt = { path = "crates/abp-receipt" }
+abp-retry = { path = "crates/abp-retry" }
 abp-mapping = { path = "crates/abp-mapping" }
 abp-config = { path = "crates/abp-config" }
 abp-claude-sdk = { path = "crates/abp-claude-sdk" }
