@@ -819,6 +819,7 @@ dependencies = [
  "http-body-util",
  "insta",
  "jsonschema",
+ "kimi-bridge",
  "openai-bridge",
  "predicates",
  "proptest",
@@ -1237,6 +1238,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-bridge"
+version = "0.1.0"
+dependencies = [
+ "abp-codex-sdk",
+ "abp-dialect",
+ "codex-bridge",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1253,6 +1265,26 @@ dependencies = [
  "once_cell",
  "unicode-width",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "copilot-bridge"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-sdk-types",
+ "copilot-bridge",
+ "futures",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sidecar-kit",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -2344,6 +2376,26 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid-simd",
+]
+
+[[package]]
+name = "kimi-bridge"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-dialect",
+ "futures",
+ "kimi-bridge",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sidecar-kit",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
