@@ -227,6 +227,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-event-observe"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "chrono",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-gemini-sdk"
 version = "0.1.0"
 dependencies = [
@@ -564,6 +573,7 @@ name = "abp-stream"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-event-observe",
  "chrono",
  "serde_json",
  "tokio",
@@ -613,6 +623,7 @@ dependencies = [
  "abp-dialect",
  "abp-emulation",
  "abp-error",
+ "abp-event-observe",
  "abp-gemini-sdk",
  "abp-glob",
  "abp-host",

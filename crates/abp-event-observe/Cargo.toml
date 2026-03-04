@@ -1,19 +1,17 @@
 [package]
-name = "abp-stream"
+name = "abp-event-observe"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Agent event stream processing, transformation, and multiplexing"
+description = "Event observability primitives for Agent Backplane streams"
 readme = "README.md"
-keywords = ["agent", "backplane", "stream", "event", "multiplexing"]
+keywords = ["agent", "backplane", "event", "stats", "recorder"]
 categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core", version = "0.1.0" }
-abp-event-observe = { path = "../abp-event-observe", version = "0.1.0" }
-tokio = { workspace = true }
 
 [dev-dependencies]
 chrono = { workspace = true }
