@@ -7,8 +7,7 @@
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder, UsageNormalized,
-    WorkOrderBuilder,
+    AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder, UsageNormalized, WorkOrderBuilder,
 };
 use abp_gemini_sdk::dialect::{
     self, GeminiContent, GeminiFunctionCallingConfig, GeminiFunctionDeclaration,
@@ -18,11 +17,11 @@ use abp_gemini_sdk::dialect::{
 use abp_gemini_sdk::lowering;
 use chrono::Utc;
 
+use crate::GeminiError;
 use crate::types::{
     Candidate, Content, GenerateContentRequest, GenerateContentResponse, GenerationConfig, Part,
     SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
 };
-use crate::GeminiError;
 
 // ── Shim ↔ Dialect conversions ──────────────────────────────────────────
 
@@ -438,8 +437,7 @@ pub fn receipt_to_stream_events(receipt: &Receipt) -> Vec<StreamEvent> {
 
     for agent_event in &receipt.trace {
         match &agent_event.kind {
-            AgentEventKind::AssistantMessage { text }
-            | AgentEventKind::AssistantDelta { text } => {
+            AgentEventKind::AssistantMessage { text } | AgentEventKind::AssistantDelta { text } => {
                 events.push(StreamEvent {
                     candidates: vec![Candidate {
                         content: Content::model(vec![Part::text(text.clone())]),

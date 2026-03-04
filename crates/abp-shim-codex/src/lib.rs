@@ -7,10 +7,10 @@
 //!
 //! Drop-in Codex SDK shim that routes through ABP's intermediate representation.
 
-/// Conversion layer between Codex Responses API types and ABP core types.
-pub mod convert;
 /// HTTP client for the OpenAI Codex Responses API.
 pub mod client;
+/// Conversion layer between Codex Responses API types and ABP core types.
+pub mod convert;
 /// Codex Responses API types (builder, usage statistics).
 pub mod types;
 
@@ -29,9 +29,9 @@ use tokio_stream::Stream;
 #[cfg(test)]
 use abp_codex_sdk::dialect::{CodexContentPart, CodexResponseItem};
 #[cfg(test)]
-use abp_core::ir::{IrRole, IrUsage};
-#[cfg(test)]
 use abp_core::AgentEventKind;
+#[cfg(test)]
+use abp_core::ir::{IrRole, IrUsage};
 
 // Re-export key types from the Codex SDK for convenience.
 pub use abp_codex_sdk::dialect::{

@@ -7,10 +7,10 @@
 //!
 //! Drop-in Kimi SDK shim that routes through ABP's intermediate representation.
 
-/// Conversion layer between Kimi shim types and ABP core types.
-pub mod convert;
 /// HTTP client for the Moonshot (Kimi) Chat Completions API.
 pub mod client;
+/// Conversion layer between Kimi shim types and ABP core types.
+pub mod convert;
 /// Kimi-specific shim types (messages, usage, request builder).
 pub mod types;
 
@@ -169,8 +169,8 @@ pub fn mock_receipt_with_usage(events: Vec<AgentEvent>, usage: UsageNormalized) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use abp_core::ir::{IrRole, IrUsage};
     use abp_core::AgentEventKind;
+    use abp_core::ir::{IrRole, IrUsage};
     use serde_json::json;
     use tokio_stream::StreamExt;
 
