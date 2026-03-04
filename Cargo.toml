@@ -163,6 +163,7 @@ abp-shim-copilot = { path = "crates/abp-shim-copilot" }
 abp-ir = { path = "crates/abp-ir" }
 abp-projection = { path = "crates/abp-projection" }
 abp-stream = { path = "crates/abp-stream" }
+abp-validate = { path = "crates/abp-validate" }
 abp-backend-core = { path = "crates/abp-backend-core" }
 abp-backend-mock = { path = "crates/abp-backend-mock" }
 abp-retry = { path = "crates/abp-retry" }

@@ -775,6 +775,7 @@ dependencies = [
  "abp-sidecar-utils",
  "abp-stream",
  "abp-telemetry",
+ "abp-validate",
  "abp-workspace",
  "anyhow",
  "assert_cmd",

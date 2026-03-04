@@ -1,2127 +1,2037 @@
 #![allow(clippy::all)]
-#![allow(clippy::manual_repeat_n)]
-#![allow(clippy::manual_range_contains)]
-#![allow(clippy::single_component_path_imports)]
-#![allow(clippy::let_and_return)]
-#![allow(clippy::unnecessary_to_owned)]
-#![allow(clippy::implicit_clone)]
-#![allow(clippy::field_reassign_with_default)]
-#![allow(clippy::iter_kv_map)]
-#![allow(clippy::bool_assert_comparison)]
-#![allow(clippy::redundant_closure)]
-#![allow(clippy::collapsible_if)]
-#![allow(clippy::collapsible_match)]
-#![allow(clippy::single_match)]
-#![allow(clippy::manual_map)]
-#![allow(clippy::match_like_matches_macro)]
-#![allow(clippy::needless_return)]
-#![allow(clippy::redundant_pattern_matching)]
-#![allow(clippy::len_zero)]
-#![allow(clippy::map_entry)]
-#![allow(clippy::unnecessary_unwrap)]
 #![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
-#![allow(clippy::approx_constant)]
-#![allow(clippy::needless_update)]
-#![allow(clippy::useless_vec)]
-#![allow(clippy::clone_on_copy)]
-#![allow(clippy::type_complexity)]
-#![allow(clippy::needless_borrow)]
-#![allow(clippy::useless_vec, clippy::needless_borrows_for_generic_args)]
 
-//! Deep comprehensive tests for receipt storage, chain verification, and
-//! hashing across the `abp-core` and `abp-receipt` crates.
+//! Deep comprehensive tests for `abp-receipt-store` crate — persistence,
+//! querying, chain validation, indexing, filter semantics, concurrent access,
+//! capacity handling, and serde roundtrips.
 
-use std::collections::BTreeMap;
+use std::sync::Arc;
 
-use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, Capability, ExecutionMode, Outcome, Receipt,
-    SupportLevel, UsageNormalized, VerificationReport, receipt_hash,
+use abp_core::{CONTRACT_VERSION, Outcome, Receipt, receipt_hash};
+use abp_receipt_store::{
+    ChainValidation, ChainValidationError, FileReceiptStore, InMemoryReceiptStore, ReceiptFilter,
+    ReceiptIndex, ReceiptStore, StoreError, validate_chain,
 };
-use abp_receipt::{
-    ChainError, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash, diff_receipts,
-    verify_hash,
-};
-use abp_runtime::store::ReceiptStore;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use uuid::Uuid;
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Helpers
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 fn base_time() -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap()
 }
 
-fn ts(secs: i64) -> DateTime<Utc> {
-    base_time() + Duration::seconds(secs)
+fn ts(offset_secs: i64) -> DateTime<Utc> {
+    base_time() + Duration::seconds(offset_secs)
 }
 
-fn make_receipt(backend: &str, offset: i64, outcome: Outcome) -> Receipt {
-    ReceiptBuilder::new(backend)
-        .outcome(outcome)
-        .started_at(ts(offset))
-        .finished_at(ts(offset) + Duration::milliseconds(250))
-        .with_hash()
-        .unwrap()
-}
-
-fn make_plain(backend: &str, offset: i64) -> Receipt {
-    ReceiptBuilder::new(backend)
-        .outcome(Outcome::Complete)
-        .started_at(ts(offset))
-        .finished_at(ts(offset) + Duration::milliseconds(250))
-        .build()
-}
-
-fn fixed_receipt() -> Receipt {
-    let t = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
-    ReceiptBuilder::new("deterministic")
-        .outcome(Outcome::Complete)
-        .run_id(Uuid::nil())
-        .work_order_id(Uuid::nil())
-        .started_at(t)
-        .finished_at(t)
-        .build()
-}
-
-fn sample_event() -> AgentEvent {
-    AgentEvent {
-        ts: base_time(),
-        kind: AgentEventKind::RunStarted {
-            message: "start".into(),
+fn make_receipt(backend: &str, outcome: Outcome) -> Receipt {
+    Receipt {
+        meta: abp_core::RunMetadata {
+            run_id: Uuid::new_v4(),
+            work_order_id: Uuid::nil(),
+            contract_version: CONTRACT_VERSION.to_string(),
+            started_at: Utc::now(),
+            finished_at: Utc::now(),
+            duration_ms: 0,
         },
-        ext: None,
+        backend: abp_core::BackendIdentity {
+            id: backend.to_string(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        capabilities: abp_core::CapabilityManifest::new(),
+        mode: abp_core::ExecutionMode::default(),
+        usage_raw: serde_json::json!({}),
+        usage: abp_core::UsageNormalized::default(),
+        trace: vec![],
+        artifacts: vec![],
+        verification: abp_core::VerificationReport::default(),
+        outcome,
+        receipt_sha256: None,
     }
 }
 
-fn sample_capabilities() -> BTreeMap<Capability, SupportLevel> {
-    let mut caps = BTreeMap::new();
-    caps.insert(Capability::ToolRead, SupportLevel::Native);
-    caps.insert(Capability::Streaming, SupportLevel::Emulated);
-    caps
+fn make_receipt_at(backend: &str, outcome: Outcome, at: DateTime<Utc>) -> Receipt {
+    let mut r = make_receipt(backend, outcome);
+    r.meta.started_at = at;
+    r.meta.finished_at = at;
+    r
+}
+
+fn make_receipt_with_id(backend: &str, outcome: Outcome, id: Uuid) -> Receipt {
+    let mut r = make_receipt(backend, outcome);
+    r.meta.run_id = id;
+    r
+}
+
+fn make_hashed(backend: &str, outcome: Outcome) -> Receipt {
+    let mut r = make_receipt(backend, outcome);
+    r.receipt_sha256 = Some(receipt_hash(&r).unwrap());
+    r
+}
+
+fn make_hashed_at(backend: &str, outcome: Outcome, at: DateTime<Utc>) -> Receipt {
+    let mut r = make_receipt_at(backend, outcome, at);
+    r.receipt_sha256 = Some(receipt_hash(&r).unwrap());
+    r
 }
 
 // ===========================================================================
-// 1. Receipt construction with all fields populated
+// 1. InMemoryReceiptStore — CRUD
 // ===========================================================================
 
-#[test]
-fn construct_receipt_all_fields() {
-    let r = ReceiptBuilder::new("full-backend")
-        .outcome(Outcome::Complete)
-        .backend_version("2.1.0")
-        .adapter_version("0.5.0")
-        .run_id(Uuid::nil())
-        .work_order_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(ts(10))
-        .mode(ExecutionMode::Passthrough)
-        .capabilities(sample_capabilities())
-        .usage_raw(serde_json::json!({"prompt_tokens": 100}))
-        .usage(UsageNormalized {
-            input_tokens: Some(100),
-            output_tokens: Some(200),
-            cache_read_tokens: Some(10),
-            cache_write_tokens: Some(5),
-            request_units: Some(1),
-            estimated_cost_usd: Some(0.003),
-        })
-        .verification(VerificationReport {
-            git_diff: Some("diff".into()),
-            git_status: Some("M file.rs".into()),
-            harness_ok: true,
-        })
-        .add_trace_event(sample_event())
-        .add_artifact(ArtifactRef {
-            kind: "patch".into(),
-            path: "fix.patch".into(),
-        })
-        .build();
-
-    assert_eq!(r.backend.id, "full-backend");
-    assert_eq!(r.backend.backend_version.as_deref(), Some("2.1.0"));
-    assert_eq!(r.backend.adapter_version.as_deref(), Some("0.5.0"));
-    assert_eq!(r.meta.run_id, Uuid::nil());
-    assert_eq!(r.meta.work_order_id, Uuid::nil());
-    assert_eq!(r.mode, ExecutionMode::Passthrough);
-    assert_eq!(r.capabilities.len(), 2);
-    assert_eq!(r.usage.input_tokens, Some(100));
-    assert_eq!(r.usage.output_tokens, Some(200));
-    assert_eq!(r.usage.cache_read_tokens, Some(10));
-    assert_eq!(r.usage.cache_write_tokens, Some(5));
-    assert_eq!(r.usage.request_units, Some(1));
-    assert!(r.verification.harness_ok);
-    assert_eq!(r.trace.len(), 1);
-    assert_eq!(r.artifacts.len(), 1);
-    assert!(r.receipt_sha256.is_none());
+#[tokio::test]
+async fn mem_store_then_get() {
+    let s = InMemoryReceiptStore::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "mock");
+    assert_eq!(got.outcome, Outcome::Complete);
 }
 
-#[test]
-fn construct_receipt_default_fields() {
-    let r = ReceiptBuilder::new("minimal").build();
-    assert_eq!(r.backend.id, "minimal");
-    assert_eq!(r.outcome, Outcome::Complete);
-    assert_eq!(r.mode, ExecutionMode::Mapped);
-    assert!(r.trace.is_empty());
-    assert!(r.artifacts.is_empty());
-    assert!(r.capabilities.is_empty());
-    assert!(r.receipt_sha256.is_none());
-    assert_eq!(r.meta.contract_version, "abp/v0.1");
+#[tokio::test]
+async fn mem_get_nonexistent_returns_none() {
+    let s = InMemoryReceiptStore::new();
+    assert!(s.get(&Uuid::new_v4().to_string()).await.unwrap().is_none());
 }
 
-#[test]
-fn construct_receipt_contract_version_populated() {
-    let r = ReceiptBuilder::new("x").build();
-    assert_eq!(r.meta.contract_version, abp_core::CONTRACT_VERSION);
+#[tokio::test]
+async fn mem_store_duplicate_fails() {
+    let s = InMemoryReceiptStore::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    s.store(&r).await.unwrap();
+    let err = s.store(&r).await.unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("duplicate"));
 }
 
-#[test]
-fn construct_receipt_run_id_unique_by_default() {
-    let r1 = ReceiptBuilder::new("a").build();
-    let r2 = ReceiptBuilder::new("b").build();
-    assert_ne!(r1.meta.run_id, r2.meta.run_id);
+#[tokio::test]
+async fn mem_delete_existing_returns_true() {
+    let s = InMemoryReceiptStore::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    assert!(s.delete(&id).await.unwrap());
 }
 
-// ===========================================================================
-// 2. Receipt hashing — receipt_hash() nullifies receipt_sha256 (CRITICAL)
-// ===========================================================================
-
-#[test]
-fn hash_nullifies_receipt_sha256_before_hashing() {
-    let mut r = fixed_receipt();
-    r.receipt_sha256 = Some("should_be_ignored".into());
-    let h1 = receipt_hash(&r).unwrap();
-
-    r.receipt_sha256 = None;
-    let h2 = receipt_hash(&r).unwrap();
-
-    assert_eq!(h1, h2, "hash must ignore the receipt_sha256 field");
+#[tokio::test]
+async fn mem_delete_missing_returns_false() {
+    let s = InMemoryReceiptStore::new();
+    assert!(!s.delete(&Uuid::new_v4().to_string()).await.unwrap());
 }
 
-#[test]
-fn hash_nullifies_with_different_stored_hashes() {
-    let r = fixed_receipt();
-    let mut r1 = r.clone();
-    r1.receipt_sha256 = Some("aaa".into());
-    let mut r2 = r.clone();
-    r2.receipt_sha256 = Some("bbb".into());
-    let mut r3 = r.clone();
-    r3.receipt_sha256 = None;
-
-    let h1 = receipt_hash(&r1).unwrap();
-    let h2 = receipt_hash(&r2).unwrap();
-    let h3 = receipt_hash(&r3).unwrap();
-
-    assert_eq!(h1, h2);
-    assert_eq!(h2, h3);
+#[tokio::test]
+async fn mem_get_after_delete_returns_none() {
+    let s = InMemoryReceiptStore::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    s.delete(&id).await.unwrap();
+    assert!(s.get(&id).await.unwrap().is_none());
 }
 
-#[test]
-fn hash_is_64_hex_chars() {
-    let r = fixed_receipt();
-    let h = receipt_hash(&r).unwrap();
-    assert_eq!(h.len(), 64);
-    assert!(h.chars().all(|c| c.is_ascii_hexdigit()));
+#[tokio::test]
+async fn mem_count_empty() {
+    let s = InMemoryReceiptStore::new();
+    assert_eq!(s.count().await.unwrap(), 0);
 }
 
-#[test]
-fn hash_deterministic_across_calls() {
-    let r = fixed_receipt();
-    let h1 = receipt_hash(&r).unwrap();
-    let h2 = receipt_hash(&r).unwrap();
-    let h3 = receipt_hash(&r).unwrap();
-    assert_eq!(h1, h2);
-    assert_eq!(h2, h3);
-}
-
-#[test]
-fn hash_changes_with_outcome() {
-    let mut r = fixed_receipt();
-    let h_complete = receipt_hash(&r).unwrap();
-    r.outcome = Outcome::Failed;
-    let h_failed = receipt_hash(&r).unwrap();
-    r.outcome = Outcome::Partial;
-    let h_partial = receipt_hash(&r).unwrap();
-    assert_ne!(h_complete, h_failed);
-    assert_ne!(h_complete, h_partial);
-    assert_ne!(h_failed, h_partial);
-}
-
-#[test]
-fn hash_changes_with_backend_id() {
-    let r1 = ReceiptBuilder::new("alpha")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    let r2 = ReceiptBuilder::new("beta")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-#[test]
-fn hash_changes_with_usage() {
-    let mut r = fixed_receipt();
-    let h1 = receipt_hash(&r).unwrap();
-    r.usage.input_tokens = Some(999);
-    let h2 = receipt_hash(&r).unwrap();
-    assert_ne!(h1, h2);
-}
-
-#[test]
-fn hash_changes_with_trace() {
-    let r1 = fixed_receipt();
-    let mut r2 = r1.clone();
-    r2.trace.push(sample_event());
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-// ===========================================================================
-// 3. Receipt.with_hash() round-trip
-// ===========================================================================
-
-#[test]
-fn with_hash_sets_sha256() {
-    let r = fixed_receipt().with_hash().unwrap();
-    assert!(r.receipt_sha256.is_some());
-}
-
-#[test]
-fn with_hash_produces_valid_hash() {
-    let r = fixed_receipt().with_hash().unwrap();
-    let stored = r.receipt_sha256.as_ref().unwrap();
-    let recomputed = receipt_hash(&r).unwrap();
-    assert_eq!(stored, &recomputed);
-}
-
-#[test]
-fn with_hash_builder_path() {
-    let r = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .with_hash()
+#[tokio::test]
+async fn mem_count_after_inserts() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("a", Outcome::Complete))
+        .await
         .unwrap();
-    assert!(r.receipt_sha256.is_some());
-    assert!(verify_hash(&r));
+    s.store(&make_receipt("b", Outcome::Failed)).await.unwrap();
+    assert_eq!(s.count().await.unwrap(), 2);
 }
 
-#[test]
-fn with_hash_then_verify() {
-    let r = ReceiptBuilder::new("verify-me")
-        .outcome(Outcome::Partial)
-        .started_at(base_time())
-        .finished_at(ts(5))
-        .with_hash()
-        .unwrap();
-    assert!(verify_hash(&r));
+#[tokio::test]
+async fn mem_count_after_delete() {
+    let s = InMemoryReceiptStore::new();
+    let r = make_receipt("x", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    s.delete(&id).await.unwrap();
+    assert_eq!(s.count().await.unwrap(), 0);
 }
 
-#[test]
-fn with_hash_on_receipt_with_trace() {
-    let r = ReceiptBuilder::new("traced")
-        .add_trace_event(sample_event())
-        .add_trace_event(AgentEvent {
-            ts: ts(1),
-            kind: AgentEventKind::AssistantMessage {
-                text: "hello".into(),
-            },
-            ext: None,
-        })
-        .build()
-        .with_hash()
+#[tokio::test]
+async fn mem_list_all() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("a", Outcome::Complete))
+        .await
         .unwrap();
-    assert!(verify_hash(&r));
-    assert_eq!(r.trace.len(), 2);
+    s.store(&make_receipt("b", Outcome::Failed)).await.unwrap();
+    let all = s.list(ReceiptFilter::default()).await.unwrap();
+    assert_eq!(all.len(), 2);
+}
+
+#[tokio::test]
+async fn mem_list_empty_store() {
+    let s = InMemoryReceiptStore::new();
+    let all = s.list(ReceiptFilter::default()).await.unwrap();
+    assert!(all.is_empty());
+}
+
+#[tokio::test]
+async fn mem_store_preserves_all_fields() {
+    let s = InMemoryReceiptStore::new();
+    let mut r = make_receipt("my-backend", Outcome::Partial);
+    r.meta.duration_ms = 42;
+    r.meta.work_order_id = Uuid::new_v4();
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.meta.duration_ms, 42);
+    assert_eq!(got.meta.work_order_id, r.meta.work_order_id);
+    assert_eq!(got.outcome, Outcome::Partial);
+}
+
+#[tokio::test]
+async fn mem_delete_then_reinsert() {
+    let s = InMemoryReceiptStore::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    s.delete(&id).await.unwrap();
+    // Should be able to re-insert same ID after delete
+    s.store(&r).await.unwrap();
+    assert!(s.get(&id).await.unwrap().is_some());
+}
+
+#[tokio::test]
+async fn mem_double_delete_second_returns_false() {
+    let s = InMemoryReceiptStore::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    assert!(s.delete(&id).await.unwrap());
+    assert!(!s.delete(&id).await.unwrap());
 }
 
 // ===========================================================================
-// 4. Receipt chain verification
+// 2. InMemoryReceiptStore — Filtering
 // ===========================================================================
 
-#[test]
-fn chain_empty_verify_fails() {
-    let chain = ReceiptChain::new();
-    assert_eq!(chain.verify(), Err(ChainError::EmptyChain));
+#[tokio::test]
+async fn mem_filter_by_outcome() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("a", Outcome::Complete))
+        .await
+        .unwrap();
+    s.store(&make_receipt("b", Outcome::Failed)).await.unwrap();
+    s.store(&make_receipt("c", Outcome::Partial)).await.unwrap();
+    let f = ReceiptFilter {
+        outcome: Some(Outcome::Failed),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].outcome, Outcome::Failed);
 }
 
-#[test]
-fn chain_single_receipt_verify_ok() {
-    let mut chain = ReceiptChain::new();
-    chain.push(make_receipt("a", 0, Outcome::Complete)).unwrap();
-    assert!(chain.verify().is_ok());
+#[tokio::test]
+async fn mem_filter_by_backend() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("alpha", Outcome::Complete))
+        .await
+        .unwrap();
+    s.store(&make_receipt("beta", Outcome::Complete))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        backend: Some("alpha".into()),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].backend.id, "alpha");
 }
 
-#[test]
-fn chain_chronological_order_verify_ok() {
-    let mut chain = ReceiptChain::new();
-    for i in 0..5 {
-        chain
-            .push(make_receipt("m", i * 10, Outcome::Complete))
+#[tokio::test]
+async fn mem_filter_by_time_range() {
+    let t1 = ts(0);
+    let t2 = ts(3600);
+    let t3 = ts(7200);
+
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt_at("early", Outcome::Complete, t1))
+        .await
+        .unwrap();
+    s.store(&make_receipt_at("mid", Outcome::Complete, t2))
+        .await
+        .unwrap();
+    s.store(&make_receipt_at("late", Outcome::Complete, t3))
+        .await
+        .unwrap();
+
+    let f = ReceiptFilter {
+        time_range: Some((ts(1800), ts(5400))),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].backend.id, "mid");
+}
+
+#[tokio::test]
+async fn mem_filter_combined_backend_and_outcome() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("alpha", Outcome::Complete))
+        .await
+        .unwrap();
+    s.store(&make_receipt("alpha", Outcome::Failed))
+        .await
+        .unwrap();
+    s.store(&make_receipt("beta", Outcome::Failed))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        backend: Some("alpha".into()),
+        outcome: Some(Outcome::Failed),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].backend.id, "alpha");
+    assert_eq!(res[0].outcome, Outcome::Failed);
+}
+
+#[tokio::test]
+async fn mem_filter_no_match_returns_empty() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("a", Outcome::Complete))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        outcome: Some(Outcome::Failed),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert!(res.is_empty());
+}
+
+#[tokio::test]
+async fn mem_filter_time_range_inclusive_boundary() {
+    let t = ts(100);
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt_at("x", Outcome::Complete, t))
+        .await
+        .unwrap();
+
+    // Range exactly matches the timestamp
+    let f = ReceiptFilter {
+        time_range: Some((t, t)),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 1);
+}
+
+#[tokio::test]
+async fn mem_filter_time_range_excludes_before() {
+    let t = ts(0);
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt_at("x", Outcome::Complete, t))
+        .await
+        .unwrap();
+
+    let f = ReceiptFilter {
+        time_range: Some((ts(100), ts(200))),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert!(res.is_empty());
+}
+
+#[tokio::test]
+async fn mem_filter_time_range_excludes_after() {
+    let t = ts(500);
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt_at("x", Outcome::Complete, t))
+        .await
+        .unwrap();
+
+    let f = ReceiptFilter {
+        time_range: Some((ts(0), ts(100))),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert!(res.is_empty());
+}
+
+#[tokio::test]
+async fn mem_filter_all_three_criteria() {
+    let t = ts(100);
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt_at("match", Outcome::Complete, t))
+        .await
+        .unwrap();
+    s.store(&make_receipt_at("match", Outcome::Failed, t))
+        .await
+        .unwrap();
+    s.store(&make_receipt_at("other", Outcome::Complete, t))
+        .await
+        .unwrap();
+    s.store(&make_receipt_at("match", Outcome::Complete, ts(999)))
+        .await
+        .unwrap();
+
+    let f = ReceiptFilter {
+        backend: Some("match".into()),
+        outcome: Some(Outcome::Complete),
+        time_range: Some((ts(0), ts(200))),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].backend.id, "match");
+}
+
+// ===========================================================================
+// 3. Pagination
+// ===========================================================================
+
+#[tokio::test]
+async fn mem_paginate_limit() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..5 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
             .unwrap();
     }
-    assert!(chain.verify().is_ok());
+    let f = ReceiptFilter {
+        limit: Some(3),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 3);
 }
 
-#[test]
-fn chain_rejects_reverse_order() {
-    let mut chain = ReceiptChain::new();
-    chain
-        .push(make_receipt("m", 100, Outcome::Complete))
+#[tokio::test]
+async fn mem_paginate_offset() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..5 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter {
+        offset: Some(3),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 2);
+}
+
+#[tokio::test]
+async fn mem_paginate_limit_and_offset() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..10 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter {
+        limit: Some(3),
+        offset: Some(2),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 3);
+}
+
+#[tokio::test]
+async fn mem_paginate_offset_beyond_end() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("x", Outcome::Complete))
+        .await
         .unwrap();
-    assert!(matches!(
-        chain.push(make_receipt("m", 0, Outcome::Complete)),
-        Err(ChainError::BrokenLink { .. })
-    ));
+    let f = ReceiptFilter {
+        offset: Some(100),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert!(res.is_empty());
 }
 
-#[test]
-fn chain_same_timestamp_accepted() {
-    let mut chain = ReceiptChain::new();
-    chain.push(make_receipt("a", 0, Outcome::Complete)).unwrap();
-    chain.push(make_receipt("b", 0, Outcome::Complete)).unwrap();
-    assert_eq!(chain.len(), 2);
-}
-
-#[test]
-fn chain_duplicate_id_rejected() {
-    let id = Uuid::new_v4();
-    let r1 = ReceiptBuilder::new("a")
-        .run_id(id)
-        .started_at(ts(0))
-        .finished_at(ts(1))
-        .with_hash()
+#[tokio::test]
+async fn mem_paginate_limit_zero() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("x", Outcome::Complete))
+        .await
         .unwrap();
-    let r2 = ReceiptBuilder::new("b")
-        .run_id(id)
-        .started_at(ts(10))
-        .finished_at(ts(11))
-        .with_hash()
+    let f = ReceiptFilter {
+        limit: Some(0),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert!(res.is_empty());
+}
+
+#[tokio::test]
+async fn mem_paginate_limit_exceeds_count() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..3 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter {
+        limit: Some(100),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 3);
+}
+
+// ===========================================================================
+// 4. FileReceiptStore — CRUD
+// ===========================================================================
+
+#[tokio::test]
+async fn file_store_and_get() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("r.jsonl");
+    let s = FileReceiptStore::new(&path);
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "mock");
+}
+
+#[tokio::test]
+async fn file_get_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    assert!(s.get(&Uuid::new_v4().to_string()).await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn file_store_duplicate_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let r = make_receipt("mock", Outcome::Complete);
+    s.store(&r).await.unwrap();
+    let err = s.store(&r).await.unwrap_err();
+    assert!(err.to_string().contains("duplicate"));
+}
+
+#[tokio::test]
+async fn file_delete_existing() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    assert!(s.delete(&id).await.unwrap());
+    assert!(s.get(&id).await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn file_delete_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    assert!(!s.delete(&Uuid::new_v4().to_string()).await.unwrap());
+}
+
+#[tokio::test]
+async fn file_count_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    assert_eq!(s.count().await.unwrap(), 0);
+}
+
+#[tokio::test]
+async fn file_count_after_inserts() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    s.store(&make_receipt("a", Outcome::Complete))
+        .await
         .unwrap();
-    let mut chain = ReceiptChain::new();
-    chain.push(r1).unwrap();
-    assert_eq!(chain.push(r2), Err(ChainError::DuplicateId { id }));
+    s.store(&make_receipt("b", Outcome::Failed)).await.unwrap();
+    assert_eq!(s.count().await.unwrap(), 2);
+}
+
+#[tokio::test]
+async fn file_list_all() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    s.store(&make_receipt("a", Outcome::Complete))
+        .await
+        .unwrap();
+    s.store(&make_receipt("b", Outcome::Failed)).await.unwrap();
+    assert_eq!(s.list(ReceiptFilter::default()).await.unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn file_delete_then_reinsert() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    s.delete(&id).await.unwrap();
+    s.store(&r).await.unwrap();
+    assert!(s.get(&id).await.unwrap().is_some());
+}
+
+// ===========================================================================
+// 5. FileReceiptStore — Filtering
+// ===========================================================================
+
+#[tokio::test]
+async fn file_filter_by_outcome() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    s.store(&make_receipt("a", Outcome::Complete))
+        .await
+        .unwrap();
+    s.store(&make_receipt("b", Outcome::Failed)).await.unwrap();
+    let f = ReceiptFilter {
+        outcome: Some(Outcome::Failed),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].outcome, Outcome::Failed);
+}
+
+#[tokio::test]
+async fn file_filter_by_backend() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    s.store(&make_receipt("alpha", Outcome::Complete))
+        .await
+        .unwrap();
+    s.store(&make_receipt("beta", Outcome::Complete))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        backend: Some("alpha".into()),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].backend.id, "alpha");
+}
+
+#[tokio::test]
+async fn file_filter_by_time_range() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let t1 = ts(0);
+    let t2 = ts(3600);
+    let t3 = ts(7200);
+    s.store(&make_receipt_at("early", Outcome::Complete, t1))
+        .await
+        .unwrap();
+    s.store(&make_receipt_at("mid", Outcome::Complete, t2))
+        .await
+        .unwrap();
+    s.store(&make_receipt_at("late", Outcome::Complete, t3))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        time_range: Some((ts(1800), ts(5400))),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].backend.id, "mid");
+}
+
+#[tokio::test]
+async fn file_filter_combined() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    s.store(&make_receipt("alpha", Outcome::Complete))
+        .await
+        .unwrap();
+    s.store(&make_receipt("alpha", Outcome::Failed))
+        .await
+        .unwrap();
+    s.store(&make_receipt("beta", Outcome::Failed))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        backend: Some("alpha".into()),
+        outcome: Some(Outcome::Failed),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert_eq!(res.len(), 1);
+}
+
+#[tokio::test]
+async fn file_paginate_limit() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    for _ in 0..5 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter {
+        limit: Some(3),
+        ..Default::default()
+    };
+    assert_eq!(s.list(f).await.unwrap().len(), 3);
+}
+
+#[tokio::test]
+async fn file_paginate_offset() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    for _ in 0..5 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter {
+        offset: Some(3),
+        ..Default::default()
+    };
+    assert_eq!(s.list(f).await.unwrap().len(), 2);
+}
+
+// ===========================================================================
+// 6. FileReceiptStore — Persistence
+// ===========================================================================
+
+#[tokio::test]
+async fn file_persists_across_instances() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("r.jsonl");
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    {
+        let s = FileReceiptStore::new(&path);
+        s.store(&r).await.unwrap();
+    }
+    let s2 = FileReceiptStore::new(&path);
+    let got = s2.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "mock");
+}
+
+#[tokio::test]
+async fn file_stores_valid_jsonl() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("r.jsonl");
+    let s = FileReceiptStore::new(&path);
+    s.store(&make_receipt("a", Outcome::Complete))
+        .await
+        .unwrap();
+    s.store(&make_receipt("b", Outcome::Failed)).await.unwrap();
+
+    let content = tokio::fs::read_to_string(&path).await.unwrap();
+    let lines: Vec<&str> = content.lines().collect();
+    assert_eq!(lines.len(), 2);
+    for line in &lines {
+        serde_json::from_str::<Receipt>(line).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn file_persists_hashed_receipt() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("r.jsonl");
+    let s = FileReceiptStore::new(&path);
+    let r = make_hashed("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+
+    let s2 = FileReceiptStore::new(&path);
+    let got = s2.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.receipt_sha256, r.receipt_sha256);
+}
+
+#[tokio::test]
+async fn file_count_after_delete() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let r = make_receipt("x", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    s.delete(&id).await.unwrap();
+    assert_eq!(s.count().await.unwrap(), 0);
+}
+
+#[tokio::test]
+async fn file_empty_store_list_with_filter() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let f = ReceiptFilter {
+        outcome: Some(Outcome::Complete),
+        backend: Some("z".into()),
+        ..Default::default()
+    };
+    assert!(s.list(f).await.unwrap().is_empty());
+}
+
+// ===========================================================================
+// 7. Chain Validation
+// ===========================================================================
+
+#[test]
+fn chain_empty_is_valid() {
+    let cv = validate_chain(&[]);
+    assert!(cv.valid);
+    assert_eq!(cv.receipt_count, 0);
+    assert!(cv.errors.is_empty());
 }
 
 #[test]
-fn chain_tampered_receipt_rejected() {
-    let mut r = make_receipt("m", 0, Outcome::Complete);
+fn chain_single_hashed_valid() {
+    let r = make_hashed("mock", Outcome::Complete);
+    let cv = validate_chain(&[r]);
+    assert!(cv.valid);
+    assert_eq!(cv.receipt_count, 1);
+}
+
+#[test]
+fn chain_single_unhashed_valid() {
+    let r = make_receipt("mock", Outcome::Complete);
+    assert!(r.receipt_sha256.is_none());
+    let cv = validate_chain(&[r]);
+    assert!(cv.valid);
+}
+
+#[test]
+fn chain_chronological_valid() {
+    let r1 = make_hashed_at("a", Outcome::Complete, ts(0));
+    let r2 = make_hashed_at("b", Outcome::Complete, ts(100));
+    let r3 = make_hashed_at("c", Outcome::Complete, ts(200));
+    let cv = validate_chain(&[r1, r2, r3]);
+    assert!(cv.valid);
+    assert_eq!(cv.receipt_count, 3);
+}
+
+#[test]
+fn chain_same_timestamp_valid() {
+    let t = ts(0);
+    let r1 = make_hashed_at("a", Outcome::Complete, t);
+    let r2 = make_hashed_at("b", Outcome::Complete, t);
+    let cv = validate_chain(&[r1, r2]);
+    assert!(cv.valid);
+}
+
+#[test]
+fn chain_detects_broken_hash() {
+    let mut r = make_hashed("mock", Outcome::Complete);
     r.outcome = Outcome::Failed; // tamper after hashing
-    let mut chain = ReceiptChain::new();
-    assert!(matches!(
-        chain.push(r),
-        Err(ChainError::HashMismatch { .. })
-    ));
+    let cv = validate_chain(&[r]);
+    assert!(!cv.valid);
+    assert_eq!(cv.errors.len(), 1);
+    assert!(cv.errors[0].message.contains("hash mismatch"));
 }
 
 #[test]
-fn chain_accepts_unhashed_receipt() {
-    let r = make_plain("m", 0);
-    let mut chain = ReceiptChain::new();
-    chain.push(r).unwrap();
-    assert_eq!(chain.len(), 1);
-}
-
-#[test]
-fn chain_latest_returns_most_recent() {
-    let mut chain = ReceiptChain::new();
-    chain
-        .push(make_receipt("first", 0, Outcome::Complete))
-        .unwrap();
-    let last = make_receipt("last", 100, Outcome::Failed);
-    let last_id = last.meta.run_id;
-    chain.push(last).unwrap();
-    assert_eq!(chain.latest().unwrap().meta.run_id, last_id);
-}
-
-#[test]
-fn chain_iter_preserves_insertion_order() {
-    let mut chain = ReceiptChain::new();
-    let labels = ["alpha", "beta", "gamma", "delta"];
-    for (i, label) in labels.iter().enumerate() {
-        chain
-            .push(make_receipt(label, (i as i64) * 10, Outcome::Complete))
-            .unwrap();
-    }
-    let ids: Vec<_> = chain.iter().map(|r| r.backend.id.as_str()).collect();
-    assert_eq!(ids, labels.to_vec());
-}
-
-#[test]
-fn chain_into_iterator_count() {
-    let mut chain = ReceiptChain::new();
-    for i in 0..3 {
-        chain
-            .push(make_receipt("m", i * 10, Outcome::Complete))
-            .unwrap();
-    }
-    assert_eq!((&chain).into_iter().count(), 3);
-}
-
-#[test]
-fn chain_len_and_is_empty() {
-    let mut chain = ReceiptChain::new();
-    assert!(chain.is_empty());
-    assert_eq!(chain.len(), 0);
-    chain.push(make_receipt("m", 0, Outcome::Complete)).unwrap();
-    assert!(!chain.is_empty());
-    assert_eq!(chain.len(), 1);
-}
-
-#[test]
-fn chain_50_receipts_verify() {
-    let mut chain = ReceiptChain::new();
-    for i in 0..50 {
-        chain
-            .push(make_receipt("bulk", i * 2, Outcome::Complete))
-            .unwrap();
-    }
-    assert_eq!(chain.len(), 50);
-    assert!(chain.verify().is_ok());
-}
-
-#[test]
-fn chain_mixed_outcomes() {
-    let outcomes = [Outcome::Complete, Outcome::Partial, Outcome::Failed];
-    let mut chain = ReceiptChain::new();
-    for i in 0..9 {
-        chain
-            .push(make_receipt("m", i * 5, outcomes[i as usize % 3].clone()))
-            .unwrap();
-    }
-    assert!(chain.verify().is_ok());
-}
-
-// ===========================================================================
-// 5. Receipt outcome variants
-// ===========================================================================
-
-#[test]
-fn outcome_complete_serde_roundtrip() {
-    let json = serde_json::to_string(&Outcome::Complete).unwrap();
-    assert_eq!(json, "\"complete\"");
-    let deser: Outcome = serde_json::from_str(&json).unwrap();
-    assert_eq!(deser, Outcome::Complete);
-}
-
-#[test]
-fn outcome_partial_serde_roundtrip() {
-    let json = serde_json::to_string(&Outcome::Partial).unwrap();
-    assert_eq!(json, "\"partial\"");
-    let deser: Outcome = serde_json::from_str(&json).unwrap();
-    assert_eq!(deser, Outcome::Partial);
-}
-
-#[test]
-fn outcome_failed_serde_roundtrip() {
-    let json = serde_json::to_string(&Outcome::Failed).unwrap();
-    assert_eq!(json, "\"failed\"");
-    let deser: Outcome = serde_json::from_str(&json).unwrap();
-    assert_eq!(deser, Outcome::Failed);
-}
-
-#[test]
-fn outcome_equality() {
-    assert_eq!(Outcome::Complete, Outcome::Complete);
-    assert_ne!(Outcome::Complete, Outcome::Failed);
-    assert_ne!(Outcome::Partial, Outcome::Failed);
-}
-
-#[test]
-fn outcome_all_variants_hashable() {
-    for outcome in [Outcome::Complete, Outcome::Partial, Outcome::Failed] {
-        let r = ReceiptBuilder::new("t").outcome(outcome).build();
-        let h = receipt_hash(&r).unwrap();
-        assert_eq!(h.len(), 64);
-    }
-}
-
-// ===========================================================================
-// 6. Serialization / deserialization with BTreeMap determinism
-// ===========================================================================
-
-#[test]
-fn serde_roundtrip_preserves_all_fields() {
-    let r = ReceiptBuilder::new("round")
-        .outcome(Outcome::Complete)
-        .backend_version("1.0")
-        .adapter_version("0.2")
-        .started_at(base_time())
-        .finished_at(ts(5))
-        .usage(UsageNormalized {
-            input_tokens: Some(50),
-            output_tokens: Some(100),
-            ..Default::default()
-        })
-        .add_trace_event(sample_event())
-        .add_artifact(ArtifactRef {
-            kind: "log".into(),
-            path: "out.log".into(),
-        })
-        .with_hash()
-        .unwrap();
-
-    let json = serde_json::to_string(&r).unwrap();
-    let deser: Receipt = serde_json::from_str(&json).unwrap();
-
-    assert_eq!(deser.meta.run_id, r.meta.run_id);
-    assert_eq!(deser.backend.id, r.backend.id);
-    assert_eq!(deser.backend.backend_version, r.backend.backend_version);
-    assert_eq!(deser.outcome, r.outcome);
-    assert_eq!(deser.usage.input_tokens, r.usage.input_tokens);
-    assert_eq!(deser.trace.len(), r.trace.len());
-    assert_eq!(deser.artifacts.len(), r.artifacts.len());
-    assert_eq!(deser.receipt_sha256, r.receipt_sha256);
-}
-
-#[test]
-fn serde_roundtrip_preserves_hash_validity() {
-    let r = make_receipt("m", 0, Outcome::Complete);
-    let json = serde_json::to_string(&r).unwrap();
-    let deser: Receipt = serde_json::from_str(&json).unwrap();
-    assert!(verify_hash(&deser));
-}
-
-#[test]
-fn serde_pretty_roundtrip_preserves_hash() {
-    let r = make_receipt("m", 0, Outcome::Complete);
-    let pretty = serde_json::to_string_pretty(&r).unwrap();
-    let deser: Receipt = serde_json::from_str(&pretty).unwrap();
-    assert!(verify_hash(&deser));
-}
-
-#[test]
-fn serde_canonical_form_stable_after_roundtrip() {
-    let r = make_receipt("m", 0, Outcome::Complete);
-    let c1 = canonicalize(&r).unwrap();
-    let json = serde_json::to_string(&r).unwrap();
-    let deser: Receipt = serde_json::from_str(&json).unwrap();
-    let c2 = canonicalize(&deser).unwrap();
-    assert_eq!(c1, c2);
-}
-
-#[test]
-fn btreemap_key_ordering_in_capabilities() {
-    let mut caps = BTreeMap::new();
-    caps.insert(Capability::ToolWrite, SupportLevel::Native);
-    caps.insert(Capability::Streaming, SupportLevel::Native);
-    caps.insert(Capability::ToolRead, SupportLevel::Native);
-
-    let r = ReceiptBuilder::new("ordered")
-        .capabilities(caps)
-        .started_at(base_time())
-        .finished_at(base_time())
-        .run_id(Uuid::nil())
-        .build();
-
-    let json1 = serde_json::to_string(&r).unwrap();
-    let json2 = serde_json::to_string(&r).unwrap();
-    assert_eq!(json1, json2, "BTreeMap serialization must be deterministic");
-}
-
-#[test]
-fn btreemap_vendor_flags_deterministic() {
-    let r1 = ReceiptBuilder::new("v")
-        .usage_raw(serde_json::json!({"b": 2, "a": 1, "c": 3}))
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    let c1 = canonicalize(&r1).unwrap();
-    let c2 = canonicalize(&r1).unwrap();
-    assert_eq!(c1, c2);
-}
-
-// ===========================================================================
-// 7. Receipt backend_identity population
-// ===========================================================================
-
-#[test]
-fn backend_identity_id_only() {
-    let r = ReceiptBuilder::new("sidecar:node").build();
-    assert_eq!(r.backend.id, "sidecar:node");
-    assert!(r.backend.backend_version.is_none());
-    assert!(r.backend.adapter_version.is_none());
-}
-
-#[test]
-fn backend_identity_full() {
-    let r = ReceiptBuilder::new("claude")
-        .backend_version("3.5-sonnet")
-        .adapter_version("0.9.1")
-        .build();
-    assert_eq!(r.backend.id, "claude");
-    assert_eq!(r.backend.backend_version.as_deref(), Some("3.5-sonnet"));
-    assert_eq!(r.backend.adapter_version.as_deref(), Some("0.9.1"));
-}
-
-#[test]
-fn backend_identity_empty_id() {
-    let r = ReceiptBuilder::new("").build();
-    assert_eq!(r.backend.id, "");
-}
-
-#[test]
-fn backend_identity_unicode() {
-    let r = ReceiptBuilder::new("バックエンド🚀")
-        .backend_version("版本1.0")
-        .build();
-    assert_eq!(r.backend.id, "バックエンド🚀");
-    assert_eq!(r.backend.backend_version.as_deref(), Some("版本1.0"));
-}
-
-#[test]
-fn backend_identity_affects_hash() {
-    let r1 = ReceiptBuilder::new("a")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    let r2 = ReceiptBuilder::new("a")
-        .backend_version("1.0")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-// ===========================================================================
-// 8. Receipt usage normalization fields
-// ===========================================================================
-
-#[test]
-fn usage_normalized_default_all_none() {
-    let u = UsageNormalized::default();
-    assert!(u.input_tokens.is_none());
-    assert!(u.output_tokens.is_none());
-    assert!(u.cache_read_tokens.is_none());
-    assert!(u.cache_write_tokens.is_none());
-    assert!(u.request_units.is_none());
-    assert!(u.estimated_cost_usd.is_none());
-}
-
-#[test]
-fn usage_normalized_all_populated() {
-    let u = UsageNormalized {
-        input_tokens: Some(1000),
-        output_tokens: Some(2000),
-        cache_read_tokens: Some(500),
-        cache_write_tokens: Some(100),
-        request_units: Some(5),
-        estimated_cost_usd: Some(0.025),
-    };
-    let r = ReceiptBuilder::new("usage-test").usage(u).build();
-    assert_eq!(r.usage.input_tokens, Some(1000));
-    assert_eq!(r.usage.output_tokens, Some(2000));
-    assert_eq!(r.usage.cache_read_tokens, Some(500));
-    assert_eq!(r.usage.cache_write_tokens, Some(100));
-    assert_eq!(r.usage.request_units, Some(5));
-    assert_eq!(r.usage.estimated_cost_usd, Some(0.025));
-}
-
-#[test]
-fn usage_raw_arbitrary_json() {
-    let raw = serde_json::json!({
-        "prompt_tokens": 500,
-        "completion_tokens": 300,
-        "model": "gpt-4",
-        "nested": {"key": "value"}
-    });
-    let r = ReceiptBuilder::new("raw-usage")
-        .usage_raw(raw.clone())
-        .build();
-    assert_eq!(r.usage_raw, raw);
-}
-
-#[test]
-fn usage_affects_hash() {
-    let r1 = ReceiptBuilder::new("u")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    let r2 = ReceiptBuilder::new("u")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .usage(UsageNormalized {
-            input_tokens: Some(1),
-            ..Default::default()
-        })
-        .build();
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-// ===========================================================================
-// 9. Receipt events list construction
-// ===========================================================================
-
-#[test]
-fn trace_empty_by_default() {
-    let r = ReceiptBuilder::new("t").build();
-    assert!(r.trace.is_empty());
-}
-
-#[test]
-fn trace_single_event() {
-    let r = ReceiptBuilder::new("t")
-        .add_trace_event(sample_event())
-        .build();
-    assert_eq!(r.trace.len(), 1);
-}
-
-#[test]
-fn trace_multiple_events() {
-    let r = ReceiptBuilder::new("t")
-        .add_trace_event(AgentEvent {
-            ts: ts(0),
-            kind: AgentEventKind::RunStarted {
-                message: "go".into(),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(1),
-            kind: AgentEventKind::AssistantDelta {
-                text: "chunk".into(),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(2),
-            kind: AgentEventKind::ToolCall {
-                tool_name: "read".into(),
-                tool_use_id: Some("t1".into()),
-                parent_tool_use_id: None,
-                input: serde_json::json!({"path": "file.rs"}),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(3),
-            kind: AgentEventKind::ToolResult {
-                tool_name: "read".into(),
-                tool_use_id: Some("t1".into()),
-                output: serde_json::json!({"content": "fn main() {}"}),
-                is_error: false,
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(4),
-            kind: AgentEventKind::RunCompleted {
-                message: "done".into(),
-            },
-            ext: None,
-        })
-        .build();
-    assert_eq!(r.trace.len(), 5);
-}
-
-#[test]
-fn trace_with_ext_data() {
-    let mut ext = BTreeMap::new();
-    ext.insert(
-        "raw_message".to_string(),
-        serde_json::json!({"vendor": "data"}),
-    );
-    let evt = AgentEvent {
-        ts: base_time(),
-        kind: AgentEventKind::AssistantMessage { text: "hi".into() },
-        ext: Some(ext),
-    };
-    let r = ReceiptBuilder::new("ext")
-        .add_trace_event(evt)
-        .build()
-        .with_hash()
-        .unwrap();
-    assert!(verify_hash(&r));
-    assert!(r.trace[0].ext.is_some());
-}
-
-#[test]
-fn trace_large_500_events() {
-    let mut builder = ReceiptBuilder::new("big-trace")
-        .started_at(base_time())
-        .finished_at(ts(100));
-    for i in 0..500 {
-        builder = builder.add_trace_event(AgentEvent {
-            ts: ts(i),
-            kind: AgentEventKind::AssistantDelta {
-                text: format!("tok-{i}"),
-            },
-            ext: None,
-        });
-    }
-    let r = builder.with_hash().unwrap();
-    assert_eq!(r.trace.len(), 500);
-    assert!(verify_hash(&r));
-}
-
-// ===========================================================================
-// 10. Receipt timestamps (started_at, completed_at)
-// ===========================================================================
-
-#[test]
-fn timestamps_duration_computed() {
-    let r = ReceiptBuilder::new("t")
-        .started_at(base_time())
-        .finished_at(ts(10))
-        .build();
-    assert_eq!(r.meta.duration_ms, 10_000);
-}
-
-#[test]
-fn timestamps_zero_duration() {
-    let r = ReceiptBuilder::new("t")
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    assert_eq!(r.meta.duration_ms, 0);
-}
-
-#[test]
-fn timestamps_negative_duration_clamped() {
-    // finished_at before started_at — duration should clamp to 0
-    let r = ReceiptBuilder::new("t")
-        .started_at(ts(10))
-        .finished_at(base_time())
-        .build();
-    assert_eq!(r.meta.duration_ms, 0);
-}
-
-#[test]
-fn timestamps_millisecond_precision() {
-    let start = base_time();
-    let end = start + Duration::milliseconds(42);
-    let r = ReceiptBuilder::new("t")
-        .started_at(start)
-        .finished_at(end)
-        .build();
-    assert_eq!(r.meta.duration_ms, 42);
-}
-
-#[test]
-fn timestamps_affect_hash() {
-    let r1 = ReceiptBuilder::new("t")
-        .run_id(Uuid::nil())
-        .started_at(ts(0))
-        .finished_at(ts(1))
-        .build();
-    let r2 = ReceiptBuilder::new("t")
-        .run_id(Uuid::nil())
-        .started_at(ts(0))
-        .finished_at(ts(2))
-        .build();
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-#[test]
-fn timestamps_stored_correctly() {
-    let start = ts(100);
-    let end = ts(200);
-    let r = ReceiptBuilder::new("t")
-        .started_at(start)
-        .finished_at(end)
-        .build();
-    assert_eq!(r.meta.started_at, start);
-    assert_eq!(r.meta.finished_at, end);
-}
-
-// ===========================================================================
-// 11. Receipt canonical JSON (BTreeMap ensures key ordering)
-// ===========================================================================
-
-#[test]
-fn canonical_json_deterministic() {
-    let r = fixed_receipt();
-    let c1 = canonicalize(&r).unwrap();
-    let c2 = canonicalize(&r).unwrap();
-    assert_eq!(c1, c2);
-}
-
-#[test]
-fn canonical_json_is_compact() {
-    let r = fixed_receipt();
-    let json = canonicalize(&r).unwrap();
-    assert!(!json.contains('\n'));
-}
-
-#[test]
-fn canonical_json_nullifies_hash() {
-    let mut r = fixed_receipt();
-    r.receipt_sha256 = Some("anything".into());
-    let json = canonicalize(&r).unwrap();
-    assert!(json.contains("\"receipt_sha256\":null"));
-}
-
-#[test]
-fn canonical_json_same_with_or_without_hash() {
-    let r1 = fixed_receipt();
-    let mut r2 = r1.clone();
-    r2.receipt_sha256 = Some("some_hash".into());
-    assert_eq!(canonicalize(&r1).unwrap(), canonicalize(&r2).unwrap());
-}
-
-#[test]
-fn canonical_json_keys_sorted() {
-    let r = fixed_receipt();
-    let json = canonicalize(&r).unwrap();
-    // In canonical JSON, "artifacts" should come before "backend" alphabetically
-    let artifacts_pos = json.find("\"artifacts\"").unwrap();
-    let backend_pos = json.find("\"backend\"").unwrap();
-    assert!(
-        artifacts_pos < backend_pos,
-        "keys must be alphabetically sorted"
-    );
-}
-
-#[test]
-fn canonical_json_matches_between_core_and_receipt_crate() {
-    let r = fixed_receipt();
-    let from_receipt_crate = canonicalize(&r).unwrap();
-    // Manually replicate what abp_core::receipt_hash does for canonicalization
-    let mut v = serde_json::to_value(&r).unwrap();
-    if let serde_json::Value::Object(map) = &mut v {
-        map.insert("receipt_sha256".to_string(), serde_json::Value::Null);
-    }
-    let from_core = serde_json::to_string(&v).unwrap();
-    assert_eq!(from_receipt_crate, from_core);
-}
-
-// ===========================================================================
-// 12. Receipt sha256 verification against known values
-// ===========================================================================
-
-#[test]
-fn sha256_known_receipt_stability() {
-    let r = fixed_receipt();
-    let h1 = receipt_hash(&r).unwrap();
-    let h2 = compute_hash(&r).unwrap();
-    // Both functions must produce the same hash
-    assert_eq!(h1, h2);
-    // Hash length is always 64 hex chars
-    assert_eq!(h1.len(), 64);
-}
-
-#[test]
-fn sha256_lowercase_hex() {
-    let r = fixed_receipt();
-    let h = receipt_hash(&r).unwrap();
-    assert!(h.chars().all(|c| c.is_ascii_hexdigit()));
-    // Ensure lowercase (no uppercase hex)
-    assert_eq!(h, h.to_lowercase());
-}
-
-#[test]
-fn sha256_core_and_receipt_crate_agree() {
-    let r = make_plain("test", 0);
-    let core_hash = receipt_hash(&r).unwrap();
-    let receipt_hash_val = compute_hash(&r).unwrap();
-    assert_eq!(core_hash, receipt_hash_val);
-}
-
-#[test]
-fn sha256_verify_hash_passes_for_correct() {
-    let r = make_receipt("m", 0, Outcome::Complete);
-    assert!(verify_hash(&r));
-}
-
-#[test]
-fn sha256_verify_hash_fails_for_tampered_outcome() {
-    let mut r = make_receipt("m", 0, Outcome::Complete);
-    r.outcome = Outcome::Failed;
-    assert!(!verify_hash(&r));
-}
-
-#[test]
-fn sha256_verify_hash_fails_for_tampered_backend() {
-    let mut r = make_receipt("m", 0, Outcome::Complete);
-    r.backend.id = "evil".into();
-    assert!(!verify_hash(&r));
-}
-
-#[test]
-fn sha256_verify_hash_fails_for_garbage() {
-    let mut r = make_plain("m", 0);
-    r.receipt_sha256 = Some("not_real".into());
-    assert!(!verify_hash(&r));
-}
-
-#[test]
-fn sha256_verify_hash_passes_for_none() {
-    let r = make_plain("m", 0);
-    assert!(verify_hash(&r));
-}
-
-// ===========================================================================
-// 13. Receipt extension data (vendor-specific fields)
-// ===========================================================================
-
-#[test]
-fn ext_data_in_event_preserved_through_serde() {
-    let mut ext = BTreeMap::new();
-    ext.insert("raw_message".into(), serde_json::json!({"type": "delta"}));
-    ext.insert("vendor_id".into(), serde_json::json!("msg_123"));
-    let evt = AgentEvent {
-        ts: base_time(),
-        kind: AgentEventKind::AssistantDelta { text: "hi".into() },
-        ext: Some(ext),
-    };
-    let r = ReceiptBuilder::new("ext-test").add_trace_event(evt).build();
-    let json = serde_json::to_string(&r).unwrap();
-    let deser: Receipt = serde_json::from_str(&json).unwrap();
-    let deserialized_ext = deser.trace[0].ext.as_ref().unwrap();
-    assert!(deserialized_ext.contains_key("raw_message"));
-    assert!(deserialized_ext.contains_key("vendor_id"));
-}
-
-#[test]
-fn ext_data_none_by_default() {
-    let evt = sample_event();
-    assert!(evt.ext.is_none());
-}
-
-#[test]
-fn ext_data_btreemap_deterministic() {
-    let mut ext = BTreeMap::new();
-    ext.insert("z_key".into(), serde_json::json!(1));
-    ext.insert("a_key".into(), serde_json::json!(2));
-    let evt = AgentEvent {
-        ts: base_time(),
-        kind: AgentEventKind::AssistantMessage { text: "msg".into() },
-        ext: Some(ext),
-    };
-    let json1 = serde_json::to_string(&evt).unwrap();
-    let json2 = serde_json::to_string(&evt).unwrap();
-    assert_eq!(json1, json2);
-    // a_key should come before z_key in BTreeMap serialization
-    assert!(json1.find("a_key").unwrap() < json1.find("z_key").unwrap());
-}
-
-#[test]
-fn ext_data_affects_hash() {
-    let r1 = ReceiptBuilder::new("e")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .add_trace_event(AgentEvent {
-            ts: base_time(),
-            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
-            ext: None,
-        })
-        .build();
-
-    let mut ext = BTreeMap::new();
-    ext.insert("extra".into(), serde_json::json!("data"));
-    let r2 = ReceiptBuilder::new("e")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .add_trace_event(AgentEvent {
-            ts: base_time(),
-            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
-            ext: Some(ext),
-        })
-        .build();
-
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-// ===========================================================================
-// 14. Receipt comparison and equality
-// ===========================================================================
-
-#[test]
-fn diff_identical_receipts_empty() {
-    let r = ReceiptBuilder::new("same")
-        .started_at(base_time())
-        .finished_at(ts(1))
-        .build();
-    let d = diff_receipts(&r, &r.clone());
-    assert!(d.is_empty());
-    assert_eq!(d.len(), 0);
-}
-
-#[test]
-fn diff_detects_outcome_change() {
-    let r1 = make_plain("m", 0);
-    let mut r2 = r1.clone();
-    r2.outcome = Outcome::Failed;
-    let d = diff_receipts(&r1, &r2);
-    assert!(d.changes.iter().any(|c| c.field == "outcome"));
-}
-
-#[test]
-fn diff_detects_backend_id_change() {
-    let r1 = make_plain("old", 0);
-    let mut r2 = r1.clone();
-    r2.backend.id = "new".into();
-    let d = diff_receipts(&r1, &r2);
-    assert!(d.changes.iter().any(|c| c.field == "backend.id"));
-}
-
-#[test]
-fn diff_detects_trace_length_change() {
-    let r1 = make_plain("m", 0);
-    let mut r2 = r1.clone();
-    r2.trace.push(sample_event());
-    let d = diff_receipts(&r1, &r2);
-    assert!(d.changes.iter().any(|c| c.field == "trace.len"));
-}
-
-#[test]
-fn diff_detects_usage_raw_change() {
-    let r1 = ReceiptBuilder::new("m")
-        .usage_raw(serde_json::json!({"a": 1}))
-        .started_at(base_time())
-        .finished_at(ts(1))
-        .build();
-    let mut r2 = r1.clone();
-    r2.usage_raw = serde_json::json!({"a": 2});
-    let d = diff_receipts(&r1, &r2);
-    assert!(d.changes.iter().any(|c| c.field == "usage_raw"));
-}
-
-#[test]
-fn diff_detects_mode_change() {
-    let r1 = ReceiptBuilder::new("m")
-        .mode(ExecutionMode::Mapped)
-        .started_at(base_time())
-        .finished_at(ts(1))
-        .build();
-    let mut r2 = r1.clone();
-    r2.mode = ExecutionMode::Passthrough;
-    let d = diff_receipts(&r1, &r2);
-    assert!(d.changes.iter().any(|c| c.field == "mode"));
-}
-
-#[test]
-fn diff_detects_verification_change() {
-    let r1 = make_plain("m", 0);
-    let mut r2 = r1.clone();
-    r2.verification.harness_ok = true;
-    let d = diff_receipts(&r1, &r2);
-    assert!(d.changes.iter().any(|c| c.field == "verification"));
-}
-
-#[test]
-fn diff_multiple_changes() {
-    let r1 = make_plain("m", 0);
-    let mut r2 = r1.clone();
-    r2.outcome = Outcome::Failed;
-    r2.backend.id = "other".into();
-    r2.trace.push(sample_event());
-    let d = diff_receipts(&r1, &r2);
-    assert!(d.len() >= 3);
-}
-
-#[test]
-fn diff_after_store_roundtrip_is_empty() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    let r = make_receipt("m", 0, Outcome::Complete);
-    let id = r.meta.run_id;
-    store.save(&r).unwrap();
-    let loaded = store.load(id).unwrap();
-    let d = diff_receipts(&r, &loaded);
-    assert!(d.is_empty());
-}
-
-// ===========================================================================
-// 15. Double-hashing idempotency
-// ===========================================================================
-
-#[test]
-fn double_hash_idempotent() {
-    let r = fixed_receipt().with_hash().unwrap();
-    let h1 = r.receipt_sha256.clone().unwrap();
-    // Hashing again should produce the same hash
-    let r2 = r.with_hash().unwrap();
-    let h2 = r2.receipt_sha256.clone().unwrap();
-    assert_eq!(h1, h2);
-}
-
-#[test]
-fn triple_hash_idempotent() {
-    let r = fixed_receipt()
-        .with_hash()
-        .unwrap()
-        .with_hash()
-        .unwrap()
-        .with_hash()
-        .unwrap();
-    let h = r.receipt_sha256.clone().unwrap();
-    let recomputed = receipt_hash(&r).unwrap();
-    assert_eq!(h, recomputed);
-}
-
-#[test]
-fn compute_hash_ignores_stored_hash_value() {
-    let r1 = fixed_receipt();
-    let h_bare = compute_hash(&r1).unwrap();
-
-    let r2 = r1.clone().with_hash().unwrap();
-    let h_hashed = compute_hash(&r2).unwrap();
-
-    assert_eq!(h_bare, h_hashed, "compute_hash must ignore receipt_sha256");
-}
-
-#[test]
-fn receipt_hash_ignores_stored_hash_value() {
-    let r1 = fixed_receipt();
-    let h1 = receipt_hash(&r1).unwrap();
-
-    let mut r2 = r1.clone();
-    r2.receipt_sha256 = Some("totally_different".into());
-    let h2 = receipt_hash(&r2).unwrap();
-
-    assert_eq!(h1, h2);
-}
-
-#[test]
-fn with_hash_after_modifying_stored_hash() {
-    let mut r = fixed_receipt().with_hash().unwrap();
-    let original = r.receipt_sha256.clone().unwrap();
-    r.receipt_sha256 = Some("garbage".into());
-    let r2 = r.with_hash().unwrap();
-    assert_eq!(r2.receipt_sha256.unwrap(), original);
-}
-
-// ===========================================================================
-// File store integration
-// ===========================================================================
-
-#[test]
-fn file_store_save_and_load() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    let r = make_receipt("m", 0, Outcome::Complete);
-    let id = r.meta.run_id;
-    store.save(&r).unwrap();
-    let loaded = store.load(id).unwrap();
-    assert_eq!(loaded.meta.run_id, id);
-    assert!(verify_hash(&loaded));
-}
-
-#[test]
-fn file_store_list_empty() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    assert!(store.list().unwrap().is_empty());
-}
-
-#[test]
-fn file_store_list_multiple() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    for i in 0..5 {
-        store
-            .save(&make_receipt("m", i * 10, Outcome::Complete))
-            .unwrap();
-    }
-    assert_eq!(store.list().unwrap().len(), 5);
-}
-
-#[test]
-fn file_store_verify_valid() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    let r = make_receipt("m", 0, Outcome::Complete);
-    let id = r.meta.run_id;
-    store.save(&r).unwrap();
-    assert!(store.verify(id).unwrap());
-}
-
-#[test]
-fn file_store_verify_unhashed_false() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    let r = make_plain("m", 0);
-    let id = r.meta.run_id;
-    store.save(&r).unwrap();
-    assert!(!store.verify(id).unwrap());
-}
-
-#[test]
-fn file_store_verify_chain_valid() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    for i in 0..3 {
-        store
-            .save(&make_receipt("m", i * 60, Outcome::Complete))
-            .unwrap();
-    }
-    let v = store.verify_chain().unwrap();
-    assert!(v.is_valid);
-    assert_eq!(v.valid_count, 3);
-}
-
-#[test]
-fn file_store_verify_chain_empty() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    let v = store.verify_chain().unwrap();
-    assert!(v.is_valid);
-    assert_eq!(v.valid_count, 0);
-}
-
-#[test]
-fn file_store_verify_chain_detects_tamper() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    store
-        .save(&make_receipt("good", 0, Outcome::Complete))
-        .unwrap();
-    let mut bad = make_receipt("bad", 60, Outcome::Complete);
-    bad.outcome = Outcome::Failed; // tamper after hashing
-    store.save(&bad).unwrap();
-    let v = store.verify_chain().unwrap();
-    assert!(!v.is_valid);
-    assert_eq!(v.invalid_hashes.len(), 1);
-}
-
-#[test]
-fn file_store_load_not_found() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    assert!(store.load(Uuid::new_v4()).is_err());
-}
-
-#[test]
-fn file_store_tampered_on_disk() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    let r = make_receipt("m", 0, Outcome::Complete);
-    let id = r.meta.run_id;
-    let path = store.save(&r).unwrap();
-    let mut json = std::fs::read_to_string(&path).unwrap();
-    json = json.replace("\"complete\"", "\"failed\"");
-    std::fs::write(&path, json).unwrap();
-    let loaded = store.load(id).unwrap();
-    assert!(!verify_hash(&loaded));
-}
-
-#[test]
-fn file_store_creates_nested_dir() {
-    let dir = tempfile::tempdir().unwrap();
-    let nested = dir.path().join("deep").join("store");
-    let store = ReceiptStore::new(&nested);
-    store
-        .save(&make_receipt("m", 0, Outcome::Complete))
-        .unwrap();
-    assert!(nested.exists());
-    assert_eq!(store.list().unwrap().len(), 1);
-}
-
-// ===========================================================================
-// Chain + FileStore integration
-// ===========================================================================
-
-#[test]
-fn chain_from_file_store() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    let mut saved_ids = Vec::new();
-    for i in 0..4 {
-        let r = make_receipt("m", i * 30, Outcome::Complete);
-        saved_ids.push(r.meta.run_id);
-        store.save(&r).unwrap();
-    }
-    let mut receipts: Vec<Receipt> = saved_ids
-        .iter()
-        .map(|id| store.load(*id).unwrap())
-        .collect();
-    receipts.sort_by_key(|r| r.meta.started_at);
-    let mut chain = ReceiptChain::new();
-    for r in receipts {
-        chain.push(r).unwrap();
-    }
-    assert_eq!(chain.len(), 4);
-    assert!(chain.verify().is_ok());
-}
-
-// ===========================================================================
-// ChainError display and traits
-// ===========================================================================
-
-#[test]
-fn chain_error_display_empty() {
-    assert_eq!(ChainError::EmptyChain.to_string(), "chain is empty");
-}
-
-#[test]
-fn chain_error_display_hash_mismatch() {
-    assert_eq!(
-        ChainError::HashMismatch { index: 5 }.to_string(),
-        "hash mismatch at chain index 5"
-    );
-}
-
-#[test]
-fn chain_error_display_broken_link() {
-    assert_eq!(
-        ChainError::BrokenLink { index: 2 }.to_string(),
-        "broken link at chain index 2"
-    );
-}
-
-#[test]
-fn chain_error_display_duplicate_id() {
-    let id = Uuid::nil();
-    let e = ChainError::DuplicateId { id };
-    assert!(e.to_string().contains("duplicate"));
-}
-
-#[test]
-fn chain_error_eq_and_clone() {
-    let e1 = ChainError::HashMismatch { index: 1 };
-    let e2 = e1.clone();
-    assert_eq!(e1, e2);
-    assert_ne!(e1, ChainError::HashMismatch { index: 2 });
-}
-
-#[test]
-fn chain_error_is_std_error() {
-    let e: Box<dyn std::error::Error> = Box::new(ChainError::EmptyChain);
-    assert!(!e.to_string().is_empty());
-}
-
-// ===========================================================================
-// Edge cases and stress tests
-// ===========================================================================
-
-#[test]
-fn unicode_backend_hash_stable() {
-    let r = ReceiptBuilder::new("日本語テスト🎉")
-        .started_at(base_time())
-        .finished_at(ts(1))
-        .build();
-    let h1 = receipt_hash(&r).unwrap();
-    let h2 = receipt_hash(&r).unwrap();
-    assert_eq!(h1, h2);
-}
-
-#[test]
-fn empty_string_backend_works() {
-    let r = ReceiptBuilder::new("")
-        .started_at(base_time())
-        .finished_at(ts(1))
-        .build()
-        .with_hash()
-        .unwrap();
-    assert!(verify_hash(&r));
-}
-
-#[test]
-fn very_long_backend_id() {
-    let long_id = "x".repeat(10_000);
-    let r = ReceiptBuilder::new(long_id.as_str())
-        .started_at(base_time())
-        .finished_at(ts(1))
-        .build()
-        .with_hash()
-        .unwrap();
-    assert!(verify_hash(&r));
-    assert_eq!(r.backend.id, long_id);
-}
-
-#[test]
-fn receipt_with_all_event_kinds() {
-    let r = ReceiptBuilder::new("all-kinds")
-        .add_trace_event(AgentEvent {
-            ts: ts(0),
-            kind: AgentEventKind::RunStarted {
-                message: "go".into(),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(1),
-            kind: AgentEventKind::AssistantDelta { text: "tok".into() },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(2),
-            kind: AgentEventKind::AssistantMessage {
-                text: "full msg".into(),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(3),
-            kind: AgentEventKind::ToolCall {
-                tool_name: "bash".into(),
-                tool_use_id: Some("tc1".into()),
-                parent_tool_use_id: None,
-                input: serde_json::json!({"command": "ls"}),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(4),
-            kind: AgentEventKind::ToolResult {
-                tool_name: "bash".into(),
-                tool_use_id: Some("tc1".into()),
-                output: serde_json::json!("file.rs"),
-                is_error: false,
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(5),
-            kind: AgentEventKind::FileChanged {
-                path: "src/lib.rs".into(),
-                summary: "added fn".into(),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(6),
-            kind: AgentEventKind::CommandExecuted {
-                command: "cargo test".into(),
-                exit_code: Some(0),
-                output_preview: Some("ok".into()),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(7),
-            kind: AgentEventKind::Warning {
-                message: "slow".into(),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(8),
-            kind: AgentEventKind::Error {
-                message: "oops".into(),
-                error_code: None,
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: ts(9),
-            kind: AgentEventKind::RunCompleted {
-                message: "done".into(),
-            },
-            ext: None,
-        })
-        .started_at(base_time())
-        .finished_at(ts(10))
-        .build()
-        .with_hash()
-        .unwrap();
-
-    assert_eq!(r.trace.len(), 10);
-    assert!(verify_hash(&r));
-}
-
-#[test]
-fn receipt_with_multiple_artifacts() {
-    let r = ReceiptBuilder::new("arts")
-        .add_artifact(ArtifactRef {
-            kind: "patch".into(),
-            path: "a.patch".into(),
-        })
-        .add_artifact(ArtifactRef {
-            kind: "log".into(),
-            path: "run.log".into(),
-        })
-        .add_artifact(ArtifactRef {
-            kind: "diff".into(),
-            path: "changes.diff".into(),
-        })
-        .build();
-    assert_eq!(r.artifacts.len(), 3);
-}
-
-#[test]
-fn receipt_capabilities_btreemap_order() {
-    let mut caps = BTreeMap::new();
-    caps.insert(Capability::ToolBash, SupportLevel::Native);
-    caps.insert(Capability::ToolRead, SupportLevel::Native);
-    caps.insert(Capability::Streaming, SupportLevel::Emulated);
-    caps.insert(Capability::ImageInput, SupportLevel::Unsupported);
-    let r = ReceiptBuilder::new("cap-order").capabilities(caps).build();
-    assert_eq!(r.capabilities.len(), 4);
-    // Keys are in BTreeMap order
-    let keys: Vec<_> = r.capabilities.keys().collect();
-    for i in 1..keys.len() {
-        assert!(keys[i - 1] < keys[i]);
-    }
-}
-
-#[test]
-fn receipt_verification_report_all_fields() {
-    let v = VerificationReport {
-        git_diff: Some("diff --git a/f b/f\n+line".into()),
-        git_status: Some("M f".into()),
-        harness_ok: true,
-    };
-    let r = ReceiptBuilder::new("v").verification(v).build();
-    assert!(r.verification.harness_ok);
-    assert_eq!(
-        r.verification.git_diff.as_deref(),
-        Some("diff --git a/f b/f\n+line")
-    );
-    assert_eq!(r.verification.git_status.as_deref(), Some("M f"));
-}
-
-#[test]
-fn receipt_verification_report_default() {
-    let r = ReceiptBuilder::new("v").build();
-    assert!(!r.verification.harness_ok);
-    assert!(r.verification.git_diff.is_none());
-    assert!(r.verification.git_status.is_none());
-}
-
-#[test]
-fn execution_mode_serde_roundtrip() {
-    for mode in [ExecutionMode::Mapped, ExecutionMode::Passthrough] {
-        let json = serde_json::to_string(&mode).unwrap();
-        let deser: ExecutionMode = serde_json::from_str(&json).unwrap();
-        assert_eq!(mode, deser);
-    }
-}
-
-#[test]
-fn execution_mode_default_is_mapped() {
-    assert_eq!(ExecutionMode::default(), ExecutionMode::Mapped);
-}
-
-#[test]
-fn chain_100_receipts_stress() {
-    let mut chain = ReceiptChain::new();
-    for i in 0..100 {
-        chain
-            .push(make_receipt("stress", i, Outcome::Complete))
-            .unwrap();
-    }
-    assert_eq!(chain.len(), 100);
-    assert!(chain.verify().is_ok());
-}
-
-#[test]
-fn file_store_100_receipts_verify_chain() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
-    for i in 0..100 {
-        store
-            .save(&make_receipt("m", i * 5, Outcome::Complete))
-            .unwrap();
-    }
-    let v = store.verify_chain().unwrap();
-    assert!(v.is_valid);
-    assert_eq!(v.valid_count, 100);
-}
-
-#[test]
-fn chain_garbage_hash_rejected_at_push() {
-    let mut r = make_plain("m", 0);
-    r.receipt_sha256 = Some("deadbeefdeadbeef".into());
-    let mut chain = ReceiptChain::new();
-    assert!(matches!(
-        chain.push(r),
-        Err(ChainError::HashMismatch { .. })
-    ));
-}
-
-#[test]
-fn receipt_serde_with_all_usage_fields() {
-    let u = UsageNormalized {
-        input_tokens: Some(1),
-        output_tokens: Some(2),
-        cache_read_tokens: Some(3),
-        cache_write_tokens: Some(4),
-        request_units: Some(5),
-        estimated_cost_usd: Some(0.01),
-    };
-    let r = ReceiptBuilder::new("u")
-        .usage(u)
-        .started_at(base_time())
-        .finished_at(ts(1))
-        .build();
-    let json = serde_json::to_string(&r).unwrap();
-    let deser: Receipt = serde_json::from_str(&json).unwrap();
-    assert_eq!(deser.usage.input_tokens, Some(1));
-    assert_eq!(deser.usage.output_tokens, Some(2));
-    assert_eq!(deser.usage.cache_read_tokens, Some(3));
-    assert_eq!(deser.usage.cache_write_tokens, Some(4));
-    assert_eq!(deser.usage.request_units, Some(5));
-    assert_eq!(deser.usage.estimated_cost_usd, Some(0.01));
-}
-
-#[test]
-fn receipt_builder_mode_passthrough() {
-    let r = ReceiptBuilder::new("p")
-        .mode(ExecutionMode::Passthrough)
-        .build();
-    assert_eq!(r.mode, ExecutionMode::Passthrough);
-}
-
-#[test]
-fn chain_broken_link_reports_correct_index() {
-    let mut chain = ReceiptChain::new();
-    chain.push(make_receipt("a", 0, Outcome::Complete)).unwrap();
-    chain
-        .push(make_receipt("b", 100, Outcome::Complete))
-        .unwrap();
-    let earlier = make_receipt("c", 50, Outcome::Complete);
-    match chain.push(earlier) {
-        Err(ChainError::BrokenLink { index }) => assert_eq!(index, 2),
-        other => panic!("expected BrokenLink, got {other:?}"),
-    }
-}
-
-#[test]
-fn chain_hash_mismatch_reports_correct_index() {
-    let mut r = make_receipt("m", 0, Outcome::Complete);
-    r.outcome = Outcome::Failed; // tamper
-    let mut chain = ReceiptChain::new();
-    match chain.push(r) {
-        Err(ChainError::HashMismatch { index }) => assert_eq!(index, 0),
-        other => panic!("expected HashMismatch, got {other:?}"),
-    }
-}
-
-#[test]
-fn receipt_work_order_id_nil_by_default() {
-    let r = ReceiptBuilder::new("t").build();
-    assert_eq!(r.meta.work_order_id, Uuid::nil());
-}
-
-#[test]
-fn receipt_custom_work_order_id() {
-    let wo_id = Uuid::new_v4();
-    let r = ReceiptBuilder::new("t").work_order_id(wo_id).build();
-    assert_eq!(r.meta.work_order_id, wo_id);
-}
-
-#[test]
-fn receipt_custom_run_id() {
-    let run_id = Uuid::new_v4();
-    let r = ReceiptBuilder::new("t").run_id(run_id).build();
-    assert_eq!(r.meta.run_id, run_id);
-}
-
-#[test]
-fn canonicalize_and_compute_hash_agree() {
-    let r = fixed_receipt();
-    let canonical = canonicalize(&r).unwrap();
-    let hash_via_canonical = {
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(canonical.as_bytes());
-        format!("{:x}", hasher.finalize())
-    };
-    let hash_via_fn = compute_hash(&r).unwrap();
-    assert_eq!(hash_via_canonical, hash_via_fn);
-}
-
-#[test]
-fn chain_default_trait() {
-    let chain = ReceiptChain::default();
-    assert!(chain.is_empty());
-}
-
-#[test]
-fn chain_push_returns_ok_for_valid() {
-    let mut chain = ReceiptChain::new();
-    let result = chain.push(make_receipt("m", 0, Outcome::Complete));
-    assert!(result.is_ok());
-}
-
-#[test]
-fn chain_latest_none_for_empty() {
-    assert!(ReceiptChain::new().latest().is_none());
-}
-
-#[test]
-fn receipt_clone_preserves_hash() {
-    let r = make_receipt("m", 0, Outcome::Complete);
-    let cloned = r.clone();
-    assert_eq!(r.receipt_sha256, cloned.receipt_sha256);
-    assert_eq!(receipt_hash(&r).unwrap(), receipt_hash(&cloned).unwrap());
-}
-
-#[test]
-fn receipt_debug_does_not_panic() {
-    let r = make_receipt("m", 0, Outcome::Complete);
-    let debug_str = format!("{r:?}");
-    assert!(!debug_str.is_empty());
-}
-
-// ===========================================================================
-// Additional coverage — reaching 150+ tests
-// ===========================================================================
-
-#[test]
-fn hash_changes_with_capabilities() {
-    let r1 = ReceiptBuilder::new("c")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    let r2 = ReceiptBuilder::new("c")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .capabilities(sample_capabilities())
-        .build();
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-#[test]
-fn hash_changes_with_mode() {
-    let r1 = ReceiptBuilder::new("m")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .mode(ExecutionMode::Mapped)
-        .build();
-    let r2 = ReceiptBuilder::new("m")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .mode(ExecutionMode::Passthrough)
-        .build();
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-#[test]
-fn hash_changes_with_artifacts() {
-    let r1 = ReceiptBuilder::new("a")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    let r2 = ReceiptBuilder::new("a")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .add_artifact(ArtifactRef {
-            kind: "patch".into(),
-            path: "x.patch".into(),
-        })
-        .build();
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-#[test]
-fn hash_changes_with_verification() {
-    let r1 = ReceiptBuilder::new("v")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    let r2 = ReceiptBuilder::new("v")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .verification(VerificationReport {
-            harness_ok: true,
-            ..Default::default()
-        })
-        .build();
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-#[test]
-fn hash_changes_with_run_id() {
-    let r1 = ReceiptBuilder::new("r")
-        .run_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    let r2 = ReceiptBuilder::new("r")
-        .run_id(Uuid::from_u128(1))
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-#[test]
-fn hash_changes_with_work_order_id() {
-    let r1 = ReceiptBuilder::new("w")
-        .run_id(Uuid::nil())
-        .work_order_id(Uuid::nil())
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    let r2 = ReceiptBuilder::new("w")
-        .run_id(Uuid::nil())
-        .work_order_id(Uuid::from_u128(1))
-        .started_at(base_time())
-        .finished_at(base_time())
-        .build();
-    assert_ne!(receipt_hash(&r1).unwrap(), receipt_hash(&r2).unwrap());
-}
-
-#[test]
-fn chain_rejects_tampered_backend_field() {
-    let mut r = make_receipt("m", 0, Outcome::Complete);
-    r.backend.id = "tampered".into();
-    let mut chain = ReceiptChain::new();
-    assert!(matches!(
-        chain.push(r),
-        Err(ChainError::HashMismatch { .. })
-    ));
-}
-
-#[test]
-fn chain_rejects_tampered_usage() {
-    let mut r = make_receipt("m", 0, Outcome::Complete);
-    r.usage.input_tokens = Some(999_999);
-    let mut chain = ReceiptChain::new();
-    assert!(matches!(
-        chain.push(r),
-        Err(ChainError::HashMismatch { .. })
-    ));
-}
-
-#[test]
-fn file_store_overwrite_updates_content() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = ReceiptStore::new(dir.path());
+fn chain_detects_duplicate_ids() {
     let id = Uuid::new_v4();
-    let r1 = ReceiptBuilder::new("old")
-        .run_id(id)
-        .outcome(Outcome::Complete)
-        .started_at(base_time())
-        .finished_at(ts(1))
-        .with_hash()
+    let r1 = make_receipt_with_id("a", Outcome::Complete, id);
+    let r2 = make_receipt_with_id("b", Outcome::Complete, id);
+    let cv = validate_chain(&[r1, r2]);
+    assert!(!cv.valid);
+    assert!(cv.errors.iter().any(|e| e.message.contains("duplicate")));
+}
+
+#[test]
+fn chain_detects_broken_ordering() {
+    let r1 = make_receipt_at("a", Outcome::Complete, ts(200));
+    let r2 = make_receipt_at("b", Outcome::Complete, ts(100));
+    let cv = validate_chain(&[r1, r2]);
+    assert!(!cv.valid);
+    assert!(cv.errors.iter().any(|e| e.message.contains("earlier")));
+}
+
+#[test]
+fn chain_multiple_errors_reported() {
+    let id = Uuid::new_v4();
+    let r1 = make_receipt_at("a", Outcome::Complete, ts(200));
+    let mut r2 = make_receipt_at("b", Outcome::Complete, ts(100));
+    r2.meta.run_id = id;
+    let mut r3 = make_receipt_at("c", Outcome::Complete, ts(50));
+    r3.meta.run_id = id; // duplicate + ordering
+    let cv = validate_chain(&[r1, r2, r3]);
+    assert!(!cv.valid);
+    assert!(cv.errors.len() >= 2);
+}
+
+#[test]
+fn chain_validation_error_display() {
+    let e = ChainValidationError {
+        index: 5,
+        message: "bad hash".to_string(),
+    };
+    assert_eq!(e.to_string(), "[5]: bad hash");
+}
+
+#[test]
+fn chain_validation_error_display_zero_index() {
+    let e = ChainValidationError {
+        index: 0,
+        message: "first error".to_string(),
+    };
+    assert_eq!(e.to_string(), "[0]: first error");
+}
+
+#[test]
+fn chain_valid_all_outcomes() {
+    let r1 = make_hashed_at("a", Outcome::Complete, ts(0));
+    let r2 = make_hashed_at("b", Outcome::Failed, ts(100));
+    let r3 = make_hashed_at("c", Outcome::Partial, ts(200));
+    let cv = validate_chain(&[r1, r2, r3]);
+    assert!(cv.valid);
+    assert_eq!(cv.receipt_count, 3);
+}
+
+#[test]
+fn chain_tampered_hash_string() {
+    let mut r = make_hashed("mock", Outcome::Complete);
+    r.receipt_sha256 =
+        Some("0000000000000000000000000000000000000000000000000000000000000000".to_string());
+    let cv = validate_chain(&[r]);
+    assert!(!cv.valid);
+    assert!(cv.errors[0].message.contains("hash mismatch"));
+}
+
+#[test]
+fn chain_large_valid_chain() {
+    let mut receipts = Vec::new();
+    for i in 0..50 {
+        receipts.push(make_hashed_at("backend", Outcome::Complete, ts(i * 10)));
+    }
+    let cv = validate_chain(&receipts);
+    assert!(cv.valid);
+    assert_eq!(cv.receipt_count, 50);
+}
+
+// ===========================================================================
+// 8. ReceiptIndex — Insert, Query, Remove
+// ===========================================================================
+
+#[test]
+fn index_new_is_empty() {
+    let idx = ReceiptIndex::new();
+    assert!(idx.is_empty());
+    assert_eq!(idx.len(), 0);
+}
+
+#[test]
+fn index_insert_single() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    idx.insert(&r);
+    assert_eq!(idx.len(), 1);
+    assert!(!idx.is_empty());
+}
+
+#[test]
+fn index_by_backend_hit() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    idx.insert(&r);
+    let ids = idx.by_backend("mock");
+    assert!(ids.contains(&id));
+}
+
+#[test]
+fn index_by_backend_miss() {
+    let idx = ReceiptIndex::new();
+    assert!(idx.by_backend("nonexistent").is_empty());
+}
+
+#[test]
+fn index_by_outcome_hit() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("a", Outcome::Failed);
+    let id = r.meta.run_id.to_string();
+    idx.insert(&r);
+    let ids = idx.by_outcome(&Outcome::Failed);
+    assert!(ids.contains(&id));
+}
+
+#[test]
+fn index_by_outcome_miss() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("a", Outcome::Complete);
+    idx.insert(&r);
+    assert!(idx.by_outcome(&Outcome::Failed).is_empty());
+}
+
+#[test]
+fn index_by_time_range_hit() {
+    let mut idx = ReceiptIndex::new();
+    let t = ts(100);
+    let r = make_receipt_at("a", Outcome::Complete, t);
+    let id = r.meta.run_id.to_string();
+    idx.insert(&r);
+    let ids = idx.by_time_range(ts(0), ts(200));
+    assert!(ids.contains(&id));
+}
+
+#[test]
+fn index_by_time_range_miss() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt_at("a", Outcome::Complete, ts(0));
+    idx.insert(&r);
+    let ids = idx.by_time_range(ts(100), ts(200));
+    assert!(ids.is_empty());
+}
+
+#[test]
+fn index_by_time_range_boundary_inclusive() {
+    let mut idx = ReceiptIndex::new();
+    let t = ts(100);
+    let r = make_receipt_at("a", Outcome::Complete, t);
+    let id = r.meta.run_id.to_string();
+    idx.insert(&r);
+    let ids = idx.by_time_range(t, t);
+    assert!(ids.contains(&id));
+}
+
+#[test]
+fn index_remove_single() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    idx.insert(&r);
+    idx.remove(&r);
+    assert_eq!(idx.len(), 0);
+    assert!(idx.is_empty());
+    assert!(idx.by_backend("mock").is_empty());
+    assert!(idx.by_outcome(&Outcome::Complete).is_empty());
+}
+
+#[test]
+fn index_remove_nonexistent_is_noop() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    idx.remove(&r); // should not panic
+    assert!(idx.is_empty());
+}
+
+#[test]
+fn index_multiple_same_backend() {
+    let mut idx = ReceiptIndex::new();
+    let r1 = make_receipt("mock", Outcome::Complete);
+    let r2 = make_receipt("mock", Outcome::Failed);
+    idx.insert(&r1);
+    idx.insert(&r2);
+    let ids = idx.by_backend("mock");
+    assert_eq!(ids.len(), 2);
+}
+
+#[test]
+fn index_multiple_backends() {
+    let mut idx = ReceiptIndex::new();
+    let r1 = make_receipt("alpha", Outcome::Complete);
+    let r2 = make_receipt("beta", Outcome::Complete);
+    idx.insert(&r1);
+    idx.insert(&r2);
+    assert_eq!(idx.by_backend("alpha").len(), 1);
+    assert_eq!(idx.by_backend("beta").len(), 1);
+    assert_eq!(idx.len(), 2);
+}
+
+#[test]
+fn index_remove_one_of_many() {
+    let mut idx = ReceiptIndex::new();
+    let r1 = make_receipt("mock", Outcome::Complete);
+    let r2 = make_receipt("mock", Outcome::Failed);
+    let id2 = r2.meta.run_id.to_string();
+    idx.insert(&r1);
+    idx.insert(&r2);
+    idx.remove(&r1);
+    assert_eq!(idx.len(), 1);
+    assert!(idx.by_backend("mock").contains(&id2));
+}
+
+#[test]
+fn index_time_range_multiple_at_same_time() {
+    let mut idx = ReceiptIndex::new();
+    let t = ts(100);
+    let r1 = make_receipt_at("a", Outcome::Complete, t);
+    let r2 = make_receipt_at("b", Outcome::Complete, t);
+    idx.insert(&r1);
+    idx.insert(&r2);
+    let ids = idx.by_time_range(t, t);
+    assert_eq!(ids.len(), 2);
+}
+
+#[test]
+fn index_time_range_spans_multiple_timestamps() {
+    let mut idx = ReceiptIndex::new();
+    let r1 = make_receipt_at("a", Outcome::Complete, ts(10));
+    let r2 = make_receipt_at("b", Outcome::Complete, ts(20));
+    let r3 = make_receipt_at("c", Outcome::Complete, ts(30));
+    idx.insert(&r1);
+    idx.insert(&r2);
+    idx.insert(&r3);
+    let ids = idx.by_time_range(ts(10), ts(30));
+    assert_eq!(ids.len(), 3);
+}
+
+#[test]
+fn index_len_after_mixed_ops() {
+    let mut idx = ReceiptIndex::new();
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Failed);
+    let r3 = make_receipt("c", Outcome::Partial);
+    idx.insert(&r1);
+    idx.insert(&r2);
+    idx.insert(&r3);
+    assert_eq!(idx.len(), 3);
+    idx.remove(&r2);
+    assert_eq!(idx.len(), 2);
+}
+
+#[test]
+fn index_all_outcome_variants() {
+    let mut idx = ReceiptIndex::new();
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Failed);
+    let r3 = make_receipt("c", Outcome::Partial);
+    idx.insert(&r1);
+    idx.insert(&r2);
+    idx.insert(&r3);
+    assert_eq!(idx.by_outcome(&Outcome::Complete).len(), 1);
+    assert_eq!(idx.by_outcome(&Outcome::Failed).len(), 1);
+    assert_eq!(idx.by_outcome(&Outcome::Partial).len(), 1);
+}
+
+#[test]
+fn index_insert_same_receipt_twice_idempotent_backend() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    idx.insert(&r);
+    idx.insert(&r);
+    // HashSet deduplicates, so by_backend should have 1 entry
+    assert_eq!(idx.by_backend("mock").len(), 1);
+}
+
+#[test]
+fn index_default_is_empty() {
+    let idx = ReceiptIndex::default();
+    assert!(idx.is_empty());
+    assert_eq!(idx.len(), 0);
+}
+
+// ===========================================================================
+// 9. StoreError — Display and Source
+// ===========================================================================
+
+#[test]
+fn store_error_duplicate_id_display() {
+    let e = StoreError::DuplicateId("abc-123".into());
+    assert_eq!(e.to_string(), "duplicate receipt id: abc-123");
+}
+
+#[test]
+fn store_error_invalid_id_display() {
+    let e = StoreError::InvalidId("bad-id".into());
+    assert_eq!(e.to_string(), "invalid receipt id: bad-id");
+}
+
+#[test]
+fn store_error_other_display() {
+    let e = StoreError::Other("something broke".into());
+    assert_eq!(e.to_string(), "store error: something broke");
+}
+
+#[test]
+fn store_error_io_display() {
+    let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+    let e = StoreError::Io(io_err);
+    assert!(e.to_string().contains("I/O error"));
+}
+
+#[test]
+fn store_error_json_display() {
+    let json_err = serde_json::from_str::<serde_json::Value>("not json").unwrap_err();
+    let e = StoreError::Json(json_err);
+    assert!(e.to_string().contains("JSON error"));
+}
+
+#[test]
+fn store_error_io_has_source() {
+    let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "gone");
+    let e = StoreError::Io(io_err);
+    assert!(std::error::Error::source(&e).is_some());
+}
+
+#[test]
+fn store_error_json_has_source() {
+    let json_err = serde_json::from_str::<serde_json::Value>("nope").unwrap_err();
+    let e = StoreError::Json(json_err);
+    assert!(std::error::Error::source(&e).is_some());
+}
+
+#[test]
+fn store_error_duplicate_no_source() {
+    let e = StoreError::DuplicateId("x".into());
+    assert!(std::error::Error::source(&e).is_none());
+}
+
+#[test]
+fn store_error_invalid_no_source() {
+    let e = StoreError::InvalidId("x".into());
+    assert!(std::error::Error::source(&e).is_none());
+}
+
+#[test]
+fn store_error_other_no_source() {
+    let e = StoreError::Other("x".into());
+    assert!(std::error::Error::source(&e).is_none());
+}
+
+#[test]
+fn store_error_from_io() {
+    let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "no access");
+    let e: StoreError = io_err.into();
+    assert!(matches!(e, StoreError::Io(_)));
+}
+
+#[test]
+fn store_error_from_json() {
+    let json_err = serde_json::from_str::<Receipt>("{}").unwrap_err();
+    let e: StoreError = json_err.into();
+    assert!(matches!(e, StoreError::Json(_)));
+}
+
+#[test]
+fn store_error_debug_format() {
+    let e = StoreError::DuplicateId("test".into());
+    let debug = format!("{:?}", e);
+    assert!(debug.contains("DuplicateId"));
+}
+
+// ===========================================================================
+// 10. ReceiptFilter — Unit Tests
+// ===========================================================================
+
+// Test filter matching indirectly through store.list()
+#[tokio::test]
+async fn filter_default_matches_everything_via_list() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("x", Outcome::Complete))
+        .await
         .unwrap();
-    store.save(&r1).unwrap();
+    let f = ReceiptFilter::default();
+    assert_eq!(s.list(f).await.unwrap().len(), 1);
+}
 
-    let r2 = ReceiptBuilder::new("new")
-        .run_id(id)
-        .outcome(Outcome::Failed)
-        .started_at(base_time())
-        .finished_at(ts(1))
-        .with_hash()
+#[tokio::test]
+async fn filter_outcome_mismatch_returns_empty() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("x", Outcome::Complete))
+        .await
         .unwrap();
-    store.save(&r2).unwrap();
+    let f = ReceiptFilter {
+        outcome: Some(Outcome::Failed),
+        ..Default::default()
+    };
+    assert!(s.list(f).await.unwrap().is_empty());
+}
 
-    let loaded = store.load(id).unwrap();
-    assert_eq!(loaded.backend.id, "new");
-    assert_eq!(loaded.outcome, Outcome::Failed);
+#[tokio::test]
+async fn filter_outcome_match_returns_result() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("x", Outcome::Complete))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        outcome: Some(Outcome::Complete),
+        ..Default::default()
+    };
+    assert_eq!(s.list(f).await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn filter_backend_mismatch_returns_empty() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("other", Outcome::Complete))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        backend: Some("wanted".into()),
+        ..Default::default()
+    };
+    assert!(s.list(f).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn filter_backend_match_returns_result() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt("wanted", Outcome::Complete))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        backend: Some("wanted".into()),
+        ..Default::default()
+    };
+    assert_eq!(s.list(f).await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn filter_time_range_mismatch_returns_empty() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt_at("x", Outcome::Complete, ts(0)))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        time_range: Some((ts(100), ts(200))),
+        ..Default::default()
+    };
+    assert!(s.list(f).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn filter_time_range_match_returns_result() {
+    let s = InMemoryReceiptStore::new();
+    s.store(&make_receipt_at("x", Outcome::Complete, ts(100)))
+        .await
+        .unwrap();
+    let f = ReceiptFilter {
+        time_range: Some((ts(0), ts(200))),
+        ..Default::default()
+    };
+    assert_eq!(s.list(f).await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn filter_paginate_empty_store() {
+    let s = InMemoryReceiptStore::new();
+    let f = ReceiptFilter {
+        limit: Some(10),
+        ..Default::default()
+    };
+    assert!(s.list(f).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn filter_paginate_limit_only_via_list() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..5 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter {
+        limit: Some(2),
+        ..Default::default()
+    };
+    assert_eq!(s.list(f).await.unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn filter_paginate_offset_only_via_list() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..5 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter {
+        offset: Some(3),
+        ..Default::default()
+    };
+    assert_eq!(s.list(f).await.unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn filter_paginate_both_via_list() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..10 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter {
+        limit: Some(2),
+        offset: Some(1),
+        ..Default::default()
+    };
+    assert_eq!(s.list(f).await.unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn filter_paginate_offset_past_end_via_list() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..3 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter {
+        offset: Some(100),
+        ..Default::default()
+    };
+    assert!(s.list(f).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn filter_paginate_no_limit_no_offset_via_list() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..3 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter::default();
+    assert_eq!(s.list(f).await.unwrap().len(), 3);
 }
 
 #[test]
-fn diff_detects_started_at_change() {
-    let r1 = ReceiptBuilder::new("m")
-        .started_at(ts(0))
-        .finished_at(ts(10))
-        .build();
-    let mut r2 = r1.clone();
-    r2.meta.started_at = ts(5);
-    let d = diff_receipts(&r1, &r2);
-    assert!(d.changes.iter().any(|c| c.field == "meta.started_at"));
+fn filter_default_fields_are_none() {
+    let f = ReceiptFilter::default();
+    assert!(f.outcome.is_none());
+    assert!(f.backend.is_none());
+    assert!(f.time_range.is_none());
+    assert!(f.limit.is_none());
+    assert!(f.offset.is_none());
 }
 
 #[test]
-fn diff_detects_finished_at_change() {
-    let r1 = ReceiptBuilder::new("m")
-        .started_at(ts(0))
-        .finished_at(ts(10))
-        .build();
-    let mut r2 = r1.clone();
-    r2.meta.finished_at = ts(20);
-    let d = diff_receipts(&r1, &r2);
-    assert!(d.changes.iter().any(|c| c.field == "meta.finished_at"));
+fn filter_debug_format() {
+    let f = ReceiptFilter {
+        backend: Some("test".into()),
+        outcome: Some(Outcome::Complete),
+        ..Default::default()
+    };
+    let debug = format!("{:?}", f);
+    assert!(debug.contains("test"));
+    assert!(debug.contains("Complete"));
+}
+
+// ===========================================================================
+// 11. Serde Roundtrips via File Store
+// ===========================================================================
+
+#[tokio::test]
+async fn serde_roundtrip_preserves_run_id() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id;
+    s.store(&r).await.unwrap();
+    let got = s.get(&id.to_string()).await.unwrap().unwrap();
+    assert_eq!(got.meta.run_id, id);
+}
+
+#[tokio::test]
+async fn serde_roundtrip_preserves_backend_id() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let r = make_receipt("my-special-backend", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "my-special-backend");
+}
+
+#[tokio::test]
+async fn serde_roundtrip_preserves_outcome() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    for outcome in [Outcome::Complete, Outcome::Failed, Outcome::Partial] {
+        let r = make_receipt("test", outcome.clone());
+        let id = r.meta.run_id.to_string();
+        s.store(&r).await.unwrap();
+        let got = s.get(&id).await.unwrap().unwrap();
+        assert_eq!(got.outcome, outcome);
+    }
+}
+
+#[tokio::test]
+async fn serde_roundtrip_preserves_hash() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let r = make_hashed("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    let hash = r.receipt_sha256.clone();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.receipt_sha256, hash);
+}
+
+#[tokio::test]
+async fn serde_roundtrip_preserves_timestamps() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let t = ts(42);
+    let r = make_receipt_at("mock", Outcome::Complete, t);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.meta.started_at, t);
+    assert_eq!(got.meta.finished_at, t);
+}
+
+#[tokio::test]
+async fn serde_roundtrip_preserves_duration() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let mut r = make_receipt("mock", Outcome::Complete);
+    r.meta.duration_ms = 12345;
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.meta.duration_ms, 12345);
+}
+
+#[tokio::test]
+async fn serde_roundtrip_preserves_contract_version() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.meta.contract_version, CONTRACT_VERSION);
+}
+
+// ===========================================================================
+// 12. Concurrent Access
+// ===========================================================================
+
+#[tokio::test]
+async fn concurrent_memory_writers() {
+    let s = Arc::new(InMemoryReceiptStore::new());
+    let mut handles = Vec::new();
+    for _ in 0..20 {
+        let store = Arc::clone(&s);
+        handles.push(tokio::spawn(async move {
+            store
+                .store(&make_receipt("c", Outcome::Complete))
+                .await
+                .unwrap();
+        }));
+    }
+    for h in handles {
+        h.await.unwrap();
+    }
+    assert_eq!(s.count().await.unwrap(), 20);
+}
+
+#[tokio::test]
+async fn concurrent_memory_readers_and_writers() {
+    let s = Arc::new(InMemoryReceiptStore::new());
+    for _ in 0..5 {
+        s.store(&make_receipt("bg", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let mut handles = Vec::new();
+    for _ in 0..5 {
+        let store = Arc::clone(&s);
+        handles.push(tokio::spawn(async move {
+            store
+                .store(&make_receipt("new", Outcome::Complete))
+                .await
+                .unwrap();
+        }));
+    }
+    for _ in 0..5 {
+        let store = Arc::clone(&s);
+        handles.push(tokio::spawn(async move {
+            let _ = store.list(ReceiptFilter::default()).await.unwrap();
+        }));
+    }
+    for h in handles {
+        h.await.unwrap();
+    }
+    assert_eq!(s.count().await.unwrap(), 10);
+}
+
+#[tokio::test]
+async fn concurrent_file_writers() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = Arc::new(FileReceiptStore::new(dir.path().join("r.jsonl")));
+    let mut handles = Vec::new();
+    for _ in 0..10 {
+        let store = Arc::clone(&s);
+        handles.push(tokio::spawn(async move {
+            store
+                .store(&make_receipt("c", Outcome::Complete))
+                .await
+                .unwrap();
+        }));
+    }
+    for h in handles {
+        h.await.unwrap();
+    }
+    assert_eq!(s.count().await.unwrap(), 10);
+}
+
+#[tokio::test]
+async fn concurrent_memory_delete_and_insert() {
+    let s = Arc::new(InMemoryReceiptStore::new());
+    let receipts: Vec<Receipt> = (0..10)
+        .map(|_| make_receipt("x", Outcome::Complete))
+        .collect();
+    for r in &receipts {
+        s.store(r).await.unwrap();
+    }
+    let mut handles = Vec::new();
+    // Delete first 5
+    for r in receipts.iter().take(5) {
+        let store = Arc::clone(&s);
+        let id = r.meta.run_id.to_string();
+        handles.push(tokio::spawn(async move {
+            store.delete(&id).await.unwrap();
+        }));
+    }
+    // Insert 5 new
+    for _ in 0..5 {
+        let store = Arc::clone(&s);
+        handles.push(tokio::spawn(async move {
+            store
+                .store(&make_receipt("y", Outcome::Complete))
+                .await
+                .unwrap();
+        }));
+    }
+    for h in handles {
+        h.await.unwrap();
+    }
+    assert_eq!(s.count().await.unwrap(), 10);
+}
+
+// ===========================================================================
+// 13. Capacity / Stress Tests
+// ===========================================================================
+
+#[tokio::test]
+async fn mem_store_100_receipts() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..100 {
+        s.store(&make_receipt("load", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    assert_eq!(s.count().await.unwrap(), 100);
+}
+
+#[tokio::test]
+async fn mem_list_100_receipts() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..100 {
+        s.store(&make_receipt("load", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let all = s.list(ReceiptFilter::default()).await.unwrap();
+    assert_eq!(all.len(), 100);
+}
+
+#[tokio::test]
+async fn file_store_50_receipts() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    for _ in 0..50 {
+        s.store(&make_receipt("load", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    assert_eq!(s.count().await.unwrap(), 50);
+}
+
+#[tokio::test]
+async fn mem_delete_all_receipts() {
+    let s = InMemoryReceiptStore::new();
+    let mut ids = Vec::new();
+    for _ in 0..20 {
+        let r = make_receipt("x", Outcome::Complete);
+        ids.push(r.meta.run_id.to_string());
+        s.store(&r).await.unwrap();
+    }
+    for id in &ids {
+        s.delete(id).await.unwrap();
+    }
+    assert_eq!(s.count().await.unwrap(), 0);
+}
+
+#[tokio::test]
+async fn mem_paginate_through_all() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..25 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let mut total = 0;
+    let page_size = 10;
+    let mut offset = 0;
+    loop {
+        let f = ReceiptFilter {
+            limit: Some(page_size),
+            offset: Some(offset),
+            ..Default::default()
+        };
+        let page = s.list(f).await.unwrap();
+        if page.is_empty() {
+            break;
+        }
+        total += page.len();
+        offset += page_size;
+    }
+    assert_eq!(total, 25);
+}
+
+// ===========================================================================
+// 14. Index — Advanced Scenarios
+// ===========================================================================
+
+#[test]
+fn index_rebuild_from_receipts() {
+    let mut idx = ReceiptIndex::new();
+    let receipts: Vec<Receipt> = (0..10)
+        .map(|i| make_receipt_at(&format!("b{}", i % 3), Outcome::Complete, ts(i * 10)))
+        .collect();
+    for r in &receipts {
+        idx.insert(r);
+    }
+    assert_eq!(idx.len(), 10);
+    assert_eq!(idx.by_backend("b0").len(), 4);
+    assert_eq!(idx.by_backend("b1").len(), 3);
+    assert_eq!(idx.by_backend("b2").len(), 3);
 }
 
 #[test]
-fn diff_detects_duration_change() {
-    let r1 = ReceiptBuilder::new("m")
-        .started_at(ts(0))
-        .finished_at(ts(10))
-        .build();
-    let mut r2 = r1.clone();
-    r2.meta.duration_ms = 99999;
-    let d = diff_receipts(&r1, &r2);
-    assert!(d.changes.iter().any(|c| c.field == "meta.duration_ms"));
+fn index_remove_cleans_up_backend_entry() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("only-one", Outcome::Complete);
+    idx.insert(&r);
+    idx.remove(&r);
+    // Backend entry should be fully removed (not left as empty set)
+    assert!(idx.by_backend("only-one").is_empty());
+    assert!(idx.is_empty());
 }
 
 #[test]
-fn diff_detects_adapter_version_change() {
-    let r1 = ReceiptBuilder::new("m")
-        .adapter_version("1.0")
-        .started_at(base_time())
-        .finished_at(ts(1))
-        .build();
-    let mut r2 = r1.clone();
-    r2.backend.adapter_version = Some("2.0".into());
-    let d = diff_receipts(&r1, &r2);
-    assert!(
-        d.changes
-            .iter()
-            .any(|c| c.field == "backend.adapter_version")
-    );
+fn index_remove_cleans_up_outcome_entry() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("x", Outcome::Partial);
+    idx.insert(&r);
+    idx.remove(&r);
+    assert!(idx.by_outcome(&Outcome::Partial).is_empty());
 }
 
 #[test]
-fn canonical_json_contains_all_top_level_keys() {
-    let r = fixed_receipt();
-    let json = canonicalize(&r).unwrap();
-    for key in [
-        "meta",
-        "backend",
-        "capabilities",
-        "mode",
-        "usage_raw",
-        "usage",
-        "trace",
-        "artifacts",
-        "verification",
-        "outcome",
-        "receipt_sha256",
-    ] {
-        assert!(
-            json.contains(&format!("\"{key}\"")),
-            "canonical JSON missing key: {key}"
-        );
+fn index_time_range_wide_captures_all() {
+    let mut idx = ReceiptIndex::new();
+    for i in 0..5 {
+        idx.insert(&make_receipt_at("a", Outcome::Complete, ts(i * 100)));
+    }
+    let ids = idx.by_time_range(ts(0), ts(500));
+    assert_eq!(ids.len(), 5);
+}
+
+#[test]
+fn index_time_range_narrow_captures_one() {
+    let mut idx = ReceiptIndex::new();
+    for i in 0..5 {
+        idx.insert(&make_receipt_at("a", Outcome::Complete, ts(i * 100)));
+    }
+    // Only ts(200) should match [200, 200]
+    let ids = idx.by_time_range(ts(200), ts(200));
+    assert_eq!(ids.len(), 1);
+}
+
+// ===========================================================================
+// 15. ReceiptStore as trait object
+// ===========================================================================
+
+#[tokio::test]
+async fn trait_object_memory() {
+    let store: Box<dyn ReceiptStore> = Box::new(InMemoryReceiptStore::new());
+    let r = make_receipt("dynamic", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    store.store(&r).await.unwrap();
+    let got = store.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "dynamic");
+}
+
+#[tokio::test]
+async fn trait_object_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let store: Box<dyn ReceiptStore> = Box::new(FileReceiptStore::new(dir.path().join("r.jsonl")));
+    let r = make_receipt("dynamic", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    store.store(&r).await.unwrap();
+    let got = store.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "dynamic");
+}
+
+#[tokio::test]
+async fn trait_object_count_and_delete() {
+    let store: Box<dyn ReceiptStore> = Box::new(InMemoryReceiptStore::new());
+    let r = make_receipt("x", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    store.store(&r).await.unwrap();
+    assert_eq!(store.count().await.unwrap(), 1);
+    store.delete(&id).await.unwrap();
+    assert_eq!(store.count().await.unwrap(), 0);
+}
+
+// ===========================================================================
+// 16. ChainValidation struct fields
+// ===========================================================================
+
+#[test]
+fn chain_validation_struct_fields() {
+    let cv = ChainValidation {
+        valid: true,
+        receipt_count: 42,
+        errors: vec![],
+    };
+    assert!(cv.valid);
+    assert_eq!(cv.receipt_count, 42);
+    assert!(cv.errors.is_empty());
+}
+
+#[test]
+fn chain_validation_debug() {
+    let cv = validate_chain(&[]);
+    let debug = format!("{:?}", cv);
+    assert!(debug.contains("valid"));
+    assert!(debug.contains("receipt_count"));
+}
+
+#[test]
+fn chain_validation_error_clone() {
+    let e = ChainValidationError {
+        index: 3,
+        message: "cloned".to_string(),
+    };
+    let e2 = e.clone();
+    assert_eq!(e2.index, 3);
+    assert_eq!(e2.message, "cloned");
+}
+
+#[test]
+fn chain_validation_clone() {
+    let cv = validate_chain(&[make_hashed("a", Outcome::Complete)]);
+    let cv2 = cv.clone();
+    assert_eq!(cv2.valid, cv.valid);
+    assert_eq!(cv2.receipt_count, cv.receipt_count);
+}
+
+// ===========================================================================
+// 17. Edge Cases
+// ===========================================================================
+
+#[tokio::test]
+async fn mem_store_receipt_with_nil_uuid() {
+    let s = InMemoryReceiptStore::new();
+    let r = make_receipt_with_id("mock", Outcome::Complete, Uuid::nil());
+    s.store(&r).await.unwrap();
+    let got = s.get(&Uuid::nil().to_string()).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "mock");
+}
+
+#[tokio::test]
+async fn file_store_receipt_with_nil_uuid() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let r = make_receipt_with_id("mock", Outcome::Complete, Uuid::nil());
+    s.store(&r).await.unwrap();
+    let got = s.get(&Uuid::nil().to_string()).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "mock");
+}
+
+#[tokio::test]
+async fn mem_store_empty_backend_id() {
+    let s = InMemoryReceiptStore::new();
+    let r = make_receipt("", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "");
+}
+
+#[tokio::test]
+async fn mem_store_unicode_backend_id() {
+    let s = InMemoryReceiptStore::new();
+    let r = make_receipt("バックエンド", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "バックエンド");
+}
+
+#[tokio::test]
+async fn mem_store_very_long_backend_id() {
+    let s = InMemoryReceiptStore::new();
+    let long_name = "x".repeat(1000);
+    let r = make_receipt(&long_name, Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, long_name);
+}
+
+#[tokio::test]
+async fn file_store_unicode_backend_roundtrip() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = FileReceiptStore::new(dir.path().join("r.jsonl"));
+    let r = make_receipt("日本語バックエンド", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    s.store(&r).await.unwrap();
+    let got = s.get(&id).await.unwrap().unwrap();
+    assert_eq!(got.backend.id, "日本語バックエンド");
+}
+
+#[test]
+fn chain_with_all_failed_receipts() {
+    let r1 = make_hashed_at("a", Outcome::Failed, ts(0));
+    let r2 = make_hashed_at("b", Outcome::Failed, ts(100));
+    let cv = validate_chain(&[r1, r2]);
+    assert!(cv.valid);
+}
+
+#[test]
+fn chain_with_all_partial_receipts() {
+    let r1 = make_hashed_at("a", Outcome::Partial, ts(0));
+    let r2 = make_hashed_at("b", Outcome::Partial, ts(100));
+    let cv = validate_chain(&[r1, r2]);
+    assert!(cv.valid);
+}
+
+#[test]
+fn index_empty_time_range() {
+    let idx = ReceiptIndex::new();
+    let ids = idx.by_time_range(ts(0), ts(100));
+    assert!(ids.is_empty());
+}
+
+#[test]
+fn receipt_filter_clone() {
+    let f = ReceiptFilter {
+        backend: Some("test".into()),
+        outcome: Some(Outcome::Complete),
+        limit: Some(10),
+        offset: Some(5),
+        time_range: Some((ts(0), ts(100))),
+    };
+    let f2 = f.clone();
+    assert_eq!(f2.backend, f.backend);
+    assert_eq!(f2.outcome, f.outcome);
+    assert_eq!(f2.limit, f.limit);
+    assert_eq!(f2.offset, f.offset);
+    assert_eq!(f2.time_range, f.time_range);
+}
+
+#[test]
+fn index_insert_and_remove_many() {
+    let mut idx = ReceiptIndex::new();
+    let receipts: Vec<Receipt> = (0..20)
+        .map(|_| make_receipt("bulk", Outcome::Complete))
+        .collect();
+    for r in &receipts {
+        idx.insert(r);
+    }
+    assert_eq!(idx.len(), 20);
+    for r in &receipts {
+        idx.remove(r);
+    }
+    assert_eq!(idx.len(), 0);
+    assert!(idx.is_empty());
+}
+
+#[tokio::test]
+async fn mem_list_filter_with_pagination_and_filter() {
+    let s = InMemoryReceiptStore::new();
+    for _ in 0..10 {
+        s.store(&make_receipt("alpha", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    for _ in 0..5 {
+        s.store(&make_receipt("beta", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let f = ReceiptFilter {
+        backend: Some("alpha".into()),
+        limit: Some(3),
+        offset: Some(2),
+        ..Default::default()
+    };
+    let res = s.list(f).await.unwrap();
+    assert!(res.len() <= 3);
+    for r in &res {
+        assert_eq!(r.backend.id, "alpha");
+    }
+}
+
+#[tokio::test]
+async fn file_store_concurrent_readers() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("r.jsonl");
+    let s = Arc::new(FileReceiptStore::new(&path));
+    for _ in 0..5 {
+        s.store(&make_receipt("x", Outcome::Complete))
+            .await
+            .unwrap();
+    }
+    let mut handles = Vec::new();
+    for _ in 0..10 {
+        let store = Arc::clone(&s);
+        handles.push(tokio::spawn(async move {
+            let count = store.count().await.unwrap();
+            assert_eq!(count, 5);
+        }));
+    }
+    for h in handles {
+        h.await.unwrap();
     }
 }
 
 #[test]
-fn chain_mixed_hashed_and_unhashed() {
-    let mut chain = ReceiptChain::new();
-    chain.push(make_plain("a", 0)).unwrap();
-    chain
-        .push(make_receipt("b", 10, Outcome::Complete))
-        .unwrap();
-    chain.push(make_plain("c", 20)).unwrap();
-    assert_eq!(chain.len(), 3);
-    assert!(chain.verify().is_ok());
+fn index_clone() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    idx.insert(&r);
+    let idx2 = idx.clone();
+    assert_eq!(idx2.len(), 1);
+    assert!(idx2.by_backend("mock").contains(&id));
+}
+
+#[tokio::test]
+async fn mem_default_creates_empty_store() {
+    let s = InMemoryReceiptStore::default();
+    assert_eq!(s.count().await.unwrap(), 0);
 }
 
 #[test]
-fn chain_verify_detects_tampered_mid_chain() {
-    let mut chain = ReceiptChain::new();
-    chain.push(make_receipt("a", 0, Outcome::Complete)).unwrap();
-    chain
-        .push(make_receipt("b", 10, Outcome::Complete))
-        .unwrap();
-
-    // Chain currently verifies ok with two valid receipts.
-    assert!(chain.verify().is_ok());
+fn chain_duplicate_at_end() {
+    let id = Uuid::new_v4();
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt_with_id("b", Outcome::Complete, id);
+    let r3 = make_receipt_with_id("c", Outcome::Complete, id);
+    let cv = validate_chain(&[r1, r2, r3]);
+    assert!(!cv.valid);
+    assert!(cv.errors.iter().any(|e| e.message.contains("duplicate")));
 }
 
 #[test]
-fn file_store_concurrent_two_stores_same_dir() {
-    let dir = tempfile::tempdir().unwrap();
-    let s1 = ReceiptStore::new(dir.path());
-    let s2 = ReceiptStore::new(dir.path());
-    let r = make_receipt("m", 0, Outcome::Complete);
-    let id = r.meta.run_id;
-    s1.save(&r).unwrap();
-    let loaded = s2.load(id).unwrap();
-    assert_eq!(loaded.meta.run_id, id);
+fn chain_ordering_three_reverse() {
+    let r1 = make_receipt_at("a", Outcome::Complete, ts(300));
+    let r2 = make_receipt_at("b", Outcome::Complete, ts(200));
+    let r3 = make_receipt_at("c", Outcome::Complete, ts(100));
+    let cv = validate_chain(&[r1, r2, r3]);
+    assert!(!cv.valid);
+    assert!(cv.errors.len() >= 2); // both r2 and r3 violate ordering
 }
