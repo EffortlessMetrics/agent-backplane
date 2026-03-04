@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "IrContentBlock::ToolUse\n{\n    id: \"tu_gm_300\".into(), name: \"grep\".into(), input:\n    json!({\"pattern\": \"TODO\", \"path\": \"src/\"}),\n}"
+---
+{
+  "type": "tool_use",
+  "id": "tu_gm_300",
+  "name": "grep",
+  "input": {
+    "path": "src/",
+    "pattern": "TODO"
+  }
+}

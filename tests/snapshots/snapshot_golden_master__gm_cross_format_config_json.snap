@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: snap_json(&cfg)
+---
+{
+  "default_backend": "mock",
+  "log_level": "info",
+  "backends": {
+    "mock": {
+      "type": "mock"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: msg
+---
+{
+  "role": "tool",
+  "content": [
+    {
+      "type": "tool_result",
+      "tool_use_id": "tu_gm_100",
+      "content": [
+        {
+          "type": "text",
+          "text": "file contents here"
+        }
+      ],
+      "is_error": false
+    }
+  ]
+}

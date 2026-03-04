@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: msg
+---
+{
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "Explain closures in Rust."
+    }
+  ]
+}

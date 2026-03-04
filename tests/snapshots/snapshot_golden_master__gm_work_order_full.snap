@@ -1,0 +1,87 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: wo
+---
+{
+  "id": "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa",
+  "task": "Implement authentication module",
+  "lane": "patch_first",
+  "workspace": {
+    "root": "/projects/app",
+    "mode": "staged",
+    "include": [
+      "src/**",
+      "tests/**"
+    ],
+    "exclude": [
+      "node_modules/**",
+      "target/**"
+    ]
+  },
+  "context": {
+    "files": [
+      "README.md",
+      "CONTRIBUTING.md"
+    ],
+    "snippets": [
+      {
+        "name": "spec",
+        "content": "Use JWT-based auth"
+      },
+      {
+        "name": "error_log",
+        "content": "auth module missing"
+      }
+    ]
+  },
+  "policy": {
+    "allowed_tools": [
+      "read",
+      "write",
+      "edit"
+    ],
+    "disallowed_tools": [
+      "bash"
+    ],
+    "deny_read": [
+      ".env",
+      "secrets/**"
+    ],
+    "deny_write": [
+      "Cargo.lock"
+    ],
+    "allow_network": [
+      "api.example.com"
+    ],
+    "deny_network": [
+      "*.evil.com"
+    ],
+    "require_approval_for": [
+      "delete"
+    ]
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "tool_read",
+        "min_support": "native"
+      },
+      {
+        "capability": "streaming",
+        "min_support": "emulated"
+      }
+    ]
+  },
+  "config": {
+    "model": "claude-4-opus",
+    "vendor": {
+      "max_tokens": 8192,
+      "temperature": 0.3
+    },
+    "env": {
+      "RUST_LOG": "debug"
+    },
+    "max_budget_usd": 5.0,
+    "max_turns": 50
+  }
+}

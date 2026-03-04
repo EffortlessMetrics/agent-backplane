@@ -1,0 +1,37 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: cfg
+---
+{
+  "default_backend": "claude",
+  "workspace_dir": "/tmp/abp-workspaces",
+  "log_level": "debug",
+  "receipts_dir": "/tmp/abp-receipts",
+  "bind_address": "127.0.0.1",
+  "port": 8080,
+  "policy_profiles": [
+    "policies/default.toml"
+  ],
+  "backends": {
+    "claude": {
+      "type": "sidecar",
+      "command": "node",
+      "args": [
+        "hosts/claude/index.js"
+      ],
+      "timeout_secs": 180
+    },
+    "mock": {
+      "type": "mock"
+    },
+    "openai": {
+      "type": "sidecar",
+      "command": "python3",
+      "args": [
+        "hosts/python/main.py",
+        "--backend=openai"
+      ],
+      "timeout_secs": 120
+    }
+  }
+}

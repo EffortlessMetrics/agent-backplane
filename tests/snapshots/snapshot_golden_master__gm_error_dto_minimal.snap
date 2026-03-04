@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: dto
+---
+{
+  "code": "backend_timeout",
+  "message": "timed out after 30s",
+  "context": {}
+}

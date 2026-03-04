@@ -1,0 +1,25 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: td
+---
+{
+  "name": "write_file",
+  "description": "Write content to a file",
+  "parameters": {
+    "properties": {
+      "content": {
+        "description": "File content",
+        "type": "string"
+      },
+      "path": {
+        "description": "Destination path",
+        "type": "string"
+      }
+    },
+    "required": [
+      "path",
+      "content"
+    ],
+    "type": "object"
+  }
+}

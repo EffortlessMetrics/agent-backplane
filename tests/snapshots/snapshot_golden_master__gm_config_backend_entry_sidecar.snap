@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "BackendEntry::Sidecar\n{\n    command: \"node\".into(), args:\n    vec![\"hosts/node/index.js\".into(), \"--debug\".into()], timeout_secs:\n    Some(90),\n}"
+---
+{
+  "type": "sidecar",
+  "command": "node",
+  "args": [
+    "hosts/node/index.js",
+    "--debug"
+  ],
+  "timeout_secs": 90
+}

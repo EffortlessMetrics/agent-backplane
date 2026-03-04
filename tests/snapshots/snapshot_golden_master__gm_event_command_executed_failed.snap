@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: e
+---
+{
+  "ts": "2025-08-01T08:00:00Z",
+  "type": "command_executed",
+  "command": "cargo build",
+  "exit_code": 101,
+  "output_preview": "error[E0308]: mismatched types"
+}

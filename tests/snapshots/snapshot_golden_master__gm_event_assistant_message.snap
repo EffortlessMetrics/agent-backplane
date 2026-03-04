@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: e
+---
+{
+  "ts": "2025-08-01T08:00:00Z",
+  "type": "assistant_message",
+  "text": "I have completed the requested changes."
+}

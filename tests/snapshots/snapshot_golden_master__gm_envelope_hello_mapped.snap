@@ -1,0 +1,17 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: snap_json(&env)
+---
+{
+  "t": "hello",
+  "contract_version": "abp/v0.1",
+  "backend": {
+    "id": "sidecar:claude",
+    "backend_version": "4.0.0",
+    "adapter_version": "1.0.0"
+  },
+  "capabilities": {
+    "streaming": "native"
+  },
+  "mode": "mapped"
+}

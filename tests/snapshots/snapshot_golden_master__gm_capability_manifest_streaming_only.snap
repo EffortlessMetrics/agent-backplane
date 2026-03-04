@@ -1,0 +1,7 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: snap_json(&caps_streaming_only())
+---
+{
+  "streaming": "native"
+}

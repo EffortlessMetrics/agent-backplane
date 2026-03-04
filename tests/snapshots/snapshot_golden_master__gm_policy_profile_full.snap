@@ -1,0 +1,36 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: p
+---
+{
+  "allowed_tools": [
+    "read",
+    "write",
+    "edit",
+    "glob"
+  ],
+  "disallowed_tools": [
+    "bash",
+    "exec"
+  ],
+  "deny_read": [
+    ".env",
+    "secrets/**",
+    "*.pem"
+  ],
+  "deny_write": [
+    "Cargo.lock",
+    "package-lock.json"
+  ],
+  "allow_network": [
+    "api.github.com",
+    "registry.npmjs.org"
+  ],
+  "deny_network": [
+    "*.evil.com"
+  ],
+  "require_approval_for": [
+    "delete",
+    "exec"
+  ]
+}

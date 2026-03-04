@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "SupportLevel::Native"
+---
+"native"

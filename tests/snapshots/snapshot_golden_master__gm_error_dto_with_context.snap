@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: dto
+---
+{
+  "code": "backend_timeout",
+  "message": "backend did not respond",
+  "context": {
+    "backend": "sidecar:claude",
+    "timeout_ms": 30000
+  },
+  "source_message": "connection reset by peer"
+}

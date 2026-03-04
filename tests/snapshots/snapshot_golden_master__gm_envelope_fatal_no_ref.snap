@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": null,
+  "error": "handshake timeout",
+  "error_code": "protocol_handshake_failed"
+}

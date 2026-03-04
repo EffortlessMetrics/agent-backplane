@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "IrContentBlock::ToolResult\n{\n    tool_use_id: \"tu_gm_300\".into(), content:\n    vec![IrContentBlock::Text\n    { text: \"src/main.rs:10: // TODO: refactor\".into(), }], is_error: false,\n}"
+---
+{
+  "type": "tool_result",
+  "tool_use_id": "tu_gm_300",
+  "content": [
+    {
+      "type": "text",
+      "text": "src/main.rs:10: // TODO: refactor"
+    }
+  ],
+  "is_error": false
+}

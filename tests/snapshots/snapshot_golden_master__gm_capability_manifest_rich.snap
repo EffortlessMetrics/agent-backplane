@@ -1,0 +1,18 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: snap_json(&caps_rich())
+---
+{
+  "streaming": "native",
+  "tool_read": "native",
+  "tool_write": "native",
+  "tool_edit": "emulated",
+  "tool_bash": "emulated",
+  "mcp_client": {
+    "restricted": {
+      "reason": "beta feature"
+    }
+  },
+  "tool_use": "native",
+  "extended_thinking": "unsupported"
+}
