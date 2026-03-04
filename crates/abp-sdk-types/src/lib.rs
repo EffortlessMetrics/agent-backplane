@@ -25,6 +25,8 @@ pub mod openai;
 
 /// Shared types used across dialect modules.
 pub mod common;
+/// Cross-dialect type conversion utilities.
+pub mod convert;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

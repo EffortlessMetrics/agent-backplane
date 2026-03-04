@@ -6,6 +6,8 @@
 //!
 //! Structured telemetry and metrics collection for Agent Backplane runs.
 
+pub mod pipeline;
+
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
