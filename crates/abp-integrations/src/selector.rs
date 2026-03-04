@@ -27,6 +27,15 @@ pub enum SelectionStrategy {
     RoundRobin,
     /// Choose by explicit priority (lowest `priority` value wins).
     Priority,
+    /// Choose by weight (highest `priority` value wins — higher weight = more likely).
+    Weighted,
+    /// Choose the backend with the lowest average latency.
+    LeastLatency,
+    /// Select a specific backend by name.
+    Explicit {
+        /// The backend to select.
+        backend: String,
+    },
 }
 
 /// A candidate backend that can be registered with [`BackendSelector`].
@@ -37,6 +46,7 @@ pub struct BackendCandidate {
     /// Capabilities this backend advertises.
     pub capabilities: Vec<Capability>,
     /// Lower values are higher priority (used by [`SelectionStrategy::Priority`]).
+    /// For [`SelectionStrategy::Weighted`], higher values mean more weight.
     pub priority: u32,
     /// Whether this candidate is currently available for selection.
     pub enabled: bool,
@@ -229,6 +239,8 @@ pub struct BackendSelector {
     health_map: BTreeMap<String, HealthRecord>,
     /// Native dialect per backend name.
     dialect_map: BTreeMap<String, Dialect>,
+    /// Average latency in milliseconds per backend name.
+    latency_map: BTreeMap<String, u64>,
 }
 
 impl BackendSelector {
@@ -241,6 +253,7 @@ impl BackendSelector {
             rr_counter: AtomicUsize::new(0),
             health_map: BTreeMap::new(),
             dialect_map: BTreeMap::new(),
+            latency_map: BTreeMap::new(),
         }
     }
 
@@ -307,6 +320,34 @@ impl BackendSelector {
                 .iter()
                 .min_by_key(|&&i| self.candidates[i].priority)
                 .unwrap(),
+            SelectionStrategy::Weighted => {
+                // Higher priority value = more weight.
+                *eligible
+                    .iter()
+                    .max_by_key(|&&i| self.candidates[i].priority)
+                    .unwrap()
+            }
+            SelectionStrategy::LeastLatency => {
+                // Pick the candidate with the lowest latency; unknown treated as u64::MAX.
+                *eligible
+                    .iter()
+                    .min_by_key(|&&i| {
+                        self.latency_map
+                            .get(&self.candidates[i].name)
+                            .copied()
+                            .unwrap_or(u64::MAX)
+                    })
+                    .unwrap()
+            }
+            SelectionStrategy::Explicit { backend } => {
+                match eligible
+                    .iter()
+                    .find(|&&i| self.candidates[i].name == *backend)
+                {
+                    Some(&i) => i,
+                    None => return None,
+                }
+            }
         };
 
         Some(&self.candidates[chosen])
@@ -386,6 +427,27 @@ impl BackendSelector {
     /// Set the native dialect for a backend.
     pub fn set_dialect(&mut self, backend: &str, dialect: Dialect) {
         self.dialect_map.insert(backend.to_string(), dialect);
+    }
+
+    /// Set the average latency (ms) for a backend (used by [`SelectionStrategy::LeastLatency`]).
+    pub fn set_latency(&mut self, backend: &str, latency_ms: u64) {
+        self.latency_map.insert(backend.to_string(), latency_ms);
+    }
+
+    /// Get the average latency for a backend.
+    #[must_use]
+    pub fn get_latency(&self, backend: &str) -> Option<u64> {
+        self.latency_map.get(backend).copied()
+    }
+
+    /// Remove a candidate backend by name. Returns `true` if found.
+    pub fn remove_candidate(&mut self, name: &str) -> bool {
+        let before = self.candidates.len();
+        self.candidates.retain(|c| c.name != name);
+        self.health_map.remove(name);
+        self.dialect_map.remove(name);
+        self.latency_map.remove(name);
+        self.candidates.len() < before
     }
 
     // ------------------------------------------------------------------

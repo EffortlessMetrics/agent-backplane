@@ -145,6 +145,154 @@ pub struct SystemHealth {
     pub version: String,
 }
 
+/// Per-backend health tracking with timestamps and consecutive failure counts.
+///
+/// Unlike [`HealthChecker`] (which accumulates check results for aggregation),
+/// `BackendHealthTracker` maintains **live state** per backend and is designed
+/// for runtime health monitoring with configurable failure thresholds.
+#[derive(Debug, Default)]
+pub struct BackendHealthTracker {
+    backends: BTreeMap<String, TrackedBackendHealth>,
+}
+
+/// Health state tracked for a single backend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrackedBackendHealth {
+    /// Current health status.
+    pub status: HealthStatus,
+    /// When the status was last checked.
+    pub last_check: String,
+    /// Number of consecutive failures leading to the current state.
+    pub consecutive_failures: u32,
+    /// Number of consecutive successes (resets on failure).
+    pub consecutive_successes: u32,
+    /// Total number of health checks performed on this backend.
+    pub total_checks: u64,
+    /// Last observed response time in milliseconds.
+    pub last_response_time_ms: Option<u64>,
+}
+
+impl BackendHealthTracker {
+    /// Create an empty tracker.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record a successful health check for a backend.
+    pub fn record_healthy(&mut self, backend: &str, response_time_ms: Option<u64>) {
+        let entry =
+            self.backends
+                .entry(backend.to_string())
+                .or_insert_with(|| TrackedBackendHealth {
+                    status: HealthStatus::Unknown,
+                    last_check: String::new(),
+                    consecutive_failures: 0,
+                    consecutive_successes: 0,
+                    total_checks: 0,
+                    last_response_time_ms: None,
+                });
+        entry.status = HealthStatus::Healthy;
+        entry.last_check = Utc::now().to_rfc3339();
+        entry.consecutive_failures = 0;
+        entry.consecutive_successes += 1;
+        entry.total_checks += 1;
+        entry.last_response_time_ms = response_time_ms;
+    }
+
+    /// Record a degraded health check for a backend.
+    pub fn record_degraded(&mut self, backend: &str, reason: &str, response_time_ms: Option<u64>) {
+        let entry =
+            self.backends
+                .entry(backend.to_string())
+                .or_insert_with(|| TrackedBackendHealth {
+                    status: HealthStatus::Unknown,
+                    last_check: String::new(),
+                    consecutive_failures: 0,
+                    consecutive_successes: 0,
+                    total_checks: 0,
+                    last_response_time_ms: None,
+                });
+        entry.status = HealthStatus::Degraded {
+            reason: reason.to_string(),
+        };
+        entry.last_check = Utc::now().to_rfc3339();
+        entry.consecutive_failures += 1;
+        entry.consecutive_successes = 0;
+        entry.total_checks += 1;
+        entry.last_response_time_ms = response_time_ms;
+    }
+
+    /// Record an unhealthy check for a backend.
+    pub fn record_unhealthy(&mut self, backend: &str, reason: &str) {
+        let entry =
+            self.backends
+                .entry(backend.to_string())
+                .or_insert_with(|| TrackedBackendHealth {
+                    status: HealthStatus::Unknown,
+                    last_check: String::new(),
+                    consecutive_failures: 0,
+                    consecutive_successes: 0,
+                    total_checks: 0,
+                    last_response_time_ms: None,
+                });
+        entry.status = HealthStatus::Unhealthy {
+            reason: reason.to_string(),
+        };
+        entry.last_check = Utc::now().to_rfc3339();
+        entry.consecutive_failures += 1;
+        entry.consecutive_successes = 0;
+        entry.total_checks += 1;
+        entry.last_response_time_ms = None;
+    }
+
+    /// Get the tracked health state for a backend.
+    #[must_use]
+    pub fn get(&self, backend: &str) -> Option<&TrackedBackendHealth> {
+        self.backends.get(backend)
+    }
+
+    /// Check whether a backend is currently healthy.
+    #[must_use]
+    pub fn is_healthy(&self, backend: &str) -> bool {
+        self.backends
+            .get(backend)
+            .is_some_and(|h| h.status == HealthStatus::Healthy)
+    }
+
+    /// Return all backends whose status is not [`HealthStatus::Healthy`].
+    #[must_use]
+    pub fn unhealthy_backends(&self) -> Vec<(&str, &TrackedBackendHealth)> {
+        self.backends
+            .iter()
+            .filter(|(_, h)| h.status != HealthStatus::Healthy)
+            .map(|(k, v)| (k.as_str(), v))
+            .collect()
+    }
+
+    /// Return all tracked backend names.
+    #[must_use]
+    pub fn tracked_backends(&self) -> Vec<&str> {
+        self.backends.keys().map(|s| s.as_str()).collect()
+    }
+
+    /// Number of tracked backends.
+    #[must_use]
+    pub fn count(&self) -> usize {
+        self.backends.len()
+    }
+
+    /// Remove a backend from tracking.
+    pub fn remove(&mut self, backend: &str) -> bool {
+        self.backends.remove(backend).is_some()
+    }
+
+    /// Clear all tracked state.
+    pub fn clear(&mut self) {
+        self.backends.clear();
+    }
+}
+
 // --- helpers ----------------------------------------------------------------
 
 fn severity(status: &HealthStatus) -> u8 {

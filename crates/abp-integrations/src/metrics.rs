@@ -229,3 +229,229 @@ impl std::fmt::Debug for MetricsRegistry {
             .finish()
     }
 }
+
+/// Tracks individual latency samples and computes percentiles.
+///
+/// Keeps all samples in a sorted vec; suitable for moderate-volume
+/// backend monitoring (not high-frequency hot paths).
+#[derive(Debug, Default)]
+pub struct LatencyTracker {
+    samples: Vec<u64>,
+}
+
+impl LatencyTracker {
+    /// Create a new, empty tracker.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record a latency sample in milliseconds.
+    pub fn record(&mut self, latency_ms: u64) {
+        self.samples.push(latency_ms);
+    }
+
+    /// Number of recorded samples.
+    #[must_use]
+    pub fn count(&self) -> usize {
+        self.samples.len()
+    }
+
+    /// Minimum latency (returns 0 when empty).
+    #[must_use]
+    pub fn min(&self) -> u64 {
+        self.samples.iter().copied().min().unwrap_or(0)
+    }
+
+    /// Maximum latency (returns 0 when empty).
+    #[must_use]
+    pub fn max(&self) -> u64 {
+        self.samples.iter().copied().max().unwrap_or(0)
+    }
+
+    /// Mean latency (returns 0.0 when empty).
+    #[must_use]
+    pub fn mean(&self) -> f64 {
+        if self.samples.is_empty() {
+            return 0.0;
+        }
+        self.samples.iter().sum::<u64>() as f64 / self.samples.len() as f64
+    }
+
+    /// Compute an arbitrary percentile (0–100).
+    ///
+    /// Uses nearest-rank method. Returns 0 when empty.
+    #[must_use]
+    pub fn percentile(&self, p: f64) -> u64 {
+        if self.samples.is_empty() {
+            return 0;
+        }
+        let mut sorted = self.samples.clone();
+        sorted.sort_unstable();
+        let idx = ((p / 100.0) * (sorted.len() as f64 - 1.0)).round() as usize;
+        let idx = idx.min(sorted.len() - 1);
+        sorted[idx]
+    }
+
+    /// P50 (median).
+    #[must_use]
+    pub fn p50(&self) -> u64 {
+        self.percentile(50.0)
+    }
+
+    /// P90.
+    #[must_use]
+    pub fn p90(&self) -> u64 {
+        self.percentile(90.0)
+    }
+
+    /// P95.
+    #[must_use]
+    pub fn p95(&self) -> u64 {
+        self.percentile(95.0)
+    }
+
+    /// P99.
+    #[must_use]
+    pub fn p99(&self) -> u64 {
+        self.percentile(99.0)
+    }
+
+    /// Take a serialisable snapshot.
+    #[must_use]
+    pub fn snapshot(&self) -> LatencySnapshot {
+        LatencySnapshot {
+            count: self.count() as u64,
+            min_ms: self.min(),
+            max_ms: self.max(),
+            mean_ms: self.mean(),
+            p50_ms: self.p50(),
+            p90_ms: self.p90(),
+            p95_ms: self.p95(),
+            p99_ms: self.p99(),
+        }
+    }
+
+    /// Reset all samples.
+    pub fn reset(&mut self) {
+        self.samples.clear();
+    }
+}
+
+/// Serialisable snapshot of latency percentiles.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LatencySnapshot {
+    /// Number of samples.
+    pub count: u64,
+    /// Minimum observed latency (ms).
+    pub min_ms: u64,
+    /// Maximum observed latency (ms).
+    pub max_ms: u64,
+    /// Mean latency (ms).
+    pub mean_ms: f64,
+    /// 50th percentile (ms).
+    pub p50_ms: u64,
+    /// 90th percentile (ms).
+    pub p90_ms: u64,
+    /// 95th percentile (ms).
+    pub p95_ms: u64,
+    /// 99th percentile (ms).
+    pub p99_ms: u64,
+}
+
+/// Extended per-backend metrics that combines atomic counters with latency tracking.
+#[derive(Debug)]
+pub struct ExtendedBackendMetrics {
+    /// Core run counters.
+    pub core: BackendMetrics,
+    /// Latency percentile tracker.
+    pub latency: std::sync::Mutex<LatencyTracker>,
+    /// Per-error-kind counters.
+    error_counts: std::sync::Mutex<BTreeMap<String, u64>>,
+}
+
+impl ExtendedBackendMetrics {
+    /// Create a new extended metrics collector.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            core: BackendMetrics::new(),
+            latency: std::sync::Mutex::new(LatencyTracker::new()),
+            error_counts: std::sync::Mutex::new(BTreeMap::new()),
+        }
+    }
+
+    /// Record a successful run.
+    pub fn record_success(&self, events: u64, duration_ms: u64) {
+        self.core.record_run(true, events, duration_ms);
+        self.latency
+            .lock()
+            .expect("latency lock poisoned")
+            .record(duration_ms);
+    }
+
+    /// Record a failed run with an error kind.
+    pub fn record_failure(&self, events: u64, duration_ms: u64, error_kind: &str) {
+        self.core.record_run(false, events, duration_ms);
+        self.latency
+            .lock()
+            .expect("latency lock poisoned")
+            .record(duration_ms);
+        *self
+            .error_counts
+            .lock()
+            .expect("error lock poisoned")
+            .entry(error_kind.to_string())
+            .or_insert(0) += 1;
+    }
+
+    /// Get error counts by kind.
+    #[must_use]
+    pub fn error_counts(&self) -> BTreeMap<String, u64> {
+        self.error_counts
+            .lock()
+            .expect("error lock poisoned")
+            .clone()
+    }
+
+    /// Take a combined snapshot.
+    #[must_use]
+    pub fn snapshot(&self) -> ExtendedMetricsSnapshot {
+        ExtendedMetricsSnapshot {
+            core: self.core.snapshot(),
+            latency: self
+                .latency
+                .lock()
+                .expect("latency lock poisoned")
+                .snapshot(),
+            error_counts: self.error_counts(),
+        }
+    }
+
+    /// Reset all state.
+    pub fn reset(&self) {
+        self.core.reset();
+        self.latency.lock().expect("latency lock poisoned").reset();
+        self.error_counts
+            .lock()
+            .expect("error lock poisoned")
+            .clear();
+    }
+}
+
+impl Default for ExtendedBackendMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Serialisable combined snapshot.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtendedMetricsSnapshot {
+    /// Core run metrics.
+    pub core: MetricsSnapshot,
+    /// Latency percentiles.
+    pub latency: LatencySnapshot,
+    /// Error counts by kind.
+    pub error_counts: BTreeMap<String, u64>,
+}

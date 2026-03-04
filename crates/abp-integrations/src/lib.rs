@@ -7,8 +7,10 @@
 //! Compatibility facade over backend microcrates.
 
 pub mod capability;
+pub mod discovery;
 pub mod health;
 pub mod metrics;
+pub mod pool;
 pub mod projection;
 pub mod selector;
 
