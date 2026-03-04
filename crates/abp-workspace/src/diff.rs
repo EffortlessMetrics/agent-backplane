@@ -756,11 +756,9 @@ impl DiffAnalysis {
         let mut current: Vec<&str> = Vec::new();
 
         for line in &lines {
-            if line.starts_with("diff --git ") {
-                if !current.is_empty() {
-                    sections.push(current);
-                    current = Vec::new();
-                }
+            if line.starts_with("diff --git ") && !current.is_empty() {
+                sections.push(current);
+                current = Vec::new();
             }
             current.push(line);
         }

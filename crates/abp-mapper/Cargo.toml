@@ -9,6 +9,7 @@ repository.workspace = true
 description = "Dialect mapping engine for the Agent Backplane"
 keywords = ["agent", "backplane", "mapper", "dialect", "ai"]
 categories = ["development-tools"]
+readme = "README.md"
 
 [dependencies]
 abp-core = { path = "../abp-core", version = "0.1.0" }

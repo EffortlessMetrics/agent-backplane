@@ -126,6 +126,9 @@ Receipt { status: success, events: [...], receipt_sha256: "ab3f…" }
 | [`abp-mapper`](crates/abp-mapper) | Dialect mapping engine — JSON-level and IR-level cross-dialect translation |
 | [`abp-sdk-types`](crates/abp-sdk-types) | SDK-specific dialect type definitions (pure data model, no networking) |
 | [`abp-telemetry`](crates/abp-telemetry) | Structured metrics and telemetry collection |
+| [`abp-retry`](crates/abp-retry) | Retry and circuit-breaker middleware for backend calls |
+| [`abp-validate`](crates/abp-validate) | Validation utilities for work orders, receipts, events, and envelopes |
+| [`abp-receipt-store`](crates/abp-receipt-store) | Receipt persistence and retrieval |
 | [`abp-runtime`](crates/abp-runtime) | Orchestration — workspace → backend → event multiplexing → hashed receipt |
 | [`abp-cli`](crates/abp-cli) | `abp` binary with `run`, `backends`, `validate`, `config`, `receipt` subcommands |
 | [`abp-daemon`](crates/abp-daemon) | HTTP control-plane API with receipt persistence, metrics, validation, and WebSocket |

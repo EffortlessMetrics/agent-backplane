@@ -9,6 +9,7 @@ repository.workspace = true
 description = "Validation for Agent Backplane work orders, receipts, events, and envelopes"
 keywords = ["agent", "backplane", "ai", "validation", "contract"]
 categories = ["development-tools"]
+readme = "README.md"
 
 [dependencies]
 abp-core = { path = "../abp-core", version = "0.1.0" }
