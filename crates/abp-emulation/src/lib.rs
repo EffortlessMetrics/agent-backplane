@@ -8,10 +8,14 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod function_calling;
 pub mod strategies;
+pub mod streaming_emulator;
+pub mod tool_emulator;
+pub mod vision_emulator;
 
-use abp_core::Capability;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+use abp_core::Capability;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -226,6 +230,99 @@ impl EmulationReport {
     pub fn has_unemulatable(&self) -> bool {
         !self.warnings.is_empty()
     }
+
+    /// Compute the overall fidelity score (0.0–1.0).
+    ///
+    /// - 1.0 = all capabilities native (empty report)
+    /// - Each system-prompt emulation reduces score by 0.15
+    /// - Each post-processing emulation reduces score by 0.10
+    /// - Each unemulatable warning reduces score by 0.25
+    ///
+    /// Score is clamped to `[0.0, 1.0]`.
+    #[must_use]
+    pub fn fidelity_score(&self) -> f64 {
+        if self.is_empty() {
+            return 1.0;
+        }
+        let mut penalty = 0.0_f64;
+        for entry in &self.applied {
+            match &entry.strategy {
+                EmulationStrategy::SystemPromptInjection { .. } => penalty += 0.15,
+                EmulationStrategy::PostProcessing { .. } => penalty += 0.10,
+                EmulationStrategy::Disabled { .. } => penalty += 0.25,
+            }
+        }
+        penalty += self.warnings.len() as f64 * 0.25;
+        (1.0 - penalty).clamp(0.0, 1.0)
+    }
+
+    /// Qualitative degradation level based on fidelity score.
+    #[must_use]
+    pub fn degradation(&self) -> DegradationLevel {
+        let score = self.fidelity_score();
+        if score >= 1.0 {
+            DegradationLevel::None
+        } else if score >= 0.7 {
+            DegradationLevel::Minor
+        } else if score >= 0.4 {
+            DegradationLevel::Major
+        } else {
+            DegradationLevel::Critical
+        }
+    }
+
+    /// Human-readable summary of the emulation report.
+    #[must_use]
+    pub fn summary(&self) -> String {
+        if self.is_empty() {
+            return "No emulation needed — all capabilities native.".into();
+        }
+        let mut parts = Vec::new();
+        if !self.applied.is_empty() {
+            parts.push(format!("{} capability(ies) emulated", self.applied.len()));
+        }
+        if !self.warnings.is_empty() {
+            parts.push(format!(
+                "{} capability(ies) unavailable",
+                self.warnings.len()
+            ));
+        }
+        let score = self.fidelity_score();
+        parts.push(format!("fidelity {score:.0}%", score = score * 100.0));
+        parts.join("; ")
+    }
+
+    /// Count of emulations using system-prompt injection.
+    #[must_use]
+    pub fn prompt_injection_count(&self) -> usize {
+        self.applied
+            .iter()
+            .filter(|e| matches!(e.strategy, EmulationStrategy::SystemPromptInjection { .. }))
+            .count()
+    }
+
+    /// Count of emulations using post-processing.
+    #[must_use]
+    pub fn post_processing_count(&self) -> usize {
+        self.applied
+            .iter()
+            .filter(|e| matches!(e.strategy, EmulationStrategy::PostProcessing { .. }))
+            .count()
+    }
+}
+
+/// Qualitative degradation level.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DegradationLevel {
+    /// No emulation — full native support.
+    None,
+    /// Minor: a few capabilities emulated with high fidelity.
+    Minor,
+    /// Major: several capabilities emulated or missing.
+    Major,
+    /// Critical: most capabilities emulated or unavailable.
+    Critical,
 }
 
 // ── Engine ──────────────────────────────────────────────────────────────
@@ -322,6 +419,43 @@ impl EmulationEngine {
         }
         report
     }
+
+    /// Plan emulations for capabilities missing from a backend's native set.
+    ///
+    /// Computes `required − native` and produces a report without mutating
+    /// anything. Use this to preview what would happen before calling
+    /// [`apply_for_backend`](Self::apply_for_backend).
+    #[must_use]
+    pub fn plan(&self, required: &[Capability], native: &[Capability]) -> EmulationReport {
+        let missing = compute_missing(required, native);
+        self.check_missing(&missing)
+    }
+
+    /// Apply emulations for capabilities that `native` does not cover.
+    ///
+    /// This is the main orchestration entry point: it computes the gap
+    /// between `required` and `native`, applies emulations, and returns
+    /// a comprehensive report.
+    pub fn apply_for_backend(
+        &self,
+        required: &[Capability],
+        native: &[Capability],
+        conv: &mut IrConversation,
+    ) -> EmulationReport {
+        let missing = compute_missing(required, native);
+        self.apply(&missing, conv)
+    }
+
+    /// Compute per-capability fidelity given a set of required and native caps.
+    #[must_use]
+    pub fn fidelity_map(
+        &self,
+        required: &[Capability],
+        native: &[Capability],
+    ) -> BTreeMap<Capability, FidelityLabel> {
+        let report = self.plan(required, native);
+        compute_fidelity(native, &report)
+    }
 }
 
 /// Free-function shortcut: apply emulations with a given config.
@@ -345,6 +479,16 @@ fn inject_system_prompt(conv: &mut IrConversation, text: &str) {
         conv.messages
             .insert(0, IrMessage::text(IrRole::System, text));
     }
+}
+
+/// Compute the set of capabilities in `required` that are not in `native`.
+#[must_use]
+pub fn compute_missing(required: &[Capability], native: &[Capability]) -> Vec<Capability> {
+    required
+        .iter()
+        .filter(|c| !native.contains(c))
+        .cloned()
+        .collect()
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────
@@ -643,5 +787,220 @@ mod tests {
         let engine = EmulationEngine::with_defaults();
         let s = engine.resolve_strategy(&Capability::Streaming);
         assert!(matches!(s, EmulationStrategy::Disabled { .. }));
+    }
+
+    // -- compute_missing -------------------------------------------------
+
+    #[test]
+    fn compute_missing_returns_gap() {
+        let required = vec![
+            Capability::ExtendedThinking,
+            Capability::Streaming,
+            Capability::ToolUse,
+        ];
+        let native = vec![Capability::Streaming];
+        let missing = compute_missing(&required, &native);
+        assert_eq!(missing.len(), 2);
+        assert!(missing.contains(&Capability::ExtendedThinking));
+        assert!(missing.contains(&Capability::ToolUse));
+    }
+
+    #[test]
+    fn compute_missing_empty_when_all_native() {
+        let caps = vec![Capability::Streaming, Capability::ToolUse];
+        let missing = compute_missing(&caps, &caps);
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn compute_missing_all_missing_when_no_native() {
+        let required = vec![Capability::Streaming, Capability::ToolUse];
+        let missing = compute_missing(&required, &[]);
+        assert_eq!(missing.len(), 2);
+    }
+
+    // -- plan and apply_for_backend --------------------------------------
+
+    #[test]
+    fn plan_without_mutation() {
+        let engine = EmulationEngine::with_defaults();
+        let required = vec![Capability::ExtendedThinking, Capability::CodeExecution];
+        let native = vec![];
+        let report = engine.plan(&required, &native);
+        assert_eq!(report.applied.len(), 1); // ExtendedThinking
+        assert_eq!(report.warnings.len(), 1); // CodeExecution disabled
+    }
+
+    #[test]
+    fn apply_for_backend_only_emulates_missing() {
+        let engine = EmulationEngine::with_defaults();
+        let required = vec![Capability::ExtendedThinking, Capability::Streaming];
+        let native = vec![Capability::Streaming]; // Streaming is native
+        let mut conv = IrConversation::new()
+            .push(IrMessage::text(IrRole::System, "base"))
+            .push(IrMessage::text(IrRole::User, "hi"));
+
+        let report = engine.apply_for_backend(&required, &native, &mut conv);
+        // Only ExtendedThinking should be emulated
+        assert_eq!(report.applied.len(), 1);
+        assert_eq!(report.applied[0].capability, Capability::ExtendedThinking);
+    }
+
+    #[test]
+    fn apply_for_backend_noop_when_all_native() {
+        let engine = EmulationEngine::with_defaults();
+        let caps = vec![Capability::Streaming];
+        let mut conv = IrConversation::new().push(IrMessage::text(IrRole::User, "hi"));
+        let original = conv.clone();
+        let report = engine.apply_for_backend(&caps, &caps, &mut conv);
+        assert!(report.is_empty());
+        assert_eq!(conv, original);
+    }
+
+    // -- fidelity_map ----------------------------------------------------
+
+    #[test]
+    fn fidelity_map_marks_native_and_emulated() {
+        let engine = EmulationEngine::with_defaults();
+        let required = vec![Capability::Streaming, Capability::ExtendedThinking];
+        let native = vec![Capability::Streaming];
+        let map = engine.fidelity_map(&required, &native);
+        assert!(matches!(
+            map.get(&Capability::Streaming),
+            Some(FidelityLabel::Native)
+        ));
+        assert!(matches!(
+            map.get(&Capability::ExtendedThinking),
+            Some(FidelityLabel::Emulated { .. })
+        ));
+    }
+
+    // -- fidelity_score --------------------------------------------------
+
+    #[test]
+    fn fidelity_score_perfect_when_empty() {
+        let report = EmulationReport::default();
+        assert!((report.fidelity_score() - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn fidelity_score_decreases_with_emulation() {
+        let report = EmulationReport {
+            applied: vec![EmulationEntry {
+                capability: Capability::ExtendedThinking,
+                strategy: EmulationStrategy::SystemPromptInjection { prompt: "x".into() },
+            }],
+            warnings: vec![],
+        };
+        assert!(report.fidelity_score() < 1.0);
+        assert!(report.fidelity_score() > 0.0);
+    }
+
+    #[test]
+    fn fidelity_score_decreases_more_with_warnings() {
+        let report = EmulationReport {
+            applied: vec![],
+            warnings: vec!["w1".into(), "w2".into()],
+        };
+        assert!(report.fidelity_score() < 1.0);
+    }
+
+    #[test]
+    fn fidelity_score_clamps_to_zero() {
+        let report = EmulationReport {
+            applied: vec![],
+            warnings: vec!["a".into(), "b".into(), "c".into(), "d".into(), "e".into()],
+        };
+        assert!((report.fidelity_score() - 0.0).abs() < f64::EPSILON);
+    }
+
+    // -- degradation level -----------------------------------------------
+
+    #[test]
+    fn degradation_none_when_empty() {
+        let report = EmulationReport::default();
+        assert_eq!(report.degradation(), DegradationLevel::None);
+    }
+
+    #[test]
+    fn degradation_minor_with_one_emulation() {
+        let report = EmulationReport {
+            applied: vec![EmulationEntry {
+                capability: Capability::ExtendedThinking,
+                strategy: EmulationStrategy::SystemPromptInjection { prompt: "x".into() },
+            }],
+            warnings: vec![],
+        };
+        assert_eq!(report.degradation(), DegradationLevel::Minor);
+    }
+
+    #[test]
+    fn degradation_critical_with_many_warnings() {
+        let report = EmulationReport {
+            applied: vec![],
+            warnings: (0..5).map(|i| format!("w{i}")).collect(),
+        };
+        assert_eq!(report.degradation(), DegradationLevel::Critical);
+    }
+
+    // -- summary ---------------------------------------------------------
+
+    #[test]
+    fn summary_empty_report() {
+        let report = EmulationReport::default();
+        assert!(report.summary().contains("native"));
+    }
+
+    #[test]
+    fn summary_with_emulations() {
+        let report = EmulationReport {
+            applied: vec![EmulationEntry {
+                capability: Capability::ExtendedThinking,
+                strategy: EmulationStrategy::SystemPromptInjection { prompt: "x".into() },
+            }],
+            warnings: vec!["w".into()],
+        };
+        let s = report.summary();
+        assert!(s.contains("1 capability(ies) emulated"));
+        assert!(s.contains("1 capability(ies) unavailable"));
+        assert!(s.contains("fidelity"));
+    }
+
+    // -- count helpers ---------------------------------------------------
+
+    #[test]
+    fn prompt_injection_count() {
+        let report = EmulationReport {
+            applied: vec![
+                EmulationEntry {
+                    capability: Capability::ExtendedThinking,
+                    strategy: EmulationStrategy::SystemPromptInjection { prompt: "x".into() },
+                },
+                EmulationEntry {
+                    capability: Capability::StructuredOutputJsonSchema,
+                    strategy: EmulationStrategy::PostProcessing { detail: "d".into() },
+                },
+            ],
+            warnings: vec![],
+        };
+        assert_eq!(report.prompt_injection_count(), 1);
+        assert_eq!(report.post_processing_count(), 1);
+    }
+
+    // -- DegradationLevel serde ------------------------------------------
+
+    #[test]
+    fn serde_roundtrip_degradation_level() {
+        let levels = vec![
+            DegradationLevel::None,
+            DegradationLevel::Minor,
+            DegradationLevel::Major,
+            DegradationLevel::Critical,
+        ];
+        for level in &levels {
+            let json = serde_json::to_string(level).unwrap();
+            let decoded: DegradationLevel = serde_json::from_str(&json).unwrap();
+            assert_eq!(*level, decoded);
+        }
     }
 }
