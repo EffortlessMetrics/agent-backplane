@@ -636,3 +636,314 @@ async fn ws_without_upgrade_headers_is_rejected() {
         resp.status()
     );
 }
+
+// ===========================================================================
+// V1 API types — unit tests
+// ===========================================================================
+
+mod v1_api_types {
+    use abp_daemon::api::{
+        BackendInfo as ApiBackendInfo, ErrorResponse, HealthResponse as ApiHealth,
+        ListBackendsResponse, RunRequest as ApiRunRequest, RunResponse as ApiRunResponse,
+        RunStatus as ApiRunStatus,
+    };
+    use abp_daemon::routes::{Route, api_routes};
+
+    // -- api::RunRequest ------------------------------------------------
+
+    #[test]
+    fn run_request_serde_roundtrip_full() {
+        let req = ApiRunRequest {
+            task: "fix the bug".into(),
+            backend: Some("mock".into()),
+            config: Some(serde_json::json!({"model": "gpt-4"})),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let back: ApiRunRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.task, "fix the bug");
+        assert_eq!(back.backend.as_deref(), Some("mock"));
+        assert!(back.config.is_some());
+    }
+
+    #[test]
+    fn run_request_serde_roundtrip_minimal() {
+        let req = ApiRunRequest {
+            task: "hello".into(),
+            backend: None,
+            config: None,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let back: ApiRunRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.task, "hello");
+        assert!(back.backend.is_none());
+        assert!(back.config.is_none());
+    }
+
+    #[test]
+    fn run_request_omits_none_fields() {
+        let req = ApiRunRequest {
+            task: "t".into(),
+            backend: None,
+            config: None,
+        };
+        let val = serde_json::to_value(&req).unwrap();
+        assert!(val.get("backend").is_none());
+        assert!(val.get("config").is_none());
+    }
+
+    #[test]
+    fn run_request_with_nested_config() {
+        let req = ApiRunRequest {
+            task: "deploy".into(),
+            backend: Some("sidecar:node".into()),
+            config: Some(serde_json::json!({"nested": {"key": "val"}})),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let back: ApiRunRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.config.unwrap()["nested"]["key"], "val");
+    }
+
+    // -- api::RunResponse -----------------------------------------------
+
+    #[test]
+    fn run_response_serde_roundtrip() {
+        let resp = ApiRunResponse {
+            run_id: "abc-123".into(),
+            status: ApiRunStatus::Queued,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let back: ApiRunResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.run_id, "abc-123");
+        assert_eq!(back.status, ApiRunStatus::Queued);
+    }
+
+    #[test]
+    fn run_response_all_statuses() {
+        for status in [
+            ApiRunStatus::Queued,
+            ApiRunStatus::Running,
+            ApiRunStatus::Completed,
+            ApiRunStatus::Failed,
+        ] {
+            let resp = ApiRunResponse {
+                run_id: "r1".into(),
+                status,
+            };
+            let json = serde_json::to_string(&resp).unwrap();
+            let back: ApiRunResponse = serde_json::from_str(&json).unwrap();
+            assert_eq!(back.status, status);
+        }
+    }
+
+    // -- api::BackendInfo -----------------------------------------------
+
+    #[test]
+    fn backend_info_serde_roundtrip() {
+        let info = ApiBackendInfo {
+            name: "sidecar:node".into(),
+            dialect: "openai".into(),
+            status: "ready".into(),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        let back: ApiBackendInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.name, "sidecar:node");
+        assert_eq!(back.dialect, "openai");
+        assert_eq!(back.status, "ready");
+    }
+
+    #[test]
+    fn backend_info_clone() {
+        let info = ApiBackendInfo {
+            name: "mock".into(),
+            dialect: "mock".into(),
+            status: "ok".into(),
+        };
+        let cloned = info.clone();
+        assert_eq!(cloned.name, info.name);
+        assert_eq!(cloned.dialect, info.dialect);
+    }
+
+    // -- api::ListBackendsResponse --------------------------------------
+
+    #[test]
+    fn list_backends_response_serde_roundtrip() {
+        let resp = ListBackendsResponse {
+            backends: vec![ApiBackendInfo {
+                name: "mock".into(),
+                dialect: "mock".into(),
+                status: "ready".into(),
+            }],
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let back: ListBackendsResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.backends.len(), 1);
+        assert_eq!(back.backends[0].name, "mock");
+    }
+
+    #[test]
+    fn list_backends_response_empty() {
+        let resp = ListBackendsResponse { backends: vec![] };
+        let val = serde_json::to_value(&resp).unwrap();
+        assert!(val["backends"].as_array().unwrap().is_empty());
+    }
+
+    // -- api::ErrorResponse ---------------------------------------------
+
+    #[test]
+    fn error_response_serde_roundtrip_with_code() {
+        let err = ErrorResponse {
+            error: "not found".into(),
+            code: Some("not_found".into()),
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        let back: ErrorResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.error, "not found");
+        assert_eq!(back.code.as_deref(), Some("not_found"));
+    }
+
+    #[test]
+    fn error_response_serde_roundtrip_without_code() {
+        let err = ErrorResponse {
+            error: "something went wrong".into(),
+            code: None,
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        let back: ErrorResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.error, "something went wrong");
+        assert!(back.code.is_none());
+    }
+
+    #[test]
+    fn error_response_omits_none_code() {
+        let err = ErrorResponse {
+            error: "oops".into(),
+            code: None,
+        };
+        let val = serde_json::to_value(&err).unwrap();
+        assert!(val.get("code").is_none());
+    }
+
+    // -- api::HealthResponse (updated) ----------------------------------
+
+    #[test]
+    fn health_response_has_backends_list() {
+        let resp = ApiHealth {
+            status: "ok".into(),
+            version: abp_core::CONTRACT_VERSION.into(),
+            uptime_secs: 42,
+            backends: vec!["mock".into(), "sidecar:node".into()],
+        };
+        let val = serde_json::to_value(&resp).unwrap();
+        let arr = val["backends"].as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0], "mock");
+    }
+
+    #[test]
+    fn health_response_empty_backends() {
+        let resp = ApiHealth {
+            status: "ok".into(),
+            version: "abp/v0.1".into(),
+            uptime_secs: 0,
+            backends: vec![],
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let back: ApiHealth = serde_json::from_str(&json).unwrap();
+        assert!(back.backends.is_empty());
+        assert_eq!(back.uptime_secs, 0);
+    }
+
+    // -- routes::Route --------------------------------------------------
+
+    #[test]
+    fn route_serde_roundtrip() {
+        let route = Route {
+            method: "GET".into(),
+            path: "/api/v1/health".into(),
+            description: "Health check".into(),
+        };
+        let json = serde_json::to_string(&route).unwrap();
+        let back: Route = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.method, "GET");
+        assert_eq!(back.path, "/api/v1/health");
+        assert_eq!(back.description, "Health check");
+    }
+
+    #[test]
+    fn api_routes_returns_six_routes() {
+        let routes = api_routes();
+        assert_eq!(routes.len(), 6);
+    }
+
+    #[test]
+    fn api_routes_contains_post_run() {
+        let routes = api_routes();
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "POST" && r.path == "/api/v1/run")
+        );
+    }
+
+    #[test]
+    fn api_routes_contains_get_health() {
+        let routes = api_routes();
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "GET" && r.path == "/api/v1/health")
+        );
+    }
+
+    #[test]
+    fn api_routes_contains_get_backends() {
+        let routes = api_routes();
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "GET" && r.path == "/api/v1/backends")
+        );
+    }
+
+    #[test]
+    fn api_routes_contains_get_run_events() {
+        let routes = api_routes();
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "GET" && r.path == "/api/v1/run/{id}/events")
+        );
+    }
+
+    #[test]
+    fn api_routes_contains_get_run_receipt() {
+        let routes = api_routes();
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "GET" && r.path == "/api/v1/run/{id}/receipt")
+        );
+    }
+
+    #[test]
+    fn api_routes_all_have_descriptions() {
+        for route in api_routes() {
+            assert!(
+                !route.description.is_empty(),
+                "route {} {} has empty description",
+                route.method,
+                route.path
+            );
+        }
+    }
+
+    #[test]
+    fn api_routes_contains_get_run_status() {
+        let routes = api_routes();
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "GET" && r.path == "/api/v1/run/{id}")
+        );
+    }
+}

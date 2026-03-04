@@ -6,6 +6,7 @@
 //! plain function pointers.
 
 use crate::handler::{BackendsResponse, HealthResponse, RunRequest, RunResponse, RunStatus};
+use serde::{Deserialize, Serialize};
 use std::future::Future;
 use uuid::Uuid;
 
@@ -112,6 +113,57 @@ pub trait RunStatusHandler: Send + Sync {
 pub trait DaemonRouter: HealthHandler + BackendsHandler + RunHandler + RunStatusHandler {}
 
 impl<T> DaemonRouter for T where T: HealthHandler + BackendsHandler + RunHandler + RunStatusHandler {}
+
+// ---------------------------------------------------------------------------
+// Route descriptor
+// ---------------------------------------------------------------------------
+
+/// Describes a single API route with its method, path, and description.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Route {
+    /// HTTP method (e.g. `"GET"`, `"POST"`).
+    pub method: String,
+    /// URL path pattern (e.g. `"/api/v1/run"`).
+    pub path: String,
+    /// Human-readable description of the endpoint.
+    pub description: String,
+}
+
+/// Return the canonical list of v1 API routes.
+pub fn api_routes() -> Vec<Route> {
+    vec![
+        Route {
+            method: "POST".into(),
+            path: "/api/v1/run".into(),
+            description: "Submit work order".into(),
+        },
+        Route {
+            method: "GET".into(),
+            path: "/api/v1/run/{id}".into(),
+            description: "Get run status".into(),
+        },
+        Route {
+            method: "GET".into(),
+            path: "/api/v1/run/{id}/events".into(),
+            description: "Stream events (SSE)".into(),
+        },
+        Route {
+            method: "GET".into(),
+            path: "/api/v1/run/{id}/receipt".into(),
+            description: "Get receipt".into(),
+        },
+        Route {
+            method: "GET".into(),
+            path: "/api/v1/backends".into(),
+            description: "List backends".into(),
+        },
+        Route {
+            method: "GET".into(),
+            path: "/api/v1/health".into(),
+            description: "Health check".into(),
+        },
+    ]
+}
 
 // ---------------------------------------------------------------------------
 // Route table — lightweight route matching without an HTTP framework

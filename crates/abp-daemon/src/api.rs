@@ -126,10 +126,10 @@ pub struct HealthResponse {
     pub status: String,
     /// Contract version reported by the server.
     pub version: String,
-    /// Server uptime in seconds.
-    pub uptime_seconds: u64,
-    /// Number of registered backends.
-    pub backends_count: usize,
+    /// Server uptime in whole seconds.
+    pub uptime_secs: u64,
+    /// Names of registered backends.
+    pub backends: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +207,60 @@ impl std::fmt::Display for ApiError {
 }
 
 impl std::error::Error for ApiError {}
+
+// ---------------------------------------------------------------------------
+// V1 API request/response types
+// ---------------------------------------------------------------------------
+
+/// Request body for `POST /api/v1/run`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RunRequest {
+    /// The task description for the work order.
+    pub task: String,
+    /// Target backend name (uses default if not specified).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend: Option<String>,
+    /// Optional configuration overrides.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<serde_json::Value>,
+}
+
+/// Response body for `POST /api/v1/run`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RunResponse {
+    /// Unique run identifier.
+    pub run_id: String,
+    /// Current status of the run.
+    pub status: RunStatus,
+}
+
+/// Information about an available backend.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BackendInfo {
+    /// Backend name.
+    pub name: String,
+    /// Agent dialect spoken by this backend.
+    pub dialect: String,
+    /// Current operational status.
+    pub status: String,
+}
+
+/// Response body for `GET /api/v1/backends`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ListBackendsResponse {
+    /// Available backends.
+    pub backends: Vec<BackendInfo>,
+}
+
+/// Structured error response returned on failure.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ErrorResponse {
+    /// Human-readable error message.
+    pub error: String,
+    /// Optional machine-readable error code.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+}
 
 // ---------------------------------------------------------------------------
 // Handler signatures (types only — no actual HTTP server wiring)
@@ -353,15 +407,15 @@ mod tests {
         let resp = HealthResponse {
             status: "ok".into(),
             version: abp_core::CONTRACT_VERSION.into(),
-            uptime_seconds: 123,
-            backends_count: 3,
+            uptime_secs: 123,
+            backends: vec!["mock".into(), "sidecar:node".into()],
         };
         let json = serde_json::to_string(&resp).unwrap();
         let back: HealthResponse = serde_json::from_str(&json).unwrap();
         assert_eq!(back.status, "ok");
         assert_eq!(back.version, abp_core::CONTRACT_VERSION);
-        assert_eq!(back.uptime_seconds, 123);
-        assert_eq!(back.backends_count, 3);
+        assert_eq!(back.uptime_secs, 123);
+        assert_eq!(back.backends.len(), 2);
     }
 
     #[test]
@@ -369,8 +423,8 @@ mod tests {
         let resp = HealthResponse {
             status: "ok".into(),
             version: abp_core::CONTRACT_VERSION.into(),
-            uptime_seconds: 0,
-            backends_count: 0,
+            uptime_secs: 0,
+            backends: vec![],
         };
         let json = serde_json::to_value(&resp).unwrap();
         assert!(json.get("version").is_some());
