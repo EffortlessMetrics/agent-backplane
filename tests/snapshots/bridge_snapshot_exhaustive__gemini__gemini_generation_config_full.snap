@@ -1,0 +1,15 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&config"
+---
+{
+  "temperature": 0.8,
+  "topP": 0.95,
+  "topK": 50,
+  "maxOutputTokens": 8192,
+  "candidateCount": 3,
+  "stopSequences": [
+    "###"
+  ],
+  "responseMimeType": "text/plain"
+}

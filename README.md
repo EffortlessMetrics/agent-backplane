@@ -27,7 +27,7 @@ faithfully map SDK semantics into that contract and back out.
 
 ## Architecture
 
-The workspace contains **47 crates** organized in layers:
+The workspace contains **51 crates** organized in layers:
 
 ```
 abp-glob ──────────┐
@@ -50,7 +50,9 @@ abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend
   │              sidecar-kit        │
   │                  │         abp-integrations ─── abp-runtime ─── abp-cli
   │             claude-bridge                           │             │
-  │                                                 abp-stream   abp-daemon
+  │             gemini-bridge                        abp-stream   abp-daemon
+  │             openai-bridge
+  │                                            abp-ratelimit
   ├── abp-sidecar-proto
   └── abp-sidecar-utils
 
@@ -146,8 +148,11 @@ Receipt { status: success, events: [...], receipt_sha256: "ab3f…" }
 | [`abp-copilot-sdk`](crates/abp-copilot-sdk) | GitHub Copilot sidecar SDK integration |
 | [`abp-sidecar-sdk`](crates/abp-sidecar-sdk) | Shared sidecar registration helpers for vendor SDK microcrates |
 | [`abp-sidecar-utils`](crates/abp-sidecar-utils) | Reusable sidecar protocol utilities (streaming codec, handshake, heartbeat) |
+| [`abp-ratelimit`](crates/abp-ratelimit) | Rate limiting primitives (token bucket, sliding window) for backend calls |
 | [`sidecar-kit`](crates/sidecar-kit) | Value-based JSONL transport layer for sidecar processes |
 | [`claude-bridge`](crates/claude-bridge) | Standalone Claude SDK bridge built on sidecar-kit |
+| [`gemini-bridge`](crates/gemini-bridge) | Standalone Gemini SDK bridge built on sidecar-kit |
+| [`openai-bridge`](crates/openai-bridge) | Standalone OpenAI Chat Completions bridge built on sidecar-kit |
 
 ## SDK Support Matrix
 

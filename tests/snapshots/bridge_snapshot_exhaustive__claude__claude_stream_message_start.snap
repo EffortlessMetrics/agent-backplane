@@ -1,0 +1,19 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&evt"
+---
+{
+  "type": "message_start",
+  "message": {
+    "id": "msg_stream_01",
+    "type": "message",
+    "role": "assistant",
+    "content": [],
+    "model": "claude-sonnet-4-20250514",
+    "stop_reason": null,
+    "usage": {
+      "input_tokens": 10,
+      "output_tokens": 0
+    }
+  }
+}

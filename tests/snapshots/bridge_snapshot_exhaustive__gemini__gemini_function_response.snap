@@ -1,0 +1,13 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&fr"
+---
+{
+  "functionResponse": {
+    "name": "get_weather",
+    "response": {
+      "condition": "cloudy",
+      "temperature": 15
+    }
+  }
+}

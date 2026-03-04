@@ -1,0 +1,17 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&req"
+---
+{
+  "model": "gemini-2.5-flash",
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Hello"
+        }
+      ]
+    }
+  ]
+}

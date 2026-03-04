@@ -1,0 +1,12 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&content"
+---
+{
+  "role": "user",
+  "parts": [
+    {
+      "text": ""
+    }
+  ]
+}

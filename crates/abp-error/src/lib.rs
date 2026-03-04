@@ -9,6 +9,15 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// Error aggregation with time-windowed trending.
+pub mod aggregate;
+/// Recovery-oriented error categorization with retryability and suggested delays.
+pub mod category;
+/// Diagnostic generation with probable cause and suggested fixes.
+pub mod diagnostic;
+/// Vendor-specific error mapping (OpenAI, Anthropic, Gemini).
+pub mod vendor_map;
+
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;

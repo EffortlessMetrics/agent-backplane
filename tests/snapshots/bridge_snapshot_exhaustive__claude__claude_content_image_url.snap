@@ -1,0 +1,11 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&block"
+---
+{
+  "type": "image",
+  "source": {
+    "type": "url",
+    "url": "https://example.com/image.png"
+  }
+}

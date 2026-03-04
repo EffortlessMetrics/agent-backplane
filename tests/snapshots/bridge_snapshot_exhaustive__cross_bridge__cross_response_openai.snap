@@ -1,0 +1,25 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&resp"
+---
+{
+  "id": "chatcmpl-cross01",
+  "object": "chat.completion",
+  "created": 1700000000,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "2+2 equals 4."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 20,
+    "completion_tokens": 10,
+    "total_tokens": 30
+  }
+}

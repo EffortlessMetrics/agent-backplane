@@ -1,0 +1,17 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&sys"
+---
+[
+  {
+    "type": "text",
+    "text": "Primary instructions",
+    "cache_control": {
+      "type": "ephemeral"
+    }
+  },
+  {
+    "type": "text",
+    "text": "Secondary context"
+  }
+]

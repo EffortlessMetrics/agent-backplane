@@ -1,0 +1,66 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&req"
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "What files are in /tmp?"
+    },
+    {
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "id": "call_abc123",
+          "type": "function",
+          "function": {
+            "name": "bash",
+            "arguments": "{\"command\":\"ls /tmp\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "file1.txt\nfile2.txt",
+      "tool_call_id": "call_abc123"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "bash",
+        "description": "Execute a shell command",
+        "parameters": {
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "temperature": 0.7,
+  "max_tokens": 4096,
+  "stream": true,
+  "top_p": 0.9,
+  "frequency_penalty": 0.5,
+  "presence_penalty": 0.3,
+  "stop": [
+    "END"
+  ],
+  "n": 1,
+  "tool_choice": "auto"
+}

@@ -1,0 +1,24 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&resp"
+---
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "2+2 equals 4."
+          }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 20,
+    "candidatesTokenCount": 10,
+    "totalTokenCount": 30
+  }
+}

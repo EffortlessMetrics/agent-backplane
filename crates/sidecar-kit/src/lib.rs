@@ -17,15 +17,19 @@ pub mod client;
 pub mod codec;
 pub mod diagnostics;
 pub mod error;
+pub mod events;
 pub mod frame;
 pub mod framing;
 pub mod harness;
 pub mod middleware;
 pub mod pipeline;
 pub mod process;
+pub mod protocol_helpers;
 pub mod protocol_state;
+pub mod receipt_builder;
 pub mod run;
 pub mod spec;
+pub mod test_utils;
 pub mod transform;
 pub mod typed_middleware;
 pub mod work_order;
@@ -62,6 +66,18 @@ pub use transform::{
 pub use typed_middleware::{
     ErrorRecoveryMiddleware as TypedErrorRecoveryMiddleware, MetricsMiddleware, MiddlewareAction,
     RateLimitMiddleware, SidecarMiddleware, SidecarMiddlewareChain,
+};
+
+pub use events::{
+    command_event, delta_event, error_event, file_changed_event, run_completed_event,
+    run_started_event, text_event, tool_call_event, tool_result_event, warning_event,
+    EventBuilder as TypedEventBuilder,
+};
+pub use protocol_helpers::{read_run, send_event, send_fatal, send_final, send_hello};
+pub use receipt_builder::TypedReceiptBuilder;
+pub use test_utils::{
+    MockStdin, MockStdout, SidecarTestHarness, assert_valid_event, assert_valid_fatal,
+    assert_valid_final, assert_valid_hello,
 };
 
 pub use capabilities::{CapabilitySet, default_streaming_capabilities};

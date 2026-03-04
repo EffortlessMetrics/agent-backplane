@@ -1,0 +1,12 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&openai_call"
+---
+{
+  "id": "call_newline",
+  "type": "function",
+  "function": {
+    "name": "write_file",
+    "arguments": "{\"path\":\"/tmp/test.py\",\"content\":\"def hello():\\n    print('hello')\\n\\nhello()\\n\"}"
+  }
+}

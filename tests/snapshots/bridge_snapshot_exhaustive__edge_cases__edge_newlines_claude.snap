@@ -1,0 +1,13 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&claude_block"
+---
+{
+  "type": "tool_use",
+  "id": "tu_newline",
+  "name": "write_file",
+  "input": {
+    "content": "def hello():\n    print('hello')\n\nhello()\n",
+    "path": "/tmp/test.py"
+  }
+}

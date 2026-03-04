@@ -1,0 +1,6 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&specific"
+---
+type: tool
+name: read_file

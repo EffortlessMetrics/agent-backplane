@@ -1,0 +1,19 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&req"
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a math tutor."
+    },
+    {
+      "role": "user",
+      "content": "What is 2+2?"
+    }
+  ],
+  "temperature": 0.0,
+  "max_tokens": 256
+}

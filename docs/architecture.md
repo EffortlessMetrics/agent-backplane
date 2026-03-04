@@ -76,8 +76,9 @@ else exists to faithfully translate SDK semantics into that contract and back ou
                                   ▼                  ▼                  ▼
                            ┌────────────┐    ┌────────────┐    ┌──────────────┐
                            │ MockBackend│    │  abp-host  │    │ claude-bridge│
-                           │ (in-proc)  │    │  (sidecar) │    │  (sidecar)   │
-                           └────────────┘    └──────┬─────┘    └──────┬───────┘
+                           │ (in-proc)  │    │  (sidecar) │    │ gemini-bridge│
+                           └────────────┘    └──────┬─────┘    │ openai-bridge│
+                                                    │          └──────┬───────┘
                                                     │                 │
                                                     ▼                 ▼
                                              ┌────────────┐   ┌──────────────┐
@@ -131,7 +132,9 @@ abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend
   │              sidecar-kit        │
   │                  │         abp-integrations ─── abp-runtime ─── abp-cli
   │             claude-bridge                           │             │
-  │                                                 abp-stream   abp-daemon
+  │             gemini-bridge                        abp-stream   abp-daemon
+  │             openai-bridge
+  │                                            abp-ratelimit
   ├── abp-sidecar-proto
   └── abp-sidecar-utils
 
@@ -142,6 +145,7 @@ SDK shims (drop-in client replacements):
 Supporting crates:
   abp-git           Standalone git helpers (init, status, diff)
   abp-sidecar-sdk   Vendor SDK registration helpers
+  abp-ratelimit     Rate limiting primitives for backend calls
 
 Vendor SDK microcrates (abp-claude-sdk, abp-codex-sdk, abp-openai-sdk,
 abp-gemini-sdk, abp-kimi-sdk, abp-copilot-sdk) depend on abp-core +
@@ -397,6 +401,24 @@ All implement the dialect pattern: model name mapping, capability manifest,
 Specialized bridge for the Claude sidecar. Spawns a Node.js host process
 (`hosts/claude/`), handles the JSONL protocol, and converts between ABP types
 and the Claude-specific wire format.
+
+### gemini-bridge — Gemini Sidecar Bridge
+
+Standalone bridge for the Google Gemini API built on `sidecar-kit`. Supports
+raw passthrough mode (zero ABP dependencies) and an optional normalized mode
+(via feature flag) that maps Gemini JSON events to typed ABP contracts.
+
+### openai-bridge — OpenAI Sidecar Bridge
+
+Standalone bridge for OpenAI Chat Completions built on `sidecar-kit`. Provides
+three modes: raw passthrough, mapped-raw (task string to JSON), and optional
+normalized mode that maps events to typed ABP contracts.
+
+### abp-ratelimit — Rate Limiting
+
+Rate limiting primitives for backend calls. Provides configurable strategies
+(token bucket, sliding window counter) for controlling backend throughput
+with per-backend policies.
 
 ### abp-projection — Backend Selection
 

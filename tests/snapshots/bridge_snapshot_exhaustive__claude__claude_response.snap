@@ -1,0 +1,23 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&resp"
+---
+{
+  "id": "msg_01XFDUDYJgAACzvnptvVoYEL",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "Here is the result."
+    }
+  ],
+  "model": "claude-sonnet-4-20250514",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 25,
+    "output_tokens": 150,
+    "cache_creation_input_tokens": 100,
+    "cache_read_input_tokens": 50
+  }
+}

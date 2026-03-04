@@ -1,0 +1,18 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&chunk"
+---
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "partial "
+          }
+        ]
+      }
+    }
+  ]
+}

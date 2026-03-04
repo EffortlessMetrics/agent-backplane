@@ -1,0 +1,9 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&block"
+---
+{
+  "type": "thinking",
+  "thinking": "I need to consider the edge cases here...",
+  "signature": "sig_abc123"
+}

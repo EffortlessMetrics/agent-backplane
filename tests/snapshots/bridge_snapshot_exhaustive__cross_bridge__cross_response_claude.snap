@@ -1,0 +1,21 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&resp"
+---
+{
+  "id": "msg_cross_01",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "2+2 equals 4."
+    }
+  ],
+  "model": "claude-sonnet-4-20250514",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 20,
+    "output_tokens": 10
+  }
+}

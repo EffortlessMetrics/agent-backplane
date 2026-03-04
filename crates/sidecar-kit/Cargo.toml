@@ -20,6 +20,7 @@ thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt", "process", "io-util", "sync", "time"] }
 tokio-stream = "0.1"
 tracing = "0.1"
+uuid = { workspace = true }
 
 [dev-dependencies]
 abp-core = { path = "../abp-core", version = "0.1.0" }

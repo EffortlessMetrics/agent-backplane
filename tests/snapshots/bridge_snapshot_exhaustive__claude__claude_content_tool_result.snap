@@ -1,0 +1,10 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&block"
+---
+{
+  "type": "tool_result",
+  "tool_use_id": "toolu_01A",
+  "content": "total 42\ndrwxr-xr-x 2 user user 4096",
+  "is_error": false
+}

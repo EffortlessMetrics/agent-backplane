@@ -1,0 +1,9 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&usage"
+---
+{
+  "prompt_tokens": 1000,
+  "completion_tokens": 500,
+  "total_tokens": 1500
+}

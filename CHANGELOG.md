@@ -57,6 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **abp-sidecar-utils** — Reusable sidecar protocol utilities
 - **sidecar-kit** — Low-level sidecar transport construction kit
 - **claude-bridge** — Claude sidecar bridge with config discovery
+- **gemini-bridge** — Standalone Gemini SDK bridge using sidecar-kit transport (raw passthrough + optional normalized mode)
+- **openai-bridge** — Standalone OpenAI Chat Completions bridge using sidecar-kit transport (raw/mapped-raw/normalized modes)
 
 #### Policy, Workspace & Tooling
 
@@ -67,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **abp-stream** — Agent event stream processing, filtering, transformation, and multiplexing
 - **abp-telemetry** — Structured metrics and telemetry collection (durations, tokens, error rates)
 - **abp-config** — TOML configuration loading, validation, and merging with advisory warnings
+- **abp-ratelimit** — Rate limiting primitives (token bucket, sliding window) for backend calls
 
 #### Applications
 

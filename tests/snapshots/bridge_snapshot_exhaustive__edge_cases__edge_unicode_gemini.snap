@@ -1,0 +1,12 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&gemini"
+---
+{
+  "role": "user",
+  "parts": [
+    {
+      "text": "こんにちは世界 🌍 Ñoño café résumé naïve"
+    }
+  ]
+}
