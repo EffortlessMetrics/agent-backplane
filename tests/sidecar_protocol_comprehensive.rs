@@ -1,49 +1,37 @@
 #![allow(clippy::all)]
-#![allow(clippy::manual_repeat_n)]
-#![allow(clippy::manual_range_contains)]
-#![allow(clippy::single_component_path_imports)]
-#![allow(clippy::let_and_return)]
-#![allow(clippy::unnecessary_to_owned)]
-#![allow(clippy::implicit_clone)]
-#![allow(clippy::field_reassign_with_default)]
-#![allow(clippy::iter_kv_map)]
-#![allow(clippy::bool_assert_comparison)]
-#![allow(clippy::redundant_closure)]
-#![allow(clippy::collapsible_if)]
-#![allow(clippy::collapsible_match)]
-#![allow(clippy::single_match)]
-#![allow(clippy::manual_map)]
-#![allow(clippy::match_like_matches_macro)]
-#![allow(clippy::needless_return)]
-#![allow(clippy::redundant_pattern_matching)]
-#![allow(clippy::len_zero)]
-#![allow(clippy::map_entry)]
-#![allow(clippy::unnecessary_unwrap)]
 #![allow(unknown_lints)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+#![allow(dead_code)]
+#![allow(unused_must_use)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
-#![allow(clippy::approx_constant)]
-#![allow(clippy::needless_update)]
-#![allow(clippy::useless_vec)]
-#![allow(clippy::clone_on_copy)]
-#![allow(clippy::type_complexity)]
-#![allow(clippy::needless_borrow)]
 //! Comprehensive tests for the sidecar protocol types, JSONL codec, envelope
 //! construction, validation, builder patterns, sequence validation, routing,
-//! version negotiation, and edge cases.
+//! version negotiation, stream parsing, state machine, frame validation,
+//! compression, batch processing, and edge cases.
 
 use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::*;
+use abp_protocol::batch::{BatchProcessor, BatchRequest, BatchValidationError, MAX_BATCH_SIZE};
 use abp_protocol::builder::EnvelopeBuilder;
+use abp_protocol::codec::StreamingCodec;
+use abp_protocol::compress::{CompressionAlgorithm, CompressionStats, MessageCompressor};
+use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
+use abp_protocol::version::{ProtocolVersion, VersionError, VersionRange, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
-use serde_json::Value;
+use serde_json::{Value, json};
 use uuid::Uuid;
+
+use sidecar_kit::{
+    Frame, FrameReader, FrameWriter, ProtocolPhase, ProtocolState, buf_reader_from_bytes,
+    frame_to_json, json_to_frame, read_all_frames, validate_frame, write_frames,
+};
 
 // ===========================================================================
 // Helpers
@@ -1906,4 +1894,911 @@ fn error_code_some_for_fatal_with_code() {
 fn error_code_none_for_fatal_without_code() {
     let env = make_fatal(None, "err");
     assert!(env.error_code().is_none());
+}
+
+// ===========================================================================
+// 30. StreamParser – partial lines, buffering, edge cases
+// ===========================================================================
+
+#[test]
+fn stream_parser_partial_line_buffering() {
+    let mut parser = StreamParser::new();
+    let line = JsonlCodec::encode(&make_fatal(None, "streamed")).unwrap();
+    let (a, b) = line.as_bytes().split_at(10);
+    let r1 = parser.feed(a);
+    assert!(r1.is_empty(), "partial line should not produce results");
+    let r2 = parser.feed(b);
+    assert_eq!(r2.len(), 1);
+    assert!(r2[0].is_ok());
+}
+
+#[test]
+fn stream_parser_multiple_lines_in_one_chunk() {
+    let mut parser = StreamParser::new();
+    let line = JsonlCodec::encode(&make_fatal(None, "a")).unwrap();
+    let two_lines = format!("{}{}", line, line);
+    let results = parser.feed(two_lines.as_bytes());
+    assert_eq!(results.len(), 2);
+}
+
+#[test]
+fn stream_parser_blank_lines_skipped() {
+    let mut parser = StreamParser::new();
+    let line = JsonlCodec::encode(&make_fatal(None, "x")).unwrap();
+    let input = format!("\n\n{}\n\n", line.trim());
+    let results = parser.feed(input.as_bytes());
+    assert_eq!(results.len(), 1);
+}
+
+#[test]
+fn stream_parser_finish_unterminated_line() {
+    let mut parser = StreamParser::new();
+    let json_no_newline = r#"{"t":"fatal","ref_id":null,"error":"unterminated"}"#;
+    parser.feed(json_no_newline.as_bytes());
+    assert!(!parser.is_empty());
+    let results = parser.finish();
+    assert_eq!(results.len(), 1);
+    assert!(results[0].is_ok());
+}
+
+#[test]
+fn stream_parser_buffered_len_and_reset() {
+    let mut parser = StreamParser::new();
+    assert_eq!(parser.buffered_len(), 0);
+    parser.feed(b"partial data");
+    assert_eq!(parser.buffered_len(), 12);
+    parser.reset();
+    assert!(parser.is_empty());
+    assert_eq!(parser.buffered_len(), 0);
+}
+
+#[test]
+fn stream_parser_max_line_len_exceeded() {
+    let mut parser = StreamParser::with_max_line_len(10);
+    let long_line = format!("{}\n", "x".repeat(20));
+    let results = parser.feed(long_line.as_bytes());
+    assert_eq!(results.len(), 1);
+    assert!(results[0].is_err());
+}
+
+#[test]
+fn stream_parser_byte_by_byte_delivery() {
+    let mut parser = StreamParser::new();
+    let line = JsonlCodec::encode(&make_fatal(None, "byte")).unwrap();
+    let mut total = vec![];
+    for byte in line.as_bytes() {
+        total.extend(parser.feed(&[*byte]));
+    }
+    assert_eq!(total.len(), 1);
+    assert!(total[0].is_ok());
+}
+
+#[test]
+fn stream_parser_invalid_utf8() {
+    let mut parser = StreamParser::new();
+    let bad = [0xFF, 0xFE, b'\n'];
+    let results = parser.feed(&bad);
+    assert_eq!(results.len(), 1);
+    assert!(results[0].is_err());
+}
+
+#[test]
+fn stream_parser_default_trait() {
+    let p = StreamParser::default();
+    assert!(p.is_empty());
+}
+
+#[test]
+fn stream_parser_full_lifecycle_parsing() {
+    let mut parser = StreamParser::new();
+    let hello = JsonlCodec::encode(&make_hello()).unwrap();
+    let run = JsonlCodec::encode(&make_run("r1")).unwrap();
+    let event = JsonlCodec::encode(&make_event("r1")).unwrap();
+    let fin = JsonlCodec::encode(&make_final("r1")).unwrap();
+
+    let all = format!("{}{}{}{}", hello, run, event, fin);
+    let results = parser.feed(all.as_bytes());
+    assert_eq!(results.len(), 4);
+    assert!(results.iter().all(|r| r.is_ok()));
+}
+
+// ===========================================================================
+// 31. Protocol state machine (sidecar-kit ProtocolState)
+// ===========================================================================
+
+#[test]
+fn state_machine_happy_path() {
+    let mut state = ProtocolState::new();
+    assert_eq!(state.phase(), ProtocolPhase::AwaitingHello);
+
+    state
+        .advance(&Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: json!({"id": "test"}),
+            capabilities: json!({}),
+            mode: Value::Null,
+        })
+        .unwrap();
+    assert_eq!(state.phase(), ProtocolPhase::AwaitingRun);
+
+    state
+        .advance(&Frame::Run {
+            id: "r1".into(),
+            work_order: json!({}),
+        })
+        .unwrap();
+    assert_eq!(state.phase(), ProtocolPhase::Streaming);
+    assert_eq!(state.run_id(), Some("r1"));
+
+    state
+        .advance(&Frame::Event {
+            ref_id: "r1".into(),
+            event: json!({"type": "assistant_delta", "text": "hi"}),
+        })
+        .unwrap();
+    assert_eq!(state.events_seen(), 1);
+
+    state
+        .advance(&Frame::Final {
+            ref_id: "r1".into(),
+            receipt: json!({}),
+        })
+        .unwrap();
+    assert_eq!(state.phase(), ProtocolPhase::Completed);
+    assert!(state.is_terminal());
+}
+
+#[test]
+fn state_machine_fatal_during_streaming() {
+    let mut state = ProtocolState::new();
+    state
+        .advance(&Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: json!({"id": "t"}),
+            capabilities: json!({}),
+            mode: Value::Null,
+        })
+        .unwrap();
+    state
+        .advance(&Frame::Run {
+            id: "r1".into(),
+            work_order: json!({}),
+        })
+        .unwrap();
+    state
+        .advance(&Frame::Fatal {
+            ref_id: Some("r1".into()),
+            error: "crash".into(),
+        })
+        .unwrap();
+    assert_eq!(state.phase(), ProtocolPhase::Completed);
+}
+
+#[test]
+fn state_machine_event_before_hello_faults() {
+    let mut state = ProtocolState::new();
+    let result = state.advance(&Frame::Event {
+        ref_id: "r1".into(),
+        event: json!({}),
+    });
+    assert!(result.is_err());
+    assert_eq!(state.phase(), ProtocolPhase::Faulted);
+}
+
+#[test]
+fn state_machine_run_before_hello_faults() {
+    let mut state = ProtocolState::new();
+    let result = state.advance(&Frame::Run {
+        id: "r1".into(),
+        work_order: json!({}),
+    });
+    assert!(result.is_err());
+    assert_eq!(state.phase(), ProtocolPhase::Faulted);
+}
+
+#[test]
+fn state_machine_double_hello_faults() {
+    let mut state = ProtocolState::new();
+    state
+        .advance(&Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: json!({"id": "t"}),
+            capabilities: json!({}),
+            mode: Value::Null,
+        })
+        .unwrap();
+    let result = state.advance(&Frame::Hello {
+        contract_version: "abp/v0.1".into(),
+        backend: json!({"id": "t2"}),
+        capabilities: json!({}),
+        mode: Value::Null,
+    });
+    assert!(result.is_err());
+    assert_eq!(state.phase(), ProtocolPhase::Faulted);
+}
+
+#[test]
+fn state_machine_event_after_final_faults() {
+    let mut state = ProtocolState::new();
+    state
+        .advance(&Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: json!({"id": "t"}),
+            capabilities: json!({}),
+            mode: Value::Null,
+        })
+        .unwrap();
+    state
+        .advance(&Frame::Run {
+            id: "r1".into(),
+            work_order: json!({}),
+        })
+        .unwrap();
+    state
+        .advance(&Frame::Final {
+            ref_id: "r1".into(),
+            receipt: json!({}),
+        })
+        .unwrap();
+    let result = state.advance(&Frame::Event {
+        ref_id: "r1".into(),
+        event: json!({}),
+    });
+    assert!(result.is_err());
+    assert_eq!(state.phase(), ProtocolPhase::Faulted);
+}
+
+#[test]
+fn state_machine_ref_id_mismatch_rejects() {
+    let mut state = ProtocolState::new();
+    state
+        .advance(&Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: json!({"id": "t"}),
+            capabilities: json!({}),
+            mode: Value::Null,
+        })
+        .unwrap();
+    state
+        .advance(&Frame::Run {
+            id: "r1".into(),
+            work_order: json!({}),
+        })
+        .unwrap();
+    let result = state.advance(&Frame::Event {
+        ref_id: "WRONG".into(),
+        event: json!({}),
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn state_machine_reset_clears_state() {
+    let mut state = ProtocolState::new();
+    state
+        .advance(&Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: json!({"id": "t"}),
+            capabilities: json!({}),
+            mode: Value::Null,
+        })
+        .unwrap();
+    state.reset();
+    assert_eq!(state.phase(), ProtocolPhase::AwaitingHello);
+    assert!(state.run_id().is_none());
+    assert_eq!(state.events_seen(), 0);
+}
+
+#[test]
+fn state_machine_faulted_rejects_all_frames() {
+    let mut state = ProtocolState::new();
+    state
+        .advance(&Frame::Event {
+            ref_id: "x".into(),
+            event: json!({}),
+        })
+        .unwrap_err();
+    assert_eq!(state.phase(), ProtocolPhase::Faulted);
+    assert!(state.fault_reason().is_some());
+    let result = state.advance(&Frame::Hello {
+        contract_version: "abp/v0.1".into(),
+        backend: json!({"id": "t"}),
+        capabilities: json!({}),
+        mode: Value::Null,
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn state_machine_ping_pong_during_streaming() {
+    let mut state = ProtocolState::new();
+    state
+        .advance(&Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: json!({"id": "t"}),
+            capabilities: json!({}),
+            mode: Value::Null,
+        })
+        .unwrap();
+    state
+        .advance(&Frame::Run {
+            id: "r1".into(),
+            work_order: json!({}),
+        })
+        .unwrap();
+    state.advance(&Frame::Ping { seq: 1 }).unwrap();
+    state.advance(&Frame::Pong { seq: 1 }).unwrap();
+    assert_eq!(state.phase(), ProtocolPhase::Streaming);
+}
+
+#[test]
+fn state_machine_fatal_while_awaiting_run() {
+    let mut state = ProtocolState::new();
+    state
+        .advance(&Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: json!({"id": "t"}),
+            capabilities: json!({}),
+            mode: Value::Null,
+        })
+        .unwrap();
+    state
+        .advance(&Frame::Fatal {
+            ref_id: None,
+            error: "startup failure".into(),
+        })
+        .unwrap();
+    assert_eq!(state.phase(), ProtocolPhase::Completed);
+}
+
+#[test]
+fn state_machine_multiple_events_counted() {
+    let mut state = ProtocolState::new();
+    state
+        .advance(&Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: json!({"id": "t"}),
+            capabilities: json!({}),
+            mode: Value::Null,
+        })
+        .unwrap();
+    state
+        .advance(&Frame::Run {
+            id: "r1".into(),
+            work_order: json!({}),
+        })
+        .unwrap();
+    for _ in 0..5 {
+        state
+            .advance(&Frame::Event {
+                ref_id: "r1".into(),
+                event: json!({}),
+            })
+            .unwrap();
+    }
+    assert_eq!(state.events_seen(), 5);
+}
+
+// ===========================================================================
+// 32. Frame validation (sidecar-kit validate_frame)
+// ===========================================================================
+
+#[test]
+fn validate_frame_valid_hello_ok() {
+    let frame = Frame::Hello {
+        contract_version: "abp/v0.1".into(),
+        backend: json!({"id": "test"}),
+        capabilities: json!({}),
+        mode: Value::Null,
+    };
+    let result = validate_frame(&frame, 1_000_000);
+    assert!(result.valid, "issues: {:?}", result.issues);
+}
+
+#[test]
+fn validate_frame_empty_contract_version_fails() {
+    let frame = Frame::Hello {
+        contract_version: "".into(),
+        backend: json!({"id": "test"}),
+        capabilities: json!({}),
+        mode: Value::Null,
+    };
+    let result = validate_frame(&frame, 1_000_000);
+    assert!(!result.valid);
+}
+
+#[test]
+fn validate_frame_bad_version_prefix() {
+    let frame = Frame::Hello {
+        contract_version: "xyz/v0.1".into(),
+        backend: json!({"id": "test"}),
+        capabilities: json!({}),
+        mode: Value::Null,
+    };
+    let result = validate_frame(&frame, 1_000_000);
+    assert!(!result.valid);
+}
+
+#[test]
+fn validate_frame_empty_run_id_fails() {
+    let frame = Frame::Run {
+        id: "".into(),
+        work_order: json!({}),
+    };
+    let result = validate_frame(&frame, 1_000_000);
+    assert!(!result.valid);
+}
+
+#[test]
+fn validate_frame_empty_event_ref_id_fails() {
+    let frame = Frame::Event {
+        ref_id: "".into(),
+        event: json!({}),
+    };
+    let result = validate_frame(&frame, 1_000_000);
+    assert!(!result.valid);
+}
+
+#[test]
+fn validate_frame_empty_fatal_error_fails() {
+    let frame = Frame::Fatal {
+        ref_id: None,
+        error: "".into(),
+    };
+    let result = validate_frame(&frame, 1_000_000);
+    assert!(!result.valid);
+}
+
+#[test]
+fn validate_frame_size_exceeded_fails() {
+    let frame = Frame::Event {
+        ref_id: "r1".into(),
+        event: json!({"big": "x".repeat(1000)}),
+    };
+    let result = validate_frame(&frame, 50);
+    assert!(!result.valid);
+}
+
+#[test]
+fn validate_frame_empty_cancel_ref_id_fails() {
+    let frame = Frame::Cancel {
+        ref_id: "".into(),
+        reason: None,
+    };
+    let result = validate_frame(&frame, 1_000_000);
+    assert!(!result.valid);
+}
+
+#[test]
+fn validate_frame_ping_always_valid() {
+    let result = validate_frame(&Frame::Ping { seq: 0 }, 1_000_000);
+    assert!(result.valid);
+}
+
+// ===========================================================================
+// 33. FrameWriter / FrameReader roundtrips
+// ===========================================================================
+
+#[test]
+fn frame_writer_reader_full_roundtrip() {
+    let frames = vec![
+        Frame::Hello {
+            contract_version: "abp/v0.1".into(),
+            backend: json!({"id": "test"}),
+            capabilities: json!({}),
+            mode: Value::Null,
+        },
+        Frame::Run {
+            id: "r1".into(),
+            work_order: json!({}),
+        },
+        Frame::Event {
+            ref_id: "r1".into(),
+            event: json!({"type": "run_started"}),
+        },
+        Frame::Final {
+            ref_id: "r1".into(),
+            receipt: json!({}),
+        },
+    ];
+    let mut buf = Vec::new();
+    let count = write_frames(&mut buf, &frames).unwrap();
+    assert_eq!(count, 4);
+    let reader = buf_reader_from_bytes(&buf);
+    let read_back = read_all_frames(reader).unwrap();
+    assert_eq!(read_back.len(), 4);
+}
+
+#[test]
+fn frame_writer_tracks_count() {
+    let mut buf = Vec::new();
+    let mut writer = FrameWriter::new(&mut buf);
+    writer.write_frame(&Frame::Ping { seq: 1 }).unwrap();
+    writer.write_frame(&Frame::Pong { seq: 1 }).unwrap();
+    assert_eq!(writer.frames_written(), 2);
+}
+
+#[test]
+fn frame_reader_skips_blank_lines() {
+    let input = b"\n\n{\"t\":\"ping\",\"seq\":1}\n\n";
+    let reader = buf_reader_from_bytes(input);
+    let frames = read_all_frames(reader).unwrap();
+    assert_eq!(frames.len(), 1);
+}
+
+#[test]
+fn frame_reader_max_size_enforcement() {
+    let mut big = "{\"t\":\"fatal\",\"ref_id\":null,\"error\":\"".to_string();
+    big.push_str(&"x".repeat(200));
+    big.push_str("\"}\n");
+    let reader = buf_reader_from_bytes(big.as_bytes());
+    let mut fr = FrameReader::with_max_size(reader, 50);
+    assert!(fr.read_frame().is_err());
+}
+
+// ===========================================================================
+// 34. sidecar-kit builder functions
+// ===========================================================================
+
+#[test]
+fn sidecar_kit_hello_frame_builder() {
+    let frame = sidecar_kit::hello_frame("my-backend");
+    match frame {
+        Frame::Hello {
+            contract_version,
+            backend,
+            ..
+        } => {
+            assert_eq!(contract_version, "abp/v0.1");
+            assert_eq!(backend["id"], "my-backend");
+        }
+        _ => panic!("expected Hello"),
+    }
+}
+
+#[test]
+fn sidecar_kit_event_frame_builder() {
+    let frame = sidecar_kit::event_frame("r1", sidecar_kit::event_text_delta("token"));
+    match &frame {
+        Frame::Event { ref_id, event } => {
+            assert_eq!(ref_id, "r1");
+            assert_eq!(event["type"], "assistant_delta");
+            assert_eq!(event["text"], "token");
+        }
+        _ => panic!("expected Event"),
+    }
+}
+
+#[test]
+fn sidecar_kit_fatal_frame_builder() {
+    let frame = sidecar_kit::fatal_frame(Some("r1"), "error msg");
+    match frame {
+        Frame::Fatal { ref_id, error } => {
+            assert_eq!(ref_id.as_deref(), Some("r1"));
+            assert_eq!(error, "error msg");
+        }
+        _ => panic!("expected Fatal"),
+    }
+}
+
+#[test]
+fn sidecar_kit_event_text_message() {
+    let v = sidecar_kit::event_text_message("complete text");
+    assert_eq!(v["type"], "assistant_message");
+    assert_eq!(v["text"], "complete text");
+}
+
+#[test]
+fn sidecar_kit_event_tool_call() {
+    let v = sidecar_kit::event_tool_call("read_file", Some("tc1"), json!({"path": "f.txt"}));
+    assert_eq!(v["type"], "tool_call");
+    assert_eq!(v["tool_name"], "read_file");
+    assert_eq!(v["tool_use_id"], "tc1");
+}
+
+#[test]
+fn sidecar_kit_event_tool_result() {
+    let v = sidecar_kit::event_tool_result("read_file", Some("tc1"), json!("data"), false);
+    assert_eq!(v["type"], "tool_result");
+    assert_eq!(v["is_error"], false);
+}
+
+#[test]
+fn sidecar_kit_event_file_changed() {
+    let v = sidecar_kit::event_file_changed("src/lib.rs", "added function");
+    assert_eq!(v["type"], "file_changed");
+    assert_eq!(v["path"], "src/lib.rs");
+}
+
+#[test]
+fn sidecar_kit_event_command_executed() {
+    let v = sidecar_kit::event_command_executed("cargo test", Some(0), Some("ok"));
+    assert_eq!(v["type"], "command_executed");
+    assert_eq!(v["exit_code"], 0);
+}
+
+#[test]
+fn sidecar_kit_event_warning_and_error() {
+    let w = sidecar_kit::event_warning("deprecation");
+    assert_eq!(w["type"], "warning");
+    let e = sidecar_kit::event_error("critical");
+    assert_eq!(e["type"], "error");
+}
+
+#[test]
+fn sidecar_kit_event_run_started_completed() {
+    let s = sidecar_kit::event_run_started("beginning");
+    assert_eq!(s["type"], "run_started");
+    let c = sidecar_kit::event_run_completed("finished");
+    assert_eq!(c["type"], "run_completed");
+}
+
+#[test]
+fn sidecar_kit_receipt_builder() {
+    let receipt = sidecar_kit::ReceiptBuilder::new("r1", "test-backend")
+        .event(sidecar_kit::event_text_delta("hello"))
+        .artifact("diff", "output.patch")
+        .input_tokens(100)
+        .output_tokens(50)
+        .build();
+    assert_eq!(receipt["meta"]["run_id"], "r1");
+    assert_eq!(receipt["backend"]["id"], "test-backend");
+    assert_eq!(receipt["outcome"], "complete");
+    assert_eq!(receipt["trace"].as_array().unwrap().len(), 1);
+    assert_eq!(receipt["artifacts"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn sidecar_kit_receipt_builder_failed() {
+    let receipt = sidecar_kit::ReceiptBuilder::new("r1", "t").failed().build();
+    assert_eq!(receipt["outcome"], "failed");
+}
+
+#[test]
+fn sidecar_kit_receipt_builder_partial() {
+    let receipt = sidecar_kit::ReceiptBuilder::new("r1", "t")
+        .partial()
+        .build();
+    assert_eq!(receipt["outcome"], "partial");
+}
+
+// ===========================================================================
+// 35. Frame typed extraction
+// ===========================================================================
+
+#[test]
+fn frame_try_event_typed_extraction() {
+    let frame = Frame::Event {
+        ref_id: "r1".into(),
+        event: json!({"text": "hello"}),
+    };
+    #[derive(serde::Deserialize)]
+    struct Evt {
+        text: String,
+    }
+    let (rid, evt): (String, Evt) = frame.try_event().unwrap();
+    assert_eq!(rid, "r1");
+    assert_eq!(evt.text, "hello");
+}
+
+#[test]
+fn frame_try_event_on_wrong_type_fails() {
+    let frame = Frame::Fatal {
+        ref_id: None,
+        error: "e".into(),
+    };
+    let result: Result<(String, Value), _> = frame.try_event();
+    assert!(result.is_err());
+}
+
+#[test]
+fn frame_try_final_typed_extraction() {
+    let frame = Frame::Final {
+        ref_id: "r1".into(),
+        receipt: json!({"outcome": "complete"}),
+    };
+    #[derive(serde::Deserialize)]
+    struct Rcpt {
+        outcome: String,
+    }
+    let (rid, rcpt): (String, Rcpt) = frame.try_final().unwrap();
+    assert_eq!(rid, "r1");
+    assert_eq!(rcpt.outcome, "complete");
+}
+
+#[test]
+fn frame_try_final_on_wrong_type_fails() {
+    let frame = Frame::Ping { seq: 1 };
+    let result: Result<(String, Value), _> = frame.try_final();
+    assert!(result.is_err());
+}
+
+// ===========================================================================
+// 36. StreamingCodec batch operations
+// ===========================================================================
+
+#[test]
+fn streaming_codec_encode_decode_batch() {
+    let envs = vec![make_fatal(None, "a"), make_fatal(None, "b")];
+    let batch = StreamingCodec::encode_batch(&envs);
+    let results = StreamingCodec::decode_batch(&batch);
+    assert_eq!(results.len(), 2);
+    assert!(results.iter().all(|r| r.is_ok()));
+}
+
+#[test]
+fn streaming_codec_line_count() {
+    let input = "line1\n\nline2\nline3\n\n";
+    assert_eq!(StreamingCodec::line_count(input), 3);
+}
+
+#[test]
+fn streaming_codec_validate_jsonl_mixed() {
+    let input = "{\"t\":\"fatal\",\"ref_id\":null,\"error\":\"ok\"}\nnot json\n{\"t\":\"fatal\",\"ref_id\":null,\"error\":\"ok2\"}\n";
+    let errors = StreamingCodec::validate_jsonl(input);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].0, 2);
+}
+
+// ===========================================================================
+// 37. Batch processor
+// ===========================================================================
+
+#[test]
+fn batch_processor_processes_all_items() {
+    let processor = BatchProcessor::new();
+    let req = BatchRequest {
+        id: "b1".into(),
+        envelopes: vec![make_fatal(None, "a"), make_fatal(None, "b")],
+        created_at: Utc::now().to_rfc3339(),
+    };
+    let resp = processor.process(req);
+    assert_eq!(resp.request_id, "b1");
+    assert_eq!(resp.results.len(), 2);
+}
+
+#[test]
+fn batch_validate_empty_batch_error() {
+    let processor = BatchProcessor::new();
+    let req = BatchRequest {
+        id: "b1".into(),
+        envelopes: vec![],
+        created_at: Utc::now().to_rfc3339(),
+    };
+    let errors = processor.validate_batch(&req);
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, BatchValidationError::EmptyBatch))
+    );
+}
+
+// ===========================================================================
+// 38. Compression roundtrips on envelopes
+// ===========================================================================
+
+#[test]
+fn gzip_compress_envelope_roundtrip() {
+    let env = make_hello();
+    let json_bytes = JsonlCodec::encode(&env).unwrap();
+    let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
+    let compressed = c.compress(json_bytes.as_bytes()).unwrap();
+    let decompressed = c.decompress(&compressed).unwrap();
+    assert_eq!(decompressed, json_bytes.as_bytes());
+}
+
+#[test]
+fn zstd_compress_envelope_roundtrip() {
+    let env = make_hello();
+    let json_bytes = JsonlCodec::encode(&env).unwrap();
+    let c = MessageCompressor::new(CompressionAlgorithm::Zstd);
+    let compressed = c.compress(json_bytes.as_bytes()).unwrap();
+    let decompressed = c.decompress(&compressed).unwrap();
+    assert_eq!(decompressed, json_bytes.as_bytes());
+}
+
+#[test]
+fn compression_stats_tracking() {
+    let mut stats = CompressionStats::new();
+    stats.record(1000, 200);
+    assert_eq!(stats.bytes_saved(), 800);
+    assert!((stats.compression_ratio() - 0.2).abs() < f64::EPSILON);
+}
+
+#[test]
+fn compress_message_wrapper() {
+    let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
+    let data = b"hello compressed message roundtrip";
+    let msg = c.compress_message(data).unwrap();
+    assert_eq!(msg.algorithm, CompressionAlgorithm::Gzip);
+    assert_eq!(msg.original_size, data.len());
+    let decompressed = c.decompress_message(&msg).unwrap();
+    assert_eq!(decompressed, data);
+}
+
+// ===========================================================================
+// 39. Version negotiation edge cases
+// ===========================================================================
+
+#[test]
+fn version_error_invalid_format() {
+    assert!(matches!(
+        ProtocolVersion::parse("invalid"),
+        Err(VersionError::InvalidFormat)
+    ));
+}
+
+#[test]
+fn version_error_invalid_major() {
+    assert!(matches!(
+        ProtocolVersion::parse("abp/vx.1"),
+        Err(VersionError::InvalidMajor)
+    ));
+}
+
+#[test]
+fn version_error_invalid_minor() {
+    assert!(matches!(
+        ProtocolVersion::parse("abp/v0.y"),
+        Err(VersionError::InvalidMinor)
+    ));
+}
+
+#[test]
+fn negotiate_version_picks_minimum() {
+    let v01 = ProtocolVersion::parse("abp/v0.1").unwrap();
+    let v02 = ProtocolVersion::parse("abp/v0.2").unwrap();
+    let result = negotiate_version(&v01, &v02).unwrap();
+    assert_eq!(result, v01);
+}
+
+#[test]
+fn negotiate_version_incompatible_major_versions() {
+    let v0 = ProtocolVersion::parse("abp/v0.1").unwrap();
+    let v1 = ProtocolVersion::parse("abp/v1.0").unwrap();
+    assert!(matches!(
+        negotiate_version(&v0, &v1),
+        Err(VersionError::Incompatible { .. })
+    ));
+}
+
+// ===========================================================================
+// 40. Frame encode/decode roundtrips (json_to_frame / frame_to_json)
+// ===========================================================================
+
+#[test]
+fn frame_to_json_hello_roundtrip() {
+    let frame = Frame::Hello {
+        contract_version: "abp/v0.1".into(),
+        backend: json!({"id": "test"}),
+        capabilities: json!({}),
+        mode: Value::Null,
+    };
+    let j = frame_to_json(&frame).unwrap();
+    let decoded = json_to_frame(&j).unwrap();
+    assert!(matches!(decoded, Frame::Hello { .. }));
+}
+
+#[test]
+fn frame_to_json_cancel_roundtrip() {
+    let frame = Frame::Cancel {
+        ref_id: "r1".into(),
+        reason: Some("timeout".into()),
+    };
+    let j = frame_to_json(&frame).unwrap();
+    let decoded = json_to_frame(&j).unwrap();
+    assert!(matches!(decoded, Frame::Cancel { .. }));
+}
+
+#[test]
+fn frame_to_json_ping_pong_roundtrip() {
+    for frame in [Frame::Ping { seq: 99 }, Frame::Pong { seq: 99 }] {
+        let j = frame_to_json(&frame).unwrap();
+        let decoded = json_to_frame(&j).unwrap();
+        match (&frame, &decoded) {
+            (Frame::Ping { seq: a }, Frame::Ping { seq: b }) => assert_eq!(a, b),
+            (Frame::Pong { seq: a }, Frame::Pong { seq: b }) => assert_eq!(a, b),
+            _ => panic!("mismatch"),
+        }
+    }
 }

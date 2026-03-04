@@ -469,7 +469,7 @@ fn abp_error_new_basic() {
 #[test]
 fn abp_error_display_without_context() {
     let err = AbpError::new(ErrorCode::BackendNotFound, "no backend");
-    assert_eq!(err.to_string(), "[BACKEND_NOT_FOUND] no backend");
+    assert_eq!(err.to_string(), "[backend_not_found] no backend");
 }
 
 #[test]
@@ -477,7 +477,7 @@ fn abp_error_display_with_context() {
     let err =
         AbpError::new(ErrorCode::BackendTimeout, "timed out").with_context("timeout_ms", 5000);
     let s = err.to_string();
-    assert!(s.starts_with("[BACKEND_TIMEOUT] timed out"));
+    assert!(s.starts_with("[backend_timeout] timed out"));
     assert!(s.contains("timeout_ms"));
 }
 
@@ -860,7 +860,7 @@ fn protocol_violation_empty_message() {
 fn abp_error_empty_message() {
     let err = AbpError::new(ErrorCode::Internal, "");
     let s = err.to_string();
-    assert!(s.contains("[INTERNAL]"));
+    assert!(s.contains("[internal]"));
 }
 
 #[test]
@@ -1032,7 +1032,7 @@ fn abp_error_code_as_str_stability() {
         ErrorCode::WorkspaceStagingFailed.as_str(),
         "workspace_staging_failed"
     );
-    assert_eq!(ErrorCode::Internal.as_str(), "INTERNAL");
+    assert_eq!(ErrorCode::Internal.as_str(), "internal");
 }
 
 #[test]
