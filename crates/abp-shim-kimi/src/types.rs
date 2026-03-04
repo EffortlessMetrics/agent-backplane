@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 // ── Message constructors ────────────────────────────────────────────────
 
 /// A chat message in the Kimi format (convenience wrapper).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Message {
     /// Message role.
     pub role: String,

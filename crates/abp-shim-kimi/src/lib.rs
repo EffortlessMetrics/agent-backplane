@@ -11,6 +11,8 @@
 pub mod client;
 /// Conversion layer between Kimi shim types and ABP core types.
 pub mod convert;
+/// Translation between Kimi-specific extension types and ABP core types.
+pub mod translate;
 /// Kimi-specific shim types (messages, usage, request builder).
 pub mod types;
 

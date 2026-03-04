@@ -27,6 +27,14 @@ pub mod openai;
 pub mod common;
 /// Cross-dialect type conversion utilities.
 pub mod convert;
+/// Normalized intermediate-representation (IR) message types.
+pub mod ir;
+/// Conversion traits and fidelity reporting for IR translation.
+pub mod ir_convert;
+/// Normalized chat request types for the IR layer.
+pub mod ir_request;
+/// Normalized chat response and streaming types for the IR layer.
+pub mod ir_response;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

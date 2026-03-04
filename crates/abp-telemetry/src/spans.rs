@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! Structured tracing span helpers for common ABP operations.
+#![allow(dead_code, unused_imports)]
+//! Structured tracing span helpers and custom span types for ABP operations.
 //!
-//! Each helper returns a [`tracing::Span`] pre-populated with the relevant
-//! fields so callers can simply `.enter()` or `.in_scope(|| …)`.
+//! The first part of this module provides thin helpers that create pre-populated
+//! [`tracing::Span`] values.  The second part provides standalone span types
+//! ([`SpanContext`], [`TelemetrySpan`], [`SpanBuilder`], [`SpanRecorder`]) that
+//! are independent of the `tracing` crate and can be exported or inspected
+//! directly.
 
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use tracing::{Span, info_span};
 
 /// Create a tracing span for processing a work-order request.

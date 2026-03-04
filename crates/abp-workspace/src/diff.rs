@@ -1506,3 +1506,133 @@ fn build_summary_text(
     lines.push(format!("Risk: {risk}"));
     lines.join("\n")
 }
+
+// ---------------------------------------------------------------------------
+// Extraction helpers — convenience free functions
+// ---------------------------------------------------------------------------
+
+/// Extract a raw unified diff string from the workspace.
+///
+/// Stages all changes with `git add -A`, captures `git diff --cached`, and
+/// resets the index.
+///
+/// # Errors
+///
+/// Returns an error if git commands fail.
+pub fn extract_unified_diff(workspace_path: &Path) -> Result<String> {
+    // Stage everything.
+    let status = Command::new("git")
+        .args(["add", "-A"])
+        .current_dir(workspace_path)
+        .output()
+        .context("run git add -A")?;
+    if !status.status.success() {
+        anyhow::bail!(
+            "git add -A failed: {}",
+            String::from_utf8_lossy(&status.stderr)
+        );
+    }
+
+    let diff = run_git_output(workspace_path, &["diff", "--cached", "--no-color"])?;
+
+    // Reset index back — leave working tree untouched.
+    let _ = Command::new("git")
+        .args(["reset", "-q"])
+        .current_dir(workspace_path)
+        .output();
+
+    Ok(diff)
+}
+
+/// Extract parsed per-file diffs from the workspace.
+///
+/// Equivalent to calling [`extract_unified_diff`] followed by
+/// [`DiffAnalysis::parse`], returning the individual [`FileDiff`] entries.
+///
+/// # Errors
+///
+/// Returns an error if git commands fail.
+pub fn extract_file_diffs(workspace_path: &Path) -> Result<Vec<FileDiff>> {
+    let raw = extract_unified_diff(workspace_path)?;
+    let analysis = DiffAnalysis::parse(&raw);
+    Ok(analysis.files)
+}
+
+// ---------------------------------------------------------------------------
+// DiffFilter — filter diffs by file type or glob patterns
+// ---------------------------------------------------------------------------
+
+/// Filter for narrowing down diff results by file type or path pattern.
+#[derive(Debug, Clone, Default)]
+pub struct DiffFilter {
+    /// Only include files matching these types (empty = all types).
+    allowed_types: Vec<FileType>,
+    /// Exclude files matching these glob patterns.
+    exclude_patterns: Vec<String>,
+}
+
+impl DiffFilter {
+    /// Create a permissive filter (no constraints).
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Restrict to specific file types.
+    #[must_use]
+    pub fn with_file_types(mut self, types: Vec<FileType>) -> Self {
+        self.allowed_types = types;
+        self
+    }
+
+    /// Exclude paths matching the given glob patterns.
+    #[must_use]
+    pub fn with_exclude_patterns(mut self, patterns: Vec<String>) -> Self {
+        self.exclude_patterns = patterns;
+        self
+    }
+
+    /// Apply the filter to a list of [`FileDiff`]s.
+    #[must_use]
+    pub fn apply(&self, diffs: &[FileDiff]) -> Vec<FileDiff> {
+        let globs = if self.exclude_patterns.is_empty() {
+            None
+        } else {
+            IncludeExcludeGlobs::new(&[], &self.exclude_patterns).ok()
+        };
+
+        diffs
+            .iter()
+            .filter(|fd| {
+                // File type filter.
+                if !self.allowed_types.is_empty() && !self.allowed_types.contains(&fd.file_type) {
+                    return false;
+                }
+                // Glob exclusion filter.
+                if let Some(ref g) = globs {
+                    if !g.decide_str(&fd.path).is_allowed() {
+                        return false;
+                    }
+                }
+                true
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Apply the filter to a [`DiffAnalysis`], returning a new analysis with
+    /// only the matching files and recalculated totals.
+    #[must_use]
+    pub fn apply_to_analysis(&self, analysis: &DiffAnalysis) -> DiffAnalysis {
+        let files = self.apply(&analysis.files);
+        let total_additions = files.iter().map(|f| f.additions).sum();
+        let total_deletions = files.iter().map(|f| f.deletions).sum();
+        let binary_file_count = files.iter().filter(|f| f.is_binary).count();
+        DiffAnalysis {
+            files,
+            total_additions,
+            total_deletions,
+            binary_file_count,
+        }
+    }
+}

@@ -8,7 +8,11 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod diff;
+pub mod hot_validate;
+pub mod store;
 pub mod validate;
+pub mod watcher;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

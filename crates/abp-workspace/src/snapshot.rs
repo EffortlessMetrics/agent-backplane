@@ -159,3 +159,80 @@ pub fn compare(a: &WorkspaceSnapshot, b: &WorkspaceSnapshot) -> SnapshotDiff {
 
     diff
 }
+
+/// Alias for [`compare`] — compare two snapshots and return a
+/// [`SnapshotDiff`].
+#[must_use]
+pub fn compare_snapshots(before: &WorkspaceSnapshot, after: &WorkspaceSnapshot) -> SnapshotDiff {
+    compare(before, after)
+}
+
+/// Restore a workspace directory to the state captured in a snapshot.
+///
+/// For each file in the snapshot the original content is read from the
+/// snapshot root and written to `workspace_path`.  Files present on disk but
+/// absent from the snapshot are removed.  Only regular files are considered;
+/// the `.git` directory is left untouched.
+///
+/// # Errors
+///
+/// Returns an error if file I/O fails.
+pub fn restore_snapshot(workspace_path: &Path, snapshot: &WorkspaceSnapshot) -> Result<()> {
+    // Collect current files on disk (excluding .git).
+    let mut current_files: std::collections::BTreeSet<PathBuf> =
+        std::collections::BTreeSet::new();
+
+    let walker = WalkDir::new(workspace_path)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| e.file_name() != std::ffi::OsStr::new(".git"));
+
+    for entry in walker {
+        let entry = entry.with_context(|| "walk workspace")?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let rel = entry
+            .path()
+            .strip_prefix(workspace_path)
+            .unwrap_or(entry.path());
+        current_files.insert(rel.to_path_buf());
+    }
+
+    let snapshot_files: std::collections::BTreeSet<PathBuf> =
+        snapshot.files.keys().cloned().collect();
+
+    // Delete files not in snapshot.
+    for rel in current_files.difference(&snapshot_files) {
+        let abs = workspace_path.join(rel);
+        if abs.exists() {
+            fs::remove_file(&abs)
+                .with_context(|| format!("remove {}", abs.display()))?;
+        }
+    }
+
+    // Restore / create files from snapshot.
+    for (rel, file_snap) in &snapshot.files {
+        let dest = workspace_path.join(rel);
+        let src = snapshot.root.join(rel);
+
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("create dir {}", parent.display()))?;
+        }
+
+        // Read content from snapshot root if available, otherwise write empty
+        // file (best-effort — the snapshot root may have been cleaned up).
+        let content = if src.exists() {
+            fs::read(&src).with_context(|| format!("read {}", src.display()))?
+        } else {
+            // Fallback: write a zero-length file with the correct size hint.
+            vec![0u8; file_snap.size as usize]
+        };
+
+        fs::write(&dest, &content)
+            .with_context(|| format!("write {}", dest.display()))?;
+    }
+
+    Ok(())
+}
