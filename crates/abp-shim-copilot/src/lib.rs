@@ -11,6 +11,8 @@
 pub mod client;
 /// Conversion layer between Copilot SDK types and ABP core types.
 pub mod convert;
+/// Translation between Copilot-specific extended types and ABP core types.
+pub mod translate;
 /// Copilot SDK–specific types: messages, request builder, and helpers.
 pub mod types;
 
@@ -26,6 +28,7 @@ pub use abp_copilot_sdk::dialect::{CopilotFunctionDef, CopilotToolType};
 
 // Re-export types and conversions for backward compatibility.
 pub use convert::*;
+pub use translate::*;
 pub use types::*;
 
 // ── Error types ─────────────────────────────────────────────────────────
