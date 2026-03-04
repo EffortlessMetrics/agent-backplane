@@ -10,11 +10,19 @@
 
 /// In-memory receipt archive with work-order-level querying.
 pub mod archive;
+/// Audit trail for receipt lifecycle events.
+pub mod audit_trail;
 mod builder;
+/// Canonical receipt representation for deterministic hashing.
+pub mod canonical;
 mod chain;
+/// Compliance checking for receipts.
+pub mod compliance;
 mod diff;
 /// Receipt metadata enrichment — compute and attach derived fields.
 pub mod enrich;
+/// Receipt export in multiple formats for bulk reporting.
+pub mod export;
 /// Serialization in JSON and compact binary formats.
 pub mod serde_formats;
 /// Standalone receipt statistics computation.
