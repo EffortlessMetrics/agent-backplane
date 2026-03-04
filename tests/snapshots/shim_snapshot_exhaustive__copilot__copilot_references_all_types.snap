@@ -1,0 +1,37 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: refs
+---
+[
+  {
+    "type": "file",
+    "id": "ref_file",
+    "data": {
+      "path": "Cargo.toml"
+    }
+  },
+  {
+    "type": "snippet",
+    "id": "ref_snippet",
+    "data": {
+      "text": "fn main() {}",
+      "uri": "src/main.rs"
+    }
+  },
+  {
+    "type": "repository",
+    "id": "ref_repo",
+    "data": {
+      "name": "repo",
+      "owner": "example"
+    }
+  },
+  {
+    "type": "web_search_result",
+    "id": "ref_web",
+    "data": {
+      "title": "Docs.rs",
+      "url": "https://docs.rs"
+    }
+  }
+]

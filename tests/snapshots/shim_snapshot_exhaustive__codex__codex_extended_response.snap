@@ -1,0 +1,22 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: resp
+---
+{
+  "id": "resp_snap003",
+  "model": "codex-mini-latest",
+  "output": [],
+  "usage": {
+    "input_tokens": 100,
+    "output_tokens": 50,
+    "total_tokens": 150
+  },
+  "status": "completed",
+  "sandbox_result": {
+    "exit_code": 0,
+    "duration_ms": 2500,
+    "files_modified": [
+      "src/main.rs"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: content
+---
+{
+  "role": "user",
+  "parts": [
+    {
+      "functionResponse": {
+        "name": "search_docs",
+        "response": {
+          "results": [
+            {
+              "title": "Tokio Tutorial",
+              "url": "https://tokio.rs"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

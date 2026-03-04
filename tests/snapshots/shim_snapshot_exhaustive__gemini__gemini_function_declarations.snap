@@ -1,0 +1,42 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: tool
+---
+{
+  "functionDeclarations": [
+    {
+      "name": "read_file",
+      "description": "Read a file from disk",
+      "parameters": {
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "write_file",
+      "description": "Write content to a file",
+      "parameters": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "type": "object"
+      }
+    }
+  ]
+}

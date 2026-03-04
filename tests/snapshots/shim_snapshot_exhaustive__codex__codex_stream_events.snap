@@ -1,0 +1,34 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: events
+---
+[
+  {
+    "type": "response_created",
+    "sequence": 0,
+    "response_id": "resp_snap004",
+    "model": "codex-mini-latest"
+  },
+  {
+    "type": "text_delta",
+    "sequence": 1,
+    "output_index": 0,
+    "text": "Here is the fix"
+  },
+  {
+    "type": "function_call_delta",
+    "sequence": 2,
+    "output_index": 1,
+    "delta": "{\"path\":\"src/"
+  },
+  {
+    "type": "response_completed",
+    "sequence": 3,
+    "response_id": "resp_snap004",
+    "usage": {
+      "input_tokens": 40,
+      "output_tokens": 20,
+      "total_tokens": 60
+    }
+  }
+]

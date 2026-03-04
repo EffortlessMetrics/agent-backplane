@@ -1,0 +1,18 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: event
+---
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Streaming..."
+          }
+        ]
+      }
+    }
+  ]
+}

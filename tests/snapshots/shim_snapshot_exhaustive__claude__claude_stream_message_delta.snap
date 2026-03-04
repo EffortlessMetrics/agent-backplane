@@ -1,0 +1,14 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: event
+---
+{
+  "type": "message_delta",
+  "delta": {
+    "stop_reason": "end_turn"
+  },
+  "usage": {
+    "input_tokens": 0,
+    "output_tokens": 42
+  }
+}

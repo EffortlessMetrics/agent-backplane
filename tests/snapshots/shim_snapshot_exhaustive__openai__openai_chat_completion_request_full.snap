@@ -1,0 +1,55 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: req
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Describe this image"
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "https://example.com/img.png",
+            "detail": "high"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "I see a landscape."
+    }
+  ],
+  "temperature": 0.7,
+  "top_p": 0.95,
+  "max_tokens": 2048,
+  "stream": false,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get current weather",
+        "parameters": {
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}

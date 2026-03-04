@@ -1,0 +1,13 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: req
+---
+{
+  "model": "text-embedding-3-small",
+  "input": [
+    "Hello world",
+    "Rust programming"
+  ],
+  "encoding_format": "float",
+  "dimensions": 1536
+}

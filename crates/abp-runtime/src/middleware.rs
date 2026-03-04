@@ -365,8 +365,8 @@ impl Middleware for AuditMiddleware {
 mod tests {
     use super::*;
     use abp_core::{
-        AgentEvent, AgentEventKind, CapabilityRequirements, ContextPacket, ExecutionLane,
-        PolicyProfile, WorkOrder, WorkspaceMode, WorkspaceSpec,
+        CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, WorkOrder,
+        WorkspaceMode, WorkspaceSpec,
     };
 
     fn sample_work_order() -> WorkOrder {
@@ -463,11 +463,7 @@ mod tests {
 
         #[async_trait]
         impl Middleware for Marker {
-            async fn before_run(
-                &self,
-                _order: &WorkOrder,
-                _ctx: &MiddlewareContext,
-            ) -> Result<()> {
+            async fn before_run(&self, _order: &WorkOrder, _ctx: &MiddlewareContext) -> Result<()> {
                 Ok(())
             }
             async fn after_run(
@@ -513,11 +509,7 @@ mod tests {
 
         #[async_trait]
         impl Middleware for FailAfter {
-            async fn before_run(
-                &self,
-                _order: &WorkOrder,
-                _ctx: &MiddlewareContext,
-            ) -> Result<()> {
+            async fn before_run(&self, _order: &WorkOrder, _ctx: &MiddlewareContext) -> Result<()> {
                 Ok(())
             }
             async fn after_run(
@@ -533,9 +525,7 @@ mod tests {
             }
         }
 
-        let chain = MiddlewareChain::new()
-            .with(FailAfter)
-            .with(FailAfter);
+        let chain = MiddlewareChain::new().with(FailAfter).with(FailAfter);
 
         let wo = sample_work_order();
         let ctx = MiddlewareContext::new("mock");
@@ -550,11 +540,7 @@ mod tests {
 
         #[async_trait]
         impl Middleware for FailBefore {
-            async fn before_run(
-                &self,
-                _order: &WorkOrder,
-                _ctx: &MiddlewareContext,
-            ) -> Result<()> {
+            async fn before_run(&self, _order: &WorkOrder, _ctx: &MiddlewareContext) -> Result<()> {
                 anyhow::bail!("blocked");
             }
             async fn after_run(

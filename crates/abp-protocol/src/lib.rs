@@ -9,12 +9,16 @@
 
 pub mod batch;
 pub mod builder;
+pub mod capability_advertisement;
 pub mod codec;
 pub mod compress;
+pub mod graceful_shutdown;
+pub mod heartbeat;
 pub mod router;
 pub mod stream;
 pub mod validate;
 pub mod version;
+pub mod version_negotiation;
 
 use std::io::{BufRead, Write};
 

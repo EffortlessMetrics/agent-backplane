@@ -1,0 +1,16 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: resp
+---
+{
+  "candidates": [],
+  "promptFeedback": {
+    "blockReason": "SAFETY",
+    "safetyRatings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "probability": "HIGH"
+      }
+    ]
+  }
+}

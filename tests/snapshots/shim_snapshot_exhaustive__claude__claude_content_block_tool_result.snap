@@ -1,0 +1,10 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: block
+---
+{
+  "type": "tool_result",
+  "tool_use_id": "toolu_snap001",
+  "content": "Found 3 matches in src/main.rs",
+  "is_error": false
+}

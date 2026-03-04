@@ -1,0 +1,78 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: req
+---
+{
+  "model": "gemini-2.0-flash",
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "What is this?"
+        },
+        {
+          "inlineData": {
+            "mime_type": "image/jpeg",
+            "data": "/9j/4AAQ=="
+          }
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "It appears to be a photo."
+        }
+      ]
+    }
+  ],
+  "system_instruction": {
+    "role": "system",
+    "parts": [
+      {
+        "text": "You are a visual analyst."
+      }
+    ]
+  },
+  "generation_config": {
+    "maxOutputTokens": 2048,
+    "temperature": 0.5,
+    "topP": 0.9,
+    "topK": 40,
+    "candidateCount": 1,
+    "stopSequences": [
+      "END"
+    ]
+  },
+  "safety_settings": [
+    {
+      "category": "HARM_CATEGORY_HARASSMENT",
+      "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+    }
+  ],
+  "tools": [
+    {
+      "functionDeclarations": [
+        {
+          "name": "get_weather",
+          "description": "Get weather for a city",
+          "parameters": {
+            "properties": {
+              "city": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    }
+  ],
+  "tool_config": {
+    "functionCallingConfig": {
+      "mode": "AUTO"
+    }
+  }
+}

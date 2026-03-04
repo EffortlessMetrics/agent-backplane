@@ -1,0 +1,19 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: event
+---
+{
+  "id": "cmpl-snap003",
+  "object": "chat.completion.chunk",
+  "created": 1700000200,
+  "model": "moonshot-v1-8k",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "role": "assistant",
+        "content": "Hello from Kimi"
+      }
+    }
+  ]
+}

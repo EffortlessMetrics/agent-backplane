@@ -634,11 +634,7 @@ impl IrGenerationConfig {
 impl IrToolDefinition {
     /// Create a new tool definition.
     #[must_use]
-    pub fn new(
-        name: impl Into<String>,
-        description: impl Into<String>,
-        parameters: Value,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, description: impl Into<String>, parameters: Value) -> Self {
         Self {
             name: name.into(),
             description: description.into(),
@@ -871,7 +867,12 @@ mod tests {
 
     #[test]
     fn role_serde_roundtrip() {
-        for role in [IrRole::System, IrRole::User, IrRole::Assistant, IrRole::Tool] {
+        for role in [
+            IrRole::System,
+            IrRole::User,
+            IrRole::Assistant,
+            IrRole::Tool,
+        ] {
             let json = serde_json::to_string(&role).unwrap();
             let back: IrRole = serde_json::from_str(&json).unwrap();
             assert_eq!(role, back);
@@ -880,7 +881,10 @@ mod tests {
 
     #[test]
     fn role_serde_rename() {
-        assert_eq!(serde_json::to_string(&IrRole::System).unwrap(), "\"system\"");
+        assert_eq!(
+            serde_json::to_string(&IrRole::System).unwrap(),
+            "\"system\""
+        );
         assert_eq!(serde_json::to_string(&IrRole::User).unwrap(), "\"user\"");
         assert_eq!(
             serde_json::to_string(&IrRole::Assistant).unwrap(),
@@ -980,9 +984,7 @@ mod tests {
 
     #[test]
     fn content_block_as_text() {
-        let text_block = IrContentBlock::Text {
-            text: "hi".into(),
-        };
+        let text_block = IrContentBlock::Text { text: "hi".into() };
         assert_eq!(text_block.as_text(), Some("hi"));
 
         let img = IrContentBlock::Image {
@@ -1041,8 +1043,7 @@ mod tests {
 
     #[test]
     fn message_with_metadata() {
-        let msg = IrMessage::text(IrRole::User, "hi")
-            .with_metadata("source", json!("test"));
+        let msg = IrMessage::text(IrRole::User, "hi").with_metadata("source", json!("test"));
         assert_eq!(msg.metadata.get("source"), Some(&json!("test")));
         let json = serde_json::to_value(&msg).unwrap();
         assert!(json.get("metadata").is_some());
@@ -1062,7 +1063,9 @@ mod tests {
         let msg = IrMessage::new(
             IrRole::Assistant,
             vec![
-                IrContentBlock::Text { text: "I'll help".into() },
+                IrContentBlock::Text {
+                    text: "I'll help".into(),
+                },
                 IrContentBlock::ToolCall {
                     id: "tc_1".into(),
                     name: "read_file".into(),
@@ -1104,9 +1107,13 @@ mod tests {
         let msg = IrMessage::new(
             IrRole::Assistant,
             vec![
-                IrContentBlock::Text { text: "hello ".into() },
+                IrContentBlock::Text {
+                    text: "hello ".into(),
+                },
                 IrContentBlock::Thinking { text: "hmm".into() },
-                IrContentBlock::Text { text: "world".into() },
+                IrContentBlock::Text {
+                    text: "world".into(),
+                },
             ],
         );
         assert_eq!(msg.text_content(), "hello world");
@@ -1219,9 +1226,7 @@ mod tests {
     fn tool_result_from_content_block() {
         let block = IrContentBlock::ToolResult {
             tool_call_id: "tc_1".into(),
-            content: vec![IrContentBlock::Text {
-                text: "ok".into(),
-            }],
+            content: vec![IrContentBlock::Text { text: "ok".into() }],
             is_error: false,
         };
         let tr = IrToolResult::from_content_block(&block).unwrap();
@@ -1240,8 +1245,12 @@ mod tests {
         let tr = IrToolResult::new(
             "tc_1",
             vec![
-                IrContentBlock::Text { text: "line 1".into() },
-                IrContentBlock::Text { text: "line 2".into() },
+                IrContentBlock::Text {
+                    text: "line 1".into(),
+                },
+                IrContentBlock::Text {
+                    text: "line 2".into(),
+                },
             ],
             false,
         );
@@ -1691,7 +1700,9 @@ mod tests {
         assert_eq!(req, req_back);
 
         let resp = IrResponse::new(vec![
-            IrContentBlock::Text { text: "Here's the code:".into() },
+            IrContentBlock::Text {
+                text: "Here's the code:".into(),
+            },
             IrContentBlock::ToolCall {
                 id: "tc_1".into(),
                 name: "write_file".into(),

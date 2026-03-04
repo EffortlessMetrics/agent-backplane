@@ -1,0 +1,29 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: req
+---
+{
+  "model": "codex-mini-latest",
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": "Fix the bug in main.rs"
+    }
+  ],
+  "instructions": "You are a Rust expert.",
+  "context": [
+    {
+      "path": "src/main.rs",
+      "content": "fn main() { panic!() }"
+    }
+  ],
+  "max_output_tokens": 2048,
+  "temperature": 0.1,
+  "sandbox": {
+    "container_image": "rust:1.85",
+    "network_enabled": false,
+    "timeout_seconds": 120,
+    "memory_mb": 1024
+  }
+}

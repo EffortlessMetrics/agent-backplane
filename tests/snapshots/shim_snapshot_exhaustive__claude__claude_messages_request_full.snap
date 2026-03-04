@@ -1,0 +1,60 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: req
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Analyze this code"
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data": "iVBORw0KGgo="
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "I see code."
+    }
+  ],
+  "max_tokens": 4096,
+  "system": "You are a code reviewer.",
+  "temperature": 0.3,
+  "top_p": 0.9,
+  "top_k": 40,
+  "stream": true,
+  "stop_sequences": [
+    "STOP"
+  ],
+  "tools": [
+    {
+      "name": "run_tests",
+      "description": "Run test suite",
+      "input_schema": {
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "auto"
+  },
+  "thinking": {
+    "type": "enabled",
+    "budget_tokens": 8192
+  }
+}

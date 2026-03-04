@@ -1,0 +1,9 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: block
+---
+{
+  "type": "thinking",
+  "thinking": "Let me analyze the code structure...",
+  "signature": "sig_abc123"
+}
