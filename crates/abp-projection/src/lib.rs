@@ -8,6 +8,8 @@
 //! Projection matrix that routes work orders to the best-fit backend.
 
 pub mod selection;
+/// Cross-dialect translation engine using the IR pipeline.
+pub mod translate;
 
 use std::collections::BTreeMap;
 
