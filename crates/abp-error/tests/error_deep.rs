@@ -912,6 +912,8 @@ fn dto_to_abp_error_preserves_code_message_context() {
         message: "bad config".into(),
         context: ctx,
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.code, ErrorCode::ConfigInvalid);
@@ -927,6 +929,8 @@ fn dto_serialization_skip_source_when_none() {
         message: "x".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert!(!json.contains("source_message"));
@@ -939,6 +943,8 @@ fn dto_serialization_includes_source_when_some() {
         message: "x".into(),
         context: BTreeMap::new(),
         source_message: Some("cause".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert!(json.contains("source_message"));

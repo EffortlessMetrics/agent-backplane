@@ -609,6 +609,8 @@ fn from_abp_error_dto_to_abp_error() {
         message: "bad toml".into(),
         context: BTreeMap::new(),
         source_message: Some("parse error at line 3".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.code, ErrorCode::ConfigInvalid);

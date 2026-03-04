@@ -767,6 +767,8 @@ fn dto_to_abp_error_loses_source() {
         message: "bad".into(),
         context: BTreeMap::new(),
         source_message: Some("inner cause".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.code, ErrorCode::ConfigInvalid);
@@ -782,6 +784,8 @@ fn dto_to_abp_error_preserves_context() {
         message: "timeout".into(),
         context: ctx,
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.context["vendor"], serde_json::json!("gemini"));
@@ -1840,6 +1844,8 @@ fn dto_with_empty_context() {
         message: "empty ctx".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
@@ -1857,6 +1863,8 @@ fn dto_with_many_context_keys() {
         message: "many".into(),
         context: ctx,
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     let back: AbpErrorDto = serde_json::from_str(&json).unwrap();

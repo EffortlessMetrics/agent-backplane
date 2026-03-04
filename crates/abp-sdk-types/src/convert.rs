@@ -269,6 +269,153 @@ enum CanonicalRole {
     Tool,
 }
 
+// ── TokenUsage conversions from dialect-specific usage types ────────────
+
+impl From<&crate::openai::OpenAiUsage> for crate::common::TokenUsage {
+    fn from(u: &crate::openai::OpenAiUsage) -> Self {
+        Self {
+            input_tokens: Some(u.prompt_tokens),
+            output_tokens: Some(u.completion_tokens),
+            total_tokens: Some(u.total_tokens),
+        }
+    }
+}
+
+impl From<&crate::claude::ClaudeUsage> for crate::common::TokenUsage {
+    fn from(u: &crate::claude::ClaudeUsage) -> Self {
+        Self {
+            input_tokens: Some(u.input_tokens),
+            output_tokens: Some(u.output_tokens),
+            total_tokens: Some(u.input_tokens + u.output_tokens),
+        }
+    }
+}
+
+impl From<&crate::gemini::GeminiUsageMetadata> for crate::common::TokenUsage {
+    fn from(u: &crate::gemini::GeminiUsageMetadata) -> Self {
+        Self {
+            input_tokens: Some(u.prompt_token_count),
+            output_tokens: Some(u.candidates_token_count),
+            total_tokens: Some(u.total_token_count),
+        }
+    }
+}
+
+impl From<&crate::kimi::KimiUsage> for crate::common::TokenUsage {
+    fn from(u: &crate::kimi::KimiUsage) -> Self {
+        Self {
+            input_tokens: Some(u.prompt_tokens),
+            output_tokens: Some(u.completion_tokens),
+            total_tokens: Some(u.total_tokens),
+        }
+    }
+}
+
+impl From<&crate::codex::CodexUsage> for crate::common::TokenUsage {
+    fn from(u: &crate::codex::CodexUsage) -> Self {
+        Self {
+            input_tokens: Some(u.input_tokens),
+            output_tokens: Some(u.output_tokens),
+            total_tokens: Some(u.total_tokens),
+        }
+    }
+}
+
+// ── CanonicalToolDef conversions from dialect-specific tool types ────────
+
+impl From<&crate::openai::OpenAiToolDef> for crate::CanonicalToolDef {
+    fn from(t: &crate::openai::OpenAiToolDef) -> Self {
+        Self {
+            name: t.function.name.clone(),
+            description: t.function.description.clone(),
+            parameters_schema: t.function.parameters.clone(),
+        }
+    }
+}
+
+impl From<&crate::claude::ClaudeToolDef> for crate::CanonicalToolDef {
+    fn from(t: &crate::claude::ClaudeToolDef) -> Self {
+        Self {
+            name: t.name.clone(),
+            description: t.description.clone(),
+            parameters_schema: t.input_schema.clone(),
+        }
+    }
+}
+
+impl From<&crate::gemini::GeminiFunctionDeclaration> for crate::CanonicalToolDef {
+    fn from(t: &crate::gemini::GeminiFunctionDeclaration) -> Self {
+        Self {
+            name: t.name.clone(),
+            description: t.description.clone(),
+            parameters_schema: t.parameters.clone(),
+        }
+    }
+}
+
+impl From<&crate::kimi::KimiFunctionDef> for crate::CanonicalToolDef {
+    fn from(t: &crate::kimi::KimiFunctionDef) -> Self {
+        Self {
+            name: t.name.clone(),
+            description: t.description.clone(),
+            parameters_schema: t.parameters.clone(),
+        }
+    }
+}
+
+impl From<&crate::codex::CodexFunctionDef> for crate::CanonicalToolDef {
+    fn from(t: &crate::codex::CodexFunctionDef) -> Self {
+        Self {
+            name: t.name.clone(),
+            description: t.description.clone(),
+            parameters_schema: t.parameters.clone(),
+        }
+    }
+}
+
+impl From<&crate::copilot::CopilotFunctionDef> for crate::CanonicalToolDef {
+    fn from(t: &crate::copilot::CopilotFunctionDef) -> Self {
+        Self {
+            name: t.name.clone(),
+            description: t.description.clone(),
+            parameters_schema: t.parameters.clone(),
+        }
+    }
+}
+
+// ── ContentPart conversions ─────────────────────────────────────────────
+
+impl From<&crate::gemini::GeminiInlineData> for crate::common::ContentPart {
+    fn from(d: &crate::gemini::GeminiInlineData) -> Self {
+        Self::Image {
+            media_type: d.mime_type.clone(),
+            data: d.data.clone(),
+        }
+    }
+}
+
+// ── FunctionCall conversions from dialect-specific tool call types ───────
+
+impl From<&crate::openai::OpenAiToolCall> for crate::common::FunctionCall {
+    fn from(tc: &crate::openai::OpenAiToolCall) -> Self {
+        Self {
+            id: tc.id.clone(),
+            name: tc.function.name.clone(),
+            arguments: tc.function.arguments.clone(),
+        }
+    }
+}
+
+impl From<&crate::kimi::KimiToolCall> for crate::common::FunctionCall {
+    fn from(tc: &crate::kimi::KimiToolCall) -> Self {
+        Self {
+            id: tc.id.clone(),
+            name: tc.function.name.clone(),
+            arguments: tc.function.arguments.clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,5 +536,199 @@ mod tests {
     fn role_mapper_unknown_role_fails() {
         let err = RoleMapper::map_role("narrator", Dialect::OpenAi, Dialect::Claude).unwrap_err();
         assert!(matches!(err, ConversionError::IncompatibleType { .. }));
+    }
+
+    // ── TokenUsage conversion tests ─────────────────────────────────────
+
+    #[test]
+    fn openai_usage_to_token_usage() {
+        let u = crate::openai::OpenAiUsage {
+            prompt_tokens: 100,
+            completion_tokens: 50,
+            total_tokens: 150,
+        };
+        let tu: crate::common::TokenUsage = (&u).into();
+        assert_eq!(tu.input_tokens, Some(100));
+        assert_eq!(tu.output_tokens, Some(50));
+        assert_eq!(tu.total_tokens, Some(150));
+    }
+
+    #[test]
+    fn claude_usage_to_token_usage() {
+        let u = crate::claude::ClaudeUsage {
+            input_tokens: 200,
+            output_tokens: 80,
+            cache_creation_input_tokens: Some(10),
+            cache_read_input_tokens: Some(5),
+        };
+        let tu: crate::common::TokenUsage = (&u).into();
+        assert_eq!(tu.input_tokens, Some(200));
+        assert_eq!(tu.output_tokens, Some(80));
+        assert_eq!(tu.total_tokens, Some(280));
+    }
+
+    #[test]
+    fn gemini_usage_to_token_usage() {
+        let u = crate::gemini::GeminiUsageMetadata {
+            prompt_token_count: 300,
+            candidates_token_count: 100,
+            total_token_count: 400,
+        };
+        let tu: crate::common::TokenUsage = (&u).into();
+        assert_eq!(tu.input_tokens, Some(300));
+        assert_eq!(tu.output_tokens, Some(100));
+        assert_eq!(tu.total_tokens, Some(400));
+    }
+
+    #[test]
+    fn kimi_usage_to_token_usage() {
+        let u = crate::kimi::KimiUsage {
+            prompt_tokens: 50,
+            completion_tokens: 25,
+            total_tokens: 75,
+        };
+        let tu: crate::common::TokenUsage = (&u).into();
+        assert_eq!(tu.input_tokens, Some(50));
+        assert_eq!(tu.output_tokens, Some(25));
+        assert_eq!(tu.total_tokens, Some(75));
+    }
+
+    #[test]
+    fn codex_usage_to_token_usage() {
+        let u = crate::codex::CodexUsage {
+            input_tokens: 400,
+            output_tokens: 200,
+            total_tokens: 600,
+        };
+        let tu: crate::common::TokenUsage = (&u).into();
+        assert_eq!(tu.input_tokens, Some(400));
+        assert_eq!(tu.output_tokens, Some(200));
+        assert_eq!(tu.total_tokens, Some(600));
+    }
+
+    // ── CanonicalToolDef conversion tests ───────────────────────────────
+
+    #[test]
+    fn openai_tool_to_canonical() {
+        let t = crate::openai::OpenAiToolDef {
+            tool_type: "function".into(),
+            function: crate::openai::OpenAiFunctionDef {
+                name: "read_file".into(),
+                description: "Read a file".into(),
+                parameters: serde_json::json!({"type": "object"}),
+            },
+        };
+        let c: crate::CanonicalToolDef = (&t).into();
+        assert_eq!(c.name, "read_file");
+        assert_eq!(c.description, "Read a file");
+    }
+
+    #[test]
+    fn claude_tool_to_canonical() {
+        let t = crate::claude::ClaudeToolDef {
+            name: "search".into(),
+            description: "Search the web".into(),
+            input_schema: serde_json::json!({"type": "object"}),
+        };
+        let c: crate::CanonicalToolDef = (&t).into();
+        assert_eq!(c.name, "search");
+        assert_eq!(c.parameters_schema, serde_json::json!({"type": "object"}));
+    }
+
+    #[test]
+    fn gemini_func_to_canonical() {
+        let t = crate::gemini::GeminiFunctionDeclaration {
+            name: "search".into(),
+            description: "Search".into(),
+            parameters: serde_json::json!({"type": "object"}),
+        };
+        let c: crate::CanonicalToolDef = (&t).into();
+        assert_eq!(c.name, "search");
+    }
+
+    #[test]
+    fn kimi_func_to_canonical() {
+        let t = crate::kimi::KimiFunctionDef {
+            name: "web_search".into(),
+            description: "Search the web".into(),
+            parameters: serde_json::json!({"type": "object"}),
+        };
+        let c: crate::CanonicalToolDef = (&t).into();
+        assert_eq!(c.name, "web_search");
+    }
+
+    #[test]
+    fn codex_func_to_canonical() {
+        let t = crate::codex::CodexFunctionDef {
+            name: "shell".into(),
+            description: "Run a command".into(),
+            parameters: serde_json::json!({"type": "object"}),
+        };
+        let c: crate::CanonicalToolDef = (&t).into();
+        assert_eq!(c.name, "shell");
+    }
+
+    #[test]
+    fn copilot_func_to_canonical() {
+        let t = crate::copilot::CopilotFunctionDef {
+            name: "read_file".into(),
+            description: "Read a file".into(),
+            parameters: serde_json::json!({"type": "object"}),
+        };
+        let c: crate::CanonicalToolDef = (&t).into();
+        assert_eq!(c.name, "read_file");
+    }
+
+    // ── ContentPart conversion tests ────────────────────────────────────
+
+    #[test]
+    fn gemini_inline_data_to_content_part() {
+        let d = crate::gemini::GeminiInlineData {
+            mime_type: "image/png".into(),
+            data: "base64data".into(),
+        };
+        let cp: crate::common::ContentPart = (&d).into();
+        match cp {
+            crate::common::ContentPart::Image {
+                media_type, data, ..
+            } => {
+                assert_eq!(media_type, "image/png");
+                assert_eq!(data, "base64data");
+            }
+            _ => panic!("expected Image variant"),
+        }
+    }
+
+    // ── FunctionCall conversion tests ───────────────────────────────────
+
+    #[test]
+    fn openai_tool_call_to_function_call() {
+        let tc = crate::openai::OpenAiToolCall {
+            id: "call_123".into(),
+            call_type: "function".into(),
+            function: crate::openai::OpenAiFunctionCall {
+                name: "read_file".into(),
+                arguments: r#"{"path":"src/main.rs"}"#.into(),
+            },
+        };
+        let fc: crate::common::FunctionCall = (&tc).into();
+        assert_eq!(fc.id, "call_123");
+        assert_eq!(fc.name, "read_file");
+        assert_eq!(fc.arguments, r#"{"path":"src/main.rs"}"#);
+    }
+
+    #[test]
+    fn kimi_tool_call_to_function_call() {
+        let tc = crate::kimi::KimiToolCall {
+            id: "call_456".into(),
+            call_type: "function".into(),
+            function: crate::kimi::KimiFunctionCall {
+                name: "web_search".into(),
+                arguments: r#"{"query":"rust"}"#.into(),
+            },
+        };
+        let fc: crate::common::FunctionCall = (&tc).into();
+        assert_eq!(fc.id, "call_456");
+        assert_eq!(fc.name, "web_search");
     }
 }

@@ -28,7 +28,7 @@
 #![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_daemon::middleware::{
-    CorsConfig, RateLimiter, RequestId, RequestLogger, request_id_middleware,
+    BearerAuth, CorsConfig, RateLimiter, RequestId, RequestLogger, request_id_middleware,
 };
 use axum::Router;
 use axum::body::Body;
@@ -290,6 +290,115 @@ async fn cors_rejects_disallowed_origin() {
         hdr.is_none() || hdr.unwrap() != "http://evil.example",
         "disallowed origin should not be echoed"
     );
+}
+
+// -----------------------------------------------------------------------
+// BearerAuth tests
+// -----------------------------------------------------------------------
+
+fn app_with_auth(token: Option<String>) -> Router {
+    let auth = BearerAuth::new(token);
+    Router::new()
+        .route("/ping", get(|| async { "pong" }))
+        .route("/health", get(|| async { "ok" }))
+        .layer(middleware::from_fn(BearerAuth::layer))
+        .layer(axum::Extension(auth.clone()))
+}
+
+#[tokio::test]
+async fn auth_disabled_allows_all_requests() {
+    let app = app_with_auth(None);
+    let resp = app
+        .oneshot(Request::builder().uri("/ping").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn auth_enabled_rejects_missing_header() {
+    let app = app_with_auth(Some("secret".into()));
+    let resp = app
+        .oneshot(Request::builder().uri("/ping").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn auth_enabled_rejects_wrong_token() {
+    let app = app_with_auth(Some("secret".into()));
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/ping")
+                .header("authorization", "Bearer wrong")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn auth_enabled_rejects_non_bearer_scheme() {
+    let app = app_with_auth(Some("secret".into()));
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/ping")
+                .header("authorization", "Basic c2VjcmV0")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn auth_enabled_accepts_correct_token() {
+    let app = app_with_auth(Some("secret".into()));
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/ping")
+                .header("authorization", "Bearer secret")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn auth_enabled_allows_health_without_token() {
+    let app = app_with_auth(Some("secret".into()));
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn bearer_auth_validate_unit() {
+    let auth = BearerAuth::new(Some("tok".into()));
+    assert!(auth.validate(Some("Bearer tok")).is_ok());
+    assert!(auth.validate(Some("Bearer bad")).is_err());
+    assert!(auth.validate(Some("Basic x")).is_err());
+    assert!(auth.validate(None).is_err());
+
+    let disabled = BearerAuth::new(None);
+    assert!(disabled.validate(None).is_ok());
+    assert!(disabled.validate(Some("Bearer x")).is_ok());
 }
 
 // -----------------------------------------------------------------------

@@ -1085,6 +1085,8 @@ mod error_translation {
             message: "hash mismatch".into(),
             context: BTreeMap::new(),
             source_message: None,
+            location: None,
+            cause_chain: Vec::new(),
         };
         let err: AbpError = dto.into();
         assert_eq!(err.code, ErrorCode::ReceiptHashMismatch);

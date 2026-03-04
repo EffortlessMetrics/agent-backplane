@@ -775,6 +775,8 @@ fn abp_error_from_dto() {
         message: "unknown".into(),
         context: BTreeMap::new(),
         source_message: Some("was here".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.code, ErrorCode::DialectUnknown);
@@ -793,6 +795,8 @@ fn abp_error_from_dto_preserves_context() {
         message: "msg".into(),
         context: ctx,
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.context["k"], json!("v"));
@@ -817,6 +821,8 @@ fn dto_serde_roundtrip_minimal() {
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
@@ -841,6 +847,8 @@ fn dto_serde_roundtrip_with_source_message() {
         message: "stage fail".into(),
         context: BTreeMap::new(),
         source_message: Some("disk full".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
@@ -854,6 +862,8 @@ fn dto_serde_source_message_skipped_when_none() {
         message: "x".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert!(!json.contains("source_message"));
@@ -866,6 +876,8 @@ fn dto_serde_source_message_present_when_some() {
         message: "x".into(),
         context: BTreeMap::new(),
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert!(json.contains("source_message"));
@@ -1032,6 +1044,8 @@ fn dto_roundtrip_with_empty_message() {
         message: String::new(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
@@ -1050,6 +1064,8 @@ fn dto_roundtrip_with_complex_context() {
         message: "complex".into(),
         context: ctx,
         source_message: Some("cause".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
@@ -1063,6 +1079,8 @@ fn dto_clone_is_equal() {
         message: "denied".into(),
         context: BTreeMap::new(),
         source_message: Some("x".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let cloned = dto.clone();
     assert_eq!(dto, cloned);
@@ -1075,12 +1093,16 @@ fn dto_partial_eq_different_code() {
         message: "x".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let b = AbpErrorDto {
         code: ErrorCode::PolicyDenied,
         message: "x".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     assert_ne!(a, b);
 }
@@ -1092,12 +1114,16 @@ fn dto_partial_eq_different_message() {
         message: "a".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let b = AbpErrorDto {
         code: ErrorCode::Internal,
         message: "b".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     assert_ne!(a, b);
 }
@@ -1144,6 +1170,8 @@ fn dto_debug_contains_code() {
         message: "dbg".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let dbg = format!("{dto:?}");
     assert!(dbg.contains("Internal"));

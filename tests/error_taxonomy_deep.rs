@@ -461,6 +461,8 @@ fn error_dto_equality() {
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let dto2 = dto1.clone();
     assert_eq!(dto1, dto2);
@@ -473,12 +475,16 @@ fn error_dto_inequality_on_different_code() {
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let dto2 = AbpErrorDto {
         code: ErrorCode::BackendTimeout,
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     assert_ne!(dto1, dto2);
 }
@@ -689,6 +695,8 @@ fn error_dto_snapshot_minimal() {
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert_eq!(json, r#"{"code":"internal","message":"oops","context":{}}"#);
@@ -703,6 +711,8 @@ fn error_dto_snapshot_with_context() {
         message: "not found".into(),
         context: ctx,
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert_eq!(
@@ -855,6 +865,8 @@ fn dto_to_abp_error_loses_source() {
         message: "bad config".into(),
         context: BTreeMap::new(),
         source_message: Some("inner cause".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     // Source is lost in DTO → AbpError conversion (opaque type can't be reconstructed)
@@ -1127,6 +1139,8 @@ fn abp_error_dto_clone() {
         message: "msg".into(),
         context: BTreeMap::new(),
         source_message: Some("src".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let cloned = dto.clone();
     assert_eq!(dto, cloned);

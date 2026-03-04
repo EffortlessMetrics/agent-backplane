@@ -353,6 +353,8 @@ fn dto_to_abp_error_loses_source() {
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert!(err.source.is_none());

@@ -860,6 +860,8 @@ fn gm_error_dto_minimal() {
         message: "timed out after 30s".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     insta::assert_json_snapshot!("gm_error_dto_minimal", dto);
 }
@@ -874,6 +876,8 @@ fn gm_error_dto_with_context() {
         message: "backend did not respond".into(),
         context: ctx,
         source_message: Some("connection reset by peer".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     insta::assert_json_snapshot!("gm_error_dto_with_context", dto);
 }

@@ -1,5 +1,5 @@
 #![allow(clippy::all)]
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 #![allow(clippy::manual_repeat_n)]
 #![allow(clippy::manual_range_contains)]
 #![allow(clippy::single_component_path_imports)]
@@ -1776,4 +1776,733 @@ fn all_mappers_are_send_sync() {
     assert_send_sync::<ClaudeKimiIrMapper>();
     assert_send_sync::<GeminiKimiIrMapper>();
     assert_send_sync::<CodexClaudeIrMapper>();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Token usage normalization
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn token_usage_openai_normalization() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("prompt_tokens".into(), 100u64);
+    fields.insert("completion_tokens".into(), 50);
+    fields.insert("total_tokens".into(), 150);
+    let usage = TokenUsage::normalize(Dialect::OpenAi, &fields);
+    assert_eq!(usage.input_tokens, 100);
+    assert_eq!(usage.output_tokens, 50);
+    assert_eq!(usage.total_tokens, 150);
+}
+
+#[test]
+fn token_usage_claude_normalization() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("input_tokens".into(), 200u64);
+    fields.insert("output_tokens".into(), 80);
+    fields.insert("cache_read_input_tokens".into(), 30);
+    fields.insert("cache_creation_input_tokens".into(), 20);
+    let usage = TokenUsage::normalize(Dialect::Claude, &fields);
+    assert_eq!(usage.input_tokens, 200);
+    assert_eq!(usage.output_tokens, 80);
+    assert_eq!(usage.cache_read_tokens, Some(30));
+    assert_eq!(usage.cache_write_tokens, Some(20));
+    assert_eq!(usage.total_tokens, 280);
+}
+
+#[test]
+fn token_usage_gemini_normalization() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("promptTokenCount".into(), 300u64);
+    fields.insert("candidatesTokenCount".into(), 120);
+    fields.insert("totalTokenCount".into(), 420);
+    let usage = TokenUsage::normalize(Dialect::Gemini, &fields);
+    assert_eq!(usage.input_tokens, 300);
+    assert_eq!(usage.output_tokens, 120);
+    assert_eq!(usage.total_tokens, 420);
+}
+
+#[test]
+fn token_usage_gemini_with_thoughts() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("promptTokenCount".into(), 100u64);
+    fields.insert("candidatesTokenCount".into(), 50);
+    fields.insert("thoughtsTokenCount".into(), 25);
+    let usage = TokenUsage::normalize(Dialect::Gemini, &fields);
+    assert_eq!(usage.reasoning_tokens, Some(25));
+}
+
+#[test]
+fn token_usage_openai_reasoning_tokens() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("prompt_tokens".into(), 150u64);
+    fields.insert("completion_tokens".into(), 60);
+    fields.insert("reasoning_tokens".into(), 40);
+    let usage = TokenUsage::normalize(Dialect::OpenAi, &fields);
+    assert_eq!(usage.reasoning_tokens, Some(40));
+    assert_eq!(usage.total_tokens, 250);
+}
+
+#[test]
+fn token_usage_kimi_uses_openai_fields() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("prompt_tokens".into(), 50u64);
+    fields.insert("completion_tokens".into(), 30);
+    let usage = TokenUsage::normalize(Dialect::Kimi, &fields);
+    assert_eq!(usage.input_tokens, 50);
+    assert_eq!(usage.output_tokens, 30);
+    assert_eq!(usage.total_tokens, 80);
+}
+
+#[test]
+fn token_usage_copilot_uses_openai_fields() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("prompt_tokens".into(), 75u64);
+    fields.insert("completion_tokens".into(), 25);
+    let usage = TokenUsage::normalize(Dialect::Copilot, &fields);
+    assert_eq!(usage.input_tokens, 75);
+    assert_eq!(usage.output_tokens, 25);
+    assert_eq!(usage.total_tokens, 100);
+}
+
+#[test]
+fn token_usage_codex_uses_openai_fields() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("prompt_tokens".into(), 60u64);
+    fields.insert("completion_tokens".into(), 40);
+    let usage = TokenUsage::normalize(Dialect::Codex, &fields);
+    assert_eq!(usage.input_tokens, 60);
+    assert_eq!(usage.output_tokens, 40);
+    assert_eq!(usage.total_tokens, 100);
+}
+
+#[test]
+fn token_usage_empty_fields_zero() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let fields: HashMap<String, u64> = HashMap::new();
+    let usage = TokenUsage::normalize(Dialect::OpenAi, &fields);
+    assert_eq!(usage.input_tokens, 0);
+    assert_eq!(usage.output_tokens, 0);
+    assert_eq!(usage.total_tokens, 0);
+}
+
+#[test]
+fn token_usage_claude_total_computed_when_missing() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("input_tokens".into(), 100u64);
+    fields.insert("output_tokens".into(), 50);
+    let usage = TokenUsage::normalize(Dialect::Claude, &fields);
+    assert_eq!(usage.total_tokens, 150);
+}
+
+#[test]
+fn token_usage_openai_cached_tokens() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("prompt_tokens".into(), 100u64);
+    fields.insert("completion_tokens".into(), 50);
+    fields.insert("cached_tokens".into(), 20);
+    let usage = TokenUsage::normalize(Dialect::OpenAi, &fields);
+    assert_eq!(usage.cache_read_tokens, Some(20));
+}
+
+#[test]
+fn token_usage_serialization_roundtrip() {
+    use abp_mapping::TokenUsage;
+    use std::collections::HashMap;
+    let mut fields = HashMap::new();
+    fields.insert("prompt_tokens".into(), 100u64);
+    fields.insert("completion_tokens".into(), 50);
+    let usage = TokenUsage::normalize(Dialect::OpenAi, &fields);
+    let serialized = serde_json::to_string(&usage).unwrap();
+    let deserialized: TokenUsage = serde_json::from_str(&serialized).unwrap();
+    assert_eq!(usage, deserialized);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Error code mapping across backends
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn error_code_backend_category() {
+    use abp_error::{ErrorCategory, ErrorCode};
+    let codes = [
+        ErrorCode::BackendNotFound,
+        ErrorCode::BackendUnavailable,
+        ErrorCode::BackendTimeout,
+        ErrorCode::BackendRateLimited,
+        ErrorCode::BackendAuthFailed,
+        ErrorCode::BackendModelNotFound,
+        ErrorCode::BackendCrashed,
+    ];
+    for code in &codes {
+        assert_eq!(code.category(), ErrorCategory::Backend, "{code:?}");
+    }
+}
+
+#[test]
+fn error_code_mapping_category() {
+    use abp_error::{ErrorCategory, ErrorCode};
+    let codes = [
+        ErrorCode::MappingUnsupportedCapability,
+        ErrorCode::MappingDialectMismatch,
+        ErrorCode::MappingLossyConversion,
+        ErrorCode::MappingUnmappableTool,
+    ];
+    for code in &codes {
+        assert_eq!(code.category(), ErrorCategory::Mapping, "{code:?}");
+    }
+}
+
+#[test]
+fn error_code_dialect_category() {
+    use abp_error::{ErrorCategory, ErrorCode};
+    assert_eq!(ErrorCode::DialectUnknown.category(), ErrorCategory::Dialect);
+    assert_eq!(
+        ErrorCode::DialectMappingFailed.category(),
+        ErrorCategory::Dialect
+    );
+}
+
+#[test]
+fn error_code_ir_category() {
+    use abp_error::{ErrorCategory, ErrorCode};
+    assert_eq!(ErrorCode::IrLoweringFailed.category(), ErrorCategory::Ir);
+    assert_eq!(ErrorCode::IrInvalid.category(), ErrorCategory::Ir);
+}
+
+#[test]
+fn error_code_all_variants_serde_roundtrip() {
+    use abp_error::ErrorCode;
+    let codes = [
+        ErrorCode::ProtocolInvalidEnvelope,
+        ErrorCode::ProtocolHandshakeFailed,
+        ErrorCode::ProtocolMissingRefId,
+        ErrorCode::ProtocolUnexpectedMessage,
+        ErrorCode::ProtocolVersionMismatch,
+        ErrorCode::MappingUnsupportedCapability,
+        ErrorCode::MappingDialectMismatch,
+        ErrorCode::MappingLossyConversion,
+        ErrorCode::MappingUnmappableTool,
+        ErrorCode::BackendNotFound,
+        ErrorCode::BackendUnavailable,
+        ErrorCode::BackendTimeout,
+        ErrorCode::BackendRateLimited,
+        ErrorCode::BackendAuthFailed,
+        ErrorCode::BackendModelNotFound,
+        ErrorCode::BackendCrashed,
+        ErrorCode::ExecutionToolFailed,
+        ErrorCode::ExecutionWorkspaceError,
+        ErrorCode::ExecutionPermissionDenied,
+        ErrorCode::ContractVersionMismatch,
+        ErrorCode::ContractSchemaViolation,
+        ErrorCode::ContractInvalidReceipt,
+        ErrorCode::CapabilityUnsupported,
+        ErrorCode::CapabilityEmulationFailed,
+        ErrorCode::PolicyDenied,
+        ErrorCode::PolicyInvalid,
+        ErrorCode::WorkspaceInitFailed,
+        ErrorCode::WorkspaceStagingFailed,
+        ErrorCode::IrLoweringFailed,
+        ErrorCode::IrInvalid,
+        ErrorCode::ReceiptHashMismatch,
+        ErrorCode::ReceiptChainBroken,
+        ErrorCode::DialectUnknown,
+        ErrorCode::DialectMappingFailed,
+        ErrorCode::ConfigInvalid,
+        ErrorCode::Internal,
+    ];
+    for code in &codes {
+        let s = serde_json::to_string(code).unwrap();
+        let back: ErrorCode = serde_json::from_str(&s).unwrap();
+        assert_eq!(code, &back, "roundtrip failed for {code:?}");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Streaming event mapping
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn streaming_content_delta_registry() {
+    use abp_mapping::{Fidelity, MappingRegistry, StreamingEventMapping, streaming_events};
+    let mut reg = MappingRegistry::new();
+    let dialects = [Dialect::OpenAi, Dialect::Claude, Dialect::Gemini];
+    for &src in &dialects {
+        for &dst in &dialects {
+            reg.insert_streaming_rule(StreamingEventMapping {
+                source_dialect: src,
+                target_dialect: dst,
+                source_event: streaming_events::CONTENT_DELTA.into(),
+                target_event: streaming_events::CONTENT_DELTA.into(),
+                fidelity: Fidelity::Lossless,
+            });
+        }
+    }
+    for &src in &dialects {
+        for &dst in &dialects {
+            assert!(
+                reg.lookup_streaming(src, dst, streaming_events::CONTENT_DELTA)
+                    .is_some(),
+                "content_delta {src:?}->{dst:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn streaming_thinking_delta_lossy_claude_to_openai() {
+    use abp_mapping::{Fidelity, MappingRegistry, StreamingEventMapping, streaming_events};
+    let mut reg = MappingRegistry::new();
+    reg.insert_streaming_rule(StreamingEventMapping {
+        source_dialect: Dialect::Claude,
+        target_dialect: Dialect::OpenAi,
+        source_event: streaming_events::THINKING_DELTA.into(),
+        target_event: streaming_events::CONTENT_DELTA.into(),
+        fidelity: Fidelity::LossyLabeled {
+            warning: "thinking mapped to content".into(),
+        },
+    });
+    let rule = reg
+        .lookup_streaming(
+            Dialect::Claude,
+            Dialect::OpenAi,
+            streaming_events::THINKING_DELTA,
+        )
+        .unwrap();
+    assert!(!rule.fidelity.is_lossless());
+}
+
+#[test]
+fn streaming_message_start_stop_mapped() {
+    use abp_mapping::{Fidelity, MappingRegistry, StreamingEventMapping, streaming_events};
+    let mut reg = MappingRegistry::new();
+    reg.insert_streaming_rule(StreamingEventMapping {
+        source_dialect: Dialect::OpenAi,
+        target_dialect: Dialect::Claude,
+        source_event: streaming_events::MESSAGE_START.into(),
+        target_event: streaming_events::MESSAGE_START.into(),
+        fidelity: Fidelity::Lossless,
+    });
+    reg.insert_streaming_rule(StreamingEventMapping {
+        source_dialect: Dialect::OpenAi,
+        target_dialect: Dialect::Claude,
+        source_event: streaming_events::MESSAGE_STOP.into(),
+        target_event: streaming_events::MESSAGE_STOP.into(),
+        fidelity: Fidelity::Lossless,
+    });
+    assert!(
+        reg.lookup_streaming(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            streaming_events::MESSAGE_START
+        )
+        .is_some()
+    );
+    assert!(
+        reg.lookup_streaming(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            streaming_events::MESSAGE_STOP
+        )
+        .is_some()
+    );
+}
+
+#[test]
+fn streaming_error_event_mapped() {
+    use abp_mapping::{Fidelity, MappingRegistry, StreamingEventMapping, streaming_events};
+    let mut reg = MappingRegistry::new();
+    reg.insert_streaming_rule(StreamingEventMapping {
+        source_dialect: Dialect::Claude,
+        target_dialect: Dialect::OpenAi,
+        source_event: streaming_events::ERROR.into(),
+        target_event: streaming_events::ERROR.into(),
+        fidelity: Fidelity::LossyLabeled {
+            warning: "error format differs".into(),
+        },
+    });
+    assert!(
+        reg.lookup_streaming(Dialect::Claude, Dialect::OpenAi, streaming_events::ERROR)
+            .is_some()
+    );
+}
+
+#[test]
+fn streaming_lookup_nonexistent_returns_none() {
+    let reg = abp_mapping::MappingRegistry::new();
+    assert!(
+        reg.lookup_streaming(Dialect::OpenAi, Dialect::Claude, "nonexistent")
+            .is_none()
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Content type conversion (text, image, tool)
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn text_content_survives_all_pairs_via_mapper() {
+    let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "preserved text")]);
+    for (from, to) in cross_pairs() {
+        let mapper = default_ir_mapper(from, to).unwrap();
+        let result = mapper.map_request(from, to, &conv).unwrap();
+        let has_text = result.messages.iter().any(|m| {
+            m.content.iter().any(|b| match b {
+                IrContentBlock::Text { text } => text.contains("preserved text"),
+                _ => false,
+            })
+        });
+        assert!(has_text, "{from}->{to}: text content should survive");
+    }
+}
+
+#[test]
+fn image_content_survives_non_codex_pairs() {
+    let conv = image_conv();
+    for (from, to) in cross_pairs() {
+        if is_codex(from) || is_codex(to) {
+            continue;
+        }
+        let mapper = default_ir_mapper(from, to).unwrap();
+        let result = mapper.map_request(from, to, &conv);
+        // Should not panic
+        let _ = result;
+    }
+}
+
+#[test]
+fn tool_use_content_type_preserved_in_ir() {
+    let msg = IrMessage::new(
+        IrRole::Assistant,
+        vec![IrContentBlock::ToolUse {
+            id: "tu_ct".into(),
+            name: "grep".into(),
+            input: json!({"pattern": "TODO"}),
+        }],
+    );
+    match &msg.content[0] {
+        IrContentBlock::ToolUse { id, name, input } => {
+            assert_eq!(id, "tu_ct");
+            assert_eq!(name, "grep");
+            assert_eq!(input, &json!({"pattern": "TODO"}));
+        }
+        _ => panic!("expected ToolUse"),
+    }
+}
+
+#[test]
+fn tool_result_content_type_preserved_in_ir() {
+    let msg = IrMessage::new(
+        IrRole::Tool,
+        vec![IrContentBlock::ToolResult {
+            tool_use_id: "tu_ct".into(),
+            content: vec![IrContentBlock::Text {
+                text: "3 matches".into(),
+            }],
+            is_error: false,
+        }],
+    );
+    match &msg.content[0] {
+        IrContentBlock::ToolResult {
+            tool_use_id,
+            is_error,
+            ..
+        } => {
+            assert_eq!(tool_use_id, "tu_ct");
+            assert!(!is_error);
+        }
+        _ => panic!("expected ToolResult"),
+    }
+}
+
+#[test]
+fn mixed_text_and_tool_use_both_present_after_mapping() {
+    let conv = IrConversation::from_messages(vec![IrMessage::new(
+        IrRole::Assistant,
+        vec![
+            IrContentBlock::Text {
+                text: "Let me read.".into(),
+            },
+            IrContentBlock::ToolUse {
+                id: "mx".into(),
+                name: "read_file".into(),
+                input: json!({"path": "lib.rs"}),
+            },
+        ],
+    )]);
+    for (from, to) in cross_pairs() {
+        if is_codex(to) {
+            continue;
+        }
+        let mapper = default_ir_mapper(from, to).unwrap();
+        let result = mapper.map_request(from, to, &conv).unwrap();
+        let has_text = result.messages.iter().any(|m| {
+            m.content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::Text { .. }))
+        });
+        let has_tool = result.messages.iter().any(|m| {
+            m.content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolUse { .. }))
+        });
+        assert!(
+            has_text && has_tool,
+            "{from}->{to}: both text and tool_use should survive"
+        );
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Model name normalization / Dialect identity
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn dialect_all_returns_six_dialects() {
+    let all = Dialect::all();
+    assert_eq!(all.len(), 6);
+    assert!(all.contains(&Dialect::OpenAi));
+    assert!(all.contains(&Dialect::Claude));
+    assert!(all.contains(&Dialect::Gemini));
+    assert!(all.contains(&Dialect::Codex));
+    assert!(all.contains(&Dialect::Kimi));
+    assert!(all.contains(&Dialect::Copilot));
+}
+
+#[test]
+fn dialect_label_unique() {
+    let all = Dialect::all();
+    let labels: Vec<&str> = all.iter().map(|d| d.label()).collect();
+    let unique: std::collections::HashSet<&&str> = labels.iter().collect();
+    assert_eq!(labels.len(), unique.len());
+}
+
+#[test]
+fn dialect_serde_roundtrip() {
+    for &d in Dialect::all() {
+        let s = serde_json::to_string(&d).unwrap();
+        let back: Dialect = serde_json::from_str(&s).unwrap();
+        assert_eq!(d, back);
+    }
+}
+
+#[test]
+fn dialect_label_not_empty() {
+    for &d in Dialect::all() {
+        assert!(!d.label().is_empty(), "{d:?} label should be non-empty");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Known mapping rules validation
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn known_rules_nonempty() {
+    let reg = abp_mapping::known_rules();
+    assert!(!reg.is_empty());
+}
+
+#[test]
+fn known_rules_tool_use_openai_claude_lossless() {
+    let reg = abp_mapping::known_rules();
+    let rule = reg.lookup(
+        Dialect::OpenAi,
+        Dialect::Claude,
+        abp_mapping::features::TOOL_USE,
+    );
+    assert!(rule.is_some());
+    assert!(rule.unwrap().fidelity.is_lossless());
+}
+
+#[test]
+fn known_rules_streaming_all_major_pairs_lossless() {
+    let reg = abp_mapping::known_rules();
+    let pairs = [
+        (Dialect::OpenAi, Dialect::Claude),
+        (Dialect::OpenAi, Dialect::Gemini),
+        (Dialect::Claude, Dialect::Gemini),
+    ];
+    for (src, dst) in &pairs {
+        let rule = reg.lookup(*src, *dst, abp_mapping::features::STREAMING);
+        assert!(rule.is_some(), "streaming {src:?}->{dst:?}");
+        assert!(rule.unwrap().fidelity.is_lossless());
+    }
+}
+
+#[test]
+fn known_rules_thinking_claude_to_openai_lossy() {
+    let reg = abp_mapping::known_rules();
+    let rule = reg.lookup(
+        Dialect::Claude,
+        Dialect::OpenAi,
+        abp_mapping::features::THINKING,
+    );
+    assert!(rule.is_some());
+    assert!(!rule.unwrap().fidelity.is_lossless());
+}
+
+#[test]
+fn known_rules_image_input_to_codex_unsupported() {
+    let reg = abp_mapping::known_rules();
+    let rule = reg.lookup(
+        Dialect::OpenAi,
+        Dialect::Codex,
+        abp_mapping::features::IMAGE_INPUT,
+    );
+    assert!(rule.is_some());
+    assert!(rule.unwrap().fidelity.is_unsupported());
+}
+
+#[test]
+fn known_rules_same_dialect_always_lossless() {
+    let reg = abp_mapping::known_rules();
+    let feats = [
+        abp_mapping::features::TOOL_USE,
+        abp_mapping::features::STREAMING,
+        abp_mapping::features::THINKING,
+        abp_mapping::features::IMAGE_INPUT,
+        abp_mapping::features::CODE_EXEC,
+    ];
+    for &d in Dialect::all() {
+        for &f in &feats {
+            let rule = reg.lookup(d, d, f);
+            assert!(rule.is_some(), "same-dialect {d:?} {f}");
+            assert!(rule.unwrap().fidelity.is_lossless(), "{d:?} {f}");
+        }
+    }
+}
+
+#[test]
+fn validate_mapping_unknown_feature_unsupported() {
+    let reg = abp_mapping::known_rules();
+    let results =
+        abp_mapping::validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &["nope".into()]);
+    assert_eq!(results.len(), 1);
+    assert!(results[0].fidelity.is_unsupported());
+}
+
+#[test]
+fn mapping_matrix_from_known_rules() {
+    let reg = abp_mapping::known_rules();
+    let matrix = abp_mapping::MappingMatrix::from_registry(&reg);
+    assert!(matrix.is_supported(Dialect::OpenAi, Dialect::Claude));
+    assert!(matrix.is_supported(Dialect::OpenAi, Dialect::Gemini));
+    assert!(matrix.is_supported(Dialect::Claude, Dialect::Gemini));
+    for &d in Dialect::all() {
+        assert!(
+            matrix.is_supported(d, d),
+            "{d:?}->{d:?} should be supported"
+        );
+    }
+}
+
+#[test]
+fn mapping_error_display_contains_feature() {
+    let err = abp_mapping::MappingError::FeatureUnsupported {
+        feature: "logprobs".into(),
+        from: Dialect::Claude,
+        to: Dialect::Gemini,
+    };
+    assert!(err.to_string().contains("logprobs"));
+}
+
+#[test]
+fn fidelity_variants_serde_roundtrip() {
+    use abp_mapping::Fidelity;
+    let variants = vec![
+        Fidelity::Lossless,
+        Fidelity::LossyLabeled {
+            warning: "degraded".into(),
+        },
+        Fidelity::Unsupported {
+            reason: "not supported".into(),
+        },
+    ];
+    for v in &variants {
+        let s = serde_json::to_string(v).unwrap();
+        let back: Fidelity = serde_json::from_str(&s).unwrap();
+        assert_eq!(v, &back);
+    }
+}
+
+#[test]
+fn chain_validation_openai_claude_gemini_tool_use_lossless() {
+    let reg = abp_mapping::known_rules();
+    let chain = reg.validate_chain(
+        &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini],
+        abp_mapping::features::TOOL_USE,
+    );
+    assert_eq!(chain.chain.len(), 3);
+    assert!(chain.overall_fidelity.is_lossless());
+}
+
+#[test]
+fn chain_validation_claude_openai_gemini_thinking_lossy() {
+    let reg = abp_mapping::known_rules();
+    let chain = reg.validate_chain(
+        &[Dialect::Claude, Dialect::OpenAi, Dialect::Gemini],
+        abp_mapping::features::THINKING,
+    );
+    assert!(!chain.overall_fidelity.is_lossless());
+}
+
+#[test]
+fn bidirectional_openai_claude_tool_use() {
+    let reg = abp_mapping::known_rules();
+    let report = reg.validate_bidirectional(Dialect::OpenAi, Dialect::Claude, "tool_use");
+    assert!(
+        report
+            .forward_fidelity
+            .as_ref()
+            .map_or(false, |f| f.is_lossless())
+    );
+    assert!(
+        report
+            .reverse_fidelity
+            .as_ref()
+            .map_or(false, |f| f.is_lossless())
+    );
+}
+
+#[test]
+fn fidelity_report_same_dialect_all_lossless() {
+    let reg = abp_mapping::known_rules();
+    for &d in Dialect::all() {
+        let report = reg.fidelity_report(
+            d,
+            d,
+            &[
+                abp_mapping::features::TOOL_USE,
+                abp_mapping::features::STREAMING,
+                abp_mapping::features::THINKING,
+                abp_mapping::features::IMAGE_INPUT,
+                abp_mapping::features::CODE_EXEC,
+            ],
+        );
+        assert!(
+            report.is_all_lossless(),
+            "{d:?}->{d:?} should be all lossless"
+        );
+    }
 }

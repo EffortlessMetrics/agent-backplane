@@ -705,6 +705,8 @@ fn dto_to_abp_error_loses_source() {
         message: "bad".into(),
         context: BTreeMap::new(),
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.code, ErrorCode::ConfigInvalid);
@@ -718,6 +720,8 @@ fn dto_json_skips_null_source_message() {
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert!(!json.contains("source_message"));
@@ -730,6 +734,8 @@ fn dto_json_includes_source_message_when_present() {
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: Some("underlying".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert!(json.contains("source_message"));

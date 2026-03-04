@@ -780,6 +780,8 @@ fn abp_error_dto_back_to_abp_error() {
         message: "bad config".into(),
         context: BTreeMap::new(),
         source_message: Some("parse error".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.code, ErrorCode::ConfigInvalid);
@@ -804,6 +806,8 @@ fn abp_error_dto_skips_none_source_in_json() {
         message: "x".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert!(!json.contains("source_message"));

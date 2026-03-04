@@ -318,6 +318,8 @@ fn dto_to_abp_error_conversion() {
             ctx
         },
         source_message: Some("policy rule #3".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
 
     let err: AbpError = dto.into();

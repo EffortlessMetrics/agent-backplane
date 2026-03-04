@@ -27,7 +27,7 @@ use std::fmt;
 /// assert_eq!(ErrorCode::BackendNotFound.category(), ErrorCategory::Backend);
 /// assert_eq!(ErrorCode::PolicyDenied.category(), ErrorCategory::Policy);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCategory {
     /// JSONL / wire-format errors.
@@ -98,7 +98,19 @@ impl fmt::Display for ErrorCategory {
 /// assert_eq!(code.to_string(), "backend timed out");
 /// assert_eq!(code.category().to_string(), "backend");
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     // -- Protocol --
@@ -416,6 +428,40 @@ impl fmt::Display for ErrorInfo {
 }
 
 // ---------------------------------------------------------------------------
+// ErrorLocation
+// ---------------------------------------------------------------------------
+
+/// Source location where an error was created or enriched.
+///
+/// Typically populated automatically via the [`abp_err!`] macro.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ErrorLocation {
+    /// Source file path.
+    pub file: String,
+    /// Line number.
+    pub line: u32,
+    /// Column number.
+    pub column: u32,
+}
+
+impl ErrorLocation {
+    /// Create a new source location.
+    pub fn new(file: impl Into<String>, line: u32, column: u32) -> Self {
+        Self {
+            file: file.into(),
+            line,
+            column,
+        }
+    }
+}
+
+impl fmt::Display for ErrorLocation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}:{}", self.file, self.line, self.column)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // AbpError
 // ---------------------------------------------------------------------------
 
@@ -442,6 +488,8 @@ pub struct AbpError {
     pub source: Option<Box<dyn std::error::Error + Send + Sync>>,
     /// Arbitrary structured context for diagnostics.
     pub context: BTreeMap<String, serde_json::Value>,
+    /// Optional source location where this error was created.
+    pub location: Option<ErrorLocation>,
 }
 
 impl AbpError {
@@ -462,6 +510,7 @@ impl AbpError {
             message: message.into(),
             source: None,
             context: BTreeMap::new(),
+            location: None,
         }
     }
 
@@ -512,6 +561,63 @@ impl AbpError {
             is_retryable: self.code.is_retryable(),
         }
     }
+
+    /// Attach source location information.
+    pub fn with_location(mut self, location: ErrorLocation) -> Self {
+        self.location = Some(location);
+        self
+    }
+
+    /// Iterate over the error cause chain, starting with this error's source.
+    pub fn error_chain(&self) -> ErrorChain<'_> {
+        ErrorChain {
+            current: self
+                .source
+                .as_deref()
+                .map(|e| e as &(dyn std::error::Error + 'static)),
+        }
+    }
+
+    /// Count the depth of the error cause chain (0 if no source).
+    pub fn chain_depth(&self) -> usize {
+        self.error_chain().count()
+    }
+
+    /// Check if this error's code matches the given code.
+    pub fn matches_code(&self, code: ErrorCode) -> bool {
+        self.code == code
+    }
+
+    /// Check if this error's category matches the given category.
+    pub fn matches_category(&self, category: ErrorCategory) -> bool {
+        self.code.category() == category
+    }
+
+    /// Check if the context contains the given key.
+    pub fn has_context_key(&self, key: &str) -> bool {
+        self.context.contains_key(key)
+    }
+
+    /// Serialise this error to a JSON string via [`AbpErrorDto`].
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        let dto: AbpErrorDto = self.into();
+        serde_json::to_string(&dto)
+    }
+
+    /// Serialise this error to a pretty-printed JSON string.
+    pub fn to_json_pretty(&self) -> Result<String, serde_json::Error> {
+        let dto: AbpErrorDto = self.into();
+        serde_json::to_string_pretty(&dto)
+    }
+
+    /// Format the full error chain as a multi-line string.
+    pub fn display_chain(&self) -> String {
+        let mut parts = vec![self.to_string()];
+        for (i, cause) in self.error_chain().enumerate() {
+            parts.push(format!("  caused by {}: {}", i, cause));
+        }
+        parts.join("\n")
+    }
 }
 
 impl fmt::Debug for AbpError {
@@ -524,6 +630,9 @@ impl fmt::Debug for AbpError {
         }
         if !self.context.is_empty() {
             d.field("context", &self.context);
+        }
+        if let Some(ref loc) = self.location {
+            d.field("location", loc);
         }
         d.finish()
     }
@@ -566,6 +675,39 @@ impl From<serde_json::Error> for AbpError {
     }
 }
 
+impl From<String> for AbpError {
+    fn from(msg: String) -> Self {
+        AbpError::new(ErrorCode::Internal, msg)
+    }
+}
+
+impl From<&str> for AbpError {
+    fn from(msg: &str) -> Self {
+        AbpError::new(ErrorCode::Internal, msg)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ErrorChain iterator
+// ---------------------------------------------------------------------------
+
+/// Iterator over the cause chain of an [`AbpError`].
+///
+/// Yields each successive [`std::error::Error::source`] until the chain ends.
+pub struct ErrorChain<'a> {
+    current: Option<&'a (dyn std::error::Error + 'a)>,
+}
+
+impl<'a> Iterator for ErrorChain<'a> {
+    type Item = &'a (dyn std::error::Error + 'a);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let err = self.current?;
+        self.current = err.source();
+        Some(err)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Serialization support
 // ---------------------------------------------------------------------------
@@ -593,6 +735,12 @@ pub struct AbpErrorDto {
     /// String representation of the source error, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_message: Option<String>,
+    /// Source location where this error was created.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<ErrorLocation>,
+    /// Stringified cause chain (source → source → …).
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub cause_chain: Vec<String>,
 }
 
 impl From<&AbpError> for AbpErrorDto {
@@ -602,6 +750,8 @@ impl From<&AbpError> for AbpErrorDto {
             message: err.message.clone(),
             context: err.context.clone(),
             source_message: err.source.as_ref().map(|s| s.to_string()),
+            location: err.location.clone(),
+            cause_chain: err.error_chain().map(|e| e.to_string()).collect(),
         }
     }
 }
@@ -613,8 +763,112 @@ impl From<AbpErrorDto> for AbpError {
             message: dto.message,
             source: None,
             context: dto.context,
+            location: dto.location,
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// ErrorStats
+// ---------------------------------------------------------------------------
+
+/// Tracks error occurrence counts by code and category.
+///
+/// # Examples
+///
+/// ```
+/// use abp_error::{AbpError, ErrorCode, ErrorStats};
+///
+/// let mut stats = ErrorStats::new();
+/// stats.record(&AbpError::new(ErrorCode::BackendTimeout, "t1"));
+/// stats.record(&AbpError::new(ErrorCode::BackendTimeout, "t2"));
+/// stats.record(&AbpError::new(ErrorCode::PolicyDenied, "d1"));
+/// assert_eq!(stats.total(), 3);
+/// assert_eq!(stats.count_by_code(ErrorCode::BackendTimeout), 2);
+/// ```
+#[derive(Debug, Default, Clone)]
+pub struct ErrorStats {
+    by_code: BTreeMap<ErrorCode, u64>,
+    by_category: BTreeMap<ErrorCategory, u64>,
+    total: u64,
+}
+
+impl ErrorStats {
+    /// Create a new empty stats tracker.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record an error occurrence.
+    pub fn record(&mut self, err: &AbpError) {
+        self.record_code(err.code);
+    }
+
+    /// Record an error code occurrence.
+    pub fn record_code(&mut self, code: ErrorCode) {
+        *self.by_code.entry(code).or_default() += 1;
+        *self.by_category.entry(code.category()).or_default() += 1;
+        self.total += 1;
+    }
+
+    /// Get the count for a specific error code.
+    pub fn count_by_code(&self, code: ErrorCode) -> u64 {
+        self.by_code.get(&code).copied().unwrap_or(0)
+    }
+
+    /// Get the count for a specific category.
+    pub fn count_by_category(&self, cat: ErrorCategory) -> u64 {
+        self.by_category.get(&cat).copied().unwrap_or(0)
+    }
+
+    /// Total number of errors recorded.
+    pub fn total(&self) -> u64 {
+        self.total
+    }
+
+    /// Reset all counters to zero.
+    pub fn reset(&mut self) {
+        self.by_code.clear();
+        self.by_category.clear();
+        self.total = 0;
+    }
+
+    /// Get all codes that have been recorded, with their counts.
+    pub fn codes(&self) -> &BTreeMap<ErrorCode, u64> {
+        &self.by_code
+    }
+
+    /// Get all categories that have been recorded, with their counts.
+    pub fn categories(&self) -> &BTreeMap<ErrorCategory, u64> {
+        &self.by_category
+    }
+}
+
+// ---------------------------------------------------------------------------
+// abp_err! macro
+// ---------------------------------------------------------------------------
+
+/// Create an [`AbpError`] with automatic source location capture.
+///
+/// # Examples
+///
+/// ```
+/// use abp_error::{abp_err, ErrorCode};
+///
+/// let err = abp_err!(ErrorCode::Internal, "something broke");
+/// assert!(err.location.is_some());
+/// ```
+#[macro_export]
+macro_rules! abp_err {
+    ($code:expr, $msg:expr) => {
+        $crate::AbpError::new($code, $msg)
+            .with_location($crate::ErrorLocation::new(file!(), line!(), column!()))
+    };
+    ($code:expr, $msg:expr, $($key:expr => $val:expr),+ $(,)?) => {
+        $crate::AbpError::new($code, $msg)
+            .with_location($crate::ErrorLocation::new(file!(), line!(), column!()))
+            $(.with_context($key, $val))+
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -1041,6 +1295,8 @@ mod tests {
             message: "bad".into(),
             context: BTreeMap::new(),
             source_message: Some("inner".into()),
+            location: None,
+            cause_chain: Vec::new(),
         };
         let err: AbpError = dto.into();
         assert_eq!(err.code, ErrorCode::ConfigInvalid);
@@ -1287,5 +1543,320 @@ mod tests {
             ErrorCode::ContractInvalidReceipt.message(),
             "receipt is structurally invalid or cannot be verified"
         );
+    }
+
+    // -- ErrorLocation --------------------------------------------------
+
+    #[test]
+    fn error_location_display() {
+        let loc = ErrorLocation::new("src/main.rs", 42, 5);
+        assert_eq!(loc.to_string(), "src/main.rs:42:5");
+    }
+
+    #[test]
+    fn error_location_serde_roundtrip() {
+        let loc = ErrorLocation::new("crates/abp-error/src/lib.rs", 10, 1);
+        let json = serde_json::to_string(&loc).unwrap();
+        let back: ErrorLocation = serde_json::from_str(&json).unwrap();
+        assert_eq!(loc, back);
+    }
+
+    #[test]
+    fn with_location_builder() {
+        let err = AbpError::new(ErrorCode::Internal, "boom")
+            .with_location(ErrorLocation::new("test.rs", 1, 1));
+        assert!(err.location.is_some());
+        let loc = err.location.as_ref().unwrap();
+        assert_eq!(loc.file, "test.rs");
+        assert_eq!(loc.line, 1);
+    }
+
+    #[test]
+    fn debug_includes_location() {
+        let err = AbpError::new(ErrorCode::Internal, "oops")
+            .with_location(ErrorLocation::new("foo.rs", 99, 3));
+        let dbg = format!("{err:?}");
+        assert!(dbg.contains("foo.rs"));
+        assert!(dbg.contains("99"));
+    }
+
+    // -- Error chain iteration ------------------------------------------
+
+    #[test]
+    fn error_chain_no_source() {
+        let err = AbpError::new(ErrorCode::Internal, "no source");
+        assert_eq!(err.chain_depth(), 0);
+        assert_eq!(err.error_chain().count(), 0);
+    }
+
+    #[test]
+    fn error_chain_single_source() {
+        let src = io::Error::new(io::ErrorKind::NotFound, "inner");
+        let err = AbpError::new(ErrorCode::Internal, "outer").with_source(src);
+        assert_eq!(err.chain_depth(), 1);
+        let chain: Vec<String> = err.error_chain().map(|e| e.to_string()).collect();
+        assert_eq!(chain, vec!["inner"]);
+    }
+
+    #[test]
+    fn display_chain_no_source() {
+        let err = AbpError::new(ErrorCode::Internal, "lone error");
+        assert_eq!(err.display_chain(), "[internal] lone error");
+    }
+
+    #[test]
+    fn display_chain_with_source() {
+        let src = io::Error::new(io::ErrorKind::TimedOut, "connection timeout");
+        let err = AbpError::new(ErrorCode::BackendTimeout, "timed out").with_source(src);
+        let chain = err.display_chain();
+        assert!(chain.contains("[backend_timeout] timed out"));
+        assert!(chain.contains("caused by 0: connection timeout"));
+    }
+
+    // -- Matching utilities ---------------------------------------------
+
+    #[test]
+    fn matches_code_positive() {
+        let err = AbpError::new(ErrorCode::PolicyDenied, "denied");
+        assert!(err.matches_code(ErrorCode::PolicyDenied));
+    }
+
+    #[test]
+    fn matches_code_negative() {
+        let err = AbpError::new(ErrorCode::PolicyDenied, "denied");
+        assert!(!err.matches_code(ErrorCode::Internal));
+    }
+
+    #[test]
+    fn matches_category_positive() {
+        let err = AbpError::new(ErrorCode::BackendTimeout, "timeout");
+        assert!(err.matches_category(ErrorCategory::Backend));
+    }
+
+    #[test]
+    fn matches_category_negative() {
+        let err = AbpError::new(ErrorCode::BackendTimeout, "timeout");
+        assert!(!err.matches_category(ErrorCategory::Policy));
+    }
+
+    #[test]
+    fn has_context_key_positive() {
+        let err = AbpError::new(ErrorCode::Internal, "err").with_context("backend", "openai");
+        assert!(err.has_context_key("backend"));
+    }
+
+    #[test]
+    fn has_context_key_negative() {
+        let err = AbpError::new(ErrorCode::Internal, "err");
+        assert!(!err.has_context_key("nonexistent"));
+    }
+
+    // -- JSON serialization on AbpError ---------------------------------
+
+    #[test]
+    fn to_json_basic() {
+        let err = AbpError::new(ErrorCode::Internal, "oops");
+        let json = err.to_json().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["code"], "internal");
+        assert_eq!(parsed["message"], "oops");
+    }
+
+    #[test]
+    fn to_json_with_context_and_source() {
+        let src = io::Error::new(io::ErrorKind::NotFound, "file gone");
+        let err = AbpError::new(ErrorCode::WorkspaceStagingFailed, "staging failed")
+            .with_context("path", "/tmp/ws")
+            .with_source(src);
+        let json = err.to_json().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["context"]["path"], "/tmp/ws");
+        assert_eq!(parsed["source_message"], "file gone");
+        let chain = parsed["cause_chain"].as_array().unwrap();
+        assert_eq!(chain.len(), 1);
+        assert_eq!(chain[0], "file gone");
+    }
+
+    #[test]
+    fn to_json_pretty_contains_newlines() {
+        let err = AbpError::new(ErrorCode::Internal, "test");
+        let pretty = err.to_json_pretty().unwrap();
+        assert!(pretty.contains('\n'));
+    }
+
+    #[test]
+    fn to_json_with_location() {
+        let err = AbpError::new(ErrorCode::Internal, "located").with_location(ErrorLocation::new(
+            "src/lib.rs",
+            10,
+            5,
+        ));
+        let json = err.to_json().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["location"]["file"], "src/lib.rs");
+        assert_eq!(parsed["location"]["line"], 10);
+        assert_eq!(parsed["location"]["column"], 5);
+    }
+
+    // -- DTO with new fields --------------------------------------------
+
+    #[test]
+    fn dto_preserves_location() {
+        let err = AbpError::new(ErrorCode::Internal, "test")
+            .with_location(ErrorLocation::new("x.rs", 5, 1));
+        let dto: AbpErrorDto = (&err).into();
+        assert_eq!(dto.location, Some(ErrorLocation::new("x.rs", 5, 1)));
+    }
+
+    #[test]
+    fn dto_preserves_cause_chain() {
+        let src = io::Error::new(io::ErrorKind::BrokenPipe, "broken");
+        let err = AbpError::new(ErrorCode::BackendCrashed, "crash").with_source(src);
+        let dto: AbpErrorDto = (&err).into();
+        assert_eq!(dto.cause_chain, vec!["broken"]);
+    }
+
+    #[test]
+    fn dto_roundtrip_with_location() {
+        let err = AbpError::new(ErrorCode::Internal, "loc")
+            .with_location(ErrorLocation::new("a.rs", 1, 2));
+        let dto: AbpErrorDto = (&err).into();
+        let json = serde_json::to_string(&dto).unwrap();
+        let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
+        assert_eq!(dto, back);
+    }
+
+    #[test]
+    fn dto_empty_cause_chain_not_serialized() {
+        let err = AbpError::new(ErrorCode::Internal, "no cause");
+        let json = err.to_json().unwrap();
+        assert!(!json.contains("cause_chain"));
+    }
+
+    #[test]
+    fn dto_none_location_not_serialized() {
+        let err = AbpError::new(ErrorCode::Internal, "no loc");
+        let json = err.to_json().unwrap();
+        assert!(!json.contains("location"));
+    }
+
+    // -- From conversions (new) -----------------------------------------
+
+    #[test]
+    fn from_string() {
+        let err: AbpError = String::from("string error").into();
+        assert_eq!(err.code, ErrorCode::Internal);
+        assert_eq!(err.message, "string error");
+    }
+
+    #[test]
+    fn from_str() {
+        let err: AbpError = "str error".into();
+        assert_eq!(err.code, ErrorCode::Internal);
+        assert_eq!(err.message, "str error");
+    }
+
+    // -- ErrorStats -----------------------------------------------------
+
+    #[test]
+    fn stats_empty() {
+        let stats = ErrorStats::new();
+        assert_eq!(stats.total(), 0);
+        assert_eq!(stats.count_by_code(ErrorCode::Internal), 0);
+        assert_eq!(stats.count_by_category(ErrorCategory::Internal), 0);
+    }
+
+    #[test]
+    fn stats_record_and_count() {
+        let mut stats = ErrorStats::new();
+        stats.record(&AbpError::new(ErrorCode::BackendTimeout, "t1"));
+        stats.record(&AbpError::new(ErrorCode::BackendTimeout, "t2"));
+        stats.record(&AbpError::new(ErrorCode::PolicyDenied, "d1"));
+        assert_eq!(stats.total(), 3);
+        assert_eq!(stats.count_by_code(ErrorCode::BackendTimeout), 2);
+        assert_eq!(stats.count_by_code(ErrorCode::PolicyDenied), 1);
+        assert_eq!(stats.count_by_category(ErrorCategory::Backend), 2);
+        assert_eq!(stats.count_by_category(ErrorCategory::Policy), 1);
+    }
+
+    #[test]
+    fn stats_record_code() {
+        let mut stats = ErrorStats::new();
+        stats.record_code(ErrorCode::Internal);
+        stats.record_code(ErrorCode::Internal);
+        assert_eq!(stats.count_by_code(ErrorCode::Internal), 2);
+        assert_eq!(stats.count_by_category(ErrorCategory::Internal), 2);
+        assert_eq!(stats.total(), 2);
+    }
+
+    #[test]
+    fn stats_reset() {
+        let mut stats = ErrorStats::new();
+        stats.record_code(ErrorCode::BackendTimeout);
+        stats.record_code(ErrorCode::PolicyDenied);
+        assert_eq!(stats.total(), 2);
+        stats.reset();
+        assert_eq!(stats.total(), 0);
+        assert_eq!(stats.count_by_code(ErrorCode::BackendTimeout), 0);
+        assert!(stats.codes().is_empty());
+        assert!(stats.categories().is_empty());
+    }
+
+    #[test]
+    fn stats_codes_and_categories() {
+        let mut stats = ErrorStats::new();
+        stats.record_code(ErrorCode::BackendTimeout);
+        stats.record_code(ErrorCode::BackendCrashed);
+        assert_eq!(stats.codes().len(), 2);
+        assert_eq!(stats.categories().len(), 1);
+        assert_eq!(stats.count_by_category(ErrorCategory::Backend), 2);
+    }
+
+    // -- abp_err! macro -------------------------------------------------
+
+    #[test]
+    fn abp_err_macro_captures_location() {
+        let err = abp_err!(ErrorCode::Internal, "macro error");
+        assert!(err.location.is_some());
+        let loc = err.location.as_ref().unwrap();
+        assert!(loc.file.contains("lib.rs"));
+        assert!(loc.line > 0);
+    }
+
+    #[test]
+    fn abp_err_macro_with_context() {
+        let err = abp_err!(
+            ErrorCode::BackendTimeout,
+            "timed out",
+            "backend" => "openai",
+            "timeout_ms" => 5000
+        );
+        assert!(err.location.is_some());
+        assert_eq!(err.context["backend"], serde_json::json!("openai"));
+        assert_eq!(err.context["timeout_ms"], serde_json::json!(5000));
+    }
+
+    // -- Ord derives ----------------------------------------------------
+
+    #[test]
+    fn error_category_ord() {
+        let mut cats = vec![
+            ErrorCategory::Internal,
+            ErrorCategory::Backend,
+            ErrorCategory::Protocol,
+        ];
+        cats.sort();
+        assert_eq!(cats.len(), 3);
+    }
+
+    #[test]
+    fn error_code_ord() {
+        let mut codes = vec![
+            ErrorCode::Internal,
+            ErrorCode::BackendTimeout,
+            ErrorCode::ProtocolInvalidEnvelope,
+        ];
+        codes.sort();
+        assert_eq!(codes.len(), 3);
     }
 }

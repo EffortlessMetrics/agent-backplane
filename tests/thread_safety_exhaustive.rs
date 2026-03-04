@@ -1320,6 +1320,8 @@ fn test_abp_error_dto_concurrent_serde() {
         message: "test error".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     });
     let handles: Vec<_> = (0..8)
         .map(|_| {

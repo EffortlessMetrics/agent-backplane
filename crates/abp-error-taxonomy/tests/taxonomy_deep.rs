@@ -545,6 +545,8 @@ fn dto_to_abp_error_loses_source() {
         message: "bad".into(),
         context: BTreeMap::new(),
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.code, ErrorCode::ConfigInvalid);
@@ -711,6 +713,8 @@ fn dto_equality() {
         message: "a".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let dto2 = dto1.clone();
     assert_eq!(dto1, dto2);
@@ -723,12 +727,16 @@ fn dto_inequality_on_code() {
         message: "a".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let dto2 = AbpErrorDto {
         code: ErrorCode::BackendTimeout,
         message: "a".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     assert_ne!(dto1, dto2);
 }
@@ -1051,6 +1059,8 @@ fn dto_clone() {
         message: "timeout".into(),
         context: BTreeMap::from([("k".into(), serde_json::json!("v"))]),
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let cloned = dto.clone();
     assert_eq!(dto, cloned);

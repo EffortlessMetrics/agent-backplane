@@ -183,6 +183,77 @@ where
 }
 
 // ---------------------------------------------------------------------------
+// BearerAuth middleware
+// ---------------------------------------------------------------------------
+
+/// Shared bearer-token state for the auth middleware.
+///
+/// When the token is `None` the middleware is a pass-through (no auth
+/// required). When set, incoming requests must carry the header
+/// `Authorization: Bearer <token>`.
+#[derive(Debug, Clone)]
+pub struct BearerAuth {
+    /// Expected bearer token. `None` disables authentication.
+    pub token: Option<String>,
+}
+
+impl BearerAuth {
+    /// Create a new `BearerAuth` instance. Pass `None` to disable auth.
+    pub fn new(token: Option<String>) -> Self {
+        Self { token }
+    }
+
+    /// Validate an `Authorization` header value.
+    ///
+    /// Returns `Ok(())` when authentication succeeds — either because no
+    /// token is configured (auth disabled) or the header matches.
+    pub fn validate(&self, header: Option<&str>) -> Result<(), StatusCode> {
+        let expected = match &self.token {
+            Some(t) => t,
+            None => return Ok(()), // auth disabled
+        };
+
+        let header_val = header.ok_or(StatusCode::UNAUTHORIZED)?;
+        let provided = header_val
+            .strip_prefix("Bearer ")
+            .ok_or(StatusCode::UNAUTHORIZED)?;
+
+        if provided == expected.as_str() {
+            Ok(())
+        } else {
+            Err(StatusCode::UNAUTHORIZED)
+        }
+    }
+
+    /// Axum middleware function.
+    ///
+    /// Extracts the `BearerAuth` from request extensions and validates the
+    /// `Authorization` header. Unauthenticated requests receive `401`.
+    ///
+    /// Health endpoints (`/health`) are always allowed through.
+    pub async fn layer(req: Request, next: Next) -> Response {
+        let path = req.uri().path().to_owned();
+
+        // Always allow health checks without auth.
+        if path == "/health" || path == "/api/v1/health" {
+            return next.run(req).await;
+        }
+
+        if let Some(auth) = req.extensions().get::<BearerAuth>() {
+            let header = req
+                .headers()
+                .get("authorization")
+                .and_then(|v| v.to_str().ok());
+            if let Err(status) = auth.validate(header) {
+                return (status, "unauthorized").into_response();
+            }
+        }
+
+        next.run(req).await
+    }
+}
+
+// ---------------------------------------------------------------------------
 // CorsConfig
 // ---------------------------------------------------------------------------
 
