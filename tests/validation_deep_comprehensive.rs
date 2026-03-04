@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Deep comprehensive tests for abp-validate.
 

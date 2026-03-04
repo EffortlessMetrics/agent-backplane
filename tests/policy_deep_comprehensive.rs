@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 
 use std::path::Path;
 

@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 #![allow(unused_imports)]
 
 use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};

@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 
 //! Comprehensive test suite for the JSONL wire protocol.
 //!

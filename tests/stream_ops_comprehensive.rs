@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 
 //! Comprehensive tests for the `abp-stream` crate — event stream processing,
 //! transformation, buffering, merging, tee, timeout, metrics, aggregation,

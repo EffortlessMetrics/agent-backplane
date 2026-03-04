@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 
 //! Comprehensive tests for the daemon crate (`abp-daemon`) and the sdk-types
 //! crate (`abp-sdk-types`).

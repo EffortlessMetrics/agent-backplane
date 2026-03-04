@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 
 //! Comprehensive conformance test suite for cross-SDK mapping correctness.
 //!

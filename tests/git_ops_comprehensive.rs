@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 //! Comprehensive tests for the `abp-git` crate validating git operations
 //! used by workspace staging.
 //!

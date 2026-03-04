@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 //! Comprehensive integration tests for the ABP CLI crate.
 //!
 //! Tests CLI argument parsing, commands, config loading, formatting,

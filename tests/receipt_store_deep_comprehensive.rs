@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 #![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 

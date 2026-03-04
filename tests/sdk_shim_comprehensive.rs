@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
 //! Comprehensive tests for the SDK shim crates.
 //!
 //! Tests each vendor SDK adapter's public API surface including:
