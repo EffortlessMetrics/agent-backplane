@@ -15,6 +15,14 @@ pub mod aggregate;
 pub mod category;
 /// Diagnostic generation with probable cause and suggested fixes.
 pub mod diagnostic;
+/// Typed errors for cross-SDK mapping failures.
+pub mod mapping_errors;
+/// Enhanced protocol errors for JSONL sidecar communication.
+pub mod protocol_errors;
+/// Recovery strategies for each error type (Retry, Fallback, Degrade, Abort).
+pub mod recovery;
+/// Vendor-specific API error wrappers with structured metadata.
+pub mod vendor_errors;
 /// Vendor-specific error mapping (OpenAI, Anthropic, Gemini).
 pub mod vendor_map;
 
