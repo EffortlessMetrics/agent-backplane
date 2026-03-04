@@ -278,3 +278,23 @@ harness = false
 [[bench]]
 name = "protocol_benchmarks"
 harness = false
+
+[[bench]]
+name = "receipt_hash"
+harness = false
+
+[[bench]]
+name = "envelope_parse"
+harness = false
+
+[[bench]]
+name = "ir_transform"
+harness = false
+
+[[bench]]
+name = "policy_eval"
+harness = false
+
+[[bench]]
+name = "dialect_detect"
+harness = false
