@@ -9,6 +9,8 @@
 
 /// Conversion layer between OpenAI Chat Completions types and ABP core types.
 pub mod convert;
+/// HTTP client for the OpenAI Chat Completions API.
+pub mod client;
 /// Strongly-typed OpenAI Chat Completions API types using a role-tagged message enum.
 pub mod types;
 

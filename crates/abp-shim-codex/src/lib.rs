@@ -9,6 +9,8 @@
 
 /// Conversion layer between Codex Responses API types and ABP core types.
 pub mod convert;
+/// HTTP client for the OpenAI Codex Responses API.
+pub mod client;
 /// Codex Responses API types (builder, usage statistics).
 pub mod types;
 

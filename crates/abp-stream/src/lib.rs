@@ -5,18 +5,28 @@
 
 use abp_core::{AgentEvent, AgentEventKind};
 use std::collections::HashMap;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 use tokio::sync::mpsc;
 
 pub mod aggregate;
 pub mod buffer;
+pub mod buffered;
+pub mod collector;
+pub mod merged;
 pub mod metrics;
 pub mod tee;
+pub mod timeout;
 
 pub use aggregate::{StreamAggregator, StreamSummary, ToolCallAggregate};
 pub use buffer::StreamBuffer;
+pub use buffered::BufferedStream;
+pub use collector::EventCollector;
+pub use merged::MergedStream;
 pub use metrics::{MetricsSummary, StreamMetrics};
 pub use tee::{StreamTee, TeeError};
+pub use timeout::{StreamTimeout, TimeoutItem, TimeoutStream};
 
 // ---------------------------------------------------------------------------
 // EventFilter
@@ -245,6 +255,9 @@ impl EventStats {
 // ---------------------------------------------------------------------------
 
 /// Wrapper around `mpsc::Receiver<AgentEvent>` providing stream processing.
+///
+/// Implements [`futures_core::Stream`] so it can be used with combinators,
+/// [`EventCollector`], [`TimeoutStream`], etc.
 pub struct EventStream {
     rx: mpsc::Receiver<AgentEvent>,
 }
@@ -294,6 +307,14 @@ impl EventStream {
     /// Return the inner receiver.
     pub fn into_inner(self) -> mpsc::Receiver<AgentEvent> {
         self.rx
+    }
+}
+
+impl futures_core::Stream for EventStream {
+    type Item = AgentEvent;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.rx.poll_recv(cx)
     }
 }
 

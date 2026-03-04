@@ -4,12 +4,17 @@ Agent event stream processing, transformation, and multiplexing for Agent Backpl
 
 ## Features
 
-- **EventStream** — wrapper around `mpsc::Receiver<AgentEvent>` with stream processing methods
+- **EventStream** — wrapper around `mpsc::Receiver<AgentEvent>` implementing `futures_core::Stream`
+- **EventCollector** — collects events into a `Vec` while forwarding them through a stream
 - **EventFilter** — filter events by kind, source, or custom predicate
 - **EventTransform** — transform events in-flight (add metadata, modify content)
+- **MergedStream** — merges multiple event streams with round-robin interleaving
+- **TimeoutStream** — wraps a stream with per-item timeout
+- **BufferedStream** — buffers events and emits them in batches
 - **EventMultiplexer** — combine multiple event streams into one, maintaining timestamp ordering
 - **EventRecorder** — record all events for replay/inspection
 - **EventStats** — track event statistics (count by kind, total tokens, timing)
+- **StreamMetrics** — tracks event counts, throughput, latency
 - **StreamPipeline** — compose filters, transforms, and recording into a processing pipeline
 
 ## Usage

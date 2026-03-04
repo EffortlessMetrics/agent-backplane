@@ -9,6 +9,8 @@
 
 /// Conversion layer between Kimi shim types and ABP core types.
 pub mod convert;
+/// HTTP client for the Moonshot (Kimi) Chat Completions API.
+pub mod client;
 /// Kimi-specific shim types (messages, usage, request builder).
 pub mod types;
 
