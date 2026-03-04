@@ -470,7 +470,11 @@ mod negotiation_logic {
             (Capability::Streaming, SupportLevel::Native),
             (Capability::ToolRead, SupportLevel::Emulated),
         ]);
-        let r = reqs_native(&[Capability::Streaming, Capability::ToolRead]);
+        // ToolRead is Emulated → use Emulated min_support
+        let r = reqs(&[
+            (Capability::Streaming, MinSupport::Native),
+            (Capability::ToolRead, MinSupport::Emulated),
+        ]);
         let res = negotiate(&m, &r);
         assert_eq!(res.native, vec![Capability::Streaming]);
         assert_eq!(res.emulated_caps(), vec![Capability::ToolRead]);
@@ -479,7 +483,11 @@ mod negotiation_logic {
     #[test]
     fn emulated_ranks_above_unsupported() {
         let m = manifest(&[(Capability::ToolRead, SupportLevel::Emulated)]);
-        let r = reqs_native(&[Capability::ToolRead, Capability::Logprobs]);
+        // ToolRead is Emulated → use Emulated min_support; Logprobs not in manifest → unsupported
+        let r = reqs(&[
+            (Capability::ToolRead, MinSupport::Emulated),
+            (Capability::Logprobs, MinSupport::Native),
+        ]);
         let res = negotiate(&m, &r);
         assert_eq!(res.emulated_caps(), vec![Capability::ToolRead]);
         assert_eq!(res.unsupported_caps(), vec![Capability::Logprobs]);
@@ -492,10 +500,11 @@ mod negotiation_logic {
             (Capability::ToolRead, SupportLevel::Emulated),
             // Logprobs missing → unsupported
         ]);
-        let r = reqs_native(&[
-            Capability::Streaming,
-            Capability::ToolRead,
-            Capability::Logprobs,
+        // ToolRead is Emulated → use Emulated min_support
+        let r = reqs(&[
+            (Capability::Streaming, MinSupport::Native),
+            (Capability::ToolRead, MinSupport::Emulated),
+            (Capability::Logprobs, MinSupport::Native),
         ]);
         let res = negotiate(&m, &r);
         assert_eq!(res.native.len(), 1);
@@ -525,7 +534,8 @@ mod negotiation_logic {
             .iter()
             .map(|c| (c.clone(), SupportLevel::Emulated))
             .collect();
-        let r = reqs_native(&all);
+        // Emulated support satisfies Emulated min_support (not Native)
+        let r = reqs_emulated(&all);
         let res = negotiate(&m, &r);
         assert!(res.is_compatible());
         assert!(res.native.is_empty());
