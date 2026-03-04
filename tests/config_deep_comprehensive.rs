@@ -35,6 +35,7 @@
 //! round-trips, optional/required fields, sidecar config, and edge cases.
 
 use abp_config::*;
+use serial_test::serial;
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::Path;
@@ -1233,6 +1234,7 @@ fn load_invalid_toml_file_gives_parse_error() {
 // Use unique env var names (via _320_ prefix) per test to avoid interference.
 
 #[test]
+#[serial]
 fn env_override_default_backend() {
     let mut c = BackplaneConfig::default();
     // Manually set env, apply, unset.
@@ -1243,6 +1245,7 @@ fn env_override_default_backend() {
 }
 
 #[test]
+#[serial]
 fn env_override_log_level() {
     let mut c = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_LOG_LEVEL", "trace_320_2") }
@@ -1252,6 +1255,7 @@ fn env_override_log_level() {
 }
 
 #[test]
+#[serial]
 fn env_override_receipts_dir() {
     let mut c = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_RECEIPTS_DIR", "/recv_320_3") }
@@ -1261,6 +1265,7 @@ fn env_override_receipts_dir() {
 }
 
 #[test]
+#[serial]
 fn env_override_workspace_dir() {
     let mut c = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_WORKSPACE_DIR", "/ws_320_4") }
@@ -1270,6 +1275,7 @@ fn env_override_workspace_dir() {
 }
 
 #[test]
+#[serial]
 fn env_override_replaces_existing_value() {
     let mut c = BackplaneConfig {
         default_backend: Some("old".into()),
@@ -1282,6 +1288,7 @@ fn env_override_replaces_existing_value() {
 }
 
 #[test]
+#[serial]
 fn env_override_does_not_touch_unset_vars() {
     // Ensure none of the env vars are set.
     unsafe { std::env::remove_var("ABP_DEFAULT_BACKEND") }
@@ -1304,6 +1311,7 @@ fn env_override_does_not_touch_unset_vars() {
 }
 
 #[test]
+#[serial]
 fn env_override_empty_string_is_set() {
     let mut c = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_DEFAULT_BACKEND", "") }
@@ -1314,6 +1322,7 @@ fn env_override_empty_string_is_set() {
 }
 
 #[test]
+#[serial]
 fn env_override_does_not_affect_backends() {
     let mut c = full_cfg();
     let before = c.backends.len();
@@ -1328,6 +1337,7 @@ fn env_override_does_not_affect_backends() {
 // ===========================================================================
 
 #[test]
+#[serial]
 fn file_plus_env_plus_defaults_merge() {
     // Simulate: defaults → file → env
     let file_cfg = BackplaneConfig {
@@ -1725,6 +1735,7 @@ fn minimal_config_warnings_are_advisory() {
 // ===========================================================================
 
 #[test]
+#[serial]
 fn load_config_env_overrides_file() {
     let dir = tempfile::tempdir().unwrap();
     let p = write_toml(dir.path(), "bp.toml", r#"log_level = "debug""#);

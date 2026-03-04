@@ -183,6 +183,7 @@ http-body-util = { workspace = true }
 futures = { workspace = true }
 wiremock = { workspace = true }
 reqwest = { workspace = true }
+serial_test = "3.4.0"
 
 [[test]]
 name = "bdd"
