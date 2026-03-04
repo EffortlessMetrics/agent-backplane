@@ -36,6 +36,7 @@ members = [
   "crates/abp-policy",
   "crates/abp-projection",
   "crates/abp-receipt",
+  "crates/abp-run-queue",
   "crates/abp-protocol",
   "crates/abp-runtime",
   "crates/abp-shim-claude",
