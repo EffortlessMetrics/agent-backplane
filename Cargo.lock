@@ -109,6 +109,7 @@ version = "0.1.0"
 dependencies = [
  "abp-core",
  "abp-runtime",
+ "abp-sdk-types",
  "abp-sidecar-sdk",
  "anyhow",
  "chrono",
@@ -136,6 +137,7 @@ version = "0.1.0"
 dependencies = [
  "abp-core",
  "abp-runtime",
+ "abp-sdk-types",
  "abp-sidecar-sdk",
  "anyhow",
  "chrono",
@@ -330,6 +332,7 @@ version = "0.1.0"
 dependencies = [
  "abp-core",
  "abp-runtime",
+ "abp-sdk-types",
  "abp-sidecar-sdk",
  "anyhow",
  "chrono",
@@ -489,6 +492,7 @@ version = "0.1.0"
 dependencies = [
  "abp-claude-sdk",
  "abp-core",
+ "abp-sdk-types",
  "chrono",
  "serde",
  "serde_json",
@@ -564,6 +568,7 @@ version = "0.1.0"
 dependencies = [
  "abp-core",
  "abp-openai-sdk",
+ "abp-sdk-types",
  "chrono",
  "serde",
  "serde_json",

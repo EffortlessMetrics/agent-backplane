@@ -7,6 +7,8 @@
 //!
 //! Drop-in OpenAI SDK shim that routes through ABP's intermediate representation.
 
+/// Conversion layer between OpenAI Chat Completions types and ABP core types.
+pub mod convert;
 /// Strongly-typed OpenAI Chat Completions API types using a role-tagged message enum.
 pub mod types;
 

@@ -14,6 +14,13 @@
 /// `GeminiResponse` from `Receipt`.
 pub mod conversions;
 
+/// Conversion layer for the Gemini `GenerateContent` API.
+///
+/// Free-function conversions using `crate::types` (camelCase wire types):
+/// [`convert::to_work_order`], [`convert::from_receipt`], and
+/// [`convert::from_agent_event`].
+pub mod convert;
+
 /// Gemini dialect configuration, model mapping, and capability manifest.
 ///
 /// Defines the concrete types (`GeminiContent`, `GeminiPart`, etc.)

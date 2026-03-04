@@ -9,6 +9,8 @@
 #![warn(missing_docs)]
 
 pub mod api;
+/// Conversion between Kimi SDK wire types and ABP contract types.
+pub mod convert;
 pub mod dialect;
 pub mod lowering;
 pub mod types;
