@@ -59,6 +59,10 @@ mod openai_to_gemini;
 pub mod capabilities;
 /// Emulation strategies for partially-supported features.
 pub mod emulation;
+/// Fidelity reporting for dialect mapping.
+pub mod fidelity;
+/// Mapping rules for dialect translation.
+pub mod rules;
 /// IR-level structural validation.
 pub mod validate_ir;
 /// Validation pipeline for mapping correctness.

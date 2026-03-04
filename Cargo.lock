@@ -810,6 +810,7 @@ dependencies = [
  "cucumber",
  "flate2",
  "futures",
+ "gemini-bridge",
  "http-body-util",
  "insta",
  "jsonschema",

@@ -9,9 +9,12 @@
 
 use std::collections::BTreeSet;
 
+use abp_core::ir::{IrContentBlock, IrConversation, IrRole};
 use abp_dialect::Dialect;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::capabilities::dialect_capabilities;
 
 // ── Required fields per dialect ─────────────────────────────────────────
 
@@ -444,6 +447,194 @@ impl<V: MappingValidator> ValidationPipeline<V> {
     }
 }
 
+// ── MappingValidationIssue ──────────────────────────────────────────────
+
+/// A single issue found during IR-level mapping validation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MappingValidationIssue {
+    /// Machine-readable issue code.
+    pub code: String,
+    /// Feature or field that triggered the issue.
+    pub feature: String,
+    /// Human-readable description.
+    pub message: String,
+}
+
+impl std::fmt::Display for MappingValidationIssue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}] {}: {}", self.code, self.feature, self.message)
+    }
+}
+
+// ── MappingValidationError ─────────────────────────────────────────────
+
+/// Error returned when mapping validation fails.
+///
+/// Contains all issues found — the validator never short-circuits on
+/// the first problem so that callers see the full picture.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MappingValidationError {
+    /// Source dialect of the attempted mapping.
+    pub source_dialect: Dialect,
+    /// Target dialect of the attempted mapping.
+    pub target_dialect: Dialect,
+    /// All issues found during validation.
+    pub issues: Vec<MappingValidationIssue>,
+}
+
+impl std::fmt::Display for MappingValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "mapping validation failed ({} -> {}): {} issue(s)",
+            self.source_dialect.label(),
+            self.target_dialect.label(),
+            self.issues.len()
+        )
+    }
+}
+
+impl std::error::Error for MappingValidationError {}
+
+impl MappingValidationError {
+    /// Returns `true` when there are no issues.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.issues.is_empty()
+    }
+
+    /// Number of issues.
+    #[must_use]
+    pub fn issue_count(&self) -> usize {
+        self.issues.len()
+    }
+
+    /// Check if a specific issue code is present.
+    #[must_use]
+    pub fn has_code(&self, code: &str) -> bool {
+        self.issues.iter().any(|i| i.code == code)
+    }
+}
+
+// ── validate_mapping ───────────────────────────────────────────────────
+
+/// Validate that a mapping from one dialect to another can succeed for
+/// the given IR request.
+///
+/// Checks all features used in the request against the target dialect's
+/// capabilities, collecting **all** issues without short-circuiting.
+///
+/// Returns `Ok(())` when no issues are found, or `Err(MappingValidationError)`
+/// with the full list of problems.
+pub fn validate_mapping(
+    from_dialect: Dialect,
+    to_dialect: Dialect,
+    request: &IrConversation,
+) -> Result<(), MappingValidationError> {
+    let mut issues = Vec::new();
+    let to_caps = dialect_capabilities(to_dialect);
+
+    // Check dialect pair support
+    if crate::default_ir_mapper(from_dialect, to_dialect).is_none() {
+        issues.push(MappingValidationIssue {
+            code: "unsupported_dialect_pair".into(),
+            feature: "dialect_pair".into(),
+            message: format!(
+                "no mapper available for {} -> {}",
+                from_dialect.label(),
+                to_dialect.label()
+            ),
+        });
+    }
+
+    // Check each message for unsupported features
+    for (idx, msg) in request.messages.iter().enumerate() {
+        // System prompt
+        if msg.role == IrRole::System && !to_caps.system_prompt.is_native() {
+            issues.push(MappingValidationIssue {
+                code: "unsupported_system_prompt".into(),
+                feature: "system_prompt".into(),
+                message: format!(
+                    "system message at index {} not supported by {}",
+                    idx,
+                    to_dialect.label()
+                ),
+            });
+        }
+
+        for block in &msg.content {
+            match block {
+                IrContentBlock::Thinking { .. } if !to_caps.thinking.is_native() => {
+                    issues.push(MappingValidationIssue {
+                        code: "unsupported_thinking".into(),
+                        feature: "thinking".into(),
+                        message: format!(
+                            "thinking block at message {} not supported by {}",
+                            idx,
+                            to_dialect.label()
+                        ),
+                    });
+                }
+                IrContentBlock::Image { .. } if !to_caps.images.is_native() => {
+                    issues.push(MappingValidationIssue {
+                        code: "unsupported_image".into(),
+                        feature: "images".into(),
+                        message: format!(
+                            "image block at message {} not supported by {}",
+                            idx,
+                            to_dialect.label()
+                        ),
+                    });
+                }
+                IrContentBlock::ToolUse { .. } if !to_caps.tool_use.is_native() => {
+                    issues.push(MappingValidationIssue {
+                        code: "unsupported_tool_use".into(),
+                        feature: "tool_use".into(),
+                        message: format!(
+                            "tool use at message {} not supported by {}",
+                            idx,
+                            to_dialect.label()
+                        ),
+                    });
+                }
+                IrContentBlock::ToolResult { .. } if !to_caps.tool_use.is_native() => {
+                    issues.push(MappingValidationIssue {
+                        code: "unsupported_tool_result".into(),
+                        feature: "tool_use".into(),
+                        message: format!(
+                            "tool result at message {} not supported by {}",
+                            idx,
+                            to_dialect.label()
+                        ),
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Check for empty messages (structural issue)
+    for (idx, msg) in request.messages.iter().enumerate() {
+        if msg.content.is_empty() {
+            issues.push(MappingValidationIssue {
+                code: "empty_message".into(),
+                feature: "structure".into(),
+                message: format!("message at index {} has no content blocks", idx),
+            });
+        }
+    }
+
+    if issues.is_empty() {
+        Ok(())
+    } else {
+        Err(MappingValidationError {
+            source_dialect: from_dialect,
+            target_dialect: to_dialect,
+            issues,
+        })
+    }
+}
+
 // ── Unit tests ──────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -655,5 +846,211 @@ mod tests {
         let _v = pipe.validator();
         assert_eq!(pipe.source, Dialect::OpenAi);
         assert_eq!(pipe.target, Dialect::Claude);
+    }
+
+    // -- validate_mapping (IR-level) --
+
+    #[test]
+    fn validate_mapping_same_dialect_succeeds() {
+        use abp_core::ir::IrMessage;
+        let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hello")]);
+        assert!(validate_mapping(Dialect::OpenAi, Dialect::OpenAi, &conv).is_ok());
+    }
+
+    #[test]
+    fn validate_mapping_openai_to_claude_simple() {
+        use abp_core::ir::IrMessage;
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "sys"),
+            IrMessage::text(IrRole::User, "hi"),
+        ]);
+        assert!(validate_mapping(Dialect::OpenAi, Dialect::Claude, &conv).is_ok());
+    }
+
+    #[test]
+    fn validate_mapping_thinking_to_openai() {
+        use abp_core::ir::IrMessage;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::Thinking {
+                text: "hmm".into(),
+            }],
+        )]);
+        let err = validate_mapping(Dialect::Claude, Dialect::OpenAi, &conv).unwrap_err();
+        assert!(err.has_code("unsupported_thinking"));
+    }
+
+    #[test]
+    fn validate_mapping_collects_all_errors() {
+        use abp_core::ir::IrMessage;
+        // Codex: no system, no tools, no images, no thinking
+        let conv = IrConversation::from_messages(vec![
+            IrMessage::text(IrRole::System, "sys"),
+            IrMessage::new(
+                IrRole::User,
+                vec![IrContentBlock::Image {
+                    media_type: "image/png".into(),
+                    data: "data".into(),
+                }],
+            ),
+            IrMessage::new(
+                IrRole::Assistant,
+                vec![IrContentBlock::ToolUse {
+                    id: "t1".into(),
+                    name: "test".into(),
+                    input: json!({}),
+                }],
+            ),
+        ]);
+        let err = validate_mapping(Dialect::Claude, Dialect::Codex, &conv).unwrap_err();
+        // Should have multiple issues, not just the first
+        assert!(err.issue_count() >= 3);
+        assert!(err.has_code("unsupported_system_prompt"));
+        assert!(err.has_code("unsupported_image"));
+        assert!(err.has_code("unsupported_tool_use"));
+    }
+
+    #[test]
+    fn validate_mapping_empty_request_succeeds() {
+        let conv = IrConversation::new();
+        assert!(validate_mapping(Dialect::OpenAi, Dialect::Claude, &conv).is_ok());
+    }
+
+    #[test]
+    fn validate_mapping_empty_message_detected() {
+        use abp_core::ir::IrMessage;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(IrRole::User, vec![])]);
+        let err = validate_mapping(Dialect::OpenAi, Dialect::Claude, &conv).unwrap_err();
+        assert!(err.has_code("empty_message"));
+    }
+
+    #[test]
+    fn validate_mapping_images_to_codex() {
+        use abp_core::ir::IrMessage;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::User,
+            vec![IrContentBlock::Image {
+                media_type: "image/png".into(),
+                data: "data".into(),
+            }],
+        )]);
+        let err = validate_mapping(Dialect::OpenAi, Dialect::Codex, &conv).unwrap_err();
+        assert!(err.has_code("unsupported_image"));
+    }
+
+    #[test]
+    fn validate_mapping_tools_to_codex() {
+        use abp_core::ir::IrMessage;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "t1".into(),
+                name: "test".into(),
+                input: json!({}),
+            }],
+        )]);
+        let err = validate_mapping(Dialect::OpenAi, Dialect::Codex, &conv).unwrap_err();
+        assert!(err.has_code("unsupported_tool_use"));
+    }
+
+    #[test]
+    fn validate_mapping_unsupported_pair() {
+        use abp_core::ir::IrMessage;
+        // Codex ↔ Copilot has no mapper
+        let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hi")]);
+        let err = validate_mapping(Dialect::Codex, Dialect::Copilot, &conv).unwrap_err();
+        assert!(err.has_code("unsupported_dialect_pair"));
+    }
+
+    #[test]
+    fn validate_mapping_all_supported_pairs_text_only() {
+        use abp_core::ir::IrMessage;
+        let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "hello")]);
+        for (from, to) in crate::supported_ir_pairs() {
+            let result = validate_mapping(from, to, &conv);
+            assert!(
+                result.is_ok(),
+                "text-only should pass for supported pair {} -> {}",
+                from.label(),
+                to.label()
+            );
+        }
+    }
+
+    #[test]
+    fn validate_mapping_error_display() {
+        use abp_core::ir::IrMessage;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::Thinking {
+                text: "hmm".into(),
+            }],
+        )]);
+        let err = validate_mapping(Dialect::Claude, Dialect::OpenAi, &conv).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("validation failed"));
+        assert!(msg.contains("issue(s)"));
+    }
+
+    #[test]
+    fn validate_mapping_tool_result_to_codex() {
+        use abp_core::ir::IrMessage;
+        let conv = IrConversation::from_messages(vec![IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "t1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "result".into(),
+                }],
+                is_error: false,
+            }],
+        )]);
+        let err = validate_mapping(Dialect::OpenAi, Dialect::Codex, &conv).unwrap_err();
+        assert!(err.has_code("unsupported_tool_result"));
+    }
+
+    #[test]
+    fn mapping_validation_error_is_debug_clone() {
+        let err = MappingValidationError {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            issues: vec![MappingValidationIssue {
+                code: "test".into(),
+                feature: "test".into(),
+                message: "test".into(),
+            }],
+        };
+        let _ = format!("{:?}", err);
+        let _ = err.clone();
+    }
+
+    #[test]
+    fn mapping_validation_issue_serde_roundtrip() {
+        let issue = MappingValidationIssue {
+            code: "unsupported_thinking".into(),
+            feature: "thinking".into(),
+            message: "not supported".into(),
+        };
+        let json_str = serde_json::to_string(&issue).unwrap();
+        let back: MappingValidationIssue = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(back, issue);
+    }
+
+    #[test]
+    fn mapping_validation_error_serde_roundtrip() {
+        let err = MappingValidationError {
+            source_dialect: Dialect::Claude,
+            target_dialect: Dialect::Codex,
+            issues: vec![MappingValidationIssue {
+                code: "test".into(),
+                feature: "feat".into(),
+                message: "msg".into(),
+            }],
+        };
+        let json_str = serde_json::to_string(&err).unwrap();
+        let back: MappingValidationError = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(back.source_dialect, Dialect::Claude);
+        assert_eq!(back.target_dialect, Dialect::Codex);
+        assert_eq!(back.issue_count(), 1);
     }
 }
