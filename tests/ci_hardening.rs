@@ -459,6 +459,10 @@ fn verify_error_types_implement_std_error() {
                 if name == "ErrorCode" {
                     continue;
                 }
+                // ErrorSeverity/ErrorAction are classification metadata, not error types.
+                if name == "ErrorSeverity" || name == "ErrorAction" {
+                    continue;
+                }
 
                 // Check for thiserror derive OR manual std::error::Error impl.
                 let mut found = false;
