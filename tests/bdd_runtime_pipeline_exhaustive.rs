@@ -875,7 +875,7 @@ async fn test_given_no_matching_backend_then_unknown_backend_error_returned() {
         .await;
     // Then UnknownBackend error returned
     assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.err().unwrap();
     assert!(
         matches!(&err, RuntimeError::UnknownBackend { name } if name == "nonexistent"),
         "expected UnknownBackend, got {err:?}"
@@ -889,8 +889,9 @@ async fn test_given_empty_registry_when_run_requested_then_unknown_backend_error
     // When run requested
     let result = rt.run_streaming("any", passthrough_wo("empty")).await;
     // Then UnknownBackend error
+    assert!(result.is_err());
     assert!(matches!(
-        result.unwrap_err(),
+        result.err().unwrap(),
         RuntimeError::UnknownBackend { .. }
     ));
 }
@@ -1442,7 +1443,6 @@ fn test_given_completed_run_when_receipt_generated_then_hash_is_deterministic() 
     let receipt = ReceiptBuilder::new("mock")
         .outcome(Outcome::Complete)
         .work_order_id(Uuid::nil())
-        .run_id(Uuid::nil())
         .build();
     // When hash generated twice
     let h1 = receipt_hash(&receipt).unwrap();
@@ -1458,7 +1458,6 @@ fn test_given_receipt_with_hash_when_recomputed_then_matches_stored() {
     let receipt = ReceiptBuilder::new("mock")
         .outcome(Outcome::Complete)
         .work_order_id(Uuid::nil())
-        .run_id(Uuid::nil())
         .build()
         .with_hash()
         .unwrap();
@@ -1494,15 +1493,13 @@ fn test_given_receipt_without_hash_when_verify_hash_called_then_false() {
 #[test]
 fn test_given_receipt_with_events_when_counting_then_counts_match() {
     // Given receipt with known number of events
-    let events: Vec<AgentEvent> = (0..5)
-        .map(|i| make_event(AgentEventKind::AssistantDelta {
+    let mut builder = ReceiptBuilder::new("mock").outcome(Outcome::Complete);
+    for i in 0..5 {
+        builder = builder.add_trace_event(make_event(AgentEventKind::AssistantDelta {
             text: format!("chunk-{i}"),
-        }))
-        .collect();
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .events(events)
-        .build();
+        }));
+    }
+    let receipt = builder.build();
     // When counting
     // Then counts match actual events
     assert_eq!(receipt.trace.len(), 5);
@@ -1513,12 +1510,10 @@ fn test_given_two_receipts_different_outcomes_when_hashed_then_differ() {
     // Given two receipts with different outcomes
     let r1 = ReceiptBuilder::new("mock")
         .work_order_id(Uuid::nil())
-        .run_id(Uuid::nil())
         .outcome(Outcome::Complete)
         .build();
     let r2 = ReceiptBuilder::new("mock")
         .work_order_id(Uuid::nil())
-        .run_id(Uuid::nil())
         .outcome(Outcome::Failed)
         .build();
     // When hashed
@@ -1533,12 +1528,10 @@ fn test_given_receipt_with_trace_events_when_hashed_then_events_influence_hash()
     // Given two receipts: one empty trace, one with events
     let r1 = ReceiptBuilder::new("mock")
         .work_order_id(Uuid::nil())
-        .run_id(Uuid::nil())
         .outcome(Outcome::Complete)
         .build();
     let r2 = ReceiptBuilder::new("mock")
         .work_order_id(Uuid::nil())
-        .run_id(Uuid::nil())
         .outcome(Outcome::Complete)
         .add_trace_event(make_event(AgentEventKind::AssistantMessage {
             text: "hello".into(),
@@ -1733,15 +1726,14 @@ async fn test_given_backend_with_capabilities_when_unsatisfied_requirement_then_
 
     let result = rt.run_streaming("limited", wo).await;
     // Then run fails with capability check error
-    assert!(result.is_err() || {
-        // The error may come at run_streaming or during the receipt await
-        if let Ok(handle) = result {
+    match result {
+        Err(_) => {} // Expected: capability check failed at run_streaming level
+        Ok(handle) => {
+            // Error may come during receipt await instead
             let (_, receipt) = drain_run(handle).await;
-            receipt.is_err()
-        } else {
-            true
+            assert!(receipt.is_err(), "expected capability check failure");
         }
-    });
+    }
 }
 
 #[test]
@@ -1962,8 +1954,8 @@ async fn test_given_runtime_run_when_metrics_checked_then_run_counted() {
     let (_, receipt) = drain_run(handle).await;
     receipt.unwrap();
     // Then metrics recorded
-    let metrics = rt.metrics();
-    assert!(metrics.total_runs() >= 1);
+    let snap = rt.metrics().snapshot();
+    assert!(snap.total_runs >= 1);
 }
 
 #[tokio::test]
@@ -1977,8 +1969,8 @@ async fn test_given_successful_run_when_metrics_checked_then_success_counted() {
     let (_, receipt) = drain_run(handle).await;
     receipt.unwrap();
     // Then success counted
-    let metrics = rt.metrics();
-    assert!(metrics.successful_runs() >= 1);
+    let snap = rt.metrics().snapshot();
+    assert!(snap.successful_runs >= 1);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2196,17 +2188,13 @@ fn test_given_work_order_with_empty_task_then_builds() {
 
 #[test]
 fn test_given_receipt_with_large_trace_when_hashed_then_succeeds() {
-    let events: Vec<AgentEvent> = (0..100)
-        .map(|i| make_event(AgentEventKind::AssistantDelta {
+    let mut builder = ReceiptBuilder::new("mock").outcome(Outcome::Complete);
+    for i in 0..100 {
+        builder = builder.add_trace_event(make_event(AgentEventKind::AssistantDelta {
             text: format!("chunk-{i}"),
-        }))
-        .collect();
-    let receipt = ReceiptBuilder::new("mock")
-        .outcome(Outcome::Complete)
-        .events(events)
-        .build()
-        .with_hash()
-        .unwrap();
+        }));
+    }
+    let receipt = builder.build().with_hash().unwrap();
     assert!(receipt.receipt_sha256.is_some());
     assert_eq!(receipt.trace.len(), 100);
 }

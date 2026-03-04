@@ -36,9 +36,9 @@
 use std::collections::BTreeMap;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
-    Receipt, ReceiptBuilder, RunMetadata, UsageNormalized, VerificationReport, WorkOrderBuilder,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, UsageNormalized,
+    VerificationReport, WorkOrderBuilder,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -268,10 +268,7 @@ mod tests {
                 "custom_field".to_string(),
                 json!({"nested": {"deep": true}}),
             );
-            ext.insert(
-                "array_field".to_string(),
-                json!([1, 2, 3, "four", null]),
-            );
+            ext.insert("array_field".to_string(), json!([1, 2, 3, "four", null]));
             let event = AgentEvent {
                 ts: Utc::now(),
                 kind: AgentEventKind::AssistantMessage {
@@ -400,10 +397,7 @@ mod tests {
             assert_eq!(chunks.len(), 3);
             assert_eq!(chunks[0].choices[0].delta.content.as_deref(), Some("Hel"));
             assert_eq!(chunks[1].choices[0].delta.content.as_deref(), Some("lo!"));
-            assert_eq!(
-                chunks[2].choices[0].finish_reason.as_deref(),
-                Some("stop")
-            );
+            assert_eq!(chunks[2].choices[0].finish_reason.as_deref(), Some("stop"));
         }
 
         #[tokio::test]
@@ -426,10 +420,7 @@ mod tests {
             assert_eq!(tc[0].id, "call_abc");
             assert_eq!(tc[0].function.name, "get_weather");
             assert!(tc[0].function.arguments.contains("NYC"));
-            assert_eq!(
-                resp.choices[0].finish_reason.as_deref(),
-                Some("tool_calls")
-            );
+            assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("tool_calls"));
         }
 
         #[tokio::test]
@@ -596,9 +587,7 @@ mod tests {
                 max_tokens: 1024,
                 messages: vec![Message {
                     role: Role::User,
-                    content: vec![ContentBlock::Text {
-                        text: "Hi".into(),
-                    }],
+                    content: vec![ContentBlock::Text { text: "Hi".into() }],
                 }],
                 system: None,
                 temperature: None,
@@ -610,10 +599,7 @@ mod tests {
             let events = client.create_stream(req).await.unwrap().collect_all().await;
             assert_eq!(events.len(), 6);
             assert!(matches!(&events[0], StreamEvent::MessageStart { .. }));
-            assert!(matches!(
-                &events[2],
-                StreamEvent::ContentBlockDelta { .. }
-            ));
+            assert!(matches!(&events[2], StreamEvent::ContentBlockDelta { .. }));
             assert!(matches!(&events[5], StreamEvent::MessageStop {}));
         }
 
@@ -657,8 +643,8 @@ mod tests {
     mod gemini_passthrough {
         use super::*;
         use abp_shim_gemini::{
-            Candidate, Content, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
-            GeminiClient, Part, UsageMetadata,
+            Candidate, Content, GeminiClient, GenerateContentRequest, GenerateContentResponse,
+            GenerationConfig, Part, UsageMetadata,
         };
 
         #[tokio::test]
@@ -744,10 +730,10 @@ mod tests {
 
     mod codex_passthrough {
         use super::*;
+        use abp_codex_sdk::dialect::{CodexContentPart, CodexResponseItem, CodexStreamEvent};
         use abp_shim_codex::{
             CodexClient, CodexRequestBuilder, codex_message, mock_receipt, mock_receipt_with_usage,
         };
-        use abp_codex_sdk::dialect::{CodexContentPart, CodexResponseItem, CodexStreamEvent};
 
         type ProcessFn = Box<dyn Fn(&abp_core::WorkOrder) -> Receipt + Send + Sync>;
 
@@ -829,7 +815,10 @@ mod tests {
             let resp = client.create(req).await.unwrap();
             match &resp.output[0] {
                 CodexResponseItem::FunctionCall {
-                    id, name, arguments, ..
+                    id,
+                    name,
+                    arguments,
+                    ..
                 } => {
                     assert_eq!(id, "fc_test");
                     assert_eq!(name, "shell");
@@ -859,8 +848,8 @@ mod tests {
         #[tokio::test]
         async fn codex_model_name_preserved() {
             let events = vec![assistant_event("ok")];
-            let client = CodexClient::new("o3-mini")
-                .with_processor(make_passthrough_processor(events));
+            let client =
+                CodexClient::new("o3-mini").with_processor(make_passthrough_processor(events));
             let req = CodexRequestBuilder::new()
                 .model("o3-mini")
                 .input(vec![codex_message("user", "test")])
@@ -873,11 +862,11 @@ mod tests {
 
     mod kimi_passthrough {
         use super::*;
+        use abp_kimi_sdk::dialect::KimiChunk;
         use abp_shim_kimi::{
             KimiClient, KimiRequestBuilder, Message as KimiMessage, mock_receipt,
             mock_receipt_with_usage,
         };
-        use abp_kimi_sdk::dialect::KimiChunk;
 
         type ProcessFn = Box<dyn Fn(&abp_core::WorkOrder) -> Receipt + Send + Sync>;
 
@@ -907,12 +896,14 @@ mod tests {
             let resp = client.create(req).await.unwrap();
             assert_eq!(resp.model, "moonshot-v1-8k");
             assert_eq!(resp.choices.len(), 1);
-            assert!(resp.choices[0]
-                .message
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("Rust"));
+            assert!(
+                resp.choices[0]
+                    .message
+                    .content
+                    .as_deref()
+                    .unwrap()
+                    .contains("Rust")
+            );
             assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("stop"));
         }
 
@@ -931,18 +922,12 @@ mod tests {
             let chunks: Vec<KimiChunk> = stream.collect().await;
             // 2 deltas + 1 final stop chunk
             assert_eq!(chunks.len(), 3);
-            assert_eq!(
-                chunks[0].choices[0].delta.content.as_deref(),
-                Some("Hello")
-            );
+            assert_eq!(chunks[0].choices[0].delta.content.as_deref(), Some("Hello"));
             assert_eq!(
                 chunks[1].choices[0].delta.content.as_deref(),
                 Some(" from Kimi!")
             );
-            assert_eq!(
-                chunks[2].choices[0].finish_reason.as_deref(),
-                Some("stop")
-            );
+            assert_eq!(chunks[2].choices[0].finish_reason.as_deref(), Some("stop"));
         }
 
         #[tokio::test]
@@ -959,10 +944,7 @@ mod tests {
                 .build();
 
             let resp = client.create(req).await.unwrap();
-            assert_eq!(
-                resp.choices[0].finish_reason.as_deref(),
-                Some("tool_calls")
-            );
+            assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("tool_calls"));
             let tcs = resp.choices[0].message.tool_calls.as_ref().unwrap();
             assert_eq!(tcs[0].id, "call_ws1");
             assert_eq!(tcs[0].function.name, "web_search");
@@ -1002,11 +984,11 @@ mod tests {
 
     mod copilot_passthrough {
         use super::*;
+        use abp_copilot_sdk::dialect::CopilotStreamEvent;
         use abp_shim_copilot::{
             CopilotClient, CopilotRequestBuilder, Message as CopilotMessage, mock_receipt,
             mock_receipt_with_usage,
         };
-        use abp_copilot_sdk::dialect::CopilotStreamEvent;
 
         type ProcessFn = Box<dyn Fn(&abp_core::WorkOrder) -> Receipt + Send + Sync>;
 
@@ -1155,10 +1137,7 @@ mod tests {
                 ..passthrough_receipt_default(vec![assistant_event("ok")])
             };
             assert_eq!(receipt.meta.duration_ms, 42);
-            assert_eq!(
-                receipt.meta.contract_version,
-                CONTRACT_VERSION.to_string()
-            );
+            assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION.to_string());
         }
 
         #[test]
@@ -1227,10 +1206,7 @@ mod tests {
         #[tokio::test]
         async fn streaming_interruption_handling() {
             // Partial events followed by error simulates stream interruption.
-            let events = vec![
-                delta_event("partial"),
-                error_event("connection reset"),
-            ];
+            let events = vec![delta_event("partial"), error_event("connection reset")];
             let receipt = passthrough_receipt_default(events);
             assert_eq!(receipt.trace.len(), 2);
             assert!(matches!(
@@ -1760,17 +1736,12 @@ mod tests {
                 }
             });
             let event = event_with_raw(
-                AgentEventKind::AssistantMessage {
-                    text: "hi".into(),
-                },
+                AgentEventKind::AssistantMessage { text: "hi".into() },
                 raw.clone(),
             );
             let json_str = serde_json::to_string(&event).unwrap();
             let back: AgentEvent = serde_json::from_str(&json_str).unwrap();
-            assert_eq!(
-                back.ext.as_ref().unwrap().get("raw_message").unwrap(),
-                &raw
-            );
+            assert_eq!(back.ext.as_ref().unwrap().get("raw_message").unwrap(), &raw);
         }
 
         #[test]
@@ -1792,9 +1763,7 @@ mod tests {
                 },
                 AgentEvent {
                     ts: Utc::now(),
-                    kind: AgentEventKind::AssistantMessage {
-                        text: "msg".into(),
-                    },
+                    kind: AgentEventKind::AssistantMessage { text: "msg".into() },
                     ext: None,
                 },
                 AgentEvent {

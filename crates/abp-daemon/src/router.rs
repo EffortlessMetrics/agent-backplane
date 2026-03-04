@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Axum router for the `/api/v1` HTTP endpoints.
 //!
-//! Provides [`api_v1_router`] which builds an Axum [`Router`] with the
+//! Provides `api_v1_router` which builds an Axum `Router` with the
 //! following endpoints:
 //!
 //! - `POST   /api/v1/runs`            — submit a work order

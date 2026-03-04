@@ -4,9 +4,9 @@
 //!
 //! Provides named conversion functions following the shim convention:
 //!
-//! - [`codex_to_work_order`] — Extended Codex request → ABP `WorkOrder`
-//! - [`receipt_to_codex`] — ABP `Receipt` → Extended Codex response
-//! - [`agent_event_to_codex_stream`] — Single `AgentEvent` → Codex stream event
+//! - `codex_to_work_order` — Extended Codex request → ABP `WorkOrder`
+//! - `receipt_to_codex` — ABP `Receipt` → Extended Codex response
+//! - `agent_event_to_codex_stream` — Single `AgentEvent` → Codex stream event
 
 use std::collections::BTreeMap;
 
