@@ -17,9 +17,11 @@ pub mod codec;
 pub mod diagnostics;
 pub mod error;
 pub mod frame;
+pub mod framing;
 pub mod middleware;
 pub mod pipeline;
 pub mod process;
+pub mod protocol_state;
 pub mod run;
 pub mod spec;
 pub mod transform;
@@ -35,6 +37,10 @@ pub use client::{HelloData, SidecarClient};
 pub use codec::JsonlCodec;
 pub use error::SidecarError;
 pub use frame::Frame;
+pub use framing::{
+    FrameReader, FrameValidation, FrameWriter, buf_reader_from_bytes, frame_to_json, json_to_frame,
+    read_all_frames, validate_frame, write_frames,
+};
 pub use middleware::{
     ErrorWrapMiddleware, EventMiddleware, FilterMiddleware, LoggingMiddleware, MiddlewareChain,
     TimingMiddleware,
@@ -43,6 +49,7 @@ pub use pipeline::{
     EventPipeline, PipelineError, PipelineStage, RedactStage, TimestampStage, ValidateStage,
 };
 pub use process::SidecarProcess;
+pub use protocol_state::{ProtocolPhase, ProtocolState};
 pub use run::RawRun;
 pub use spec::ProcessSpec;
 pub use transform::{
