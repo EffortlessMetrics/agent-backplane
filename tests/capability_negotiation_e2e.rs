@@ -368,11 +368,12 @@ fn mixed_negotiation_native_and_emulated() {
         (Capability::ToolBash, CoreSupportLevel::Emulated),
     ]);
 
-    let reqs = require_native(&[
-        Capability::Streaming,
-        Capability::ToolRead,
-        Capability::ToolWrite,
-        Capability::ToolBash,
+    // Use Emulated min_support for the emulated caps (Emulated doesn't satisfy Native)
+    let reqs = require(&[
+        (Capability::Streaming, MinSupport::Emulated),
+        (Capability::ToolRead, MinSupport::Emulated),
+        (Capability::ToolWrite, MinSupport::Emulated),
+        (Capability::ToolBash, MinSupport::Emulated),
     ]);
 
     let result = negotiate(&caps, &reqs);
@@ -1175,11 +1176,10 @@ fn min_support_native_requires_exact_native() {
     let caps = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
     let reqs = require(&[(Capability::Streaming, MinSupport::Native)]);
 
-    // negotiate classifies by manifest level, not min_support
+    // negotiate classifies by manifest level; Emulated does NOT satisfy Native min_support
     let result = negotiate(&caps, &reqs);
-    // Emulated in manifest → emulatable bucket (compatible)
-    assert!(result.is_compatible());
-    assert_eq!(result.emulated_caps(), vec![Capability::Streaming]);
+    // Emulated support + Native min_support → unsupported
+    assert!(!result.is_compatible());
 }
 
 #[test]
@@ -1446,7 +1446,10 @@ fn capability_matrix_register_merges() {
 
 #[test]
 fn negotiate_same_reqs_against_multiple_manifests() {
-    let reqs = require_native(&[Capability::Streaming, Capability::ToolUse]);
+    let reqs = require(&[
+        (Capability::Streaming, MinSupport::Native),
+        (Capability::ToolUse, MinSupport::Emulated),
+    ]);
 
     let full = manifest_from(&[
         (Capability::Streaming, CoreSupportLevel::Native),
