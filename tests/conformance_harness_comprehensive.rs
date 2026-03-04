@@ -1681,7 +1681,7 @@ mod error_taxonomy {
     fn error_code_serde_roundtrip() {
         let code = ErrorCode::BackendCrashed;
         let json = serde_json::to_string(&code).unwrap();
-        assert_eq!(json, "\"BACKEND_CRASHED\"");
+        assert_eq!(json, "\"backend_crashed\"");
         let back: ErrorCode = serde_json::from_str(&json).unwrap();
         assert_eq!(back, code);
     }
@@ -1702,7 +1702,7 @@ mod error_taxonomy {
     #[test]
     fn abp_error_display() {
         let err = AbpError::new(ErrorCode::PolicyDenied, "denied");
-        assert_eq!(err.to_string(), "[POLICY_DENIED] denied");
+        assert_eq!(err.to_string(), "[policy_denied] denied");
     }
 
     #[test]

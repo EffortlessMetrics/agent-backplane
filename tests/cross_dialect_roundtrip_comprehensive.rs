@@ -975,7 +975,7 @@ fn capability_check_missing_is_unsupported() {
     assert_eq!(
         check_capability(&manifest, &Capability::Logprobs),
         CapSupportLevel::Unsupported {
-            reason: "unsupported".into()
+            reason: "not declared in manifest".into()
         }
     );
 }
@@ -1032,7 +1032,7 @@ fn capability_restricted_treated_as_emulated() {
     );
     assert!(matches!(
         check_capability(&manifest, &Capability::ToolBash),
-        CapSupportLevel::Emulated { .. }
+        CapSupportLevel::Restricted { .. }
     ));
 }
 

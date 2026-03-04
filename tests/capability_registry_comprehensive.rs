@@ -510,7 +510,7 @@ mod tool_availability {
             (Capability::ToolRead, CoreSupportLevel::Native),
             (Capability::ToolEdit, CoreSupportLevel::Emulated),
         ]);
-        let r = mk_reqs_native(&[
+        let r = mk_reqs_emulated(&[
             Capability::ToolRead,
             Capability::ToolEdit,
             Capability::ToolBash,
@@ -646,7 +646,7 @@ mod streaming_negotiation {
     #[test]
     fn streaming_emulated_classified_in_emulatable_bucket() {
         let m = mk_manifest(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
-        let r = mk_reqs_native(&[Capability::Streaming]);
+        let r = mk_reqs_emulated(&[Capability::Streaming]);
         let res = negotiate(&m, &r);
         assert_eq!(res.emulated_caps(), vec![Capability::Streaming]);
         assert!(res.is_compatible());
@@ -681,7 +681,7 @@ mod streaming_negotiation {
                 reason: "rate limited".into(),
             },
         )]);
-        let r = mk_reqs_native(&[Capability::Streaming]);
+        let r = mk_reqs_emulated(&[Capability::Streaming]);
         let res = negotiate(&m, &r);
         assert!(res.is_compatible());
         assert_eq!(res.emulated_caps(), vec![Capability::Streaming]);
@@ -707,7 +707,7 @@ mod parallel_tool_calls {
     #[test]
     fn tool_use_emulated_still_compatible() {
         let m = mk_manifest(&[(Capability::ToolUse, CoreSupportLevel::Emulated)]);
-        let r = mk_reqs_native(&[Capability::ToolUse]);
+        let r = mk_reqs_emulated(&[Capability::ToolUse]);
         let res = negotiate(&m, &r);
         assert!(res.is_compatible());
         assert_eq!(res.emulated_caps(), vec![Capability::ToolUse]);
@@ -1735,7 +1735,7 @@ mod integration {
     #[test]
     fn full_pipeline_work_order_to_negotiation() {
         let wo = WorkOrderBuilder::new("refactor auth")
-            .requirements(mk_reqs_native(&[
+            .requirements(mk_reqs_emulated(&[
                 Capability::Streaming,
                 Capability::ToolRead,
                 Capability::ToolWrite,
@@ -1796,7 +1796,7 @@ mod integration {
             (Capability::Streaming, CoreSupportLevel::Native),
             (Capability::ToolRead, CoreSupportLevel::Emulated),
         ]);
-        let r = mk_reqs_native(&[
+        let r = mk_reqs_emulated(&[
             Capability::Streaming,
             Capability::ToolRead,
             Capability::Logprobs,

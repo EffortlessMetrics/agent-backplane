@@ -640,6 +640,21 @@ fn capability_enum_has_all_variants() {
         "logprobs",
         "seed_determinism",
         "stop_sequences",
+        "function_calling",
+        "vision",
+        "audio",
+        "json_mode",
+        "system_message",
+        "temperature",
+        "top_p",
+        "top_k",
+        "max_tokens",
+        "frequency_penalty",
+        "presence_penalty",
+        "cache_control",
+        "batch_mode",
+        "embeddings",
+        "image_generation",
     ];
     for e in &expected {
         assert!(consts.contains(e), "Capability missing variant: {e}");
@@ -696,7 +711,7 @@ fn error_code_enum_in_receipt_schema() {
     // Just check a few key codes
     assert!(consts.contains(&"backend_timeout"));
     assert!(consts.contains(&"policy_denied"));
-    assert!(consts.contains(&"INTERNAL"));
+    assert!(consts.contains(&"internal"));
     assert!(consts.contains(&"protocol_invalid_envelope"));
 }
 

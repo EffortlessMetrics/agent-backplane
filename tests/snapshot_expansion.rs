@@ -671,7 +671,7 @@ fn capability_report_mixed_emulation() {
             },
             CapabilityRequirement {
                 capability: Capability::ToolUse,
-                min_support: MinSupport::Native,
+                min_support: MinSupport::Emulated,
             },
             CapabilityRequirement {
                 capability: Capability::ExtendedThinking,

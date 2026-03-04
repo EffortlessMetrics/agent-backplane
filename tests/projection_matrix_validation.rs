@@ -304,12 +304,11 @@ fn native_only_requirement_rejects_emulated_backend() {
         50,
     );
     // MinSupport::Native means emulated is not accepted → the backend is incompatible.
-    // But it may still be selected as a partial match. Verify coverage < 1.
-    let result = pm
-        .project(&wo(require_native(&[Capability::Streaming])))
-        .unwrap();
-    // With only an emulated backend and Native requirement, the backend is not fully compatible.
-    assert_eq!(result.selected_backend, "emu-be"); // Only backend, so partial match.
+    let result = pm.project(&wo(require_native(&[Capability::Streaming])));
+    assert!(
+        result.is_err(),
+        "Emulated backend should not satisfy Native requirement"
+    );
 }
 
 #[test]

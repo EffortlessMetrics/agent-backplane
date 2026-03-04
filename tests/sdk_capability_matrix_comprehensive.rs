@@ -639,7 +639,7 @@ fn negotiate_claude_all_native_tools() {
 #[test]
 fn negotiate_openai_tools_are_emulated() {
     let m = sdk_manifest("openai");
-    let reqs = require_native(&[
+    let reqs = require_emulated(&[
         Capability::ToolRead,
         Capability::ToolWrite,
         Capability::ToolEdit,
@@ -824,7 +824,7 @@ fn check_capability_unsupported_for_missing() {
     assert_eq!(
         check_capability(&m, &Capability::SessionResume),
         CapSupportLevel::Unsupported {
-            reason: "unsupported".into()
+            reason: "not declared in manifest".into()
         }
     );
 }
@@ -870,7 +870,7 @@ fn projection_claude_can_satisfy_all_tool_reqs() {
 fn projection_openai_cannot_natively_satisfy_tool_reqs() {
     // OpenAI emulates tools, so they show up as emulatable, not native
     let m = sdk_manifest("openai");
-    let reqs = require_native(&[Capability::ToolRead, Capability::ToolWrite]);
+    let reqs = require_emulated(&[Capability::ToolRead, Capability::ToolWrite]);
     let result = negotiate(&m, &reqs);
     assert!(result.is_compatible());
     assert!(result.native.is_empty());

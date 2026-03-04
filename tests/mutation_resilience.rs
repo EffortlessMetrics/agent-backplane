@@ -216,7 +216,7 @@ fn negotiate_emulated_goes_to_emulatable() {
     let reqs = abp_core::CapabilityRequirements {
         required: vec![abp_core::CapabilityRequirement {
             capability: abp_core::Capability::Streaming,
-            min_support: abp_core::MinSupport::Native,
+            min_support: abp_core::MinSupport::Emulated,
         }],
     };
     let result = abp_capability::negotiate(&manifest, &reqs);
@@ -237,7 +237,7 @@ fn negotiate_restricted_counts_as_emulatable() {
     let reqs = abp_core::CapabilityRequirements {
         required: vec![abp_core::CapabilityRequirement {
             capability: abp_core::Capability::ToolBash,
-            min_support: abp_core::MinSupport::Native,
+            min_support: abp_core::MinSupport::Emulated,
         }],
     };
     let result = abp_capability::negotiate(&manifest, &reqs);
@@ -526,8 +526,8 @@ fn error_code_as_str_is_nonempty() {
         let s = code.as_str();
         assert!(!s.is_empty(), "as_str must not be empty for {code:?}");
         assert!(
-            s.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
-            "as_str must be SCREAMING_SNAKE_CASE: {s}"
+            s.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
+            "as_str must be snake_case: {s}"
         );
     }
 }

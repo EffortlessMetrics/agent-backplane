@@ -839,7 +839,7 @@ fn capability_restricted_maps_to_emulated() {
     let level = check_capability(&manifest, &Capability::ToolBash);
     assert!(matches!(
         level,
-        abp_capability::SupportLevel::Emulated { .. }
+        abp_capability::SupportLevel::Restricted { .. }
     ));
 }
 

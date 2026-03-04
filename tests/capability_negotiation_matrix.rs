@@ -300,7 +300,7 @@ fn negotiate_all_emulated_match() {
         (Capability::Streaming, SupportLevel::Emulated),
         (Capability::ToolRead, SupportLevel::Emulated),
     ]);
-    let r = require_native(&[Capability::Streaming, Capability::ToolRead]);
+    let r = require_emulated(&[Capability::Streaming, Capability::ToolRead]);
     let res = negotiate(&m, &r);
     assert!(res.native.is_empty());
     assert_eq!(res.emulated.len(), 2);
@@ -322,7 +322,7 @@ fn negotiate_mixed_native_emulated_unsupported() {
         (Capability::Streaming, SupportLevel::Native),
         (Capability::ToolRead, SupportLevel::Emulated),
     ]);
-    let r = require_native(&[
+    let r = require_emulated(&[
         Capability::Streaming,
         Capability::ToolRead,
         Capability::ToolWrite,
@@ -342,7 +342,7 @@ fn negotiate_restricted_treated_as_emulatable() {
             reason: "sandbox only".into(),
         },
     )]);
-    let r = require_native(&[Capability::ToolBash]);
+    let r = require_emulated(&[Capability::ToolBash]);
     let res = negotiate(&m, &r);
     assert_eq!(res.emulated_caps(), vec![Capability::ToolBash]);
     assert!(res.is_compatible());
@@ -940,7 +940,7 @@ fn emulation_restricted_also_listed() {
             reason: "sandbox".into(),
         },
     )]);
-    let r = require_native(&[Capability::ToolBash]);
+    let r = require_emulated(&[Capability::ToolBash]);
     let res = negotiate(&m, &r);
     assert_eq!(res.emulated.len(), 1);
 }
@@ -1282,7 +1282,7 @@ fn edge_single_capability_native() {
 #[test]
 fn edge_single_capability_emulated() {
     let m = manifest(&[(Capability::ToolUse, SupportLevel::Emulated)]);
-    let r = require_native(&[Capability::ToolUse]);
+    let r = require_emulated(&[Capability::ToolUse]);
     let res = negotiate(&m, &r);
     assert_eq!(res.emulated_caps(), vec![Capability::ToolUse]);
     assert!(res.is_compatible());

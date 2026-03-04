@@ -13,14 +13,14 @@ expression: report
       "Streaming",
       {
         "level": "unsupported",
-        "reason": "not declared in manifest"
+        "reason": "Unsupported support does not meet minimum Native"
       }
     ],
     [
       "ToolUse",
       {
         "level": "unsupported",
-        "reason": "not declared in manifest"
+        "reason": "Unsupported support does not meet minimum Native"
       }
     ]
   ]

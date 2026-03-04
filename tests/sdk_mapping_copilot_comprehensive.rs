@@ -693,12 +693,12 @@ fn capability_negotiation_native_only_emulated_goes_to_emulatable() {
     let reqs = CapabilityRequirements {
         required: vec![CapabilityRequirement {
             capability: Capability::ToolRead,
-            min_support: MinSupport::Native,
+            min_support: MinSupport::Emulated,
         }],
     };
     let result = negotiate(&manifest, &reqs);
-    // negotiate classifies by manifest level, not min_support;
     // ToolRead is Emulated in the manifest, so it lands in emulatable
+    // when min_support is Emulated
     assert!(result.is_compatible());
     assert_eq!(result.emulated_caps(), vec![Capability::ToolRead]);
     assert!(result.native.is_empty());

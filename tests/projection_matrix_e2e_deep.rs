@@ -1640,12 +1640,11 @@ fn edge_native_min_support_with_emulated_backend() {
         Dialect::OpenAi,
         50,
     );
-    // With MinSupport::Native, emulated backend is still compatible (negotiate considers
-    // emulated as satisfying the requirement). Both have same score → alphabetical.
+    // With MinSupport::Native, only the native backend satisfies the requirement.
     let result = pm
         .project(&wo(require_native(&[Capability::Streaming])))
         .unwrap();
-    assert_eq!(result.selected_backend, "emulated");
+    assert_eq!(result.selected_backend, "native");
 }
 
 #[test]

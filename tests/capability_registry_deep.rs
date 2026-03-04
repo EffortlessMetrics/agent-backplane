@@ -304,7 +304,7 @@ fn negotiate_all_emulated() {
         (Capability::Streaming, CoreSupportLevel::Emulated),
         (Capability::ToolRead, CoreSupportLevel::Emulated),
     ]);
-    let r = reqs_native(&[Capability::Streaming, Capability::ToolRead]);
+    let r = reqs_emulated(&[Capability::Streaming, Capability::ToolRead]);
     let res = negotiate(&m, &r);
     assert!(res.is_compatible());
     assert_eq!(res.emulated.len(), 2);
@@ -325,7 +325,7 @@ fn negotiate_mixed_native_emulated_unsupported() {
         (Capability::Streaming, CoreSupportLevel::Native),
         (Capability::ToolRead, CoreSupportLevel::Emulated),
     ]);
-    let r = reqs_native(&[
+    let r = reqs_emulated(&[
         Capability::Streaming,
         Capability::ToolRead,
         Capability::ToolWrite,
@@ -345,7 +345,7 @@ fn negotiate_restricted_is_emulatable() {
             reason: "sandbox".into(),
         },
     )]);
-    let r = reqs_native(&[Capability::ToolBash]);
+    let r = reqs_emulated(&[Capability::ToolBash]);
     let res = negotiate(&m, &r);
     assert!(res.is_compatible());
     assert_eq!(res.emulated.len(), 1);
@@ -1352,7 +1352,7 @@ fn edge_all_capabilities_emulated() {
         .map(|c| (c, CoreSupportLevel::Emulated))
         .collect();
     let m = manifest(&entries);
-    let r = reqs_native(&all_capabilities());
+    let r = reqs_emulated(&all_capabilities());
     let res = negotiate(&m, &r);
     assert!(res.is_compatible());
     assert_eq!(res.emulated.len(), all_capabilities().len());
