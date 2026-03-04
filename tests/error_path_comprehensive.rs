@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code)]
 //! Comprehensive error handling and taxonomy integration test suite.
 //!
 //! Validates the COMPLETE error handling path from sidecar to user-facing output,

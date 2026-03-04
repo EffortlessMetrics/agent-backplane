@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code)]
 #![allow(clippy::manual_repeat_n)]
 #![allow(clippy::manual_range_contains)]
 #![allow(clippy::single_component_path_imports)]

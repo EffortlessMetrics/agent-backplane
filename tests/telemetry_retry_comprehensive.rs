@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+#![allow(dead_code)]
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
