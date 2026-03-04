@@ -6,5 +6,5 @@ expression: env
   "t": "fatal",
   "ref_id": "run-001",
   "error": "backend not found",
-  "error_code": "BACKEND_NOT_FOUND"
+  "error_code": "backend_not_found"
 }

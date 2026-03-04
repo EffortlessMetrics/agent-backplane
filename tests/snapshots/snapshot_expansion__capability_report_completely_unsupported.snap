@@ -7,18 +7,20 @@ expression: report
   "native_count": 0,
   "emulated_count": 0,
   "unsupported_count": 2,
-  "summary": "0 native, 0 emulatable, 2 unsupported — incompatible",
+  "summary": "0 native, 0 emulated, 2 unsupported — incompatible",
   "details": [
     [
       "Streaming",
       {
-        "level": "unsupported"
+        "level": "unsupported",
+        "reason": "not declared in manifest"
       }
     ],
     [
       "ToolUse",
       {
-        "level": "unsupported"
+        "level": "unsupported",
+        "reason": "not declared in manifest"
       }
     ]
   ]

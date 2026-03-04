@@ -7,7 +7,7 @@ expression: report
   "native_count": 3,
   "emulated_count": 0,
   "unsupported_count": 0,
-  "summary": "3 native, 0 emulatable, 0 unsupported — fully compatible",
+  "summary": "3 native, 0 emulated, 0 unsupported — fully compatible",
   "details": [
     [
       "Streaming",

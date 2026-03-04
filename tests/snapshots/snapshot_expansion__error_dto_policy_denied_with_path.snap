@@ -3,7 +3,7 @@ source: tests/snapshot_expansion.rs
 expression: dto
 ---
 {
-  "code": "POLICY_DENIED",
+  "code": "policy_denied",
   "message": "Write access denied by policy",
   "context": {
     "path": ".git/config",

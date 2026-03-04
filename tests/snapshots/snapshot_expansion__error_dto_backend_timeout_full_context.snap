@@ -3,7 +3,7 @@ source: tests/snapshot_expansion.rs
 expression: dto
 ---
 {
-  "code": "BACKEND_TIMEOUT",
+  "code": "backend_timeout",
   "message": "Backend did not respond within 30s",
   "context": {
     "attempt": 3,

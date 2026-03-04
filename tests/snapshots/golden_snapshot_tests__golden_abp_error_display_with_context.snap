@@ -2,4 +2,4 @@
 source: tests/golden_snapshot_tests.rs
 expression: err.to_string()
 ---
-[BACKEND_TIMEOUT] timed out {"backend":"openai","timeout_ms":30000}
+[backend_timeout] timed out {"backend":"openai","timeout_ms":30000}

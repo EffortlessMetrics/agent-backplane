@@ -392,107 +392,187 @@ expression: schema
       ]
     },
     "ErrorCode": {
-      "description": "Machine-readable, stable error code.\n\nEach variant serialises to a `SCREAMING_SNAKE_CASE` string that is\nguaranteed not to change across patch releases.\n\n# Examples\n\n```\nuse abp_error::ErrorCode;\n\nlet code = ErrorCode::BackendTimeout;\nassert_eq!(code.as_str(), \"BACKEND_TIMEOUT\");\nassert_eq!(code.to_string(), \"BACKEND_TIMEOUT\");\nassert_eq!(code.category().to_string(), \"backend\");\n```",
+      "description": "Machine-readable, stable error code.\n\nEach variant serialises to a `snake_case` string that is guaranteed not to\nchange across patch releases.\n\n# Examples\n\n```\nuse abp_error::ErrorCode;\n\nlet code = ErrorCode::BackendTimeout;\nassert_eq!(code.as_str(), \"backend_timeout\");\nassert_eq!(code.to_string(), \"backend timed out\");\nassert_eq!(code.category().to_string(), \"backend\");\n```",
       "oneOf": [
         {
           "description": "Envelope failed to parse or has missing/invalid fields.",
           "type": "string",
-          "const": "PROTOCOL_INVALID_ENVELOPE"
+          "const": "protocol_invalid_envelope"
+        },
+        {
+          "description": "The sidecar handshake (hello exchange) failed.",
+          "type": "string",
+          "const": "protocol_handshake_failed"
+        },
+        {
+          "description": "The `ref_id` field is missing from the envelope.",
+          "type": "string",
+          "const": "protocol_missing_ref_id"
         },
         {
           "description": "Message arrived in wrong order (e.g. event before hello).",
           "type": "string",
-          "const": "PROTOCOL_UNEXPECTED_MESSAGE"
+          "const": "protocol_unexpected_message"
         },
         {
           "description": "Contract version mismatch between host and sidecar.",
           "type": "string",
-          "const": "PROTOCOL_VERSION_MISMATCH"
+          "const": "protocol_version_mismatch"
+        },
+        {
+          "description": "A required capability is not supported by the target dialect.",
+          "type": "string",
+          "const": "mapping_unsupported_capability"
+        },
+        {
+          "description": "The source and target dialects are incompatible.",
+          "type": "string",
+          "const": "mapping_dialect_mismatch"
+        },
+        {
+          "description": "Translation succeeded but information was lost.",
+          "type": "string",
+          "const": "mapping_lossy_conversion"
+        },
+        {
+          "description": "A tool call cannot be represented in the target dialect.",
+          "type": "string",
+          "const": "mapping_unmappable_tool"
         },
         {
           "description": "Requested backend name does not exist.",
           "type": "string",
-          "const": "BACKEND_NOT_FOUND"
+          "const": "backend_not_found"
+        },
+        {
+          "description": "The backend is temporarily unavailable.",
+          "type": "string",
+          "const": "backend_unavailable"
         },
         {
           "description": "Backend did not respond within the configured timeout.",
           "type": "string",
-          "const": "BACKEND_TIMEOUT"
+          "const": "backend_timeout"
+        },
+        {
+          "description": "The backend rejected the request due to rate limiting.",
+          "type": "string",
+          "const": "backend_rate_limited"
+        },
+        {
+          "description": "Authentication with the backend failed.",
+          "type": "string",
+          "const": "backend_auth_failed"
+        },
+        {
+          "description": "The requested model was not found on the backend.",
+          "type": "string",
+          "const": "backend_model_not_found"
         },
         {
           "description": "Backend process exited unexpectedly.",
           "type": "string",
-          "const": "BACKEND_CRASHED"
+          "const": "backend_crashed"
+        },
+        {
+          "description": "A tool invocation failed during execution.",
+          "type": "string",
+          "const": "execution_tool_failed"
+        },
+        {
+          "description": "An error occurred in the staged workspace.",
+          "type": "string",
+          "const": "execution_workspace_error"
+        },
+        {
+          "description": "The operation was denied due to insufficient permissions.",
+          "type": "string",
+          "const": "execution_permission_denied"
+        },
+        {
+          "description": "The contract version does not match the expected version.",
+          "type": "string",
+          "const": "contract_version_mismatch"
+        },
+        {
+          "description": "The payload violates the contract schema.",
+          "type": "string",
+          "const": "contract_schema_violation"
+        },
+        {
+          "description": "The receipt is structurally invalid or cannot be verified.",
+          "type": "string",
+          "const": "contract_invalid_receipt"
         },
         {
           "description": "A required capability is not supported by the backend.",
           "type": "string",
-          "const": "CAPABILITY_UNSUPPORTED"
+          "const": "capability_unsupported"
         },
         {
           "description": "Capability emulation layer failed.",
           "type": "string",
-          "const": "CAPABILITY_EMULATION_FAILED"
+          "const": "capability_emulation_failed"
         },
         {
           "description": "A policy rule denied the operation.",
           "type": "string",
-          "const": "POLICY_DENIED"
+          "const": "policy_denied"
         },
         {
           "description": "Policy definition itself is malformed.",
           "type": "string",
-          "const": "POLICY_INVALID"
+          "const": "policy_invalid"
         },
         {
           "description": "Failed to initialise the staged workspace.",
           "type": "string",
-          "const": "WORKSPACE_INIT_FAILED"
+          "const": "workspace_init_failed"
         },
         {
           "description": "Failed to copy / stage files into the workspace.",
           "type": "string",
-          "const": "WORKSPACE_STAGING_FAILED"
+          "const": "workspace_staging_failed"
         },
         {
           "description": "IR lowering (high-level → wire) failed.",
           "type": "string",
-          "const": "IR_LOWERING_FAILED"
+          "const": "ir_lowering_failed"
         },
         {
           "description": "IR structure is invalid or inconsistent.",
           "type": "string",
-          "const": "IR_INVALID"
+          "const": "ir_invalid"
         },
         {
           "description": "Computed receipt hash does not match the declared hash.",
           "type": "string",
-          "const": "RECEIPT_HASH_MISMATCH"
+          "const": "receipt_hash_mismatch"
         },
         {
           "description": "Receipt chain has a gap or out-of-order entry.",
           "type": "string",
-          "const": "RECEIPT_CHAIN_BROKEN"
+          "const": "receipt_chain_broken"
         },
         {
           "description": "Dialect identifier is not recognised.",
           "type": "string",
-          "const": "DIALECT_UNKNOWN"
+          "const": "dialect_unknown"
         },
         {
           "description": "Mapping between dialects failed.",
           "type": "string",
-          "const": "DIALECT_MAPPING_FAILED"
+          "const": "dialect_mapping_failed"
         },
         {
           "description": "Configuration file or value is invalid.",
           "type": "string",
-          "const": "CONFIG_INVALID"
+          "const": "config_invalid"
         },
         {
           "description": "Catch-all for unexpected internal errors.",
           "type": "string",
-          "const": "INTERNAL"
+          "const": "internal"
         }
       ]
     },

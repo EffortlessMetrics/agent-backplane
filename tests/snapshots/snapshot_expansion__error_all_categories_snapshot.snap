@@ -5,42 +5,42 @@ expression: snapshot
 [
   {
     "category": "protocol",
-    "code": "PROTOCOL_INVALID_ENVELOPE"
+    "code": "protocol_invalid_envelope"
   },
   {
     "category": "backend",
-    "code": "BACKEND_NOT_FOUND"
+    "code": "backend_not_found"
   },
   {
     "category": "capability",
-    "code": "CAPABILITY_UNSUPPORTED"
+    "code": "capability_unsupported"
   },
   {
     "category": "policy",
-    "code": "POLICY_DENIED"
+    "code": "policy_denied"
   },
   {
     "category": "workspace",
-    "code": "WORKSPACE_INIT_FAILED"
+    "code": "workspace_init_failed"
   },
   {
     "category": "ir",
-    "code": "IR_LOWERING_FAILED"
+    "code": "ir_lowering_failed"
   },
   {
     "category": "receipt",
-    "code": "RECEIPT_HASH_MISMATCH"
+    "code": "receipt_hash_mismatch"
   },
   {
     "category": "dialect",
-    "code": "DIALECT_UNKNOWN"
+    "code": "dialect_unknown"
   },
   {
     "category": "config",
-    "code": "CONFIG_INVALID"
+    "code": "config_invalid"
   },
   {
     "category": "internal",
-    "code": "INTERNAL"
+    "code": "internal"
   }
 ]

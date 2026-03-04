@@ -1143,7 +1143,7 @@ fn ir_usage_with_cache() {
 #[test]
 fn error_code_display_backend_timeout() {
     assert_eq!(
-        abp_error::ErrorCode::BackendTimeout.to_string(),
+        abp_error::ErrorCode::BackendTimeout.as_str(),
         "backend_timeout",
     );
 }
@@ -1151,14 +1151,14 @@ fn error_code_display_backend_timeout() {
 #[test]
 fn error_code_display_policy_denied() {
     assert_eq!(
-        abp_error::ErrorCode::PolicyDenied.to_string(),
+        abp_error::ErrorCode::PolicyDenied.as_str(),
         "policy_denied",
     );
 }
 
 #[test]
 fn error_code_display_internal() {
-    assert_eq!(abp_error::ErrorCode::Internal.to_string(), "INTERNAL");
+    assert_eq!(abp_error::ErrorCode::Internal.as_str(), "internal");
 }
 
 #[test]
@@ -1185,7 +1185,7 @@ fn error_code_json_serialization() {
 fn abp_error_display_simple() {
     let err =
         abp_error::AbpError::new(abp_error::ErrorCode::BackendTimeout, "timed out after 30 s");
-    assert_eq!(err.to_string(), "[BACKEND_TIMEOUT] timed out after 30 s");
+    assert_eq!(err.to_string(), "[backend_timeout] timed out after 30 s");
 }
 
 #[test]
@@ -1193,7 +1193,7 @@ fn abp_error_display_with_context() {
     let err = abp_error::AbpError::new(abp_error::ErrorCode::BackendTimeout, "timed out")
         .with_context("backend", "openai");
     let display = err.to_string();
-    assert!(display.starts_with("[BACKEND_TIMEOUT] timed out"));
+    assert!(display.starts_with("[backend_timeout] timed out"));
     assert!(display.contains("openai"));
 }
 

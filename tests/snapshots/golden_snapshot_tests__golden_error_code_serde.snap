@@ -2,4 +2,4 @@
 source: tests/golden_snapshot_tests.rs
 expression: json
 ---
-"PROTOCOL_INVALID_ENVELOPE"
+"protocol_invalid_envelope"

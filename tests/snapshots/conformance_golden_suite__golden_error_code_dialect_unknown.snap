@@ -4,6 +4,6 @@ expression: "json!({\n    \"code\": code, \"category\": code.category(), \"displ
 ---
 {
   "category": "dialect",
-  "code": "DIALECT_UNKNOWN",
-  "display": "DIALECT_UNKNOWN"
+  "code": "dialect_unknown",
+  "display": "dialect_unknown"
 }

@@ -136,6 +136,81 @@ expression: schema
       "description": "Support custom stop sequences.",
       "type": "string",
       "const": "stop_sequences"
+    },
+    {
+      "description": "Legacy function-calling style (distinct from tool_use in some SDKs).",
+      "type": "string",
+      "const": "function_calling"
+    },
+    {
+      "description": "Accept images as input (vision models).",
+      "type": "string",
+      "const": "vision"
+    },
+    {
+      "description": "Accept audio as input.",
+      "type": "string",
+      "const": "audio"
+    },
+    {
+      "description": "Constrain output to valid JSON.",
+      "type": "string",
+      "const": "json_mode"
+    },
+    {
+      "description": "Support system-level prompt messages.",
+      "type": "string",
+      "const": "system_message"
+    },
+    {
+      "description": "Temperature sampling parameter.",
+      "type": "string",
+      "const": "temperature"
+    },
+    {
+      "description": "Top-p (nucleus) sampling parameter.",
+      "type": "string",
+      "const": "top_p"
+    },
+    {
+      "description": "Top-k sampling parameter.",
+      "type": "string",
+      "const": "top_k"
+    },
+    {
+      "description": "Maximum token limit parameter.",
+      "type": "string",
+      "const": "max_tokens"
+    },
+    {
+      "description": "Frequency penalty parameter.",
+      "type": "string",
+      "const": "frequency_penalty"
+    },
+    {
+      "description": "Presence penalty parameter.",
+      "type": "string",
+      "const": "presence_penalty"
+    },
+    {
+      "description": "Prompt caching / cache-control hints.",
+      "type": "string",
+      "const": "cache_control"
+    },
+    {
+      "description": "Batch request API support.",
+      "type": "string",
+      "const": "batch_mode"
+    },
+    {
+      "description": "Text embedding generation.",
+      "type": "string",
+      "const": "embeddings"
+    },
+    {
+      "description": "Image generation (e.g. DALL-E).",
+      "type": "string",
+      "const": "image_generation"
     }
   ]
 }

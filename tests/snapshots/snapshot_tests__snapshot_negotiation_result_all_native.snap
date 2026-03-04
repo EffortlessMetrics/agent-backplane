@@ -7,6 +7,6 @@ expression: r
     "streaming",
     "tool_use"
   ],
-  "emulatable": [],
+  "emulated": [],
   "unsupported": []
 }

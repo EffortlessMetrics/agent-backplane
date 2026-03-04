@@ -3,7 +3,7 @@ source: tests/golden_snapshot_tests.rs
 expression: dto
 ---
 {
-  "code": "POLICY_DENIED",
+  "code": "policy_denied",
   "message": "tool not allowed",
   "context": {
     "policy": "production",
