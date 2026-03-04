@@ -56,7 +56,10 @@ members = [
   "crates/abp-validate",
   "crates/abp-workspace",
   "crates/claude-bridge",
+  "crates/codex-bridge",
+  "crates/copilot-bridge",
   "crates/gemini-bridge",
+  "crates/kimi-bridge",
   "crates/openai-bridge",
   "crates/sidecar-kit",
   "xtask",
@@ -128,6 +131,7 @@ sidecar-kit = { path = "crates/sidecar-kit" }
 claude-bridge = { path = "crates/claude-bridge" }
 openai-bridge = { path = "crates/openai-bridge" }
 gemini-bridge = { path = "crates/gemini-bridge" }
+kimi-bridge = { path = "crates/kimi-bridge" }
 abp-emulation = { path = "crates/abp-emulation" }
 abp-telemetry = { path = "crates/abp-telemetry" }
 anyhow = { workspace = true }
