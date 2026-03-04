@@ -1527,10 +1527,7 @@ fn chain_detect_tampering_hash_mismatch() {
         .build();
     let evidence = chain2.detect_tampering();
     assert!(!evidence.is_empty());
-    assert!(matches!(
-        evidence[0].kind,
-        TamperKind::HashMismatch { .. }
-    ));
+    assert!(matches!(evidence[0].kind, TamperKind::HashMismatch { .. }));
 }
 
 #[test]
@@ -1867,10 +1864,12 @@ fn archive_new_is_empty() {
 
 #[test]
 fn archive_store_and_retrieve() {
-    use crate::archive::{ArchiveQuery, ReceiptArchive};
+    use crate::archive::ReceiptArchive;
 
     let mut archive = ReceiptArchive::new();
-    let r = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
+    let r = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
     let id = r.meta.run_id;
     archive.store(r).unwrap();
 
@@ -1896,7 +1895,10 @@ fn archive_rejects_duplicate() {
     let r1 = ReceiptBuilder::new("a").run_id(id).build();
     let r2 = ReceiptBuilder::new("b").run_id(id).build();
     archive.store(r1).unwrap();
-    assert!(matches!(archive.store(r2), Err(ArchiveError::DuplicateId(_))));
+    assert!(matches!(
+        archive.store(r2),
+        Err(ArchiveError::DuplicateId(_))
+    ));
 }
 
 #[test]

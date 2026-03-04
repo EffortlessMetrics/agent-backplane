@@ -24,8 +24,7 @@ pub fn write_schema_to_file(kind: SchemaKind, path: &Path) -> Result<()> {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("create schema output directory {}", parent.display()))?;
     }
-    std::fs::write(path, &json)
-        .with_context(|| format!("write schema to {}", path.display()))?;
+    std::fs::write(path, &json).with_context(|| format!("write schema to {}", path.display()))?;
     Ok(())
 }
 
@@ -82,7 +81,11 @@ mod tests {
 
     #[test]
     fn all_schema_kinds_produce_valid_json() {
-        for kind in &[SchemaKind::WorkOrder, SchemaKind::Receipt, SchemaKind::Config] {
+        for kind in &[
+            SchemaKind::WorkOrder,
+            SchemaKind::Receipt,
+            SchemaKind::Config,
+        ] {
             let json = generate_schema(*kind).unwrap();
             let v: serde_json::Value = serde_json::from_str(&json).unwrap();
             // Every JSON schema should have at least a "type" or "$defs" or "properties" key.

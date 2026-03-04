@@ -272,8 +272,7 @@ mod tests {
 
     #[test]
     fn openai_insufficient_quota() {
-        let body =
-            r#"{"error":{"message":"You exceeded your quota","type":"insufficient_quota"}}"#;
+        let body = r#"{"error":{"message":"You exceeded your quota","type":"insufficient_quota"}}"#;
         let err = map_openai_error(402, body);
         assert_eq!(err.code, ErrorCode::BackendRateLimited);
     }
@@ -318,7 +317,8 @@ mod tests {
 
     #[test]
     fn anthropic_rate_limit_by_type() {
-        let body = r#"{"type":"error","error":{"type":"rate_limit_error","message":"rate limited"}}"#;
+        let body =
+            r#"{"type":"error","error":{"type":"rate_limit_error","message":"rate limited"}}"#;
         let err = map_anthropic_error(429, body);
         assert_eq!(err.code, ErrorCode::BackendRateLimited);
     }
@@ -333,8 +333,7 @@ mod tests {
 
     #[test]
     fn anthropic_overloaded() {
-        let body =
-            r#"{"type":"error","error":{"type":"overloaded_error","message":"overloaded"}}"#;
+        let body = r#"{"type":"error","error":{"type":"overloaded_error","message":"overloaded"}}"#;
         let err = map_anthropic_error(529, body);
         assert_eq!(err.code, ErrorCode::BackendUnavailable);
     }
@@ -366,15 +365,15 @@ mod tests {
 
     #[test]
     fn gemini_429_resource_exhausted() {
-        let body = r#"{"error":{"code":429,"message":"Quota exceeded","status":"RESOURCE_EXHAUSTED"}}"#;
+        let body =
+            r#"{"error":{"code":429,"message":"Quota exceeded","status":"RESOURCE_EXHAUSTED"}}"#;
         let err = map_gemini_error(429, body);
         assert_eq!(err.code, ErrorCode::BackendRateLimited);
     }
 
     #[test]
     fn gemini_404_not_found() {
-        let body =
-            r#"{"error":{"code":404,"message":"Model not found","status":"NOT_FOUND"}}"#;
+        let body = r#"{"error":{"code":404,"message":"Model not found","status":"NOT_FOUND"}}"#;
         let err = map_gemini_error(404, body);
         assert_eq!(err.code, ErrorCode::BackendModelNotFound);
     }

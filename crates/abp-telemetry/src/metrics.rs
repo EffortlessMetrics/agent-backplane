@@ -531,18 +531,17 @@ impl MetricsRegistry {
 
     /// Get or create a named counter.
     pub fn counter(&self, name: &str) -> Counter {
-        let mut map = self.counters.lock().expect("counter registry lock poisoned");
-        map.entry(name.to_string())
-            .or_insert_with(Counter::new)
-            .clone()
+        let mut map = self
+            .counters
+            .lock()
+            .expect("counter registry lock poisoned");
+        map.entry(name.to_string()).or_default().clone()
     }
 
     /// Get or create a named gauge.
     pub fn gauge(&self, name: &str) -> Gauge {
         let mut map = self.gauges.lock().expect("gauge registry lock poisoned");
-        map.entry(name.to_string())
-            .or_insert_with(Gauge::new)
-            .clone()
+        map.entry(name.to_string()).or_default().clone()
     }
 
     /// Get or create a named histogram.
@@ -551,14 +550,15 @@ impl MetricsRegistry {
             .histograms
             .lock()
             .expect("histogram registry lock poisoned");
-        map.entry(name.to_string())
-            .or_insert_with(Histogram::new)
-            .clone()
+        map.entry(name.to_string()).or_default().clone()
     }
 
     /// Snapshot of all counter names and their current values.
     pub fn counter_snapshot(&self) -> BTreeMap<String, u64> {
-        let map = self.counters.lock().expect("counter registry lock poisoned");
+        let map = self
+            .counters
+            .lock()
+            .expect("counter registry lock poisoned");
         map.iter().map(|(k, v)| (k.clone(), v.get())).collect()
     }
 
@@ -1146,7 +1146,7 @@ mod tests {
         }
         let snap = reg.snapshot();
         assert_eq!(snap.counters.len(), 4);
-        for (_, v) in &snap.counters {
+        for v in snap.counters.values() {
             assert_eq!(*v, 100);
         }
     }

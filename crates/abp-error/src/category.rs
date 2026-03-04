@@ -67,9 +67,9 @@ pub fn categorize(code: ErrorCode) -> RecoveryCategory {
         | ErrorCode::ConfigInvalid
         | ErrorCode::IrInvalid => RecoveryCategory::InputValidation,
 
-        ErrorCode::BackendTimeout
-        | ErrorCode::BackendUnavailable
-        | ErrorCode::BackendCrashed => RecoveryCategory::NetworkTransient,
+        ErrorCode::BackendTimeout | ErrorCode::BackendUnavailable | ErrorCode::BackendCrashed => {
+            RecoveryCategory::NetworkTransient
+        }
 
         ErrorCode::BackendNotFound | ErrorCode::Internal => RecoveryCategory::ServerInternal,
 
@@ -361,7 +361,10 @@ mod tests {
 
     #[test]
     fn recovery_category_display() {
-        assert_eq!(RecoveryCategory::Authentication.to_string(), "authentication");
+        assert_eq!(
+            RecoveryCategory::Authentication.to_string(),
+            "authentication"
+        );
         assert_eq!(RecoveryCategory::RateLimit.to_string(), "rate_limit");
         assert_eq!(
             RecoveryCategory::NetworkTransient.to_string(),

@@ -215,8 +215,7 @@ pub fn restore_snapshot(
     contents: Option<&SnapshotContents>,
 ) -> Result<()> {
     // Collect current files on disk (excluding .git).
-    let mut current_files: std::collections::BTreeSet<PathBuf> =
-        std::collections::BTreeSet::new();
+    let mut current_files: std::collections::BTreeSet<PathBuf> = std::collections::BTreeSet::new();
 
     let walker = WalkDir::new(workspace_path)
         .follow_links(false)
@@ -242,13 +241,12 @@ pub fn restore_snapshot(
     for rel in current_files.difference(&snapshot_files) {
         let abs = workspace_path.join(rel);
         if abs.exists() {
-            fs::remove_file(&abs)
-                .with_context(|| format!("remove {}", abs.display()))?;
+            fs::remove_file(&abs).with_context(|| format!("remove {}", abs.display()))?;
         }
     }
 
     // Restore / create files from snapshot.
-    for (rel, _file_snap) in &snapshot.files {
+    for rel in snapshot.files.keys() {
         let dest = workspace_path.join(rel);
 
         if let Some(parent) = dest.parent() {
@@ -268,8 +266,7 @@ pub fn restore_snapshot(
             }
         };
 
-        fs::write(&dest, &content)
-            .with_context(|| format!("write {}", dest.display()))?;
+        fs::write(&dest, &content).with_context(|| format!("write {}", dest.display()))?;
     }
 
     Ok(())

@@ -82,7 +82,7 @@ impl StreamBuffer {
 
 /// Error returned when pushing to a full [`EventBuffer`].
 #[derive(Debug, Clone)]
-pub struct BufferFullError(pub AgentEvent);
+pub struct BufferFullError(pub Box<AgentEvent>);
 
 impl fmt::Display for BufferFullError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -121,7 +121,7 @@ impl EventBuffer {
     /// capacity.
     pub fn push(&mut self, event: AgentEvent) -> Result<(), BufferFullError> {
         if self.events.len() >= self.max_size {
-            return Err(BufferFullError(event));
+            return Err(BufferFullError(Box::new(event)));
         }
         self.events.push_back(event);
         Ok(())

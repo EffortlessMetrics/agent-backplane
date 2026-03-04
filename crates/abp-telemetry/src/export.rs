@@ -89,7 +89,13 @@ impl TelemetrySnapshot {
 /// Sanitise a metric name into a valid Prometheus metric name.
 fn prom_name(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 

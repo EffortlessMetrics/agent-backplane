@@ -6,14 +6,14 @@
 //!
 //! Structured telemetry and metrics collection for Agent Backplane runs.
 
+pub mod events;
+pub mod export;
 pub mod hooks;
 pub mod metrics;
 pub mod pipeline;
-pub mod spans;
-pub mod events;
-pub mod export;
 pub mod report;
 pub mod runtime_events;
+pub mod spans;
 pub mod tracing_integration;
 
 use serde::{Deserialize, Serialize};

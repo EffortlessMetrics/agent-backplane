@@ -225,10 +225,7 @@ mod tests {
         agg.add(&make_error(ErrorCode::BackendTimeout, "t1"));
 
         let s = agg.summary();
-        assert_eq!(
-            s.by_recovery_category[&RecoveryCategory::Authentication],
-            1
-        );
+        assert_eq!(s.by_recovery_category[&RecoveryCategory::Authentication], 1);
         assert_eq!(s.by_recovery_category[&RecoveryCategory::RateLimit], 1);
         assert_eq!(
             s.by_recovery_category[&RecoveryCategory::NetworkTransient],

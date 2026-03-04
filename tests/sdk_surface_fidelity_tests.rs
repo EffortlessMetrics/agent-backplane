@@ -725,7 +725,7 @@ mod gemini {
             "gemini-1.5-flash",
             "gemini-1.5-pro",
         ] {
-            let client = GeminiClient::new(*model);
+            let client = GeminiClient::new(*model).unwrap();
             assert_eq!(client.model(), *model);
         }
     }

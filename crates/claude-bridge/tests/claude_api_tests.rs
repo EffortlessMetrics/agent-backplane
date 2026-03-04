@@ -142,7 +142,7 @@ mod types_serde {
             cache_creation_input_tokens: Some(10),
             cache_read_input_tokens: None,
         };
-        let v = serde_json::to_value(&usage).unwrap();
+        let v = serde_json::to_value(usage).unwrap();
         assert_eq!(v["input_tokens"], 100);
         assert_eq!(v["output_tokens"], 50);
         assert_eq!(v["cache_creation_input_tokens"], 10);

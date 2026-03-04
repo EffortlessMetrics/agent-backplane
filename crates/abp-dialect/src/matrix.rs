@@ -125,7 +125,7 @@ pub static FEATURE_MATRIX: &[(Dialect, DialectFeature, FeatureSupport)] = &[
 /// [`FEATURE_MATRIX`].
 #[must_use]
 pub fn dialect_features(dialect: Dialect) -> DialectFeatureSet {
-    DialectFeatureSet::from_iter(
+    DialectFeatureSet::build_from_iter(
         FEATURE_MATRIX
             .iter()
             .filter(|(d, _, _)| *d == dialect)

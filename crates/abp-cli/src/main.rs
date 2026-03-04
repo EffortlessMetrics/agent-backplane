@@ -62,7 +62,9 @@ async fn main() {
 
     let result = match cli.command {
         Commands::Backends => cmd_backends().await,
-        Commands::Validate { file, config_file } => cmd_validate(file.as_deref(), config_file.as_deref()),
+        Commands::Validate { file, config_file } => {
+            cmd_validate(file.as_deref(), config_file.as_deref())
+        }
         Commands::Schema { kind, output } => cmd_schema(kind, output),
         Commands::Inspect { file } => cmd_inspect(&file),
         Commands::ConfigCmd { action } => cmd_config(action, config_path),
@@ -139,7 +141,10 @@ async fn cmd_backends() -> Result<()> {
     Ok(())
 }
 
-fn cmd_validate(file: Option<&std::path::Path>, config_file: Option<&std::path::Path>) -> Result<()> {
+fn cmd_validate(
+    file: Option<&std::path::Path>,
+    config_file: Option<&std::path::Path>,
+) -> Result<()> {
     // If --config-file is given, validate that config file.
     if let Some(cfg_path) = config_file {
         let result = validate_cmd::validate_config(Some(cfg_path))?;

@@ -71,7 +71,9 @@ impl ConfigStore {
         inner.config = Arc::clone(&arc);
 
         // Notify subscribers, pruning disconnected ones.
-        inner.subscribers.retain(|tx| tx.send(Arc::clone(&arc)).is_ok());
+        inner
+            .subscribers
+            .retain(|tx| tx.send(Arc::clone(&arc)).is_ok());
 
         Ok(())
     }

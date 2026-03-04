@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use crate::policy::RateLimitPolicy;
-use crate::token_bucket::TokenBucket;
 use crate::sliding_window::SlidingWindowCounter;
+use crate::token_bucket::TokenBucket;
 
 /// Error returned when a rate limit is exceeded.
 #[derive(Debug, Clone, thiserror::Error)]
@@ -95,16 +95,11 @@ impl BackendRateLimiter {
             } => {
                 inner.sliding_windows.insert(
                     backend_id.to_string(),
-                    SlidingWindowCounter::new(
-                        Duration::from_secs_f64(*window_secs),
-                        *max_requests,
-                    ),
+                    SlidingWindowCounter::new(Duration::from_secs_f64(*window_secs), *max_requests),
                 );
             }
             RateLimitPolicy::Fixed { max_concurrent } => {
-                inner
-                    .active_permits
-                    .insert(backend_id.to_string(), 0);
+                inner.active_permits.insert(backend_id.to_string(), 0);
                 // Store max_concurrent in the policy — checked at acquire time
                 let _ = max_concurrent;
             }
@@ -236,10 +231,7 @@ mod tests {
     #[test]
     fn fixed_concurrency_policy() {
         let limiter = BackendRateLimiter::new();
-        limiter.set_policy(
-            "local",
-            RateLimitPolicy::Fixed { max_concurrent: 2 },
-        );
+        limiter.set_policy("local", RateLimitPolicy::Fixed { max_concurrent: 2 });
         let p1 = limiter.try_acquire("local").unwrap();
         let p2 = limiter.try_acquire("local").unwrap();
         assert!(limiter.try_acquire("local").is_err());

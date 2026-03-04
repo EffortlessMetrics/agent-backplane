@@ -32,12 +32,12 @@
 //! assert!(permit.is_ok());
 //! ```
 
-mod token_bucket;
-mod sliding_window;
 mod backend_limiter;
 mod policy;
+mod sliding_window;
+mod token_bucket;
 
-pub use token_bucket::TokenBucket;
+pub use backend_limiter::{BackendRateLimiter, RateLimitError, RatePermit};
+pub use policy::{RateLimitConfig, RateLimitPolicy};
 pub use sliding_window::SlidingWindowCounter;
-pub use backend_limiter::{BackendRateLimiter, RatePermit, RateLimitError};
-pub use policy::{RateLimitPolicy, RateLimitConfig};
+pub use token_bucket::TokenBucket;

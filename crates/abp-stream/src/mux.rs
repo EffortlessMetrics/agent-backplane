@@ -4,10 +4,10 @@
 
 use abp_core::AgentEvent;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 
 /// Unique identifier for a subscriber.
 pub type SubscriberId = u64;
@@ -143,9 +143,15 @@ mod tests {
         let r2 = rx2.recv().await.unwrap();
         let r3 = rx3.recv().await.unwrap();
 
-        assert!(matches!(&r1.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "hello"));
-        assert!(matches!(&r2.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "hello"));
-        assert!(matches!(&r3.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "hello"));
+        assert!(
+            matches!(&r1.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "hello")
+        );
+        assert!(
+            matches!(&r2.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "hello")
+        );
+        assert!(
+            matches!(&r3.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "hello")
+        );
     }
 
     #[tokio::test]
@@ -165,15 +171,21 @@ mod tests {
 
         // rx1 got only the first event
         let e1 = rx1.recv().await.unwrap();
-        assert!(matches!(&e1.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "first"));
+        assert!(
+            matches!(&e1.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "first")
+        );
         // Channel closed after unsubscribe + no more sends
         assert!(rx1.try_recv().is_err());
 
         // rx2 got both
         let e2a = rx2.recv().await.unwrap();
         let e2b = rx2.recv().await.unwrap();
-        assert!(matches!(&e2a.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "first"));
-        assert!(matches!(&e2b.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "second"));
+        assert!(
+            matches!(&e2a.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "first")
+        );
+        assert!(
+            matches!(&e2b.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "second")
+        );
     }
 
     #[tokio::test]
@@ -197,8 +209,12 @@ mod tests {
         // Should receive the first 2 (buffer was full for the rest)
         let e1 = rx1.recv().await.unwrap();
         let e2 = rx1.recv().await.unwrap();
-        assert!(matches!(&e1.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "msg-0"));
-        assert!(matches!(&e2.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "msg-1"));
+        assert!(
+            matches!(&e1.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "msg-0")
+        );
+        assert!(
+            matches!(&e2.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "msg-1")
+        );
     }
 
     #[tokio::test]
@@ -218,7 +234,9 @@ mod tests {
         assert_eq!(mux.subscriber_count().await, 1);
 
         let ev = rx2.recv().await.unwrap();
-        assert!(matches!(&ev.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "after-close"));
+        assert!(
+            matches!(&ev.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "after-close")
+        );
     }
 
     #[tokio::test]
@@ -264,11 +282,7 @@ mod tests {
             handles.push(tokio::spawn(async move {
                 let (_id, mut rx) = mux.subscribe().await;
                 // Wait for one event
-                let ev = tokio::time::timeout(
-                    std::time::Duration::from_secs(2),
-                    rx.recv(),
-                )
-                .await;
+                let ev = tokio::time::timeout(std::time::Duration::from_secs(2), rx.recv()).await;
                 (i, ev)
             }));
         }
@@ -282,7 +296,9 @@ mod tests {
         for handle in handles {
             let (_, result) = handle.await.unwrap();
             let ev = result.unwrap().unwrap();
-            assert!(matches!(&ev.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "concurrent"));
+            assert!(
+                matches!(&ev.kind, abp_core::AgentEventKind::AssistantDelta { text } if text == "concurrent")
+            );
         }
     }
 

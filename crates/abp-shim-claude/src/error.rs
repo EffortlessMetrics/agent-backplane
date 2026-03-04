@@ -278,8 +278,14 @@ mod tests {
 
     #[test]
     fn error_kind_display() {
-        assert_eq!(ErrorKind::InvalidRequestError.to_string(), "invalid_request_error");
-        assert_eq!(ErrorKind::AuthenticationError.to_string(), "authentication_error");
+        assert_eq!(
+            ErrorKind::InvalidRequestError.to_string(),
+            "invalid_request_error"
+        );
+        assert_eq!(
+            ErrorKind::AuthenticationError.to_string(),
+            "authentication_error"
+        );
         assert_eq!(ErrorKind::RateLimitError.to_string(), "rate_limit_error");
         assert_eq!(ErrorKind::OverloadedError.to_string(), "overloaded_error");
         assert_eq!(ErrorKind::ApiError.to_string(), "api_error");
@@ -359,7 +365,8 @@ mod tests {
 
     #[test]
     fn shim_error_from_status_and_body() {
-        let body = r#"{"type":"error","error":{"type":"rate_limit_error","message":"Rate limited"}}"#;
+        let body =
+            r#"{"type":"error","error":{"type":"rate_limit_error","message":"Rate limited"}}"#;
         let err = ClaudeShimError::from_status_and_body(429, body);
         assert!(err.is_rate_limit());
         assert_eq!(err.status_code(), Some(429));
@@ -372,7 +379,10 @@ mod tests {
     fn shim_error_from_status_unparseable_body() {
         let err = ClaudeShimError::from_status_and_body(500, "internal server error");
         assert!(err.is_retryable());
-        if let ClaudeShimError::Api { message, response, .. } = &err {
+        if let ClaudeShimError::Api {
+            message, response, ..
+        } = &err
+        {
             assert_eq!(message, "internal server error");
             assert!(response.is_none());
         }

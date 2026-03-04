@@ -246,7 +246,7 @@ pub fn compare(required: &CapabilityManifest, available: &CapabilityManifest) ->
         }
 
         let entry = match available.get(cap) {
-            Some(avail_level) if matches!(avail_level, CoreSupportLevel::Unsupported) => {
+            Some(CoreSupportLevel::Unsupported) => {
                 gap_count += 1;
                 ComparisonEntry {
                     capability: cap.clone(),

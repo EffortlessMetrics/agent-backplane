@@ -250,10 +250,7 @@ pub type RequestHandler = Box<
 
 /// Callback for streaming requests.
 pub type StreamHandler = Box<
-    dyn Fn(
-            &MessagesRequest,
-        )
-            -> std::result::Result<Vec<StreamEvent>, crate::error::ClaudeShimError>
+    dyn Fn(&MessagesRequest) -> std::result::Result<Vec<StreamEvent>, crate::error::ClaudeShimError>
         + Send
         + Sync,
 >;
@@ -562,10 +559,13 @@ mod tests {
     #[tokio::test]
     async fn anthropic_client_empty_messages_error() {
         let client = AnthropicClient::new("sk-ant-key");
-        let req = crate::messages::CreateMessageRequest::new("claude-sonnet-4-20250514", 4096)
-            .build();
+        let req =
+            crate::messages::CreateMessageRequest::new("claude-sonnet-4-20250514", 4096).build();
         let err = client.messages().create(&req).await.unwrap_err();
-        assert!(matches!(err, crate::error::ClaudeShimError::InvalidRequest(_)));
+        assert!(matches!(
+            err,
+            crate::error::ClaudeShimError::InvalidRequest(_)
+        ));
     }
 
     #[tokio::test]

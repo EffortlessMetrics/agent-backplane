@@ -391,7 +391,7 @@ mod gemini {
 
     #[tokio::test]
     async fn t03_work_order_creation() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = basic_request("gemini-2.5-flash", "Hello");
         let resp = client.generate(req).await.unwrap();
         // The full pipeline creates a work order internally; verify response
@@ -401,7 +401,7 @@ mod gemini {
 
     #[tokio::test]
     async fn t04_response_construction() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = basic_request("gemini-2.5-flash", "Hello");
         let resp = client.generate(req).await.unwrap();
         assert!(!resp.candidates.is_empty());
@@ -411,7 +411,7 @@ mod gemini {
 
     #[tokio::test]
     async fn t05_stream_event_generation() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = basic_request("gemini-2.5-flash", "Hello");
         let stream = client.generate_stream(req).await.unwrap();
         let events: Vec<_> = tokio_stream::StreamExt::collect(stream).await;
@@ -422,7 +422,7 @@ mod gemini {
     async fn t06_error_handling() {
         // Gemini client's mock pipeline always succeeds, but we can verify
         // the response is well-formed for an edge-case empty request.
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = GenerateContentRequest::new("gemini-2.5-flash");
         let resp = client.generate(req).await;
         // The mock pipeline returns a valid response even for empty input.

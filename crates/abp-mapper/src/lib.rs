@@ -63,12 +63,12 @@ pub mod emulation;
 pub mod fidelity;
 /// Projection matrix — the core cross-dialect mapping engine.
 pub mod projection;
+/// Request rewriting engine for cross-dialect translation.
+pub mod rewrite;
 /// Mapping rules for dialect translation.
 pub mod rules;
 /// IR-level structural validation.
 pub mod validate_ir;
-/// Request rewriting engine for cross-dialect translation.
-pub mod rewrite;
 /// Validation pipeline for mapping correctness.
 pub mod validation;
 

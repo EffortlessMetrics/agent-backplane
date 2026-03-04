@@ -86,11 +86,31 @@ impl fmt::Display for ConfigDiff {
 pub fn diff(old: &BackplaneConfig, new: &BackplaneConfig) -> ConfigDiff {
     let mut changes = Vec::new();
 
-    diff_option(&mut changes, "default_backend", &old.default_backend, &new.default_backend);
-    diff_option(&mut changes, "workspace_dir", &old.workspace_dir, &new.workspace_dir);
+    diff_option(
+        &mut changes,
+        "default_backend",
+        &old.default_backend,
+        &new.default_backend,
+    );
+    diff_option(
+        &mut changes,
+        "workspace_dir",
+        &old.workspace_dir,
+        &new.workspace_dir,
+    );
     diff_option(&mut changes, "log_level", &old.log_level, &new.log_level);
-    diff_option(&mut changes, "receipts_dir", &old.receipts_dir, &new.receipts_dir);
-    diff_option(&mut changes, "bind_address", &old.bind_address, &new.bind_address);
+    diff_option(
+        &mut changes,
+        "receipts_dir",
+        &old.receipts_dir,
+        &new.receipts_dir,
+    );
+    diff_option(
+        &mut changes,
+        "bind_address",
+        &old.bind_address,
+        &new.bind_address,
+    );
 
     // Port
     let port_old = old.port.map(|p| p.to_string());
@@ -221,7 +241,11 @@ mod tests {
         let mut new = base_config();
         new.workspace_dir = Some("/work".into());
         let d = diff(&old, &new);
-        assert!(d.changes.iter().any(|c| matches!(c, ConfigChange::Added(k, _) if k == "workspace_dir")));
+        assert!(
+            d.changes
+                .iter()
+                .any(|c| matches!(c, ConfigChange::Added(k, _) if k == "workspace_dir"))
+        );
     }
 
     #[test]
@@ -230,7 +254,11 @@ mod tests {
         let mut new = base_config();
         new.default_backend = None;
         let d = diff(&old, &new);
-        assert!(d.changes.iter().any(|c| matches!(c, ConfigChange::Removed(k) if k == "default_backend")));
+        assert!(
+            d.changes
+                .iter()
+                .any(|c| matches!(c, ConfigChange::Removed(k) if k == "default_backend"))
+        );
     }
 
     #[test]
@@ -239,7 +267,11 @@ mod tests {
         let mut new = base_config();
         new.backends.insert("m".into(), BackendEntry::Mock {});
         let d = diff(&old, &new);
-        assert!(d.changes.iter().any(|c| matches!(c, ConfigChange::Added(k, _) if k == "backends.m")));
+        assert!(
+            d.changes
+                .iter()
+                .any(|c| matches!(c, ConfigChange::Added(k, _) if k == "backends.m"))
+        );
     }
 
     #[test]
@@ -248,7 +280,11 @@ mod tests {
         old.backends.insert("m".into(), BackendEntry::Mock {});
         let new = base_config();
         let d = diff(&old, &new);
-        assert!(d.changes.iter().any(|c| matches!(c, ConfigChange::Removed(k) if k == "backends.m")));
+        assert!(
+            d.changes
+                .iter()
+                .any(|c| matches!(c, ConfigChange::Removed(k) if k == "backends.m"))
+        );
     }
 
     #[test]
@@ -272,7 +308,11 @@ mod tests {
             },
         );
         let d = diff(&old, &new);
-        assert!(d.changes.iter().any(|c| matches!(c, ConfigChange::Modified(k, ..) if k == "backends.sc")));
+        assert!(
+            d.changes
+                .iter()
+                .any(|c| matches!(c, ConfigChange::Modified(k, ..) if k == "backends.sc"))
+        );
     }
 
     #[test]

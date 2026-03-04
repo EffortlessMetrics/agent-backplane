@@ -458,8 +458,10 @@ impl BackendSelector {
             }
             // Preferred not viable — return CapabilityMismatch if strict.
             if criteria.fallback_strategy == FallbackStrategy::None {
-                if let Some(candidate) =
-                    self.candidates.iter().find(|c| c.name == *preferred && c.enabled)
+                if let Some(candidate) = self
+                    .candidates
+                    .iter()
+                    .find(|c| c.name == *preferred && c.enabled)
                 {
                     let missing: Vec<Capability> = criteria
                         .required_capabilities
@@ -490,8 +492,7 @@ impl BackendSelector {
 
         match viable.first() {
             Some(best) => {
-                let alternatives =
-                    viable[1..].iter().map(|e| e.backend.clone()).collect();
+                let alternatives = viable[1..].iter().map(|e| e.backend.clone()).collect();
                 Ok(SelectionReport {
                     selected_backend: best.backend.clone(),
                     reason: format!(
@@ -530,12 +531,9 @@ impl BackendSelector {
     ) -> CandidateEvaluation {
         let health = self.effective_health(&candidate.name);
         let is_down = matches!(health, BackendHealth::Down { .. });
-        let cap_score =
-            Self::capability_score_for(candidate, &criteria.required_capabilities);
-        let dialect =
-            self.dialect_match_for(&candidate.name, criteria.target_dialect.as_ref());
-        let has_all_caps =
-            cap_score >= 1.0 || criteria.required_capabilities.is_empty();
+        let cap_score = Self::capability_score_for(candidate, &criteria.required_capabilities);
+        let dialect = self.dialect_match_for(&candidate.name, criteria.target_dialect.as_ref());
+        let has_all_caps = cap_score >= 1.0 || criteria.required_capabilities.is_empty();
 
         let rejected_reason = if is_down {
             Some("backend is down".into())
@@ -575,10 +573,7 @@ impl BackendSelector {
             .unwrap_or(BackendHealth::Up)
     }
 
-    fn capability_score_for(
-        candidate: &BackendCandidate,
-        required: &[Capability],
-    ) -> f64 {
+    fn capability_score_for(candidate: &BackendCandidate, required: &[Capability]) -> f64 {
         if required.is_empty() {
             return 1.0;
         }

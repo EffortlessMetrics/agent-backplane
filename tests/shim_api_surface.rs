@@ -767,7 +767,7 @@ mod gemini_shim {
     // ── 15. Client constructor ─────────────────────────────────────────
     #[test]
     fn client_new_and_model() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = GeminiClient::new("gemini-2.5-flash").unwrap();
         assert_eq!(client.model(), "gemini-2.5-flash");
         let debug = format!("{:?}", client);
         assert!(debug.contains("GeminiClient"));

@@ -571,13 +571,13 @@ mod gemini {
 
     #[test]
     fn client_construction() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         assert_eq!(client.model(), "gemini-2.5-flash");
     }
 
     #[test]
     fn client_debug() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let dbg = format!("{client:?}");
         assert!(dbg.contains("gemini-2.5-flash"));
     }
@@ -722,7 +722,7 @@ mod gemini {
 
     #[tokio::test]
     async fn client_generate_produces_response() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = simple_request();
         let resp = client.generate(req).await.unwrap();
         assert!(!resp.candidates.is_empty());

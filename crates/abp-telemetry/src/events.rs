@@ -136,13 +136,21 @@ impl InMemoryEventCollector {
     /// Return events matching a specific label.
     pub fn events_with_label(&self, label: &str) -> Vec<TelemetryEvent> {
         let guard = self.events.lock().expect("event collector lock poisoned");
-        guard.iter().filter(|e| e.label() == label).cloned().collect()
+        guard
+            .iter()
+            .filter(|e| e.label() == label)
+            .cloned()
+            .collect()
     }
 
     /// Return events for a specific run.
     pub fn events_for_run(&self, run_id: &str) -> Vec<TelemetryEvent> {
         let guard = self.events.lock().expect("event collector lock poisoned");
-        guard.iter().filter(|e| e.run_id() == run_id).cloned().collect()
+        guard
+            .iter()
+            .filter(|e| e.run_id() == run_id)
+            .cloned()
+            .collect()
     }
 
     /// Clear all collected events.

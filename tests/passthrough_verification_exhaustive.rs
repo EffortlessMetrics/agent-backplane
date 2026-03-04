@@ -643,13 +643,13 @@ mod tests {
     mod gemini_passthrough {
         use super::*;
         use abp_shim_gemini::{
-            Candidate, Content, GeminiClient, GenerateContentRequest, GenerateContentResponse,
-            GenerationConfig, Part, UsageMetadata,
+            Candidate, Content, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
+            Part, UsageMetadata,
         };
 
         #[tokio::test]
         async fn gemini_generate_content_roundtrip() {
-            let client = GeminiClient::new("gemini-2.5-flash");
+            let client = PipelineClient::new("gemini-2.5-flash");
             let request = GenerateContentRequest::new("gemini-2.5-flash")
                 .add_content(Content::user(vec![Part::text("Hello")]));
             let response = client.generate(request).await.unwrap();
@@ -661,7 +661,7 @@ mod tests {
         async fn gemini_function_calling_roundtrip() {
             use abp_shim_gemini::{FunctionDeclaration, ToolDeclaration};
 
-            let client = GeminiClient::new("gemini-2.5-flash");
+            let client = PipelineClient::new("gemini-2.5-flash");
             let request = GenerateContentRequest::new("gemini-2.5-flash")
                 .add_content(Content::user(vec![Part::text("What's the weather?")]))
                 .tools(vec![ToolDeclaration {
@@ -677,7 +677,7 @@ mod tests {
 
         #[tokio::test]
         async fn gemini_usage_metadata_preserved() {
-            let client = GeminiClient::new("gemini-2.5-flash");
+            let client = PipelineClient::new("gemini-2.5-flash");
             let request = GenerateContentRequest::new("gemini-2.5-flash")
                 .add_content(Content::user(vec![Part::text("Count to 3")]));
             let response = client.generate(request).await.unwrap();
@@ -691,7 +691,7 @@ mod tests {
 
         #[tokio::test]
         async fn gemini_streaming_produces_events() {
-            let client = GeminiClient::new("gemini-2.5-flash");
+            let client = PipelineClient::new("gemini-2.5-flash");
             let request = GenerateContentRequest::new("gemini-2.5-flash")
                 .add_content(Content::user(vec![Part::text("Stream test")]));
             let stream = client.generate_stream(request).await.unwrap();

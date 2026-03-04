@@ -1167,7 +1167,7 @@ mod default_construction {
 
     #[test]
     fn gemini_client_stores_model() {
-        let client = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash");
+        let client = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash").unwrap();
         assert_eq!(client.model(), "gemini-2.5-flash");
     }
 
@@ -1201,7 +1201,7 @@ mod default_construction {
 
     #[test]
     fn gemini_client_is_debug() {
-        let client = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash");
+        let client = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash").unwrap();
         let dbg = format!("{client:?}");
         assert!(dbg.contains("gemini-2.5-flash"));
     }

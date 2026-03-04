@@ -199,11 +199,9 @@ impl SseParser {
             }
             match serde_json::from_str::<StreamEvent>(data) {
                 Ok(event) => self.events.push_back(Ok(event)),
-                Err(e) => self
-                    .events
-                    .push_back(Err(ClaudeShimError::Stream(format!(
-                        "failed to parse SSE event: {e}"
-                    )))),
+                Err(e) => self.events.push_back(Err(ClaudeShimError::Stream(format!(
+                    "failed to parse SSE event: {e}"
+                )))),
             }
         }
     }
@@ -290,10 +288,7 @@ mod tests {
 
     #[tokio::test]
     async fn message_stream_collect_all() {
-        let events = vec![
-            StreamEvent::Ping {},
-            StreamEvent::MessageStop {},
-        ];
+        let events = vec![StreamEvent::Ping {}, StreamEvent::MessageStop {}];
         let stream = MessageStream::from_vec(events);
         let collected = stream.collect_all().await;
         assert_eq!(collected.len(), 2);
@@ -361,7 +356,10 @@ mod tests {
 
     #[test]
     fn sse_parser_single_event() {
-        let data = format!("event: message_start\ndata: {}\n\n", sample_message_start_json());
+        let data = format!(
+            "event: message_start\ndata: {}\n\n",
+            sample_message_start_json()
+        );
         let mut parser = SseParser::new();
         parser.feed(&data);
         let events: Vec<_> = parser.drain().collect();
@@ -385,10 +383,7 @@ mod tests {
 
     #[test]
     fn sse_parser_done_sentinel() {
-        let data = format!(
-            "data: {}\n\ndata: [DONE]\n\n",
-            sample_message_stop_json()
-        );
+        let data = format!("data: {}\n\ndata: [DONE]\n\n", sample_message_stop_json());
         let mut parser = SseParser::new();
         parser.feed(&data);
         assert!(parser.is_done());
@@ -398,10 +393,7 @@ mod tests {
 
     #[test]
     fn sse_parser_skips_comments() {
-        let data = format!(
-            ": keep-alive\ndata: {}\n\n",
-            sample_text_delta_json()
-        );
+        let data = format!(": keep-alive\ndata: {}\n\n", sample_text_delta_json());
         let mut parser = SseParser::new();
         parser.feed(&data);
         let events: Vec<_> = parser.drain().collect();

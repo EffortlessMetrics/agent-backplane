@@ -34,8 +34,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    ClaudeToOpenAiMapper, DialectRequest, DialectResponse, GeminiToOpenAiMapper,
-    Mapper, MappingError, OpenAiToClaudeMapper, OpenAiToGeminiMapper,
+    ClaudeToOpenAiMapper, DialectRequest, DialectResponse, GeminiToOpenAiMapper, Mapper,
+    MappingError, OpenAiToClaudeMapper, OpenAiToGeminiMapper,
 };
 
 // ── RewriteError ───────────────────────────────────────────────────────
@@ -80,12 +80,12 @@ pub enum RewriteError {
 impl From<MappingError> for RewriteError {
     fn from(err: MappingError) -> Self {
         match err {
-            MappingError::UnsupportedCapability {
-                ref capability, ..
-            } => RewriteError::UnsupportedFeature {
-                feature: capability.clone(),
-                reason: err.to_string(),
-            },
+            MappingError::UnsupportedCapability { ref capability, .. } => {
+                RewriteError::UnsupportedFeature {
+                    feature: capability.clone(),
+                    reason: err.to_string(),
+                }
+            }
             MappingError::FidelityLoss {
                 ref field,
                 ref detail,
@@ -359,10 +359,7 @@ pub fn rewrite_response(
 ///
 /// Routes through OpenAI as the hub dialect for pairs without direct
 /// mappers (e.g. Gemini → Claude goes Gemini → OpenAI → Claude).
-fn select_request_mapper(
-    from: Dialect,
-    to: Dialect,
-) -> Result<Box<dyn Mapper>, RewriteError> {
+fn select_request_mapper(from: Dialect, to: Dialect) -> Result<Box<dyn Mapper>, RewriteError> {
     match (from, to) {
         (Dialect::OpenAi, Dialect::Claude) => Ok(Box::new(OpenAiToClaudeMapper)),
         (Dialect::Claude, Dialect::OpenAi) => Ok(Box::new(ClaudeToOpenAiMapper)),
@@ -389,10 +386,7 @@ fn select_request_mapper(
 }
 
 /// Select the appropriate mapper for response translation.
-fn select_response_mapper(
-    from: Dialect,
-    to: Dialect,
-) -> Result<Box<dyn Mapper>, RewriteError> {
+fn select_response_mapper(from: Dialect, to: Dialect) -> Result<Box<dyn Mapper>, RewriteError> {
     // Responses flow in the opposite direction of requests:
     // if the backend is Claude and the client expects OpenAI, we use
     // the Claude→OpenAI mapper.
@@ -425,10 +419,7 @@ impl Mapper for ChainedMapper {
         self.second.map_response(&intermediate.body)
     }
 
-    fn map_event(
-        &self,
-        from: &abp_core::AgentEvent,
-    ) -> Result<Value, MappingError> {
+    fn map_event(&self, from: &abp_core::AgentEvent) -> Result<Value, MappingError> {
         let intermediate = self.first.map_event(from)?;
         // Events don't chain well; use the final mapper's event format
         Ok(intermediate)
@@ -470,7 +461,10 @@ fn analyze_request_transforms(
             let has_system = source
                 .get("messages")
                 .and_then(Value::as_array)
-                .map(|msgs| msgs.iter().any(|m| m.get("role") == Some(&Value::String("system".into()))))
+                .map(|msgs| {
+                    msgs.iter()
+                        .any(|m| m.get("role") == Some(&Value::String("system".into())))
+                })
                 .unwrap_or(false);
             if has_system {
                 report.transforms.push(TransformRecord {
@@ -493,8 +487,16 @@ fn analyze_request_transforms(
     }
 
     // Messages / contents mapping
-    let src_key = if from == Dialect::Gemini { "contents" } else { "messages" };
-    let dst_key = if to == Dialect::Gemini { "contents" } else { "messages" };
+    let src_key = if from == Dialect::Gemini {
+        "contents"
+    } else {
+        "messages"
+    };
+    let dst_key = if to == Dialect::Gemini {
+        "contents"
+    } else {
+        "messages"
+    };
     if src_obj.and_then(|o| o.get(src_key)).is_some() {
         report.transforms.push(TransformRecord {
             source_field: src_key.into(),
@@ -535,23 +537,25 @@ fn analyze_request_transforms(
     }
 
     // stop_sequences <-> stop
-    if from == Dialect::OpenAi && to == Dialect::Claude {
-        if src_obj.and_then(|o| o.get("stop")).is_some() {
-            report.transforms.push(TransformRecord {
-                source_field: "stop".into(),
-                target_field: "stop_sequences".into(),
-                description: "Stop sequences renamed".into(),
-            });
-        }
+    if from == Dialect::OpenAi
+        && to == Dialect::Claude
+        && src_obj.and_then(|o| o.get("stop")).is_some()
+    {
+        report.transforms.push(TransformRecord {
+            source_field: "stop".into(),
+            target_field: "stop_sequences".into(),
+            description: "Stop sequences renamed".into(),
+        });
     }
-    if from == Dialect::Claude && to == Dialect::OpenAi {
-        if src_obj.and_then(|o| o.get("stop_sequences")).is_some() {
-            report.transforms.push(TransformRecord {
-                source_field: "stop_sequences".into(),
-                target_field: "stop".into(),
-                description: "Stop sequences renamed".into(),
-            });
-        }
+    if from == Dialect::Claude
+        && to == Dialect::OpenAi
+        && src_obj.and_then(|o| o.get("stop_sequences")).is_some()
+    {
+        report.transforms.push(TransformRecord {
+            source_field: "stop_sequences".into(),
+            target_field: "stop".into(),
+            description: "Stop sequences renamed".into(),
+        });
     }
 
     // Warnings for features that may lose fidelity
@@ -581,29 +585,25 @@ fn analyze_request_transforms(
     }
 
     // Gemini generationConfig flattening
-    if from == Dialect::Gemini && to != Dialect::Gemini {
-        if src_obj
-            .and_then(|o| o.get("generationConfig"))
-            .is_some()
-        {
-            report.transforms.push(TransformRecord {
-                source_field: "generationConfig.*".into(),
-                target_field: "top-level fields".into(),
-                description: "Generation config flattened to top-level parameters".into(),
-            });
-        }
+    if from == Dialect::Gemini
+        && to != Dialect::Gemini
+        && src_obj.and_then(|o| o.get("generationConfig")).is_some()
+    {
+        report.transforms.push(TransformRecord {
+            source_field: "generationConfig.*".into(),
+            target_field: "top-level fields".into(),
+            description: "Generation config flattened to top-level parameters".into(),
+        });
     }
-    if from != Dialect::Gemini && to == Dialect::Gemini {
-        if dst_obj
-            .and_then(|o| o.get("generationConfig"))
-            .is_some()
-        {
-            report.transforms.push(TransformRecord {
-                source_field: "top-level fields".into(),
-                target_field: "generationConfig.*".into(),
-                description: "Top-level parameters nested under generationConfig".into(),
-            });
-        }
+    if from != Dialect::Gemini
+        && to == Dialect::Gemini
+        && dst_obj.and_then(|o| o.get("generationConfig")).is_some()
+    {
+        report.transforms.push(TransformRecord {
+            source_field: "top-level fields".into(),
+            target_field: "generationConfig.*".into(),
+            description: "Top-level parameters nested under generationConfig".into(),
+        });
     }
 }
 
@@ -627,7 +627,9 @@ mod tests {
             "messages": [{"role": "user", "content": "Hello"}],
             "max_tokens": 1024
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Claude)
+            .unwrap();
         assert_eq!(result["model"], "gpt-4");
         assert_eq!(result["max_tokens"], 1024);
         assert_eq!(result["messages"][0]["role"], "user");
@@ -642,7 +644,9 @@ mod tests {
                 {"role": "user", "content": "Hi"}
             ]
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Claude)
+            .unwrap();
         assert_eq!(result["system"], "You are helpful");
         // user message should be in messages array
         assert_eq!(result["messages"][0]["role"], "user");
@@ -655,7 +659,9 @@ mod tests {
             "messages": [{"role": "user", "content": "Hi"}],
             "temperature": 0.7
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Claude)
+            .unwrap();
         assert_eq!(result["temperature"], 0.7);
     }
 
@@ -666,7 +672,9 @@ mod tests {
             "messages": [{"role": "user", "content": "Hi"}],
             "stream": true
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Claude)
+            .unwrap();
         assert_eq!(result["stream"], true);
     }
 
@@ -677,7 +685,9 @@ mod tests {
             "messages": [{"role": "user", "content": "Hi"}],
             "stop": ["END", "DONE"]
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Claude)
+            .unwrap();
         assert_eq!(result["stop_sequences"], json!(["END", "DONE"]));
     }
 
@@ -688,7 +698,9 @@ mod tests {
             "messages": [{"role": "user", "content": "Hi"}],
             "stop": "END"
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Claude)
+            .unwrap();
         assert_eq!(result["stop_sequences"], json!(["END"]));
     }
 
@@ -706,7 +718,9 @@ mod tests {
                 }
             }]
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Claude)
+            .unwrap();
         assert!(result.get("tools").is_some());
     }
 
@@ -717,7 +731,9 @@ mod tests {
             "messages": [{"role": "user", "content": "Hi"}],
             "top_p": 0.9
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Claude)
+            .unwrap();
         assert_eq!(result["top_p"], 0.9);
     }
 
@@ -727,7 +743,9 @@ mod tests {
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hi"}]
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Claude)
+            .unwrap();
         // Claude API requires max_tokens, mapper defaults to 4096
         assert!(result.get("max_tokens").is_some());
     }
@@ -742,7 +760,9 @@ mod tests {
                 {"role": "user", "content": "How are you?"}
             ]
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Claude)
+            .unwrap();
         let msgs = result["messages"].as_array().unwrap();
         assert_eq!(msgs.len(), 3);
     }
@@ -756,7 +776,9 @@ mod tests {
             "max_tokens": 1024,
             "messages": [{"role": "user", "content": "Hello"}]
         });
-        let result = engine().rewrite_request(&req, Dialect::Claude, Dialect::OpenAi).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Claude, Dialect::OpenAi)
+            .unwrap();
         assert_eq!(result["model"], "claude-3-5-sonnet-20241022");
         assert_eq!(result["max_tokens"], 1024);
     }
@@ -769,7 +791,9 @@ mod tests {
             "system": "You are helpful",
             "messages": [{"role": "user", "content": "Hi"}]
         });
-        let result = engine().rewrite_request(&req, Dialect::Claude, Dialect::OpenAi).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Claude, Dialect::OpenAi)
+            .unwrap();
         let msgs = result["messages"].as_array().unwrap();
         assert_eq!(msgs[0]["role"], "system");
         assert_eq!(msgs[0]["content"], "You are helpful");
@@ -782,7 +806,9 @@ mod tests {
             "type": "message",
             "content": [{"type": "text", "text": "Hello!"}]
         });
-        let result = engine().rewrite_response(&resp, Dialect::Claude, Dialect::OpenAi).unwrap();
+        let result = engine()
+            .rewrite_response(&resp, Dialect::Claude, Dialect::OpenAi)
+            .unwrap();
         // Response is passed through with dialect tag
         assert!(result.is_object());
     }
@@ -799,7 +825,9 @@ mod tests {
                 "input_schema": {"type": "object", "properties": {}}
             }]
         });
-        let result = engine().rewrite_request(&req, Dialect::Claude, Dialect::OpenAi).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Claude, Dialect::OpenAi)
+            .unwrap();
         assert!(result.get("tools").is_some());
     }
 
@@ -811,7 +839,9 @@ mod tests {
             "messages": [{"role": "user", "content": "Hi"}],
             "stop_sequences": ["END"]
         });
-        let result = engine().rewrite_request(&req, Dialect::Claude, Dialect::OpenAi).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Claude, Dialect::OpenAi)
+            .unwrap();
         assert_eq!(result["stop"], json!(["END"]));
     }
 
@@ -825,7 +855,9 @@ mod tests {
                 {"role": "user", "parts": [{"text": "Hello"}]}
             ]
         });
-        let result = engine().rewrite_request(&req, Dialect::Gemini, Dialect::OpenAi).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Gemini, Dialect::OpenAi)
+            .unwrap();
         assert_eq!(result["model"], "gemini-pro");
         assert_eq!(result["messages"][0]["role"], "user");
     }
@@ -839,7 +871,9 @@ mod tests {
                 {"role": "user", "parts": [{"text": "Hi"}]}
             ]
         });
-        let result = engine().rewrite_request(&req, Dialect::Gemini, Dialect::OpenAi).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Gemini, Dialect::OpenAi)
+            .unwrap();
         let msgs = result["messages"].as_array().unwrap();
         // System instruction should become first message
         assert!(msgs.iter().any(|m| m["role"] == "system"));
@@ -851,7 +885,9 @@ mod tests {
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}]
         });
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::Gemini).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::Gemini)
+            .unwrap();
         assert_eq!(result["contents"][0]["role"], "user");
     }
 
@@ -865,13 +901,17 @@ mod tests {
             ]
         });
         // Gemini → OpenAI
-        let openai = engine().rewrite_request(&original, Dialect::Gemini, Dialect::OpenAi).unwrap();
+        let openai = engine()
+            .rewrite_request(&original, Dialect::Gemini, Dialect::OpenAi)
+            .unwrap();
         assert_eq!(openai["messages"][0]["role"], "user");
         // Should have assistant role (model → assistant)
         assert_eq!(openai["messages"][1]["role"], "assistant");
 
         // OpenAI → Gemini (roundtrip)
-        let back = engine().rewrite_request(&openai, Dialect::OpenAi, Dialect::Gemini).unwrap();
+        let back = engine()
+            .rewrite_request(&openai, Dialect::OpenAi, Dialect::Gemini)
+            .unwrap();
         assert!(back.get("contents").is_some());
         let contents = back["contents"].as_array().unwrap();
         assert_eq!(contents.len(), 2);
@@ -887,7 +927,9 @@ mod tests {
                 "temperature": 0.5
             }
         });
-        let result = engine().rewrite_request(&req, Dialect::Gemini, Dialect::OpenAi).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Gemini, Dialect::OpenAi)
+            .unwrap();
         assert_eq!(result["max_tokens"], 2048);
         assert_eq!(result["temperature"], 0.5);
     }
@@ -900,7 +942,9 @@ mod tests {
                 {"role": "user", "parts": [{"text": "Hello"}]}
             ]
         });
-        let result = engine().rewrite_request(&req, Dialect::Gemini, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Gemini, Dialect::Claude)
+            .unwrap();
         assert_eq!(result["messages"][0]["role"], "user");
         // Should have max_tokens (Claude requires it)
         assert!(result.get("max_tokens").is_some());
@@ -913,10 +957,12 @@ mod tests {
             "max_tokens": 1024,
             "messages": [{"role": "user", "content": "Hello"}]
         });
-        let result = engine().rewrite_request(&req, Dialect::Claude, Dialect::Gemini).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Claude, Dialect::Gemini)
+            .unwrap();
         assert!(result.get("contents").is_some());
         let contents = result["contents"].as_array().unwrap();
-        assert!(contents.len() >= 1);
+        assert!(!contents.is_empty());
     }
 
     // ── Error cases ────────────────────────────────────────────────────
@@ -1006,10 +1052,12 @@ mod tests {
         assert!(!report.is_identity);
         assert!(report.transform_count() > 0);
         // Should have a system message transform
-        assert!(report
-            .transforms
-            .iter()
-            .any(|t| t.source_field.contains("system")));
+        assert!(
+            report
+                .transforms
+                .iter()
+                .any(|t| t.source_field.contains("system"))
+        );
     }
 
     #[test]
@@ -1069,7 +1117,9 @@ mod tests {
     #[test]
     fn identity_rewrite_openai() {
         let req = json!({"model": "gpt-4", "messages": [{"role": "user", "content": "Hi"}]});
-        let result = engine().rewrite_request(&req, Dialect::OpenAi, Dialect::OpenAi).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::OpenAi, Dialect::OpenAi)
+            .unwrap();
         assert_eq!(result, req);
     }
 
@@ -1080,7 +1130,9 @@ mod tests {
             "max_tokens": 1024,
             "messages": [{"role": "user", "content": "Hi"}]
         });
-        let result = engine().rewrite_request(&req, Dialect::Claude, Dialect::Claude).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Claude, Dialect::Claude)
+            .unwrap();
         assert_eq!(result, req);
     }
 
@@ -1090,14 +1142,18 @@ mod tests {
             "model": "gemini-pro",
             "contents": [{"role": "user", "parts": [{"text": "Hi"}]}]
         });
-        let result = engine().rewrite_request(&req, Dialect::Gemini, Dialect::Gemini).unwrap();
+        let result = engine()
+            .rewrite_request(&req, Dialect::Gemini, Dialect::Gemini)
+            .unwrap();
         assert_eq!(result, req);
     }
 
     #[test]
     fn identity_response_rewrite() {
         let resp = json!({"content": "hello"});
-        let result = engine().rewrite_response(&resp, Dialect::OpenAi, Dialect::OpenAi).unwrap();
+        let result = engine()
+            .rewrite_response(&resp, Dialect::OpenAi, Dialect::OpenAi)
+            .unwrap();
         assert_eq!(result, resp);
     }
 
@@ -1177,7 +1233,10 @@ mod tests {
             target_dialect: Dialect::Claude,
         };
         let rewrite_err: RewriteError = mapping_err.into();
-        assert!(matches!(rewrite_err, RewriteError::UnsupportedFeature { .. }));
+        assert!(matches!(
+            rewrite_err,
+            RewriteError::UnsupportedFeature { .. }
+        ));
     }
 
     #[test]

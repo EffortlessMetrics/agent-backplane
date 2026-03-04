@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     fn format_multiple_events_preserves_sequence() {
-        let events = vec![
+        let events = [
             make_event(AgentEventKind::RunStarted {
                 message: "a".into(),
             }),

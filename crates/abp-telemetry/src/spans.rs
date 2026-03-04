@@ -161,7 +161,8 @@ pub struct TelemetrySpan {
 impl TelemetrySpan {
     /// Duration in milliseconds, or `None` if the span is still open.
     pub fn duration_ms(&self) -> Option<u64> {
-        self.end_time_ms.map(|end| end.saturating_sub(self.start_time_ms))
+        self.end_time_ms
+            .map(|end| end.saturating_sub(self.start_time_ms))
     }
 
     /// Whether the span has been closed.
@@ -327,10 +328,7 @@ mod standalone_tests {
             span.attributes.get("key"),
             Some(&serde_json::Value::String("value".into()))
         );
-        assert_eq!(
-            span.attributes.get("count"),
-            Some(&serde_json::json!(42))
-        );
+        assert_eq!(span.attributes.get("count"), Some(&serde_json::json!(42)));
     }
 
     #[test]

@@ -114,9 +114,7 @@ pub fn validate_config(config: &BackplaneConfig) -> ValidationResult {
                             crate::MAX_TIMEOUT_SECS
                         ));
                     } else if *t > crate::LARGE_TIMEOUT_THRESHOLD {
-                        warnings.push(format!(
-                            "backend '{name}': large timeout ({t}s)"
-                        ));
+                        warnings.push(format!("backend '{name}': large timeout ({t}s)"));
                     }
                 }
             }

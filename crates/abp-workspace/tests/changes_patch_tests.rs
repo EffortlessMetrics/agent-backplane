@@ -3,16 +3,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Comprehensive tests for changes, diff extraction, patch, and snapshot modules.
 
-use abp_workspace::changes::{
-    ChangeSet, FileChangeEntry, FileChangeKind, WorkspaceChangeTracker,
-};
+use abp_workspace::changes::{ChangeSet, FileChangeEntry, FileChangeKind, WorkspaceChangeTracker};
 use abp_workspace::diff::{
-    extract_file_diffs, extract_unified_diff, DiffAnalysis, DiffFilter, FileType,
+    DiffAnalysis, DiffFilter, FileType, extract_file_diffs, extract_unified_diff,
 };
 use abp_workspace::patch::{
-    apply_patch, create_patch, create_patch_with_header, validate_patch, Patch, PatchHeader,
+    Patch, PatchHeader, apply_patch, create_patch, create_patch_with_header, validate_patch,
 };
-use abp_workspace::snapshot::{capture, capture_with_contents, compare, compare_snapshots, restore_snapshot};
+use abp_workspace::snapshot::{
+    capture, capture_with_contents, compare, compare_snapshots, restore_snapshot,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;

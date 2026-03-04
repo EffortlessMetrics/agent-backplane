@@ -137,19 +137,28 @@ impl RuntimeEventCollector {
 
     /// Record an event.
     pub fn emit(&self, event: RuntimeEvent) {
-        let mut guard = self.events.lock().expect("runtime event collector lock poisoned");
+        let mut guard = self
+            .events
+            .lock()
+            .expect("runtime event collector lock poisoned");
         guard.push(event);
     }
 
     /// Return all collected events.
     pub fn events(&self) -> Vec<RuntimeEvent> {
-        let guard = self.events.lock().expect("runtime event collector lock poisoned");
+        let guard = self
+            .events
+            .lock()
+            .expect("runtime event collector lock poisoned");
         guard.clone()
     }
 
     /// Number of collected events.
     pub fn len(&self) -> usize {
-        let guard = self.events.lock().expect("runtime event collector lock poisoned");
+        let guard = self
+            .events
+            .lock()
+            .expect("runtime event collector lock poisoned");
         guard.len()
     }
 
@@ -160,19 +169,36 @@ impl RuntimeEventCollector {
 
     /// Return events matching a specific label.
     pub fn events_with_label(&self, label: &str) -> Vec<RuntimeEvent> {
-        let guard = self.events.lock().expect("runtime event collector lock poisoned");
-        guard.iter().filter(|e| e.label() == label).cloned().collect()
+        let guard = self
+            .events
+            .lock()
+            .expect("runtime event collector lock poisoned");
+        guard
+            .iter()
+            .filter(|e| e.label() == label)
+            .cloned()
+            .collect()
     }
 
     /// Return events for a specific run.
     pub fn events_for_run(&self, run_id: &str) -> Vec<RuntimeEvent> {
-        let guard = self.events.lock().expect("runtime event collector lock poisoned");
-        guard.iter().filter(|e| e.run_id() == run_id).cloned().collect()
+        let guard = self
+            .events
+            .lock()
+            .expect("runtime event collector lock poisoned");
+        guard
+            .iter()
+            .filter(|e| e.run_id() == run_id)
+            .cloned()
+            .collect()
     }
 
     /// Clear all collected events.
     pub fn clear(&self) {
-        let mut guard = self.events.lock().expect("runtime event collector lock poisoned");
+        let mut guard = self
+            .events
+            .lock()
+            .expect("runtime event collector lock poisoned");
         guard.clear();
     }
 }

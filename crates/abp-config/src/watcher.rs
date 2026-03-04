@@ -10,8 +10,8 @@
 
 use crate::{BackplaneConfig, ConfigError};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, SystemTime};
 
@@ -140,9 +140,7 @@ impl Drop for ConfigWatcher {
 // ---------------------------------------------------------------------------
 
 fn file_mtime(path: &Path) -> Option<SystemTime> {
-    std::fs::metadata(path)
-        .ok()
-        .and_then(|m| m.modified().ok())
+    std::fs::metadata(path).ok().and_then(|m| m.modified().ok())
 }
 
 // ---------------------------------------------------------------------------
@@ -252,8 +250,7 @@ mod tests {
 
     #[test]
     fn custom_poll_interval() {
-        let watcher =
-            ConfigWatcher::new("/tmp/test.toml").poll_interval(Duration::from_secs(10));
+        let watcher = ConfigWatcher::new("/tmp/test.toml").poll_interval(Duration::from_secs(10));
         assert_eq!(watcher.poll_interval, Duration::from_secs(10));
     }
 }

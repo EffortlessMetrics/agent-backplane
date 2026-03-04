@@ -7,7 +7,9 @@
 //! [`ValidationIssue`]s from [`crate::validate`].
 
 use crate::validate::{Severity, ValidationIssue};
-use crate::{BackendEntry, BackplaneConfig, LARGE_TIMEOUT_THRESHOLD, MAX_TIMEOUT_SECS, VALID_LOG_LEVELS};
+use crate::{
+    BackendEntry, BackplaneConfig, LARGE_TIMEOUT_THRESHOLD, MAX_TIMEOUT_SECS, VALID_LOG_LEVELS,
+};
 use std::fmt;
 
 // ---------------------------------------------------------------------------
@@ -239,9 +241,7 @@ pub fn validate_against_schema(config: &BackplaneConfig) -> Vec<ValidationIssue>
                     } else if *t > LARGE_TIMEOUT_THRESHOLD {
                         issues.push(ValidationIssue {
                             severity: Severity::Warning,
-                            message: format!(
-                                "backends.{name}.timeout_secs: large timeout ({t}s)"
-                            ),
+                            message: format!("backends.{name}.timeout_secs: large timeout ({t}s)"),
                         });
                     }
                 }
@@ -255,9 +255,7 @@ pub fn validate_against_schema(config: &BackplaneConfig) -> Vec<ValidationIssue>
         if !config.backends.is_empty() && !config.backends.contains_key(name) {
             issues.push(ValidationIssue {
                 severity: Severity::Warning,
-                message: format!(
-                    "default_backend: '{name}' does not match any configured backend"
-                ),
+                message: format!("default_backend: '{name}' does not match any configured backend"),
             });
         }
     }
@@ -362,7 +360,11 @@ mod tests {
         let mut cfg = minimal_valid_config();
         cfg.log_level = Some("verbose".into());
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Error && i.message.contains("log_level")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Error && i.message.contains("log_level"))
+        );
     }
 
     #[test]
@@ -370,7 +372,11 @@ mod tests {
         let mut cfg = minimal_valid_config();
         cfg.port = Some(0);
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Error && i.message.contains("port")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Error && i.message.contains("port"))
+        );
     }
 
     #[test]
@@ -378,7 +384,11 @@ mod tests {
         let mut cfg = minimal_valid_config();
         cfg.bind_address = Some("".into());
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Error && i.message.contains("bind_address")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Error && i.message.contains("bind_address"))
+        );
     }
 
     #[test]
@@ -386,7 +396,11 @@ mod tests {
         let mut cfg = minimal_valid_config();
         cfg.bind_address = Some("not valid!".into());
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Error && i.message.contains("bind_address")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Error && i.message.contains("bind_address"))
+        );
     }
 
     #[test]
@@ -394,7 +408,11 @@ mod tests {
         let mut cfg = minimal_valid_config();
         cfg.policy_profiles = vec!["  ".into()];
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Error && i.message.contains("policy_profiles")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Error && i.message.contains("policy_profiles"))
+        );
     }
 
     #[test]
@@ -402,7 +420,11 @@ mod tests {
         let mut cfg = minimal_valid_config();
         cfg.backends.insert("".into(), BackendEntry::Mock {});
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Error && i.message.contains("backend name")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Error && i.message.contains("backend name"))
+        );
     }
 
     #[test]
@@ -410,10 +432,18 @@ mod tests {
         let mut cfg = minimal_valid_config();
         cfg.backends.insert(
             "bad".into(),
-            BackendEntry::Sidecar { command: "  ".into(), args: vec![], timeout_secs: None },
+            BackendEntry::Sidecar {
+                command: "  ".into(),
+                args: vec![],
+                timeout_secs: None,
+            },
         );
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Error && i.message.contains("command")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Error && i.message.contains("command"))
+        );
     }
 
     #[test]
@@ -421,10 +451,18 @@ mod tests {
         let mut cfg = minimal_valid_config();
         cfg.backends.insert(
             "sc".into(),
-            BackendEntry::Sidecar { command: "node".into(), args: vec![], timeout_secs: Some(0) },
+            BackendEntry::Sidecar {
+                command: "node".into(),
+                args: vec![],
+                timeout_secs: Some(0),
+            },
         );
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Error && i.message.contains("timeout")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Error && i.message.contains("timeout"))
+        );
     }
 
     #[test]
@@ -439,7 +477,11 @@ mod tests {
             },
         );
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Error && i.message.contains("timeout")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Error && i.message.contains("timeout"))
+        );
     }
 
     #[test]
@@ -454,7 +496,11 @@ mod tests {
             },
         );
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Warning && i.message.contains("large timeout")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Warning && i.message.contains("large timeout"))
+        );
     }
 
     #[test]
@@ -462,7 +508,11 @@ mod tests {
         let mut cfg = minimal_valid_config();
         cfg.default_backend = Some("nonexistent".into());
         let issues = validate_against_schema(&cfg);
-        assert!(issues.iter().any(|i| i.severity == Severity::Warning && i.message.contains("nonexistent")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Warning && i.message.contains("nonexistent"))
+        );
     }
 
     #[test]
@@ -471,6 +521,9 @@ mod tests {
         assert_eq!(FieldType::U16.to_string(), "u16");
         assert_eq!(FieldType::U64.to_string(), "u64");
         assert_eq!(FieldType::StringArray.to_string(), "string[]");
-        assert_eq!(FieldType::BackendMap.to_string(), "map<string, BackendEntry>");
+        assert_eq!(
+            FieldType::BackendMap.to_string(),
+            "map<string, BackendEntry>"
+        );
     }
 }

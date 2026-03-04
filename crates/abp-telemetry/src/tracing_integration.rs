@@ -222,8 +222,7 @@ mod tests {
 
     #[test]
     fn tracing_span_serde_roundtrip() {
-        let span = TracingSpan::completed("test", 50.0)
-            .with_attribute("key", "value");
+        let span = TracingSpan::completed("test", 50.0).with_attribute("key", "value");
         let json = serde_json::to_string(&span).unwrap();
         let back: TracingSpan = serde_json::from_str(&json).unwrap();
         assert_eq!(back.name, "test");

@@ -44,10 +44,7 @@ fn backend_limiter_multiple_backends() {
             max_requests: 3,
         },
     );
-    limiter.set_policy(
-        "local",
-        RateLimitPolicy::Fixed { max_concurrent: 1 },
-    );
+    limiter.set_policy("local", RateLimitPolicy::Fixed { max_concurrent: 1 });
     limiter.set_policy("gemini", RateLimitPolicy::Unlimited);
 
     // Each backend is independent
@@ -87,7 +84,10 @@ max_concurrent = 4
     let config: RateLimitConfig = toml::from_str(toml_str).unwrap();
     assert!(matches!(
         config.policy_for("openai"),
-        RateLimitPolicy::SlidingWindow { max_requests: 1000, .. }
+        RateLimitPolicy::SlidingWindow {
+            max_requests: 1000,
+            ..
+        }
     ));
     assert!(matches!(
         config.policy_for("anthropic"),
@@ -162,10 +162,7 @@ async fn concurrent_access_token_bucket() {
 #[tokio::test]
 async fn concurrent_access_backend_limiter() {
     let limiter = Arc::new(BackendRateLimiter::new());
-    limiter.set_policy(
-        "test",
-        RateLimitPolicy::Fixed { max_concurrent: 5 },
-    );
+    limiter.set_policy("test", RateLimitPolicy::Fixed { max_concurrent: 5 });
 
     let mut handles = Vec::new();
     for _ in 0..10 {

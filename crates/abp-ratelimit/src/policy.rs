@@ -118,10 +118,7 @@ mod tests {
     #[test]
     fn config_policy_for_default_fallback() {
         let config = RateLimitConfig::default();
-        assert_eq!(
-            config.policy_for("anything"),
-            &RateLimitPolicy::Unlimited
-        );
+        assert_eq!(config.policy_for("anything"), &RateLimitPolicy::Unlimited);
     }
 
     #[test]
@@ -138,10 +135,7 @@ mod tests {
             config.policy_for("openai"),
             RateLimitPolicy::TokenBucket { rate, burst } if (*rate - 5.0).abs() < f64::EPSILON && *burst == 10
         ));
-        assert_eq!(
-            config.policy_for("other"),
-            &RateLimitPolicy::Unlimited
-        );
+        assert_eq!(config.policy_for("other"), &RateLimitPolicy::Unlimited);
     }
 
     #[test]
@@ -167,12 +161,12 @@ type = "unlimited"
         ));
         assert!(matches!(
             config.policy_for("openai"),
-            RateLimitPolicy::SlidingWindow { max_requests: 100, .. }
+            RateLimitPolicy::SlidingWindow {
+                max_requests: 100,
+                ..
+            }
         ));
-        assert_eq!(
-            config.policy_for("local"),
-            &RateLimitPolicy::Unlimited
-        );
+        assert_eq!(config.policy_for("local"), &RateLimitPolicy::Unlimited);
     }
 
     #[test]

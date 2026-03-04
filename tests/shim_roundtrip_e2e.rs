@@ -873,7 +873,7 @@ mod gemini_roundtrip {
 
     #[tokio::test]
     async fn client_generate_returns_response() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = make_request("gemini-2.5-flash", "Hello");
         let resp = client.generate(req).await.unwrap();
         assert!(!resp.candidates.is_empty());
@@ -882,7 +882,7 @@ mod gemini_roundtrip {
 
     #[tokio::test]
     async fn client_stream_returns_events() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = make_request("gemini-2.5-flash", "Hello");
         let stream = client.generate_stream(req).await.unwrap();
         let events: Vec<_> = tokio_stream::StreamExt::collect(stream).await;

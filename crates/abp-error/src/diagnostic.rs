@@ -29,12 +29,21 @@ pub struct Diagnostic {
 impl std::fmt::Display for Diagnostic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "═══ ABP Diagnostic ═══")?;
-        writeln!(f, "Error:    [{}] {}", self.error_code.as_str(), self.error_message)?;
+        writeln!(
+            f,
+            "Error:    [{}] {}",
+            self.error_code.as_str(),
+            self.error_message
+        )?;
         writeln!(f, "Category: {}", self.recovery_category)?;
         writeln!(f, "Cause:    {}", self.probable_cause)?;
         writeln!(f, "Fix:      {}", self.suggested_fix)?;
         if self.retryable {
-            writeln!(f, "Retry:    yes (suggested delay: {:?})", category::suggested_delay(self.recovery_category))?;
+            writeln!(
+                f,
+                "Retry:    yes (suggested delay: {:?})",
+                category::suggested_delay(self.recovery_category)
+            )?;
         } else {
             writeln!(f, "Retry:    no")?;
         }
@@ -69,12 +78,18 @@ fn diagnostic_template(code: ErrorCode) -> (&'static str, &'static str, &'static
         ErrorCode::ProtocolInvalidEnvelope => (
             "The JSONL envelope could not be parsed or is missing required fields",
             "Ensure the sidecar sends valid JSON with the correct envelope schema",
-            &[ErrorCode::ProtocolHandshakeFailed, ErrorCode::ProtocolMissingRefId],
+            &[
+                ErrorCode::ProtocolHandshakeFailed,
+                ErrorCode::ProtocolMissingRefId,
+            ],
         ),
         ErrorCode::ProtocolHandshakeFailed => (
             "The sidecar did not send a valid hello envelope as its first message",
             "Verify the sidecar implementation sends a hello envelope immediately on startup",
-            &[ErrorCode::ProtocolInvalidEnvelope, ErrorCode::ProtocolVersionMismatch],
+            &[
+                ErrorCode::ProtocolInvalidEnvelope,
+                ErrorCode::ProtocolVersionMismatch,
+            ],
         ),
         ErrorCode::ProtocolMissingRefId => (
             "An envelope is missing the ref_id field needed for correlation",
@@ -89,19 +104,28 @@ fn diagnostic_template(code: ErrorCode) -> (&'static str, &'static str, &'static
         ErrorCode::ProtocolVersionMismatch => (
             "The contract version advertised by the sidecar does not match the host",
             "Update the sidecar or host to use a compatible contract version",
-            &[ErrorCode::ProtocolHandshakeFailed, ErrorCode::ContractVersionMismatch],
+            &[
+                ErrorCode::ProtocolHandshakeFailed,
+                ErrorCode::ContractVersionMismatch,
+            ],
         ),
 
         // -- Mapping --
         ErrorCode::MappingUnsupportedCapability => (
             "The target dialect does not support a capability required by the work order",
             "Choose a backend that supports the required capability or remove it from the request",
-            &[ErrorCode::CapabilityUnsupported, ErrorCode::MappingDialectMismatch],
+            &[
+                ErrorCode::CapabilityUnsupported,
+                ErrorCode::MappingDialectMismatch,
+            ],
         ),
         ErrorCode::MappingDialectMismatch => (
             "The source and target dialects are fundamentally incompatible",
             "Use a backend with a compatible dialect or configure an explicit mapping",
-            &[ErrorCode::MappingUnsupportedCapability, ErrorCode::DialectMappingFailed],
+            &[
+                ErrorCode::MappingUnsupportedCapability,
+                ErrorCode::DialectMappingFailed,
+            ],
         ),
         ErrorCode::MappingLossyConversion => (
             "Translation between dialects succeeded but some information was lost",
@@ -160,7 +184,10 @@ fn diagnostic_template(code: ErrorCode) -> (&'static str, &'static str, &'static
         ErrorCode::ExecutionWorkspaceError => (
             "An error occurred within the staged workspace (file I/O, git, etc.)",
             "Check disk space, permissions, and that the workspace path is accessible",
-            &[ErrorCode::WorkspaceInitFailed, ErrorCode::WorkspaceStagingFailed],
+            &[
+                ErrorCode::WorkspaceInitFailed,
+                ErrorCode::WorkspaceStagingFailed,
+            ],
         ),
         ErrorCode::ExecutionPermissionDenied => (
             "The operation was blocked due to insufficient permissions",
@@ -182,14 +209,20 @@ fn diagnostic_template(code: ErrorCode) -> (&'static str, &'static str, &'static
         ErrorCode::ContractInvalidReceipt => (
             "The receipt is structurally invalid or its hash cannot be verified",
             "Re-generate the receipt using receipt.with_hash() and verify the chain",
-            &[ErrorCode::ReceiptHashMismatch, ErrorCode::ReceiptChainBroken],
+            &[
+                ErrorCode::ReceiptHashMismatch,
+                ErrorCode::ReceiptChainBroken,
+            ],
         ),
 
         // -- Capability --
         ErrorCode::CapabilityUnsupported => (
             "A required capability is not supported by the selected backend",
             "Choose a backend that supports the capability or use capability emulation",
-            &[ErrorCode::CapabilityEmulationFailed, ErrorCode::MappingUnsupportedCapability],
+            &[
+                ErrorCode::CapabilityEmulationFailed,
+                ErrorCode::MappingUnsupportedCapability,
+            ],
         ),
         ErrorCode::CapabilityEmulationFailed => (
             "The emulation layer for an unsupported capability failed",
@@ -201,7 +234,10 @@ fn diagnostic_template(code: ErrorCode) -> (&'static str, &'static str, &'static
         ErrorCode::PolicyDenied => (
             "A policy rule explicitly denied this operation",
             "Review the policy profile and adjust allow/deny rules as needed",
-            &[ErrorCode::PolicyInvalid, ErrorCode::ExecutionPermissionDenied],
+            &[
+                ErrorCode::PolicyInvalid,
+                ErrorCode::ExecutionPermissionDenied,
+            ],
         ),
         ErrorCode::PolicyInvalid => (
             "The policy definition itself is malformed and cannot be compiled",
@@ -237,7 +273,10 @@ fn diagnostic_template(code: ErrorCode) -> (&'static str, &'static str, &'static
         ErrorCode::ReceiptHashMismatch => (
             "The computed SHA-256 hash of the receipt does not match the declared hash",
             "Re-hash the receipt using receipt.with_hash(); do not modify after hashing",
-            &[ErrorCode::ReceiptChainBroken, ErrorCode::ContractInvalidReceipt],
+            &[
+                ErrorCode::ReceiptChainBroken,
+                ErrorCode::ContractInvalidReceipt,
+            ],
         ),
         ErrorCode::ReceiptChainBroken => (
             "The receipt chain has a gap or entries are out of order",
@@ -302,7 +341,10 @@ mod tests {
         let err = AbpError::new(ErrorCode::ProtocolInvalidEnvelope, "bad json");
         let diag = generate_diagnostic(&err);
         assert!(!diag.related_errors.is_empty());
-        assert!(diag.related_errors.contains(&ErrorCode::ProtocolHandshakeFailed));
+        assert!(
+            diag.related_errors
+                .contains(&ErrorCode::ProtocolHandshakeFailed)
+        );
     }
 
     #[test]

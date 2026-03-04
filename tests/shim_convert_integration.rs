@@ -489,7 +489,7 @@ mod gemini {
 
         // Gemini uses an internal pipeline, so test the client's generate method
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let resp = rt.block_on(client.generate(req)).unwrap();
         assert!(!resp.candidates.is_empty());
         assert!(resp.text().is_some());
@@ -508,7 +508,7 @@ mod gemini {
             }]);
 
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let resp = rt.block_on(client.generate(req)).unwrap();
         assert!(!resp.candidates.is_empty());
     }
@@ -553,7 +553,7 @@ mod gemini {
             .add_content(Content::user(vec![Part::text("Stream me")]));
 
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let stream = rt.block_on(client.generate_stream(req)).unwrap();
 
         let events: Vec<_> =
@@ -1020,7 +1020,7 @@ mod streaming {
             .add_content(Content::user(vec![Part::text("stream")]));
 
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let stream = rt.block_on(client.generate_stream(req)).unwrap();
 
         let events: Vec<_> =

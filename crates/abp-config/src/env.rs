@@ -115,7 +115,6 @@ pub fn apply_env_overrides(config: &mut BackplaneConfig) {
 #[allow(unsafe_code)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
 
     #[test]
     fn empty_overrides() {

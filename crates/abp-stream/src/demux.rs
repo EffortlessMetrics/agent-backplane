@@ -99,7 +99,7 @@ impl Default for StreamDemux {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use abp_core::{AgentEventKind, AgentEvent};
+    use abp_core::{AgentEvent, AgentEventKind};
     use chrono::Utc;
 
     fn make_event(kind: AgentEventKind) -> AgentEvent {
@@ -159,10 +159,14 @@ mod tests {
         assert!(demux.route(&tool_call_event("bash")).await);
 
         let text_ev = text_rx.recv().await.unwrap();
-        assert!(matches!(&text_ev.kind, AgentEventKind::AssistantDelta { text } if text == "hello"));
+        assert!(
+            matches!(&text_ev.kind, AgentEventKind::AssistantDelta { text } if text == "hello")
+        );
 
         let tool_ev = tool_rx.recv().await.unwrap();
-        assert!(matches!(&tool_ev.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "bash"));
+        assert!(
+            matches!(&tool_ev.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "bash")
+        );
     }
 
     #[tokio::test]

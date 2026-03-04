@@ -64,7 +64,7 @@ fn claude_exports_core_types() {
 fn gemini_exports_core_types() {
     let _part = abp_shim_gemini::Part::text("hi");
     let _content = abp_shim_gemini::Content::user(vec![abp_shim_gemini::Part::text("hi")]);
-    let _client = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash");
+    let _client = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash").unwrap();
     let _err: Option<abp_shim_gemini::GeminiError> = None;
 }
 
@@ -1100,7 +1100,7 @@ fn copilot_model_preserved_in_work_order() {
 
 #[test]
 fn gemini_client_model_accessor() {
-    let client = abp_shim_gemini::GeminiClient::new("gemini-2.5-pro");
+    let client = abp_shim_gemini::GeminiClient::new("gemini-2.5-pro").unwrap();
     assert_eq!(client.model(), "gemini-2.5-pro");
 }
 
@@ -1395,7 +1395,7 @@ fn all_shims_produce_debug_output() {
     // Verify Debug is implemented for all client types
     let openai = abp_shim_openai::OpenAiClient::new("gpt-4o");
     let claude = abp_shim_claude::AnthropicClient::new();
-    let gemini = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash");
+    let gemini = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash").unwrap();
     let codex = abp_shim_codex::CodexClient::new("codex-mini-latest");
     let kimi = abp_shim_kimi::KimiClient::new("moonshot-v1-8k");
     let copilot = abp_shim_copilot::CopilotClient::new("gpt-4o");

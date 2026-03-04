@@ -53,7 +53,7 @@ impl TokenBucket {
     /// Wait asynchronously until `n` tokens are available, then acquire them.
     pub async fn wait_for(&self, n: usize) {
         loop {
-            {
+            let wait = {
                 let mut inner = self.inner.lock().unwrap();
                 inner.refill();
                 let needed = n as f64;
@@ -63,16 +63,14 @@ impl TokenBucket {
                 }
                 // Calculate how long to wait for enough tokens
                 let deficit = needed - inner.available;
-                let wait_secs = if inner.rate > 0.0 {
-                    deficit / inner.rate
+                if inner.rate > 0.0 {
+                    std::time::Duration::from_secs_f64(deficit / inner.rate)
                 } else {
                     // Zero rate means tokens never refill; avoid infinite loop
                     return;
-                };
-                let wait = std::time::Duration::from_secs_f64(wait_secs);
-                drop(inner);
-                tokio::time::sleep(wait).await;
-            }
+                }
+            };
+            tokio::time::sleep(wait).await;
         }
     }
 

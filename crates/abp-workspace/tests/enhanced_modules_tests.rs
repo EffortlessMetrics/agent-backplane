@@ -4,8 +4,8 @@
 use abp_workspace::approval::{ApprovalPolicy, ApprovalStatus, ChangeApproval};
 use abp_workspace::archive::{ArchiveEntry, ArchiveMetadata, WorkspaceArchive};
 use abp_workspace::diff::{
-    ChangeType, DiffAnalysis, DiffChangeKind, DiffHunk, DiffLine, DiffLineKind,
-    FileChange, FileDiff, FileType, WorkspaceDiff,
+    ChangeType, DiffAnalysis, DiffChangeKind, DiffHunk, DiffLine, DiffLineKind, FileChange,
+    FileDiff, FileType, WorkspaceDiff,
 };
 use abp_workspace::git_ops::{DiffStats, GitFileStatus, GitOps, GitStatusEntry, LogEntry};
 use abp_workspace::semantic_diff::{
@@ -129,10 +129,7 @@ fn semantic_diff_classifies_added() {
     };
     let sd = SemanticDiff::from_analysis(&analysis);
     assert_eq!(sd.added_files().len(), 1);
-    assert!(matches!(
-        sd.files[0].kind,
-        SemanticChangeKind::Added
-    ));
+    assert!(matches!(sd.files[0].kind, SemanticChangeKind::Added));
 }
 
 #[test]
@@ -145,10 +142,7 @@ fn semantic_diff_classifies_modified() {
     };
     let sd = SemanticDiff::from_analysis(&analysis);
     assert_eq!(sd.modified_files().len(), 1);
-    assert!(matches!(
-        sd.files[0].kind,
-        SemanticChangeKind::Modified
-    ));
+    assert!(matches!(sd.files[0].kind, SemanticChangeKind::Modified));
 }
 
 #[test]
@@ -161,10 +155,7 @@ fn semantic_diff_classifies_deleted() {
     };
     let sd = SemanticDiff::from_analysis(&analysis);
     assert_eq!(sd.deleted_files().len(), 1);
-    assert!(matches!(
-        sd.files[0].kind,
-        SemanticChangeKind::Deleted
-    ));
+    assert!(matches!(sd.files[0].kind, SemanticChangeKind::Deleted));
 }
 
 #[test]
@@ -376,7 +367,10 @@ fn git_ops_status_clean_workspace() {
     let ws = make_test_workspace();
     let ops = GitOps::new(ws.path());
     let status = ops.status().unwrap();
-    assert!(status.is_empty(), "clean workspace should have empty status");
+    assert!(
+        status.is_empty(),
+        "clean workspace should have empty status"
+    );
 }
 
 #[test]
@@ -395,10 +389,11 @@ fn git_ops_status_new_file() {
     fs::write(ws.path().join("new_file.txt"), "new\n").unwrap();
     let ops = GitOps::new(ws.path());
     let status = ops.status().unwrap();
-    assert!(status
-        .iter()
-        .any(|e| e.path.contains("new_file.txt")
-            && e.status == GitFileStatus::Added));
+    assert!(
+        status
+            .iter()
+            .any(|e| e.path.contains("new_file.txt") && e.status == GitFileStatus::Added)
+    );
 }
 
 #[test]
@@ -556,11 +551,7 @@ fn approval_reject_workflow() {
 
 #[test]
 fn approval_apply_after_approve() {
-    let diff = make_workspace_diff(
-        vec![("new.rs", 10, 0)],
-        vec![],
-        vec![],
-    );
+    let diff = make_workspace_diff(vec![("new.rs", 10, 0)], vec![], vec![]);
     let mut approval = ChangeApproval::submit_changes(diff.clone());
     approval.approve().unwrap();
     let applied = approval.apply().unwrap();
@@ -603,11 +594,7 @@ fn approval_double_reject_fails() {
 #[test]
 fn approval_policy_permissive_no_review() {
     let policy = ApprovalPolicy::permissive();
-    let diff = make_workspace_diff(
-        vec![("a.rs", 100, 0)],
-        vec![("b.rs", 50, 10)],
-        vec![],
-    );
+    let diff = make_workspace_diff(vec![("a.rs", 100, 0)], vec![("b.rs", 50, 10)], vec![]);
     assert!(!policy.needs_review(&diff));
 }
 
@@ -624,11 +611,7 @@ fn approval_policy_max_files_triggers_review() {
         max_files_without_review: Some(1),
         ..ApprovalPolicy::default()
     };
-    let diff = make_workspace_diff(
-        vec![("a.rs", 1, 0), ("b.rs", 1, 0)],
-        vec![],
-        vec![],
-    );
+    let diff = make_workspace_diff(vec![("a.rs", 1, 0), ("b.rs", 1, 0)], vec![], vec![]);
     assert!(policy.needs_review(&diff));
 }
 
@@ -693,7 +676,10 @@ fn approval_policy_serde_roundtrip() {
     };
     let json = serde_json::to_string(&policy).unwrap();
     let back: ApprovalPolicy = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.max_files_without_review, policy.max_files_without_review);
+    assert_eq!(
+        back.max_files_without_review,
+        policy.max_files_without_review
+    );
     assert_eq!(back.sensitive_paths, policy.sensitive_paths);
 }
 
@@ -772,7 +758,7 @@ fn archive_list_from_file() {
 #[test]
 fn archive_restore_preserves_content() {
     let ws = make_test_workspace();
-    fs::write(ws.path().join("data.bin"), &[0u8, 1, 2, 3, 255]).unwrap();
+    fs::write(ws.path().join("data.bin"), [0u8, 1, 2, 3, 255]).unwrap();
 
     let bytes = WorkspaceArchive::create_bytes(ws.path()).unwrap();
     let restore_dir = tempfile::tempdir().unwrap();

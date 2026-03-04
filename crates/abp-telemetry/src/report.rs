@@ -133,7 +133,10 @@ impl TelemetryReport {
         let _ = writeln!(out);
         let _ = writeln!(out, "--- Spans ({}) ---", self.spans.len());
         for span in &self.spans {
-            let dur = span.duration_ms.map(|d| format!("{d:.2}ms")).unwrap_or_else(|| "open".into());
+            let dur = span
+                .duration_ms
+                .map(|d| format!("{d:.2}ms"))
+                .unwrap_or_else(|| "open".into());
             let _ = writeln!(out, "  {} ({})", span.name, dur);
         }
 
@@ -162,12 +165,8 @@ mod tests {
 
     #[test]
     fn report_empty() {
-        let report = TelemetryReport::from_parts(
-            empty_snapshot(),
-            vec![],
-            vec![],
-            "2025-01-01T00:00:00Z",
-        );
+        let report =
+            TelemetryReport::from_parts(empty_snapshot(), vec![], vec![], "2025-01-01T00:00:00Z");
         assert_eq!(report.event_count(), 0);
         assert_eq!(report.span_count(), 0);
         assert!(report.event_summary().is_empty());
@@ -230,12 +229,8 @@ mod tests {
             timestamp: "t".into(),
         });
 
-        let report = TelemetryReport::build(
-            &MetricsRegistry::new(),
-            &events,
-            &SpanRecorder::new(),
-            "t",
-        );
+        let report =
+            TelemetryReport::build(&MetricsRegistry::new(), &events, &SpanRecorder::new(), "t");
         assert_eq!(report.event_count(), 3);
     }
 
@@ -273,12 +268,8 @@ mod tests {
             message: "fail".into(),
         });
 
-        let report = TelemetryReport::build(
-            &MetricsRegistry::new(),
-            &events,
-            &SpanRecorder::new(),
-            "t",
-        );
+        let report =
+            TelemetryReport::build(&MetricsRegistry::new(), &events, &SpanRecorder::new(), "t");
         let summary = report.event_summary();
         assert_eq!(summary["run_started"], 2);
         assert_eq!(summary["error_occurred"], 1);
@@ -311,12 +302,8 @@ mod tests {
 
     #[test]
     fn report_summary_empty() {
-        let report = TelemetryReport::from_parts(
-            empty_snapshot(),
-            vec![],
-            vec![],
-            "2025-01-01T00:00:00Z",
-        );
+        let report =
+            TelemetryReport::from_parts(empty_snapshot(), vec![], vec![], "2025-01-01T00:00:00Z");
         let text = report.to_summary();
         assert!(text.contains("Counters: (none)"));
         assert!(text.contains("Gauges: (none)"));

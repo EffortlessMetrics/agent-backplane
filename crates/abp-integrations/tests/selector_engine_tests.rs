@@ -204,7 +204,9 @@ fn criteria_from_work_order_with_requirements() {
 fn single_backend_selection_basic() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(candidate("only", &[Capability::Streaming], 1));
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
     assert_eq!(report.selected_backend, "only");
     assert!(report.alternatives.is_empty());
 }
@@ -317,7 +319,9 @@ fn healthy_backend_preferred_over_degraded() {
         },
     );
     // healthy_one has no health record → defaults to Up
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
     assert_eq!(report.selected_backend, "healthy_one");
 }
 
@@ -332,7 +336,9 @@ fn down_backend_skipped() {
             reason: "offline".into(),
         },
     );
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
     assert_eq!(report.selected_backend, "up_one");
 }
 
@@ -364,7 +370,9 @@ fn degraded_backend_still_selectable() {
             reason: "slow".into(),
         },
     );
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
     assert_eq!(report.selected_backend, "deg");
 }
 
@@ -373,7 +381,9 @@ fn health_not_set_defaults_to_up() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(candidate("fresh", &[Capability::Streaming], 1));
     assert!(sel.get_health("fresh").is_none());
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
     assert_eq!(report.selected_backend, "fresh");
 }
 
@@ -448,7 +458,11 @@ fn dialect_and_capability_combined() {
         &[Capability::Streaming, Capability::ToolRead],
         2,
     ));
-    sel.add_candidate(candidate("emulated_full", &[Capability::Streaming, Capability::ToolRead], 1));
+    sel.add_candidate(candidate(
+        "emulated_full",
+        &[Capability::Streaming, Capability::ToolRead],
+        1,
+    ));
     sel.set_dialect("native_full", Dialect::Claude);
     sel.set_dialect("emulated_full", Dialect::OpenAi);
 
@@ -600,7 +614,9 @@ fn report_contains_evaluations() {
     sel.add_candidate(candidate("a", &[Capability::Streaming], 1));
     sel.add_candidate(candidate("b", &[Capability::Streaming], 2));
 
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
     assert_eq!(report.considered.len(), 2);
 }
 
@@ -611,7 +627,9 @@ fn report_alternatives_listed() {
     sel.add_candidate(candidate("alt1", &[Capability::Streaming], 2));
     sel.add_candidate(candidate("alt2", &[Capability::Streaming], 3));
 
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
     assert_eq!(report.selected_backend, "winner");
     assert_eq!(report.alternatives.len(), 2);
     assert!(report.alternatives.contains(&"alt1".to_string()));
@@ -624,8 +642,14 @@ fn report_rejected_candidates_have_reason() {
     sel.add_candidate(candidate("good", &[Capability::Streaming], 1));
     sel.add_candidate(candidate("bad", &[Capability::ToolRead], 2));
 
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
-    let bad_eval = report.considered.iter().find(|e| e.backend == "bad").unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
+    let bad_eval = report
+        .considered
+        .iter()
+        .find(|e| e.backend == "bad")
+        .unwrap();
     assert!(bad_eval.rejected_reason.is_some());
     assert_eq!(bad_eval.composite_score, 0.0);
 }
@@ -641,7 +665,9 @@ fn multiple_backends_ranked_by_priority() {
     sel.add_candidate(candidate("high_pri", &[Capability::Streaming], 1));
     sel.add_candidate(candidate("med_pri", &[Capability::Streaming], 5));
 
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
     assert_eq!(report.selected_backend, "high_pri");
 }
 
@@ -657,7 +683,9 @@ fn multiple_backends_ranked_by_health_then_priority() {
         },
     );
 
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
     // Health difference (Up=30 vs Degraded=10) outweighs priority difference
     assert_eq!(report.selected_backend, "healthy");
 }
@@ -731,7 +759,9 @@ fn disabled_candidates_excluded_from_criteria_selection() {
     sel.add_candidate(off);
     sel.add_candidate(candidate("on", &[Capability::Streaming], 2));
 
-    let report = sel.select_with_criteria(&criteria(&[Capability::Streaming])).unwrap();
+    let report = sel
+        .select_with_criteria(&criteria(&[Capability::Streaming]))
+        .unwrap();
     assert_eq!(report.selected_backend, "on");
     // Only enabled candidates appear in evaluations
     assert_eq!(report.considered.len(), 1);

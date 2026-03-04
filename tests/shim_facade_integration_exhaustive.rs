@@ -1047,7 +1047,7 @@ mod gemini {
 
     #[tokio::test]
     async fn gemini_client_generate() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("Hello")]));
         let resp = client.generate(req).await.unwrap();
@@ -1056,7 +1056,7 @@ mod gemini {
 
     #[tokio::test]
     async fn gemini_client_stream() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("Stream")]));
         let mut stream = client.generate_stream(req).await.unwrap();

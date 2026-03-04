@@ -827,7 +827,7 @@ mod gemini {
 
     #[test]
     fn client_model_accessor() {
-        let client = GeminiClient::new("gemini-2.5-pro");
+        let client = PipelineClient::new("gemini-2.5-pro");
         assert_eq!(client.model(), "gemini-2.5-pro");
     }
 
@@ -835,7 +835,7 @@ mod gemini {
 
     #[tokio::test]
     async fn full_roundtrip_via_client() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = sample_request();
         let response = client.generate(request).await.unwrap();
         assert!(!response.candidates.is_empty());

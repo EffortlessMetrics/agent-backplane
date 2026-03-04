@@ -24,7 +24,7 @@ pub mod timeout;
 
 pub use aggregate::{StreamAggregator, StreamSummary, ToolCallAggregate};
 pub use backpressure::{BackpressurePolicy, BackpressuredSender, SendOutcome};
-pub use buffer::{EventBuffer, BufferFullError, RingBuffer, StreamBuffer};
+pub use buffer::{BufferFullError, EventBuffer, RingBuffer, StreamBuffer};
 pub use buffered::BufferedStream;
 pub use collector::EventCollector;
 pub use demux::StreamDemux;

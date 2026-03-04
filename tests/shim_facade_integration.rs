@@ -107,7 +107,7 @@ mod registry_completeness {
 
     #[test]
     fn gemini_shim_client_exists() {
-        let client = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash");
+        let client = abp_shim_gemini::PipelineClient::new("gemini-2.5-flash");
         assert_eq!(client.model(), "gemini-2.5-flash");
     }
 
@@ -133,7 +133,7 @@ mod registry_completeness {
     fn all_six_shim_clients_constructible() {
         let _openai = abp_shim_openai::OpenAiClient::new("gpt-4o");
         let _claude = abp_shim_claude::AnthropicClient::new();
-        let _gemini = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash");
+        let _gemini = abp_shim_gemini::PipelineClient::new("gemini-2.5-flash");
         let _codex = abp_shim_codex::CodexClient::new("codex-mini-latest");
         let _kimi = abp_shim_kimi::KimiClient::new("moonshot-v1-8k");
         let _copilot = abp_shim_copilot::CopilotClient::new("gpt-4o");
@@ -147,7 +147,7 @@ mod registry_completeness {
                 .model()
                 .to_string(),
             "claude-sonnet-4-20250514".to_string(), // AnthropicClient default
-            abp_shim_gemini::GeminiClient::new("gemini-2.5-flash")
+            abp_shim_gemini::PipelineClient::new("gemini-2.5-flash")
                 .model()
                 .to_string(),
             abp_shim_codex::CodexClient::new("codex-mini-latest")
@@ -180,7 +180,7 @@ mod registry_completeness {
     fn each_shim_debug_printable() {
         let openai = abp_shim_openai::OpenAiClient::new("gpt-4o");
         let claude = abp_shim_claude::AnthropicClient::new();
-        let gemini = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash");
+        let gemini = abp_shim_gemini::PipelineClient::new("gemini-2.5-flash");
         let codex = abp_shim_codex::CodexClient::new("codex-mini-latest");
         let kimi = abp_shim_kimi::KimiClient::new("moonshot-v1-8k");
         let copilot = abp_shim_copilot::CopilotClient::new("gpt-4o");
@@ -234,7 +234,7 @@ mod shim_work_order_creation {
 
     #[tokio::test]
     async fn gemini_request_produces_valid_work_order() {
-        let client = abp_shim_gemini::GeminiClient::new("gemini-2.5-flash");
+        let client = abp_shim_gemini::PipelineClient::new("gemini-2.5-flash");
         let req = abp_shim_gemini::GenerateContentRequest::new("gemini-2.5-flash").add_content(
             abp_shim_gemini::Content::user(vec![abp_shim_gemini::Part::text("Hello Gemini")]),
         );

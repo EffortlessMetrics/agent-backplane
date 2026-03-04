@@ -440,15 +440,15 @@ mod tests {
     #[test]
     fn mock_stdout_captures_output() {
         let mut mock = MockStdout::new();
-        write!(mock, "hello\n").unwrap();
-        write!(mock, "world\n").unwrap();
+        writeln!(mock, "hello").unwrap();
+        writeln!(mock, "world").unwrap();
         assert_eq!(mock.lines(), vec!["hello", "world"]);
     }
 
     #[test]
     fn mock_stdout_clear() {
         let mut mock = MockStdout::new();
-        write!(mock, "data\n").unwrap();
+        writeln!(mock, "data").unwrap();
         assert!(!mock.bytes().is_empty());
         mock.clear();
         assert!(mock.bytes().is_empty());

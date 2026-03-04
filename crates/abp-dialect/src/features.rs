@@ -149,7 +149,9 @@ pub struct DialectFeatureSet {
 
 impl DialectFeatureSet {
     /// Build a feature set from an iterator of `(feature, support)` pairs.
-    pub fn from_iter(iter: impl IntoIterator<Item = (DialectFeature, FeatureSupport)>) -> Self {
+    pub fn build_from_iter(
+        iter: impl IntoIterator<Item = (DialectFeature, FeatureSupport)>,
+    ) -> Self {
         Self {
             entries: iter.into_iter().collect(),
         }
@@ -288,7 +290,7 @@ mod tests {
 
     #[test]
     fn feature_set_supports_known() {
-        let set = DialectFeatureSet::from_iter([
+        let set = DialectFeatureSet::build_from_iter([
             (DialectFeature::ToolUse, FeatureSupport::Native),
             (DialectFeature::Vision, FeatureSupport::Emulated),
         ]);
@@ -304,13 +306,13 @@ mod tests {
 
     #[test]
     fn feature_set_supports_unknown_returns_none() {
-        let set = DialectFeatureSet::from_iter([]);
+        let set = DialectFeatureSet::build_from_iter([]);
         assert_eq!(set.supports(DialectFeature::Audio), FeatureSupport::None);
     }
 
     #[test]
     fn feature_set_native_features() {
-        let set = DialectFeatureSet::from_iter([
+        let set = DialectFeatureSet::build_from_iter([
             (DialectFeature::ToolUse, FeatureSupport::Native),
             (DialectFeature::Vision, FeatureSupport::Emulated),
             (DialectFeature::Audio, FeatureSupport::None),
@@ -321,7 +323,7 @@ mod tests {
 
     #[test]
     fn feature_set_emulated_features() {
-        let set = DialectFeatureSet::from_iter([
+        let set = DialectFeatureSet::build_from_iter([
             (DialectFeature::ToolUse, FeatureSupport::Native),
             (DialectFeature::Vision, FeatureSupport::Emulated),
             (DialectFeature::Audio, FeatureSupport::None),
@@ -332,7 +334,7 @@ mod tests {
 
     #[test]
     fn feature_set_available_features() {
-        let set = DialectFeatureSet::from_iter([
+        let set = DialectFeatureSet::build_from_iter([
             (DialectFeature::ToolUse, FeatureSupport::Native),
             (DialectFeature::Vision, FeatureSupport::Emulated),
             (DialectFeature::Audio, FeatureSupport::None),
@@ -345,7 +347,7 @@ mod tests {
 
     #[test]
     fn feature_set_unsupported_features() {
-        let set = DialectFeatureSet::from_iter([
+        let set = DialectFeatureSet::build_from_iter([
             (DialectFeature::ToolUse, FeatureSupport::Native),
             (DialectFeature::Audio, FeatureSupport::None),
         ]);
@@ -354,20 +356,24 @@ mod tests {
 
     #[test]
     fn feature_set_len_and_empty() {
-        let empty = DialectFeatureSet::from_iter([]);
+        let empty = DialectFeatureSet::build_from_iter([]);
         assert!(empty.is_empty());
         assert_eq!(empty.len(), 0);
 
-        let set =
-            DialectFeatureSet::from_iter([(DialectFeature::Streaming, FeatureSupport::Native)]);
+        let set = DialectFeatureSet::build_from_iter([(
+            DialectFeature::Streaming,
+            FeatureSupport::Native,
+        )]);
         assert!(!set.is_empty());
         assert_eq!(set.len(), 1);
     }
 
     #[test]
     fn feature_set_iter() {
-        let set =
-            DialectFeatureSet::from_iter([(DialectFeature::Caching, FeatureSupport::Emulated)]);
+        let set = DialectFeatureSet::build_from_iter([(
+            DialectFeature::Caching,
+            FeatureSupport::Emulated,
+        )]);
         let pairs: Vec<_> = set.iter().collect();
         assert_eq!(
             pairs,
@@ -377,7 +383,7 @@ mod tests {
 
     #[test]
     fn feature_set_serde_roundtrip() {
-        let set = DialectFeatureSet::from_iter([
+        let set = DialectFeatureSet::build_from_iter([
             (DialectFeature::ToolUse, FeatureSupport::Native),
             (DialectFeature::Vision, FeatureSupport::Emulated),
         ]);
@@ -389,7 +395,7 @@ mod tests {
     #[test]
     fn feature_ordering_is_stable() {
         // BTreeMap ordering means features come out in Ord order
-        let set = DialectFeatureSet::from_iter([
+        let set = DialectFeatureSet::build_from_iter([
             (DialectFeature::WebSearch, FeatureSupport::Native),
             (DialectFeature::SystemMessages, FeatureSupport::Native),
         ]);

@@ -101,7 +101,14 @@ pub fn print_status(info: &StatusInfo) -> Result<()> {
     println!("======================");
     println!("contract: {}", info.contract_version);
     println!("health:   {}", info.health);
-    println!("daemon:   {}", if info.daemon_running { "running" } else { "not running" });
+    println!(
+        "daemon:   {}",
+        if info.daemon_running {
+            "running"
+        } else {
+            "not running"
+        }
+    );
     println!("active:   {} run(s)", info.active_runs);
     println!();
     println!("Backends ({}):", info.backend_count);
@@ -175,10 +182,12 @@ mod tests {
 
     #[test]
     fn config_summary_captures_fields() {
-        let mut config = abp_config::BackplaneConfig::default();
-        config.default_backend = Some("mock".into());
-        config.log_level = Some("debug".into());
-        config.receipts_dir = Some("/tmp/receipts".into());
+        let config = abp_config::BackplaneConfig {
+            default_backend: Some("mock".into()),
+            log_level: Some("debug".into()),
+            receipts_dir: Some("/tmp/receipts".into()),
+            ..Default::default()
+        };
         let info = gather_status(&config).unwrap();
         let summary = info.config_summary.unwrap();
         assert_eq!(summary.default_backend.as_deref(), Some("mock"));
