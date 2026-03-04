@@ -354,6 +354,235 @@ pub fn negotiate(required: &[Capability], manifest: &CapabilityManifest) -> Nego
     }
 }
 
+// ---------------------------------------------------------------------------
+// CapabilityNegotiator: stateful dialect-to-dialect negotiation
+// ---------------------------------------------------------------------------
+
+/// A single capability that is degraded (partial support with caveats).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DegradedFeature {
+    /// The capability.
+    pub capability: Capability,
+    /// Support level label in the source dialect.
+    pub source_level: String,
+    /// Support level label in the target dialect.
+    pub target_level: String,
+    /// Human-readable caveats about the degradation.
+    pub caveats: String,
+}
+
+impl fmt::Display for DegradedFeature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?}: {} → {} ({})",
+            self.capability, self.source_level, self.target_level, self.caveats,
+        )
+    }
+}
+
+/// Detailed result of dialect-to-dialect capability negotiation.
+///
+/// Unlike [`NegotiationResult`] which classifies into native/emulated/unsupported,
+/// this adds a `degraded` category for capabilities that have partial support
+/// with caveats.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DetailedNegotiationResult {
+    /// Source dialect name.
+    pub source: String,
+    /// Target dialect name.
+    pub target: String,
+    /// Capabilities that pass through natively (same or better support).
+    pub native: Vec<Capability>,
+    /// Capabilities that can be emulated with an emulation strategy.
+    pub emulatable: Vec<(Capability, crate::EmulationStrategy)>,
+    /// Capabilities that are completely unsupported and must fail early.
+    pub unsupported: Vec<(Capability, String)>,
+    /// Capabilities with partial support — degraded but usable with caveats.
+    pub degraded: Vec<DegradedFeature>,
+}
+
+impl DetailedNegotiationResult {
+    /// Returns `true` if no capabilities are unsupported.
+    #[must_use]
+    pub fn is_viable(&self) -> bool {
+        self.unsupported.is_empty()
+    }
+
+    /// Total capabilities evaluated.
+    #[must_use]
+    pub fn total(&self) -> usize {
+        self.native.len() + self.emulatable.len() + self.unsupported.len() + self.degraded.len()
+    }
+}
+
+impl fmt::Display for DetailedNegotiationResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} → {}: {} native, {} emulatable, {} degraded, {} unsupported",
+            self.source,
+            self.target,
+            self.native.len(),
+            self.emulatable.len(),
+            self.degraded.len(),
+            self.unsupported.len(),
+        )
+    }
+}
+
+/// Stateful negotiator that compares source and target dialect capabilities.
+///
+/// Takes source dialect capabilities + target dialect capabilities and produces
+/// a [`DetailedNegotiationResult`] classifying features as native, emulatable,
+/// degraded, or unsupported.
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::negotiate::CapabilityNegotiator;
+/// use abp_core::{Capability, SupportLevel as CoreSupportLevel};
+/// use std::collections::BTreeMap;
+///
+/// let mut src = BTreeMap::new();
+/// src.insert(Capability::Streaming, CoreSupportLevel::Native);
+/// src.insert(Capability::Vision, CoreSupportLevel::Native);
+///
+/// let mut tgt = BTreeMap::new();
+/// tgt.insert(Capability::Streaming, CoreSupportLevel::Native);
+/// tgt.insert(Capability::Vision, CoreSupportLevel::Emulated);
+///
+/// let negotiator = CapabilityNegotiator::new("claude", src, "openai", tgt);
+/// let result = negotiator.negotiate();
+/// assert_eq!(result.native.len(), 1);
+/// assert_eq!(result.degraded.len(), 1);
+/// ```
+pub struct CapabilityNegotiator {
+    source_name: String,
+    source_manifest: CapabilityManifest,
+    target_name: String,
+    target_manifest: CapabilityManifest,
+}
+
+impl CapabilityNegotiator {
+    /// Create a new negotiator for the given source and target dialects.
+    #[must_use]
+    pub fn new(
+        source_name: &str,
+        source_manifest: CapabilityManifest,
+        target_name: &str,
+        target_manifest: CapabilityManifest,
+    ) -> Self {
+        Self {
+            source_name: source_name.to_owned(),
+            source_manifest,
+            target_name: target_name.to_owned(),
+            target_manifest,
+        }
+    }
+
+    /// Perform negotiation, producing a [`DetailedNegotiationResult`].
+    ///
+    /// Classification rules:
+    /// - **Native**: target supports at same or higher level (unchanged/upgrade).
+    /// - **Degraded**: target supports at a lower level but not unsupported
+    ///   (e.g. Native→Emulated or Native→Restricted).
+    /// - **Emulatable**: target does not support but ABP can emulate.
+    /// - **Unsupported**: target does not support and emulation is not available
+    ///   (capability is lost).
+    #[must_use]
+    pub fn negotiate(&self) -> DetailedNegotiationResult {
+        use crate::{classify_transition, default_emulation_strategy, TransitionKind};
+        use abp_core::SupportLevel as CoreSupportLevel;
+
+        let mut native = Vec::new();
+        let mut emulatable = Vec::new();
+        let unsupported = Vec::new();
+        let mut degraded = Vec::new();
+
+        for (cap, src_level) in &self.source_manifest {
+            if matches!(src_level, CoreSupportLevel::Unsupported) {
+                continue;
+            }
+
+            let tgt_level = self
+                .target_manifest
+                .get(cap)
+                .cloned()
+                .unwrap_or(CoreSupportLevel::Unsupported);
+
+            let kind = classify_transition(src_level, &tgt_level);
+
+            match kind {
+                TransitionKind::Unchanged | TransitionKind::Upgrade => {
+                    native.push(cap.clone());
+                }
+                TransitionKind::Downgrade => {
+                    let src_label = level_label(src_level);
+                    let tgt_label = level_label(&tgt_level);
+                    degraded.push(DegradedFeature {
+                        capability: cap.clone(),
+                        source_level: src_label.clone(),
+                        target_level: tgt_label.clone(),
+                        caveats: format!(
+                            "downgraded from {} to {}; may have reduced fidelity",
+                            src_label, tgt_label
+                        ),
+                    });
+                }
+                TransitionKind::Lost => {
+                    let strategy = default_emulation_strategy(cap);
+                    // Approximate strategies are low-confidence so we flag as
+                    // emulatable but still risky. All strategies at least allow
+                    // an attempt.
+                    emulatable.push((cap.clone(), strategy));
+                }
+            }
+        }
+
+        DetailedNegotiationResult {
+            source: self.source_name.clone(),
+            target: self.target_name.clone(),
+            native,
+            emulatable,
+            unsupported,
+            degraded,
+        }
+    }
+
+    /// Negotiate and partition truly unsupported features that cannot be emulated.
+    ///
+    /// Features that are lost but have `Approximate` strategy are moved to
+    /// unsupported since the fidelity is too low for reliable operation.
+    #[must_use]
+    pub fn negotiate_strict(&self) -> DetailedNegotiationResult {
+        let mut result = self.negotiate();
+        let mut still_emulatable = Vec::new();
+        for (cap, strategy) in result.emulatable.drain(..) {
+            if strategy == crate::EmulationStrategy::Approximate {
+                result.unsupported.push((
+                    cap,
+                    "lost capability; approximate emulation insufficient".into(),
+                ));
+            } else {
+                still_emulatable.push((cap, strategy));
+            }
+        }
+        result.emulatable = still_emulatable;
+        result
+    }
+}
+
+/// Short label for a core support level.
+fn level_label(level: &CoreSupportLevel) -> String {
+    match level {
+        CoreSupportLevel::Native => "native".to_owned(),
+        CoreSupportLevel::Emulated => "emulated".to_owned(),
+        CoreSupportLevel::Unsupported => "unsupported".to_owned(),
+        CoreSupportLevel::Restricted { reason } => format!("restricted ({reason})"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -716,5 +945,149 @@ mod tests {
         assert!(report.met.is_empty());
         assert!(report.emulated.is_empty());
         assert_eq!(report.missing.len(), 1);
+    }
+
+    // ---- CapabilityNegotiator --------------------------------------------
+
+    #[test]
+    fn negotiator_same_manifests_all_native() {
+        let m = make_manifest(&[
+            (Capability::Streaming, CoreSupportLevel::Native),
+            (Capability::ToolUse, CoreSupportLevel::Native),
+        ]);
+        let n = CapabilityNegotiator::new("a", m.clone(), "b", m);
+        let result = n.negotiate();
+        assert_eq!(result.native.len(), 2);
+        assert!(result.emulatable.is_empty());
+        assert!(result.unsupported.is_empty());
+        assert!(result.degraded.is_empty());
+        assert!(result.is_viable());
+    }
+
+    #[test]
+    fn negotiator_detects_degraded() {
+        let src = make_manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let tgt = make_manifest(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
+        let n = CapabilityNegotiator::new("src", src, "tgt", tgt);
+        let result = n.negotiate();
+        assert!(result.native.is_empty());
+        assert_eq!(result.degraded.len(), 1);
+        assert_eq!(result.degraded[0].capability, Capability::Streaming);
+        assert!(result.degraded[0].caveats.contains("downgraded"));
+    }
+
+    #[test]
+    fn negotiator_detects_lost_as_emulatable() {
+        let src = make_manifest(&[(Capability::Vision, CoreSupportLevel::Native)]);
+        let tgt: CapabilityManifest = std::collections::BTreeMap::new();
+        let n = CapabilityNegotiator::new("src", src, "tgt", tgt);
+        let result = n.negotiate();
+        assert!(result.native.is_empty());
+        assert_eq!(result.emulatable.len(), 1);
+        assert_eq!(result.emulatable[0].0, Capability::Vision);
+        assert!(result.is_viable());
+    }
+
+    #[test]
+    fn negotiator_detects_upgrade_as_native() {
+        let src = make_manifest(&[(Capability::ToolUse, CoreSupportLevel::Emulated)]);
+        let tgt = make_manifest(&[(Capability::ToolUse, CoreSupportLevel::Native)]);
+        let n = CapabilityNegotiator::new("src", src, "tgt", tgt);
+        let result = n.negotiate();
+        assert_eq!(result.native, vec![Capability::ToolUse]);
+    }
+
+    #[test]
+    fn negotiator_skips_source_unsupported() {
+        let src = make_manifest(&[(Capability::Audio, CoreSupportLevel::Unsupported)]);
+        let tgt = make_manifest(&[(Capability::Audio, CoreSupportLevel::Native)]);
+        let n = CapabilityNegotiator::new("src", src, "tgt", tgt);
+        let result = n.negotiate();
+        assert_eq!(result.total(), 0);
+    }
+
+    #[test]
+    fn negotiator_mixed_result() {
+        let src = make_manifest(&[
+            (Capability::Streaming, CoreSupportLevel::Native),
+            (Capability::Vision, CoreSupportLevel::Native),
+            (Capability::Audio, CoreSupportLevel::Native),
+        ]);
+        let tgt = make_manifest(&[
+            (Capability::Streaming, CoreSupportLevel::Native),
+            (Capability::Vision, CoreSupportLevel::Emulated),
+        ]);
+        let n = CapabilityNegotiator::new("src", src, "tgt", tgt);
+        let result = n.negotiate();
+        assert_eq!(result.native.len(), 1);
+        assert_eq!(result.degraded.len(), 1);
+        assert_eq!(result.emulatable.len(), 1);
+        assert!(result.is_viable());
+        assert_eq!(result.total(), 3);
+    }
+
+    #[test]
+    fn negotiator_display() {
+        let src = make_manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
+        let tgt = make_manifest(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
+        let n = CapabilityNegotiator::new("claude", src, "openai", tgt);
+        let result = n.negotiate();
+        let s = format!("{result}");
+        assert!(s.contains("claude"));
+        assert!(s.contains("openai"));
+        assert!(s.contains("degraded"));
+    }
+
+    #[test]
+    fn negotiator_strict_moves_approximate_to_unsupported() {
+        let src = make_manifest(&[(Capability::Vision, CoreSupportLevel::Native)]);
+        let tgt: CapabilityManifest = std::collections::BTreeMap::new();
+        let n = CapabilityNegotiator::new("src", src, "tgt", tgt);
+        let result = n.negotiate_strict();
+        // Vision uses Approximate strategy, so strict moves it to unsupported
+        assert!(result.emulatable.is_empty());
+        assert_eq!(result.unsupported.len(), 1);
+        assert!(!result.is_viable());
+    }
+
+    #[test]
+    fn negotiator_strict_keeps_client_side_emulatable() {
+        let src = make_manifest(&[(Capability::ToolRead, CoreSupportLevel::Native)]);
+        let tgt: CapabilityManifest = std::collections::BTreeMap::new();
+        let n = CapabilityNegotiator::new("src", src, "tgt", tgt);
+        let result = n.negotiate_strict();
+        // ToolRead uses ClientSide strategy, should stay emulatable
+        assert_eq!(result.emulatable.len(), 1);
+        assert!(result.unsupported.is_empty());
+    }
+
+    #[test]
+    fn degraded_feature_display() {
+        let d = DegradedFeature {
+            capability: Capability::Streaming,
+            source_level: "native".into(),
+            target_level: "emulated".into(),
+            caveats: "reduced throughput".into(),
+        };
+        let s = format!("{d}");
+        assert!(s.contains("Streaming"));
+        assert!(s.contains("native"));
+        assert!(s.contains("emulated"));
+        assert!(s.contains("reduced throughput"));
+    }
+
+    #[test]
+    fn detailed_result_serde_roundtrip() {
+        let src = make_manifest(&[
+            (Capability::Streaming, CoreSupportLevel::Native),
+            (Capability::Vision, CoreSupportLevel::Native),
+        ]);
+        let tgt = make_manifest(&[(Capability::Streaming, CoreSupportLevel::Emulated)]);
+        let n = CapabilityNegotiator::new("src", src, "tgt", tgt);
+        let result = n.negotiate();
+        let json = serde_json::to_string(&result).unwrap();
+        let back: DetailedNegotiationResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.source, "src");
+        assert_eq!(back.degraded.len(), result.degraded.len());
     }
 }

@@ -12,8 +12,10 @@
 //! dialects/backends and pre-populated manifests for common models.
 
 pub mod compare;
+pub mod emulation;
 pub mod negotiate;
 pub mod registry;
+pub mod report;
 
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirements, SupportLevel as CoreSupportLevel,

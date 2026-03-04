@@ -11,6 +11,10 @@
 pub mod client;
 /// Conversion layer between Copilot SDK types and ABP core types.
 pub mod convert;
+/// Copilot-specific error types (ApiError, RateLimitError, AuthenticationError).
+pub mod error;
+/// Copilot references and confirmations: builders and re-exports.
+pub mod references;
 /// Translation between Copilot-specific extended types and ABP core types.
 pub mod translate;
 /// Copilot SDK–specific types: messages, request builder, and helpers.
@@ -25,6 +29,19 @@ use tokio_stream::Stream;
 
 // Re-export key types from the Copilot SDK for convenience.
 pub use abp_copilot_sdk::dialect::{CopilotFunctionDef, CopilotToolType};
+
+// Re-export reference and confirmation builders for convenience.
+pub use references::{
+    accepted_confirmation, file_reference, pending_confirmation, rejected_confirmation,
+    repository_reference, snippet_reference, web_search_reference, with_metadata,
+    ConfirmationState, confirmation_state,
+};
+
+// Re-export error types for convenience.
+pub use error::{
+    ApiError, AuthenticationError, ErrorBody, InvalidRequestError, NotFoundError, RateLimitError,
+    ServerError,
+};
 
 // Re-export types and conversions for backward compatibility.
 pub use convert::*;

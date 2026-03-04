@@ -195,6 +195,71 @@ impl ClientBuilder {
     }
 }
 
+// ── High-level CopilotClient facade ─────────────────────────────────────
+
+/// High-level Copilot client facade that mirrors the GitHub Copilot
+/// Extensions API surface. Created with `CopilotClient::new(token)` and
+/// provides `chat()` and `chat_stream()` convenience methods.
+#[derive(Debug, Clone)]
+pub struct CopilotClient {
+    inner: Client,
+}
+
+impl CopilotClient {
+    /// Create a new client with the given Copilot token.
+    ///
+    /// Uses the default base URL (`https://api.githubcopilot.com`) and a
+    /// 30-second timeout.
+    pub fn new(token: impl Into<String>) -> Result<Self> {
+        Ok(Self {
+            inner: Client::new(token)?,
+        })
+    }
+
+    /// Create a new client with custom configuration via the builder.
+    pub fn with_builder(builder: ClientBuilder) -> Result<Self> {
+        Ok(Self {
+            inner: builder.build()?,
+        })
+    }
+
+    /// Send a chat completion request (non-streaming).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError`] on transport or API errors.
+    pub async fn chat(&self, request: &CopilotRequest) -> Result<CopilotResponse> {
+        self.inner.chat_completion(request).await
+    }
+
+    /// Send a streaming chat completion request.
+    ///
+    /// Returns a stream of [`CopilotStreamEvent`]s parsed from the SSE
+    /// response.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError`] on transport or API errors.
+    pub async fn chat_stream(
+        &self,
+        request: &CopilotRequest,
+    ) -> Result<impl Stream<Item = Result<CopilotStreamEvent>>> {
+        self.inner.stream_chat_completion(request).await
+    }
+
+    /// The base URL this client targets.
+    #[must_use]
+    pub fn base_url(&self) -> &str {
+        self.inner.base_url()
+    }
+
+    /// Access the underlying low-level [`Client`].
+    #[must_use]
+    pub fn inner(&self) -> &Client {
+        &self.inner
+    }
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -254,5 +319,41 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(client.base_url(), "https://custom.copilot.example");
+    }
+
+    // ── CopilotClient facade tests ──────────────────────────────────────
+
+    #[test]
+    fn copilot_client_construction() {
+        let client = CopilotClient::new("ghu_test-token").unwrap();
+        assert_eq!(client.base_url(), "https://api.githubcopilot.com");
+    }
+
+    #[test]
+    fn copilot_client_with_builder() {
+        let builder =
+            ClientBuilder::new("ghu_key").base_url("https://custom.copilot.example");
+        let client = CopilotClient::with_builder(builder).unwrap();
+        assert_eq!(client.base_url(), "https://custom.copilot.example");
+    }
+
+    #[test]
+    fn copilot_client_inner_access() {
+        let client = CopilotClient::new("ghu_inner").unwrap();
+        assert_eq!(client.inner().base_url(), "https://api.githubcopilot.com");
+    }
+
+    #[test]
+    fn copilot_client_is_debug() {
+        let client = CopilotClient::new("ghu_debug").unwrap();
+        let debug = format!("{client:?}");
+        assert!(debug.contains("CopilotClient"));
+    }
+
+    #[test]
+    fn copilot_client_is_clone() {
+        let client = CopilotClient::new("ghu_clone").unwrap();
+        let _cloned = client.clone();
+        assert_eq!(client.base_url(), "https://api.githubcopilot.com");
     }
 }

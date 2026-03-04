@@ -292,6 +292,52 @@ impl SharedCapabilityRegistry {
 }
 
 // ---------------------------------------------------------------------------
+// Pre-populated dialect registration
+// ---------------------------------------------------------------------------
+
+/// Register all six SDK dialect manifests into a [`SharedCapabilityRegistry`].
+///
+/// Registers: OpenAI GPT-4o, Claude 3.5 Sonnet, Gemini 1.5 Pro,
+/// Moonshot Kimi, OpenAI Codex, GitHub Copilot.
+///
+/// # Examples
+///
+/// ```
+/// use abp_capability::registry::{SharedCapabilityRegistry, register_all_dialects};
+///
+/// let registry = SharedCapabilityRegistry::new();
+/// register_all_dialects(&registry);
+/// assert_eq!(registry.len(), 6);
+/// ```
+pub fn register_all_dialects(registry: &SharedCapabilityRegistry) {
+    use crate::{
+        claude_35_sonnet_manifest, codex_manifest, copilot_manifest, gemini_15_pro_manifest,
+        kimi_manifest, openai_gpt4o_manifest,
+    };
+
+    let dialects: &[(&str, fn() -> abp_core::CapabilityManifest)] = &[
+        ("openai/gpt-4o", openai_gpt4o_manifest),
+        ("anthropic/claude-3.5-sonnet", claude_35_sonnet_manifest),
+        ("google/gemini-1.5-pro", gemini_15_pro_manifest),
+        ("moonshot/kimi", kimi_manifest),
+        ("openai/codex", codex_manifest),
+        ("github/copilot", copilot_manifest),
+    ];
+
+    for (name, manifest_fn) in dialects {
+        registry.register(name, CapabilitySet::with_description(manifest_fn(), *name));
+    }
+}
+
+/// Create a [`SharedCapabilityRegistry`] pre-populated with all six dialects.
+#[must_use]
+pub fn default_shared_registry() -> SharedCapabilityRegistry {
+    let reg = SharedCapabilityRegistry::new();
+    register_all_dialects(&reg);
+    reg
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -759,5 +805,61 @@ mod tests {
     fn registry_default_is_empty() {
         let reg = SharedCapabilityRegistry::default();
         assert!(reg.is_empty());
+    }
+
+    // ---- register_all_dialects -------------------------------------------
+
+    #[test]
+    fn register_all_dialects_populates_six() {
+        let reg = SharedCapabilityRegistry::new();
+        register_all_dialects(&reg);
+        assert_eq!(reg.len(), 6);
+    }
+
+    #[test]
+    fn register_all_dialects_contains_all_names() {
+        let reg = SharedCapabilityRegistry::new();
+        register_all_dialects(&reg);
+        let ids = reg.backend_ids();
+        assert!(ids.contains(&"openai/gpt-4o".to_owned()));
+        assert!(ids.contains(&"anthropic/claude-3.5-sonnet".to_owned()));
+        assert!(ids.contains(&"google/gemini-1.5-pro".to_owned()));
+        assert!(ids.contains(&"moonshot/kimi".to_owned()));
+        assert!(ids.contains(&"openai/codex".to_owned()));
+        assert!(ids.contains(&"github/copilot".to_owned()));
+    }
+
+    #[test]
+    fn register_all_dialects_streaming_native_all() {
+        let reg = SharedCapabilityRegistry::new();
+        register_all_dialects(&reg);
+        let results = reg.query(&Capability::Streaming);
+        assert!(
+            results
+                .iter()
+                .all(|(_, level)| matches!(level, SupportLevel::Native))
+        );
+    }
+
+    #[test]
+    fn default_shared_registry_has_six() {
+        let reg = default_shared_registry();
+        assert_eq!(reg.len(), 6);
+    }
+
+    #[test]
+    fn default_shared_registry_negotiate_works() {
+        let reg = default_shared_registry();
+        let result = reg
+            .negotiate("openai/gpt-4o", &[Capability::Streaming, Capability::ToolUse])
+            .unwrap();
+        assert!(result.is_viable());
+    }
+
+    #[test]
+    fn default_shared_registry_lookup_has_descriptions() {
+        let reg = default_shared_registry();
+        let caps = reg.lookup("openai/gpt-4o").unwrap();
+        assert!(caps.description.is_some());
     }
 }

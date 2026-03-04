@@ -14,8 +14,8 @@
 use std::collections::BTreeMap;
 
 use abp_copilot_sdk::dialect::{
-    CopilotError, CopilotFunctionCall, CopilotMessage, CopilotReference, CopilotRequest,
-    CopilotTool, CopilotTurnEntry,
+    CopilotConfirmation, CopilotError, CopilotFunctionCall, CopilotMessage, CopilotReference,
+    CopilotRequest, CopilotTool, CopilotTurnEntry,
 };
 use serde::{Deserialize, Serialize};
 
@@ -265,6 +265,9 @@ pub struct Message {
     /// References attached to this message.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub copilot_references: Vec<CopilotReference>,
+    /// Confirmations attached to this message.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub copilot_confirmations: Vec<CopilotConfirmation>,
 }
 
 impl Message {
@@ -276,6 +279,7 @@ impl Message {
             content: content.into(),
             name: None,
             copilot_references: Vec::new(),
+            copilot_confirmations: Vec::new(),
         }
     }
 
@@ -287,6 +291,7 @@ impl Message {
             content: content.into(),
             name: None,
             copilot_references: Vec::new(),
+            copilot_confirmations: Vec::new(),
         }
     }
 
@@ -298,6 +303,7 @@ impl Message {
             content: content.into(),
             name: None,
             copilot_references: Vec::new(),
+            copilot_confirmations: Vec::new(),
         }
     }
 
@@ -309,6 +315,22 @@ impl Message {
             content: content.into(),
             name: None,
             copilot_references: refs,
+            copilot_confirmations: Vec::new(),
+        }
+    }
+
+    /// Create a user message with confirmations.
+    #[must_use]
+    pub fn user_with_confirmations(
+        content: impl Into<String>,
+        confirmations: Vec<CopilotConfirmation>,
+    ) -> Self {
+        Self {
+            role: "user".into(),
+            content: content.into(),
+            name: None,
+            copilot_references: Vec::new(),
+            copilot_confirmations: confirmations,
         }
     }
 }

@@ -177,6 +177,7 @@ pub fn ir_to_messages(conv: &IrConversation) -> Vec<Message> {
             content: m.content,
             name: m.name,
             copilot_references: m.copilot_references,
+            copilot_confirmations: Vec::new(),
         })
         .collect()
 }
