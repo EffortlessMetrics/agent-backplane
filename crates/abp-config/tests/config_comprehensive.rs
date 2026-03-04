@@ -2,12 +2,12 @@
 #![allow(unknown_lints)]
 
 use abp_config::validate::{
-    ConfigChange, ConfigDiff, ConfigIssue, ConfigMerger, ConfigValidationResult, ConfigValidator,
-    IssueSeverity, Severity, ValidationIssue, diff_configs, from_env_overrides,
+    diff_configs, from_env_overrides, ConfigChange, ConfigDiff, ConfigIssue, ConfigMerger,
+    ConfigValidationResult, ConfigValidator, IssueSeverity, Severity, ValidationIssue,
 };
 use abp_config::{
-    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
-    load_from_file, load_from_str, merge_configs, parse_toml, validate_config,
+    apply_env_overrides, load_config, load_from_file, load_from_str, merge_configs, parse_toml,
+    validate_config, BackendEntry, BackplaneConfig, ConfigError, ConfigWarning,
 };
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -285,6 +285,8 @@ fn parse_empty_args() {
 
 #[test]
 fn load_config_none_returns_default() {
+    // Clear env override so the default is visible.
+    std::env::remove_var("ABP_LOG_LEVEL");
     let cfg = load_config(None).unwrap();
     assert_eq!(cfg.log_level.as_deref(), Some("info"));
 }
@@ -502,11 +504,9 @@ fn validate_empty_sidecar_command() {
     let err = validate_config(&cfg).unwrap_err();
     match err {
         ConfigError::ValidationError { reasons } => {
-            assert!(
-                reasons
-                    .iter()
-                    .any(|r| r.contains("command must not be empty"))
-            );
+            assert!(reasons
+                .iter()
+                .any(|r| r.contains("command must not be empty")));
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -560,11 +560,9 @@ fn validate_large_timeout_warning() {
     cfg.backends
         .insert("s".into(), sidecar_entry("node", Some(7200)));
     let warnings = validate_config(&cfg).unwrap();
-    assert!(
-        warnings
-            .iter()
-            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
 }
 
 #[test]
@@ -573,11 +571,9 @@ fn validate_timeout_at_threshold_no_warning() {
     cfg.backends
         .insert("s".into(), sidecar_entry("node", Some(3600)));
     let warnings = validate_config(&cfg).unwrap();
-    assert!(
-        !warnings
-            .iter()
-            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
-    );
+    assert!(!warnings
+        .iter()
+        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
 }
 
 #[test]
@@ -586,11 +582,9 @@ fn validate_timeout_just_above_threshold_warns() {
     cfg.backends
         .insert("s".into(), sidecar_entry("node", Some(3601)));
     let warnings = validate_config(&cfg).unwrap();
-    assert!(
-        warnings
-            .iter()
-            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
 }
 
 #[test]
@@ -637,11 +631,9 @@ fn validate_missing_receipts_dir_warning() {
 fn validate_no_missing_warnings_when_fields_set() {
     let cfg = minimal_valid_config();
     let warnings = validate_config(&cfg).unwrap();
-    assert!(
-        !warnings
-            .iter()
-            .any(|w| matches!(w, ConfigWarning::MissingOptionalField { .. }))
-    );
+    assert!(!warnings
+        .iter()
+        .any(|w| matches!(w, ConfigWarning::MissingOptionalField { .. })));
 }
 
 #[test]
@@ -1055,11 +1047,9 @@ fn validator_default_config_has_issues() {
 #[test]
 fn validator_default_config_has_no_backends_info() {
     let issues = ConfigValidator::validate(&BackplaneConfig::default()).unwrap();
-    assert!(
-        issues
-            .iter()
-            .any(|i| i.severity == Severity::Info && i.message.contains("no backends"))
-    );
+    assert!(issues
+        .iter()
+        .any(|i| i.severity == Severity::Info && i.message.contains("no backends")));
 }
 
 #[test]
@@ -1094,31 +1084,25 @@ fn validator_large_timeout_warning_issue() {
     cfg.backends
         .insert("s".into(), sidecar_entry("x", Some(7200)));
     let issues = ConfigValidator::validate(&cfg).unwrap();
-    assert!(
-        issues
-            .iter()
-            .any(|i| i.severity == Severity::Warning && i.message.contains("large timeout"))
-    );
+    assert!(issues
+        .iter()
+        .any(|i| i.severity == Severity::Warning && i.message.contains("large timeout")));
 }
 
 #[test]
 fn validator_missing_default_backend_warning() {
     let issues = ConfigValidator::validate(&BackplaneConfig::default()).unwrap();
-    assert!(
-        issues
-            .iter()
-            .any(|i| i.severity == Severity::Warning && i.message.contains("default_backend"))
-    );
+    assert!(issues
+        .iter()
+        .any(|i| i.severity == Severity::Warning && i.message.contains("default_backend")));
 }
 
 #[test]
 fn validator_missing_receipts_dir_warning() {
     let issues = ConfigValidator::validate(&BackplaneConfig::default()).unwrap();
-    assert!(
-        issues
-            .iter()
-            .any(|i| i.severity == Severity::Warning && i.message.contains("receipts_dir"))
-    );
+    assert!(issues
+        .iter()
+        .any(|i| i.severity == Severity::Warning && i.message.contains("receipts_dir")));
 }
 
 // ===========================================================================
@@ -1221,12 +1205,10 @@ fn check_empty_policy_profile_has_error() {
     };
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| e.field.contains("policy_profiles"))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| e.field.contains("policy_profiles")));
 }
 
 #[test]
@@ -1235,12 +1217,10 @@ fn check_empty_backend_name_has_error() {
     cfg.backends.insert("".into(), BackendEntry::Mock {});
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| e.message.contains("name must not be empty"))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| e.message.contains("name must not be empty")));
 }
 
 #[test]
@@ -1259,12 +1239,10 @@ fn check_timeout_out_of_range_has_error() {
         .insert("s".into(), sidecar_entry("x", Some(86_401)));
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| e.field.contains("timeout_secs"))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| e.field.contains("timeout_secs")));
 }
 
 #[test]
@@ -1274,12 +1252,10 @@ fn check_large_timeout_has_warning() {
         .insert("s".into(), sidecar_entry("x", Some(7200)));
     let result = ConfigValidator::check(&cfg);
     assert!(result.valid);
-    assert!(
-        result
-            .warnings
-            .iter()
-            .any(|w| w.field.contains("timeout_secs"))
-    );
+    assert!(result
+        .warnings
+        .iter()
+        .any(|w| w.field.contains("timeout_secs")));
 }
 
 #[test]
@@ -1300,12 +1276,10 @@ fn check_default_backend_unknown_warning() {
     };
     cfg.backends.insert("mock".into(), BackendEntry::Mock {});
     let result = ConfigValidator::check(&cfg);
-    assert!(
-        result
-            .warnings
-            .iter()
-            .any(|w| w.message.contains("does not match"))
-    );
+    assert!(result
+        .warnings
+        .iter()
+        .any(|w| w.message.contains("does not match")));
     assert!(!result.suggestions.is_empty());
 }
 
@@ -1315,12 +1289,10 @@ fn check_default_backend_known_no_mismatch_warning() {
     cfg.backends.insert("mock".into(), BackendEntry::Mock {});
     cfg.default_backend = Some("mock".into());
     let result = ConfigValidator::check(&cfg);
-    assert!(
-        !result
-            .warnings
-            .iter()
-            .any(|w| w.message.contains("does not match"))
-    );
+    assert!(!result
+        .warnings
+        .iter()
+        .any(|w| w.message.contains("does not match")));
 }
 
 // ===========================================================================
@@ -1479,11 +1451,9 @@ fn diff_detects_backend_removed() {
     a.backends.insert("m".into(), BackendEntry::Mock {});
     let b = BackplaneConfig::default();
     let diffs = diff_configs(&a, &b);
-    assert!(
-        diffs
-            .iter()
-            .any(|d| d.path == "backends.m" && d.new_value == "<absent>")
-    );
+    assert!(diffs
+        .iter()
+        .any(|d| d.path == "backends.m" && d.new_value == "<absent>"));
 }
 
 #[test]
