@@ -11,11 +11,8 @@ use crate::error::BridgeError;
 /// Parse a single SSE data line (the JSON payload after `data: `) into a
 /// [`StreamEvent`].
 pub fn parse_event_data(data: &str) -> Result<StreamEvent, BridgeError> {
-    serde_json::from_str(data).map_err(|e| {
-        BridgeError::Run(format!(
-            "failed to parse SSE event data: {e}: {data}"
-        ))
-    })
+    serde_json::from_str(data)
+        .map_err(|e| BridgeError::Run(format!("failed to parse SSE event data: {e}: {data}")))
 }
 
 /// An incremental SSE line parser.

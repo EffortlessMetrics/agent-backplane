@@ -439,6 +439,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-ratelimit"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml",
+]
+
+[[package]]
 name = "abp-receipt"
 version = "0.1.0"
 dependencies = [

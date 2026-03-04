@@ -44,9 +44,7 @@ mod inner {
     /// Convert a Claude [`ContentBlock`] to an IR [`IrContentBlock`].
     pub fn content_block_to_ir(block: &ContentBlock) -> IrContentBlock {
         match block {
-            ContentBlock::Text { text } => IrContentBlock::Text {
-                text: text.clone(),
-            },
+            ContentBlock::Text { text } => IrContentBlock::Text { text: text.clone() },
             ContentBlock::ToolUse { id, name, input } => IrContentBlock::ToolUse {
                 id: id.clone(),
                 name: name.clone(),
@@ -58,9 +56,7 @@ mod inner {
                 is_error,
             } => {
                 let nested = match content {
-                    Some(text) => vec![IrContentBlock::Text {
-                        text: text.clone(),
-                    }],
+                    Some(text) => vec![IrContentBlock::Text { text: text.clone() }],
                     None => Vec::new(),
                 };
                 IrContentBlock::ToolResult {
@@ -90,9 +86,7 @@ mod inner {
     /// Convert an IR [`IrContentBlock`] to a Claude [`ContentBlock`].
     pub fn content_block_from_ir(block: &IrContentBlock) -> ContentBlock {
         match block {
-            IrContentBlock::Text { text } => ContentBlock::Text {
-                text: text.clone(),
-            },
+            IrContentBlock::Text { text } => ContentBlock::Text { text: text.clone() },
             IrContentBlock::ToolUse { id, name, input } => ContentBlock::ToolUse {
                 id: id.clone(),
                 name: name.clone(),
@@ -136,12 +130,8 @@ mod inner {
     pub fn message_to_ir(msg: &Message) -> IrMessage {
         let role = role_to_ir(msg.role);
         let content = match &msg.content {
-            MessageContent::Text(text) => vec![IrContentBlock::Text {
-                text: text.clone(),
-            }],
-            MessageContent::Blocks(blocks) => {
-                blocks.iter().map(content_block_to_ir).collect()
-            }
+            MessageContent::Text(text) => vec![IrContentBlock::Text { text: text.clone() }],
+            MessageContent::Blocks(blocks) => blocks.iter().map(content_block_to_ir).collect(),
         };
         IrMessage::new(role, content)
     }
@@ -149,8 +139,7 @@ mod inner {
     /// Convert an IR [`IrMessage`] to a Claude [`Message`].
     pub fn message_from_ir(msg: &IrMessage) -> Message {
         let role = role_from_ir(msg.role);
-        let blocks: Vec<ContentBlock> =
-            msg.content.iter().map(content_block_from_ir).collect();
+        let blocks: Vec<ContentBlock> = msg.content.iter().map(content_block_from_ir).collect();
         Message {
             role,
             content: MessageContent::Blocks(blocks),
@@ -258,10 +247,7 @@ mod inner {
                 (Some(x), None) | (None, Some(x)) => Some(x),
                 (None, None) => None,
             },
-            cache_read_input_tokens: match (
-                a.cache_read_input_tokens,
-                b.cache_read_input_tokens,
-            ) {
+            cache_read_input_tokens: match (a.cache_read_input_tokens, b.cache_read_input_tokens) {
                 (Some(x), Some(y)) => Some(x + y),
                 (Some(x), None) | (None, Some(x)) => Some(x),
                 (None, None) => None,
@@ -345,22 +331,16 @@ mod inner {
                 } => {
                     let idx = *index as usize;
                     let builder = match content_block {
-                        ContentBlock::Text { text } => {
-                            ContentBlockBuilder::Text(text.clone())
-                        }
-                        ContentBlock::ToolUse { id, name, .. } => {
-                            ContentBlockBuilder::ToolUse {
-                                id: id.clone(),
-                                name: name.clone(),
-                                partial_json: String::new(),
-                            }
-                        }
-                        ContentBlock::Thinking { thinking, .. } => {
-                            ContentBlockBuilder::Thinking {
-                                text: thinking.clone(),
-                                signature: String::new(),
-                            }
-                        }
+                        ContentBlock::Text { text } => ContentBlockBuilder::Text(text.clone()),
+                        ContentBlock::ToolUse { id, name, .. } => ContentBlockBuilder::ToolUse {
+                            id: id.clone(),
+                            name: name.clone(),
+                            partial_json: String::new(),
+                        },
+                        ContentBlock::Thinking { thinking, .. } => ContentBlockBuilder::Thinking {
+                            text: thinking.clone(),
+                            signature: String::new(),
+                        },
                         _ => ContentBlockBuilder::Text(String::new()),
                     };
                     // Ensure capacity
@@ -390,18 +370,14 @@ mod inner {
                             }
                             (
                                 ContentBlockBuilder::Thinking { text, .. },
-                                StreamDelta::ThinkingDelta {
-                                    thinking: chunk,
-                                },
+                                StreamDelta::ThinkingDelta { thinking: chunk },
                             ) => {
                                 text.push_str(chunk);
                                 Some(StreamFragment::ThinkingDelta(chunk.clone()))
                             }
                             (
                                 ContentBlockBuilder::Thinking { signature, .. },
-                                StreamDelta::SignatureDelta {
-                                    signature: chunk,
-                                },
+                                StreamDelta::SignatureDelta { signature: chunk },
                             ) => {
                                 signature.push_str(chunk);
                                 None
@@ -422,9 +398,7 @@ mod inner {
                 }
                 StreamEvent::MessageStop {} => None,
                 StreamEvent::Ping {} => None,
-                StreamEvent::Error { error } => {
-                    Some(StreamFragment::Error(error.clone()))
-                }
+                StreamEvent::Error { error } => Some(StreamFragment::Error(error.clone())),
             }
         }
 
@@ -440,13 +414,11 @@ mod inner {
                         name,
                         partial_json,
                     } => {
-                        let input = serde_json::from_str(&partial_json)
-                            .unwrap_or(serde_json::Value::Null);
+                        let input =
+                            serde_json::from_str(&partial_json).unwrap_or(serde_json::Value::Null);
                         IrContentBlock::ToolUse { id, name, input }
                     }
-                    ContentBlockBuilder::Thinking { text, .. } => {
-                        IrContentBlock::Thinking { text }
-                    }
+                    ContentBlockBuilder::Thinking { text, .. } => IrContentBlock::Thinking { text },
                 })
                 .collect();
             let usage = usage_to_ir(&self.usage);
@@ -476,12 +448,8 @@ mod inner {
             "invalid_request_error" => {
                 BridgeError::Config(format!("invalid request: {}", error.message))
             }
-            "rate_limit_error" => {
-                BridgeError::Run(format!("rate limited: {}", error.message))
-            }
-            "overloaded_error" => {
-                BridgeError::Run(format!("API overloaded: {}", error.message))
-            }
+            "rate_limit_error" => BridgeError::Run(format!("rate limited: {}", error.message)),
+            "overloaded_error" => BridgeError::Run(format!("API overloaded: {}", error.message)),
             "api_error" | "server_error" => {
                 BridgeError::Run(format!("API server error: {}", error.message))
             }
