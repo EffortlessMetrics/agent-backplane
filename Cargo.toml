@@ -165,6 +165,7 @@ abp-projection = { path = "crates/abp-projection" }
 abp-stream = { path = "crates/abp-stream" }
 abp-backend-core = { path = "crates/abp-backend-core" }
 abp-backend-mock = { path = "crates/abp-backend-mock" }
+abp-retry = { path = "crates/abp-retry" }
 abp-sidecar-proto = { path = "crates/abp-sidecar-proto" }
 abp-sidecar-sdk = { path = "crates/abp-sidecar-sdk" }
 abp-sidecar-utils = { path = "crates/abp-sidecar-utils" }

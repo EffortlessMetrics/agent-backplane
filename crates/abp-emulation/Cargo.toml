@@ -17,3 +17,4 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
+abp-capability = { path = "../abp-capability", version = "0.1.0" }

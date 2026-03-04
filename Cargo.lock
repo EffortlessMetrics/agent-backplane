@@ -212,6 +212,7 @@ dependencies = [
 name = "abp-emulation"
 version = "0.1.0"
 dependencies = [
+ "abp-capability",
  "abp-core",
  "serde",
  "serde_json",
@@ -759,6 +760,7 @@ dependencies = [
  "abp-protocol",
  "abp-receipt",
  "abp-receipt-store",
+ "abp-retry",
  "abp-runtime",
  "abp-sdk-types",
  "abp-shim-claude",
