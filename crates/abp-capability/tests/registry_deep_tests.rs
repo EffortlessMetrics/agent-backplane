@@ -347,7 +347,7 @@ fn negotiate_requirements_struct() {
             },
             CapabilityRequirement {
                 capability: Capability::ToolUse,
-                min_support: MinSupport::Native,
+                min_support: MinSupport::Emulated,
             },
         ],
     };

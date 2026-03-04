@@ -565,12 +565,43 @@ pub fn negotiate(
     manifest: &CapabilityManifest,
     requirements: &CapabilityRequirements,
 ) -> NegotiationResult {
-    let caps: Vec<Capability> = requirements
-        .required
-        .iter()
-        .map(|r| r.capability.clone())
-        .collect();
-    negotiate_capabilities(&caps, manifest)
+    let mut native = Vec::new();
+    let mut emulated = Vec::new();
+    let mut unsupported = Vec::new();
+
+    for req in &requirements.required {
+        let cap = &req.capability;
+        let core_level = manifest
+            .get(cap)
+            .cloned()
+            .unwrap_or(CoreSupportLevel::Unsupported);
+
+        if !core_level.satisfies(&req.min_support) {
+            unsupported.push((
+                cap.clone(),
+                format!(
+                    "{:?} support does not meet minimum {:?}",
+                    core_level, req.min_support
+                ),
+            ));
+        } else {
+            match check_capability(manifest, cap) {
+                SupportLevel::Native => native.push(cap.clone()),
+                SupportLevel::Emulated { .. } | SupportLevel::Restricted { .. } => {
+                    emulated.push((cap.clone(), default_emulation_strategy(cap)));
+                }
+                SupportLevel::Unsupported { reason } => {
+                    unsupported.push((cap.clone(), reason));
+                }
+            }
+        }
+    }
+
+    NegotiationResult {
+        native,
+        emulated,
+        unsupported,
+    }
 }
 
 /// Produce a human-readable [`CompatibilityReport`] from a negotiation result.
@@ -903,6 +934,15 @@ mod tests {
         )
     }
 
+    fn require_emulated(caps: &[Capability]) -> CapabilityRequirements {
+        require(
+            &caps
+                .iter()
+                .map(|c| (c.clone(), MinSupport::Emulated))
+                .collect::<Vec<_>>(),
+        )
+    }
+
     // ---- EmulationStrategy ------------------------------------------------
 
     #[test]
@@ -1124,7 +1164,7 @@ mod tests {
             (Capability::Streaming, CoreSupportLevel::Emulated),
             (Capability::ToolRead, CoreSupportLevel::Emulated),
         ]);
-        let r = require_native(&[Capability::Streaming, Capability::ToolRead]);
+        let r = require_emulated(&[Capability::Streaming, Capability::ToolRead]);
         let res = negotiate(&m, &r);
         assert!(res.native.is_empty());
         assert_eq!(res.emulated.len(), 2);
@@ -1149,7 +1189,7 @@ mod tests {
             (Capability::Streaming, CoreSupportLevel::Native),
             (Capability::ToolRead, CoreSupportLevel::Emulated),
         ]);
-        let r = require_native(&[
+        let r = require_emulated(&[
             Capability::Streaming,
             Capability::ToolRead,
             Capability::ToolWrite,
@@ -1167,7 +1207,7 @@ mod tests {
             (Capability::ToolBash, CoreSupportLevel::Emulated),
             (Capability::ToolEdit, CoreSupportLevel::Unsupported),
         ]);
-        let r = require_native(&[Capability::ToolBash, Capability::ToolEdit]);
+        let r = require_emulated(&[Capability::ToolBash, Capability::ToolEdit]);
         let res = negotiate(&m, &r);
         assert_eq!(res.emulated_caps(), vec![Capability::ToolBash]);
         assert_eq!(res.unsupported_caps(), vec![Capability::ToolEdit]);
@@ -1213,7 +1253,7 @@ mod tests {
                 reason: "sandbox only".into(),
             },
         )]);
-        let r = require_native(&[Capability::ToolBash]);
+        let r = require_emulated(&[Capability::ToolBash]);
         let res = negotiate(&m, &r);
         assert_eq!(res.emulated_caps(), vec![Capability::ToolBash]);
         assert!(res.is_compatible());
@@ -1567,7 +1607,7 @@ mod tests {
     #[test]
     fn negotiate_single_emulated() {
         let m = manifest_from(&[(Capability::ToolUse, CoreSupportLevel::Emulated)]);
-        let r = require_native(&[Capability::ToolUse]);
+        let r = require_emulated(&[Capability::ToolUse]);
         let res = negotiate(&m, &r);
         assert_eq!(res.emulated_caps(), vec![Capability::ToolUse]);
         assert!(res.is_compatible());

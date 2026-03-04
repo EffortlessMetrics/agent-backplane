@@ -208,9 +208,23 @@ fn score_openai(obj: &serde_json::Map<String, Value>) -> Score {
         pts += 0.35;
         ev.push("has \"messages\" with string \"content\"".into());
     }
+    // Only award generic model points when the model name doesn't belong to
+    // another known dialect.
     if obj.contains_key("model") && !obj.contains_key("contents") && !obj.contains_key("items") {
-        pts += 0.15;
-        ev.push("has \"model\" (not Gemini/Codex)".into());
+        let is_other_dialect_model = obj.get("model").and_then(Value::as_str).is_some_and(|m| {
+            let lower = m.to_lowercase();
+            lower.starts_with("claude-")
+                || lower.starts_with("gemini-")
+                || lower.starts_with("models/gemini-")
+                || lower.starts_with("codex-")
+                || lower.starts_with("moonshot-")
+                || lower.starts_with("kimi")
+                || lower.starts_with("copilot-")
+        });
+        if !is_other_dialect_model {
+            pts += 0.15;
+            ev.push("has \"model\" (not Gemini/Codex)".into());
+        }
     }
     if obj.contains_key("temperature")
         || obj.contains_key("top_p")
@@ -227,6 +241,13 @@ fn score_claude(obj: &serde_json::Map<String, Value>) -> Score {
     let mut pts = 0.0_f64;
     let mut ev = Vec::new();
 
+    // Model prefix — Claude models start with "claude-".
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        if model.to_lowercase().starts_with("claude-") {
+            pts += 0.5;
+            ev.push("model starts with \"claude-\"".into());
+        }
+    }
     if obj.get("type").and_then(Value::as_str) == Some("message") {
         pts += 0.45;
         ev.push("has \"type\":\"message\"".into());
