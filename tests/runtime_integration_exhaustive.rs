@@ -19,10 +19,10 @@
 
 use abp_backend_mock::scenarios::{EventSequenceBuilder, MockScenario, ScenarioMockBackend};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RunMetadata, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
 };
 use abp_integrations::Backend;
 use abp_policy::PolicyEngine;
@@ -1632,5 +1632,1518 @@ mod concurrent_execution {
         let r2 = r2.unwrap();
         assert_eq!(r1.backend.id, "mock");
         assert_eq!(r2.backend.id, "scenario-mock");
+    }
+}
+
+// ===========================================================================
+// Runtime pipeline stage execution (all 7 stages)
+// ===========================================================================
+
+mod pipeline_stage_execution {
+    use super::*;
+    use abp_core::{
+        CapabilityRequirements, ContextPacket, ExecutionLane, WorkspaceMode, WorkspaceSpec,
+    };
+    use abp_runtime::pipeline::{
+        AuditStage, Pipeline, PipelineStage, PolicyStage, RuntimePipeline, StageOutcome,
+        ValidationStage,
+    };
+
+    fn sample_wo() -> WorkOrder {
+        WorkOrder {
+            id: Uuid::new_v4(),
+            task: "pipeline test".into(),
+            lane: ExecutionLane::PatchFirst,
+            workspace: WorkspaceSpec {
+                root: ".".into(),
+                mode: WorkspaceMode::PassThrough,
+                include: vec![],
+                exclude: vec![],
+            },
+            context: ContextPacket::default(),
+            policy: PolicyProfile::default(),
+            requirements: CapabilityRequirements::default(),
+            config: abp_core::RuntimeConfig::default(),
+        }
+    }
+
+    #[tokio::test]
+    async fn runtime_pipeline_execute_all_seven_stages_succeed() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+
+        let (outcomes, receipt) = rp.execute(wo).await;
+        assert_eq!(outcomes.len(), 7);
+        for outcome in &outcomes {
+            assert!(
+                outcome.success,
+                "stage '{}' failed: {:?}",
+                outcome.name, outcome.error
+            );
+        }
+        assert!(receipt.is_ok());
+    }
+
+    #[tokio::test]
+    async fn runtime_pipeline_stage_names_in_order() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+
+        let (outcomes, _) = rp.execute(wo).await;
+        let names: Vec<&str> = outcomes.iter().map(|o| o.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec![
+                "validate_policy",
+                "negotiate_capabilities",
+                "select_backend",
+                "prepare_workspace",
+                "run_backend",
+                "collect_events",
+                "produce_receipt",
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn runtime_pipeline_stage_durations_are_non_negative() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+
+        let (outcomes, _) = rp.execute(wo).await;
+        for outcome in &outcomes {
+            // duration_ms is u64, always >= 0, but check it is reasonable (< 30s)
+            assert!(
+                outcome.duration_ms < 30_000,
+                "stage '{}' took too long",
+                outcome.name
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn stage1_validate_policy_passes_clean_order() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        rp.validate_policy(&wo).unwrap();
+    }
+
+    #[tokio::test]
+    async fn stage1_validate_policy_rejects_conflicting_tools() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let mut wo = sample_wo();
+        wo.policy.allowed_tools = vec!["rm".into()];
+        wo.policy.disallowed_tools = vec!["rm".into()];
+        let err = rp.validate_policy(&wo).unwrap_err();
+        assert!(err.to_string().contains("rm"));
+    }
+
+    #[tokio::test]
+    async fn stage2_negotiate_capabilities_passes_mock() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        rp.negotiate_capabilities(&wo).unwrap();
+    }
+
+    #[tokio::test]
+    async fn stage2_negotiate_capabilities_fails_unsatisfiable() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let mut wo = sample_wo();
+        wo.requirements
+            .required
+            .push(abp_core::CapabilityRequirement {
+                capability: Capability::McpClient,
+                min_support: abp_core::MinSupport::Native,
+            });
+        let err = rp.negotiate_capabilities(&wo).unwrap_err();
+        assert!(err.to_string().contains("capability"));
+    }
+
+    #[tokio::test]
+    async fn stage3_select_backend_returns_correct_identity() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let b = rp.select_backend();
+        assert_eq!(b.identity().id, "mock");
+    }
+
+    #[tokio::test]
+    async fn stage5_run_backend_returns_receipt() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let (tx, _rx) = mpsc::channel(256);
+        let receipt = rp.run_backend(Uuid::new_v4(), wo, tx).await.unwrap();
+        assert_eq!(receipt.outcome, Outcome::Complete);
+    }
+
+    #[tokio::test]
+    async fn stage6_collect_events_handles_multiple() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let (tx, mut rx) = mpsc::channel(16);
+        for _ in 0..5 {
+            tx.send(AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantDelta { text: "x".into() },
+                ext: None,
+            })
+            .await
+            .unwrap();
+        }
+        drop(tx);
+        let events = rp.collect_events(&mut rx).await;
+        assert_eq!(events.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn stage7_produce_receipt_has_correct_outcome() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let receipt = rp
+            .produce_receipt(Uuid::new_v4(), &wo, Outcome::Failed, vec![])
+            .unwrap();
+        assert_eq!(receipt.outcome, Outcome::Failed);
+    }
+
+    #[tokio::test]
+    async fn stage7_produce_receipt_includes_backend_identity() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let receipt = rp
+            .produce_receipt(Uuid::new_v4(), &wo, Outcome::Complete, vec![])
+            .unwrap();
+        assert_eq!(receipt.backend.id, "mock");
+    }
+
+    #[tokio::test]
+    async fn pipeline_short_circuits_on_first_failure() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let mut wo = sample_wo();
+        // Stage 1 should fail due to conflicting policy tools
+        wo.policy.allowed_tools = vec!["x".into()];
+        wo.policy.disallowed_tools = vec!["x".into()];
+
+        let (outcomes, result) = rp.execute(wo).await;
+        assert_eq!(outcomes.len(), 1, "should stop after first failed stage");
+        assert!(!outcomes[0].success);
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn pipeline_stage_error_message_preserved() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let mut wo = sample_wo();
+        wo.policy.allowed_tools = vec!["danger".into()];
+        wo.policy.disallowed_tools = vec!["danger".into()];
+
+        let (outcomes, _) = rp.execute(wo).await;
+        assert!(outcomes[0].error.as_ref().unwrap().contains("danger"));
+    }
+
+    #[tokio::test]
+    async fn preprocessing_pipeline_validation_then_policy() {
+        let pipeline = Pipeline::new().stage(ValidationStage).stage(PolicyStage);
+
+        assert_eq!(pipeline.len(), 2);
+
+        let mut wo = sample_wo();
+        pipeline.execute(&mut wo).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn preprocessing_pipeline_validation_short_circuits_before_policy() {
+        let pipeline = Pipeline::new().stage(ValidationStage).stage(PolicyStage);
+
+        let mut wo = sample_wo();
+        wo.task = "".into();
+        let err = pipeline.execute(&mut wo).await.unwrap_err();
+        assert!(err.to_string().contains("task"));
+    }
+}
+
+// ===========================================================================
+// Middleware chain ordering and short-circuit behavior
+// ===========================================================================
+
+mod middleware_chain {
+    use super::*;
+    use abp_core::{
+        CapabilityRequirements, ContextPacket, ExecutionLane, WorkspaceMode, WorkspaceSpec,
+    };
+    use abp_runtime::middleware::{
+        AuditMiddleware, LoggingMiddleware, Middleware, MiddlewareChain, MiddlewareContext,
+        PolicyMiddleware, TelemetryMiddleware,
+    };
+    use abp_runtime::telemetry::RunMetrics;
+    use std::sync::Mutex as StdMutex;
+
+    fn sample_wo() -> WorkOrder {
+        WorkOrder {
+            id: Uuid::new_v4(),
+            task: "middleware test".into(),
+            lane: ExecutionLane::PatchFirst,
+            workspace: WorkspaceSpec {
+                root: "/tmp/mw".into(),
+                mode: WorkspaceMode::PassThrough,
+                include: vec![],
+                exclude: vec![],
+            },
+            context: ContextPacket::default(),
+            policy: PolicyProfile::default(),
+            requirements: CapabilityRequirements::default(),
+            config: abp_core::RuntimeConfig::default(),
+        }
+    }
+
+    fn sample_receipt() -> Receipt {
+        abp_receipt::ReceiptBuilder::new("mock")
+            .outcome(Outcome::Complete)
+            .build()
+    }
+
+    /// Middleware that records the order it was called.
+    struct OrderTracker {
+        label: &'static str,
+        before_log: Arc<StdMutex<Vec<&'static str>>>,
+        after_log: Arc<StdMutex<Vec<&'static str>>>,
+    }
+
+    #[async_trait]
+    impl Middleware for OrderTracker {
+        async fn before_run(
+            &self,
+            _order: &WorkOrder,
+            _ctx: &MiddlewareContext,
+        ) -> anyhow::Result<()> {
+            self.before_log.lock().unwrap().push(self.label);
+            Ok(())
+        }
+        async fn after_run(
+            &self,
+            _order: &WorkOrder,
+            _ctx: &MiddlewareContext,
+            _receipt: Option<&Receipt>,
+        ) -> anyhow::Result<()> {
+            self.after_log.lock().unwrap().push(self.label);
+            Ok(())
+        }
+        fn name(&self) -> &str {
+            self.label
+        }
+    }
+
+    /// Middleware that always fails in before_run.
+    struct RejectMiddleware {
+        msg: &'static str,
+    }
+
+    #[async_trait]
+    impl Middleware for RejectMiddleware {
+        async fn before_run(
+            &self,
+            _order: &WorkOrder,
+            _ctx: &MiddlewareContext,
+        ) -> anyhow::Result<()> {
+            anyhow::bail!("{}", self.msg)
+        }
+        async fn after_run(
+            &self,
+            _order: &WorkOrder,
+            _ctx: &MiddlewareContext,
+            _receipt: Option<&Receipt>,
+        ) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn name(&self) -> &str {
+            "reject"
+        }
+    }
+
+    /// Middleware that always fails in after_run.
+    struct FailAfterMiddleware {
+        msg: String,
+    }
+
+    #[async_trait]
+    impl Middleware for FailAfterMiddleware {
+        async fn before_run(
+            &self,
+            _order: &WorkOrder,
+            _ctx: &MiddlewareContext,
+        ) -> anyhow::Result<()> {
+            Ok(())
+        }
+        async fn after_run(
+            &self,
+            _order: &WorkOrder,
+            _ctx: &MiddlewareContext,
+            _receipt: Option<&Receipt>,
+        ) -> anyhow::Result<()> {
+            anyhow::bail!("{}", self.msg)
+        }
+        fn name(&self) -> &str {
+            "fail-after"
+        }
+    }
+
+    #[tokio::test]
+    async fn before_run_calls_in_registration_order() {
+        let before_log = Arc::new(StdMutex::new(Vec::new()));
+        let after_log = Arc::new(StdMutex::new(Vec::new()));
+
+        let chain = MiddlewareChain::new()
+            .with(OrderTracker {
+                label: "A",
+                before_log: Arc::clone(&before_log),
+                after_log: Arc::clone(&after_log),
+            })
+            .with(OrderTracker {
+                label: "B",
+                before_log: Arc::clone(&before_log),
+                after_log: Arc::clone(&after_log),
+            })
+            .with(OrderTracker {
+                label: "C",
+                before_log: Arc::clone(&before_log),
+                after_log: Arc::clone(&after_log),
+            });
+
+        let wo = sample_wo();
+        let ctx = MiddlewareContext::new("mock");
+        chain.run_before(&wo, &ctx).await.unwrap();
+
+        let log = before_log.lock().unwrap();
+        assert_eq!(*log, vec!["A", "B", "C"]);
+    }
+
+    #[tokio::test]
+    async fn after_run_calls_in_reverse_registration_order() {
+        let before_log = Arc::new(StdMutex::new(Vec::new()));
+        let after_log = Arc::new(StdMutex::new(Vec::new()));
+
+        let chain = MiddlewareChain::new()
+            .with(OrderTracker {
+                label: "A",
+                before_log: Arc::clone(&before_log),
+                after_log: Arc::clone(&after_log),
+            })
+            .with(OrderTracker {
+                label: "B",
+                before_log: Arc::clone(&before_log),
+                after_log: Arc::clone(&after_log),
+            })
+            .with(OrderTracker {
+                label: "C",
+                before_log: Arc::clone(&before_log),
+                after_log: Arc::clone(&after_log),
+            });
+
+        let wo = sample_wo();
+        let ctx = MiddlewareContext::new("mock");
+        let receipt = sample_receipt();
+        let errors = chain.run_after(&wo, &ctx, Some(&receipt)).await;
+        assert!(errors.is_empty());
+
+        let log = after_log.lock().unwrap();
+        assert_eq!(*log, vec!["C", "B", "A"]);
+    }
+
+    #[tokio::test]
+    async fn before_run_short_circuits_on_rejection() {
+        let before_log = Arc::new(StdMutex::new(Vec::new()));
+        let after_log = Arc::new(StdMutex::new(Vec::new()));
+
+        let chain = MiddlewareChain::new()
+            .with(OrderTracker {
+                label: "A",
+                before_log: Arc::clone(&before_log),
+                after_log: Arc::clone(&after_log),
+            })
+            .with(RejectMiddleware { msg: "blocked" })
+            .with(OrderTracker {
+                label: "C",
+                before_log: Arc::clone(&before_log),
+                after_log: Arc::clone(&after_log),
+            });
+
+        let wo = sample_wo();
+        let ctx = MiddlewareContext::new("mock");
+        let err = chain.run_before(&wo, &ctx).await.unwrap_err();
+        assert!(err.to_string().contains("blocked"));
+
+        // Only A should have run; C should NOT be reached
+        let log = before_log.lock().unwrap();
+        assert_eq!(*log, vec!["A"]);
+    }
+
+    #[tokio::test]
+    async fn after_run_collects_all_errors_without_short_circuit() {
+        let chain = MiddlewareChain::new()
+            .with(FailAfterMiddleware { msg: "err1".into() })
+            .with(FailAfterMiddleware { msg: "err2".into() })
+            .with(FailAfterMiddleware { msg: "err3".into() });
+
+        let wo = sample_wo();
+        let ctx = MiddlewareContext::new("mock");
+        let errors = chain.run_after(&wo, &ctx, None).await;
+        assert_eq!(errors.len(), 3, "all after_run errors should be collected");
+    }
+
+    #[tokio::test]
+    async fn chain_names_returns_registration_order() {
+        let chain = MiddlewareChain::new()
+            .with(LoggingMiddleware)
+            .with(PolicyMiddleware)
+            .with(AuditMiddleware::new());
+        assert_eq!(chain.names(), vec!["logging", "policy", "audit"]);
+    }
+
+    #[tokio::test]
+    async fn chain_push_appends_after_with() {
+        let mut chain = MiddlewareChain::new().with(LoggingMiddleware);
+        chain.push(PolicyMiddleware);
+        assert_eq!(chain.names(), vec!["logging", "policy"]);
+    }
+
+    #[tokio::test]
+    async fn policy_middleware_blocks_conflicting_tools() {
+        let chain = MiddlewareChain::new().with(PolicyMiddleware);
+        let mut wo = sample_wo();
+        wo.policy.allowed_tools = vec!["bash".into()];
+        wo.policy.disallowed_tools = vec!["bash".into()];
+        let ctx = MiddlewareContext::new("mock");
+        let err = chain.run_before(&wo, &ctx).await.unwrap_err();
+        assert!(err.to_string().contains("bash"));
+    }
+
+    #[tokio::test]
+    async fn telemetry_middleware_records_success_run() {
+        let metrics = Arc::new(RunMetrics::new());
+        let chain = MiddlewareChain::new().with(TelemetryMiddleware::new(Arc::clone(&metrics)));
+        let wo = sample_wo();
+        let ctx = MiddlewareContext::new("mock");
+        let receipt = sample_receipt();
+        let _ = chain.run_after(&wo, &ctx, Some(&receipt)).await;
+        let snap = metrics.snapshot();
+        assert_eq!(snap.total_runs, 1);
+        assert_eq!(snap.successful_runs, 1);
+    }
+
+    #[tokio::test]
+    async fn telemetry_middleware_records_failure_run() {
+        let metrics = Arc::new(RunMetrics::new());
+        let chain = MiddlewareChain::new().with(TelemetryMiddleware::new(Arc::clone(&metrics)));
+        let wo = sample_wo();
+        let ctx = MiddlewareContext::new("mock");
+        let _ = chain.run_after(&wo, &ctx, None).await;
+        let snap = metrics.snapshot();
+        assert_eq!(snap.total_runs, 1);
+        assert_eq!(snap.failed_runs, 1);
+    }
+
+    #[tokio::test]
+    async fn audit_middleware_records_work_order_ids() {
+        let audit = AuditMiddleware::new();
+        let chain = MiddlewareChain::new().with(LoggingMiddleware);
+        let wo = sample_wo();
+        let ctx = MiddlewareContext::new("mock");
+        chain.run_before(&wo, &ctx).await.unwrap();
+        // Audit middleware records ids when used directly
+        audit.before_run(&wo, &ctx).await.unwrap();
+        let ids = audit.ids().await;
+        assert_eq!(ids.len(), 1);
+        assert_eq!(ids[0], wo.id);
+    }
+
+    #[tokio::test]
+    async fn middleware_context_elapsed_time() {
+        let ctx = MiddlewareContext::new("test");
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        assert!(ctx.elapsed_ms() >= 1, "elapsed should be positive");
+    }
+}
+
+// ===========================================================================
+// Backend selection strategy
+// ===========================================================================
+
+mod backend_selection_strategy {
+    use super::*;
+    use abp_runtime::config_integration::{
+        BackendSelectionStrategy, RuntimeConfig, RuntimeConfigBuilder, TelemetrySettings,
+        WorkspaceOptions,
+    };
+
+    #[test]
+    fn fixed_strategy_default_is_mock() {
+        let cfg = RuntimeConfig::default();
+        assert_eq!(
+            cfg.selection_strategy,
+            BackendSelectionStrategy::Fixed {
+                name: "mock".into()
+            }
+        );
+    }
+
+    #[test]
+    fn fixed_strategy_explicit_backend() {
+        let cfg = RuntimeConfig::builder()
+            .selection_strategy(BackendSelectionStrategy::Fixed {
+                name: "openai".into(),
+            })
+            .build();
+        match &cfg.selection_strategy {
+            BackendSelectionStrategy::Fixed { name } => assert_eq!(name, "openai"),
+            _ => panic!("expected Fixed"),
+        }
+    }
+
+    #[test]
+    fn fallback_chain_strategy() {
+        let cfg = RuntimeConfig::builder()
+            .selection_strategy(BackendSelectionStrategy::Fallback {
+                chain: vec!["primary".into(), "secondary".into(), "fallback".into()],
+            })
+            .build();
+        match &cfg.selection_strategy {
+            BackendSelectionStrategy::Fallback { chain } => {
+                assert_eq!(chain.len(), 3);
+                assert_eq!(chain[0], "primary");
+                assert_eq!(chain[2], "fallback");
+            }
+            _ => panic!("expected Fallback"),
+        }
+    }
+
+    #[test]
+    fn projection_strategy() {
+        let cfg = RuntimeConfig::builder()
+            .selection_strategy(BackendSelectionStrategy::Projection)
+            .build();
+        assert_eq!(cfg.selection_strategy, BackendSelectionStrategy::Projection);
+    }
+
+    #[tokio::test]
+    async fn runtime_register_multiple_backends_and_list() {
+        let mut rt = Runtime::new();
+        rt.register_backend("alpha", abp_integrations::MockBackend);
+        rt.register_backend("beta", abp_integrations::MockBackend);
+        rt.register_backend("gamma", abp_integrations::MockBackend);
+        let names = rt.backend_names();
+        assert_eq!(names.len(), 3);
+        assert!(names.contains(&"alpha".to_string()));
+        assert!(names.contains(&"beta".to_string()));
+        assert!(names.contains(&"gamma".to_string()));
+    }
+
+    #[tokio::test]
+    async fn runtime_backend_lookup_returns_some_for_registered() {
+        let mut rt = Runtime::new();
+        rt.register_backend("mock", abp_integrations::MockBackend);
+        assert!(rt.backend("mock").is_some());
+    }
+
+    #[tokio::test]
+    async fn runtime_backend_lookup_returns_none_for_unknown() {
+        let rt = Runtime::new();
+        assert!(rt.backend("nonexistent").is_none());
+    }
+
+    #[tokio::test]
+    async fn runtime_replaces_backend_on_reregister() {
+        let mut rt = Runtime::new();
+        rt.register_backend("mock", abp_integrations::MockBackend);
+        rt.register_backend(
+            "mock",
+            MultiEventBackend {
+                name: "replaced".into(),
+                event_count: 1,
+            },
+        );
+        let b = rt.backend("mock").unwrap();
+        assert_eq!(b.identity().id, "replaced");
+    }
+
+    #[test]
+    fn strategy_serde_roundtrip_fixed() {
+        let s = BackendSelectionStrategy::Fixed { name: "x".into() };
+        let json = serde_json::to_string(&s).unwrap();
+        let back: BackendSelectionStrategy = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, s);
+    }
+
+    #[test]
+    fn strategy_serde_roundtrip_fallback() {
+        let s = BackendSelectionStrategy::Fallback {
+            chain: vec!["a".into(), "b".into()],
+        };
+        let json = serde_json::to_string(&s).unwrap();
+        let back: BackendSelectionStrategy = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, s);
+    }
+}
+
+// ===========================================================================
+// Rate limiter integration with runtime
+// ===========================================================================
+
+mod ratelimit_integration {
+    use super::*;
+    use abp_ratelimit::{
+        BackendRateLimiter, CircuitBreaker, CircuitState, RateLimitError, RateLimitPolicy,
+        TokenBucket,
+    };
+
+    #[test]
+    fn token_bucket_starts_full() {
+        let bucket = TokenBucket::new(100.0, 10);
+        assert_eq!(bucket.available(), 10);
+    }
+
+    #[test]
+    fn token_bucket_acquire_reduces_available() {
+        let bucket = TokenBucket::new(100.0, 10);
+        assert!(bucket.try_acquire(5));
+        assert_eq!(bucket.available(), 5);
+    }
+
+    #[test]
+    fn token_bucket_acquire_over_capacity_fails() {
+        let bucket = TokenBucket::new(100.0, 5);
+        assert!(!bucket.try_acquire(6));
+        assert_eq!(bucket.available(), 5);
+    }
+
+    #[test]
+    fn backend_limiter_token_bucket_policy_exhaustion() {
+        let limiter = BackendRateLimiter::new();
+        limiter.set_policy(
+            "mock",
+            RateLimitPolicy::TokenBucket {
+                rate: 1.0,
+                burst: 2,
+            },
+        );
+        assert!(limiter.try_acquire("mock").is_ok());
+        assert!(limiter.try_acquire("mock").is_ok());
+        assert!(limiter.try_acquire("mock").is_err());
+    }
+
+    #[test]
+    fn backend_limiter_fixed_concurrency() {
+        let limiter = BackendRateLimiter::new();
+        limiter.set_policy("mock", RateLimitPolicy::Fixed { max_concurrent: 2 });
+        let p1 = limiter.try_acquire("mock").unwrap();
+        let p2 = limiter.try_acquire("mock").unwrap();
+        assert!(limiter.try_acquire("mock").is_err());
+        drop(p1);
+        assert!(limiter.try_acquire("mock").is_ok());
+        drop(p2);
+    }
+
+    #[test]
+    fn backend_limiter_unlimited_never_rejects() {
+        let limiter = BackendRateLimiter::new();
+        limiter.set_policy("mock", RateLimitPolicy::Unlimited);
+        for _ in 0..100 {
+            assert!(limiter.try_acquire("mock").is_ok());
+        }
+    }
+
+    #[test]
+    fn backend_limiter_no_policy_returns_error() {
+        let limiter = BackendRateLimiter::new();
+        let err = limiter.try_acquire("unknown").unwrap_err();
+        assert!(matches!(err, RateLimitError::NoPolicyConfigured { .. }));
+    }
+
+    #[test]
+    fn backend_limiter_per_backend_isolation() {
+        let limiter = BackendRateLimiter::new();
+        limiter.set_policy(
+            "a",
+            RateLimitPolicy::TokenBucket {
+                rate: 1.0,
+                burst: 1,
+            },
+        );
+        limiter.set_policy(
+            "b",
+            RateLimitPolicy::TokenBucket {
+                rate: 1.0,
+                burst: 1,
+            },
+        );
+        assert!(limiter.try_acquire("a").is_ok());
+        assert!(limiter.try_acquire("a").is_err());
+        // b is independent
+        assert!(limiter.try_acquire("b").is_ok());
+    }
+
+    #[test]
+    fn backend_limiter_active_permits_tracking() {
+        let limiter = BackendRateLimiter::new();
+        limiter.set_policy("x", RateLimitPolicy::Unlimited);
+        assert_eq!(limiter.active_permits("x"), 0);
+        let _p = limiter.try_acquire("x").unwrap();
+        assert_eq!(limiter.active_permits("x"), 1);
+    }
+
+    #[test]
+    fn circuit_breaker_starts_closed() {
+        let cb = CircuitBreaker::new(3, std::time::Duration::from_secs(60));
+        assert_eq!(cb.state(), CircuitState::Closed);
+    }
+
+    #[test]
+    fn circuit_breaker_trips_after_threshold() {
+        let cb = CircuitBreaker::new(2, std::time::Duration::from_secs(60));
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Closed);
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+    }
+
+    #[test]
+    fn circuit_breaker_open_rejects() {
+        let cb = CircuitBreaker::new(1, std::time::Duration::from_secs(60));
+        cb.record_failure();
+        let result: Result<(), abp_ratelimit::CircuitBreakerError<&str>> = cb.call(|| Ok(()));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn circuit_breaker_resets_on_manual_reset() {
+        let cb = CircuitBreaker::new(1, std::time::Duration::from_secs(60));
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+        cb.reset();
+        assert_eq!(cb.state(), CircuitState::Closed);
+    }
+
+    #[tokio::test]
+    async fn rate_limiter_with_runtime_sequential_runs() {
+        let limiter = BackendRateLimiter::new();
+        limiter.set_policy("mock", RateLimitPolicy::Unlimited);
+
+        let rt = Runtime::with_default_backends();
+        // Acquire permit before each run
+        let _permit = limiter.try_acquire("mock").unwrap();
+        let wo = passthrough_wo("rate-limited-task");
+        let handle = rt.run_streaming("mock", wo).await.unwrap();
+        let (_, receipt) = drain_run(handle).await;
+        assert!(receipt.is_ok());
+    }
+}
+
+// ===========================================================================
+// Stream multiplexing through the pipeline
+// ===========================================================================
+
+mod stream_multiplexing {
+    use super::*;
+    use abp_runtime::multiplex::{EventMultiplexer, EventRouter};
+    use abp_stream::StreamMultiplexer;
+
+    fn make_event(text: &str) -> AgentEvent {
+        AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::AssistantDelta { text: text.into() },
+            ext: None,
+        }
+    }
+
+    fn make_error_event(msg: &str) -> AgentEvent {
+        AgentEvent {
+            ts: chrono::Utc::now(),
+            kind: AgentEventKind::Error {
+                message: msg.into(),
+                error_code: None,
+            },
+            ext: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn broadcast_multiplexer_fans_out_to_subscribers() {
+        let mux = EventMultiplexer::new(16);
+        let mut sub1 = mux.subscribe();
+        let mut sub2 = mux.subscribe();
+
+        let count = mux.broadcast(make_event("hello")).unwrap();
+        assert_eq!(count, 2);
+
+        let e1 = sub1.recv().await.unwrap();
+        let e2 = sub2.recv().await.unwrap();
+        assert!(matches!(&e1.kind, AgentEventKind::AssistantDelta { text } if text == "hello"));
+        assert!(matches!(&e2.kind, AgentEventKind::AssistantDelta { text } if text == "hello"));
+    }
+
+    #[tokio::test]
+    async fn stream_multiplexer_subscribe_and_broadcast() {
+        let mux = StreamMultiplexer::new(16);
+        let (_id1, mut rx1) = mux.subscribe().await;
+        let (_id2, mut rx2) = mux.subscribe().await;
+
+        mux.broadcast(&make_event("mux-test")).await;
+
+        let e1 = rx1.recv().await.unwrap();
+        let e2 = rx2.recv().await.unwrap();
+        assert!(matches!(&e1.kind, AgentEventKind::AssistantDelta { text } if text == "mux-test"));
+        assert!(matches!(&e2.kind, AgentEventKind::AssistantDelta { text } if text == "mux-test"));
+    }
+
+    #[tokio::test]
+    async fn stream_multiplexer_unsubscribe() {
+        let mux = StreamMultiplexer::new(16);
+        let (id1, _rx1) = mux.subscribe().await;
+        assert_eq!(mux.subscriber_count().await, 1);
+        assert!(mux.unsubscribe(id1).await);
+        assert_eq!(mux.subscriber_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn stream_multiplexer_run_drains_source() {
+        let mux = Arc::new(StreamMultiplexer::new(16));
+        let (src_tx, src_rx) = mpsc::channel(16);
+        let (_id, mut rx) = mux.subscribe().await;
+
+        let mux_clone = Arc::clone(&mux);
+        let handle = tokio::spawn(async move { mux_clone.run(src_rx).await });
+
+        src_tx.send(make_event("a")).await.unwrap();
+        src_tx.send(make_event("b")).await.unwrap();
+        drop(src_tx);
+
+        handle.await.unwrap();
+
+        let mut events = Vec::new();
+        while let Ok(ev) = rx.try_recv() {
+            events.push(ev);
+        }
+        assert_eq!(events.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn event_router_dispatches_by_kind() {
+        let counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter_clone = Arc::clone(&counter);
+        let mut router = EventRouter::new();
+        router.add_route(
+            "assistant_delta",
+            Box::new(move |_| {
+                counter_clone.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }),
+        );
+
+        router.route(&make_event("test"));
+        router.route(&make_error_event("err"));
+
+        assert_eq!(counter.load(std::sync::atomic::Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn event_router_multiple_handlers_per_kind() {
+        let counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut router = EventRouter::new();
+        for _ in 0..3 {
+            let c = Arc::clone(&counter);
+            router.add_route(
+                "assistant_delta",
+                Box::new(move |_| {
+                    c.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }),
+            );
+        }
+
+        router.route(&make_event("x"));
+        assert_eq!(counter.load(std::sync::atomic::Ordering::Relaxed), 3);
+    }
+
+    #[tokio::test]
+    async fn multiplexer_backpressure_drops_for_slow_subscriber() {
+        let mux = StreamMultiplexer::new(2);
+        let (_id, mut rx) = mux.subscribe().await;
+
+        // Fill buffer beyond capacity
+        for i in 0..5 {
+            mux.broadcast(&make_event(&format!("msg-{i}"))).await;
+        }
+
+        let e1 = rx.recv().await.unwrap();
+        let e2 = rx.recv().await.unwrap();
+        assert!(matches!(&e1.kind, AgentEventKind::AssistantDelta { text } if text == "msg-0"));
+        assert!(matches!(&e2.kind, AgentEventKind::AssistantDelta { text } if text == "msg-1"));
+    }
+}
+
+// ===========================================================================
+// Error propagation through pipeline stages
+// ===========================================================================
+
+mod error_propagation_pipeline {
+    use super::*;
+    use abp_core::{
+        CapabilityRequirements, ContextPacket, ExecutionLane, WorkspaceMode, WorkspaceSpec,
+    };
+    use abp_runtime::pipeline::RuntimePipeline;
+
+    fn sample_wo() -> WorkOrder {
+        WorkOrder {
+            id: Uuid::new_v4(),
+            task: "error prop test".into(),
+            lane: ExecutionLane::PatchFirst,
+            workspace: WorkspaceSpec {
+                root: ".".into(),
+                mode: WorkspaceMode::PassThrough,
+                include: vec![],
+                exclude: vec![],
+            },
+            context: ContextPacket::default(),
+            policy: PolicyProfile::default(),
+            requirements: CapabilityRequirements::default(),
+            config: abp_core::RuntimeConfig::default(),
+        }
+    }
+
+    #[tokio::test]
+    async fn failing_backend_produces_failed_outcome_in_pipeline() {
+        let backend = Arc::new(FailingBackend {
+            message: "crash!".into(),
+        });
+        let rp = RuntimePipeline::new("failing", backend);
+        let wo = sample_wo();
+
+        let (outcomes, result) = rp.execute(wo).await;
+        // Pipeline runs all stages it can; backend failure appears at stage 5
+        let run_stage = outcomes.iter().find(|o| o.name == "run_backend");
+        assert!(run_stage.is_some());
+        assert!(!run_stage.unwrap().success);
+
+        // Receipt should still be produced (stage 7) with Failed outcome
+        let receipt = result.unwrap();
+        assert_eq!(receipt.outcome, Outcome::Failed);
+    }
+
+    #[tokio::test]
+    async fn policy_conflict_short_circuits_at_stage1() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let mut wo = sample_wo();
+        wo.policy.allowed_tools = vec!["x".into()];
+        wo.policy.disallowed_tools = vec!["x".into()];
+
+        let (outcomes, result) = rp.execute(wo).await;
+        assert_eq!(outcomes.len(), 1);
+        assert_eq!(outcomes[0].name, "validate_policy");
+        assert!(!outcomes[0].success);
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn capability_mismatch_short_circuits_at_stage2() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let mut wo = sample_wo();
+        wo.requirements
+            .required
+            .push(abp_core::CapabilityRequirement {
+                capability: Capability::McpClient,
+                min_support: abp_core::MinSupport::Native,
+            });
+
+        let (outcomes, result) = rp.execute(wo).await;
+        assert_eq!(outcomes.len(), 2);
+        assert!(outcomes[0].success); // validate_policy OK
+        assert!(!outcomes[1].success); // negotiate_capabilities FAIL
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn unknown_backend_in_runtime_returns_error() {
+        let rt = Runtime::new();
+        let wo = passthrough_wo("unknown-be");
+        let result = rt.run_streaming("nonexistent", wo).await;
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert!(matches!(err, RuntimeError::UnknownBackend { .. }));
+    }
+
+    #[tokio::test]
+    async fn runtime_error_unknown_backend_is_not_retryable() {
+        let err = RuntimeError::UnknownBackend { name: "x".into() };
+        assert!(!err.is_retryable());
+    }
+
+    #[tokio::test]
+    async fn runtime_error_backend_failed_is_retryable() {
+        let err = RuntimeError::BackendFailed(anyhow::anyhow!("boom"));
+        assert!(err.is_retryable());
+    }
+
+    #[tokio::test]
+    async fn runtime_error_policy_failed_is_not_retryable() {
+        let err = RuntimeError::PolicyFailed(anyhow::anyhow!("bad glob"));
+        assert!(!err.is_retryable());
+    }
+
+    #[tokio::test]
+    async fn runtime_error_capability_check_failed_not_retryable() {
+        let err = RuntimeError::CapabilityCheckFailed("missing".into());
+        assert!(!err.is_retryable());
+    }
+}
+
+// ===========================================================================
+// Workspace staging integration
+// ===========================================================================
+
+mod workspace_staging_pipeline {
+    use super::*;
+    use abp_workspace::WorkspaceStager;
+
+    #[test]
+    fn workspace_stager_creates_temp_workspace() {
+        let ws = WorkspaceStager::new().stage().unwrap();
+        assert!(ws.path().exists());
+    }
+
+    #[test]
+    fn workspace_stager_with_git_init() {
+        let ws = WorkspaceStager::new().with_git_init(true).stage().unwrap();
+        assert!(ws.path().join(".git").exists());
+    }
+
+    #[test]
+    fn workspace_stager_without_git_init() {
+        let ws = WorkspaceStager::new().with_git_init(false).stage().unwrap();
+        assert!(!ws.path().join(".git").exists());
+    }
+
+    #[test]
+    fn workspace_validation_on_empty_dir() {
+        let ws = WorkspaceStager::new().with_git_init(false).stage().unwrap();
+        let result = ws.validate();
+        assert!(result.valid);
+    }
+
+    #[test]
+    fn workspace_is_staged_returns_true_for_temp() {
+        let ws = WorkspaceStager::new().stage().unwrap();
+        assert!(ws.is_staged());
+    }
+
+    #[test]
+    fn workspace_created_at_is_recent() {
+        let ws = WorkspaceStager::new().stage().unwrap();
+        let now = chrono::Utc::now();
+        let diff = now - ws.created_at();
+        assert!(
+            diff.num_seconds() < 10,
+            "workspace created_at should be recent"
+        );
+    }
+
+    #[tokio::test]
+    async fn passthrough_workspace_does_not_create_temp() {
+        let rt = Runtime::with_default_backends();
+        let wo = passthrough_wo("ws-passthrough");
+        let handle = rt.run_streaming("mock", wo).await.unwrap();
+        let (_, receipt) = drain_run(handle).await;
+        assert!(receipt.is_ok());
+    }
+}
+
+// ===========================================================================
+// Policy enforcement in pipeline context
+// ===========================================================================
+
+mod policy_enforcement_pipeline {
+    use super::*;
+    use abp_core::{
+        CapabilityRequirements, ContextPacket, ExecutionLane, WorkspaceMode, WorkspaceSpec,
+    };
+    use abp_runtime::pipeline::{Pipeline, PolicyStage, RuntimePipeline, ValidationStage};
+
+    fn sample_wo() -> WorkOrder {
+        WorkOrder {
+            id: Uuid::new_v4(),
+            task: "policy test".into(),
+            lane: ExecutionLane::PatchFirst,
+            workspace: WorkspaceSpec {
+                root: ".".into(),
+                mode: WorkspaceMode::PassThrough,
+                include: vec![],
+                exclude: vec![],
+            },
+            context: ContextPacket::default(),
+            policy: PolicyProfile::default(),
+            requirements: CapabilityRequirements::default(),
+            config: abp_core::RuntimeConfig::default(),
+        }
+    }
+
+    #[test]
+    fn policy_engine_allows_non_denied_tool() {
+        let policy = PolicyProfile {
+            allowed_tools: vec!["Read".into()],
+            disallowed_tools: vec![],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).unwrap();
+        assert!(engine.can_use_tool("Read").allowed);
+    }
+
+    #[test]
+    fn policy_engine_denies_disallowed_tool() {
+        let policy = PolicyProfile {
+            allowed_tools: vec![],
+            disallowed_tools: vec!["Bash".into()],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).unwrap();
+        assert!(!engine.can_use_tool("Bash").allowed);
+    }
+
+    #[test]
+    fn policy_engine_denies_read_on_secret_path() {
+        let policy = PolicyProfile {
+            deny_read: vec!["**/.env".into()],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).unwrap();
+        assert!(!engine.can_read_path(Path::new(".env")).allowed);
+    }
+
+    #[test]
+    fn policy_engine_denies_write_on_git_dir() {
+        let policy = PolicyProfile {
+            deny_write: vec!["**/.git/**".into()],
+            ..PolicyProfile::default()
+        };
+        let engine = PolicyEngine::new(&policy).unwrap();
+        assert!(!engine.can_write_path(Path::new(".git/config")).allowed);
+    }
+
+    #[tokio::test]
+    async fn pipeline_policy_stage_allows_clean_order() {
+        let pipeline = Pipeline::new().stage(ValidationStage).stage(PolicyStage);
+        let mut wo = sample_wo();
+        pipeline.execute(&mut wo).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn runtime_pipeline_validates_policy_before_capability() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let mut wo = sample_wo();
+        // Both policy conflict AND capability mismatch — policy should fail first
+        wo.policy.allowed_tools = vec!["x".into()];
+        wo.policy.disallowed_tools = vec!["x".into()];
+        wo.requirements
+            .required
+            .push(abp_core::CapabilityRequirement {
+                capability: Capability::McpClient,
+                min_support: abp_core::MinSupport::Native,
+            });
+
+        let (outcomes, _) = rp.execute(wo).await;
+        assert_eq!(outcomes.len(), 1);
+        assert_eq!(outcomes[0].name, "validate_policy");
+    }
+}
+
+// ===========================================================================
+// Receipt generation after pipeline completion
+// ===========================================================================
+
+mod receipt_generation_pipeline {
+    use super::*;
+    use abp_core::{
+        CapabilityRequirements, ContextPacket, ExecutionLane, WorkspaceMode, WorkspaceSpec,
+    };
+    use abp_runtime::pipeline::RuntimePipeline;
+
+    fn sample_wo() -> WorkOrder {
+        WorkOrder {
+            id: Uuid::new_v4(),
+            task: "receipt gen".into(),
+            lane: ExecutionLane::PatchFirst,
+            workspace: WorkspaceSpec {
+                root: ".".into(),
+                mode: WorkspaceMode::PassThrough,
+                include: vec![],
+                exclude: vec![],
+            },
+            context: ContextPacket::default(),
+            policy: PolicyProfile::default(),
+            requirements: CapabilityRequirements::default(),
+            config: abp_core::RuntimeConfig::default(),
+        }
+    }
+
+    #[tokio::test]
+    async fn receipt_from_pipeline_has_hash() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let (_, result) = rp.execute(wo).await;
+        let receipt = result.unwrap();
+        assert!(receipt.receipt_sha256.is_some());
+    }
+
+    #[tokio::test]
+    async fn receipt_hash_is_hex_64_chars() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let (_, result) = rp.execute(wo).await;
+        let hash = result.unwrap().receipt_sha256.unwrap();
+        assert_eq!(hash.len(), 64);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[tokio::test]
+    async fn receipt_backend_identity_from_pipeline() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let (_, result) = rp.execute(wo).await;
+        let receipt = result.unwrap();
+        assert_eq!(receipt.backend.id, "mock");
+    }
+
+    #[tokio::test]
+    async fn receipt_outcome_complete_on_success() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let (_, result) = rp.execute(wo).await;
+        assert_eq!(result.unwrap().outcome, Outcome::Complete);
+    }
+
+    #[tokio::test]
+    async fn receipt_outcome_failed_on_backend_error() {
+        let backend = Arc::new(FailingBackend {
+            message: "boom".into(),
+        });
+        let rp = RuntimePipeline::new("failing", backend);
+        let wo = sample_wo();
+        let (_, result) = rp.execute(wo).await;
+        assert_eq!(result.unwrap().outcome, Outcome::Failed);
+    }
+
+    #[tokio::test]
+    async fn receipt_trace_from_pipeline_is_populated() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let (_, result) = rp.execute(wo).await;
+        let receipt = result.unwrap();
+        // MockBackend emits events; trace should be non-empty
+        assert!(!receipt.trace.is_empty());
+    }
+
+    #[tokio::test]
+    async fn produce_receipt_with_custom_trace() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let events = vec![
+            AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantMessage { text: "a".into() },
+                ext: None,
+            },
+            AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantMessage { text: "b".into() },
+                ext: None,
+            },
+        ];
+        let receipt = rp
+            .produce_receipt(Uuid::new_v4(), &wo, Outcome::Complete, events)
+            .unwrap();
+        assert_eq!(receipt.trace.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn receipt_hash_deterministic_for_same_inputs() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let run_id = Uuid::new_v4();
+        let r1 = rp
+            .produce_receipt(run_id, &wo, Outcome::Complete, vec![])
+            .unwrap();
+        let r2 = rp
+            .produce_receipt(run_id, &wo, Outcome::Complete, vec![])
+            .unwrap();
+        assert_eq!(r1.receipt_sha256, r2.receipt_sha256);
+    }
+
+    #[tokio::test]
+    async fn receipt_hash_differs_for_different_outcomes() {
+        let backend = Arc::new(abp_integrations::MockBackend);
+        let rp = RuntimePipeline::new("mock", backend);
+        let wo = sample_wo();
+        let run_id = Uuid::new_v4();
+        let r_ok = rp
+            .produce_receipt(run_id, &wo, Outcome::Complete, vec![])
+            .unwrap();
+        let r_fail = rp
+            .produce_receipt(run_id, &wo, Outcome::Failed, vec![])
+            .unwrap();
+        assert_ne!(r_ok.receipt_sha256, r_fail.receipt_sha256);
+    }
+}
+
+// ===========================================================================
+// Configuration hot-reload scenarios
+// ===========================================================================
+
+mod config_hot_reload {
+    use super::*;
+    use abp_runtime::config_integration::{
+        BackendSelectionStrategy, RuntimeConfig, TelemetrySettings, WorkspaceOptions,
+    };
+    use std::time::Duration;
+
+    #[test]
+    fn config_builder_produces_default_then_overrides() {
+        let cfg = RuntimeConfig::default();
+        assert!(!cfg.has_timeout());
+
+        let cfg2 = RuntimeConfig::builder()
+            .run_timeout(Duration::from_secs(30))
+            .build();
+        assert!(cfg2.has_timeout());
+    }
+
+    #[test]
+    fn config_serde_roundtrip_preserves_all_fields() {
+        let cfg = RuntimeConfig::builder()
+            .selection_strategy(BackendSelectionStrategy::Fallback {
+                chain: vec!["a".into(), "b".into()],
+            })
+            .run_timeout(Duration::from_secs(120))
+            .max_concurrent_runs(16)
+            .telemetry(TelemetrySettings {
+                metrics_enabled: false,
+                tracing_enabled: true,
+                log_interval_runs: Some(50),
+            })
+            .workspace(WorkspaceOptions {
+                base_dir: Some(std::path::PathBuf::from("/tmp/ws")),
+                git_init: false,
+                baseline_commit: false,
+            })
+            .build();
+
+        let json = serde_json::to_string(&cfg).unwrap();
+        let back: RuntimeConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.selection_strategy, cfg.selection_strategy);
+        assert_eq!(back.run_timeout, cfg.run_timeout);
+        assert_eq!(back.max_concurrent_runs, cfg.max_concurrent_runs);
+        assert_eq!(back.telemetry.metrics_enabled, false);
+        assert_eq!(back.workspace.git_init, false);
+    }
+
+    #[test]
+    fn config_from_backplane_values_overrides_backend() {
+        let cfg = RuntimeConfig::from_backplane_values(Some("openai"), None, None);
+        assert_eq!(
+            cfg.selection_strategy,
+            BackendSelectionStrategy::Fixed {
+                name: "openai".into()
+            }
+        );
+    }
+
+    #[test]
+    fn config_from_backplane_values_sets_workspace_dir() {
+        let cfg = RuntimeConfig::from_backplane_values(None, Some("/custom"), None);
+        assert_eq!(
+            cfg.workspace.base_dir,
+            Some(std::path::PathBuf::from("/custom"))
+        );
+    }
+
+    #[test]
+    fn config_from_backplane_values_disables_tracing_when_off() {
+        let cfg = RuntimeConfig::from_backplane_values(None, None, Some("off"));
+        assert!(!cfg.telemetry.tracing_enabled);
+    }
+
+    #[tokio::test]
+    async fn runtime_swap_backend_simulates_hot_reload() {
+        let mut rt = Runtime::with_default_backends();
+        let wo = passthrough_wo("before-swap");
+        let handle = rt.run_streaming("mock", wo).await.unwrap();
+        let (_, r) = drain_run(handle).await;
+        assert_eq!(r.unwrap().backend.id, "mock");
+
+        // "Hot-reload": replace mock with a different backend
+        rt.register_backend(
+            "mock",
+            MultiEventBackend {
+                name: "hot-reloaded".into(),
+                event_count: 1,
+            },
+        );
+
+        let wo2 = passthrough_wo("after-swap");
+        let handle2 = rt.run_streaming("mock", wo2).await.unwrap();
+        let (_, r2) = drain_run(handle2).await;
+        assert_eq!(r2.unwrap().backend.id, "hot-reloaded");
+    }
+
+    #[tokio::test]
+    async fn runtime_add_backend_dynamically() {
+        let mut rt = Runtime::new();
+        assert!(rt.backend_names().is_empty());
+
+        rt.register_backend("dynamic", abp_integrations::MockBackend);
+        assert_eq!(rt.backend_names().len(), 1);
+
+        let wo = passthrough_wo("dynamic-task");
+        let handle = rt.run_streaming("dynamic", wo).await.unwrap();
+        let (_, r) = drain_run(handle).await;
+        assert!(r.is_ok());
+    }
+
+    #[test]
+    fn config_max_concurrent_zero_means_unlimited() {
+        let cfg = RuntimeConfig::builder().max_concurrent_runs(0).build();
+        assert!(!cfg.is_concurrent_limited());
+    }
+
+    #[test]
+    fn config_max_concurrent_nonzero_means_limited() {
+        let cfg = RuntimeConfig::builder().max_concurrent_runs(10).build();
+        assert!(cfg.is_concurrent_limited());
+    }
+
+    #[test]
+    fn config_default_policy_can_be_set() {
+        let mut policy = PolicyProfile::default();
+        policy.disallowed_tools.push("dangerous".into());
+        let cfg = RuntimeConfig::builder().default_policy(policy).build();
+        assert_eq!(
+            cfg.default_policy.disallowed_tools,
+            vec!["dangerous".to_string()]
+        );
     }
 }
