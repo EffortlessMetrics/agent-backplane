@@ -23,6 +23,7 @@ serde = "1"
 serde_json = "1"
 toml = "0.8"
 chrono = "0.4"
+uuid = { version = "1", features = ["serde", "v4"] }
 
 [[bin]]
 name = "fuzz_jsonl_parse"
@@ -227,4 +228,24 @@ doc = false
 [[bin]]
 name = "fuzz_agent_event_json"
 path = "fuzz_targets/fuzz_agent_event_json.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_envelope_decode"
+path = "fuzz_targets/fuzz_envelope_decode.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_work_order_serde"
+path = "fuzz_targets/fuzz_work_order_serde.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_ir_normalize"
+path = "fuzz_targets/fuzz_ir_normalize.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_mapper_roundtrip"
+path = "fuzz_targets/fuzz_mapper_roundtrip.rs"
 doc = false
