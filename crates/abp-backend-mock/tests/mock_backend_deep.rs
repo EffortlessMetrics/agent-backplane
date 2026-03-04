@@ -1,4 +1,3 @@
-#![allow(clippy::all)]
 #![allow(clippy::useless_vec)]
 
 use std::collections::BTreeMap;
