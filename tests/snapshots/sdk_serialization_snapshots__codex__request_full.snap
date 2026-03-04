@@ -1,0 +1,36 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "codex-mini",
+  "input": [
+    {
+      "type": "message",
+      "role": "system",
+      "content": "You are a coding assistant."
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": "Write a Rust function"
+    }
+  ],
+  "max_output_tokens": 4096,
+  "temperature": 0.2,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "run_tests",
+        "description": "Run test suite",
+        "parameters": {
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "text": {
+    "type": "text"
+  }
+}

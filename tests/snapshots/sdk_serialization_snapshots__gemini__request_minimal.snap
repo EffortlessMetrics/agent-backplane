@@ -1,0 +1,17 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "gemini-2.5-pro",
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Hello"
+        }
+      ]
+    }
+  ]
+}

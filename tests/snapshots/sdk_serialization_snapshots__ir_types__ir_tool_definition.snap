@@ -1,0 +1,26 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: tool
+---
+{
+  "name": "get_weather",
+  "description": "Get weather for a location",
+  "parameters": {
+    "properties": {
+      "location": {
+        "type": "string"
+      },
+      "unit": {
+        "enum": [
+          "celsius",
+          "fahrenheit"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "location"
+    ],
+    "type": "object"
+  }
+}

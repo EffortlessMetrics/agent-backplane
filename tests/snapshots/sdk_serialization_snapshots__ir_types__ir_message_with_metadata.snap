@@ -1,0 +1,11 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: msg
+---
+role: system
+content:
+  - type: text
+    text: System prompt
+metadata:
+  model: gpt-4o
+  source_sdk: openai

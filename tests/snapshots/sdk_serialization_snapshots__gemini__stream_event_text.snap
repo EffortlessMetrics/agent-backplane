@@ -1,0 +1,20 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: event
+---
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Hello"
+          }
+        ]
+      },
+      "finish_reason": null
+    }
+  ],
+  "usage_metadata": null
+}

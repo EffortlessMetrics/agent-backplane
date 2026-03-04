@@ -1,0 +1,14 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "codex-mini",
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": "Hello"
+    }
+  ]
+}

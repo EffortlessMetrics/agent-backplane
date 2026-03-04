@@ -1,0 +1,39 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: receipt
+---
+{
+  "meta": {
+    "run_id": "[uuid]",
+    "work_order_id": "a1a2a3a4-b1b2-c1c2-d1d2-d3d4d5d6d7d8",
+    "contract_version": "abp/v0.1",
+    "started_at": "[ts]",
+    "finished_at": "[ts]",
+    "duration_ms": 200
+  },
+  "backend": {
+    "id": "passthrough-backend",
+    "backend_version": null,
+    "adapter_version": null
+  },
+  "capabilities": {},
+  "mode": "passthrough",
+  "usage_raw": {},
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "cache_read_tokens": null,
+    "cache_write_tokens": null,
+    "request_units": null,
+    "estimated_cost_usd": null
+  },
+  "trace": [],
+  "artifacts": [],
+  "verification": {
+    "git_diff": null,
+    "git_status": null,
+    "harness_ok": false
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

@@ -1,0 +1,71 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "gemini-2.5-pro",
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "What is Rust?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Rust is a systems language."
+        }
+      ]
+    }
+  ],
+  "system_instruction": {
+    "role": "user",
+    "parts": [
+      {
+        "text": "Be concise."
+      }
+    ]
+  },
+  "generation_config": {
+    "maxOutputTokens": 2048,
+    "temperature": 0.7,
+    "topP": 0.9,
+    "topK": 40,
+    "stopSequences": [
+      "END"
+    ]
+  },
+  "safety_settings": [
+    {
+      "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+      "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+    }
+  ],
+  "tools": [
+    {
+      "functionDeclarations": [
+        {
+          "name": "get_weather",
+          "description": "Get weather for a location",
+          "parameters": {
+            "properties": {
+              "loc": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    }
+  ],
+  "tool_config": {
+    "functionCallingConfig": {
+      "mode": "AUTO"
+    }
+  }
+}

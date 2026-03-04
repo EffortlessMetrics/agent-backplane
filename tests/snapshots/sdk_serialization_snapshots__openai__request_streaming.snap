@@ -1,0 +1,14 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Stream me"
+    }
+  ],
+  "stream": true
+}

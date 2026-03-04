@@ -1,0 +1,9 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: codes
+---
+- protocol_invalid_envelope
+- protocol_handshake_failed
+- protocol_missing_ref_id
+- protocol_unexpected_message
+- protocol_version_mismatch

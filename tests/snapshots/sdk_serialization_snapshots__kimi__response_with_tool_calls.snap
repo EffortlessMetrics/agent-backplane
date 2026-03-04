@@ -1,0 +1,40 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: resp
+---
+{
+  "id": "cmpl-kimi-002",
+  "model": "moonshot-v1-8k",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "tc_01",
+            "type": "function",
+            "function": {
+              "name": "web_search",
+              "arguments": "{\"q\":\"Rust tutorials\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 20,
+    "completion_tokens": 15,
+    "total_tokens": 35
+  },
+  "refs": [
+    {
+      "index": 0,
+      "url": "https://doc.rust-lang.org",
+      "title": "The Rust Book"
+    }
+  ]
+}

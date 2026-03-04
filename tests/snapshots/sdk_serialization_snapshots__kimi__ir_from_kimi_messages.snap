@@ -1,0 +1,13 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: ir
+---
+messages:
+  - role: system
+    content:
+      - type: text
+        text: Be concise.
+  - role: user
+    content:
+      - type: text
+        text: What is Rust?

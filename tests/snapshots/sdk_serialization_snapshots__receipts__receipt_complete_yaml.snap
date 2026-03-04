@@ -1,0 +1,38 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: receipt
+---
+meta:
+  run_id: "[uuid]"
+  work_order_id: a1a2a3a4-b1b2-c1c2-d1d2-d3d4d5d6d7d8
+  contract_version: abp/v0.1
+  started_at: "[ts]"
+  finished_at: "[ts]"
+  duration_ms: 500
+backend:
+  id: test-backend
+  backend_version: ~
+  adapter_version: ~
+capabilities: {}
+mode: mapped
+usage_raw:
+  input_tokens: 100
+  output_tokens: 50
+usage:
+  input_tokens: 100
+  output_tokens: 50
+  cache_read_tokens: ~
+  cache_write_tokens: ~
+  request_units: ~
+  estimated_cost_usd: ~
+trace:
+  - ts: "[ts]"
+    type: assistant_message
+    text: Hello from the assistant.
+artifacts: []
+verification:
+  git_diff: ~
+  git_status: ~
+  harness_ok: false
+outcome: complete
+receipt_sha256: ~

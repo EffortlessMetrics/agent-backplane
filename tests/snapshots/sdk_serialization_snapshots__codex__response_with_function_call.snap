@@ -1,0 +1,23 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: resp
+---
+{
+  "id": "resp_002",
+  "model": "codex-mini",
+  "output": [
+    {
+      "type": "function_call",
+      "id": "fc_01",
+      "call_id": "call_01",
+      "name": "run_tests",
+      "arguments": "{\"suite\":\"unit\"}"
+    }
+  ],
+  "usage": {
+    "input_tokens": 40,
+    "output_tokens": 25,
+    "total_tokens": 65
+  },
+  "status": "completed"
+}

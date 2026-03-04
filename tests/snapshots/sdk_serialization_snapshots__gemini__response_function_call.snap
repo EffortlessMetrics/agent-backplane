@@ -1,0 +1,29 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: resp
+---
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "functionCall": {
+              "name": "get_weather",
+              "args": {
+                "location": "Tokyo"
+              }
+            }
+          }
+        ]
+      },
+      "finish_reason": "STOP"
+    }
+  ],
+  "usage_metadata": {
+    "promptTokenCount": 15,
+    "candidatesTokenCount": 12,
+    "totalTokenCount": 27
+  }
+}

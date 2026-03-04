@@ -1,0 +1,46 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Search for docs"
+        }
+      ]
+    }
+  ],
+  "max_tokens": 2048,
+  "tools": [
+    {
+      "name": "search",
+      "description": "Search docs",
+      "input_schema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "write_file",
+      "description": "Write content to a file",
+      "input_schema": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "any"
+  }
+}

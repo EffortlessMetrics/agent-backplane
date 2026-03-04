@@ -1,0 +1,59 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a GitHub Copilot assistant."
+    },
+    {
+      "role": "user",
+      "content": "Explain this code",
+      "name": "user1",
+      "copilot_references": [
+        {
+          "type": "file",
+          "id": "src/main.rs",
+          "data": {
+            "content": "fn main() {}"
+          }
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "search_code",
+        "description": "Search codebase",
+        "parameters": {
+          "properties": {
+            "q": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "turn_history": [
+    {
+      "request": "Previous question",
+      "response": "Previous answer"
+    }
+  ],
+  "references": [
+    {
+      "type": "repository",
+      "id": "myorg/myrepo",
+      "data": {
+        "url": "https://github.com/myorg/myrepo"
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: event
+---
+{
+  "ts": "2025-01-15T12:00:00Z",
+  "type": "tool_result",
+  "tool_name": "read_file",
+  "tool_use_id": "tu_001",
+  "output": "file not found: missing.rs",
+  "is_error": true
+}

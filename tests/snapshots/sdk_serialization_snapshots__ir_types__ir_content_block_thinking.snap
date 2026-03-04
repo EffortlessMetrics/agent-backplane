@@ -1,0 +1,8 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: block
+---
+{
+  "type": "thinking",
+  "text": "Let me think about this step by step..."
+}

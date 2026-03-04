@@ -1973,9 +1973,7 @@ mod ir_types {
 
 mod receipts {
     use super::*;
-    use abp_core::{
-        ArtifactRef, ExecutionMode, Outcome, ReceiptBuilder, VerificationReport,
-    };
+    use abp_core::{ArtifactRef, ExecutionMode, Outcome, ReceiptBuilder, VerificationReport};
 
     #[test]
     fn receipt_complete_yaml() {

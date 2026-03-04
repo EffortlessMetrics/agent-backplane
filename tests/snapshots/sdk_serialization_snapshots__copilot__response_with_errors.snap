@@ -1,0 +1,15 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: resp
+---
+{
+  "message": "",
+  "copilot_errors": [
+    {
+      "type": "rate_limit",
+      "message": "Too many requests",
+      "code": "429",
+      "identifier": "req_001"
+    }
+  ]
+}

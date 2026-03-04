@@ -1,0 +1,40 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is Rust?"
+    },
+    {
+      "role": "assistant",
+      "content": "Rust is a systems language."
+    }
+  ],
+  "max_tokens": 4096,
+  "system": "You are an expert programmer.",
+  "temperature": 0.5,
+  "top_p": 0.9,
+  "top_k": 40,
+  "stream": false,
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Read a file from disk",
+      "input_schema": {
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "auto"
+  }
+}

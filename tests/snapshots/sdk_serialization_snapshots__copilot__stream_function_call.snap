@@ -1,0 +1,12 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: event
+---
+{
+  "type": "function_call",
+  "function_call": {
+    "name": "search_code",
+    "arguments": "{\"q\":\"auth\"}",
+    "id": "fc_01"
+  }
+}

@@ -1,0 +1,34 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "codex-mini",
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": "Analyze code"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read file",
+        "parameters": {
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "code_interpreter"
+    }
+  ]
+}

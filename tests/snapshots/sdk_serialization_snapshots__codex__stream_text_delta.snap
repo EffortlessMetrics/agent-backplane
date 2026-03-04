@@ -1,0 +1,12 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: event
+---
+{
+  "type": "output_item_delta",
+  "output_index": 0,
+  "delta": {
+    "type": "output_text_delta",
+    "text": "Hello world"
+  }
+}

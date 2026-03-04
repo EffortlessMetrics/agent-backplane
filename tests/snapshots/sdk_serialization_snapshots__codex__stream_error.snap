@@ -1,0 +1,9 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: event
+---
+{
+  "type": "error",
+  "message": "Rate limit exceeded",
+  "code": "rate_limit"
+}
