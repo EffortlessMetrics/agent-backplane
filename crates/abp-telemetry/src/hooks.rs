@@ -52,6 +52,8 @@ impl std::fmt::Display for ErrorClassification {
     }
 }
 
+impl std::error::Error for ErrorClassification {}
+
 // ---------------------------------------------------------------------------
 // Pre-request hook
 // ---------------------------------------------------------------------------

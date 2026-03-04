@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 //! Retry and circuit breaker middleware for Agent Backplane backend calls.
 //!
 //! This crate provides two core resilience primitives:
