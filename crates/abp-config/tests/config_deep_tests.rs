@@ -7,8 +7,8 @@ use abp_config::validate::{
     IssueSeverity, Severity, ValidationIssue, diff_configs, from_env_overrides,
 };
 use abp_config::{
-    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, load_config, merge_configs,
-    parse_toml, validate_config,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
+    load_from_file, load_from_str, merge_configs, parse_toml, validate_config,
 };
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -1225,4 +1225,558 @@ fn merged_config_still_passes_validation() {
     };
     let merged = merge_configs(base, overlay);
     assert!(validate_config(&merged).is_ok());
+}
+
+// ===========================================================================
+// 21. Policy profiles — TOML parsing
+// ===========================================================================
+
+#[test]
+fn parse_toml_with_policy_profiles() {
+    let toml = r#"
+        policy_profiles = ["profiles/default.toml", "profiles/strict.toml"]
+    "#;
+    let cfg = parse_toml(toml).unwrap();
+    assert_eq!(cfg.policy_profiles.len(), 2);
+    assert_eq!(cfg.policy_profiles[0], "profiles/default.toml");
+    assert_eq!(cfg.policy_profiles[1], "profiles/strict.toml");
+}
+
+#[test]
+fn parse_toml_empty_policy_profiles_list() {
+    let toml = r#"policy_profiles = []"#;
+    let cfg = parse_toml(toml).unwrap();
+    assert!(cfg.policy_profiles.is_empty());
+}
+
+#[test]
+fn parse_toml_single_policy_profile() {
+    let toml = r#"policy_profiles = ["one.toml"]"#;
+    let cfg = parse_toml(toml).unwrap();
+    assert_eq!(cfg.policy_profiles.len(), 1);
+}
+
+#[test]
+fn parse_toml_omitted_policy_profiles_defaults_empty() {
+    let cfg = parse_toml("log_level = \"info\"").unwrap();
+    assert!(cfg.policy_profiles.is_empty());
+}
+
+#[test]
+fn policy_profiles_not_serialized_when_empty() {
+    let cfg = BackplaneConfig::default();
+    let serialized = toml::to_string(&cfg).unwrap();
+    assert!(!serialized.contains("policy_profiles"));
+}
+
+#[test]
+fn policy_profiles_roundtrip() {
+    let cfg = BackplaneConfig {
+        policy_profiles: vec!["a.toml".into(), "b.toml".into(), "c.toml".into()],
+        ..Default::default()
+    };
+    let serialized = toml::to_string(&cfg).unwrap();
+    let back: BackplaneConfig = toml::from_str(&serialized).unwrap();
+    assert_eq!(cfg.policy_profiles, back.policy_profiles);
+}
+
+#[test]
+fn validate_policy_profile_existing_path_passes() {
+    let dir = tempfile::tempdir().unwrap();
+    let profile = dir.path().join("policy.toml");
+    std::fs::write(&profile, "# policy").unwrap();
+    let mut cfg = full_config();
+    cfg.policy_profiles = vec![profile.to_str().unwrap().to_string()];
+    validate_config(&cfg).unwrap();
+}
+
+#[test]
+fn validate_policy_profile_nonexistent_path_is_error() {
+    let mut cfg = full_config();
+    cfg.policy_profiles = vec!["/nonexistent/policy.toml".into()];
+    let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("policy profile path does not exist"))
+    );
+}
+
+#[test]
+fn validate_policy_profile_empty_path_is_error() {
+    let mut cfg = full_config();
+    cfg.policy_profiles = vec!["".into()];
+    let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("policy profile path must not be empty"))
+    );
+}
+
+#[test]
+fn validate_policy_profile_whitespace_only_is_error() {
+    let mut cfg = full_config();
+    cfg.policy_profiles = vec!["   ".into()];
+    let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("policy profile path must not be empty"))
+    );
+}
+
+// ===========================================================================
+// 22. Bind address and port — validation edge cases
+// ===========================================================================
+
+#[test]
+fn validate_port_zero_is_error() {
+    let mut cfg = full_config();
+    cfg.port = Some(0);
+    let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
+    assert!(reasons.iter().any(|r| r.contains("port must be between")));
+}
+
+#[test]
+fn validate_port_one_is_valid() {
+    let mut cfg = full_config();
+    cfg.port = Some(1);
+    validate_config(&cfg).unwrap();
+}
+
+#[test]
+fn validate_port_65535_is_valid() {
+    let mut cfg = full_config();
+    cfg.port = Some(65535);
+    validate_config(&cfg).unwrap();
+}
+
+#[test]
+fn validate_port_none_is_valid() {
+    let cfg = full_config();
+    assert!(cfg.port.is_none());
+    validate_config(&cfg).unwrap();
+}
+
+#[test]
+fn parse_toml_with_port_and_bind() {
+    let toml = r#"
+        bind_address = "0.0.0.0"
+        port = 8080
+    "#;
+    let cfg = parse_toml(toml).unwrap();
+    assert_eq!(cfg.bind_address.as_deref(), Some("0.0.0.0"));
+    assert_eq!(cfg.port, Some(8080));
+}
+
+#[test]
+fn validate_bind_address_ipv4() {
+    let mut cfg = full_config();
+    cfg.bind_address = Some("127.0.0.1".into());
+    validate_config(&cfg).unwrap();
+}
+
+#[test]
+fn validate_bind_address_ipv6() {
+    let mut cfg = full_config();
+    cfg.bind_address = Some("::1".into());
+    validate_config(&cfg).unwrap();
+}
+
+#[test]
+fn validate_bind_address_all_interfaces() {
+    let mut cfg = full_config();
+    cfg.bind_address = Some("0.0.0.0".into());
+    validate_config(&cfg).unwrap();
+}
+
+#[test]
+fn validate_bind_address_hostname() {
+    let mut cfg = full_config();
+    cfg.bind_address = Some("localhost".into());
+    validate_config(&cfg).unwrap();
+}
+
+#[test]
+fn validate_bind_address_dotted_hostname() {
+    let mut cfg = full_config();
+    cfg.bind_address = Some("my-host.example.com".into());
+    validate_config(&cfg).unwrap();
+}
+
+#[test]
+fn validate_bind_address_empty_is_error() {
+    let mut cfg = full_config();
+    cfg.bind_address = Some("".into());
+    let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("bind_address must not be empty"))
+    );
+}
+
+#[test]
+fn validate_bind_address_invalid_is_error() {
+    let mut cfg = full_config();
+    cfg.bind_address = Some("not a valid address!!!".into());
+    let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("not a valid IP address or hostname"))
+    );
+}
+
+#[test]
+fn port_and_bind_address_roundtrip() {
+    let cfg = BackplaneConfig {
+        bind_address: Some("127.0.0.1".into()),
+        port: Some(9090),
+        ..full_config()
+    };
+    let serialized = toml::to_string(&cfg).unwrap();
+    let back: BackplaneConfig = toml::from_str(&serialized).unwrap();
+    assert_eq!(cfg.bind_address, back.bind_address);
+    assert_eq!(cfg.port, back.port);
+}
+
+// ===========================================================================
+// 23. Default values — exhaustive check
+// ===========================================================================
+
+#[test]
+fn default_bind_address_is_none() {
+    assert!(BackplaneConfig::default().bind_address.is_none());
+}
+
+#[test]
+fn default_port_is_none() {
+    assert!(BackplaneConfig::default().port.is_none());
+}
+
+#[test]
+fn default_policy_profiles_is_empty() {
+    assert!(BackplaneConfig::default().policy_profiles.is_empty());
+}
+
+// ===========================================================================
+// 24. File loading — load_from_str and load_from_file
+// ===========================================================================
+
+#[test]
+fn load_from_str_valid_toml() {
+    let cfg = load_from_str(
+        r#"
+        default_backend = "mock"
+        [backends.mock]
+        type = "mock"
+    "#,
+    )
+    .unwrap();
+    assert_eq!(cfg.default_backend.as_deref(), Some("mock"));
+    assert_eq!(cfg.backends.len(), 1);
+}
+
+#[test]
+fn load_from_str_empty_string() {
+    let cfg = load_from_str("").unwrap();
+    assert!(cfg.backends.is_empty());
+}
+
+#[test]
+fn load_from_str_invalid_toml() {
+    let err = load_from_str("[bad =").unwrap_err();
+    assert!(matches!(err, ConfigError::ParseError { .. }));
+}
+
+#[test]
+fn load_from_file_reads_disk() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.toml");
+    std::fs::write(&path, "default_backend = \"disk\"\nport = 3000").unwrap();
+    let cfg = load_from_file(&path).unwrap();
+    assert_eq!(cfg.default_backend.as_deref(), Some("disk"));
+    assert_eq!(cfg.port, Some(3000));
+}
+
+#[test]
+fn load_from_file_missing_gives_file_not_found() {
+    let err = load_from_file(Path::new("/no/such/file.toml")).unwrap_err();
+    assert!(matches!(err, ConfigError::FileNotFound { .. }));
+}
+
+#[test]
+fn load_from_str_with_full_example_config() {
+    let toml = r#"
+        default_backend = "mock"
+        log_level = "info"
+        receipts_dir = "./data/receipts"
+        workspace_dir = "/ws"
+        bind_address = "127.0.0.1"
+        port = 8080
+        policy_profiles = ["a.toml"]
+
+        [backends.mock]
+        type = "mock"
+
+        [backends.openai]
+        type = "sidecar"
+        command = "node"
+        args = ["path/to/openai-sidecar.js"]
+        timeout_secs = 300
+
+        [backends.anthropic]
+        type = "sidecar"
+        command = "python3"
+        args = ["path/to/anthropic-sidecar.py"]
+        timeout_secs = 600
+    "#;
+    let cfg = load_from_str(toml).unwrap();
+    assert_eq!(cfg.backends.len(), 3);
+    assert_eq!(cfg.bind_address.as_deref(), Some("127.0.0.1"));
+    assert_eq!(cfg.port, Some(8080));
+    assert_eq!(cfg.policy_profiles.len(), 1);
+}
+
+// ===========================================================================
+// 25. Merge behavior — policy_profiles, port, bind_address
+// ===========================================================================
+
+#[test]
+fn merge_overlay_port_wins() {
+    let base = BackplaneConfig {
+        port: Some(3000),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        port: Some(8080),
+        ..Default::default()
+    };
+    let merged = merge_configs(base, overlay);
+    assert_eq!(merged.port, Some(8080));
+}
+
+#[test]
+fn merge_overlay_none_port_preserves_base() {
+    let base = BackplaneConfig {
+        port: Some(3000),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        port: None,
+        ..Default::default()
+    };
+    let merged = merge_configs(base, overlay);
+    assert_eq!(merged.port, Some(3000));
+}
+
+#[test]
+fn merge_overlay_bind_address_wins() {
+    let base = BackplaneConfig {
+        bind_address: Some("127.0.0.1".into()),
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        bind_address: Some("0.0.0.0".into()),
+        ..Default::default()
+    };
+    let merged = merge_configs(base, overlay);
+    assert_eq!(merged.bind_address.as_deref(), Some("0.0.0.0"));
+}
+
+#[test]
+fn merge_overlay_policy_profiles_replaces_base() {
+    let base = BackplaneConfig {
+        policy_profiles: vec!["a.toml".into()],
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        policy_profiles: vec!["b.toml".into(), "c.toml".into()],
+        ..Default::default()
+    };
+    let merged = merge_configs(base, overlay);
+    assert_eq!(merged.policy_profiles, vec!["b.toml", "c.toml"]);
+}
+
+#[test]
+fn merge_empty_overlay_policy_profiles_preserves_base() {
+    let base = BackplaneConfig {
+        policy_profiles: vec!["a.toml".into()],
+        ..Default::default()
+    };
+    let overlay = BackplaneConfig {
+        policy_profiles: vec![],
+        ..Default::default()
+    };
+    let merged = merge_configs(base, overlay);
+    assert_eq!(merged.policy_profiles, vec!["a.toml"]);
+}
+
+// ===========================================================================
+// 26. Validation — multiple errors collected
+// ===========================================================================
+
+#[test]
+fn validate_collects_multiple_errors_at_once() {
+    let mut cfg = full_config();
+    cfg.port = Some(0);
+    cfg.bind_address = Some("".into());
+    cfg.policy_profiles = vec!["".into()];
+    let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
+    assert!(reasons.len() >= 3, "expected >= 3 errors: {reasons:?}");
+}
+
+// ===========================================================================
+// 27. Environment variable overrides — #[ignore] (racy in parallel)
+// ===========================================================================
+
+#[test]
+#[ignore]
+fn env_override_abp_default_backend() {
+    unsafe { std::env::set_var("ABP_DEFAULT_BACKEND", "env_mock") };
+    let mut cfg = BackplaneConfig::default();
+    apply_env_overrides(&mut cfg);
+    assert_eq!(cfg.default_backend.as_deref(), Some("env_mock"));
+    unsafe { std::env::remove_var("ABP_DEFAULT_BACKEND") };
+}
+
+#[test]
+#[ignore]
+fn env_override_abp_log_level() {
+    unsafe { std::env::set_var("ABP_LOG_LEVEL", "trace") };
+    let mut cfg = BackplaneConfig::default();
+    apply_env_overrides(&mut cfg);
+    assert_eq!(cfg.log_level.as_deref(), Some("trace"));
+    unsafe { std::env::remove_var("ABP_LOG_LEVEL") };
+}
+
+#[test]
+#[ignore]
+fn env_override_abp_receipts_dir() {
+    unsafe { std::env::set_var("ABP_RECEIPTS_DIR", "/env/receipts") };
+    let mut cfg = BackplaneConfig::default();
+    apply_env_overrides(&mut cfg);
+    assert_eq!(cfg.receipts_dir.as_deref(), Some("/env/receipts"));
+    unsafe { std::env::remove_var("ABP_RECEIPTS_DIR") };
+}
+
+#[test]
+#[ignore]
+fn env_override_abp_workspace_dir() {
+    unsafe { std::env::set_var("ABP_WORKSPACE_DIR", "/env/ws") };
+    let mut cfg = BackplaneConfig::default();
+    apply_env_overrides(&mut cfg);
+    assert_eq!(cfg.workspace_dir.as_deref(), Some("/env/ws"));
+    unsafe { std::env::remove_var("ABP_WORKSPACE_DIR") };
+}
+
+#[test]
+#[ignore]
+fn env_override_abp_bind_address() {
+    unsafe { std::env::set_var("ABP_BIND_ADDRESS", "0.0.0.0") };
+    let mut cfg = BackplaneConfig::default();
+    apply_env_overrides(&mut cfg);
+    assert_eq!(cfg.bind_address.as_deref(), Some("0.0.0.0"));
+    unsafe { std::env::remove_var("ABP_BIND_ADDRESS") };
+}
+
+#[test]
+#[ignore]
+fn env_override_abp_port() {
+    unsafe { std::env::set_var("ABP_PORT", "9090") };
+    let mut cfg = BackplaneConfig::default();
+    apply_env_overrides(&mut cfg);
+    assert_eq!(cfg.port, Some(9090));
+    unsafe { std::env::remove_var("ABP_PORT") };
+}
+
+#[test]
+#[ignore]
+fn env_override_abp_port_invalid_ignored() {
+    unsafe { std::env::set_var("ABP_PORT", "not_a_number") };
+    let mut cfg = BackplaneConfig::default();
+    apply_env_overrides(&mut cfg);
+    assert!(cfg.port.is_none());
+    unsafe { std::env::remove_var("ABP_PORT") };
+}
+
+#[test]
+#[ignore]
+fn load_config_none_applies_env_overrides() {
+    unsafe { std::env::set_var("ABP_DEFAULT_BACKEND", "env_backend") };
+    let cfg = load_config(None).unwrap();
+    assert_eq!(cfg.default_backend.as_deref(), Some("env_backend"));
+    unsafe { std::env::remove_var("ABP_DEFAULT_BACKEND") };
+}
+
+// ===========================================================================
+// 28. Diff — port and bind_address changes
+// ===========================================================================
+
+#[test]
+fn diff_detects_port_change() {
+    let mut a = full_config();
+    a.port = Some(3000);
+    let mut b = a.clone();
+    b.port = Some(8080);
+    let diffs = diff_configs(&a, &b);
+    assert!(diffs.iter().any(|d| d.path == "port"));
+}
+
+#[test]
+fn diff_detects_bind_address_change() {
+    let mut a = full_config();
+    a.bind_address = Some("127.0.0.1".into());
+    let mut b = a.clone();
+    b.bind_address = Some("0.0.0.0".into());
+    let diffs = diff_configs(&a, &b);
+    assert!(diffs.iter().any(|d| d.path == "bind_address"));
+}
+
+#[test]
+fn diff_detects_policy_profiles_change() {
+    let mut a = full_config();
+    a.policy_profiles = vec!["a.toml".into()];
+    let mut b = a.clone();
+    b.policy_profiles = vec!["b.toml".into()];
+    let diffs = diff_configs(&a, &b);
+    assert!(diffs.iter().any(|d| d.path == "policy_profiles"));
+}
+
+// ===========================================================================
+// 29. ConfigValidator::check — bind_address and port
+// ===========================================================================
+
+#[test]
+fn check_port_zero_produces_error_issue() {
+    let mut cfg = full_config();
+    cfg.port = Some(0);
+    let result = ConfigValidator::check(&cfg);
+    assert!(!result.valid);
+    assert!(result.errors.iter().any(|e| e.field == "port"));
+}
+
+#[test]
+fn check_invalid_bind_address_produces_error_issue() {
+    let mut cfg = full_config();
+    cfg.bind_address = Some("!!!".into());
+    let result = ConfigValidator::check(&cfg);
+    assert!(!result.valid);
+    assert!(result.errors.iter().any(|e| e.field == "bind_address"));
+}
+
+#[test]
+fn check_empty_policy_profile_produces_error_issue() {
+    let mut cfg = full_config();
+    cfg.policy_profiles = vec!["".into()];
+    let result = ConfigValidator::check(&cfg);
+    assert!(!result.valid);
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.field.starts_with("policy_profiles"))
+    );
 }
