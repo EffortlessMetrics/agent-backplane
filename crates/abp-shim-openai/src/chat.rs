@@ -118,7 +118,11 @@ impl ChatRequestBuilder {
 
     /// Append a tool result message.
     #[must_use]
-    pub fn tool_result(mut self, tool_call_id: impl Into<String>, content: impl Into<String>) -> Self {
+    pub fn tool_result(
+        mut self,
+        tool_call_id: impl Into<String>,
+        content: impl Into<String>,
+    ) -> Self {
         self.messages.push(ChatMessage::Tool {
             content: content.into(),
             tool_call_id: tool_call_id.into(),
@@ -254,7 +258,9 @@ mod tests {
 
         assert_eq!(req.model, "gpt-4o");
         assert_eq!(req.messages.len(), 2);
-        assert!(matches!(&req.messages[0], ChatMessage::System { content } if content == "Be helpful"));
+        assert!(
+            matches!(&req.messages[0], ChatMessage::System { content } if content == "Be helpful")
+        );
     }
 
     #[test]
@@ -301,7 +307,9 @@ mod tests {
             .build();
 
         assert_eq!(req.messages.len(), 3);
-        assert!(matches!(&req.messages[2], ChatMessage::Tool { tool_call_id, .. } if tool_call_id == "call_1"));
+        assert!(
+            matches!(&req.messages[2], ChatMessage::Tool { tool_call_id, .. } if tool_call_id == "call_1")
+        );
     }
 
     #[test]

@@ -7,10 +7,10 @@
 //!
 //! Drop-in OpenAI SDK shim that routes through ABP's intermediate representation.
 
-/// HTTP client for the OpenAI Chat Completions API.
-pub mod client;
 /// Chat completion request builder and response types.
 pub mod chat;
+/// HTTP client for the OpenAI Chat Completions API.
+pub mod client;
 /// Conversion layer between OpenAI Chat Completions types and ABP core types.
 pub mod convert;
 /// OpenAI-compatible error types (ApiError, RateLimitError, AuthenticationError).

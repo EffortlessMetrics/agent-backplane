@@ -43,8 +43,8 @@ use abp_gemini_sdk::lowering;
 use abp_shim_gemini::client::Client;
 use abp_shim_gemini::{
     Candidate, Content, FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration,
-    GeminiClient, GeminiError, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
-    Part, SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
+    GeminiError, GenerateContentRequest, GenerateContentResponse, GenerationConfig, Part,
+    PipelineClient, SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
     content_from_dialect, content_to_dialect, execute_work_order, from_dialect_response,
     from_dialect_stream_chunk, gen_config_from_dialect, gen_config_to_dialect, ir_to_response,
     ir_to_work_order, make_usage_metadata, part_from_dialect, part_to_dialect,
@@ -286,7 +286,7 @@ fn stream_event_empty_candidates_no_text() {
 
 #[tokio::test]
 async fn streaming_pipeline_yields_text_and_usage() {
-    let client = GeminiClient::new("gemini-1.5-flash");
+    let client = PipelineClient::new("gemini-1.5-flash");
     let req = GenerateContentRequest::new("gemini-1.5-flash")
         .add_content(Content::user(vec![Part::text("Stream me")]));
     let stream = client.generate_stream(req).await.unwrap();
@@ -680,7 +680,7 @@ fn unknown_model_is_not_known() {
 
 #[test]
 fn client_stores_model_name() {
-    let c = GeminiClient::new("gemini-1.5-pro");
+    let c = PipelineClient::new("gemini-1.5-pro");
     assert_eq!(c.model(), "gemini-1.5-pro");
 }
 
@@ -1153,7 +1153,7 @@ fn usage_to_ir_and_from_ir_roundtrip() {
 
 #[tokio::test]
 async fn full_pipeline_generate_roundtrip() {
-    let client = GeminiClient::new("gemini-1.5-pro");
+    let client = PipelineClient::new("gemini-1.5-pro");
     let req = GenerateContentRequest::new("gemini-1.5-pro")
         .add_content(Content::user(vec![Part::text("Say hello")]));
     let resp = client.generate(req).await.unwrap();
@@ -1164,7 +1164,7 @@ async fn full_pipeline_generate_roundtrip() {
 
 #[tokio::test]
 async fn full_pipeline_with_generation_config() {
-    let client = GeminiClient::new("gemini-2.0-flash");
+    let client = PipelineClient::new("gemini-2.0-flash");
     let req = GenerateContentRequest::new("gemini-2.0-flash")
         .add_content(Content::user(vec![Part::text("Count to 3")]))
         .generation_config(GenerationConfig {

@@ -56,8 +56,8 @@ use abp_gemini_sdk::lowering;
 use abp_shim_gemini::client::{Client, ClientError};
 use abp_shim_gemini::{
     Candidate, Content, FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration,
-    GeminiClient, GeminiError, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
-    Part, SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
+    GeminiError, GenerateContentRequest, GenerateContentResponse, GenerationConfig, Part,
+    PipelineClient, SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
     content_from_dialect, content_to_dialect, execute_work_order, from_dialect_response,
     from_dialect_stream_chunk, gen_config_from_dialect, gen_config_to_dialect, ir_to_response,
     ir_to_work_order, make_usage_metadata, part_from_dialect, part_to_dialect,
@@ -565,7 +565,7 @@ fn from_dialect_response_maps_usage_metadata() {
 
 #[tokio::test]
 async fn stream_produces_at_least_text_and_usage() {
-    let client = GeminiClient::new("gemini-2.5-flash");
+    let client = PipelineClient::new("gemini-2.5-flash");
     let req = GenerateContentRequest::new("gemini-2.5-flash")
         .add_content(Content::user(vec![Part::text("stream test")]));
     let stream = client.generate_stream(req).await.unwrap();
@@ -988,7 +988,7 @@ fn unknown_model_not_known() {
 
 #[test]
 fn client_stores_and_returns_model() {
-    let c = GeminiClient::new("gemini-2.5-pro");
+    let c = PipelineClient::new("gemini-2.5-pro");
     assert_eq!(c.model(), "gemini-2.5-pro");
 }
 
@@ -1453,7 +1453,7 @@ fn make_usage_metadata_some_when_input_nonzero() {
 
 #[tokio::test]
 async fn full_generate_pipeline_roundtrip() {
-    let client = GeminiClient::new("gemini-2.5-flash");
+    let client = PipelineClient::new("gemini-2.5-flash");
     let req = GenerateContentRequest::new("gemini-2.5-flash")
         .add_content(Content::user(vec![Part::text("Say hi")]));
     let resp = client.generate(req).await.unwrap();
@@ -1465,7 +1465,7 @@ async fn full_generate_pipeline_roundtrip() {
 
 #[tokio::test]
 async fn full_generate_with_system_instruction() {
-    let client = GeminiClient::new("gemini-2.5-flash");
+    let client = PipelineClient::new("gemini-2.5-flash");
     let req = GenerateContentRequest::new("gemini-2.5-flash")
         .system_instruction(Content::user(vec![Part::text("Respond in JSON")]))
         .add_content(Content::user(vec![Part::text("Hello")]));

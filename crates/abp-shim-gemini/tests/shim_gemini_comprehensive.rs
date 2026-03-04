@@ -16,8 +16,8 @@ use abp_gemini_sdk::dialect::{
 use abp_gemini_sdk::lowering;
 use abp_shim_gemini::{
     Candidate, Content, FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration,
-    GeminiClient, GeminiError, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
-    Part, SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
+    GeminiError, GenerateContentRequest, GenerateContentResponse, GenerationConfig, Part,
+    PipelineClient, SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
     content_from_dialect, content_to_dialect, execute_work_order, from_dialect_response,
     from_dialect_stream_chunk, gen_config_from_dialect, gen_config_to_dialect, ir_to_response,
     ir_to_work_order, make_usage_metadata, part_from_dialect, part_to_dialect, receipt_to_ir,
@@ -635,7 +635,7 @@ fn function_response_ir_roundtrip() {
 
 #[tokio::test]
 async fn streaming_generates_events() {
-    let client = GeminiClient::new("gemini-2.5-flash");
+    let client = PipelineClient::new("gemini-2.5-flash");
     let req = GenerateContentRequest::new("gemini-2.5-flash")
         .add_content(Content::user(vec![Part::text("Stream test")]));
     let stream = client.generate_stream(req).await.unwrap();
@@ -645,7 +645,7 @@ async fn streaming_generates_events() {
 
 #[tokio::test]
 async fn streaming_last_chunk_has_usage() {
-    let client = GeminiClient::new("gemini-2.5-flash");
+    let client = PipelineClient::new("gemini-2.5-flash");
     let req = GenerateContentRequest::new("gemini-2.5-flash")
         .add_content(Content::user(vec![Part::text("test")]));
     let stream = client.generate_stream(req).await.unwrap();
@@ -1181,14 +1181,14 @@ fn gemini_error_is_debug_printable() {
 
 #[test]
 fn client_model_accessor() {
-    let client = GeminiClient::new("gemini-2.5-pro");
+    let client = PipelineClient::new("gemini-2.5-pro");
     assert_eq!(client.model(), "gemini-2.5-pro");
 }
 
 #[test]
 fn client_model_from_string() {
     let model = String::from("gemini-2.5-flash");
-    let client = GeminiClient::new(model);
+    let client = PipelineClient::new(model);
     assert_eq!(client.model(), "gemini-2.5-flash");
 }
 
@@ -1719,7 +1719,7 @@ fn execute_work_order_trace_has_run_events() {
 
 #[tokio::test]
 async fn full_pipeline_roundtrip() {
-    let client = GeminiClient::new("gemini-2.5-flash");
+    let client = PipelineClient::new("gemini-2.5-flash");
     let req = GenerateContentRequest::new("gemini-2.5-flash")
         .add_content(Content::user(vec![Part::text("Ping")]));
     let resp = client.generate(req).await.unwrap();
@@ -1730,7 +1730,7 @@ async fn full_pipeline_roundtrip() {
 
 #[tokio::test]
 async fn full_pipeline_with_system_instruction() {
-    let client = GeminiClient::new("gemini-2.5-flash");
+    let client = PipelineClient::new("gemini-2.5-flash");
     let req = GenerateContentRequest::new("gemini-2.5-flash")
         .system_instruction(Content::user(vec![Part::text("Be concise")]))
         .add_content(Content::user(vec![Part::text("Test")]));

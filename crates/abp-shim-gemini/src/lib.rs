@@ -4,15 +4,30 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
-/// HTTP client for the Google Gemini API.
+/// HTTP client and `GeminiClient` facade for the Google Gemini API.
 pub mod client;
 /// Conversion layer between Gemini types and ABP core types.
 pub mod convert;
+/// Gemini-compatible error types and error codes.
+pub mod error;
+/// Fluent request builder and response helpers.
+pub mod generate;
+/// Streaming adapter for Gemini `streamGenerateContent` responses.
+pub mod streaming;
 /// Strongly-typed Gemini API types mirroring the Google Gemini REST API.
 pub mod types;
 
 pub use convert::*;
+pub use error::{ErrorCode, GeminiError};
 pub use types::*;
+
+// ── Re-exports from sub-modules for convenience ─────────────────────────
+
+pub use client::{GeminiClient, GeminiClientBuilder};
+pub use generate::{GenerateContentRequestBuilder, response_full_text, text_request};
+pub use streaming::{
+    GeminiStreamParser, StreamAdapter, accumulate_text, final_usage, parse_stream_body,
+};
 
 // ── Re-exports from dialect for user convenience ────────────────────────
 
@@ -23,36 +38,21 @@ pub use abp_gemini_sdk::dialect::{
 
 use tokio_stream::Stream;
 
-/// Errors from the Gemini shim.
-#[derive(Debug, thiserror::Error)]
-pub enum GeminiError {
-    /// Request conversion failed.
-    #[error("request conversion error: {0}")]
-    RequestConversion(String),
-    /// Response conversion failed.
-    #[error("response conversion error: {0}")]
-    ResponseConversion(String),
-    /// The backend returned a failure outcome.
-    #[error("backend error: {0}")]
-    BackendError(String),
-    /// Serialization / deserialization error.
-    #[error("serde error: {0}")]
-    Serde(#[from] serde_json::Error),
-}
+// ── Pipeline Client ──────────────────────────────────────────────────────
 
-// ── Client ──────────────────────────────────────────────────────────────
-
-/// Drop-in replacement for the Google Gemini SDK client.
+/// ABP-pipeline client that routes requests through the internal pipeline.
 ///
-/// Routes requests through the ABP pipeline:
-/// request → IR → WorkOrder → (execute) → Receipt → IR → response.
+/// Routes: request → IR → WorkOrder → (execute) → Receipt → IR → response.
+///
+/// For a drop-in SDK replacement that takes an API key, use
+/// [`client::GeminiClient`] instead.
 #[derive(Debug, Clone)]
-pub struct GeminiClient {
+pub struct PipelineClient {
     model: String,
 }
 
-impl GeminiClient {
-    /// Create a new client targeting the given model.
+impl PipelineClient {
+    /// Create a new pipeline client targeting the given model.
     #[must_use]
     pub fn new(model: impl Into<String>) -> Self {
         Self {
@@ -123,7 +123,7 @@ mod tests {
 
     #[tokio::test]
     async fn simple_text_generation() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("Hello")]));
         let response = client.generate(request).await.unwrap();
@@ -133,7 +133,7 @@ mod tests {
 
     #[tokio::test]
     async fn generate_returns_usage_metadata() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("Count to 5")]));
         let response = client.generate(request).await.unwrap();
@@ -165,7 +165,7 @@ mod tests {
 
     #[tokio::test]
     async fn multi_turn_conversation() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("Hi")]))
             .add_content(Content::model(vec![Part::text("Hello!")]))
@@ -196,7 +196,7 @@ mod tests {
 
     #[tokio::test]
     async fn function_calling_request() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("What's the weather?")]))
             .tools(vec![ToolDeclaration {
@@ -392,7 +392,7 @@ mod tests {
 
     #[tokio::test]
     async fn streaming_produces_events() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("Stream test")]));
         let stream = client.generate_stream(request).await.unwrap();
@@ -481,7 +481,7 @@ mod tests {
 
     #[test]
     fn client_model_accessor() {
-        let client = GeminiClient::new("gemini-2.5-pro");
+        let client = PipelineClient::new("gemini-2.5-pro");
         assert_eq!(client.model(), "gemini-2.5-pro");
     }
 
