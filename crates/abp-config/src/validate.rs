@@ -6,6 +6,7 @@
 //! convenience re-export.
 
 use crate::{BackendEntry, BackplaneConfig, ConfigError};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
 
@@ -311,5 +312,258 @@ fn format_backend_entry(entry: &BackendEntry) -> String {
             s.push(')');
             s
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// IssueSeverity
+// ---------------------------------------------------------------------------
+
+/// Severity for a [`ConfigIssue`]: either a hard error or a warning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IssueSeverity {
+    /// A hard error that must be fixed.
+    Error,
+    /// A non-fatal issue that deserves attention.
+    Warning,
+}
+
+impl fmt::Display for IssueSeverity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IssueSeverity::Error => f.write_str("error"),
+            IssueSeverity::Warning => f.write_str("warning"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ConfigIssue
+// ---------------------------------------------------------------------------
+
+/// A single validation issue with a dotted field path and severity.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfigIssue {
+    /// Dotted path to the field, e.g. `"backends.sc.command"`.
+    pub field: String,
+    /// Human-readable description of the problem.
+    pub message: String,
+    /// How serious the issue is.
+    pub severity: IssueSeverity,
+}
+
+impl fmt::Display for ConfigIssue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}] {}: {}", self.severity, self.field, self.message)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ConfigValidationResult
+// ---------------------------------------------------------------------------
+
+/// Structured result from [`ConfigValidator::check`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigValidationResult {
+    /// `true` when there are zero errors.
+    pub valid: bool,
+    /// Hard errors that must be fixed.
+    pub errors: Vec<ConfigIssue>,
+    /// Non-fatal warnings.
+    pub warnings: Vec<ConfigIssue>,
+    /// Actionable suggestions for improvement.
+    pub suggestions: Vec<String>,
+}
+
+// ---------------------------------------------------------------------------
+// ConfigValidator::check
+// ---------------------------------------------------------------------------
+
+impl ConfigValidator {
+    /// Validate `config` and return a [`ConfigValidationResult`] with
+    /// field-level issues, warnings, and suggestions.
+    pub fn check(config: &BackplaneConfig) -> ConfigValidationResult {
+        let mut errors: Vec<ConfigIssue> = Vec::new();
+        let mut warnings: Vec<ConfigIssue> = Vec::new();
+        let mut suggestions: Vec<String> = Vec::new();
+
+        // -- log_level -------------------------------------------------------
+        if let Some(ref level) = config.log_level {
+            if !VALID_LOG_LEVELS.contains(&level.as_str()) {
+                errors.push(ConfigIssue {
+                    field: "log_level".into(),
+                    message: format!(
+                        "invalid log_level '{level}'; expected one of: {}",
+                        VALID_LOG_LEVELS.join(", ")
+                    ),
+                    severity: IssueSeverity::Error,
+                });
+            }
+        }
+
+        // -- backends --------------------------------------------------------
+        for (name, backend) in &config.backends {
+            if name.is_empty() {
+                errors.push(ConfigIssue {
+                    field: "backends".into(),
+                    message: "backend name must not be empty".into(),
+                    severity: IssueSeverity::Error,
+                });
+            }
+
+            match backend {
+                BackendEntry::Sidecar {
+                    command,
+                    timeout_secs,
+                    ..
+                } => {
+                    if command.trim().is_empty() {
+                        errors.push(ConfigIssue {
+                            field: format!("backends.{name}.command"),
+                            message: "sidecar command must not be empty".into(),
+                            severity: IssueSeverity::Error,
+                        });
+                    }
+                    if let Some(t) = timeout_secs {
+                        if *t == 0 || *t > MAX_TIMEOUT_SECS {
+                            errors.push(ConfigIssue {
+                                field: format!("backends.{name}.timeout_secs"),
+                                message: format!(
+                                    "timeout {t}s out of range (1..{MAX_TIMEOUT_SECS})"
+                                ),
+                                severity: IssueSeverity::Error,
+                            });
+                        } else if *t > LARGE_TIMEOUT_THRESHOLD {
+                            warnings.push(ConfigIssue {
+                                field: format!("backends.{name}.timeout_secs"),
+                                message: format!("large timeout ({t}s); consider reducing"),
+                                severity: IssueSeverity::Warning,
+                            });
+                        }
+                    }
+                }
+                BackendEntry::Mock {} => {}
+            }
+        }
+
+        // -- missing optional fields -----------------------------------------
+        if config.default_backend.is_none() {
+            warnings.push(ConfigIssue {
+                field: "default_backend".into(),
+                message: "no default backend set; callers must always specify --backend".into(),
+                severity: IssueSeverity::Warning,
+            });
+        }
+        if config.receipts_dir.is_none() {
+            warnings.push(ConfigIssue {
+                field: "receipts_dir".into(),
+                message: "receipts directory not configured; receipts will not be persisted".into(),
+                severity: IssueSeverity::Warning,
+            });
+        }
+
+        // -- empty path strings ----------------------------------------------
+        if let Some(ref p) = config.workspace_dir {
+            if p.trim().is_empty() {
+                warnings.push(ConfigIssue {
+                    field: "workspace_dir".into(),
+                    message: "workspace_dir is set but empty".into(),
+                    severity: IssueSeverity::Warning,
+                });
+            }
+        }
+
+        // -- default_backend references unknown backend ----------------------
+        if let Some(ref name) = config.default_backend {
+            if !config.backends.is_empty() && !config.backends.contains_key(name) {
+                warnings.push(ConfigIssue {
+                    field: "default_backend".into(),
+                    message: format!(
+                        "default_backend '{name}' does not match any configured backend"
+                    ),
+                    severity: IssueSeverity::Warning,
+                });
+                suggestions.push(format!(
+                    "Set default_backend to one of: {}",
+                    config
+                        .backends
+                        .keys()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+        }
+
+        // -- suggestions -----------------------------------------------------
+        if config.backends.is_empty() {
+            suggestions.push("Consider adding at least one backend to the configuration.".into());
+        }
+
+        let valid = errors.is_empty();
+        ConfigValidationResult {
+            valid,
+            errors,
+            warnings,
+            suggestions,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ConfigMerger
+// ---------------------------------------------------------------------------
+
+/// Struct-based entry point for merging two [`BackplaneConfig`] values.
+///
+/// Overlay values override base values; backend maps are combined with
+/// overlay entries winning on key collision.
+#[derive(Debug, Clone, Copy)]
+pub struct ConfigMerger;
+
+impl ConfigMerger {
+    /// Merge `overlay` on top of `base`, returning the combined config.
+    pub fn merge(base: &BackplaneConfig, overlay: &BackplaneConfig) -> BackplaneConfig {
+        crate::merge_configs(base.clone(), overlay.clone())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ConfigChange
+// ---------------------------------------------------------------------------
+
+/// A single field-level change between two configs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfigChange {
+    /// Dotted field path (e.g. `"backends.mock"`).
+    pub field: String,
+    /// Previous value as a human-readable string.
+    pub old_value: String,
+    /// New value as a human-readable string.
+    pub new_value: String,
+}
+
+impl fmt::Display for ConfigChange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}: {} -> {}",
+            self.field, self.old_value, self.new_value
+        )
+    }
+}
+
+impl ConfigDiff {
+    /// Compare two configs and return a list of [`ConfigChange`]s.
+    pub fn diff(a: &BackplaneConfig, b: &BackplaneConfig) -> Vec<ConfigChange> {
+        diff_configs(a, b)
+            .into_iter()
+            .map(|d| ConfigChange {
+                field: d.path,
+                old_value: d.old_value,
+                new_value: d.new_value,
+            })
+            .collect()
     }
 }

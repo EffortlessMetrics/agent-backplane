@@ -51,6 +51,9 @@ mod ir_openai_kimi;
 mod map_error;
 mod openai_to_claude;
 
+/// Validation pipeline for mapping correctness.
+pub mod validation;
+
 pub use claude_to_openai::ClaudeToOpenAiMapper;
 pub use error::MappingError;
 pub use factory::{default_ir_mapper, supported_ir_pairs};

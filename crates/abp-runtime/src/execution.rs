@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Retry-and-fallback execution pipeline.
 //!
-//! [`ExecutionPipeline`] wraps the [`Runtime`](crate::Runtime) to add
+//! [`ExecutionPipeline`](crate::execution::ExecutionPipeline) wraps the [`Runtime`](crate::Runtime) to add
 //! automatic retry on transient errors and fallback to alternate backends
 //! on permanent failures. It is a parallel execution path — existing callers
 //! that use [`Runtime::run_streaming`](crate::Runtime::run_streaming) are

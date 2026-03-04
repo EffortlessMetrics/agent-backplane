@@ -4,3 +4,9 @@
 //! Re-exports from `abp-error` for taxonomy tests.
 
 pub use abp_error::*;
+
+pub mod classification;
+pub use classification::{
+    ClassificationCategory, ErrorClassification, ErrorClassifier, ErrorSeverity, RecoveryAction,
+    RecoverySuggestion,
+};

@@ -212,10 +212,11 @@ fn match_dotfiles() {
 
 #[test]
 fn match_path_separator_handling() {
-    // globset normalizes path separators; both / and \ should work
+    // globset normalizes path separators; forward slashes always work
     let g = IncludeExcludeGlobs::new(&p(&["src/**"]), &[]).unwrap();
     assert_eq!(g.decide_str("src/lib.rs"), MatchDecision::Allowed);
-    // Path::new on Windows converts \ to the OS separator
+    // Backslash paths only work as path separator on Windows
+    #[cfg(windows)]
     assert_eq!(
         g.decide_path(Path::new("src\\lib.rs")),
         MatchDecision::Allowed
@@ -293,9 +294,10 @@ fn edge_relative_paths() {
 }
 
 #[test]
+#[cfg(windows)]
 fn edge_windows_backslash_paths() {
     let g = IncludeExcludeGlobs::new(&p(&["src/**"]), &[]).unwrap();
-    // Using Path ensures OS-native separator handling
+    // Backslash-separated paths only resolve on Windows
     assert_eq!(
         g.decide_path(Path::new("src\\nested\\file.rs")),
         MatchDecision::Allowed

@@ -1471,7 +1471,7 @@ fn boolean_and_numeric_vendor_values_roundtrip() {
     let mut vendor = BTreeMap::new();
     vendor.insert(
         "flags".into(),
-        json!({"enabled": true, "count": 42, "rate": 3.14}),
+        json!({"enabled": true, "count": 42, "rate": 3.15}),
     );
     let wo = WorkOrderBuilder::new("task")
         .config(RuntimeConfig {
