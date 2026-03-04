@@ -128,10 +128,12 @@ abp-git = { path = "crates/abp-git" }
 abp-workspace = { path = "crates/abp-workspace" }
 abp-cli = { path = "crates/abp-cli" }
 sidecar-kit = { path = "crates/sidecar-kit" }
-claude-bridge = { path = "crates/claude-bridge" }
-openai-bridge = { path = "crates/openai-bridge" }
-gemini-bridge = { path = "crates/gemini-bridge" }
-kimi-bridge = { path = "crates/kimi-bridge" }
+claude-bridge = { path = "crates/claude-bridge", features = ["ir"] }
+openai-bridge = { path = "crates/openai-bridge", features = ["ir"] }
+gemini-bridge = { path = "crates/gemini-bridge", features = ["normalized"] }
+kimi-bridge = { path = "crates/kimi-bridge", features = ["ir"] }
+codex-bridge = { path = "crates/codex-bridge", features = ["ir"] }
+copilot-bridge = { path = "crates/copilot-bridge", features = ["ir"] }
 abp-emulation = { path = "crates/abp-emulation" }
 abp-telemetry = { path = "crates/abp-telemetry" }
 anyhow = { workspace = true }
