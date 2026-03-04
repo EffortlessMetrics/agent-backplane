@@ -146,14 +146,14 @@ fn run_policy_flag() {
 #[test]
 fn backends_subcommand_parses_cleanly() {
     let cli = parse(&["backends"]).unwrap();
-    assert!(matches!(cli.command, Commands::Backends));
+    assert!(matches!(cli.command, Commands::Backends { .. }));
     assert!(!cli.debug);
 }
 
 #[test]
 fn backends_with_global_config() {
     let cli = parse(&["--config", "bp.toml", "backends"]).unwrap();
-    assert!(matches!(cli.command, Commands::Backends));
+    assert!(matches!(cli.command, Commands::Backends { .. }));
     assert_eq!(cli.config, Some(PathBuf::from("bp.toml")));
 }
 
@@ -267,6 +267,7 @@ fn all_global_and_run_flags_combined() {
             policy,
             output,
             events,
+            ..
         } => {
             assert_eq!(task, "do it");
             assert_eq!(backend.as_deref(), Some("sidecar:claude"));

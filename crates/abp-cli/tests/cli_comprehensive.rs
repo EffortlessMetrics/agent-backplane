@@ -70,7 +70,7 @@ fn write_json_file(dir: &std::path::Path, name: &str, value: &impl serde::Serial
 #[test]
 fn parse_backends_subcommand() {
     let cli = Cli::try_parse_from(["abp", "backends"]).unwrap();
-    assert!(matches!(cli.command, Commands::Backends));
+    assert!(matches!(cli.command, Commands::Backends { .. }));
     assert!(!cli.debug);
 }
 
@@ -531,6 +531,7 @@ fn parse_run_all_options_combined() {
             policy,
             output,
             events,
+            ..
         } => {
             assert_eq!(backend.as_deref(), Some("sidecar:node"));
             assert_eq!(task, "build everything");

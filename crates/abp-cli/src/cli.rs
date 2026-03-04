@@ -32,8 +32,20 @@ pub struct Cli {
 #[allow(clippy::large_enum_variant)]
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// List available backends.
-    Backends,
+    /// List available backends with optional capabilities and health.
+    Backends {
+        /// Show backend capabilities.
+        #[arg(long)]
+        capabilities: bool,
+
+        /// Show backend health status.
+        #[arg(long)]
+        health: bool,
+
+        /// Output as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 
     /// Run a work order.
     Run {
@@ -110,6 +122,22 @@ pub enum Commands {
         /// Write streamed events as JSONL to this file.
         #[arg(long)]
         events: Option<PathBuf>,
+
+        /// Stream events to stdout as they arrive (implies no buffering).
+        #[arg(long)]
+        stream: bool,
+
+        /// Timeout in seconds for the entire run.
+        #[arg(long)]
+        timeout: Option<u64>,
+
+        /// Number of times to retry on failure.
+        #[arg(long, default_value_t = 0)]
+        retry: u32,
+
+        /// Fallback backend name if the primary fails.
+        #[arg(long)]
+        fallback: Option<String>,
     },
 
     /// Validate a JSON file as a WorkOrder, Receipt, or auto-detect type.
@@ -142,6 +170,28 @@ pub enum Commands {
         /// Path to the receipt JSON file.
         #[arg()]
         file: PathBuf,
+    },
+
+    /// Translate a JSON request between SDK dialect formats.
+    Translate {
+        /// Source dialect (openai, claude, gemini, codex, kimi, copilot).
+        #[arg(long)]
+        from: String,
+
+        /// Target dialect (openai, claude, gemini, codex, kimi, copilot).
+        #[arg(long)]
+        to: String,
+
+        /// Path to the input JSON file. Reads from stdin if omitted.
+        #[arg()]
+        file: Option<PathBuf>,
+    },
+
+    /// Check health of all configured backends.
+    Health {
+        /// Output as JSON.
+        #[arg(long)]
+        json: bool,
     },
 
     /// Load and validate configuration.

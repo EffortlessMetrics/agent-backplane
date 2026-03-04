@@ -5,8 +5,10 @@ use abp_cli::cli::{
     Cli, Commands, ConfigAction, LaneArg, ReceiptAction, SchemaArg, WorkspaceModeArg,
 };
 use abp_cli::commands::{self, SchemaKind};
+use abp_cli::health as health_cmd;
 use abp_cli::schema as schema_cmd;
 use abp_cli::status as status_cmd;
+use abp_cli::translate as translate_cmd;
 use abp_cli::validate as validate_cmd;
 use abp_codex_sdk as codex_sdk;
 use abp_copilot_sdk as copilot_sdk;
@@ -61,12 +63,18 @@ async fn main() {
     }
 
     let result = match cli.command {
-        Commands::Backends => cmd_backends().await,
+        Commands::Backends {
+            capabilities,
+            health,
+            json,
+        } => cmd_backends(capabilities, health, json, &config).await,
         Commands::Validate { file, config_file } => {
             cmd_validate(file.as_deref(), config_file.as_deref())
         }
         Commands::Schema { kind, output } => cmd_schema(kind, output),
         Commands::Inspect { file } => cmd_inspect(&file),
+        Commands::Translate { from, to, file } => cmd_translate(&from, &to, file),
+        Commands::Health { json } => cmd_health(&config, json),
         Commands::ConfigCmd { action } => cmd_config(action, config_path),
         Commands::ReceiptCmd { action } => cmd_receipt(action),
         Commands::Status { json } => cmd_status(&config, json),
@@ -88,6 +96,10 @@ async fn main() {
             policy,
             output,
             events,
+            stream,
+            timeout,
+            retry,
+            fallback,
         } => {
             cmd_run(
                 backend,
@@ -107,6 +119,10 @@ async fn main() {
                 policy,
                 output,
                 events,
+                stream,
+                timeout,
+                retry,
+                fallback,
                 &config,
             )
             .await
@@ -119,27 +135,105 @@ async fn main() {
     }
 }
 
-async fn cmd_backends() -> Result<()> {
+async fn cmd_backends(
+    capabilities: bool,
+    health: bool,
+    json: bool,
+    config: &abp_config::BackplaneConfig,
+) -> Result<()> {
     let rt = Runtime::with_default_backends();
-    for b in rt.backend_names() {
-        println!("{b}");
+
+    // Register config backends.
+    let mut rt = rt;
+    for (name, entry) in &config.backends {
+        match entry {
+            abp_config::BackendEntry::Mock {} => {
+                rt.register_backend(name, abp_integrations::MockBackend);
+            }
+            abp_config::BackendEntry::Sidecar { command, args, .. } => {
+                let mut spec = SidecarSpec::new(command);
+                spec.args = args.clone();
+                rt.register_backend(name, SidecarBackend::new(spec));
+            }
+        }
     }
-    println!("sidecar:node");
-    println!("sidecar:python");
-    println!("sidecar:claude");
-    println!("sidecar:copilot");
-    println!("sidecar:kimi");
-    println!("sidecar:gemini");
-    println!("sidecar:codex");
-    println!("node");
-    println!("python");
-    println!("claude");
-    println!("copilot");
-    println!("kimi");
-    println!("gemini");
-    println!("codex");
+
+    if json {
+        let mut entries = Vec::new();
+        for name in rt.backend_names() {
+            let mut entry = serde_json::json!({"name": name});
+            if capabilities || health {
+                if let Some(b) = rt.backend(&name) {
+                    if capabilities {
+                        let caps = b.capabilities();
+                        let caps_json: serde_json::Map<String, JsonValue> = caps
+                            .iter()
+                            .map(|(k, v)| {
+                                (
+                                    format!("{k:?}"),
+                                    serde_json::to_value(v).unwrap_or_default(),
+                                )
+                            })
+                            .collect();
+                        entry["capabilities"] = JsonValue::Object(caps_json);
+                    }
+                    if health {
+                        entry["health"] = JsonValue::String("ok".into());
+                    }
+                }
+            }
+            entries.push(entry);
+        }
+        // Add well-known sidecars.
+        for s in SIDECAR_NAMES {
+            if !entries.iter().any(|e| e["name"] == *s) {
+                entries.push(serde_json::json!({"name": s}));
+            }
+        }
+        println!("{}", serde_json::to_string_pretty(&entries)?);
+    } else {
+        for name in rt.backend_names() {
+            if capabilities || health {
+                let mut parts = vec![name.clone()];
+                if let Some(b) = rt.backend(&name) {
+                    if capabilities {
+                        let caps = b.capabilities();
+                        parts.push(format!("capabilities={}", caps.len()));
+                    }
+                    if health {
+                        parts.push("health=ok".into());
+                    }
+                }
+                println!("{}", parts.join("  "));
+            } else {
+                println!("{name}");
+            }
+        }
+        for s in SIDECAR_NAMES {
+            if !rt.backend_names().contains(&s.to_string()) {
+                println!("{s}");
+            }
+        }
+    }
     Ok(())
 }
+
+const SIDECAR_NAMES: &[&str] = &[
+    "sidecar:node",
+    "sidecar:python",
+    "sidecar:claude",
+    "sidecar:copilot",
+    "sidecar:kimi",
+    "sidecar:gemini",
+    "sidecar:codex",
+    "node",
+    "python",
+    "claude",
+    "copilot",
+    "kimi",
+    "gemini",
+    "codex",
+];
 
 fn cmd_validate(
     file: Option<&std::path::Path>,
@@ -213,6 +307,35 @@ fn cmd_inspect(file: &std::path::Path) -> Result<()> {
         std::process::exit(EXIT_RUNTIME_ERROR);
     }
     Ok(())
+}
+
+fn cmd_translate(from: &str, to: &str, file: Option<PathBuf>) -> Result<()> {
+    let from_dialect = translate_cmd::parse_dialect(from)?;
+    let to_dialect = translate_cmd::parse_dialect(to)?;
+
+    match file {
+        Some(path) => {
+            let result = translate_cmd::translate_file(from_dialect, to_dialect, &path)?;
+            println!("{result}");
+        }
+        None => {
+            let mut input = String::new();
+            std::io::Read::read_to_string(&mut std::io::stdin(), &mut input)
+                .context("read stdin")?;
+            let result = translate_cmd::translate_json_str(from_dialect, to_dialect, &input)?;
+            println!("{result}");
+        }
+    }
+    Ok(())
+}
+
+fn cmd_health(config: &abp_config::BackplaneConfig, json: bool) -> Result<()> {
+    let report = health_cmd::check_health(config)?;
+    if json {
+        health_cmd::print_health_json(&report)
+    } else {
+        health_cmd::print_health(&report)
+    }
 }
 
 fn cmd_config(action: ConfigAction, global_config_path: Option<PathBuf>) -> Result<()> {
@@ -312,6 +435,10 @@ async fn cmd_run(
     policy_path: Option<PathBuf>,
     output: Option<PathBuf>,
     events_path: Option<PathBuf>,
+    _stream: bool,
+    timeout: Option<u64>,
+    retry: u32,
+    fallback: Option<String>,
     config: &abp_config::BackplaneConfig,
 ) -> Result<()> {
     // Resolve backend: --backend flag > config default_backend > "mock".
@@ -479,47 +606,103 @@ async fn cmd_run(
         },
     };
 
-    let handle = rt
-        .run_streaming(&backend, wo)
-        .await
-        .with_context(|| format!("run backend={backend}"))?;
-
-    let run_id = handle.run_id;
-
-    if !json {
-        eprintln!("run_id: {run_id}");
-        eprintln!("backend: {backend}");
-        eprintln!("---");
-    }
-
-    let mut events_file = match events_path {
-        Some(ref ep) => {
-            if let Some(parent) = ep.parent() {
-                std::fs::create_dir_all(parent)
-                    .with_context(|| format!("create events directory {}", parent.display()))?;
-            }
-            Some(
-                std::fs::File::create(ep)
-                    .with_context(|| format!("create events file {}", ep.display()))?,
-            )
+    // Run with retry and fallback support.
+    let backends_to_try: Vec<String> = {
+        let mut v = vec![backend.clone()];
+        if let Some(ref fb) = fallback {
+            v.push(normalize_backend_name(fb));
         }
-        None => None,
+        v
     };
+    let max_attempts = retry + 1;
 
-    let mut events = handle.events;
-    while let Some(ev) = events.next().await {
-        if json {
-            println!("{}", serde_json::to_string(&ev)?);
-        } else {
-            print_event(&ev);
-        }
-        if let Some(ref mut f) = events_file {
-            use std::io::Write;
-            writeln!(f, "{}", serde_json::to_string(&ev)?)?;
+    let mut last_err: Option<anyhow::Error> = None;
+    let mut receipt: Option<abp_core::Receipt> = None;
+    let mut run_id = Uuid::nil();
+
+    'outer: for attempt_backend in &backends_to_try {
+        for attempt in 0..max_attempts {
+            if attempt > 0 && !json {
+                eprintln!("retry {attempt}/{retry} on {attempt_backend}...");
+            }
+
+            let wo_clone = wo.clone();
+            let run_result = if let Some(secs) = timeout {
+                let fut = rt.run_streaming(attempt_backend, wo_clone);
+                match tokio::time::timeout(std::time::Duration::from_secs(secs), fut).await {
+                    Ok(r) => r,
+                    Err(_) => {
+                        last_err = Some(anyhow::anyhow!(
+                            "timeout after {secs}s on {attempt_backend}"
+                        ));
+                        continue;
+                    }
+                }
+            } else {
+                rt.run_streaming(attempt_backend, wo_clone).await
+            };
+
+            match run_result {
+                Ok(handle) => {
+                    run_id = handle.run_id;
+
+                    if !json {
+                        eprintln!("run_id: {run_id}");
+                        eprintln!("backend: {attempt_backend}");
+                        eprintln!("---");
+                    }
+
+                    let mut events_file =
+                        match events_path {
+                            Some(ref ep) => {
+                                if let Some(parent) = ep.parent() {
+                                    std::fs::create_dir_all(parent).with_context(|| {
+                                        format!("create events directory {}", parent.display())
+                                    })?;
+                                }
+                                Some(std::fs::File::create(ep).with_context(|| {
+                                    format!("create events file {}", ep.display())
+                                })?)
+                            }
+                            None => None,
+                        };
+
+                    let mut events = handle.events;
+                    while let Some(ev) = events.next().await {
+                        if json {
+                            println!("{}", serde_json::to_string(&ev)?);
+                        } else {
+                            print_event(&ev);
+                        }
+                        if let Some(ref mut f) = events_file {
+                            use std::io::Write;
+                            writeln!(f, "{}", serde_json::to_string(&ev)?)?;
+                        }
+                    }
+
+                    match handle.receipt.await.context("join receipt task")? {
+                        Ok(r) => {
+                            receipt = Some(r);
+                            break 'outer;
+                        }
+                        Err(e) => {
+                            last_err = Some(anyhow::anyhow!("{e}"));
+                        }
+                    }
+                }
+                Err(e) => {
+                    last_err = Some(anyhow::anyhow!("{e}"));
+                }
+            }
         }
     }
 
-    let receipt = handle.receipt.await.context("join receipt task")??;
+    let receipt = match receipt {
+        Some(r) => r,
+        None => {
+            return Err(last_err.unwrap_or_else(|| anyhow::anyhow!("all backends failed")));
+        }
+    };
 
     // --output takes precedence over --out for the receipt destination.
     let effective_out = output.or(out);

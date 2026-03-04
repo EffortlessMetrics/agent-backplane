@@ -204,14 +204,14 @@ fn run_with_both_include_and_exclude() {
 #[test]
 fn backends_subcommand_parses() {
     let cli = parse(&["backends"]).unwrap();
-    assert!(matches!(cli.command, Commands::Backends));
+    assert!(matches!(cli.command, Commands::Backends { .. }));
 }
 
 #[test]
 fn backends_with_debug_flag() {
     let cli = parse(&["--debug", "backends"]).unwrap();
     assert!(cli.debug);
-    assert!(matches!(cli.command, Commands::Backends));
+    assert!(matches!(cli.command, Commands::Backends { .. }));
 }
 
 #[test]
@@ -1113,6 +1113,7 @@ fn full_run_command_all_flags() {
             policy,
             output,
             events,
+            ..
         } => {
             assert_eq!(task, "refactor auth");
             assert_eq!(backend.as_deref(), Some("mock"));
