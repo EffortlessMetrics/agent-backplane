@@ -79,6 +79,19 @@ proptest! {
     ) {
         let src = tempfile::tempdir().unwrap();
 
+        // Deduplicate: skip entries where a file path is a prefix of another
+        // (e.g. "k" as file + "k/c/x" would conflict).
+        let paths: Vec<&str> = entries.iter().map(|(p, _)| p.as_str()).collect();
+        let entries: Vec<_> = entries.iter().filter(|(p, _)| {
+            !paths.iter().any(|other| {
+                other != p && other.starts_with(&format!("{}/", p))
+            }) && !paths.iter().any(|other| {
+                other != p && p.starts_with(&format!("{}/", other))
+            })
+        }).collect();
+
+        if entries.is_empty() { return Ok(()); }
+
         // Write arbitrary files into the source tree.
         for (rel_path, content) in &entries {
             let full = src.path().join(rel_path);
@@ -163,6 +176,19 @@ proptest! {
         entries in prop::collection::vec(arb_file_entry(), 1..4),
     ) {
         let src = tempfile::tempdir().unwrap();
+
+        // Deduplicate conflicting paths
+        let paths: Vec<&str> = entries.iter().map(|(p, _)| p.as_str()).collect();
+        let entries: Vec<_> = entries.iter().filter(|(p, _)| {
+            !paths.iter().any(|other| {
+                other != p && other.starts_with(&format!("{}/", p))
+            }) && !paths.iter().any(|other| {
+                other != p && p.starts_with(&format!("{}/", other))
+            })
+        }).collect();
+
+        if entries.is_empty() { return Ok(()); }
+
         for (rel_path, content) in &entries {
             let full = src.path().join(rel_path);
             if let Some(parent) = full.parent() {
