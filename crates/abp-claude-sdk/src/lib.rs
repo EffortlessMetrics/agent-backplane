@@ -28,6 +28,12 @@ pub mod lowering;
 /// with `From` conversions to/from ABP's `WorkOrder` and `Receipt`.
 pub mod messages;
 
+/// Anthropic Models API type definitions.
+///
+/// Types for listing and retrieving model information via the
+/// [Anthropic Models API](https://docs.anthropic.com/en/api/models).
+pub mod models;
+
 use abp_runtime::Runtime;
 use abp_sidecar_sdk::{register_sidecar_backend, sidecar_script as resolve_sidecar_script};
 use anyhow::{Context, Result};

@@ -1561,6 +1561,8 @@ fn messages_request_minimal() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let parsed: MessagesRequest = serde_json::from_str(&json).unwrap();
@@ -1587,6 +1589,8 @@ fn messages_request_all_optional_fields() {
         temperature: Some(0.5),
         top_p: Some(0.95),
         top_k: Some(50),
+        tool_choice: None,
+        thinking: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let parsed: MessagesRequest = serde_json::from_str(&json).unwrap();
@@ -1607,6 +1611,8 @@ fn messages_request_omits_none_fields() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     assert!(!json.contains("\"system\""));
@@ -1686,6 +1692,8 @@ fn messages_request_to_work_order_basic_conversion() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: abp_core::WorkOrder = req.into();
     assert_eq!(wo.task, "Fix bug");
@@ -1709,6 +1717,8 @@ fn messages_request_to_work_order_extracts_system() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: abp_core::WorkOrder = req.into();
     assert_eq!(wo.config.vendor["system"], json!("Be precise"));
@@ -1735,6 +1745,8 @@ fn messages_request_to_work_order_with_tools() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: abp_core::WorkOrder = req.into();
     assert!(wo.config.vendor.contains_key("tools"));
@@ -1759,6 +1771,8 @@ fn messages_request_to_work_order_with_metadata() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let wo: abp_core::WorkOrder = req.into();
     assert!(wo.config.vendor.contains_key("metadata"));

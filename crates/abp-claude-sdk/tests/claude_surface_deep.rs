@@ -69,6 +69,8 @@ fn minimal_request() -> MessagesRequest {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     }
 }
 
@@ -118,6 +120,8 @@ fn full_request() -> MessagesRequest {
         temperature: Some(0.7),
         top_p: Some(0.95),
         top_k: Some(40),
+        tool_choice: None,
+        thinking: None,
     }
 }
 
@@ -234,6 +238,8 @@ fn request_with_block_content() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let val = serde_json::to_value(&req).unwrap();
     let content = &val["messages"][0]["content"];
@@ -691,6 +697,8 @@ fn system_message_not_in_messages_array() {
         temperature: None,
         top_p: None,
         top_k: None,
+        tool_choice: None,
+        thinking: None,
     };
     let val = serde_json::to_value(&req).unwrap();
     // system is a top-level field, not inside messages

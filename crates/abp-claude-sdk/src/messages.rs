@@ -9,6 +9,7 @@
 use std::collections::BTreeMap;
 
 use abp_core::{AgentEventKind, Outcome, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 // Re-export dialect types under API-matching names.
@@ -16,7 +17,8 @@ pub use crate::dialect::{
     ClaudeCacheControl as CacheControl, ClaudeContentBlock as ContentBlock,
     ClaudeImageSource as ImageSource, ClaudeMessageDelta as MessageDelta,
     ClaudeStreamDelta as StreamDelta, ClaudeStreamEvent as StreamEvent,
-    ClaudeSystemBlock as SystemBlock, ClaudeToolDef as Tool, ClaudeUsage as Usage,
+    ClaudeSystemBlock as SystemBlock, ClaudeToolChoice as ToolChoice, ClaudeToolDef as Tool,
+    ClaudeUsage as Usage, ThinkingConfig,
 };
 
 // ---------------------------------------------------------------------------
@@ -24,7 +26,7 @@ pub use crate::dialect::{
 // ---------------------------------------------------------------------------
 
 /// Role of a message participant.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Role {
     /// The human user.
@@ -34,7 +36,7 @@ pub enum Role {
 }
 
 /// Message content — either a plain text string or structured content blocks.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum MessageContent {
     /// Array of structured content blocks.
@@ -44,7 +46,7 @@ pub enum MessageContent {
 }
 
 /// A single message in a conversation.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Message {
     /// Message role.
     pub role: Role,
@@ -53,7 +55,7 @@ pub struct Message {
 }
 
 /// System prompt — either a plain string or structured blocks with cache control.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum SystemMessage {
     /// Array of structured system blocks (with optional cache control).
@@ -63,7 +65,7 @@ pub enum SystemMessage {
 }
 
 /// Request metadata sent to the Anthropic API.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Metadata {
     /// An external identifier for the user making the request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -73,7 +75,7 @@ pub struct Metadata {
 /// Anthropic Messages API request.
 ///
 /// Mirrors the JSON body of `POST /v1/messages`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct MessagesRequest {
     /// Model identifier (e.g. `claude-sonnet-4-20250514`).
     pub model: String,
@@ -105,6 +107,12 @@ pub struct MessagesRequest {
     /// Top-k sampling parameter.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top_k: Option<u32>,
+    /// Tool choice configuration (auto, any, or specific tool).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_choice: Option<ToolChoice>,
+    /// Extended thinking configuration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<ThinkingConfig>,
 }
 
 // ---------------------------------------------------------------------------
@@ -114,7 +122,7 @@ pub struct MessagesRequest {
 /// Anthropic Messages API response.
 ///
 /// Mirrors the JSON body returned by `POST /v1/messages`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct MessagesResponse {
     /// Unique message identifier (e.g. `msg_01XFDUDYJgAACzvnptvVoYEL`).
     pub id: String,
@@ -134,6 +142,40 @@ pub struct MessagesResponse {
     pub stop_sequence: Option<String>,
     /// Token usage statistics.
     pub usage: Usage,
+}
+
+/// Typed stop reason returned by the Anthropic Messages API.
+///
+/// Represents the reason the model stopped generating tokens.
+/// Use [`MessagesResponse::stop_reason_typed`] to parse the string-based
+/// `stop_reason` field into this enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum StopReason {
+    /// The model reached a natural stopping point.
+    EndTurn,
+    /// The model hit the `max_tokens` limit.
+    MaxTokens,
+    /// The model emitted a configured stop sequence.
+    StopSequence,
+    /// The model wants to invoke a tool.
+    ToolUse,
+}
+
+impl MessagesResponse {
+    /// Parse the string-based `stop_reason` into a typed [`StopReason`].
+    ///
+    /// Returns `None` if the stop reason is absent or unrecognized.
+    #[must_use]
+    pub fn stop_reason_typed(&self) -> Option<StopReason> {
+        self.stop_reason.as_deref().and_then(|s| match s {
+            "end_turn" => Some(StopReason::EndTurn),
+            "max_tokens" => Some(StopReason::MaxTokens),
+            "stop_sequence" => Some(StopReason::StopSequence),
+            "tool_use" => Some(StopReason::ToolUse),
+            _ => None,
+        })
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -202,6 +244,16 @@ impl From<MessagesRequest> for WorkOrder {
                 "system".into(),
                 serde_json::Value::String(system_message_text(sys)),
             );
+        }
+        if let Some(tc) = &req.tool_choice {
+            if let Ok(v) = serde_json::to_value(tc) {
+                vendor.insert("tool_choice".into(), v);
+            }
+        }
+        if let Some(th) = &req.thinking {
+            if let Ok(v) = serde_json::to_value(th) {
+                vendor.insert("thinking".into(), v);
+            }
         }
 
         let config = RuntimeConfig {
@@ -333,6 +385,8 @@ mod tests {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: MessagesRequest = serde_json::from_str(&json).unwrap();
@@ -394,6 +448,8 @@ mod tests {
             temperature: Some(0.7),
             top_p: Some(0.9),
             top_k: Some(40),
+            tool_choice: None,
+            thinking: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: MessagesRequest = serde_json::from_str(&json).unwrap();
@@ -414,6 +470,8 @@ mod tests {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(!json.contains("system"));
@@ -573,6 +631,8 @@ mod tests {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.task, "Fix the login bug");
@@ -602,6 +662,8 @@ mod tests {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         assert_eq!(wo.task, "Do something");
@@ -643,6 +705,8 @@ mod tests {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         assert!(wo.task.contains("First part."));
@@ -676,6 +740,8 @@ mod tests {
             temperature: None,
             top_p: None,
             top_k: None,
+            tool_choice: None,
+            thinking: None,
         };
         let wo: WorkOrder = req.into();
         assert!(wo.task.contains("Hello"));
@@ -954,5 +1020,281 @@ mod tests {
         let json = serde_json::to_string(&event).unwrap();
         let parsed: StreamEvent = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, event);
+    }
+
+    // -- StopReason typed enum --
+
+    #[test]
+    fn stop_reason_serde_roundtrip() {
+        for (s, expected) in [
+            ("end_turn", StopReason::EndTurn),
+            ("max_tokens", StopReason::MaxTokens),
+            ("stop_sequence", StopReason::StopSequence),
+            ("tool_use", StopReason::ToolUse),
+        ] {
+            let json = format!("\"{s}\"");
+            let parsed: StopReason = serde_json::from_str(&json).unwrap();
+            assert_eq!(parsed, expected);
+            let back = serde_json::to_string(&parsed).unwrap();
+            assert_eq!(back, json);
+        }
+    }
+
+    #[test]
+    fn stop_reason_typed_helper() {
+        let resp = MessagesResponse {
+            id: "msg_test".into(),
+            response_type: "message".into(),
+            role: "assistant".into(),
+            content: vec![],
+            model: "claude-sonnet-4-20250514".into(),
+            stop_reason: Some("end_turn".into()),
+            stop_sequence: None,
+            usage: Usage {
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_creation_input_tokens: None,
+                cache_read_input_tokens: None,
+            },
+        };
+        assert_eq!(resp.stop_reason_typed(), Some(StopReason::EndTurn));
+    }
+
+    #[test]
+    fn stop_reason_typed_none_for_absent() {
+        let resp = MessagesResponse {
+            id: "msg_test".into(),
+            response_type: "message".into(),
+            role: "assistant".into(),
+            content: vec![],
+            model: "claude-sonnet-4-20250514".into(),
+            stop_reason: None,
+            stop_sequence: None,
+            usage: Usage {
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_creation_input_tokens: None,
+                cache_read_input_tokens: None,
+            },
+        };
+        assert_eq!(resp.stop_reason_typed(), None);
+    }
+
+    #[test]
+    fn stop_reason_typed_none_for_unknown() {
+        let resp = MessagesResponse {
+            id: "msg_test".into(),
+            response_type: "message".into(),
+            role: "assistant".into(),
+            content: vec![],
+            model: "claude-sonnet-4-20250514".into(),
+            stop_reason: Some("unknown_reason".into()),
+            stop_sequence: None,
+            usage: Usage {
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_creation_input_tokens: None,
+                cache_read_input_tokens: None,
+            },
+        };
+        assert_eq!(resp.stop_reason_typed(), None);
+    }
+
+    // -- ToolChoice --
+
+    #[test]
+    fn tool_choice_auto_serde() {
+        let tc = ToolChoice::Auto {};
+        let json = serde_json::to_string(&tc).unwrap();
+        assert!(json.contains("\"type\":\"auto\""));
+        let parsed: ToolChoice = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, tc);
+    }
+
+    #[test]
+    fn tool_choice_any_serde() {
+        let tc = ToolChoice::Any {};
+        let json = serde_json::to_string(&tc).unwrap();
+        assert!(json.contains("\"type\":\"any\""));
+        let parsed: ToolChoice = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, tc);
+    }
+
+    #[test]
+    fn tool_choice_tool_serde() {
+        let tc = ToolChoice::Tool {
+            name: "read_file".into(),
+        };
+        let json = serde_json::to_string(&tc).unwrap();
+        assert!(json.contains("\"type\":\"tool\""));
+        assert!(json.contains("\"name\":\"read_file\""));
+        let parsed: ToolChoice = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, tc);
+    }
+
+    // -- ThinkingConfig in MessagesRequest --
+
+    #[test]
+    fn messages_request_with_thinking_serde() {
+        let req = MessagesRequest {
+            model: "claude-sonnet-4-20250514".into(),
+            messages: vec![Message {
+                role: Role::User,
+                content: MessageContent::Text("Think hard".into()),
+            }],
+            max_tokens: 16384,
+            system: None,
+            tools: None,
+            metadata: None,
+            stream: None,
+            stop_sequences: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            tool_choice: None,
+            thinking: Some(ThinkingConfig::new(10000)),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("\"thinking\""));
+        assert!(json.contains("\"budget_tokens\":10000"));
+        let parsed: MessagesRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, req);
+    }
+
+    #[test]
+    fn messages_request_with_tool_choice_serde() {
+        let req = MessagesRequest {
+            model: "claude-sonnet-4-20250514".into(),
+            messages: vec![Message {
+                role: Role::User,
+                content: MessageContent::Text("Use the tool".into()),
+            }],
+            max_tokens: 4096,
+            system: None,
+            tools: Some(vec![Tool {
+                name: "bash".into(),
+                description: "Run a command".into(),
+                input_schema: serde_json::json!({"type": "object"}),
+            }]),
+            metadata: None,
+            stream: None,
+            stop_sequences: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            tool_choice: Some(ToolChoice::Tool {
+                name: "bash".into(),
+            }),
+            thinking: None,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("\"tool_choice\""));
+        let parsed: MessagesRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, req);
+    }
+
+    #[test]
+    fn messages_request_omits_new_none_fields() {
+        let req = MessagesRequest {
+            model: "claude-sonnet-4-20250514".into(),
+            messages: vec![],
+            max_tokens: 1024,
+            system: None,
+            tools: None,
+            metadata: None,
+            stream: None,
+            stop_sequences: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            tool_choice: None,
+            thinking: None,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(!json.contains("tool_choice"));
+        assert!(!json.contains("thinking"));
+    }
+
+    // -- WorkOrder conversion with new fields --
+
+    #[test]
+    fn messages_request_to_work_order_with_tool_choice() {
+        let req = MessagesRequest {
+            model: "claude-sonnet-4-20250514".into(),
+            messages: vec![Message {
+                role: Role::User,
+                content: MessageContent::Text("Use bash".into()),
+            }],
+            max_tokens: 4096,
+            system: None,
+            tools: None,
+            metadata: None,
+            stream: None,
+            stop_sequences: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            tool_choice: Some(ToolChoice::Any {}),
+            thinking: None,
+        };
+        let wo: WorkOrder = req.into();
+        assert!(wo.config.vendor.contains_key("tool_choice"));
+    }
+
+    #[test]
+    fn messages_request_to_work_order_with_thinking() {
+        let req = MessagesRequest {
+            model: "claude-sonnet-4-20250514".into(),
+            messages: vec![Message {
+                role: Role::User,
+                content: MessageContent::Text("Think".into()),
+            }],
+            max_tokens: 16384,
+            system: None,
+            tools: None,
+            metadata: None,
+            stream: None,
+            stop_sequences: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            tool_choice: None,
+            thinking: Some(ThinkingConfig::new(8000)),
+        };
+        let wo: WorkOrder = req.into();
+        assert!(wo.config.vendor.contains_key("thinking"));
+    }
+
+    // -- JsonSchema generation --
+
+    #[test]
+    fn messages_request_json_schema_generates() {
+        let schema = schemars::schema_for!(MessagesRequest);
+        let json = serde_json::to_value(&schema).unwrap();
+        assert!(json.get("properties").is_some() || json.get("$defs").is_some());
+    }
+
+    #[test]
+    fn messages_response_json_schema_generates() {
+        let schema = schemars::schema_for!(MessagesResponse);
+        let json = serde_json::to_value(&schema).unwrap();
+        assert!(json.get("properties").is_some() || json.get("$defs").is_some());
+    }
+
+    #[test]
+    fn stop_reason_json_schema_generates() {
+        let schema = schemars::schema_for!(StopReason);
+        let json = serde_json::to_value(&schema).unwrap();
+        // Enum schema should have oneOf or enum
+        let s = serde_json::to_string(&json).unwrap();
+        assert!(s.contains("end_turn") || s.contains("oneOf") || s.contains("enum"));
+    }
+
+    #[test]
+    fn tool_choice_json_schema_generates() {
+        let schema = schemars::schema_for!(ToolChoice);
+        let json = serde_json::to_value(&schema).unwrap();
+        let s = serde_json::to_string(&json).unwrap();
+        assert!(s.contains("auto") || s.contains("oneOf") || s.contains("anyOf"));
     }
 }
