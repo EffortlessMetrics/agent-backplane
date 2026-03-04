@@ -3,13 +3,24 @@
 
 //! Exhaustive error recovery tests covering all error paths and recovery strategies.
 
+use abp_error::aggregate::ErrorAggregator;
+use abp_error::category::{self, RecoveryCategory};
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode, ErrorInfo};
 use abp_protocol::ProtocolError;
+use abp_ratelimit::{BackendRateLimiter, RateLimitError, RateLimitPolicy, TokenBucket};
+use abp_retry::{
+    AlwaysRetry, CircuitBreaker, CircuitBreakerError, CircuitState, ErrorClassifier,
+    HttpStatusClassifier, RetryBudget, RetryDecision, RetryError, RetryMetrics, RetryOptions,
+    RetryPolicy, retry_with_options, retry_with_policy,
+};
 use abp_runtime::RuntimeError;
 use serde_json::json;
 use std::collections::{BTreeMap, HashSet};
 use std::error::Error as StdError;
 use std::io;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 // =========================================================================
 // Helpers
@@ -1547,4 +1558,1012 @@ fn protocol_error_is_send() {
 fn runtime_error_is_send() {
     fn assert_send<T: Send>() {}
     assert_send::<RuntimeError>();
+}
+
+// =========================================================================
+// Resilience test helpers
+// =========================================================================
+
+/// A test error that carries an HTTP-like status code.
+#[derive(Debug, Clone)]
+struct TestHttpError {
+    status: u16,
+    retry_after_hint: Option<Duration>,
+    message: String,
+}
+
+impl std::fmt::Display for TestHttpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HTTP {} – {}", self.status, self.message)
+    }
+}
+
+impl std::error::Error for TestHttpError {}
+
+impl abp_retry::HasStatusCode for TestHttpError {
+    fn status_code(&self) -> u16 {
+        self.status
+    }
+    fn retry_after(&self) -> Option<Duration> {
+        self.retry_after_hint
+    }
+}
+
+/// Classifier driven by `ErrorCode::is_retryable()`.
+struct AbpCodeClassifier;
+
+impl ErrorClassifier<ErrorCode> for AbpCodeClassifier {
+    fn classify(&self, error: &ErrorCode) -> RetryDecision {
+        if error.is_retryable() {
+            RetryDecision::Retry
+        } else {
+            RetryDecision::DoNotRetry
+        }
+    }
+}
+
+// =========================================================================
+// 1. Retry Behavior (10 tests)
+// =========================================================================
+
+#[tokio::test]
+async fn resilience_retry_retryable_error_triggers_retry() {
+    let counter = Arc::new(AtomicU32::new(0));
+    let c = counter.clone();
+    let policy =
+        RetryPolicy::new(3, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let _: Result<(), String> = retry_with_policy(&policy, || {
+        let c = c.clone();
+        async move {
+            c.fetch_add(1, Ordering::SeqCst);
+            Err("transient".into())
+        }
+    })
+    .await;
+    assert_eq!(counter.load(Ordering::SeqCst), 4);
+}
+
+#[tokio::test]
+async fn resilience_retry_non_retryable_fails_fast() {
+    let counter = Arc::new(AtomicU32::new(0));
+    let c = counter.clone();
+    let policy =
+        RetryPolicy::new(5, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let opts = RetryOptions {
+        policy: &policy,
+        classifier: &AbpCodeClassifier,
+        budget: None,
+        circuit_breaker: None,
+        metrics: None,
+    };
+    let result: Result<(), RetryError<ErrorCode>> = retry_with_options(&opts, || {
+        let c = c.clone();
+        async move {
+            c.fetch_add(1, Ordering::SeqCst);
+            Err(ErrorCode::PolicyDenied)
+        }
+    })
+    .await;
+    assert!(matches!(
+        result,
+        Err(RetryError::NonRetryable(ErrorCode::PolicyDenied))
+    ));
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn resilience_retry_max_retries_respected() {
+    let counter = Arc::new(AtomicU32::new(0));
+    let c = counter.clone();
+    let policy =
+        RetryPolicy::new(2, Duration::from_millis(1), Duration::from_millis(10), 1.0, false);
+    let _: Result<(), String> = retry_with_policy(&policy, || {
+        let c = c.clone();
+        async move {
+            c.fetch_add(1, Ordering::SeqCst);
+            Err("fail".into())
+        }
+    })
+    .await;
+    assert_eq!(counter.load(Ordering::SeqCst), 3);
+}
+
+#[tokio::test]
+async fn resilience_retry_exponential_backoff_increases_delay() {
+    let policy =
+        RetryPolicy::new(4, Duration::from_millis(10), Duration::from_secs(5), 2.0, false);
+    let d0 = policy.delay_for_attempt(0);
+    let d1 = policy.delay_for_attempt(1);
+    let d2 = policy.delay_for_attempt(2);
+    let d3 = policy.delay_for_attempt(3);
+    assert!(d1 > d0);
+    assert!(d2 > d1);
+    assert!(d3 > d2);
+}
+
+#[tokio::test]
+async fn resilience_retry_delay_capped_at_max() {
+    let policy = RetryPolicy::new(
+        10,
+        Duration::from_millis(100),
+        Duration::from_millis(500),
+        10.0,
+        false,
+    );
+    assert!(policy.delay_for_attempt(5) <= Duration::from_millis(500));
+}
+
+#[tokio::test]
+async fn resilience_retry_success_on_second_attempt() {
+    let counter = Arc::new(AtomicU32::new(0));
+    let c = counter.clone();
+    let policy =
+        RetryPolicy::new(3, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let result: Result<&str, String> = retry_with_policy(&policy, || {
+        let c = c.clone();
+        async move {
+            if c.fetch_add(1, Ordering::SeqCst) == 0 {
+                Err("first fails".into())
+            } else {
+                Ok("ok")
+            }
+        }
+    })
+    .await;
+    assert_eq!(result.unwrap(), "ok");
+    assert_eq!(counter.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn resilience_retry_no_retry_policy_attempts_once() {
+    let counter = Arc::new(AtomicU32::new(0));
+    let c = counter.clone();
+    let policy = RetryPolicy::no_retry();
+    let _: Result<(), String> = retry_with_policy(&policy, || {
+        let c = c.clone();
+        async move {
+            c.fetch_add(1, Ordering::SeqCst);
+            Err("fail".into())
+        }
+    })
+    .await;
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn resilience_retry_metrics_tracks_attempts() {
+    let metrics = RetryMetrics::new();
+    let policy =
+        RetryPolicy::new(2, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let opts = RetryOptions {
+        policy: &policy,
+        classifier: &AlwaysRetry,
+        budget: None,
+        circuit_breaker: None,
+        metrics: Some(&metrics),
+    };
+    let _: Result<(), RetryError<String>> =
+        retry_with_options(&opts, || async { Err::<(), String>("fail".into()) }).await;
+    assert_eq!(metrics.attempts(), 3);
+    assert_eq!(metrics.retries(), 2);
+    assert_eq!(metrics.failures(), 1);
+}
+
+#[tokio::test]
+async fn resilience_retry_classifier_retry_after_honors_response() {
+    let classifier = HttpStatusClassifier::new(Duration::from_millis(50));
+    let err = TestHttpError {
+        status: 429,
+        retry_after_hint: Some(Duration::from_millis(10)),
+        message: "rate limited".into(),
+    };
+    assert_eq!(
+        classifier.classify(&err),
+        RetryDecision::RetryAfter(Duration::from_millis(10))
+    );
+}
+
+#[tokio::test]
+async fn resilience_retry_budget_exhausted_stops_retries() {
+    let budget = RetryBudget::new(1, 0.0);
+    let policy =
+        RetryPolicy::new(5, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let metrics = RetryMetrics::new();
+    let opts = RetryOptions {
+        policy: &policy,
+        classifier: &AlwaysRetry,
+        budget: Some(&budget),
+        circuit_breaker: None,
+        metrics: Some(&metrics),
+    };
+    let counter = Arc::new(AtomicU32::new(0));
+    let c = counter.clone();
+    let _: Result<(), RetryError<String>> = retry_with_options(&opts, || {
+        let c = c.clone();
+        async move {
+            c.fetch_add(1, Ordering::SeqCst);
+            Err::<(), String>("fail".into())
+        }
+    })
+    .await;
+    assert_eq!(counter.load(Ordering::SeqCst), 2);
+    assert_eq!(metrics.budget_exhausted(), 1);
+}
+
+// =========================================================================
+// 2. Rate Limit Handling (10 tests)
+// =========================================================================
+
+#[test]
+fn resilience_ratelimit_token_bucket_enforcement() {
+    let bucket = TokenBucket::new(10.0, 3);
+    assert!(bucket.try_acquire(1));
+    assert!(bucket.try_acquire(1));
+    assert!(bucket.try_acquire(1));
+    assert!(!bucket.try_acquire(1));
+}
+
+#[test]
+fn resilience_ratelimit_backend_limiter_respects_policy() {
+    let limiter = BackendRateLimiter::new();
+    limiter.set_policy(
+        "openai",
+        RateLimitPolicy::TokenBucket {
+            rate: 10.0,
+            burst: 2,
+        },
+    );
+    assert!(limiter.try_acquire("openai").is_ok());
+    assert!(limiter.try_acquire("openai").is_ok());
+    assert!(matches!(
+        limiter.try_acquire("openai"),
+        Err(RateLimitError::Limited { .. })
+    ));
+}
+
+#[test]
+fn resilience_ratelimit_retry_after_header_honored() {
+    let classifier = HttpStatusClassifier::new(Duration::from_secs(30));
+    let err = TestHttpError {
+        status: 429,
+        retry_after_hint: Some(Duration::from_secs(60)),
+        message: "rate limited".into(),
+    };
+    match classifier.classify(&err) {
+        RetryDecision::RetryAfter(d) => assert_eq!(d, Duration::from_secs(60)),
+        other => panic!("expected RetryAfter, got {other:?}"),
+    }
+}
+
+#[test]
+fn resilience_ratelimit_default_delay_when_no_retry_after() {
+    let classifier = HttpStatusClassifier::new(Duration::from_secs(30));
+    let err = TestHttpError {
+        status: 429,
+        retry_after_hint: None,
+        message: "rate limited".into(),
+    };
+    match classifier.classify(&err) {
+        RetryDecision::RetryAfter(d) => assert_eq!(d, Duration::from_secs(30)),
+        other => panic!("expected RetryAfter, got {other:?}"),
+    }
+}
+
+#[test]
+fn resilience_ratelimit_per_backend_isolation() {
+    let limiter = BackendRateLimiter::new();
+    limiter.set_policy(
+        "a",
+        RateLimitPolicy::TokenBucket {
+            rate: 10.0,
+            burst: 1,
+        },
+    );
+    limiter.set_policy(
+        "b",
+        RateLimitPolicy::TokenBucket {
+            rate: 10.0,
+            burst: 1,
+        },
+    );
+    assert!(limiter.try_acquire("a").is_ok());
+    assert!(limiter.try_acquire("a").is_err());
+    assert!(limiter.try_acquire("b").is_ok());
+}
+
+#[test]
+fn resilience_ratelimit_burst_handling() {
+    let bucket = TokenBucket::new(1.0, 5);
+    for _ in 0..5 {
+        assert!(bucket.try_acquire(1));
+    }
+    assert!(!bucket.try_acquire(1));
+}
+
+#[test]
+fn resilience_ratelimit_sliding_window_enforcement() {
+    let limiter = BackendRateLimiter::new();
+    limiter.set_policy(
+        "anthropic",
+        RateLimitPolicy::SlidingWindow {
+            window_secs: 10.0,
+            max_requests: 3,
+        },
+    );
+    assert!(limiter.try_acquire("anthropic").is_ok());
+    assert!(limiter.try_acquire("anthropic").is_ok());
+    assert!(limiter.try_acquire("anthropic").is_ok());
+    assert!(limiter.try_acquire("anthropic").is_err());
+}
+
+#[test]
+fn resilience_ratelimit_fixed_concurrency_releases_on_drop() {
+    let limiter = BackendRateLimiter::new();
+    limiter.set_policy("local", RateLimitPolicy::Fixed { max_concurrent: 1 });
+    {
+        let _permit = limiter.try_acquire("local").unwrap();
+        assert!(limiter.try_acquire("local").is_err());
+    }
+    assert!(limiter.try_acquire("local").is_ok());
+}
+
+#[test]
+fn resilience_ratelimit_unlimited_never_limits() {
+    let limiter = BackendRateLimiter::new();
+    limiter.set_policy("test", RateLimitPolicy::Unlimited);
+    for _ in 0..1000 {
+        assert!(limiter.try_acquire("test").is_ok());
+    }
+}
+
+#[test]
+fn resilience_ratelimit_no_policy_returns_error() {
+    let limiter = BackendRateLimiter::new();
+    assert!(matches!(
+        limiter.try_acquire("unknown"),
+        Err(RateLimitError::NoPolicyConfigured { .. })
+    ));
+}
+
+// =========================================================================
+// 3. Timeout Resilience (10 tests)
+// =========================================================================
+
+#[tokio::test]
+async fn resilience_timeout_connection_timeout_detected() {
+    let result = tokio::time::timeout(Duration::from_millis(50), async {
+        tokio::time::sleep(Duration::from_secs(10)).await;
+        Ok::<_, String>("connected")
+    })
+    .await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn resilience_timeout_read_timeout_during_operation() {
+    let result = tokio::time::timeout(Duration::from_millis(50), async {
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        Ok::<_, String>("data")
+    })
+    .await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn resilience_timeout_total_timeout_wraps_retries() {
+    let policy = RetryPolicy::new(
+        10,
+        Duration::from_millis(20),
+        Duration::from_secs(1),
+        2.0,
+        false,
+    );
+    let start = Instant::now();
+    let result = tokio::time::timeout(
+        Duration::from_millis(100),
+        retry_with_policy(&policy, || async {
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            Err::<(), String>("fail".into())
+        }),
+    )
+    .await;
+    assert!(result.is_err());
+    assert!(start.elapsed() < Duration::from_millis(300));
+}
+
+#[tokio::test]
+async fn resilience_timeout_recovery_after_timeout() {
+    let counter = Arc::new(AtomicU32::new(0));
+    let c = counter.clone();
+    let policy =
+        RetryPolicy::new(3, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let result: Result<&str, String> = retry_with_policy(&policy, || {
+        let c = c.clone();
+        async move {
+            if c.fetch_add(1, Ordering::SeqCst) < 2 {
+                Err("timeout".into())
+            } else {
+                Ok("recovered")
+            }
+        }
+    })
+    .await;
+    assert_eq!(result.unwrap(), "recovered");
+}
+
+#[tokio::test]
+async fn resilience_timeout_circuit_breaker_prevents_timeout_waste() {
+    let cb = CircuitBreaker::new(2, Duration::from_secs(60));
+    for _ in 0..2 {
+        let _: Result<(), CircuitBreakerError<String>> =
+            cb.call(|| async { Err::<(), String>("timeout".into()) }).await;
+    }
+    assert_eq!(cb.state(), CircuitState::Open);
+    let start = Instant::now();
+    let result: Result<(), CircuitBreakerError<String>> = cb
+        .call(|| async {
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            Ok(())
+        })
+        .await;
+    assert!(matches!(result, Err(CircuitBreakerError::Open)));
+    assert!(start.elapsed() < Duration::from_millis(100));
+}
+
+#[tokio::test]
+async fn resilience_timeout_retry_with_decreasing_budget() {
+    let total_budget = Duration::from_millis(200);
+    let start = Instant::now();
+    let mut attempts = 0u32;
+    loop {
+        let remaining = total_budget.saturating_sub(start.elapsed());
+        if remaining.is_zero() {
+            break;
+        }
+        let result = tokio::time::timeout(remaining.min(Duration::from_millis(40)), async {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            Ok::<_, String>("done")
+        })
+        .await;
+        attempts += 1;
+        if result.is_ok() {
+            break;
+        }
+    }
+    assert!(attempts >= 2);
+    assert!(start.elapsed() <= total_budget + Duration::from_millis(100));
+}
+
+#[tokio::test]
+async fn resilience_timeout_partial_work_preserved() {
+    let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let e = events.clone();
+    let _ = tokio::time::timeout(Duration::from_millis(80), async {
+        for i in 0..10 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            e.lock().unwrap().push(i);
+        }
+        Ok::<_, String>("done")
+    })
+    .await;
+    let collected = events.lock().unwrap();
+    assert!(!collected.is_empty());
+    assert!(collected.len() < 10);
+}
+
+#[tokio::test]
+async fn resilience_timeout_per_attempt_with_retry() {
+    let policy =
+        RetryPolicy::new(2, Duration::from_millis(5), Duration::from_millis(50), 2.0, false);
+    let counter = Arc::new(AtomicU32::new(0));
+    let c = counter.clone();
+    let result: Result<String, String> = retry_with_policy(&policy, || {
+        let c = c.clone();
+        async move {
+            c.fetch_add(1, Ordering::SeqCst);
+            match tokio::time::timeout(Duration::from_millis(10), async {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                "data".to_string()
+            })
+            .await
+            {
+                Ok(v) => Ok(v),
+                Err(_) => Err("timeout".to_string()),
+            }
+        }
+    })
+    .await;
+    assert!(result.is_err());
+    assert_eq!(counter.load(Ordering::SeqCst), 3);
+}
+
+#[tokio::test]
+async fn resilience_timeout_fast_success_no_delay() {
+    let start = Instant::now();
+    let result = tokio::time::timeout(Duration::from_secs(5), async {
+        Ok::<_, String>("instant")
+    })
+    .await;
+    assert!(result.is_ok());
+    assert!(start.elapsed() < Duration::from_millis(50));
+}
+
+#[tokio::test]
+async fn resilience_timeout_zero_timeout_does_not_panic() {
+    let result = tokio::time::timeout(Duration::ZERO, async {
+        Ok::<_, String>("instant")
+    })
+    .await;
+    // Zero timeout is inherently racy; just verify no panic
+    let _ = result;
+}
+
+// =========================================================================
+// 4. Partial Failure (10 tests)
+// =========================================================================
+
+#[tokio::test]
+async fn resilience_partial_stream_continues_after_error() {
+    let mut results = Vec::new();
+    let policy =
+        RetryPolicy::new(1, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    for i in 0..5u32 {
+        let result: Result<String, String> = retry_with_policy(&policy, || async move {
+            if i == 2 {
+                Err(format!("item {i} failed"))
+            } else {
+                Ok(format!("item {i}"))
+            }
+        })
+        .await;
+        results.push(result);
+    }
+    assert!(results[0].is_ok());
+    assert!(results[1].is_ok());
+    assert!(results[2].is_err());
+    assert!(results[3].is_ok());
+    assert!(results[4].is_ok());
+}
+
+#[tokio::test]
+async fn resilience_partial_event_ordering_preserved() {
+    let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let counter = Arc::new(AtomicU32::new(0));
+    let policy =
+        RetryPolicy::new(2, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    for i in 0..5u32 {
+        let e = events.clone();
+        let c = counter.clone();
+        let _: Result<(), String> = retry_with_policy(&policy, || {
+            let e = e.clone();
+            let c = c.clone();
+            async move {
+                let attempt = c.fetch_add(1, Ordering::SeqCst);
+                if i == 1 && attempt == 1 {
+                    return Err("transient".into());
+                }
+                e.lock().unwrap().push(i);
+                Ok(())
+            }
+        })
+        .await;
+    }
+    assert_eq!(*events.lock().unwrap(), vec![0, 1, 2, 3, 4]);
+}
+
+#[tokio::test]
+async fn resilience_partial_error_aggregation() {
+    let mut agg = ErrorAggregator::new();
+    agg.add(&AbpError::new(ErrorCode::BackendTimeout, "t1"));
+    agg.add(&AbpError::new(ErrorCode::BackendTimeout, "t2"));
+    agg.add(&AbpError::new(ErrorCode::BackendRateLimited, "r1"));
+    agg.add(&AbpError::new(ErrorCode::PolicyDenied, "p1"));
+    let summary = agg.summary();
+    assert_eq!(summary.total, 4);
+    assert_eq!(summary.by_code[&ErrorCode::BackendTimeout], 2);
+    assert_eq!(summary.by_code[&ErrorCode::BackendRateLimited], 1);
+}
+
+#[tokio::test]
+async fn resilience_partial_retryable_classification() {
+    let retryable = [
+        ErrorCode::BackendUnavailable,
+        ErrorCode::BackendTimeout,
+        ErrorCode::BackendRateLimited,
+        ErrorCode::BackendCrashed,
+    ];
+    let non_retryable = [
+        ErrorCode::BackendNotFound,
+        ErrorCode::BackendAuthFailed,
+        ErrorCode::PolicyDenied,
+        ErrorCode::ContractSchemaViolation,
+    ];
+    for code in &retryable {
+        assert!(code.is_retryable(), "{code:?} should be retryable");
+    }
+    for code in &non_retryable {
+        assert!(!code.is_retryable(), "{code:?} should NOT be retryable");
+    }
+}
+
+#[tokio::test]
+async fn resilience_partial_recovery_category_mapping() {
+    assert_eq!(
+        category::categorize(ErrorCode::BackendRateLimited),
+        RecoveryCategory::RateLimit
+    );
+    assert_eq!(
+        category::categorize(ErrorCode::BackendTimeout),
+        RecoveryCategory::NetworkTransient
+    );
+    assert_eq!(
+        category::categorize(ErrorCode::BackendAuthFailed),
+        RecoveryCategory::Authentication
+    );
+}
+
+#[tokio::test]
+async fn resilience_partial_suggested_delay_varies() {
+    assert!(category::suggested_delay(RecoveryCategory::RateLimit) > Duration::ZERO);
+    assert!(category::suggested_delay(RecoveryCategory::NetworkTransient) > Duration::ZERO);
+    assert_eq!(
+        category::suggested_delay(RecoveryCategory::Authentication),
+        Duration::ZERO
+    );
+}
+
+#[tokio::test]
+async fn resilience_partial_error_info_retryability() {
+    let info = ErrorInfo::new(ErrorCode::BackendTimeout, "timed out");
+    assert!(info.is_retryable);
+    let info2 = ErrorInfo::new(ErrorCode::PolicyDenied, "denied");
+    assert!(!info2.is_retryable);
+}
+
+#[tokio::test]
+async fn resilience_partial_mixed_batch() {
+    let codes = [
+        ErrorCode::BackendTimeout,
+        ErrorCode::BackendUnavailable,
+        ErrorCode::PolicyDenied,
+        ErrorCode::BackendRateLimited,
+        ErrorCode::BackendAuthFailed,
+    ];
+    let policy =
+        RetryPolicy::new(1, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let mut fast_fails = 0u32;
+    for code in &codes {
+        let code = *code;
+        let opts = RetryOptions {
+            policy: &policy,
+            classifier: &AbpCodeClassifier,
+            budget: None,
+            circuit_breaker: None,
+            metrics: None,
+        };
+        let result: Result<(), RetryError<ErrorCode>> =
+            retry_with_options(&opts, || async move { Err(code) }).await;
+        if matches!(result, Err(RetryError::NonRetryable(_))) {
+            fast_fails += 1;
+        }
+    }
+    // PolicyDenied + BackendAuthFailed = 2 non-retryable
+    assert_eq!(fast_fails, 2);
+}
+
+#[tokio::test]
+async fn resilience_partial_error_context_propagated() {
+    let err = AbpError::new(ErrorCode::BackendTimeout, "timed out")
+        .with_context("backend", "openai")
+        .with_context("timeout_ms", 30_000);
+    let info = err.to_info();
+    assert_eq!(info.details["backend"], serde_json::json!("openai"));
+    assert_eq!(info.details["timeout_ms"], serde_json::json!(30_000));
+}
+
+#[tokio::test]
+async fn resilience_partial_category_grouping() {
+    let mut agg = ErrorAggregator::new();
+    agg.add(&AbpError::new(ErrorCode::BackendTimeout, "t1"));
+    agg.add(&AbpError::new(ErrorCode::BackendUnavailable, "u1"));
+    agg.add(&AbpError::new(ErrorCode::PolicyDenied, "p1"));
+    agg.add(&AbpError::new(ErrorCode::ProtocolHandshakeFailed, "h1"));
+    let summary = agg.summary();
+    assert_eq!(summary.by_category[&ErrorCategory::Backend], 2);
+    assert_eq!(summary.by_category[&ErrorCategory::Policy], 1);
+    assert_eq!(summary.by_category[&ErrorCategory::Protocol], 1);
+}
+
+// =========================================================================
+// 5. Cascading Failures (10 tests)
+// =========================================================================
+
+#[tokio::test]
+async fn resilience_cascade_circuit_opens_after_threshold() {
+    let cb = CircuitBreaker::new(3, Duration::from_secs(30));
+    for _ in 0..3 {
+        let _: Result<(), CircuitBreakerError<String>> =
+            cb.call(|| async { Err::<(), String>("fail".into()) }).await;
+    }
+    assert_eq!(cb.state(), CircuitState::Open);
+    assert_eq!(cb.consecutive_failures(), 3);
+}
+
+#[tokio::test]
+async fn resilience_cascade_circuit_rejects_when_open() {
+    let cb = CircuitBreaker::new(1, Duration::from_secs(60));
+    let _: Result<(), CircuitBreakerError<String>> =
+        cb.call(|| async { Err::<(), String>("fail".into()) }).await;
+    assert_eq!(cb.state(), CircuitState::Open);
+    let result: Result<(), CircuitBreakerError<String>> =
+        cb.call(|| async { Ok::<(), String>(()) }).await;
+    assert!(matches!(result, Err(CircuitBreakerError::Open)));
+}
+
+#[tokio::test]
+async fn resilience_cascade_half_open_recovery() {
+    let cb = CircuitBreaker::new(1, Duration::from_millis(50));
+    let _: Result<(), CircuitBreakerError<String>> =
+        cb.call(|| async { Err::<(), String>("fail".into()) }).await;
+    assert_eq!(cb.state(), CircuitState::Open);
+    tokio::time::sleep(Duration::from_millis(60)).await;
+    let result: Result<String, CircuitBreakerError<String>> =
+        cb.call(|| async { Ok("recovered".to_string()) }).await;
+    assert_eq!(result.unwrap(), "recovered");
+    assert_eq!(cb.state(), CircuitState::Closed);
+}
+
+#[tokio::test]
+async fn resilience_cascade_half_open_failure_reopens() {
+    let cb = CircuitBreaker::new(1, Duration::from_millis(50));
+    let _: Result<(), CircuitBreakerError<String>> =
+        cb.call(|| async { Err::<(), String>("fail".into()) }).await;
+    tokio::time::sleep(Duration::from_millis(60)).await;
+    let _: Result<(), CircuitBreakerError<String>> =
+        cb.call(|| async { Err::<(), String>("still failing".into()) }).await;
+    assert_eq!(cb.state(), CircuitState::Open);
+}
+
+#[tokio::test]
+async fn resilience_cascade_backend_failure_isolation() {
+    let cb_a = CircuitBreaker::new(2, Duration::from_secs(30));
+    let cb_b = CircuitBreaker::new(2, Duration::from_secs(30));
+    for _ in 0..2 {
+        let _: Result<(), CircuitBreakerError<String>> =
+            cb_a.call(|| async { Err::<(), String>("fail".into()) }).await;
+    }
+    assert_eq!(cb_a.state(), CircuitState::Open);
+    assert_eq!(cb_b.state(), CircuitState::Closed);
+    let result: Result<String, CircuitBreakerError<String>> =
+        cb_b.call(|| async { Ok("success".to_string()) }).await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn resilience_cascade_retry_with_circuit_breaker() {
+    let cb = CircuitBreaker::new(2, Duration::from_secs(60));
+    let policy =
+        RetryPolicy::new(5, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let metrics = RetryMetrics::new();
+    let opts = RetryOptions {
+        policy: &policy,
+        classifier: &AlwaysRetry,
+        budget: None,
+        circuit_breaker: Some(&cb),
+        metrics: Some(&metrics),
+    };
+    let counter = Arc::new(AtomicU32::new(0));
+    let c = counter.clone();
+    let _: Result<(), RetryError<String>> = retry_with_options(&opts, || {
+        let c = c.clone();
+        async move {
+            c.fetch_add(1, Ordering::SeqCst);
+            Err::<(), String>("fail".into())
+        }
+    })
+    .await;
+    assert_eq!(cb.state(), CircuitState::Open);
+}
+
+#[tokio::test]
+async fn resilience_cascade_fallback_chain() {
+    let backends = ["primary", "secondary", "tertiary"];
+    let cbs: Vec<(&str, CircuitBreaker)> = backends
+        .iter()
+        .map(|name| (*name, CircuitBreaker::new(1, Duration::from_secs(60))))
+        .collect();
+    // Open primary
+    let _: Result<(), CircuitBreakerError<String>> = cbs[0]
+        .1
+        .call(|| async { Err::<(), String>("primary down".into()) })
+        .await;
+    let mut result = None;
+    for (name, cb) in &cbs {
+        match cb.call(|| async { Ok::<_, String>(format!("{name} ok")) }).await {
+            Ok(v) => {
+                result = Some(v);
+                break;
+            }
+            Err(_) => continue,
+        }
+    }
+    assert_eq!(result.unwrap(), "secondary ok");
+}
+
+#[tokio::test]
+async fn resilience_cascade_error_aggregation_across_backends() {
+    let mut agg = ErrorAggregator::new();
+    for code in [
+        ErrorCode::BackendTimeout,
+        ErrorCode::BackendUnavailable,
+        ErrorCode::BackendCrashed,
+        ErrorCode::BackendRateLimited,
+        ErrorCode::BackendTimeout,
+    ] {
+        agg.add(&AbpError::new(code, format!("{code:?}")));
+    }
+    let summary = agg.summary();
+    assert_eq!(summary.total, 5);
+    assert_eq!(summary.by_category[&ErrorCategory::Backend], 5);
+    let trending = agg.trending(Duration::from_secs(60));
+    assert_eq!(trending[0].code, ErrorCode::BackendTimeout);
+    assert_eq!(trending[0].count, 2);
+}
+
+#[tokio::test]
+async fn resilience_cascade_retry_budget_prevents_storm() {
+    let budget = RetryBudget::new(3, 0.0);
+    let policy = RetryPolicy::new(
+        10,
+        Duration::from_millis(1),
+        Duration::from_millis(10),
+        2.0,
+        false,
+    );
+    let metrics = RetryMetrics::new();
+    let mut total_attempts = 0u32;
+    for _ in 0..5 {
+        let opts = RetryOptions {
+            policy: &policy,
+            classifier: &AlwaysRetry,
+            budget: Some(&budget),
+            circuit_breaker: None,
+            metrics: Some(&metrics),
+        };
+        let counter = Arc::new(AtomicU32::new(0));
+        let c = counter.clone();
+        let _: Result<(), RetryError<String>> = retry_with_options(&opts, || {
+            let c = c.clone();
+            async move {
+                c.fetch_add(1, Ordering::SeqCst);
+                Err::<(), String>("fail".into())
+            }
+        })
+        .await;
+        total_attempts += counter.load(Ordering::SeqCst);
+    }
+    assert!(total_attempts < 55, "budget should limit retries: {total_attempts}");
+}
+
+#[tokio::test]
+async fn resilience_cascade_success_resets_circuit() {
+    let cb = CircuitBreaker::new(3, Duration::from_millis(30));
+    for _ in 0..2 {
+        let _: Result<(), CircuitBreakerError<String>> =
+            cb.call(|| async { Err::<(), String>("fail".into()) }).await;
+    }
+    assert_eq!(cb.consecutive_failures(), 2);
+    let _: Result<String, CircuitBreakerError<String>> =
+        cb.call(|| async { Ok("ok".to_string()) }).await;
+    assert_eq!(cb.consecutive_failures(), 0);
+    assert_eq!(cb.state(), CircuitState::Closed);
+}
+
+// =========================================================================
+// Cross-cutting resilience tests (5 bonus)
+// =========================================================================
+
+#[tokio::test]
+async fn resilience_cross_ratelimit_with_retry() {
+    let limiter = BackendRateLimiter::new();
+    limiter.set_policy(
+        "test",
+        RateLimitPolicy::TokenBucket {
+            rate: 100.0,
+            burst: 2,
+        },
+    );
+    let policy =
+        RetryPolicy::new(3, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let result: Result<String, String> = retry_with_policy(&policy, || async {
+        match limiter.try_acquire("test") {
+            Ok(_permit) => Ok("permitted".to_string()),
+            Err(_) => Err("rate limited".to_string()),
+        }
+    })
+    .await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn resilience_cross_error_chain_depth() {
+    let inner = std::io::Error::new(std::io::ErrorKind::TimedOut, "tcp timeout");
+    let err = AbpError::new(ErrorCode::BackendTimeout, "connection timed out").with_source(inner);
+    assert_eq!(err.chain_depth(), 1);
+    assert!(err.is_retryable());
+    assert_eq!(err.category(), ErrorCategory::Backend);
+}
+
+#[tokio::test]
+async fn resilience_cross_metrics_comprehensive() {
+    let metrics = RetryMetrics::new();
+    let policy =
+        RetryPolicy::new(2, Duration::from_millis(1), Duration::from_millis(10), 2.0, false);
+    let cb = CircuitBreaker::new(5, Duration::from_secs(60));
+    let budget = RetryBudget::new(10, 1.0);
+    let opts = RetryOptions {
+        policy: &policy,
+        classifier: &AlwaysRetry,
+        budget: Some(&budget),
+        circuit_breaker: Some(&cb),
+        metrics: Some(&metrics),
+    };
+    let _: Result<(), RetryError<String>> =
+        retry_with_options(&opts, || async { Err::<(), String>("fail".into()) }).await;
+    assert_eq!(metrics.attempts(), 3);
+    assert_eq!(metrics.retries(), 2);
+    assert_eq!(metrics.failures(), 1);
+    metrics.reset();
+    assert_eq!(metrics.attempts(), 0);
+}
+
+#[tokio::test]
+async fn resilience_cross_http_classifier_5xx_retries() {
+    let classifier = HttpStatusClassifier::new(Duration::from_secs(1));
+    assert_eq!(
+        classifier.classify(&TestHttpError {
+            status: 500,
+            retry_after_hint: None,
+            message: "server error".into()
+        }),
+        RetryDecision::Retry
+    );
+    assert_eq!(
+        classifier.classify(&TestHttpError {
+            status: 503,
+            retry_after_hint: None,
+            message: "unavailable".into()
+        }),
+        RetryDecision::Retry
+    );
+    assert_eq!(
+        classifier.classify(&TestHttpError {
+            status: 400,
+            retry_after_hint: None,
+            message: "bad request".into()
+        }),
+        RetryDecision::DoNotRetry
+    );
+}
+
+#[tokio::test]
+async fn resilience_cross_recovery_category_retryability() {
+    for cat in [
+        RecoveryCategory::RateLimit,
+        RecoveryCategory::NetworkTransient,
+        RecoveryCategory::ServerInternal,
+        RecoveryCategory::ResourceExhausted,
+    ] {
+        assert!(category::is_retryable(cat), "{cat:?} should be retryable");
+    }
+    for cat in [
+        RecoveryCategory::Authentication,
+        RecoveryCategory::ModelCapability,
+        RecoveryCategory::InputValidation,
+        RecoveryCategory::ProtocolViolation,
+        RecoveryCategory::MappingFailure,
+        RecoveryCategory::PolicyViolation,
+    ] {
+        assert!(!category::is_retryable(cat), "{cat:?} should NOT be retryable");
+    }
 }

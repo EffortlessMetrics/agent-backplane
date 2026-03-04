@@ -782,6 +782,7 @@ dependencies = [
  "abp-policy",
  "abp-projection",
  "abp-protocol",
+ "abp-ratelimit",
  "abp-receipt",
  "abp-receipt-store",
  "abp-retry",

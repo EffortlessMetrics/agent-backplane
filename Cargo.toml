@@ -172,6 +172,7 @@ abp-stream = { path = "crates/abp-stream" }
 abp-validate = { path = "crates/abp-validate" }
 abp-backend-core = { path = "crates/abp-backend-core" }
 abp-backend-mock = { path = "crates/abp-backend-mock" }
+abp-ratelimit = { path = "crates/abp-ratelimit" }
 abp-retry = { path = "crates/abp-retry" }
 abp-sidecar-proto = { path = "crates/abp-sidecar-proto" }
 abp-sidecar-sdk = { path = "crates/abp-sidecar-sdk" }
