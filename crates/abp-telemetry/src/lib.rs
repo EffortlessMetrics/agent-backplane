@@ -12,6 +12,9 @@ pub mod pipeline;
 pub mod spans;
 pub mod events;
 pub mod export;
+pub mod report;
+pub mod runtime_events;
+pub mod tracing_integration;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

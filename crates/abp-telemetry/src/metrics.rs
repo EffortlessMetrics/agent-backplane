@@ -342,6 +342,11 @@ impl Histogram {
         vals.push(value);
     }
 
+    /// Observe a value (alias for [`record`](Self::record)).
+    pub fn observe(&self, value: f64) {
+        self.record(value);
+    }
+
     /// Number of recorded values.
     pub fn count(&self) -> usize {
         let vals = self.values.lock().expect("histogram lock poisoned");
@@ -586,6 +591,30 @@ impl MetricsRegistry {
             })
             .collect()
     }
+
+    /// Capture a combined snapshot of all metrics in the registry.
+    pub fn snapshot(&self) -> MetricsSnapshot {
+        MetricsSnapshot {
+            counters: self.counter_snapshot(),
+            gauges: self.gauge_snapshot(),
+            histograms: self.histogram_snapshot(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MetricsSnapshot
+// ---------------------------------------------------------------------------
+
+/// Point-in-time snapshot of all metrics from a [`MetricsRegistry`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricsSnapshot {
+    /// Counter name → current value.
+    pub counters: BTreeMap<String, u64>,
+    /// Gauge name → current value.
+    pub gauges: BTreeMap<String, i64>,
+    /// Histogram name → summary statistics.
+    pub histograms: BTreeMap<String, HistogramStats>,
 }
 
 // ---------------------------------------------------------------------------
@@ -1023,5 +1052,102 @@ mod tests {
         assert_eq!(snap.len(), 2);
         assert_eq!(snap["x"], 1);
         assert_eq!(snap["y"], 10);
+    }
+
+    // --- Histogram::observe ---
+
+    #[test]
+    fn histogram_observe_alias() {
+        let h = Histogram::new();
+        h.observe(5.0);
+        h.observe(10.0);
+        assert_eq!(h.count(), 2);
+        assert!((h.mean().unwrap() - 7.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn histogram_observe_same_as_record() {
+        let h1 = Histogram::new();
+        let h2 = Histogram::new();
+        h1.record(42.0);
+        h2.observe(42.0);
+        assert_eq!(h1.count(), h2.count());
+        assert_eq!(h1.mean(), h2.mean());
+    }
+
+    // --- MetricsSnapshot ---
+
+    #[test]
+    fn metrics_snapshot_empty_registry() {
+        let reg = MetricsRegistry::new();
+        let snap = reg.snapshot();
+        assert!(snap.counters.is_empty());
+        assert!(snap.gauges.is_empty());
+        assert!(snap.histograms.is_empty());
+    }
+
+    #[test]
+    fn metrics_snapshot_with_data() {
+        let reg = MetricsRegistry::new();
+        reg.counter("reqs").increment_by(5);
+        reg.gauge("active").set(3);
+        reg.histogram("latency").record(100.0);
+
+        let snap = reg.snapshot();
+        assert_eq!(snap.counters["reqs"], 5);
+        assert_eq!(snap.gauges["active"], 3);
+        assert_eq!(snap.histograms["latency"].count, 1);
+    }
+
+    #[test]
+    fn metrics_snapshot_serde_roundtrip() {
+        let reg = MetricsRegistry::new();
+        reg.counter("c").increment();
+        reg.gauge("g").set(42);
+        reg.histogram("h").record(1.0);
+
+        let snap = reg.snapshot();
+        let json = serde_json::to_string(&snap).unwrap();
+        let back: MetricsSnapshot = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.counters["c"], 1);
+        assert_eq!(back.gauges["g"], 42);
+        assert_eq!(back.histograms["h"].count, 1);
+    }
+
+    #[test]
+    fn metrics_snapshot_multiple_counters() {
+        let reg = MetricsRegistry::new();
+        reg.counter("a").increment_by(10);
+        reg.counter("b").increment_by(20);
+        reg.counter("c").increment_by(30);
+        let snap = reg.snapshot();
+        assert_eq!(snap.counters.len(), 3);
+        assert_eq!(snap.counters["a"], 10);
+        assert_eq!(snap.counters["b"], 20);
+        assert_eq!(snap.counters["c"], 30);
+    }
+
+    #[test]
+    fn registry_snapshot_thread_safety() {
+        let reg = MetricsRegistry::new();
+        let handles: Vec<_> = (0..4)
+            .map(|i| {
+                let reg = reg.clone();
+                std::thread::spawn(move || {
+                    let c = reg.counter(&format!("counter_{i}"));
+                    for _ in 0..100 {
+                        c.increment();
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        let snap = reg.snapshot();
+        assert_eq!(snap.counters.len(), 4);
+        for (_, v) in &snap.counters {
+            assert_eq!(*v, 100);
+        }
     }
 }
