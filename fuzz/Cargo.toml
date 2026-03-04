@@ -19,6 +19,7 @@ abp-capability = { path = "../crates/abp-capability" }
 abp-receipt = { path = "../crates/abp-receipt" }
 abp-config = { path = "../crates/abp-config" }
 abp-error = { path = "../crates/abp-error" }
+abp-ir = { path = "../crates/abp-ir" }
 serde = "1"
 serde_json = "1"
 toml = "0.8"
@@ -243,6 +244,21 @@ doc = false
 [[bin]]
 name = "fuzz_ir_normalize"
 path = "fuzz_targets/fuzz_ir_normalize.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt_mutation"
+path = "fuzz_targets/fuzz_receipt_mutation.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_ir_conversation"
+path = "fuzz_targets/fuzz_ir_conversation.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_deser"
+path = "fuzz_targets/fuzz_policy_deser.rs"
 doc = false
 
 [[bin]]

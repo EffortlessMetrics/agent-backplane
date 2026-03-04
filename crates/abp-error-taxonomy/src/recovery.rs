@@ -112,7 +112,7 @@ impl RecoveryPlan {
 
     /// Check whether the plan ends with a terminal (non-recoverable) step.
     pub fn is_terminal(&self) -> bool {
-        self.steps.last().map_or(true, |s| {
+        self.steps.last().is_none_or(|s| {
             matches!(
                 s.action,
                 RecoveryAction::ContactAdmin | RecoveryAction::None

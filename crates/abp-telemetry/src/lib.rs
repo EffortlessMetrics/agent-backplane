@@ -192,6 +192,80 @@ impl MetricsCollector {
         let mut data = self.inner.lock().expect("metrics lock poisoned");
         data.clear();
     }
+
+    /// Compute per-backend reports from all recorded runs.
+    pub fn backend_reports(&self) -> Vec<BackendReport> {
+        let data = self.inner.lock().expect("metrics lock poisoned");
+        let mut grouped: BTreeMap<String, Vec<&RunMetrics>> = BTreeMap::new();
+        for r in data.iter() {
+            grouped.entry(r.backend_name.clone()).or_default().push(r);
+        }
+        grouped
+            .into_iter()
+            .map(|(name, runs)| {
+                let total_runs = runs.len() as u64;
+                let error_count = runs.iter().filter(|r| r.errors_count > 0).count() as u64;
+                let success_count = total_runs - error_count;
+                let success_rate = if total_runs == 0 {
+                    0.0
+                } else {
+                    success_count as f64 / total_runs as f64
+                };
+
+                let mut durations: Vec<u64> = runs.iter().map(|r| r.duration_ms).collect();
+                durations.sort_unstable();
+                let total_dur: u64 = durations.iter().sum();
+                let mean_latency_ms = if durations.is_empty() {
+                    0.0
+                } else {
+                    total_dur as f64 / durations.len() as f64
+                };
+                let p50_latency_ms = percentile(&durations, 50.0);
+                let p99_latency_ms = percentile(&durations, 99.0);
+
+                let total_tokens_in: u64 = runs.iter().map(|r| r.tokens_in).sum();
+                let total_tokens_out: u64 = runs.iter().map(|r| r.tokens_out).sum();
+
+                BackendReport {
+                    backend_name: name,
+                    total_runs,
+                    success_count,
+                    error_count,
+                    success_rate,
+                    mean_latency_ms,
+                    p50_latency_ms,
+                    p99_latency_ms,
+                    total_tokens_in,
+                    total_tokens_out,
+                }
+            })
+            .collect()
+    }
+
+    /// Build a combined aggregated view of all metrics.
+    ///
+    /// Includes the global summary, per-backend breakdowns, and any
+    /// dialect-pair statistics from the provided registry.
+    pub fn aggregate(&self, dialect_registry: &DialectPairRegistry) -> AggregatedMetrics {
+        let dialect_pairs = dialect_registry
+            .snapshot()
+            .into_iter()
+            .map(|(pair, stats)| DialectPairReport {
+                source: pair.source,
+                target: pair.target,
+                run_count: stats.run_count,
+                total_duration_ms: stats.total_duration_ms,
+                total_tokens_in: stats.total_tokens_in,
+                total_tokens_out: stats.total_tokens_out,
+                error_count: stats.error_count,
+            })
+            .collect();
+        AggregatedMetrics {
+            summary: self.summary(),
+            backend_reports: self.backend_reports(),
+            dialect_pairs,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -505,6 +579,165 @@ impl CostEstimator {
 }
 
 // ---------------------------------------------------------------------------
+// DialectPairRegistry
+// ---------------------------------------------------------------------------
+
+/// Key identifying a source→target dialect mapping.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct DialectPair {
+    /// Source dialect (e.g. `"openai"`).
+    pub source: String,
+    /// Target dialect (e.g. `"anthropic"`).
+    pub target: String,
+}
+
+/// Accumulated statistics for a single dialect pair.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct DialectPairStats {
+    /// Number of runs using this pair.
+    pub run_count: u64,
+    /// Cumulative duration in milliseconds.
+    pub total_duration_ms: u64,
+    /// Cumulative inbound tokens.
+    pub total_tokens_in: u64,
+    /// Cumulative outbound tokens.
+    pub total_tokens_out: u64,
+    /// Number of runs that encountered errors.
+    pub error_count: u64,
+}
+
+/// Thread-safe registry tracking usage across dialect pairs.
+///
+/// Each pair represents a source→target dialect mapping used during a run,
+/// useful for understanding which projection matrix paths are active.
+#[derive(Debug, Clone, Default)]
+pub struct DialectPairRegistry {
+    inner: Arc<Mutex<BTreeMap<DialectPair, DialectPairStats>>>,
+}
+
+impl DialectPairRegistry {
+    /// Create a new, empty registry.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record a run that used the given dialect pair.
+    pub fn record(
+        &self,
+        source: &str,
+        target: &str,
+        duration_ms: u64,
+        tokens_in: u64,
+        tokens_out: u64,
+        had_errors: bool,
+    ) {
+        let key = DialectPair {
+            source: source.to_string(),
+            target: target.to_string(),
+        };
+        let mut map = self.inner.lock().expect("dialect pair lock poisoned");
+        let stats = map.entry(key).or_default();
+        stats.run_count += 1;
+        stats.total_duration_ms += duration_ms;
+        stats.total_tokens_in += tokens_in;
+        stats.total_tokens_out += tokens_out;
+        if had_errors {
+            stats.error_count += 1;
+        }
+    }
+
+    /// Return a snapshot of all recorded pairs and their stats.
+    pub fn snapshot(&self) -> BTreeMap<DialectPair, DialectPairStats> {
+        let map = self.inner.lock().expect("dialect pair lock poisoned");
+        map.clone()
+    }
+
+    /// Total number of distinct dialect pairs observed.
+    pub fn pair_count(&self) -> usize {
+        let map = self.inner.lock().expect("dialect pair lock poisoned");
+        map.len()
+    }
+
+    /// Total runs across all pairs.
+    pub fn total_runs(&self) -> u64 {
+        let map = self.inner.lock().expect("dialect pair lock poisoned");
+        map.values().map(|s| s.run_count).sum()
+    }
+
+    /// Reset all tracked pairs.
+    pub fn reset(&self) {
+        let mut map = self.inner.lock().expect("dialect pair lock poisoned");
+        map.clear();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// BackendReport
+// ---------------------------------------------------------------------------
+
+/// Per-backend aggregated metrics derived from recorded runs.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct BackendReport {
+    /// Backend name.
+    pub backend_name: String,
+    /// Total number of runs on this backend.
+    pub total_runs: u64,
+    /// Runs that completed without errors.
+    pub success_count: u64,
+    /// Runs that had at least one error.
+    pub error_count: u64,
+    /// Success rate (0.0–1.0).
+    pub success_rate: f64,
+    /// Mean latency in milliseconds.
+    pub mean_latency_ms: f64,
+    /// Median (p50) latency in milliseconds.
+    pub p50_latency_ms: f64,
+    /// 99th-percentile latency in milliseconds.
+    pub p99_latency_ms: f64,
+    /// Total inbound tokens.
+    pub total_tokens_in: u64,
+    /// Total outbound tokens.
+    pub total_tokens_out: u64,
+}
+
+// ---------------------------------------------------------------------------
+// AggregatedMetrics
+// ---------------------------------------------------------------------------
+
+/// Combined metrics view across all dimensions.
+///
+/// Brings together the global summary, per-backend breakdowns, and
+/// per-dialect-pair statistics for comprehensive monitoring.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AggregatedMetrics {
+    /// Global summary across all runs.
+    pub summary: MetricsSummary,
+    /// Per-backend breakdowns.
+    pub backend_reports: Vec<BackendReport>,
+    /// Per-dialect-pair statistics (flattened for JSON compatibility).
+    pub dialect_pairs: Vec<DialectPairReport>,
+}
+
+/// Flattened per-dialect-pair report suitable for serialization.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct DialectPairReport {
+    /// Source dialect.
+    pub source: String,
+    /// Target dialect.
+    pub target: String,
+    /// Number of runs using this pair.
+    pub run_count: u64,
+    /// Cumulative duration in milliseconds.
+    pub total_duration_ms: u64,
+    /// Cumulative inbound tokens.
+    pub total_tokens_in: u64,
+    /// Cumulative outbound tokens.
+    pub total_tokens_out: u64,
+    /// Number of runs that encountered errors.
+    pub error_count: u64,
+}
+
+// ---------------------------------------------------------------------------
 // MetricsExporter
 // ---------------------------------------------------------------------------
 
@@ -518,6 +751,8 @@ pub enum ExportFormat {
     Csv,
     /// Structured key=value format.
     Structured,
+    /// Prometheus text exposition format.
+    Prometheus,
 }
 
 /// Multi-format metrics exporter.
@@ -588,7 +823,132 @@ impl MetricsExporter {
                 Ok(format!("{}{}", header, row))
             }
             ExportFormat::Structured => Self::export_structured(summary),
+            ExportFormat::Prometheus => Self::export_prometheus(summary),
         }
+    }
+
+    /// Export a `MetricsSummary` in Prometheus text exposition format.
+    pub fn export_prometheus(summary: &MetricsSummary) -> Result<String, String> {
+        let mut out = String::new();
+
+        out.push_str("# HELP abp_runs_total Total number of completed agent runs.\n");
+        out.push_str("# TYPE abp_runs_total counter\n");
+        out.push_str(&format!("abp_runs_total {}\n", summary.count));
+        out.push('\n');
+
+        out.push_str("# HELP abp_run_duration_ms Run duration in milliseconds.\n");
+        out.push_str("# TYPE abp_run_duration_ms summary\n");
+        out.push_str(&format!(
+            "abp_run_duration_ms{{quantile=\"0.5\"}} {:.2}\n",
+            summary.p50_duration_ms
+        ));
+        out.push_str(&format!(
+            "abp_run_duration_ms{{quantile=\"0.99\"}} {:.2}\n",
+            summary.p99_duration_ms
+        ));
+        out.push_str(&format!(
+            "abp_run_duration_ms_mean {:.2}\n",
+            summary.mean_duration_ms
+        ));
+        out.push('\n');
+
+        out.push_str("# HELP abp_tokens_total Total token usage.\n");
+        out.push_str("# TYPE abp_tokens_total counter\n");
+        out.push_str(&format!(
+            "abp_tokens_total{{direction=\"input\"}} {}\n",
+            summary.total_tokens_in
+        ));
+        out.push_str(&format!(
+            "abp_tokens_total{{direction=\"output\"}} {}\n",
+            summary.total_tokens_out
+        ));
+        out.push('\n');
+
+        out.push_str("# HELP abp_error_rate Fraction of runs with errors.\n");
+        out.push_str("# TYPE abp_error_rate gauge\n");
+        out.push_str(&format!("abp_error_rate {:.4}\n", summary.error_rate));
+        out.push('\n');
+
+        out.push_str("# HELP abp_backend_runs_total Runs per backend.\n");
+        out.push_str("# TYPE abp_backend_runs_total counter\n");
+        for (backend, count) in &summary.backend_counts {
+            out.push_str(&format!(
+                "abp_backend_runs_total{{backend=\"{}\"}} {}\n",
+                backend, count
+            ));
+        }
+
+        Ok(out)
+    }
+
+    /// Export full aggregated metrics in Prometheus text exposition format.
+    ///
+    /// Includes per-backend latency/success and per-dialect-pair breakdowns
+    /// in addition to the global summary.
+    pub fn export_prometheus_aggregated(metrics: &AggregatedMetrics) -> Result<String, String> {
+        let mut out = Self::export_prometheus(&metrics.summary)?;
+        out.push('\n');
+
+        out.push_str("# HELP abp_backend_success_rate Per-backend success rate.\n");
+        out.push_str("# TYPE abp_backend_success_rate gauge\n");
+        for br in &metrics.backend_reports {
+            out.push_str(&format!(
+                "abp_backend_success_rate{{backend=\"{}\"}} {:.4}\n",
+                br.backend_name, br.success_rate
+            ));
+        }
+        out.push('\n');
+
+        out.push_str("# HELP abp_backend_latency_ms Per-backend latency in milliseconds.\n");
+        out.push_str("# TYPE abp_backend_latency_ms summary\n");
+        for br in &metrics.backend_reports {
+            out.push_str(&format!(
+                "abp_backend_latency_ms{{backend=\"{}\",quantile=\"0.5\"}} {:.2}\n",
+                br.backend_name, br.p50_latency_ms
+            ));
+            out.push_str(&format!(
+                "abp_backend_latency_ms{{backend=\"{}\",quantile=\"0.99\"}} {:.2}\n",
+                br.backend_name, br.p99_latency_ms
+            ));
+        }
+        out.push('\n');
+
+        out.push_str("# HELP abp_backend_tokens_total Per-backend token usage.\n");
+        out.push_str("# TYPE abp_backend_tokens_total counter\n");
+        for br in &metrics.backend_reports {
+            out.push_str(&format!(
+                "abp_backend_tokens_total{{backend=\"{}\",direction=\"input\"}} {}\n",
+                br.backend_name, br.total_tokens_in
+            ));
+            out.push_str(&format!(
+                "abp_backend_tokens_total{{backend=\"{}\",direction=\"output\"}} {}\n",
+                br.backend_name, br.total_tokens_out
+            ));
+        }
+        out.push('\n');
+
+        if !metrics.dialect_pairs.is_empty() {
+            out.push_str("# HELP abp_dialect_pair_runs_total Runs per dialect pair.\n");
+            out.push_str("# TYPE abp_dialect_pair_runs_total counter\n");
+            for dp in &metrics.dialect_pairs {
+                out.push_str(&format!(
+                    "abp_dialect_pair_runs_total{{source=\"{}\",target=\"{}\"}} {}\n",
+                    dp.source, dp.target, dp.run_count
+                ));
+            }
+            out.push('\n');
+
+            out.push_str("# HELP abp_dialect_pair_errors_total Errors per dialect pair.\n");
+            out.push_str("# TYPE abp_dialect_pair_errors_total counter\n");
+            for dp in &metrics.dialect_pairs {
+                out.push_str(&format!(
+                    "abp_dialect_pair_errors_total{{source=\"{}\",target=\"{}\"}} {}\n",
+                    dp.source, dp.target, dp.error_count
+                ));
+            }
+        }
+
+        Ok(out)
     }
 }
 
@@ -890,5 +1250,233 @@ mod tests {
     #[test]
     fn percentile_single() {
         assert_eq!(percentile(&[42], 99.0), 42.0);
+    }
+
+    // --- DialectPairRegistry ---
+
+    #[test]
+    fn dialect_registry_empty() {
+        let r = DialectPairRegistry::new();
+        assert_eq!(r.pair_count(), 0);
+        assert_eq!(r.total_runs(), 0);
+        assert!(r.snapshot().is_empty());
+    }
+
+    #[test]
+    fn dialect_registry_record_and_snapshot() {
+        let r = DialectPairRegistry::new();
+        r.record("openai", "anthropic", 100, 50, 60, false);
+        r.record("openai", "anthropic", 200, 40, 80, true);
+        r.record("openai", "gemini", 150, 30, 70, false);
+
+        assert_eq!(r.pair_count(), 2);
+        assert_eq!(r.total_runs(), 3);
+
+        let snap = r.snapshot();
+        let pair_oa = DialectPair {
+            source: "openai".into(),
+            target: "anthropic".into(),
+        };
+        let stats_oa = &snap[&pair_oa];
+        assert_eq!(stats_oa.run_count, 2);
+        assert_eq!(stats_oa.total_duration_ms, 300);
+        assert_eq!(stats_oa.total_tokens_in, 90);
+        assert_eq!(stats_oa.total_tokens_out, 140);
+        assert_eq!(stats_oa.error_count, 1);
+
+        let pair_og = DialectPair {
+            source: "openai".into(),
+            target: "gemini".into(),
+        };
+        let stats_og = &snap[&pair_og];
+        assert_eq!(stats_og.run_count, 1);
+        assert_eq!(stats_og.error_count, 0);
+    }
+
+    #[test]
+    fn dialect_registry_reset() {
+        let r = DialectPairRegistry::new();
+        r.record("a", "b", 10, 1, 2, false);
+        r.reset();
+        assert_eq!(r.pair_count(), 0);
+        assert_eq!(r.total_runs(), 0);
+    }
+
+    #[test]
+    fn dialect_registry_thread_safety() {
+        let r = DialectPairRegistry::new();
+        let mut handles = vec![];
+        for i in 0..10 {
+            let rr = r.clone();
+            handles.push(thread::spawn(move || {
+                rr.record("src", "tgt", i * 10, 10, 20, i % 3 == 0);
+            }));
+        }
+        for h in handles {
+            h.join().unwrap();
+        }
+        assert_eq!(r.total_runs(), 10);
+        assert_eq!(r.pair_count(), 1);
+    }
+
+    // --- BackendReport ---
+
+    #[test]
+    fn backend_reports_empty_collector() {
+        let c = MetricsCollector::new();
+        assert!(c.backend_reports().is_empty());
+    }
+
+    #[test]
+    fn backend_reports_single_backend() {
+        let c = MetricsCollector::new();
+        c.record(sample_metrics("mock", 100, 0));
+        c.record(sample_metrics("mock", 200, 1));
+        c.record(sample_metrics("mock", 300, 0));
+
+        let reports = c.backend_reports();
+        assert_eq!(reports.len(), 1);
+
+        let r = &reports[0];
+        assert_eq!(r.backend_name, "mock");
+        assert_eq!(r.total_runs, 3);
+        assert_eq!(r.success_count, 2);
+        assert_eq!(r.error_count, 1);
+        assert!((r.success_rate - 2.0 / 3.0).abs() < 1e-10);
+        assert!((r.mean_latency_ms - 200.0).abs() < f64::EPSILON);
+        assert_eq!(r.total_tokens_in, 300); // 3 * 100
+        assert_eq!(r.total_tokens_out, 600); // 3 * 200
+    }
+
+    #[test]
+    fn backend_reports_multiple_backends() {
+        let c = MetricsCollector::new();
+        c.record(sample_metrics("alpha", 50, 0));
+        c.record(sample_metrics("beta", 100, 1));
+        c.record(sample_metrics("alpha", 150, 0));
+
+        let reports = c.backend_reports();
+        assert_eq!(reports.len(), 2);
+        // BTreeMap ordering: alpha before beta
+        assert_eq!(reports[0].backend_name, "alpha");
+        assert_eq!(reports[0].total_runs, 2);
+        assert_eq!(reports[0].success_rate, 1.0);
+        assert_eq!(reports[1].backend_name, "beta");
+        assert_eq!(reports[1].total_runs, 1);
+        assert_eq!(reports[1].success_rate, 0.0);
+    }
+
+    // --- AggregatedMetrics ---
+
+    #[test]
+    fn aggregate_combines_all_dimensions() {
+        let c = MetricsCollector::new();
+        c.record(sample_metrics("mock", 100, 0));
+        c.record(sample_metrics("sidecar", 200, 1));
+
+        let dr = DialectPairRegistry::new();
+        dr.record("openai", "anthropic", 100, 50, 60, false);
+
+        let agg = c.aggregate(&dr);
+        assert_eq!(agg.summary.count, 2);
+        assert_eq!(agg.backend_reports.len(), 2);
+        assert_eq!(agg.dialect_pairs.len(), 1);
+    }
+
+    #[test]
+    fn aggregate_serde_roundtrip() {
+        let c = MetricsCollector::new();
+        c.record(sample_metrics("mock", 42, 0));
+        let dr = DialectPairRegistry::new();
+        dr.record("a", "b", 42, 10, 20, false);
+
+        let agg = c.aggregate(&dr);
+        let json = serde_json::to_string(&agg).unwrap();
+        let agg2: AggregatedMetrics = serde_json::from_str(&json).unwrap();
+        assert_eq!(agg, agg2);
+    }
+
+    // --- Prometheus export ---
+
+    #[test]
+    fn prometheus_export_contains_expected_metrics() {
+        let c = MetricsCollector::new();
+        c.record(sample_metrics("mock", 100, 0));
+        c.record(sample_metrics("sidecar", 200, 1));
+        let s = c.summary();
+
+        let prom = MetricsExporter::export_prometheus(&s).unwrap();
+        assert!(prom.contains("# TYPE abp_runs_total counter"));
+        assert!(prom.contains("abp_runs_total 2"));
+        assert!(prom.contains("abp_run_duration_ms{quantile=\"0.5\"}"));
+        assert!(prom.contains("abp_run_duration_ms{quantile=\"0.99\"}"));
+        assert!(prom.contains("abp_tokens_total{direction=\"input\"} 200"));
+        assert!(prom.contains("abp_tokens_total{direction=\"output\"} 400"));
+        assert!(prom.contains("abp_error_rate"));
+        assert!(prom.contains("abp_backend_runs_total{backend=\"mock\"} 1"));
+        assert!(prom.contains("abp_backend_runs_total{backend=\"sidecar\"} 1"));
+    }
+
+    #[test]
+    fn prometheus_export_empty_summary() {
+        let s = MetricsSummary::default();
+        let prom = MetricsExporter::export_prometheus(&s).unwrap();
+        assert!(prom.contains("abp_runs_total 0"));
+        assert!(prom.contains("abp_error_rate 0.0000"));
+    }
+
+    #[test]
+    fn prometheus_export_via_format_enum() {
+        let c = MetricsCollector::new();
+        c.record(sample_metrics("mock", 50, 0));
+        let s = c.summary();
+        let prom = MetricsExporter::export(&s, ExportFormat::Prometheus).unwrap();
+        assert!(prom.contains("abp_runs_total 1"));
+    }
+
+    #[test]
+    fn prometheus_aggregated_export() {
+        let c = MetricsCollector::new();
+        c.record(sample_metrics("mock", 100, 0));
+        c.record(sample_metrics("mock", 200, 1));
+
+        let dr = DialectPairRegistry::new();
+        dr.record("openai", "anthropic", 100, 50, 60, false);
+        dr.record("openai", "anthropic", 200, 40, 80, true);
+
+        let agg = c.aggregate(&dr);
+        let prom = MetricsExporter::export_prometheus_aggregated(&agg).unwrap();
+
+        // Global summary present
+        assert!(prom.contains("abp_runs_total 2"));
+        // Per-backend success rate
+        assert!(prom.contains("abp_backend_success_rate{backend=\"mock\"}"));
+        // Per-backend latency
+        assert!(prom.contains("abp_backend_latency_ms{backend=\"mock\",quantile=\"0.5\"}"));
+        // Per-backend tokens
+        assert!(
+            prom.contains("abp_backend_tokens_total{backend=\"mock\",direction=\"input\"} 200")
+        );
+        // Dialect pair runs
+        assert!(
+            prom.contains("abp_dialect_pair_runs_total{source=\"openai\",target=\"anthropic\"} 2")
+        );
+        // Dialect pair errors
+        assert!(
+            prom.contains(
+                "abp_dialect_pair_errors_total{source=\"openai\",target=\"anthropic\"} 1"
+            )
+        );
+    }
+
+    #[test]
+    fn prometheus_aggregated_no_dialect_pairs() {
+        let c = MetricsCollector::new();
+        c.record(sample_metrics("mock", 100, 0));
+        let dr = DialectPairRegistry::new();
+        let agg = c.aggregate(&dr);
+        let prom = MetricsExporter::export_prometheus_aggregated(&agg).unwrap();
+        // Should not contain dialect pair sections when empty
+        assert!(!prom.contains("abp_dialect_pair_runs_total"));
     }
 }

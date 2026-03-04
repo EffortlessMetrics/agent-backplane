@@ -546,7 +546,7 @@ pub fn usage_from_ir(usage: &IrUsage) -> UsageMetadata {
 // ── From/Into trait implementations ─────────────────────────────────────
 
 impl From<GenerateContentRequest> for abp_core::WorkOrder {
-    /// Convert a shim [`GenerateContentRequest`] into an ABP [`WorkOrder`].
+    /// Convert a shim [`GenerateContentRequest`] into an ABP [`abp_core::WorkOrder`].
     ///
     /// The last user-role text part becomes the task. System instructions
     /// are stored as context snippets. Tools, generation config, safety
