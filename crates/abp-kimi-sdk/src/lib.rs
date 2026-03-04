@@ -12,7 +12,11 @@ pub mod api;
 /// Conversion between Kimi SDK wire types and ABP contract types.
 pub mod convert;
 pub mod dialect;
+/// Kimi File API types for document parsing and file-based context.
+pub mod files;
 pub mod lowering;
+/// Model listing types for the Moonshot Kimi Models API.
+pub mod models;
 pub mod types;
 
 use abp_runtime::Runtime;

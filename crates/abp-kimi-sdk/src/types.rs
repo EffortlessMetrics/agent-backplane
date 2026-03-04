@@ -5,6 +5,7 @@
 //! These types mirror the Moonshot REST API wire format.
 //! See <https://platform.moonshot.cn/docs>.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 // ── Re-export shared OpenAI-compatible types from the OpenAI shim ───────
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 // ── Search options (Kimi extension) ─────────────────────────────────────
 
 /// Controls Kimi's built-in web search behaviour.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct SearchOptions {
     /// When and whether to perform web search.
     pub mode: SearchMode,
@@ -24,7 +25,7 @@ pub struct SearchOptions {
 }
 
 /// When the model should invoke web search.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchMode {
     /// Let the model decide whether to search.
@@ -38,7 +39,7 @@ pub enum SearchMode {
 // ── Chat message (role-tagged, OpenAI-compatible) ───────────────────────
 
 /// A chat message discriminated by `role`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "role", rename_all = "snake_case")]
 pub enum ChatMessage {
     /// System prompt.
@@ -72,7 +73,7 @@ pub enum ChatMessage {
 // ── Chat completion request ─────────────────────────────────────────────
 
 /// Kimi Chat Completions request — OpenAI-compatible with search extensions.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiChatRequest {
     /// Model identifier (e.g. `moonshot-v1-8k`).
     pub model: String,
@@ -109,7 +110,7 @@ pub struct KimiChatRequest {
 // ── Chat completion response ────────────────────────────────────────────
 
 /// Kimi Chat Completions response — OpenAI-compatible with Kimi metadata.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiChatResponse {
     /// Unique response identifier.
     pub id: String,
@@ -127,7 +128,7 @@ pub struct KimiChatResponse {
 }
 
 /// A single choice in the completion response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct Choice {
     /// Zero-based index.
     pub index: u32,
@@ -139,7 +140,7 @@ pub struct Choice {
 }
 
 /// The assistant message inside a response [`Choice`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ChoiceMessage {
     /// Always `"assistant"`.
     pub role: String,
@@ -154,7 +155,7 @@ pub struct ChoiceMessage {
 // ── Streaming types ─────────────────────────────────────────────────────
 
 /// A streaming chunk from the Kimi Chat Completions API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiStreamChunk {
     /// Chunk identifier.
     pub id: String,
@@ -172,7 +173,7 @@ pub struct KimiStreamChunk {
 }
 
 /// A single choice inside a streaming chunk.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct StreamChoice {
     /// Zero-based choice index.
     pub index: u32,
@@ -184,7 +185,7 @@ pub struct StreamChoice {
 }
 
 /// An incremental delta inside a streaming choice.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct StreamDelta {
     /// Role (usually only in the first chunk).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -198,7 +199,7 @@ pub struct StreamDelta {
 }
 
 /// A tool call fragment inside a streaming delta.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct StreamToolCall {
     /// Index of the tool call in the array.
     pub index: u32,
@@ -214,7 +215,7 @@ pub struct StreamToolCall {
 }
 
 /// Incremental function call data inside a streaming tool call.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct StreamFunctionCall {
     /// Function name (first fragment only).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -227,7 +228,7 @@ pub struct StreamFunctionCall {
 // ── Token usage (Kimi-extended) ─────────────────────────────────────────
 
 /// Kimi token usage — extends standard usage with search token accounting.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiUsage {
     /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,
@@ -243,7 +244,7 @@ pub struct KimiUsage {
 // ── Tool types ──────────────────────────────────────────────────────────
 
 /// A function tool definition.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct Tool {
     /// Tool type (always `"function"`).
     #[serde(rename = "type")]
@@ -253,7 +254,7 @@ pub struct Tool {
 }
 
 /// The function definition inside a [`Tool`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct FunctionDef {
     /// Function name.
     pub name: String,
@@ -264,7 +265,7 @@ pub struct FunctionDef {
 }
 
 /// A tool call emitted by the model.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ToolCall {
     /// Unique identifier for this tool call.
     pub id: String,
@@ -276,7 +277,7 @@ pub struct ToolCall {
 }
 
 /// The function invocation inside a [`ToolCall`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct FunctionCall {
     /// Name of the function to invoke.
     pub name: String,
@@ -285,7 +286,7 @@ pub struct FunctionCall {
 }
 
 /// Controls which (if any) tool the model should call.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(untagged)]
 pub enum ToolChoice {
     /// A string shorthand: `"none"`, `"auto"`, or `"required"`.
@@ -301,7 +302,7 @@ pub enum ToolChoice {
 }
 
 /// String-form tool choice modes.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolChoiceMode {
     /// Model will not call any tool.
@@ -313,7 +314,7 @@ pub enum ToolChoiceMode {
 }
 
 /// A reference to a specific function in a forced tool choice.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ToolChoiceFunctionRef {
     /// Name of the function to force.
     pub name: String,

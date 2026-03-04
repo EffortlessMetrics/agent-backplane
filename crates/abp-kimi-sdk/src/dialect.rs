@@ -9,6 +9,7 @@ use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -82,7 +83,7 @@ pub fn capability_manifest() -> CapabilityManifest {
 // ---------------------------------------------------------------------------
 
 /// A vendor-agnostic tool definition used as the ABP canonical form.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CanonicalToolDef {
     /// Tool name.
     pub name: String,
@@ -93,7 +94,7 @@ pub struct CanonicalToolDef {
 }
 
 /// Kimi/OpenAI-compatible function tool definition.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiToolDef {
     /// Tool type (always `"function"`).
     #[serde(rename = "type")]
@@ -103,7 +104,7 @@ pub struct KimiToolDef {
 }
 
 /// The function payload inside a [`KimiToolDef`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiFunctionDef {
     /// Function name.
     pub name: String,
@@ -144,7 +145,7 @@ pub fn tool_def_from_kimi(def: &KimiToolDef) -> CanonicalToolDef {
 ///
 /// When included in the tools array with `type: "builtin_function"`, Kimi
 /// performs web search automatically and injects citations into the response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiBuiltinTool {
     /// Tool type — `"builtin_function"` for Kimi built-ins.
     #[serde(rename = "type")]
@@ -154,7 +155,7 @@ pub struct KimiBuiltinTool {
 }
 
 /// Descriptor for a Kimi built-in function such as `search_internet` or `browser`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiBuiltinFunction {
     /// Built-in name (e.g. `"$web_search"`, `"$browser"`).
     pub name: String,
@@ -187,7 +188,7 @@ pub fn builtin_browser() -> KimiBuiltinTool {
 // ---------------------------------------------------------------------------
 
 /// A citation reference returned by Kimi when `search_internet` is active.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiRef {
     /// The numeric index of this citation (1-based).
     pub index: u32,
@@ -203,7 +204,7 @@ pub struct KimiRef {
 // ---------------------------------------------------------------------------
 
 /// Vendor-specific configuration for the Moonshot Kimi API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct KimiConfig {
     /// Moonshot API key.
     pub api_key: String,
@@ -246,7 +247,7 @@ impl Default for KimiConfig {
 ///
 /// Follows the OpenAI chat completions shape with Kimi-specific extensions
 /// such as built-in tools and the `k1` reasoning mode.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct KimiRequest {
     /// Model identifier (e.g. `moonshot-v1-8k`).
     pub model: String,
@@ -271,7 +272,7 @@ pub struct KimiRequest {
 
 /// A tool entry in a Kimi request — either a user-defined function or a
 /// Kimi built-in function such as `search_internet`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum KimiTool {
     /// A user-defined function tool.
@@ -287,7 +288,7 @@ pub enum KimiTool {
 }
 
 /// Message roles supported by Kimi.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum KimiRole {
     /// System prompt.
@@ -312,7 +313,7 @@ impl std::fmt::Display for KimiRole {
 }
 
 /// A single message in the Kimi conversation format.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct KimiMessage {
     /// Message role.
     pub role: String,
@@ -332,7 +333,7 @@ pub struct KimiMessage {
 // ---------------------------------------------------------------------------
 
 /// Kimi chat completions response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct KimiResponse {
     /// Unique response identifier.
     pub id: String,
@@ -349,7 +350,7 @@ pub struct KimiResponse {
 }
 
 /// A single choice in a Kimi completions response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct KimiChoice {
     /// Zero-based index of this choice.
     pub index: u32,
@@ -360,7 +361,7 @@ pub struct KimiChoice {
 }
 
 /// A message within a Kimi response choice.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct KimiResponseMessage {
     /// Message role.
     pub role: String,
@@ -372,7 +373,7 @@ pub struct KimiResponseMessage {
 }
 
 /// A tool call in a Kimi response (OpenAI-compatible shape).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiToolCall {
     /// Unique tool call identifier.
     pub id: String,
@@ -384,7 +385,7 @@ pub struct KimiToolCall {
 }
 
 /// The function payload within a Kimi tool call.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiFunctionCall {
     /// Name of the function to invoke.
     pub name: String,
@@ -393,7 +394,7 @@ pub struct KimiFunctionCall {
 }
 
 /// Token usage reported by the Kimi API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiUsage {
     /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,
@@ -408,7 +409,7 @@ pub struct KimiUsage {
 // ---------------------------------------------------------------------------
 
 /// A single SSE chunk from a Kimi streaming response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiChunk {
     /// Chunk identifier (same across all chunks in one stream).
     pub id: String,
@@ -429,7 +430,7 @@ pub struct KimiChunk {
 }
 
 /// A single choice within a [`KimiChunk`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiChunkChoice {
     /// Zero-based choice index.
     pub index: u32,
@@ -440,7 +441,7 @@ pub struct KimiChunkChoice {
 }
 
 /// An incremental delta within a streaming chunk choice.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, JsonSchema)]
 pub struct KimiChunkDelta {
     /// Role (usually only in the first chunk).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -454,7 +455,7 @@ pub struct KimiChunkDelta {
 }
 
 /// An incremental tool call fragment within a streaming delta.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiChunkToolCall {
     /// Index of this tool call in the tool_calls array.
     pub index: u32,
@@ -470,7 +471,7 @@ pub struct KimiChunkToolCall {
 }
 
 /// Incremental function call data within a streaming tool call fragment.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiChunkFunctionCall {
     /// Function name (only in first fragment).
     #[serde(default, skip_serializing_if = "Option::is_none")]

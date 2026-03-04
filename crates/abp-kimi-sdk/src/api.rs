@@ -7,6 +7,7 @@
 
 use abp_core::{AgentEvent, AgentEventKind, Outcome, Receipt, WorkOrder, WorkOrderBuilder};
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 /// A Kimi Chat Completions API request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiChatRequest {
     /// Model identifier (e.g. `moonshot-v1-8k`).
     pub model: String,
@@ -53,7 +54,7 @@ pub struct KimiChatRequest {
 }
 
 /// A message in a Kimi Chat Completions conversation.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "role", rename_all = "snake_case")]
 pub enum KimiMessage {
     /// System instruction message.
@@ -85,7 +86,7 @@ pub enum KimiMessage {
 }
 
 /// A tool definition in a Kimi request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiToolDef {
     /// Tool type — always `"function"`.
     #[serde(rename = "type")]
@@ -95,7 +96,7 @@ pub struct KimiToolDef {
 }
 
 /// A function definition inside a [`KimiToolDef`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiFunctionDef {
     /// Function name.
     pub name: String,
@@ -108,7 +109,7 @@ pub struct KimiFunctionDef {
 }
 
 /// A tool call emitted by the model.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiToolCall {
     /// Unique identifier for this tool call.
     pub id: String,
@@ -120,7 +121,7 @@ pub struct KimiToolCall {
 }
 
 /// The function invocation inside a [`KimiToolCall`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiFunctionCall {
     /// Name of the function to invoke.
     pub name: String,
@@ -133,7 +134,7 @@ pub struct KimiFunctionCall {
 // ---------------------------------------------------------------------------
 
 /// A Kimi Chat Completions API response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiChatResponse {
     /// Unique response identifier (e.g. `cmpl-...`).
     pub id: String,
@@ -151,7 +152,7 @@ pub struct KimiChatResponse {
 }
 
 /// A single choice in the response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiChoice {
     /// Zero-based index of this choice.
     pub index: u32,
@@ -162,7 +163,7 @@ pub struct KimiChoice {
 }
 
 /// The assistant message inside a [`KimiChoice`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiAssistantMessage {
     /// Role — always `"assistant"`.
     #[serde(default = "default_assistant_role")]
@@ -180,7 +181,7 @@ fn default_assistant_role() -> String {
 }
 
 /// The reason a model stopped generating tokens.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum KimiFinishReason {
     /// Natural stop or hit a stop sequence.
@@ -194,7 +195,7 @@ pub enum KimiFinishReason {
 }
 
 /// Token usage statistics.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiUsage {
     /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,
@@ -209,7 +210,7 @@ pub struct KimiUsage {
 // ---------------------------------------------------------------------------
 
 /// A single streaming chunk (SSE `chat.completion.chunk`).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiStreamChunk {
     /// Unique chunk identifier.
     pub id: String,
@@ -227,7 +228,7 @@ pub struct KimiStreamChunk {
 }
 
 /// A single choice inside a [`KimiStreamChunk`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct KimiStreamChoice {
     /// Zero-based index.
     pub index: u32,
@@ -238,7 +239,7 @@ pub struct KimiStreamChoice {
 }
 
 /// The delta payload inside a streaming choice.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, JsonSchema)]
 pub struct KimiDelta {
     /// Role (only in the first chunk).
     #[serde(skip_serializing_if = "Option::is_none")]
