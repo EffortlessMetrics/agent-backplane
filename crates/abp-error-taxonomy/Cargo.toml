@@ -12,7 +12,7 @@ categories = ["development-tools"]
 readme = "README.md"
 
 [dependencies]
-abp-error = { path = "../abp-error" }
+abp-error = { path = "../abp-error", version = "0.1.0" }
 serde = { workspace = true }
 
 [dev-dependencies]
