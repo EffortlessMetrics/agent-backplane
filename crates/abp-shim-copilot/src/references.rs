@@ -9,9 +9,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 // Re-export the canonical SDK types.
-pub use abp_copilot_sdk::dialect::{
-    CopilotConfirmation, CopilotReference, CopilotReferenceType,
-};
+pub use abp_copilot_sdk::dialect::{CopilotConfirmation, CopilotReference, CopilotReferenceType};
 
 // ── Reference builders ──────────────────────────────────────────────────
 

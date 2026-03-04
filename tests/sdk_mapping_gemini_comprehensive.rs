@@ -55,8 +55,8 @@ use abp_gemini_sdk::dialect::{
 use abp_gemini_sdk::lowering;
 use abp_shim_gemini::{
     Candidate, Content, FunctionCallingConfig, FunctionDeclaration, GenerateContentRequest,
-    GenerateContentResponse, GenerationConfig, Part, SafetySetting, StreamEvent, ToolConfig,
-    ToolDeclaration, UsageMetadata, from_dialect_response, from_dialect_stream_chunk,
+    GenerateContentResponse, GenerationConfig, Part, PipelineClient, SafetySetting, StreamEvent,
+    ToolConfig, ToolDeclaration, UsageMetadata, from_dialect_response, from_dialect_stream_chunk,
     gen_config_from_dialect, to_dialect_request, usage_from_ir, usage_to_ir,
 };
 

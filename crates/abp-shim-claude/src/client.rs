@@ -302,13 +302,13 @@ impl AnthropicClient {
         &self.model
     }
 
-    /// Return a [`MessagesApi`] handle — mirrors `client.messages` in the SDK.
+    /// Return a [`crate::messages::MessagesApi`] handle — mirrors `client.messages` in the SDK.
     #[must_use]
     pub fn messages(&self) -> crate::messages::MessagesApi<'_> {
         crate::messages::MessagesApi { client: self }
     }
 
-    /// Return a [`MessagesApi`] handle (alias for SDK compatibility).
+    /// Return a [`crate::messages::MessagesApi`] handle (alias for SDK compatibility).
     #[must_use]
     pub fn messages_stream(&self) -> crate::messages::MessagesApi<'_> {
         crate::messages::MessagesApi { client: self }

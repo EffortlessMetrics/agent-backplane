@@ -40,7 +40,7 @@ use tokio_stream::StreamExt;
 use abp_shim_gemini::{
     Candidate, Content, FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration,
     GeminiError, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
-    HarmBlockThreshold, HarmCategory, Part, SafetySetting, StreamEvent, ToolConfig,
+    HarmBlockThreshold, HarmCategory, Part, PipelineClient, SafetySetting, StreamEvent, ToolConfig,
     ToolDeclaration, UsageMetadata, from_dialect_response, from_dialect_stream_chunk,
     gen_config_from_dialect, to_dialect_request, usage_from_ir, usage_to_ir,
 };

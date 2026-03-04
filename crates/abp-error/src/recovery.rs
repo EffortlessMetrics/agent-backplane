@@ -1,8 +1,8 @@
 #![allow(dead_code, unused_imports)]
 //! Recovery strategies for each error type.
 //!
-//! Given any typed error ([`MappingError`], [`ProtocolError`], [`VendorApiError`]),
-//! this module recommends a [`RecoveryStrategy`]: Retry, Fallback, Degrade, or Abort.
+//! Given any typed error ([`mapping_errors::MappingError`], [`protocol_errors::ProtocolError`], [`vendor_errors::VendorApiError`]),
+//! this module recommends a `RecoveryStrategy`: Retry, Fallback, Degrade, or Abort.
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -212,9 +212,7 @@ mod tests {
 
     #[test]
     fn abort_code() {
-        let s = RecoveryStrategy::Abort {
-            reason: "x".into(),
-        };
+        let s = RecoveryStrategy::Abort { reason: "x".into() };
         assert_eq!(s.code(), "ABP-REC-ABORT");
     }
 
@@ -245,9 +243,7 @@ mod tests {
 
     #[test]
     fn abort_is_not_recoverable() {
-        let s = RecoveryStrategy::Abort {
-            reason: "x".into(),
-        };
+        let s = RecoveryStrategy::Abort { reason: "x".into() };
         assert!(!s.is_recoverable());
     }
 
@@ -459,9 +455,7 @@ mod tests {
 
     #[test]
     fn vendor_429_with_retry_after() {
-        let e = VendorApiError::OpenAi(
-            VendorErrorDetail::new(429, "limited").with_retry_after(10),
-        );
+        let e = VendorApiError::OpenAi(VendorErrorDetail::new(429, "limited").with_retry_after(10));
         let s = recover_vendor(&e);
         if let RecoveryStrategy::Retry { delay_ms, .. } = &s {
             assert_eq!(*delay_ms, 10000);

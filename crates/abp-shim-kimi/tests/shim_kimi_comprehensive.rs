@@ -581,8 +581,8 @@ async fn t34_receipt_to_response_usage_tracking() {
         estimated_cost_usd: None,
     };
     let events = vec![assistant_event("response")];
-    let client =
-        KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor_with_usage(events, usage));
+    let client = KimiClient::with_model("moonshot-v1-8k")
+        .with_processor(make_processor_with_usage(events, usage));
     let req = KimiRequestBuilder::new()
         .messages(vec![Message::user("test")])
         .build();
@@ -1480,4 +1480,3 @@ fn t90_dialect_map_response_empty_content_skipped() {
     let events = dialect::map_response(&resp);
     assert!(events.is_empty(), "empty string content should be skipped");
 }
-

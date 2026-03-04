@@ -176,15 +176,12 @@ mod tests {
     }
 
     fn gemini_err() -> VendorApiError {
-        VendorApiError::Gemini(
-            VendorErrorDetail::new(503, "overloaded").with_retry_after(30),
-        )
+        VendorApiError::Gemini(VendorErrorDetail::new(503, "overloaded").with_retry_after(30))
     }
 
     fn codex_err() -> VendorApiError {
         VendorApiError::Codex(
-            VendorErrorDetail::new(500, "internal error")
-                .with_request_id("req-abc-123"),
+            VendorErrorDetail::new(500, "internal error").with_request_id("req-abc-123"),
         )
     }
 
@@ -365,10 +362,7 @@ mod tests {
     fn into_abp_error_500() {
         let abp = codex_err().into_abp_error();
         assert_eq!(abp.code, ErrorCode::BackendUnavailable);
-        assert_eq!(
-            abp.context["request_id"],
-            serde_json::json!("req-abc-123")
-        );
+        assert_eq!(abp.context["request_id"], serde_json::json!("req-abc-123"));
     }
 
     #[test]

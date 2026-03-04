@@ -321,10 +321,7 @@ mod tests {
             Some(401)
         );
         assert_eq!(CodexError::NotFound("x".into()).status_code(), Some(404));
-        assert_eq!(
-            CodexError::RateLimited("x".into()).status_code(),
-            Some(429)
-        );
+        assert_eq!(CodexError::RateLimited("x".into()).status_code(), Some(429));
         assert_eq!(
             CodexError::ServerError {
                 status: 502,

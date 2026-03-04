@@ -787,8 +787,8 @@ fn t50_receipt_to_response_error_event() {
 async fn t51_receipt_to_response_usage() {
     let usage = sample_usage();
     let events = vec![assistant_event("ok")];
-    let client =
-        KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor_with_usage(events, usage));
+    let client = KimiClient::with_model("moonshot-v1-8k")
+        .with_processor(make_processor_with_usage(events, usage));
     let req = KimiRequestBuilder::new()
         .messages(vec![Message::user("test")])
         .build();
@@ -1562,4 +1562,3 @@ fn t99_assistant_with_tool_calls_constructor() {
 fn t100_backend_name_constant() {
     assert_eq!(abp_kimi_sdk::BACKEND_NAME, "sidecar:kimi");
 }
-

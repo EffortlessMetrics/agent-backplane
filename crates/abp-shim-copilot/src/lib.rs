@@ -32,9 +32,9 @@ pub use abp_copilot_sdk::dialect::{CopilotFunctionDef, CopilotToolType};
 
 // Re-export reference and confirmation builders for convenience.
 pub use references::{
-    accepted_confirmation, file_reference, pending_confirmation, rejected_confirmation,
-    repository_reference, snippet_reference, web_search_reference, with_metadata,
-    ConfirmationState, confirmation_state,
+    ConfirmationState, accepted_confirmation, confirmation_state, file_reference,
+    pending_confirmation, rejected_confirmation, repository_reference, snippet_reference,
+    web_search_reference, with_metadata,
 };
 
 // Re-export error types for convenience.

@@ -315,7 +315,8 @@ pub fn register_all_dialects(registry: &SharedCapabilityRegistry) {
         kimi_manifest, openai_gpt4o_manifest,
     };
 
-    let dialects: &[(&str, fn() -> abp_core::CapabilityManifest)] = &[
+    type ManifestEntry = (&'static str, fn() -> abp_core::CapabilityManifest);
+    let dialects: &[ManifestEntry] = &[
         ("openai/gpt-4o", openai_gpt4o_manifest),
         ("anthropic/claude-3.5-sonnet", claude_35_sonnet_manifest),
         ("google/gemini-1.5-pro", gemini_15_pro_manifest),
@@ -851,7 +852,10 @@ mod tests {
     fn default_shared_registry_negotiate_works() {
         let reg = default_shared_registry();
         let result = reg
-            .negotiate("openai/gpt-4o", &[Capability::Streaming, Capability::ToolUse])
+            .negotiate(
+                "openai/gpt-4o",
+                &[Capability::Streaming, Capability::ToolUse],
+            )
             .unwrap();
         assert!(result.is_viable());
     }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! SSE-compatible streaming adapter for Claude message events.
 //!
-//! Provides [`MessageStream`] for consuming streaming responses and
-//! [`SseParser`] for parsing raw SSE text into typed [`StreamEvent`]s.
+//! Provides `MessageStream` for consuming streaming responses and
+//! `SseParser` for parsing raw SSE text into typed `StreamEvent`s.
 
 use std::collections::VecDeque;
 use std::pin::Pin;

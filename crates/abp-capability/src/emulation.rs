@@ -387,8 +387,8 @@ mod tests {
     #[test]
     fn plan_average_fidelity() {
         let plan = build_emulation_plan(&[
-            (Capability::ToolRead, EmulationStrategy::ClientSide),   // 0.9
-            (Capability::Vision, EmulationStrategy::Approximate),     // 0.4
+            (Capability::ToolRead, EmulationStrategy::ClientSide), // 0.9
+            (Capability::Vision, EmulationStrategy::Approximate),  // 0.4
         ]);
         let avg = plan.average_fidelity();
         assert!((avg - 0.65).abs() < 0.01);
@@ -397,8 +397,8 @@ mod tests {
     #[test]
     fn plan_min_confidence() {
         let plan = build_emulation_plan(&[
-            (Capability::ToolRead, EmulationStrategy::ClientSide),   // High
-            (Capability::Vision, EmulationStrategy::Approximate),     // Low
+            (Capability::ToolRead, EmulationStrategy::ClientSide), // High
+            (Capability::Vision, EmulationStrategy::Approximate),  // Low
         ]);
         assert_eq!(plan.min_confidence(), ConfidenceLevel::Low);
     }
@@ -443,19 +443,15 @@ mod tests {
 
     #[test]
     fn plan_display_non_empty() {
-        let plan = build_emulation_plan(&[
-            (Capability::ToolRead, EmulationStrategy::ClientSide),
-        ]);
+        let plan = build_emulation_plan(&[(Capability::ToolRead, EmulationStrategy::ClientSide)]);
         let s = format!("{plan}");
         assert!(s.contains("1 emulated"));
     }
 
     #[test]
     fn entry_display() {
-        let entry = default_emulation_plan_entry(
-            &Capability::Vision,
-            &EmulationStrategy::Approximate,
-        );
+        let entry =
+            default_emulation_plan_entry(&Capability::Vision, &EmulationStrategy::Approximate);
         let s = format!("{entry}");
         assert!(s.contains("Vision"));
         assert!(s.contains("approximate"));
@@ -472,7 +468,11 @@ mod tests {
 
     #[test]
     fn confidence_serde_roundtrip() {
-        for c in [ConfidenceLevel::High, ConfidenceLevel::Medium, ConfidenceLevel::Low] {
+        for c in [
+            ConfidenceLevel::High,
+            ConfidenceLevel::Medium,
+            ConfidenceLevel::Low,
+        ] {
             let json = serde_json::to_string(&c).unwrap();
             let back: ConfidenceLevel = serde_json::from_str(&json).unwrap();
             assert_eq!(back, c);
@@ -481,7 +481,11 @@ mod tests {
 
     #[test]
     fn failure_mode_serde_roundtrip() {
-        for fm in [FailureMode::Silent, FailureMode::Graceful, FailureMode::Hard] {
+        for fm in [
+            FailureMode::Silent,
+            FailureMode::Graceful,
+            FailureMode::Hard,
+        ] {
             let json = serde_json::to_string(&fm).unwrap();
             let back: FailureMode = serde_json::from_str(&json).unwrap();
             assert_eq!(back, fm);
@@ -501,10 +505,8 @@ mod tests {
 
     #[test]
     fn entry_serde_roundtrip() {
-        let entry = default_emulation_plan_entry(
-            &Capability::ToolUse,
-            &EmulationStrategy::ServerFallback,
-        );
+        let entry =
+            default_emulation_plan_entry(&Capability::ToolUse, &EmulationStrategy::ServerFallback);
         let json = serde_json::to_string(&entry).unwrap();
         let back: EmulationPlanEntry = serde_json::from_str(&json).unwrap();
         assert_eq!(back, entry);

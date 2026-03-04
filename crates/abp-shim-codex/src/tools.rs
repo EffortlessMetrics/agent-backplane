@@ -261,15 +261,11 @@ impl ToolDefinition {
     pub fn from_codex_tool(tool: &abp_codex_sdk::dialect::CodexTool) -> Self {
         use abp_codex_sdk::dialect::CodexTool;
         match tool {
-            CodexTool::CodeInterpreter {} => {
-                Self::CodeInterpreter(CodeInterpreterTool::default())
-            }
-            CodexTool::FileSearch { max_num_results } => {
-                Self::FileSearch(FileSearchTool {
-                    max_num_results: *max_num_results,
-                    ..FileSearchTool::default()
-                })
-            }
+            CodexTool::CodeInterpreter {} => Self::CodeInterpreter(CodeInterpreterTool::default()),
+            CodexTool::FileSearch { max_num_results } => Self::FileSearch(FileSearchTool {
+                max_num_results: *max_num_results,
+                ..FileSearchTool::default()
+            }),
             CodexTool::Function { function } => Self::Function(FunctionTool {
                 name: function.name.clone(),
                 description: Some(function.description.clone()),
@@ -282,10 +278,7 @@ impl ToolDefinition {
     /// Whether this is a built-in tool (code_interpreter or file_search).
     #[must_use]
     pub fn is_builtin(&self) -> bool {
-        matches!(
-            self,
-            Self::CodeInterpreter(_) | Self::FileSearch(_)
-        )
+        matches!(self, Self::CodeInterpreter(_) | Self::FileSearch(_))
     }
 
     /// The tool type name as a string slice.

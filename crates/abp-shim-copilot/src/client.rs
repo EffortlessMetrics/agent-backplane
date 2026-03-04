@@ -331,8 +331,7 @@ mod tests {
 
     #[test]
     fn copilot_client_with_builder() {
-        let builder =
-            ClientBuilder::new("ghu_key").base_url("https://custom.copilot.example");
+        let builder = ClientBuilder::new("ghu_key").base_url("https://custom.copilot.example");
         let client = CopilotClient::with_builder(builder).unwrap();
         assert_eq!(client.base_url(), "https://custom.copilot.example");
     }

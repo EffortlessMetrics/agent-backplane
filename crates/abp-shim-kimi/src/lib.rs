@@ -156,11 +156,7 @@ impl KimiClient {
     ///
     /// In this shim, file upload is a no-op that returns a synthetic file ID.
     /// A real implementation would POST to the Kimi Files API.
-    pub async fn file_upload(
-        &self,
-        filename: &str,
-        _content: &[u8],
-    ) -> Result<String> {
+    pub async fn file_upload(&self, filename: &str, _content: &[u8]) -> Result<String> {
         let file_id = format!("file-{}", uuid::Uuid::new_v4().as_simple());
         tracing_log(format!("file_upload stub: {filename} → {file_id}"));
         Ok(file_id)
@@ -307,7 +303,8 @@ mod tests {
                 ext: None,
             },
         ];
-        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("Hi")])
             .stream(true)
@@ -336,7 +333,8 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("Search for rust async")])
             .build();
@@ -361,7 +359,8 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![
                 Message::system("You are a helpful assistant."),
@@ -385,7 +384,8 @@ mod tests {
             kind: AgentEventKind::AssistantMessage { text: "4".into() },
             ext: None,
         }];
-        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![
                 Message::user("What is 2+2?"),
@@ -441,7 +441,8 @@ mod tests {
             kind: AgentEventKind::AssistantMessage { text: "ok".into() },
             ext: None,
         }];
-        let client = KimiClient::with_model("moonshot-v1-128k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-128k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .model("moonshot-v1-128k")
             .messages(vec![Message::user("test")])
@@ -463,7 +464,8 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("test")])
             .build();
@@ -633,7 +635,8 @@ mod tests {
                 ext: None,
             },
         ];
-        let client = KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("Search")])
             .build();
@@ -807,10 +810,7 @@ mod tests {
 
     #[test]
     fn error_rate_limit_classification() {
-        let err = crate::error::KimiShimError::from_status_and_body(
-            429,
-            "rate limit".into(),
-        );
+        let err = crate::error::KimiShimError::from_status_and_body(429, "rate limit".into());
         assert!(err.is_rate_limit());
         assert!(err.is_retryable());
     }
@@ -819,10 +819,7 @@ mod tests {
 
     #[test]
     fn error_auth_classification() {
-        let err = crate::error::KimiShimError::from_status_and_body(
-            401,
-            "unauthorized".into(),
-        );
+        let err = crate::error::KimiShimError::from_status_and_body(401, "unauthorized".into());
         assert!(err.is_auth_error());
         assert!(!err.is_retryable());
     }

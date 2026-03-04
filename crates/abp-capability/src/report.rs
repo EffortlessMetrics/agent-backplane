@@ -7,9 +7,7 @@
 //! or JSON.
 
 use crate::emulation::{self, EmulationPlan, build_emulation_plan};
-use crate::{
-    CapabilityRegistry, DialectNegotiationResult, TransitionKind, negotiate_dialects,
-};
+use crate::{CapabilityRegistry, DialectNegotiationResult, TransitionKind, negotiate_dialects};
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -252,7 +250,8 @@ pub fn build_report_from_manifests(
     target_name: &str,
     target_manifest: &CapabilityManifest,
 ) -> DialectCompatibilityReport {
-    let negotiation = negotiate_dialects(source_name, source_manifest, target_name, target_manifest);
+    let negotiation =
+        negotiate_dialects(source_name, source_manifest, target_name, target_manifest);
     build_report(&negotiation)
 }
 
@@ -289,9 +288,7 @@ mod tests {
             (Capability::Streaming, CoreSupportLevel::Native),
             (Capability::Vision, CoreSupportLevel::Native),
         ]);
-        let tgt = manifest_from(&[
-            (Capability::Streaming, CoreSupportLevel::Native),
-        ]);
+        let tgt = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
         let report = build_report_from_manifests("src", &src, "tgt", &tgt);
         assert!(!report.is_viable());
         assert_eq!(report.native_count, 1);
@@ -402,8 +399,11 @@ mod tests {
         );
         // Claude→OpenAI loses ExtendedThinking
         assert!(
-            report.entries.iter().any(|e| e.capability == Capability::ExtendedThinking
-                && e.status == FeatureStatus::Unsupported)
+            report
+                .entries
+                .iter()
+                .any(|e| e.capability == Capability::ExtendedThinking
+                    && e.status == FeatureStatus::Unsupported)
         );
         assert!(!report.is_viable());
     }

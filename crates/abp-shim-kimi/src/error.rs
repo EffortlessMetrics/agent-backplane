@@ -196,27 +196,42 @@ mod tests {
 
     #[test]
     fn error_kind_from_status_400() {
-        assert_eq!(KimiErrorKind::from_status(400, None), KimiErrorKind::InvalidRequest);
+        assert_eq!(
+            KimiErrorKind::from_status(400, None),
+            KimiErrorKind::InvalidRequest
+        );
     }
 
     #[test]
     fn error_kind_from_status_401() {
-        assert_eq!(KimiErrorKind::from_status(401, None), KimiErrorKind::Authentication);
+        assert_eq!(
+            KimiErrorKind::from_status(401, None),
+            KimiErrorKind::Authentication
+        );
     }
 
     #[test]
     fn error_kind_from_status_403() {
-        assert_eq!(KimiErrorKind::from_status(403, None), KimiErrorKind::PermissionDenied);
+        assert_eq!(
+            KimiErrorKind::from_status(403, None),
+            KimiErrorKind::PermissionDenied
+        );
     }
 
     #[test]
     fn error_kind_from_status_404() {
-        assert_eq!(KimiErrorKind::from_status(404, None), KimiErrorKind::NotFound);
+        assert_eq!(
+            KimiErrorKind::from_status(404, None),
+            KimiErrorKind::NotFound
+        );
     }
 
     #[test]
     fn error_kind_from_status_429() {
-        assert_eq!(KimiErrorKind::from_status(429, None), KimiErrorKind::RateLimit);
+        assert_eq!(
+            KimiErrorKind::from_status(429, None),
+            KimiErrorKind::RateLimit
+        );
     }
 
     #[test]
@@ -239,7 +254,10 @@ mod tests {
 
     #[test]
     fn error_kind_unknown_status() {
-        assert_eq!(KimiErrorKind::from_status(418, None), KimiErrorKind::Unknown);
+        assert_eq!(
+            KimiErrorKind::from_status(418, None),
+            KimiErrorKind::Unknown
+        );
     }
 
     #[test]

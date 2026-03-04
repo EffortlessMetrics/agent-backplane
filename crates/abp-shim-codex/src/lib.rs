@@ -13,10 +13,10 @@ pub mod client;
 pub mod convert;
 /// Codex-compatible error types.
 pub mod error;
-/// Translation functions between Codex-specific shim types and ABP core types.
-pub mod translate;
 /// Built-in Codex tool definitions (code interpreter, file search, function).
 pub mod tools;
+/// Translation functions between Codex-specific shim types and ABP core types.
+pub mod translate;
 /// Codex Responses API types (builder, usage statistics).
 pub mod types;
 

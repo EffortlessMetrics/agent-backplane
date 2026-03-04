@@ -18,7 +18,7 @@ use crate::metrics::Histogram;
 
 /// A timed span that records its duration on completion.
 ///
-/// Use [`TracingSpan::start`] to begin timing and [`TracingSpan::finish`] to
+/// Use `TracingSpan::completed` to create a pre-timed span and `TracingSpan::stop` to
 /// stop and record the elapsed time.  If the span is dropped without calling
 /// `finish`, the duration is still recorded.
 #[derive(Debug, Clone, Serialize, Deserialize)]

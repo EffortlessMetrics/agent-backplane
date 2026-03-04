@@ -644,7 +644,7 @@ mod tests {
         use super::*;
         use abp_shim_gemini::{
             Candidate, Content, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
-            Part, UsageMetadata,
+            Part, PipelineClient, UsageMetadata,
         };
 
         #[tokio::test]
