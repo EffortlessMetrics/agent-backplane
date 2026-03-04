@@ -1,0 +1,9 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: reference
+---
+{
+  "type": "terminal",
+  "id": "term-001",
+  "content": "error[E0308]: mismatched types"
+}

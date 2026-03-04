@@ -1,0 +1,7 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: evt
+---
+{
+  "type": "ping"
+}

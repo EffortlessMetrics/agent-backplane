@@ -1,0 +1,13 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: tc
+---
+{
+  "functionCallingConfig": {
+    "mode": "ANY",
+    "allowedFunctionNames": [
+      "get_weather",
+      "get_time"
+    ]
+  }
+}

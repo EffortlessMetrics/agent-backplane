@@ -1,0 +1,43 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: req
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Explain quantum computing."
+    },
+    {
+      "role": "assistant",
+      "content": "Quantum computing uses qubits..."
+    }
+  ],
+  "max_tokens": 4096,
+  "system": "You are a physics tutor.",
+  "temperature": 0.5,
+  "top_p": 0.95,
+  "top_k": 40,
+  "stream": false,
+  "tools": [
+    {
+      "name": "calculator",
+      "description": "Evaluate math expressions",
+      "input_schema": {
+        "properties": {
+          "expression": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "auto"
+  }
+}

@@ -1,0 +1,29 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: resp
+---
+{
+  "id": "msg_02TOOL",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "Let me calculate that."
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_calc01",
+      "name": "calculator",
+      "input": {
+        "expression": "sqrt(144)"
+      }
+    }
+  ],
+  "model": "claude-sonnet-4-20250514",
+  "stop_reason": "tool_use",
+  "usage": {
+    "input_tokens": 80,
+    "output_tokens": 45
+  }
+}

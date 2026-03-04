@@ -1,0 +1,26 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: resp
+---
+{
+  "id": "copilot-resp-001",
+  "object": "chat.completion",
+  "created": 1700003000,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "This code defines the main entry point of the program."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 200,
+    "completion_tokens": 50,
+    "total_tokens": 250,
+    "copilot_tokens": 15
+  }
+}

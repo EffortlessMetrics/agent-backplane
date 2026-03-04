@@ -1,0 +1,10 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: tc
+---
+{
+  "type": "function",
+  "function": {
+    "name": "get_weather"
+  }
+}

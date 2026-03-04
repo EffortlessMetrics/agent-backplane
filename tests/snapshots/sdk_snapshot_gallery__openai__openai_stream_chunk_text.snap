@@ -1,0 +1,18 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: chunk
+---
+{
+  "id": "chatcmpl-stream001",
+  "object": "chat.completion.chunk",
+  "created": 1700000200,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "content": "Hello"
+      }
+    }
+  ]
+}

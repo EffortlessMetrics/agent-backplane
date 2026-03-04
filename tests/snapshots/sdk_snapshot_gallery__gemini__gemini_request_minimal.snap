@@ -1,0 +1,16 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: req
+---
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Hi"
+        }
+      ]
+    }
+  ]
+}

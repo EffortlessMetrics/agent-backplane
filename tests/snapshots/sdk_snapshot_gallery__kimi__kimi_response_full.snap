@@ -1,0 +1,26 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: resp
+---
+{
+  "id": "kimi-resp-001",
+  "object": "chat.completion",
+  "created": 1700002000,
+  "model": "moonshot-v1-8k",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Based on my search results..."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 60,
+    "completion_tokens": 150,
+    "total_tokens": 210,
+    "search_tokens": 45
+  }
+}

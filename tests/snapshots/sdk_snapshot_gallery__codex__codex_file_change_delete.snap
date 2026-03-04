@@ -1,0 +1,8 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: fc
+---
+{
+  "path": "tmp/scratch.txt",
+  "operation": "delete"
+}

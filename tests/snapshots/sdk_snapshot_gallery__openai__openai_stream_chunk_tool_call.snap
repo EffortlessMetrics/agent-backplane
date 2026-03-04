@@ -1,0 +1,29 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: chunk
+---
+{
+  "id": "chatcmpl-stream002",
+  "object": "chat.completion.chunk",
+  "created": 1700000300,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "index": 0,
+            "id": "call_stream01",
+            "type": "function",
+            "function": {
+              "name": "get_weather",
+              "arguments": "{\"loc"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

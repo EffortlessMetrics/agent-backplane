@@ -1,0 +1,61 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: req
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a coding assistant."
+    },
+    {
+      "role": "user",
+      "content": "Explain this code.",
+      "name": "developer"
+    }
+  ],
+  "temperature": 0.4,
+  "top_p": 0.9,
+  "max_tokens": 2048,
+  "stream": true,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read file contents",
+        "parameters": {
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "intent": "code-review",
+  "references": [
+    {
+      "type": "file",
+      "id": "ref-001",
+      "uri": "file:///workspace/src/main.rs",
+      "content": "fn main() {}",
+      "metadata": {
+        "language": "rust",
+        "startLine": 10
+      }
+    },
+    {
+      "type": "selection",
+      "id": "ref-002",
+      "content": "let x = 42;"
+    }
+  ]
+}

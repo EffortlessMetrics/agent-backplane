@@ -1,0 +1,25 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: resp
+---
+{
+  "id": "codex-resp-001",
+  "object": "chat.completion",
+  "created": 1700001000,
+  "model": "codex-mini-latest",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Here is the refactored code..."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 120,
+    "completion_tokens": 250,
+    "total_tokens": 370
+  }
+}
