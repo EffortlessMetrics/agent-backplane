@@ -12,9 +12,7 @@ expression: event
             "text": "Hello"
           }
         ]
-      },
-      "finish_reason": null
+      }
     }
-  ],
-  "usage_metadata": null
+  ]
 }

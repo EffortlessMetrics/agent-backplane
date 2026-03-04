@@ -18,10 +18,10 @@ expression: resp
           }
         ]
       },
-      "finish_reason": "STOP"
+      "finishReason": "STOP"
     }
   ],
-  "usage_metadata": {
+  "usageMetadata": {
     "promptTokenCount": 15,
     "candidatesTokenCount": 12,
     "totalTokenCount": 27

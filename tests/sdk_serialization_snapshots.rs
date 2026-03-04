@@ -712,6 +712,7 @@ mod gemini {
                 top_p: Some(0.9),
                 top_k: Some(40),
                 max_output_tokens: Some(2048),
+                candidate_count: None,
                 stop_sequences: Some(vec!["END".into()]),
                 response_mime_type: None,
                 response_schema: None,
@@ -783,12 +784,14 @@ mod gemini {
                     parts: vec![Part::text("The answer is 4.")],
                 },
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: Some(UsageMetadata {
                 prompt_token_count: 10,
                 candidates_token_count: 8,
                 total_token_count: 18,
             }),
+            prompt_feedback: None,
         };
         insta::assert_json_snapshot!(resp);
     }
@@ -805,12 +808,14 @@ mod gemini {
                     }],
                 },
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: Some(UsageMetadata {
                 prompt_token_count: 15,
                 candidates_token_count: 12,
                 total_token_count: 27,
             }),
+            prompt_feedback: None,
         };
         insta::assert_json_snapshot!(resp);
     }
@@ -826,6 +831,7 @@ mod gemini {
                     parts: vec![Part::text("Hello")],
                 },
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
         };
