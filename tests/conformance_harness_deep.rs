@@ -3,20 +3,25 @@
 //! protocol specification (`docs/sidecar_protocol.md`).
 //!
 //! Covers: protocol version, envelope format, handshake sequence, run
-//! lifecycle, error handling, and receipt conformance.
+//! lifecycle, error handling, receipt conformance, error taxonomy,
+//! capability negotiation, deterministic serialization, and execution modes.
 
+use std::collections::BTreeMap;
 use std::io::BufReader;
 
+use abp_capability::negotiate_capabilities;
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
-    ExecutionMode, Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder, canonical_json,
-    receipt_hash, sha256_hex,
+    ExecutionLane, ExecutionMode, Outcome, ReceiptBuilder, RuntimeConfig, SupportLevel,
+    WorkOrderBuilder, WorkspaceMode, canonical_json, receipt_hash, sha256_hex,
 };
+use abp_error_taxonomy::{ErrorCategory, ErrorCode};
 use abp_protocol::builder::EnvelopeBuilder;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
 use abp_protocol::version::{ProtocolVersion, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
+use serde_json::Value;
 use uuid::Uuid;
 
 // =========================================================================
@@ -1110,4 +1115,448 @@ fn receipt_outcome_variants_serde() {
         let back: Outcome = serde_json::from_str(&json).unwrap();
         assert_eq!(back, outcome);
     }
+}
+
+// =========================================================================
+// 7. Error Taxonomy Conformance (8 tests)
+// =========================================================================
+
+fn all_error_codes() -> Vec<ErrorCode> {
+    vec![
+        ErrorCode::ProtocolInvalidEnvelope,
+        ErrorCode::ProtocolHandshakeFailed,
+        ErrorCode::ProtocolMissingRefId,
+        ErrorCode::ProtocolUnexpectedMessage,
+        ErrorCode::ProtocolVersionMismatch,
+        ErrorCode::MappingUnsupportedCapability,
+        ErrorCode::MappingDialectMismatch,
+        ErrorCode::MappingLossyConversion,
+        ErrorCode::MappingUnmappableTool,
+        ErrorCode::BackendNotFound,
+        ErrorCode::BackendUnavailable,
+        ErrorCode::BackendTimeout,
+        ErrorCode::BackendRateLimited,
+        ErrorCode::BackendAuthFailed,
+        ErrorCode::BackendModelNotFound,
+        ErrorCode::BackendCrashed,
+        ErrorCode::ExecutionToolFailed,
+        ErrorCode::ExecutionWorkspaceError,
+        ErrorCode::ExecutionPermissionDenied,
+        ErrorCode::ContractVersionMismatch,
+        ErrorCode::ContractSchemaViolation,
+        ErrorCode::ContractInvalidReceipt,
+        ErrorCode::CapabilityUnsupported,
+        ErrorCode::CapabilityEmulationFailed,
+        ErrorCode::PolicyDenied,
+        ErrorCode::PolicyInvalid,
+        ErrorCode::WorkspaceInitFailed,
+        ErrorCode::WorkspaceStagingFailed,
+        ErrorCode::IrLoweringFailed,
+        ErrorCode::IrInvalid,
+        ErrorCode::ReceiptHashMismatch,
+        ErrorCode::ReceiptChainBroken,
+        ErrorCode::DialectUnknown,
+        ErrorCode::DialectMappingFailed,
+        ErrorCode::ConfigInvalid,
+        ErrorCode::Internal,
+    ]
+}
+
+#[test]
+fn taxonomy_all_codes_have_snake_case_as_str() {
+    for code in all_error_codes() {
+        let s = code.as_str();
+        assert!(!s.is_empty(), "as_str() empty for {:?}", code);
+        assert!(
+            s.chars()
+                .all(|c| c.is_ascii_lowercase() || c == '_' || c.is_ascii_digit()),
+            "as_str() '{}' for {:?} is not snake_case",
+            s,
+            code
+        );
+    }
+}
+
+#[test]
+fn taxonomy_all_codes_have_category() {
+    for code in all_error_codes() {
+        let _ = code.category();
+    }
+}
+
+#[test]
+fn taxonomy_all_codes_have_message() {
+    for code in all_error_codes() {
+        let msg = code.message();
+        assert!(!msg.is_empty(), "message() empty for {:?}", code);
+    }
+}
+
+#[test]
+fn taxonomy_serde_roundtrip_all_codes() {
+    for code in all_error_codes() {
+        let json = serde_json::to_string(&code).unwrap();
+        let code2: ErrorCode = serde_json::from_str(&json).unwrap();
+        assert_eq!(code, code2, "roundtrip failed for {:?}", code);
+    }
+}
+
+#[test]
+fn taxonomy_as_str_matches_serde_output() {
+    for code in all_error_codes() {
+        let serde_str = serde_json::to_value(&code)
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(code.as_str(), serde_str, "as_str() != serde for {:?}", code);
+    }
+}
+
+#[test]
+fn taxonomy_protocol_codes_have_protocol_category() {
+    let protocol_codes = vec![
+        ErrorCode::ProtocolInvalidEnvelope,
+        ErrorCode::ProtocolHandshakeFailed,
+        ErrorCode::ProtocolMissingRefId,
+        ErrorCode::ProtocolUnexpectedMessage,
+        ErrorCode::ProtocolVersionMismatch,
+    ];
+    for code in protocol_codes {
+        assert_eq!(
+            code.category(),
+            ErrorCategory::Protocol,
+            "{:?} should be Protocol category",
+            code
+        );
+    }
+}
+
+#[test]
+fn taxonomy_retryable_only_backend_transients() {
+    let retryable: Vec<ErrorCode> = all_error_codes()
+        .into_iter()
+        .filter(|c| c.is_retryable())
+        .collect();
+    for code in &retryable {
+        assert_eq!(
+            code.category(),
+            ErrorCategory::Backend,
+            "{:?} is retryable but not Backend",
+            code
+        );
+    }
+    assert!(retryable.contains(&ErrorCode::BackendTimeout));
+    assert!(retryable.contains(&ErrorCode::BackendUnavailable));
+}
+
+#[test]
+fn taxonomy_contract_codes_have_contract_category() {
+    let contract_codes = vec![
+        ErrorCode::ContractVersionMismatch,
+        ErrorCode::ContractSchemaViolation,
+        ErrorCode::ContractInvalidReceipt,
+    ];
+    for code in contract_codes {
+        assert_eq!(
+            code.category(),
+            ErrorCategory::Contract,
+            "{:?} should be Contract category",
+            code
+        );
+    }
+}
+
+// =========================================================================
+// 8. Capability Negotiation Conformance (5 tests)
+// =========================================================================
+
+#[test]
+fn capability_negotiate_empty_is_viable() {
+    let manifest = CapabilityManifest::new();
+    let result = negotiate_capabilities(&[], &manifest);
+    assert!(result.is_viable());
+}
+
+#[test]
+fn capability_negotiate_native_classified() {
+    let mut manifest = CapabilityManifest::new();
+    manifest.insert(Capability::ToolRead, SupportLevel::Native);
+    let result = negotiate_capabilities(&[Capability::ToolRead], &manifest);
+    assert_eq!(result.native.len(), 1);
+    assert!(result.unsupported.is_empty());
+}
+
+#[test]
+fn capability_negotiate_emulated_classified() {
+    let mut manifest = CapabilityManifest::new();
+    manifest.insert(Capability::ToolBash, SupportLevel::Emulated);
+    let result = negotiate_capabilities(&[Capability::ToolBash], &manifest);
+    assert_eq!(result.emulated.len(), 1);
+}
+
+#[test]
+fn capability_negotiate_unsupported_classified() {
+    let manifest = CapabilityManifest::new();
+    let result = negotiate_capabilities(&[Capability::Vision], &manifest);
+    assert_eq!(result.unsupported.len(), 1);
+}
+
+#[test]
+fn capability_negotiate_mixed_classification() {
+    let mut manifest = CapabilityManifest::new();
+    manifest.insert(Capability::Streaming, SupportLevel::Native);
+    manifest.insert(Capability::ToolEdit, SupportLevel::Emulated);
+    let required = vec![
+        Capability::Streaming,
+        Capability::ToolEdit,
+        Capability::Audio,
+    ];
+    let result = negotiate_capabilities(&required, &manifest);
+    assert_eq!(result.native.len(), 1);
+    assert_eq!(result.emulated.len(), 1);
+    assert_eq!(result.unsupported.len(), 1);
+    assert_eq!(result.total(), 3);
+}
+
+// =========================================================================
+// 9. AgentEvent Variant Serde (5 tests)
+// =========================================================================
+
+#[test]
+fn event_kind_tool_call_serde_roundtrip() {
+    let e = AgentEvent {
+        ts: fixed_ts(),
+        kind: AgentEventKind::ToolCall {
+            tool_name: "read_file".into(),
+            tool_use_id: Some("tu_1".into()),
+            parent_tool_use_id: None,
+            input: serde_json::json!({"path": "foo.rs"}),
+        },
+        ext: None,
+    };
+    let v: Value = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["type"], "tool_call");
+    assert_eq!(v["tool_name"], "read_file");
+    let e2: AgentEvent = serde_json::from_value(v).unwrap();
+    assert!(matches!(e2.kind, AgentEventKind::ToolCall { .. }));
+}
+
+#[test]
+fn event_kind_tool_result_serde_roundtrip() {
+    let e = AgentEvent {
+        ts: fixed_ts(),
+        kind: AgentEventKind::ToolResult {
+            tool_name: "bash".into(),
+            tool_use_id: None,
+            output: serde_json::json!("ok"),
+            is_error: false,
+        },
+        ext: None,
+    };
+    let v: Value = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["type"], "tool_result");
+    assert_eq!(v["is_error"], false);
+}
+
+#[test]
+fn event_kind_file_changed_serde_roundtrip() {
+    let e = AgentEvent {
+        ts: fixed_ts(),
+        kind: AgentEventKind::FileChanged {
+            path: "src/main.rs".into(),
+            summary: "added fn".into(),
+        },
+        ext: None,
+    };
+    let v: Value = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["type"], "file_changed");
+    let e2: AgentEvent = serde_json::from_value(v).unwrap();
+    assert!(matches!(e2.kind, AgentEventKind::FileChanged { .. }));
+}
+
+#[test]
+fn event_kind_error_with_code_serde() {
+    let e = AgentEvent {
+        ts: fixed_ts(),
+        kind: AgentEventKind::Error {
+            message: "boom".into(),
+            error_code: Some(ErrorCode::Internal),
+        },
+        ext: None,
+    };
+    let v: Value = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["type"], "error");
+    assert!(v["error_code"].is_string());
+}
+
+#[test]
+fn event_kind_error_without_code_omits_field() {
+    let e = AgentEvent {
+        ts: fixed_ts(),
+        kind: AgentEventKind::Error {
+            message: "oops".into(),
+            error_code: None,
+        },
+        ext: None,
+    };
+    let v: Value = serde_json::to_value(&e).unwrap();
+    assert_eq!(v["type"], "error");
+    // skip_serializing_if means the field should be absent
+    assert!(v.get("error_code").is_none());
+}
+
+// =========================================================================
+// 10. Deterministic Serialization (5 tests)
+// =========================================================================
+
+#[test]
+fn deterministic_btreemap_vendor_config_ordered() {
+    let mut config = RuntimeConfig::default();
+    config.vendor.insert("zeta".into(), serde_json::json!(1));
+    config.vendor.insert("alpha".into(), serde_json::json!(2));
+    config.vendor.insert("mu".into(), serde_json::json!(3));
+
+    let json = serde_json::to_string(&config).unwrap();
+    let alpha_pos = json.find("alpha").unwrap();
+    let mu_pos = json.find("mu").unwrap();
+    let zeta_pos = json.find("zeta").unwrap();
+    assert!(alpha_pos < mu_pos);
+    assert!(mu_pos < zeta_pos);
+}
+
+#[test]
+fn deterministic_capability_manifest_key_ordering() {
+    let mut manifest = CapabilityManifest::new();
+    manifest.insert(Capability::ToolWrite, SupportLevel::Native);
+    manifest.insert(Capability::ToolRead, SupportLevel::Native);
+    manifest.insert(Capability::Streaming, SupportLevel::Native);
+
+    let json = serde_json::to_string(&manifest).unwrap();
+    let v: Value = serde_json::from_str(&json).unwrap();
+    let keys: Vec<&str> = v.as_object().unwrap().keys().map(|k| k.as_str()).collect();
+    let mut sorted = keys.clone();
+    sorted.sort();
+    assert_eq!(keys, sorted, "BTreeMap keys must be sorted");
+}
+
+#[test]
+fn deterministic_receipt_serialization_stable() {
+    let start = chrono::DateTime::from_timestamp_millis(1_700_000_000_000).unwrap();
+    let finish = chrono::DateTime::from_timestamp_millis(1_700_000_001_000).unwrap();
+    let wo_id = Uuid::from_u128(200);
+
+    // Build once, then serialize twice — must be identical.
+    let receipt = ReceiptBuilder::new("det-test")
+        .work_order_id(wo_id)
+        .started_at(start)
+        .finished_at(finish)
+        .outcome(Outcome::Complete)
+        .build();
+
+    let json1 = serde_json::to_string(&receipt).unwrap();
+    let json2 = serde_json::to_string(&receipt).unwrap();
+    assert_eq!(json1, json2, "same receipt must serialize identically");
+}
+
+#[test]
+fn deterministic_envelope_serialization_stable() {
+    let build = || {
+        let mut caps = CapabilityManifest::new();
+        caps.insert(Capability::ToolRead, SupportLevel::Native);
+        caps.insert(Capability::Streaming, SupportLevel::Native);
+        let env = Envelope::hello(
+            BackendIdentity {
+                id: "det".into(),
+                backend_version: Some("1.0".into()),
+                adapter_version: None,
+            },
+            caps,
+        );
+        JsonlCodec::encode(&env).unwrap()
+    };
+
+    assert_eq!(build(), build(), "same envelope must encode identically");
+}
+
+#[test]
+fn deterministic_agent_event_ext_btreemap_ordered() {
+    let mut ext = BTreeMap::new();
+    ext.insert("z_key".into(), serde_json::json!(1));
+    ext.insert("a_key".into(), serde_json::json!(2));
+    ext.insert("m_key".into(), serde_json::json!(3));
+
+    let e = AgentEvent {
+        ts: fixed_ts(),
+        kind: AgentEventKind::RunStarted {
+            message: "go".into(),
+        },
+        ext: Some(ext),
+    };
+
+    let json = serde_json::to_string(&e).unwrap();
+    let a_pos = json.find("a_key").unwrap();
+    let m_pos = json.find("m_key").unwrap();
+    let z_pos = json.find("z_key").unwrap();
+    assert!(a_pos < m_pos);
+    assert!(m_pos < z_pos);
+}
+
+// =========================================================================
+// 11. Execution Mode Invariants (4 tests)
+// =========================================================================
+
+#[test]
+fn mode_default_is_mapped() {
+    assert_eq!(ExecutionMode::default(), ExecutionMode::Mapped);
+}
+
+#[test]
+fn mode_passthrough_serializes() {
+    let v = serde_json::to_value(ExecutionMode::Passthrough).unwrap();
+    assert_eq!(v, "passthrough");
+}
+
+#[test]
+fn mode_mapped_serializes() {
+    let v = serde_json::to_value(ExecutionMode::Mapped).unwrap();
+    assert_eq!(v, "mapped");
+}
+
+#[test]
+fn mode_roundtrip_all_variants() {
+    for mode in [ExecutionMode::Passthrough, ExecutionMode::Mapped] {
+        let json = serde_json::to_string(&mode).unwrap();
+        let m2: ExecutionMode = serde_json::from_str(&json).unwrap();
+        assert_eq!(mode, m2);
+    }
+}
+
+// =========================================================================
+// 12. WorkOrder Schema Extras (3 tests)
+// =========================================================================
+
+#[test]
+fn work_order_id_unique_per_build() {
+    let a = WorkOrderBuilder::new("a").build();
+    let b = WorkOrderBuilder::new("b").build();
+    assert_ne!(a.id, b.id);
+}
+
+#[test]
+fn work_order_lane_serializes_snake_case() {
+    let wo = WorkOrderBuilder::new("t")
+        .lane(ExecutionLane::PatchFirst)
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    assert!(json.contains("patch_first"));
+}
+
+#[test]
+fn work_order_workspace_mode_serializes_snake_case() {
+    let wo = WorkOrderBuilder::new("t")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    assert!(json.contains("pass_through"));
 }
