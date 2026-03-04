@@ -1,0 +1,12 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: stream_evt
+---
+{
+  "type": "content_block_delta",
+  "index": 0,
+  "delta": {
+    "type": "text_delta",
+    "text": "Hello"
+  }
+}

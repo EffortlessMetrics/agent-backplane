@@ -1,0 +1,9 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: back
+---
+{
+  "promptTokenCount": 100,
+  "candidatesTokenCount": 50,
+  "totalTokenCount": 150
+}

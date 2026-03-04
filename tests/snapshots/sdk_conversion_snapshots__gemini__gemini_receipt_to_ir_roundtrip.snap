@@ -1,0 +1,17 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: ir
+---
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Hello! I can help with that."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: resp
+---
+{
+  "id": "[id]",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "call_abc123",
+      "name": "get_weather",
+      "input": {
+        "location": "San Francisco"
+      }
+    },
+    {
+      "type": "text",
+      "text": "The weather in San Francisco is 72°F and sunny."
+    }
+  ],
+  "model": "claude-sonnet-4-20250514",
+  "stop_reason": "tool_use",
+  "usage": {
+    "input_tokens": 0,
+    "output_tokens": 0
+  }
+}

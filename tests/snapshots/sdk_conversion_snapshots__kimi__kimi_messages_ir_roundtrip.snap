@@ -1,0 +1,18 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: back
+---
+[
+  {
+    "role": "system",
+    "content": "Be helpful."
+  },
+  {
+    "role": "user",
+    "content": "Hello!"
+  },
+  {
+    "role": "assistant",
+    "content": "Hi there!"
+  }
+]

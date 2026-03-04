@@ -1,0 +1,7 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: resp
+---
+{
+  "message": "Hello! I can help with that."
+}

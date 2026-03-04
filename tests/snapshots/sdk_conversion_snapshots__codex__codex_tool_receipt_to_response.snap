@@ -1,0 +1,33 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: resp
+---
+{
+  "id": "[id]",
+  "model": "codex-mini-latest",
+  "output": [
+    {
+      "type": "function_call",
+      "id": "call_abc123",
+      "call_id": null,
+      "name": "get_weather",
+      "arguments": "{\"location\":\"San Francisco\"}"
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "The weather in San Francisco is 72°F and sunny."
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 150,
+    "output_tokens": 75,
+    "total_tokens": 225
+  },
+  "status": "completed"
+}

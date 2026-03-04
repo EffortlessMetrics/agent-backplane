@@ -1,0 +1,18 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: chunk
+---
+{
+  "id": "chatcmpl-test",
+  "object": "chat.completion.chunk",
+  "created": "[timestamp]",
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "content": "Hello"
+      }
+    }
+  ]
+}
