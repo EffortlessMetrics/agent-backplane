@@ -28,8 +28,14 @@ pub mod normalized;
 pub mod raw;
 /// Server-Sent Events (SSE) parser for Claude streaming responses.
 pub mod sse;
+/// Extended thinking types: ThinkingBlock, SignatureBlock, budget helpers.
+pub mod thinking;
+/// Extended tool-use types: InputSchema, CachedToolDefinition, RichToolResult.
+pub mod tool_use;
 /// Translation between Claude API types and ABP IR (feature-gated on `normalized`).
 pub mod translate;
+/// Vision types: ImageMediaType, image block builders, validation.
+pub mod vision;
 
 pub use config::ClaudeBridgeConfig;
 pub use error::BridgeError;

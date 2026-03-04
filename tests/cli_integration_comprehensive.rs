@@ -382,7 +382,7 @@ fn parse_backends_subcommand() {
 fn parse_validate_subcommand() {
     let cli = parse(&["validate", "some/file.json"]).unwrap();
     match cli.command {
-        Commands::Validate { file } => assert_eq!(file, PathBuf::from("some/file.json")),
+        Commands::Validate { file, .. } => assert_eq!(file, Some(PathBuf::from("some/file.json"))),
         other => panic!("expected Validate, got {other:?}"),
     }
 }
@@ -400,7 +400,7 @@ fn parse_validate_requires_file_arg() {
 fn parse_schema_work_order() {
     let cli = parse(&["schema", "work-order"]).unwrap();
     match cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::WorkOrder)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::WorkOrder)),
         other => panic!("expected Schema, got {other:?}"),
     }
 }
@@ -409,7 +409,7 @@ fn parse_schema_work_order() {
 fn parse_schema_receipt() {
     let cli = parse(&["schema", "receipt"]).unwrap();
     match cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::Receipt)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::Receipt)),
         other => panic!("expected Schema, got {other:?}"),
     }
 }
@@ -418,7 +418,7 @@ fn parse_schema_receipt() {
 fn parse_schema_config() {
     let cli = parse(&["schema", "config"]).unwrap();
     match cli.command {
-        Commands::Schema { kind } => assert!(matches!(kind, SchemaArg::Config)),
+        Commands::Schema { kind, .. } => assert!(matches!(kind, SchemaArg::Config)),
         other => panic!("expected Schema, got {other:?}"),
     }
 }

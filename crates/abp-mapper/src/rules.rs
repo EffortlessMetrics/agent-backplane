@@ -8,11 +8,11 @@
 //!
 //! ## Rule types
 //!
-//! - [`ToolMappingRule`] — maps tool-use/result blocks and tool-role differences.
-//! - [`ContentMappingRule`] — maps content types (text, image, thinking, system).
-//! - [`MetadataMappingRule`] — strips vendor-specific metadata keys.
-//! - [`StreamMappingRule`] — validates streaming compatibility.
-//! - [`RuleChain`] — ordered list of rules applied in sequence.
+//! - `ToolMappingRule` — maps tool-use/result blocks and tool-role differences.
+//! - `ContentMappingRule` — maps content types (text, image, thinking, system).
+//! - `MetadataMappingRule` — strips vendor-specific metadata keys.
+//! - `StreamMappingRule` — validates streaming compatibility.
+//! - `RuleChain` — ordered list of rules applied in sequence.
 
 use std::collections::BTreeMap;
 

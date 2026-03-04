@@ -235,11 +235,7 @@ fn tool_error_conversation() -> IrConversation {
 
 /// Helper: assert conversation text content is preserved through mapping.
 fn assert_text_preserved(original: &IrConversation, mapped: &IrConversation) {
-    let orig_texts: Vec<String> = original
-        .messages
-        .iter()
-        .map(|m| m.text_content())
-        .collect();
+    let orig_texts: Vec<String> = original.messages.iter().map(|m| m.text_content()).collect();
     let mapped_texts: Vec<String> = mapped.messages.iter().map(|m| m.text_content()).collect();
 
     // The number of messages may change (role splitting), but all original text
@@ -278,10 +274,16 @@ mod identity {
 
         for conv in &conversations {
             let req = mapper.map_request(dialect, dialect, conv).unwrap();
-            assert_eq!(&req, conv, "Identity request mapping changed data for {dialect}");
+            assert_eq!(
+                &req, conv,
+                "Identity request mapping changed data for {dialect}"
+            );
 
             let resp = mapper.map_response(dialect, dialect, conv).unwrap();
-            assert_eq!(&resp, conv, "Identity response mapping changed data for {dialect}");
+            assert_eq!(
+                &resp, conv,
+                "Identity response mapping changed data for {dialect}"
+            );
         }
     }
 
@@ -366,7 +368,9 @@ mod openai_claude {
     fn openai_to_claude_text_preserved() {
         let mapper = OpenAiClaudeIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
         // System, user, assistant text should all be preserved
         assert_eq!(result.messages.len(), conv.messages.len());
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
@@ -378,7 +382,9 @@ mod openai_claude {
     fn claude_to_openai_text_preserved() {
         let mapper = OpenAiClaudeIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::OpenAi, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -388,7 +394,9 @@ mod openai_claude {
     fn openai_to_claude_tool_role_becomes_user() {
         let mapper = OpenAiClaudeIrMapper;
         let conv = tool_result_tool_role_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
         // The Tool-role message should become User-role (Claude convention)
         let tool_result_msgs: Vec<_> = result
             .messages
@@ -412,7 +420,9 @@ mod openai_claude {
     fn claude_to_openai_user_tool_result_becomes_tool_role() {
         let mapper = OpenAiClaudeIrMapper;
         let conv = tool_result_user_role_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::OpenAi, &conv)
+            .unwrap();
         // User messages with only ToolResult blocks should become Tool-role
         let tool_result_msgs: Vec<_> = result
             .messages
@@ -436,7 +446,9 @@ mod openai_claude {
     fn openai_to_claude_tool_use_preserved() {
         let mapper = OpenAiClaudeIrMapper;
         let conv = tool_use_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
         let tool_calls = result.tool_calls();
         assert_eq!(tool_calls.len(), 1);
         if let IrContentBlock::ToolUse { name, id, input } = tool_calls[0] {
@@ -451,7 +463,9 @@ mod openai_claude {
     fn claude_to_openai_thinking_blocks_dropped() {
         let mapper = OpenAiClaudeIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::OpenAi, &conv)
+            .unwrap();
         // Thinking blocks should be dropped for OpenAI
         for msg in &result.messages {
             for block in &msg.content {
@@ -470,14 +484,19 @@ mod openai_claude {
     fn openai_to_claude_thinking_blocks_preserved() {
         let mapper = OpenAiClaudeIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
         // Claude supports thinking blocks, so they should be preserved
         let has_thinking = result.messages.iter().any(|m| {
             m.content
                 .iter()
                 .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
         });
-        assert!(has_thinking, "Thinking blocks should be preserved for Claude");
+        assert!(
+            has_thinking,
+            "Thinking blocks should be preserved for Claude"
+        );
     }
 
     #[test]
@@ -498,13 +517,18 @@ mod openai_claude {
     fn openai_to_claude_images_in_user_messages_preserved() {
         let mapper = OpenAiClaudeIrMapper;
         let conv = image_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
         let has_image = result.messages.iter().any(|m| {
             m.content
                 .iter()
                 .any(|b| matches!(b, IrContentBlock::Image { .. }))
         });
-        assert!(has_image, "Images in user messages should be preserved for Claude");
+        assert!(
+            has_image,
+            "Images in user messages should be preserved for Claude"
+        );
     }
 
     #[test]
@@ -532,7 +556,9 @@ mod openai_gemini {
     fn openai_to_gemini_text_preserved() {
         let mapper = OpenAiGeminiIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Gemini, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -542,7 +568,9 @@ mod openai_gemini {
     fn gemini_to_openai_text_preserved() {
         let mapper = OpenAiGeminiIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::Gemini, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Gemini, Dialect::OpenAi, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -552,7 +580,9 @@ mod openai_gemini {
     fn openai_to_gemini_tool_role_becomes_user() {
         let mapper = OpenAiGeminiIrMapper;
         let conv = tool_result_tool_role_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Gemini, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
         // Gemini uses user-role for function responses
         let tool_result_msgs: Vec<_> = result
             .messages
@@ -564,7 +594,11 @@ mod openai_gemini {
             })
             .collect();
         for msg in &tool_result_msgs {
-            assert_eq!(msg.role, IrRole::User, "Gemini uses User-role for tool results");
+            assert_eq!(
+                msg.role,
+                IrRole::User,
+                "Gemini uses User-role for tool results"
+            );
         }
     }
 
@@ -573,7 +607,9 @@ mod openai_gemini {
         let mapper = OpenAiGeminiIrMapper;
         // Gemini-style: tool results in User role
         let conv = tool_result_user_role_conversation();
-        let result = mapper.map_request(Dialect::Gemini, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Gemini, Dialect::OpenAi, &conv)
+            .unwrap();
         let tool_result_msgs: Vec<_> = result
             .messages
             .iter()
@@ -584,7 +620,11 @@ mod openai_gemini {
             })
             .collect();
         for msg in &tool_result_msgs {
-            assert_eq!(msg.role, IrRole::Tool, "OpenAI uses Tool-role for tool results");
+            assert_eq!(
+                msg.role,
+                IrRole::Tool,
+                "OpenAI uses Tool-role for tool results"
+            );
         }
     }
 
@@ -592,7 +632,9 @@ mod openai_gemini {
     fn openai_to_gemini_thinking_dropped() {
         let mapper = OpenAiGeminiIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Gemini, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(
@@ -607,7 +649,9 @@ mod openai_gemini {
     fn gemini_to_openai_thinking_dropped() {
         let mapper = OpenAiGeminiIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::Gemini, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Gemini, Dialect::OpenAi, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(!matches!(block, IrContentBlock::Thinking { .. }));
@@ -619,7 +663,9 @@ mod openai_gemini {
     fn openai_to_gemini_system_preserved() {
         let mapper = OpenAiGeminiIrMapper;
         let conv = text_conversation(IrRole::System, "Be helpful.");
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Gemini, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
         assert_eq!(result.messages[0].role, IrRole::System);
         assert_eq!(result.messages[0].text_content(), "Be helpful.");
     }
@@ -641,7 +687,9 @@ mod claude_gemini {
     fn claude_to_gemini_text_preserved() {
         let mapper = ClaudeGeminiIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::Gemini, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -651,7 +699,9 @@ mod claude_gemini {
     fn gemini_to_claude_text_preserved() {
         let mapper = ClaudeGeminiIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::Gemini, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Gemini, Dialect::Claude, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -661,7 +711,9 @@ mod claude_gemini {
     fn claude_to_gemini_thinking_dropped() {
         let mapper = ClaudeGeminiIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::Gemini, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(
@@ -679,7 +731,9 @@ mod claude_gemini {
     fn gemini_to_claude_tool_role_becomes_user() {
         let mapper = ClaudeGeminiIrMapper;
         let conv = tool_result_tool_role_conversation();
-        let result = mapper.map_request(Dialect::Gemini, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Gemini, Dialect::Claude, &conv)
+            .unwrap();
         // Claude uses User-role for tool results
         let tool_result_msgs: Vec<_> = result
             .messages
@@ -691,7 +745,11 @@ mod claude_gemini {
             })
             .collect();
         for msg in &tool_result_msgs {
-            assert_eq!(msg.role, IrRole::User, "Claude uses User-role for tool results");
+            assert_eq!(
+                msg.role,
+                IrRole::User,
+                "Claude uses User-role for tool results"
+            );
         }
     }
 
@@ -711,7 +769,9 @@ mod claude_gemini {
     fn claude_to_gemini_user_images_preserved() {
         let mapper = ClaudeGeminiIrMapper;
         let conv = image_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::Gemini, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+            .unwrap();
         let has_image = result.messages.iter().any(|m| {
             m.content
                 .iter()
@@ -740,7 +800,9 @@ mod codex_openai {
             IrMessage::text(IrRole::System, "Be helpful."),
             IrMessage::text(IrRole::User, "Hello"),
         ]);
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Codex, &conv)
+            .unwrap();
         // System message emulated as [System]-prefixed User message
         let first = &result.messages[0];
         assert_eq!(first.role, IrRole::User);
@@ -755,7 +817,9 @@ mod codex_openai {
     fn openai_to_codex_tool_calls_dropped() {
         let mapper = OpenAiCodexIrMapper;
         let conv = tool_use_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Codex, &conv)
+            .unwrap();
         // No ToolUse blocks should remain
         for msg in &result.messages {
             for block in &msg.content {
@@ -771,7 +835,9 @@ mod codex_openai {
     fn openai_to_codex_tool_role_dropped() {
         let mapper = OpenAiCodexIrMapper;
         let conv = tool_result_tool_role_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Codex, &conv)
+            .unwrap();
         // No Tool-role messages should remain
         for msg in &result.messages {
             assert_ne!(
@@ -786,7 +852,9 @@ mod codex_openai {
     fn openai_to_codex_thinking_dropped() {
         let mapper = OpenAiCodexIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Codex, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(!matches!(block, IrContentBlock::Thinking { .. }));
@@ -798,13 +866,18 @@ mod codex_openai {
     fn openai_to_codex_images_become_placeholders() {
         let mapper = OpenAiCodexIrMapper;
         let conv = image_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Codex, &conv)
+            .unwrap();
         let has_placeholder = result.messages.iter().any(|m| {
             m.content
                 .iter()
                 .any(|b| matches!(b, IrContentBlock::Text { text } if text.starts_with("[Image:")))
         });
-        assert!(has_placeholder, "Images should become [Image: ...] placeholders");
+        assert!(
+            has_placeholder,
+            "Images should become [Image: ...] placeholders"
+        );
         // No actual image blocks should remain
         for msg in &result.messages {
             for block in &msg.content {
@@ -820,7 +893,9 @@ mod codex_openai {
             IrMessage::text(IrRole::User, "Hello"),
             IrMessage::text(IrRole::Assistant, "World"),
         ]);
-        let result = mapper.map_request(Dialect::Codex, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Codex, Dialect::OpenAi, &conv)
+            .unwrap();
         assert_eq!(result, conv, "Codex → OpenAI should be lossless identity");
     }
 
@@ -840,7 +915,9 @@ mod kimi_openai {
     fn openai_to_kimi_text_preserved() {
         let mapper = OpenAiKimiIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Kimi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Kimi, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -850,7 +927,9 @@ mod kimi_openai {
     fn kimi_to_openai_text_preserved() {
         let mapper = OpenAiKimiIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::Kimi, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -875,7 +954,9 @@ mod kimi_openai {
     fn openai_to_kimi_thinking_dropped() {
         let mapper = OpenAiKimiIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Kimi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Kimi, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(!matches!(block, IrContentBlock::Thinking { .. }));
@@ -887,7 +968,9 @@ mod kimi_openai {
     fn kimi_to_openai_thinking_dropped() {
         let mapper = OpenAiKimiIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::Kimi, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(!matches!(block, IrContentBlock::Thinking { .. }));
@@ -899,7 +982,9 @@ mod kimi_openai {
     fn openai_to_kimi_tool_use_preserved() {
         let mapper = OpenAiKimiIrMapper;
         let conv = tool_use_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Kimi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Kimi, &conv)
+            .unwrap();
         let tool_calls = result.tool_calls();
         assert_eq!(tool_calls.len(), 1);
     }
@@ -920,7 +1005,9 @@ mod copilot_openai {
     fn openai_to_copilot_text_preserved() {
         let mapper = OpenAiCopilotIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Copilot, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Copilot, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -930,7 +1017,9 @@ mod copilot_openai {
     fn copilot_to_openai_text_preserved() {
         let mapper = OpenAiCopilotIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::Copilot, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Copilot, Dialect::OpenAi, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -955,7 +1044,9 @@ mod copilot_openai {
     fn openai_to_copilot_thinking_dropped() {
         let mapper = OpenAiCopilotIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Copilot, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Copilot, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(!matches!(block, IrContentBlock::Thinking { .. }));
@@ -967,7 +1058,9 @@ mod copilot_openai {
     fn copilot_to_openai_tool_use_preserved() {
         let mapper = OpenAiCopilotIrMapper;
         let conv = tool_use_conversation();
-        let result = mapper.map_request(Dialect::Copilot, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Copilot, Dialect::OpenAi, &conv)
+            .unwrap();
         let tool_calls = result.tool_calls();
         assert_eq!(tool_calls.len(), 1);
     }
@@ -988,7 +1081,9 @@ mod claude_kimi {
     fn claude_to_kimi_text_preserved() {
         let mapper = ClaudeKimiIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::Kimi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Kimi, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -998,7 +1093,9 @@ mod claude_kimi {
     fn kimi_to_claude_text_preserved() {
         let mapper = ClaudeKimiIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::Kimi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Kimi, Dialect::Claude, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -1008,7 +1105,9 @@ mod claude_kimi {
     fn claude_to_kimi_thinking_dropped() {
         let mapper = ClaudeKimiIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::Kimi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Kimi, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(!matches!(block, IrContentBlock::Thinking { .. }));
@@ -1020,7 +1119,9 @@ mod claude_kimi {
     fn claude_to_kimi_user_tool_results_become_tool_role() {
         let mapper = ClaudeKimiIrMapper;
         let conv = tool_result_user_role_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::Kimi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Kimi, &conv)
+            .unwrap();
         let tool_result_msgs: Vec<_> = result
             .messages
             .iter()
@@ -1031,7 +1132,11 @@ mod claude_kimi {
             })
             .collect();
         for msg in &tool_result_msgs {
-            assert_eq!(msg.role, IrRole::Tool, "Kimi uses Tool-role for tool results");
+            assert_eq!(
+                msg.role,
+                IrRole::Tool,
+                "Kimi uses Tool-role for tool results"
+            );
         }
     }
 
@@ -1039,7 +1144,9 @@ mod claude_kimi {
     fn kimi_to_claude_tool_role_becomes_user() {
         let mapper = ClaudeKimiIrMapper;
         let conv = tool_result_tool_role_conversation();
-        let result = mapper.map_request(Dialect::Kimi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Kimi, Dialect::Claude, &conv)
+            .unwrap();
         let tool_result_msgs: Vec<_> = result
             .messages
             .iter()
@@ -1050,7 +1157,11 @@ mod claude_kimi {
             })
             .collect();
         for msg in &tool_result_msgs {
-            assert_eq!(msg.role, IrRole::User, "Claude uses User-role for tool results");
+            assert_eq!(
+                msg.role,
+                IrRole::User,
+                "Claude uses User-role for tool results"
+            );
         }
     }
 
@@ -1060,7 +1171,10 @@ mod claude_kimi {
         let conv = image_conversation();
         let result = mapper.map_request(Dialect::Claude, Dialect::Kimi, &conv);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), MapError::UnmappableContent { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            MapError::UnmappableContent { .. }
+        ));
     }
 
     #[test]
@@ -1079,7 +1193,9 @@ mod gemini_kimi {
     fn gemini_to_kimi_text_preserved() {
         let mapper = GeminiKimiIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::Gemini, Dialect::Kimi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Gemini, Dialect::Kimi, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -1089,7 +1205,9 @@ mod gemini_kimi {
     fn kimi_to_gemini_text_preserved() {
         let mapper = GeminiKimiIrMapper;
         let conv = multi_turn_conversation();
-        let result = mapper.map_request(Dialect::Kimi, Dialect::Gemini, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Kimi, Dialect::Gemini, &conv)
+            .unwrap();
         for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
             assert_eq!(orig.text_content(), mapped.text_content());
         }
@@ -1099,7 +1217,9 @@ mod gemini_kimi {
     fn gemini_to_kimi_user_tool_results_become_tool_role() {
         let mapper = GeminiKimiIrMapper;
         let conv = tool_result_user_role_conversation();
-        let result = mapper.map_request(Dialect::Gemini, Dialect::Kimi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Gemini, Dialect::Kimi, &conv)
+            .unwrap();
         let tool_result_msgs: Vec<_> = result
             .messages
             .iter()
@@ -1118,7 +1238,9 @@ mod gemini_kimi {
     fn kimi_to_gemini_tool_role_becomes_user() {
         let mapper = GeminiKimiIrMapper;
         let conv = tool_result_tool_role_conversation();
-        let result = mapper.map_request(Dialect::Kimi, Dialect::Gemini, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Kimi, Dialect::Gemini, &conv)
+            .unwrap();
         let tool_result_msgs: Vec<_> = result
             .messages
             .iter()
@@ -1129,7 +1251,11 @@ mod gemini_kimi {
             })
             .collect();
         for msg in &tool_result_msgs {
-            assert_eq!(msg.role, IrRole::User, "Gemini uses User-role for tool results");
+            assert_eq!(
+                msg.role,
+                IrRole::User,
+                "Gemini uses User-role for tool results"
+            );
         }
     }
 
@@ -1139,14 +1265,19 @@ mod gemini_kimi {
         let conv = image_conversation();
         let result = mapper.map_request(Dialect::Gemini, Dialect::Kimi, &conv);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), MapError::UnmappableContent { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            MapError::UnmappableContent { .. }
+        ));
     }
 
     #[test]
     fn gemini_to_kimi_thinking_dropped() {
         let mapper = GeminiKimiIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::Gemini, Dialect::Kimi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Gemini, Dialect::Kimi, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(!matches!(block, IrContentBlock::Thinking { .. }));
@@ -1173,7 +1304,9 @@ mod codex_claude {
             IrMessage::text(IrRole::System, "Be concise."),
             IrMessage::text(IrRole::User, "Hi"),
         ]);
-        let result = mapper.map_request(Dialect::Claude, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Codex, &conv)
+            .unwrap();
         let first = &result.messages[0];
         assert_eq!(first.role, IrRole::User);
         assert!(first.text_content().starts_with("[System]"));
@@ -1184,7 +1317,9 @@ mod codex_claude {
     fn claude_to_codex_thinking_dropped() {
         let mapper = CodexClaudeIrMapper;
         let conv = thinking_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Codex, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(!matches!(block, IrContentBlock::Thinking { .. }));
@@ -1196,7 +1331,9 @@ mod codex_claude {
     fn claude_to_codex_tool_calls_dropped() {
         let mapper = CodexClaudeIrMapper;
         let conv = tool_use_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Codex, &conv)
+            .unwrap();
         for msg in &result.messages {
             for block in &msg.content {
                 assert!(!matches!(block, IrContentBlock::ToolUse { .. }));
@@ -1208,7 +1345,9 @@ mod codex_claude {
     fn claude_to_codex_images_become_placeholders() {
         let mapper = CodexClaudeIrMapper;
         let conv = image_conversation();
-        let result = mapper.map_request(Dialect::Claude, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Codex, &conv)
+            .unwrap();
         let has_placeholder = result.messages.iter().any(|m| {
             m.content
                 .iter()
@@ -1224,7 +1363,9 @@ mod codex_claude {
             IrMessage::text(IrRole::User, "Hello"),
             IrMessage::text(IrRole::Assistant, "World"),
         ]);
-        let result = mapper.map_request(Dialect::Codex, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Codex, Dialect::Claude, &conv)
+            .unwrap();
         assert_eq!(result, conv);
     }
 
@@ -1296,10 +1437,16 @@ mod feature_matrix {
         let no_image_dialects = [Dialect::Codex, Dialect::Kimi, Dialect::Copilot];
 
         for &d in &image_dialects {
-            assert!(dialect_capabilities(d).images.is_native(), "{d} should support images");
+            assert!(
+                dialect_capabilities(d).images.is_native(),
+                "{d} should support images"
+            );
         }
         for &d in &no_image_dialects {
-            assert!(!dialect_capabilities(d).images.is_native(), "{d} should not support images");
+            assert!(
+                !dialect_capabilities(d).images.is_native(),
+                "{d} should not support images"
+            );
         }
     }
 
@@ -1350,7 +1497,10 @@ mod feature_matrix {
                     "Codex should NOT support system prompts"
                 );
             } else {
-                assert!(caps.system_prompt.is_native(), "{d} should support system prompts");
+                assert!(
+                    caps.system_prompt.is_native(),
+                    "{d} should support system prompts"
+                );
             }
         }
     }
@@ -1524,7 +1674,11 @@ mod factory {
         let pairs = supported_ir_pairs();
 
         // Should include 6 identity pairs + 18 cross-dialect pairs = 24
-        assert!(pairs.len() >= 24, "Expected at least 24 pairs, got {}", pairs.len());
+        assert!(
+            pairs.len() >= 24,
+            "Expected at least 24 pairs, got {}",
+            pairs.len()
+        );
 
         // All identity pairs present
         for &d in Dialect::all() {
@@ -1632,10 +1786,7 @@ mod streaming_events {
                     let result = mapper.map_response(from, to, &conv);
                     if let Ok(mapped) = result {
                         let calls = mapped.tool_calls();
-                        assert!(
-                            !calls.is_empty(),
-                            "Tool call lost in {from} → {to}"
-                        );
+                        assert!(!calls.is_empty(), "Tool call lost in {from} → {to}");
                         if let IrContentBlock::ToolUse { name, .. } = calls[0] {
                             assert_eq!(name, "search");
                         }
@@ -1651,11 +1802,13 @@ mod streaming_events {
 
         // Map through OpenAI-compatible pairs
         let mapper = OpenAiClaudeIrMapper;
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
         let has_error_result = result.messages.iter().any(|m| {
-            m.content.iter().any(|b| {
-                matches!(b, IrContentBlock::ToolResult { is_error: true, .. })
-            })
+            m.content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolResult { is_error: true, .. }))
         });
         assert!(has_error_result, "is_error flag should be preserved");
     }
@@ -1705,7 +1858,10 @@ mod edge_cases {
         for (from, to) in &supported_ir_pairs() {
             let mapper = default_ir_mapper(*from, *to).unwrap();
             let result = mapper.map_request(*from, *to, &conv).unwrap();
-            assert!(result.is_empty(), "Empty conv should stay empty for {from} → {to}");
+            assert!(
+                result.is_empty(),
+                "Empty conv should stay empty for {from} → {to}"
+            );
         }
     }
 
@@ -1730,7 +1886,9 @@ mod edge_cases {
     fn large_content_maps_through_identity() {
         let conv = large_content_conversation();
         let mapper = IrIdentityMapper;
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::OpenAi, &conv)
+            .unwrap();
         assert_eq!(result.messages[0].text_content().len(), 100_000);
         assert_eq!(result.messages[1].text_content().len(), 100_000);
     }
@@ -1739,7 +1897,9 @@ mod edge_cases {
     fn large_content_maps_through_openai_claude() {
         let conv = large_content_conversation();
         let mapper = OpenAiClaudeIrMapper;
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
         assert_eq!(result.messages[0].text_content().len(), 100_000);
     }
 
@@ -1747,7 +1907,9 @@ mod edge_cases {
     fn nested_tool_calls_preserved() {
         let mapper = OpenAiClaudeIrMapper;
         let conv = nested_tool_calls_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
         let tool_calls = result.tool_calls();
         assert_eq!(tool_calls.len(), 2, "Both tool calls should be preserved");
     }
@@ -1756,9 +1918,15 @@ mod edge_cases {
     fn nested_tool_calls_dropped_for_codex() {
         let mapper = OpenAiCodexIrMapper;
         let conv = nested_tool_calls_conversation();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Codex, &conv)
+            .unwrap();
         let tool_calls = result.tool_calls();
-        assert_eq!(tool_calls.len(), 0, "All tool calls should be dropped for Codex");
+        assert_eq!(
+            tool_calls.len(),
+            0,
+            "All tool calls should be dropped for Codex"
+        );
     }
 
     #[test]
@@ -1788,7 +1956,9 @@ mod edge_cases {
             IrMessage::text(IrRole::Assistant, "Here is the file content."),
         ]);
 
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
 
         // Tool role should become User role
         let tool_result_msgs: Vec<_> = result
@@ -1804,7 +1974,10 @@ mod edge_cases {
         assert_eq!(tool_result_msgs[0].role, IrRole::User);
 
         // System and assistant text preserved
-        assert_eq!(result.system_message().unwrap().text_content(), "You can use tools.");
+        assert_eq!(
+            result.system_message().unwrap().text_content(),
+            "You can use tools."
+        );
         assert_eq!(
             result.last_assistant().unwrap().text_content(),
             "Here is the file content."
@@ -1839,7 +2012,9 @@ mod edge_cases {
             IrMessage::text(IrRole::Assistant, "Here is the file content."),
         ]);
 
-        let result = mapper.map_request(Dialect::Claude, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::OpenAi, &conv)
+            .unwrap();
 
         // User+ToolResult should become Tool role
         let tool_result_msgs: Vec<_> = result
@@ -1888,13 +2063,17 @@ mod edge_cases {
 
         // OpenAI → Codex
         let mapper = default_ir_mapper(Dialect::OpenAi, Dialect::Codex).unwrap();
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Codex, &conv)
+            .unwrap();
         assert_eq!(result.messages[0].role, IrRole::User);
         assert!(result.messages[0].text_content().contains("[System]"));
 
         // Claude → Codex
         let mapper = default_ir_mapper(Dialect::Claude, Dialect::Codex).unwrap();
-        let result = mapper.map_request(Dialect::Claude, Dialect::Codex, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::Codex, &conv)
+            .unwrap();
         assert_eq!(result.messages[0].role, IrRole::User);
         assert!(result.messages[0].text_content().contains("[System]"));
     }
@@ -1920,7 +2099,9 @@ mod edge_cases {
 
         // Claude → OpenAI: mixed content should be split
         let mapper = OpenAiClaudeIrMapper;
-        let result = mapper.map_request(Dialect::Claude, Dialect::OpenAi, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::Claude, Dialect::OpenAi, &conv)
+            .unwrap();
 
         // Should have a User message with text and a Tool message with result
         let user_msgs: Vec<_> = result
@@ -1934,8 +2115,14 @@ mod edge_cases {
             .filter(|m| m.role == IrRole::Tool)
             .collect();
 
-        assert!(!user_msgs.is_empty(), "Should have user message for text content");
-        assert!(!tool_msgs.is_empty(), "Should have tool message for tool result");
+        assert!(
+            !user_msgs.is_empty(),
+            "Should have user message for text content"
+        );
+        assert!(
+            !tool_msgs.is_empty(),
+            "Should have tool message for tool result"
+        );
     }
 
     #[test]
@@ -2017,12 +2204,20 @@ mod edge_cases {
         ]);
 
         let mapper = OpenAiClaudeIrMapper;
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
 
         assert!(result.system_message().is_some());
-        assert_eq!(result.system_message().unwrap().text_content(), "System prompt");
+        assert_eq!(
+            result.system_message().unwrap().text_content(),
+            "System prompt"
+        );
         assert!(result.last_assistant().is_some());
-        assert_eq!(result.last_assistant().unwrap().text_content(), "Assistant reply");
+        assert_eq!(
+            result.last_assistant().unwrap().text_content(),
+            "Assistant reply"
+        );
         assert_eq!(result.len(), 3);
         assert!(!result.is_empty());
     }
@@ -2119,9 +2314,7 @@ mod edge_cases {
             IrMessage::new(
                 IrRole::Assistant,
                 vec![
-                    IrContentBlock::Text {
-                        text: "txt".into(),
-                    },
+                    IrContentBlock::Text { text: "txt".into() },
                     IrContentBlock::ToolUse {
                         id: "c1".into(),
                         name: "search".into(),
@@ -2132,7 +2325,9 @@ mod edge_cases {
         ]);
 
         let mapper = OpenAiGeminiIrMapper;
-        let result = mapper.map_request(Dialect::OpenAi, Dialect::Gemini, &conv).unwrap();
+        let result = mapper
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
 
         assert_eq!(result.len(), 3);
         assert!(!result.is_empty());
