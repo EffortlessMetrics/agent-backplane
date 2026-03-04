@@ -295,7 +295,6 @@ pub fn user_tool_results_to_tool_role(ir: &IrConversation) -> EmulationResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
     fn thinking_conv() -> IrConversation {
         IrConversation::from_messages(vec![

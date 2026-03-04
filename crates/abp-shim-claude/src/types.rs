@@ -5,6 +5,7 @@
 //! suitable for serializing requests to `POST /v1/messages` and
 //! deserializing responses (both synchronous and streamed SSE).
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -12,7 +13,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 /// Request body for `POST /v1/messages`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct MessagesRequest {
     /// Model identifier (e.g. `"claude-sonnet-4-20250514"`).
     pub model: String,
@@ -35,16 +36,22 @@ pub struct MessagesRequest {
     /// Whether to stream the response via SSE.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
+    /// Custom stop sequences.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_sequences: Option<Vec<String>>,
     /// Tool definitions available to the model.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<ClaudeTool>>,
     /// How the model should choose which tool to use.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<ClaudeToolChoice>,
+    /// Extended thinking configuration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<ThinkingConfig>,
 }
 
 /// A single message in the conversation.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ClaudeMessage {
     /// `"user"` or `"assistant"`.
     pub role: String,
@@ -54,7 +61,7 @@ pub struct ClaudeMessage {
 
 /// Message content — the Claude API accepts either a bare string or an array
 /// of typed content blocks.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(untagged)]
 pub enum ClaudeContent {
     /// Simple text string.
@@ -64,7 +71,7 @@ pub enum ClaudeContent {
 }
 
 /// A typed content block within a message or response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentBlock {
     /// Plain text.
@@ -92,11 +99,22 @@ pub enum ContentBlock {
         tool_use_id: String,
         /// Textual result content.
         content: String,
+        /// Whether the tool execution produced an error.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        is_error: Option<bool>,
+    },
+    /// Extended thinking block emitted when thinking mode is enabled.
+    Thinking {
+        /// The model's internal reasoning text.
+        thinking: String,
+        /// Cryptographic signature for thinking verification.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        signature: Option<String>,
     },
 }
 
 /// Image source for an `Image` content block.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ImageSource {
     /// Base64-encoded image data.
@@ -114,7 +132,7 @@ pub enum ImageSource {
 }
 
 /// A tool definition exposed to the model.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ClaudeTool {
     /// Tool name.
     pub name: String,
@@ -126,7 +144,7 @@ pub struct ClaudeTool {
 }
 
 /// Controls how the model selects a tool.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeToolChoice {
     /// Model decides whether to use a tool.
@@ -145,7 +163,7 @@ pub enum ClaudeToolChoice {
 // ---------------------------------------------------------------------------
 
 /// Synchronous response from `POST /v1/messages`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct MessagesResponse {
     /// Unique message identifier (e.g. `"msg_01XFDUDYJgAACzvnptvVoYEL"`).
     pub id: String,
@@ -166,7 +184,7 @@ pub struct MessagesResponse {
 }
 
 /// Token usage counters.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ClaudeUsage {
     /// Tokens consumed by the input.
     pub input_tokens: u64,
@@ -185,7 +203,7 @@ pub struct ClaudeUsage {
 // ---------------------------------------------------------------------------
 
 /// Server-sent event from the streaming Messages API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StreamEvent {
     /// Initial message metadata.
@@ -224,10 +242,15 @@ pub enum StreamEvent {
     MessageStop {},
     /// Keep-alive ping.
     Ping {},
+    /// Error during streaming.
+    Error {
+        /// Error details.
+        error: ErrorResponse,
+    },
 }
 
 /// Delta payload for `content_block_delta` events.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StreamDelta {
     /// Incremental text fragment.
@@ -240,10 +263,20 @@ pub enum StreamDelta {
         /// Partial JSON string.
         partial_json: String,
     },
+    /// Incremental thinking text.
+    ThinkingDelta {
+        /// Thinking fragment.
+        thinking: String,
+    },
+    /// Incremental signature data.
+    SignatureDelta {
+        /// Signature fragment.
+        signature: String,
+    },
 }
 
 /// Body of a `message_delta` event.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct MessageDeltaBody {
     /// The stop reason, if the model has finished.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -251,4 +284,35 @@ pub struct MessageDeltaBody {
     /// Stop sequence that triggered the stop.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop_sequence: Option<String>,
+}
+
+/// Error response from the Anthropic API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct ErrorResponse {
+    /// Error type identifier (e.g. `"invalid_request_error"`, `"overloaded_error"`).
+    #[serde(rename = "type")]
+    pub error_type: String,
+    /// Human-readable error message.
+    pub message: String,
+}
+
+/// Extended thinking configuration for the Messages API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct ThinkingConfig {
+    /// Discriminator (always `"enabled"`).
+    #[serde(rename = "type")]
+    pub thinking_type: String,
+    /// Maximum number of tokens the model may use for thinking.
+    pub budget_tokens: u32,
+}
+
+impl ThinkingConfig {
+    /// Create a new thinking configuration with the given budget.
+    #[must_use]
+    pub fn new(budget_tokens: u32) -> Self {
+        Self {
+            thinking_type: "enabled".into(),
+            budget_tokens,
+        }
+    }
 }

@@ -15,8 +15,8 @@ use abp_sdk_types::Dialect;
 use serde_json::json;
 
 use crate::types::{
-    ClaudeContent, ClaudeTool, ClaudeUsage, ContentBlock, MessageDeltaBody, MessagesRequest,
-    MessagesResponse, StreamDelta, StreamEvent,
+    ClaudeContent, ClaudeTool, ClaudeUsage, ContentBlock, ErrorResponse, MessageDeltaBody,
+    MessagesRequest, MessagesResponse, StreamDelta, StreamEvent,
 };
 
 // ---------------------------------------------------------------------------
@@ -70,6 +70,18 @@ pub fn to_work_order(req: &MessagesRequest) -> WorkOrder {
             serde_json::to_value(tool_choice).unwrap_or_default(),
         );
     }
+    if let Some(ref stop_sequences) = req.stop_sequences {
+        vendor.insert(
+            "stop_sequences".to_string(),
+            serde_json::to_value(stop_sequences).unwrap_or_default(),
+        );
+    }
+    if let Some(ref thinking) = req.thinking {
+        vendor.insert(
+            "thinking".to_string(),
+            serde_json::to_value(thinking).unwrap_or_default(),
+        );
+    }
 
     // Store messages as structured JSON for faithful round-tripping.
     vendor.insert(
@@ -108,7 +120,27 @@ pub fn from_receipt(receipt: &Receipt, wo: &WorkOrder) -> MessagesResponse {
     for event in &receipt.trace {
         match &event.kind {
             AgentEventKind::AssistantMessage { text } => {
-                content.push(ContentBlock::Text { text: text.clone() });
+                let is_thinking = event
+                    .ext
+                    .as_ref()
+                    .and_then(|e| e.get("thinking"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+
+                if is_thinking {
+                    let signature = event
+                        .ext
+                        .as_ref()
+                        .and_then(|e| e.get("signature"))
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    content.push(ContentBlock::Thinking {
+                        thinking: text.clone(),
+                        signature,
+                    });
+                } else {
+                    content.push(ContentBlock::Text { text: text.clone() });
+                }
             }
             AgentEventKind::ToolCall {
                 tool_name,
@@ -160,8 +192,11 @@ pub fn from_receipt(receipt: &Receipt, wo: &WorkOrder) -> MessagesResponse {
 ///
 /// Mapping:
 /// - `AssistantDelta` → `ContentBlockDelta` with `TextDelta`
+/// - `AssistantMessage` with `ext.thinking` → `ContentBlockDelta` with `ThinkingDelta`
+/// - `AssistantMessage` → `ContentBlockDelta` with `TextDelta`
 /// - `ToolCall` → `ContentBlockStart` with a `ToolUse` content block
 /// - `RunCompleted` → `MessageDelta` with `stop_reason = "end_turn"`
+/// - `Error` → `Error` stream event
 /// - Other event kinds return `None`.
 #[must_use]
 pub fn from_agent_event(event: &AgentEvent) -> Option<StreamEvent> {
@@ -190,9 +225,33 @@ pub fn from_agent_event(event: &AgentEvent) -> Option<StreamEvent> {
             },
             usage: None,
         }),
-        AgentEventKind::AssistantMessage { text } => Some(StreamEvent::ContentBlockDelta {
-            index: 0,
-            delta: StreamDelta::TextDelta { text: text.clone() },
+        AgentEventKind::AssistantMessage { text } => {
+            let is_thinking = event
+                .ext
+                .as_ref()
+                .and_then(|e| e.get("thinking"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+
+            if is_thinking {
+                Some(StreamEvent::ContentBlockDelta {
+                    index: 0,
+                    delta: StreamDelta::ThinkingDelta {
+                        thinking: text.clone(),
+                    },
+                })
+            } else {
+                Some(StreamEvent::ContentBlockDelta {
+                    index: 0,
+                    delta: StreamDelta::TextDelta { text: text.clone() },
+                })
+            }
+        }
+        AgentEventKind::Error { message, .. } => Some(StreamEvent::Error {
+            error: ErrorResponse {
+                error_type: "api_error".to_string(),
+                message: message.clone(),
+            },
         }),
         _ => None,
     }
@@ -334,11 +393,15 @@ pub fn content_block_to_event_kind(block: &ContentBlock) -> Option<AgentEventKin
         ContentBlock::ToolResult {
             tool_use_id,
             content,
+            is_error,
         } => Some(AgentEventKind::ToolResult {
             tool_name: String::new(),
             tool_use_id: Some(tool_use_id.clone()),
             output: json!(content),
-            is_error: false,
+            is_error: is_error.unwrap_or(false),
+        }),
+        ContentBlock::Thinking { thinking, .. } => Some(AgentEventKind::AssistantMessage {
+            text: thinking.clone(),
         }),
         ContentBlock::Image { .. } => None,
     }
@@ -395,6 +458,10 @@ mod tests {
             stream: None,
             tools: None,
             tool_choice: None,
+
+            stop_sequences: None,
+
+            thinking: None,
         }
     }
 
@@ -497,6 +564,10 @@ mod tests {
             stream: None,
             tools: None,
             tool_choice: None,
+
+            stop_sequences: None,
+
+            thinking: None,
         };
         let wo = to_work_order(&req);
         assert_eq!(wo.task, "Be helpful");
@@ -515,6 +586,10 @@ mod tests {
             stream: None,
             tools: None,
             tool_choice: None,
+
+            stop_sequences: None,
+
+            thinking: None,
         };
         let wo = to_work_order(&req);
         assert_eq!(wo.task, "Claude shim request");
@@ -620,6 +695,10 @@ mod tests {
             stream: None,
             tools: None,
             tool_choice: None,
+
+            stop_sequences: None,
+
+            thinking: None,
         };
         let wo = to_work_order(&req);
         assert_eq!(wo.task, "Look at this:");
@@ -639,6 +718,7 @@ mod tests {
                     content: ClaudeContent::Blocks(vec![ContentBlock::ToolResult {
                         tool_use_id: "tu_1".to_string(),
                         content: "file contents here".to_string(),
+                        is_error: None,
                     }]),
                 },
             ],
@@ -650,6 +730,10 @@ mod tests {
             stream: None,
             tools: None,
             tool_choice: None,
+
+            stop_sequences: None,
+
+            thinking: None,
         };
         let wo = to_work_order(&req);
         // Task should fallback since last user message has only ToolResult (no text)
@@ -895,6 +979,7 @@ mod tests {
         let c = ClaudeContent::Blocks(vec![ContentBlock::ToolResult {
             tool_use_id: "tu_1".to_string(),
             content: "result".to_string(),
+            is_error: None,
         }]);
         assert!(content_to_text(&c).is_none());
     }
@@ -984,6 +1069,7 @@ mod tests {
         let block = ContentBlock::ToolResult {
             tool_use_id: "tu_1".to_string(),
             content: "output".to_string(),
+            is_error: None,
         };
         let kind = content_block_to_event_kind(&block).unwrap();
         assert!(matches!(kind, AgentEventKind::ToolResult { .. }));
@@ -1138,6 +1224,10 @@ mod tests {
             stream: None,
             tools: None,
             tool_choice: None,
+
+            stop_sequences: None,
+
+            thinking: None,
         };
         let wo = to_work_order(&req);
         let msgs = wo.config.vendor.get("messages").unwrap();
@@ -1171,6 +1261,10 @@ mod tests {
             stream: None,
             tools: None,
             tool_choice: None,
+
+            stop_sequences: None,
+
+            thinking: None,
         };
         assert_eq!(extract_task(&req), "my task");
     }
@@ -1204,5 +1298,350 @@ mod tests {
         let receipt = make_receipt(vec![text_event("first"), text_event("second")], json!({}));
         let resp = from_receipt(&receipt, &wo);
         assert_eq!(resp.content.len(), 2);
+    }
+
+    // ── 19. Thinking block support ──────────────────────────────────────
+
+    fn thinking_event(text: &str) -> AgentEvent {
+        let mut ext = std::collections::BTreeMap::new();
+        ext.insert("thinking".into(), serde_json::Value::Bool(true));
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: text.to_string(),
+            },
+            ext: Some(ext),
+        }
+    }
+
+    fn thinking_event_with_sig(text: &str, sig: &str) -> AgentEvent {
+        let mut ext = std::collections::BTreeMap::new();
+        ext.insert("thinking".into(), serde_json::Value::Bool(true));
+        ext.insert("signature".into(), serde_json::Value::String(sig.into()));
+        AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: text.to_string(),
+            },
+            ext: Some(ext),
+        }
+    }
+
+    #[test]
+    fn from_receipt_thinking_block() {
+        let req = simple_request("hi");
+        let wo = to_work_order(&req);
+        let receipt = make_receipt(
+            vec![
+                thinking_event("Let me reason..."),
+                text_event("The answer is 42."),
+            ],
+            json!({}),
+        );
+        let resp = from_receipt(&receipt, &wo);
+        assert_eq!(resp.content.len(), 2);
+        assert!(matches!(
+            &resp.content[0],
+            ContentBlock::Thinking { thinking, .. } if thinking == "Let me reason..."
+        ));
+        assert!(matches!(
+            &resp.content[1],
+            ContentBlock::Text { text } if text == "The answer is 42."
+        ));
+    }
+
+    #[test]
+    fn from_receipt_thinking_with_signature() {
+        let req = simple_request("hi");
+        let wo = to_work_order(&req);
+        let receipt = make_receipt(
+            vec![thinking_event_with_sig("step by step", "sig_abc")],
+            json!({}),
+        );
+        let resp = from_receipt(&receipt, &wo);
+        assert!(matches!(
+            &resp.content[0],
+            ContentBlock::Thinking { thinking, signature } if thinking == "step by step" && signature.as_deref() == Some("sig_abc")
+        ));
+    }
+
+    // ── 20. Thinking in streaming ───────────────────────────────────────
+
+    #[test]
+    fn from_agent_event_thinking_produces_thinking_delta() {
+        let event = thinking_event("considering...");
+        let se = from_agent_event(&event).unwrap();
+        assert!(matches!(
+            se,
+            StreamEvent::ContentBlockDelta {
+                delta: StreamDelta::ThinkingDelta { ref thinking },
+                ..
+            } if thinking == "considering..."
+        ));
+    }
+
+    // ── 21. Error event mapping ─────────────────────────────────────────
+
+    #[test]
+    fn from_agent_event_error_produces_error_stream_event() {
+        let event = AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::Error {
+                message: "rate limit exceeded".to_string(),
+                error_code: None,
+            },
+            ext: None,
+        };
+        let se = from_agent_event(&event).unwrap();
+        match se {
+            StreamEvent::Error { error } => {
+                assert_eq!(error.error_type, "api_error");
+                assert_eq!(error.message, "rate limit exceeded");
+            }
+            other => panic!("expected Error, got {other:?}"),
+        }
+    }
+
+    // ── 22. Thinking content block ↔ event kind ─────────────────────────
+
+    #[test]
+    fn content_block_to_event_thinking() {
+        let block = ContentBlock::Thinking {
+            thinking: "deep thought".to_string(),
+            signature: Some("sig_xyz".to_string()),
+        };
+        let kind = content_block_to_event_kind(&block).unwrap();
+        assert!(
+            matches!(kind, AgentEventKind::AssistantMessage { text } if text == "deep thought")
+        );
+    }
+
+    // ── 23. ToolResult is_error propagation ─────────────────────────────
+
+    #[test]
+    fn content_block_to_event_tool_result_is_error() {
+        let block = ContentBlock::ToolResult {
+            tool_use_id: "tu_1".to_string(),
+            content: "permission denied".to_string(),
+            is_error: Some(true),
+        };
+        let kind = content_block_to_event_kind(&block).unwrap();
+        match kind {
+            AgentEventKind::ToolResult { is_error, .. } => assert!(is_error),
+            other => panic!("expected ToolResult, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn content_block_to_event_tool_result_no_error() {
+        let block = ContentBlock::ToolResult {
+            tool_use_id: "tu_1".to_string(),
+            content: "success".to_string(),
+            is_error: None,
+        };
+        let kind = content_block_to_event_kind(&block).unwrap();
+        match kind {
+            AgentEventKind::ToolResult { is_error, .. } => assert!(!is_error),
+            other => panic!("expected ToolResult, got {other:?}"),
+        }
+    }
+
+    // ── 24. Thinking config in work order ───────────────────────────────
+
+    #[test]
+    fn to_work_order_stores_thinking() {
+        let mut req = simple_request("hi");
+        req.thinking = Some(crate::types::ThinkingConfig::new(2048));
+        let wo = to_work_order(&req);
+        let thinking = wo.config.vendor.get("thinking").unwrap();
+        assert_eq!(thinking.get("budget_tokens").unwrap().as_u64(), Some(2048));
+    }
+
+    // ── 25. Stop sequences in work order ────────────────────────────────
+
+    #[test]
+    fn to_work_order_stores_stop_sequences() {
+        let mut req = simple_request("hi");
+        req.stop_sequences = Some(vec!["STOP".to_string(), "END".to_string()]);
+        let wo = to_work_order(&req);
+        let stops = wo.config.vendor.get("stop_sequences").unwrap();
+        assert!(stops.is_array());
+        assert_eq!(stops.as_array().unwrap().len(), 2);
+    }
+
+    // ── 26. Thinking block serde roundtrip ──────────────────────────────
+
+    #[test]
+    fn thinking_content_block_serde_roundtrip() {
+        let block = ContentBlock::Thinking {
+            thinking: "Let me consider...".to_string(),
+            signature: Some("sig_abc".to_string()),
+        };
+        let json = serde_json::to_string(&block).unwrap();
+        assert!(json.contains(r#""type":"thinking""#));
+        let back: ContentBlock = serde_json::from_str(&json).unwrap();
+        assert_eq!(block, back);
+    }
+
+    #[test]
+    fn thinking_content_block_no_signature_roundtrip() {
+        let block = ContentBlock::Thinking {
+            thinking: "reasoning text".to_string(),
+            signature: None,
+        };
+        let json = serde_json::to_string(&block).unwrap();
+        assert!(!json.contains("signature"));
+        let back: ContentBlock = serde_json::from_str(&json).unwrap();
+        assert_eq!(block, back);
+    }
+
+    // ── 27. StreamDelta ThinkingDelta serde ─────────────────────────────
+
+    #[test]
+    fn stream_delta_thinking_serde_roundtrip() {
+        let delta = StreamDelta::ThinkingDelta {
+            thinking: "partial thought".to_string(),
+        };
+        let json = serde_json::to_string(&delta).unwrap();
+        assert!(json.contains(r#""type":"thinking_delta""#));
+        let back: StreamDelta = serde_json::from_str(&json).unwrap();
+        assert_eq!(delta, back);
+    }
+
+    #[test]
+    fn stream_delta_signature_serde_roundtrip() {
+        let delta = StreamDelta::SignatureDelta {
+            signature: "partial_sig".to_string(),
+        };
+        let json = serde_json::to_string(&delta).unwrap();
+        assert!(json.contains(r#""type":"signature_delta""#));
+        let back: StreamDelta = serde_json::from_str(&json).unwrap();
+        assert_eq!(delta, back);
+    }
+
+    // ── 28. Error stream event serde ────────────────────────────────────
+
+    #[test]
+    fn error_stream_event_serde_roundtrip() {
+        let event = StreamEvent::Error {
+            error: crate::types::ErrorResponse {
+                error_type: "overloaded_error".to_string(),
+                message: "Server is overloaded".to_string(),
+            },
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains(r#""type":"error""#));
+        let back: StreamEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(event, back);
+    }
+
+    // ── 29. ErrorResponse parsing ───────────────────────────────────────
+
+    #[test]
+    fn error_response_from_json() {
+        let json = r#"{"type":"invalid_request_error","message":"max_tokens: must be > 0"}"#;
+        let err: crate::types::ErrorResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(err.error_type, "invalid_request_error");
+        assert_eq!(err.message, "max_tokens: must be > 0");
+    }
+
+    #[test]
+    fn error_response_serde_roundtrip() {
+        let err = crate::types::ErrorResponse {
+            error_type: "authentication_error".to_string(),
+            message: "Invalid API key".to_string(),
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        let back: crate::types::ErrorResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(err, back);
+    }
+
+    // ── 30. ThinkingConfig serde ────────────────────────────────────────
+
+    #[test]
+    fn thinking_config_serde_roundtrip() {
+        let cfg = crate::types::ThinkingConfig::new(4096);
+        let json = serde_json::to_string(&cfg).unwrap();
+        assert!(json.contains(r#""type":"enabled""#));
+        assert!(json.contains("4096"));
+        let back: crate::types::ThinkingConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(cfg, back);
+    }
+
+    // ── 31. ToolResult is_error serde roundtrip ─────────────────────────
+
+    #[test]
+    fn tool_result_is_error_true_serde() {
+        let block = ContentBlock::ToolResult {
+            tool_use_id: "tu_1".to_string(),
+            content: "error output".to_string(),
+            is_error: Some(true),
+        };
+        let json = serde_json::to_string(&block).unwrap();
+        assert!(json.contains(r#""is_error":true"#));
+        let back: ContentBlock = serde_json::from_str(&json).unwrap();
+        assert_eq!(block, back);
+    }
+
+    #[test]
+    fn tool_result_is_error_omitted_when_none() {
+        let block = ContentBlock::ToolResult {
+            tool_use_id: "tu_1".to_string(),
+            content: "output".to_string(),
+            is_error: None,
+        };
+        let json = serde_json::to_string(&block).unwrap();
+        assert!(!json.contains("is_error"));
+    }
+
+    // ── 32. MessagesRequest new fields serde ────────────────────────────
+
+    #[test]
+    fn request_with_thinking_serde_roundtrip() {
+        let mut req = simple_request("think about this");
+        req.thinking = Some(crate::types::ThinkingConfig::new(8192));
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("thinking"));
+        assert!(json.contains("8192"));
+        let back: MessagesRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.thinking.as_ref().unwrap().budget_tokens, 8192);
+    }
+
+    #[test]
+    fn request_with_stop_sequences_serde_roundtrip() {
+        let mut req = simple_request("stop me");
+        req.stop_sequences = Some(vec!["STOP".into(), "###".into()]);
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("stop_sequences"));
+        let back: MessagesRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.stop_sequences.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn request_omits_new_none_fields() {
+        let req = simple_request("hi");
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(!json.contains("thinking"));
+        assert!(!json.contains("stop_sequences"));
+    }
+
+    // ── 33. Mixed thinking + tools in receipt ───────────────────────────
+
+    #[test]
+    fn from_receipt_thinking_then_tool_call() {
+        let req = simple_request("hi");
+        let wo = to_work_order(&req);
+        let receipt = make_receipt(
+            vec![
+                thinking_event("I should read the file first"),
+                tool_call_event("read_file", "tu_1", json!({"path": "main.rs"})),
+            ],
+            json!({}),
+        );
+        let resp = from_receipt(&receipt, &wo);
+        assert_eq!(resp.content.len(), 2);
+        assert!(matches!(&resp.content[0], ContentBlock::Thinking { .. }));
+        assert!(matches!(&resp.content[1], ContentBlock::ToolUse { .. }));
+        assert_eq!(resp.stop_reason.as_deref(), Some("tool_use"));
     }
 }

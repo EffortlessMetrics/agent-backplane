@@ -81,7 +81,7 @@ impl EventFilter {
         let names: Vec<String> = kind_names.iter().map(|s| s.to_string()).collect();
         Self::new(move |ev| {
             let name = event_kind_name(&ev.kind);
-            names.iter().any(|n| *n == name)
+            names.contains(&name)
         })
     }
 
@@ -104,6 +104,7 @@ impl EventFilter {
     }
 
     /// Negate a filter — passes events that the original rejects.
+    #[allow(clippy::should_implement_trait)]
     pub fn not(self) -> Self {
         let inner = self.predicate;
         Self {

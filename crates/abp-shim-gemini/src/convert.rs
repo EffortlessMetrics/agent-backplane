@@ -5,23 +5,24 @@
 //! and the internal dialect types, as well as the ABP intermediate
 //! representation (IR) used for the pipeline.
 
-use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
     AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder, UsageNormalized, WorkOrderBuilder,
 };
 use abp_gemini_sdk::dialect::{
     self, GeminiContent, GeminiFunctionCallingConfig, GeminiFunctionDeclaration,
     GeminiGenerationConfig, GeminiInlineData, GeminiPart, GeminiRequest, GeminiResponse,
-    GeminiSafetySetting, GeminiStreamChunk, GeminiTool, GeminiToolConfig,
+    GeminiSafetyRating, GeminiSafetySetting, GeminiStreamChunk, GeminiTool, GeminiToolConfig,
+    HarmProbability as DialectHarmProbability,
 };
 use abp_gemini_sdk::lowering;
 use chrono::Utc;
 
 use crate::GeminiError;
 use crate::types::{
-    Candidate, Content, GenerateContentRequest, GenerateContentResponse, GenerationConfig,
-    HarmProbability, Part, PromptFeedback, SafetyRating, SafetySetting, StreamEvent, ToolConfig,
-    ToolDeclaration, UsageMetadata,
+    Candidate, Content, FunctionDeclaration, GeminiErrorResponse, GenerateContentRequest,
+    GenerateContentResponse, GenerationConfig, HarmProbability, Part, PromptFeedback, SafetyRating,
+    SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
 };
 
 // ── Shim ↔ Dialect conversions ──────────────────────────────────────────
@@ -90,6 +91,24 @@ pub fn safety_to_dialect(s: &SafetySetting) -> GeminiSafetySetting {
     GeminiSafetySetting {
         category: s.category,
         threshold: s.threshold,
+    }
+}
+
+/// Convert a dialect [`GeminiSafetySetting`] back to a shim [`SafetySetting`].
+#[must_use]
+pub fn safety_from_dialect(s: &GeminiSafetySetting) -> SafetySetting {
+    SafetySetting {
+        category: s.category,
+        threshold: s.threshold,
+    }
+}
+
+/// Convert a dialect [`GeminiSafetyRating`] to a shim [`SafetyRating`].
+#[must_use]
+pub fn safety_rating_from_dialect(r: &GeminiSafetyRating) -> SafetyRating {
+    SafetyRating {
+        category: r.category,
+        probability: dialect_probability_to_shim(r.probability),
     }
 }
 
@@ -213,13 +232,103 @@ pub fn from_dialect_response(resp: &GeminiResponse) -> GenerateContentResponse {
 
 /// Map a dialect [`abp_gemini_sdk::dialect::HarmProbability`] to a shim [`HarmProbability`].
 #[must_use]
-fn dialect_probability_to_shim(p: abp_gemini_sdk::dialect::HarmProbability) -> HarmProbability {
+fn dialect_probability_to_shim(p: DialectHarmProbability) -> HarmProbability {
     match p {
-        abp_gemini_sdk::dialect::HarmProbability::Negligible => HarmProbability::Negligible,
-        abp_gemini_sdk::dialect::HarmProbability::Low => HarmProbability::Low,
-        abp_gemini_sdk::dialect::HarmProbability::Medium => HarmProbability::Medium,
-        abp_gemini_sdk::dialect::HarmProbability::High => HarmProbability::High,
+        DialectHarmProbability::Negligible => HarmProbability::Negligible,
+        DialectHarmProbability::Low => HarmProbability::Low,
+        DialectHarmProbability::Medium => HarmProbability::Medium,
+        DialectHarmProbability::High => HarmProbability::High,
     }
+}
+
+/// Map a shim [`HarmProbability`] to a dialect [`DialectHarmProbability`].
+#[must_use]
+fn shim_probability_to_dialect(p: HarmProbability) -> DialectHarmProbability {
+    match p {
+        HarmProbability::Negligible => DialectHarmProbability::Negligible,
+        HarmProbability::Low => DialectHarmProbability::Low,
+        HarmProbability::Medium => DialectHarmProbability::Medium,
+        HarmProbability::High => DialectHarmProbability::High,
+    }
+}
+
+/// Convert a shim [`SafetyRating`] to a dialect [`GeminiSafetyRating`].
+#[must_use]
+pub fn safety_rating_to_dialect(r: &SafetyRating) -> GeminiSafetyRating {
+    GeminiSafetyRating {
+        category: r.category,
+        probability: shim_probability_to_dialect(r.probability),
+    }
+}
+
+// ── Tool / IR conversion ────────────────────────────────────────────────
+
+/// Convert a slice of shim [`ToolDeclaration`]s to [`IrToolDefinition`]s.
+#[must_use]
+pub fn tools_to_ir(tools: &[ToolDeclaration]) -> Vec<IrToolDefinition> {
+    tools
+        .iter()
+        .flat_map(|t| {
+            t.function_declarations.iter().map(|f| IrToolDefinition {
+                name: f.name.clone(),
+                description: f.description.clone(),
+                parameters: f.parameters.clone(),
+            })
+        })
+        .collect()
+}
+
+/// Convert a slice of [`IrToolDefinition`]s back to shim [`ToolDeclaration`]s.
+///
+/// Each IR tool becomes a single-function [`ToolDeclaration`] to match the
+/// one-to-one mapping expected by most callers.
+#[must_use]
+pub fn ir_to_tools(defs: &[IrToolDefinition]) -> Vec<ToolDeclaration> {
+    defs.iter()
+        .map(|d| ToolDeclaration {
+            function_declarations: vec![FunctionDeclaration {
+                name: d.name.clone(),
+                description: d.description.clone(),
+                parameters: d.parameters.clone(),
+            }],
+        })
+        .collect()
+}
+
+// ── Candidate selection ─────────────────────────────────────────────────
+
+/// Select the best candidate from a response.
+///
+/// Prefers candidates with `STOP` finish reason over others. Among equal
+/// finish reasons, the first candidate wins (index 0 is the model's top
+/// choice). Returns `None` only when `candidates` is empty.
+#[must_use]
+pub fn select_best_candidate(candidates: &[Candidate]) -> Option<&Candidate> {
+    if candidates.is_empty() {
+        return None;
+    }
+    // Prefer a candidate with STOP finish reason
+    let stop = candidates
+        .iter()
+        .find(|c| c.finish_reason.as_deref() == Some("STOP"));
+    if let Some(c) = stop {
+        return Some(c);
+    }
+    // Fall back to first non-safety-blocked candidate
+    let non_blocked = candidates
+        .iter()
+        .find(|c| c.finish_reason.as_deref() != Some("SAFETY"));
+    non_blocked.or_else(|| candidates.first())
+}
+
+// ── Error response parsing ──────────────────────────────────────────────
+
+/// Attempt to parse a JSON response body as a [`GeminiErrorResponse`].
+///
+/// Returns `None` if the body does not contain a valid Gemini error object.
+#[must_use]
+pub fn parse_error_response(body: &str) -> Option<GeminiErrorResponse> {
+    GeminiErrorResponse::parse(body)
 }
 
 /// Convert a dialect [`GeminiStreamChunk`] to a shim [`StreamEvent`].
@@ -400,6 +509,12 @@ pub fn receipt_to_ir(receipt: &Receipt) -> IrConversation {
                     }],
                 ));
             }
+            AgentEventKind::Error { message, .. } => {
+                messages.push(IrMessage::text(
+                    IrRole::Assistant,
+                    format!("Error: {message}"),
+                ));
+            }
             _ => {}
         }
     }
@@ -420,10 +535,16 @@ pub fn ir_to_response(
 ) -> Result<GenerateContentResponse, GeminiError> {
     let dialect_contents = lowering::from_ir(ir);
 
+    let finish_reason = match receipt.outcome {
+        Outcome::Complete => "STOP",
+        Outcome::Partial => "MAX_TOKENS",
+        Outcome::Failed => "OTHER",
+    };
+
     let candidates: Vec<Candidate> = if dialect_contents.is_empty() {
         vec![Candidate {
             content: Content::model(vec![Part::text("")]),
-            finish_reason: Some("STOP".into()),
+            finish_reason: Some(finish_reason.into()),
             safety_ratings: None,
         }]
     } else {
@@ -432,19 +553,18 @@ pub fn ir_to_response(
             .filter(|c| c.role == "model")
             .map(|c| Candidate {
                 content: content_from_dialect(c),
-                finish_reason: Some("STOP".into()),
+                finish_reason: Some(finish_reason.into()),
                 safety_ratings: None,
             })
             .collect()
     };
 
     let candidates = if candidates.is_empty() {
-        // If no model messages, produce one from all content
         dialect_contents
             .iter()
             .map(|c| Candidate {
                 content: content_from_dialect(c),
-                finish_reason: Some("STOP".into()),
+                finish_reason: Some(finish_reason.into()),
                 safety_ratings: None,
             })
             .collect()
@@ -482,6 +602,12 @@ pub fn make_usage_metadata(usage: &UsageNormalized) -> Option<UsageMetadata> {
 pub fn receipt_to_stream_events(receipt: &Receipt) -> Vec<StreamEvent> {
     let mut events = Vec::new();
 
+    let finish_reason = match receipt.outcome {
+        Outcome::Complete => "STOP",
+        Outcome::Partial => "MAX_TOKENS",
+        Outcome::Failed => "OTHER",
+    };
+
     for agent_event in &receipt.trace {
         match &agent_event.kind {
             AgentEventKind::AssistantMessage { text } | AgentEventKind::AssistantDelta { text } => {
@@ -504,6 +630,26 @@ pub fn receipt_to_stream_events(receipt: &Receipt) -> Vec<StreamEvent> {
                             input.clone(),
                         )]),
                         finish_reason: None,
+                        safety_ratings: None,
+                    }],
+                    usage_metadata: None,
+                });
+            }
+            AgentEventKind::Error { message, .. } => {
+                events.push(StreamEvent {
+                    candidates: vec![Candidate {
+                        content: Content::model(vec![Part::text(format!("Error: {message}"))]),
+                        finish_reason: Some("OTHER".into()),
+                        safety_ratings: None,
+                    }],
+                    usage_metadata: None,
+                });
+            }
+            AgentEventKind::RunCompleted { .. } => {
+                events.push(StreamEvent {
+                    candidates: vec![Candidate {
+                        content: Content::model(vec![]),
+                        finish_reason: Some(finish_reason.into()),
                         safety_ratings: None,
                     }],
                     usage_metadata: None,

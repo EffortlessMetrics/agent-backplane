@@ -512,6 +512,7 @@ fn client_error_rate_limit() {
     let err = ClientError::Api {
         status: 429,
         body: r#"{"error":{"message":"Rate limit reached"}}"#.into(),
+        parsed: None,
     };
     let msg = err.to_string();
     assert!(msg.contains("429"));
@@ -524,6 +525,7 @@ fn client_error_auth_failure() {
     let err = ClientError::Api {
         status: 401,
         body: r#"{"error":{"message":"Invalid API key"}}"#.into(),
+        parsed: None,
     };
     assert!(err.to_string().contains("401"));
 }
@@ -534,6 +536,7 @@ fn client_error_model_not_found() {
     let err = ClientError::Api {
         status: 404,
         body: "model not found".into(),
+        parsed: None,
     };
     assert!(err.to_string().contains("404"));
     assert!(err.to_string().contains("model not found"));
@@ -545,6 +548,7 @@ fn client_error_context_too_long() {
     let err = ClientError::Api {
         status: 400,
         body: r#"{"error":{"message":"maximum context length exceeded"}}"#.into(),
+        parsed: None,
     };
     assert!(err.to_string().contains("400"));
     assert!(err.to_string().contains("context length"));

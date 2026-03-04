@@ -93,6 +93,10 @@ fn types_request(text: &str) -> MessagesRequest {
         stream: None,
         tools: None,
         tool_choice: None,
+
+        stop_sequences: None,
+
+        thinking: None,
     }
 }
 
@@ -285,6 +289,10 @@ fn system_prompt_used_as_task_fallback() {
         stream: None,
         tools: None,
         tool_choice: None,
+
+        stop_sequences: None,
+
+        thinking: None,
     };
     assert_eq!(extract_task(&req), "fallback system");
 }
@@ -1309,6 +1317,7 @@ fn edge_content_to_text_blocks_only_tool_result_is_none() {
     let c = ClaudeContent::Blocks(vec![TypesContentBlock::ToolResult {
         tool_use_id: "tu_x".into(),
         content: "data".into(),
+        is_error: None,
     }]);
     assert!(content_to_text(&c).is_none());
 }

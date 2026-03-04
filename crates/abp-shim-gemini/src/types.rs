@@ -458,6 +458,53 @@ impl GenerateContentResponse {
     }
 }
 
+// ── Error response ──────────────────────────────────────────────────────
+
+/// Block reason for a prompt that was rejected by the API.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BlockReason {
+    /// Blocked due to safety filters.
+    Safety,
+    /// Blocked due to other reasons.
+    Other,
+    /// Blocked: the prompt contained blocklisted terms.
+    Blocklist,
+    /// Blocked: the prompt triggered prohibited-content filters.
+    ProhibitedContent,
+}
+
+/// A structured error returned by the Gemini API on non-2xx responses.
+///
+/// The Gemini REST API wraps errors in `{"error": {…}}`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct GeminiErrorResponse {
+    /// The error detail object.
+    pub error: GeminiErrorDetail,
+}
+
+/// Detail of a Gemini API error.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct GeminiErrorDetail {
+    /// HTTP status code.
+    pub code: u16,
+    /// Human-readable error message.
+    pub message: String,
+    /// Error status string (e.g. `"INVALID_ARGUMENT"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+}
+
+impl GeminiErrorResponse {
+    /// Try to parse a JSON string as a Gemini API error response.
+    ///
+    /// Returns `None` if the string is not valid Gemini error JSON.
+    #[must_use]
+    pub fn parse(body: &str) -> Option<Self> {
+        serde_json::from_str(body).ok()
+    }
+}
+
 // ── Streaming types ─────────────────────────────────────────────────────
 
 /// A streaming response event from `streamGenerateContent`.

@@ -991,6 +991,7 @@ mod sampling_parameters {
             temperature: Some(0.8),
             top_p: Some(0.95),
             top_k: Some(40),
+            candidate_count: None,
             stop_sequences: None,
             response_mime_type: None,
             response_schema: None,

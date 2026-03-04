@@ -436,40 +436,41 @@ pub fn to_toml_pretty(config: &BackplaneConfig) -> Result<String, ConfigError> {
 /// This is useful for `--init` style CLI commands that write a starter
 /// configuration file. Each field includes a comment explaining its purpose.
 pub fn generate_default_toml() -> String {
-    let mut lines = Vec::new();
-    lines.push("# Agent Backplane configuration file".to_string());
-    lines.push("# See https://github.com/anthropics/agent-backplane for details".to_string());
-    lines.push(String::new());
-    lines.push("# Default backend when none is specified on the command line.".to_string());
-    lines.push("# default_backend = \"mock\"".to_string());
-    lines.push(String::new());
-    lines.push("# Working directory used for staged workspaces.".to_string());
-    lines.push("# workspace_dir = \"/tmp/abp-workspaces\"".to_string());
-    lines.push(String::new());
-    lines.push("# Log level: error, warn, info, debug, trace".to_string());
-    lines.push("log_level = \"info\"".to_string());
-    lines.push(String::new());
-    lines.push("# Directory for persisting receipt JSON files.".to_string());
-    lines.push("# receipts_dir = \"/tmp/abp-receipts\"".to_string());
-    lines.push(String::new());
-    lines.push("# Network bind address (e.g. \"127.0.0.1\", \"0.0.0.0\", \"::1\").".to_string());
-    lines.push("# bind_address = \"127.0.0.1\"".to_string());
-    lines.push(String::new());
-    lines.push("# Network port number (1-65535).".to_string());
-    lines.push("# port = 8080".to_string());
-    lines.push(String::new());
-    lines.push("# Paths to policy profile files loaded at startup.".to_string());
-    lines.push("# policy_profiles = [\"policies/default.toml\"]".to_string());
-    lines.push(String::new());
-    lines.push("# Backend definitions:".to_string());
-    lines.push("# [backends.mock]".to_string());
-    lines.push("# type = \"mock\"".to_string());
-    lines.push("#".to_string());
-    lines.push("# [backends.node]".to_string());
-    lines.push("# type = \"sidecar\"".to_string());
-    lines.push("# command = \"node\"".to_string());
-    lines.push("# args = [\"hosts/node/index.js\"]".to_string());
-    lines.push("# timeout_secs = 300".to_string());
+    let lines = vec![
+        "# Agent Backplane configuration file",
+        "# See https://github.com/anthropics/agent-backplane for details",
+        "",
+        "# Default backend when none is specified on the command line.",
+        "# default_backend = \"mock\"",
+        "",
+        "# Working directory used for staged workspaces.",
+        "# workspace_dir = \"/tmp/abp-workspaces\"",
+        "",
+        "# Log level: error, warn, info, debug, trace",
+        "log_level = \"info\"",
+        "",
+        "# Directory for persisting receipt JSON files.",
+        "# receipts_dir = \"/tmp/abp-receipts\"",
+        "",
+        "# Network bind address (e.g. \"127.0.0.1\", \"0.0.0.0\", \"::1\").",
+        "# bind_address = \"127.0.0.1\"",
+        "",
+        "# Network port number (1-65535).",
+        "# port = 8080",
+        "",
+        "# Paths to policy profile files loaded at startup.",
+        "# policy_profiles = [\"policies/default.toml\"]",
+        "",
+        "# Backend definitions:",
+        "# [backends.mock]",
+        "# type = \"mock\"",
+        "#",
+        "# [backends.node]",
+        "# type = \"sidecar\"",
+        "# command = \"node\"",
+        "# args = [\"hosts/node/index.js\"]",
+        "# timeout_secs = 300",
+    ];
     lines.join("\n")
 }
 
@@ -1186,7 +1187,7 @@ mod tests {
     #[test]
     fn merge_many_single_element() {
         let cfg = BackplaneConfig::builder().default_backend("mock").build();
-        let result = merge_many(&[cfg.clone()]);
+        let result = merge_many(std::slice::from_ref(&cfg));
         assert_eq!(result.default_backend.as_deref(), Some("mock"));
     }
 

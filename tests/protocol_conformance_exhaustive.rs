@@ -839,6 +839,7 @@ mod fatal_envelope {
             message: "crash".into(),
             context: BTreeMap::new(),
             source: None,
+            location: None,
         };
         let env = Envelope::fatal_from_abp_error(Some("r1".into()), &abp_err);
         if let Envelope::Fatal {

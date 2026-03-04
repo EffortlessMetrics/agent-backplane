@@ -110,7 +110,7 @@ impl GeminiClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use abp_core::ir::{IrContentBlock, IrConversation, IrRole, IrUsage};
+    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
     use abp_core::{AgentEventKind, Outcome, ReceiptBuilder};
     use abp_gemini_sdk::dialect::{
         self, GeminiCandidate, GeminiContent, GeminiPart, GeminiResponse, GeminiStreamChunk,
@@ -971,5 +971,629 @@ mod tests {
         let resp: GenerateContentResponse = receipt.into();
         assert_eq!(resp.text(), Some("Hi!"));
         assert!(resp.prompt_feedback.is_none());
+    }
+
+    // ── Tools ↔ IR roundtrip ────────────────────────────────────────────
+
+    #[test]
+    fn tools_to_ir_single_declaration() {
+        let tools = vec![ToolDeclaration {
+            function_declarations: vec![FunctionDeclaration {
+                name: "get_weather".into(),
+                description: "Get weather for a location".into(),
+                parameters: json!({"type": "object", "properties": {"loc": {"type": "string"}}}),
+            }],
+        }];
+        let ir = tools_to_ir(&tools);
+        assert_eq!(ir.len(), 1);
+        assert_eq!(ir[0].name, "get_weather");
+        assert_eq!(ir[0].description, "Get weather for a location");
+    }
+
+    #[test]
+    fn tools_to_ir_multiple_declarations() {
+        let tools = vec![ToolDeclaration {
+            function_declarations: vec![
+                FunctionDeclaration {
+                    name: "fn_a".into(),
+                    description: "A".into(),
+                    parameters: json!({}),
+                },
+                FunctionDeclaration {
+                    name: "fn_b".into(),
+                    description: "B".into(),
+                    parameters: json!({}),
+                },
+            ],
+        }];
+        let ir = tools_to_ir(&tools);
+        assert_eq!(ir.len(), 2);
+        assert_eq!(ir[0].name, "fn_a");
+        assert_eq!(ir[1].name, "fn_b");
+    }
+
+    #[test]
+    fn ir_to_tools_roundtrip() {
+        let tools = vec![ToolDeclaration {
+            function_declarations: vec![FunctionDeclaration {
+                name: "search".into(),
+                description: "Search the web".into(),
+                parameters: json!({"type": "object"}),
+            }],
+        }];
+        let ir = tools_to_ir(&tools);
+        let back = ir_to_tools(&ir);
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0].function_declarations[0].name, "search");
+        assert_eq!(
+            back[0].function_declarations[0].description,
+            "Search the web"
+        );
+    }
+
+    #[test]
+    fn ir_to_tools_empty() {
+        let ir: Vec<abp_core::ir::IrToolDefinition> = vec![];
+        let tools = ir_to_tools(&ir);
+        assert!(tools.is_empty());
+    }
+
+    // ── Candidate selection ─────────────────────────────────────────────
+
+    #[test]
+    fn select_best_candidate_prefers_stop() {
+        let candidates = vec![
+            Candidate {
+                content: Content::model(vec![Part::text("partial")]),
+                finish_reason: Some("MAX_TOKENS".into()),
+                safety_ratings: None,
+            },
+            Candidate {
+                content: Content::model(vec![Part::text("complete")]),
+                finish_reason: Some("STOP".into()),
+                safety_ratings: None,
+            },
+        ];
+        let best = select_best_candidate(&candidates).unwrap();
+        assert_eq!(best.finish_reason.as_deref(), Some("STOP"));
+        assert_eq!(
+            best.content.parts.iter().find_map(|p| match p {
+                Part::Text(t) => Some(t.as_str()),
+                _ => None,
+            }),
+            Some("complete")
+        );
+    }
+
+    #[test]
+    fn select_best_candidate_skips_safety_blocked() {
+        let candidates = vec![
+            Candidate {
+                content: Content::model(vec![]),
+                finish_reason: Some("SAFETY".into()),
+                safety_ratings: None,
+            },
+            Candidate {
+                content: Content::model(vec![Part::text("ok")]),
+                finish_reason: Some("MAX_TOKENS".into()),
+                safety_ratings: None,
+            },
+        ];
+        let best = select_best_candidate(&candidates).unwrap();
+        assert_eq!(best.finish_reason.as_deref(), Some("MAX_TOKENS"));
+    }
+
+    #[test]
+    fn select_best_candidate_empty() {
+        let candidates: Vec<Candidate> = vec![];
+        assert!(select_best_candidate(&candidates).is_none());
+    }
+
+    #[test]
+    fn select_best_candidate_first_when_all_equal() {
+        let candidates = vec![
+            Candidate {
+                content: Content::model(vec![Part::text("first")]),
+                finish_reason: None,
+                safety_ratings: None,
+            },
+            Candidate {
+                content: Content::model(vec![Part::text("second")]),
+                finish_reason: None,
+                safety_ratings: None,
+            },
+        ];
+        let best = select_best_candidate(&candidates).unwrap();
+        assert_eq!(
+            best.content.parts.iter().find_map(|p| match p {
+                Part::Text(t) => Some(t.as_str()),
+                _ => None,
+            }),
+            Some("first")
+        );
+    }
+
+    #[test]
+    fn select_best_candidate_falls_back_to_safety_if_only() {
+        let candidates = vec![Candidate {
+            content: Content::model(vec![]),
+            finish_reason: Some("SAFETY".into()),
+            safety_ratings: None,
+        }];
+        let best = select_best_candidate(&candidates).unwrap();
+        assert_eq!(best.finish_reason.as_deref(), Some("SAFETY"));
+    }
+
+    // ── Error response parsing ──────────────────────────────────────────
+
+    #[test]
+    fn parse_error_response_valid() {
+        let body =
+            r#"{"error":{"code":400,"message":"Invalid argument","status":"INVALID_ARGUMENT"}}"#;
+        let parsed = parse_error_response(body).unwrap();
+        assert_eq!(parsed.error.code, 400);
+        assert_eq!(parsed.error.message, "Invalid argument");
+        assert_eq!(parsed.error.status.as_deref(), Some("INVALID_ARGUMENT"));
+    }
+
+    #[test]
+    fn parse_error_response_no_status() {
+        let body = r#"{"error":{"code":500,"message":"Internal error"}}"#;
+        let parsed = parse_error_response(body).unwrap();
+        assert_eq!(parsed.error.code, 500);
+        assert!(parsed.error.status.is_none());
+    }
+
+    #[test]
+    fn parse_error_response_invalid_json() {
+        assert!(parse_error_response("not json").is_none());
+    }
+
+    #[test]
+    fn parse_error_response_wrong_shape() {
+        assert!(parse_error_response(r#"{"candidates":[]}"#).is_none());
+    }
+
+    #[test]
+    fn gemini_error_response_serde_roundtrip() {
+        let err = GeminiErrorResponse {
+            error: types::GeminiErrorDetail {
+                code: 403,
+                message: "Permission denied".into(),
+                status: Some("PERMISSION_DENIED".into()),
+            },
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        let back: GeminiErrorResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, err);
+    }
+
+    #[test]
+    fn gemini_error_response_json_schema() {
+        let schema = schemars::schema_for!(GeminiErrorResponse);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("GeminiErrorResponse"));
+    }
+
+    // ── BlockReason ─────────────────────────────────────────────────────
+
+    #[test]
+    fn block_reason_serde_roundtrip() {
+        let reason = types::BlockReason::Safety;
+        let json = serde_json::to_string(&reason).unwrap();
+        assert_eq!(json, "\"SAFETY\"");
+        let back: types::BlockReason = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, reason);
+    }
+
+    #[test]
+    fn block_reason_all_variants() {
+        for (variant, expected) in [
+            (types::BlockReason::Safety, "\"SAFETY\""),
+            (types::BlockReason::Other, "\"OTHER\""),
+            (types::BlockReason::Blocklist, "\"BLOCKLIST\""),
+            (
+                types::BlockReason::ProhibitedContent,
+                "\"PROHIBITED_CONTENT\"",
+            ),
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            assert_eq!(json, expected);
+        }
+    }
+
+    // ── Error events in receipt_to_ir ────────────────────────────────────
+
+    #[test]
+    fn receipt_to_ir_includes_error_events() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Failed)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::Error {
+                    message: "model overloaded".into(),
+                    error_code: None,
+                },
+                ext: None,
+            })
+            .build();
+        let ir = receipt_to_ir(&receipt);
+        assert_eq!(ir.len(), 1);
+        assert_eq!(ir.messages[0].role, IrRole::Assistant);
+        assert!(ir.messages[0].text_content().contains("Error:"));
+        assert!(ir.messages[0].text_content().contains("model overloaded"));
+    }
+
+    // ── Error events in streaming ───────────────────────────────────────
+
+    #[test]
+    fn receipt_to_stream_events_includes_errors() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Failed)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::Error {
+                    message: "rate limited".into(),
+                    error_code: None,
+                },
+                ext: None,
+            })
+            .build();
+        let events = receipt_to_stream_events(&receipt);
+        assert!(!events.is_empty());
+        let err_event = &events[0];
+        assert_eq!(
+            err_event.candidates[0].finish_reason.as_deref(),
+            Some("OTHER")
+        );
+        let text = err_event.text().unwrap();
+        assert!(text.contains("Error:"));
+        assert!(text.contains("rate limited"));
+    }
+
+    #[test]
+    fn receipt_to_stream_events_includes_run_completed() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantDelta {
+                    text: "Hello".into(),
+                },
+                ext: None,
+            })
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::RunCompleted {
+                    message: "done".into(),
+                },
+                ext: None,
+            })
+            .build();
+        let events = receipt_to_stream_events(&receipt);
+        // Should have: delta, run_completed, usage (but usage may not exist since 0 tokens)
+        assert!(events.len() >= 2);
+        let completed_event = &events[1];
+        assert_eq!(
+            completed_event.candidates[0].finish_reason.as_deref(),
+            Some("STOP")
+        );
+    }
+
+    // ── ir_to_response uses receipt outcome ─────────────────────────────
+
+    #[test]
+    fn ir_to_response_partial_outcome_finish_reason() {
+        let ir = IrConversation::from_messages(vec![IrMessage::text(
+            IrRole::Assistant,
+            "partial output",
+        )]);
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Partial)
+            .build();
+        let resp = ir_to_response(&ir, &receipt, &None, &[]).unwrap();
+        assert_eq!(
+            resp.candidates[0].finish_reason.as_deref(),
+            Some("MAX_TOKENS")
+        );
+    }
+
+    #[test]
+    fn ir_to_response_failed_outcome_finish_reason() {
+        let ir = IrConversation::from_messages(vec![IrMessage::text(
+            IrRole::Assistant,
+            "Error: something",
+        )]);
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Failed)
+            .build();
+        let resp = ir_to_response(&ir, &receipt, &None, &[]).unwrap();
+        assert_eq!(resp.candidates[0].finish_reason.as_deref(), Some("OTHER"));
+    }
+
+    // ── Safety setting reverse conversion ───────────────────────────────
+
+    #[test]
+    fn safety_from_dialect_roundtrip() {
+        use abp_gemini_sdk::dialect::GeminiSafetySetting;
+        let dialect = GeminiSafetySetting {
+            category: HarmCategory::HarmCategoryHarassment,
+            threshold: HarmBlockThreshold::BlockMediumAndAbove,
+        };
+        let shim = safety_from_dialect(&dialect);
+        assert_eq!(shim.category, HarmCategory::HarmCategoryHarassment);
+        assert_eq!(shim.threshold, HarmBlockThreshold::BlockMediumAndAbove);
+
+        let back = safety_to_dialect(&shim);
+        assert_eq!(back, dialect);
+    }
+
+    #[test]
+    fn safety_rating_from_dialect_conversion() {
+        use abp_gemini_sdk::dialect::GeminiSafetyRating;
+        let dialect = GeminiSafetyRating {
+            category: HarmCategory::HarmCategoryHateSpeech,
+            probability: abp_gemini_sdk::dialect::HarmProbability::Medium,
+        };
+        let shim = safety_rating_from_dialect(&dialect);
+        assert_eq!(shim.category, HarmCategory::HarmCategoryHateSpeech);
+        assert_eq!(shim.probability, HarmProbability::Medium);
+    }
+
+    #[test]
+    fn safety_rating_to_dialect_roundtrip() {
+        let shim = SafetyRating {
+            category: HarmCategory::HarmCategoryDangerousContent,
+            probability: HarmProbability::High,
+        };
+        let dialect = safety_rating_to_dialect(&shim);
+        let back = safety_rating_from_dialect(&dialect);
+        assert_eq!(back, shim);
+    }
+
+    // ── Function calling with tool config ───────────────────────────────
+
+    #[test]
+    fn tool_config_with_allowed_function_names() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("use tools")]))
+            .tools(vec![ToolDeclaration {
+                function_declarations: vec![
+                    FunctionDeclaration {
+                        name: "read_file".into(),
+                        description: "Read a file".into(),
+                        parameters: json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+                    },
+                    FunctionDeclaration {
+                        name: "write_file".into(),
+                        description: "Write a file".into(),
+                        parameters: json!({"type": "object"}),
+                    },
+                ],
+            }])
+            .tool_config(ToolConfig {
+                function_calling_config: FunctionCallingConfig {
+                    mode: FunctionCallingMode::Any,
+                    allowed_function_names: Some(vec!["read_file".into()]),
+                },
+            });
+        let dialect = to_dialect_request(&req);
+        let tc = dialect.tool_config.unwrap();
+        assert_eq!(tc.function_calling_config.mode, FunctionCallingMode::Any);
+        assert_eq!(
+            tc.function_calling_config.allowed_function_names,
+            Some(vec!["read_file".into()])
+        );
+    }
+
+    #[test]
+    fn from_request_preserves_tool_config_vendor() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("hi")]))
+            .tool_config(ToolConfig {
+                function_calling_config: FunctionCallingConfig {
+                    mode: FunctionCallingMode::None,
+                    allowed_function_names: None,
+                },
+            });
+        let wo: abp_core::WorkOrder = req.into();
+        assert!(wo.config.vendor.contains_key("tool_config"));
+    }
+
+    // ── Streaming tool calls ────────────────────────────────────────────
+
+    #[test]
+    fn stream_events_include_tool_calls() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::ToolCall {
+                    tool_name: "search".into(),
+                    tool_use_id: None,
+                    parent_tool_use_id: None,
+                    input: json!({"q": "test"}),
+                },
+                ext: None,
+            })
+            .build();
+        let events = receipt_to_stream_events(&receipt);
+        assert!(!events.is_empty());
+        let tc = &events[0];
+        match &tc.candidates[0].content.parts[0] {
+            Part::FunctionCall { name, args } => {
+                assert_eq!(name, "search");
+                assert_eq!(args, &json!({"q": "test"}));
+            }
+            other => panic!("expected FunctionCall, got {other:?}"),
+        }
+    }
+
+    // ── Usage extraction from UsageMetadata ──────────────────────────────
+
+    #[test]
+    fn usage_metadata_zero_returns_none() {
+        let usage = abp_core::UsageNormalized::default();
+        assert!(make_usage_metadata(&usage).is_none());
+    }
+
+    #[test]
+    fn usage_metadata_input_only() {
+        let usage = abp_core::UsageNormalized {
+            input_tokens: Some(50),
+            output_tokens: Some(0),
+            ..Default::default()
+        };
+        let meta = make_usage_metadata(&usage).unwrap();
+        assert_eq!(meta.prompt_token_count, 50);
+        assert_eq!(meta.candidates_token_count, 0);
+        assert_eq!(meta.total_token_count, 50);
+    }
+
+    // ── Full pipeline with error ────────────────────────────────────────
+
+    #[test]
+    fn full_pipeline_with_error_event() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("test")]));
+        let (ir_req, gen_config, safety) = request_to_ir(&req).unwrap();
+        let wo = ir_to_work_order(&ir_req, &req.model, &gen_config);
+
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Failed)
+            .work_order_id(wo.id)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::Error {
+                    message: "context length exceeded".into(),
+                    error_code: None,
+                },
+                ext: None,
+            })
+            .build();
+
+        let ir_resp = receipt_to_ir(&receipt);
+        let resp = ir_to_response(&ir_resp, &receipt, &gen_config, &safety).unwrap();
+        assert!(!resp.candidates.is_empty());
+        assert_eq!(resp.candidates[0].finish_reason.as_deref(), Some("OTHER"));
+    }
+
+    // ── Full pipeline with tool calls ───────────────────────────────────
+
+    #[test]
+    fn full_pipeline_with_tool_call_and_result() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("search rust")]))
+            .tools(vec![ToolDeclaration {
+                function_declarations: vec![FunctionDeclaration {
+                    name: "search".into(),
+                    description: "Search".into(),
+                    parameters: json!({"type": "object"}),
+                }],
+            }]);
+
+        let ir_defs = tools_to_ir(req.tools.as_deref().unwrap_or_default());
+        assert_eq!(ir_defs.len(), 1);
+        assert_eq!(ir_defs[0].name, "search");
+
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::ToolCall {
+                    tool_name: "search".into(),
+                    tool_use_id: Some("call_1".into()),
+                    parent_tool_use_id: None,
+                    input: json!({"q": "rust lang"}),
+                },
+                ext: None,
+            })
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::ToolResult {
+                    tool_name: "search".into(),
+                    tool_use_id: Some("call_1".into()),
+                    output: json!("Rust is a systems language"),
+                    is_error: false,
+                },
+                ext: None,
+            })
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "Rust is a systems programming language.".into(),
+                },
+                ext: None,
+            })
+            .build();
+
+        let ir = receipt_to_ir(&receipt);
+        assert_eq!(ir.len(), 3);
+        assert!(matches!(
+            &ir.messages[0].content[0],
+            IrContentBlock::ToolUse { name, .. } if name == "search"
+        ));
+        assert!(matches!(
+            &ir.messages[1].content[0],
+            IrContentBlock::ToolResult { .. }
+        ));
+    }
+
+    // ── JSON Schema coverage ────────────────────────────────────────────
+
+    #[test]
+    fn json_schema_for_block_reason() {
+        let schema = schemars::schema_for!(types::BlockReason);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("BlockReason"));
+    }
+
+    #[test]
+    fn json_schema_for_error_detail() {
+        let schema = schemars::schema_for!(types::GeminiErrorDetail);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("GeminiErrorDetail"));
+    }
+
+    #[test]
+    fn json_schema_for_safety_setting() {
+        let schema = schemars::schema_for!(SafetySetting);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("SafetySetting"));
+    }
+
+    #[test]
+    fn json_schema_for_usage_metadata() {
+        let schema = schemars::schema_for!(UsageMetadata);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("UsageMetadata"));
+    }
+
+    #[test]
+    fn json_schema_for_tool_declaration() {
+        let schema = schemars::schema_for!(ToolDeclaration);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("ToolDeclaration"));
+    }
+
+    #[test]
+    fn json_schema_for_generation_config() {
+        let schema = schemars::schema_for!(GenerationConfig);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("GenerationConfig"));
+    }
+
+    #[test]
+    fn json_schema_for_finish_reason() {
+        let schema = schemars::schema_for!(FinishReason);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("FinishReason"));
+    }
+
+    #[test]
+    fn json_schema_for_candidate() {
+        let schema = schemars::schema_for!(Candidate);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("Candidate"));
     }
 }

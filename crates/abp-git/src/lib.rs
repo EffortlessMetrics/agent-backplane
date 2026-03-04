@@ -202,8 +202,8 @@ pub fn git_blame(path: &Path, file: &Path) -> Option<Vec<BlameLine>> {
                 line_no: current_line_no,
                 content: stripped.to_string(),
             });
-        } else if raw.starts_with("author ") {
-            current_author = raw["author ".len()..].to_string();
+        } else if let Some(stripped) = raw.strip_prefix("author ") {
+            current_author = stripped.to_string();
         } else if !raw.is_empty() && raw.as_bytes()[0].is_ascii_hexdigit() {
             // Header line: "<sha> <orig-line> <final-line> [<count>]"
             let parts: Vec<&str> = raw.split_whitespace().collect();

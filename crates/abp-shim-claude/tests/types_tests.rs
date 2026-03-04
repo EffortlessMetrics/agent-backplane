@@ -51,6 +51,10 @@ fn minimal_request() -> MessagesRequest {
         stream: None,
         tools: None,
         tool_choice: None,
+
+        stop_sequences: None,
+
+        thinking: None,
     }
 }
 
@@ -119,6 +123,8 @@ fn request_with_all_optional_fields() {
             input_schema: json!({"type": "object", "properties": {"city": {"type": "string"}}}),
         }]),
         tool_choice: Some(ClaudeToolChoice::Auto {}),
+        stop_sequences: None,
+        thinking: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let back: MessagesRequest = serde_json::from_str(&json).unwrap();
@@ -197,6 +203,7 @@ fn content_block_tool_result_roundtrip() {
     let block = ContentBlock::ToolResult {
         tool_use_id: "toolu_01A".into(),
         content: "file contents".into(),
+        is_error: None,
     };
     let json = serde_json::to_string(&block).unwrap();
     assert!(json.contains(r#""type":"tool_result""#));
@@ -482,6 +489,10 @@ fn request_json_matches_api_shape() {
         stream: None,
         tools: None,
         tool_choice: None,
+
+        stop_sequences: None,
+
+        thinking: None,
     };
     let val: serde_json::Value = serde_json::to_value(&req).unwrap();
     assert_eq!(val["model"], "claude-sonnet-4-20250514");

@@ -412,8 +412,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         insta::assert_json_snapshot!(req);
     }
@@ -438,12 +440,14 @@ mod claude {
             top_p: Some(0.9),
             top_k: Some(40),
             stream: Some(false),
+            stop_sequences: None,
             tools: Some(vec![ClaudeTool {
                 name: "read_file".into(),
                 description: Some("Read a file from disk".into()),
                 input_schema: json!({"type": "object", "properties": {"path": {"type": "string"}}}),
             }]),
             tool_choice: Some(ClaudeToolChoice::Auto {}),
+            thinking: None,
         };
         insta::assert_json_snapshot!(req);
     }
@@ -464,6 +468,7 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: Some(vec![
                 ClaudeTool {
                     name: "search".into(),
@@ -477,6 +482,7 @@ mod claude {
                 },
             ]),
             tool_choice: Some(ClaudeToolChoice::Any {}),
+            thinking: None,
         };
         insta::assert_json_snapshot!(req);
     }
@@ -495,8 +501,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: Some(true),
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         insta::assert_json_snapshot!(req);
     }
@@ -620,8 +628,10 @@ mod claude {
             top_p: None,
             top_k: None,
             stream: None,
+            stop_sequences: None,
             tools: None,
             tool_choice: None,
+            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         insta::assert_json_snapshot!(wo, { ".id" => "[uuid]" });

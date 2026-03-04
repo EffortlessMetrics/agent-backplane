@@ -1840,7 +1840,7 @@ mod tests {
 
     #[test]
     fn error_category_ord() {
-        let mut cats = vec![
+        let mut cats = [
             ErrorCategory::Internal,
             ErrorCategory::Backend,
             ErrorCategory::Protocol,
@@ -1851,7 +1851,7 @@ mod tests {
 
     #[test]
     fn error_code_ord() {
-        let mut codes = vec![
+        let mut codes = [
             ErrorCode::Internal,
             ErrorCode::BackendTimeout,
             ErrorCode::ProtocolInvalidEnvelope,
