@@ -73,6 +73,7 @@ fn dialect_response_with_text(text: &str) -> GeminiResponse {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     }
 }
@@ -334,7 +335,6 @@ fn from_dialect_response_multiple_candidates() {
         ],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let shim_resp = from_dialect_response(&resp);
     assert_eq!(shim_resp.candidates.len(), 2);
@@ -1411,7 +1411,6 @@ fn stream_event_text_accessor() {
             safety_ratings: None,
         }],
         usage_metadata: None,
-        prompt_feedback: None,
     };
     assert_eq!(event.text(), Some("hello"));
 }
@@ -1425,7 +1424,6 @@ fn stream_event_text_accessor_no_text() {
             safety_ratings: None,
         }],
         usage_metadata: None,
-        prompt_feedback: None,
     };
     assert!(event.text().is_none());
 }
@@ -1435,7 +1433,6 @@ fn stream_event_text_accessor_empty_candidates() {
     let event = StreamEvent {
         candidates: vec![],
         usage_metadata: None,
-        prompt_feedback: None,
     };
     assert!(event.text().is_none());
 }
@@ -1880,7 +1877,6 @@ fn map_response_produces_assistant_message() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 1);

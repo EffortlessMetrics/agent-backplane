@@ -212,7 +212,6 @@ fn openai_streaming_chunk() {
                 tool_calls: None,
             },
             finish_reason: None,
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -242,7 +241,6 @@ fn openai_streaming_chunk_with_tool_call() {
                 }]),
             },
             finish_reason: None,
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -260,7 +258,6 @@ fn openai_streaming_chunk_final_usage() {
             index: 0,
             delta: ChunkDelta::default(),
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: Some(ChunkUsage {
             prompt_tokens: 50,

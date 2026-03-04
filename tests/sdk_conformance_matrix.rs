@@ -708,7 +708,6 @@ mod gemini {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(shim_resp.candidates.len(), 1);

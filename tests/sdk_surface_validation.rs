@@ -731,7 +731,6 @@ mod streaming_events {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -896,7 +895,6 @@ mod streaming_events {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
             refs: None,
@@ -1148,7 +1146,6 @@ mod missing_features {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let events = map_response(&resp);
         // Safety ratings are not in the AgentEvent

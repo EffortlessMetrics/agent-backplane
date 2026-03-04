@@ -92,7 +92,6 @@ fn make_response(parts: Vec<GeminiPart>, finish_reason: Option<&str>) -> GeminiR
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     }
 }
 
@@ -654,12 +653,11 @@ mod function_call_mapping {
                     }],
                 },
                 finish_reason: Some("STOP".into()),
-                safety_ratings: None,
                 citation_metadata: None,
+                safety_ratings: None,
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let events = dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
@@ -818,8 +816,8 @@ mod streaming_mapping {
                     }],
                 },
                 finish_reason: None,
-                safety_ratings: None,
                 citation_metadata: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
         };
@@ -1398,7 +1396,6 @@ mod multi_modal_content {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let events = dialect::map_response(&resp);
         assert!(events.is_empty());
@@ -1455,7 +1452,6 @@ mod candidate_selection {
             ],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let events = dialect::map_response(&resp);
         assert_eq!(events.len(), 3);
@@ -1480,7 +1476,6 @@ mod candidate_selection {
             ],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(shim_resp.candidates.len(), 2);
@@ -1555,7 +1550,6 @@ mod candidate_selection {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(
@@ -1575,7 +1569,6 @@ mod candidate_selection {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert!(shim_resp.candidates[0].finish_reason.is_none());
@@ -1738,7 +1731,6 @@ mod finish_reason_mapping {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(
@@ -1761,7 +1753,6 @@ mod finish_reason_mapping {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(
@@ -1788,7 +1779,6 @@ mod finish_reason_mapping {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(
@@ -1815,7 +1805,6 @@ mod finish_reason_mapping {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let shim_resp = from_dialect_response(&resp);
         assert_eq!(
@@ -2098,6 +2087,7 @@ mod generation_config_mapping {
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: Some("text/plain".into()),
             response_schema: None,
+            candidate_count: None,
         };
         let req = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("test")]))
@@ -2123,6 +2113,7 @@ mod generation_config_mapping {
             stop_sequences: Some(vec!["STOP".into(), "END".into()]),
             response_mime_type: Some("application/json".into()),
             response_schema: Some(json!({"type": "object"})),
+            candidate_count: None,
         };
         let json = serde_json::to_string(&cfg).unwrap();
         let back: GenerationConfig = serde_json::from_str(&json).unwrap();

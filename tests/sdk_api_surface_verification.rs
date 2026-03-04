@@ -101,7 +101,6 @@ fn openai_response_serde_roundtrip() {
             index: 0,
             message: abp_shim_openai::Message::assistant("Hi there!"),
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: Some(abp_shim_openai::Usage {
             prompt_tokens: 10,
@@ -135,7 +134,6 @@ fn openai_streaming_event_format() {
                 tool_calls: None,
             },
             finish_reason: None,
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -711,6 +709,7 @@ fn gemini_request_full_builder() {
             stop_sequences: Some(vec!["STOP".into()]),
             response_mime_type: None,
             response_schema: None,
+            candidate_count: None,
         })
         .safety_settings(vec![abp_shim_gemini::SafetySetting {
             category: abp_shim_gemini::HarmCategory::HarmCategoryHarassment,
@@ -816,6 +815,7 @@ fn gemini_generation_config_camel_case() {
         stop_sequences: Some(vec!["END".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(json!({"type": "object"})),
+        candidate_count: None,
     };
     let json = serde_json::to_value(&config).unwrap();
     assert_eq!(json["maxOutputTokens"], 2048);
@@ -837,6 +837,7 @@ fn gemini_generation_config_optional_fields_omitted() {
         stop_sequences: None,
         response_mime_type: None,
         response_schema: None,
+        candidate_count: None,
     };
     let json = serde_json::to_value(&config).unwrap();
     assert!(json.get("maxOutputTokens").is_none());
@@ -955,7 +956,6 @@ fn gemini_stream_event_text_extraction() {
             safety_ratings: None,
         }],
         usage_metadata: None,
-        prompt_feedback: None,
     };
     assert_eq!(ev.text(), Some("delta text"));
 }
@@ -1096,7 +1096,6 @@ fn cross_sdk_response_text_extraction() {
             index: 0,
             message: abp_shim_openai::Message::assistant(text),
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -1226,7 +1225,6 @@ fn cross_sdk_stop_reason_formats() {
         index: 0,
         message: abp_shim_openai::Message::assistant("done"),
         finish_reason: Some("stop".into()),
-        safety_ratings: None,
     };
     assert_eq!(openai_choice.finish_reason.as_deref(), Some("stop"));
 
@@ -1349,7 +1347,6 @@ fn cross_sdk_streaming_object_types() {
     let gemini_stream = abp_shim_gemini::StreamEvent {
         candidates: vec![],
         usage_metadata: None,
-        prompt_feedback: None,
     };
     assert!(gemini_stream.candidates.is_empty());
 }

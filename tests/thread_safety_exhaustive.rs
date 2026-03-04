@@ -991,6 +991,7 @@ fn test_error_types_send() {
         message: "test".into(),
         source: None,
         context: BTreeMap::new(),
+        location: None,
     };
     let handle = thread::spawn(move || error);
     let _ = handle.join().unwrap();
@@ -1303,6 +1304,7 @@ fn test_abp_error_concurrent_creation() {
                     message: format!("error-{i}"),
                     source: None,
                     context: BTreeMap::new(),
+                    location: None,
                 };
                 assert!(error.message.starts_with("error-"));
             })

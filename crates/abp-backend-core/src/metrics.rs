@@ -19,7 +19,6 @@ pub struct BackendMetrics {
     pub last_run_at: Option<DateTime<Utc>>,
 }
 
-
 impl BackendMetrics {
     /// Record a successful run with the given latency.
     pub fn record_success(&mut self, latency_ms: u64) {

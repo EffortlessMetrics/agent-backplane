@@ -827,7 +827,6 @@ fn exp_openai_response() {
                 tool_calls: None,
             },
             finish_reason: FinishReason::Stop,
-            safety_ratings: None,
         }],
         usage: Some(OaiUsage {
             prompt_tokens: 10,
@@ -863,7 +862,6 @@ fn exp_openai_response_tool_calls() {
                 }]),
             },
             finish_reason: FinishReason::ToolCalls,
-            safety_ratings: None,
         }],
         usage: Some(OaiUsage {
             prompt_tokens: 50,
@@ -1192,7 +1190,6 @@ fn exp_copilot_response() {
                 tool_calls: None,
             },
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: Some(CopilotUsage {
             prompt_tokens: 100,
@@ -1291,7 +1288,6 @@ fn exp_codex_response() {
                 tool_calls: None,
             },
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: Some(CodexUsage {
             prompt_tokens: 80,
@@ -1418,7 +1414,6 @@ fn exp_kimi_response() {
                 tool_calls: None,
             },
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: Some(KimiUsage {
             prompt_tokens: 60,

@@ -103,7 +103,6 @@ fn simple_response(text: &str) -> OpenAIResponse {
             index: 0,
             message: msg("assistant", Some(text)),
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: None,
     }
@@ -119,7 +118,6 @@ fn make_chunk(id: &str, delta: ChunkDelta, finish_reason: Option<&str>) -> ChatC
             index: 0,
             delta,
             finish_reason: finish_reason.map(Into::into),
-            safety_ratings: None,
         }],
         usage: None,
     }
@@ -686,7 +684,6 @@ fn response_serde_roundtrip() {
             index: 0,
             message: msg("assistant", Some("Hello!")),
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: Some(OpenAIUsage {
             prompt_tokens: 10,
@@ -720,13 +717,11 @@ fn response_multiple_choices() {
                 index: 0,
                 message: msg("assistant", Some("Option A")),
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             },
             OpenAIChoice {
                 index: 1,
                 message: msg("assistant", Some("Option B")),
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             },
         ],
         usage: None,
@@ -752,7 +747,6 @@ fn response_with_tool_calls_produces_tool_call_events() {
                 )],
             ),
             finish_reason: Some("tool_calls".into()),
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -786,7 +780,6 @@ fn response_text_and_tool_calls_produce_multiple_events() {
                 vec![make_tool_call("c1", "ls", "{}")],
             ),
             finish_reason: Some("tool_calls".into()),
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -809,7 +802,6 @@ fn response_empty_text_not_emitted() {
             index: 0,
             message: msg("assistant", Some("")),
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -827,7 +819,6 @@ fn response_none_content_no_events() {
             index: 0,
             message: msg("assistant", None),
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -845,7 +836,6 @@ fn response_malformed_tool_args_in_event() {
             index: 0,
             message: assistant_with_tool_calls(None, vec![make_tool_call("c1", "fn", "bad-json")]),
             finish_reason: Some("tool_calls".into()),
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -940,7 +930,6 @@ fn chunk_serde_roundtrip() {
                 tool_calls: None,
             },
             finish_reason: None,
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -1287,7 +1276,6 @@ fn choice_serde_roundtrip() {
         index: 0,
         message: msg("assistant", Some("ok")),
         finish_reason: Some("stop".into()),
-        safety_ratings: None,
     };
     let json = serde_json::to_value(&c).unwrap();
     let parsed: OpenAIChoice = serde_json::from_value(json).unwrap();

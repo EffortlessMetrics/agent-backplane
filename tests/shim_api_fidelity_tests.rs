@@ -566,6 +566,7 @@ mod gemini {
                 stop_sequences: Some(vec!["END".into()]),
                 response_mime_type: None,
                 response_schema: None,
+                candidate_count: None,
             })
             .safety_settings(vec![SafetySetting {
                 category: HarmCategory::HarmCategoryHarassment,
@@ -635,6 +636,7 @@ mod gemini {
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: Some("application/json".into()),
             response_schema: Some(json!({"type": "object"})),
+            candidate_count: None,
         };
         let val: Value = serde_json::to_value(&cfg).unwrap();
         assert!(val.get("maxOutputTokens").is_some());
@@ -740,6 +742,7 @@ mod gemini {
             stop_sequences: Some(vec!["STOP".into()]),
             response_mime_type: None,
             response_schema: None,
+            candidate_count: None,
         };
         let dialect = gen_config_to_dialect(&cfg);
         let back = gen_config_from_dialect(&dialect);

@@ -138,7 +138,6 @@ mod tests {
                         tool_calls: None,
                     },
                     finish_reason: None,
-                    safety_ratings: None,
                 }],
                 usage: None,
             })
@@ -257,7 +256,6 @@ mod tests {
                     tool_call_id: None,
                 },
                 finish_reason: Some("tool_calls".into()),
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -874,7 +872,6 @@ mod tests {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
 
         let events = map_response(&resp);

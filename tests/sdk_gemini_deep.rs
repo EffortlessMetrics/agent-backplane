@@ -69,7 +69,6 @@ fn make_response(parts: Vec<GeminiPart>) -> GeminiResponse {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     }
 }
 
@@ -350,7 +349,6 @@ fn response_multiple_candidates() {
         ],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let events = map_response(&resp);
     assert_eq!(events.len(), 2);
@@ -362,7 +360,6 @@ fn response_empty_candidates() {
         candidates: vec![],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let events = map_response(&resp);
     assert!(events.is_empty());

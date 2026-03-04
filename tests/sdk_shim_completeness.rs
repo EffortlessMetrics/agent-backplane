@@ -607,7 +607,6 @@ fn gemini_from_dialect_response() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
 
     let resp = from_dialect_response(&dialect_resp);

@@ -55,10 +55,8 @@ mod openai {
             top_p: None,
             max_tokens: None,
             stream: None,
-            stop_sequences: None,
             tools: None,
             tool_choice: None,
-            thinking: None,
         }
     }
 
@@ -1307,7 +1305,6 @@ mod kimi {
             max_tokens: Some(1024),
             temperature: None,
             stream: None,
-            stop_sequences: None,
             tools: None,
             use_search: None,
         }
@@ -1551,10 +1548,8 @@ mod timeout {
             top_p: None,
             max_tokens: None,
             stream: None,
-            stop_sequences: None,
             tools: None,
             tool_choice: None,
-            thinking: None,
         }
     }
 

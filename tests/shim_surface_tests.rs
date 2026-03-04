@@ -691,7 +691,6 @@ fn openai_stream_event_serde() {
                 tool_calls: None,
             },
             finish_reason: None,
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -732,7 +731,6 @@ fn gemini_stream_event_with_text() {
             safety_ratings: None,
         }],
         usage_metadata: None,
-        prompt_feedback: None,
     };
     assert_eq!(evt.text(), Some("chunk"));
 }

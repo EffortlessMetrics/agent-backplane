@@ -100,7 +100,6 @@ mod openai {
             stream: None,
             tools: None,
             tool_choice: None,
-            thinking: None,
         };
         insta::assert_json_snapshot!(req);
     }
@@ -190,7 +189,6 @@ mod openai {
             stream: Some(true),
             tools: None,
             tool_choice: None,
-            thinking: None,
         };
         insta::assert_json_snapshot!(req);
     }
@@ -212,7 +210,6 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: Some(Usage {
                 prompt_tokens: 25,
@@ -238,7 +235,6 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: Some("content_filter".into()),
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -267,7 +263,6 @@ mod openai {
                     }]),
                 },
                 finish_reason: Some("tool_calls".into()),
-                safety_ratings: None,
             }],
             usage: Some(Usage {
                 prompt_tokens: 50,
@@ -295,7 +290,6 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
         };
         insta::assert_json_snapshot!(chunk);
@@ -324,7 +318,6 @@ mod openai {
                     }]),
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
         };
         insta::assert_json_snapshot!(chunk);
@@ -350,7 +343,6 @@ mod openai {
             stream: None,
             tools: None,
             tool_choice: None,
-            thinking: None,
         };
         let wo = convert::to_work_order(&req);
         insta::assert_json_snapshot!(wo, { ".id" => "[uuid]" });
@@ -422,6 +414,7 @@ mod claude {
             stream: None,
             tools: None,
             tool_choice: None,
+            stop_sequences: None,
             thinking: None,
         };
         insta::assert_json_snapshot!(req);
@@ -489,6 +482,7 @@ mod claude {
             ]),
             tool_choice: Some(ClaudeToolChoice::Any {}),
             thinking: None,
+            stop_sequences: None,
         };
         insta::assert_json_snapshot!(req);
     }
@@ -636,6 +630,7 @@ mod claude {
             stream: None,
             tools: None,
             tool_choice: None,
+            stop_sequences: None,
             thinking: None,
         };
         let wo = convert::to_work_order(&req);
@@ -849,7 +844,6 @@ mod gemini {
                 safety_ratings: None,
             }],
             usage_metadata: None,
-            prompt_feedback: None,
         };
         insta::assert_json_snapshot!(event);
     }
@@ -1419,7 +1413,6 @@ mod kimi {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: Some(KimiUsage {
                 prompt_tokens: 10,
@@ -1451,7 +1444,6 @@ mod kimi {
                     }]),
                 },
                 finish_reason: Some("tool_calls".into()),
-                safety_ratings: None,
             }],
             usage: Some(KimiUsage {
                 prompt_tokens: 20,
@@ -1484,7 +1476,6 @@ mod kimi {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
             refs: None,
@@ -1515,7 +1506,6 @@ mod kimi {
                     }]),
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
             refs: None,

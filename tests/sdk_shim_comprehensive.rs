@@ -509,7 +509,6 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -536,7 +535,6 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
         };

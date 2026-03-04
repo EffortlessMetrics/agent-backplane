@@ -64,6 +64,9 @@ mod openai_parity {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
+            stream_options: None,
         };
         let json = serde_json::to_value(&req).unwrap();
         assert_eq!(json["model"], "gpt-4o");
@@ -118,6 +121,9 @@ mod openai_parity {
             seed: Some(42),
             response_format: None,
             user: Some("user-1".into()),
+            parallel_tool_calls: None,
+            service_tier: None,
+            stream_options: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: ChatCompletionRequest = serde_json::from_str(&json).unwrap();
@@ -220,6 +226,9 @@ mod openai_parity {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
+            stream_options: None,
         };
         let wo: abp_core::WorkOrder = req.into();
         assert_eq!(wo.task, "Help me");
@@ -258,6 +267,8 @@ mod claude_parity {
             temperature: Some(0.7),
             top_p: None,
             top_k: None,
+            thinking: None,
+            tool_choice: None,
         };
         let v = serde_json::to_value(&req).unwrap();
         assert_eq!(v["model"], "claude-sonnet-4-20250514");
@@ -540,10 +551,8 @@ mod codex_parity {
             top_p: None,
             max_tokens: None,
             stream: None,
-            stop_sequences: None,
             tools: None,
             tool_choice: None,
-            thinking: None,
         };
         let v = serde_json::to_value(&req).unwrap();
         assert_eq!(v["instructions"], "You are a coding assistant");
@@ -565,7 +574,6 @@ mod codex_parity {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: Some(CodexUsage {
                 prompt_tokens: 20,
@@ -674,7 +682,6 @@ mod copilot_parity {
             top_p: None,
             max_tokens: None,
             stream: None,
-            stop_sequences: None,
             tools: None,
             tool_choice: None,
             intent: Some("conversation".into()),
@@ -707,7 +714,6 @@ mod copilot_parity {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: Some(CopilotUsage {
                 prompt_tokens: 50,
@@ -803,7 +809,6 @@ mod kimi_parity {
             top_p: None,
             max_tokens: Some(2048),
             stream: None,
-            stop_sequences: None,
             tools: None,
             tool_choice: None,
             use_search: Some(true),
@@ -833,7 +838,6 @@ mod kimi_parity {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: Some(KimiUsage {
                 prompt_tokens: 30,
@@ -1043,7 +1047,6 @@ mod streaming_format_parity {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -1063,7 +1066,6 @@ mod streaming_format_parity {
                 index: 0,
                 delta: ChunkDelta::default(),
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: Some(ChunkUsage {
                 prompt_tokens: 10,
@@ -1146,7 +1148,6 @@ mod streaming_format_parity {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
         };
         let v = serde_json::to_value(&chunk).unwrap();
@@ -1169,7 +1170,6 @@ mod streaming_format_parity {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
         };
         let v = serde_json::to_value(&chunk).unwrap();
@@ -1192,7 +1192,6 @@ mod streaming_format_parity {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -1636,6 +1635,9 @@ mod system_message_parity {
             seed: None,
             response_format: None,
             user: None,
+            parallel_tool_calls: None,
+            service_tier: None,
+            stream_options: None,
         };
         let v = serde_json::to_value(&req).unwrap();
         assert_eq!(v["messages"][0]["role"], "system");
@@ -1662,6 +1664,8 @@ mod system_message_parity {
             temperature: None,
             top_p: None,
             top_k: None,
+            thinking: None,
+            tool_choice: None,
         };
         let v = serde_json::to_value(&req).unwrap();
         assert_eq!(v["system"], "You are helpful");
@@ -1715,10 +1719,8 @@ mod system_message_parity {
             top_p: None,
             max_tokens: None,
             stream: None,
-            stop_sequences: None,
             tools: None,
             tool_choice: None,
-            thinking: None,
         };
         let v = serde_json::to_value(&req).unwrap();
         assert_eq!(v["messages"][0]["role"], "system");
@@ -1750,7 +1752,6 @@ mod system_message_parity {
             top_p: None,
             max_tokens: None,
             stream: None,
-            stop_sequences: None,
             tools: None,
             tool_choice: None,
             intent: None,
@@ -1777,7 +1778,6 @@ mod system_message_parity {
             top_p: None,
             max_tokens: None,
             stream: None,
-            stop_sequences: None,
             tools: None,
             tool_choice: None,
             use_search: None,

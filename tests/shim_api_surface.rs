@@ -624,11 +624,12 @@ mod gemini_shim {
                 candidates_token_count: 20,
                 total_token_count: 30,
             }),
+            prompt_feedback: None,
         };
         assert_serialize_deserialize(&resp);
     }
 
-    // ── 4. Clone + Debug ───────────────────────────────────────────────
+    // ── 4. Clone + Debug───────────────────────────────────────────────
     #[test]
     fn content_clone_debug() {
         let c = Content::user(vec![Part::text("hi")]);
@@ -749,7 +750,6 @@ mod gemini_shim {
                 safety_ratings: None,
             }],
             usage_metadata: None,
-            prompt_feedback: None,
         };
         assert_serialize_deserialize(&se);
     }

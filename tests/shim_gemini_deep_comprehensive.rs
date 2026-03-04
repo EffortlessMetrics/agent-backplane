@@ -91,7 +91,6 @@ fn dialect_text_response(text: &str) -> GeminiResponse {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     }
 }
 
@@ -502,7 +501,6 @@ fn stream_event_text_accessor() {
             safety_ratings: None,
         }],
         usage_metadata: None,
-        prompt_feedback: None,
     };
     assert_eq!(event.text(), Some("delta"));
 }
@@ -516,7 +514,6 @@ fn stream_event_text_returns_none_for_no_text() {
             safety_ratings: None,
         }],
         usage_metadata: None,
-        prompt_feedback: None,
     };
     assert!(event.text().is_none());
 }
@@ -526,7 +523,6 @@ fn stream_event_text_returns_none_for_empty_candidates() {
     let event = StreamEvent {
         candidates: vec![],
         usage_metadata: None,
-        prompt_feedback: None,
     };
     assert!(event.text().is_none());
 }
@@ -689,7 +685,6 @@ fn from_dialect_response_preserves_finish_reason() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let shim_resp = from_dialect_response(&resp);
     assert_eq!(
@@ -715,7 +710,6 @@ fn from_dialect_response_function_call() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let shim_resp = from_dialect_response(&resp);
     let calls = shim_resp.function_calls();
@@ -1922,7 +1916,6 @@ fn from_dialect_response_multiple_candidates() {
         ],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let shim_resp = from_dialect_response(&resp);
     assert_eq!(shim_resp.candidates.len(), 2);
@@ -1945,7 +1938,6 @@ fn from_dialect_response_inline_data() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let shim_resp = from_dialect_response(&resp);
     match &shim_resp.candidates[0].content.parts[0] {
@@ -2053,7 +2045,6 @@ fn map_response_function_call() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 1);
@@ -2075,12 +2066,11 @@ fn map_response_function_response() {
                 }],
             },
             finish_reason: None,
-            safety_ratings: None,
             citation_metadata: None,
+            safety_ratings: None,
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 1);
@@ -2107,7 +2097,6 @@ fn map_response_inline_data_ignored() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let events = dialect::map_response(&resp);
     assert!(events.is_empty());
@@ -2177,7 +2166,6 @@ fn map_response_multiple_parts() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let events = dialect::map_response(&resp);
     assert_eq!(events.len(), 2);

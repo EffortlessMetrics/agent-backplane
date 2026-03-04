@@ -318,7 +318,6 @@ mod openai_to_claude {
                     tool_call_id: None,
                 },
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: Some(OpenAIUsage {
                 prompt_tokens: 10,
@@ -866,7 +865,6 @@ mod streaming_events {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
             refs: None,
@@ -890,7 +888,6 @@ mod streaming_events {
                 index: 0,
                 delta: KimiChunkDelta::default(),
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: None,
             refs: None,
@@ -2401,7 +2398,6 @@ mod response_mapping {
                     }]),
                 },
                 finish_reason: Some("tool_calls".into()),
-                safety_ratings: None,
             }],
             usage: Some(KimiUsage {
                 prompt_tokens: 50,
@@ -2520,7 +2516,6 @@ mod response_mapping {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let events = gemini_dialect::map_response(&resp);
         assert!(events.iter().any(|e| matches!(&e.kind, AgentEventKind::ToolCall { tool_name, .. } if tool_name == "search")));
@@ -2539,7 +2534,6 @@ mod response_mapping {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: None,
             refs: Some(vec![abp_kimi_sdk::dialect::KimiRef {

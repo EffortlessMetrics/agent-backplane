@@ -2023,6 +2023,8 @@ fn claude_top_k_no_openai_equivalent() {
         temperature: Some(0.5),
         top_p: Some(0.9),
         top_k: Some(40),
+        tool_choice: None,
+        thinking: None,
     };
     let wo: WorkOrder = req.into();
     assert_eq!(wo.task, "Top-k test");

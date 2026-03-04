@@ -301,7 +301,6 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: FinishReason::Stop,
-                safety_ratings: None,
             }],
             usage: Some(Usage {
                 prompt_tokens: 10,
@@ -364,7 +363,6 @@ mod openai {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -384,7 +382,6 @@ mod openai {
                 index: 0,
                 delta: Delta::default(),
                 finish_reason: Some(FinishReason::Stop),
-                safety_ratings: None,
             }],
             usage: Some(Usage {
                 prompt_tokens: 50,
@@ -421,7 +418,6 @@ mod openai {
                     }]),
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -1567,7 +1563,6 @@ mod kimi {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -1591,7 +1586,6 @@ mod kimi {
                     tool_calls: None,
                 },
                 finish_reason: KimiFinishReason::Stop,
-                safety_ratings: None,
             }],
             usage: Some(KimiUsage {
                 prompt_tokens: 10,
@@ -2122,7 +2116,6 @@ mod copilot {
                     copilot_references: vec![],
                 },
                 finish_reason: CopilotFinishReason::Stop,
-                safety_ratings: None,
             }],
             usage: Some(CopilotUsage {
                 prompt_tokens: 10,

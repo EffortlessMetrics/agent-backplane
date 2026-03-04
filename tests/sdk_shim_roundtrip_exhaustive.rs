@@ -1148,7 +1148,6 @@ mod kimi {
                     tool_calls: None,
                 },
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: None,
             refs: None,

@@ -1052,7 +1052,6 @@ mod gemini {
                 safety_ratings: None,
             }],
             usage_metadata: None,
-            prompt_feedback: None,
         };
         assert_eq!(event.text(), Some("chunk"));
     }

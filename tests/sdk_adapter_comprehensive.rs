@@ -460,7 +460,6 @@ mod response_parsing {
                     tool_call_id: None,
                 },
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -493,7 +492,6 @@ mod response_parsing {
                     tool_call_id: None,
                 },
                 finish_reason: Some("tool_calls".into()),
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -530,7 +528,6 @@ mod response_parsing {
                         tool_call_id: None,
                     },
                     finish_reason: Some("stop".into()),
-                    safety_ratings: None,
                 },
                 OpenAIChoice {
                     index: 1,
@@ -541,7 +538,6 @@ mod response_parsing {
                         tool_call_id: None,
                     },
                     finish_reason: Some("stop".into()),
-                    safety_ratings: None,
                 },
             ],
             usage: None,
@@ -565,7 +561,6 @@ mod response_parsing {
                     tool_call_id: None,
                 },
                 finish_reason: Some("stop".into()),
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -732,7 +727,6 @@ mod response_parsing {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let events = gemini_dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
@@ -758,7 +752,6 @@ mod response_parsing {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let events = gemini_dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
@@ -792,7 +785,6 @@ mod response_parsing {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let events = gemini_dialect::map_response(&resp);
         assert_eq!(events.len(), 1);
@@ -821,7 +813,6 @@ mod response_parsing {
             }],
             prompt_feedback: None,
             usage_metadata: None,
-            prompt_feedback: None,
         };
         let events = gemini_dialect::map_response(&resp);
         assert!(events.is_empty());
@@ -866,7 +857,6 @@ mod streaming {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
         };
@@ -892,7 +882,6 @@ mod streaming {
                     tool_calls: None,
                 },
                 finish_reason: None,
-                safety_ratings: None,
             }],
             usage: None,
         };

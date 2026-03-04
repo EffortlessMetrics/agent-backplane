@@ -655,7 +655,6 @@ fn openai_stream_text_delta() {
                 tool_calls: None,
             },
             finish_reason: None,
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -682,7 +681,6 @@ fn openai_stream_empty_delta_no_events() {
                 tool_calls: None,
             },
             finish_reason: None,
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -1184,7 +1182,6 @@ fn openai_finish_reason_tool_calls() {
                 tool_call_id: None,
             },
             finish_reason: Some("tool_calls".into()),
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -1248,7 +1245,6 @@ fn gemini_finish_reason_stop() {
         }],
         prompt_feedback: None,
         usage_metadata: None,
-        prompt_feedback: None,
     };
     let events = gemini_dialect::map_response(&resp);
     assert_eq!(events.len(), 1);
@@ -1703,7 +1699,6 @@ fn openai_response_empty_text_ignored() {
                 tool_call_id: None,
             },
             finish_reason: Some("stop".into()),
-            safety_ratings: None,
         }],
         usage: None,
     };
@@ -1995,7 +1990,6 @@ fn openai_response(model: &str, text: &str, finish_reason: Option<&str>) -> Open
                 tool_call_id: None,
             },
             finish_reason: finish_reason.map(|s| s.into()),
-            safety_ratings: None,
         }],
         usage: None,
     }

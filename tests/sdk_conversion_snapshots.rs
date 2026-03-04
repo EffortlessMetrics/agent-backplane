@@ -308,6 +308,8 @@ mod claude {
             stream: None,
             tools: None,
             tool_choice: None,
+            stop_sequences: None,
+            thinking: None,
         }
     }
 
@@ -336,6 +338,8 @@ mod claude {
             stream: None,
             tools: None,
             tool_choice: None,
+            stop_sequences: None,
+            thinking: None,
         }
     }
 
