@@ -169,7 +169,11 @@ impl StreamMetrics {
     /// Returns [`Duration::ZERO`] if fewer than two events have been recorded.
     #[must_use]
     pub fn min_latency(&self) -> Duration {
-        self.latencies.iter().copied().min().unwrap_or(Duration::ZERO)
+        self.latencies
+            .iter()
+            .copied()
+            .min()
+            .unwrap_or(Duration::ZERO)
     }
 
     /// Maximum latency between consecutive events.
@@ -177,7 +181,11 @@ impl StreamMetrics {
     /// Returns [`Duration::ZERO`] if fewer than two events have been recorded.
     #[must_use]
     pub fn max_latency(&self) -> Duration {
-        self.latencies.iter().copied().max().unwrap_or(Duration::ZERO)
+        self.latencies
+            .iter()
+            .copied()
+            .max()
+            .unwrap_or(Duration::ZERO)
     }
 }
 

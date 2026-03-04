@@ -2,7 +2,7 @@
 
 //! Compliance checking for receipts.
 
-use abp_core::{CONTRACT_VERSION, Receipt};
+use abp_core::{Receipt, CONTRACT_VERSION};
 use chrono::{Duration, Utc};
 
 /// Severity level for compliance findings.
@@ -258,10 +258,7 @@ impl ComplianceCheck {
             findings.push(ComplianceFinding {
                 field: "meta.started_at".into(),
                 severity: Severity::Warning,
-                message: format!(
-                    "receipt is older than {} days",
-                    self.max_age_days
-                ),
+                message: format!("receipt is older than {} days", self.max_age_days),
             });
         }
     }

@@ -22,6 +22,8 @@ pub mod error;
 pub mod function_calling;
 /// Google Gemini GenerateContent API types (request, response, streaming, content blocks).
 pub mod gemini_types;
+/// High-level Gemini ↔ IR translation (IrChatRequest/IrChatResponse/IrStreamChunk).
+pub mod ir_translate;
 /// Extended multimodal content types (Blob, FileData, VideoMetadata).
 pub mod multimodal;
 /// Extended safety helpers (profiles, analysis, typed block reasons).

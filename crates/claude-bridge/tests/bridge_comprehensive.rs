@@ -7,11 +7,11 @@
 
 use std::time::Duration;
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use claude_bridge::config::ClaudeBridgeConfig;
 use claude_bridge::discovery::{
-    DEFAULT_NODE_COMMAND, HOST_SCRIPT_ENV, HOST_SCRIPT_RELATIVE, resolve_host_script, resolve_node,
+    resolve_host_script, resolve_node, DEFAULT_NODE_COMMAND, HOST_SCRIPT_ENV, HOST_SCRIPT_RELATIVE,
 };
 use claude_bridge::error::BridgeError;
 use claude_bridge::raw::RunOptions;
@@ -1468,16 +1468,14 @@ mod protocol_state {
         });
         assert_eq!(state.phase(), ProtocolPhase::Faulted);
         // All further frames should be rejected
-        assert!(
-            state
-                .advance(&Frame::Hello {
-                    contract_version: "abp/v0.1".into(),
-                    backend: json!({}),
-                    capabilities: json!({}),
-                    mode: Value::Null,
-                })
-                .is_err()
-        );
+        assert!(state
+            .advance(&Frame::Hello {
+                contract_version: "abp/v0.1".into(),
+                backend: json!({}),
+                capabilities: json!({}),
+                mode: Value::Null,
+            })
+            .is_err());
     }
 
     #[test]
@@ -1499,8 +1497,8 @@ mod protocol_state {
 mod frame_framing {
     use super::*;
     use sidecar_kit::{
-        Frame, FrameReader, FrameWriter, buf_reader_from_bytes, read_all_frames, validate_frame,
-        write_frames,
+        buf_reader_from_bytes, read_all_frames, validate_frame, write_frames, Frame, FrameReader,
+        FrameWriter,
     };
 
     #[test]
@@ -1598,12 +1596,10 @@ mod frame_framing {
         };
         let validation = validate_frame(&frame, 16 * 1024 * 1024);
         assert!(!validation.valid);
-        assert!(
-            validation
-                .issues
-                .iter()
-                .any(|i| i.contains("contract_version"))
-        );
+        assert!(validation
+            .issues
+            .iter()
+            .any(|i| i.contains("contract_version")));
     }
 
     #[test]
@@ -1669,12 +1665,10 @@ mod frame_framing {
         };
         let validation = validate_frame(&frame, 100); // Very small limit
         assert!(!validation.valid);
-        assert!(
-            validation
-                .issues
-                .iter()
-                .any(|i| i.contains("exceeds limit"))
-        );
+        assert!(validation
+            .issues
+            .iter()
+            .any(|i| i.contains("exceeds limit")));
     }
 }
 

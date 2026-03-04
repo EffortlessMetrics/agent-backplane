@@ -148,9 +148,7 @@ pub async fn receipt_handler(
 // ---------------------------------------------------------------------------
 
 /// List all registered backends with type information.
-pub async fn backends_handler(
-    State(state): State<Arc<ServerState>>,
-) -> Json<BackendsListResponse> {
+pub async fn backends_handler(State(state): State<Arc<ServerState>>) -> Json<BackendsListResponse> {
     let names = state.backends.list().await;
     let backends = names
         .into_iter()

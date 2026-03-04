@@ -103,8 +103,7 @@ impl AuditTrail {
         actor: impl Into<String>,
         action: AuditAction,
     ) -> &AuditEntry {
-        self.entries
-            .push(AuditEntry::new(run_id, actor, action));
+        self.entries.push(AuditEntry::new(run_id, actor, action));
         self.entries.last().unwrap()
     }
 
@@ -136,10 +135,7 @@ impl AuditTrail {
     /// Return entries performed by a specific actor.
     #[must_use]
     pub fn entries_by_actor(&self, actor: &str) -> Vec<&AuditEntry> {
-        self.entries
-            .iter()
-            .filter(|e| e.actor == actor)
-            .collect()
+        self.entries.iter().filter(|e| e.actor == actor).collect()
     }
 
     /// Return the number of entries in the trail.

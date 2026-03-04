@@ -311,10 +311,7 @@ impl RouteTable {
 /// `POST /v1/cancel/:id` — cancel a queued or running work order.
 pub trait CancelRunHandler: Send + Sync {
     /// Handle a cancel request.
-    fn cancel_run(
-        &self,
-        run_id: Uuid,
-    ) -> impl Future<Output = Result<(), RouteError>> + Send;
+    fn cancel_run(&self, run_id: Uuid) -> impl Future<Output = Result<(), RouteError>> + Send;
 }
 
 /// `GET /v1/receipt/:id` — retrieve receipt for a completed run.
@@ -330,7 +327,7 @@ pub trait ReceiptHandler: Send + Sync {
 // v1_routes — Axum router for /v1 endpoints
 // ---------------------------------------------------------------------------
 
-/// Build an Axum [`Router`] for the `/v1` daemon HTTP API endpoints.
+/// Build an Axum `Router` for the `/v1` daemon HTTP API endpoints.
 ///
 /// Routes:
 /// - `POST /v1/run`         — submit work order
@@ -340,8 +337,8 @@ pub trait ReceiptHandler: Send + Sync {
 /// - `GET  /v1/health`      — health check
 /// - `POST /v1/cancel/:id`  — cancel run
 pub fn v1_routes(state: std::sync::Arc<crate::state::ServerState>) -> axum::Router {
-    use axum::routing::{get, post};
     use crate::handlers;
+    use axum::routing::{get, post};
 
     axum::Router::new()
         .route("/v1/run", post(handlers::run_handler))

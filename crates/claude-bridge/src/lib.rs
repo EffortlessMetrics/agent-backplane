@@ -22,6 +22,8 @@ pub mod config;
 pub mod discovery;
 /// Error types for bridge operations.
 pub mod error;
+/// Translation between Claude API types and `abp-dialect` IR (feature-gated on `ir`).
+pub mod ir_translate;
 /// Normalized event mapping (feature-gated).
 pub mod normalized;
 /// Raw passthrough and mapped-mode run functions.

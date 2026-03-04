@@ -39,7 +39,6 @@ members = [
   "crates/abp-ratelimit",
   "crates/abp-receipt",
   "crates/abp-receipt-store",
-  "crates/abp-ratelimit",
   "crates/abp-retry",
   "crates/abp-protocol",
   "crates/abp-runtime",

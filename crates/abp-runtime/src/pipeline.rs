@@ -7,7 +7,7 @@
 //! stages.
 
 use abp_core::{AgentEvent, Receipt, WorkOrder};
-use abp_integrations::{Backend, ensure_capability_requirements};
+use abp_integrations::{ensure_capability_requirements, Backend};
 use abp_policy::PolicyEngine;
 use abp_receipt::ReceiptBuilder;
 use abp_workspace::WorkspaceManager;
@@ -15,7 +15,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{mpsc, Mutex};
 use tracing::debug;
 
 // ---------------------------------------------------------------------------
@@ -265,8 +265,7 @@ impl RuntimePipeline {
     /// Compiles the [`PolicyEngine`] and checks that allowed tools are not
     /// simultaneously denied.
     pub fn validate_policy(&self, order: &WorkOrder) -> Result<()> {
-        let engine = PolicyEngine::new(&order.policy)
-            .context("compile policy")?;
+        let engine = PolicyEngine::new(&order.policy).context("compile policy")?;
         for tool in &order.policy.allowed_tools {
             let d = engine.can_use_tool(tool);
             anyhow::ensure!(
@@ -307,10 +306,7 @@ impl RuntimePipeline {
     /// Prepare the workspace according to the work order spec.
     ///
     /// Returns the effective workspace root path.
-    pub fn prepare_workspace(
-        &self,
-        order: &WorkOrder,
-    ) -> Result<abp_workspace::PreparedWorkspace> {
+    pub fn prepare_workspace(&self, order: &WorkOrder) -> Result<abp_workspace::PreparedWorkspace> {
         WorkspaceManager::prepare(&order.workspace).context("prepare workspace")
     }
 
@@ -336,10 +332,7 @@ impl RuntimePipeline {
     // -- Stage 6 --
 
     /// Drain any remaining events from a receiver into a trace vec.
-    pub async fn collect_events(
-        &self,
-        rx: &mut mpsc::Receiver<AgentEvent>,
-    ) -> Vec<AgentEvent> {
+    pub async fn collect_events(&self, rx: &mut mpsc::Receiver<AgentEvent>) -> Vec<AgentEvent> {
         let mut trace = Vec::new();
         while let Some(ev) = rx.recv().await {
             trace.push(ev);
@@ -370,9 +363,7 @@ impl RuntimePipeline {
         receipt.trace = trace;
 
         // Compute receipt hash.
-        receipt.receipt_sha256 = Some(
-            abp_receipt::compute_hash(&receipt).context("hash receipt")?,
-        );
+        receipt.receipt_sha256 = Some(abp_receipt::compute_hash(&receipt).context("hash receipt")?);
 
         Ok(receipt)
     }
@@ -380,10 +371,7 @@ impl RuntimePipeline {
     // -- Full orchestration --
 
     /// Execute the full pipeline, returning stage outcomes and the final receipt.
-    pub async fn execute(
-        &self,
-        mut order: WorkOrder,
-    ) -> (Vec<StageOutcome>, Result<Receipt>) {
+    pub async fn execute(&self, mut order: WorkOrder) -> (Vec<StageOutcome>, Result<Receipt>) {
         let mut outcomes = Vec::new();
         let run_id = uuid::Uuid::new_v4();
 
@@ -665,7 +653,12 @@ mod tests {
         let rp = RuntimePipeline::new("mock", backend);
         let wo = sample_work_order();
         let receipt = rp
-            .produce_receipt(uuid::Uuid::new_v4(), &wo, abp_core::Outcome::Complete, vec![])
+            .produce_receipt(
+                uuid::Uuid::new_v4(),
+                &wo,
+                abp_core::Outcome::Complete,
+                vec![],
+            )
             .unwrap();
         assert!(receipt.receipt_sha256.is_some());
     }
@@ -677,7 +670,12 @@ mod tests {
         let wo = sample_work_order();
         let events = vec![make_event()];
         let receipt = rp
-            .produce_receipt(uuid::Uuid::new_v4(), &wo, abp_core::Outcome::Complete, events)
+            .produce_receipt(
+                uuid::Uuid::new_v4(),
+                &wo,
+                abp_core::Outcome::Complete,
+                events,
+            )
             .unwrap();
         assert_eq!(receipt.trace.len(), 1);
     }

@@ -1221,6 +1221,8 @@ name = "claude-bridge"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-dialect",
+ "claude-bridge",
  "futures",
  "proptest",
  "serde",
@@ -2649,6 +2651,7 @@ name = "openai-bridge"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-sdk-types",
  "futures",
  "openai-bridge",
  "proptest",

@@ -239,7 +239,10 @@ mod tests {
 
         let sub = rb.subscribe();
         assert_eq!(sub.buffered.len(), 2);
-        assert!(matches!(sub.buffered[0].kind, AgentEventKind::AssistantDelta { .. }));
+        assert!(matches!(
+            sub.buffered[0].kind,
+            AgentEventKind::AssistantDelta { .. }
+        ));
         assert!(matches!(sub.buffered[1].kind, AgentEventKind::Error { .. }));
     }
 

@@ -4,10 +4,10 @@
 
 //! Tests for canonical, audit_trail, export, and compliance modules.
 
-use abp_receipt::canonical::{
-    CanonicalReceipt, canonical_hash, canonicalize, diff_canonical, verify,
-};
 use abp_receipt::audit_trail::{AuditAction, AuditEntry, AuditTrail};
+use abp_receipt::canonical::{
+    canonical_hash, canonicalize, diff_canonical, verify, CanonicalReceipt,
+};
 use abp_receipt::compliance::{ComplianceCheck, Severity};
 use abp_receipt::export;
 use abp_receipt::{Outcome, Receipt, ReceiptBuilder};
@@ -85,8 +85,13 @@ fn canonical_hash_deterministic() {
 
 #[test]
 fn canonical_hash_changes_with_outcome() {
-    let r1 = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
-    let r2 = ReceiptBuilder::new("mock").outcome(Outcome::Failed).error("boom").build();
+    let r1 = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
+    let r2 = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Failed)
+        .error("boom")
+        .build();
     assert_ne!(canonical_hash(&r1).unwrap(), canonical_hash(&r2).unwrap());
 }
 
@@ -112,16 +117,25 @@ fn diff_canonical_identical() {
 
 #[test]
 fn diff_canonical_detects_backend_change() {
-    let a = ReceiptBuilder::new("alpha").outcome(Outcome::Complete).build();
-    let b = ReceiptBuilder::new("beta").outcome(Outcome::Complete).build();
+    let a = ReceiptBuilder::new("alpha")
+        .outcome(Outcome::Complete)
+        .build();
+    let b = ReceiptBuilder::new("beta")
+        .outcome(Outcome::Complete)
+        .build();
     let diffs = diff_canonical(&a, &b);
     assert!(diffs.iter().any(|d| d.field == "backend_id"));
 }
 
 #[test]
 fn diff_canonical_detects_outcome_change() {
-    let a = ReceiptBuilder::new("mock").outcome(Outcome::Complete).build();
-    let b = ReceiptBuilder::new("mock").outcome(Outcome::Failed).error("oops").build();
+    let a = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Complete)
+        .build();
+    let b = ReceiptBuilder::new("mock")
+        .outcome(Outcome::Failed)
+        .error("oops")
+        .build();
     let diffs = diff_canonical(&a, &b);
     assert!(diffs.iter().any(|d| d.field == "outcome"));
 }
@@ -179,7 +193,12 @@ fn audit_trail_entries_by_actor() {
 fn audit_trail_record_with_details() {
     let mut trail = AuditTrail::new();
     let id = Uuid::new_v4();
-    trail.record_with_details(id, "sys", AuditAction::Verified { success: true }, "all checks passed");
+    trail.record_with_details(
+        id,
+        "sys",
+        AuditAction::Verified { success: true },
+        "all checks passed",
+    );
     let entry = &trail.entries()[0];
     assert_eq!(entry.details.as_deref(), Some("all checks passed"));
 }
@@ -196,8 +215,7 @@ fn audit_entry_new_sets_timestamp() {
 #[test]
 fn audit_entry_with_details() {
     let id = Uuid::new_v4();
-    let entry = AuditEntry::new(id, "test", AuditAction::Created)
-        .with_details("initial creation");
+    let entry = AuditEntry::new(id, "test", AuditAction::Created).with_details("initial creation");
     assert_eq!(entry.details.as_deref(), Some("initial creation"));
 }
 
@@ -209,8 +227,12 @@ fn audit_action_serde_roundtrip() {
         AuditAction::Verified { success: true },
         AuditAction::Verified { success: false },
         AuditAction::Archived,
-        AuditAction::Exported { format: "json".into() },
-        AuditAction::Custom { description: "test".into() },
+        AuditAction::Exported {
+            format: "json".into(),
+        },
+        AuditAction::Custom {
+            description: "test".into(),
+        },
     ];
     for action in &actions {
         let json = serde_json::to_string(action).unwrap();
@@ -235,7 +257,13 @@ fn audit_trail_serde_roundtrip() {
 fn audit_trail_custom_action() {
     let mut trail = AuditTrail::new();
     let id = Uuid::new_v4();
-    trail.record(id, "plugin", AuditAction::Custom { description: "re-signed".into() });
+    trail.record(
+        id,
+        "plugin",
+        AuditAction::Custom {
+            description: "re-signed".into(),
+        },
+    );
     let e = &trail.entries()[0];
     assert!(matches!(&e.action, AuditAction::Custom { description } if description == "re-signed"));
 }
@@ -315,7 +343,10 @@ fn export_to_summary_table_header() {
 fn export_to_summary_table_footer() {
     let receipts = vec![
         ReceiptBuilder::new("a").outcome(Outcome::Complete).build(),
-        ReceiptBuilder::new("b").outcome(Outcome::Failed).error("err").build(),
+        ReceiptBuilder::new("b")
+            .outcome(Outcome::Failed)
+            .error("err")
+            .build(),
     ];
     let table = export::to_summary_table(&receipts);
     assert!(table.contains("2 receipts, 1 complete"));
@@ -350,7 +381,10 @@ fn compliance_missing_hash_is_warning() {
     let r = sample_receipt();
     let report = ComplianceCheck::new().check(&r);
     assert!(report.is_compliant());
-    assert!(report.warnings().iter().any(|f| f.field == "receipt_sha256"));
+    assert!(report
+        .warnings()
+        .iter()
+        .any(|f| f.field == "receipt_sha256"));
 }
 
 #[test]
@@ -369,12 +403,18 @@ fn compliance_wrong_contract_version() {
     r.receipt_sha256 = Some(abp_receipt::compute_hash(&r).unwrap());
     let report = ComplianceCheck::new().check(&r);
     assert!(!report.is_compliant());
-    assert!(report.errors().iter().any(|f| f.field == "meta.contract_version"));
+    assert!(report
+        .errors()
+        .iter()
+        .any(|f| f.field == "meta.contract_version"));
 }
 
 #[test]
 fn compliance_empty_backend_id() {
-    let r = ReceiptBuilder::new("").outcome(Outcome::Complete).with_hash().unwrap();
+    let r = ReceiptBuilder::new("")
+        .outcome(Outcome::Complete)
+        .with_hash()
+        .unwrap();
     let report = ComplianceCheck::new().check(&r);
     assert!(!report.is_compliant());
     assert!(report.errors().iter().any(|f| f.field == "backend.id"));
@@ -401,11 +441,12 @@ fn compliance_excessive_duration_warning() {
         .duration(Duration::from_secs(7200))
         .with_hash()
         .unwrap();
-    let report = ComplianceCheck::new()
-        .max_duration_ms(3_600_000)
-        .check(&r);
+    let report = ComplianceCheck::new().max_duration_ms(3_600_000).check(&r);
     assert!(report.is_compliant());
-    assert!(report.warnings().iter().any(|f| f.field == "meta.duration_ms"));
+    assert!(report
+        .warnings()
+        .iter()
+        .any(|f| f.field == "meta.duration_ms"));
 }
 
 #[test]
@@ -430,10 +471,11 @@ fn compliance_custom_max_duration() {
         .duration(Duration::from_millis(500))
         .with_hash()
         .unwrap();
-    let report = ComplianceCheck::new()
-        .max_duration_ms(100)
-        .check(&r);
-    assert!(report.warnings().iter().any(|f| f.message.contains("exceeds threshold")));
+    let report = ComplianceCheck::new().max_duration_ms(100).check(&r);
+    assert!(report
+        .warnings()
+        .iter()
+        .any(|f| f.message.contains("exceeds threshold")));
 }
 
 #[test]

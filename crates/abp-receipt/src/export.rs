@@ -55,9 +55,7 @@ pub fn to_csv(receipts: &[Receipt]) -> String {
         out.push(',');
         out.push_str(&opt_u64(r.usage.output_tokens));
         out.push(',');
-        out.push_str(&csv_escape(
-            r.receipt_sha256.as_deref().unwrap_or(""),
-        ));
+        out.push_str(&csv_escape(r.receipt_sha256.as_deref().unwrap_or("")));
         out.push('\n');
     }
     out

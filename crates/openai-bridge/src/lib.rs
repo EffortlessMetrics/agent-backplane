@@ -24,6 +24,8 @@ pub mod embeddings;
 pub mod error;
 /// Full function / tool calling types, builders, and parallel assembly.
 pub mod function_calling;
+/// Translation between OpenAI API types and `abp-sdk-types` IR (feature-gated on `ir`).
+pub mod ir_translate;
 /// Normalized event mapping (feature-gated).
 pub mod normalized;
 /// OpenAI Chat Completions API types (request, response, streaming, tool calls).
