@@ -19,10 +19,14 @@ pub mod budget;
 pub mod bus;
 /// Cancellation primitives for runtime runs.
 pub mod cancel;
+/// Runtime configuration integration (backend selection, telemetry, workspace).
+pub mod config_integration;
 /// Retry-and-fallback execution pipeline (parallel path to [`Runtime::run_streaming`]).
 pub mod execution;
 /// Lifecycle hooks for runtime extensibility.
 pub mod hooks;
+/// Middleware pattern for pre/post run hooks.
+pub mod middleware;
 /// Event multiplexing and routing for broadcasting agent events.
 pub mod multiplex;
 /// Observability primitives: tracing spans and runtime observer.
