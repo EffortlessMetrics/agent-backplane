@@ -1,0 +1,16 @@
+[package]
+name = "abp-format"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Formatting primitives for Agent Backplane contract objects"
+
+[dependencies]
+abp-core = { path = "../abp-core", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+chrono.workspace = true

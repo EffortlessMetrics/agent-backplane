@@ -75,6 +75,7 @@ dependencies = [
  "abp-config",
  "abp-copilot-sdk",
  "abp-core",
+ "abp-format",
  "abp-gemini-sdk",
  "abp-host",
  "abp-integrations",
@@ -222,6 +223,16 @@ name = "abp-error-taxonomy"
 version = "0.1.0"
 dependencies = [
  "abp-error",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "abp-format"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "chrono",
  "serde",
  "serde_json",
 ]
@@ -613,6 +624,7 @@ dependencies = [
  "abp-dialect",
  "abp-emulation",
  "abp-error",
+ "abp-format",
  "abp-gemini-sdk",
  "abp-glob",
  "abp-host",

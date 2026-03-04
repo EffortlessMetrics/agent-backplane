@@ -21,6 +21,7 @@ members = [
   "crates/abp-daemon",
   "crates/abp-emulation",
   "crates/abp-error",
+  "crates/abp-format",
   "crates/abp-error-taxonomy",
   "crates/abp-dialect",
   "crates/abp-gemini-sdk",
@@ -129,6 +130,7 @@ jsonschema.workspace = true
 abp-daemon = { path = "crates/abp-daemon" }
 abp-dialect = { path = "crates/abp-dialect" }
 abp-error = { path = "crates/abp-error" }
+abp-format = { path = "crates/abp-format" }
 abp-capability = { path = "crates/abp-capability" }
 abp-receipt = { path = "crates/abp-receipt" }
 abp-mapping = { path = "crates/abp-mapping" }
