@@ -14,8 +14,8 @@ use uuid::Uuid;
 
 use abp_core::{Outcome, Receipt};
 use abp_receipt_store::{
-    validate_chain, ChainValidation, ChainValidationError, FileReceiptStore, InMemoryReceiptStore,
-    ReceiptFilter, ReceiptIndex, ReceiptStore, StoreError,
+    ChainValidation, ChainValidationError, FileReceiptStore, InMemoryReceiptStore, ReceiptFilter,
+    ReceiptIndex, ReceiptStore, StoreError, validate_chain,
 };
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -1156,10 +1156,12 @@ fn chain_detects_duplicate_ids() {
     let r2 = make_receipt_with_id("b", Outcome::Failed, id);
     let result = validate_chain(&[r1, r2]);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.message.contains("duplicate")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("duplicate"))
+    );
 }
 
 #[test]
@@ -2008,6 +2010,9 @@ async fn mem_list_filter_with_all_none_is_default() {
         backend: None,
         time_range: None,
         work_order_id: None,
+        text_search: None,
+        min_duration_ms: None,
+        max_duration_ms: None,
         limit: None,
         offset: None,
     };
@@ -2028,11 +2033,13 @@ async fn mem_purge_all_receipts() {
         store.delete(id).await.unwrap();
     }
     assert_eq!(store.count().await.unwrap(), 0);
-    assert!(store
-        .list(ReceiptFilter::default())
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(
+        store
+            .list(ReceiptFilter::default())
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]

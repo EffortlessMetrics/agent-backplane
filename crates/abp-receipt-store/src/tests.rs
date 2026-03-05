@@ -7,11 +7,14 @@ use uuid::Uuid;
 
 use abp_core::{Outcome, Receipt};
 
-use crate::chain::{validate_chain, ChainValidationError};
+use crate::chain::{ChainValidationError, validate_chain};
 use crate::diff::diff_receipts;
-use crate::export::{export_json, export_jsonl, import_json, import_jsonl};
+use crate::export::{
+    export_csv, export_json, export_jsonl, export_summary, import_json, import_jsonl,
+};
 use crate::filter::ReceiptFilter;
 use crate::index::ReceiptIndex;
+use crate::retention::ReceiptRetention;
 use crate::stats::ReceiptStats;
 use crate::{FileReceiptStore, InMemoryReceiptStore, ReceiptStore};
 
@@ -90,11 +93,13 @@ async fn memory_store_and_get() {
 #[tokio::test]
 async fn memory_get_missing() {
     let store = InMemoryReceiptStore::new();
-    assert!(store
-        .get(&Uuid::new_v4().to_string())
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        store
+            .get(&Uuid::new_v4().to_string())
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -360,11 +365,13 @@ async fn file_get_missing() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("receipts.jsonl");
     let store = FileReceiptStore::new(&path);
-    assert!(store
-        .get(&Uuid::new_v4().to_string())
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        store
+            .get(&Uuid::new_v4().to_string())
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -628,10 +635,12 @@ fn chain_duplicate_ids() {
     let r2 = make_receipt_with_id("b", Outcome::Complete, id);
     let result = validate_chain(&[r1, r2]);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.message.contains("duplicate")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("duplicate"))
+    );
 }
 
 #[test]
@@ -1283,10 +1292,11 @@ fn diff_different_usage() {
     r2.usage.input_tokens = Some(200);
 
     let diff = diff_receipts(&r1, &r2);
-    assert!(diff
-        .differences
-        .iter()
-        .any(|d| d.field == "usage.input_tokens"));
+    assert!(
+        diff.differences
+            .iter()
+            .any(|d| d.field == "usage.input_tokens")
+    );
 }
 
 #[test]
@@ -1297,10 +1307,11 @@ fn diff_different_duration() {
     r2.meta.duration_ms = 999;
 
     let diff = diff_receipts(&r1, &r2);
-    assert!(diff
-        .differences
-        .iter()
-        .any(|d| d.field == "meta.duration_ms"));
+    assert!(
+        diff.differences
+            .iter()
+            .any(|d| d.field == "meta.duration_ms")
+    );
 }
 
 #[test]
@@ -1406,10 +1417,12 @@ fn chain_with_parents_broken_link() {
         &[None, Some("wrong_hash".to_string())],
     );
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.message.contains("parent hash mismatch")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("parent hash mismatch"))
+    );
 }
 
 #[test]
@@ -1417,10 +1430,12 @@ fn chain_with_parents_genesis_should_not_have_parent() {
     let r1 = make_hashed_receipt("a", Outcome::Complete);
     let result = crate::chain::validate_chain_with_parents(&[r1], &[Some("some_hash".to_string())]);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.message.contains("genesis receipt")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("genesis receipt"))
+    );
 }
 
 #[test]
@@ -1437,10 +1452,12 @@ fn chain_with_parents_missing_prev_hash() {
         &[None, Some("expected_parent".to_string())],
     );
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.message.contains("previous receipt has no hash")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("previous receipt has no hash"))
+    );
 }
 
 // ── Concurrent access with index ──────────────────────────────────
@@ -1465,4 +1482,741 @@ async fn concurrent_writers_preserve_index() {
     let idx = store.index().await;
     assert_eq!(idx.len(), 20);
     assert_eq!(idx.by_backend("concurrent").len(), 20);
+}
+
+// ── ReceiptFilter text_search ─────────────────────────────────────
+
+#[test]
+fn filter_text_search_matches_backend() {
+    let r = make_receipt("openai-gpt4", Outcome::Complete);
+    let f = ReceiptFilter {
+        text_search: Some("openai".into()),
+        ..Default::default()
+    };
+    assert!(f.matches(&r));
+}
+
+#[test]
+fn filter_text_search_case_insensitive() {
+    let r = make_receipt("OpenAI-GPT4", Outcome::Complete);
+    let f = ReceiptFilter {
+        text_search: Some("openai".into()),
+        ..Default::default()
+    };
+    assert!(f.matches(&r));
+}
+
+#[test]
+fn filter_text_search_no_match() {
+    let r = make_receipt("anthropic", Outcome::Complete);
+    let f = ReceiptFilter {
+        text_search: Some("openai".into()),
+        ..Default::default()
+    };
+    assert!(!f.matches(&r));
+}
+
+#[test]
+fn filter_text_search_matches_outcome() {
+    let r = make_receipt("mock", Outcome::Failed);
+    let f = ReceiptFilter {
+        text_search: Some("fail".into()),
+        ..Default::default()
+    };
+    assert!(f.matches(&r));
+}
+
+#[test]
+fn filter_text_search_matches_contract_version() {
+    let r = make_receipt("mock", Outcome::Complete);
+    let f = ReceiptFilter {
+        text_search: Some("abp/v0".to_string()),
+        ..Default::default()
+    };
+    assert!(f.matches(&r));
+}
+
+#[test]
+fn filter_text_search_combined_with_outcome() {
+    let r1 = make_receipt("openai", Outcome::Complete);
+    let r2 = make_receipt("openai", Outcome::Failed);
+    let f = ReceiptFilter {
+        text_search: Some("openai".into()),
+        outcome: Some(Outcome::Failed),
+        ..Default::default()
+    };
+    assert!(!f.matches(&r1));
+    assert!(f.matches(&r2));
+}
+
+#[tokio::test]
+async fn memory_filter_text_search() {
+    let store = InMemoryReceiptStore::new();
+    store
+        .store(&make_receipt("openai-gpt4", Outcome::Complete))
+        .await
+        .unwrap();
+    store
+        .store(&make_receipt("anthropic-claude", Outcome::Complete))
+        .await
+        .unwrap();
+    store
+        .store(&make_receipt("local-llama", Outcome::Complete))
+        .await
+        .unwrap();
+
+    let filter = ReceiptFilter {
+        text_search: Some("claude".into()),
+        ..Default::default()
+    };
+    let results = store.list(filter).await.unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].backend.id, "anthropic-claude");
+}
+
+#[tokio::test]
+async fn file_filter_text_search() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("receipts.jsonl");
+    let store = FileReceiptStore::new(&path);
+    store
+        .store(&make_receipt("openai-gpt4", Outcome::Complete))
+        .await
+        .unwrap();
+    store
+        .store(&make_receipt("anthropic-claude", Outcome::Failed))
+        .await
+        .unwrap();
+
+    let filter = ReceiptFilter {
+        text_search: Some("gpt4".into()),
+        ..Default::default()
+    };
+    let results = store.list(filter).await.unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].backend.id, "openai-gpt4");
+}
+
+// ── ReceiptFilter min/max duration ────────────────────────────────
+
+#[test]
+fn filter_min_duration() {
+    let mut r = make_receipt("mock", Outcome::Complete);
+    r.meta.duration_ms = 500;
+    let f = ReceiptFilter {
+        min_duration_ms: Some(300),
+        ..Default::default()
+    };
+    assert!(f.matches(&r));
+
+    let f2 = ReceiptFilter {
+        min_duration_ms: Some(600),
+        ..Default::default()
+    };
+    assert!(!f2.matches(&r));
+}
+
+#[test]
+fn filter_max_duration() {
+    let mut r = make_receipt("mock", Outcome::Complete);
+    r.meta.duration_ms = 500;
+    let f = ReceiptFilter {
+        max_duration_ms: Some(1000),
+        ..Default::default()
+    };
+    assert!(f.matches(&r));
+
+    let f2 = ReceiptFilter {
+        max_duration_ms: Some(400),
+        ..Default::default()
+    };
+    assert!(!f2.matches(&r));
+}
+
+#[test]
+fn filter_duration_range() {
+    let mut r = make_receipt("mock", Outcome::Complete);
+    r.meta.duration_ms = 500;
+    let f = ReceiptFilter {
+        min_duration_ms: Some(100),
+        max_duration_ms: Some(1000),
+        ..Default::default()
+    };
+    assert!(f.matches(&r));
+
+    let f2 = ReceiptFilter {
+        min_duration_ms: Some(600),
+        max_duration_ms: Some(1000),
+        ..Default::default()
+    };
+    assert!(!f2.matches(&r));
+}
+
+#[tokio::test]
+async fn memory_filter_by_duration_range() {
+    let store = InMemoryReceiptStore::new();
+    let mut fast = make_receipt("a", Outcome::Complete);
+    fast.meta.duration_ms = 100;
+    let mut medium = make_receipt("b", Outcome::Complete);
+    medium.meta.duration_ms = 500;
+    let mut slow = make_receipt("c", Outcome::Complete);
+    slow.meta.duration_ms = 2000;
+
+    store.store(&fast).await.unwrap();
+    store.store(&medium).await.unwrap();
+    store.store(&slow).await.unwrap();
+
+    let filter = ReceiptFilter {
+        min_duration_ms: Some(200),
+        max_duration_ms: Some(1000),
+        ..Default::default()
+    };
+    let results = store.list(filter).await.unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].meta.duration_ms, 500);
+}
+
+// ── CSV export ────────────────────────────────────────────────────
+
+#[test]
+fn export_csv_empty() {
+    let csv = export_csv(&[]).unwrap();
+    let lines: Vec<&str> = csv.lines().collect();
+    assert_eq!(lines.len(), 1); // header only
+    assert!(lines[0].starts_with("run_id,"));
+}
+
+#[test]
+fn export_csv_single_receipt() {
+    let mut r = make_receipt("mock", Outcome::Complete);
+    r.meta.duration_ms = 42;
+    r.usage.input_tokens = Some(100);
+    r.usage.output_tokens = Some(50);
+    let csv = export_csv(&[r.clone()]).unwrap();
+    let lines: Vec<&str> = csv.lines().collect();
+    assert_eq!(lines.len(), 2);
+    assert!(lines[1].contains("mock"));
+    assert!(lines[1].contains("Complete"));
+    assert!(lines[1].contains("42"));
+    assert!(lines[1].contains("100"));
+    assert!(lines[1].contains("50"));
+}
+
+#[test]
+fn export_csv_multiple_receipts() {
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Failed);
+    let csv = export_csv(&[r1, r2]).unwrap();
+    let lines: Vec<&str> = csv.lines().collect();
+    assert_eq!(lines.len(), 3);
+}
+
+#[test]
+fn export_csv_missing_tokens() {
+    let r = make_receipt("mock", Outcome::Complete);
+    assert!(r.usage.input_tokens.is_none());
+    let csv = export_csv(&[r]).unwrap();
+    // Should not panic; missing tokens leave columns empty.
+    let lines: Vec<&str> = csv.lines().collect();
+    assert_eq!(lines.len(), 2);
+}
+
+#[test]
+fn export_csv_header_columns() {
+    let csv = export_csv(&[]).unwrap();
+    let header = csv.lines().next().unwrap();
+    let cols: Vec<&str> = header.split(',').collect();
+    assert_eq!(cols.len(), 9);
+    assert_eq!(cols[0], "run_id");
+    assert_eq!(cols[2], "backend");
+    assert_eq!(cols[3], "outcome");
+    assert_eq!(cols[6], "duration_ms");
+}
+
+// ── Summary export ────────────────────────────────────────────────
+
+#[test]
+fn export_summary_empty() {
+    let summary = export_summary(&[]);
+    assert!(summary.contains("No receipts"));
+}
+
+#[test]
+fn export_summary_single() {
+    let mut r = make_receipt("mock", Outcome::Complete);
+    r.meta.duration_ms = 100;
+    r.usage.input_tokens = Some(500);
+    r.usage.output_tokens = Some(200);
+    let summary = export_summary(&[r]);
+    assert!(summary.contains("1 total"));
+    assert!(summary.contains("100.0%"));
+    assert!(summary.contains("100.0 ms"));
+    assert!(summary.contains("500 in"));
+    assert!(summary.contains("200 out"));
+}
+
+#[test]
+fn export_summary_multiple() {
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Failed);
+    let r3 = make_receipt("a", Outcome::Complete);
+    let summary = export_summary(&[r1, r2, r3]);
+    assert!(summary.contains("3 total"));
+    assert!(summary.contains("By outcome:"));
+    assert!(summary.contains("By backend:"));
+    assert!(summary.contains("Complete: 2"));
+    assert!(summary.contains("Failed: 1"));
+}
+
+#[test]
+fn export_summary_contains_separator() {
+    let r = make_receipt("mock", Outcome::Complete);
+    let summary = export_summary(&[r]);
+    assert!(summary.contains("===="));
+}
+
+// ── Retention policy ──────────────────────────────────────────────
+
+#[test]
+fn retention_none_keeps_all() {
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Failed);
+    let policy = ReceiptRetention::none();
+    let (kept, result) = policy.apply(vec![r1.clone(), r2.clone()]);
+    assert_eq!(kept.len(), 2);
+    assert_eq!(result.kept, 2);
+    assert_eq!(result.pruned, 0);
+    assert!(result.pruned_ids.is_empty());
+}
+
+#[test]
+fn retention_max_count_prunes_oldest() {
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    let t3 = Utc.with_ymd_and_hms(2025, 3, 1, 0, 0, 0).unwrap();
+
+    let r1 = make_receipt_at("a", Outcome::Complete, t1);
+    let r2 = make_receipt_at("b", Outcome::Complete, t2);
+    let r3 = make_receipt_at("c", Outcome::Complete, t3);
+
+    let policy = ReceiptRetention::none().with_max_count(2);
+    let (kept, result) = policy.apply(vec![r3.clone(), r1.clone(), r2.clone()]);
+    assert_eq!(kept.len(), 2);
+    assert_eq!(result.pruned, 1);
+    // The oldest (r1) should be pruned.
+    assert!(result.pruned_ids.contains(&r1.meta.run_id.to_string()));
+    // r2 and r3 should be kept.
+    assert!(kept.iter().any(|r| r.meta.run_id == r2.meta.run_id));
+    assert!(kept.iter().any(|r| r.meta.run_id == r3.meta.run_id));
+}
+
+#[test]
+fn retention_max_count_no_prune_when_under() {
+    let r1 = make_receipt("a", Outcome::Complete);
+    let policy = ReceiptRetention::none().with_max_count(5);
+    let (kept, result) = policy.apply(vec![r1]);
+    assert_eq!(kept.len(), 1);
+    assert_eq!(result.pruned, 0);
+}
+
+#[test]
+fn retention_max_count_exact_boundary() {
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Complete);
+    let policy = ReceiptRetention::none().with_max_count(2);
+    let (kept, result) = policy.apply(vec![r1, r2]);
+    assert_eq!(kept.len(), 2);
+    assert_eq!(result.pruned, 0);
+}
+
+#[test]
+fn retention_max_total_bytes_prunes_oldest() {
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+
+    let r1 = make_receipt_at("a", Outcome::Complete, t1);
+    let r2 = make_receipt_at("b", Outcome::Complete, t2);
+
+    let one_receipt_size = serde_json::to_string(&r1).unwrap().len() as u64;
+    // Allow space for roughly one receipt.
+    let policy = ReceiptRetention::none().with_max_total_bytes(one_receipt_size + 10);
+    let (kept, result) = policy.apply(vec![r1.clone(), r2.clone()]);
+    assert_eq!(kept.len(), 1);
+    assert_eq!(result.pruned, 1);
+    // Should keep the newest (r2).
+    assert_eq!(kept[0].meta.run_id, r2.meta.run_id);
+}
+
+#[test]
+fn retention_max_total_bytes_keeps_all_under_budget() {
+    let r1 = make_receipt("a", Outcome::Complete);
+    let policy = ReceiptRetention::none().with_max_total_bytes(1_000_000);
+    let (kept, result) = policy.apply(vec![r1]);
+    assert_eq!(kept.len(), 1);
+    assert_eq!(result.pruned, 0);
+}
+
+#[test]
+fn retention_empty_input() {
+    let policy = ReceiptRetention::none().with_max_count(5);
+    let (kept, result) = policy.apply(vec![]);
+    assert!(kept.is_empty());
+    assert_eq!(result.kept, 0);
+    assert_eq!(result.pruned, 0);
+}
+
+#[test]
+fn retention_combined_count_and_size() {
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    let t3 = Utc.with_ymd_and_hms(2025, 3, 1, 0, 0, 0).unwrap();
+
+    let r1 = make_receipt_at("a", Outcome::Complete, t1);
+    let r2 = make_receipt_at("b", Outcome::Complete, t2);
+    let r3 = make_receipt_at("c", Outcome::Complete, t3);
+
+    let policy = ReceiptRetention::none()
+        .with_max_count(2)
+        .with_max_total_bytes(1_000_000);
+    let (kept, result) = policy.apply(vec![r1, r2, r3]);
+    assert_eq!(kept.len(), 2);
+    assert_eq!(result.pruned, 1);
+}
+
+#[tokio::test]
+async fn retention_applied_to_store_contents() {
+    let store = InMemoryReceiptStore::new();
+    let t1 = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+    let t2 = Utc.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+    let t3 = Utc.with_ymd_and_hms(2025, 3, 1, 0, 0, 0).unwrap();
+
+    let r1 = make_receipt_at("a", Outcome::Complete, t1);
+    let r2 = make_receipt_at("b", Outcome::Complete, t2);
+    let r3 = make_receipt_at("c", Outcome::Complete, t3);
+
+    store.store(&r1).await.unwrap();
+    store.store(&r2).await.unwrap();
+    store.store(&r3).await.unwrap();
+
+    let all = store.list(ReceiptFilter::default()).await.unwrap();
+    let policy = ReceiptRetention::none().with_max_count(2);
+    let (_kept, result) = policy.apply(all);
+
+    // Apply by deleting pruned IDs.
+    for id in &result.pruned_ids {
+        store.delete(id).await.unwrap();
+    }
+    assert_eq!(store.count().await.unwrap(), 2);
+}
+
+// ── FileReceiptStore indexed lookup ───────────────────────────────
+
+#[tokio::test]
+async fn file_store_reopen_and_filter() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("receipts.jsonl");
+
+    {
+        let store = FileReceiptStore::new(&path);
+        store
+            .store(&make_receipt("alpha", Outcome::Complete))
+            .await
+            .unwrap();
+        store
+            .store(&make_receipt("beta", Outcome::Failed))
+            .await
+            .unwrap();
+    }
+
+    // Reopen and filter.
+    let store = FileReceiptStore::new(&path);
+    let filter = ReceiptFilter {
+        backend: Some("beta".into()),
+        ..Default::default()
+    };
+    let results = store.list(filter).await.unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].backend.id, "beta");
+}
+
+#[tokio::test]
+async fn file_store_filter_duration() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("receipts.jsonl");
+    let store = FileReceiptStore::new(&path);
+
+    let mut fast = make_receipt("a", Outcome::Complete);
+    fast.meta.duration_ms = 50;
+    let mut slow = make_receipt("b", Outcome::Complete);
+    slow.meta.duration_ms = 5000;
+
+    store.store(&fast).await.unwrap();
+    store.store(&slow).await.unwrap();
+
+    let filter = ReceiptFilter {
+        min_duration_ms: Some(1000),
+        ..Default::default()
+    };
+    let results = store.list(filter).await.unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].meta.duration_ms, 5000);
+}
+
+// ── ReceiptIndex additional tests ─────────────────────────────────
+
+#[test]
+fn index_insert_remove_reinsert() {
+    let mut idx = ReceiptIndex::new();
+    let r = make_receipt("mock", Outcome::Complete);
+    idx.insert(&r);
+    assert_eq!(idx.len(), 1);
+    idx.remove(&r);
+    assert_eq!(idx.len(), 0);
+    idx.insert(&r);
+    assert_eq!(idx.len(), 1);
+}
+
+#[test]
+fn index_multiple_outcomes() {
+    let mut idx = ReceiptIndex::new();
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Failed);
+    let r3 = make_receipt("c", Outcome::Partial);
+    let r4 = make_receipt("d", Outcome::Complete);
+    idx.insert(&r1);
+    idx.insert(&r2);
+    idx.insert(&r3);
+    idx.insert(&r4);
+
+    assert_eq!(idx.by_outcome(&Outcome::Complete).len(), 2);
+    assert_eq!(idx.by_outcome(&Outcome::Failed).len(), 1);
+    assert_eq!(idx.by_outcome(&Outcome::Partial).len(), 1);
+    assert_eq!(idx.len(), 4);
+}
+
+#[test]
+fn index_time_range_boundary_inclusive() {
+    let mut idx = ReceiptIndex::new();
+    let t = Utc.with_ymd_and_hms(2025, 6, 1, 0, 0, 0).unwrap();
+    let r = make_receipt_at("a", Outcome::Complete, t);
+    idx.insert(&r);
+
+    // Exact match at boundary should be included.
+    let ids = idx.by_time_range(t, t);
+    assert_eq!(ids.len(), 1);
+}
+
+#[test]
+fn index_work_order_multiple_receipts() {
+    let mut idx = ReceiptIndex::new();
+    let woid = Uuid::new_v4();
+    let r1 = make_receipt_for_work_order("a", Outcome::Complete, woid);
+    let r2 = make_receipt_for_work_order("b", Outcome::Failed, woid);
+    let r3 = make_receipt_for_work_order("c", Outcome::Complete, woid);
+    idx.insert(&r1);
+    idx.insert(&r2);
+    idx.insert(&r3);
+
+    assert_eq!(idx.by_work_order_id(&woid.to_string()).len(), 3);
+}
+
+// ── ReceiptStats additional tests ─────────────────────────────────
+
+#[test]
+fn stats_zero_duration() {
+    let r = make_receipt("mock", Outcome::Complete);
+    // duration_ms defaults to 0
+    let stats = ReceiptStats::from_receipts(&[r]);
+    assert_eq!(stats.min_duration_ms, Some(0));
+    assert_eq!(stats.max_duration_ms, Some(0));
+}
+
+#[test]
+fn stats_all_failed() {
+    let r1 = make_receipt("a", Outcome::Failed);
+    let r2 = make_receipt("b", Outcome::Failed);
+    let stats = ReceiptStats::from_receipts(&[r1, r2]);
+    assert!((stats.success_rate.unwrap()).abs() < f64::EPSILON);
+    assert_eq!(*stats.by_outcome.get("Failed").unwrap(), 2);
+}
+
+#[test]
+fn stats_mixed_outcomes_no_complete() {
+    let r1 = make_receipt("a", Outcome::Failed);
+    let r2 = make_receipt("b", Outcome::Partial);
+    let stats = ReceiptStats::from_receipts(&[r1, r2]);
+    assert!((stats.success_rate.unwrap()).abs() < f64::EPSILON);
+}
+
+#[test]
+fn stats_token_aggregation() {
+    let mut r1 = make_receipt("a", Outcome::Complete);
+    r1.usage.input_tokens = Some(100);
+    r1.usage.output_tokens = Some(50);
+    let mut r2 = make_receipt("b", Outcome::Complete);
+    r2.usage.input_tokens = Some(200);
+    r2.usage.output_tokens = None;
+    let mut r3 = make_receipt("c", Outcome::Complete);
+    r3.usage.input_tokens = None;
+    r3.usage.output_tokens = Some(30);
+
+    let stats = ReceiptStats::from_receipts(&[r1, r2, r3]);
+    assert_eq!(stats.total_input_tokens, 300);
+    assert_eq!(stats.total_output_tokens, 80);
+}
+
+// ── Receipt diff additional tests ─────────────────────────────────
+
+#[test]
+fn diff_different_mode() {
+    let r1 = make_receipt("mock", Outcome::Complete);
+    let mut r2 = r1.clone();
+    r2.mode = abp_core::ExecutionMode::Passthrough;
+
+    let diff = diff_receipts(&r1, &r2);
+    assert!(diff.differences.iter().any(|d| d.field == "mode"));
+}
+
+#[test]
+fn diff_different_verification() {
+    let r1 = make_receipt("mock", Outcome::Complete);
+    let mut r2 = r1.clone();
+    r2.verification.harness_ok = true;
+
+    let diff = diff_receipts(&r1, &r2);
+    assert!(
+        diff.differences
+            .iter()
+            .any(|d| d.field == "verification.harness_ok")
+    );
+}
+
+#[test]
+fn diff_count() {
+    let r1 = make_receipt("mock", Outcome::Complete);
+    // Diff against itself should be empty.
+    let diff = diff_receipts(&r1, &r1);
+    assert_eq!(diff.differences.len(), 0);
+}
+
+// ── Export/Import roundtrip with new formats ──────────────────────
+
+#[test]
+fn export_csv_roundtrip_field_count() {
+    let mut r = make_receipt("mock", Outcome::Complete);
+    r.usage.input_tokens = Some(42);
+    r.usage.output_tokens = Some(7);
+    let csv = export_csv(&[r]).unwrap();
+    let data_line = csv.lines().nth(1).unwrap();
+    let fields: Vec<&str> = data_line.split(',').collect();
+    assert_eq!(fields.len(), 9);
+}
+
+#[test]
+fn export_summary_with_tokens() {
+    let mut r = make_receipt("mock", Outcome::Complete);
+    r.usage.input_tokens = Some(1000);
+    r.usage.output_tokens = Some(500);
+    let summary = export_summary(&[r]);
+    assert!(summary.contains("1000 in"));
+    assert!(summary.contains("500 out"));
+}
+
+// ── Chain validation edge cases ───────────────────────────────────
+
+#[test]
+fn chain_same_timestamp_valid() {
+    let t = Utc.with_ymd_and_hms(2025, 6, 1, 0, 0, 0).unwrap();
+    let r1 = make_receipt_at("a", Outcome::Complete, t);
+    let r2 = make_receipt_at("b", Outcome::Complete, t);
+    let result = validate_chain(&[r1, r2]);
+    // Same timestamp is fine (non-decreasing).
+    assert!(result.valid);
+}
+
+#[test]
+fn chain_single_no_hash() {
+    let r = make_receipt("mock", Outcome::Complete);
+    let result = validate_chain(&[r]);
+    assert!(result.valid);
+    assert_eq!(result.receipt_count, 1);
+}
+
+// ── InMemoryReceiptStore work_order index accuracy ────────────────
+
+#[tokio::test]
+async fn memory_work_order_index_after_delete() {
+    let woid = Uuid::new_v4();
+    let store = InMemoryReceiptStore::new();
+    let r = make_receipt_for_work_order("mock", Outcome::Complete, woid);
+    let id = r.meta.run_id.to_string();
+    store.store(&r).await.unwrap();
+
+    let results = store.get_by_work_order_id(&woid.to_string()).await.unwrap();
+    assert_eq!(results.len(), 1);
+
+    store.delete(&id).await.unwrap();
+    let results = store.get_by_work_order_id(&woid.to_string()).await.unwrap();
+    assert!(results.is_empty());
+}
+
+// ── Retention builder pattern ─────────────────────────────────────
+
+#[test]
+fn retention_builder_chaining() {
+    let policy = ReceiptRetention::none()
+        .with_max_count(100)
+        .with_max_total_bytes(1_000_000);
+    assert_eq!(policy.max_count, Some(100));
+    assert_eq!(policy.max_total_bytes, Some(1_000_000));
+    assert!(policy.max_age.is_none());
+}
+
+#[test]
+fn retention_default_is_no_limits() {
+    let policy = ReceiptRetention::default();
+    assert!(policy.max_count.is_none());
+    assert!(policy.max_age.is_none());
+    assert!(policy.max_total_bytes.is_none());
+}
+
+// ── File store edge cases ─────────────────────────────────────────
+
+#[tokio::test]
+async fn file_store_count_after_delete() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("receipts.jsonl");
+    let store = FileReceiptStore::new(&path);
+
+    let r = make_receipt("mock", Outcome::Complete);
+    let id = r.meta.run_id.to_string();
+    store.store(&r).await.unwrap();
+    assert_eq!(store.count().await.unwrap(), 1);
+
+    store.delete(&id).await.unwrap();
+    assert_eq!(store.count().await.unwrap(), 0);
+}
+
+#[tokio::test]
+async fn file_store_multiple_deletes() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("receipts.jsonl");
+    let store = FileReceiptStore::new(&path);
+
+    let r1 = make_receipt("a", Outcome::Complete);
+    let r2 = make_receipt("b", Outcome::Complete);
+    let r3 = make_receipt("c", Outcome::Complete);
+    let id1 = r1.meta.run_id.to_string();
+    let id3 = r3.meta.run_id.to_string();
+
+    store.store(&r1).await.unwrap();
+    store.store(&r2).await.unwrap();
+    store.store(&r3).await.unwrap();
+
+    store.delete(&id1).await.unwrap();
+    store.delete(&id3).await.unwrap();
+
+    assert_eq!(store.count().await.unwrap(), 1);
+    let remaining = store.list(ReceiptFilter::default()).await.unwrap();
+    assert_eq!(remaining[0].backend.id, "b");
 }

@@ -16,6 +16,12 @@ pub struct ReceiptFilter {
     pub time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
     /// Only return receipts for this work order ID.
     pub work_order_id: Option<String>,
+    /// Case-insensitive substring search across backend ID and contract version.
+    pub text_search: Option<String>,
+    /// Minimum duration in milliseconds.
+    pub min_duration_ms: Option<u64>,
+    /// Maximum duration in milliseconds.
+    pub max_duration_ms: Option<u64>,
     /// Maximum number of results to return.
     pub limit: Option<usize>,
     /// Number of results to skip (for pagination).
@@ -43,6 +49,30 @@ impl ReceiptFilter {
         }
         if let Some(ref woid) = self.work_order_id {
             if receipt.meta.work_order_id.to_string() != *woid {
+                return false;
+            }
+        }
+        if let Some(ref needle) = self.text_search {
+            let needle_lower = needle.to_lowercase();
+            let haystack = [
+                receipt.backend.id.as_str(),
+                receipt.meta.contract_version.as_str(),
+                &format!("{:?}", receipt.outcome),
+            ];
+            if !haystack
+                .iter()
+                .any(|s| s.to_lowercase().contains(&needle_lower))
+            {
+                return false;
+            }
+        }
+        if let Some(min) = self.min_duration_ms {
+            if receipt.meta.duration_ms < min {
+                return false;
+            }
+        }
+        if let Some(max) = self.max_duration_ms {
+            if receipt.meta.duration_ms > max {
                 return false;
             }
         }

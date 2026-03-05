@@ -13,18 +13,22 @@ mod file;
 mod filter;
 mod index;
 mod memory;
+mod retention;
 mod stats;
 
 pub use chain::{
-    validate_chain, validate_chain_with_parents, ChainValidation, ChainValidationError,
+    ChainValidation, ChainValidationError, validate_chain, validate_chain_with_parents,
 };
-pub use diff::{diff_receipts, FieldDiff, ReceiptDiff};
+pub use diff::{FieldDiff, ReceiptDiff, diff_receipts};
 pub use error::StoreError;
-pub use export::{export_json, export_jsonl, import_json, import_jsonl};
+pub use export::{
+    export_csv, export_json, export_jsonl, export_summary, import_json, import_jsonl,
+};
 pub use file::FileReceiptStore;
 pub use filter::ReceiptFilter;
 pub use index::ReceiptIndex;
 pub use memory::InMemoryReceiptStore;
+pub use retention::{ReceiptRetention, RetentionResult};
 pub use stats::ReceiptStats;
 
 // Re-export core types for convenience.
