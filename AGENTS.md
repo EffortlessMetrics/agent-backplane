@@ -76,6 +76,26 @@ SDK crates: abp-{claude,codex,openai,gemini,kimi,copilot}-sdk
 | SDK Adapters | abp-claude-sdk, abp-codex-sdk, abp-openai-sdk, abp-gemini-sdk, abp-kimi-sdk, abp-copilot-sdk, abp-sidecar-sdk |
 | Bridges | sidecar-kit, claude-bridge, gemini-bridge, openai-bridge, codex-bridge, copilot-bridge, kimi-bridge |
 
+## Developer Workflow (Enforced)
+
+One-time setup: `cargo xtask setup` (or `just setup`) — enables git hooks.
+
+**On commit:** pre-commit hook runs `cargo xtask lint-fix` (auto-formats + clippy fixes), re-stages corrected files.
+
+**On push:** pre-push hook runs `cargo xtask gate --check` (fmt + check + clippy + test compile). Blocks on failure.
+
+**CI parity:** CI runs the same `cargo xtask gate --check`.
+
+Never use `--no-verify` unless explicitly told to.
+
+## Generator Guardrails
+
+When generating Rust code, avoid these patterns that trigger clippy warnings or produce churn:
+
+1. **No identity maps** -- `map_err(|e| e)` is a no-op. Remove it.
+2. **Const assertions** -- Compile-time invariants: `const { assert!(...) }`, not runtime `assert!`.
+3. **Prefer `if let`** -- Don't `match` with one meaningful arm and a wildcard.
+
 ## Tracing Targets
 - `abp.sidecar.stderr` - Sidecar stderr capture
 - `abp.runtime` - Runtime events

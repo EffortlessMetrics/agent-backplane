@@ -27,6 +27,21 @@ enum Command {
     Coverage,
     /// Run formatting and clippy checks only.
     Lint,
+    /// Auto-fix formatting and clippy issues (mutating by default).
+    LintFix {
+        /// Run in check mode (non-mutating, CI parity).
+        #[arg(long)]
+        check: bool,
+        /// Skip clippy --fix (only format).
+        #[arg(long)]
+        no_clippy: bool,
+    },
+    /// Pre-push gate: fmt + cargo check + clippy + test compile (no test execution).
+    Gate {
+        /// Strict check mode (all steps non-mutating, CI parity).
+        #[arg(long)]
+        check: bool,
+    },
     /// Verify crates.io release readiness.
     ReleaseCheck,
     /// Build workspace documentation.
@@ -41,20 +56,26 @@ enum Command {
     Audit,
     /// Show workspace statistics (crates, tests, LOC, dependency depth).
     Stats,
+    /// Configure local repo for development (install git hooks).
+    Setup,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    warn_if_hooks_missing();
     match cli.command {
         Command::Schema { out_dir } => schema(out_dir),
         Command::Check => check(),
         Command::Coverage => coverage(),
         Command::Lint => lint(),
+        Command::LintFix { check, no_clippy } => lint_fix(check, no_clippy),
+        Command::Gate { check } => gate(check),
         Command::ReleaseCheck => release_check(),
         Command::Docs { open } => docs(open),
         Command::ListCrates => list_crates(),
         Command::Audit => audit(),
         Command::Stats => stats(),
+        Command::Setup => setup(),
     }
 }
 
@@ -95,6 +116,72 @@ fn run_cargo(args: &[&str]) -> Result<()> {
         args.join(" "),
         status
     );
+    Ok(())
+}
+
+/// Run `cargo fmt` with optional check mode.
+/// Falls back to per-package formatting on Windows if `--all` fails (OS error 206: path too long).
+fn run_fmt(check: bool) -> Result<()> {
+    let args: Vec<&str> = if check {
+        vec!["fmt", "--all", "--", "--check"]
+    } else {
+        vec!["fmt", "--all"]
+    };
+
+    let result = run_cargo(&args);
+
+    if result.is_ok() || !cfg!(windows) {
+        return result;
+    }
+
+    // Windows fallback: per-package formatting to avoid path-length errors (OS error 206)
+    eprintln!("→ fmt --all failed on Windows; falling back to per-package formatting");
+    let output = Cmd::new("cargo")
+        .args(["metadata", "--no-deps", "--format-version", "1"])
+        .output()
+        .context("run cargo metadata")?;
+    anyhow::ensure!(output.status.success(), "cargo metadata failed");
+
+    let meta: serde_json::Value =
+        serde_json::from_slice(&output.stdout).context("parse cargo metadata")?;
+    let packages = meta["packages"]
+        .as_array()
+        .context("cargo metadata missing packages")?;
+
+    for pkg in packages {
+        let name = pkg["name"].as_str().context("package missing name")?;
+        let mut pkg_args = vec!["fmt", "-p", name];
+        if check {
+            pkg_args.extend(["--", "--check"]);
+        }
+        if run_cargo(&pkg_args).is_err() {
+            // Per-package fmt can also fail for the workspace root package;
+            // fall back to running rustfmt directly on the package's source files.
+            let manifest_path = pkg["manifest_path"]
+                .as_str()
+                .context("package missing manifest_path")?;
+            let pkg_dir = std::path::Path::new(manifest_path)
+                .parent()
+                .context("manifest_path has no parent")?;
+            let src_dir = pkg_dir.join("src");
+            if src_dir.exists() {
+                let rs_files: Vec<PathBuf> = walk_rs_files(&src_dir).collect();
+                if !rs_files.is_empty() {
+                    eprintln!("→ falling back to direct rustfmt for {name}");
+                    let mut cmd = Cmd::new("rustfmt");
+                    if check {
+                        cmd.arg("--check");
+                    }
+                    for f in &rs_files {
+                        cmd.arg(f);
+                    }
+                    let status = cmd.status().context("run rustfmt")?;
+                    anyhow::ensure!(status.success(), "rustfmt failed for {name}");
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -169,16 +256,95 @@ fn coverage() -> Result<()> {
 // ── lint ──────────────────────────────────────────────────────────────
 
 fn lint() -> Result<()> {
-    run_cargo(&["fmt", "--all", "--", "--check"])?;
+    run_fmt(true)?;
     run_cargo(&[
         "clippy",
         "--workspace",
         "--all-targets",
+        "--all-features",
         "--",
         "-D",
         "warnings",
     ])?;
     eprintln!("lint passed ✓");
+    Ok(())
+}
+
+// ── lint-fix ─────────────────────────────────────────────────────────
+
+fn lint_fix(check: bool, no_clippy: bool) -> Result<()> {
+    if check {
+        // Check-only mode (non-mutating)
+        run_fmt(true)?;
+        if !no_clippy {
+            run_cargo(&[
+                "clippy",
+                "--workspace",
+                "--all-targets",
+                "--all-features",
+                "--",
+                "-D",
+                "warnings",
+            ])?;
+        }
+    } else {
+        // Mutating mode: fix first, then verify
+        run_fmt(false)?;
+        if !no_clippy {
+            // Best-effort clippy fix
+            let _ = run_cargo(&[
+                "clippy",
+                "--fix",
+                "--workspace",
+                "--all-targets",
+                "--all-features",
+                "--allow-dirty",
+                "--allow-staged",
+                "--",
+                "-D",
+                "warnings",
+            ]);
+            // Verify clean
+            run_cargo(&[
+                "clippy",
+                "--workspace",
+                "--all-targets",
+                "--all-features",
+                "--",
+                "-D",
+                "warnings",
+            ])?;
+        }
+    }
+    eprintln!("lint-fix passed ✓");
+    Ok(())
+}
+
+// ── gate ─────────────────────────────────────────────────────────────
+
+fn gate(check: bool) -> Result<()> {
+    if check {
+        // Strict CI-parity mode: everything non-mutating
+        run_fmt(true)?;
+    } else {
+        // Local dev mode: fix fmt first, then verify the rest
+        run_fmt(false)?;
+    }
+    // Warm dependency graph
+    run_cargo(&["check", "--workspace", "--all-targets", "--all-features"])?;
+    // Clippy
+    run_cargo(&[
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--",
+        "-D",
+        "warnings",
+    ])?;
+    // Compile tests without running them
+    run_cargo(&["test", "--workspace", "--no-run"])?;
+    eprintln!("gate passed ✓");
     Ok(())
 }
 
@@ -636,4 +802,51 @@ fn dep_depth(
     }
     cache.insert(name.to_string(), max_child);
     max_child
+}
+
+// ── setup ────────────────────────────────────────────────────────────
+
+fn setup() -> Result<()> {
+    let status = Cmd::new("git")
+        .args(["config", "core.hooksPath", ".githooks"])
+        .status()
+        .context("run git config")?;
+    anyhow::ensure!(status.success(), "git config failed ({})", status);
+
+    // Best-effort chmod on Unix (no-op failure on Windows)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        for hook in [".githooks/pre-commit", ".githooks/pre-push"] {
+            if let Ok(meta) = std::fs::metadata(hook) {
+                let mut perms = meta.permissions();
+                perms.set_mode(perms.mode() | 0o111);
+                let _ = std::fs::set_permissions(hook, perms);
+            }
+        }
+    }
+
+    eprintln!("hooks installed: core.hooksPath = .githooks");
+    Ok(())
+}
+
+fn warn_if_hooks_missing() {
+    // Don't warn in CI — hooks are irrelevant there
+    if std::env::var_os("CI").is_some() || std::env::var_os("GITHUB_ACTIONS").is_some() {
+        return;
+    }
+    let output = Cmd::new("git")
+        .args(["config", "--get", "core.hooksPath"])
+        .output();
+    let installed = output
+        .as_ref()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| std::str::from_utf8(&o.stdout).ok())
+        .is_some_and(|s| s.trim() == ".githooks");
+    if !installed {
+        eprintln!(
+            "warning: git hooks not installed. Run `cargo xtask setup` to enable pre-commit checks."
+        );
+    }
 }

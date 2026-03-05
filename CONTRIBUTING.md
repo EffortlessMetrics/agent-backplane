@@ -75,21 +75,42 @@ cargo run -p abp-cli -- run --task "say hello" --backend mock
 
 ## Code Standards
 
-### Formatting
+### Enforcement Model
 
-All code must be formatted with `rustfmt`:
+Quality gates are automated — you do not need to run individual `cargo fmt` or `cargo clippy` commands manually.
 
-```bash
-cargo fmt --check
-```
-
-### Linting
-
-Clippy must pass with no warnings:
+**One-time setup** (enables git hooks):
 
 ```bash
-cargo clippy --workspace --all-targets -- -D warnings
+cargo xtask setup   # or: just setup
 ```
+
+**What happens on commit:** The pre-commit hook runs `cargo xtask lint-fix`, which auto-formats code and applies best-effort clippy fixes, then re-stages the originally-staged files with any corrections.
+
+**What happens on push:** The pre-push hook runs `cargo xtask gate --check` (fmt check + cargo check + clippy strict + test compile). Push is blocked on failure.
+
+**CI parity:** CI runs the same `cargo xtask gate --check`, so if your push succeeds locally, CI will pass.
+
+**Single truth command** (to verify everything manually):
+
+```bash
+cargo xtask gate --check   # or: just gate-check
+```
+
+To auto-fix formatting and clippy issues:
+
+```bash
+cargo xtask lint-fix         # or: just lint-fix
+```
+
+### What the Gate Checks
+
+| Step | What it does |
+|------|-------------|
+| Format | `cargo fmt --all -- --check` |
+| Compile | `cargo check --workspace --all-targets --all-features` |
+| Clippy | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
+| Test compile | `cargo test --workspace --no-run` |
 
 ### Unsafe Code
 

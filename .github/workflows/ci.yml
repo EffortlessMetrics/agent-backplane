@@ -23,11 +23,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Check formatting
-        run: cargo fmt --check
-
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Gate (lint + compile)
+        run: cargo xtask gate --check
 
   test:
     name: Test (${{ matrix.os }})

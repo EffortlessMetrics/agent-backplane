@@ -112,6 +112,46 @@ fn stats_subcommand_exists() {
 }
 
 #[test]
+fn lint_fix_subcommand_exists() {
+    xtask()
+        .arg("lint-fix")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("fix").or(predicate::str::contains("format")));
+}
+
+#[test]
+fn lint_fix_has_check_flag() {
+    xtask()
+        .arg("lint-fix")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--check"));
+}
+
+#[test]
+fn gate_subcommand_exists() {
+    xtask()
+        .arg("gate")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("gate").or(predicate::str::contains("fmt")));
+}
+
+#[test]
+fn gate_has_check_flag() {
+    xtask()
+        .arg("gate")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--check"));
+}
+
+#[test]
 fn unknown_subcommand_errors() {
     xtask().arg("nonexistent-command").assert().failure();
 }
@@ -132,7 +172,8 @@ fn help_lists_all_subcommands() {
         .success()
         .stdout(predicate::str::contains("schema"))
         .stdout(predicate::str::contains("audit"))
-        .stdout(predicate::str::contains("stats"));
+        .stdout(predicate::str::contains("stats"))
+        .stdout(predicate::str::contains("setup"));
 }
 
 #[test]
@@ -156,4 +197,14 @@ fn audit_runs_successfully() {
         .stdout(predicate::str::contains("required fields"))
         .stdout(predicate::str::contains("version consistency"))
         .stdout(predicate::str::contains("unused dependencies"));
+}
+
+#[test]
+fn setup_subcommand_exists() {
+    xtask()
+        .arg("setup")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("hook").or(predicate::str::contains("development")));
 }

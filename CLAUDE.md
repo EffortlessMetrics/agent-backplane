@@ -29,6 +29,36 @@ The CLI must be run from the repo root for sidecar backends (they resolve `hosts
 
 Enable debug logging with `--debug` flag on the CLI or `RUST_LOG=abp=debug`.
 
+## Developer Workflow (Enforced)
+
+After one-time setup (`cargo xtask setup` or `just setup`), quality gates run automatically.
+
+### What happens on commit
+
+When you commit Rust or Cargo changes, the pre-commit hook:
+1. Runs `cargo xtask lint-fix` (auto-formats + best-effort clippy fixes)
+2. Re-stages the originally-staged files with any formatting corrections
+
+### What happens on push
+
+The pre-push hook runs `cargo xtask gate --check` (fmt check + cargo check + clippy strict + test compile). Push is blocked on failure.
+
+### CI parity
+
+CI runs the same `cargo xtask gate --check`, so local hooks give exact CI parity.
+
+### One-time setup
+
+```bash
+cargo xtask setup      # sets core.hooksPath=.githooks (idempotent)
+```
+
+### How it works
+
+- Generated tests are held to `clippy -D warnings` -- the gate enforces this automatically.
+- Emergency bypass: `git commit --no-verify` / `git push --no-verify`.
+- **Agents: never use `--no-verify` unless the human operator explicitly instructs you to.**
+
 ## Architecture
 
 ### Core Principle
