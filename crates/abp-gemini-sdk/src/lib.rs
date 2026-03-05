@@ -32,8 +32,8 @@ pub mod dialect;
 
 /// Error types matching the Google Gemini REST API error format.
 ///
-/// Provides [`error::GeminiErrorResponse`], [`error::GeminiErrorDetail`],
-/// and [`error::GeminiErrorStatus`] for deserialising API error bodies.
+/// Provides [`GeminiErrorResponse`](crate::error::GeminiErrorResponse), [`GeminiErrorDetail`](crate::error::GeminiErrorDetail),
+/// and [`GeminiErrorStatus`](crate::error::GeminiErrorStatus) for deserialising API error bodies.
 pub mod error;
 
 /// Lowering between ABP IR and the Google Gemini message format.
@@ -44,9 +44,9 @@ pub mod lowering;
 
 /// Streaming types and conversions for the `streamGenerateContent` endpoint.
 ///
-/// Provides [`streaming::StreamGenerateContentResponse`],
-/// [`streaming::map_stream_chunk`], and a
-/// [`streaming::FunctionCallAccumulator`] for reassembling streamed
+/// Provides [`StreamGenerateContentResponse`](crate::streaming::StreamGenerateContentResponse),
+/// [`map_stream_chunk`](crate::streaming::map_stream_chunk), and a
+/// [`FunctionCallAccumulator`](crate::streaming::FunctionCallAccumulator) for reassembling streamed
 /// function-call fragments.
 pub mod streaming;
 

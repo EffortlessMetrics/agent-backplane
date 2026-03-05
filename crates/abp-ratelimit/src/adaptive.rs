@@ -210,7 +210,7 @@ impl AdaptiveLimiter {
         }
     }
 
-    /// Return the number of consecutive errors recorded via [`record_response`].
+    /// Return the number of consecutive errors recorded via [`Self::record_response`].
     pub fn consecutive_errors(&self) -> u32 {
         let inner = self.inner.lock().unwrap();
         inner.consecutive_errors

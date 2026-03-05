@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::type_complexity)]
 //! Cross-SDK error taxonomy tests.
 //!
 //! Verifies that every SDK error type maps correctly into the ABP error

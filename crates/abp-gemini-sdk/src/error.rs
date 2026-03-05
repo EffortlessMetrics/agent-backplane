@@ -2,7 +2,7 @@
 //! Error types matching the Google Gemini REST API error format.
 //!
 //! When the Gemini API returns a non-2xx response, the body carries an
-//! [`GeminiErrorResponse`] wrapping a [`GeminiErrorDetail`]. These types
+//! [`GeminiErrorResponse`](crate::error::GeminiErrorResponse) wrapping a [`GeminiErrorDetail`](crate::error::GeminiErrorDetail). These types
 //! model that wire format so callers can deserialize error bodies directly.
 
 use serde::{Deserialize, Serialize};

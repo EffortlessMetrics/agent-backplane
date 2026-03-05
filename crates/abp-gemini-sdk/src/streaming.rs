@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Streaming types and conversions for the Gemini `streamGenerateContent` endpoint.
 //!
-//! Provides [`StreamGenerateContentResponse`] (the SSE chunk type) and
-//! mapping functions to convert streaming chunks into ABP [`AgentEvent`]s.
-//! Also includes a [`FunctionCallAccumulator`] for reassembling streamed
+//! Provides [`StreamGenerateContentResponse`](crate::streaming::StreamGenerateContentResponse) (the SSE chunk type) and
+//! mapping functions to convert streaming chunks into ABP [`AgentEvent`](abp_core::AgentEvent)s.
+//! Also includes a [`FunctionCallAccumulator`](crate::streaming::FunctionCallAccumulator) for reassembling streamed
 //! function-call fragments.
 
 use abp_core::{AgentEvent, AgentEventKind};

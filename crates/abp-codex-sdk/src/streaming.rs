@@ -3,7 +3,7 @@
 //!
 //! Re-exports the streaming types from [`types`](crate::types) and provides
 //! helper functions for mapping between Codex streaming chunks and ABP
-//! [`AgentEvent`]s.
+//! [`AgentEvent`](abp_core::AgentEvent)s.
 
 use abp_core::{AgentEvent, AgentEventKind};
 use chrono::Utc;
