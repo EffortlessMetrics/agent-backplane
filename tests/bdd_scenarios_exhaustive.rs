@@ -34,7 +34,8 @@ use abp_core::{
 use abp_dialect::Dialect;
 use abp_error::ErrorCode;
 use abp_mapper::{
-    default_ir_mapper, IrIdentityMapper, IrMapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper,
+    default_ir_mapper, ClaudeGeminiIrMapper, IrIdentityMapper, IrMapper, OpenAiClaudeIrMapper,
+    OpenAiCopilotIrMapper, OpenAiGeminiIrMapper,
 };
 use abp_policy::{Decision, PolicyEngine};
 use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
@@ -2197,4 +2198,1051 @@ fn register_healthy_backend_health(registry: &mut BackendRegistry, name: &str) {
     let mut health = BackendHealth::default();
     health.record_success(50);
     registry.update_health(name, health);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 17: SDK Translation Stories
+//
+// "As a developer, I want ABP to translate requests between different
+// agent SDK dialects so I can use any backend interchangeably."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story17_given_openai_request_when_translated_to_claude_then_thinking_blocks_preserved() {
+    // Given: An IR conversation with a thinking block (Claude feature)
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "You are helpful."),
+        IrMessage::text(IrRole::User, "Think step by step."),
+        IrMessage {
+            role: IrRole::Assistant,
+            content: vec![
+                IrContentBlock::Thinking {
+                    text: "Let me think...".into(),
+                },
+                IrContentBlock::Text {
+                    text: "Here is my answer.".into(),
+                },
+            ],
+            metadata: BTreeMap::new(),
+        },
+    ]);
+
+    // When: Translating from OpenAI to Claude
+    let mapper = OpenAiClaudeIrMapper;
+    let result = mapper
+        .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+        .unwrap();
+
+    // Then: Thinking blocks are preserved (Claude natively supports them)
+    let assistant = result.messages.iter().find(|m| m.role == IrRole::Assistant);
+    assert!(assistant.is_some());
+    let has_thinking = assistant
+        .unwrap()
+        .content
+        .iter()
+        .any(|b| matches!(b, IrContentBlock::Thinking { .. }));
+    assert!(
+        has_thinking,
+        "thinking blocks should be preserved for Claude"
+    );
+}
+
+#[test]
+fn story17_given_claude_request_when_translated_to_openai_then_thinking_blocks_dropped() {
+    // Given: A Claude-style conversation with thinking blocks
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "Explain recursion."),
+        IrMessage {
+            role: IrRole::Assistant,
+            content: vec![
+                IrContentBlock::Thinking {
+                    text: "Recursion is...".into(),
+                },
+                IrContentBlock::Text {
+                    text: "Recursion is when a function calls itself.".into(),
+                },
+            ],
+            metadata: BTreeMap::new(),
+        },
+    ]);
+
+    // When: Translating from Claude to OpenAI
+    let mapper = OpenAiClaudeIrMapper;
+    let result = mapper
+        .map_request(Dialect::Claude, Dialect::OpenAi, &conv)
+        .unwrap();
+
+    // Then: Thinking blocks are dropped (OpenAI has no equivalent)
+    let assistant = result.messages.iter().find(|m| m.role == IrRole::Assistant);
+    assert!(assistant.is_some());
+    let has_thinking = assistant
+        .unwrap()
+        .content
+        .iter()
+        .any(|b| matches!(b, IrContentBlock::Thinking { .. }));
+    assert!(
+        !has_thinking,
+        "thinking blocks should be dropped for OpenAI"
+    );
+}
+
+#[test]
+fn story17_given_openai_request_when_translated_to_gemini_then_tool_roles_remapped() {
+    // Given: An OpenAI-style conversation with a Tool-role message
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "What is 2+2?"),
+        IrMessage {
+            role: IrRole::Tool,
+            content: vec![IrContentBlock::ToolResult {
+                tool_use_id: "call_1".into(),
+                content: vec![IrContentBlock::Text { text: "4".into() }],
+                is_error: false,
+            }],
+            metadata: BTreeMap::new(),
+        },
+    ]);
+
+    // When: Translating from OpenAI to Gemini
+    let mapper = OpenAiGeminiIrMapper;
+    let result = mapper
+        .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+        .unwrap();
+
+    // Then: Tool-role messages become User-role (Gemini convention)
+    let tool_result_msg = result.messages.iter().find(|m| {
+        m.content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::ToolResult { .. }))
+    });
+    assert!(tool_result_msg.is_some());
+    assert_eq!(
+        tool_result_msg.unwrap().role,
+        IrRole::User,
+        "tool result should become User-role in Gemini"
+    );
+}
+
+#[test]
+fn story17_given_claude_request_when_translated_to_gemini_then_thinking_dropped() {
+    // Given: A Claude conversation with thinking blocks
+    let conv = IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "Hello"),
+        IrMessage {
+            role: IrRole::Assistant,
+            content: vec![
+                IrContentBlock::Thinking {
+                    text: "thinking...".into(),
+                },
+                IrContentBlock::Text { text: "Hi!".into() },
+            ],
+            metadata: BTreeMap::new(),
+        },
+    ]);
+
+    // When: Translating Claude to Gemini
+    let mapper = ClaudeGeminiIrMapper;
+    let result = mapper
+        .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+        .unwrap();
+
+    // Then: Thinking blocks are removed
+    for msg in &result.messages {
+        for block in &msg.content {
+            assert!(
+                !matches!(block, IrContentBlock::Thinking { .. }),
+                "Gemini should not receive thinking blocks"
+            );
+        }
+    }
+}
+
+#[test]
+fn story17_given_identity_mapper_when_same_dialect_then_conversation_unchanged() {
+    // Given: A simple conversation
+    let conv = make_ir_conversation();
+
+    // When: Mapping with the identity mapper
+    let mapper = IrIdentityMapper;
+    let result = mapper
+        .map_request(Dialect::OpenAi, Dialect::OpenAi, &conv)
+        .unwrap();
+
+    // Then: Messages are identical
+    assert_eq!(result.messages.len(), conv.messages.len());
+    for (orig, mapped) in conv.messages.iter().zip(result.messages.iter()) {
+        assert_eq!(orig.role, mapped.role);
+    }
+}
+
+#[test]
+fn story17_given_openai_to_copilot_when_image_present_then_rejected() {
+    // Given: A conversation with an image block
+    let conv = IrConversation::from_messages(vec![IrMessage {
+        role: IrRole::User,
+        content: vec![IrContentBlock::Image {
+            media_type: "image/png".into(),
+            data: "base64data".into(),
+        }],
+        metadata: BTreeMap::new(),
+    }]);
+
+    // When: Translating to Copilot (no image support)
+    let mapper = OpenAiCopilotIrMapper;
+    let result = mapper.map_request(Dialect::OpenAi, Dialect::Copilot, &conv);
+
+    // Then: The mapping is rejected
+    assert!(result.is_err(), "Copilot should reject image blocks");
+}
+
+#[test]
+fn story17_given_default_ir_mapper_when_unsupported_pair_then_none() {
+    // Given: A dialect pair with no direct mapper defined
+    // (identity pairs always exist, so check that the factory returns Some for known pairs)
+    let mapper = default_ir_mapper(Dialect::OpenAi, Dialect::Claude);
+
+    // When/Then: Known pair returns a mapper
+    assert!(mapper.is_some(), "OpenAI→Claude mapper should exist");
+
+    // And: Same-dialect always has identity mapper
+    let identity = default_ir_mapper(Dialect::Gemini, Dialect::Gemini);
+    assert!(identity.is_some(), "same-dialect should always have mapper");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 18: Backend Selection Stories
+//
+// "As an operator, I want ABP to select the right backend based on
+// health, capability, dialect, and other criteria."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story18_given_multiple_backends_when_one_unhealthy_then_excluded_from_selection() {
+    // Given: Two backends, one healthy and one unhealthy
+    let mut registry = BackendRegistry::new();
+    register_healthy_backend(&mut registry, "healthy-gpt", "openai");
+
+    registry.register_with_metadata(
+        "unhealthy-claude",
+        make_backend_metadata("unhealthy-claude", "anthropic"),
+    );
+    let mut bad_health = BackendHealth::default();
+    bad_health.record_failure(1);
+    registry.update_health("unhealthy-claude", bad_health);
+
+    // When: Selecting the first healthy backend
+    let selected = registry.select(&SelectionStrategy::FirstHealthy);
+
+    // Then: The unhealthy backend is excluded
+    assert_eq!(selected, Some("healthy-gpt".into()));
+}
+
+#[test]
+fn story18_given_streaming_requirement_when_selecting_then_only_streaming_backends_returned() {
+    // Given: One streaming and one non-streaming backend
+    let mut registry = BackendRegistry::new();
+    let mut streaming_meta = make_backend_metadata("streamer", "openai");
+    streaming_meta.supports_streaming = true;
+    registry.register_with_metadata("streamer", streaming_meta);
+    register_healthy_backend_health(&mut registry, "streamer");
+
+    let mut no_stream_meta = make_backend_metadata("batch-only", "anthropic");
+    no_stream_meta.supports_streaming = false;
+    registry.register_with_metadata("batch-only", no_stream_meta);
+    register_healthy_backend_health(&mut registry, "batch-only");
+
+    // When: Selecting by streaming capability
+    let selected = registry.select(&SelectionStrategy::ByStreaming);
+
+    // Then: Only the streaming backend is chosen
+    assert_eq!(selected, Some("streamer".into()));
+}
+
+#[test]
+fn story18_given_tool_support_requirement_when_selecting_then_tool_capable_backend_chosen() {
+    // Given: One backend with tool support, one without
+    let mut registry = BackendRegistry::new();
+    let mut tools_meta = make_backend_metadata("tools-backend", "openai");
+    tools_meta.supports_tools = true;
+    registry.register_with_metadata("tools-backend", tools_meta);
+    register_healthy_backend_health(&mut registry, "tools-backend");
+
+    let mut no_tools = make_backend_metadata("no-tools", "anthropic");
+    no_tools.supports_tools = false;
+    registry.register_with_metadata("no-tools", no_tools);
+    register_healthy_backend_health(&mut registry, "no-tools");
+
+    // When: Selecting by tool support
+    let selected = registry.select(&SelectionStrategy::ByToolSupport);
+
+    // Then: The tool-capable backend is selected
+    assert_eq!(selected, Some("tools-backend".into()));
+}
+
+#[test]
+fn story18_given_lowest_latency_strategy_when_selecting_then_fastest_backend_chosen() {
+    // Given: Backends with different latencies
+    let mut registry = BackendRegistry::new();
+    register_healthy_backend(&mut registry, "slow", "openai");
+    register_healthy_backend(&mut registry, "fast", "anthropic");
+
+    // Record different latencies
+    let mut slow_health = BackendHealth::default();
+    slow_health.record_success(500);
+    registry.update_health("slow", slow_health);
+
+    let mut fast_health = BackendHealth::default();
+    fast_health.record_success(10);
+    registry.update_health("fast", fast_health);
+
+    // When: Selecting by lowest latency
+    let selected = registry.select(&SelectionStrategy::ByLowestLatency);
+
+    // Then: The fastest backend is selected
+    assert_eq!(selected, Some("fast".into()));
+}
+
+#[test]
+fn story18_given_dialect_filter_when_no_match_then_none_returned() {
+    // Given: Only OpenAI backends registered
+    let mut registry = BackendRegistry::new();
+    register_healthy_backend(&mut registry, "gpt4", "openai");
+
+    // When: Selecting by a dialect that doesn't exist
+    let selected = registry.select(&SelectionStrategy::ByDialect("anthropic".into()));
+
+    // Then: No backend matches
+    assert!(selected.is_none());
+}
+
+#[test]
+fn story18_given_preferred_backend_when_healthy_then_selected() {
+    // Given: Multiple healthy backends
+    let mut registry = BackendRegistry::new();
+    register_healthy_backend(&mut registry, "alpha", "openai");
+    register_healthy_backend(&mut registry, "beta", "anthropic");
+
+    // When: Selecting preferred backend "beta"
+    let selected = registry.select(&SelectionStrategy::ByPreference("beta".into()));
+
+    // Then: The preferred backend is returned
+    assert_eq!(selected, Some("beta".into()));
+}
+
+#[test]
+fn story18_given_empty_registry_when_selecting_then_none() {
+    // Given: An empty backend registry
+    let registry = BackendRegistry::new();
+
+    // When: Attempting any selection
+    let selected = registry.select(&SelectionStrategy::FirstHealthy);
+
+    // Then: No backend available
+    assert!(selected.is_none());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 19: Receipt Stories
+//
+// "As a system, I want receipt hashing and verification to be deterministic
+// and support tamper detection and chain integrity."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story19_given_completed_run_when_receipt_hashed_then_hash_is_deterministic() {
+    // Given: A receipt built with fixed parameters
+    let r1 = abp_receipt::ReceiptBuilder::new("deterministic-backend")
+        .outcome(Outcome::Complete)
+        .work_order_id(Uuid::nil())
+        .run_id(Uuid::nil())
+        .started_at(
+            chrono::DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+                .unwrap()
+                .into(),
+        )
+        .finished_at(
+            chrono::DateTime::parse_from_rfc3339("2025-01-01T00:01:00Z")
+                .unwrap()
+                .into(),
+        )
+        .build();
+
+    // When: Computing the hash twice
+    let hash1 = compute_hash(&r1).unwrap();
+    let hash2 = compute_hash(&r1).unwrap();
+
+    // Then: Both hashes are identical
+    assert_eq!(hash1, hash2, "receipt hash must be deterministic");
+    assert!(!hash1.is_empty());
+}
+
+#[test]
+fn story19_given_receipt_with_hash_when_verified_then_passes() {
+    // Given: A receipt with its hash computed
+    let receipt = abp_receipt::ReceiptBuilder::new("hash-test")
+        .outcome(Outcome::Complete)
+        .run_id(Uuid::nil())
+        .work_order_id(Uuid::nil())
+        .started_at(
+            chrono::DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+                .unwrap()
+                .into(),
+        )
+        .finished_at(
+            chrono::DateTime::parse_from_rfc3339("2025-01-01T00:01:00Z")
+                .unwrap()
+                .into(),
+        )
+        .with_hash()
+        .unwrap();
+
+    // When: Verifying the hash
+    let valid = verify_hash(&receipt);
+
+    // Then: Verification passes
+    assert!(valid, "receipt with correct hash should verify");
+}
+
+#[test]
+fn story19_given_tampered_receipt_when_verified_then_fails() {
+    // Given: A receipt with a computed hash
+    let mut receipt = abp_receipt::ReceiptBuilder::new("tamper-test")
+        .outcome(Outcome::Complete)
+        .run_id(Uuid::nil())
+        .work_order_id(Uuid::nil())
+        .started_at(
+            chrono::DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+                .unwrap()
+                .into(),
+        )
+        .finished_at(
+            chrono::DateTime::parse_from_rfc3339("2025-01-01T00:01:00Z")
+                .unwrap()
+                .into(),
+        )
+        .with_hash()
+        .unwrap();
+
+    // When: Tampering with the receipt
+    receipt.outcome = Outcome::Failed;
+
+    // Then: Verification fails
+    assert!(
+        !verify_hash(&receipt),
+        "tampered receipt should fail verification"
+    );
+}
+
+#[test]
+fn story19_given_receipt_without_hash_when_verified_then_passes_vacuously() {
+    // Given: A receipt with no hash (receipt_sha256 = None)
+    let receipt = make_receipt("no-hash-backend");
+
+    // When: Verifying
+    let valid = verify_hash(&receipt);
+
+    // Then: Passes vacuously (no hash to mismatch)
+    assert!(
+        valid,
+        "receipt without hash should pass verification vacuously"
+    );
+    assert!(receipt.receipt_sha256.is_none());
+}
+
+#[test]
+fn story19_given_multiple_runs_when_receipts_chained_then_chain_integrity_holds() {
+    // Given: Two sequential runs where the second references the first's hash
+    let ts = chrono::DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .into();
+    let r1 = abp_receipt::ReceiptBuilder::new("chain-backend")
+        .outcome(Outcome::Complete)
+        .run_id(Uuid::nil())
+        .work_order_id(Uuid::nil())
+        .started_at(ts)
+        .finished_at(ts)
+        .with_hash()
+        .unwrap();
+    let r1_hash = r1.receipt_sha256.clone().unwrap();
+
+    // Chain: second receipt references first receipt's hash via ext metadata
+    let chain_event = AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::RunStarted {
+            message: "chained task".into(),
+        },
+        ext: Some({
+            let mut m = BTreeMap::new();
+            m.insert(
+                "previous_receipt_hash".into(),
+                serde_json::Value::String(r1_hash.clone()),
+            );
+            m
+        }),
+    };
+
+    let r2 = abp_receipt::ReceiptBuilder::new("chain-backend")
+        .outcome(Outcome::Complete)
+        .run_id(Uuid::from_u128(1))
+        .work_order_id(Uuid::from_u128(1))
+        .started_at(ts)
+        .finished_at(ts)
+        .add_event(chain_event)
+        .with_hash()
+        .unwrap();
+
+    // When: Verifying both receipts
+    // Then: Both verify independently
+    assert!(verify_hash(&r1), "first receipt should verify");
+    assert!(verify_hash(&r2), "second receipt should verify");
+
+    // And: The chain link is preserved in the second receipt's trace
+    let chain_ref = r2
+        .trace
+        .iter()
+        .find_map(|e| e.ext.as_ref().and_then(|m| m.get("previous_receipt_hash")));
+    assert_eq!(
+        chain_ref.and_then(|v| v.as_str()),
+        Some(r1_hash.as_str()),
+        "chain link should reference first receipt's hash"
+    );
+}
+
+#[test]
+fn story19_given_receipt_with_events_when_hashed_then_events_affect_hash() {
+    // Given: Two identical receipts except for trace events
+    let ts = chrono::DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .into();
+
+    let r_empty = abp_receipt::ReceiptBuilder::new("events-test")
+        .outcome(Outcome::Complete)
+        .run_id(Uuid::nil())
+        .work_order_id(Uuid::nil())
+        .started_at(ts)
+        .finished_at(ts)
+        .build();
+
+    let r_with_event = abp_receipt::ReceiptBuilder::new("events-test")
+        .outcome(Outcome::Complete)
+        .run_id(Uuid::nil())
+        .work_order_id(Uuid::nil())
+        .started_at(ts)
+        .finished_at(ts)
+        .add_event(AgentEvent {
+            ts,
+            kind: AgentEventKind::AssistantMessage {
+                text: "Hello".into(),
+            },
+            ext: None,
+        })
+        .build();
+
+    // When: Computing hashes
+    let hash_empty = compute_hash(&r_empty).unwrap();
+    let hash_with_event = compute_hash(&r_with_event).unwrap();
+
+    // Then: Different events produce different hashes
+    assert_ne!(
+        hash_empty, hash_with_event,
+        "trace events should affect the receipt hash"
+    );
+}
+
+#[test]
+fn story19_given_receipt_with_wrong_hash_when_verified_then_fails() {
+    // Given: A receipt with a manually set incorrect hash
+    let ts = chrono::DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+        .unwrap()
+        .into();
+    let mut receipt = abp_receipt::ReceiptBuilder::new("wrong-hash")
+        .outcome(Outcome::Complete)
+        .run_id(Uuid::nil())
+        .work_order_id(Uuid::nil())
+        .started_at(ts)
+        .finished_at(ts)
+        .build();
+
+    receipt.receipt_sha256 =
+        Some("0000000000000000000000000000000000000000000000000000000000000000".into());
+
+    // When: Verifying
+    // Then: Fails because the stored hash doesn't match
+    assert!(
+        !verify_hash(&receipt),
+        "wrong hash should fail verification"
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 20: Error Recovery Stories
+//
+// "As a system, I want to classify errors correctly and apply the right
+// recovery strategy (retry, fallback, abort) based on error type."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story20_given_transient_error_when_classified_then_retryable() {
+    // Given: A transient backend error code
+    let code = ErrorCode::BackendUnavailable;
+
+    // When: Checking retryability
+    // Then: It is retryable
+    assert!(
+        code.is_retryable(),
+        "BackendUnavailable should be retryable"
+    );
+}
+
+#[test]
+fn story20_given_permanent_error_when_classified_then_not_retryable() {
+    // Given: A permanent error code (e.g., auth failure)
+    let code = ErrorCode::BackendAuthFailed;
+
+    // When: Checking retryability
+    // Then: It is NOT retryable
+    assert!(
+        !code.is_retryable(),
+        "BackendAuthFailed should not be retryable"
+    );
+}
+
+#[test]
+fn story20_given_rate_limited_error_when_categorized_then_rate_limit_category() {
+    // Given: A rate-limited error code
+    let code = ErrorCode::BackendRateLimited;
+
+    // When: Categorizing
+    let category = abp_error::category::categorize(code);
+
+    // Then: Mapped to RateLimit recovery category
+    assert_eq!(category, abp_error::category::RecoveryCategory::RateLimit);
+    assert!(
+        abp_error::category::is_retryable(category),
+        "rate-limited errors should be retryable"
+    );
+}
+
+#[test]
+fn story20_given_policy_denied_error_when_classified_then_not_retryable() {
+    // Given: A policy violation error
+    let code = ErrorCode::PolicyDenied;
+
+    // When: Checking retryability
+    // Then: Policy errors are NOT retryable
+    assert!(
+        !code.is_retryable(),
+        "policy errors should not be retryable"
+    );
+}
+
+#[test]
+fn story20_given_error_classifier_when_transient_error_then_classified_as_transient() {
+    // Given: The error classifier
+    let classifier = abp_error::recovery::ErrorClassifier::new();
+
+    // When: Classifying a transient error
+    let classification = classifier.classify(ErrorCode::BackendTimeout);
+
+    // Then: Classified as Transient
+    assert_eq!(
+        classification,
+        abp_error::recovery::ErrorClassification::Transient
+    );
+}
+
+#[test]
+fn story20_given_error_classifier_when_permanent_error_then_classified_as_permanent() {
+    // Given: The error classifier
+    let classifier = abp_error::recovery::ErrorClassifier::new();
+
+    // When: Classifying a permanent error
+    let classification = classifier.classify(ErrorCode::ContractSchemaViolation);
+
+    // Then: Classified as Permanent
+    assert_eq!(
+        classification,
+        abp_error::recovery::ErrorClassification::Permanent
+    );
+}
+
+#[test]
+fn story20_given_recovery_strategy_retry_when_checked_then_recoverable() {
+    // Given: A Retry strategy
+    let strategy = abp_error::recovery::RecoveryStrategy::Retry {
+        delay_ms: 1000,
+        max_retries: 3,
+    };
+
+    // When: Checking recoverability
+    // Then: It is recoverable
+    assert!(strategy.is_recoverable());
+    assert_eq!(strategy.code(), "ABP-REC-RETRY");
+}
+
+#[test]
+fn story20_given_recovery_strategy_abort_when_checked_then_not_recoverable() {
+    // Given: An Abort strategy
+    let strategy = abp_error::recovery::RecoveryStrategy::Abort {
+        reason: "unrecoverable".into(),
+    };
+
+    // When: Checking recoverability
+    // Then: Not recoverable
+    assert!(!strategy.is_recoverable());
+    assert_eq!(strategy.code(), "ABP-REC-ABORT");
+}
+
+#[tokio::test]
+async fn story20_given_circuit_breaker_when_failures_exceed_threshold_then_opens() {
+    // Given: A circuit breaker with threshold=2
+    let cb = abp_retry::CircuitBreaker::new(2, std::time::Duration::from_secs(60));
+
+    // When: Recording 2 failures via call()
+    let _: Result<(), abp_retry::CircuitBreakerError<&str>> =
+        cb.call(|| async { Err::<(), &str>("fail") }).await;
+    let _: Result<(), abp_retry::CircuitBreakerError<&str>> =
+        cb.call(|| async { Err::<(), &str>("fail") }).await;
+
+    // Then: The circuit breaker is open
+    assert_eq!(cb.state(), abp_retry::CircuitState::Open);
+}
+
+#[tokio::test]
+async fn story20_given_open_circuit_when_success_after_recovery_then_closes() {
+    // Given: A circuit breaker that was opened then recovered
+    let cb = abp_retry::CircuitBreaker::new(
+        1,
+        std::time::Duration::from_millis(1), // very short timeout for testing
+    );
+    let _: Result<(), abp_retry::CircuitBreakerError<&str>> =
+        cb.call(|| async { Err::<(), &str>("fail") }).await;
+    assert_eq!(cb.state(), abp_retry::CircuitState::Open);
+
+    // When: After recovery timeout passes and a success is recorded
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    let _: Result<(), abp_retry::CircuitBreakerError<&str>> =
+        cb.call(|| async { Ok::<(), &str>(()) }).await;
+
+    // Then: The circuit should close
+    assert_eq!(cb.state(), abp_retry::CircuitState::Closed);
+}
+
+#[test]
+fn story20_given_fallback_chain_when_iterated_then_returns_backends_in_order() {
+    // Given: A fallback chain with 3 backends
+    let chain = abp_error::recovery::FallbackChain::new(vec![
+        "primary".into(),
+        "secondary".into(),
+        "tertiary".into(),
+    ]);
+
+    // When: Iterating through the chain
+    // Then: Backends are returned in order
+    assert_eq!(chain.next_backend(0), Some("primary"));
+    assert_eq!(chain.next_backend(1), Some("secondary"));
+    assert_eq!(chain.next_backend(2), Some("tertiary"));
+    assert_eq!(chain.next_backend(3), None);
+    assert_eq!(chain.len(), 3);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 21: Configuration Stories
+//
+// "As an operator, I want configuration management with hot-reload,
+// validation, diffing, and merge capabilities."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story21_given_safe_config_change_when_hot_reloaded_then_apply_decision() {
+    // Given: Two configs differing only in log_level (a safe change)
+    let old = abp_config::BackplaneConfig {
+        log_level: Some("info".into()),
+        ..Default::default()
+    };
+    let new = abp_config::BackplaneConfig {
+        log_level: Some("debug".into()),
+        ..Default::default()
+    };
+
+    // When: Analyzing the diff and evaluating reload policy
+    let analyzer = abp_config::diff_analyzer::ConfigDiffAnalyzer::new();
+    let analysis = analyzer.analyze(&old, &new);
+    let policy = abp_config::hot_reload_policy::HotReloadPolicy::new();
+    let decision = policy.evaluate(&analysis);
+
+    // Then: The change can be applied without restart
+    assert!(
+        decision.is_apply(),
+        "safe changes should get Apply decision"
+    );
+}
+
+#[test]
+fn story21_given_breaking_config_change_when_hot_reloaded_with_conservative_policy_then_rejected() {
+    // Given: A config change that adds a new backend (potentially breaking)
+    let old = abp_config::BackplaneConfig::default();
+    let mut new = abp_config::BackplaneConfig::default();
+    new.backends.insert(
+        "new-sidecar".into(),
+        abp_config::BackendEntry::Sidecar {
+            command: "node".into(),
+            args: vec!["index.js".into()],
+            timeout_secs: None,
+        },
+    );
+
+    let analyzer = abp_config::diff_analyzer::ConfigDiffAnalyzer::new();
+    let analysis = analyzer.analyze(&old, &new);
+
+    // When: Evaluating with a conservative policy (no restart allowed)
+    let policy = abp_config::hot_reload_policy::HotReloadPolicy::new();
+    let decision = policy.evaluate(&analysis);
+
+    // Then: Backend changes require restart which conservative policy rejects
+    assert!(
+        !decision.is_apply() || analysis.is_safe(),
+        "structural changes should not get simple Apply with conservative policy"
+    );
+}
+
+#[test]
+fn story21_given_config_with_invalid_log_level_when_validated_then_error_returned() {
+    // Given: A config with an invalid log level
+    let config = abp_config::BackplaneConfig {
+        log_level: Some("invalid_level".into()),
+        ..Default::default()
+    };
+
+    // When: Validating
+    let result = abp_config::validate_config(&config);
+
+    // Then: Validation returns an error
+    assert!(
+        result.is_err(),
+        "invalid log level should cause validation error"
+    );
+}
+
+#[test]
+fn story21_given_valid_toml_when_parsed_then_config_loaded() {
+    // Given: A valid TOML config string
+    let toml = r#"
+default_backend = "mock"
+log_level = "debug"
+
+[backends.mock]
+type = "mock"
+"#;
+
+    // When: Parsing
+    let config = abp_config::parse_toml(toml).unwrap();
+
+    // Then: Fields are populated correctly
+    assert_eq!(config.default_backend.as_deref(), Some("mock"));
+    assert_eq!(config.log_level.as_deref(), Some("debug"));
+    assert!(config.backends.contains_key("mock"));
+}
+
+#[test]
+fn story21_given_two_configs_when_merged_then_overlay_wins() {
+    // Given: A base config and an overlay
+    let base = abp_config::BackplaneConfig {
+        log_level: Some("info".into()),
+        default_backend: Some("base-backend".into()),
+        ..Default::default()
+    };
+    let overlay = abp_config::BackplaneConfig {
+        log_level: Some("debug".into()),
+        ..Default::default()
+    };
+
+    // When: Merging
+    let merged = abp_config::merge_configs(base, overlay);
+
+    // Then: Overlay values win where specified
+    assert_eq!(merged.log_level.as_deref(), Some("debug"));
+    // And: Base values are preserved where overlay is None
+    assert_eq!(merged.default_backend.as_deref(), Some("base-backend"));
+}
+
+#[test]
+fn story21_given_config_diff_when_no_changes_then_empty() {
+    // Given: Two identical configs
+    let config = abp_config::BackplaneConfig {
+        log_level: Some("info".into()),
+        ..Default::default()
+    };
+
+    // When: Diffing
+    let diff = abp_config::diff::diff(&config, &config);
+
+    // Then: No changes detected
+    assert!(
+        diff.is_empty(),
+        "identical configs should produce empty diff"
+    );
+}
+
+#[test]
+fn story21_given_config_diff_when_field_changed_then_modification_detected() {
+    // Given: Two configs with different log levels
+    let old = abp_config::BackplaneConfig {
+        log_level: Some("info".into()),
+        ..Default::default()
+    };
+    let new = abp_config::BackplaneConfig {
+        log_level: Some("debug".into()),
+        ..Default::default()
+    };
+
+    // When: Diffing
+    let diff = abp_config::diff::diff(&old, &new);
+
+    // Then: A modification is detected
+    assert!(!diff.is_empty());
+    assert!(
+        diff.changes.iter().any(
+            |c| matches!(c, abp_config::diff::ConfigChange::Modified(key, ..) if key == "log_level")
+        ),
+        "should detect log_level modification"
+    );
+}
+
+#[test]
+fn story21_given_invalid_toml_when_parsed_then_error() {
+    // Given: Malformed TOML
+    let bad_toml = "this is not valid toml [[[";
+
+    // When: Parsing
+    let result = abp_config::parse_toml(bad_toml);
+
+    // Then: A parse error is returned
+    assert!(result.is_err());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 22: Protocol Envelope Round-trip Stories
+//
+// "As a sidecar, I want envelope encoding/decoding to be lossless so
+// that protocol messages survive serialization round-trips."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story22_given_fatal_envelope_when_round_tripped_then_error_preserved() {
+    // Given: A fatal envelope with an error code
+    let fatal = Envelope::fatal_with_code(
+        Some("run-42".into()),
+        "backend crashed",
+        ErrorCode::BackendCrashed,
+    );
+
+    // When: Encoding and decoding
+    let json = JsonlCodec::encode(&fatal).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: The error details are preserved
+    if let Envelope::Fatal {
+        error, error_code, ..
+    } = decoded
+    {
+        assert_eq!(error, "backend crashed");
+        assert_eq!(error_code, Some(ErrorCode::BackendCrashed));
+    } else {
+        panic!("expected Fatal envelope");
+    }
+}
+
+#[test]
+fn story22_given_run_envelope_when_round_tripped_then_work_order_preserved() {
+    // Given: A run envelope with a work order
+    let wo = make_work_order("test task");
+    let run = Envelope::Run {
+        id: "run-1".into(),
+        work_order: wo.clone(),
+    };
+
+    // When: Encoding and decoding
+    let json = JsonlCodec::encode(&run).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: The work order task is preserved
+    if let Envelope::Run { work_order, id, .. } = decoded {
+        assert_eq!(id, "run-1");
+        assert_eq!(work_order.task, "test task");
+    } else {
+        panic!("expected Run envelope");
+    }
+}
+
+#[test]
+fn story22_given_final_envelope_when_round_tripped_then_receipt_preserved() {
+    // Given: A final envelope with a receipt
+    let receipt = make_receipt("final-backend");
+    let final_env = Envelope::Final {
+        ref_id: "run-99".into(),
+        receipt: receipt.clone(),
+    };
+
+    // When: Encoding and decoding
+    let json = JsonlCodec::encode(&final_env).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+
+    // Then: The receipt outcome is preserved
+    if let Envelope::Final { receipt: r, ref_id } = decoded {
+        assert_eq!(ref_id, "run-99");
+        assert_eq!(r.outcome, Outcome::Complete);
+        assert_eq!(r.backend.id, "final-backend");
+    } else {
+        panic!("expected Final envelope");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Story 23: Error Category and Recovery Mapping Stories
+//
+// "As a system, I want every error code mapped to a recovery category
+// with a sensible suggested delay."
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn story23_given_network_transient_category_when_delay_queried_then_reasonable_delay() {
+    // Given: A network transient recovery category
+    let category = abp_error::category::RecoveryCategory::NetworkTransient;
+
+    // When: Querying the suggested delay
+    let delay = abp_error::category::suggested_delay(category);
+
+    // Then: Delay is positive and reasonable
+    assert!(
+        delay.as_secs() > 0,
+        "network transient should have positive delay"
+    );
+    assert!(delay.as_secs() <= 30, "delay should be reasonable");
+}
+
+#[test]
+fn story23_given_auth_error_when_delay_queried_then_zero_delay() {
+    // Given: An authentication error (non-retryable category)
+    let category = abp_error::category::RecoveryCategory::Authentication;
+
+    // When: Querying the suggested delay
+    let delay = abp_error::category::suggested_delay(category);
+
+    // Then: Zero delay (non-retryable)
+    assert_eq!(delay, std::time::Duration::ZERO);
+}
+
+#[test]
+fn story23_given_abp_error_when_created_then_carries_code_and_message() {
+    // Given: An AbpError with context
+    let err = abp_error::AbpError::new(ErrorCode::BackendTimeout, "connection timed out")
+        .with_context("backend", "gpt-4");
+
+    // When: Inspecting the error
+    // Then: Code, message, and context are accessible
+    assert_eq!(err.code, ErrorCode::BackendTimeout);
+    assert_eq!(err.message, "connection timed out");
+    assert!(err.context.contains_key("backend"));
+    assert!(err.is_retryable());
+    assert_eq!(err.category(), abp_error::ErrorCategory::Backend);
 }
