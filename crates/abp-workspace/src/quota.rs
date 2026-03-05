@@ -116,7 +116,7 @@ impl WorkspaceQuota {
 
         // Collect files sorted by size descending.
         let mut files = collect_files(root)?;
-        files.sort_by(|a, b| b.1.cmp(&a.1));
+        files.sort_by_key(|f| std::cmp::Reverse(f.1));
 
         let mut deleted = 0u64;
         let mut count = 0usize;

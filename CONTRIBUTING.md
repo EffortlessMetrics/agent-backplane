@@ -70,47 +70,18 @@ cargo run -p abp-cli -- run --task "say hello" --backend mock
 1. Fork the repository and clone your fork.
 2. Create a feature branch from `main`.
 3. Make your changes in small, focused commits.
-4. Ensure all checks pass locally (see [Code Standards](#code-standards)).
-5. Push your branch and open a pull request against `main`.
+4. Push your branch — git hooks validate formatting and linting automatically.
+5. Open a pull request against `main`.
 
 ## Code Standards
 
 ### Enforcement Model
 
-Quality gates are automated — you do not need to run individual `cargo fmt` or `cargo clippy` commands manually.
+Quality gates are automated via git hooks and CI. See [`DEVEX.md`](DEVEX.md) for the full enforcement model.
 
-**One-time setup** (enables git hooks):
+**Quick start:** `cargo xtask setup` (once) — then hooks handle formatting, linting, and gating automatically.
 
-```bash
-cargo xtask setup   # or: just setup
-```
-
-**What happens on commit:** The pre-commit hook runs `cargo xtask lint-fix`, which auto-formats code and applies best-effort clippy fixes, then re-stages the originally-staged files with any corrections.
-
-**What happens on push:** The pre-push hook runs `cargo xtask gate --check` (fmt check + cargo check + clippy strict + test compile). Push is blocked on failure.
-
-**CI parity:** CI runs the same `cargo xtask gate --check`, so if your push succeeds locally, CI will pass.
-
-**Single truth command** (to verify everything manually):
-
-```bash
-cargo xtask gate --check   # or: just gate-check
-```
-
-To auto-fix formatting and clippy issues:
-
-```bash
-cargo xtask lint-fix         # or: just lint-fix
-```
-
-### What the Gate Checks
-
-| Step | What it does |
-|------|-------------|
-| Format | `cargo fmt --all -- --check` |
-| Compile | `cargo check --workspace --all-targets --all-features` |
-| Clippy | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
-| Test compile | `cargo test --workspace --no-run` |
+The single truth command is `cargo xtask gate --check`. If your push succeeds locally, CI will pass.
 
 ### Unsafe Code
 

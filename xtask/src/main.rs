@@ -186,14 +186,17 @@ fn run_fmt(check: bool) -> Result<()> {
 }
 
 fn check() -> Result<()> {
+    // Use run_fmt for Windows fallback support
+    let fmt_ok = run_fmt(true).is_ok();
+
     let steps: &[(&str, &[&str])] = &[
-        ("fmt", &["fmt", "--all", "--", "--check"]),
         (
             "clippy",
             &[
                 "clippy",
                 "--workspace",
                 "--all-targets",
+                "--all-features",
                 "--",
                 "-D",
                 "warnings",
@@ -203,7 +206,7 @@ fn check() -> Result<()> {
         ("doc-test", &["test", "--doc", "--workspace"]),
     ];
 
-    let mut results: Vec<(&str, bool)> = Vec::new();
+    let mut results: Vec<(&str, bool)> = vec![("fmt", fmt_ok)];
     for (name, args) in steps {
         let ok = run_cargo(args).is_ok();
         results.push((name, ok));

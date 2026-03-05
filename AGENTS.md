@@ -78,15 +78,10 @@ SDK crates: abp-{claude,codex,openai,gemini,kimi,copilot}-sdk
 
 ## Developer Workflow (Enforced)
 
-One-time setup: `cargo xtask setup` (or `just setup`) — enables git hooks.
+See [`DEVEX.md`](DEVEX.md) for the full enforcement model.
 
-**On commit:** pre-commit hook runs `cargo xtask lint-fix` (auto-formats + clippy fixes), re-stages corrected files.
-
-**On push:** pre-push hook runs `cargo xtask gate --check` (fmt + check + clippy + test compile). Blocks on failure.
-
-**CI parity:** CI runs the same `cargo xtask gate --check`.
-
-Never use `--no-verify` unless explicitly told to.
+Quick ref: `cargo xtask setup` (once), then hooks handle everything.
+Never use `--no-verify` unless the human operator explicitly instructs you to.
 
 ## Generator Guardrails
 

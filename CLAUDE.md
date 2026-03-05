@@ -31,32 +31,13 @@ Enable debug logging with `--debug` flag on the CLI or `RUST_LOG=abp=debug`.
 
 ## Developer Workflow (Enforced)
 
-After one-time setup (`cargo xtask setup` or `just setup`), quality gates run automatically.
+See [`DEVEX.md`](DEVEX.md) for the full enforcement model (hooks, gate, CI parity).
 
-### What happens on commit
-
-When you commit Rust or Cargo changes, the pre-commit hook:
-1. Runs `cargo xtask lint-fix` (auto-formats + best-effort clippy fixes)
-2. Re-stages the originally-staged files with any formatting corrections
-
-### What happens on push
-
-The pre-push hook runs `cargo xtask gate --check` (fmt check + cargo check + clippy strict + test compile). Push is blocked on failure.
-
-### CI parity
-
-CI runs the same `cargo xtask gate --check`, so local hooks give exact CI parity.
-
-### One-time setup
-
-```bash
-cargo xtask setup      # sets core.hooksPath=.githooks (idempotent)
-```
-
-### How it works
-
-- Generated tests are held to `clippy -D warnings` -- the gate enforces this automatically.
-- Emergency bypass: `git commit --no-verify` / `git push --no-verify`.
+**Quick reference:**
+- One-time setup: `cargo xtask setup`
+- Pre-commit hook auto-formats and fixes clippy issues
+- Pre-push hook runs `cargo xtask gate --check` (blocks on failure)
+- CI runs the same gate, so local push success = CI success
 - **Agents: never use `--no-verify` unless the human operator explicitly instructs you to.**
 
 ## Architecture

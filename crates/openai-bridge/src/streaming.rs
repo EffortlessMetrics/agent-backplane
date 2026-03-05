@@ -92,14 +92,11 @@ impl SseParser {
         }
 
         // Extract data field
-        let data = if let Some(stripped) = line.strip_prefix("data: ") {
-            stripped
-        } else if let Some(stripped) = line.strip_prefix("data:") {
-            stripped
-        } else {
+        let data = line
+            .strip_prefix("data: ")
+            .or_else(|| line.strip_prefix("data:"))
             // Not a data line (could be event:, id:, retry:) — skip
-            return None;
-        };
+            ?;
 
         let data = data.trim();
 
