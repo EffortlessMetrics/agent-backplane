@@ -1097,14 +1097,12 @@ fn env_override_all_variables() {
     unsafe { std::env::remove_var("ABP_LOG_LEVEL") };
 
     // -- load_config with None returns default --
-    unsafe {
-        unsafe { std::env::remove_var("ABP_DEFAULT_BACKEND") };
-        unsafe { std::env::remove_var("ABP_LOG_LEVEL") };
-        unsafe { std::env::remove_var("ABP_RECEIPTS_DIR") };
-        unsafe { std::env::remove_var("ABP_WORKSPACE_DIR") };
-        unsafe { std::env::remove_var("ABP_BIND_ADDRESS") };
-        unsafe { std::env::remove_var("ABP_PORT") };
-    }
+    unsafe { std::env::remove_var("ABP_DEFAULT_BACKEND") };
+    unsafe { std::env::remove_var("ABP_LOG_LEVEL") };
+    unsafe { std::env::remove_var("ABP_RECEIPTS_DIR") };
+    unsafe { std::env::remove_var("ABP_WORKSPACE_DIR") };
+    unsafe { std::env::remove_var("ABP_BIND_ADDRESS") };
+    unsafe { std::env::remove_var("ABP_PORT") };
     let cfg = load_config(None).unwrap();
     assert_eq!(cfg.log_level.as_deref(), Some("info"));
 }
