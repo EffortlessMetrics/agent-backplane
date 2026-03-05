@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use crate::{CONTRACT_VERSION, Receipt, receipt_hash};
+use crate::{receipt_hash, Receipt, CONTRACT_VERSION};
 
 /// An individual validation failure found in a [`Receipt`].
 #[derive(Debug, Clone, PartialEq, Eq)]

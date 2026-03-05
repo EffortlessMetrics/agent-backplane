@@ -360,11 +360,9 @@ async fn events_include_run_started() {
         .await
         .unwrap();
     let (events, _) = drain_run(handle).await;
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. })));
 }
 
 #[tokio::test]
@@ -375,11 +373,9 @@ async fn events_include_run_completed() {
         .await
         .unwrap();
     let (events, _) = drain_run(handle).await;
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
 }
 
 #[tokio::test]

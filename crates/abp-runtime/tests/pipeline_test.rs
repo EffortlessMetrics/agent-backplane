@@ -38,8 +38,8 @@ use std::path::Path;
 
 use abp_core::validate::validate_receipt;
 use abp_core::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, Outcome, PolicyProfile, WorkOrderBuilder,
-    WorkspaceMode,
+    AgentEvent, AgentEventKind, Outcome, PolicyProfile, WorkOrderBuilder, WorkspaceMode,
+    CONTRACT_VERSION,
 };
 use abp_integrations::MockBackend;
 use abp_policy::PolicyEngine;

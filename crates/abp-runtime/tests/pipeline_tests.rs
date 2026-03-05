@@ -37,8 +37,8 @@ use abp_runtime::pipeline::{AuditStage, Pipeline, PipelineStage, PolicyStage, Va
 use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 // ---------------------------------------------------------------------------

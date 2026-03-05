@@ -33,7 +33,7 @@
 //! spawn, handshake, event streaming, receipt collection, error handling,
 //! cancellation, and resource cleanup.
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use sidecar_kit::{ProcessSpec, SidecarClient, SidecarError};
 use tokio_stream::StreamExt;
 

@@ -29,8 +29,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the emulation engine.
 
-use abp_core::Capability;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
+use abp_core::Capability;
 use abp_emulation::strategies::*;
 use abp_emulation::*;
 
@@ -1250,12 +1250,11 @@ fn strategy_tool_use_integrates_with_engine() {
 
     assert_eq!(report.applied.len(), 1);
     assert!(report.warnings.is_empty());
-    assert!(
-        conv.system_message()
-            .unwrap()
-            .text_content()
-            .contains("read_file")
-    );
+    assert!(conv
+        .system_message()
+        .unwrap()
+        .text_content()
+        .contains("read_file"));
 }
 
 #[test]

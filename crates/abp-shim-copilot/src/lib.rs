@@ -32,9 +32,9 @@ pub use abp_copilot_sdk::dialect::{CopilotFunctionDef, CopilotToolType};
 
 // Re-export reference and confirmation builders for convenience.
 pub use references::{
-    ConfirmationState, accepted_confirmation, confirmation_state, file_reference,
-    pending_confirmation, rejected_confirmation, repository_reference, snippet_reference,
-    web_search_reference, with_metadata,
+    accepted_confirmation, confirmation_state, file_reference, pending_confirmation,
+    rejected_confirmation, repository_reference, snippet_reference, web_search_reference,
+    with_metadata, ConfirmationState,
 };
 
 // Re-export error types for convenience.
@@ -187,8 +187,8 @@ pub fn mock_receipt_with_usage(events: Vec<AgentEvent>, usage: UsageNormalized) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use abp_core::AgentEventKind;
     use abp_core::ir::{IrRole, IrUsage};
+    use abp_core::AgentEventKind;
     use serde_json::json;
     use tokio_stream::StreamExt;
 

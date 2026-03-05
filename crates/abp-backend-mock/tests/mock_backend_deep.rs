@@ -5,12 +5,12 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use abp_backend_core::Backend;
-use abp_backend_mock::MockBackend;
 use abp_backend_mock::scenarios::{MockBackendRecorder, MockScenario, ScenarioMockBackend};
+use abp_backend_mock::MockBackend;
 use abp_core::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement,
-    CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt, RuntimeConfig,
-    SupportLevel, WorkOrder, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
+    ExecutionMode, MinSupport, Outcome, Receipt, RuntimeConfig, SupportLevel, WorkOrder,
+    WorkOrderBuilder, CONTRACT_VERSION,
 };
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -1356,12 +1356,10 @@ async fn unsatisfied_requirement_rejects_run() {
     let wo = wo_with_requirements("cap-reject", reqs);
     let result = run_backend_wo(&MockBackend, wo).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("capability requirements not satisfied")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("capability requirements not satisfied"));
 }
 
 #[tokio::test]

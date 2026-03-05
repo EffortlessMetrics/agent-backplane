@@ -32,15 +32,15 @@
 //! error messages, batch validation, custom validators, and serde pipelines.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextSnippet,
-    ExecutionMode, MinSupport, Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ContextSnippet, ExecutionMode, MinSupport,
+    Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_protocol::Envelope;
 use abp_validate::{
-    EnvelopeValidator, EventValidator, JsonType, RawEnvelopeValidator, ReceiptValidator,
-    SchemaValidator, ValidationErrorKind, ValidationErrors, Validator, WorkOrderValidator,
-    validate_hello_version,
+    validate_hello_version, EnvelopeValidator, EventValidator, JsonType, RawEnvelopeValidator,
+    ReceiptValidator, SchemaValidator, ValidationErrorKind, ValidationErrors, Validator,
+    WorkOrderValidator,
 };
 use chrono::Utc;
 

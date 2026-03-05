@@ -5,7 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-use abp_core::{CONTRACT_VERSION, Outcome, Receipt};
+use abp_core::{Outcome, Receipt, CONTRACT_VERSION};
 
 /// Result of verifying a single [`Receipt`].
 #[derive(Debug, Clone)]

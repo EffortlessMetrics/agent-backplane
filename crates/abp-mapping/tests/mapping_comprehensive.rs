@@ -3,8 +3,8 @@
 
 use abp_dialect::Dialect;
 use abp_mapping::{
-    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
-    features, known_rules, validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
+    MappingRegistry, MappingRule, MappingValidation,
 };
 
 // ── Helper ──────────────────────────────────────────────────────────────
@@ -382,10 +382,9 @@ fn registry_insert_and_lookup() {
 #[test]
 fn registry_lookup_miss_returns_none() {
     let reg = MappingRegistry::new();
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+        .is_none());
 }
 
 #[test]
@@ -406,12 +405,11 @@ fn registry_insert_replaces_existing() {
         },
     ));
     assert_eq!(reg.len(), 1);
-    assert!(
-        !reg.lookup(Dialect::OpenAi, Dialect::Claude, "x")
-            .unwrap()
-            .fidelity
-            .is_lossless()
-    );
+    assert!(!reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "x")
+        .unwrap()
+        .fidelity
+        .is_lossless());
 }
 
 #[test]
@@ -1191,10 +1189,9 @@ fn known_rules_claude_gemini_image_lossless() {
 #[test]
 fn known_rules_unknown_feature_returns_none() {
     let reg = known_rules();
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "teleportation")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "teleportation")
+        .is_none());
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1553,10 +1550,9 @@ fn edge_long_feature_name() {
         &feat,
         Fidelity::Lossless,
     ));
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, &feat)
-            .is_some()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, &feat)
+        .is_some());
 }
 
 #[test]

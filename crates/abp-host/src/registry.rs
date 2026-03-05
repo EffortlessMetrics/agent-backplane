@@ -2,7 +2,7 @@
 //! Sidecar registry — tracks available sidecars by name.
 
 use crate::SidecarSpec;
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

@@ -30,11 +30,11 @@
 //! Tests for the batch processing module.
 
 use abp_core::{BackendIdentity, CapabilityManifest};
-use abp_protocol::Envelope;
 use abp_protocol::batch::{
     BatchItemStatus, BatchProcessor, BatchRequest, BatchResponse, BatchResult,
     BatchValidationError, MAX_BATCH_SIZE,
 };
+use abp_protocol::Envelope;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -266,11 +266,9 @@ fn validate_at_max_size_is_ok() {
     let req = make_request("v-max", envelopes);
     let errors = processor.validate_batch(&req);
     // Exactly at limit should pass the size check.
-    assert!(
-        !errors
-            .iter()
-            .any(|e| matches!(e, BatchValidationError::TooManyItems { .. }))
-    );
+    assert!(!errors
+        .iter()
+        .any(|e| matches!(e, BatchValidationError::TooManyItems { .. })));
 }
 
 // ---------------------------------------------------------------------------

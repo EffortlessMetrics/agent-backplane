@@ -528,11 +528,9 @@ fn tool_config_roundtrip() {
     };
     let val = serde_json::to_value(&tc).unwrap();
     assert_eq!(val["functionCallingConfig"]["mode"], "NONE");
-    assert!(
-        val["functionCallingConfig"]
-            .get("allowedFunctionNames")
-            .is_none()
-    );
+    assert!(val["functionCallingConfig"]
+        .get("allowedFunctionNames")
+        .is_none());
     let back: ToolConfig = serde_json::from_value(val).unwrap();
     assert_eq!(back, tc);
 }

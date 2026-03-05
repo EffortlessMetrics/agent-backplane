@@ -11,11 +11,11 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::Dialect;
 use crate::ir::{
     IrContentBlock, IrGenerationConfig, IrMessage, IrRequest, IrResponse, IrRole, IrStopReason,
     IrToolDefinition, IrUsage,
 };
+use crate::Dialect;
 
 // ── Error type ──────────────────────────────────────────────────────────
 
@@ -1754,11 +1754,9 @@ mod tests {
 
     #[test]
     fn version_info_none_for_unregistered() {
-        assert!(
-            DialectRegistry::new()
-                .version_info(Dialect::OpenAi)
-                .is_none()
-        );
+        assert!(DialectRegistry::new()
+            .version_info(Dialect::OpenAi)
+            .is_none());
     }
 
     // ── Comparison utilities ────────────────────────────────────────

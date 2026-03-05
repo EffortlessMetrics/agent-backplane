@@ -13,7 +13,7 @@
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 
-use abp_core::{ContextPacket, RuntimeConfig, WorkOrder, WorkspaceSpec, canonical_json};
+use abp_core::{canonical_json, ContextPacket, RuntimeConfig, WorkOrder, WorkspaceSpec};
 
 #[derive(Debug, Arbitrary)]
 struct WorkOrderFuzzInput {

@@ -2,7 +2,7 @@
 
 //! Receipt validation with structured error reporting.
 
-use abp_core::{CONTRACT_VERSION, Receipt};
+use abp_core::{Receipt, CONTRACT_VERSION};
 use std::fmt;
 
 /// A single validation failure.

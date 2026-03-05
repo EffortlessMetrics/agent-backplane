@@ -44,8 +44,8 @@ use abp_integrations::health::{HealthChecker, HealthStatus};
 use abp_integrations::metrics::{BackendMetrics, MetricsRegistry, MetricsSnapshot};
 use abp_integrations::selector::{BackendCandidate, BackendSelector, SelectionStrategy};
 use abp_integrations::{
-    Backend, MockBackend, SidecarBackend, ensure_capability_requirements, extract_execution_mode,
-    validate_passthrough_compatibility,
+    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
+    Backend, MockBackend, SidecarBackend,
 };
 use async_trait::async_trait;
 use tokio::sync::mpsc;

@@ -30,7 +30,7 @@
 //! Integration tests for the daemon HTTP server scaffolding.
 
 use abp_daemon::api::{HealthResponse, ListBackendsResponse, RunResponse, RunStatus};
-use abp_daemon::server::{DaemonServer, VersionResponse, router};
+use abp_daemon::server::{router, DaemonServer, VersionResponse};
 use abp_daemon::state::ServerState;
 use axum::body::Body;
 use axum::http::{self, Request, StatusCode};

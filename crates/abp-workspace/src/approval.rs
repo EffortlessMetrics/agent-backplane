@@ -6,7 +6,7 @@
 //! require human review.
 
 use crate::diff::WorkspaceDiff;
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

@@ -14,14 +14,14 @@ use abp_mapper::validation::{
     DefaultMappingValidator, MappingValidator, ValidationPipeline, ValidationSeverity,
 };
 use abp_mapper::{
-    ClaudeGeminiIrMapper, ClaudeKimiIrMapper, ClaudeToOpenAiMapper, CodexClaudeIrMapper,
-    DialectRequest, DialectResponse, GeminiKimiIrMapper, GeminiToOpenAiMapper, IdentityMapper,
-    IrIdentityMapper, IrMapper, MapError, Mapper, MappingError, OpenAiClaudeIrMapper,
-    OpenAiCodexIrMapper, OpenAiCopilotIrMapper, OpenAiGeminiIrMapper, OpenAiKimiIrMapper,
-    OpenAiToClaudeMapper, OpenAiToGeminiMapper, default_ir_mapper, supported_ir_pairs,
+    default_ir_mapper, supported_ir_pairs, ClaudeGeminiIrMapper, ClaudeKimiIrMapper,
+    ClaudeToOpenAiMapper, CodexClaudeIrMapper, DialectRequest, DialectResponse, GeminiKimiIrMapper,
+    GeminiToOpenAiMapper, IdentityMapper, IrIdentityMapper, IrMapper, MapError, Mapper,
+    MappingError, OpenAiClaudeIrMapper, OpenAiCodexIrMapper, OpenAiCopilotIrMapper,
+    OpenAiGeminiIrMapper, OpenAiKimiIrMapper, OpenAiToClaudeMapper, OpenAiToGeminiMapper,
 };
 use chrono::Utc;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §1 IdentityMapper: passthrough fidelity, all message types
@@ -934,11 +934,10 @@ fn ir_claude_openai_drops_thinking() {
         .map_request(Dialect::Claude, Dialect::OpenAi, &ir)
         .unwrap();
     let asst = &mapped.messages[1];
-    assert!(
-        asst.content
-            .iter()
-            .all(|b| !matches!(b, IrContentBlock::Thinking { .. }))
-    );
+    assert!(asst
+        .content
+        .iter()
+        .all(|b| !matches!(b, IrContentBlock::Thinking { .. })));
     assert_eq!(asst.content.len(), 1); // only Text
 }
 
@@ -950,11 +949,10 @@ fn ir_openai_claude_preserves_thinking() {
         .map_request(Dialect::OpenAi, Dialect::Claude, &ir)
         .unwrap();
     let asst = &mapped.messages[1];
-    assert!(
-        asst.content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-    );
+    assert!(asst
+        .content
+        .iter()
+        .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
 }
 
 #[test]
@@ -1006,11 +1004,10 @@ fn ir_openai_gemini_drops_thinking() {
         .map_request(Dialect::OpenAi, Dialect::Gemini, &ir)
         .unwrap();
     for msg in &mapped.messages {
-        assert!(
-            !msg.content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-        );
+        assert!(!msg
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
     }
 }
 
@@ -1063,11 +1060,10 @@ fn ir_claude_gemini_drops_thinking() {
         .map_request(Dialect::Claude, Dialect::Gemini, &thinking_ir())
         .unwrap();
     for msg in &mapped.messages {
-        assert!(
-            !msg.content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-        );
+        assert!(!msg
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
     }
 }
 
@@ -1171,11 +1167,10 @@ fn ir_openai_kimi_strips_thinking() {
     let ir = thinking_ir();
     let mapped = m.map_request(Dialect::OpenAi, Dialect::Kimi, &ir).unwrap();
     for msg in &mapped.messages {
-        assert!(
-            !msg.content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-        );
+        assert!(!msg
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
     }
 }
 
@@ -1185,11 +1180,10 @@ fn ir_kimi_openai_strips_thinking() {
     let ir = thinking_ir();
     let mapped = m.map_request(Dialect::Kimi, Dialect::OpenAi, &ir).unwrap();
     for msg in &mapped.messages {
-        assert!(
-            !msg.content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-        );
+        assert!(!msg
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
     }
 }
 
@@ -1220,11 +1214,10 @@ fn ir_openai_copilot_strips_thinking() {
         .map_request(Dialect::OpenAi, Dialect::Copilot, &ir)
         .unwrap();
     for msg in &mapped.messages {
-        assert!(
-            !msg.content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-        );
+        assert!(!msg
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
     }
 }
 
@@ -1235,11 +1228,10 @@ fn ir_copilot_openai_strips_thinking() {
         .map_request(Dialect::Copilot, Dialect::OpenAi, &thinking_ir())
         .unwrap();
     for msg in &mapped.messages {
-        assert!(
-            !msg.content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-        );
+        assert!(!msg
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
     }
 }
 
@@ -1292,11 +1284,10 @@ fn ir_claude_kimi_drops_thinking() {
         .map_request(Dialect::Claude, Dialect::Kimi, &thinking_ir())
         .unwrap();
     for msg in &mapped.messages {
-        assert!(
-            !msg.content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-        );
+        assert!(!msg
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
     }
 }
 
@@ -1348,11 +1339,10 @@ fn ir_gemini_kimi_drops_thinking() {
         .map_request(Dialect::Gemini, Dialect::Kimi, &thinking_ir())
         .unwrap();
     for msg in &mapped.messages {
-        assert!(
-            !msg.content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-        );
+        assert!(!msg
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
     }
 }
 

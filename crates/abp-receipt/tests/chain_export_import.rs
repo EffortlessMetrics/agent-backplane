@@ -413,11 +413,9 @@ fn detect_tampering_modified_backend_id() {
     let chain = builder.build();
     let evidence = chain.detect_tampering();
     assert!(evidence.iter().any(|e| e.index == 1));
-    assert!(
-        evidence
-            .iter()
-            .any(|e| { matches!(e.kind, TamperKind::HashMismatch { .. }) })
-    );
+    assert!(evidence
+        .iter()
+        .any(|e| { matches!(e.kind, TamperKind::HashMismatch { .. }) }));
 }
 
 #[test]

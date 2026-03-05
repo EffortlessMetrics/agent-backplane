@@ -31,17 +31,17 @@
 
 use abp_backend_core::Backend;
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionLane, Outcome, PolicyProfile, Receipt, RunMetadata, UsageNormalized,
-    VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionLane, Outcome,
+    PolicyProfile, Receipt, RunMetadata, UsageNormalized, VerificationReport, WorkOrder,
+    WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
-use abp_runtime::Runtime;
 use abp_runtime::execution::{ExecutionConfig, ExecutionPipeline, PipelineEvent};
 use abp_runtime::retry::{FallbackChain, RetryPolicy};
+use abp_runtime::Runtime;
 use async_trait::async_trait;
 use chrono::Utc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -276,18 +276,14 @@ async fn success_on_first_try() {
     assert_eq!(result.backend, "primary");
     assert_eq!(backend.calls(), 1);
     // Should have exactly one Success event.
-    assert!(
-        result
-            .events
-            .iter()
-            .any(|e| matches!(e, PipelineEvent::Success { .. }))
-    );
-    assert!(
-        result
-            .events
-            .iter()
-            .all(|e| !matches!(e, PipelineEvent::Retry { .. }))
-    );
+    assert!(result
+        .events
+        .iter()
+        .any(|e| matches!(e, PipelineEvent::Success { .. })));
+    assert!(result
+        .events
+        .iter()
+        .all(|e| !matches!(e, PipelineEvent::Retry { .. })));
 }
 
 // 2. Retry once then succeed.
@@ -371,12 +367,10 @@ async fn fallback_on_permanent_error() {
 
     assert_eq!(result.backend, "secondary");
     assert_eq!(secondary.calls(), 1);
-    assert!(
-        result
-            .events
-            .iter()
-            .any(|e| matches!(e, PipelineEvent::Fallback { .. }))
-    );
+    assert!(result
+        .events
+        .iter()
+        .any(|e| matches!(e, PipelineEvent::Fallback { .. })));
 }
 
 // 5. Fallback chain with multiple backends.
@@ -450,24 +444,18 @@ async fn retry_then_fallback() {
     assert_eq!(primary.calls(), 2);
     assert_eq!(secondary.calls(), 1);
     // Events should have retry(s) + fallback + success.
-    assert!(
-        result
-            .events
-            .iter()
-            .any(|e| matches!(e, PipelineEvent::Retry { .. }))
-    );
-    assert!(
-        result
-            .events
-            .iter()
-            .any(|e| matches!(e, PipelineEvent::Fallback { .. }))
-    );
-    assert!(
-        result
-            .events
-            .iter()
-            .any(|e| matches!(e, PipelineEvent::Success { .. }))
-    );
+    assert!(result
+        .events
+        .iter()
+        .any(|e| matches!(e, PipelineEvent::Retry { .. })));
+    assert!(result
+        .events
+        .iter()
+        .any(|e| matches!(e, PipelineEvent::Fallback { .. })));
+    assert!(result
+        .events
+        .iter()
+        .any(|e| matches!(e, PipelineEvent::Success { .. })));
 }
 
 // 8. Unknown primary backend returns error immediately.

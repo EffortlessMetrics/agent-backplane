@@ -20,8 +20,8 @@ use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 use serde::{Deserialize, Serialize};
 
+use crate::capabilities::{dialect_capabilities, Support};
 use crate::MapError;
-use crate::capabilities::{Support, dialect_capabilities};
 
 // ── MappingRule trait ───────────────────────────────────────────────────
 
