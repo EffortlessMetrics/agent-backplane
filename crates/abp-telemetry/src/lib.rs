@@ -9,6 +9,7 @@
 pub mod events;
 pub mod export;
 pub mod hooks;
+pub mod labeled;
 pub mod metric_event;
 pub mod metrics;
 pub mod pipeline;
