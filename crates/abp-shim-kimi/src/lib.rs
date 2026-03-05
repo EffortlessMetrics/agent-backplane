@@ -242,8 +242,8 @@ pub fn mock_receipt_with_usage(events: Vec<AgentEvent>, usage: UsageNormalized) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use abp_core::AgentEventKind;
     use abp_core::ir::{IrRole, IrUsage};
+    use abp_core::AgentEventKind;
     use serde_json::json;
     use tokio_stream::StreamExt;
 

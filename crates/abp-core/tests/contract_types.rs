@@ -577,10 +577,9 @@ mod sha256_hex_tests {
     #[test]
     fn hash_is_lowercase_hex() {
         let h = sha256_hex(b"test");
-        assert!(
-            h.chars()
-                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
-        );
+        assert!(h
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
         assert_eq!(h.len(), 64);
     }
 }

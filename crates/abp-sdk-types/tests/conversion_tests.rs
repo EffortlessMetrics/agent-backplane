@@ -29,10 +29,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the cross-dialect conversion module.
 
-use abp_sdk_types::Dialect;
 use abp_sdk_types::convert::{
     ConversionError, ConversionReport, DialectConverter, Message, RoleMapper, ToolDefinition,
 };
+use abp_sdk_types::Dialect;
 
 // ── Helper: a concrete converter for testing the trait ──────────────────
 

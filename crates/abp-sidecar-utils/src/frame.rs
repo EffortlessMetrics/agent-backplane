@@ -6,8 +6,8 @@
 //! protocol operations.
 
 use abp_core::{
-    AgentEvent, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest, Receipt,
-    SupportLevel,
+    AgentEvent, BackendIdentity, Capability, CapabilityManifest, Receipt, SupportLevel,
+    CONTRACT_VERSION,
 };
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 

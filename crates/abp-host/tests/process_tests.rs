@@ -29,8 +29,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Tests for the process management utilities.
 
-use abp_host::SidecarSpec;
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
+use abp_host::SidecarSpec;
 use chrono::Utc;
 use std::collections::BTreeMap;
 use std::path::PathBuf;

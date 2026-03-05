@@ -31,8 +31,8 @@
 
 use abp_core::{AgentEventKind, ContextPacket, ContextSnippet, WorkOrderBuilder};
 use abp_kimi_sdk::dialect::{
-    KimiChoice, KimiConfig, KimiFunctionCall, KimiResponse, KimiResponseMessage, KimiToolCall,
-    map_response, map_work_order,
+    map_response, map_work_order, KimiChoice, KimiConfig, KimiFunctionCall, KimiResponse,
+    KimiResponseMessage, KimiToolCall,
 };
 
 #[test]
@@ -50,13 +50,11 @@ fn work_order_maps_to_correct_kimi_request_fields() {
     assert_eq!(req.max_tokens, Some(2048));
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(
-        req.messages[0]
-            .content
-            .as_deref()
-            .unwrap_or("")
-            .contains("Optimize database queries")
-    );
+    assert!(req.messages[0]
+        .content
+        .as_deref()
+        .unwrap_or("")
+        .contains("Optimize database queries"));
 }
 
 #[test]
@@ -83,20 +81,16 @@ fn context_snippets_are_included_in_user_message() {
     let cfg = KimiConfig::default();
     let req = map_work_order(&wo, &cfg);
 
-    assert!(
-        req.messages[0]
-            .content
-            .as_deref()
-            .unwrap_or("")
-            .contains("notes.md")
-    );
-    assert!(
-        req.messages[0]
-            .content
-            .as_deref()
-            .unwrap_or("")
-            .contains("Important context here.")
-    );
+    assert!(req.messages[0]
+        .content
+        .as_deref()
+        .unwrap_or("")
+        .contains("notes.md"));
+    assert!(req.messages[0]
+        .content
+        .as_deref()
+        .unwrap_or("")
+        .contains("Important context here."));
 }
 
 #[test]

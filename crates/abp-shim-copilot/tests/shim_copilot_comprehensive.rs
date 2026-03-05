@@ -40,10 +40,9 @@ use abp_copilot_sdk::lowering;
 use abp_core::ir::{IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, WorkOrderBuilder};
 use abp_shim_copilot::{
-    CopilotClient, CopilotFunctionDef, CopilotRequestBuilder, Message, ShimError,
     events_to_stream_events, ir_to_messages, ir_usage_to_tuple, messages_to_ir, mock_receipt,
     mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    response_to_ir,
+    response_to_ir, CopilotClient, CopilotFunctionDef, CopilotRequestBuilder, Message, ShimError,
 };
 use chrono::Utc;
 use serde_json::json;

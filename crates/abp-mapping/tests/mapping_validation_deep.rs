@@ -31,8 +31,8 @@
 
 use abp_dialect::Dialect;
 use abp_mapping::{
-    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
-    features, known_rules, validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
+    MappingRegistry, MappingRule, MappingValidation,
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -907,18 +907,16 @@ fn streaming_kimi_copilot_to_others_lossless() {
 #[test]
 fn streaming_kimi_copilot_bidirectional() {
     let reg = known_rules();
-    assert!(
-        reg.lookup(Dialect::Kimi, Dialect::Copilot, features::STREAMING)
-            .unwrap()
-            .fidelity
-            .is_lossless()
-    );
-    assert!(
-        reg.lookup(Dialect::Copilot, Dialect::Kimi, features::STREAMING)
-            .unwrap()
-            .fidelity
-            .is_lossless()
-    );
+    assert!(reg
+        .lookup(Dialect::Kimi, Dialect::Copilot, features::STREAMING)
+        .unwrap()
+        .fidelity
+        .is_lossless());
+    assert!(reg
+        .lookup(Dialect::Copilot, Dialect::Kimi, features::STREAMING)
+        .unwrap()
+        .fidelity
+        .is_lossless());
 }
 
 /// Custom streaming.sse_format feature lossy between SSE and JSONL dialects.

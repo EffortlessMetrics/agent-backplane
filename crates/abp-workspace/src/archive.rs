@@ -6,9 +6,9 @@
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
+use flate2::Compression;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;

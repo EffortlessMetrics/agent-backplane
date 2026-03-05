@@ -56,10 +56,9 @@ fn openai_messages_not_array_fails() {
     let v = DialectRequestValidator::new(abp_dialect::Dialect::OpenAi);
     let req = json!({"model": "gpt-4", "messages": "not-array"});
     let err = v.validate(&req).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.path == "messages" && e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.path == "messages" && e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -216,10 +215,9 @@ fn dialect_request_non_object_fails() {
     let v = DialectRequestValidator::new(abp_dialect::Dialect::OpenAi);
     let req = json!("just a string");
     let err = v.validate(&req).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -424,10 +422,9 @@ fn dialect_response_non_object_fails() {
     let v = DialectResponseValidator::new(abp_dialect::Dialect::OpenAi);
     let resp = json!(42);
     let err = v.validate(&resp).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -475,10 +472,9 @@ fn rule_builder_require_string_wrong_type_fails() {
     let v = RuleBuilder::new().require_string("version").build();
     let val = json!({"version": 42});
     let err = v.validate(&val).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.path == "version" && e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.path == "version" && e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -501,10 +497,9 @@ fn rule_builder_require_array_missing_fails() {
     let v = RuleBuilder::new().require_array("items").build();
     let val = json!({"other": true});
     let err = v.validate(&val).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.path == "items" && e.kind == ValidationErrorKind::Required)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.path == "items" && e.kind == ValidationErrorKind::Required));
 }
 
 #[test]
@@ -523,10 +518,9 @@ fn rule_builder_number_range_below_min_fails() {
         .build();
     let val = json!({"score": -1});
     let err = v.validate(&val).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.path == "score" && e.kind == ValidationErrorKind::OutOfRange)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.path == "score" && e.kind == ValidationErrorKind::OutOfRange));
 }
 
 #[test]
@@ -546,10 +540,9 @@ fn rule_builder_number_range_not_number_fails() {
         .build();
     let val = json!({"score": "high"});
     let err = v.validate(&val).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.path == "score" && e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.path == "score" && e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -646,10 +639,9 @@ fn rule_builder_non_object_input_fails() {
     let v = RuleBuilder::new().require_field("name").build();
     let val = json!("string");
     let err = v.validate(&val).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -784,11 +776,9 @@ fn validation_errors_filter_by_kind() {
 
     let required = errs.filter_by_kind(&ValidationErrorKind::Required);
     assert_eq!(required.len(), 2);
-    assert!(
-        required
-            .iter()
-            .all(|e| e.kind == ValidationErrorKind::Required)
-    );
+    assert!(required
+        .iter()
+        .all(|e| e.kind == ValidationErrorKind::Required));
 }
 
 #[test]

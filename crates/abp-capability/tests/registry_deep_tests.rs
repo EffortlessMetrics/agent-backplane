@@ -31,11 +31,11 @@
 
 use std::collections::BTreeMap;
 
-use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
+use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy};
 use abp_capability::{
-    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
     check_capability, default_emulation_strategy, generate_report, negotiate,
-    negotiate_capabilities,
+    negotiate_capabilities, CapabilityRegistry, CompatibilityReport, EmulationStrategy,
+    NegotiationResult, SupportLevel,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -224,11 +224,9 @@ fn query_capability_by_support_level() {
 fn query_capability_streaming_all_native() {
     let reg = CapabilityRegistry::with_defaults();
     let results = reg.query_capability(&Capability::Streaming);
-    assert!(
-        results
-            .iter()
-            .all(|(_, l)| matches!(l, SupportLevel::Native))
-    );
+    assert!(results
+        .iter()
+        .all(|(_, l)| matches!(l, SupportLevel::Native)));
 }
 
 // ===========================================================================
@@ -294,21 +292,15 @@ fn check_capability_restricted_variant() {
 #[test]
 fn support_level_display_all_variants() {
     assert_eq!(SupportLevel::Native.to_string(), "native");
-    assert!(
-        SupportLevel::Emulated { method: "x".into() }
-            .to_string()
-            .contains("emulated")
-    );
-    assert!(
-        SupportLevel::Restricted { reason: "y".into() }
-            .to_string()
-            .contains("restricted")
-    );
-    assert!(
-        SupportLevel::Unsupported { reason: "z".into() }
-            .to_string()
-            .contains("unsupported")
-    );
+    assert!(SupportLevel::Emulated { method: "x".into() }
+        .to_string()
+        .contains("emulated"));
+    assert!(SupportLevel::Restricted { reason: "y".into() }
+        .to_string()
+        .contains("restricted"));
+    assert!(SupportLevel::Unsupported { reason: "z".into() }
+        .to_string()
+        .contains("unsupported"));
 }
 
 // ===========================================================================
@@ -355,10 +347,9 @@ fn negotiate_by_name_returns_result() {
 #[test]
 fn negotiate_by_name_missing_returns_none() {
     let reg = CapabilityRegistry::new();
-    assert!(
-        reg.negotiate_by_name("missing", &[Capability::Streaming])
-            .is_none()
-    );
+    assert!(reg
+        .negotiate_by_name("missing", &[Capability::Streaming])
+        .is_none());
 }
 
 #[test]
@@ -624,10 +615,9 @@ fn serde_negotiation_policy_snake_case_format() {
 #[test]
 fn empty_registry_negotiate_by_name_returns_none() {
     let reg = CapabilityRegistry::new();
-    assert!(
-        reg.negotiate_by_name("anything", &[Capability::Streaming])
-            .is_none()
-    );
+    assert!(reg
+        .negotiate_by_name("anything", &[Capability::Streaming])
+        .is_none());
 }
 
 #[test]
@@ -811,11 +801,9 @@ fn cross_dialect_compare_claude_to_openai() {
         .compare("anthropic/claude-3.5-sonnet", "openai/gpt-4o")
         .unwrap();
     // Claude has ExtendedThinking and CacheControl natively; OpenAI lacks them
-    assert!(
-        result
-            .unsupported_caps()
-            .contains(&Capability::ExtendedThinking)
-    );
+    assert!(result
+        .unsupported_caps()
+        .contains(&Capability::ExtendedThinking));
 }
 
 #[test]
@@ -867,7 +855,11 @@ fn cross_dialect_audio_support_varies() {
         .filter_map(|d| {
             let key = dialect_registry_key(*d);
             let r = reg.negotiate_by_name(key, &[Capability::Audio]).unwrap();
-            if r.is_viable() { Some(d.label()) } else { None }
+            if r.is_viable() {
+                Some(d.label())
+            } else {
+                None
+            }
         })
         .collect();
     // At minimum OpenAI and Gemini support Audio

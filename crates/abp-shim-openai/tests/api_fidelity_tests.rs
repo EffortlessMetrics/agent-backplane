@@ -33,12 +33,12 @@
 use abp_core::ir::{IrContentBlock, IrRole};
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_shim_openai::{
-    ChatCompletionRequest, ChatCompletionResponse, Choice, FunctionCall, Message, ResponseFormat,
-    Role, StreamEvent, Tool, ToolCall, ToolChoice, ToolChoiceFunctionRef, ToolChoiceMode, Usage,
-};
-use abp_shim_openai::{
     events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
     receipt_to_response, request_to_work_order, tools_to_ir,
+};
+use abp_shim_openai::{
+    ChatCompletionRequest, ChatCompletionResponse, Choice, FunctionCall, Message, ResponseFormat,
+    Role, StreamEvent, Tool, ToolCall, ToolChoice, ToolChoiceFunctionRef, ToolChoiceMode, Usage,
 };
 use chrono::Utc;
 use serde_json::json;

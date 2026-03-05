@@ -34,16 +34,16 @@
 //! sequence validation, serde roundtrips, and edge cases.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
     Receipt, ReceiptBuilder, RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode, WorkspaceSpec,
+    WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
 use std::collections::BTreeMap;
 use std::io::BufReader;
@@ -469,11 +469,9 @@ fn sequence_hello_not_first_position() {
     let (id, run) = make_run();
     let seq = vec![run, make_hello(), make_final(&id)];
     let errors = v.validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1169,11 +1167,9 @@ fn ref_id_mismatch_event_detected() {
         make_final(&id),
     ];
     let errors = v.validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -1182,11 +1178,9 @@ fn ref_id_mismatch_final_detected() {
     let (_, run) = make_run();
     let seq = vec![make_hello(), run, make_final("wrong-id")];
     let errors = v.validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -1195,11 +1189,9 @@ fn ref_id_mismatch_fatal_detected() {
     let (_, run) = make_run();
     let seq = vec![make_hello(), run, make_fatal(Some("wrong-id"), "err")];
     let errors = v.validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -1229,11 +1221,9 @@ fn ref_id_fatal_with_none_ref_id_no_mismatch() {
     // Fatal with None ref_id should not trigger RefIdMismatch
     let seq = vec![make_hello(), run, make_fatal(None, "crash")];
     let errors = v.validate_sequence(&seq);
-    assert!(
-        !errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(!errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1542,11 +1532,9 @@ fn ordering_missing_hello() {
     let (id, run) = make_run();
     let seq = vec![run, make_final(&id)];
     let errors = v.validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingHello))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingHello)));
 }
 
 #[test]
@@ -1559,11 +1547,9 @@ fn ordering_missing_terminal() {
         make_event(&id, AgentEventKind::AssistantDelta { text: "x".into() }),
     ];
     let errors = v.validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingTerminal)));
 }
 
 #[test]
@@ -1577,11 +1563,9 @@ fn ordering_multiple_terminals() {
         make_fatal(Some(&id), "extra"),
     ];
     let errors = v.validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MultipleTerminals))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MultipleTerminals)));
 }
 
 #[test]
@@ -1595,11 +1579,9 @@ fn ordering_event_before_run() {
         make_final(&id),
     ];
     let errors = v.validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::OutOfOrderEvents)));
 }
 
 #[test]
@@ -1626,16 +1608,12 @@ fn ordering_event_after_final() {
 fn ordering_empty_sequence() {
     let v = EnvelopeValidator::new();
     let errors = v.validate_sequence(&[]);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingHello))
-    );
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingHello)));
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingTerminal)));
 }
 
 #[test]
@@ -1643,11 +1621,9 @@ fn ordering_hello_only() {
     let v = EnvelopeValidator::new();
     let seq = vec![make_hello()];
     let errors = v.validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingTerminal)));
 }
 
 #[test]

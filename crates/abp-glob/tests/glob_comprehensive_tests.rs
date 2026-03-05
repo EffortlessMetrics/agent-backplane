@@ -29,7 +29,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Comprehensive tests for the abp-glob crate public API.
 
-use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
+use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
 use std::path::Path;
 
 fn pats(xs: &[&str]) -> Vec<String> {

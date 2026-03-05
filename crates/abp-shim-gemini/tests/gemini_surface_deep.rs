@@ -42,14 +42,14 @@ use abp_gemini_sdk::dialect::{
 use abp_gemini_sdk::lowering;
 use abp_shim_gemini::client::Client;
 use abp_shim_gemini::{
-    Candidate, Content, FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration,
-    GeminiError, GenerateContentRequest, GenerateContentResponse, GenerationConfig, Part,
-    PipelineClient, SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
     content_from_dialect, content_to_dialect, execute_work_order, from_dialect_response,
     from_dialect_stream_chunk, gen_config_from_dialect, gen_config_to_dialect, ir_to_response,
     ir_to_work_order, make_usage_metadata, part_from_dialect, part_to_dialect,
     receipt_to_stream_events, request_to_ir, safety_to_dialect, to_dialect_request,
-    tool_config_to_dialect, tool_decl_to_dialect, usage_from_ir, usage_to_ir,
+    tool_config_to_dialect, tool_decl_to_dialect, usage_from_ir, usage_to_ir, Candidate, Content,
+    FunctionCallingConfig, FunctionCallingMode, FunctionDeclaration, GeminiError,
+    GenerateContentRequest, GenerateContentResponse, GenerationConfig, Part, PipelineClient,
+    SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -841,11 +841,9 @@ fn client_url_has_key_as_query_param() {
 #[test]
 fn client_default_base_url_is_googleapis() {
     let client = Client::new("test-key").unwrap();
-    assert!(
-        client
-            .base_url()
-            .contains("generativelanguage.googleapis.com")
-    );
+    assert!(client
+        .base_url()
+        .contains("generativelanguage.googleapis.com"));
     assert!(client.base_url().contains("/v1beta"));
 }
 

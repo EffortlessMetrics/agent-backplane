@@ -17,8 +17,8 @@
 use std::fmt;
 
 use abp_core::{
-    AgentEvent, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Receipt,
-    WorkOrder,
+    AgentEvent, BackendIdentity, CapabilityManifest, ExecutionMode, Receipt, WorkOrder,
+    CONTRACT_VERSION,
 };
 
 use crate::Envelope;

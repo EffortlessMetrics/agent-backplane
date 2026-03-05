@@ -471,12 +471,10 @@ fn fallback_includes_partially_compatible_backends() {
         ])))
         .unwrap();
     assert_eq!(result.selected_backend, "full");
-    assert!(
-        result
-            .fallback_chain
-            .iter()
-            .any(|f| f.backend_id == "partial")
-    );
+    assert!(result
+        .fallback_chain
+        .iter()
+        .any(|f| f.backend_id == "partial"));
 }
 
 #[test]
@@ -1416,10 +1414,9 @@ fn resolve_mapper_unsupported_pair_returns_none() {
 #[test]
 fn resolve_mapper_unregistered_pair_returns_none() {
     let pm = ProjectionMatrix::new();
-    assert!(
-        pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
-            .is_none()
-    );
+    assert!(pm
+        .resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+        .is_none());
 }
 
 #[test]

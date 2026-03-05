@@ -37,8 +37,8 @@ use uuid::Uuid;
 
 use abp_core::{Outcome, Receipt};
 use abp_receipt_store::{
-    FileReceiptStore, InMemoryReceiptStore, ReceiptFilter, ReceiptIndex, ReceiptStore, StoreError,
-    validate_chain,
+    validate_chain, FileReceiptStore, InMemoryReceiptStore, ReceiptFilter, ReceiptIndex,
+    ReceiptStore, StoreError,
 };
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -222,13 +222,11 @@ async fn memory_get_by_id() {
 #[tokio::test]
 async fn memory_get_missing_returns_none() {
     let store = InMemoryReceiptStore::new();
-    assert!(
-        store
-            .get(&Uuid::new_v4().to_string())
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(store
+        .get(&Uuid::new_v4().to_string())
+        .await
+        .unwrap()
+        .is_none());
 }
 
 #[tokio::test]
@@ -245,13 +243,11 @@ async fn file_get_by_id() {
 async fn file_get_missing_returns_none() {
     let dir = tempfile::tempdir().unwrap();
     let store = file_store(&dir);
-    assert!(
-        store
-            .get(&Uuid::new_v4().to_string())
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(store
+        .get(&Uuid::new_v4().to_string())
+        .await
+        .unwrap()
+        .is_none());
 }
 
 #[tokio::test]
@@ -1268,13 +1264,11 @@ async fn concurrent_delete_memory() {
 #[tokio::test]
 async fn empty_memory_list_returns_empty() {
     let store = InMemoryReceiptStore::new();
-    assert!(
-        store
-            .list(ReceiptFilter::default())
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    assert!(store
+        .list(ReceiptFilter::default())
+        .await
+        .unwrap()
+        .is_empty());
 }
 
 #[tokio::test]
@@ -1295,13 +1289,11 @@ async fn empty_memory_list_with_filter_returns_empty() {
 async fn empty_file_list_returns_empty() {
     let dir = tempfile::tempdir().unwrap();
     let store = file_store(&dir);
-    assert!(
-        store
-            .list(ReceiptFilter::default())
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    assert!(store
+        .list(ReceiptFilter::default())
+        .await
+        .unwrap()
+        .is_empty());
 }
 
 #[tokio::test]
@@ -1370,12 +1362,10 @@ fn chain_duplicate_ids_detected() {
     let r2 = make_receipt_with_id("b", Outcome::Failed, id);
     let result = validate_chain(&[r1, r2]);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| e.message.contains("duplicate"))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| e.message.contains("duplicate")));
 }
 
 #[test]

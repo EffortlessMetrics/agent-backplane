@@ -72,10 +72,9 @@ fn empty_backend_id_fails_validation() {
     let mut receipt = minimal_receipt();
     receipt.backend.id = String::new();
     let errs = validate::validate_receipt(&receipt).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, validate::ValidationError::EmptyBackendId))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, validate::ValidationError::EmptyBackendId)));
 }
 
 #[test]
@@ -324,10 +323,9 @@ fn receipt_with_tampered_hash() {
     tampered.receipt_sha256 =
         Some("0000000000000000000000000000000000000000000000000000000000000000".into());
     let errs = validate::validate_receipt(&tampered).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, validate::ValidationError::InvalidHash { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, validate::ValidationError::InvalidHash { .. })));
 }
 
 #[test]

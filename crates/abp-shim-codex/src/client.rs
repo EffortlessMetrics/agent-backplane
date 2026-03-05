@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use abp_codex_sdk::dialect::{CodexRequest, CodexResponse, CodexStreamEvent};
 use futures_core::Stream;
-use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 
 // ── Error type ──────────────────────────────────────────────────────────
 

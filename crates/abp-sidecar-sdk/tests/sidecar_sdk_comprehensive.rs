@@ -815,36 +815,30 @@ async fn s18_emit_file_changed_on_closed_channel() {
 async fn s18_emit_command_executed_on_closed_channel() {
     let (emitter, rx) = EventEmitter::new("r", 4);
     drop(rx);
-    assert!(
-        emitter
-            .emit_command_executed("ls", None, None)
-            .await
-            .is_err()
-    );
+    assert!(emitter
+        .emit_command_executed("ls", None, None)
+        .await
+        .is_err());
 }
 
 #[tokio::test]
 async fn s18_emit_tool_call_on_closed_channel() {
     let (emitter, rx) = EventEmitter::new("r", 4);
     drop(rx);
-    assert!(
-        emitter
-            .emit_tool_call_start("t", "id", serde_json::json!({}))
-            .await
-            .is_err()
-    );
+    assert!(emitter
+        .emit_tool_call_start("t", "id", serde_json::json!({}))
+        .await
+        .is_err());
 }
 
 #[tokio::test]
 async fn s18_emit_tool_result_on_closed_channel() {
     let (emitter, rx) = EventEmitter::new("r", 4);
     drop(rx);
-    assert!(
-        emitter
-            .emit_tool_result("t", "id", serde_json::json!(null), false)
-            .await
-            .is_err()
-    );
+    assert!(emitter
+        .emit_tool_result("t", "id", serde_json::json!(null), false)
+        .await
+        .is_err());
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

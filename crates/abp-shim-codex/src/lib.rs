@@ -29,8 +29,8 @@ pub use error::{ApiErrorBody, ApiErrorEnvelope, CodexError, CodexResult};
 
 // Re-export key tool types.
 pub use tools::{
-    CodeInterpreterTool, FileSearchTool, FunctionTool, ToolDefinition, from_codex_tools,
-    to_codex_tools,
+    from_codex_tools, to_codex_tools, CodeInterpreterTool, FileSearchTool, FunctionTool,
+    ToolDefinition,
 };
 
 // Re-export client types for the `responses()` API pattern.
@@ -47,9 +47,9 @@ use tokio_stream::Stream;
 #[cfg(test)]
 use abp_codex_sdk::dialect::{CodexContentPart, CodexResponseItem};
 #[cfg(test)]
-use abp_core::AgentEventKind;
-#[cfg(test)]
 use abp_core::ir::{IrRole, IrUsage};
+#[cfg(test)]
+use abp_core::AgentEventKind;
 
 // Re-export key types from the Codex SDK for convenience.
 pub use abp_codex_sdk::dialect::{

@@ -6,7 +6,7 @@
 
 use abp_core::{AgentEvent, AgentEventKind};
 use std::collections::HashMap;
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tracing::{debug, warn};

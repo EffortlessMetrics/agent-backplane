@@ -35,10 +35,10 @@
 //! timeout, workspace failures, and invalid work order fields.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionLane, ExecutionMode, MinSupport,
     Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode,
-    WorkspaceSpec,
+    WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_integrations::Backend;
 use abp_runtime::{Runtime, RuntimeError};

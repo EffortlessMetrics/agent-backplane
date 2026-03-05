@@ -16,9 +16,9 @@ mod memory;
 mod stats;
 
 pub use chain::{
-    ChainValidation, ChainValidationError, validate_chain, validate_chain_with_parents,
+    validate_chain, validate_chain_with_parents, ChainValidation, ChainValidationError,
 };
-pub use diff::{FieldDiff, ReceiptDiff, diff_receipts};
+pub use diff::{diff_receipts, FieldDiff, ReceiptDiff};
 pub use error::StoreError;
 pub use export::{export_json, export_jsonl, import_json, import_jsonl};
 pub use file::FileReceiptStore;

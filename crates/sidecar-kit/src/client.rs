@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tracing::debug;
 
-use super::{SidecarError, frame::Frame, process::SidecarProcess, run::RawRun, spec::ProcessSpec};
+use super::{frame::Frame, process::SidecarProcess, run::RawRun, spec::ProcessSpec, SidecarError};
 
 /// Parsed `hello` handshake data from a sidecar (value-based).
 #[derive(Debug, Clone)]

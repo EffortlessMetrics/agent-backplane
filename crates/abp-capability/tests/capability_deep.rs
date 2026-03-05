@@ -5,9 +5,9 @@
 //! check_capability, NegotiationResult, CompatibilityReport, registry, and serde.
 
 use abp_capability::{
-    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
     check_capability, default_emulation_strategy, generate_report, negotiate,
-    negotiate_capabilities,
+    negotiate_capabilities, CapabilityRegistry, CompatibilityReport, EmulationStrategy,
+    NegotiationResult, SupportLevel,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -1050,10 +1050,9 @@ fn registry_negotiate_by_name_found() {
 #[test]
 fn registry_negotiate_by_name_missing() {
     let reg = CapabilityRegistry::new();
-    assert!(
-        reg.negotiate_by_name("nope", &[Capability::Streaming])
-            .is_none()
-    );
+    assert!(reg
+        .negotiate_by_name("nope", &[Capability::Streaming])
+        .is_none());
 }
 
 #[test]
@@ -1073,11 +1072,9 @@ fn registry_query_capability_streaming_all_native() {
     let reg = CapabilityRegistry::with_defaults();
     let results = reg.query_capability(&Capability::Streaming);
     assert_eq!(results.len(), 6);
-    assert!(
-        results
-            .iter()
-            .all(|(_, level)| matches!(level, SupportLevel::Native))
-    );
+    assert!(results
+        .iter()
+        .all(|(_, level)| matches!(level, SupportLevel::Native)));
 }
 
 #[test]
@@ -1105,11 +1102,9 @@ fn registry_compare_claude_to_openai_shows_extended_thinking_gap() {
     let result = reg
         .compare("anthropic/claude-3.5-sonnet", "openai/gpt-4o")
         .unwrap();
-    assert!(
-        result
-            .unsupported_caps()
-            .contains(&Capability::ExtendedThinking)
-    );
+    assert!(result
+        .unsupported_caps()
+        .contains(&Capability::ExtendedThinking));
 }
 
 // ===========================================================================

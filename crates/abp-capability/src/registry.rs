@@ -6,7 +6,7 @@
 //! so it can be shared across threads safely.
 
 use crate::{
-    EmulationStrategy, NegotiationResult, SupportLevel, check_capability, negotiate_capabilities,
+    check_capability, negotiate_capabilities, EmulationStrategy, NegotiationResult, SupportLevel,
 };
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
 use serde::{Deserialize, Serialize};
@@ -629,10 +629,9 @@ mod tests {
     #[test]
     fn registry_negotiate_missing_backend() {
         let reg = SharedCapabilityRegistry::new();
-        assert!(
-            reg.negotiate("nonexistent", &[Capability::Streaming])
-                .is_none()
-        );
+        assert!(reg
+            .negotiate("nonexistent", &[Capability::Streaming])
+            .is_none());
     }
 
     // ---- best_backend_for ------------------------------------------------
@@ -835,11 +834,9 @@ mod tests {
         let reg = SharedCapabilityRegistry::new();
         register_all_dialects(&reg);
         let results = reg.query(&Capability::Streaming);
-        assert!(
-            results
-                .iter()
-                .all(|(_, level)| matches!(level, SupportLevel::Native))
-        );
+        assert!(results
+            .iter()
+            .all(|(_, level)| matches!(level, SupportLevel::Native)));
     }
 
     #[test]

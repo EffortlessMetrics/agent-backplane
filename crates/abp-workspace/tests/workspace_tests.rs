@@ -191,15 +191,13 @@ fn nested_directory_structure_preserved() {
     let prepared = WorkspaceManager::prepare(&spec).unwrap();
 
     assert!(prepared.path().join("top.txt").exists());
-    assert!(
-        prepared
-            .path()
-            .join("a")
-            .join("b")
-            .join("c")
-            .join("deep.txt")
-            .exists()
-    );
+    assert!(prepared
+        .path()
+        .join("a")
+        .join("b")
+        .join("c")
+        .join("deep.txt")
+        .exists());
     assert_eq!(
         fs::read_to_string(
             prepared

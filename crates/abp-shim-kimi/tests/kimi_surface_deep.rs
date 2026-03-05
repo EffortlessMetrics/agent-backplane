@@ -45,9 +45,9 @@ use abp_kimi_sdk::dialect::{
 };
 use abp_shim_kimi::client::Client;
 use abp_shim_kimi::{
-    KimiClient, KimiRequestBuilder, Message, ProcessFn, ShimError, Usage, events_to_stream_chunks,
-    ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt, mock_receipt_with_usage,
-    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
+    events_to_stream_chunks, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
+    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
+    response_to_ir, KimiClient, KimiRequestBuilder, Message, ProcessFn, ShimError, Usage,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -1266,13 +1266,11 @@ fn t85_map_work_order_uses_task_as_user_message() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(
-        req.messages[0]
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("Optimize queries")
-    );
+    assert!(req.messages[0]
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("Optimize queries"));
 }
 
 #[test]

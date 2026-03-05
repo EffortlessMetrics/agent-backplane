@@ -35,7 +35,7 @@
 use abp_cli::cli::{
     Cli, Commands, ConfigAction, LaneArg, ReceiptAction, SchemaArg, WorkspaceModeArg,
 };
-use clap::{Parser, error::ErrorKind};
+use clap::{error::ErrorKind, Parser};
 use std::path::PathBuf;
 
 /// Parse CLI arguments prefixed with the binary name.

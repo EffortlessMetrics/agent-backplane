@@ -8,21 +8,21 @@
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, ReceiptBuilder, SupportLevel, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
+    Outcome, Receipt, ReceiptBuilder, SupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
-use abp_sidecar_utils::codec::{CodecMetrics, DEFAULT_MAX_LINE_LEN, StreamingCodec};
+use abp_sidecar_utils::codec::{CodecMetrics, StreamingCodec, DEFAULT_MAX_LINE_LEN};
 use abp_sidecar_utils::event_stream::{EventStreamError, EventStreamProcessor, EventStreamStats};
 use abp_sidecar_utils::frame::{
     backend_identity, contract_version, decode_envelope, encode_envelope, encode_event,
     encode_fatal, encode_final, encode_hello,
 };
 use abp_sidecar_utils::handshake::{
-    DEFAULT_HANDSHAKE_TIMEOUT, HandshakeError, HandshakeManager, HelloInfo,
+    HandshakeError, HandshakeManager, HelloInfo, DEFAULT_HANDSHAKE_TIMEOUT,
 };
 use abp_sidecar_utils::health::{
-    DEFAULT_CONNECTION_TIMEOUT, DEFAULT_HEARTBEAT_INTERVAL, ProtocolHealth,
+    ProtocolHealth, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_HEARTBEAT_INTERVAL,
 };
 use abp_sidecar_utils::testing::{mock_event, mock_fatal, mock_final, mock_hello, mock_work_order};
 use abp_sidecar_utils::validate::{validate_hello, validate_ref_id, validate_sequence};

@@ -5,7 +5,7 @@
 //! This module provides a fluent [`CapabilitySet`] builder that produces
 //! the JSON value expected by the ABP protocol without requiring `abp-core`.
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 /// Fluent builder for declaring sidecar capabilities.

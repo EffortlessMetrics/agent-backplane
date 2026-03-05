@@ -3,7 +3,7 @@
 use abp_claude_sdk as claude_sdk;
 use abp_codex_sdk as codex_sdk;
 use abp_copilot_sdk as copilot_sdk;
-use abp_daemon::{AppState, RunTracker, build_app, hydrate_receipts_from_disk};
+use abp_daemon::{build_app, hydrate_receipts_from_disk, AppState, RunTracker};
 use abp_gemini_sdk as gemini_sdk;
 use abp_host::SidecarSpec;
 use abp_integrations::{MockBackend, SidecarBackend};
@@ -60,7 +60,11 @@ async fn main() -> Result<()> {
     // Load configuration from --config path, backplane.toml fallback, or defaults.
     let config_path = args.config.clone().or_else(|| {
         let p = PathBuf::from("backplane.toml");
-        if p.exists() { Some(p) } else { None }
+        if p.exists() {
+            Some(p)
+        } else {
+            None
+        }
     });
     let config = abp_config::load_config(config_path.as_deref()).unwrap_or_else(|e| {
         tracing::warn!("failed to load config: {e}");
