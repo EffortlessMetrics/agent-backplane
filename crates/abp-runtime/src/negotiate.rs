@@ -127,8 +127,7 @@ impl NegotiationResult {
 
         // Unsupported caps rescued by runtime emulation become emulated entries.
         for (cap, _reason) in &cap_result.unsupported {
-            if runtime_emulated_caps.contains(cap)
-                && !emulated.iter().any(|e| &e.capability == cap)
+            if runtime_emulated_caps.contains(cap) && !emulated.iter().any(|e| &e.capability == cap)
             {
                 emulated.push(EmulatedCapability {
                     capability: cap.clone(),

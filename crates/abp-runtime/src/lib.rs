@@ -525,10 +525,7 @@ impl Runtime {
 
         // Resolve source and target dialects for translation.
         let source_dialect = extract_dialect(&work_order);
-        let target_dialect = resolve_backend_dialect(
-            self.projection.as_ref(),
-            &backend_name,
-        );
+        let target_dialect = resolve_backend_dialect(self.projection.as_ref(), &backend_name);
         let translation_engine = Arc::clone(&self.translation_engine);
 
         // Two-stage channel: backend -> runtime -> caller
@@ -613,15 +610,13 @@ impl Runtime {
             // Detect whether cross-dialect translation is needed and classify
             // the translation mode.  When source ≠ target, the translation
             // engine is used to validate the pair and collect capability gaps.
-            let translation_meta: Option<TranslationResult> = match (source_dialect, target_dialect) {
+            let translation_meta: Option<TranslationResult> = match (source_dialect, target_dialect)
+            {
                 (Some(src), Some(tgt)) if src != tgt => {
                     // Build a probe conversation from the work order task to
                     // detect capability gaps and validate the mapping pair.
                     let probe = abp_core::ir::IrConversation::from_messages(vec![
-                        abp_core::ir::IrMessage::text(
-                            abp_core::ir::IrRole::User,
-                            &wo.task,
-                        ),
+                        abp_core::ir::IrMessage::text(abp_core::ir::IrRole::User, &wo.task),
                     ]);
                     match translation_engine.translate(src, tgt, &probe) {
                         Ok(result) => {
