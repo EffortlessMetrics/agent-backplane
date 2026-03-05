@@ -128,13 +128,14 @@ pub fn merge_configs(base: BackplaneConfig, overlay: BackplaneConfig) -> Backpla
 /// - `ABP_LOG_LEVEL` — overrides `log_level`
 /// - `ABP_RECEIPTS_DIR` — overrides `receipts_dir`
 pub fn apply_env_overrides(config: &mut BackplaneConfig) {
-    if let Ok(val) = std::env::var("ABP_DEFAULT_BACKEND") {
+    let overrides = abp_config_env::BackplaneEnvOverrides::from_env();
+    if let Some(val) = overrides.default_backend {
         config.default_backend = Some(val);
     }
-    if let Ok(val) = std::env::var("ABP_LOG_LEVEL") {
+    if let Some(val) = overrides.log_level {
         config.log_level = Some(val);
     }
-    if let Ok(val) = std::env::var("ABP_RECEIPTS_DIR") {
+    if let Some(val) = overrides.receipts_dir {
         config.receipts_dir = Some(val);
     }
 }
