@@ -44,6 +44,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-budget"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "abp-capability"
 version = "0.1.0"
 dependencies = [
@@ -417,6 +424,7 @@ dependencies = [
 name = "abp-runtime"
 version = "0.1.0"
 dependencies = [
+ "abp-budget",
  "abp-capability",
  "abp-core",
  "abp-dialect",

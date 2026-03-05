@@ -12,6 +12,7 @@ members = [
   "crates/abp-backend-mock",
   "crates/abp-capability",
   "crates/abp-backend-sidecar",
+  "crates/abp-budget",
   "crates/abp-claude-sdk",
   "crates/abp-cli",
   "crates/abp-codex-sdk",
@@ -70,6 +71,7 @@ clap = { version = "4.5.60", features = ["derive"] }
 futures = "0.3.32"
 globset = "0.4.18"
 serde = { version = "1.0.228", features = ["derive"] }
+abp-budget = { path = "crates/abp-budget" }
 serde_json = "1.0.149"
 schemars = { version = "1.2.1", features = ["chrono04", "uuid1"] }
 jsonschema = "0.28"

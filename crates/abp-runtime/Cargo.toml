@@ -11,6 +11,7 @@ keywords = ["agent", "backplane", "ai", "runtime", "orchestration"]
 categories = ["development-tools"]
 
 [dependencies]
+abp-budget = { path = "../abp-budget", version = "0.1.0" }
 abp-capability = { path = "../abp-capability", version = "0.1.0" }
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-emulation = { path = "../abp-emulation", version = "0.1.0" }
