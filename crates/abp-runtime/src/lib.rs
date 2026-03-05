@@ -87,6 +87,7 @@ use abp_projection::translate::{TranslationEngine, TranslationMode, TranslationR
 use abp_receipt::{ReceiptBuilder, ReceiptChain};
 use abp_workspace::WorkspaceManager;
 use anyhow::Context;
+use middleware::{MiddlewareChain, MiddlewareContext};
 use std::sync::Arc;
 use telemetry::RunMetrics;
 use thiserror::Error;
@@ -213,6 +214,7 @@ pub struct Runtime {
     projection: Option<ProjectionMatrix>,
     stream_pipeline: Option<abp_stream::StreamPipeline>,
     translation_engine: Arc<TranslationEngine>,
+    middleware: Arc<MiddlewareChain>,
 }
 
 /// Handle to a running work order: provides a run id, event stream, and receipt future.
@@ -243,6 +245,7 @@ impl Runtime {
             projection: None,
             stream_pipeline: None,
             translation_engine: Arc::new(TranslationEngine::with_defaults()),
+            middleware: Arc::new(MiddlewareChain::new()),
         }
     }
 
@@ -355,6 +358,24 @@ impl Runtime {
     pub fn with_translation_engine(mut self, engine: TranslationEngine) -> Self {
         self.translation_engine = Arc::new(engine);
         self
+    }
+
+    /// Attach a [`MiddlewareChain`] that wraps every backend execution with
+    /// pre/post-run hooks (builder pattern).
+    ///
+    /// The chain's `before_run` hooks execute before the backend, and
+    /// `after_run` hooks execute (in reverse order) after the backend
+    /// completes or fails.
+    #[must_use]
+    pub fn with_middleware(mut self, chain: MiddlewareChain) -> Self {
+        self.middleware = Arc::new(chain);
+        self
+    }
+
+    /// Return a reference to the attached middleware chain.
+    #[must_use]
+    pub fn middleware(&self) -> &MiddlewareChain {
+        &self.middleware
     }
 
     /// Use the projection matrix to select the best backend for a work order.
@@ -527,6 +548,16 @@ impl Runtime {
         let source_dialect = extract_dialect(&work_order);
         let target_dialect = resolve_backend_dialect(self.projection.as_ref(), &backend_name);
         let translation_engine = Arc::clone(&self.translation_engine);
+
+        // Run middleware before_run hooks (short-circuits on error).
+        let mw_chain = Arc::clone(&self.middleware);
+        let mw_ctx = MiddlewareContext::new(&backend_name);
+        if !mw_chain.is_empty() {
+            mw_chain
+                .run_before(&work_order, &mw_ctx)
+                .await
+                .map_err(RuntimeError::PolicyFailed)?;
+        }
 
         // Two-stage channel: backend -> runtime -> caller
         let (from_backend_tx, mut from_backend_rx) = mpsc::channel::<AgentEvent>(256);
@@ -838,6 +869,16 @@ impl Runtime {
             let success = matches!(receipt.outcome, Outcome::Complete | Outcome::Partial);
             let event_count = receipt.trace.len() as u64;
             metrics.record_run(duration_ms, success, event_count);
+
+            // Run middleware after_run hooks (errors are collected, not fatal).
+            if !mw_chain.is_empty() {
+                let after_errors = mw_chain
+                    .run_after(&work_order, &mw_ctx, Some(&receipt))
+                    .await;
+                for e in &after_errors {
+                    warn!(target: "abp.runtime.middleware", error=%e, "after_run hook error");
+                }
+            }
 
             Ok(receipt)
         });
@@ -1225,6 +1266,122 @@ mod tests {
                 .collect();
             assert!(fb_ids.contains(&"beta"));
             assert!(fb_ids.contains(&"gamma"));
+        }
+    }
+
+    // -- Middleware integration tests --
+
+    mod middleware_integration {
+        use super::*;
+        use crate::middleware::{
+            AuditMiddleware, LoggingMiddleware, MetricsMiddleware, MiddlewareChain,
+            MiddlewareMetrics, PolicyMiddleware, ValidationMiddleware,
+        };
+        use std::sync::Arc;
+        use tokio_stream::StreamExt;
+
+        fn sample_work_order() -> WorkOrder {
+            WorkOrder {
+                id: uuid::Uuid::new_v4(),
+                task: "middleware test task".into(),
+                lane: abp_core::ExecutionLane::PatchFirst,
+                workspace: abp_core::WorkspaceSpec {
+                    root: ".".into(),
+                    mode: abp_core::WorkspaceMode::PassThrough,
+                    include: vec![],
+                    exclude: vec![],
+                },
+                context: abp_core::ContextPacket::default(),
+                policy: abp_core::PolicyProfile::default(),
+                requirements: abp_core::CapabilityRequirements::default(),
+                config: abp_core::RuntimeConfig::default(),
+            }
+        }
+
+        #[tokio::test]
+        async fn runtime_with_middleware_runs_before_and_after() {
+            let metrics = Arc::new(MiddlewareMetrics::new());
+            let audit = AuditMiddleware::new();
+            let audit_log = Arc::clone(&audit.log);
+
+            let chain = MiddlewareChain::new()
+                .with(LoggingMiddleware::default())
+                .with(MetricsMiddleware::new(Arc::clone(&metrics)))
+                .with(AuditMiddleware { log: audit_log });
+
+            let rt = Runtime::with_default_backends().with_middleware(chain);
+
+            let handle = rt.run_streaming("mock", sample_work_order()).await.unwrap();
+            let _events: Vec<_> = handle.events.collect().await;
+            let _receipt = handle.receipt.await.unwrap().unwrap();
+
+            // MetricsMiddleware before_run increments total_requests.
+            assert_eq!(metrics.total_requests(), 1);
+            // MetricsMiddleware after_run records success.
+            assert_eq!(metrics.successful_requests(), 1);
+        }
+
+        #[tokio::test]
+        async fn runtime_middleware_before_run_short_circuits() {
+            // Policy middleware rejects conflicting tool allow/deny lists.
+            let chain = MiddlewareChain::new().with(PolicyMiddleware);
+
+            let rt = Runtime::with_default_backends().with_middleware(chain);
+
+            let mut wo = sample_work_order();
+            wo.policy.allowed_tools = vec!["bash".into()];
+            wo.policy.disallowed_tools = vec!["bash".into()];
+
+            let result = rt.run_streaming("mock", wo).await;
+            let err = match result {
+                Err(e) => e,
+                Ok(_) => panic!("expected middleware to reject the work order"),
+            };
+            assert!(err.to_string().contains("bash") || err.to_string().contains("policy"));
+        }
+
+        #[tokio::test]
+        async fn runtime_middleware_validation_rejects_empty_task() {
+            let chain = MiddlewareChain::new().with(ValidationMiddleware::new());
+
+            let rt = Runtime::with_default_backends().with_middleware(chain);
+
+            let mut wo = sample_work_order();
+            wo.task = String::new();
+
+            let result = rt.run_streaming("mock", wo).await;
+            let err = match result {
+                Err(e) => e,
+                Ok(_) => panic!("expected middleware to reject the work order"),
+            };
+            assert!(
+                err.to_string().contains("task")
+                    || err.to_string().contains("validation")
+                    || err.to_string().contains("policy")
+            );
+        }
+
+        #[tokio::test]
+        async fn runtime_default_empty_middleware_is_transparent() {
+            // Default Runtime has empty middleware — should behave identically.
+            let rt = Runtime::with_default_backends();
+            assert!(rt.middleware().is_empty());
+
+            let handle = rt.run_streaming("mock", sample_work_order()).await.unwrap();
+            let _events: Vec<_> = handle.events.collect().await;
+            let receipt = handle.receipt.await.unwrap().unwrap();
+            assert!(matches!(receipt.outcome, abp_core::Outcome::Complete));
+        }
+
+        #[tokio::test]
+        async fn runtime_middleware_accessor() {
+            let chain = MiddlewareChain::new()
+                .with(LoggingMiddleware::default())
+                .with(PolicyMiddleware);
+
+            let rt = Runtime::with_default_backends().with_middleware(chain);
+            assert_eq!(rt.middleware().len(), 2);
+            assert_eq!(rt.middleware().names(), vec!["logging", "policy"]);
         }
     }
 }

@@ -1,5 +1,6 @@
 ---
 source: crates/abp-runtime/tests/pipeline_snapshots.rs
+assertion_line: 75
 expression: value
 ---
 {
@@ -63,6 +64,11 @@ expression: value
       "emulated": [],
       "native": [],
       "unsupported": []
+    },
+    "negotiation_result": {
+      "emulated": [],
+      "missing": [],
+      "native": []
     },
     "note": "mock"
   },

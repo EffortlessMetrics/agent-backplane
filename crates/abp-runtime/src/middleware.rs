@@ -25,8 +25,8 @@ use abp_validate::{Validator, WorkOrderValidator};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tracing::{debug, info, trace, warn};
@@ -962,7 +962,8 @@ impl Middleware for TransformMiddleware {
 
 /// Records processed work order ids for audit / testing.
 pub struct AuditMiddleware {
-    log: Arc<Mutex<Vec<uuid::Uuid>>>,
+    /// Shared log of recorded work order ids.
+    pub log: Arc<Mutex<Vec<uuid::Uuid>>>,
 }
 
 impl AuditMiddleware {
