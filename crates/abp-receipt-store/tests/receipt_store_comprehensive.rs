@@ -2013,6 +2013,7 @@ async fn mem_list_filter_with_all_none_is_default() {
         max_duration_ms: None,
         limit: None,
         offset: None,
+        ..Default::default()
     };
     let results = store.list(filter).await.unwrap();
     assert_eq!(results.len(), 1);

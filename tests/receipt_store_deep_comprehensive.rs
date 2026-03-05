@@ -1925,6 +1925,10 @@ fn receipt_filter_clone() {
         limit: Some(10),
         offset: Some(5),
         time_range: Some((ts(0), ts(100))),
+        text_search: None,
+        min_duration_ms: None,
+        max_duration_ms: None,
+        ..Default::default()
     };
     let f2 = f.clone();
     assert_eq!(f2.backend, f.backend);
