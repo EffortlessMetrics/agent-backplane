@@ -2,7 +2,7 @@
 //! Serde round-trip and edge-case tests for `kimi_types`.
 
 use kimi_bridge::kimi_types::*;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ── Helper builders ─────────────────────────────────────────────────────
 
@@ -520,7 +520,10 @@ fn stream_chunk_tool_call_delta_roundtrip() {
     let tc = &back.choices[0].delta.tool_calls.as_ref().unwrap()[0];
     assert_eq!(tc.id.as_deref(), Some("call_1"));
     assert_eq!(tc.call_type.as_deref(), Some("function"));
-    assert_eq!(tc.function.as_ref().unwrap().name.as_deref(), Some("search"));
+    assert_eq!(
+        tc.function.as_ref().unwrap().name.as_deref(),
+        Some("search")
+    );
 }
 
 #[test]
@@ -699,10 +702,7 @@ fn response_multiple_choices() {
     let back: KimiResponse = serde_json::from_str(&json).unwrap();
     assert_eq!(back.choices.len(), 2);
     assert_eq!(back.choices[1].index, 1);
-    assert_eq!(
-        back.choices[1].message.content.as_deref(),
-        Some("Answer B")
-    );
+    assert_eq!(back.choices[1].message.content.as_deref(), Some("Answer B"));
 }
 
 // ── Edge cases ──────────────────────────────────────────────────────────

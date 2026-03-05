@@ -153,13 +153,14 @@ fn response_with_everything_roundtrip() {
     // Roundtrip
     let back = ir_to_kimi_response(&ir);
     assert_eq!(back.id, "cmpl-full");
-    assert!(back
-        .choices[0]
-        .message
-        .content
-        .as_ref()
-        .unwrap()
-        .contains("found results"));
+    assert!(
+        back.choices[0]
+            .message
+            .content
+            .as_ref()
+            .unwrap()
+            .contains("found results")
+    );
     let tcs = back.choices[0].message.tool_calls.as_ref().unwrap();
     assert_eq!(tcs[0].function.name, "analyze");
     let refs = back.refs.unwrap();
@@ -271,12 +272,16 @@ fn full_stream_sequence() {
         refs: None,
     };
     let events = kimi_stream_to_ir(&end);
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, IrStreamEvent::StreamEnd { .. })));
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, IrStreamEvent::Usage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, IrStreamEvent::StreamEnd { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, IrStreamEvent::Usage { .. }))
+    );
 }
 
 // ── IR → Kimi with no model defaults to moonshot-v1-8k ──────────────────
@@ -318,8 +323,7 @@ fn ir_response_custom_blocks_rendered_as_text() {
 
 #[test]
 fn empty_tools_become_none_on_roundtrip() {
-    let ir = IrRequest::new(vec![IrMessage::text(IrRole::User, "Hi")])
-        .with_model("moonshot-v1-8k");
+    let ir = IrRequest::new(vec![IrMessage::text(IrRole::User, "Hi")]).with_model("moonshot-v1-8k");
     let kimi = ir_to_kimi_request(&ir);
     assert!(kimi.tools.is_none());
 }
@@ -381,10 +385,7 @@ fn tool_result_empty_content() {
     let kimi = ir_to_kimi_request(&ir);
     assert_eq!(kimi.messages[0].role, Role::Tool);
     assert!(kimi.messages[0].content.is_none());
-    assert_eq!(
-        kimi.messages[0].tool_call_id.as_deref(),
-        Some("call_empty")
-    );
+    assert_eq!(kimi.messages[0].tool_call_id.as_deref(), Some("call_empty"));
 }
 
 // ── Invalid JSON in tool call arguments ─────────────────────────────────
