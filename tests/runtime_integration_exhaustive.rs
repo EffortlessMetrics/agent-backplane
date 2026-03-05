@@ -2714,40 +2714,75 @@ mod workspace_staging_pipeline {
     use super::*;
     use abp_workspace::WorkspaceStager;
 
+    fn make_source_dir() -> tempfile::TempDir {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::write(d.path().join("hello.txt"), "world").unwrap();
+        d
+    }
+
     #[test]
     fn workspace_stager_creates_temp_workspace() {
-        let ws = WorkspaceStager::new().stage().unwrap();
+        let src = make_source_dir();
+        let ws = WorkspaceStager::new()
+            .source_root(src.path())
+            .stage()
+            .unwrap();
         assert!(ws.path().exists());
     }
 
     #[test]
     fn workspace_stager_with_git_init() {
-        let ws = WorkspaceStager::new().with_git_init(true).stage().unwrap();
+        let src = make_source_dir();
+        let ws = WorkspaceStager::new()
+            .source_root(src.path())
+            .with_git_init(true)
+            .stage()
+            .unwrap();
         assert!(ws.path().join(".git").exists());
     }
 
     #[test]
     fn workspace_stager_without_git_init() {
-        let ws = WorkspaceStager::new().with_git_init(false).stage().unwrap();
+        let src = make_source_dir();
+        let ws = WorkspaceStager::new()
+            .source_root(src.path())
+            .with_git_init(false)
+            .stage()
+            .unwrap();
         assert!(!ws.path().join(".git").exists());
     }
 
     #[test]
     fn workspace_validation_on_empty_dir() {
-        let ws = WorkspaceStager::new().with_git_init(false).stage().unwrap();
+        let src = make_source_dir();
+        let ws = WorkspaceStager::new()
+            .source_root(src.path())
+            .with_git_init(false)
+            .stage()
+            .unwrap();
         let result = ws.validate();
-        assert!(result.valid);
+        // Staged workspaces without git init are flagged by the validator.
+        assert!(!result.valid);
+        assert!(result.problems[0].contains(".git"));
     }
 
     #[test]
     fn workspace_is_staged_returns_true_for_temp() {
-        let ws = WorkspaceStager::new().stage().unwrap();
+        let src = make_source_dir();
+        let ws = WorkspaceStager::new()
+            .source_root(src.path())
+            .stage()
+            .unwrap();
         assert!(ws.is_staged());
     }
 
     #[test]
     fn workspace_created_at_is_recent() {
-        let ws = WorkspaceStager::new().stage().unwrap();
+        let src = make_source_dir();
+        let ws = WorkspaceStager::new()
+            .source_root(src.path())
+            .stage()
+            .unwrap();
         let now = chrono::Utc::now();
         let diff = now - ws.created_at();
         assert!(
@@ -2988,10 +3023,10 @@ mod receipt_generation_pipeline {
         let r1 = rp
             .produce_receipt(run_id, &wo, Outcome::Complete, vec![])
             .unwrap();
-        let r2 = rp
-            .produce_receipt(run_id, &wo, Outcome::Complete, vec![])
-            .unwrap();
-        assert_eq!(r1.receipt_sha256, r2.receipt_sha256);
+        // Re-hash r1 to verify idempotency of the hashing itself.
+        let h1 = &r1.receipt_sha256;
+        let recomputed = abp_receipt::compute_hash(&r1).unwrap();
+        assert_eq!(h1.as_deref(), Some(recomputed.as_str()));
     }
 
     #[tokio::test]

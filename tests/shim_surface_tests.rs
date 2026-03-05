@@ -1100,7 +1100,7 @@ fn copilot_model_preserved_in_work_order() {
 
 #[test]
 fn gemini_client_model_accessor() {
-    let client = abp_shim_gemini::GeminiClient::new("gemini-2.5-pro").unwrap();
+    let client = abp_shim_gemini::GeminiClient::with_model("test-key", "gemini-2.5-pro").unwrap();
     assert_eq!(client.model(), "gemini-2.5-pro");
 }
 
@@ -1112,7 +1112,7 @@ fn openai_client_model_accessor() {
 
 #[test]
 fn kimi_client_model_accessor() {
-    let client = abp_shim_kimi::KimiClient::new("moonshot-v1-32k");
+    let client = abp_shim_kimi::KimiClient::with_model("moonshot-v1-32k");
     assert_eq!(client.model(), "moonshot-v1-32k");
 }
 

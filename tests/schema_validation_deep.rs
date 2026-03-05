@@ -696,14 +696,15 @@ fn support_level_restricted_is_object() {
 }
 
 #[test]
-fn min_support_has_two_variants() {
+fn min_support_has_three_variants() {
     let s = work_order_schema();
     let ms = &s["$defs"]["MinSupport"];
     let one_of = ms["oneOf"].as_array().unwrap();
-    assert_eq!(one_of.len(), 2);
+    assert_eq!(one_of.len(), 3);
     let consts: Vec<&str> = one_of.iter().filter_map(|v| v["const"].as_str()).collect();
     assert!(consts.contains(&"native"));
     assert!(consts.contains(&"emulated"));
+    assert!(consts.contains(&"any"));
 }
 
 #[test]

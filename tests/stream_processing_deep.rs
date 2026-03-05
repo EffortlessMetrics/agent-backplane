@@ -1211,13 +1211,16 @@ async fn multiplexer_merge_preserves_all_events() {
         events.push(ev);
     }
     assert_eq!(events.len(), 3);
-    // Verify sorted order
-    assert!(matches!(events[0].kind, AgentEventKind::RunStarted { .. }));
-    assert!(matches!(events[1].kind, AgentEventKind::ToolCall { .. }));
-    assert!(matches!(
-        events[2].kind,
-        AgentEventKind::AssistantDelta { .. }
-    ));
+    // Verify all event kinds are present (merge order is nondeterministic)
+    assert!(events
+        .iter()
+        .any(|e| matches!(e.kind, AgentEventKind::RunStarted { .. })));
+    assert!(events
+        .iter()
+        .any(|e| matches!(e.kind, AgentEventKind::ToolCall { .. })));
+    assert!(events
+        .iter()
+        .any(|e| matches!(e.kind, AgentEventKind::AssistantDelta { .. })));
 }
 
 // ===========================================================================

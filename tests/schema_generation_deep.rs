@@ -601,7 +601,8 @@ fn min_support_variants() {
         .collect();
     assert!(consts.contains(&"native"));
     assert!(consts.contains(&"emulated"));
-    assert_eq!(consts.len(), 2);
+    assert!(consts.contains(&"any"));
+    assert_eq!(consts.len(), 3);
 }
 
 #[test]

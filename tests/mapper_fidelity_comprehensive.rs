@@ -1815,7 +1815,12 @@ mod lossy_mapping_detection {
         let result = OpenAiCodexIrMapper
             .map_request(Dialect::OpenAi, Dialect::Codex, &conv)
             .unwrap();
-        assert_eq!(result.messages[0].content.len(), 1);
+        // Codex emulates images as text placeholders, so both blocks survive.
+        assert_eq!(result.messages[0].content.len(), 2);
+        assert!(matches!(
+            &result.messages[0].content[1],
+            IrContentBlock::Text { text } if text.contains("[Image:")
+        ));
     }
 
     #[test]

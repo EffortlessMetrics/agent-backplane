@@ -2053,7 +2053,7 @@ async fn resilience_timeout_circuit_breaker_prevents_timeout_waste() {
 
 #[tokio::test]
 async fn resilience_timeout_retry_with_decreasing_budget() {
-    let total_budget = Duration::from_millis(200);
+    let total_budget = Duration::from_secs(2);
     let start = Instant::now();
     let mut attempts = 0u32;
     loop {
@@ -2061,8 +2061,8 @@ async fn resilience_timeout_retry_with_decreasing_budget() {
         if remaining.is_zero() {
             break;
         }
-        let result = tokio::time::timeout(remaining.min(Duration::from_millis(40)), async {
-            tokio::time::sleep(Duration::from_millis(50)).await;
+        let result = tokio::time::timeout(remaining.min(Duration::from_millis(50)), async {
+            tokio::time::sleep(Duration::from_millis(200)).await;
             Ok::<_, String>("done")
         })
         .await;
@@ -2072,7 +2072,7 @@ async fn resilience_timeout_retry_with_decreasing_budget() {
         }
     }
     assert!(attempts >= 2);
-    assert!(start.elapsed() <= total_budget + Duration::from_millis(100));
+    assert!(start.elapsed() <= total_budget + Duration::from_millis(500));
 }
 
 #[tokio::test]

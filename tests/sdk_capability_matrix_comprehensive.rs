@@ -77,6 +77,21 @@ fn all_capabilities() -> Vec<Capability> {
         Capability::Logprobs,
         Capability::SeedDeterminism,
         Capability::StopSequences,
+        Capability::FunctionCalling,
+        Capability::Vision,
+        Capability::Audio,
+        Capability::JsonMode,
+        Capability::SystemMessage,
+        Capability::Temperature,
+        Capability::TopP,
+        Capability::TopK,
+        Capability::MaxTokens,
+        Capability::FrequencyPenalty,
+        Capability::PresencePenalty,
+        Capability::CacheControl,
+        Capability::BatchMode,
+        Capability::Embeddings,
+        Capability::ImageGeneration,
     ]
 }
 

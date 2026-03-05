@@ -1145,7 +1145,8 @@ fn stability_min_support_variants() {
     let variants = collect_one_of_consts(&s);
     assert!(variants.contains(&"native".to_string()));
     assert!(variants.contains(&"emulated".to_string()));
-    assert_eq!(variants.len(), 2);
+    assert!(variants.contains(&"any".to_string()));
+    assert_eq!(variants.len(), 3);
 }
 
 #[test]

@@ -980,7 +980,17 @@ workspace_dep_pinned_test!(test_futures_version_pinned, "futures");
 // ===========================================================================
 
 /// Known exceptions to the abp- prefix convention.
-const NAMING_EXCEPTIONS: &[&str] = &["claude-bridge", "sidecar-kit", "xtask", "agent-backplane"];
+const NAMING_EXCEPTIONS: &[&str] = &[
+    "claude-bridge",
+    "codex-bridge",
+    "copilot-bridge",
+    "gemini-bridge",
+    "kimi-bridge",
+    "openai-bridge",
+    "sidecar-kit",
+    "xtask",
+    "agent-backplane",
+];
 
 #[test]
 fn test_crate_names_follow_abp_prefix_convention() {
@@ -998,7 +1008,7 @@ fn test_crate_names_follow_abp_prefix_convention() {
 #[test]
 fn test_known_naming_exceptions_exist() {
     let names = all_crate_names();
-    for exc in &["claude-bridge", "sidecar-kit"] {
+    for exc in &["claude-bridge", "codex-bridge", "copilot-bridge", "gemini-bridge", "kimi-bridge", "openai-bridge", "sidecar-kit"] {
         assert!(
             names.contains(*exc),
             "expected naming exception '{exc}' should be a workspace member"
@@ -1010,7 +1020,7 @@ fn test_known_naming_exceptions_exist() {
 fn test_naming_exceptions_are_publishable() {
     let crates = publishable_crates();
     let names: HashSet<&str> = crates.iter().map(|c| c.name.as_str()).collect();
-    for exc in &["claude-bridge", "sidecar-kit"] {
+    for exc in &["claude-bridge", "codex-bridge", "copilot-bridge", "gemini-bridge", "kimi-bridge", "openai-bridge", "sidecar-kit"] {
         assert!(
             names.contains(*exc),
             "naming exception '{exc}' should be publishable (in crates/)"

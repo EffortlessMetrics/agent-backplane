@@ -1379,9 +1379,10 @@ fn direct_route_all_mapped_pairs_have_cost_one() {
 
 #[test]
 fn multi_hop_kimi_to_claude_via_openai() {
-    // Kimi→OpenAi is unsupported by default, but let's register Kimi→OpenAi as mapped.
-    let mut pm = ProjectionMatrix::with_defaults();
+    // Use explicit registrations to force multi-hop routing.
+    let mut pm = ProjectionMatrix::new();
     pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
     let route = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
     // Should chain through OpenAI: Kimi→OpenAI→Claude
     assert!(route.is_multi_hop());
@@ -1475,13 +1476,9 @@ fn multi_hop_no_route_if_no_intermediate() {
 
 #[test]
 fn multi_hop_through_codex_to_claude() {
-    let mut pm = ProjectionMatrix::with_defaults();
-    // Kimi→Codex mapped, Codex→OpenAI mapped, OpenAI→Claude mapped
+    // Use explicit registrations to force multi-hop routing.
+    let mut pm = ProjectionMatrix::new();
     pm.register(Dialect::Kimi, Dialect::Codex, ProjectionMode::Mapped);
-    // Direct Kimi→Claude is unsupported, but Kimi→Codex→OpenAI chain is two hops.
-    // Also Kimi→Codex is 1 hop and Codex→Claude needs to go through OpenAI.
-    // find_route only does 1-intermediate chains, so we need Kimi→OpenAI to exist
-    // or Kimi→Codex + Codex→Claude. Let's check Codex→Claude.
     pm.register(Dialect::Codex, Dialect::Claude, ProjectionMode::Mapped);
     let route = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
     assert!(route.is_multi_hop());
@@ -1542,8 +1539,10 @@ fn multi_hop_copilot_to_claude() {
 
 #[test]
 fn multi_hop_kimi_to_gemini_via_openai() {
-    let mut pm = ProjectionMatrix::with_defaults();
+    // Use explicit registrations to force multi-hop routing.
+    let mut pm = ProjectionMatrix::new();
     pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    pm.register(Dialect::OpenAi, Dialect::Gemini, ProjectionMode::Mapped);
     let route = pm.find_route(Dialect::Kimi, Dialect::Gemini).unwrap();
     assert!(route.is_multi_hop());
     assert_eq!(route.cost, 2);
@@ -1593,8 +1592,10 @@ fn cost_identity_is_zero() {
 
 #[test]
 fn cost_multi_hop_is_two() {
-    let mut pm = ProjectionMatrix::with_defaults();
+    // Use explicit registrations to force multi-hop routing.
+    let mut pm = ProjectionMatrix::new();
     pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
     let route = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
     assert_eq!(route.cost, 2);
 }
@@ -1613,7 +1614,10 @@ fn cost_direct_preferred_over_multi_hop() {
 
 #[test]
 fn cost_ordering_identity_direct_multihop() {
-    let mut pm = ProjectionMatrix::with_defaults();
+    // Use explicit registrations to force multi-hop routing.
+    let mut pm = ProjectionMatrix::new();
+    pm.register(Dialect::OpenAi, Dialect::OpenAi, ProjectionMode::Passthrough);
+    pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
     pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
 
     let identity = pm.find_route(Dialect::OpenAi, Dialect::OpenAi).unwrap();
@@ -1632,8 +1636,8 @@ fn cost_no_route_returns_none() {
 
 #[test]
 fn cost_unsupported_pair_tries_multi_hop() {
-    let pm = ProjectionMatrix::with_defaults();
-    // Kimi→Copilot is unsupported and no intermediate exists.
+    // Use an empty matrix — no routes registered, so no multi-hop possible.
+    let pm = ProjectionMatrix::new();
     let route = pm.find_route(Dialect::Kimi, Dialect::Copilot);
     assert!(route.is_none());
 }
