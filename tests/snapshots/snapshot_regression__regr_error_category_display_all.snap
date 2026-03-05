@@ -1,0 +1,19 @@
+---
+source: tests/snapshot_regression.rs
+expression: categories
+---
+[
+  "protocol",
+  "backend",
+  "capability",
+  "policy",
+  "workspace",
+  "ir",
+  "receipt",
+  "dialect",
+  "config",
+  "mapping",
+  "execution",
+  "contract",
+  "internal"
+]

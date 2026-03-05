@@ -1,0 +1,5 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: err.to_string()
+---
+protocol violation: hello not received first

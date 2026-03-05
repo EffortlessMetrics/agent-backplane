@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: td
+---
+{
+  "name": "list_files",
+  "description": "List all workspace files",
+  "parameters": {
+    "properties": {},
+    "type": "object"
+  }
+}

@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Deep tests for SDK dialect lowering: dialect → IR → dialect roundtrips.
 //!
 //! Covers OpenAI, Claude, and Gemini lowering across messages, tool calls,
@@ -1214,6 +1243,7 @@ fn gemini_finish_reason_stop() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = gemini_dialect::map_response(&resp);

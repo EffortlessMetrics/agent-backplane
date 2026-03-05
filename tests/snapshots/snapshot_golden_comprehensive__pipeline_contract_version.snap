@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: CONTRACT_VERSION
+---
+abp/v0.1

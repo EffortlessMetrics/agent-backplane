@@ -1,0 +1,17 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: confirmations
+---
+[
+  {
+    "id": "conf_001",
+    "title": "Delete file",
+    "message": "Are you sure you want to delete src/old.rs?"
+  },
+  {
+    "id": "conf_002",
+    "title": "Run command",
+    "message": "Execute `cargo build`?",
+    "accepted": true
+  }
+]

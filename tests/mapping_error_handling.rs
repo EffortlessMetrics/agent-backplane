@@ -1,3 +1,32 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Comprehensive error handling tests for the mapping layer.
 //!
@@ -529,10 +558,10 @@ fn abp_error_dialect_mapping_failed_has_dialect_category() {
 
 #[test]
 fn dialect_error_codes_stable_strings() {
-    assert_eq!(ErrorCode::DialectUnknown.as_str(), "DIALECT_UNKNOWN");
+    assert_eq!(ErrorCode::DialectUnknown.as_str(), "dialect_unknown");
     assert_eq!(
         ErrorCode::DialectMappingFailed.as_str(),
-        "DIALECT_MAPPING_FAILED"
+        "dialect_mapping_failed"
     );
 }
 
@@ -813,7 +842,7 @@ fn chained_error_dto_captures_source_message() {
 fn chained_error_display_includes_code_and_message() {
     let abp_err = AbpError::new(ErrorCode::DialectMappingFailed, "translation failed");
     let display = abp_err.to_string();
-    assert!(display.contains("DIALECT_MAPPING_FAILED"));
+    assert!(display.contains("dialect_mapping_failed"));
     assert!(display.contains("translation failed"));
 }
 

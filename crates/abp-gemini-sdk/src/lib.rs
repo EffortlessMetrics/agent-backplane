@@ -8,8 +8,53 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// Bidirectional conversions between Gemini API types and ABP core types.
+///
+/// Implements `From<GeminiRequest>` for `WorkOrder` and constructs
+/// `GeminiResponse` from `Receipt`.
+pub mod conversions;
+
+/// Conversion layer for the Gemini `GenerateContent` API.
+///
+/// Free-function conversions using `crate::types` (camelCase wire types):
+/// [`convert::to_work_order`], [`convert::from_receipt`], and
+/// [`convert::from_agent_event`].
+/// Also exposes [`convert::translate_to_work_order`] and
+/// [`convert::translate_from_receipt`] convenience aliases.
+pub mod convert;
+
+/// Gemini dialect configuration, model mapping, and capability manifest.
+///
+/// Defines the concrete types (`GeminiContent`, `GeminiPart`, etc.)
+/// used on the wire, and maps between vendor model names and ABP
+/// canonical model identifiers.
 pub mod dialect;
+
+/// Error types matching the Google Gemini REST API error format.
+///
+/// Provides [`GeminiErrorResponse`](crate::error::GeminiErrorResponse), [`GeminiErrorDetail`](crate::error::GeminiErrorDetail),
+/// and [`GeminiErrorStatus`](crate::error::GeminiErrorStatus) for deserialising API error bodies.
+pub mod error;
+
+/// Lowering between ABP IR and the Google Gemini message format.
+///
+/// `lowering::to_ir` lifts Gemini content slices into an IR conversation,
+/// and `lowering::from_ir` lowers back to Gemini contents.
 pub mod lowering;
+
+/// Streaming types and conversions for the `streamGenerateContent` endpoint.
+///
+/// Provides [`StreamGenerateContentResponse`](crate::streaming::StreamGenerateContentResponse),
+/// [`map_stream_chunk`](crate::streaming::map_stream_chunk), and a
+/// [`FunctionCallAccumulator`](crate::streaming::FunctionCallAccumulator) for reassembling streamed
+/// function-call fragments.
+pub mod streaming;
+
+/// Gemini GenerateContent API request and response types.
+///
+/// Standalone types that mirror the Google Gemini REST API surface
+/// for `generateContent` and `streamGenerateContent` endpoints.
+pub mod types;
 
 use abp_runtime::Runtime;
 use abp_sidecar_sdk::{register_sidecar_backend, sidecar_script as resolve_sidecar_script};

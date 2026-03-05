@@ -4,6 +4,6 @@ expression: "json!({\n    \"code\": code, \"category\": code.category(), \"displ
 ---
 {
   "category": "capability",
-  "code": "CAPABILITY_EMULATION_FAILED",
-  "display": "CAPABILITY_EMULATION_FAILED"
+  "code": "capability_emulation_failed",
+  "display": "capability_emulation_failed"
 }

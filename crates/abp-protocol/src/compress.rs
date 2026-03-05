@@ -4,14 +4,12 @@
 //! Provides [`MessageCompressor`] for compressing and decompressing raw byte
 //! payloads, [`CompressedMessage`] as a self-describing compressed envelope,
 //! and [`CompressionStats`] for tracking cumulative compression metrics.
-//!
-//! # Stub implementations
-//!
-//! The `Gzip` and `Zstd` variants are currently **stubs** that prepend a
-//! one-byte algorithm tag but do **not** perform real compression.  The
-//! round-trip contract (compress then decompress yields the original bytes)
-//! is always upheld.
 
+use std::io::{Read, Write};
+
+use flate2::Compression;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
 use serde::{Deserialize, Serialize};
 
 /// Identifies which compression algorithm to apply.
@@ -20,16 +18,14 @@ use serde::{Deserialize, Serialize};
 pub enum CompressionAlgorithm {
     /// No compression — data is passed through unchanged.
     None,
-    /// Gzip compression (stub: tags data but does not actually compress).
-    // Stub — replace with real gzip via the `flate2` crate.
+    /// Gzip compression via the `flate2` crate.
     Gzip,
-    /// Zstandard compression (stub: tags data but does not actually compress).
-    // Stub — replace with real zstd via the `zstd` crate.
+    /// Zstandard compression via the `zstd` crate.
     Zstd,
 }
 
 impl CompressionAlgorithm {
-    /// Header byte written by the stub compressors so `decompress` can
+    /// Header byte prepended to compressed output so `decompress` can
     /// identify the algorithm that was used.
     fn tag(self) -> u8 {
         match self {
@@ -71,6 +67,9 @@ pub enum CompressError {
         /// The algorithm indicated by the header byte.
         found: CompressionAlgorithm,
     },
+    /// An I/O error occurred during compression or decompression.
+    #[error("compression I/O error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// Convenience alias used throughout this module.
@@ -81,10 +80,6 @@ pub type Result<T> = std::result::Result<T, CompressError>;
 // ---------------------------------------------------------------------------
 
 /// Compresses and decompresses raw byte buffers using a chosen algorithm.
-///
-/// For `Gzip` and `Zstd` the current implementation is a **stub**: a single
-/// header byte is prepended during compression and stripped during
-/// decompression, but the payload is stored verbatim.
 #[derive(Clone, Copy, Debug)]
 pub struct MessageCompressor {
     algorithm: CompressionAlgorithm,
@@ -106,16 +101,23 @@ impl MessageCompressor {
     /// Compress `data`, returning the compressed byte vector.
     ///
     /// For [`CompressionAlgorithm::None`] the input is returned unchanged.
-    /// For the stub `Gzip`/`Zstd` implementations a one-byte header is
-    /// prepended.
+    /// For `Gzip` and `Zstd` a one-byte algorithm tag is prepended, followed
+    /// by the real compressed payload.
     pub fn compress(&self, data: &[u8]) -> Result<Vec<u8>> {
         match self.algorithm {
             CompressionAlgorithm::None => Ok(data.to_vec()),
-            CompressionAlgorithm::Gzip | CompressionAlgorithm::Zstd => {
-                // Stub — replace with real compression (flate2 / zstd).
+            CompressionAlgorithm::Gzip => {
                 let mut out = Vec::with_capacity(1 + data.len());
                 out.push(self.algorithm.tag());
-                out.extend_from_slice(data);
+                let mut encoder = GzEncoder::new(&mut out, Compression::default());
+                encoder.write_all(data)?;
+                encoder.finish()?;
+                Ok(out)
+            }
+            CompressionAlgorithm::Zstd => {
+                let mut out = vec![self.algorithm.tag()];
+                let compressed = zstd::encode_all(data, 3)?;
+                out.extend_from_slice(&compressed);
                 Ok(out)
             }
         }
@@ -124,13 +126,12 @@ impl MessageCompressor {
     /// Decompress `data` previously produced by [`compress`](Self::compress).
     ///
     /// For [`CompressionAlgorithm::None`] the input is returned unchanged.
-    /// For stub `Gzip`/`Zstd` the leading header byte is validated and
-    /// stripped.
+    /// For `Gzip` and `Zstd` the leading header byte is validated and
+    /// stripped, then the remaining bytes are decompressed.
     pub fn decompress(&self, data: &[u8]) -> Result<Vec<u8>> {
         match self.algorithm {
             CompressionAlgorithm::None => Ok(data.to_vec()),
             CompressionAlgorithm::Gzip | CompressionAlgorithm::Zstd => {
-                // Stub — replace with real decompression (flate2 / zstd).
                 if data.is_empty() {
                     return Err(CompressError::TooShort);
                 }
@@ -141,7 +142,20 @@ impl MessageCompressor {
                         found,
                     });
                 }
-                Ok(data[1..].to_vec())
+                let payload = &data[1..];
+                match self.algorithm {
+                    CompressionAlgorithm::Gzip => {
+                        let mut decoder = GzDecoder::new(payload);
+                        let mut out = Vec::new();
+                        decoder.read_to_end(&mut out)?;
+                        Ok(out)
+                    }
+                    CompressionAlgorithm::Zstd => {
+                        let out = zstd::decode_all(payload)?;
+                        Ok(out)
+                    }
+                    CompressionAlgorithm::None => unreachable!(),
+                }
             }
         }
     }
@@ -220,7 +234,7 @@ impl CompressionStats {
 
     /// Total bytes saved by compression (`original - compressed`).
     ///
-    /// Returns `0` when compressed size exceeds original (as with stubs).
+    /// Returns `0` when compressed size exceeds original.
     #[must_use]
     pub fn bytes_saved(&self) -> u64 {
         self.total_original.saturating_sub(self.total_compressed)
@@ -250,5 +264,86 @@ mod tests {
         let c = MessageCompressor::new(CompressionAlgorithm::Zstd);
         let data = b"hello zstd";
         assert_eq!(c.decompress(&c.compress(data).unwrap()).unwrap(), data);
+    }
+
+    #[test]
+    fn gzip_empty_input() {
+        let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
+        let data = b"";
+        assert_eq!(
+            c.decompress(&c.compress(data).unwrap()).unwrap(),
+            data.as_slice()
+        );
+    }
+
+    #[test]
+    fn zstd_empty_input() {
+        let c = MessageCompressor::new(CompressionAlgorithm::Zstd);
+        let data = b"";
+        assert_eq!(
+            c.decompress(&c.compress(data).unwrap()).unwrap(),
+            data.as_slice()
+        );
+    }
+
+    #[test]
+    fn gzip_actually_compresses_repetitive_data() {
+        let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
+        let data = "abcdef".repeat(1000);
+        let compressed = c.compress(data.as_bytes()).unwrap();
+        assert!(
+            compressed.len() < data.len(),
+            "gzip should compress repetitive data"
+        );
+        assert_eq!(c.decompress(&compressed).unwrap(), data.as_bytes());
+    }
+
+    #[test]
+    fn zstd_actually_compresses_repetitive_data() {
+        let c = MessageCompressor::new(CompressionAlgorithm::Zstd);
+        let data = "abcdef".repeat(1000);
+        let compressed = c.compress(data.as_bytes()).unwrap();
+        assert!(
+            compressed.len() < data.len(),
+            "zstd should compress repetitive data"
+        );
+        assert_eq!(c.decompress(&compressed).unwrap(), data.as_bytes());
+    }
+
+    #[test]
+    fn decompress_too_short() {
+        let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
+        assert!(matches!(c.decompress(b""), Err(CompressError::TooShort)));
+    }
+
+    #[test]
+    fn decompress_algorithm_mismatch() {
+        let gzip = MessageCompressor::new(CompressionAlgorithm::Gzip);
+        let zstd = MessageCompressor::new(CompressionAlgorithm::Zstd);
+        let compressed = gzip.compress(b"test data").unwrap();
+        let err = zstd.decompress(&compressed).unwrap_err();
+        assert!(matches!(err, CompressError::AlgorithmMismatch { .. }));
+    }
+
+    #[test]
+    fn compressed_message_round_trip() {
+        let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
+        let data = b"hello compressed message";
+        let msg = c.compress_message(data).unwrap();
+        assert_eq!(msg.algorithm, CompressionAlgorithm::Gzip);
+        assert_eq!(msg.original_size, data.len());
+        assert_eq!(msg.compressed_size, msg.data.len());
+        assert_eq!(c.decompress_message(&msg).unwrap(), data);
+    }
+
+    #[test]
+    fn compression_stats_tracking() {
+        let mut stats = CompressionStats::new();
+        stats.record(1000, 200);
+        stats.record(2000, 400);
+        assert_eq!(stats.total_original, 3000);
+        assert_eq!(stats.total_compressed, 600);
+        assert_eq!(stats.bytes_saved(), 2400);
+        assert!((stats.compression_ratio() - 0.2).abs() < f64::EPSILON);
     }
 }

@@ -1,0 +1,50 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: events
+---
+[
+  {
+    "type": "copilot_references",
+    "references": [
+      {
+        "type": "file",
+        "id": "ref_stream",
+        "data": {
+          "path": "README.md"
+        }
+      }
+    ]
+  },
+  {
+    "type": "text_delta",
+    "text": "Here is the "
+  },
+  {
+    "type": "function_call",
+    "function_call": {
+      "name": "read_file",
+      "arguments": "{\"path\":\"src/lib.rs\"}",
+      "id": "call_cp01"
+    }
+  },
+  {
+    "type": "copilot_errors",
+    "errors": [
+      {
+        "type": "tool_error",
+        "message": "File not found",
+        "code": "not_found",
+        "identifier": "err_001"
+      }
+    ]
+  },
+  {
+    "type": "metadata",
+    "metadata": {
+      "intent": "fix"
+    }
+  },
+  {
+    "type": "done"
+  }
+]

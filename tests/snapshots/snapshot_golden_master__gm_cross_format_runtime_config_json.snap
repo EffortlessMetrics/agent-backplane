@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: snap_json(&cfg)
+---
+{
+  "model": "claude-4-opus",
+  "vendor": {
+    "temperature": 0.5
+  },
+  "env": {
+    "LANG": "en_US"
+  },
+  "max_budget_usd": 10.0,
+  "max_turns": 100
+}

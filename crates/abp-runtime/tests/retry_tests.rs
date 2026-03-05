@@ -1,7 +1,35 @@
+#![allow(clippy::all)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the retry / timeout module.
 
-use abp_runtime::retry::{RetryPolicy, TimeoutConfig};
+use abp_runtime::retry::{FallbackChain, RetryPolicy, TimeoutConfig};
 use std::time::Duration;
 
 // ── Default policy values ───────────────────────────────────────────────────
@@ -186,4 +214,149 @@ fn multiplier_half_gives_decreasing_backoff() {
     let d2 = p.compute_delay(2);
     // Even with jitter the second-attempt base is 4x smaller.
     assert!(d0 > d2, "d0={d0:?} should be > d2={d2:?}");
+}
+
+// ── no_retry constructor ────────────────────────────────────────────────────
+
+#[test]
+fn no_retry_has_zero_max_retries() {
+    assert_eq!(RetryPolicy::no_retry().max_retries, 0);
+}
+
+#[test]
+fn no_retry_should_retry_is_always_false() {
+    let p = RetryPolicy::no_retry();
+    for attempt in 0..10 {
+        assert!(!p.should_retry(attempt));
+    }
+}
+
+#[test]
+fn no_retry_delay_is_zero() {
+    let p = RetryPolicy::no_retry();
+    assert_eq!(p.delay_for(0), Duration::ZERO);
+}
+
+#[test]
+fn no_retry_serde_roundtrip() {
+    let p = RetryPolicy::no_retry();
+    let json = serde_json::to_string(&p).unwrap();
+    let p2: RetryPolicy = serde_json::from_str(&json).unwrap();
+    assert_eq!(p, p2);
+}
+
+// ── delay_for alias ─────────────────────────────────────────────────────────
+
+#[test]
+fn delay_for_equals_compute_delay() {
+    let p = RetryPolicy::default();
+    for attempt in 0..10 {
+        assert_eq!(p.delay_for(attempt), p.compute_delay(attempt));
+    }
+}
+
+// ── FallbackChain ───────────────────────────────────────────────────────────
+
+#[test]
+fn fallback_chain_iterates_in_order() {
+    let mut chain = FallbackChain::new(vec!["alpha".into(), "beta".into(), "gamma".into()]);
+    assert_eq!(chain.next_backend(), Some("alpha"));
+    assert_eq!(chain.next_backend(), Some("beta"));
+    assert_eq!(chain.next_backend(), Some("gamma"));
+    assert_eq!(chain.next_backend(), None);
+}
+
+#[test]
+fn fallback_chain_empty() {
+    let mut chain = FallbackChain::new(vec![]);
+    assert!(chain.is_empty());
+    assert_eq!(chain.len(), 0);
+    assert_eq!(chain.remaining(), 0);
+    assert_eq!(chain.next_backend(), None);
+}
+
+#[test]
+fn fallback_chain_exhausted_returns_none_repeatedly() {
+    let mut chain = FallbackChain::new(vec!["only".into()]);
+    assert_eq!(chain.next_backend(), Some("only"));
+    assert_eq!(chain.next_backend(), None);
+    assert_eq!(chain.next_backend(), None);
+}
+
+#[test]
+fn fallback_chain_remaining_decrements() {
+    let mut chain = FallbackChain::new(vec!["a".into(), "b".into(), "c".into()]);
+    assert_eq!(chain.remaining(), 3);
+    chain.next_backend();
+    assert_eq!(chain.remaining(), 2);
+    chain.next_backend();
+    assert_eq!(chain.remaining(), 1);
+    chain.next_backend();
+    assert_eq!(chain.remaining(), 0);
+}
+
+#[test]
+fn fallback_chain_len_is_total() {
+    let chain = FallbackChain::new(vec!["a".into(), "b".into()]);
+    assert_eq!(chain.len(), 2);
+}
+
+#[test]
+fn fallback_chain_reset() {
+    let mut chain = FallbackChain::new(vec!["x".into(), "y".into()]);
+    chain.next_backend();
+    chain.next_backend();
+    assert_eq!(chain.remaining(), 0);
+
+    chain.reset();
+    assert_eq!(chain.remaining(), 2);
+    assert_eq!(chain.next_backend(), Some("x"));
+}
+
+#[test]
+fn fallback_chain_is_empty_false_with_backends() {
+    let chain = FallbackChain::new(vec!["a".into()]);
+    assert!(!chain.is_empty());
+}
+
+// ── RuntimeError retryability ───────────────────────────────────────────────
+
+#[test]
+fn backend_failed_is_retryable() {
+    let err = abp_runtime::RuntimeError::BackendFailed(anyhow::anyhow!("connection reset"));
+    assert!(err.is_retryable());
+}
+
+#[test]
+fn workspace_failed_is_retryable() {
+    let err = abp_runtime::RuntimeError::WorkspaceFailed(anyhow::anyhow!("disk full"));
+    assert!(err.is_retryable());
+}
+
+#[test]
+fn unknown_backend_is_not_retryable() {
+    let err = abp_runtime::RuntimeError::UnknownBackend {
+        name: "nope".into(),
+    };
+    assert!(!err.is_retryable());
+}
+
+#[test]
+fn policy_failed_is_not_retryable() {
+    let err = abp_runtime::RuntimeError::PolicyFailed(anyhow::anyhow!("bad glob"));
+    assert!(!err.is_retryable());
+}
+
+#[test]
+fn capability_check_failed_is_not_retryable() {
+    let err = abp_runtime::RuntimeError::CapabilityCheckFailed("missing tool_use".into());
+    assert!(!err.is_retryable());
+}
+
+#[test]
+fn no_projection_match_is_not_retryable() {
+    let err = abp_runtime::RuntimeError::NoProjectionMatch {
+        reason: "no score".into(),
+    };
+    assert!(!err.is_retryable());
 }

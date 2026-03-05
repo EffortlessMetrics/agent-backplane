@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "SupportLevel::Restricted { reason: \"experimental preview\".into() }"
+---
+{
+  "restricted": {
+    "reason": "experimental preview"
+  }
+}

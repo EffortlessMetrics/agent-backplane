@@ -1,0 +1,67 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: wo
+---
+{
+  "id": "[uuid]",
+  "task": "What's the weather in SF?",
+  "lane": "patch_first",
+  "workspace": {
+    "root": ".",
+    "mode": "staged",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": []
+  },
+  "config": {
+    "model": "claude-sonnet-4-20250514",
+    "vendor": {
+      "dialect": "claude",
+      "max_tokens": 1024,
+      "messages": [
+        {
+          "content": "What's the weather in SF?",
+          "role": "user"
+        }
+      ],
+      "tool_choice": {
+        "type": "auto"
+      },
+      "tools": [
+        {
+          "description": "Get current weather for a location",
+          "input_schema": {
+            "properties": {
+              "location": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "location"
+            ],
+            "type": "object"
+          },
+          "name": "get_weather"
+        }
+      ]
+    },
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

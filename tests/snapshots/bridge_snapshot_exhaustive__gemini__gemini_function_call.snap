@@ -1,0 +1,13 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&fc"
+---
+{
+  "functionCall": {
+    "name": "get_weather",
+    "args": {
+      "city": "London",
+      "units": "celsius"
+    }
+  }
+}

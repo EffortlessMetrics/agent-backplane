@@ -1,0 +1,28 @@
+[package]
+name = "codex-bridge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Codex Responses API bridge for Agent Backplane — IR translation layer"
+readme = "README.md"
+keywords = ["codex", "bridge", "ai", "openai", "responses"]
+categories = ["development-tools"]
+
+[features]
+default = []
+ir = ["dep:abp-dialect"]
+
+[dependencies]
+abp-codex-sdk = { path = "../abp-codex-sdk", version = "0.1.0" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+abp-dialect = { path = "../abp-dialect", version = "0.1.0", optional = true }
+
+[dev-dependencies]
+abp-codex-sdk = { path = "../abp-codex-sdk", version = "0.1.0" }
+abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
+codex-bridge = { path = ".", features = ["ir"] }
+serde_json = "1"

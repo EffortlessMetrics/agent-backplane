@@ -1,0 +1,10 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: msgs
+---
+[
+  {
+    "role": "assistant",
+    "content": "Hello! I can help with that."
+  }
+]

@@ -1,0 +1,19 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: chunk
+---
+{
+  "id": "chatcmpl-s1",
+  "object": "chat.completion.chunk",
+  "created": 1700000300,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "role": "assistant",
+        "content": "Hello"
+      }
+    }
+  ]
+}

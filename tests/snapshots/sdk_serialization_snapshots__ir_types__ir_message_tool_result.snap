@@ -1,0 +1,20 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: msg
+---
+{
+  "role": "tool",
+  "content": [
+    {
+      "type": "tool_result",
+      "tool_use_id": "tu_01",
+      "content": [
+        {
+          "type": "text",
+          "text": "file contents here"
+        }
+      ],
+      "is_error": false
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: codes
+---
+- backend_not_found
+- backend_unavailable
+- backend_timeout
+- backend_rate_limited
+- backend_auth_failed
+- backend_model_not_found
+- backend_crashed

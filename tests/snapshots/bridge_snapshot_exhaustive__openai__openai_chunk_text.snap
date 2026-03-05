@@ -1,0 +1,18 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&chunk"
+---
+{
+  "id": "chatcmpl-chunk01",
+  "object": "chat.completion.chunk",
+  "created": 1700000000,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "content": "Hello"
+      }
+    }
+  ]
+}

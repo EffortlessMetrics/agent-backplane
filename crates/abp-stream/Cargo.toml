@@ -2,6 +2,7 @@
 name = "abp-stream"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -12,8 +13,14 @@ categories = ["development-tools"]
 
 [dependencies]
 abp-core = { path = "../abp-core", version = "0.1.0" }
+futures-core = "0.3"
+pin-project-lite = "0.2"
+serde = { workspace = true }
+serde_json = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
 chrono = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }

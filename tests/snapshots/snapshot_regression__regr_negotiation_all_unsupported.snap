@@ -1,0 +1,18 @@
+---
+source: tests/snapshot_regression.rs
+expression: result
+---
+{
+  "native": [],
+  "emulated": [],
+  "unsupported": [
+    [
+      "streaming",
+      "not declared in manifest"
+    ],
+    [
+      "tool_bash",
+      "not declared in manifest"
+    ]
+  ]
+}

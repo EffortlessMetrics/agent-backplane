@@ -1,0 +1,7 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: "abp_policy::rules::RuleEffect::Deny"
+---
+{
+  "type": "deny"
+}

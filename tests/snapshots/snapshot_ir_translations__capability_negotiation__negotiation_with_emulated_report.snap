@@ -1,0 +1,26 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&report"
+---
+{
+  "compatible": true,
+  "native_count": 1,
+  "emulated_count": 1,
+  "unsupported_count": 0,
+  "summary": "1 native, 1 emulated, 0 unsupported — fully compatible",
+  "details": [
+    [
+      "Streaming",
+      {
+        "level": "native"
+      }
+    ],
+    [
+      "ExtendedThinking",
+      {
+        "level": "emulated",
+        "method": "adapter"
+      }
+    ]
+  ]
+}

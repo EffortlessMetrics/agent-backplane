@@ -1,0 +1,8 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: codes
+---
+- mapping_unsupported_capability
+- mapping_dialect_mismatch
+- mapping_lossy_conversion
+- mapping_unmappable_tool

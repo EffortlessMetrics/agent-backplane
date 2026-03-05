@@ -1,0 +1,27 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: resp
+---
+{
+  "id": "resp_snap001",
+  "object": "response",
+  "status": "completed",
+  "model": "codex-mini-latest",
+  "output": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Hello from Codex!"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 20,
+    "output_tokens": 10,
+    "total_tokens": 30
+  }
+}

@@ -1,0 +1,77 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir"
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "system_prompt": "You are a code reviewer.",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Analyze this code"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_call",
+          "id": "tool_01",
+          "name": "read_file",
+          "input": {
+            "path": "src/main.rs"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_call_id": "tool_01",
+          "content": [
+            {
+              "type": "text",
+              "text": "fn main() {}"
+            }
+          ],
+          "is_error": false
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Read a file from disk",
+      "parameters": {
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "config": {
+    "max_tokens": 4096,
+    "temperature": 0.5,
+    "top_p": 0.9,
+    "top_k": 40,
+    "stop_sequences": [
+      "DONE"
+    ]
+  },
+  "metadata": {
+    "stream": true,
+    "tool_choice": {
+      "type": "auto"
+    }
+  }
+}

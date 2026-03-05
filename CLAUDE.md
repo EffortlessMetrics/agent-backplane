@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Agent Backplane (ABP) is a **translation layer between agent SDKs**. It provides vendor-agnostic SDK shims that map each vendor's surface area onto a stable internal contract, then routes work orders to any backend (OpenAI, Anthropic, Gemini, local models) via a projection matrix. This is a v0.1 scaffold — the contract types and sidecar protocol are stable, but real vendor SDK adapters and the projection matrix are not yet implemented.
+Agent Backplane (ABP) is a **translation layer between agent SDKs**. It provides vendor-agnostic SDK shims that map each vendor's surface area onto a stable internal contract, then routes work orders to any backend (OpenAI, Anthropic, Gemini, Kimi, Copilot, local models) via a projection matrix. The workspace contains **54 crates** — contract types, sidecar protocol, SDK shims, IR translators, bridge crates, and a CLI + HTTP daemon.
 
 ## Build & Test Commands
 
@@ -20,12 +20,25 @@ cargo run -p abp-cli -- run --task "hello" --backend mock   # Run with mock back
 cargo run -p abp-cli -- run --task "hello" --backend sidecar:node    # Node sidecar (requires node)
 cargo run -p abp-cli -- run --task "hello" --backend sidecar:claude  # Claude sidecar (requires node)
 cargo run -p abp-cli -- run --task "hello" --backend sidecar:copilot # Copilot sidecar (requires node)
+cargo run -p abp-cli -- run --task "hello" --backend sidecar:kimi    # Kimi sidecar (requires node)
+cargo run -p abp-cli -- run --task "hello" --backend sidecar:gemini  # Gemini sidecar (requires node)
 cargo run -p abp-cli -- backends               # List available backends
 ```
 
 The CLI must be run from the repo root for sidecar backends (they resolve `hosts/` scripts relative to CWD).
 
 Enable debug logging with `--debug` flag on the CLI or `RUST_LOG=abp=debug`.
+
+## Developer Workflow (Enforced)
+
+See [`DEVEX.md`](DEVEX.md) for the full enforcement model (hooks, gate, CI parity).
+
+**Quick reference:**
+- One-time setup: `cargo xtask setup`
+- Pre-commit hook auto-formats and fixes clippy issues
+- Pre-push hook runs `cargo xtask gate --check` (blocks on failure)
+- CI runs the same gate, so local push success = CI success
+- **Agents: never use `--no-verify` unless the human operator explicitly instructs you to.**
 
 ## Architecture
 
@@ -39,9 +52,41 @@ Enable debug logging with `--debug` flag on the CLI or `RUST_LOG=abp=debug`.
 abp-glob ──────────┐
                     ├── abp-policy ──────────┐
 abp-core ──────────┤                         │
-  │                └── abp-workspace ────────┤
-  │                                          │
-abp-protocol ─── abp-host ─── abp-integrations ─── abp-runtime ─── abp-cli
+  │   │            └── abp-workspace ────────┤
+  │   │                   │  abp-git         │
+  │   ├── abp-ir ─── abp-mapper             │
+  │   ├── abp-dialect ─── abp-mapping        │
+  │   ├── abp-error ─── abp-error-taxonomy   │
+  │   ├── abp-capability ─── abp-projection  │
+  │   ├── abp-emulation                      │
+  │   ├── abp-receipt                        │
+  │   │     ├── abp-telemetry                │
+  │   │     └── abp-receipt-store            │
+  │   ├── abp-config                         │
+  │   ├── abp-sdk-types                      │
+  │   │     └── abp-validate                 │
+  │   │                                      │
+abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
+  │                  │              │                abp-backend-sidecar
+  │              sidecar-kit        │
+  │                  │         abp-integrations ─── abp-runtime ─── abp-cli
+  │             claude-bridge                           │             │
+  │             gemini-bridge                        abp-stream   abp-daemon
+  │             openai-bridge
+  │             codex-bridge
+  │             copilot-bridge                   abp-ratelimit
+  │             kimi-bridge                      abp-retry
+  ├── abp-sidecar-proto
+  ├── abp-sidecar-sdk
+  └── abp-sidecar-utils
+
+SDK shims (drop-in client replacements):
+  abp-shim-openai, abp-shim-claude, abp-shim-gemini,
+  abp-shim-codex,  abp-shim-kimi,   abp-shim-copilot
+
+SDK adapters (vendor API translation):
+  abp-claude-sdk, abp-codex-sdk, abp-openai-sdk,
+  abp-gemini-sdk, abp-kimi-sdk,  abp-copilot-sdk
 ```
 
 - **abp-core**: Stable contract types only. If you take one dep, take this one. Contains `CONTRACT_VERSION = "abp/v0.1"`.
@@ -50,10 +95,34 @@ abp-protocol ─── abp-host ─── abp-integrations ─── abp-runtime
 - **abp-glob**: Include/exclude glob compilation using `globset`. Used by both workspace staging and policy.
 - **abp-workspace**: Staged workspace creation (temp dir copy with glob filtering), auto-initializes git for meaningful diffs.
 - **abp-policy**: Compiles `PolicyProfile` into `PolicyEngine` with tool/read/write allow/deny checks via globs.
-- **abp-integrations**: `Backend` trait + `MockBackend` + `SidecarBackend`. Backends stream `AgentEvent`s via `mpsc::Sender` and return a `Receipt`.
+- **abp-backend-core**: Shared `Backend` trait and capability helpers.
+- **abp-backend-mock**: Mock backend for local testing without external API keys.
+- **abp-backend-sidecar**: Sidecar backend adapter bridging JSONL protocol agents.
+- **abp-integrations**: Backend registry re-exporting mock + sidecar backends.
 - **abp-runtime**: Orchestration — prepares workspace, selects backend, multiplexes event streams, produces canonical hashed receipt.
-- **abp-cli**: `abp` binary with `run` and `backends` subcommands. Registers built-in sidecars (node, python, claude, copilot).
-- **abp-daemon**: Stub for future HTTP control-plane API.
+- **abp-cli**: `abp` binary with `run`, `backends`, `validate`, `schema`, `inspect`, `translate`, `health`, `config`, `receipt`, `status` subcommands.
+- **abp-daemon**: HTTP control-plane API with REST endpoints and WebSocket support.
+- **abp-ir**: Intermediate representation for vendor-neutral cross-dialect message normalization.
+- **abp-mapper**: Dialect mapping engine — JSON-level and IR-level cross-dialect translation.
+- **abp-dialect**: Dialect detection, validation, and metadata for all supported vendors.
+- **abp-projection**: Projection matrix routing work orders to best-fit backends.
+- **abp-capability**: Capability negotiation between requirements and backend manifests.
+- **abp-emulation**: Labeled capability emulation engine (never silently degrades).
+- **abp-receipt**: Receipt canonicalization, chaining, diffing, and hash verification.
+- **abp-telemetry**: Structured metrics and telemetry collection.
+- **abp-config**: TOML configuration loading, validation, and merging.
+- **abp-error** / **abp-error-taxonomy**: Unified error codes with classification and recovery suggestions.
+- **abp-git**: Git repository helpers for workspace staging and diff verification.
+- **abp-validate**: Validation utilities for work orders, receipts, events, and envelopes.
+- **abp-receipt-store**: Receipt persistence and retrieval.
+- **abp-stream**: Agent event stream processing, filtering, transformation, and multiplexing.
+- **abp-ratelimit**: Rate limiting primitives (token bucket, sliding window) for backend calls.
+- **abp-retry**: Retry and circuit-breaker middleware for backend calls.
+- **abp-sidecar-sdk**: Shared sidecar registration helpers for vendor SDK microcrates.
+- **sidecar-kit**: Value-based JSONL transport layer for sidecar processes.
+- **claude-bridge** / **gemini-bridge** / **openai-bridge** / **codex-bridge** / **copilot-bridge** / **kimi-bridge**: Standalone SDK bridges built on sidecar-kit.
+- **abp-shim-***: Drop-in SDK client replacements (openai, claude, gemini, codex, kimi, copilot).
+- **abp-*-sdk**: Vendor SDK adapter microcrates (claude, codex, openai, gemini, kimi, copilot).
 
 ### Sidecar Protocol (JSONL over stdio)
 
@@ -66,7 +135,7 @@ Sidecars are external processes (Node/Python/etc.) that speak the JSONL protocol
 
 All envelopes use `ref_id` to correlate with the `run.id`. V0.1 assumes one run at a time.
 
-Example sidecars live in `hosts/` (node, python, claude, gemini).
+Example sidecars live in `hosts/` (node, python, claude, codex, copilot, kimi, gemini).
 
 ### Receipt Hashing Gotcha
 
@@ -91,8 +160,10 @@ Set via `work_order.config.vendor.abp.mode`.
 - `hosts/node/` — Minimal Node.js sidecar example
 - `hosts/python/` — Minimal Python sidecar example
 - `hosts/claude/` — Claude-oriented sidecar with pluggable adapter module (has its own test suite)
+- `hosts/codex/` — Codex-oriented sidecar with passthrough/mapped modes
 - `hosts/gemini/` — Gemini sidecar with Claude-to-Gemini mapping (`mapper.js`, `capabilities.js`)
-- `hosts/copilot/` — GitHub Copilot sidecar scaffold and adapter contract
+- `hosts/copilot/` — GitHub Copilot sidecar with agent protocol adapter
+- `hosts/kimi/` — Kimi sidecar with SDK-first adapter and CLI fallback
 
 ## License
 

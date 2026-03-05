@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": null,
+  "error": "Handshake failed",
+  "error_code": "protocol_handshake_failed"
+}

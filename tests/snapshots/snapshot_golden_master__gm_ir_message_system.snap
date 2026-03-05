@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: msg
+---
+{
+  "role": "system",
+  "content": [
+    {
+      "type": "text",
+      "text": "You are a Rust expert."
+    }
+  ]
+}

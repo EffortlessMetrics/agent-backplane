@@ -19,9 +19,17 @@ abp-capability = { path = "../crates/abp-capability" }
 abp-receipt = { path = "../crates/abp-receipt" }
 abp-config = { path = "../crates/abp-config" }
 abp-error = { path = "../crates/abp-error" }
+abp-ir = { path = "../crates/abp-ir" }
+serde = "1"
 serde_json = "1"
 toml = "0.8"
 chrono = "0.4"
+uuid = { version = "1", features = ["serde", "v4"] }
+
+[[bin]]
+name = "fuzz_jsonl_parse"
+path = "fuzz_targets/fuzz_jsonl_parse.rs"
+doc = false
 
 [[bin]]
 name = "fuzz_work_order"
@@ -201,4 +209,79 @@ doc = false
 [[bin]]
 name = "fuzz_protocol_stream"
 path = "fuzz_targets/fuzz_protocol_stream.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_work_order_json"
+path = "fuzz_targets/fuzz_work_order_json.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt_json"
+path = "fuzz_targets/fuzz_receipt_json.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_compile"
+path = "fuzz_targets/fuzz_policy_compile.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_agent_event_json"
+path = "fuzz_targets/fuzz_agent_event_json.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_envelope_decode"
+path = "fuzz_targets/fuzz_envelope_decode.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_work_order_serde"
+path = "fuzz_targets/fuzz_work_order_serde.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_ir_normalize"
+path = "fuzz_targets/fuzz_ir_normalize.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt_mutation"
+path = "fuzz_targets/fuzz_receipt_mutation.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_ir_conversation"
+path = "fuzz_targets/fuzz_ir_conversation.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_deser"
+path = "fuzz_targets/fuzz_policy_deser.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_mapper_roundtrip"
+path = "fuzz_targets/fuzz_mapper_roundtrip.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_work_order_deserialize"
+path = "fuzz_targets/fuzz_work_order_deserialize.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt_deserialize"
+path = "fuzz_targets/fuzz_receipt_deserialize.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_evaluate"
+path = "fuzz_targets/fuzz_policy_evaluate.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_ir_translate"
+path = "fuzz_targets/fuzz_ir_translate.rs"
 doc = false

@@ -1,0 +1,13 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: cfg
+---
+{
+  "log_level": "info",
+  "policy_profiles": [
+    "policies/strict.json",
+    "policies/read-only.json",
+    "policies/ci.json"
+  ],
+  "backends": {}
+}

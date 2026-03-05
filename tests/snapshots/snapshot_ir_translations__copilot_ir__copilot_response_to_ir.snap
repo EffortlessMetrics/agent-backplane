@@ -1,0 +1,28 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir"
+---
+{
+  "id": "chatcmpl-copilot",
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Fixed the bug."
+          }
+        ]
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 60,
+    "completion_tokens": 10,
+    "total_tokens": 70
+  }
+}

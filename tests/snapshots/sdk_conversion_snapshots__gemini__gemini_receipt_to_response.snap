@@ -1,0 +1,24 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: resp
+---
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Hello! I can help with that."
+          }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 100,
+    "candidatesTokenCount": 50,
+    "totalTokenCount": 150
+  }
+}

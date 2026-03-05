@@ -1,0 +1,21 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&json!({ \"classification\": classification, \"recovery\": recovery, })"
+---
+{
+  "classification": {
+    "category": "rate_limit",
+    "code": "backend_rate_limited",
+    "recovery": {
+      "action": "retry",
+      "delay_ms": 2000,
+      "description": "Rate limited — back off and retry after a delay"
+    },
+    "severity": "retriable"
+  },
+  "recovery": {
+    "action": "retry",
+    "delay_ms": 2000,
+    "description": "Rate limited — back off and retry after a delay"
+  }
+}

@@ -1,0 +1,19 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir"
+---
+{
+  "model": "codex-mini-latest",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "fn add(a: i32, b: i32) -> i32 { a + b }"
+        }
+      ]
+    }
+  ],
+  "config": {}
+}

@@ -1,0 +1,13 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: ir
+---
+messages:
+  - role: user
+    content:
+      - type: text
+        text: What is Rust?
+  - role: assistant
+    content:
+      - type: text
+        text: A systems language.

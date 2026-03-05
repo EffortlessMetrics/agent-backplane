@@ -13,8 +13,14 @@ validates serde round-trip invariants without bloating the core crate.
 
 ## What It Provides
 
-- **Re-exports of all IR types** — `IrRole`, `IrContentPart`, `IrMessage`,
+- **Re-exports of all IR types** — `IrRole`, `IrContentBlock`, `IrMessage`,
   `IrToolDef`, `IrConversation`, `IrUsage`, and related types
+- **Normalization passes** — `normalize`, `dedup_system`, `trim_text`,
+  `merge_adjacent_text`, `strip_empty`, `strip_metadata`, `extract_system`,
+  `normalize_role`, `normalize_tool_schemas`, `sort_tools`
+- **Lowering functions** — `lower_to_openai`, `lower_to_claude`,
+  `lower_to_gemini`, `lower_to_kimi`, `lower_to_codex`, `lower_to_copilot`,
+  `lower_for_dialect`
 - **Property-based round-trip tests** — randomized serde JSON encode/decode
   for every IR type, nested structures, metadata maps, tool definitions,
   conversations, and usage records
@@ -31,11 +37,11 @@ abp-ir = { path = "../abp-ir" }
 Then use the IR types directly:
 
 ```rust
-use abp_ir::{IrMessage, IrRole, IrContentPart};
+use abp_ir::{IrMessage, IrRole, IrContentBlock};
 
 let msg = IrMessage {
     role: IrRole::User,
-    content: vec![IrContentPart::Text {
+    content: vec![IrContentBlock::Text {
         text: "Hello, agent!".into(),
     }],
     metadata: Default::default(),
@@ -57,8 +63,10 @@ verify that all IR types survive a JSON round-trip without data loss.
 
 ## Crate Structure
 
-```
+```text
 src/lib.rs                    — re-exports from abp_core::ir
+src/normalize.rs              — normalization passes (pure functions)
+src/lower.rs                  — lowering to vendor-specific formats
 tests/
   proptest_roundtrip.rs       — property-based serde round-trip tests
 ```

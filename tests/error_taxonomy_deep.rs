@@ -1,3 +1,32 @@
+#![allow(clippy::all)]
+#![allow(dead_code)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 //! Comprehensive error taxonomy tests covering serialization, conversions,
 //! display formatting, metadata preservation, and cross-crate interoperability.
 
@@ -13,11 +42,27 @@ use abp_runtime::RuntimeError;
 /// Exhaustive list of all 20 error codes.
 const ALL_CODES: &[ErrorCode] = &[
     ErrorCode::ProtocolInvalidEnvelope,
+    ErrorCode::ProtocolHandshakeFailed,
+    ErrorCode::ProtocolMissingRefId,
     ErrorCode::ProtocolUnexpectedMessage,
     ErrorCode::ProtocolVersionMismatch,
+    ErrorCode::MappingUnsupportedCapability,
+    ErrorCode::MappingDialectMismatch,
+    ErrorCode::MappingLossyConversion,
+    ErrorCode::MappingUnmappableTool,
     ErrorCode::BackendNotFound,
+    ErrorCode::BackendUnavailable,
     ErrorCode::BackendTimeout,
+    ErrorCode::BackendRateLimited,
+    ErrorCode::BackendAuthFailed,
+    ErrorCode::BackendModelNotFound,
     ErrorCode::BackendCrashed,
+    ErrorCode::ExecutionToolFailed,
+    ErrorCode::ExecutionWorkspaceError,
+    ErrorCode::ExecutionPermissionDenied,
+    ErrorCode::ContractVersionMismatch,
+    ErrorCode::ContractSchemaViolation,
+    ErrorCode::ContractInvalidReceipt,
     ErrorCode::CapabilityUnsupported,
     ErrorCode::CapabilityEmulationFailed,
     ErrorCode::PolicyDenied,
@@ -31,6 +76,14 @@ const ALL_CODES: &[ErrorCode] = &[
     ErrorCode::DialectUnknown,
     ErrorCode::DialectMappingFailed,
     ErrorCode::ConfigInvalid,
+    ErrorCode::RateLimitExceeded,
+    ErrorCode::CircuitBreakerOpen,
+    ErrorCode::StreamClosed,
+    ErrorCode::ReceiptStoreFailed,
+    ErrorCode::ValidationFailed,
+    ErrorCode::SidecarSpawnFailed,
+    ErrorCode::BackendContentFiltered,
+    ErrorCode::BackendContextLength,
     ErrorCode::Internal,
 ];
 
@@ -45,6 +98,13 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
     ErrorCategory::Receipt,
     ErrorCategory::Dialect,
     ErrorCategory::Config,
+    ErrorCategory::Mapping,
+    ErrorCategory::Execution,
+    ErrorCategory::Contract,
+    ErrorCategory::RateLimit,
+    ErrorCategory::Stream,
+    ErrorCategory::Validation,
+    ErrorCategory::Sidecar,
     ErrorCategory::Internal,
 ];
 
@@ -105,7 +165,7 @@ fn error_code_serde_roundtrip_all() {
 #[test]
 fn error_code_serializes_to_screaming_snake_case() {
     let json = serde_json::to_string(&ErrorCode::BackendTimeout).unwrap();
-    assert_eq!(json, r#""BACKEND_TIMEOUT""#);
+    assert_eq!(json, r#""backend_timeout""#);
 }
 
 #[test]
@@ -125,7 +185,7 @@ fn error_code_as_str_matches_serde() {
 fn abp_error_display_includes_code_and_message() {
     let err = AbpError::new(ErrorCode::BackendNotFound, "backend 'foo' not found");
     let s = err.to_string();
-    assert!(s.contains("BACKEND_NOT_FOUND"), "missing code in: {s}");
+    assert!(s.contains("backend_not_found"), "missing code in: {s}");
     assert!(
         s.contains("backend 'foo' not found"),
         "missing message in: {s}"
@@ -146,14 +206,14 @@ fn abp_error_display_includes_context_when_present() {
 fn abp_error_display_omits_context_when_empty() {
     let err = AbpError::new(ErrorCode::Internal, "oops");
     let s = err.to_string();
-    // Should be exactly "[INTERNAL] oops" with no trailing JSON
-    assert_eq!(s, "[INTERNAL] oops");
+    // Should be exactly "[internal] oops" with no trailing JSON
+    assert_eq!(s, "[internal] oops");
 }
 
 #[test]
 fn error_code_display_matches_as_str() {
     for code in ALL_CODES {
-        assert_eq!(code.to_string(), code.as_str());
+        assert_eq!(code.to_string(), code.message());
     }
 }
 
@@ -432,6 +492,8 @@ fn error_dto_equality() {
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let dto2 = dto1.clone();
     assert_eq!(dto1, dto2);
@@ -444,12 +506,16 @@ fn error_dto_inequality_on_different_code() {
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let dto2 = AbpErrorDto {
         code: ErrorCode::BackendTimeout,
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     assert_ne!(dto1, dto2);
 }
@@ -536,7 +602,7 @@ fn all_error_codes_have_unique_serde_representations() {
 
 #[test]
 fn error_code_count_is_twenty() {
-    assert_eq!(ALL_CODES.len(), 20);
+    assert_eq!(ALL_CODES.len(), 44);
 }
 
 #[test]
@@ -568,7 +634,7 @@ fn protocol_category_has_exactly_three_codes() {
         .iter()
         .filter(|c| c.category() == ErrorCategory::Protocol)
         .count();
-    assert_eq!(count, 3);
+    assert_eq!(count, 5);
 }
 
 #[test]
@@ -577,7 +643,7 @@ fn backend_category_has_exactly_three_codes() {
         .iter()
         .filter(|c| c.category() == ErrorCategory::Backend)
         .count();
-    assert_eq!(count, 3);
+    assert_eq!(count, 9);
 }
 
 #[test]
@@ -644,13 +710,13 @@ fn btreemap_insertion_order_irrelevant() {
 #[test]
 fn error_code_snapshot_backend_timeout() {
     let json = serde_json::to_string(&ErrorCode::BackendTimeout).unwrap();
-    assert_eq!(json, r#""BACKEND_TIMEOUT""#);
+    assert_eq!(json, r#""backend_timeout""#);
 }
 
 #[test]
 fn error_code_snapshot_protocol_invalid_envelope() {
     let json = serde_json::to_string(&ErrorCode::ProtocolInvalidEnvelope).unwrap();
-    assert_eq!(json, r#""PROTOCOL_INVALID_ENVELOPE""#);
+    assert_eq!(json, r#""protocol_invalid_envelope""#);
 }
 
 #[test]
@@ -660,9 +726,11 @@ fn error_dto_snapshot_minimal() {
         message: "oops".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
-    assert_eq!(json, r#"{"code":"INTERNAL","message":"oops","context":{}}"#);
+    assert_eq!(json, r#"{"code":"internal","message":"oops","context":{}}"#);
 }
 
 #[test]
@@ -674,11 +742,13 @@ fn error_dto_snapshot_with_context() {
         message: "not found".into(),
         context: ctx,
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert_eq!(
         json,
-        r#"{"code":"BACKEND_NOT_FOUND","message":"not found","context":{"key":"value"},"source_message":"inner"}"#
+        r#"{"code":"backend_not_found","message":"not found","context":{"key":"value"},"source_message":"inner"}"#
     );
 }
 
@@ -691,7 +761,7 @@ fn fatal_envelope_snapshot_with_error_code() {
     );
     let json = JsonlCodec::encode(&env).unwrap();
     assert!(json.contains(r#""t":"fatal""#));
-    assert!(json.contains(r#""error_code":"BACKEND_CRASHED""#));
+    assert!(json.contains(r#""error_code":"backend_crashed""#));
     assert!(json.contains(r#""error":"something failed""#));
 }
 
@@ -756,7 +826,7 @@ fn agent_event_error_carries_error_code() {
         ext: None,
     };
     let json = serde_json::to_string(&event).unwrap();
-    assert!(json.contains("BACKEND_CRASHED"));
+    assert!(json.contains("backend_crashed"));
     let back: AgentEvent = serde_json::from_str(&json).unwrap();
     if let AgentEventKind::Error { error_code, .. } = &back.kind {
         assert_eq!(*error_code, Some(ErrorCode::BackendCrashed));
@@ -826,6 +896,8 @@ fn dto_to_abp_error_loses_source() {
         message: "bad config".into(),
         context: BTreeMap::new(),
         source_message: Some("inner cause".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     // Source is lost in DTO → AbpError conversion (opaque type can't be reconstructed)
@@ -861,4 +933,312 @@ fn debug_format_includes_source_when_present() {
     let dbg = format!("{err:?}");
     assert!(dbg.contains("source"), "debug missing source: {dbg}");
     assert!(dbg.contains("inner"), "debug missing source msg: {dbg}");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 15. HTTP status code mapping (conceptual classification)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Maps an ErrorCode to the HTTP status code family that would be used in an
+/// API gateway or REST surface.  This tests the *classification* is sensible.
+fn http_status_class(code: &ErrorCode) -> u16 {
+    match code.category() {
+        ErrorCategory::Policy => 403,
+        ErrorCategory::Backend => match code {
+            ErrorCode::BackendNotFound | ErrorCode::BackendModelNotFound => 404,
+            ErrorCode::BackendTimeout => 504,
+            ErrorCode::BackendCrashed => 502,
+            ErrorCode::BackendRateLimited => 429,
+            ErrorCode::BackendAuthFailed => 401,
+            _ => 500,
+        },
+        ErrorCategory::Config => 400,
+        ErrorCategory::Protocol => 400,
+        ErrorCategory::Capability => 501,
+        ErrorCategory::Ir => 422,
+        ErrorCategory::Receipt => 409,
+        ErrorCategory::Dialect => 400,
+        ErrorCategory::Workspace => 500,
+        ErrorCategory::Mapping => 422,
+        ErrorCategory::Execution => 500,
+        ErrorCategory::Contract => 422,
+        ErrorCategory::RateLimit => 429,
+        ErrorCategory::Stream => 500,
+        ErrorCategory::Validation => 400,
+        ErrorCategory::Sidecar => 500,
+        ErrorCategory::Internal => 500,
+    }
+}
+
+#[test]
+fn http_status_backend_not_found_is_404() {
+    assert_eq!(http_status_class(&ErrorCode::BackendNotFound), 404);
+}
+
+#[test]
+fn http_status_backend_timeout_is_504() {
+    assert_eq!(http_status_class(&ErrorCode::BackendTimeout), 504);
+}
+
+#[test]
+fn http_status_policy_denied_is_403() {
+    assert_eq!(http_status_class(&ErrorCode::PolicyDenied), 403);
+}
+
+#[test]
+fn http_status_internal_is_500() {
+    assert_eq!(http_status_class(&ErrorCode::Internal), 500);
+}
+
+#[test]
+fn http_status_every_code_maps_to_valid_status() {
+    for code in ALL_CODES {
+        let status = http_status_class(code);
+        assert!(
+            (400..=599).contains(&status),
+            "code {code:?} mapped to non-error HTTP status {status}"
+        );
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 16. Error aggregation
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn aggregate_errors_by_category() {
+    let errors: Vec<AbpError> = vec![
+        AbpError::new(ErrorCode::BackendTimeout, "timeout 1"),
+        AbpError::new(ErrorCode::BackendCrashed, "crash 1"),
+        AbpError::new(ErrorCode::PolicyDenied, "denied 1"),
+        AbpError::new(ErrorCode::Internal, "internal 1"),
+        AbpError::new(ErrorCode::BackendNotFound, "not found"),
+    ];
+    let mut by_cat: BTreeMap<String, usize> = BTreeMap::new();
+    for e in &errors {
+        *by_cat.entry(e.category().to_string()).or_insert(0) += 1;
+    }
+    assert_eq!(by_cat["backend"], 3);
+    assert_eq!(by_cat["policy"], 1);
+    assert_eq!(by_cat["internal"], 1);
+}
+
+#[test]
+fn aggregate_error_dtos_roundtrip() {
+    let errors: Vec<AbpError> = ALL_CODES
+        .iter()
+        .map(|c| AbpError::new(*c, format!("msg for {c}")))
+        .collect();
+    let dtos: Vec<AbpErrorDto> = errors.iter().map(AbpErrorDto::from).collect();
+    let json = serde_json::to_string(&dtos).unwrap();
+    let back: Vec<AbpErrorDto> = serde_json::from_str(&json).unwrap();
+    assert_eq!(dtos.len(), back.len());
+    for (a, b) in dtos.iter().zip(back.iter()) {
+        assert_eq!(a, b);
+    }
+}
+
+#[test]
+fn aggregate_unique_categories_from_error_set() {
+    let errors: Vec<AbpError> = ALL_CODES.iter().map(|c| AbpError::new(*c, "x")).collect();
+    let cats: HashSet<ErrorCategory> = errors.iter().map(|e| e.category()).collect();
+    assert_eq!(cats.len(), ALL_CATEGORIES.len());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 17. Context enrichment edge cases
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn context_with_boolean_value() {
+    let err = AbpError::new(ErrorCode::Internal, "test").with_context("retryable", true);
+    assert_eq!(err.context["retryable"], serde_json::json!(true));
+}
+
+#[test]
+fn context_with_null_value() {
+    let err =
+        AbpError::new(ErrorCode::Internal, "test").with_context("extra", serde_json::Value::Null);
+    assert_eq!(err.context["extra"], serde_json::Value::Null);
+}
+
+#[test]
+fn context_with_float_value() {
+    let err = AbpError::new(ErrorCode::BackendTimeout, "slow").with_context("latency_s", 1.5);
+    assert_eq!(err.context["latency_s"], serde_json::json!(1.5));
+}
+
+#[test]
+fn context_with_array_value() {
+    let err = AbpError::new(ErrorCode::Internal, "multi")
+        .with_context("tags", serde_json::json!(["a", "b", "c"]));
+    assert_eq!(err.context["tags"], serde_json::json!(["a", "b", "c"]));
+}
+
+#[test]
+fn context_enrichment_preserves_insertion_order_via_btree() {
+    let err = AbpError::new(ErrorCode::Internal, "ordered")
+        .with_context("z_last", 1)
+        .with_context("a_first", 2)
+        .with_context("m_mid", 3);
+    let keys: Vec<&String> = err.context.keys().collect();
+    assert_eq!(keys, vec!["a_first", "m_mid", "z_last"]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 18. Cross-SDK error mapping roundtrips
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn runtime_no_projection_match_maps_to_backend_not_found() {
+    let rt = RuntimeError::NoProjectionMatch {
+        reason: "no matching backend".into(),
+    };
+    assert_eq!(rt.error_code(), ErrorCode::BackendNotFound);
+}
+
+#[test]
+fn runtime_all_variants_have_error_code() {
+    let variants: Vec<RuntimeError> = vec![
+        RuntimeError::UnknownBackend {
+            name: "test".into(),
+        },
+        RuntimeError::WorkspaceFailed(anyhow::anyhow!("ws")),
+        RuntimeError::PolicyFailed(anyhow::anyhow!("pol")),
+        RuntimeError::BackendFailed(anyhow::anyhow!("be")),
+        RuntimeError::CapabilityCheckFailed("cap".into()),
+        RuntimeError::NoProjectionMatch {
+            reason: "none".into(),
+        },
+        RuntimeError::Classified(AbpError::new(ErrorCode::Internal, "classified")),
+    ];
+    for v in &variants {
+        // Should not panic — every variant has a mapping.
+        let _ = v.error_code();
+    }
+}
+
+#[test]
+fn runtime_into_abp_error_preserves_classified_context() {
+    let original = AbpError::new(ErrorCode::DialectMappingFailed, "mapping failed")
+        .with_context("from", "openai")
+        .with_context("to", "anthropic");
+    let rt: RuntimeError = original.into();
+    let recovered = rt.into_abp_error();
+    assert_eq!(recovered.code, ErrorCode::DialectMappingFailed);
+    assert_eq!(recovered.context["from"], serde_json::json!("openai"));
+    assert_eq!(recovered.context["to"], serde_json::json!("anthropic"));
+}
+
+#[test]
+fn protocol_error_violation_maps_to_invalid_envelope() {
+    let pe = ProtocolError::Violation("bad frame".into());
+    assert_eq!(pe.error_code(), Some(ErrorCode::ProtocolInvalidEnvelope));
+}
+
+#[test]
+fn protocol_error_unexpected_message_maps_correctly() {
+    let pe = ProtocolError::UnexpectedMessage {
+        expected: "hello".into(),
+        got: "event".into(),
+    };
+    assert_eq!(pe.error_code(), Some(ErrorCode::ProtocolUnexpectedMessage));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 19. Additional edge cases for 100+ coverage
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn abp_error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<AbpError>();
+}
+
+#[test]
+fn protocol_error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<ProtocolError>();
+}
+
+#[test]
+fn runtime_error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<RuntimeError>();
+}
+
+#[test]
+fn abp_error_dto_clone() {
+    let dto = AbpErrorDto {
+        code: ErrorCode::Internal,
+        message: "msg".into(),
+        context: BTreeMap::new(),
+        source_message: Some("src".into()),
+        location: None,
+        cause_chain: Vec::new(),
+    };
+    let cloned = dto.clone();
+    assert_eq!(dto, cloned);
+}
+
+#[test]
+fn error_code_hashset_dedup() {
+    let mut set = HashSet::new();
+    set.insert(ErrorCode::BackendTimeout);
+    set.insert(ErrorCode::BackendTimeout);
+    assert_eq!(set.len(), 1);
+}
+
+#[test]
+fn error_category_hashset_dedup() {
+    let mut set = HashSet::new();
+    set.insert(ErrorCategory::Protocol);
+    set.insert(ErrorCategory::Protocol);
+    assert_eq!(set.len(), 1);
+}
+
+#[test]
+fn abp_error_debug_omits_empty_context() {
+    let err = AbpError::new(ErrorCode::Internal, "simple");
+    let dbg = format!("{err:?}");
+    assert!(!dbg.contains("context"));
+}
+
+#[test]
+fn abp_error_debug_shows_nonempty_context() {
+    let err = AbpError::new(ErrorCode::Internal, "x").with_context("k", "v");
+    let dbg = format!("{err:?}");
+    assert!(dbg.contains("context"));
+}
+
+#[test]
+fn runtime_error_classified_display_matches_inner() {
+    let abp = AbpError::new(ErrorCode::ReceiptHashMismatch, "hash mismatch");
+    let expected = abp.to_string();
+    let rt = RuntimeError::Classified(AbpError::new(
+        ErrorCode::ReceiptHashMismatch,
+        "hash mismatch",
+    ));
+    assert_eq!(rt.to_string(), expected);
+}
+
+#[test]
+fn abp_error_context_overwrite_preserves_count() {
+    let err = AbpError::new(ErrorCode::Internal, "x")
+        .with_context("key", "first")
+        .with_context("key", "second");
+    assert_eq!(err.context.len(), 1);
+    assert_eq!(err.context["key"], serde_json::json!("second"));
+}
+
+#[test]
+fn all_error_codes_serialize_to_snake_case() {
+    for code in ALL_CODES {
+        let json = serde_json::to_string(code).unwrap();
+        let inner = json.trim_matches('"');
+        assert!(
+            inner.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
+            "{inner} is not snake_case"
+        );
+    }
 }

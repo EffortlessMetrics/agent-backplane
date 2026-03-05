@@ -76,8 +76,9 @@ else exists to faithfully translate SDK semantics into that contract and back ou
                                   ▼                  ▼                  ▼
                            ┌────────────┐    ┌────────────┐    ┌──────────────┐
                            │ MockBackend│    │  abp-host  │    │ claude-bridge│
-                           │ (in-proc)  │    │  (sidecar) │    │  (sidecar)   │
-                           └────────────┘    └──────┬─────┘    └──────┬───────┘
+                           │ (in-proc)  │    │  (sidecar) │    │ gemini-bridge│
+                           └────────────┘    └──────┬─────┘    │ openai-bridge│
+                                                    │          └──────┬───────┘
                                                     │                 │
                                                     ▼                 ▼
                                              ┌────────────┐   ┌──────────────┐
@@ -91,6 +92,7 @@ else exists to faithfully translate SDK semantics into that contract and back ou
                                           │   hosts/node  hosts/claude       │
                                           │   hosts/python hosts/gemini      │
                                           │   hosts/copilot hosts/kimi       │
+                                          │   hosts/codex                    │
                                           └──────────────────────────────────┘
 ```
 
@@ -98,9 +100,10 @@ else exists to faithfully translate SDK semantics into that contract and back ou
 
 ## Crate Hierarchy
 
-The project uses a micro-crate architecture where each crate has a single clear
-purpose and one primary dependency edge. This keeps compile units small and makes
-it possible for downstream consumers to depend on only what they need.
+The project uses a micro-crate architecture (**54 crates**) where each crate has
+a single clear purpose and one primary dependency edge. This keeps compile units
+small and makes it possible for downstream consumers to depend on only what they
+need.
 
 ```
 abp-glob ──────────┐
@@ -108,9 +111,10 @@ abp-glob ──────────┐
 abp-core ──────────┤                         │
   │   │            └── abp-workspace ────────┤
   │   │                      │               │
+  │   ├── abp-ir ─── abp-mapper             │
   │   ├── abp-dialect ─── abp-mapping        │
   │   │                                      │
-  │   ├── abp-error                          │
+  │   ├── abp-error ─── abp-error-taxonomy   │
   │   │                                      │
   │   ├── abp-capability ─── abp-projection  │
   │   │                                      │
@@ -120,22 +124,35 @@ abp-core ──────────┤                         │
   │   │     │                                │
   │   │     └── abp-telemetry                │
   │   │                                      │
-  │   └── abp-config                         │
+  │   ├── abp-config                         │
+  │   │                                      │
+  │   └── abp-sdk-types                      │
   │                                          │
 abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
   │                  │              │                abp-backend-sidecar
   │              sidecar-kit        │
   │                  │         abp-integrations ─── abp-runtime ─── abp-cli
   │             claude-bridge                           │             │
-  │                                                 abp-stream   abp-daemon
-  └── abp-sidecar-proto
+  │             gemini-bridge                        abp-stream   abp-daemon
+  │             openai-bridge
+  │             codex-bridge                     abp-ratelimit
+  │             copilot-bridge
+  │             kimi-bridge
+  │
+  ├── abp-sidecar-proto
+  └── abp-sidecar-utils
 
 SDK shims (drop-in client replacements):
-  abp-shim-openai, abp-shim-claude, abp-shim-gemini
+  abp-shim-openai, abp-shim-claude, abp-shim-gemini,
+  abp-shim-codex,  abp-shim-kimi,   abp-shim-copilot
 
 Supporting crates:
   abp-git           Standalone git helpers (init, status, diff)
   abp-sidecar-sdk   Vendor SDK registration helpers
+  abp-ratelimit     Rate limiting primitives for backend calls
+  abp-retry         Retry and circuit-breaker middleware
+  abp-validate      Validation utilities for work orders, receipts, events
+  abp-receipt-store Receipt persistence and retrieval
 
 Vendor SDK microcrates (abp-claude-sdk, abp-codex-sdk, abp-openai-sdk,
 abp-gemini-sdk, abp-kimi-sdk, abp-copilot-sdk) depend on abp-core +
@@ -268,12 +285,50 @@ enum (`OpenAi`, `Claude`, `Gemini`, `Codex`, `Kimi`, `Copilot`) and provides:
 - `DialectValidator`: validates a JSON value conforms to a specific dialect.
 - `Dialect::label()`, `Dialect::all()` for iteration and display.
 
+### abp-ir — Intermediate Representation
+
+Re-exports the core IR types from `abp_core::ir` and adds normalization passes
+and vendor-specific lowering functions:
+
+- `normalize` module: dedup system messages, trim text, merge adjacent blocks,
+  strip metadata, extract system prompts.
+- `lower` module: lowering functions that transform normalized IR into
+  vendor-specific request formats (OpenAI, Claude, Gemini, and others).
+
+### abp-mapper — Dialect Mapping Engine
+
+Concrete cross-dialect translation at both JSON and IR levels:
+
+- **JSON-level mappers**: `IdentityMapper`, `OpenAiToClaudeMapper`,
+  `ClaudeToOpenAiMapper`, `OpenAiToGeminiMapper`, `GeminiToOpenAiMapper`.
+- **IR-level mappers**: `IrMapper` trait with implementations for all dialect
+  pairs (`OpenAiClaudeIrMapper`, `OpenAiGeminiIrMapper`, `ClaudeGeminiIrMapper`,
+  `OpenAiCodexIrMapper`, `OpenAiKimiIrMapper`, `ClaudeKimiIrMapper`,
+  `OpenAiCopilotIrMapper`, `GeminiKimiIrMapper`, `CodexClaudeIrMapper`).
+- `default_ir_mapper()`: factory that resolves the correct mapper for a dialect
+  pair.
+
+### abp-sdk-types — SDK Dialect Type Definitions
+
+Pure data model crate defining vendor-specific request/response types with no
+networking logic. Provides modules for each vendor (`claude`, `codex`, `copilot`,
+`gemini`, `kimi`, `openai`) plus shared `common` and `convert` utilities.
+
 ### abp-error — Unified Error Taxonomy
 
 Stable, machine-readable error codes for all ABP errors. Every error carries
 an `ErrorCode` (SCREAMING_SNAKE_CASE string tag), a human-readable message,
 optional cause chain, and structured context. 20 error codes across 10
 categories. See [error_codes.md](error_codes.md) for the full reference.
+
+### abp-error-taxonomy — Error Classification Helpers
+
+Re-exports and extends the error taxonomy from `abp-error` with classification,
+severity, and recovery suggestion types:
+
+- `ErrorClassifier`: classifies errors by code into categories.
+- `ErrorSeverity`: severity levels for error triage.
+- `RecoveryAction` / `RecoverySuggestion`: machine-readable recovery guidance.
 
 ### abp-mapping — Cross-Dialect Mapping Validation
 
@@ -354,6 +409,39 @@ Specialized bridge for the Claude sidecar. Spawns a Node.js host process
 (`hosts/claude/`), handles the JSONL protocol, and converts between ABP types
 and the Claude-specific wire format.
 
+### gemini-bridge — Gemini Sidecar Bridge
+
+Standalone bridge for the Google Gemini API built on `sidecar-kit`. Supports
+raw passthrough mode (zero ABP dependencies) and an optional normalized mode
+(via feature flag) that maps Gemini JSON events to typed ABP contracts.
+
+### openai-bridge — OpenAI Sidecar Bridge
+
+Standalone bridge for OpenAI Chat Completions built on `sidecar-kit`. Provides
+three modes: raw passthrough, mapped-raw (task string to JSON), and optional
+normalized mode that maps events to typed ABP contracts.
+
+### codex-bridge — Codex Sidecar Bridge
+
+Codex Responses API bridge that translates between OpenAI Codex/Responses API
+types and the ABP intermediate representation. Built on `sidecar-kit` transport.
+
+### copilot-bridge — Copilot Sidecar Bridge
+
+Standalone GitHub Copilot bridge providing Copilot-specific types and
+translation to/from the ABP intermediate representation. Built on `sidecar-kit`.
+
+### kimi-bridge — Kimi Sidecar Bridge
+
+Standalone Kimi SDK bridge implementing Kimi-specific types and IR translation.
+Built on `sidecar-kit` transport.
+
+### abp-ratelimit — Rate Limiting
+
+Rate limiting primitives for backend calls. Provides configurable strategies
+(token bucket, sliding window counter) for controlling backend throughput
+with per-backend policies.
+
 ### abp-projection — Backend Selection
 
 Projection matrix that routes work orders to the best-fit backend based on
@@ -378,16 +466,29 @@ Sidecar-side utilities for implementing services that speak ABP's JSONL
 protocol. Complements the host-side `abp-host` and `sidecar-kit` crates by
 providing helpers for the sidecar process itself.
 
+### abp-sidecar-utils — Reusable Protocol Utilities
+
+Higher-level reusable utilities for sidecar protocol implementations:
+
+- `StreamingCodec`: JSONL codec with chunked reading support.
+- `HandshakeManager`: async hello handshake with configurable timeout.
+- `EventStreamProcessor`: event validation and processing.
+- `ProtocolHealth`: heartbeat monitoring and graceful shutdown.
+
 ### SDK Shims
 
 Drop-in SDK client replacements that transparently route through ABP:
 
-- `abp-shim-openai` — OpenAI SDK shim
+- `abp-shim-openai` — OpenAI Chat Completions SDK shim
 - `abp-shim-claude` — Anthropic Claude SDK shim
 - `abp-shim-gemini` — Gemini SDK shim
+- `abp-shim-codex` — OpenAI Codex SDK shim
+- `abp-shim-kimi` — Kimi (Moonshot) SDK shim
+- `abp-shim-copilot` — GitHub Copilot SDK shim
 
 These shims allow existing code that uses vendor SDKs to route through ABP's
-intermediate representation without code changes.
+intermediate representation without code changes. Each provides `convert`
+and `types` modules mirroring the vendor's API surface.
 
 ### abp-runtime — Orchestration
 
@@ -421,6 +522,21 @@ HTTP API for programmatic access. Exposes routes for health, metrics, backends,
 capabilities, configuration, validation, schema retrieval, run management
 (submit, list, get, cancel, delete), receipt management, event streaming, and
 WebSocket connections.
+
+### abp-retry — Retry Middleware
+
+Retry and circuit-breaker middleware for backend calls. Provides configurable
+retry policies with exponential backoff and jitter.
+
+### abp-validate — Validation Utilities
+
+Validation utilities for work orders, receipts, events, and envelopes. Used by
+the CLI `validate` subcommand and the daemon `/validate` endpoint.
+
+### abp-receipt-store — Receipt Persistence
+
+Receipt persistence and retrieval. Stores receipts on disk and provides lookup
+by run ID.
 
 ---
 

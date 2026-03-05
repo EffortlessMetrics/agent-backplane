@@ -1,0 +1,40 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: wo
+---
+{
+  "id": "[uuid]",
+  "task": "Fix the login bug",
+  "lane": "patch_first",
+  "workspace": {
+    "root": ".",
+    "mode": "staged",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": []
+  },
+  "config": {
+    "model": "gpt-4",
+    "vendor": {
+      "top_p": 0.95
+    },
+    "env": {},
+    "max_budget_usd": 10.0,
+    "max_turns": 50
+  }
+}

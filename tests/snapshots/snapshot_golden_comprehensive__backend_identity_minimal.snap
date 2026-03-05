@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: minimal_backend()
+---
+{
+  "id": "mock",
+  "backend_version": null,
+  "adapter_version": null
+}

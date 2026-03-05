@@ -1,0 +1,34 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&content"
+---
+{
+  "role": "user",
+  "parts": [
+    {
+      "text": "Hello"
+    },
+    {
+      "inlineData": {
+        "mimeType": "image/png",
+        "data": "base64data=="
+      }
+    },
+    {
+      "functionCall": {
+        "name": "search",
+        "args": {
+          "query": "test"
+        }
+      }
+    },
+    {
+      "functionResponse": {
+        "name": "search",
+        "response": {
+          "results": []
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: block
+---
+{
+  "type": "image",
+  "media_type": "image/png",
+  "data": "iVBORw0KGgo="
+}

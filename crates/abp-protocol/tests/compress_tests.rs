@@ -1,3 +1,31 @@
+#![allow(clippy::all)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Tests for the `abp_protocol::compress` module.
 
@@ -42,23 +70,25 @@ fn none_passthrough_unchanged() {
 }
 
 #[test]
-fn gzip_stub_prepends_header() {
+fn gzip_compress_has_header_tag() {
     let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
     let data = b"abc";
     let compressed = c.compress(data).unwrap();
-    assert_eq!(compressed.len(), data.len() + 1);
+    assert!(compressed.len() > 1);
     assert_eq!(compressed[0], 0x01); // gzip tag
-    assert_eq!(&compressed[1..], data);
+    // Real compression: round-trip must yield original data
+    assert_eq!(c.decompress(&compressed).unwrap(), data);
 }
 
 #[test]
-fn zstd_stub_prepends_header() {
+fn zstd_compress_has_header_tag() {
     let c = MessageCompressor::new(CompressionAlgorithm::Zstd);
     let data = b"xyz";
     let compressed = c.compress(data).unwrap();
-    assert_eq!(compressed.len(), data.len() + 1);
+    assert!(compressed.len() > 1);
     assert_eq!(compressed[0], 0x02); // zstd tag
-    assert_eq!(&compressed[1..], data);
+    // Real compression: round-trip must yield original data
+    assert_eq!(c.decompress(&compressed).unwrap(), data);
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +107,7 @@ fn none_empty_data() {
 fn gzip_empty_data_round_trip() {
     let c = MessageCompressor::new(CompressionAlgorithm::Gzip);
     let compressed = c.compress(b"").unwrap();
-    assert_eq!(compressed.len(), 1); // header only
+    assert!(compressed.len() > 1); // header + gzip framing
     assert_eq!(c.decompress(&compressed).unwrap(), b"");
 }
 

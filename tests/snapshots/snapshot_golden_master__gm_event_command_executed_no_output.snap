@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: e
+---
+{
+  "ts": "2025-08-01T08:00:00Z",
+  "type": "command_executed",
+  "command": "sleep 10",
+  "exit_code": null,
+  "output_preview": null
+}

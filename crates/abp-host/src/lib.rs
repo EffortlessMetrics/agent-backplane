@@ -6,12 +6,15 @@
 //!
 //! Process supervision + JSONL transport for sidecars.
 
+pub mod backpressure;
 pub mod health;
 pub mod lifecycle;
+pub mod multi_run;
 pub mod pool;
 pub mod process;
 pub mod registry;
 pub mod retry;
+pub mod shutdown_coordinator;
 
 use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};

@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Ordered receipt chain with integrity verification.
+//! Ordered receipt chain with integrity verification, tamper detection,
+//! gap detection, and chain-level statistics.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::fmt;
 
-use abp_core::Receipt;
+use abp_core::{Outcome, Receipt};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Errors from receipt chain operations.
@@ -28,6 +31,18 @@ pub enum ChainError {
         /// The duplicate run ID.
         id: Uuid,
     },
+    /// A parent hash reference does not match the preceding receipt's hash.
+    ParentMismatch {
+        /// Index of the receipt with the mismatched parent.
+        index: usize,
+    },
+    /// A sequence number is not contiguous.
+    SequenceGap {
+        /// The expected sequence number.
+        expected: u64,
+        /// The actual sequence number found.
+        actual: u64,
+    },
 }
 
 impl fmt::Display for ChainError {
@@ -43,16 +58,216 @@ impl fmt::Display for ChainError {
             Self::DuplicateId { id } => {
                 write!(f, "duplicate receipt id: {id}")
             }
+            Self::ParentMismatch { index } => {
+                write!(f, "parent hash mismatch at chain index {index}")
+            }
+            Self::SequenceGap { expected, actual } => {
+                write!(f, "sequence gap: expected {expected}, found {actual}")
+            }
         }
     }
 }
 
 impl std::error::Error for ChainError {}
 
-/// An ordered chain of [`Receipt`]s with integrity verification.
+// ── TamperEvidence ─────────────────────────────────────────────────
+
+/// Describes the kind of tampering detected.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TamperKind {
+    /// The stored hash does not match the recomputed hash.
+    HashMismatch {
+        /// The stored hash value.
+        stored: String,
+        /// The recomputed hash value.
+        computed: String,
+    },
+    /// The parent hash pointer is broken.
+    ParentLinkBroken {
+        /// Expected parent hash (hash of previous receipt).
+        expected: Option<String>,
+        /// Actual parent hash recorded in the chain.
+        actual: Option<String>,
+    },
+}
+
+impl fmt::Display for TamperKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::HashMismatch { stored, computed } => {
+                write!(f, "hash mismatch: stored={stored}, computed={computed}")
+            }
+            Self::ParentLinkBroken { expected, actual } => {
+                write!(
+                    f,
+                    "parent link broken: expected={expected:?}, actual={actual:?}"
+                )
+            }
+        }
+    }
+}
+
+/// Evidence of tampering at a specific position in the chain.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TamperEvidence {
+    /// Index of the tampered receipt in the chain.
+    pub index: usize,
+    /// Sequence number of the tampered entry.
+    pub sequence: u64,
+    /// What kind of tampering was detected.
+    pub kind: TamperKind,
+}
+
+impl fmt::Display for TamperEvidence {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "[index={}, seq={}] {}",
+            self.index, self.sequence, self.kind
+        )
+    }
+}
+
+// ── ChainGap ───────────────────────────────────────────────────────
+
+/// A gap in the chain's sequence numbering.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChainGap {
+    /// The expected sequence number.
+    pub expected: u64,
+    /// The actual sequence number found.
+    pub actual: u64,
+    /// Index in the receipts vector where the gap was detected.
+    pub after_index: usize,
+}
+
+impl fmt::Display for ChainGap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "gap after index {}: expected seq {}, found {}",
+            self.after_index, self.expected, self.actual
+        )
+    }
+}
+
+// ── ChainSummary ───────────────────────────────────────────────────
+
+/// Aggregated statistics across a receipt chain.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainSummary {
+    /// Total number of receipts in the chain.
+    pub total_receipts: usize,
+    /// Number of receipts with [`Outcome::Complete`].
+    pub complete_count: usize,
+    /// Number of receipts with [`Outcome::Failed`].
+    pub failed_count: usize,
+    /// Number of receipts with [`Outcome::Partial`].
+    pub partial_count: usize,
+    /// Sum of `duration_ms` across all receipts.
+    pub total_duration_ms: u64,
+    /// Sum of normalized input tokens (where available).
+    pub total_input_tokens: u64,
+    /// Sum of normalized output tokens (where available).
+    pub total_output_tokens: u64,
+    /// Distinct backend IDs seen in the chain.
+    pub backends: Vec<String>,
+    /// Earliest `started_at` in the chain.
+    pub first_started_at: Option<DateTime<Utc>>,
+    /// Latest `finished_at` in the chain.
+    pub last_finished_at: Option<DateTime<Utc>>,
+    /// Whether all receipt hashes are valid.
+    pub all_hashes_valid: bool,
+    /// Number of gaps detected in the sequence.
+    pub gap_count: usize,
+}
+
+// ── Export / Import types ──────────────────────────────────────────
+
+/// Current version tag for the chain export format.
+const EXPORT_VERSION: &str = "abp-chain/v1";
+
+/// Errors from chain export and import operations.
+#[derive(Debug)]
+pub enum ChainExportError {
+    /// JSON serialization/deserialization failure.
+    Json(serde_json::Error),
+    /// The export version does not match the expected version.
+    VersionMismatch {
+        /// The version this library expects.
+        expected: String,
+        /// The version found in the export payload.
+        found: String,
+    },
+    /// The declared chain length does not match the number of entries.
+    LengthMismatch {
+        /// Declared length in the header.
+        declared: usize,
+        /// Actual number of entries.
+        actual: usize,
+    },
+    /// A chain integrity error was detected after rebuild.
+    Integrity(ChainError),
+}
+
+impl fmt::Display for ChainExportError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Json(e) => write!(f, "json error: {e}"),
+            Self::VersionMismatch { expected, found } => {
+                write!(f, "version mismatch: expected {expected}, found {found}")
+            }
+            Self::LengthMismatch { declared, actual } => {
+                write!(f, "length mismatch: declared {declared}, actual {actual}")
+            }
+            Self::Integrity(e) => write!(f, "chain integrity error: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for ChainExportError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Json(e) => Some(e),
+            Self::Integrity(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+/// A single entry in an exported chain, bundling the receipt with its
+/// chain-level metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportedEntry {
+    /// Sequence number in the chain.
+    pub sequence: u64,
+    /// Hash of the preceding receipt (`None` for the first entry).
+    pub parent_hash: Option<String>,
+    /// The receipt itself.
+    pub receipt: Receipt,
+}
+
+/// Serializable representation of an entire receipt chain for audit export.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportedChain {
+    /// Format version identifier.
+    pub version: String,
+    /// Timestamp of the export.
+    pub exported_at: DateTime<Utc>,
+    /// Declared chain length.
+    pub chain_length: usize,
+    /// Ordered chain entries.
+    pub entries: Vec<ExportedEntry>,
+}
+
+// ── ReceiptChain ───────────────────────────────────────────────────
+
+/// An ordered chain of [`Receipt`]s with integrity verification,
+/// tamper detection, gap detection, and chain-level statistics.
 ///
 /// Each receipt pushed into the chain is validated for hash integrity
-/// and uniqueness. The chain maintains insertion order.
+/// and uniqueness. The chain maintains insertion order and tracks
+/// sequence numbers and parent hash linkage.
 ///
 /// # Examples
 ///
@@ -72,6 +287,9 @@ impl std::error::Error for ChainError {}
 pub struct ReceiptChain {
     receipts: Vec<Receipt>,
     seen_ids: HashSet<Uuid>,
+    sequences: Vec<u64>,
+    parent_hashes: Vec<Option<String>>,
+    next_sequence: u64,
 }
 
 impl ReceiptChain {
@@ -82,6 +300,9 @@ impl ReceiptChain {
     }
 
     /// Validate and append a receipt to the chain.
+    ///
+    /// Automatically assigns the next sequence number and records
+    /// the parent hash (the hash of the previous receipt, if any).
     ///
     /// # Errors
     ///
@@ -106,7 +327,13 @@ impl ReceiptChain {
             });
         }
 
+        // Record parent hash (hash of previous receipt).
+        let parent_hash = self.receipts.last().and_then(|r| r.receipt_sha256.clone());
+
         self.seen_ids.insert(id);
+        self.sequences.push(self.next_sequence);
+        self.parent_hashes.push(parent_hash);
+        self.next_sequence += 1;
         self.receipts.push(receipt);
         Ok(())
     }
@@ -131,6 +358,192 @@ impl ReceiptChain {
         Ok(())
     }
 
+    /// Comprehensive chain verification including hash integrity,
+    /// chronological ordering, and parent hash linkage.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first error encountered (hash, ordering, or parent link).
+    pub fn verify_chain(&self) -> Result<(), ChainError> {
+        if self.receipts.is_empty() {
+            return Err(ChainError::EmptyChain);
+        }
+        for (i, receipt) in self.receipts.iter().enumerate() {
+            verify_receipt_hash(receipt, i)?;
+            if i > 0 {
+                if receipt.meta.started_at < self.receipts[i - 1].meta.started_at {
+                    return Err(ChainError::BrokenLink { index: i });
+                }
+                // Verify parent hash linkage.
+                let expected_parent = self.receipts[i - 1].receipt_sha256.as_deref();
+                let recorded_parent = self.parent_hashes[i].as_deref();
+                if expected_parent != recorded_parent {
+                    return Err(ChainError::ParentMismatch { index: i });
+                }
+            }
+        }
+        // Check sequence contiguity.
+        for i in 1..self.sequences.len() {
+            if self.sequences[i] != self.sequences[i - 1] + 1 {
+                return Err(ChainError::SequenceGap {
+                    expected: self.sequences[i - 1] + 1,
+                    actual: self.sequences[i],
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Detect all tampering in the chain.
+    ///
+    /// Unlike [`verify_chain`](Self::verify_chain) which stops at the first
+    /// error, this scans the entire chain and collects all evidence.
+    #[must_use]
+    pub fn detect_tampering(&self) -> Vec<TamperEvidence> {
+        let mut evidence = Vec::new();
+        for (i, receipt) in self.receipts.iter().enumerate() {
+            let seq = self.sequences.get(i).copied().unwrap_or(i as u64);
+
+            // Check hash integrity.
+            if let Some(ref stored) = receipt.receipt_sha256 {
+                match crate::compute_hash(receipt) {
+                    Ok(recomputed) if *stored != recomputed => {
+                        evidence.push(TamperEvidence {
+                            index: i,
+                            sequence: seq,
+                            kind: TamperKind::HashMismatch {
+                                stored: stored.clone(),
+                                computed: recomputed,
+                            },
+                        });
+                    }
+                    Err(_) => {
+                        evidence.push(TamperEvidence {
+                            index: i,
+                            sequence: seq,
+                            kind: TamperKind::HashMismatch {
+                                stored: stored.clone(),
+                                computed: "<computation failed>".into(),
+                            },
+                        });
+                    }
+                    _ => {}
+                }
+            }
+
+            // Check parent linkage.
+            if i > 0 {
+                let expected_parent = self.receipts[i - 1].receipt_sha256.clone();
+                let recorded_parent = self.parent_hashes.get(i).cloned().flatten();
+                if expected_parent != recorded_parent {
+                    evidence.push(TamperEvidence {
+                        index: i,
+                        sequence: seq,
+                        kind: TamperKind::ParentLinkBroken {
+                            expected: expected_parent,
+                            actual: recorded_parent,
+                        },
+                    });
+                }
+            }
+        }
+        evidence
+    }
+
+    /// Find gaps in the sequence numbering.
+    ///
+    /// Returns an empty vector for a contiguous chain.
+    #[must_use]
+    pub fn find_gaps(&self) -> Vec<ChainGap> {
+        let mut gaps = Vec::new();
+        for i in 1..self.sequences.len() {
+            let expected = self.sequences[i - 1] + 1;
+            let actual = self.sequences[i];
+            if actual != expected {
+                gaps.push(ChainGap {
+                    expected,
+                    actual,
+                    after_index: i - 1,
+                });
+            }
+        }
+        gaps
+    }
+
+    /// Compute aggregate statistics across the chain.
+    #[must_use]
+    pub fn chain_summary(&self) -> ChainSummary {
+        let mut complete_count = 0usize;
+        let mut failed_count = 0usize;
+        let mut partial_count = 0usize;
+        let mut total_duration_ms = 0u64;
+        let mut total_input_tokens = 0u64;
+        let mut total_output_tokens = 0u64;
+        let mut backends = BTreeSet::new();
+        let mut first_started_at: Option<DateTime<Utc>> = None;
+        let mut last_finished_at: Option<DateTime<Utc>> = None;
+        let mut all_hashes_valid = true;
+
+        for receipt in &self.receipts {
+            match receipt.outcome {
+                Outcome::Complete => complete_count += 1,
+                Outcome::Failed => failed_count += 1,
+                Outcome::Partial => partial_count += 1,
+            }
+
+            total_duration_ms += receipt.meta.duration_ms;
+
+            if let Some(t) = receipt.usage.input_tokens {
+                total_input_tokens += t;
+            }
+            if let Some(t) = receipt.usage.output_tokens {
+                total_output_tokens += t;
+            }
+
+            backends.insert(receipt.backend.id.clone());
+
+            match first_started_at {
+                None => first_started_at = Some(receipt.meta.started_at),
+                Some(ref cur) if receipt.meta.started_at < *cur => {
+                    first_started_at = Some(receipt.meta.started_at);
+                }
+                _ => {}
+            }
+            match last_finished_at {
+                None => last_finished_at = Some(receipt.meta.finished_at),
+                Some(ref cur) if receipt.meta.finished_at > *cur => {
+                    last_finished_at = Some(receipt.meta.finished_at);
+                }
+                _ => {}
+            }
+
+            if let Some(ref stored) = receipt.receipt_sha256 {
+                match crate::compute_hash(receipt) {
+                    Ok(recomputed) if *stored != recomputed => {
+                        all_hashes_valid = false;
+                    }
+                    Err(_) => all_hashes_valid = false,
+                    _ => {}
+                }
+            }
+        }
+
+        ChainSummary {
+            total_receipts: self.receipts.len(),
+            complete_count,
+            failed_count,
+            partial_count,
+            total_duration_ms,
+            total_input_tokens,
+            total_output_tokens,
+            backends: backends.into_iter().collect(),
+            first_started_at,
+            last_finished_at,
+            all_hashes_valid,
+            gap_count: self.find_gaps().len(),
+        }
+    }
+
     /// Returns the number of receipts in the chain.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -149,9 +562,143 @@ impl ReceiptChain {
         self.receipts.last()
     }
 
+    /// Returns a receipt by chain index.
+    #[must_use]
+    pub fn get(&self, index: usize) -> Option<&Receipt> {
+        self.receipts.get(index)
+    }
+
+    /// Returns the sequence number for the given chain index.
+    #[must_use]
+    pub fn sequence_at(&self, index: usize) -> Option<u64> {
+        self.sequences.get(index).copied()
+    }
+
+    /// Returns the parent hash for the given chain index.
+    #[must_use]
+    pub fn parent_hash_at(&self, index: usize) -> Option<&str> {
+        self.parent_hashes.get(index).and_then(|h| h.as_deref())
+    }
+
     /// Returns an iterator over the receipts in order.
     pub fn iter(&self) -> std::slice::Iter<'_, Receipt> {
         self.receipts.iter()
+    }
+
+    /// Returns the receipts as a slice.
+    #[must_use]
+    pub fn as_slice(&self) -> &[Receipt] {
+        &self.receipts
+    }
+
+    /// Returns the number of receipts in the chain (alias for [`len`](Self::len)).
+    #[must_use]
+    pub fn chain_length(&self) -> usize {
+        self.receipts.len()
+    }
+
+    /// Find a receipt by its `receipt_sha256` hash value.
+    ///
+    /// Returns `None` if no receipt in the chain has the given hash.
+    #[must_use]
+    pub fn find_by_hash(&self, hash: &str) -> Option<&Receipt> {
+        self.receipts
+            .iter()
+            .find(|r| r.receipt_sha256.as_deref() == Some(hash))
+    }
+
+    /// Serialize the entire chain for audit purposes.
+    ///
+    /// Produces an [`ExportedChain`] that captures receipts together with
+    /// their sequence numbers and parent hash linkage so that the chain
+    /// can be independently verified after import.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainExportError::Json`] if serialization fails.
+    pub fn export_chain(&self) -> Result<String, ChainExportError> {
+        let entries: Vec<ExportedEntry> = self
+            .receipts
+            .iter()
+            .enumerate()
+            .map(|(i, r)| ExportedEntry {
+                sequence: self.sequences.get(i).copied().unwrap_or(i as u64),
+                parent_hash: self.parent_hashes.get(i).cloned().flatten(),
+                receipt: r.clone(),
+            })
+            .collect();
+
+        let exported = ExportedChain {
+            version: EXPORT_VERSION.to_string(),
+            exported_at: Utc::now(),
+            chain_length: self.receipts.len(),
+            entries,
+        };
+
+        serde_json::to_string_pretty(&exported).map_err(ChainExportError::Json)
+    }
+
+    /// Deserialize and verify an imported chain.
+    ///
+    /// Parses JSON produced by [`export_chain`](Self::export_chain),
+    /// rebuilds the chain, and verifies hash integrity and parent linkage.
+    ///
+    /// # Errors
+    ///
+    /// - [`ChainExportError::Json`] if deserialization fails.
+    /// - [`ChainExportError::VersionMismatch`] if the export version is unsupported.
+    /// - [`ChainExportError::LengthMismatch`] if the declared length does not
+    ///   match the number of entries.
+    /// - [`ChainExportError::Integrity`] if chain verification fails after rebuild.
+    pub fn import_chain(json: &str) -> Result<Self, ChainExportError> {
+        let exported: ExportedChain = serde_json::from_str(json).map_err(ChainExportError::Json)?;
+
+        if exported.version != EXPORT_VERSION {
+            return Err(ChainExportError::VersionMismatch {
+                expected: EXPORT_VERSION.to_string(),
+                found: exported.version,
+            });
+        }
+
+        if exported.chain_length != exported.entries.len() {
+            return Err(ChainExportError::LengthMismatch {
+                declared: exported.chain_length,
+                actual: exported.entries.len(),
+            });
+        }
+
+        let mut chain = Self::new();
+        for (i, entry) in exported.entries.into_iter().enumerate() {
+            // Verify parent hash linkage from the export metadata.
+            let expected_parent = if i > 0 {
+                chain.receipts.last().and_then(|r| r.receipt_sha256.clone())
+            } else {
+                None
+            };
+            if entry.parent_hash != expected_parent {
+                return Err(ChainExportError::Integrity(ChainError::ParentMismatch {
+                    index: i,
+                }));
+            }
+
+            // Verify hash integrity.
+            verify_receipt_hash(&entry.receipt, i).map_err(ChainExportError::Integrity)?;
+
+            let parent_hash = chain.receipts.last().and_then(|r| r.receipt_sha256.clone());
+
+            let id = entry.receipt.meta.run_id;
+            if chain.seen_ids.contains(&id) {
+                return Err(ChainExportError::Integrity(ChainError::DuplicateId { id }));
+            }
+
+            chain.seen_ids.insert(id);
+            chain.sequences.push(entry.sequence);
+            chain.parent_hashes.push(parent_hash);
+            chain.next_sequence = entry.sequence + 1;
+            chain.receipts.push(entry.receipt);
+        }
+
+        Ok(chain)
     }
 }
 
@@ -161,6 +708,147 @@ impl<'a> IntoIterator for &'a ReceiptChain {
 
     fn into_iter(self) -> Self::IntoIter {
         self.receipts.iter()
+    }
+}
+
+impl Serialize for ReceiptChain {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.receipts.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ReceiptChain {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let receipts = Vec::<Receipt>::deserialize(deserializer)?;
+        let mut chain = Self::new();
+        for r in receipts {
+            chain
+                .push(r)
+                .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        }
+        Ok(chain)
+    }
+}
+
+// ── ChainBuilder ───────────────────────────────────────────────────
+
+/// Fluent builder for constructing [`ReceiptChain`]s with parent hash
+/// linkage and automatic sequence numbering.
+///
+/// # Examples
+///
+/// ```
+/// use abp_receipt::{ChainBuilder, ReceiptBuilder, Outcome};
+///
+/// let chain = ChainBuilder::new()
+///     .append(
+///         ReceiptBuilder::new("mock")
+///             .outcome(Outcome::Complete)
+///             .with_hash()
+///             .unwrap(),
+///     )
+///     .unwrap()
+///     .build();
+/// assert_eq!(chain.len(), 1);
+/// ```
+#[derive(Debug, Clone)]
+pub struct ChainBuilder {
+    chain: ReceiptChain,
+    validate: bool,
+}
+
+impl ChainBuilder {
+    /// Create a new chain builder.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            chain: ReceiptChain::new(),
+            validate: true,
+        }
+    }
+
+    /// Disable validation on append (useful for constructing test chains).
+    #[must_use]
+    pub fn skip_validation(mut self) -> Self {
+        self.validate = false;
+        self
+    }
+
+    /// Append a receipt to the chain.
+    ///
+    /// Validates on append by default (unless [`skip_validation`](Self::skip_validation) was called).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainError`] if validation fails.
+    pub fn append(mut self, receipt: Receipt) -> Result<Self, ChainError> {
+        if self.validate {
+            self.chain.push(receipt)?;
+        } else {
+            self.push_unchecked(receipt);
+        }
+        Ok(self)
+    }
+
+    /// Append a receipt with an explicit sequence number.
+    ///
+    /// This allows constructing chains with gaps for testing gap detection.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ChainError`] if hash validation fails.
+    pub fn append_with_sequence(
+        mut self,
+        receipt: Receipt,
+        sequence: u64,
+    ) -> Result<Self, ChainError> {
+        let id = receipt.meta.run_id;
+        if self.validate && self.chain.seen_ids.contains(&id) {
+            return Err(ChainError::DuplicateId { id });
+        }
+        if self.validate {
+            verify_receipt_hash(&receipt, self.chain.receipts.len())?;
+        }
+
+        let parent_hash = self
+            .chain
+            .receipts
+            .last()
+            .and_then(|r| r.receipt_sha256.clone());
+
+        self.chain.seen_ids.insert(id);
+        self.chain.sequences.push(sequence);
+        self.chain.parent_hashes.push(parent_hash);
+        self.chain.next_sequence = sequence + 1;
+        self.chain.receipts.push(receipt);
+        Ok(self)
+    }
+
+    /// Consume the builder and return the constructed chain.
+    #[must_use]
+    pub fn build(self) -> ReceiptChain {
+        self.chain
+    }
+
+    /// Push without any validation (used by `skip_validation` mode).
+    fn push_unchecked(&mut self, receipt: Receipt) {
+        let parent_hash = self
+            .chain
+            .receipts
+            .last()
+            .and_then(|r| r.receipt_sha256.clone());
+
+        self.chain.seen_ids.insert(receipt.meta.run_id);
+        self.chain.sequences.push(self.chain.next_sequence);
+        self.chain.parent_hashes.push(parent_hash);
+        self.chain.next_sequence += 1;
+        self.chain.receipts.push(receipt);
+    }
+}
+
+impl Default for ChainBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

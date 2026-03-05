@@ -1,0 +1,12 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&evt"
+---
+{
+  "type": "content_block_start",
+  "index": 0,
+  "content_block": {
+    "type": "text",
+    "text": ""
+  }
+}

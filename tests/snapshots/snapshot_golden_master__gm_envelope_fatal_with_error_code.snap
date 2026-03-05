@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": "run-gm-002",
+  "error": "model not found",
+  "error_code": "backend_model_not_found"
+}

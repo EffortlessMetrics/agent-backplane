@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: spec
+---
+{
+  "root": "/home/user/project",
+  "mode": "staged",
+  "include": [
+    "src/**",
+    "lib/**"
+  ],
+  "exclude": [
+    "target/**",
+    ".git/**"
+  ]
+}

@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: dto
+---
+{
+  "code": "policy_denied",
+  "message": "tool bash is disallowed",
+  "context": {
+    "tool": "bash"
+  }
+}

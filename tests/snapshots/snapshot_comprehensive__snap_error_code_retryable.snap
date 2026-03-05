@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: retryable
+---
+[
+  "backend_unavailable",
+  "backend_timeout",
+  "backend_rate_limited",
+  "backend_crashed",
+  "rate_limit_exceeded",
+  "circuit_breaker_open",
+  "stream_closed"
+]

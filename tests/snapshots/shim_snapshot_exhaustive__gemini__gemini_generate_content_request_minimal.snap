@@ -1,0 +1,17 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: req
+---
+{
+  "model": "gemini-2.0-flash",
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Hello Gemini"
+        }
+      ]
+    }
+  ]
+}

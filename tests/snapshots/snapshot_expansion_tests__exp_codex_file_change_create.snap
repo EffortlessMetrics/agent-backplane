@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: fc
+---
+{
+  "path": "src/error.rs",
+  "operation": "create",
+  "content": "pub struct AppError;"
+}

@@ -1,0 +1,13 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: env
+---
+{
+  "t": "event",
+  "ref_id": "run-exhaustive-001",
+  "event": {
+    "ts": "2025-07-01T12:00:00Z",
+    "type": "assistant_delta",
+    "text": "Here is "
+  }
+}

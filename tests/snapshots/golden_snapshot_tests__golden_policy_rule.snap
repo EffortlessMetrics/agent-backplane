@@ -1,0 +1,15 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: r
+---
+{
+  "id": "deny-bash",
+  "description": "Deny all bash commands",
+  "condition": {
+    "pattern": "Bash*"
+  },
+  "effect": {
+    "type": "deny"
+  },
+  "priority": 100
+}

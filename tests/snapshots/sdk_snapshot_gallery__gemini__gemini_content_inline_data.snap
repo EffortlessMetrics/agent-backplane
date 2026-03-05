@@ -1,0 +1,18 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: content
+---
+{
+  "role": "user",
+  "parts": [
+    {
+      "text": "Describe this image."
+    },
+    {
+      "inlineData": {
+        "mimeType": "image/jpeg",
+        "data": "/9j/4AAQ=="
+      }
+    }
+  ]
+}

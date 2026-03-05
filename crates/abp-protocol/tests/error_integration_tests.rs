@@ -1,3 +1,31 @@
+#![allow(clippy::all)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 /// Tests for abp-error integration with the protocol layer.
 use abp_error::{AbpError, ErrorCode};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
@@ -14,7 +42,7 @@ fn fatal_with_error_code_roundtrips_through_jsonl() {
         ErrorCode::BackendTimeout,
     );
     let json = JsonlCodec::encode(&env).unwrap();
-    assert!(json.contains("BACKEND_TIMEOUT"));
+    assert!(json.contains("backend_timeout"));
 
     let decoded = JsonlCodec::decode(json.trim()).unwrap();
     assert_eq!(decoded.error_code(), Some(ErrorCode::BackendTimeout));
@@ -77,7 +105,7 @@ fn legacy_fatal_json_without_error_code_deserializes() {
 
 #[test]
 fn fatal_json_with_error_code_deserializes() {
-    let json = r#"{"t":"fatal","ref_id":null,"error":"bad envelope","error_code":"PROTOCOL_INVALID_ENVELOPE"}"#;
+    let json = r#"{"t":"fatal","ref_id":null,"error":"bad envelope","error_code":"protocol_invalid_envelope"}"#;
     let env = JsonlCodec::decode(json).unwrap();
     assert_eq!(env.error_code(), Some(ErrorCode::ProtocolInvalidEnvelope));
 }

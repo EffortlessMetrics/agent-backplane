@@ -1,3 +1,32 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Cross-dialect fidelity tests verifying the full translation pipeline for each SDK dialect pair.
 //!
@@ -11,13 +40,25 @@
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, Receipt, UsageNormalized, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement,
+    CapabilityRequirements, ExecutionMode, MinSupport, Receipt, SupportLevel as CoreSupportLevel,
+    UsageNormalized, WorkOrderBuilder,
 };
 use abp_emulation::{
     EmulationEngine, EmulationReport, EmulationStrategy, FidelityLabel, compute_fidelity,
+    default_strategy,
 };
 use chrono::Utc;
 use serde_json::json;
+
+use abp_capability::negotiate::{NegotiationPolicy, apply_policy, pre_negotiate};
+use abp_capability::{
+    CapabilityRegistry, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
+    gemini_15_pro_manifest, kimi_manifest, negotiate_capabilities, openai_gpt4o_manifest,
+};
+use abp_dialect::Dialect;
+use abp_mapper::{MapError, default_ir_mapper, supported_ir_pairs};
+use abp_mapping::{Fidelity, MappingError, MappingRegistry, MappingRule};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Helper: build a canonical IR conversation for cross-dialect tests
@@ -489,6 +530,7 @@ mod gemini {
             temperature: Some(0.5),
             top_p: Some(0.9),
             top_k: Some(40),
+            candidate_count: None,
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: None,
             response_schema: None,
@@ -1428,6 +1470,1258 @@ mod multi_turn_fidelity {
                 ir.messages[i].text_content(),
                 ir_via_copilot.messages[i].text_content()
             );
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Helpers for mapped-mode / negotiation / IR tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+fn manifest_for(dialect: Dialect) -> CapabilityManifest {
+    match dialect {
+        Dialect::OpenAi => openai_gpt4o_manifest(),
+        Dialect::Claude => claude_35_sonnet_manifest(),
+        Dialect::Gemini => gemini_15_pro_manifest(),
+        Dialect::Codex => codex_manifest(),
+        Dialect::Kimi => kimi_manifest(),
+        Dialect::Copilot => copilot_manifest(),
+    }
+}
+
+fn registry_key(dialect: Dialect) -> &'static str {
+    match dialect {
+        Dialect::OpenAi => "openai/gpt-4o",
+        Dialect::Claude => "anthropic/claude-3.5-sonnet",
+        Dialect::Gemini => "google/gemini-1.5-pro",
+        Dialect::Codex => "openai/codex",
+        Dialect::Kimi => "moonshot/kimi",
+        Dialect::Copilot => "github/copilot",
+    }
+}
+
+fn require_native(caps: &[Capability]) -> CapabilityRequirements {
+    CapabilityRequirements {
+        required: caps
+            .iter()
+            .map(|c| CapabilityRequirement {
+                capability: c.clone(),
+                min_support: MinSupport::Native,
+            })
+            .collect(),
+    }
+}
+
+fn require_emulated(caps: &[Capability]) -> CapabilityRequirements {
+    CapabilityRequirements {
+        required: caps
+            .iter()
+            .map(|c| CapabilityRequirement {
+                capability: c.clone(),
+                min_support: MinSupport::Emulated,
+            })
+            .collect(),
+    }
+}
+
+fn ir_simple() -> IrConversation {
+    IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "You are a helpful assistant."),
+        IrMessage::text(IrRole::User, "Hello"),
+    ])
+}
+
+fn ir_with_tools() -> IrConversation {
+    IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::System, "You are a coding assistant."),
+        IrMessage::text(IrRole::User, "Read my file"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![IrContentBlock::ToolUse {
+                id: "tu_1".into(),
+                name: "read_file".into(),
+                input: json!({"path": "src/main.rs"}),
+            }],
+        ),
+        IrMessage::new(
+            IrRole::Tool,
+            vec![IrContentBlock::ToolResult {
+                tool_use_id: "tu_1".into(),
+                content: vec![IrContentBlock::Text {
+                    text: "fn main() {}".into(),
+                }],
+                is_error: false,
+            }],
+        ),
+    ])
+}
+
+fn ir_with_thinking() -> IrConversation {
+    IrConversation::from_messages(vec![
+        IrMessage::text(IrRole::User, "What is 2+2?"),
+        IrMessage::new(
+            IrRole::Assistant,
+            vec![
+                IrContentBlock::Thinking {
+                    text: "Let me think... 2+2=4".into(),
+                },
+                IrContentBlock::Text {
+                    text: "The answer is 4.".into(),
+                },
+            ],
+        ),
+    ])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 11: Identity pair (passthrough) tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod identity_passthrough {
+    use super::*;
+
+    #[test]
+    fn identity_mapper_exists_for_all_dialects() {
+        for &d in Dialect::all() {
+            assert!(
+                default_ir_mapper(d, d).is_some(),
+                "identity mapper missing for {d}"
+            );
+        }
+    }
+
+    #[test]
+    fn identity_preserves_simple_conversation() {
+        for &d in Dialect::all() {
+            let mapper = default_ir_mapper(d, d).unwrap();
+            let conv = ir_simple();
+            let mapped = mapper.map_request(d, d, &conv).unwrap();
+            assert_eq!(conv, mapped, "identity altered conv for {d}");
+        }
+    }
+
+    #[test]
+    fn identity_preserves_tool_conversation() {
+        for &d in Dialect::all() {
+            let mapper = default_ir_mapper(d, d).unwrap();
+            let conv = ir_with_tools();
+            let mapped = mapper.map_request(d, d, &conv).unwrap();
+            assert_eq!(conv, mapped, "identity altered tool conv for {d}");
+        }
+    }
+
+    #[test]
+    fn identity_response_preserves_conversation() {
+        for &d in Dialect::all() {
+            let mapper = default_ir_mapper(d, d).unwrap();
+            let conv = ir_simple();
+            let mapped = mapper.map_response(d, d, &conv).unwrap();
+            assert_eq!(conv, mapped, "identity response altered conv for {d}");
+        }
+    }
+
+    #[test]
+    fn passthrough_preserves_thinking_blocks() {
+        let conv = ir_with_thinking();
+        for &d in Dialect::all() {
+            let mapper = default_ir_mapper(d, d).unwrap();
+            let mapped = mapper.map_request(d, d, &conv).unwrap();
+            let has_thinking = mapped.messages.iter().any(|m| {
+                m.content
+                    .iter()
+                    .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
+            });
+            assert!(has_thinking, "passthrough lost thinking for {d}");
+        }
+    }
+
+    #[test]
+    fn passthrough_preserves_metadata() {
+        let mut conv = ir_simple();
+        conv.messages[0]
+            .metadata
+            .insert("custom_key".into(), json!("custom_value"));
+        for &d in Dialect::all() {
+            let mapper = default_ir_mapper(d, d).unwrap();
+            let mapped = mapper.map_request(d, d, &conv).unwrap();
+            assert_eq!(
+                mapped.messages[0].metadata.get("custom_key"),
+                Some(&json!("custom_value")),
+                "passthrough lost metadata for {d}"
+            );
+        }
+    }
+
+    #[test]
+    fn execution_mode_default_is_mapped() {
+        assert_eq!(ExecutionMode::default(), ExecutionMode::Mapped);
+    }
+
+    #[test]
+    fn execution_mode_serde_roundtrip() {
+        for mode in [ExecutionMode::Passthrough, ExecutionMode::Mapped] {
+            let j = serde_json::to_string(&mode).unwrap();
+            let back: ExecutionMode = serde_json::from_str(&j).unwrap();
+            assert_eq!(mode, back);
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 12: Supported IR pairs matrix
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod ir_pair_matrix {
+    use super::*;
+
+    #[test]
+    fn supported_pairs_include_all_identity() {
+        let pairs = supported_ir_pairs();
+        for &d in Dialect::all() {
+            assert!(pairs.contains(&(d, d)), "identity pair ({d},{d}) missing");
+        }
+    }
+
+    #[test]
+    fn supported_pairs_are_bidirectional() {
+        let pairs = supported_ir_pairs();
+        for &(from, to) in &pairs {
+            if from != to {
+                assert!(
+                    pairs.contains(&(to, from)),
+                    "({from},{to}) exists but ({to},{from}) missing"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn all_supported_pairs_have_mapper() {
+        for &(from, to) in &supported_ir_pairs() {
+            assert!(
+                default_ir_mapper(from, to).is_some(),
+                "no mapper for ({from},{to})"
+            );
+        }
+    }
+
+    #[test]
+    fn at_least_18_non_identity_pairs() {
+        let pairs = supported_ir_pairs();
+        let non_id: Vec<_> = pairs.iter().filter(|(f, t)| f != t).collect();
+        assert!(
+            non_id.len() >= 18,
+            "expected ≥18 non-identity, got {}",
+            non_id.len()
+        );
+    }
+
+    #[test]
+    fn all_supported_pairs_map_simple_request() {
+        let conv = ir_simple();
+        for &(from, to) in &supported_ir_pairs() {
+            let mapper = default_ir_mapper(from, to).unwrap();
+            let result = mapper.map_request(from, to, &conv);
+            assert!(result.is_ok(), "request mapping failed: {from}→{to}");
+        }
+    }
+
+    #[test]
+    fn all_supported_pairs_map_response() {
+        let conv =
+            IrConversation::from_messages(vec![IrMessage::text(IrRole::Assistant, "Response.")]);
+        for &(from, to) in &supported_ir_pairs() {
+            let mapper = default_ir_mapper(from, to).unwrap();
+            let result = mapper.map_response(from, to, &conv);
+            assert!(
+                result.is_ok(),
+                "response mapping failed: {from}→{to}: {:?}",
+                result.err()
+            );
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 13: Feature fidelity per dialect pair (capability negotiation)
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod cap_fidelity_per_pair {
+    use super::*;
+
+    #[test]
+    fn openai_to_claude_native_shared() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::OpenAi), registry_key(Dialect::Claude))
+            .unwrap();
+        assert!(r.native.contains(&Capability::Streaming));
+        assert!(r.native.contains(&Capability::ToolUse));
+        assert!(r.native.contains(&Capability::SystemMessage));
+    }
+
+    #[test]
+    fn openai_to_claude_logprobs_unsupported() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::OpenAi), registry_key(Dialect::Claude))
+            .unwrap();
+        assert!(r.unsupported_caps().contains(&Capability::Logprobs));
+    }
+
+    #[test]
+    fn openai_to_claude_frequency_penalty_unsupported() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::OpenAi), registry_key(Dialect::Claude))
+            .unwrap();
+        assert!(r.unsupported_caps().contains(&Capability::FrequencyPenalty));
+    }
+
+    #[test]
+    fn openai_to_claude_audio_unsupported() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::OpenAi), registry_key(Dialect::Claude))
+            .unwrap();
+        assert!(r.unsupported_caps().contains(&Capability::Audio));
+    }
+
+    #[test]
+    fn claude_to_openai_extended_thinking_unsupported() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::Claude), registry_key(Dialect::OpenAi))
+            .unwrap();
+        assert!(r.unsupported_caps().contains(&Capability::ExtendedThinking));
+    }
+
+    #[test]
+    fn claude_to_openai_cache_control_unsupported() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::Claude), registry_key(Dialect::OpenAi))
+            .unwrap();
+        assert!(r.unsupported_caps().contains(&Capability::CacheControl));
+    }
+
+    #[test]
+    fn claude_to_openai_native_streaming() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::Claude), registry_key(Dialect::OpenAi))
+            .unwrap();
+        assert!(r.native.contains(&Capability::Streaming));
+    }
+
+    #[test]
+    fn gemini_to_openai_native_shared() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::Gemini), registry_key(Dialect::OpenAi))
+            .unwrap();
+        assert!(r.native.contains(&Capability::Streaming));
+        assert!(r.native.contains(&Capability::ToolUse));
+        assert!(r.native.contains(&Capability::FunctionCalling));
+    }
+
+    #[test]
+    fn openai_to_gemini_logprobs_unsupported() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::OpenAi), registry_key(Dialect::Gemini))
+            .unwrap();
+        assert!(r.unsupported_caps().contains(&Capability::Logprobs));
+    }
+
+    #[test]
+    fn openai_to_gemini_native_tool_use() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::OpenAi), registry_key(Dialect::Gemini))
+            .unwrap();
+        assert!(r.native.contains(&Capability::ToolUse));
+        assert!(r.native.contains(&Capability::FunctionCalling));
+    }
+
+    #[test]
+    fn codex_to_claude_native_streaming() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::Codex), registry_key(Dialect::Claude))
+            .unwrap();
+        assert!(r.native.contains(&Capability::Streaming));
+        assert!(r.native.contains(&Capability::ToolUse));
+    }
+
+    #[test]
+    fn codex_to_claude_logprobs_unsupported() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::Codex), registry_key(Dialect::Claude))
+            .unwrap();
+        assert!(r.unsupported_caps().contains(&Capability::Logprobs));
+    }
+
+    #[test]
+    fn kimi_to_openai_native_shared() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::Kimi), registry_key(Dialect::OpenAi))
+            .unwrap();
+        assert!(r.native.contains(&Capability::Streaming));
+        assert!(r.native.contains(&Capability::ToolUse));
+        assert!(r.native.contains(&Capability::FrequencyPenalty));
+        assert!(r.native.contains(&Capability::Temperature));
+    }
+
+    #[test]
+    fn copilot_to_openai_native_features() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(
+                registry_key(Dialect::Copilot),
+                registry_key(Dialect::OpenAi),
+            )
+            .unwrap();
+        assert!(r.native.contains(&Capability::Streaming));
+        assert!(r.native.contains(&Capability::ToolUse));
+    }
+
+    #[test]
+    fn openai_to_copilot_logprobs_unsupported() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(
+                registry_key(Dialect::OpenAi),
+                registry_key(Dialect::Copilot),
+            )
+            .unwrap();
+        assert!(r.unsupported_caps().contains(&Capability::Logprobs));
+    }
+
+    #[test]
+    fn gemini_to_claude_code_execution_emulated() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::Gemini), registry_key(Dialect::Claude))
+            .unwrap();
+        assert!(r.emulated_caps().contains(&Capability::CodeExecution));
+    }
+
+    #[test]
+    fn codex_to_gemini_code_execution_native() {
+        let reg = CapabilityRegistry::with_defaults();
+        let r = reg
+            .compare(registry_key(Dialect::Codex), registry_key(Dialect::Gemini))
+            .unwrap();
+        assert!(r.native.contains(&Capability::CodeExecution));
+    }
+
+    #[test]
+    fn all_pairs_negotiable() {
+        let reg = CapabilityRegistry::with_defaults();
+        for &src in Dialect::all() {
+            for &tgt in Dialect::all() {
+                if src == tgt {
+                    continue;
+                }
+                assert!(
+                    reg.compare(registry_key(src), registry_key(tgt)).is_some(),
+                    "negotiation failed for {src}→{tgt}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn self_negotiation_no_unsupported() {
+        let reg = CapabilityRegistry::with_defaults();
+        for &d in Dialect::all() {
+            let key = registry_key(d);
+            let r = reg.compare(key, key).unwrap();
+            assert!(
+                r.unsupported.is_empty(),
+                "self-negotiation for {d} has unsupported"
+            );
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 14: Specific IR mapping tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod ir_mapping_specific {
+    use super::*;
+
+    #[test]
+    fn openai_to_claude_tool_conv() {
+        let mapper = default_ir_mapper(Dialect::OpenAi, Dialect::Claude).unwrap();
+        let result = mapper.map_request(Dialect::OpenAi, Dialect::Claude, &ir_with_tools());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn claude_to_openai_thinking_block() {
+        let mapper = default_ir_mapper(Dialect::Claude, Dialect::OpenAi).unwrap();
+        let result = mapper.map_request(Dialect::Claude, Dialect::OpenAi, &ir_with_thinking());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn openai_to_gemini_tool_conv() {
+        let mapper = default_ir_mapper(Dialect::OpenAi, Dialect::Gemini).unwrap();
+        let result = mapper.map_request(Dialect::OpenAi, Dialect::Gemini, &ir_with_tools());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn codex_to_claude_simple() {
+        let mapper = default_ir_mapper(Dialect::Codex, Dialect::Claude).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::Codex, Dialect::Claude, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn codex_to_openai_simple() {
+        let mapper = default_ir_mapper(Dialect::Codex, Dialect::OpenAi).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::Codex, Dialect::OpenAi, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn kimi_to_openai_simple() {
+        let mapper = default_ir_mapper(Dialect::Kimi, Dialect::OpenAi).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::Kimi, Dialect::OpenAi, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn openai_to_kimi_simple() {
+        let mapper = default_ir_mapper(Dialect::OpenAi, Dialect::Kimi).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::OpenAi, Dialect::Kimi, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn copilot_to_openai_simple() {
+        let mapper = default_ir_mapper(Dialect::Copilot, Dialect::OpenAi).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::Copilot, Dialect::OpenAi, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn openai_to_copilot_simple() {
+        let mapper = default_ir_mapper(Dialect::OpenAi, Dialect::Copilot).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::OpenAi, Dialect::Copilot, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn claude_to_gemini_simple() {
+        let mapper = default_ir_mapper(Dialect::Claude, Dialect::Gemini).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::Claude, Dialect::Gemini, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn gemini_to_claude_simple() {
+        let mapper = default_ir_mapper(Dialect::Gemini, Dialect::Claude).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::Gemini, Dialect::Claude, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn claude_to_kimi_simple() {
+        let mapper = default_ir_mapper(Dialect::Claude, Dialect::Kimi).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::Claude, Dialect::Kimi, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn kimi_to_claude_simple() {
+        let mapper = default_ir_mapper(Dialect::Kimi, Dialect::Claude).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::Kimi, Dialect::Claude, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn gemini_to_kimi_simple() {
+        let mapper = default_ir_mapper(Dialect::Gemini, Dialect::Kimi).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::Gemini, Dialect::Kimi, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn kimi_to_gemini_simple() {
+        let mapper = default_ir_mapper(Dialect::Kimi, Dialect::Gemini).unwrap();
+        assert!(
+            mapper
+                .map_request(Dialect::Kimi, Dialect::Gemini, &ir_simple())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn roundtrip_openai_claude() {
+        let fwd = default_ir_mapper(Dialect::OpenAi, Dialect::Claude).unwrap();
+        let rev = default_ir_mapper(Dialect::Claude, Dialect::OpenAi).unwrap();
+        let conv = ir_simple();
+        let mapped = fwd
+            .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
+            .unwrap();
+        let rt = rev
+            .map_request(Dialect::Claude, Dialect::OpenAi, &mapped)
+            .unwrap();
+        assert_eq!(conv.messages.len(), rt.messages.len());
+    }
+
+    #[test]
+    fn roundtrip_openai_gemini() {
+        let fwd = default_ir_mapper(Dialect::OpenAi, Dialect::Gemini).unwrap();
+        let rev = default_ir_mapper(Dialect::Gemini, Dialect::OpenAi).unwrap();
+        let conv = ir_simple();
+        let mapped = fwd
+            .map_request(Dialect::OpenAi, Dialect::Gemini, &conv)
+            .unwrap();
+        let rt = rev
+            .map_request(Dialect::Gemini, Dialect::OpenAi, &mapped)
+            .unwrap();
+        assert_eq!(conv.messages.len(), rt.messages.len());
+    }
+
+    #[test]
+    fn roundtrip_openai_kimi() {
+        let fwd = default_ir_mapper(Dialect::OpenAi, Dialect::Kimi).unwrap();
+        let rev = default_ir_mapper(Dialect::Kimi, Dialect::OpenAi).unwrap();
+        let conv = ir_simple();
+        let mapped = fwd
+            .map_request(Dialect::OpenAi, Dialect::Kimi, &conv)
+            .unwrap();
+        let rt = rev
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &mapped)
+            .unwrap();
+        assert_eq!(conv.messages.len(), rt.messages.len());
+    }
+
+    #[test]
+    fn roundtrip_claude_gemini() {
+        let fwd = default_ir_mapper(Dialect::Claude, Dialect::Gemini).unwrap();
+        let rev = default_ir_mapper(Dialect::Gemini, Dialect::Claude).unwrap();
+        let conv = ir_simple();
+        let mapped = fwd
+            .map_request(Dialect::Claude, Dialect::Gemini, &conv)
+            .unwrap();
+        let rt = rev
+            .map_request(Dialect::Gemini, Dialect::Claude, &mapped)
+            .unwrap();
+        assert_eq!(conv.messages.len(), rt.messages.len());
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 15: Emulation labeling
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod emulation_labeling {
+    use super::*;
+
+    #[test]
+    fn extended_thinking_uses_system_prompt_injection() {
+        let strategy = default_strategy(&Capability::ExtendedThinking);
+        assert!(matches!(
+            strategy,
+            EmulationStrategy::SystemPromptInjection { .. }
+        ));
+    }
+
+    #[test]
+    fn structured_output_uses_post_processing() {
+        let strategy = default_strategy(&Capability::StructuredOutputJsonSchema);
+        assert!(matches!(strategy, EmulationStrategy::PostProcessing { .. }));
+    }
+
+    #[test]
+    fn code_execution_is_disabled() {
+        let strategy = default_strategy(&Capability::CodeExecution);
+        assert!(matches!(strategy, EmulationStrategy::Disabled { .. }));
+    }
+
+    #[test]
+    fn image_input_uses_system_prompt_injection() {
+        let strategy = default_strategy(&Capability::ImageInput);
+        assert!(matches!(
+            strategy,
+            EmulationStrategy::SystemPromptInjection { .. }
+        ));
+    }
+
+    #[test]
+    fn stop_sequences_uses_post_processing() {
+        let strategy = default_strategy(&Capability::StopSequences);
+        assert!(matches!(strategy, EmulationStrategy::PostProcessing { .. }));
+    }
+
+    #[test]
+    fn engine_labels_applied_capabilities() {
+        let engine = EmulationEngine::with_defaults();
+        let mut conv = ir_simple();
+        let report = engine.apply(&[Capability::ExtendedThinking], &mut conv);
+        assert!(!report.applied.is_empty());
+        assert_eq!(report.applied[0].capability, Capability::ExtendedThinking);
+        assert!(matches!(
+            report.applied[0].strategy,
+            EmulationStrategy::SystemPromptInjection { .. }
+        ));
+    }
+
+    #[test]
+    fn engine_warns_on_disabled() {
+        let engine = EmulationEngine::with_defaults();
+        let report = engine.check_missing(&[Capability::CodeExecution]);
+        assert!(report.has_unemulatable());
+        assert!(!report.warnings.is_empty());
+    }
+
+    #[test]
+    fn compute_fidelity_native_and_emulated() {
+        let engine = EmulationEngine::with_defaults();
+        let mut conv = ir_simple();
+        let report = engine.apply(
+            &[Capability::ExtendedThinking, Capability::StopSequences],
+            &mut conv,
+        );
+        let labels = compute_fidelity(&[Capability::Streaming], &report);
+        assert_eq!(labels[&Capability::Streaming], FidelityLabel::Native);
+        assert!(matches!(
+            labels.get(&Capability::ExtendedThinking),
+            Some(FidelityLabel::Emulated { .. })
+        ));
+    }
+
+    #[test]
+    fn emulation_report_includes_method_string() {
+        let engine = EmulationEngine::with_defaults();
+        let mut conv = ir_simple();
+        let report = engine.apply(&[Capability::ExtendedThinking], &mut conv);
+        match &report.applied[0].strategy {
+            EmulationStrategy::SystemPromptInjection { prompt } => {
+                assert!(!prompt.is_empty());
+            }
+            other => panic!("expected SystemPromptInjection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn engine_applies_multiple_strategies() {
+        let engine = EmulationEngine::with_defaults();
+        let mut conv = ir_simple();
+        let caps = vec![
+            Capability::ExtendedThinking,
+            Capability::ImageInput,
+            Capability::StopSequences,
+        ];
+        let report = engine.apply(&caps, &mut conv);
+        assert_eq!(report.applied.len(), 3);
+    }
+
+    #[test]
+    fn emulation_modifies_system_prompt() {
+        let engine = EmulationEngine::with_defaults();
+        let mut conv = ir_simple();
+        let original = conv.system_message().unwrap().text_content();
+        engine.apply(&[Capability::ExtendedThinking], &mut conv);
+        let modified = conv.system_message().unwrap().text_content();
+        assert!(modified.len() > original.len());
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 16: Early failure
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod early_failure {
+    use super::*;
+
+    #[test]
+    fn native_logprobs_on_claude_unsupported() {
+        let manifest = claude_35_sonnet_manifest();
+        let caps: Vec<_> = require_native(&[Capability::Logprobs])
+            .required
+            .iter()
+            .map(|r| r.capability.clone())
+            .collect();
+        let r = negotiate_capabilities(&caps, &manifest);
+        assert!(r.unsupported_caps().contains(&Capability::Logprobs));
+    }
+
+    #[test]
+    fn native_extended_thinking_on_openai_unsupported() {
+        let manifest = openai_gpt4o_manifest();
+        let caps: Vec<_> = require_native(&[Capability::ExtendedThinking])
+            .required
+            .iter()
+            .map(|r| r.capability.clone())
+            .collect();
+        let r = negotiate_capabilities(&caps, &manifest);
+        assert!(r.unsupported_caps().contains(&Capability::ExtendedThinking));
+    }
+
+    #[test]
+    fn strict_policy_rejects_unsupported() {
+        let manifest = claude_35_sonnet_manifest();
+        let r = pre_negotiate(&[Capability::Logprobs], &manifest);
+        let pr = apply_policy(&r, NegotiationPolicy::Strict);
+        assert!(pr.is_err());
+        assert!(!pr.unwrap_err().unsupported.is_empty());
+    }
+
+    #[test]
+    fn permissive_policy_allows_unsupported() {
+        let manifest = claude_35_sonnet_manifest();
+        let r = pre_negotiate(&[Capability::Logprobs], &manifest);
+        assert!(apply_policy(&r, NegotiationPolicy::Permissive).is_ok());
+    }
+
+    #[test]
+    fn best_effort_rejects_unsupported() {
+        let manifest = claude_35_sonnet_manifest();
+        let r = pre_negotiate(&[Capability::Logprobs], &manifest);
+        assert!(apply_policy(&r, NegotiationPolicy::BestEffort).is_err());
+    }
+
+    #[test]
+    fn error_identifies_capability() {
+        let manifest = openai_gpt4o_manifest();
+        let r = pre_negotiate(&[Capability::ExtendedThinking], &manifest);
+        let err = apply_policy(&r, NegotiationPolicy::Strict).unwrap_err();
+        let cap_names: Vec<_> = err.unsupported.iter().map(|(c, _)| c.clone()).collect();
+        assert!(cap_names.contains(&Capability::ExtendedThinking));
+    }
+
+    #[test]
+    fn multiple_unsupported_all_listed() {
+        let manifest = claude_35_sonnet_manifest();
+        let r = pre_negotiate(
+            &[Capability::Logprobs, Capability::FrequencyPenalty],
+            &manifest,
+        );
+        let err = apply_policy(&r, NegotiationPolicy::Strict).unwrap_err();
+        assert!(err.unsupported.len() >= 2);
+    }
+
+    #[test]
+    fn native_min_rejects_emulated() {
+        let manifest = claude_35_sonnet_manifest();
+        let reqs = require_native(&[Capability::FunctionCalling]);
+        let r = abp_capability::negotiate(&manifest, &reqs);
+        assert!(!r.is_viable());
+    }
+
+    #[test]
+    fn emulated_min_accepts_emulated() {
+        let manifest = claude_35_sonnet_manifest();
+        let reqs = require_emulated(&[Capability::FunctionCalling]);
+        let r = abp_capability::negotiate(&manifest, &reqs);
+        assert!(r.is_viable());
+    }
+
+    #[test]
+    fn native_on_gemini_logprobs_unsupported() {
+        let manifest = gemini_15_pro_manifest();
+        let r = pre_negotiate(&[Capability::Logprobs], &manifest);
+        assert!(r.unsupported_caps().contains(&Capability::Logprobs));
+    }
+
+    #[test]
+    fn native_on_copilot_logprobs_unsupported() {
+        let manifest = copilot_manifest();
+        let r = pre_negotiate(&[Capability::Logprobs], &manifest);
+        assert!(r.unsupported_caps().contains(&Capability::Logprobs));
+    }
+
+    #[test]
+    fn native_on_kimi_extended_thinking_unsupported() {
+        let manifest = kimi_manifest();
+        let r = pre_negotiate(&[Capability::ExtendedThinking], &manifest);
+        assert!(r.unsupported_caps().contains(&Capability::ExtendedThinking));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 17: Mapping registry / fidelity matrix
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod mapping_registry_tests {
+    use super::*;
+
+    #[test]
+    fn lossless_tool_use_rule() {
+        let mut reg = MappingRegistry::new();
+        reg.insert(MappingRule {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            feature: "tool_use".into(),
+            fidelity: Fidelity::Lossless,
+        });
+        let rule = reg
+            .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+            .unwrap();
+        assert!(rule.fidelity.is_lossless());
+    }
+
+    #[test]
+    fn unsupported_logprobs_rule() {
+        let mut reg = MappingRegistry::new();
+        reg.insert(MappingRule {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            feature: "logprobs".into(),
+            fidelity: Fidelity::Unsupported {
+                reason: "Claude does not support logprobs".into(),
+            },
+        });
+        let rule = reg
+            .lookup(Dialect::OpenAi, Dialect::Claude, "logprobs")
+            .unwrap();
+        assert!(rule.fidelity.is_unsupported());
+    }
+
+    #[test]
+    fn lossy_labeled_rule() {
+        let mut reg = MappingRegistry::new();
+        reg.insert(MappingRule {
+            source_dialect: Dialect::Claude,
+            target_dialect: Dialect::OpenAi,
+            feature: "extended_thinking".into(),
+            fidelity: Fidelity::LossyLabeled {
+                warning: "thinking blocks stripped".into(),
+            },
+        });
+        let rule = reg
+            .lookup(Dialect::Claude, Dialect::OpenAi, "extended_thinking")
+            .unwrap();
+        assert!(!rule.fidelity.is_lossless());
+        assert!(!rule.fidelity.is_unsupported());
+    }
+
+    #[test]
+    fn rank_targets_prefers_lossless() {
+        let mut reg = MappingRegistry::new();
+        for &target in Dialect::all() {
+            if target == Dialect::OpenAi {
+                continue;
+            }
+            reg.insert(MappingRule {
+                source_dialect: Dialect::OpenAi,
+                target_dialect: target,
+                feature: "streaming".into(),
+                fidelity: Fidelity::Lossless,
+            });
+        }
+        reg.insert(MappingRule {
+            source_dialect: Dialect::OpenAi,
+            target_dialect: Dialect::Claude,
+            feature: "tool_use".into(),
+            fidelity: Fidelity::Lossless,
+        });
+        let ranked = reg.rank_targets(Dialect::OpenAi, &["streaming", "tool_use"]);
+        assert!(!ranked.is_empty());
+        assert_eq!(ranked[0].0, Dialect::Claude);
+        assert_eq!(ranked[0].1, 2);
+    }
+
+    #[test]
+    fn fidelity_serde_roundtrip() {
+        let variants = vec![
+            Fidelity::Lossless,
+            Fidelity::LossyLabeled {
+                warning: "degraded".into(),
+            },
+            Fidelity::Unsupported {
+                reason: "n/a".into(),
+            },
+        ];
+        for f in &variants {
+            let j = serde_json::to_string(f).unwrap();
+            let back: Fidelity = serde_json::from_str(&j).unwrap();
+            assert_eq!(f, &back);
+        }
+    }
+
+    #[test]
+    fn mapping_error_feature_unsupported_display() {
+        let err = MappingError::FeatureUnsupported {
+            feature: "logprobs".into(),
+            from: Dialect::OpenAi,
+            to: Dialect::Claude,
+        };
+        assert!(err.to_string().contains("logprobs"));
+    }
+
+    #[test]
+    fn mapping_error_fidelity_loss_display() {
+        let err = MappingError::FidelityLoss {
+            feature: "extended_thinking".into(),
+            warning: "thinking blocks stripped".into(),
+        };
+        assert!(err.to_string().contains("extended_thinking"));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 18: MapError handling
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod map_error_handling {
+    use super::*;
+
+    #[test]
+    fn unsupported_pair_display() {
+        let err = MapError::UnsupportedPair {
+            from: Dialect::Kimi,
+            to: Dialect::Copilot,
+        };
+        assert!(err.to_string().contains("Kimi"));
+        assert!(err.to_string().contains("Copilot"));
+    }
+
+    #[test]
+    fn lossy_conversion_display() {
+        let err = MapError::LossyConversion {
+            field: "thinking".into(),
+            reason: "target has no thinking block".into(),
+        };
+        assert!(err.to_string().contains("thinking"));
+    }
+
+    #[test]
+    fn incompatible_capability_display() {
+        let err = MapError::IncompatibleCapability {
+            capability: "logprobs".into(),
+            reason: "target dialect does not support logprobs".into(),
+        };
+        assert!(err.to_string().contains("logprobs"));
+    }
+
+    #[test]
+    fn unmappable_content_display() {
+        let err = MapError::UnmappableContent {
+            field: "system".into(),
+            reason: "image blocks in system prompt".into(),
+        };
+        assert!(err.to_string().contains("system"));
+    }
+
+    #[test]
+    fn map_error_serde_roundtrip() {
+        let errors = vec![
+            MapError::UnsupportedPair {
+                from: Dialect::OpenAi,
+                to: Dialect::Claude,
+            },
+            MapError::LossyConversion {
+                field: "thinking".into(),
+                reason: "stripped".into(),
+            },
+            MapError::UnmappableTool {
+                name: "bash".into(),
+                reason: "restricted".into(),
+            },
+            MapError::IncompatibleCapability {
+                capability: "vision".into(),
+                reason: "no image support".into(),
+            },
+            MapError::UnmappableContent {
+                field: "system".into(),
+                reason: "images in system".into(),
+            },
+        ];
+        for err in &errors {
+            let j = serde_json::to_string(err).unwrap();
+            let back: MapError = serde_json::from_str(&j).unwrap();
+            assert_eq!(err, &back);
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 19: MinSupport / SupportLevel correctness
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod support_level_tests {
+    use super::*;
+
+    #[test]
+    fn native_satisfies_both() {
+        let n = CoreSupportLevel::Native;
+        assert!(n.satisfies(&MinSupport::Native));
+        assert!(n.satisfies(&MinSupport::Emulated));
+    }
+
+    #[test]
+    fn emulated_satisfies_emulated_only() {
+        let e = CoreSupportLevel::Emulated;
+        assert!(!e.satisfies(&MinSupport::Native));
+        assert!(e.satisfies(&MinSupport::Emulated));
+    }
+
+    #[test]
+    fn unsupported_satisfies_neither() {
+        let u = CoreSupportLevel::Unsupported;
+        assert!(!u.satisfies(&MinSupport::Native));
+        assert!(!u.satisfies(&MinSupport::Emulated));
+    }
+
+    #[test]
+    fn restricted_satisfies_emulated() {
+        let r = CoreSupportLevel::Restricted {
+            reason: "sandbox".into(),
+        };
+        assert!(!r.satisfies(&MinSupport::Native));
+        assert!(r.satisfies(&MinSupport::Emulated));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 20: Manifest assertions
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod manifest_assertions {
+    use super::*;
+
+    #[test]
+    fn all_manifests_have_streaming_native() {
+        for &d in Dialect::all() {
+            let m = manifest_for(d);
+            assert!(
+                matches!(
+                    m.get(&Capability::Streaming),
+                    Some(CoreSupportLevel::Native)
+                ),
+                "{d} missing native streaming"
+            );
+        }
+    }
+
+    #[test]
+    fn all_manifests_have_tool_use_native() {
+        for &d in Dialect::all() {
+            let m = manifest_for(d);
+            assert!(
+                matches!(m.get(&Capability::ToolUse), Some(CoreSupportLevel::Native)),
+                "{d} missing native tool_use"
+            );
+        }
+    }
+
+    #[test]
+    fn all_manifests_have_system_message_native() {
+        for &d in Dialect::all() {
+            let m = manifest_for(d);
+            assert!(
+                matches!(
+                    m.get(&Capability::SystemMessage),
+                    Some(CoreSupportLevel::Native)
+                ),
+                "{d} missing native system_message"
+            );
+        }
+    }
+
+    #[test]
+    fn registry_with_defaults_has_six_backends() {
+        let reg = CapabilityRegistry::with_defaults();
+        assert_eq!(reg.len(), 6);
+    }
+
+    #[test]
+    fn gemini_extended_thinking_unsupported() {
+        let m = gemini_15_pro_manifest();
+        assert!(matches!(
+            m.get(&Capability::ExtendedThinking),
+            Some(CoreSupportLevel::Unsupported)
+        ));
+    }
+
+    #[test]
+    fn claude_logprobs_unsupported() {
+        let m = claude_35_sonnet_manifest();
+        assert!(matches!(
+            m.get(&Capability::Logprobs),
+            Some(CoreSupportLevel::Unsupported)
+        ));
+    }
+
+    #[test]
+    fn openai_extended_thinking_unsupported() {
+        let m = openai_gpt4o_manifest();
+        assert!(matches!(
+            m.get(&Capability::ExtendedThinking),
+            Some(CoreSupportLevel::Unsupported)
+        ));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Module 21: Dialect detection metadata
+// ═══════════════════════════════════════════════════════════════════════════
+
+mod dialect_metadata {
+    use super::*;
+
+    #[test]
+    fn dialect_all_returns_six() {
+        assert_eq!(Dialect::all().len(), 6);
+    }
+
+    #[test]
+    fn dialect_labels_unique() {
+        let labels: Vec<&str> = Dialect::all().iter().map(|d| d.label()).collect();
+        let mut deduped = labels.clone();
+        deduped.sort();
+        deduped.dedup();
+        assert_eq!(labels.len(), deduped.len());
+    }
+
+    #[test]
+    fn dialect_display_matches_label() {
+        for &d in Dialect::all() {
+            assert_eq!(d.to_string(), d.label());
         }
     }
 }

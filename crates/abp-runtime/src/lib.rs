@@ -1,14 +1,44 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #![doc = include_str!("../README.md")]
-//! abp-runtime
 //!
-//! Orchestration layer.
+//! # Runtime orchestration
 //!
-//! Responsibilities:
-//! - prepare a workspace (pass-through or staged)
-//! - enforce/record policy (best-effort in v0.1)
-//! - select a backend and stream events
-//! - produce a canonical receipt with verification metadata
+//! `abp-runtime` is the top-level orchestrator for the Agent Backplane.  It
+//! owns the full lifecycle of a work-order run:
+//!
+//! 1. **Workspace preparation** — copies or stages the workspace via
+//!    `abp-workspace`, initialises git for verification diffs.
+//! 2. **Policy compilation** — compiles the work order's `PolicyProfile`
+//!    into a `PolicyEngine` (from `abp-policy`).
+//! 3. **Capability negotiation** — checks that the selected backend
+//!    satisfies the work order's capability requirements (via
+//!    `abp-capability`), applying emulation where configured.
+//! 4. **Backend execution** — dispatches the work order to a registered
+//!    `Backend` implementation and streams `AgentEvent`s back to the caller.
+//! 5. **Receipt production** — builds a canonical `Receipt` with
+//!    verification metadata, traces, and a SHA-256 hash.
+//!
+//! ## Key types
+//!
+//! * [`Runtime`] — the central orchestrator; register backends, then call
+//!   `run_streaming` or `run_projected`.
+//! * [`RunHandle`] — handle returned from a run: provides the event stream
+//!   and a receipt future.
+//! * [`RuntimeError`] — error enum covering all runtime failure modes.
+//! * [`BackendRegistry`] — named backend lookup table.
+//!
+//! ## Middleware & pipeline
+//!
+//! The [`middleware`] module provides pre/post-run hooks, and [`pipeline`]
+//! offers a processing pipeline for work-order pre-processing.  The
+//! [`stream`] module integrates with `abp-stream` for event filtering,
+//! transformation, and recording.
+//!
+//! ## Projection-based routing
+//!
+//! When a [`ProjectionMatrix`] is attached (via [`Runtime::with_projection`]),
+//! the runtime can automatically select the best-fit backend for a work
+//! order using [`Runtime::run_projected`].
 
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
@@ -19,10 +49,18 @@ pub mod budget;
 pub mod bus;
 /// Cancellation primitives for runtime runs.
 pub mod cancel;
+/// Runtime configuration integration (backend selection, telemetry, workspace).
+pub mod config_integration;
+/// Retry-and-fallback execution pipeline (parallel path to [`Runtime::run_streaming`]).
+pub mod execution;
 /// Lifecycle hooks for runtime extensibility.
 pub mod hooks;
+/// Middleware pattern for pre/post run hooks.
+pub mod middleware;
 /// Event multiplexing and routing for broadcasting agent events.
 pub mod multiplex;
+/// Combined capability negotiation result for the runtime pipeline.
+pub mod negotiate;
 /// Observability primitives: tracing spans and runtime observer.
 pub mod observe;
 /// Processing pipeline for work order pre-processing.
@@ -41,12 +79,15 @@ pub mod stream;
 pub mod telemetry;
 
 use abp_core::{AgentEvent, CapabilityRequirements, Outcome, Receipt, WorkOrder};
+use abp_dialect::Dialect;
 use abp_emulation::{EmulationConfig, EmulationEngine, EmulationReport};
 use abp_integrations::{Backend, ensure_capability_requirements};
 use abp_policy::PolicyEngine;
+use abp_projection::translate::{TranslationEngine, TranslationMode, TranslationResult};
 use abp_receipt::{ReceiptBuilder, ReceiptChain};
 use abp_workspace::WorkspaceManager;
 use anyhow::Context;
+use middleware::{MiddlewareChain, MiddlewareContext};
 use std::sync::Arc;
 use telemetry::RunMetrics;
 use thiserror::Error;
@@ -58,8 +99,14 @@ use uuid::Uuid;
 /// Re-export of [`registry::BackendRegistry`] for convenience.
 pub use registry::BackendRegistry;
 
+/// Re-export combined negotiation result type.
+pub use negotiate::NegotiationResult;
+
 /// Re-export projection types for callers that use projection-based routing.
 pub use abp_projection::{self, ProjectionMatrix, ProjectionResult, ProjectionScore};
+
+/// Re-export the translation engine for callers that need direct access.
+pub use abp_projection::translate::TranslationEngine as ProjectionTranslationEngine;
 
 /// Re-export receipt chain and builder from `abp-receipt`.
 pub use abp_receipt::{self, ReceiptChain as ReceiptChainType};
@@ -130,6 +177,26 @@ impl RuntimeError {
             }
         }
     }
+
+    /// Returns `true` when the error is transient and the operation could
+    /// reasonably succeed on a subsequent attempt.
+    ///
+    /// Errors that are inherently permanent (unknown backend, policy
+    /// compilation, capability mismatch) always return `false`.
+    #[must_use]
+    pub fn is_retryable(&self) -> bool {
+        match self {
+            // Transient — backend may recover on retry.
+            Self::BackendFailed(_) | Self::WorkspaceFailed(_) => true,
+            // Classified errors delegate to the error taxonomy.
+            Self::Classified(e) => e.is_retryable(),
+            // Everything else is a permanent configuration/logic error.
+            Self::UnknownBackend { .. }
+            | Self::PolicyFailed(_)
+            | Self::CapabilityCheckFailed(_)
+            | Self::NoProjectionMatch { .. } => false,
+        }
+    }
 }
 
 /// Central orchestrator that holds registered backends and executes work orders.
@@ -146,6 +213,8 @@ pub struct Runtime {
     receipt_chain: Arc<Mutex<ReceiptChain>>,
     projection: Option<ProjectionMatrix>,
     stream_pipeline: Option<abp_stream::StreamPipeline>,
+    translation_engine: Arc<TranslationEngine>,
+    middleware: Arc<MiddlewareChain>,
 }
 
 /// Handle to a running work order: provides a run id, event stream, and receipt future.
@@ -175,6 +244,8 @@ impl Runtime {
             receipt_chain: Arc::new(Mutex::new(ReceiptChain::new())),
             projection: None,
             stream_pipeline: None,
+            translation_engine: Arc::new(TranslationEngine::with_defaults()),
+            middleware: Arc::new(MiddlewareChain::new()),
         }
     }
 
@@ -274,6 +345,37 @@ impl Runtime {
     #[must_use]
     pub fn stream_pipeline(&self) -> Option<&abp_stream::StreamPipeline> {
         self.stream_pipeline.as_ref()
+    }
+
+    /// Return a reference to the runtime's [`TranslationEngine`].
+    #[must_use]
+    pub fn translation_engine(&self) -> &TranslationEngine {
+        &self.translation_engine
+    }
+
+    /// Replace the translation engine (builder pattern).
+    #[must_use]
+    pub fn with_translation_engine(mut self, engine: TranslationEngine) -> Self {
+        self.translation_engine = Arc::new(engine);
+        self
+    }
+
+    /// Attach a [`MiddlewareChain`] that wraps every backend execution with
+    /// pre/post-run hooks (builder pattern).
+    ///
+    /// The chain's `before_run` hooks execute before the backend, and
+    /// `after_run` hooks execute (in reverse order) after the backend
+    /// completes or fails.
+    #[must_use]
+    pub fn with_middleware(mut self, chain: MiddlewareChain) -> Self {
+        self.middleware = Arc::new(chain);
+        self
+    }
+
+    /// Return a reference to the attached middleware chain.
+    #[must_use]
+    pub fn middleware(&self) -> &MiddlewareChain {
+        &self.middleware
     }
 
     /// Use the projection matrix to select the best backend for a work order.
@@ -442,6 +544,21 @@ impl Runtime {
         let run_id = Uuid::new_v4();
         let metrics = Arc::clone(&self.metrics);
 
+        // Resolve source and target dialects for translation.
+        let source_dialect = extract_dialect(&work_order);
+        let target_dialect = resolve_backend_dialect(self.projection.as_ref(), &backend_name);
+        let translation_engine = Arc::clone(&self.translation_engine);
+
+        // Run middleware before_run hooks (short-circuits on error).
+        let mw_chain = Arc::clone(&self.middleware);
+        let mw_ctx = MiddlewareContext::new(&backend_name);
+        if !mw_chain.is_empty() {
+            mw_chain
+                .run_before(&work_order, &mw_ctx)
+                .await
+                .map_err(RuntimeError::PolicyFailed)?;
+        }
+
         // Two-stage channel: backend -> runtime -> caller
         let (from_backend_tx, mut from_backend_rx) = mpsc::channel::<AgentEvent>(256);
         let (to_caller_tx, to_caller_rx) = mpsc::channel::<AgentEvent>(256);
@@ -488,13 +605,12 @@ impl Runtime {
                                 let emulated_caps: std::collections::BTreeSet<_> =
                                     emu.applied.iter().map(|e| &e.capability).collect();
                                 result
-                                    .unsupported
-                                    .iter()
+                                    .unsupported_caps()
+                                    .into_iter()
                                     .filter(|c| !emulated_caps.contains(c))
-                                    .cloned()
                                     .collect()
                             }
-                            None => result.unsupported.clone(),
+                            None => result.unsupported_caps(),
                         };
                         if !truly_unsupported.is_empty() {
                             let names: Vec<String> =
@@ -505,11 +621,11 @@ impl Runtime {
                             )));
                         }
                     }
-                    if !result.emulatable.is_empty() {
+                    if !result.emulated.is_empty() {
                         warn!(
                             target: "abp.runtime",
                             backend=%backend_name,
-                            emulated=?result.emulatable,
+                            emulated=?result.emulated_caps(),
                             "capabilities require emulation"
                         );
                     }
@@ -520,6 +636,62 @@ impl Runtime {
             };
 
             debug!(target: "abp.runtime", backend=%backend_name, run_id=%run_id, "starting run");
+
+            // ── Dialect translation layer ────────────────────────────────
+            // Detect whether cross-dialect translation is needed and classify
+            // the translation mode.  When source ≠ target, the translation
+            // engine is used to validate the pair and collect capability gaps.
+            let translation_meta: Option<TranslationResult> = match (source_dialect, target_dialect)
+            {
+                (Some(src), Some(tgt)) if src != tgt => {
+                    // Build a probe conversation from the work order task to
+                    // detect capability gaps and validate the mapping pair.
+                    let probe = abp_core::ir::IrConversation::from_messages(vec![
+                        abp_core::ir::IrMessage::text(abp_core::ir::IrRole::User, &wo.task),
+                    ]);
+                    match translation_engine.translate(src, tgt, &probe) {
+                        Ok(result) => {
+                            info!(
+                                target: "abp.runtime",
+                                from = %src,
+                                to = %tgt,
+                                mode = %result.mode,
+                                gaps = result.gaps.len(),
+                                "dialect translation active"
+                            );
+                            Some(result)
+                        }
+                        Err(e) => {
+                            warn!(
+                                target: "abp.runtime",
+                                from = %src,
+                                to = %tgt,
+                                error = %e,
+                                "dialect translation not available, proceeding without"
+                            );
+                            None
+                        }
+                    }
+                }
+                (Some(d), Some(t)) if d == t => {
+                    debug!(
+                        target: "abp.runtime",
+                        dialect = %d,
+                        "passthrough — source and target dialects match"
+                    );
+                    Some(TranslationResult {
+                        conversation: abp_core::ir::IrConversation::new(),
+                        from: d,
+                        to: t,
+                        mode: TranslationMode::Passthrough,
+                        gaps: Vec::new(),
+                    })
+                }
+                _ => {
+                    debug!(target: "abp.runtime", "no dialect translation — dialect(s) not specified");
+                    None
+                }
+            };
 
             // Run backend in a task so we can multiplex events.
             let backend2 = backend.clone();
@@ -615,9 +787,9 @@ impl Runtime {
             }
 
             // Record emulation report in receipt metadata if emulation was applied.
-            if let Some(emu_report) = emulation_report
+            if let Some(ref emu_report) = emulation_report
                 && let (false, Ok(report_value)) =
-                    (emu_report.is_empty(), serde_json::to_value(&emu_report))
+                    (emu_report.is_empty(), serde_json::to_value(emu_report))
             {
                 if let Some(obj) = receipt.usage_raw.as_object_mut() {
                     obj.insert("emulation".to_string(), report_value);
@@ -635,6 +807,45 @@ impl Runtime {
                 && let Some(obj) = receipt.usage_raw.as_object_mut()
             {
                 obj.insert("capability_negotiation".to_string(), neg_value);
+            }
+
+            // Record dialect translation metadata in receipt.
+            if let Some(ref tr) = translation_meta {
+                let translation_value = serde_json::json!({
+                    "source_dialect": tr.from.label(),
+                    "target_dialect": tr.to.label(),
+                    "translation_mode": tr.mode.to_string(),
+                    "capability_gaps": tr.gaps.iter().map(|g| serde_json::json!({
+                        "feature": format!("{:?}", g.feature),
+                        "source": g.source.label(),
+                        "target": g.target.label(),
+                        "description": g.description,
+                    })).collect::<Vec<_>>(),
+                });
+                if let Some(obj) = receipt.usage_raw.as_object_mut() {
+                    obj.insert("dialect_translation".to_string(), translation_value);
+                } else {
+                    receipt.usage_raw = serde_json::json!({
+                        "original": receipt.usage_raw,
+                        "dialect_translation": translation_value,
+                    });
+                }
+            }
+
+            // Build and record combined negotiation result.
+            {
+                let combined = match &negotiation_result {
+                    Some(neg) => negotiate::NegotiationResult::from_negotiation(
+                        neg,
+                        emulation_report.as_ref(),
+                    ),
+                    None => negotiate::NegotiationResult::all_native(vec![]),
+                };
+                if let Ok(val) = serde_json::to_value(&combined) {
+                    if let Some(obj) = receipt.usage_raw.as_object_mut() {
+                        obj.insert("negotiation_result".to_string(), val);
+                    }
+                }
             }
 
             // Ensure receipt hash is present and consistent via abp-receipt.
@@ -659,6 +870,16 @@ impl Runtime {
             let event_count = receipt.trace.len() as u64;
             metrics.record_run(duration_ms, success, event_count);
 
+            // Run middleware after_run hooks (errors are collected, not fatal).
+            if !mw_chain.is_empty() {
+                let after_errors = mw_chain
+                    .run_after(&work_order, &mw_ctx, Some(&receipt))
+                    .await;
+                for e in &after_errors {
+                    warn!(target: "abp.runtime.middleware", error=%e, "after_run hook error");
+                }
+            }
+
             Ok(receipt)
         });
 
@@ -667,6 +888,83 @@ impl Runtime {
             events: ReceiverStream::new(to_caller_rx),
             receipt,
         })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Dialect extraction helpers
+// ---------------------------------------------------------------------------
+
+/// Extract the source dialect from a work order's vendor config.
+///
+/// Checks `config.vendor["abp"]["dialect"]` first, then falls back to
+/// `config.vendor["abp.dialect"]`. Returns `None` if not specified.
+#[must_use]
+pub fn extract_dialect(work_order: &WorkOrder) -> Option<Dialect> {
+    // Nested: config.vendor.abp.dialect
+    if let Some(abp_val) = work_order.config.vendor.get("abp")
+        && let Some(dialect_str) = abp_val.get("dialect").and_then(|v| v.as_str())
+    {
+        return parse_dialect_str(dialect_str);
+    }
+
+    // Flat: config.vendor["abp.dialect"]
+    if let Some(val) = work_order.config.vendor.get("abp.dialect")
+        && let Some(dialect_str) = val.as_str()
+    {
+        return parse_dialect_str(dialect_str);
+    }
+
+    None
+}
+
+/// Infer a backend's native dialect from its name.
+///
+/// Common patterns: `"sidecar:claude"` → Claude, `"openai"` → OpenAI, etc.
+#[must_use]
+pub fn infer_dialect_from_backend(backend_name: &str) -> Option<Dialect> {
+    let lower = backend_name.to_lowercase();
+    if lower.contains("claude") {
+        Some(Dialect::Claude)
+    } else if lower.contains("gemini") {
+        Some(Dialect::Gemini)
+    } else if lower.contains("codex") {
+        Some(Dialect::Codex)
+    } else if lower.contains("kimi") || lower.contains("moonshot") {
+        Some(Dialect::Kimi)
+    } else if lower.contains("copilot") {
+        Some(Dialect::Copilot)
+    } else if lower.contains("openai") || lower.contains("gpt") {
+        Some(Dialect::OpenAi)
+    } else {
+        None
+    }
+}
+
+/// Resolve the target dialect for a backend: first check the projection matrix
+/// for a registered dialect, then fall back to name inference.
+fn resolve_backend_dialect(
+    projection: Option<&ProjectionMatrix>,
+    backend_name: &str,
+) -> Option<Dialect> {
+    if let Some(matrix) = projection {
+        if let Some(entry) = matrix.backend_entry(backend_name) {
+            return Some(entry.dialect);
+        }
+    }
+    infer_dialect_from_backend(backend_name)
+}
+
+/// Parse a dialect name string into a [`Dialect`].
+fn parse_dialect_str(s: &str) -> Option<Dialect> {
+    match s.to_lowercase().as_str() {
+        "openai" | "open_ai" => Some(Dialect::OpenAi),
+        "claude" => Some(Dialect::Claude),
+        "gemini" => Some(Dialect::Gemini),
+        "codex" => Some(Dialect::Codex),
+        "kimi" => Some(Dialect::Kimi),
+        "copilot" => Some(Dialect::Copilot),
+        _ => None,
     }
 }
 
@@ -968,6 +1266,122 @@ mod tests {
                 .collect();
             assert!(fb_ids.contains(&"beta"));
             assert!(fb_ids.contains(&"gamma"));
+        }
+    }
+
+    // -- Middleware integration tests --
+
+    mod middleware_integration {
+        use super::*;
+        use crate::middleware::{
+            AuditMiddleware, LoggingMiddleware, MetricsMiddleware, MiddlewareChain,
+            MiddlewareMetrics, PolicyMiddleware, ValidationMiddleware,
+        };
+        use std::sync::Arc;
+        use tokio_stream::StreamExt;
+
+        fn sample_work_order() -> WorkOrder {
+            WorkOrder {
+                id: uuid::Uuid::new_v4(),
+                task: "middleware test task".into(),
+                lane: abp_core::ExecutionLane::PatchFirst,
+                workspace: abp_core::WorkspaceSpec {
+                    root: ".".into(),
+                    mode: abp_core::WorkspaceMode::PassThrough,
+                    include: vec![],
+                    exclude: vec![],
+                },
+                context: abp_core::ContextPacket::default(),
+                policy: abp_core::PolicyProfile::default(),
+                requirements: abp_core::CapabilityRequirements::default(),
+                config: abp_core::RuntimeConfig::default(),
+            }
+        }
+
+        #[tokio::test]
+        async fn runtime_with_middleware_runs_before_and_after() {
+            let metrics = Arc::new(MiddlewareMetrics::new());
+            let audit = AuditMiddleware::new();
+            let audit_log = Arc::clone(&audit.log);
+
+            let chain = MiddlewareChain::new()
+                .with(LoggingMiddleware::default())
+                .with(MetricsMiddleware::new(Arc::clone(&metrics)))
+                .with(AuditMiddleware { log: audit_log });
+
+            let rt = Runtime::with_default_backends().with_middleware(chain);
+
+            let handle = rt.run_streaming("mock", sample_work_order()).await.unwrap();
+            let _events: Vec<_> = handle.events.collect().await;
+            let _receipt = handle.receipt.await.unwrap().unwrap();
+
+            // MetricsMiddleware before_run increments total_requests.
+            assert_eq!(metrics.total_requests(), 1);
+            // MetricsMiddleware after_run records success.
+            assert_eq!(metrics.successful_requests(), 1);
+        }
+
+        #[tokio::test]
+        async fn runtime_middleware_before_run_short_circuits() {
+            // Policy middleware rejects conflicting tool allow/deny lists.
+            let chain = MiddlewareChain::new().with(PolicyMiddleware);
+
+            let rt = Runtime::with_default_backends().with_middleware(chain);
+
+            let mut wo = sample_work_order();
+            wo.policy.allowed_tools = vec!["bash".into()];
+            wo.policy.disallowed_tools = vec!["bash".into()];
+
+            let result = rt.run_streaming("mock", wo).await;
+            let err = match result {
+                Err(e) => e,
+                Ok(_) => panic!("expected middleware to reject the work order"),
+            };
+            assert!(err.to_string().contains("bash") || err.to_string().contains("policy"));
+        }
+
+        #[tokio::test]
+        async fn runtime_middleware_validation_rejects_empty_task() {
+            let chain = MiddlewareChain::new().with(ValidationMiddleware::new());
+
+            let rt = Runtime::with_default_backends().with_middleware(chain);
+
+            let mut wo = sample_work_order();
+            wo.task = String::new();
+
+            let result = rt.run_streaming("mock", wo).await;
+            let err = match result {
+                Err(e) => e,
+                Ok(_) => panic!("expected middleware to reject the work order"),
+            };
+            assert!(
+                err.to_string().contains("task")
+                    || err.to_string().contains("validation")
+                    || err.to_string().contains("policy")
+            );
+        }
+
+        #[tokio::test]
+        async fn runtime_default_empty_middleware_is_transparent() {
+            // Default Runtime has empty middleware — should behave identically.
+            let rt = Runtime::with_default_backends();
+            assert!(rt.middleware().is_empty());
+
+            let handle = rt.run_streaming("mock", sample_work_order()).await.unwrap();
+            let _events: Vec<_> = handle.events.collect().await;
+            let receipt = handle.receipt.await.unwrap().unwrap();
+            assert!(matches!(receipt.outcome, abp_core::Outcome::Complete));
+        }
+
+        #[tokio::test]
+        async fn runtime_middleware_accessor() {
+            let chain = MiddlewareChain::new()
+                .with(LoggingMiddleware::default())
+                .with(PolicyMiddleware);
+
+            let rt = Runtime::with_default_backends().with_middleware(chain);
+            assert_eq!(rt.middleware().len(), 2);
+            assert_eq!(rt.middleware().names(), vec!["logging", "policy"]);
         }
     }
 }

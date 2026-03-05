@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Extended BDD-style scenarios covering capability negotiation, error taxonomy,
 //! receipt chains, cross-dialect mapping, and dialect detection.
 
@@ -59,7 +88,7 @@ fn given_backend_without_tool_use_when_requiring_with_emulation_then_emulation_a
     let reqs = require(&[(Capability::ToolUse, MinSupport::Emulated)]);
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable, vec![Capability::ToolUse]);
+    assert_eq!(result.emulated_caps(), vec![Capability::ToolUse]);
 }
 
 /// Given a backend without extended_thinking,
@@ -71,17 +100,20 @@ fn given_backend_without_extended_thinking_when_requiring_native_then_capability
     let reqs = require(&[(Capability::ExtendedThinking, MinSupport::Native)]);
     let result = negotiate(&manifest, &reqs);
     assert!(!result.is_compatible());
-    assert_eq!(result.unsupported, vec![Capability::ExtendedThinking]);
+    assert_eq!(
+        result.unsupported_caps(),
+        vec![Capability::ExtendedThinking]
+    );
 }
 
 /// Capability report includes all three categories: native, emulated, unsupported.
 #[test]
 fn capability_report_includes_all_three_categories() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead],
+        vec![Capability::Logprobs],
+    );
     let report = generate_report(&result);
     assert_eq!(report.native_count, 1);
     assert_eq!(report.emulated_count, 1);
@@ -116,7 +148,7 @@ fn multiple_capabilities_some_native_some_emulated() {
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
     assert_eq!(result.native.len(), 2);
-    assert_eq!(result.emulatable.len(), 1);
+    assert_eq!(result.emulated.len(), 1);
     assert!(result.unsupported.is_empty());
 }
 
@@ -129,7 +161,7 @@ fn multiple_capabilities_some_native_some_emulated() {
 fn protocol_error_has_correct_error_code() {
     let err = AbpError::new(ErrorCode::ProtocolInvalidEnvelope, "bad envelope");
     assert_eq!(err.code, ErrorCode::ProtocolInvalidEnvelope);
-    assert_eq!(err.code.as_str(), "PROTOCOL_INVALID_ENVELOPE");
+    assert_eq!(err.code.as_str(), "protocol_invalid_envelope");
 }
 
 /// Backend error has correct category.
@@ -175,7 +207,7 @@ fn error_builder_produces_well_formed_error() {
 fn error_display_includes_code_and_message() {
     let err = AbpError::new(ErrorCode::PolicyDenied, "tool disallowed");
     let display = err.to_string();
-    assert!(display.contains("POLICY_DENIED"));
+    assert!(display.contains("policy_denied"));
     assert!(display.contains("tool disallowed"));
 }
 

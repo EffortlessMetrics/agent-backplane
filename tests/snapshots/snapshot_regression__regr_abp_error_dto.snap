@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_regression.rs
+expression: dto
+---
+{
+  "code": "policy_denied",
+  "message": "tool 'Bash' is disallowed",
+  "context": {
+    "policy_rule": "disallowed_tools",
+    "tool": "Bash"
+  }
+}

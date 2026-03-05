@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&classification"
+---
+{
+  "code": "protocol_handshake_failed",
+  "severity": "fatal",
+  "category": "protocol_error",
+  "recovery": {
+    "action": "contact_admin",
+    "description": "Protocol error — check sidecar compatibility and configuration",
+    "delay_ms": null
+  }
+}

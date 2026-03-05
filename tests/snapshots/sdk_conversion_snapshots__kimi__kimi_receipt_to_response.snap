@@ -1,0 +1,23 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: resp
+---
+{
+  "id": "[id]",
+  "model": "moonshot-v1-8k",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! I can help with that."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 100,
+    "completion_tokens": 50,
+    "total_tokens": 150
+  }
+}

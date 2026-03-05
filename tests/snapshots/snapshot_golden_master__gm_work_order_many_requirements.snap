@@ -1,0 +1,55 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: wo
+---
+{
+  "id": "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa",
+  "task": "demanding task",
+  "lane": "patch_first",
+  "workspace": {
+    "root": ".",
+    "mode": "staged",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "tool_bash",
+        "min_support": "native"
+      },
+      {
+        "capability": "extended_thinking",
+        "min_support": "emulated"
+      },
+      {
+        "capability": "image_input",
+        "min_support": "native"
+      },
+      {
+        "capability": "mcp_client",
+        "min_support": "emulated"
+      }
+    ]
+  },
+  "config": {
+    "model": null,
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

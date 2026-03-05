@@ -1,0 +1,31 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: refs
+---
+[
+  {
+    "type": "file",
+    "id": "f1",
+    "uri": "file:///main.rs"
+  },
+  {
+    "type": "selection",
+    "id": "s1",
+    "uri": "file:///lib.rs",
+    "content": "fn process()",
+    "metadata": {
+      "endLine": 20,
+      "startLine": 10
+    }
+  },
+  {
+    "type": "terminal",
+    "id": "t1",
+    "content": "$ cargo build\nerror[E0308]"
+  },
+  {
+    "type": "git_diff",
+    "id": "d1",
+    "content": "+new line\n-old line"
+  }
+]

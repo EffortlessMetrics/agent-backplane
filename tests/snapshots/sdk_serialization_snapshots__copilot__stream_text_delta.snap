@@ -1,0 +1,8 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: event
+---
+{
+  "type": "text_delta",
+  "text": "Hello from Copilot"
+}

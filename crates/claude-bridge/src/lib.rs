@@ -14,16 +14,30 @@
 //! - **Normalized** (feature `normalized`): `ClaudeBridge::run_normalized()` -- maps
 //!   raw JSON events to typed `AgentEvent` and `Receipt` from `abp-core`.
 
+/// Claude Messages API types (request, response, streaming, content blocks).
+pub mod claude_types;
 /// Bridge configuration types.
 pub mod config;
 /// Node.js and host-script discovery helpers.
 pub mod discovery;
 /// Error types for bridge operations.
 pub mod error;
+/// Translation between Claude API types and `abp-dialect` IR (feature-gated on `ir`).
+pub mod ir_translate;
 /// Normalized event mapping (feature-gated).
 pub mod normalized;
 /// Raw passthrough and mapped-mode run functions.
 pub mod raw;
+/// Server-Sent Events (SSE) parser for Claude streaming responses.
+pub mod sse;
+/// Extended thinking types: ThinkingBlock, SignatureBlock, budget helpers.
+pub mod thinking;
+/// Extended tool-use types: InputSchema, CachedToolDefinition, RichToolResult.
+pub mod tool_use;
+/// Translation between Claude API types and ABP IR (feature-gated on `normalized`).
+pub mod translate;
+/// Vision types: ImageMediaType, image block builders, validation.
+pub mod vision;
 
 pub use config::ClaudeBridgeConfig;
 pub use error::BridgeError;

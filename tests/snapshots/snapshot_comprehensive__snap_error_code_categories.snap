@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: category_map
+---
+{
+  "backend_timeout": "backend",
+  "internal": "internal",
+  "ir_lowering_failed": "ir",
+  "policy_denied": "policy",
+  "protocol_invalid_envelope": "protocol"
+}

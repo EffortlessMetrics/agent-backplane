@@ -2,6 +2,7 @@
 name = "abp-daemon"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -30,8 +31,11 @@ abp-kimi-sdk = { path = "../abp-kimi-sdk", version = "0.1.0" }
 abp-gemini-sdk = { path = "../abp-gemini-sdk", version = "0.1.0" }
 abp-host = { path = "../abp-host", version = "0.1.0" }
 abp-integrations = { path = "../abp-integrations", version = "0.1.0" }
+abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
+abp-projection = { path = "../abp-projection", version = "0.1.0" }
 abp-runtime = { path = "../abp-runtime", version = "0.1.0" }
 chrono.workspace = true
+thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true

@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -D warnings
 
 jobs:
   check:
@@ -23,11 +22,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Check formatting
-        run: cargo fmt --check
-
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Gate (lint + compile)
+        run: cargo run -p xtask -- gate --check
 
   test:
     name: Test (${{ matrix.os }})
@@ -44,7 +40,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Run tests
-        run: cargo test --workspace
+        run: cargo test --workspace --all-features
 
   doc:
     name: Documentation

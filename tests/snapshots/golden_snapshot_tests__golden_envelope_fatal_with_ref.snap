@@ -1,0 +1,9 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": "run-001",
+  "error": "out of memory"
+}

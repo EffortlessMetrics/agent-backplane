@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_regression.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": "run-003",
+  "error": "timed out",
+  "error_code": "backend_timeout"
+}

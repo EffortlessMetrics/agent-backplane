@@ -1,0 +1,90 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: req
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a Copilot agent."
+    },
+    {
+      "role": "user",
+      "content": "Explain this code",
+      "name": "developer",
+      "copilot_references": [
+        {
+          "type": "file",
+          "id": "ref_001",
+          "data": {
+            "content": "pub fn hello() {}",
+            "path": "src/lib.rs"
+          }
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "run_tests",
+        "description": "Run the test suite",
+        "parameters": {
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "intent": "explain",
+  "doc_context": {
+    "uri": "file:///workspace/src/lib.rs",
+    "language": "rust",
+    "cursor_line": 10,
+    "cursor_column": 4,
+    "selection": {
+      "start_line": 10,
+      "start_column": 0,
+      "end_line": 15,
+      "end_column": 1,
+      "text": "pub fn hello() {}"
+    }
+  },
+  "references": [
+    {
+      "path": "src/lib.rs",
+      "language": "rust",
+      "content": "pub fn hello() {}"
+    }
+  ],
+  "skills": [
+    {
+      "id": "skill_test",
+      "name": "Test Generator",
+      "description": "Generate unit tests",
+      "parameters_schema": {
+        "properties": {
+          "style": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "turn_history": [
+    {
+      "request": "What does this function do?",
+      "response": "It prints hello world."
+    }
+  ],
+  "temperature": 0.3,
+  "max_tokens": 2048,
+  "stream": true
+}

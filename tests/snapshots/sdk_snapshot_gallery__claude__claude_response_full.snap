@@ -1,0 +1,23 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: resp
+---
+{
+  "id": "msg_01XFDUDYJgAACzvnptvVoYEL",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "The answer is 42."
+    }
+  ],
+  "model": "claude-sonnet-4-20250514",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 100,
+    "output_tokens": 25,
+    "cache_creation_input_tokens": 50,
+    "cache_read_input_tokens": 30
+  }
+}

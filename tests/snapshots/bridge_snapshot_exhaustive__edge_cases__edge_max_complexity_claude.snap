@@ -1,0 +1,79 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&req"
+---
+model: claude-sonnet-4-20250514
+messages:
+  - role: user
+    content:
+      - type: text
+        text: Multi-block message
+      - type: image
+        source:
+          type: url
+          url: "https://example.com/img.png"
+  - role: assistant
+    content:
+      - type: thinking
+        thinking: Let me analyze this...
+        signature: sig_think_01
+      - type: text
+        text: "I'll use a tool."
+      - type: tool_use
+        id: tu_01
+        name: bash
+        input:
+          command: echo hello
+      - type: tool_use
+        id: tu_02
+        name: read_file
+        input:
+          path: /etc/hosts
+  - role: user
+    content:
+      - type: tool_result
+        tool_use_id: tu_01
+        content: hello
+        is_error: false
+      - type: tool_result
+        tool_use_id: tu_02
+        content: Permission denied
+        is_error: true
+max_tokens: 8192
+system:
+  - type: text
+    text: System instruction 1
+    cache_control:
+      type: ephemeral
+  - type: text
+    text: System instruction 2
+tools:
+  - name: bash
+    description: Run shell commands
+    input_schema:
+      properties:
+        command:
+          type: string
+      type: object
+  - name: read_file
+    description: Read files
+    input_schema:
+      properties:
+        path:
+          type: string
+      type: object
+metadata:
+  user_id: power-user-42
+stream: true
+stop_sequences:
+  - HALT
+  - QUIT
+  - EXIT
+temperature: 0.5
+top_p: 0.85
+top_k: 30
+tool_choice:
+  type: any
+thinking:
+  type: enabled
+  budget_tokens: 20000

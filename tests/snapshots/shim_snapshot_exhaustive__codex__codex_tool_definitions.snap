@@ -1,0 +1,41 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: tools
+---
+[
+  {
+    "type": "function",
+    "name": "bash",
+    "description": "Execute a bash command",
+    "parameters": {
+      "properties": {
+        "command": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "type": "file_search",
+    "vector_store_ids": [
+      "vs_001"
+    ],
+    "max_num_results": 5,
+    "ranking_options": {
+      "ranker": "auto",
+      "score_threshold": 0.7
+    }
+  },
+  {
+    "type": "code_interpreter",
+    "container": "python:3.12",
+    "allowed_extensions": [
+      "py",
+      "txt"
+    ]
+  }
+]

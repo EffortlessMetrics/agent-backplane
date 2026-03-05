@@ -1,0 +1,20 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: reqs
+---
+{
+  "required": [
+    {
+      "capability": "streaming",
+      "min_support": "native"
+    },
+    {
+      "capability": "tool_use",
+      "min_support": "emulated"
+    },
+    {
+      "capability": "extended_thinking",
+      "min_support": "native"
+    }
+  ]
+}

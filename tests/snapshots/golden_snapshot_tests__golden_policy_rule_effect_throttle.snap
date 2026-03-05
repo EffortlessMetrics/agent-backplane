@@ -1,0 +1,8 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: "abp_policy::rules::RuleEffect::Throttle { max: 10 }"
+---
+{
+  "type": "throttle",
+  "max": 10
+}

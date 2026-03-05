@@ -1,0 +1,37 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&events"
+---
+[
+  {
+    "type": "stream_start"
+  },
+  {
+    "type": "content_block_start",
+    "index": 0,
+    "block": {
+      "type": "tool_call",
+      "id": "call_01",
+      "name": "read_file",
+      "input": {}
+    }
+  },
+  {
+    "type": "tool_call_delta",
+    "index": 0,
+    "arguments_delta": "{\"path\":\""
+  },
+  {
+    "type": "tool_call_delta",
+    "index": 0,
+    "arguments_delta": "src/main.rs\"}"
+  },
+  {
+    "type": "content_block_stop",
+    "index": 0
+  },
+  {
+    "type": "stream_end",
+    "stop_reason": "tool_use"
+  }
+]

@@ -4,6 +4,17 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// HTTP client for the Anthropic Messages API.
+pub mod client;
+pub mod convert;
+/// Anthropic-compatible error types.
+pub mod error;
+/// Message request builder and API handle.
+pub mod messages;
+/// SSE streaming adapter.
+pub mod streaming;
+pub mod types;
+
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -37,6 +48,21 @@ pub enum ShimError {
     #[error("internal: {0}")]
     Internal(String),
 }
+
+// ---------------------------------------------------------------------------
+// Vendor-compatible type aliases (mirrors Anthropic Python/TypeScript SDK)
+// ---------------------------------------------------------------------------
+
+/// Alias matching the Anthropic SDK name `MessageCreateParams`.
+///
+/// In the official Anthropic Python SDK, the request type is called
+/// `MessageCreateParams`.  This alias lets users write code that looks
+/// identical to the vendor SDK while routing through ABP.
+pub type MessageCreateParams = MessageRequest;
+
+/// Alias matching the Anthropic SDK streaming event name
+/// `MessageStreamEvent`.
+pub type MessageStreamEvent = StreamEvent;
 
 // ---------------------------------------------------------------------------
 // Public request/response types (mirrors Anthropic SDK)

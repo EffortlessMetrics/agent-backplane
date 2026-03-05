@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: codes
+---
+[
+  "PROTOCOL_INVALID_ENVELOPE",
+  "BACKEND_TIMEOUT",
+  "POLICY_DENIED",
+  "RECEIPT_HASH_MISMATCH",
+  "DIALECT_UNKNOWN",
+  "INTERNAL"
+]

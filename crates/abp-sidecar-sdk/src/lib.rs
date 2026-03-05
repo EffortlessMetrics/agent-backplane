@@ -1,6 +1,16 @@
+#![doc = include_str!("../README.md")]
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 //! Shared sidecar registration helpers used by vendor SDK microcrates.
+
+pub mod builder;
+pub mod emitter;
+pub mod runtime;
+
+// Re-export the high-level builder API for convenience.
+pub use builder::{SidecarBuilder, SidecarError};
+pub use emitter::{EmitError, EventEmitter};
+pub use runtime::SidecarRuntime;
 
 use abp_host::SidecarSpec;
 use abp_integrations::SidecarBackend;

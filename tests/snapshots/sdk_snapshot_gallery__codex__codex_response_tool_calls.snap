@@ -1,0 +1,34 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: resp
+---
+{
+  "id": "codex-resp-002",
+  "object": "chat.completion",
+  "created": 1700001100,
+  "model": "codex-mini-latest",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "id": "call_codex01",
+            "type": "function",
+            "function": {
+              "name": "apply_edit",
+              "arguments": "{\"path\":\"src/main.rs\",\"content\":\"fn main() {}\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 80,
+    "completion_tokens": 30,
+    "total_tokens": 110
+  }
+}

@@ -1,0 +1,29 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: chunk
+---
+{
+  "id": "chunk-002",
+  "object": "chat.completion.chunk",
+  "created": 1700000100,
+  "model": "moonshot-v1-8k",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "tool_calls": [
+          {
+            "index": 0,
+            "id": "tc_s1",
+            "type": "function",
+            "function": {
+              "name": "web_search",
+              "arguments": "{\"q\":\"rust\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": null
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+---
+source: tests/snapshot_regression.rs
+expression: codes
+---
+[
+  {
+    "category": "capability",
+    "code": "capability_unsupported",
+    "str": "capability_unsupported"
+  },
+  {
+    "category": "capability",
+    "code": "capability_emulation_failed",
+    "str": "capability_emulation_failed"
+  },
+  {
+    "category": "policy",
+    "code": "policy_denied",
+    "str": "policy_denied"
+  },
+  {
+    "category": "policy",
+    "code": "policy_invalid",
+    "str": "policy_invalid"
+  },
+  {
+    "category": "workspace",
+    "code": "workspace_init_failed",
+    "str": "workspace_init_failed"
+  },
+  {
+    "category": "workspace",
+    "code": "workspace_staging_failed",
+    "str": "workspace_staging_failed"
+  },
+  {
+    "category": "ir",
+    "code": "ir_lowering_failed",
+    "str": "ir_lowering_failed"
+  },
+  {
+    "category": "ir",
+    "code": "ir_invalid",
+    "str": "ir_invalid"
+  },
+  {
+    "category": "receipt",
+    "code": "receipt_hash_mismatch",
+    "str": "receipt_hash_mismatch"
+  },
+  {
+    "category": "receipt",
+    "code": "receipt_chain_broken",
+    "str": "receipt_chain_broken"
+  },
+  {
+    "category": "dialect",
+    "code": "dialect_unknown",
+    "str": "dialect_unknown"
+  },
+  {
+    "category": "dialect",
+    "code": "dialect_mapping_failed",
+    "str": "dialect_mapping_failed"
+  },
+  {
+    "category": "config",
+    "code": "config_invalid",
+    "str": "config_invalid"
+  },
+  {
+    "category": "internal",
+    "code": "internal",
+    "str": "internal"
+  }
+]

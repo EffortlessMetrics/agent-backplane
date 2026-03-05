@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: "make_event(AgentEventKind::Error\n{\n    message: \"Backend timed out\".into(), error_code:\n    Some(ErrorCode::BackendTimeout),\n})"
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "error",
+  "message": "Backend timed out",
+  "error_code": "backend_timeout"
+}

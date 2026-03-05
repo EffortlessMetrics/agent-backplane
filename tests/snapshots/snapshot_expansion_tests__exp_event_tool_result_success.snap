@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: "make_event(AgentEventKind::ToolResult\n{\n    tool_name: \"read_file\".into(), tool_use_id: Some(\"tu_read1\".into()),\n    output: json!({\"content\": \"file contents here\"}), is_error: false,\n})"
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "tool_result",
+  "tool_name": "read_file",
+  "tool_use_id": "tu_read1",
+  "output": {
+    "content": "file contents here"
+  },
+  "is_error": false
+}

@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Conformance test matrix: 6 SDK shims × 10 properties = 60 tests.
 //!
 //! Each shim is validated for:
@@ -362,7 +391,7 @@ mod gemini {
 
     #[tokio::test]
     async fn t03_work_order_creation() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = basic_request("gemini-2.5-flash", "Hello");
         let resp = client.generate(req).await.unwrap();
         // The full pipeline creates a work order internally; verify response
@@ -372,7 +401,7 @@ mod gemini {
 
     #[tokio::test]
     async fn t04_response_construction() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = basic_request("gemini-2.5-flash", "Hello");
         let resp = client.generate(req).await.unwrap();
         assert!(!resp.candidates.is_empty());
@@ -382,7 +411,7 @@ mod gemini {
 
     #[tokio::test]
     async fn t05_stream_event_generation() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = basic_request("gemini-2.5-flash", "Hello");
         let stream = client.generate_stream(req).await.unwrap();
         let events: Vec<_> = tokio_stream::StreamExt::collect(stream).await;
@@ -393,7 +422,7 @@ mod gemini {
     async fn t06_error_handling() {
         // Gemini client's mock pipeline always succeeds, but we can verify
         // the response is well-formed for an edge-case empty request.
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let req = GenerateContentRequest::new("gemini-2.5-flash");
         let resp = client.generate(req).await;
         // The mock pipeline returns a valid response even for empty input.

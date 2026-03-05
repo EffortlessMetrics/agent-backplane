@@ -1,0 +1,68 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: conv
+---
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are an expert coder."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Fix the login bug."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Let me look at the code."
+        },
+        {
+          "type": "tool_use",
+          "id": "tu_gm_400",
+          "name": "read_file",
+          "input": {
+            "path": "src/auth.rs"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "tu_gm_400",
+          "content": [
+            {
+              "type": "text",
+              "text": "pub fn login() { todo!() }"
+            }
+          ],
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "I see the issue. The login function is unimplemented."
+        }
+      ]
+    }
+  ]
+}

@@ -27,30 +27,41 @@ faithfully map SDK semantics into that contract and back out.
 
 ## Architecture
 
+The workspace contains **54 crates** organized in layers:
+
 ```
 abp-glob ──────────┐
                     ├── abp-policy ──────────┐
 abp-core ──────────┤                         │
   │   │            └── abp-workspace ────────┤
   │   │                      │               │
+  │   ├── abp-ir ─── abp-mapper             │
   │   ├── abp-dialect ─── abp-mapping        │
-  │   ├── abp-error                          │
+  │   ├── abp-error ─── abp-error-taxonomy   │
   │   ├── abp-capability ─── abp-projection  │
   │   ├── abp-emulation                      │
   │   ├── abp-receipt                        │
   │   │     └── abp-telemetry                │
-  │   └── abp-config                         │
+  │   ├── abp-config                         │
+  │   └── abp-sdk-types                      │
   │                                          │
 abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
   │                  │              │                abp-backend-sidecar
   │              sidecar-kit        │
   │                  │         abp-integrations ─── abp-runtime ─── abp-cli
   │             claude-bridge                           │             │
-  │                                                 abp-stream   abp-daemon
-  └── abp-sidecar-proto
+  │             gemini-bridge                        abp-stream   abp-daemon
+  │             openai-bridge
+  │             codex-bridge
+  │             copilot-bridge
+  │             kimi-bridge
+  │                                            abp-ratelimit
+  ├── abp-sidecar-proto
+  └── abp-sidecar-utils
 
 SDK shims (drop-in client replacements):
-  abp-shim-openai, abp-shim-claude, abp-shim-gemini
+  abp-shim-openai, abp-shim-claude, abp-shim-gemini,
+  abp-shim-codex,  abp-shim-kimi,   abp-shim-copilot
 ```
 
 `abp-core` sits at the bottom — if you take one dependency, take that one. The
@@ -115,13 +126,23 @@ Receipt { status: success, events: [...], receipt_sha256: "ab3f…" }
 | [`abp-config`](crates/abp-config) | TOML configuration loading, validation, and merging |
 | [`abp-sidecar-proto`](crates/abp-sidecar-proto) | Sidecar-side utilities for ABP JSONL protocol services |
 | [`abp-emulation`](crates/abp-emulation) | Labeled capability emulation engine |
+| [`abp-error-taxonomy`](crates/abp-error-taxonomy) | Error classification, severity, and recovery suggestion helpers |
+| [`abp-ir`](crates/abp-ir) | Intermediate representation normalization passes and vendor-specific lowering |
+| [`abp-mapper`](crates/abp-mapper) | Dialect mapping engine — JSON-level and IR-level cross-dialect translation |
+| [`abp-sdk-types`](crates/abp-sdk-types) | SDK-specific dialect type definitions (pure data model, no networking) |
 | [`abp-telemetry`](crates/abp-telemetry) | Structured metrics and telemetry collection |
+| [`abp-retry`](crates/abp-retry) | Retry and circuit-breaker middleware for backend calls |
+| [`abp-validate`](crates/abp-validate) | Validation utilities for work orders, receipts, events, and envelopes |
+| [`abp-receipt-store`](crates/abp-receipt-store) | Receipt persistence and retrieval |
 | [`abp-runtime`](crates/abp-runtime) | Orchestration — workspace → backend → event multiplexing → hashed receipt |
 | [`abp-cli`](crates/abp-cli) | `abp` binary with `run`, `backends`, `validate`, `config`, `receipt` subcommands |
 | [`abp-daemon`](crates/abp-daemon) | HTTP control-plane API with receipt persistence, metrics, validation, and WebSocket |
 | [`abp-shim-openai`](crates/abp-shim-openai) | Drop-in OpenAI SDK shim that routes through ABP |
 | [`abp-shim-claude`](crates/abp-shim-claude) | Drop-in Anthropic Claude SDK shim that routes through ABP |
 | [`abp-shim-gemini`](crates/abp-shim-gemini) | Drop-in Gemini SDK shim that routes through ABP |
+| [`abp-shim-codex`](crates/abp-shim-codex) | Drop-in Codex SDK shim that routes through ABP |
+| [`abp-shim-kimi`](crates/abp-shim-kimi) | Drop-in Kimi SDK shim that routes through ABP |
+| [`abp-shim-copilot`](crates/abp-shim-copilot) | Drop-in Copilot SDK shim that routes through ABP |
 | [`abp-claude-sdk`](crates/abp-claude-sdk) | Anthropic Claude SDK adapter |
 | [`abp-codex-sdk`](crates/abp-codex-sdk) | OpenAI Codex SDK adapter |
 | [`abp-openai-sdk`](crates/abp-openai-sdk) | OpenAI Chat Completions SDK adapter |
@@ -129,8 +150,15 @@ Receipt { status: success, events: [...], receipt_sha256: "ab3f…" }
 | [`abp-kimi-sdk`](crates/abp-kimi-sdk) | Kimi (Moonshot) SDK adapter |
 | [`abp-copilot-sdk`](crates/abp-copilot-sdk) | GitHub Copilot sidecar SDK integration |
 | [`abp-sidecar-sdk`](crates/abp-sidecar-sdk) | Shared sidecar registration helpers for vendor SDK microcrates |
+| [`abp-sidecar-utils`](crates/abp-sidecar-utils) | Reusable sidecar protocol utilities (streaming codec, handshake, heartbeat) |
+| [`abp-ratelimit`](crates/abp-ratelimit) | Rate limiting primitives (token bucket, sliding window) for backend calls |
 | [`sidecar-kit`](crates/sidecar-kit) | Value-based JSONL transport layer for sidecar processes |
 | [`claude-bridge`](crates/claude-bridge) | Standalone Claude SDK bridge built on sidecar-kit |
+| [`gemini-bridge`](crates/gemini-bridge) | Standalone Gemini SDK bridge built on sidecar-kit |
+| [`codex-bridge`](crates/codex-bridge) | Codex Responses API bridge — IR translation layer built on sidecar-kit |
+| [`copilot-bridge`](crates/copilot-bridge) | Standalone GitHub Copilot bridge built on sidecar-kit transport |
+| [`kimi-bridge`](crates/kimi-bridge) | Standalone Kimi SDK bridge built on sidecar-kit transport |
+| [`openai-bridge`](crates/openai-bridge) | Standalone OpenAI Chat Completions bridge built on sidecar-kit |
 
 ## SDK Support Matrix
 
@@ -141,12 +169,62 @@ Receipt { status: success, events: [...], receipt_sha256: "ab3f…" }
 | **OpenAI Chat** | `abp-openai-sdk` | — | ✅ | ✅ | ✅ | ✅ |
 | **Google Gemini** | `abp-gemini-sdk` | `hosts/gemini` | ✅ | ✅ | ✅ | ✅ |
 | **Moonshot Kimi** | `abp-kimi-sdk` | `hosts/kimi` | ✅ | ✅ | ✅ | ✅ |
-| **GitHub Copilot** | `abp-copilot-sdk` | `hosts/copilot` | 🚧 scaffold | 🚧 scaffold | 🚧 scaffold | 🚧 scaffold |
+| **GitHub Copilot** | `abp-copilot-sdk` | `hosts/copilot` | ✅ | ✅ | ✅ | ✅ |
 
-✅ = implemented · 🚧 = scaffold / in progress
+✅ = implemented
 
 See [`docs/sdk_mapping.md`](docs/sdk_mapping.md) for the full dialect × engine
 mapping matrix, tool name tables, and capability comparison.
+
+### SDK Shim Quick Start
+
+Each `abp-shim-*` crate mirrors the corresponding vendor SDK so you can swap it
+in with minimal code changes. Add the shim as a dependency instead of the vendor
+SDK, construct a request using the familiar types, and call the conversion
+function:
+
+```rust
+// OpenAI shim — build a ChatCompletionRequest, convert to ABP WorkOrder
+use abp_shim_openai::types::ChatCompletionRequest;
+use abp_shim_openai::{Message, Role};
+
+let request = ChatCompletionRequest {
+    model: "gpt-4".into(),
+    messages: vec![Message { role: Role::User, content: "Hello".into(), ..Default::default() }],
+    ..Default::default()
+};
+let work_order = abp_shim_openai::convert::to_work_order(&request)?;
+```
+
+```rust
+// Claude shim — mirrors Anthropic Messages API types
+use abp_shim_claude::types::MessagesRequest;
+use abp_shim_claude::Role;
+
+let request = MessagesRequest {
+    model: "claude-sonnet-4-20250514".into(),
+    messages: vec![/* Claude-style messages */],
+    max_tokens: 1024,
+    ..Default::default()
+};
+let work_order = abp_shim_claude::convert::to_work_order(&request)?;
+```
+
+```rust
+// Gemini shim — mirrors Google generateContent types
+use abp_shim_gemini::types::{GenerateContentRequest, Content, Part};
+
+let request = GenerateContentRequest {
+    contents: vec![Content { role: "user".into(), parts: vec![Part::Text { text: "Hello".into() }] }],
+    ..Default::default()
+};
+// Gemini shim converts via IR: ir_to_work_order(&ir_request, "gemini-2.5-flash", &None)
+```
+
+All shims follow the same pattern: `convert::to_work_order()` turns a
+vendor-specific request into an ABP `WorkOrder`, and
+`convert::from_receipt()` turns an ABP `Receipt` back into the vendor's
+response type.
 
 ## Sidecar Hosts
 
@@ -158,7 +236,7 @@ Example sidecars live in `hosts/`. Each speaks the JSONL protocol over stdio:
 | `hosts/python` | Python | Minimal example, optional `claude_agent_sdk` client mode |
 | `hosts/claude` | Node.js | Claude-oriented sidecar with pluggable adapter module |
 | `hosts/codex` | Node.js | Codex-oriented sidecar with passthrough/mapped modes |
-| `hosts/copilot` | Node.js | GitHub Copilot sidecar scaffold |
+| `hosts/copilot` | Node.js | GitHub Copilot sidecar with agent protocol adapter |
 | `hosts/kimi` | Node.js | Kimi sidecar with SDK-first adapter and CLI fallback |
 | `hosts/gemini` | Node.js | Gemini sidecar with Claude-to-Gemini mapping |
 

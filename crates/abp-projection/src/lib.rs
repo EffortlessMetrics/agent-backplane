@@ -7,11 +7,19 @@
 //!
 //! Projection matrix that routes work orders to the best-fit backend.
 
+pub mod selection;
+/// Cross-dialect translation engine using the IR pipeline.
+pub mod translate;
+
 use std::collections::BTreeMap;
 
 use abp_capability::{NegotiationResult, negotiate};
 use abp_core::{Capability, CapabilityManifest, CapabilityRequirements, WorkOrder};
 use abp_dialect::Dialect;
+use abp_mapper::{
+    ClaudeToOpenAiMapper, GeminiToOpenAiMapper, IdentityMapper, Mapper, OpenAiToClaudeMapper,
+    OpenAiToGeminiMapper,
+};
 use abp_mapping::MappingRegistry;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -30,6 +38,26 @@ pub enum ProjectionError {
     /// The projection matrix has no backends registered.
     #[error("projection matrix is empty — no backends registered")]
     EmptyMatrix,
+    /// The specified dialect pair is not supported.
+    #[error("unsupported dialect pair: {src_dialect} → {tgt_dialect}")]
+    UnsupportedDialectPair {
+        /// Source dialect.
+        src_dialect: Dialect,
+        /// Target dialect.
+        tgt_dialect: Dialect,
+    },
+    /// A mapping operation failed.
+    #[error("mapping failed: {reason}")]
+    MappingFailed {
+        /// Human-readable explanation.
+        reason: String,
+    },
+    /// Invalid projection configuration.
+    #[error("configuration error: {reason}")]
+    ConfigurationError {
+        /// Human-readable explanation.
+        reason: String,
+    },
 }
 
 // ── Backend entry ───────────────────────────────────────────────────────
@@ -62,16 +90,87 @@ pub struct ProjectionScore {
     pub total: f64,
 }
 
-// Weight constants
+// Weight constants (defaults)
 const W_CAPABILITY: f64 = 0.5;
 const W_FIDELITY: f64 = 0.3;
 const W_PRIORITY: f64 = 0.2;
+const DEFAULT_PASSTHROUGH_BONUS: f64 = 0.15;
+
+// ── Projection configuration ────────────────────────────────────────────
+
+/// Configuration for projection matrix scoring behavior.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectionConfig {
+    /// Weight for capability coverage in scoring (default: 0.5).
+    pub capability_weight: f64,
+    /// Weight for mapping fidelity in scoring (default: 0.3).
+    pub fidelity_weight: f64,
+    /// Weight for priority in scoring (default: 0.2).
+    pub priority_weight: f64,
+    /// Bonus applied when passthrough mode matches the backend dialect.
+    pub passthrough_bonus: f64,
+    /// Whether to prefer passthrough backends even in mapped mode.
+    pub prefer_passthrough: bool,
+}
+
+impl Default for ProjectionConfig {
+    fn default() -> Self {
+        Self {
+            capability_weight: W_CAPABILITY,
+            fidelity_weight: W_FIDELITY,
+            priority_weight: W_PRIORITY,
+            passthrough_bonus: DEFAULT_PASSTHROUGH_BONUS,
+            prefer_passthrough: false,
+        }
+    }
+}
+
+impl ProjectionConfig {
+    /// Validates that weights sum to approximately 1.0.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProjectionError::ConfigurationError`] if weights are invalid.
+    pub fn validate(&self) -> Result<(), ProjectionError> {
+        let sum = self.capability_weight + self.fidelity_weight + self.priority_weight;
+        if (sum - 1.0).abs() > 0.01 {
+            return Err(ProjectionError::ConfigurationError {
+                reason: format!("weights must sum to 1.0, got {sum:.3}"),
+            });
+        }
+        if self.capability_weight < 0.0 || self.fidelity_weight < 0.0 || self.priority_weight < 0.0
+        {
+            return Err(ProjectionError::ConfigurationError {
+                reason: "weights must be non-negative".into(),
+            });
+        }
+        Ok(())
+    }
+}
 
 impl ProjectionScore {
+    #[allow(dead_code)]
     fn compute(capability_coverage: f64, mapping_fidelity: f64, priority: f64) -> Self {
         let total = W_CAPABILITY * capability_coverage
             + W_FIDELITY * mapping_fidelity
             + W_PRIORITY * priority;
+        Self {
+            capability_coverage,
+            mapping_fidelity,
+            priority,
+            total,
+        }
+    }
+
+    fn compute_with_weights(
+        capability_coverage: f64,
+        mapping_fidelity: f64,
+        priority: f64,
+        config: &ProjectionConfig,
+    ) -> Self {
+        let total = config.capability_weight * capability_coverage
+            + config.fidelity_weight * mapping_fidelity
+            + config.priority_weight * priority;
         Self {
             capability_coverage,
             mapping_fidelity,
@@ -90,6 +189,155 @@ pub struct RequiredEmulation {
     pub capability: Capability,
     /// Strategy description (e.g. `"adapter"`).
     pub strategy: String,
+}
+
+// ── Routing types ───────────────────────────────────────────────────────
+
+/// A single hop in a routing path between dialects.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoutingHop {
+    /// Source dialect of this hop.
+    pub from: Dialect,
+    /// Target dialect of this hop.
+    pub to: Dialect,
+    /// Mapper hint for this hop (e.g. `"openai_to_claude"`).
+    pub mapper_hint: Option<String>,
+}
+
+/// A resolved path from source to target dialect, possibly through intermediates.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RoutingPath {
+    /// Ordered list of hops from source to target.
+    pub hops: Vec<RoutingHop>,
+    /// Total cost: 0 for identity, 1 for direct, 2+ for multi-hop.
+    pub cost: u32,
+    /// Estimated fidelity for the full path in `[0.0, 1.0]`.
+    pub fidelity: f64,
+}
+
+impl RoutingPath {
+    /// Returns `true` if this is a direct (single-hop) path.
+    #[must_use]
+    pub fn is_direct(&self) -> bool {
+        self.hops.len() <= 1
+    }
+
+    /// Returns `true` if this is a multi-hop path.
+    #[must_use]
+    pub fn is_multi_hop(&self) -> bool {
+        self.hops.len() > 1
+    }
+}
+
+/// Score indicating how well a mapper preserves fidelity for a dialect pair.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompatibilityScore {
+    /// Source dialect.
+    pub source: Dialect,
+    /// Target dialect.
+    pub target: Dialect,
+    /// Overall fidelity rating in `[0.0, 1.0]`.
+    pub fidelity: f64,
+    /// Number of features that map losslessly.
+    pub lossless_features: usize,
+    /// Number of features that map with some loss.
+    pub lossy_features: usize,
+    /// Number of features unsupported in the mapping.
+    pub unsupported_features: usize,
+}
+
+// ── Feature support matrix ──────────────────────────────────────────────
+
+/// Per-dialect-pair feature support status.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeatureSupportEntry {
+    /// Source dialect.
+    pub source: Dialect,
+    /// Target dialect.
+    pub target: Dialect,
+    /// The projection mode for this pair.
+    pub mode: ProjectionMode,
+    /// Per-feature fidelity classification: `"lossless"`, `"lossy"`, or `"unsupported"`.
+    pub feature_support: BTreeMap<String, String>,
+}
+
+/// A feature-level support matrix across all registered dialect pairs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeatureSupportMatrix {
+    /// Ordered list of features evaluated.
+    pub features: Vec<String>,
+    /// Per-pair support entries.
+    pub entries: Vec<FeatureSupportEntry>,
+}
+
+// ── Projection statistics ───────────────────────────────────────────────
+
+/// Aggregated statistics about the projection matrix.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectionStatistics {
+    /// Total number of registered backends.
+    pub backend_count: usize,
+    /// Total number of dialect pair entries.
+    pub dialect_entry_count: usize,
+    /// Number of passthrough (identity) entries.
+    pub passthrough_count: usize,
+    /// Number of mapped cross-dialect entries.
+    pub mapped_count: usize,
+    /// Number of unsupported entries.
+    pub unsupported_count: usize,
+    /// Number of dialects with at least one registered backend.
+    pub covered_dialects: usize,
+    /// Average mapping fidelity across all mapped entries in `[0.0, 1.0]`.
+    pub average_fidelity: f64,
+}
+
+// ── Dialect projection types ────────────────────────────────────────────
+
+/// Describes how a dialect pair should be projected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectionMode {
+    /// Same-dialect passthrough — no transformation needed.
+    Passthrough,
+    /// Cross-dialect mapping — a mapper translates between the two.
+    Mapped,
+    /// The dialect pair is not supported.
+    Unsupported,
+}
+
+/// A (source, target) dialect pair used as a key in the projection matrix.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct DialectPair {
+    /// Source dialect that produced the request.
+    pub source: Dialect,
+    /// Target dialect the request is being mapped to.
+    pub target: Dialect,
+}
+
+impl DialectPair {
+    /// Creates a new dialect pair.
+    #[must_use]
+    pub fn new(source: Dialect, target: Dialect) -> Self {
+        Self { source, target }
+    }
+}
+
+impl std::fmt::Display for DialectPair {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} → {}", self.source, self.target)
+    }
+}
+
+/// Describes how to map from one dialect to another.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectionEntry {
+    /// The dialect pair this entry applies to.
+    pub pair: DialectPair,
+    /// The projection mode (passthrough, mapped, or unsupported).
+    pub mode: ProjectionMode,
+    /// Optional hint for which mapper implementation to use (e.g. `"identity"`,
+    /// `"openai_to_claude"`).
+    pub mapper_hint: Option<String>,
 }
 
 // ── Fallback entry ──────────────────────────────────────────────────────
@@ -121,15 +369,32 @@ pub struct ProjectionResult {
 // ── Projection matrix ───────────────────────────────────────────────────
 
 /// The projection matrix: combines a backend registry, capability negotiation,
-/// and mapping quality to route work orders to backends.
-#[derive(Debug, Clone, Default)]
+/// mapping quality, and dialect pair routing to route work orders to backends.
+#[derive(Debug, Clone)]
 pub struct ProjectionMatrix {
     backends: BTreeMap<String, BackendEntry>,
     mapping_registry: MappingRegistry,
+    /// Dialect pair entries describing how each source→target pair is handled.
+    dialect_entries: BTreeMap<DialectPair, ProjectionEntry>,
     /// Source dialect of the work order (set per-projection or globally).
     source_dialect: Option<Dialect>,
     /// Features to evaluate mapping fidelity for.
     mapping_features: Vec<String>,
+    /// Scoring configuration.
+    config: ProjectionConfig,
+}
+
+impl Default for ProjectionMatrix {
+    fn default() -> Self {
+        Self {
+            backends: BTreeMap::new(),
+            mapping_registry: MappingRegistry::new(),
+            dialect_entries: BTreeMap::new(),
+            source_dialect: None,
+            mapping_features: Vec::new(),
+            config: ProjectionConfig::default(),
+        }
+    }
 }
 
 impl ProjectionMatrix {
@@ -148,6 +413,36 @@ impl ProjectionMatrix {
         }
     }
 
+    /// Creates a projection matrix with the given configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProjectionError::ConfigurationError`] if the config is invalid.
+    pub fn with_config(config: ProjectionConfig) -> Result<Self, ProjectionError> {
+        config.validate()?;
+        Ok(Self {
+            config,
+            ..Self::default()
+        })
+    }
+
+    /// Returns a reference to the current projection configuration.
+    #[must_use]
+    pub fn config(&self) -> &ProjectionConfig {
+        &self.config
+    }
+
+    /// Updates the projection configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProjectionError::ConfigurationError`] if the config is invalid.
+    pub fn set_config(&mut self, config: ProjectionConfig) -> Result<(), ProjectionError> {
+        config.validate()?;
+        self.config = config;
+        Ok(())
+    }
+
     /// Sets the source dialect for mapping fidelity scoring.
     pub fn set_source_dialect(&mut self, dialect: Dialect) {
         self.source_dialect = Some(dialect);
@@ -156,6 +451,418 @@ impl ProjectionMatrix {
     /// Sets the feature list used for mapping fidelity scoring.
     pub fn set_mapping_features(&mut self, features: Vec<String>) {
         self.mapping_features = features;
+    }
+
+    // ── Dialect pair registration & lookup ───────────────────────────────
+
+    /// Registers a dialect pair mapping with the given mode.
+    ///
+    /// If `source == target`, the mode is forced to [`ProjectionMode::Passthrough`]
+    /// and the mapper hint is set to `"identity"`.
+    pub fn register(&mut self, source: Dialect, target: Dialect, mode: ProjectionMode) {
+        let pair = DialectPair::new(source, target);
+        let (effective_mode, mapper_hint) = if source == target {
+            (ProjectionMode::Passthrough, Some("identity".to_string()))
+        } else {
+            let hint = match mode {
+                ProjectionMode::Passthrough => Some("identity".to_string()),
+                ProjectionMode::Mapped => default_mapper_hint(source, target),
+                ProjectionMode::Unsupported => None,
+            };
+            (mode, hint)
+        };
+        self.dialect_entries.insert(
+            pair.clone(),
+            ProjectionEntry {
+                pair,
+                mode: effective_mode,
+                mapper_hint,
+            },
+        );
+    }
+
+    /// Looks up the projection entry for a given dialect pair.
+    ///
+    /// Returns `None` if no entry has been registered for the pair.
+    #[must_use]
+    pub fn lookup(&self, source: Dialect, target: Dialect) -> Option<&ProjectionEntry> {
+        let pair = DialectPair::new(source, target);
+        self.dialect_entries.get(&pair)
+    }
+
+    /// Returns the number of registered dialect pair entries.
+    #[must_use]
+    pub fn dialect_entry_count(&self) -> usize {
+        self.dialect_entries.len()
+    }
+
+    /// Returns an iterator over all registered dialect pair entries.
+    pub fn dialect_entries(&self) -> impl Iterator<Item = &ProjectionEntry> {
+        self.dialect_entries.values()
+    }
+
+    /// Resolves a [`Mapper`] implementation for the given dialect pair.
+    ///
+    /// Returns `None` if the pair is unsupported or no mapper is available.
+    #[must_use]
+    pub fn resolve_mapper(&self, source: Dialect, target: Dialect) -> Option<Box<dyn Mapper>> {
+        let entry = self.lookup(source, target)?;
+        match entry.mode {
+            ProjectionMode::Unsupported => None,
+            ProjectionMode::Passthrough => Some(Box::new(IdentityMapper)),
+            ProjectionMode::Mapped => resolve_mapper_for_pair(source, target),
+        }
+    }
+
+    /// Finds the best routing path from `source` to `target`.
+    ///
+    /// Tries direct mapping first (cost 1), then multi-hop through one
+    /// intermediate dialect (cost 2). Returns `None` if no path exists.
+    #[must_use]
+    pub fn find_route(&self, source: Dialect, target: Dialect) -> Option<RoutingPath> {
+        if source == target {
+            return Some(RoutingPath {
+                hops: vec![],
+                cost: 0,
+                fidelity: 1.0,
+            });
+        }
+
+        // Try direct mapping.
+        if let Some(entry) = self.lookup(source, target) {
+            if entry.mode != ProjectionMode::Unsupported {
+                let fidelity = self.route_hop_fidelity(source, target);
+                return Some(RoutingPath {
+                    hops: vec![RoutingHop {
+                        from: source,
+                        to: target,
+                        mapper_hint: entry.mapper_hint.clone(),
+                    }],
+                    cost: 1,
+                    fidelity,
+                });
+            }
+        }
+
+        // Multi-hop: try all intermediate dialects, pick lowest cost / highest fidelity.
+        let mut best: Option<RoutingPath> = None;
+
+        for &mid in Dialect::all() {
+            if mid == source || mid == target {
+                continue;
+            }
+
+            let hop1_ok = self
+                .lookup(source, mid)
+                .is_some_and(|e| e.mode != ProjectionMode::Unsupported);
+            let hop2_ok = self
+                .lookup(mid, target)
+                .is_some_and(|e| e.mode != ProjectionMode::Unsupported);
+
+            if hop1_ok && hop2_ok {
+                let f1 = self.route_hop_fidelity(source, mid);
+                let f2 = self.route_hop_fidelity(mid, target);
+                let combined = f1 * f2;
+
+                let entry1 = self.lookup(source, mid).unwrap();
+                let entry2 = self.lookup(mid, target).unwrap();
+
+                let path = RoutingPath {
+                    hops: vec![
+                        RoutingHop {
+                            from: source,
+                            to: mid,
+                            mapper_hint: entry1.mapper_hint.clone(),
+                        },
+                        RoutingHop {
+                            from: mid,
+                            to: target,
+                            mapper_hint: entry2.mapper_hint.clone(),
+                        },
+                    ],
+                    cost: 2,
+                    fidelity: combined,
+                };
+
+                best = Some(match best {
+                    None => path,
+                    Some(prev) if path.fidelity > prev.fidelity => path,
+                    Some(prev) => prev,
+                });
+            }
+        }
+
+        best
+    }
+
+    /// Compute per-hop fidelity based on the mapping registry.
+    fn route_hop_fidelity(&self, source: Dialect, target: Dialect) -> f64 {
+        self.mapping_fidelity(Some(source), target)
+    }
+
+    /// Removes a dialect pair entry from the matrix.
+    ///
+    /// Returns the removed entry, or `None` if no entry existed.
+    pub fn remove(&mut self, source: Dialect, target: Dialect) -> Option<ProjectionEntry> {
+        let pair = DialectPair::new(source, target);
+        self.dialect_entries.remove(&pair)
+    }
+
+    /// Removes a backend from the matrix by id.
+    ///
+    /// Returns `true` if the backend was present.
+    pub fn remove_backend(&mut self, id: &str) -> bool {
+        self.backends.remove(id).is_some()
+    }
+
+    /// Compute a compatibility score for a specific dialect pair.
+    ///
+    /// Evaluates all configured mapping features and summarises lossless,
+    /// lossy, and unsupported counts.
+    #[must_use]
+    pub fn compatibility_score(&self, source: Dialect, target: Dialect) -> CompatibilityScore {
+        if source == target {
+            let feat_count = self.mapping_features.len();
+            return CompatibilityScore {
+                source,
+                target,
+                fidelity: 1.0,
+                lossless_features: feat_count,
+                lossy_features: 0,
+                unsupported_features: 0,
+            };
+        }
+
+        if self.mapping_features.is_empty() {
+            let fidelity = self.mapping_fidelity(Some(source), target);
+            return CompatibilityScore {
+                source,
+                target,
+                fidelity,
+                lossless_features: 0,
+                lossy_features: 0,
+                unsupported_features: 0,
+            };
+        }
+
+        let validations = abp_mapping::validate_mapping(
+            &self.mapping_registry,
+            source,
+            target,
+            &self.mapping_features,
+        );
+
+        let mut lossless = 0usize;
+        let mut lossy = 0usize;
+        let mut unsupported = 0usize;
+
+        for v in &validations {
+            if v.fidelity.is_lossless() {
+                lossless += 1;
+            } else if v.fidelity.is_unsupported() {
+                unsupported += 1;
+            } else {
+                lossy += 1;
+            }
+        }
+
+        let fidelity = self.mapping_fidelity(Some(source), target);
+
+        CompatibilityScore {
+            source,
+            target,
+            fidelity,
+            lossless_features: lossless,
+            lossy_features: lossy,
+            unsupported_features: unsupported,
+        }
+    }
+
+    /// Generates a feature support matrix across all registered dialect pairs.
+    ///
+    /// For each pair, evaluates the configured mapping features and classifies
+    /// each as `"lossless"`, `"lossy"`, or `"unsupported"`.
+    #[must_use]
+    pub fn feature_support_matrix(&self) -> FeatureSupportMatrix {
+        let features = self.mapping_features.clone();
+        let mut entries = Vec::new();
+
+        for entry in self.dialect_entries.values() {
+            let mut feature_support = BTreeMap::new();
+
+            if entry.pair.source == entry.pair.target {
+                // Identity: all features are lossless.
+                for f in &features {
+                    feature_support.insert(f.clone(), "lossless".to_string());
+                }
+            } else if entry.mode == ProjectionMode::Unsupported {
+                for f in &features {
+                    feature_support.insert(f.clone(), "unsupported".to_string());
+                }
+            } else if !features.is_empty() {
+                let validations = abp_mapping::validate_mapping(
+                    &self.mapping_registry,
+                    entry.pair.source,
+                    entry.pair.target,
+                    &features,
+                );
+                for v in &validations {
+                    let status = if v.fidelity.is_lossless() {
+                        "lossless"
+                    } else if v.fidelity.is_unsupported() {
+                        "unsupported"
+                    } else {
+                        "lossy"
+                    };
+                    feature_support.insert(v.feature.clone(), status.to_string());
+                }
+            }
+
+            entries.push(FeatureSupportEntry {
+                source: entry.pair.source,
+                target: entry.pair.target,
+                mode: entry.mode,
+                feature_support,
+            });
+        }
+
+        FeatureSupportMatrix { features, entries }
+    }
+
+    /// Computes aggregated statistics about the current projection matrix.
+    #[must_use]
+    pub fn statistics(&self) -> ProjectionStatistics {
+        let mut passthrough_count = 0usize;
+        let mut mapped_count = 0usize;
+        let mut unsupported_count = 0usize;
+
+        for entry in self.dialect_entries.values() {
+            match entry.mode {
+                ProjectionMode::Passthrough => passthrough_count += 1,
+                ProjectionMode::Mapped => mapped_count += 1,
+                ProjectionMode::Unsupported => unsupported_count += 1,
+            }
+        }
+
+        let covered_dialects = {
+            let mut dialects = std::collections::BTreeSet::new();
+            for b in self.backends.values() {
+                dialects.insert(b.dialect);
+            }
+            dialects.len()
+        };
+
+        let average_fidelity = if mapped_count == 0 {
+            0.0
+        } else {
+            let sum: f64 = self
+                .dialect_entries
+                .values()
+                .filter(|e| e.mode == ProjectionMode::Mapped)
+                .map(|e| self.mapping_fidelity(Some(e.pair.source), e.pair.target))
+                .sum();
+            sum / mapped_count as f64
+        };
+
+        ProjectionStatistics {
+            backend_count: self.backends.len(),
+            dialect_entry_count: self.dialect_entries.len(),
+            passthrough_count,
+            mapped_count,
+            unsupported_count,
+            covered_dialects,
+            average_fidelity,
+        }
+    }
+
+    /// Validates that a dialect pair is supported, returning an error if not.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProjectionError::UnsupportedDialectPair`] if the pair is
+    /// unregistered or explicitly unsupported.
+    pub fn validate_pair(
+        &self,
+        source: Dialect,
+        target: Dialect,
+    ) -> Result<&ProjectionEntry, ProjectionError> {
+        match self.lookup(source, target) {
+            Some(entry) if entry.mode != ProjectionMode::Unsupported => Ok(entry),
+            _ => Err(ProjectionError::UnsupportedDialectPair {
+                src_dialect: source,
+                tgt_dialect: target,
+            }),
+        }
+    }
+
+    /// Populates the matrix with default dialect pair entries.
+    ///
+    /// Default entries cover:
+    /// - All identity (same-dialect) pairs as [`ProjectionMode::Passthrough`]
+    /// - OpenAI↔Claude, OpenAI↔Gemini, Claude↔Gemini as [`ProjectionMode::Mapped`]
+    /// - Codex↔OpenAI, Codex↔Claude as [`ProjectionMode::Mapped`]
+    /// - Kimi↔OpenAI, Kimi↔Claude, Kimi↔Gemini as [`ProjectionMode::Mapped`]
+    /// - Copilot↔OpenAI as [`ProjectionMode::Mapped`]
+    /// - All other cross-dialect pairs as [`ProjectionMode::Unsupported`]
+    pub fn register_defaults(&mut self) {
+        let dialects = Dialect::all();
+
+        // Identity (passthrough) entries for all dialects.
+        for &d in dialects {
+            self.register(d, d, ProjectionMode::Passthrough);
+        }
+
+        // Mapped cross-dialect pairs (all pairs with direct IR mapper support).
+        let mapped_pairs: &[(Dialect, Dialect)] = &[
+            // Core triangle: OpenAI ↔ Claude ↔ Gemini
+            (Dialect::OpenAi, Dialect::Claude),
+            (Dialect::Claude, Dialect::OpenAi),
+            (Dialect::OpenAi, Dialect::Gemini),
+            (Dialect::Gemini, Dialect::OpenAi),
+            (Dialect::Claude, Dialect::Gemini),
+            (Dialect::Gemini, Dialect::Claude),
+            // Codex ↔ OpenAI (OpenAI-compatible format)
+            (Dialect::Codex, Dialect::OpenAi),
+            (Dialect::OpenAi, Dialect::Codex),
+            // Codex ↔ Claude
+            (Dialect::Codex, Dialect::Claude),
+            (Dialect::Claude, Dialect::Codex),
+            // Kimi ↔ OpenAI, Claude, Gemini
+            (Dialect::OpenAi, Dialect::Kimi),
+            (Dialect::Kimi, Dialect::OpenAi),
+            (Dialect::Claude, Dialect::Kimi),
+            (Dialect::Kimi, Dialect::Claude),
+            (Dialect::Gemini, Dialect::Kimi),
+            (Dialect::Kimi, Dialect::Gemini),
+            // Copilot ↔ OpenAI
+            (Dialect::OpenAi, Dialect::Copilot),
+            (Dialect::Copilot, Dialect::OpenAi),
+        ];
+
+        for &(src, tgt) in mapped_pairs {
+            self.register(src, tgt, ProjectionMode::Mapped);
+        }
+
+        // All remaining pairs are unsupported.
+        for &src in dialects {
+            for &tgt in dialects {
+                if src == tgt {
+                    continue;
+                }
+                let pair = DialectPair::new(src, tgt);
+                if !self.dialect_entries.contains_key(&pair) {
+                    self.register(src, tgt, ProjectionMode::Unsupported);
+                }
+            }
+        }
+    }
+
+    /// Creates a projection matrix pre-populated with default dialect entries.
+    #[must_use]
+    pub fn with_defaults() -> Self {
+        let mut pm = Self::new();
+        pm.register_defaults();
+        pm
     }
 
     /// Register a backend with its capabilities, dialect, and priority.
@@ -182,6 +889,12 @@ impl ProjectionMatrix {
     #[must_use]
     pub fn backend_count(&self) -> usize {
         self.backends.len()
+    }
+
+    /// Look up a registered backend entry by id.
+    #[must_use]
+    pub fn backend_entry(&self, id: &str) -> Option<&BackendEntry> {
+        self.backends.get(id)
     }
 
     /// Project a work order onto the backend registry.
@@ -217,14 +930,19 @@ impl ProjectionMatrix {
             let fidelity = self.mapping_fidelity(source_dialect, entry.dialect);
             let norm_priority = entry.priority as f64 / max_priority as f64;
 
-            let mut score = ProjectionScore::compute(cap_coverage, fidelity, norm_priority);
+            let mut score = ProjectionScore::compute_with_weights(
+                cap_coverage,
+                fidelity,
+                norm_priority,
+                &self.config,
+            );
 
             // Passthrough bonus: same-dialect backend gets a boost.
             if is_passthrough
                 && let Some(src) = source_dialect
                 && entry.dialect == src
             {
-                score.total += 0.15;
+                score.total += self.config.passthrough_bonus;
             }
 
             scored.push((entry.id.clone(), score, neg));
@@ -357,6 +1075,53 @@ impl ProjectionMatrix {
     }
 }
 
+// ── Dialect pair helpers ─────────────────────────────────────────────────
+
+/// Returns a default mapper hint string for a known cross-dialect pair.
+fn default_mapper_hint(source: Dialect, target: Dialect) -> Option<String> {
+    match (source, target) {
+        (Dialect::OpenAi, Dialect::Claude) => Some("openai_to_claude".to_string()),
+        (Dialect::Claude, Dialect::OpenAi) => Some("claude_to_openai".to_string()),
+        (Dialect::Codex, Dialect::OpenAi) | (Dialect::OpenAi, Dialect::Codex) => {
+            Some("identity".to_string())
+        }
+        (Dialect::OpenAi, Dialect::Gemini) => Some("openai_to_gemini".to_string()),
+        (Dialect::Gemini, Dialect::OpenAi) => Some("gemini_to_openai".to_string()),
+        (Dialect::Claude, Dialect::Gemini) => Some("claude_to_gemini".to_string()),
+        (Dialect::Gemini, Dialect::Claude) => Some("gemini_to_claude".to_string()),
+        (Dialect::Codex, Dialect::Claude) => Some("codex_to_claude".to_string()),
+        (Dialect::Claude, Dialect::Codex) => Some("claude_to_codex".to_string()),
+        (Dialect::OpenAi, Dialect::Kimi) => Some("openai_to_kimi".to_string()),
+        (Dialect::Kimi, Dialect::OpenAi) => Some("kimi_to_openai".to_string()),
+        (Dialect::Claude, Dialect::Kimi) => Some("claude_to_kimi".to_string()),
+        (Dialect::Kimi, Dialect::Claude) => Some("kimi_to_claude".to_string()),
+        (Dialect::Gemini, Dialect::Kimi) => Some("gemini_to_kimi".to_string()),
+        (Dialect::Kimi, Dialect::Gemini) => Some("kimi_to_gemini".to_string()),
+        (Dialect::OpenAi, Dialect::Copilot) => Some("openai_to_copilot".to_string()),
+        (Dialect::Copilot, Dialect::OpenAi) => Some("copilot_to_openai".to_string()),
+        _ => Some(format!(
+            "{}_to_{}",
+            source.label().to_lowercase(),
+            target.label().to_lowercase()
+        )),
+    }
+}
+
+/// Resolves a concrete [`Mapper`] for a given dialect pair.
+fn resolve_mapper_for_pair(source: Dialect, target: Dialect) -> Option<Box<dyn Mapper>> {
+    match (source, target) {
+        (Dialect::OpenAi, Dialect::Claude) => Some(Box::new(OpenAiToClaudeMapper)),
+        (Dialect::Claude, Dialect::OpenAi) => Some(Box::new(ClaudeToOpenAiMapper)),
+        (Dialect::OpenAi, Dialect::Gemini) => Some(Box::new(OpenAiToGeminiMapper)),
+        (Dialect::Gemini, Dialect::OpenAi) => Some(Box::new(GeminiToOpenAiMapper)),
+        // Codex uses OpenAI-compatible format — identity mapping suffices.
+        (Dialect::Codex, Dialect::OpenAi) | (Dialect::OpenAi, Dialect::Codex) => {
+            Some(Box::new(IdentityMapper))
+        }
+        _ => None,
+    }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 /// Compute the fraction of required capabilities that are native or emulated.
@@ -364,7 +1129,7 @@ fn capability_coverage(neg: &NegotiationResult, reqs: &CapabilityRequirements) -
     if reqs.required.is_empty() {
         return 1.0;
     }
-    let satisfied = neg.native.len() + neg.emulatable.len();
+    let satisfied = neg.native.len() + neg.emulated.len();
     satisfied as f64 / reqs.required.len() as f64
 }
 
@@ -381,9 +1146,9 @@ fn is_passthrough_mode(work_order: &WorkOrder) -> bool {
 
 /// Build the list of required emulations from a negotiation result.
 fn build_emulations(neg: &NegotiationResult) -> Vec<RequiredEmulation> {
-    neg.emulatable
+    neg.emulated
         .iter()
-        .map(|cap| RequiredEmulation {
+        .map(|(cap, _strategy)| RequiredEmulation {
             capability: cap.clone(),
             strategy: "adapter".into(),
         })
@@ -1049,46 +1814,1087 @@ mod tests {
 
     #[test]
     fn capability_coverage_empty_reqs() {
-        let neg = NegotiationResult {
-            native: vec![],
-            emulatable: vec![],
-            unsupported: vec![],
-        };
+        let neg = NegotiationResult::from_simple(vec![], vec![], vec![]);
         let reqs = CapabilityRequirements::default();
         assert!((capability_coverage(&neg, &reqs) - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn capability_coverage_partial() {
-        let neg = NegotiationResult {
-            native: vec![Capability::Streaming],
-            emulatable: vec![],
-            unsupported: vec![Capability::ToolRead],
-        };
+        let neg = NegotiationResult::from_simple(
+            vec![Capability::Streaming],
+            vec![],
+            vec![Capability::ToolRead],
+        );
         let reqs = require_caps(&[Capability::Streaming, Capability::ToolRead]);
         assert!((capability_coverage(&neg, &reqs) - 0.5).abs() < f64::EPSILON);
     }
 
     #[test]
     fn build_emulations_empty() {
-        let neg = NegotiationResult {
-            native: vec![Capability::Streaming],
-            emulatable: vec![],
-            unsupported: vec![],
-        };
+        let neg = NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
         assert!(build_emulations(&neg).is_empty());
     }
 
     #[test]
     fn build_emulations_multiple() {
-        let neg = NegotiationResult {
-            native: vec![],
-            emulatable: vec![Capability::Streaming, Capability::ToolRead],
-            unsupported: vec![],
-        };
+        let neg = NegotiationResult::from_simple(
+            vec![],
+            vec![Capability::Streaming, Capability::ToolRead],
+            vec![],
+        );
         let emu = build_emulations(&neg);
         assert_eq!(emu.len(), 2);
         assert_eq!(emu[0].capability, Capability::Streaming);
         assert_eq!(emu[1].capability, Capability::ToolRead);
+    }
+
+    // ── Dialect projection matrix tests ─────────────────────────────────
+
+    // -- Passthrough identity entries --
+
+    #[test]
+    fn passthrough_openai_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    #[test]
+    fn passthrough_claude_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Claude, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    #[test]
+    fn passthrough_gemini_to_gemini() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Gemini, Dialect::Gemini).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn passthrough_codex_to_codex() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Codex, Dialect::Codex).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn passthrough_kimi_to_kimi() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Kimi, Dialect::Kimi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn passthrough_copilot_to_copilot() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Copilot, Dialect::Copilot).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn all_identity_pairs_are_passthrough() {
+        let pm = ProjectionMatrix::with_defaults();
+        for &d in Dialect::all() {
+            let entry = pm.lookup(d, d).unwrap();
+            assert_eq!(
+                entry.mode,
+                ProjectionMode::Passthrough,
+                "identity {d} → {d}"
+            );
+            assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+        }
+    }
+
+    // -- Cross-dialect mapped entries --
+
+    #[test]
+    fn mapped_openai_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("openai_to_claude"));
+    }
+
+    #[test]
+    fn mapped_claude_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Claude, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("claude_to_openai"));
+    }
+
+    #[test]
+    fn mapped_openai_to_gemini() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Gemini).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn mapped_gemini_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Gemini, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn mapped_claude_to_gemini() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Claude, Dialect::Gemini).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn mapped_gemini_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Gemini, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn mapped_codex_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Codex, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    #[test]
+    fn mapped_openai_to_codex() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Codex).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    // -- Unsupported entries --
+
+    #[test]
+    fn unsupported_kimi_to_copilot() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Kimi, Dialect::Copilot).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Unsupported);
+        assert!(entry.mapper_hint.is_none());
+    }
+
+    #[test]
+    fn unsupported_copilot_to_kimi() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Copilot, Dialect::Kimi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Unsupported);
+    }
+
+    #[test]
+    fn unsupported_kimi_to_codex() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Kimi, Dialect::Codex).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Unsupported);
+    }
+
+    #[test]
+    fn unsupported_copilot_to_codex() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Copilot, Dialect::Codex).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Unsupported);
+    }
+
+    // -- Missing/unregistered entries --
+
+    #[test]
+    fn lookup_missing_entry_returns_none() {
+        let pm = ProjectionMatrix::new();
+        assert!(pm.lookup(Dialect::OpenAi, Dialect::Claude).is_none());
+    }
+
+    #[test]
+    fn empty_matrix_has_no_dialect_entries() {
+        let pm = ProjectionMatrix::new();
+        assert_eq!(pm.dialect_entry_count(), 0);
+    }
+
+    // -- Registration and override --
+
+    #[test]
+    fn register_single_entry() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
+        assert_eq!(pm.dialect_entry_count(), 1);
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn register_override_replaces_entry() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
+        assert_eq!(
+            pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap().mode,
+            ProjectionMode::Mapped
+        );
+
+        pm.register(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            ProjectionMode::Unsupported,
+        );
+        assert_eq!(
+            pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap().mode,
+            ProjectionMode::Unsupported
+        );
+        assert_eq!(pm.dialect_entry_count(), 1);
+    }
+
+    #[test]
+    fn register_identity_forces_passthrough() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::OpenAi, Dialect::OpenAi, ProjectionMode::Mapped);
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+
+    #[test]
+    fn register_identity_ignores_unsupported() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(
+            Dialect::Claude,
+            Dialect::Claude,
+            ProjectionMode::Unsupported,
+        );
+        let entry = pm.lookup(Dialect::Claude, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn register_does_not_affect_reverse() {
+        let mut pm = ProjectionMatrix::new();
+        pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
+        assert!(pm.lookup(Dialect::Claude, Dialect::OpenAi).is_none());
+    }
+
+    // -- Default matrix completeness --
+
+    #[test]
+    fn default_matrix_covers_all_pairs() {
+        let pm = ProjectionMatrix::with_defaults();
+        let dialects = Dialect::all();
+        let expected = dialects.len() * dialects.len();
+        assert_eq!(pm.dialect_entry_count(), expected);
+
+        for &src in dialects {
+            for &tgt in dialects {
+                assert!(
+                    pm.lookup(src, tgt).is_some(),
+                    "missing entry for {src} → {tgt}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn default_matrix_has_exactly_six_passthroughs() {
+        let pm = ProjectionMatrix::with_defaults();
+        let passthrough_count = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Passthrough)
+            .count();
+        assert_eq!(passthrough_count, Dialect::all().len());
+    }
+
+    #[test]
+    fn default_matrix_mapped_count() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapped_count = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Mapped)
+            .count();
+        // 18 mapped pairs: OpenAI↔Claude, OpenAI↔Gemini, Claude↔Gemini,
+        // Codex↔OpenAI, Codex↔Claude, Kimi↔OpenAI, Kimi↔Claude, Kimi↔Gemini,
+        // Copilot↔OpenAI
+        assert_eq!(mapped_count, 18);
+    }
+
+    #[test]
+    fn default_matrix_unsupported_count() {
+        let pm = ProjectionMatrix::with_defaults();
+        let total = pm.dialect_entry_count();
+        let passthrough = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Passthrough)
+            .count();
+        let mapped = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Mapped)
+            .count();
+        let unsupported = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Unsupported)
+            .count();
+        assert_eq!(passthrough + mapped + unsupported, total);
+        assert!(unsupported > 0);
+    }
+
+    #[test]
+    fn register_defaults_idempotent() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        let count_before = pm.dialect_entry_count();
+        pm.register_defaults();
+        assert_eq!(pm.dialect_entry_count(), count_before);
+    }
+
+    // -- DialectPair type tests --
+
+    #[test]
+    fn dialect_pair_new() {
+        let pair = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        assert_eq!(pair.source, Dialect::OpenAi);
+        assert_eq!(pair.target, Dialect::Claude);
+    }
+
+    #[test]
+    fn dialect_pair_display() {
+        let pair = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        assert_eq!(pair.to_string(), "OpenAI → Claude");
+    }
+
+    #[test]
+    fn dialect_pair_equality() {
+        let a = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        let b = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+        let c = DialectPair::new(Dialect::Claude, Dialect::OpenAi);
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn dialect_pair_serde_roundtrip() {
+        let pair = DialectPair::new(Dialect::Gemini, Dialect::Kimi);
+        let json = serde_json::to_string(&pair).unwrap();
+        let back: DialectPair = serde_json::from_str(&json).unwrap();
+        assert_eq!(pair, back);
+    }
+
+    #[test]
+    fn dialect_pair_ord_deterministic() {
+        let mut pairs = [
+            DialectPair::new(Dialect::Gemini, Dialect::Claude),
+            DialectPair::new(Dialect::OpenAi, Dialect::Claude),
+            DialectPair::new(Dialect::Claude, Dialect::OpenAi),
+        ];
+        pairs.sort();
+        // Ordering should be deterministic (by Dialect variant discriminant order).
+        assert_eq!(pairs[0].source, pairs[1].source.min(pairs[0].source));
+    }
+
+    // -- ProjectionEntry tests --
+
+    #[test]
+    fn projection_entry_serde_roundtrip() {
+        let entry = ProjectionEntry {
+            pair: DialectPair::new(Dialect::OpenAi, Dialect::Claude),
+            mode: ProjectionMode::Mapped,
+            mapper_hint: Some("openai_to_claude".to_string()),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let back: ProjectionEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(entry, back);
+    }
+
+    #[test]
+    fn projection_mode_serde_roundtrip() {
+        for mode in [
+            ProjectionMode::Passthrough,
+            ProjectionMode::Mapped,
+            ProjectionMode::Unsupported,
+        ] {
+            let json = serde_json::to_string(&mode).unwrap();
+            let back: ProjectionMode = serde_json::from_str(&json).unwrap();
+            assert_eq!(mode, back);
+        }
+    }
+
+    // -- Mapper resolution --
+
+    #[test]
+    fn resolve_mapper_identity_passthrough() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::OpenAi);
+        assert!(mapper.is_some());
+        let m = mapper.unwrap();
+        assert_eq!(m.source_dialect(), Dialect::OpenAi);
+        assert_eq!(m.target_dialect(), Dialect::OpenAi);
+    }
+
+    #[test]
+    fn resolve_mapper_openai_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude);
+        assert!(mapper.is_some());
+        let m = mapper.unwrap();
+        assert_eq!(m.source_dialect(), Dialect::OpenAi);
+        assert_eq!(m.target_dialect(), Dialect::Claude);
+    }
+
+    #[test]
+    fn resolve_mapper_claude_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::Claude, Dialect::OpenAi);
+        assert!(mapper.is_some());
+        let m = mapper.unwrap();
+        assert_eq!(m.source_dialect(), Dialect::Claude);
+        assert_eq!(m.target_dialect(), Dialect::OpenAi);
+    }
+
+    #[test]
+    fn resolve_mapper_unsupported_returns_none() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::Kimi, Dialect::Copilot);
+        assert!(mapper.is_none());
+    }
+
+    #[test]
+    fn resolve_mapper_unregistered_returns_none() {
+        let pm = ProjectionMatrix::new();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude);
+        assert!(mapper.is_none());
+    }
+
+    #[test]
+    fn resolve_mapper_codex_to_openai_uses_identity() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::Codex, Dialect::OpenAi);
+        assert!(mapper.is_some());
+    }
+
+    // -- Override after defaults --
+
+    #[test]
+    fn override_default_entry() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        assert_eq!(
+            pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap().mode,
+            ProjectionMode::Mapped
+        );
+
+        pm.register(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            ProjectionMode::Unsupported,
+        );
+        assert_eq!(
+            pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap().mode,
+            ProjectionMode::Unsupported
+        );
+    }
+
+    #[test]
+    fn override_default_does_not_affect_others() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        let count_before = pm.dialect_entry_count();
+        pm.register(
+            Dialect::OpenAi,
+            Dialect::Claude,
+            ProjectionMode::Unsupported,
+        );
+        assert_eq!(pm.dialect_entry_count(), count_before);
+        // Reverse direction unchanged.
+        assert_eq!(
+            pm.lookup(Dialect::Claude, Dialect::OpenAi).unwrap().mode,
+            ProjectionMode::Mapped
+        );
+    }
+
+    // -- dialect_entries iterator --
+
+    #[test]
+    fn dialect_entries_iterator_count() {
+        let pm = ProjectionMatrix::with_defaults();
+        let count = pm.dialect_entries().count();
+        assert_eq!(count, pm.dialect_entry_count());
+    }
+
+    #[test]
+    fn dialect_entries_iterator_all_have_valid_pairs() {
+        let pm = ProjectionMatrix::with_defaults();
+        for entry in pm.dialect_entries() {
+            // Every entry's pair source/target should be in Dialect::all().
+            assert!(Dialect::all().contains(&entry.pair.source));
+            assert!(Dialect::all().contains(&entry.pair.target));
+        }
+    }
+
+    // -- BTreeMap determinism --
+
+    #[test]
+    fn btreemap_iteration_order_deterministic() {
+        let pm1 = ProjectionMatrix::with_defaults();
+        let pm2 = ProjectionMatrix::with_defaults();
+        let keys1: Vec<_> = pm1.dialect_entries().map(|e| e.pair.clone()).collect();
+        let keys2: Vec<_> = pm2.dialect_entries().map(|e| e.pair.clone()).collect();
+        assert_eq!(keys1, keys2);
+    }
+
+    // -- Mapper hint values --
+
+    #[test]
+    fn passthrough_entries_all_have_identity_hint() {
+        let pm = ProjectionMatrix::with_defaults();
+        for entry in pm.dialect_entries() {
+            if entry.mode == ProjectionMode::Passthrough {
+                assert_eq!(
+                    entry.mapper_hint.as_deref(),
+                    Some("identity"),
+                    "passthrough entry {} should have identity hint",
+                    entry.pair
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn unsupported_entries_have_no_hint() {
+        let pm = ProjectionMatrix::with_defaults();
+        for entry in pm.dialect_entries() {
+            if entry.mode == ProjectionMode::Unsupported {
+                assert!(
+                    entry.mapper_hint.is_none(),
+                    "unsupported entry {} should have no hint",
+                    entry.pair
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn mapped_entries_all_have_hints() {
+        let pm = ProjectionMatrix::with_defaults();
+        for entry in pm.dialect_entries() {
+            if entry.mode == ProjectionMode::Mapped {
+                assert!(
+                    entry.mapper_hint.is_some(),
+                    "mapped entry {} should have a hint",
+                    entry.pair
+                );
+            }
+        }
+    }
+
+    // ── New mapped dialect pair tests ────────────────────────────────────
+
+    #[test]
+    fn mapped_openai_to_kimi() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Kimi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("openai_to_kimi"));
+    }
+
+    #[test]
+    fn mapped_kimi_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Kimi, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("kimi_to_openai"));
+    }
+
+    #[test]
+    fn mapped_claude_to_kimi() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Claude, Dialect::Kimi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("claude_to_kimi"));
+    }
+
+    #[test]
+    fn mapped_kimi_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Kimi, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("kimi_to_claude"));
+    }
+
+    #[test]
+    fn mapped_gemini_to_kimi() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Gemini, Dialect::Kimi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("gemini_to_kimi"));
+    }
+
+    #[test]
+    fn mapped_kimi_to_gemini() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Kimi, Dialect::Gemini).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("kimi_to_gemini"));
+    }
+
+    #[test]
+    fn mapped_openai_to_copilot() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Copilot).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("openai_to_copilot"));
+    }
+
+    #[test]
+    fn mapped_copilot_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Copilot, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("copilot_to_openai"));
+    }
+
+    #[test]
+    fn mapped_codex_to_claude() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Codex, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("codex_to_claude"));
+    }
+
+    #[test]
+    fn mapped_claude_to_codex() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Claude, Dialect::Codex).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("claude_to_codex"));
+    }
+
+    #[test]
+    fn mapped_openai_to_gemini_hint() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::OpenAi, Dialect::Gemini).unwrap();
+        assert_eq!(entry.mapper_hint.as_deref(), Some("openai_to_gemini"));
+    }
+
+    #[test]
+    fn mapped_gemini_to_openai_hint() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.lookup(Dialect::Gemini, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mapper_hint.as_deref(), Some("gemini_to_openai"));
+    }
+
+    // ── Resolve mapper: new pairs ───────────────────────────────────────
+
+    #[test]
+    fn resolve_mapper_openai_to_gemini() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::OpenAi, Dialect::Gemini);
+        assert!(mapper.is_some());
+        let m = mapper.unwrap();
+        assert_eq!(m.source_dialect(), Dialect::OpenAi);
+        assert_eq!(m.target_dialect(), Dialect::Gemini);
+    }
+
+    #[test]
+    fn resolve_mapper_gemini_to_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let mapper = pm.resolve_mapper(Dialect::Gemini, Dialect::OpenAi);
+        assert!(mapper.is_some());
+        let m = mapper.unwrap();
+        assert_eq!(m.source_dialect(), Dialect::Gemini);
+        assert_eq!(m.target_dialect(), Dialect::OpenAi);
+    }
+
+    // ── Projection error variants ───────────────────────────────────────
+
+    #[test]
+    fn error_unsupported_dialect_pair() {
+        let err = ProjectionError::UnsupportedDialectPair {
+            src_dialect: Dialect::Kimi,
+            tgt_dialect: Dialect::Copilot,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("unsupported dialect pair"));
+    }
+
+    #[test]
+    fn error_mapping_failed() {
+        let err = ProjectionError::MappingFailed {
+            reason: "test failure".into(),
+        };
+        assert!(err.to_string().contains("mapping failed"));
+    }
+
+    #[test]
+    fn error_configuration_error() {
+        let err = ProjectionError::ConfigurationError {
+            reason: "bad weights".into(),
+        };
+        assert!(err.to_string().contains("configuration error"));
+    }
+
+    #[test]
+    fn error_serde_roundtrip_all_variants() {
+        let variants = [
+            ProjectionError::NoSuitableBackend { reason: "x".into() },
+            ProjectionError::EmptyMatrix,
+            ProjectionError::UnsupportedDialectPair {
+                src_dialect: Dialect::OpenAi,
+                tgt_dialect: Dialect::Kimi,
+            },
+            ProjectionError::MappingFailed { reason: "r".into() },
+            ProjectionError::ConfigurationError { reason: "c".into() },
+        ];
+        for v in &variants {
+            let json = serde_json::to_string(v).unwrap();
+            let back: ProjectionError = serde_json::from_str(&json).unwrap();
+            assert_eq!(v, &back);
+        }
+    }
+
+    // ── Projection config ───────────────────────────────────────────────
+
+    #[test]
+    fn config_default_valid() {
+        let config = ProjectionConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn config_invalid_weights_sum() {
+        let config = ProjectionConfig {
+            capability_weight: 0.5,
+            fidelity_weight: 0.5,
+            priority_weight: 0.5,
+            ..ProjectionConfig::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn config_negative_weight() {
+        let config = ProjectionConfig {
+            capability_weight: -0.1,
+            fidelity_weight: 0.6,
+            priority_weight: 0.5,
+            ..ProjectionConfig::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn with_config_valid() {
+        let config = ProjectionConfig::default();
+        let pm = ProjectionMatrix::with_config(config).unwrap();
+        assert_eq!(pm.backend_count(), 0);
+    }
+
+    #[test]
+    fn with_config_invalid() {
+        let config = ProjectionConfig {
+            capability_weight: 2.0,
+            fidelity_weight: 0.0,
+            priority_weight: 0.0,
+            ..ProjectionConfig::default()
+        };
+        assert!(ProjectionMatrix::with_config(config).is_err());
+    }
+
+    #[test]
+    fn set_config_updates() {
+        let mut pm = ProjectionMatrix::new();
+        let config = ProjectionConfig {
+            passthrough_bonus: 0.25,
+            ..ProjectionConfig::default()
+        };
+        pm.set_config(config).unwrap();
+        assert!((pm.config().passthrough_bonus - 0.25).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn custom_weights_affect_scoring() {
+        let config = ProjectionConfig {
+            capability_weight: 0.1,
+            fidelity_weight: 0.1,
+            priority_weight: 0.8,
+            ..ProjectionConfig::default()
+        };
+        let mut pm = ProjectionMatrix::with_config(config).unwrap();
+        pm.register_backend(
+            "low-cap-high-prio",
+            manifest(&[(Capability::Streaming, SupportLevel::Emulated)]),
+            Dialect::OpenAi,
+            100,
+        );
+        pm.register_backend(
+            "high-cap-low-prio",
+            manifest(&[
+                (Capability::Streaming, SupportLevel::Native),
+                (Capability::ToolRead, SupportLevel::Native),
+            ]),
+            Dialect::OpenAi,
+            10,
+        );
+        let wo = work_order_with_reqs(require_caps(&[Capability::Streaming]));
+        let result = pm.project(&wo).unwrap();
+        // With 80% weight on priority, high-prio wins.
+        assert_eq!(result.selected_backend, "low-cap-high-prio");
+    }
+
+    #[test]
+    fn config_serde_roundtrip() {
+        let config = ProjectionConfig {
+            capability_weight: 0.4,
+            fidelity_weight: 0.4,
+            priority_weight: 0.2,
+            passthrough_bonus: 0.1,
+            prefer_passthrough: true,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let back: ProjectionConfig = serde_json::from_str(&json).unwrap();
+        assert!((back.capability_weight - 0.4).abs() < f64::EPSILON);
+        assert!(back.prefer_passthrough);
+    }
+
+    // ── Feature support matrix ──────────────────────────────────────────
+
+    #[test]
+    fn feature_support_matrix_empty_features() {
+        let pm = ProjectionMatrix::with_defaults();
+        let matrix = pm.feature_support_matrix();
+        assert!(matrix.features.is_empty());
+        // Entries still present, but no per-feature data.
+        assert_eq!(matrix.entries.len(), pm.dialect_entry_count());
+    }
+
+    #[test]
+    fn feature_support_matrix_identity_all_lossless() {
+        let mut pm = ProjectionMatrix::new();
+        pm.set_mapping_features(vec!["tool_use".into(), "streaming".into()]);
+        pm.register(
+            Dialect::OpenAi,
+            Dialect::OpenAi,
+            ProjectionMode::Passthrough,
+        );
+        let matrix = pm.feature_support_matrix();
+        let entry = matrix.entries.first().unwrap();
+        assert_eq!(entry.source, Dialect::OpenAi);
+        assert_eq!(entry.target, Dialect::OpenAi);
+        for status in entry.feature_support.values() {
+            assert_eq!(status, "lossless");
+        }
+    }
+
+    #[test]
+    fn feature_support_matrix_unsupported_pair() {
+        let mut pm = ProjectionMatrix::new();
+        pm.set_mapping_features(vec!["tool_use".into()]);
+        pm.register(Dialect::Kimi, Dialect::Copilot, ProjectionMode::Unsupported);
+        let matrix = pm.feature_support_matrix();
+        let entry = matrix.entries.first().unwrap();
+        assert_eq!(
+            entry.feature_support.get("tool_use").unwrap(),
+            "unsupported"
+        );
+    }
+
+    #[test]
+    fn feature_support_matrix_with_registry() {
+        let mut reg = MappingRegistry::new();
+        reg.insert(MappingRule {
+            source_dialect: Dialect::Claude,
+            target_dialect: Dialect::OpenAi,
+            feature: "tool_use".into(),
+            fidelity: Fidelity::Lossless,
+        });
+        reg.insert(MappingRule {
+            source_dialect: Dialect::Claude,
+            target_dialect: Dialect::OpenAi,
+            feature: "streaming".into(),
+            fidelity: Fidelity::LossyLabeled {
+                warning: "partial".into(),
+            },
+        });
+
+        let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+        pm.set_mapping_features(vec!["tool_use".into(), "streaming".into()]);
+        pm.register(Dialect::Claude, Dialect::OpenAi, ProjectionMode::Mapped);
+
+        let matrix = pm.feature_support_matrix();
+        assert_eq!(matrix.features.len(), 2);
+        let entry = matrix.entries.first().unwrap();
+        assert_eq!(entry.feature_support.get("tool_use").unwrap(), "lossless");
+        assert_eq!(entry.feature_support.get("streaming").unwrap(), "lossy");
+    }
+
+    // ── Projection statistics ───────────────────────────────────────────
+
+    #[test]
+    fn statistics_empty_matrix() {
+        let pm = ProjectionMatrix::new();
+        let stats = pm.statistics();
+        assert_eq!(stats.backend_count, 0);
+        assert_eq!(stats.dialect_entry_count, 0);
+        assert_eq!(stats.passthrough_count, 0);
+        assert_eq!(stats.mapped_count, 0);
+        assert_eq!(stats.unsupported_count, 0);
+        assert_eq!(stats.covered_dialects, 0);
+    }
+
+    #[test]
+    fn statistics_default_matrix() {
+        let pm = ProjectionMatrix::with_defaults();
+        let stats = pm.statistics();
+        assert_eq!(stats.passthrough_count, 6);
+        assert_eq!(stats.mapped_count, 18);
+        assert_eq!(
+            stats.passthrough_count + stats.mapped_count + stats.unsupported_count,
+            stats.dialect_entry_count
+        );
+    }
+
+    #[test]
+    fn statistics_with_backends() {
+        let mut pm = ProjectionMatrix::with_defaults();
+        pm.register_backend(
+            "be-a",
+            manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+            Dialect::OpenAi,
+            50,
+        );
+        pm.register_backend(
+            "be-b",
+            manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+            Dialect::Claude,
+            50,
+        );
+        let stats = pm.statistics();
+        assert_eq!(stats.backend_count, 2);
+        assert_eq!(stats.covered_dialects, 2);
+    }
+
+    #[test]
+    fn statistics_serde_roundtrip() {
+        let pm = ProjectionMatrix::with_defaults();
+        let stats = pm.statistics();
+        let json = serde_json::to_string(&stats).unwrap();
+        let back: ProjectionStatistics = serde_json::from_str(&json).unwrap();
+        assert_eq!(stats.passthrough_count, back.passthrough_count);
+        assert_eq!(stats.mapped_count, back.mapped_count);
+    }
+
+    // ── Validate pair ───────────────────────────────────────────────────
+
+    #[test]
+    fn validate_pair_passthrough() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.validate_pair(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+
+    #[test]
+    fn validate_pair_mapped() {
+        let pm = ProjectionMatrix::with_defaults();
+        let entry = pm.validate_pair(Dialect::OpenAi, Dialect::Claude).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Mapped);
+    }
+
+    #[test]
+    fn validate_pair_unsupported_returns_error() {
+        let pm = ProjectionMatrix::with_defaults();
+        let err = pm
+            .validate_pair(Dialect::Kimi, Dialect::Copilot)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ProjectionError::UnsupportedDialectPair { .. }
+        ));
+    }
+
+    #[test]
+    fn validate_pair_unregistered_returns_error() {
+        let pm = ProjectionMatrix::new();
+        let err = pm
+            .validate_pair(Dialect::OpenAi, Dialect::Claude)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ProjectionError::UnsupportedDialectPair { .. }
+        ));
+    }
+
+    // ── Complete 6-dialect coverage tests ────────────────────────────────
+
+    #[test]
+    fn all_18_mapped_pairs_have_hints() {
+        let pm = ProjectionMatrix::with_defaults();
+        let hints: Vec<_> = pm
+            .dialect_entries()
+            .filter(|e| e.mode == ProjectionMode::Mapped)
+            .filter_map(|e| e.mapper_hint.clone())
+            .collect();
+        let unique: std::collections::BTreeSet<_> = hints.iter().collect();
+        // All mapped entries should have a mapper hint.
+        assert_eq!(hints.len(), 18);
+        // "identity" appears for Codex↔OpenAI (2 pairs), so unique < total is fine.
+        assert!(unique.len() >= 16);
+    }
+
+    #[test]
+    fn default_matrix_total_entries() {
+        let pm = ProjectionMatrix::with_defaults();
+        // 6 dialects → 36 entries (6 identity + 30 cross-dialect).
+        assert_eq!(pm.dialect_entry_count(), 36);
+    }
+
+    // ── Routing with expanded pairs ─────────────────────────────────────
+
+    #[test]
+    fn route_copilot_to_claude_via_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        // Copilot→Claude is unsupported directly, but reachable via OpenAI.
+        let route = pm.find_route(Dialect::Copilot, Dialect::Claude);
+        assert!(route.is_some());
+        let path = route.unwrap();
+        assert!(path.is_multi_hop());
+        assert_eq!(path.cost, 2);
+        // Should go through OpenAI as intermediate.
+        assert_eq!(path.hops[0].from, Dialect::Copilot);
+        assert_eq!(path.hops[0].to, Dialect::OpenAi);
+        assert_eq!(path.hops[1].from, Dialect::OpenAi);
+        assert_eq!(path.hops[1].to, Dialect::Claude);
+    }
+
+    #[test]
+    fn route_copilot_to_gemini_via_openai() {
+        let pm = ProjectionMatrix::with_defaults();
+        let route = pm.find_route(Dialect::Copilot, Dialect::Gemini);
+        assert!(route.is_some());
+        let path = route.unwrap();
+        assert!(path.is_multi_hop());
+    }
+
+    #[test]
+    fn route_codex_to_kimi_via_intermediate() {
+        let pm = ProjectionMatrix::with_defaults();
+        let route = pm.find_route(Dialect::Codex, Dialect::Kimi);
+        assert!(route.is_some());
+        let path = route.unwrap();
+        assert!(path.is_multi_hop());
+    }
+
+    #[test]
+    fn route_kimi_to_openai_direct() {
+        let pm = ProjectionMatrix::with_defaults();
+        let route = pm.find_route(Dialect::Kimi, Dialect::OpenAi).unwrap();
+        assert!(route.is_direct());
+        assert_eq!(route.cost, 1);
+    }
+
+    #[test]
+    fn route_copilot_to_kimi_multi_hop() {
+        let pm = ProjectionMatrix::with_defaults();
+        let route = pm.find_route(Dialect::Copilot, Dialect::Kimi);
+        assert!(route.is_some());
+        let path = route.unwrap();
+        assert!(path.is_multi_hop());
     }
 }

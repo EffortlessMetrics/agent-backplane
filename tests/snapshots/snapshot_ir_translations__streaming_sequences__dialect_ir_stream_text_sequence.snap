@@ -1,0 +1,45 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&events"
+---
+[
+  {
+    "type": "stream_start"
+  },
+  {
+    "type": "content_block_start",
+    "index": 0,
+    "block": {
+      "type": "text",
+      "text": ""
+    }
+  },
+  {
+    "type": "text_delta",
+    "index": 0,
+    "text": "Hello "
+  },
+  {
+    "type": "text_delta",
+    "index": 0,
+    "text": "world"
+  },
+  {
+    "type": "content_block_stop",
+    "index": 0
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "input_tokens": 15,
+      "output_tokens": 4,
+      "total_tokens": 19,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0
+    }
+  },
+  {
+    "type": "stream_end",
+    "stop_reason": "end_turn"
+  }
+]

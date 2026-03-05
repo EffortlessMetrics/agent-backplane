@@ -6,6 +6,9 @@ expression: resp
   "type": "health",
   "status": "ok",
   "version": "abp/v0.1",
-  "uptime_seconds": 120,
-  "backends_count": 2
+  "uptime_secs": 120,
+  "backends": [
+    "mock",
+    "sidecar"
+  ]
 }

@@ -1,0 +1,20 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: p
+---
+{
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Grep"
+  ],
+  "disallowed_tools": [
+    "Bash",
+    "BashExec"
+  ],
+  "deny_read": [],
+  "deny_write": [],
+  "allow_network": [],
+  "deny_network": [],
+  "require_approval_for": []
+}

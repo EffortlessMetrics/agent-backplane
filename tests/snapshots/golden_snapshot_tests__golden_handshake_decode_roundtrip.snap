@@ -1,0 +1,5 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: line.trim()
+---
+{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"roundtrip","backend_version":null,"adapter_version":null},"capabilities":{},"mode":"mapped"}

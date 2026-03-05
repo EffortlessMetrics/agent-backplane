@@ -1,0 +1,26 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&claude_block"
+---
+{
+  "type": "tool_use",
+  "id": "tu_nested",
+  "name": "complex_tool",
+  "input": {
+    "level1": {
+      "level2": {
+        "level3": {
+          "array": [
+            1,
+            2,
+            {
+              "deep": true
+            }
+          ],
+          "bool_val": false,
+          "null_val": null
+        }
+      }
+    }
+  }
+}

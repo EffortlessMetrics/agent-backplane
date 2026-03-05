@@ -1,0 +1,69 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: snap_json(&r)
+---
+{
+  "meta": {
+    "run_id": "01010101-0202-4303-8404-050505050505",
+    "work_order_id": "a1a1a1a1-b2b2-4c3c-8d4d-e5e5e5e5e5e5",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-07-01T12:00:00Z",
+    "finished_at": "2025-07-01T12:10:00Z",
+    "duration_ms": 600000
+  },
+  "backend": {
+    "id": "sidecar:claude",
+    "backend_version": "3.5.0",
+    "adapter_version": "0.2.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_read": "native",
+    "tool_write": "native",
+    "tool_edit": "native",
+    "tool_bash": "native",
+    "tool_glob": "native",
+    "tool_grep": "native",
+    "mcp_client": {
+      "restricted": {
+        "reason": "beta feature"
+      }
+    },
+    "mcp_server": "unsupported",
+    "tool_use": "emulated",
+    "extended_thinking": "native",
+    "image_input": "emulated"
+  },
+  "mode": "passthrough",
+  "usage_raw": {},
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "cache_read_tokens": null,
+    "cache_write_tokens": null,
+    "request_units": null,
+    "estimated_cost_usd": null
+  },
+  "trace": [],
+  "artifacts": [
+    {
+      "kind": "patch",
+      "path": "auth.patch"
+    },
+    {
+      "kind": "log",
+      "path": "run.log"
+    },
+    {
+      "kind": "screenshot",
+      "path": "output.png"
+    }
+  ],
+  "verification": {
+    "git_diff": "diff --git a/src/auth.rs b/src/auth.rs\n+pub fn validate() {}",
+    "git_status": "M src/auth.rs\nA src/auth_test.rs",
+    "harness_ok": true
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

@@ -1,0 +1,7 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: "CapabilityRequirements::default()"
+---
+{
+  "required": []
+}

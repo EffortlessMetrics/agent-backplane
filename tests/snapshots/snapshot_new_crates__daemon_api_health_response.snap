@@ -5,6 +5,10 @@ expression: resp
 {
   "status": "ok",
   "version": "abp/v0.1",
-  "uptime_seconds": 3600,
-  "backends_count": 3
+  "uptime_secs": 3600,
+  "backends": [
+    "mock",
+    "openai",
+    "claude"
+  ]
 }

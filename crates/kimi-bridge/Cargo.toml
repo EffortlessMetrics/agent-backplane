@@ -1,0 +1,37 @@
+[package]
+name = "kimi-bridge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Standalone Kimi SDK bridge using sidecar-kit transport"
+readme = "README.md"
+keywords = ["kimi", "sidecar", "bridge", "ai", "moonshot"]
+categories = ["development-tools"]
+
+[features]
+default = []
+normalized = ["dep:abp-core"]
+ir = ["dep:abp-dialect"]
+
+[dependencies]
+sidecar-kit = { path = "../sidecar-kit", version = "0.1.0" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time"] }
+tokio-stream = "0.1"
+futures = "0.3"
+tracing = "0.1"
+uuid = { version = "1.21", features = ["v4"] }
+abp-core = { path = "../abp-core", version = "0.1.0", optional = true }
+abp-dialect = { path = "../abp-dialect", version = "0.1.0", optional = true }
+
+[dev-dependencies]
+proptest = "1"
+tempfile = "3"
+abp-core = { path = "../abp-core", version = "0.1.0" }
+abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
+kimi-bridge = { path = ".", features = ["ir"] }

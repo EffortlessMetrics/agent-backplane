@@ -4,18 +4,30 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
-use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
-use abp_core::{
-    AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder, UsageNormalized, WorkOrderBuilder,
+/// HTTP client and `GeminiClient` facade for the Google Gemini API.
+pub mod client;
+/// Conversion layer between Gemini types and ABP core types.
+pub mod convert;
+/// Gemini-compatible error types and error codes.
+pub mod error;
+/// Fluent request builder and response helpers.
+pub mod generate;
+/// Streaming adapter for Gemini `streamGenerateContent` responses.
+pub mod streaming;
+/// Strongly-typed Gemini API types mirroring the Google Gemini REST API.
+pub mod types;
+
+pub use convert::*;
+pub use error::{ErrorCode, GeminiError};
+pub use types::*;
+
+// ── Re-exports from sub-modules for convenience ─────────────────────────
+
+pub use client::{GeminiClient, GeminiClientBuilder};
+pub use generate::{GenerateContentRequestBuilder, response_full_text, text_request};
+pub use streaming::{
+    GeminiStreamParser, StreamAdapter, accumulate_text, final_usage, parse_stream_body,
 };
-use abp_gemini_sdk::dialect::{
-    self, GeminiContent, GeminiGenerationConfig, GeminiInlineData, GeminiPart, GeminiRequest,
-    GeminiResponse, GeminiSafetySetting, GeminiStreamChunk, GeminiTool, GeminiToolConfig,
-};
-use abp_gemini_sdk::lowering;
-use chrono::Utc;
-use serde::{Deserialize, Serialize};
-use tokio_stream::Stream;
 
 // ── Re-exports from dialect for user convenience ────────────────────────
 
@@ -24,374 +36,23 @@ pub use abp_gemini_sdk::dialect::{
     HarmBlockThreshold, HarmCategory,
 };
 
-// ── Public types mirroring the Gemini SDK ───────────────────────────────
+use tokio_stream::Stream;
 
-/// A part within a content block, mirroring the Gemini SDK `Part` type.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum Part {
-    /// Plain text content.
-    Text(String),
-    /// Inline binary data (e.g. images).
-    InlineData {
-        /// MIME type of the data.
-        mime_type: String,
-        /// Base64-encoded binary data.
-        data: String,
-    },
-    /// A function call requested by the model.
-    FunctionCall {
-        /// Name of the function to invoke.
-        name: String,
-        /// Arguments as a JSON value.
-        args: serde_json::Value,
-    },
-    /// A function response returned to the model.
-    FunctionResponse {
-        /// Name of the function that was called.
-        name: String,
-        /// The function's response payload.
-        response: serde_json::Value,
-    },
-}
+// ── Pipeline Client ──────────────────────────────────────────────────────
 
-impl Part {
-    /// Create a text part.
-    #[must_use]
-    pub fn text(text: impl Into<String>) -> Self {
-        Self::Text(text.into())
-    }
-
-    /// Create an inline data part (e.g. image).
-    #[must_use]
-    pub fn inline_data(mime_type: impl Into<String>, data: impl Into<String>) -> Self {
-        Self::InlineData {
-            mime_type: mime_type.into(),
-            data: data.into(),
-        }
-    }
-
-    /// Create a function call part.
-    #[must_use]
-    pub fn function_call(name: impl Into<String>, args: serde_json::Value) -> Self {
-        Self::FunctionCall {
-            name: name.into(),
-            args,
-        }
-    }
-
-    /// Create a function response part.
-    #[must_use]
-    pub fn function_response(name: impl Into<String>, response: serde_json::Value) -> Self {
-        Self::FunctionResponse {
-            name: name.into(),
-            response,
-        }
-    }
-}
-
-/// A content block in the Gemini API format.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Content {
-    /// Role of the content author (`user` or `model`).
-    pub role: String,
-    /// Content parts.
-    pub parts: Vec<Part>,
-}
-
-impl Content {
-    /// Create a user-role content block.
-    #[must_use]
-    pub fn user(parts: Vec<Part>) -> Self {
-        Self {
-            role: "user".into(),
-            parts,
-        }
-    }
-
-    /// Create a model-role content block.
-    #[must_use]
-    pub fn model(parts: Vec<Part>) -> Self {
-        Self {
-            role: "model".into(),
-            parts,
-        }
-    }
-}
-
-/// Safety settings applied to a request.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SafetySetting {
-    /// The harm category to configure.
-    pub category: HarmCategory,
-    /// The blocking threshold for this category.
-    pub threshold: HarmBlockThreshold,
-}
-
-/// Generation configuration parameters.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GenerationConfig {
-    /// Maximum number of output tokens.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_output_tokens: Option<u32>,
-    /// Sampling temperature.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub temperature: Option<f64>,
-    /// Top-p (nucleus) sampling parameter.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_p: Option<f64>,
-    /// Top-k sampling parameter.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_k: Option<u32>,
-    /// Stop sequences that halt generation.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stop_sequences: Option<Vec<String>>,
-    /// MIME type for the response (e.g. `application/json`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub response_mime_type: Option<String>,
-    /// JSON Schema for structured output.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub response_schema: Option<serde_json::Value>,
-}
-
-/// Token usage metadata returned in a response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct UsageMetadata {
-    /// Tokens consumed by the prompt.
-    pub prompt_token_count: u64,
-    /// Tokens generated across all candidates.
-    pub candidates_token_count: u64,
-    /// Total tokens (prompt + candidates).
-    pub total_token_count: u64,
-}
-
-/// A request to the Gemini `generateContent` endpoint.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GenerateContentRequest {
-    /// Model identifier (e.g. `gemini-2.5-flash`).
-    pub model: String,
-    /// Conversation content blocks.
-    pub contents: Vec<Content>,
-    /// Optional system instruction content.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub system_instruction: Option<Content>,
-    /// Generation configuration parameters.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub generation_config: Option<GenerationConfig>,
-    /// Safety settings for content filtering.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub safety_settings: Option<Vec<SafetySetting>>,
-    /// Tool definitions available to the model.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tools: Option<Vec<ToolDeclaration>>,
-    /// Function-calling configuration.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_config: Option<ToolConfig>,
-}
-
-impl GenerateContentRequest {
-    /// Create a new request for the given model.
-    #[must_use]
-    pub fn new(model: impl Into<String>) -> Self {
-        Self {
-            model: model.into(),
-            contents: Vec::new(),
-            system_instruction: None,
-            generation_config: None,
-            safety_settings: None,
-            tools: None,
-            tool_config: None,
-        }
-    }
-
-    /// Add a content block and return `self` for chaining.
-    #[must_use]
-    pub fn add_content(mut self, content: Content) -> Self {
-        self.contents.push(content);
-        self
-    }
-
-    /// Set the system instruction.
-    #[must_use]
-    pub fn system_instruction(mut self, content: Content) -> Self {
-        self.system_instruction = Some(content);
-        self
-    }
-
-    /// Set generation config.
-    #[must_use]
-    pub fn generation_config(mut self, config: GenerationConfig) -> Self {
-        self.generation_config = Some(config);
-        self
-    }
-
-    /// Set safety settings.
-    #[must_use]
-    pub fn safety_settings(mut self, settings: Vec<SafetySetting>) -> Self {
-        self.safety_settings = Some(settings);
-        self
-    }
-
-    /// Set tool declarations.
-    #[must_use]
-    pub fn tools(mut self, tools: Vec<ToolDeclaration>) -> Self {
-        self.tools = Some(tools);
-        self
-    }
-
-    /// Set tool config.
-    #[must_use]
-    pub fn tool_config(mut self, config: ToolConfig) -> Self {
-        self.tool_config = Some(config);
-        self
-    }
-}
-
-/// A tool declaration wrapping function declarations.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ToolDeclaration {
-    /// Function declarations available to the model.
-    pub function_declarations: Vec<FunctionDeclaration>,
-}
-
-/// A function declaration for tool use.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct FunctionDeclaration {
-    /// Function name.
-    pub name: String,
-    /// Human-readable description.
-    pub description: String,
-    /// JSON Schema for the function parameters.
-    pub parameters: serde_json::Value,
-}
-
-/// Controls function-calling behavior.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ToolConfig {
-    /// Function-calling behaviour configuration.
-    pub function_calling_config: FunctionCallingConfig,
-}
-
-/// Detailed function-calling configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct FunctionCallingConfig {
-    /// The function-calling mode.
-    pub mode: FunctionCallingMode,
-    /// Restrict calls to these function names, if set.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_function_names: Option<Vec<String>>,
-}
-
-/// A single candidate in a response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Candidate {
-    /// The generated content.
-    pub content: Content,
-    /// Reason the model stopped generating.
-    #[serde(default)]
-    pub finish_reason: Option<String>,
-}
-
-/// The response from a `generateContent` call.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GenerateContentResponse {
-    /// Response candidates from the model.
-    pub candidates: Vec<Candidate>,
-    /// Token usage metadata.
-    #[serde(default)]
-    pub usage_metadata: Option<UsageMetadata>,
-}
-
-impl GenerateContentResponse {
-    /// Extract the text from the first candidate's first text part.
-    #[must_use]
-    pub fn text(&self) -> Option<&str> {
-        self.candidates.first().and_then(|c| {
-            c.content.parts.iter().find_map(|p| match p {
-                Part::Text(t) => Some(t.as_str()),
-                _ => None,
-            })
-        })
-    }
-
-    /// Extract all function calls from the first candidate.
-    #[must_use]
-    pub fn function_calls(&self) -> Vec<(&str, &serde_json::Value)> {
-        self.candidates
-            .first()
-            .map(|c| {
-                c.content
-                    .parts
-                    .iter()
-                    .filter_map(|p| match p {
-                        Part::FunctionCall { name, args } => Some((name.as_str(), args)),
-                        _ => None,
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-}
-
-/// A streaming response event.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StreamEvent {
-    /// Response candidates in this chunk.
-    pub candidates: Vec<Candidate>,
-    /// Token usage metadata (usually in the final chunk).
-    #[serde(default)]
-    pub usage_metadata: Option<UsageMetadata>,
-}
-
-impl StreamEvent {
-    /// Extract the text delta from the first candidate, if any.
-    #[must_use]
-    pub fn text(&self) -> Option<&str> {
-        self.candidates.first().and_then(|c| {
-            c.content.parts.iter().find_map(|p| match p {
-                Part::Text(t) => Some(t.as_str()),
-                _ => None,
-            })
-        })
-    }
-}
-
-/// Errors from the Gemini shim.
-#[derive(Debug, thiserror::Error)]
-pub enum GeminiError {
-    /// Request conversion failed.
-    #[error("request conversion error: {0}")]
-    RequestConversion(String),
-    /// Response conversion failed.
-    #[error("response conversion error: {0}")]
-    ResponseConversion(String),
-    /// The backend returned a failure outcome.
-    #[error("backend error: {0}")]
-    BackendError(String),
-    /// Serialization / deserialization error.
-    #[error("serde error: {0}")]
-    Serde(#[from] serde_json::Error),
-}
-
-// ── Client ──────────────────────────────────────────────────────────────
-
-/// Drop-in replacement for the Google Gemini SDK client.
+/// ABP-pipeline client that routes requests through the internal pipeline.
 ///
-/// Routes requests through the ABP pipeline:
-/// request → IR → WorkOrder → (execute) → Receipt → IR → response.
+/// Routes: request → IR → WorkOrder → (execute) → Receipt → IR → response.
+///
+/// For a drop-in SDK replacement that takes an API key, use
+/// [`client::GeminiClient`] instead.
 #[derive(Debug, Clone)]
-pub struct GeminiClient {
+pub struct PipelineClient {
     model: String,
 }
 
-impl GeminiClient {
-    /// Create a new client targeting the given model.
+impl PipelineClient {
+    /// Create a new pipeline client targeting the given model.
     #[must_use]
     pub fn new(model: impl Into<String>) -> Self {
         Self {
@@ -444,451 +105,25 @@ impl GeminiClient {
     }
 }
 
-// ── Conversion: Shim types ↔ Dialect types ──────────────────────────────
-
-fn part_to_dialect(part: &Part) -> GeminiPart {
-    match part {
-        Part::Text(t) => GeminiPart::Text(t.clone()),
-        Part::InlineData { mime_type, data } => GeminiPart::InlineData(GeminiInlineData {
-            mime_type: mime_type.clone(),
-            data: data.clone(),
-        }),
-        Part::FunctionCall { name, args } => GeminiPart::FunctionCall {
-            name: name.clone(),
-            args: args.clone(),
-        },
-        Part::FunctionResponse { name, response } => GeminiPart::FunctionResponse {
-            name: name.clone(),
-            response: response.clone(),
-        },
-    }
-}
-
-fn part_from_dialect(part: &GeminiPart) -> Part {
-    match part {
-        GeminiPart::Text(t) => Part::Text(t.clone()),
-        GeminiPart::InlineData(d) => Part::InlineData {
-            mime_type: d.mime_type.clone(),
-            data: d.data.clone(),
-        },
-        GeminiPart::FunctionCall { name, args } => Part::FunctionCall {
-            name: name.clone(),
-            args: args.clone(),
-        },
-        GeminiPart::FunctionResponse { name, response } => Part::FunctionResponse {
-            name: name.clone(),
-            response: response.clone(),
-        },
-    }
-}
-
-fn content_to_dialect(content: &Content) -> GeminiContent {
-    GeminiContent {
-        role: content.role.clone(),
-        parts: content.parts.iter().map(part_to_dialect).collect(),
-    }
-}
-
-fn content_from_dialect(content: &GeminiContent) -> Content {
-    Content {
-        role: content.role.clone(),
-        parts: content.parts.iter().map(part_from_dialect).collect(),
-    }
-}
-
-fn safety_to_dialect(s: &SafetySetting) -> GeminiSafetySetting {
-    GeminiSafetySetting {
-        category: s.category,
-        threshold: s.threshold,
-    }
-}
-
-fn gen_config_to_dialect(cfg: &GenerationConfig) -> GeminiGenerationConfig {
-    GeminiGenerationConfig {
-        max_output_tokens: cfg.max_output_tokens,
-        temperature: cfg.temperature,
-        top_p: cfg.top_p,
-        top_k: cfg.top_k,
-        stop_sequences: cfg.stop_sequences.clone(),
-        response_mime_type: cfg.response_mime_type.clone(),
-        response_schema: cfg.response_schema.clone(),
-    }
-}
-
-/// Convert a dialect generation config back to a shim generation config.
-#[must_use]
-pub fn gen_config_from_dialect(cfg: &GeminiGenerationConfig) -> GenerationConfig {
-    GenerationConfig {
-        max_output_tokens: cfg.max_output_tokens,
-        temperature: cfg.temperature,
-        top_p: cfg.top_p,
-        top_k: cfg.top_k,
-        stop_sequences: cfg.stop_sequences.clone(),
-        response_mime_type: cfg.response_mime_type.clone(),
-        response_schema: cfg.response_schema.clone(),
-    }
-}
-
-fn tool_decl_to_dialect(t: &ToolDeclaration) -> GeminiTool {
-    GeminiTool {
-        function_declarations: t
-            .function_declarations
-            .iter()
-            .map(|f| GeminiFunctionDeclaration {
-                name: f.name.clone(),
-                description: f.description.clone(),
-                parameters: f.parameters.clone(),
-            })
-            .collect(),
-    }
-}
-
-fn tool_config_to_dialect(tc: &ToolConfig) -> GeminiToolConfig {
-    GeminiToolConfig {
-        function_calling_config: GeminiFunctionCallingConfig {
-            mode: tc.function_calling_config.mode,
-            allowed_function_names: tc.function_calling_config.allowed_function_names.clone(),
-        },
-    }
-}
-
-/// Convert a shim request to a full dialect `GeminiRequest`.
-#[must_use]
-pub fn to_dialect_request(req: &GenerateContentRequest) -> GeminiRequest {
-    GeminiRequest {
-        model: req.model.clone(),
-        contents: req.contents.iter().map(content_to_dialect).collect(),
-        system_instruction: req.system_instruction.as_ref().map(content_to_dialect),
-        generation_config: req.generation_config.as_ref().map(gen_config_to_dialect),
-        safety_settings: req
-            .safety_settings
-            .as_ref()
-            .map(|ss| ss.iter().map(safety_to_dialect).collect()),
-        tools: req
-            .tools
-            .as_ref()
-            .map(|ts| ts.iter().map(tool_decl_to_dialect).collect()),
-        tool_config: req.tool_config.as_ref().map(tool_config_to_dialect),
-    }
-}
-
-/// Convert a dialect `GeminiResponse` to a shim response.
-#[must_use]
-pub fn from_dialect_response(resp: &GeminiResponse) -> GenerateContentResponse {
-    GenerateContentResponse {
-        candidates: resp
-            .candidates
-            .iter()
-            .map(|c| Candidate {
-                content: content_from_dialect(&c.content),
-                finish_reason: c.finish_reason.clone(),
-            })
-            .collect(),
-        usage_metadata: resp.usage_metadata.as_ref().map(|u| UsageMetadata {
-            prompt_token_count: u.prompt_token_count,
-            candidates_token_count: u.candidates_token_count,
-            total_token_count: u.total_token_count,
-        }),
-    }
-}
-
-/// Convert a dialect `GeminiStreamChunk` to a shim `StreamEvent`.
-#[must_use]
-pub fn from_dialect_stream_chunk(chunk: &GeminiStreamChunk) -> StreamEvent {
-    StreamEvent {
-        candidates: chunk
-            .candidates
-            .iter()
-            .map(|c| Candidate {
-                content: content_from_dialect(&c.content),
-                finish_reason: c.finish_reason.clone(),
-            })
-            .collect(),
-        usage_metadata: chunk.usage_metadata.as_ref().map(|u| UsageMetadata {
-            prompt_token_count: u.prompt_token_count,
-            candidates_token_count: u.candidates_token_count,
-            total_token_count: u.total_token_count,
-        }),
-    }
-}
-
-// ── Internal pipeline helpers ───────────────────────────────────────────
-
-/// Intermediate result after request-to-IR conversion.
-struct IrRequest {
-    conversation: IrConversation,
-}
-
-fn request_to_ir(
-    req: &GenerateContentRequest,
-) -> Result<(IrRequest, Option<GenerationConfig>, Vec<SafetySetting>), GeminiError> {
-    let dialect_contents: Vec<GeminiContent> =
-        req.contents.iter().map(content_to_dialect).collect();
-    let dialect_sys = req.system_instruction.as_ref().map(content_to_dialect);
-
-    let conversation = lowering::to_ir(&dialect_contents, dialect_sys.as_ref());
-
-    let gen_config = req.generation_config.clone();
-    let safety = req.safety_settings.clone().unwrap_or_default();
-
-    Ok((IrRequest { conversation }, gen_config, safety))
-}
-
-fn ir_to_work_order(
-    ir: &IrRequest,
-    model: &str,
-    gen_config: &Option<GenerationConfig>,
-) -> abp_core::WorkOrder {
-    let task = ir
-        .conversation
-        .messages
-        .iter()
-        .filter(|m| m.role == IrRole::User)
-        .map(|m| m.text_content())
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let mut builder = WorkOrderBuilder::new(if task.is_empty() {
-        "Gemini generate content".to_string()
-    } else {
-        task
-    })
-    .model(dialect::to_canonical_model(model));
-
-    if let Some(cfg) = gen_config
-        && let Some(max_tokens) = cfg.max_output_tokens
-    {
-        builder = builder.max_turns(max_tokens);
-    }
-
-    builder.build()
-}
-
-fn execute_work_order(wo: &abp_core::WorkOrder) -> Receipt {
-    let task_text = wo.task.clone();
-    let usage = UsageNormalized {
-        input_tokens: Some(10),
-        output_tokens: Some(20),
-        ..Default::default()
-    };
-
-    ReceiptBuilder::new("shim:gemini")
-        .outcome(Outcome::Complete)
-        .work_order_id(wo.id)
-        .usage(usage)
-        .add_trace_event(AgentEvent {
-            ts: Utc::now(),
-            kind: AgentEventKind::RunStarted {
-                message: "Gemini shim run started".into(),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: Utc::now(),
-            kind: AgentEventKind::AssistantMessage {
-                text: format!("Response to: {task_text}"),
-            },
-            ext: None,
-        })
-        .add_trace_event(AgentEvent {
-            ts: Utc::now(),
-            kind: AgentEventKind::RunCompleted {
-                message: "Gemini shim run completed".into(),
-            },
-            ext: None,
-        })
-        .build()
-}
-
-fn receipt_to_ir(receipt: &Receipt) -> IrConversation {
-    let mut messages = Vec::new();
-
-    for event in &receipt.trace {
-        match &event.kind {
-            AgentEventKind::AssistantMessage { text } => {
-                messages.push(IrMessage::text(IrRole::Assistant, text.clone()));
-            }
-            AgentEventKind::ToolCall {
-                tool_name,
-                tool_use_id,
-                input,
-                ..
-            } => {
-                let id = tool_use_id
-                    .clone()
-                    .unwrap_or_else(|| format!("gemini_{tool_name}"));
-                messages.push(IrMessage::new(
-                    IrRole::Assistant,
-                    vec![IrContentBlock::ToolUse {
-                        id,
-                        name: tool_name.clone(),
-                        input: input.clone(),
-                    }],
-                ));
-            }
-            AgentEventKind::ToolResult {
-                tool_name,
-                tool_use_id,
-                output,
-                is_error,
-            } => {
-                let id = tool_use_id
-                    .clone()
-                    .unwrap_or_else(|| format!("gemini_{tool_name}"));
-                let content_text = match output {
-                    serde_json::Value::String(s) => s.clone(),
-                    other => serde_json::to_string(other).unwrap_or_default(),
-                };
-                messages.push(IrMessage::new(
-                    IrRole::Tool,
-                    vec![IrContentBlock::ToolResult {
-                        tool_use_id: id,
-                        content: vec![IrContentBlock::Text { text: content_text }],
-                        is_error: *is_error,
-                    }],
-                ));
-            }
-            _ => {}
-        }
-    }
-
-    IrConversation::from_messages(messages)
-}
-
-fn ir_to_response(
-    ir: &IrConversation,
-    receipt: &Receipt,
-    _gen_config: &Option<GenerationConfig>,
-    _safety_settings: &[SafetySetting],
-) -> Result<GenerateContentResponse, GeminiError> {
-    let dialect_contents = lowering::from_ir(ir);
-
-    let candidates: Vec<Candidate> = if dialect_contents.is_empty() {
-        vec![Candidate {
-            content: Content::model(vec![Part::text("")]),
-            finish_reason: Some("STOP".into()),
-        }]
-    } else {
-        dialect_contents
-            .iter()
-            .filter(|c| c.role == "model")
-            .map(|c| Candidate {
-                content: content_from_dialect(c),
-                finish_reason: Some("STOP".into()),
-            })
-            .collect()
-    };
-
-    let candidates = if candidates.is_empty() {
-        // If no model messages, produce one from all content
-        dialect_contents
-            .iter()
-            .map(|c| Candidate {
-                content: content_from_dialect(c),
-                finish_reason: Some("STOP".into()),
-            })
-            .collect()
-    } else {
-        candidates
-    };
-
-    let usage_metadata = make_usage_metadata(&receipt.usage);
-
-    Ok(GenerateContentResponse {
-        candidates,
-        usage_metadata,
-    })
-}
-
-fn make_usage_metadata(usage: &UsageNormalized) -> Option<UsageMetadata> {
-    let input = usage.input_tokens.unwrap_or(0);
-    let output = usage.output_tokens.unwrap_or(0);
-    if input > 0 || output > 0 {
-        Some(UsageMetadata {
-            prompt_token_count: input,
-            candidates_token_count: output,
-            total_token_count: input + output,
-        })
-    } else {
-        None
-    }
-}
-
-fn receipt_to_stream_events(receipt: &Receipt) -> Vec<StreamEvent> {
-    let mut events = Vec::new();
-
-    for agent_event in &receipt.trace {
-        match &agent_event.kind {
-            AgentEventKind::AssistantMessage { text } | AgentEventKind::AssistantDelta { text } => {
-                events.push(StreamEvent {
-                    candidates: vec![Candidate {
-                        content: Content::model(vec![Part::text(text.clone())]),
-                        finish_reason: None,
-                    }],
-                    usage_metadata: None,
-                });
-            }
-            AgentEventKind::ToolCall {
-                tool_name, input, ..
-            } => {
-                events.push(StreamEvent {
-                    candidates: vec![Candidate {
-                        content: Content::model(vec![Part::function_call(
-                            tool_name.clone(),
-                            input.clone(),
-                        )]),
-                        finish_reason: None,
-                    }],
-                    usage_metadata: None,
-                });
-            }
-            _ => {}
-        }
-    }
-
-    // Final chunk with usage
-    let usage = make_usage_metadata(&receipt.usage);
-    if let Some(usage) = usage {
-        events.push(StreamEvent {
-            candidates: vec![],
-            usage_metadata: Some(usage),
-        });
-    }
-
-    events
-}
-
-// ── IR Usage conversion ─────────────────────────────────────────────────
-
-/// Convert Gemini usage metadata to IR usage.
-#[must_use]
-pub fn usage_to_ir(usage: &UsageMetadata) -> IrUsage {
-    IrUsage::from_io(usage.prompt_token_count, usage.candidates_token_count)
-}
-
-/// Convert IR usage to Gemini usage metadata.
-#[must_use]
-pub fn usage_from_ir(usage: &IrUsage) -> UsageMetadata {
-    UsageMetadata {
-        prompt_token_count: usage.input_tokens,
-        candidates_token_count: usage.output_tokens,
-        total_token_count: usage.total_tokens,
-    }
-}
-
 // ── Tests ───────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use abp_gemini_sdk::dialect::{GeminiCandidate, GeminiUsageMetadata};
+    use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
+    use abp_core::{AgentEventKind, Outcome, ReceiptBuilder};
+    use abp_gemini_sdk::dialect::{
+        self, GeminiCandidate, GeminiContent, GeminiPart, GeminiResponse, GeminiStreamChunk,
+        GeminiUsageMetadata,
+    };
+    use abp_gemini_sdk::lowering;
     use serde_json::json;
 
     // ── 1. Simple content generation roundtrip ──────────────────────────
 
     #[tokio::test]
     async fn simple_text_generation() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("Hello")]));
         let response = client.generate(request).await.unwrap();
@@ -898,7 +133,7 @@ mod tests {
 
     #[tokio::test]
     async fn generate_returns_usage_metadata() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("Count to 5")]));
         let response = client.generate(request).await.unwrap();
@@ -930,7 +165,7 @@ mod tests {
 
     #[tokio::test]
     async fn multi_turn_conversation() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("Hi")]))
             .add_content(Content::model(vec![Part::text("Hello!")]))
@@ -961,7 +196,7 @@ mod tests {
 
     #[tokio::test]
     async fn function_calling_request() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("What's the weather?")]))
             .tools(vec![ToolDeclaration {
@@ -1028,8 +263,10 @@ mod tests {
                     Part::function_call("fn_b", json!({"y": 2})),
                 ]),
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let calls = response.function_calls();
         assert_eq!(calls.len(), 2);
@@ -1122,6 +359,7 @@ mod tests {
             temperature: Some(0.7),
             top_p: Some(0.9),
             top_k: Some(40),
+            candidate_count: None,
             stop_sequences: Some(vec!["END".into()]),
             response_mime_type: Some("application/json".into()),
             response_schema: Some(json!({"type": "object"})),
@@ -1154,7 +392,7 @@ mod tests {
 
     #[tokio::test]
     async fn streaming_produces_events() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = PipelineClient::new("gemini-2.5-flash");
         let request = GenerateContentRequest::new("gemini-2.5-flash")
             .add_content(Content::user(vec![Part::text("Stream test")]));
         let stream = client.generate_stream(request).await.unwrap();
@@ -1171,6 +409,7 @@ mod tests {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("hello")]),
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
         };
@@ -1242,7 +481,7 @@ mod tests {
 
     #[test]
     fn client_model_accessor() {
-        let client = GeminiClient::new("gemini-2.5-pro");
+        let client = PipelineClient::new("gemini-2.5-pro");
         assert_eq!(client.model(), "gemini-2.5-pro");
     }
 
@@ -1351,6 +590,7 @@ mod tests {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: Some(GeminiUsageMetadata {
                 prompt_token_count: 5,
                 candidates_token_count: 3,
@@ -1388,5 +628,972 @@ mod tests {
         let dialect = tool_decl_to_dialect(&tool);
         assert_eq!(dialect.function_declarations.len(), 1);
         assert_eq!(dialect.function_declarations[0].name, "get_time");
+    }
+
+    // ── From<GenerateContentRequest> for WorkOrder ──────────────────────
+
+    #[test]
+    fn from_request_extracts_task() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("Explain Rust")]));
+        let wo: abp_core::WorkOrder = req.into();
+        assert_eq!(wo.task, "Explain Rust");
+        assert_eq!(wo.config.model.as_deref(), Some("google/gemini-2.5-flash"));
+    }
+
+    #[test]
+    fn from_request_uses_last_user_text() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("First")]))
+            .add_content(Content::model(vec![Part::text("Reply")]))
+            .add_content(Content::user(vec![Part::text("Second")]));
+        let wo: abp_core::WorkOrder = req.into();
+        assert_eq!(wo.task, "Second");
+    }
+
+    #[test]
+    fn from_request_system_instruction_to_context() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .system_instruction(Content::user(vec![Part::text("Be concise.")]))
+            .add_content(Content::user(vec![Part::text("Hello")]));
+        let wo: abp_core::WorkOrder = req.into();
+        assert_eq!(wo.context.snippets.len(), 1);
+        assert_eq!(wo.context.snippets[0].content, "Be concise.");
+    }
+
+    #[test]
+    fn from_request_preserves_vendor_fields() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("hi")]))
+            .tools(vec![ToolDeclaration {
+                function_declarations: vec![FunctionDeclaration {
+                    name: "f".into(),
+                    description: "d".into(),
+                    parameters: json!({}),
+                }],
+            }])
+            .generation_config(GenerationConfig {
+                temperature: Some(0.5),
+                ..Default::default()
+            });
+        let wo: abp_core::WorkOrder = req.into();
+        assert!(wo.config.vendor.contains_key("tools"));
+        assert!(wo.config.vendor.contains_key("generation_config"));
+        assert_eq!(wo.config.vendor["dialect"], "gemini");
+    }
+
+    #[test]
+    fn from_request_empty_contents() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash");
+        let wo: abp_core::WorkOrder = req.into();
+        assert!(wo.task.is_empty());
+    }
+
+    // ── From<Receipt> for GenerateContentResponse ───────────────────────
+
+    #[test]
+    fn from_receipt_text_response() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "Hello!".into(),
+                },
+                ext: None,
+            })
+            .build();
+        let resp: GenerateContentResponse = receipt.into();
+        assert_eq!(resp.text(), Some("Hello!"));
+        assert_eq!(resp.candidates[0].finish_reason.as_deref(), Some("STOP"));
+    }
+
+    #[test]
+    fn from_receipt_tool_call() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::ToolCall {
+                    tool_name: "search".into(),
+                    tool_use_id: None,
+                    parent_tool_use_id: None,
+                    input: json!({"q": "rust"}),
+                },
+                ext: None,
+            })
+            .build();
+        let resp: GenerateContentResponse = receipt.into();
+        let calls = resp.function_calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, "search");
+    }
+
+    #[test]
+    fn from_receipt_partial_outcome() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Partial)
+            .build();
+        let resp: GenerateContentResponse = receipt.into();
+        assert_eq!(
+            resp.candidates[0].finish_reason.as_deref(),
+            Some("MAX_TOKENS")
+        );
+    }
+
+    #[test]
+    fn from_receipt_failed_outcome() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Failed)
+            .build();
+        let resp: GenerateContentResponse = receipt.into();
+        assert_eq!(resp.candidates[0].finish_reason.as_deref(), Some("OTHER"));
+    }
+
+    #[test]
+    fn from_receipt_with_usage() {
+        let usage = abp_core::UsageNormalized {
+            input_tokens: Some(100),
+            output_tokens: Some(50),
+            ..Default::default()
+        };
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .usage(usage)
+            .build();
+        let resp: GenerateContentResponse = receipt.into();
+        let meta = resp.usage_metadata.unwrap();
+        assert_eq!(meta.prompt_token_count, 100);
+        assert_eq!(meta.candidates_token_count, 50);
+        assert_eq!(meta.total_token_count, 150);
+    }
+
+    // ── FinishReason ────────────────────────────────────────────────────
+
+    #[test]
+    fn finish_reason_from_str() {
+        assert_eq!(FinishReason::from_str_opt("STOP"), Some(FinishReason::Stop));
+        assert_eq!(
+            FinishReason::from_str_opt("MAX_TOKENS"),
+            Some(FinishReason::MaxTokens)
+        );
+        assert_eq!(
+            FinishReason::from_str_opt("SAFETY"),
+            Some(FinishReason::Safety)
+        );
+        assert_eq!(
+            FinishReason::from_str_opt("RECITATION"),
+            Some(FinishReason::Recitation)
+        );
+        assert_eq!(
+            FinishReason::from_str_opt("OTHER"),
+            Some(FinishReason::Other)
+        );
+        assert_eq!(FinishReason::from_str_opt("UNKNOWN"), None);
+    }
+
+    #[test]
+    fn finish_reason_serde_roundtrip() {
+        let reason = FinishReason::Stop;
+        let json = serde_json::to_string(&reason).unwrap();
+        assert_eq!(json, "\"STOP\"");
+        let back: FinishReason = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, reason);
+    }
+
+    #[test]
+    fn candidate_finish_reason_typed() {
+        let c = Candidate {
+            content: Content::model(vec![Part::text("hi")]),
+            finish_reason: Some("STOP".into()),
+            safety_ratings: None,
+        };
+        assert_eq!(c.finish_reason_typed(), Some(FinishReason::Stop));
+
+        let c2 = Candidate {
+            content: Content::model(vec![]),
+            finish_reason: None,
+            safety_ratings: None,
+        };
+        assert_eq!(c2.finish_reason_typed(), None);
+    }
+
+    // ── HarmProbability / SafetyRating ──────────────────────────────────
+
+    #[test]
+    fn harm_probability_serde_roundtrip() {
+        let p = HarmProbability::Medium;
+        let json = serde_json::to_string(&p).unwrap();
+        assert_eq!(json, "\"MEDIUM\"");
+        let back: HarmProbability = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, p);
+    }
+
+    #[test]
+    fn safety_rating_serde_roundtrip() {
+        let rating = SafetyRating {
+            category: HarmCategory::HarmCategoryHarassment,
+            probability: HarmProbability::Low,
+        };
+        let json = serde_json::to_string(&rating).unwrap();
+        let back: SafetyRating = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, rating);
+    }
+
+    #[test]
+    fn candidate_with_safety_ratings() {
+        let c = Candidate {
+            content: Content::model(vec![Part::text("safe")]),
+            finish_reason: Some("STOP".into()),
+            safety_ratings: Some(vec![SafetyRating {
+                category: HarmCategory::HarmCategoryHarassment,
+                probability: HarmProbability::Negligible,
+            }]),
+        };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: Candidate = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.safety_ratings.as_ref().unwrap().len(), 1);
+    }
+
+    // ── PromptFeedback ──────────────────────────────────────────────────
+
+    #[test]
+    fn prompt_feedback_serde_roundtrip() {
+        let pf = PromptFeedback {
+            block_reason: Some("SAFETY".into()),
+            safety_ratings: Some(vec![SafetyRating {
+                category: HarmCategory::HarmCategoryDangerousContent,
+                probability: HarmProbability::High,
+            }]),
+        };
+        let json = serde_json::to_string(&pf).unwrap();
+        let back: PromptFeedback = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, pf);
+    }
+
+    #[test]
+    fn response_with_prompt_feedback() {
+        let resp = GenerateContentResponse {
+            candidates: vec![Candidate {
+                content: Content::model(vec![]),
+                finish_reason: Some("SAFETY".into()),
+                safety_ratings: None,
+            }],
+            usage_metadata: None,
+            prompt_feedback: Some(PromptFeedback {
+                block_reason: Some("SAFETY".into()),
+                safety_ratings: None,
+            }),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("promptFeedback"));
+        let back: GenerateContentResponse = serde_json::from_str(&json).unwrap();
+        assert!(back.prompt_feedback.is_some());
+    }
+
+    // ── candidate_count in GenerationConfig ─────────────────────────────
+
+    #[test]
+    fn generation_config_candidate_count() {
+        let cfg = GenerationConfig {
+            candidate_count: Some(3),
+            ..Default::default()
+        };
+        let dialect = gen_config_to_dialect(&cfg);
+        assert_eq!(dialect.candidate_count, Some(3));
+        let back = gen_config_from_dialect(&dialect);
+        assert_eq!(back.candidate_count, Some(3));
+    }
+
+    #[test]
+    fn generation_config_candidate_count_serde() {
+        let cfg = GenerationConfig {
+            candidate_count: Some(5),
+            temperature: Some(0.8),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&cfg).unwrap();
+        assert!(json.contains("candidateCount"));
+        let back: GenerationConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.candidate_count, Some(5));
+    }
+
+    // ── JsonSchema generation ───────────────────────────────────────────
+
+    #[test]
+    fn json_schema_for_request() {
+        let schema = schemars::schema_for!(GenerateContentRequest);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("GenerateContentRequest"));
+    }
+
+    #[test]
+    fn json_schema_for_response() {
+        let schema = schemars::schema_for!(GenerateContentResponse);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("GenerateContentResponse"));
+    }
+
+    #[test]
+    fn json_schema_for_part() {
+        let schema = schemars::schema_for!(Part);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("Part"));
+    }
+
+    #[test]
+    fn json_schema_for_stream_event() {
+        let schema = schemars::schema_for!(StreamEvent);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("StreamEvent"));
+    }
+
+    // ── Roundtrip: Request → WorkOrder → Receipt → Response ─────────────
+
+    #[test]
+    fn full_roundtrip_from_traits() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("Hello")]));
+
+        let wo: abp_core::WorkOrder = req.into();
+        assert_eq!(wo.task, "Hello");
+
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .work_order_id(wo.id)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantMessage { text: "Hi!".into() },
+                ext: None,
+            })
+            .build();
+
+        let resp: GenerateContentResponse = receipt.into();
+        assert_eq!(resp.text(), Some("Hi!"));
+        assert!(resp.prompt_feedback.is_none());
+    }
+
+    // ── Tools ↔ IR roundtrip ────────────────────────────────────────────
+
+    #[test]
+    fn tools_to_ir_single_declaration() {
+        let tools = vec![ToolDeclaration {
+            function_declarations: vec![FunctionDeclaration {
+                name: "get_weather".into(),
+                description: "Get weather for a location".into(),
+                parameters: json!({"type": "object", "properties": {"loc": {"type": "string"}}}),
+            }],
+        }];
+        let ir = tools_to_ir(&tools);
+        assert_eq!(ir.len(), 1);
+        assert_eq!(ir[0].name, "get_weather");
+        assert_eq!(ir[0].description, "Get weather for a location");
+    }
+
+    #[test]
+    fn tools_to_ir_multiple_declarations() {
+        let tools = vec![ToolDeclaration {
+            function_declarations: vec![
+                FunctionDeclaration {
+                    name: "fn_a".into(),
+                    description: "A".into(),
+                    parameters: json!({}),
+                },
+                FunctionDeclaration {
+                    name: "fn_b".into(),
+                    description: "B".into(),
+                    parameters: json!({}),
+                },
+            ],
+        }];
+        let ir = tools_to_ir(&tools);
+        assert_eq!(ir.len(), 2);
+        assert_eq!(ir[0].name, "fn_a");
+        assert_eq!(ir[1].name, "fn_b");
+    }
+
+    #[test]
+    fn ir_to_tools_roundtrip() {
+        let tools = vec![ToolDeclaration {
+            function_declarations: vec![FunctionDeclaration {
+                name: "search".into(),
+                description: "Search the web".into(),
+                parameters: json!({"type": "object"}),
+            }],
+        }];
+        let ir = tools_to_ir(&tools);
+        let back = ir_to_tools(&ir);
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0].function_declarations[0].name, "search");
+        assert_eq!(
+            back[0].function_declarations[0].description,
+            "Search the web"
+        );
+    }
+
+    #[test]
+    fn ir_to_tools_empty() {
+        let ir: Vec<abp_core::ir::IrToolDefinition> = vec![];
+        let tools = ir_to_tools(&ir);
+        assert!(tools.is_empty());
+    }
+
+    // ── Candidate selection ─────────────────────────────────────────────
+
+    #[test]
+    fn select_best_candidate_prefers_stop() {
+        let candidates = vec![
+            Candidate {
+                content: Content::model(vec![Part::text("partial")]),
+                finish_reason: Some("MAX_TOKENS".into()),
+                safety_ratings: None,
+            },
+            Candidate {
+                content: Content::model(vec![Part::text("complete")]),
+                finish_reason: Some("STOP".into()),
+                safety_ratings: None,
+            },
+        ];
+        let best = select_best_candidate(&candidates).unwrap();
+        assert_eq!(best.finish_reason.as_deref(), Some("STOP"));
+        assert_eq!(
+            best.content.parts.iter().find_map(|p| match p {
+                Part::Text(t) => Some(t.as_str()),
+                _ => None,
+            }),
+            Some("complete")
+        );
+    }
+
+    #[test]
+    fn select_best_candidate_skips_safety_blocked() {
+        let candidates = vec![
+            Candidate {
+                content: Content::model(vec![]),
+                finish_reason: Some("SAFETY".into()),
+                safety_ratings: None,
+            },
+            Candidate {
+                content: Content::model(vec![Part::text("ok")]),
+                finish_reason: Some("MAX_TOKENS".into()),
+                safety_ratings: None,
+            },
+        ];
+        let best = select_best_candidate(&candidates).unwrap();
+        assert_eq!(best.finish_reason.as_deref(), Some("MAX_TOKENS"));
+    }
+
+    #[test]
+    fn select_best_candidate_empty() {
+        let candidates: Vec<Candidate> = vec![];
+        assert!(select_best_candidate(&candidates).is_none());
+    }
+
+    #[test]
+    fn select_best_candidate_first_when_all_equal() {
+        let candidates = vec![
+            Candidate {
+                content: Content::model(vec![Part::text("first")]),
+                finish_reason: None,
+                safety_ratings: None,
+            },
+            Candidate {
+                content: Content::model(vec![Part::text("second")]),
+                finish_reason: None,
+                safety_ratings: None,
+            },
+        ];
+        let best = select_best_candidate(&candidates).unwrap();
+        assert_eq!(
+            best.content.parts.iter().find_map(|p| match p {
+                Part::Text(t) => Some(t.as_str()),
+                _ => None,
+            }),
+            Some("first")
+        );
+    }
+
+    #[test]
+    fn select_best_candidate_falls_back_to_safety_if_only() {
+        let candidates = vec![Candidate {
+            content: Content::model(vec![]),
+            finish_reason: Some("SAFETY".into()),
+            safety_ratings: None,
+        }];
+        let best = select_best_candidate(&candidates).unwrap();
+        assert_eq!(best.finish_reason.as_deref(), Some("SAFETY"));
+    }
+
+    // ── Error response parsing ──────────────────────────────────────────
+
+    #[test]
+    fn parse_error_response_valid() {
+        let body =
+            r#"{"error":{"code":400,"message":"Invalid argument","status":"INVALID_ARGUMENT"}}"#;
+        let parsed = parse_error_response(body).unwrap();
+        assert_eq!(parsed.error.code, 400);
+        assert_eq!(parsed.error.message, "Invalid argument");
+        assert_eq!(parsed.error.status.as_deref(), Some("INVALID_ARGUMENT"));
+    }
+
+    #[test]
+    fn parse_error_response_no_status() {
+        let body = r#"{"error":{"code":500,"message":"Internal error"}}"#;
+        let parsed = parse_error_response(body).unwrap();
+        assert_eq!(parsed.error.code, 500);
+        assert!(parsed.error.status.is_none());
+    }
+
+    #[test]
+    fn parse_error_response_invalid_json() {
+        assert!(parse_error_response("not json").is_none());
+    }
+
+    #[test]
+    fn parse_error_response_wrong_shape() {
+        assert!(parse_error_response(r#"{"candidates":[]}"#).is_none());
+    }
+
+    #[test]
+    fn gemini_error_response_serde_roundtrip() {
+        let err = GeminiErrorResponse {
+            error: types::GeminiErrorDetail {
+                code: 403,
+                message: "Permission denied".into(),
+                status: Some("PERMISSION_DENIED".into()),
+            },
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        let back: GeminiErrorResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, err);
+    }
+
+    #[test]
+    fn gemini_error_response_json_schema() {
+        let schema = schemars::schema_for!(GeminiErrorResponse);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("GeminiErrorResponse"));
+    }
+
+    // ── BlockReason ─────────────────────────────────────────────────────
+
+    #[test]
+    fn block_reason_serde_roundtrip() {
+        let reason = types::BlockReason::Safety;
+        let json = serde_json::to_string(&reason).unwrap();
+        assert_eq!(json, "\"SAFETY\"");
+        let back: types::BlockReason = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, reason);
+    }
+
+    #[test]
+    fn block_reason_all_variants() {
+        for (variant, expected) in [
+            (types::BlockReason::Safety, "\"SAFETY\""),
+            (types::BlockReason::Other, "\"OTHER\""),
+            (types::BlockReason::Blocklist, "\"BLOCKLIST\""),
+            (
+                types::BlockReason::ProhibitedContent,
+                "\"PROHIBITED_CONTENT\"",
+            ),
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            assert_eq!(json, expected);
+        }
+    }
+
+    // ── Error events in receipt_to_ir ────────────────────────────────────
+
+    #[test]
+    fn receipt_to_ir_includes_error_events() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Failed)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::Error {
+                    message: "model overloaded".into(),
+                    error_code: None,
+                },
+                ext: None,
+            })
+            .build();
+        let ir = receipt_to_ir(&receipt);
+        assert_eq!(ir.len(), 1);
+        assert_eq!(ir.messages[0].role, IrRole::Assistant);
+        assert!(ir.messages[0].text_content().contains("Error:"));
+        assert!(ir.messages[0].text_content().contains("model overloaded"));
+    }
+
+    // ── Error events in streaming ───────────────────────────────────────
+
+    #[test]
+    fn receipt_to_stream_events_includes_errors() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Failed)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::Error {
+                    message: "rate limited".into(),
+                    error_code: None,
+                },
+                ext: None,
+            })
+            .build();
+        let events = receipt_to_stream_events(&receipt);
+        assert!(!events.is_empty());
+        let err_event = &events[0];
+        assert_eq!(
+            err_event.candidates[0].finish_reason.as_deref(),
+            Some("OTHER")
+        );
+        let text = err_event.text().unwrap();
+        assert!(text.contains("Error:"));
+        assert!(text.contains("rate limited"));
+    }
+
+    #[test]
+    fn receipt_to_stream_events_includes_run_completed() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantDelta {
+                    text: "Hello".into(),
+                },
+                ext: None,
+            })
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::RunCompleted {
+                    message: "done".into(),
+                },
+                ext: None,
+            })
+            .build();
+        let events = receipt_to_stream_events(&receipt);
+        // Should have: delta, run_completed, usage (but usage may not exist since 0 tokens)
+        assert!(events.len() >= 2);
+        let completed_event = &events[1];
+        assert_eq!(
+            completed_event.candidates[0].finish_reason.as_deref(),
+            Some("STOP")
+        );
+    }
+
+    // ── ir_to_response uses receipt outcome ─────────────────────────────
+
+    #[test]
+    fn ir_to_response_partial_outcome_finish_reason() {
+        let ir = IrConversation::from_messages(vec![IrMessage::text(
+            IrRole::Assistant,
+            "partial output",
+        )]);
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Partial)
+            .build();
+        let resp = ir_to_response(&ir, &receipt, &None, &[]).unwrap();
+        assert_eq!(
+            resp.candidates[0].finish_reason.as_deref(),
+            Some("MAX_TOKENS")
+        );
+    }
+
+    #[test]
+    fn ir_to_response_failed_outcome_finish_reason() {
+        let ir = IrConversation::from_messages(vec![IrMessage::text(
+            IrRole::Assistant,
+            "Error: something",
+        )]);
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Failed)
+            .build();
+        let resp = ir_to_response(&ir, &receipt, &None, &[]).unwrap();
+        assert_eq!(resp.candidates[0].finish_reason.as_deref(), Some("OTHER"));
+    }
+
+    // ── Safety setting reverse conversion ───────────────────────────────
+
+    #[test]
+    fn safety_from_dialect_roundtrip() {
+        use abp_gemini_sdk::dialect::GeminiSafetySetting;
+        let dialect = GeminiSafetySetting {
+            category: HarmCategory::HarmCategoryHarassment,
+            threshold: HarmBlockThreshold::BlockMediumAndAbove,
+        };
+        let shim = safety_from_dialect(&dialect);
+        assert_eq!(shim.category, HarmCategory::HarmCategoryHarassment);
+        assert_eq!(shim.threshold, HarmBlockThreshold::BlockMediumAndAbove);
+
+        let back = safety_to_dialect(&shim);
+        assert_eq!(back, dialect);
+    }
+
+    #[test]
+    fn safety_rating_from_dialect_conversion() {
+        use abp_gemini_sdk::dialect::GeminiSafetyRating;
+        let dialect = GeminiSafetyRating {
+            category: HarmCategory::HarmCategoryHateSpeech,
+            probability: abp_gemini_sdk::dialect::HarmProbability::Medium,
+        };
+        let shim = safety_rating_from_dialect(&dialect);
+        assert_eq!(shim.category, HarmCategory::HarmCategoryHateSpeech);
+        assert_eq!(shim.probability, HarmProbability::Medium);
+    }
+
+    #[test]
+    fn safety_rating_to_dialect_roundtrip() {
+        let shim = SafetyRating {
+            category: HarmCategory::HarmCategoryDangerousContent,
+            probability: HarmProbability::High,
+        };
+        let dialect = safety_rating_to_dialect(&shim);
+        let back = safety_rating_from_dialect(&dialect);
+        assert_eq!(back, shim);
+    }
+
+    // ── Function calling with tool config ───────────────────────────────
+
+    #[test]
+    fn tool_config_with_allowed_function_names() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("use tools")]))
+            .tools(vec![ToolDeclaration {
+                function_declarations: vec![
+                    FunctionDeclaration {
+                        name: "read_file".into(),
+                        description: "Read a file".into(),
+                        parameters: json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+                    },
+                    FunctionDeclaration {
+                        name: "write_file".into(),
+                        description: "Write a file".into(),
+                        parameters: json!({"type": "object"}),
+                    },
+                ],
+            }])
+            .tool_config(ToolConfig {
+                function_calling_config: FunctionCallingConfig {
+                    mode: FunctionCallingMode::Any,
+                    allowed_function_names: Some(vec!["read_file".into()]),
+                },
+            });
+        let dialect = to_dialect_request(&req);
+        let tc = dialect.tool_config.unwrap();
+        assert_eq!(tc.function_calling_config.mode, FunctionCallingMode::Any);
+        assert_eq!(
+            tc.function_calling_config.allowed_function_names,
+            Some(vec!["read_file".into()])
+        );
+    }
+
+    #[test]
+    fn from_request_preserves_tool_config_vendor() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("hi")]))
+            .tool_config(ToolConfig {
+                function_calling_config: FunctionCallingConfig {
+                    mode: FunctionCallingMode::None,
+                    allowed_function_names: None,
+                },
+            });
+        let wo: abp_core::WorkOrder = req.into();
+        assert!(wo.config.vendor.contains_key("tool_config"));
+    }
+
+    // ── Streaming tool calls ────────────────────────────────────────────
+
+    #[test]
+    fn stream_events_include_tool_calls() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::ToolCall {
+                    tool_name: "search".into(),
+                    tool_use_id: None,
+                    parent_tool_use_id: None,
+                    input: json!({"q": "test"}),
+                },
+                ext: None,
+            })
+            .build();
+        let events = receipt_to_stream_events(&receipt);
+        assert!(!events.is_empty());
+        let tc = &events[0];
+        match &tc.candidates[0].content.parts[0] {
+            Part::FunctionCall { name, args } => {
+                assert_eq!(name, "search");
+                assert_eq!(args, &json!({"q": "test"}));
+            }
+            other => panic!("expected FunctionCall, got {other:?}"),
+        }
+    }
+
+    // ── Usage extraction from UsageMetadata ──────────────────────────────
+
+    #[test]
+    fn usage_metadata_zero_returns_none() {
+        let usage = abp_core::UsageNormalized::default();
+        assert!(make_usage_metadata(&usage).is_none());
+    }
+
+    #[test]
+    fn usage_metadata_input_only() {
+        let usage = abp_core::UsageNormalized {
+            input_tokens: Some(50),
+            output_tokens: Some(0),
+            ..Default::default()
+        };
+        let meta = make_usage_metadata(&usage).unwrap();
+        assert_eq!(meta.prompt_token_count, 50);
+        assert_eq!(meta.candidates_token_count, 0);
+        assert_eq!(meta.total_token_count, 50);
+    }
+
+    // ── Full pipeline with error ────────────────────────────────────────
+
+    #[test]
+    fn full_pipeline_with_error_event() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("test")]));
+        let (ir_req, gen_config, safety) = request_to_ir(&req).unwrap();
+        let wo = ir_to_work_order(&ir_req, &req.model, &gen_config);
+
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Failed)
+            .work_order_id(wo.id)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::Error {
+                    message: "context length exceeded".into(),
+                    error_code: None,
+                },
+                ext: None,
+            })
+            .build();
+
+        let ir_resp = receipt_to_ir(&receipt);
+        let resp = ir_to_response(&ir_resp, &receipt, &gen_config, &safety).unwrap();
+        assert!(!resp.candidates.is_empty());
+        assert_eq!(resp.candidates[0].finish_reason.as_deref(), Some("OTHER"));
+    }
+
+    // ── Full pipeline with tool calls ───────────────────────────────────
+
+    #[test]
+    fn full_pipeline_with_tool_call_and_result() {
+        let req = GenerateContentRequest::new("gemini-2.5-flash")
+            .add_content(Content::user(vec![Part::text("search rust")]))
+            .tools(vec![ToolDeclaration {
+                function_declarations: vec![FunctionDeclaration {
+                    name: "search".into(),
+                    description: "Search".into(),
+                    parameters: json!({"type": "object"}),
+                }],
+            }]);
+
+        let ir_defs = tools_to_ir(req.tools.as_deref().unwrap_or_default());
+        assert_eq!(ir_defs.len(), 1);
+        assert_eq!(ir_defs[0].name, "search");
+
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::ToolCall {
+                    tool_name: "search".into(),
+                    tool_use_id: Some("call_1".into()),
+                    parent_tool_use_id: None,
+                    input: json!({"q": "rust lang"}),
+                },
+                ext: None,
+            })
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::ToolResult {
+                    tool_name: "search".into(),
+                    tool_use_id: Some("call_1".into()),
+                    output: json!("Rust is a systems language"),
+                    is_error: false,
+                },
+                ext: None,
+            })
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "Rust is a systems programming language.".into(),
+                },
+                ext: None,
+            })
+            .build();
+
+        let ir = receipt_to_ir(&receipt);
+        assert_eq!(ir.len(), 3);
+        assert!(matches!(
+            &ir.messages[0].content[0],
+            IrContentBlock::ToolUse { name, .. } if name == "search"
+        ));
+        assert!(matches!(
+            &ir.messages[1].content[0],
+            IrContentBlock::ToolResult { .. }
+        ));
+    }
+
+    // ── JSON Schema coverage ────────────────────────────────────────────
+
+    #[test]
+    fn json_schema_for_block_reason() {
+        let schema = schemars::schema_for!(types::BlockReason);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("BlockReason"));
+    }
+
+    #[test]
+    fn json_schema_for_error_detail() {
+        let schema = schemars::schema_for!(types::GeminiErrorDetail);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("GeminiErrorDetail"));
+    }
+
+    #[test]
+    fn json_schema_for_safety_setting() {
+        let schema = schemars::schema_for!(SafetySetting);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("SafetySetting"));
+    }
+
+    #[test]
+    fn json_schema_for_usage_metadata() {
+        let schema = schemars::schema_for!(UsageMetadata);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("UsageMetadata"));
+    }
+
+    #[test]
+    fn json_schema_for_tool_declaration() {
+        let schema = schemars::schema_for!(ToolDeclaration);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("ToolDeclaration"));
+    }
+
+    #[test]
+    fn json_schema_for_generation_config() {
+        let schema = schemars::schema_for!(GenerationConfig);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("GenerationConfig"));
+    }
+
+    #[test]
+    fn json_schema_for_finish_reason() {
+        let schema = schemars::schema_for!(FinishReason);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("FinishReason"));
+    }
+
+    #[test]
+    fn json_schema_for_candidate() {
+        let schema = schemars::schema_for!(Candidate);
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("Candidate"));
     }
 }

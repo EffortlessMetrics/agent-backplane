@@ -1,0 +1,37 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: report
+---
+{
+  "source_dialect": "claude",
+  "target_dialect": "openai",
+  "entries": [
+    {
+      "capability": "streaming",
+      "support": {
+        "level": "native"
+      }
+    },
+    {
+      "capability": "extended_thinking",
+      "support": {
+        "level": "unsupported",
+        "reason": "OpenAI does not support extended thinking"
+      }
+    },
+    {
+      "capability": "tool_bash",
+      "support": {
+        "level": "emulated",
+        "detail": "Mapped to function_call with bash wrapper"
+      }
+    },
+    {
+      "capability": "cache_control",
+      "support": {
+        "level": "unsupported",
+        "reason": "No prompt caching in OpenAI API"
+      }
+    }
+  ]
+}

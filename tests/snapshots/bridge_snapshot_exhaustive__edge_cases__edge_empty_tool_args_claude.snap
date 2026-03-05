@@ -1,0 +1,10 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&claude_block"
+---
+{
+  "type": "tool_use",
+  "id": "tu_empty",
+  "name": "no_args_tool",
+  "input": {}
+}

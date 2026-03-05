@@ -1,0 +1,46 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: req
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "What is 2+2?"
+    },
+    {
+      "role": "assistant",
+      "content": "4"
+    }
+  ],
+  "temperature": 0.7,
+  "top_p": 0.9,
+  "max_tokens": 1024,
+  "stream": false,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get the current weather",
+        "parameters": {
+          "properties": {
+            "location": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "location"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}

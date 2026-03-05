@@ -1,0 +1,23 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: c
+---
+{
+  "default_backend": "mock",
+  "workspace_dir": "/tmp/workspaces",
+  "log_level": "debug",
+  "receipts_dir": "/tmp/receipts",
+  "backends": {
+    "mock": {
+      "type": "mock"
+    },
+    "node": {
+      "type": "sidecar",
+      "command": "node",
+      "args": [
+        "host.js"
+      ],
+      "timeout_secs": 120
+    }
+  }
+}

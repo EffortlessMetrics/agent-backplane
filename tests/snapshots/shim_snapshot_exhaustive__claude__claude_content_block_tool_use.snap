@@ -1,0 +1,13 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: block
+---
+{
+  "type": "tool_use",
+  "id": "toolu_snap001",
+  "name": "search_code",
+  "input": {
+    "path": "src/",
+    "query": "async fn main"
+  }
+}

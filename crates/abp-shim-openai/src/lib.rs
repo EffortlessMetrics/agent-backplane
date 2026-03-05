@@ -7,12 +7,26 @@
 //!
 //! Drop-in OpenAI SDK shim that routes through ABP's intermediate representation.
 
+/// Chat completion request builder and response types.
+pub mod chat;
+/// HTTP client for the OpenAI Chat Completions API.
+pub mod client;
+/// Conversion layer between OpenAI Chat Completions types and ABP core types.
+pub mod convert;
+/// OpenAI-compatible error types (ApiError, RateLimitError, AuthenticationError).
+pub mod error;
+/// SSE-compatible streaming adapter.
+pub mod streaming;
+/// Strongly-typed OpenAI Chat Completions API types using a role-tagged message enum.
+pub mod types;
+
 use std::pin::Pin;
 
 use abp_core::ir::{IrConversation, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, Receipt, UsageNormalized, WorkOrder, WorkOrderBuilder};
 use abp_openai_sdk::lowering;
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio_stream::Stream;
 
@@ -45,7 +59,7 @@ pub type Result<T> = std::result::Result<T, ShimError>;
 // ── Message types ───────────────────────────────────────────────────────
 
 /// Role of a message author.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Role {
     /// System prompt.
@@ -59,7 +73,7 @@ pub enum Role {
 }
 
 /// A chat message in the OpenAI format.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Message {
     /// Message role.
     pub role: Role,
@@ -134,7 +148,7 @@ impl Message {
 // ── Tool types ──────────────────────────────────────────────────────────
 
 /// A tool call emitted by the model.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ToolCall {
     /// Unique identifier for this tool call.
     pub id: String,
@@ -146,7 +160,7 @@ pub struct ToolCall {
 }
 
 /// The function invocation inside a [`ToolCall`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct FunctionCall {
     /// Name of the function to invoke.
     pub name: String,
@@ -155,7 +169,7 @@ pub struct FunctionCall {
 }
 
 /// A tool definition for function calling.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct Tool {
     /// Tool type (always `"function"`).
     #[serde(rename = "type")]
@@ -165,7 +179,7 @@ pub struct Tool {
 }
 
 /// Function definition inside a [`Tool`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct FunctionDef {
     /// Function name.
     pub name: String,
@@ -197,7 +211,7 @@ impl Tool {
 // ── Request / Response types ────────────────────────────────────────────
 
 /// A chat completion request matching the OpenAI API surface.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChatCompletionRequest {
     /// Model identifier.
     pub model: String,
@@ -330,7 +344,7 @@ impl ChatCompletionRequestBuilder {
 }
 
 /// A chat completion response matching the OpenAI API surface.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChatCompletionResponse {
     /// Unique response identifier.
     pub id: String,
@@ -348,7 +362,7 @@ pub struct ChatCompletionResponse {
 }
 
 /// A single choice in the completion response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Choice {
     /// Zero-based index.
     pub index: u32,
@@ -359,7 +373,7 @@ pub struct Choice {
 }
 
 /// Token usage statistics.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct Usage {
     /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,
@@ -372,7 +386,7 @@ pub struct Usage {
 // ── Streaming types ─────────────────────────────────────────────────────
 
 /// A streaming event from a chat completion.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct StreamEvent {
     /// Unique chunk identifier.
     pub id: String,
@@ -390,7 +404,7 @@ pub struct StreamEvent {
 }
 
 /// A single choice inside a streaming chunk.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct StreamChoice {
     /// Zero-based index.
     pub index: u32,
@@ -401,7 +415,7 @@ pub struct StreamChoice {
 }
 
 /// Delta payload inside a streaming choice.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
 pub struct Delta {
     /// Role (only in the first chunk).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -415,7 +429,7 @@ pub struct Delta {
 }
 
 /// A tool call fragment inside a streaming delta.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct StreamToolCall {
     /// Index of the tool call in the array.
     pub index: u32,
@@ -431,7 +445,7 @@ pub struct StreamToolCall {
 }
 
 /// Incremental function call data inside a streaming tool call.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct StreamFunctionCall {
     /// Function name (first fragment only).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -760,6 +774,131 @@ pub fn ir_usage_to_usage(ir: &IrUsage) -> Usage {
         total_tokens: ir.total_tokens,
     }
 }
+
+// ── Model selection and fallback ────────────────────────────────────────
+
+/// Known OpenAI model families for fallback resolution.
+const DEFAULT_MODEL: &str = "gpt-4o";
+
+/// Model selector with fallback chain support.
+///
+/// When a requested model is unavailable, the selector walks a fallback chain
+/// to find the best alternative. This enables graceful degradation when
+/// specific models are deprecated or temporarily unavailable.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ModelSelector {
+    /// Primary model to use.
+    pub primary: String,
+    /// Ordered fallback models — tried in sequence if the primary is unavailable.
+    #[serde(default)]
+    pub fallbacks: Vec<String>,
+}
+
+impl ModelSelector {
+    /// Create a selector with a single model and no fallbacks.
+    #[must_use]
+    pub fn new(model: impl Into<String>) -> Self {
+        Self {
+            primary: model.into(),
+            fallbacks: Vec::new(),
+        }
+    }
+
+    /// Create a selector with a fallback chain.
+    #[must_use]
+    pub fn with_fallbacks(
+        model: impl Into<String>,
+        fallbacks: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            primary: model.into(),
+            fallbacks: fallbacks.into_iter().map(|s| s.into()).collect(),
+        }
+    }
+
+    /// Return the primary model name.
+    #[must_use]
+    pub fn primary(&self) -> &str {
+        &self.primary
+    }
+
+    /// Resolve the model: use the primary, or walk fallbacks using the predicate.
+    ///
+    /// The `is_available` predicate is called for each model in order (primary first,
+    /// then fallbacks). Returns the first available model, or the primary if none match.
+    #[must_use]
+    pub fn resolve(&self, is_available: impl Fn(&str) -> bool) -> &str {
+        if is_available(&self.primary) {
+            return &self.primary;
+        }
+        for fallback in &self.fallbacks {
+            if is_available(fallback) {
+                return fallback;
+            }
+        }
+        // If nothing is available, return primary anyway
+        &self.primary
+    }
+
+    /// Return all models in resolution order (primary first, then fallbacks).
+    #[must_use]
+    pub fn all_models(&self) -> Vec<&str> {
+        let mut models = vec![self.primary.as_str()];
+        models.extend(self.fallbacks.iter().map(|s| s.as_str()));
+        models
+    }
+
+    /// Create a default GPT-4 class selector with sensible fallbacks.
+    #[must_use]
+    pub fn gpt4_class() -> Self {
+        Self::with_fallbacks("gpt-4o", ["gpt-4-turbo", "gpt-4"])
+    }
+
+    /// Create a default GPT-3.5 class selector with sensible fallbacks.
+    #[must_use]
+    pub fn gpt35_class() -> Self {
+        Self::with_fallbacks("gpt-3.5-turbo", ["gpt-3.5-turbo-16k"])
+    }
+
+    /// Create a selector for reasoning models (o-series).
+    #[must_use]
+    pub fn reasoning_class() -> Self {
+        Self::with_fallbacks("o3-mini", ["o1-mini", "o1-preview"])
+    }
+}
+
+impl Default for ModelSelector {
+    fn default() -> Self {
+        Self::new(DEFAULT_MODEL)
+    }
+}
+
+/// Resolve a model name, returning the input or a default if empty.
+#[must_use]
+pub fn resolve_model(model: &str) -> &str {
+    if model.is_empty() {
+        DEFAULT_MODEL
+    } else {
+        model
+    }
+}
+
+// ── Error response re-export ────────────────────────────────────────────
+
+// Re-export error response types from the types module.
+pub use crate::types::{ErrorDetail, ErrorResponse};
+
+// ── Vendor-compatible type aliases ──────────────────────────────────────
+
+/// Alias matching the OpenAI Python/Node SDK name `ChatCompletion`.
+pub type ChatCompletion = ChatCompletionResponse;
+
+/// Alias matching the OpenAI Python/Node SDK name `ChatCompletionChunk`.
+pub type ChatCompletionChunk = StreamEvent;
+
+/// Alias matching the OpenAI Python/Node SDK name
+/// `ChatCompletionCreateParams`.
+pub type ChatCompletionCreateParams = ChatCompletionRequest;
 
 // ── Client types ────────────────────────────────────────────────────────
 
@@ -1518,5 +1657,257 @@ mod tests {
             Some("Let me check.")
         );
         assert!(resp.choices[0].message.tool_calls.is_some());
+    }
+
+    // ── 29. ModelSelector basics ────────────────────────────────────────
+
+    #[test]
+    fn model_selector_default() {
+        let sel = ModelSelector::default();
+        assert_eq!(sel.primary(), "gpt-4o");
+        assert!(sel.fallbacks.is_empty());
+    }
+
+    #[test]
+    fn model_selector_with_fallbacks() {
+        let sel = ModelSelector::with_fallbacks("gpt-4o", ["gpt-4-turbo", "gpt-4"]);
+        assert_eq!(sel.primary(), "gpt-4o");
+        assert_eq!(sel.all_models(), vec!["gpt-4o", "gpt-4-turbo", "gpt-4"]);
+    }
+
+    #[test]
+    fn model_selector_resolve_primary_available() {
+        let sel = ModelSelector::with_fallbacks("gpt-4o", ["gpt-4-turbo"]);
+        let resolved = sel.resolve(|m| m == "gpt-4o");
+        assert_eq!(resolved, "gpt-4o");
+    }
+
+    #[test]
+    fn model_selector_resolve_falls_back() {
+        let sel = ModelSelector::with_fallbacks("gpt-4o", ["gpt-4-turbo", "gpt-4"]);
+        let resolved = sel.resolve(|m| m == "gpt-4-turbo");
+        assert_eq!(resolved, "gpt-4-turbo");
+    }
+
+    #[test]
+    fn model_selector_resolve_none_available_returns_primary() {
+        let sel = ModelSelector::with_fallbacks("gpt-4o", ["gpt-4-turbo"]);
+        let resolved = sel.resolve(|_| false);
+        assert_eq!(resolved, "gpt-4o");
+    }
+
+    #[test]
+    fn model_selector_gpt4_class() {
+        let sel = ModelSelector::gpt4_class();
+        assert_eq!(sel.primary(), "gpt-4o");
+        assert!(!sel.fallbacks.is_empty());
+    }
+
+    #[test]
+    fn model_selector_reasoning_class() {
+        let sel = ModelSelector::reasoning_class();
+        assert_eq!(sel.primary(), "o3-mini");
+    }
+
+    #[test]
+    fn model_selector_serde_roundtrip() {
+        let sel = ModelSelector::with_fallbacks("gpt-4o", ["gpt-4-turbo"]);
+        let json = serde_json::to_string(&sel).unwrap();
+        let parsed: ModelSelector = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.primary, sel.primary);
+        assert_eq!(parsed.fallbacks, sel.fallbacks);
+    }
+
+    // ── 30. resolve_model ───────────────────────────────────────────────
+
+    #[test]
+    fn resolve_model_nonempty() {
+        assert_eq!(resolve_model("gpt-4o"), "gpt-4o");
+    }
+
+    #[test]
+    fn resolve_model_empty_returns_default() {
+        assert_eq!(resolve_model(""), "gpt-4o");
+    }
+
+    // ── 31. ErrorResponse types ─────────────────────────────────────────
+
+    #[test]
+    fn error_response_serde_roundtrip() {
+        let err = ErrorResponse::invalid_request("bad param");
+        let json = serde_json::to_string(&err).unwrap();
+        let parsed: ErrorResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.error.error_type, "invalid_request_error");
+        assert_eq!(parsed.error.message, "bad param");
+    }
+
+    #[test]
+    fn error_response_rate_limit() {
+        let err = ErrorResponse::rate_limit("Too many requests");
+        assert_eq!(err.error.error_type, "rate_limit_error");
+        assert_eq!(err.error.code.as_deref(), Some("rate_limit_exceeded"));
+    }
+
+    #[test]
+    fn error_response_model_not_found() {
+        let err = ErrorResponse::model_not_found("gpt-5");
+        assert_eq!(err.error.error_type, "invalid_request_error");
+        assert_eq!(err.error.code.as_deref(), Some("model_not_found"));
+        assert!(err.error.message.contains("gpt-5"));
+        assert_eq!(err.error.param.as_deref(), Some("model"));
+    }
+
+    #[test]
+    fn error_response_auth_error() {
+        let err = ErrorResponse::auth_error("Invalid API key");
+        assert_eq!(err.error.error_type, "authentication_error");
+    }
+
+    #[test]
+    fn error_response_server_error() {
+        let err = ErrorResponse::server_error("Internal failure");
+        assert_eq!(err.error.error_type, "server_error");
+    }
+
+    #[test]
+    fn error_response_display() {
+        let err = ErrorResponse::invalid_request("missing model");
+        let display = err.to_string();
+        assert!(display.contains("missing model"));
+        assert!(display.contains("invalid_request_error"));
+    }
+
+    #[test]
+    fn error_response_parse_valid_json() {
+        let json = r#"{"error":{"message":"rate limit","type":"rate_limit_error","param":null,"code":"rate_limit_exceeded"}}"#;
+        let err = ErrorResponse::parse_or_server_error(json);
+        assert_eq!(err.error.error_type, "rate_limit_error");
+    }
+
+    #[test]
+    fn error_response_parse_invalid_json_fallback() {
+        let err = ErrorResponse::parse_or_server_error("not json at all");
+        assert_eq!(err.error.error_type, "server_error");
+        assert!(err.error.message.contains("not json at all"));
+    }
+
+    // ── 32. JsonSchema derivation ───────────────────────────────────────
+
+    #[test]
+    fn model_selector_has_json_schema() {
+        let schema = schemars::schema_for!(ModelSelector);
+        let json = serde_json::to_value(&schema).unwrap();
+        assert!(json.get("properties").is_some() || json.get("$defs").is_some());
+    }
+
+    #[test]
+    fn error_response_has_json_schema() {
+        let schema = schemars::schema_for!(ErrorResponse);
+        let json = serde_json::to_value(&schema).unwrap();
+        assert!(json.get("properties").is_some() || json.get("$defs").is_some());
+    }
+
+    // ── 33. Token usage edge cases ──────────────────────────────────────
+
+    #[tokio::test]
+    async fn zero_usage_when_no_tokens() {
+        let usage = UsageNormalized::default();
+        let events = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage { text: "hi".into() },
+            ext: None,
+        }];
+        let client =
+            OpenAiClient::new("gpt-4o").with_processor(make_processor_with_usage(events, usage));
+        let req = ChatCompletionRequest::builder()
+            .messages(vec![Message::user("test")])
+            .build();
+
+        let resp = client.chat().completions().create(req).await.unwrap();
+        let u = resp.usage.unwrap();
+        assert_eq!(u.prompt_tokens, 0);
+        assert_eq!(u.completion_tokens, 0);
+        assert_eq!(u.total_tokens, 0);
+    }
+
+    // ── 34. Streaming with mixed event types ────────────────────────────
+
+    #[tokio::test]
+    async fn streaming_ignores_non_text_events() {
+        let events = vec![
+            AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::AssistantDelta {
+                    text: "Hello".into(),
+                },
+                ext: None,
+            },
+            AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::FileChanged {
+                    path: "foo.rs".into(),
+                    summary: "modified".into(),
+                },
+                ext: None,
+            },
+            AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::AssistantDelta {
+                    text: " world".into(),
+                },
+                ext: None,
+            },
+        ];
+        let client = OpenAiClient::new("gpt-4o").with_processor(make_processor(events));
+        let req = ChatCompletionRequest::builder()
+            .messages(vec![Message::user("hi")])
+            .stream(true)
+            .build();
+
+        let stream = client
+            .chat()
+            .completions()
+            .create_stream(req)
+            .await
+            .unwrap();
+        let chunks: Vec<StreamEvent> = stream.collect().await;
+        // Only text deltas + stop chunk; FileChanged is skipped
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].choices[0].delta.content.as_deref(), Some("Hello"));
+        assert_eq!(
+            chunks[1].choices[0].delta.content.as_deref(),
+            Some(" world")
+        );
+        assert_eq!(chunks[2].choices[0].finish_reason.as_deref(), Some("stop"));
+    }
+
+    // ── 35. Tool definition to IR with parameters ───────────────────────
+
+    #[test]
+    fn tool_to_ir_preserves_parameters_schema() {
+        let tools = vec![Tool::function(
+            "exec",
+            "Execute a command",
+            json!({
+                "type": "object",
+                "properties": {
+                    "cmd": {"type": "string"},
+                    "args": {"type": "array", "items": {"type": "string"}}
+                },
+                "required": ["cmd"]
+            }),
+        )];
+
+        let ir = tools_to_ir(&tools);
+        assert_eq!(ir.len(), 1);
+        let params = &ir[0].parameters;
+        assert_eq!(params["type"], "object");
+        assert!(params["properties"]["cmd"]["type"] == "string");
+        assert!(
+            params["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("cmd"))
+        );
     }
 }

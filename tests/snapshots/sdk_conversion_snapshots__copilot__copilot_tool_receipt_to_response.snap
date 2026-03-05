@@ -1,0 +1,12 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: resp
+---
+{
+  "message": "The weather in San Francisco is 72°F and sunny.",
+  "function_call": {
+    "name": "get_weather",
+    "arguments": "{\"location\":\"San Francisco\"}",
+    "id": "call_abc123"
+  }
+}

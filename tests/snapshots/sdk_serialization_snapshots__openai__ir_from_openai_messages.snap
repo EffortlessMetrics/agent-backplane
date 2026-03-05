@@ -1,0 +1,13 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: ir
+---
+messages:
+  - role: system
+    content:
+      - type: text
+        text: You are a tutor.
+  - role: user
+    content:
+      - type: text
+        text: What is 2+2?

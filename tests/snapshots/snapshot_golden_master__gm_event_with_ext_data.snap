@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: e
+---
+{
+  "ts": "2025-08-01T08:00:00Z",
+  "type": "assistant_message",
+  "text": "passthrough response",
+  "ext": {
+    "raw_payload": {
+      "role": "assistant",
+      "stop_reason": "end_turn"
+    },
+    "vendor_msg_id": "msg_abc_123"
+  }
+}

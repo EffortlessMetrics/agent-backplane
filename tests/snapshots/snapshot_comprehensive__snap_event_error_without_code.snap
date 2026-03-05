@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: e
+---
+{
+  "ts": "2025-01-15T10:30:00Z",
+  "type": "error",
+  "message": "unknown failure"
+}

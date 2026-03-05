@@ -1,0 +1,33 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: msgs
+---
+[
+  {
+    "role": "system",
+    "content": "system prompt"
+  },
+  {
+    "role": "user",
+    "content": "user message"
+  },
+  {
+    "role": "assistant",
+    "content": "response",
+    "tool_calls": [
+      {
+        "id": "call_1",
+        "type": "function",
+        "function": {
+          "name": "read_file",
+          "arguments": "{\"path\":\"main.rs\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "content": "file contents",
+    "tool_call_id": "call_1"
+  }
+]

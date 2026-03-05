@@ -1,0 +1,11 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: e
+---
+{
+  "ts": "2025-07-01T12:00:00Z",
+  "type": "command_executed",
+  "command": "sleep 3600",
+  "exit_code": null,
+  "output_preview": null
+}

@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_regression.rs
+expression: "json!({\n    \"bash_allowed\": bash.allowed, \"bash_reason\": bash.reason, \"read_allowed\":\n    read_tool.allowed,\n})"
+---
+{
+  "bash_allowed": false,
+  "bash_reason": "tool 'Bash' is disallowed",
+  "read_allowed": true
+}

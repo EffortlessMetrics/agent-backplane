@@ -1,0 +1,10 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&block"
+---
+{
+  "type": "tool_result",
+  "tool_use_id": "toolu_01A",
+  "content": "Permission denied",
+  "is_error": true
+}

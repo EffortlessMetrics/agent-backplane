@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Mutation-resilience tests: designed to catch common mutants.
 //!
 //! Each test targets a specific class of mutation:
@@ -161,7 +190,7 @@ fn negotiate_all_native_is_compatible() {
     let result = abp_capability::negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
     assert_eq!(result.native.len(), 2);
-    assert!(result.emulatable.is_empty());
+    assert!(result.emulated.is_empty());
     assert!(result.unsupported.is_empty());
 }
 
@@ -194,15 +223,15 @@ fn negotiate_empty_requirements_is_compatible() {
 /// NegotiationResult::total must equal sum of all buckets.
 #[test]
 fn negotiate_total_equals_sum_of_buckets() {
-    let result = abp_capability::NegotiationResult {
-        native: vec![abp_core::Capability::Streaming],
-        emulatable: vec![abp_core::Capability::ToolRead],
-        unsupported: vec![abp_core::Capability::Logprobs],
-    };
+    let result = abp_capability::NegotiationResult::from_simple(
+        vec![abp_core::Capability::Streaming],
+        vec![abp_core::Capability::ToolRead],
+        vec![abp_core::Capability::Logprobs],
+    );
     assert_eq!(result.total(), 3);
     assert_eq!(
         result.total(),
-        result.native.len() + result.emulatable.len() + result.unsupported.len()
+        result.native.len() + result.emulated.len() + result.unsupported.len()
     );
 }
 
@@ -216,12 +245,12 @@ fn negotiate_emulated_goes_to_emulatable() {
     let reqs = abp_core::CapabilityRequirements {
         required: vec![abp_core::CapabilityRequirement {
             capability: abp_core::Capability::Streaming,
-            min_support: abp_core::MinSupport::Native,
+            min_support: abp_core::MinSupport::Emulated,
         }],
     };
     let result = abp_capability::negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable.len(), 1);
+    assert_eq!(result.emulated.len(), 1);
     assert!(result.native.is_empty());
 }
 
@@ -237,12 +266,12 @@ fn negotiate_restricted_counts_as_emulatable() {
     let reqs = abp_core::CapabilityRequirements {
         required: vec![abp_core::CapabilityRequirement {
             capability: abp_core::Capability::ToolBash,
-            min_support: abp_core::MinSupport::Native,
+            min_support: abp_core::MinSupport::Emulated,
         }],
     };
     let result = abp_capability::negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable.len(), 1);
+    assert_eq!(result.emulated.len(), 1);
     assert!(result.unsupported.is_empty());
 }
 
@@ -251,7 +280,10 @@ fn negotiate_restricted_counts_as_emulatable() {
 fn check_capability_missing_is_unsupported() {
     let manifest: abp_core::CapabilityManifest = BTreeMap::new();
     let level = abp_capability::check_capability(&manifest, &abp_core::Capability::Streaming);
-    assert_eq!(level, abp_capability::SupportLevel::Unsupported);
+    assert!(matches!(
+        level,
+        abp_capability::SupportLevel::Unsupported { .. }
+    ));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -523,8 +555,8 @@ fn error_code_as_str_is_nonempty() {
         let s = code.as_str();
         assert!(!s.is_empty(), "as_str must not be empty for {code:?}");
         assert!(
-            s.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
-            "as_str must be SCREAMING_SNAKE_CASE: {s}"
+            s.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
+            "as_str must be snake_case: {s}"
         );
     }
 }

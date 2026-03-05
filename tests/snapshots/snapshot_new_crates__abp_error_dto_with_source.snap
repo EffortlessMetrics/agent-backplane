@@ -3,7 +3,7 @@ source: tests/snapshot_new_crates.rs
 expression: dto
 ---
 {
-  "code": "BACKEND_CRASHED",
+  "code": "backend_crashed",
   "message": "sidecar crashed",
   "context": {},
   "source_message": "pipe broke"

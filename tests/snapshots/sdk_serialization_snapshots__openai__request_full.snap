@@ -1,0 +1,43 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are helpful."
+    },
+    {
+      "role": "user",
+      "content": "Solve 2+2"
+    },
+    {
+      "role": "assistant",
+      "content": "4"
+    }
+  ],
+  "temperature": 0.7,
+  "top_p": 0.9,
+  "max_tokens": 1024,
+  "stream": false,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get weather",
+        "parameters": {
+          "properties": {
+            "loc": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}

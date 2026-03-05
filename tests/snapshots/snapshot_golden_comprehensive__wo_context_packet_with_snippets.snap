@@ -1,0 +1,20 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: sample_context()
+---
+{
+  "files": [
+    "src/main.rs",
+    "README.md"
+  ],
+  "snippets": [
+    {
+      "name": "hint",
+      "content": "Look at the auth module"
+    },
+    {
+      "name": "constraint",
+      "content": "Do not modify tests"
+    }
+  ]
+}

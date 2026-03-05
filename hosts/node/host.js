@@ -49,22 +49,36 @@ rl.on('line', (line) => {
     return;
   }
 
-  if (msg.t === "run") {
-    const runId = msg.id || randomUUID();
-    const workOrder = msg.work_order;
-    const started = nowIso();
+  if (msg.t === "ping") {
+    write({ t: "pong", seq: msg.seq });
+    return;
+  }
 
-    const trace = [];
+  if (msg.t === "cancel") {
+    // v0.1: nothing in-flight to cancel for this simple sidecar
+    return;
+  }
 
-    function emit(kind) {
-      const ev = { ts: nowIso(), ...kind };
-      trace.push(ev);
-      write({ t: "event", ref_id: runId, event: ev });
-    }
+  if (msg.t !== "run") {
+    return;
+  }
 
+  const runId = msg.id || randomUUID();
+  const workOrder = msg.work_order || {};
+  const started = nowIso();
+
+  const trace = [];
+
+  function emit(kind) {
+    const ev = { ts: nowIso(), ...kind };
+    trace.push(ev);
+    write({ t: "event", ref_id: runId, event: ev });
+  }
+
+  try {
     emit({ type: "run_started", message: `node sidecar starting: ${workOrder.task}` });
     emit({ type: "assistant_message", text: "Hello from the Node sidecar. Replace me with a real SDK adapter." });
-    emit({ type: "assistant_message", text: `workspace root: ${workOrder.workspace.root}` });
+    emit({ type: "assistant_message", text: `workspace root: ${(workOrder.workspace || {}).root}` });
     emit({ type: "run_completed", message: "node sidecar complete" });
 
     const finished = nowIso();
@@ -76,7 +90,7 @@ rl.on('line', (line) => {
         contract_version: "abp/v0.1",
         started_at: started,
         finished_at: finished,
-        duration_ms: 0,
+        duration_ms: Math.max(0, new Date(finished).getTime() - new Date(started).getTime()),
       },
       backend,
       capabilities,
@@ -90,5 +104,20 @@ rl.on('line', (line) => {
     };
 
     write({ t: "final", ref_id: runId, receipt });
+  } catch (err) {
+    write({ t: "fatal", ref_id: runId, error: `run failed: ${err && err.message || err}` });
   }
+});
+
+// Graceful shutdown
+function shutdown() {
+  rl.close();
+  process.exit(0);
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+
+process.on('uncaughtException', (err) => {
+  write({ t: "fatal", ref_id: null, error: `uncaught exception: ${err && err.message || err}` });
+  process.exit(1);
 });

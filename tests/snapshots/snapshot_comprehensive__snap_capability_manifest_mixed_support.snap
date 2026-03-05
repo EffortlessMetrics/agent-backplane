@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: manifest_to_value(&manifest)
+---
+{
+  "extended_thinking": "emulated",
+  "mcp_client": "unsupported",
+  "streaming": "native",
+  "tool_bash": {
+    "restricted": {
+      "reason": "sandboxed environment"
+    }
+  },
+  "tool_read": "native"
+}

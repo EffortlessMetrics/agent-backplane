@@ -1,0 +1,7 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "BackendEntry::Mock {}"
+---
+{
+  "type": "mock"
+}

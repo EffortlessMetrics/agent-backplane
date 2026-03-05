@@ -1,0 +1,8 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&msg"
+---
+{
+  "role": "user",
+  "content": "Special chars: <>&\"'\n\t\r\\/ \u0000 ￿ 日本語 émojis 🎉🚀"
+}

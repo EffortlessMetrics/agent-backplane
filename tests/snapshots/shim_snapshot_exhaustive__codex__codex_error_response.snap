@@ -1,0 +1,12 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: err
+---
+{
+  "error": {
+    "message": "Invalid model specified",
+    "type": "invalid_request_error",
+    "code": "model_not_found",
+    "param": "model"
+  }
+}

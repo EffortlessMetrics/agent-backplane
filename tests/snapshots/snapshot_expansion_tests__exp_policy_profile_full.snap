@@ -1,0 +1,35 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: p
+---
+{
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Glob",
+    "Grep"
+  ],
+  "disallowed_tools": [
+    "WebSearch",
+    "Bash"
+  ],
+  "deny_read": [
+    "**/.env",
+    "**/secrets/**"
+  ],
+  "deny_write": [
+    "Cargo.lock",
+    "**/.git/**"
+  ],
+  "allow_network": [
+    "crates.io",
+    "api.github.com"
+  ],
+  "deny_network": [
+    "*.evil.com"
+  ],
+  "require_approval_for": [
+    "Bash",
+    "Write"
+  ]
+}

@@ -1,0 +1,24 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: codes
+---
+- execution_tool_failed
+- execution_workspace_error
+- execution_permission_denied
+- contract_version_mismatch
+- contract_schema_violation
+- contract_invalid_receipt
+- capability_unsupported
+- capability_emulation_failed
+- policy_denied
+- policy_invalid
+- workspace_init_failed
+- workspace_staging_failed
+- ir_invalid
+- ir_lowering_failed
+- receipt_hash_mismatch
+- receipt_chain_broken
+- dialect_unknown
+- dialect_mapping_failed
+- config_invalid
+- internal

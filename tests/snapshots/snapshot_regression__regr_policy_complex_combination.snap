@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_regression.rs
+expression: "json!({\n    \"write_denied_by_denylist\": !engine.can_use_tool(\"Write\").allowed,\n    \"read_allowed\": engine.can_use_tool(\"Read\").allowed,\n    \"bash_not_in_allowlist\": !engine.can_use_tool(\"Bash\").allowed,\n    \"env_read_denied\": !engine.can_read_path(Path::new(\".env\")).allowed,\n    \"src_read_allowed\": engine.can_read_path(Path::new(\"src/lib.rs\")).allowed,\n    \"locked_write_denied\":\n    !engine.can_write_path(Path::new(\"locked/data.txt\")).allowed,\n    \"src_write_allowed\":\n    engine.can_write_path(Path::new(\"src/lib.rs\")).allowed,\n})"
+---
+{
+  "bash_not_in_allowlist": true,
+  "env_read_denied": true,
+  "locked_write_denied": true,
+  "read_allowed": true,
+  "src_read_allowed": true,
+  "src_write_allowed": true,
+  "write_denied_by_denylist": true
+}

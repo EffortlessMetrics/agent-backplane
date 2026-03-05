@@ -1,0 +1,20 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: ctx
+---
+{
+  "files": [
+    "src/main.rs",
+    "Cargo.toml"
+  ],
+  "snippets": [
+    {
+      "name": "instructions",
+      "content": "Use idiomatic Rust"
+    },
+    {
+      "name": "constraints",
+      "content": "No unsafe code"
+    }
+  ]
+}

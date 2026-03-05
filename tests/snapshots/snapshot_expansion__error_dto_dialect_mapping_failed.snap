@@ -3,7 +3,7 @@ source: tests/snapshot_expansion.rs
 expression: dto
 ---
 {
-  "code": "DIALECT_MAPPING_FAILED",
+  "code": "dialect_mapping_failed",
   "message": "Cannot map extended_thinking from Claude to OpenAI",
   "context": {
     "feature": "extended_thinking",

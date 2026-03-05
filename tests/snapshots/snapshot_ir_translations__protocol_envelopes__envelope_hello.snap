@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&env"
+---
+t: hello
+contract_version: abp/v0.1
+backend:
+  id: "sidecar:openai"
+  backend_version: 4.0.0
+  adapter_version: 0.1.0
+capabilities:
+  streaming: native
+  tool_use: native
+  extended_thinking: emulated
+mode: mapped

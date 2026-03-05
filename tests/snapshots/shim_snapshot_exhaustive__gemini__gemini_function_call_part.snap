@@ -1,0 +1,18 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: content
+---
+{
+  "role": "model",
+  "parts": [
+    {
+      "functionCall": {
+        "name": "search_docs",
+        "args": {
+          "limit": 10,
+          "query": "rust tokio"
+        }
+      }
+    }
+  ]
+}

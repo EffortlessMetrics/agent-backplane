@@ -5,6 +5,7 @@ use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -85,7 +86,7 @@ pub fn capability_manifest() -> CapabilityManifest {
 // ---------------------------------------------------------------------------
 
 /// A vendor-agnostic tool definition used as the ABP canonical form.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CanonicalToolDef {
     /// Tool name.
     pub name: String,
@@ -96,7 +97,7 @@ pub struct CanonicalToolDef {
 }
 
 /// Anthropic-style tool definition (Messages API `tools` array element).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ClaudeToolDef {
     /// Tool name.
     pub name: String,
@@ -130,7 +131,7 @@ pub fn tool_def_from_claude(def: &ClaudeToolDef) -> CanonicalToolDef {
 ///
 /// When enabled, the model may emit `thinking` content blocks containing
 /// its internal reasoning before producing a final response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ThinkingConfig {
     /// Discriminator (always `"enabled"`).
     #[serde(rename = "type")]
@@ -151,7 +152,7 @@ impl ThinkingConfig {
 }
 
 /// Vendor-specific configuration for the Anthropic Claude API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ClaudeConfig {
     /// Anthropic API key (e.g. `sk-ant-...`).
     pub api_key: String,
@@ -187,7 +188,7 @@ impl Default for ClaudeConfig {
 }
 
 /// Simplified representation of an Anthropic Messages API request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ClaudeRequest {
     /// Model identifier (e.g. `claude-sonnet-4-20250514`).
     pub model: String,
@@ -203,7 +204,7 @@ pub struct ClaudeRequest {
 }
 
 /// A single message in the Claude conversation format.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ClaudeMessage {
     /// Message role (`user` or `assistant`).
     pub role: String,
@@ -212,7 +213,7 @@ pub struct ClaudeMessage {
 }
 
 /// Simplified representation of an Anthropic Messages API response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ClaudeResponse {
     /// Unique message identifier.
     pub id: String,
@@ -229,7 +230,7 @@ pub struct ClaudeResponse {
 }
 
 /// A content block in a Claude response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeContentBlock {
     /// A text content block.
@@ -273,7 +274,7 @@ pub enum ClaudeContentBlock {
 }
 
 /// Image source for an image content block.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeImageSource {
     /// Base64-encoded image data.
@@ -291,7 +292,7 @@ pub enum ClaudeImageSource {
 }
 
 /// System prompt block with optional cache control.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeSystemBlock {
     /// A text system prompt block.
@@ -305,7 +306,7 @@ pub enum ClaudeSystemBlock {
 }
 
 /// Cache control directive for prompt caching.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ClaudeCacheControl {
     /// Cache type (e.g. `ephemeral`).
     #[serde(rename = "type")]
@@ -323,7 +324,7 @@ impl ClaudeCacheControl {
 }
 
 /// Token usage reported by the Anthropic API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ClaudeUsage {
     /// Number of input tokens consumed.
     pub input_tokens: u64,
@@ -342,7 +343,7 @@ pub struct ClaudeUsage {
 // ---------------------------------------------------------------------------
 
 /// Server-sent event types from the Anthropic streaming API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeStreamEvent {
     /// Initial message metadata at stream start.
@@ -389,7 +390,7 @@ pub enum ClaudeStreamEvent {
 }
 
 /// Delta payload within a `content_block_delta` streaming event.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeStreamDelta {
     /// Incremental text output.
@@ -415,7 +416,7 @@ pub enum ClaudeStreamDelta {
 }
 
 /// Delta payload within a `message_delta` streaming event.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ClaudeMessageDelta {
     /// Reason the model stopped generating.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -426,7 +427,7 @@ pub struct ClaudeMessageDelta {
 }
 
 /// Error object returned by the Anthropic API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ClaudeApiError {
     /// Error type identifier (e.g. `invalid_request_error`).
     #[serde(rename = "type")]
@@ -440,7 +441,7 @@ pub struct ClaudeApiError {
 // ---------------------------------------------------------------------------
 
 /// Recognized Claude API stop reasons.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ClaudeStopReason {
     /// The model reached a natural stopping point.
@@ -451,6 +452,24 @@ pub enum ClaudeStopReason {
     MaxTokens,
     /// The model emitted a configured stop sequence.
     StopSequence,
+}
+
+/// Tool choice configuration for the Anthropic Messages API.
+///
+/// Controls whether and how the model uses tools during generation.
+/// See <https://docs.anthropic.com/en/docs/build-with-claude/tool-use#controlling-claudes-output>.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ClaudeToolChoice {
+    /// The model decides whether to use a tool.
+    Auto {},
+    /// The model must use at least one tool.
+    Any {},
+    /// The model must use the specified tool.
+    Tool {
+        /// Name of the required tool.
+        name: String,
+    },
 }
 
 /// Parse a Claude stop reason string into the typed enum.

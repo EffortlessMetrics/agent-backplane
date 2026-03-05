@@ -2,6 +2,7 @@
 name = "abp-shim-copilot"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -15,11 +16,14 @@ abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-copilot-sdk = { path = "../abp-copilot-sdk", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true
+schemars.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
+reqwest.workspace = true
+futures-core.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

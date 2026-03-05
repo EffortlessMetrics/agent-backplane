@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: toml_str
+---
+allowed_tools = [
+    "read",
+    "write",
+]
+disallowed_tools = ["bash"]
+deny_read = [".env"]
+deny_write = []
+allow_network = ["*.github.com"]
+deny_network = []
+require_approval_for = []

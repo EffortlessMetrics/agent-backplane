@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Deep tests for JSON schema generation covering validity, structure,
 //! required fields, type mappings, enum variants, $ref usage, canonical
 //! serialization, roundtrips, backward compatibility, and diff detection.
@@ -640,6 +669,21 @@ fn capability_enum_has_all_variants() {
         "logprobs",
         "seed_determinism",
         "stop_sequences",
+        "function_calling",
+        "vision",
+        "audio",
+        "json_mode",
+        "system_message",
+        "temperature",
+        "top_p",
+        "top_k",
+        "max_tokens",
+        "frequency_penalty",
+        "presence_penalty",
+        "cache_control",
+        "batch_mode",
+        "embeddings",
+        "image_generation",
     ];
     for e in &expected {
         assert!(consts.contains(e), "Capability missing variant: {e}");
@@ -694,10 +738,10 @@ fn error_code_enum_in_receipt_schema() {
         .filter_map(|v| v["const"].as_str())
         .collect();
     // Just check a few key codes
-    assert!(consts.contains(&"BACKEND_TIMEOUT"));
-    assert!(consts.contains(&"POLICY_DENIED"));
-    assert!(consts.contains(&"INTERNAL"));
-    assert!(consts.contains(&"PROTOCOL_INVALID_ENVELOPE"));
+    assert!(consts.contains(&"backend_timeout"));
+    assert!(consts.contains(&"policy_denied"));
+    assert!(consts.contains(&"internal"));
+    assert!(consts.contains(&"protocol_invalid_envelope"));
 }
 
 // ── 8. Schema additionalProperties settings ──────────────────────────

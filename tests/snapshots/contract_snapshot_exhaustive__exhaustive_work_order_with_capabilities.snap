@@ -1,0 +1,63 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: wo
+---
+{
+  "id": "01010101-0202-4303-8404-050505050505",
+  "task": "needs many capabilities",
+  "lane": "patch_first",
+  "workspace": {
+    "root": ".",
+    "mode": "staged",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "tool_bash",
+        "min_support": "native"
+      },
+      {
+        "capability": "tool_read",
+        "min_support": "native"
+      },
+      {
+        "capability": "tool_write",
+        "min_support": "native"
+      },
+      {
+        "capability": "extended_thinking",
+        "min_support": "emulated"
+      },
+      {
+        "capability": "image_input",
+        "min_support": "any"
+      },
+      {
+        "capability": "mcp_client",
+        "min_support": "emulated"
+      }
+    ]
+  },
+  "config": {
+    "model": null,
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

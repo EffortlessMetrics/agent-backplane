@@ -1,0 +1,13 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: cfg
+---
+{
+  "default_backend": "mock",
+  "log_level": "info",
+  "backends": {
+    "mock": {
+      "type": "mock"
+    }
+  }
+}

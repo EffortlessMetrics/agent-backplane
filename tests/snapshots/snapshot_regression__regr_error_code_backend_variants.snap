@@ -1,0 +1,41 @@
+---
+source: tests/snapshot_regression.rs
+expression: codes
+---
+[
+  {
+    "code": "backend_not_found",
+    "retryable": false,
+    "str": "backend_not_found"
+  },
+  {
+    "code": "backend_unavailable",
+    "retryable": true,
+    "str": "backend_unavailable"
+  },
+  {
+    "code": "backend_timeout",
+    "retryable": true,
+    "str": "backend_timeout"
+  },
+  {
+    "code": "backend_rate_limited",
+    "retryable": true,
+    "str": "backend_rate_limited"
+  },
+  {
+    "code": "backend_auth_failed",
+    "retryable": false,
+    "str": "backend_auth_failed"
+  },
+  {
+    "code": "backend_model_not_found",
+    "retryable": false,
+    "str": "backend_model_not_found"
+  },
+  {
+    "code": "backend_crashed",
+    "retryable": true,
+    "str": "backend_crashed"
+  }
+]

@@ -1,0 +1,31 @@
+---
+source: tests/snapshot_regression.rs
+expression: codes
+---
+[
+  {
+    "category": "protocol",
+    "code": "protocol_invalid_envelope",
+    "str": "protocol_invalid_envelope"
+  },
+  {
+    "category": "protocol",
+    "code": "protocol_handshake_failed",
+    "str": "protocol_handshake_failed"
+  },
+  {
+    "category": "protocol",
+    "code": "protocol_missing_ref_id",
+    "str": "protocol_missing_ref_id"
+  },
+  {
+    "category": "protocol",
+    "code": "protocol_unexpected_message",
+    "str": "protocol_unexpected_message"
+  },
+  {
+    "category": "protocol",
+    "code": "protocol_version_mismatch",
+    "str": "protocol_version_mismatch"
+  }
+]

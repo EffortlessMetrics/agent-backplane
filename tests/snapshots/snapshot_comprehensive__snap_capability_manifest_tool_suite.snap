@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: manifest_to_value(&manifest)
+---
+{
+  "tool_bash": "native",
+  "tool_edit": "native",
+  "tool_glob": "emulated",
+  "tool_grep": "emulated",
+  "tool_read": "native",
+  "tool_write": "native"
+}

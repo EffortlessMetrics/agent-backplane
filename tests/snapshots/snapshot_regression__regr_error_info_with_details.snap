@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_regression.rs
+expression: info
+---
+{
+  "code": "backend_timeout",
+  "message": "timed out after 30s",
+  "details": {
+    "backend": "openai",
+    "timeout_ms": 30000
+  },
+  "is_retryable": true
+}

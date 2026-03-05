@@ -1,0 +1,62 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir"
+---
+{
+  "model": "gemini-2.0-flash",
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "Be concise."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "What is AI?"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "AI is artificial intelligence."
+        }
+      ]
+    }
+  ],
+  "max_tokens": 1024,
+  "tools": [
+    {
+      "name": "search",
+      "description": "Search the web",
+      "parameters": {
+        "properties": {
+          "q": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "sampling": {
+    "temperature": 0.8,
+    "top_p": 0.9,
+    "top_k": 32
+  },
+  "stop_sequences": [
+    "STOP"
+  ],
+  "stream": {
+    "enabled": false
+  }
+}

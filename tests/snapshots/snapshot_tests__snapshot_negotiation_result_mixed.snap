@@ -6,10 +6,16 @@ expression: r
   "native": [
     "streaming"
   ],
-  "emulatable": [
-    "extended_thinking"
+  "emulated": [
+    [
+      "extended_thinking",
+      "client_side"
+    ]
   ],
   "unsupported": [
-    "mcp_server"
+    [
+      "mcp_server",
+      "not available"
+    ]
   ]
 }

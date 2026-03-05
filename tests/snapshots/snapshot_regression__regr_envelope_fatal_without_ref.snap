@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_regression.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": null,
+  "error": "handshake failed"
+}

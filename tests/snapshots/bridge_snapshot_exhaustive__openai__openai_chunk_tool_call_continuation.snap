@@ -1,0 +1,25 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&chunk"
+---
+{
+  "id": "chatcmpl-chunk03",
+  "object": "chat.completion.chunk",
+  "created": 1700000000,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "tool_calls": [
+          {
+            "index": 0,
+            "function": {
+              "arguments": "mand\":\"ls\"}"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

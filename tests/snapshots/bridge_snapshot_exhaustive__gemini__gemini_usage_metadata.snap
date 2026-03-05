@@ -1,0 +1,9 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&usage"
+---
+{
+  "promptTokenCount": 100,
+  "candidatesTokenCount": 250,
+  "totalTokenCount": 350
+}

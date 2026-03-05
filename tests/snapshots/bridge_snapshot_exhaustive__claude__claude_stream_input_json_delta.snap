@@ -1,0 +1,12 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&evt"
+---
+{
+  "type": "content_block_delta",
+  "index": 1,
+  "delta": {
+    "type": "input_json_delta",
+    "partial_json": "{\"path\": \"/tmp"
+  }
+}

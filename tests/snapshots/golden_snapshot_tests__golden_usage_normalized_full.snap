@@ -1,0 +1,12 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: u
+---
+{
+  "input_tokens": 5000,
+  "output_tokens": 2500,
+  "cache_read_tokens": 1000,
+  "cache_write_tokens": 500,
+  "request_units": 10,
+  "estimated_cost_usd": 0.15
+}

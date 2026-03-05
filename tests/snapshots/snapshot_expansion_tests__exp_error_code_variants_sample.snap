@@ -1,0 +1,18 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: codes
+---
+[
+  "protocol_invalid_envelope",
+  "backend_timeout",
+  "execution_tool_failed",
+  "contract_version_mismatch",
+  "capability_unsupported",
+  "policy_denied",
+  "workspace_staging_failed",
+  "internal",
+  "dialect_unknown",
+  "ir_lowering_failed",
+  "receipt_hash_mismatch",
+  "config_invalid"
+]

@@ -1,7 +1,36 @@
+#![allow(clippy::all)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! Deep workspace staging tests — 50+ tests covering copy correctness,
-//! glob filtering, git initialization, diff detection, edge cases,
-//! concurrency, binary content, and error handling.
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
+//! Deep workspace staging tests — comprehensive coverage of copy correctness,
+//! glob filtering, git initialization, diff detection, cleanup on drop,
+//! `WorkspaceSpec` construction, permission preservation, concurrency,
+//! binary content, and error handling.
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
 use abp_workspace::{WorkspaceManager, WorkspaceStager};
@@ -1412,4 +1441,683 @@ fn deep_glob_exclude_deeply_nested_only() {
     assert!(f.contains(&"a/keep.txt".to_string()));
     assert!(f.contains(&"a/b/keep2.txt".to_string()));
     assert!(!f.iter().any(|p| p.contains("secret")));
+}
+
+// ===========================================================================
+// 12. Cleanup — temp directories cleaned up when workspace dropped
+// ===========================================================================
+
+#[test]
+fn deep_cleanup_staged_temp_dir_removed_on_drop() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("file.txt"), "content").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let staged_path = ws.path().to_path_buf();
+    assert!(staged_path.exists());
+    drop(ws);
+    assert!(
+        !staged_path.exists(),
+        "temp dir should be removed after drop"
+    );
+}
+
+#[test]
+fn deep_cleanup_stager_temp_dir_removed_on_drop() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("data.txt"), "hello").unwrap();
+
+    let ws = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+    let staged_path = ws.path().to_path_buf();
+    assert!(staged_path.exists());
+    drop(ws);
+    assert!(
+        !staged_path.exists(),
+        "stager temp dir should be removed after drop"
+    );
+}
+
+#[test]
+fn deep_cleanup_passthrough_path_persists_after_drop() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("keep.txt"), "still here").unwrap();
+    let src_path = src.path().to_path_buf();
+
+    let spec = WorkspaceSpec {
+        root: src.path().to_string_lossy().to_string(),
+        mode: WorkspaceMode::PassThrough,
+        include: vec![],
+        exclude: vec![],
+    };
+    let ws = WorkspaceManager::prepare(&spec).unwrap();
+    drop(ws);
+    assert!(
+        src_path.exists(),
+        "passthrough source should still exist after workspace drop"
+    );
+}
+
+#[test]
+fn deep_cleanup_multiple_staged_workspaces_independent() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("a.txt"), "a").unwrap();
+
+    let ws1 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let ws2 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let p1 = ws1.path().to_path_buf();
+    let p2 = ws2.path().to_path_buf();
+    assert_ne!(p1, p2, "different staging dirs");
+
+    drop(ws1);
+    assert!(!p1.exists(), "first temp dir cleaned");
+    assert!(p2.exists(), "second temp dir still alive");
+    drop(ws2);
+    assert!(!p2.exists(), "second temp dir now cleaned");
+}
+
+#[test]
+fn deep_cleanup_staged_files_not_accessible_after_drop() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("secret.txt"), "classified").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let file_path = ws.path().join("secret.txt");
+    assert!(file_path.exists());
+    drop(ws);
+    assert!(fs::read_to_string(&file_path).is_err());
+}
+
+// ===========================================================================
+// 13. WorkspaceSpec — construction, defaults, globs, paths
+// ===========================================================================
+
+#[test]
+fn deep_spec_staged_mode_creates_temp_dir() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("f.txt"), "data").unwrap();
+
+    let spec = staged_spec(src.path());
+    assert!(matches!(spec.mode, WorkspaceMode::Staged));
+    let ws = WorkspaceManager::prepare(&spec).unwrap();
+    assert_ne!(ws.path(), src.path());
+}
+
+#[test]
+fn deep_spec_passthrough_mode_uses_original() {
+    let src = tempdir().unwrap();
+    let spec = WorkspaceSpec {
+        root: src.path().to_string_lossy().to_string(),
+        mode: WorkspaceMode::PassThrough,
+        include: vec![],
+        exclude: vec![],
+    };
+    let ws = WorkspaceManager::prepare(&spec).unwrap();
+    assert_eq!(ws.path(), src.path());
+}
+
+#[test]
+fn deep_spec_include_filters_applied() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("keep.rs"), "fn main(){}").unwrap();
+    fs::write(src.path().join("skip.txt"), "skip").unwrap();
+
+    let spec = staged_spec_globs(src.path(), &["*.rs"], &[]);
+    let ws = WorkspaceManager::prepare(&spec).unwrap();
+    let f = files(ws.path());
+    assert!(f.contains(&"keep.rs".to_string()));
+    assert!(!f.contains(&"skip.txt".to_string()));
+}
+
+#[test]
+fn deep_spec_exclude_filters_applied() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("keep.rs"), "fn main(){}").unwrap();
+    fs::write(src.path().join("skip.log"), "log").unwrap();
+
+    let spec = staged_spec_globs(src.path(), &[], &["*.log"]);
+    let ws = WorkspaceManager::prepare(&spec).unwrap();
+    let f = files(ws.path());
+    assert!(f.contains(&"keep.rs".to_string()));
+    assert!(!f.contains(&"skip.log".to_string()));
+}
+
+#[test]
+fn deep_spec_empty_include_exclude_copies_all() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("a.txt"), "a").unwrap();
+    fs::write(src.path().join("b.rs"), "b").unwrap();
+    fs::create_dir(src.path().join("sub")).unwrap();
+    fs::write(src.path().join("sub").join("c.md"), "c").unwrap();
+
+    let spec = staged_spec_globs(src.path(), &[], &[]);
+    let ws = WorkspaceManager::prepare(&spec).unwrap();
+    let f = files(ws.path());
+    assert_eq!(f.len(), 3);
+}
+
+#[test]
+fn deep_spec_root_is_string_path() {
+    let src = tempdir().unwrap();
+    let spec = staged_spec(src.path());
+    assert_eq!(spec.root, src.path().to_string_lossy().to_string());
+}
+
+#[test]
+fn deep_spec_include_and_exclude_combined() {
+    let src = tempdir().unwrap();
+    fs::create_dir(src.path().join("src")).unwrap();
+    fs::write(src.path().join("src").join("lib.rs"), "lib").unwrap();
+    fs::write(src.path().join("src").join("gen.rs"), "gen").unwrap();
+    fs::write(src.path().join("README.md"), "readme").unwrap();
+
+    let spec = staged_spec_globs(src.path(), &["src/**"], &["**/gen.rs"]);
+    let ws = WorkspaceManager::prepare(&spec).unwrap();
+    let f = files(ws.path());
+    assert!(f.contains(&"src/lib.rs".to_string()));
+    assert!(!f.contains(&"src/gen.rs".to_string()));
+    assert!(!f.contains(&"README.md".to_string()));
+}
+
+#[test]
+fn deep_spec_paths_with_spaces() {
+    let src = tempdir().unwrap();
+    let dir = src.path().join("my project");
+    fs::create_dir(&dir).unwrap();
+    fs::write(dir.join("file.txt"), "content").unwrap();
+
+    let spec = WorkspaceSpec {
+        root: dir.to_string_lossy().to_string(),
+        mode: WorkspaceMode::Staged,
+        include: vec![],
+        exclude: vec![],
+    };
+    let ws = WorkspaceManager::prepare(&spec).unwrap();
+    assert_eq!(
+        fs::read_to_string(ws.path().join("file.txt")).unwrap(),
+        "content"
+    );
+}
+
+#[test]
+fn deep_spec_globs_multiple_patterns() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("a.rs"), "a").unwrap();
+    fs::write(src.path().join("b.toml"), "b").unwrap();
+    fs::write(src.path().join("c.txt"), "c").unwrap();
+    fs::write(src.path().join("d.md"), "d").unwrap();
+
+    let spec = staged_spec_globs(src.path(), &["*.rs", "*.toml"], &[]);
+    let ws = WorkspaceManager::prepare(&spec).unwrap();
+    let f = files(ws.path());
+    assert!(f.contains(&"a.rs".to_string()));
+    assert!(f.contains(&"b.toml".to_string()));
+    assert!(!f.contains(&"c.txt".to_string()));
+    assert!(!f.contains(&"d.md".to_string()));
+}
+
+// ===========================================================================
+// Additional coverage — temp directory uniqueness
+// ===========================================================================
+
+#[test]
+fn deep_temp_dirs_are_unique_across_stages() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("f.txt"), "x").unwrap();
+
+    let ws1 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let ws2 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let ws3 = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_ne!(ws1.path(), ws2.path());
+    assert_ne!(ws2.path(), ws3.path());
+    assert_ne!(ws1.path(), ws3.path());
+}
+
+#[test]
+fn deep_temp_dir_path_is_valid_utf8() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("f.txt"), "x").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert!(ws.path().to_str().is_some(), "path should be valid UTF-8");
+}
+
+// ===========================================================================
+// Additional coverage — WorkspaceStager builder
+// ===========================================================================
+
+#[test]
+fn deep_stager_source_root_required() {
+    let result = WorkspaceStager::new().stage();
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("source_root"),
+        "error should mention source_root"
+    );
+}
+
+#[test]
+fn deep_stager_nonexistent_source_root_fails() {
+    let result = WorkspaceStager::new()
+        .source_root("/nonexistent/path/that/does/not/exist")
+        .stage();
+    assert!(result.is_err());
+}
+
+#[test]
+fn deep_stager_include_filters() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("keep.rs"), "fn main(){}").unwrap();
+    fs::write(src.path().join("skip.txt"), "nope").unwrap();
+
+    let ws = WorkspaceStager::new()
+        .source_root(src.path())
+        .include(vec!["*.rs".into()])
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+    let f = files(ws.path());
+    assert!(f.contains(&"keep.rs".to_string()));
+    assert!(!f.contains(&"skip.txt".to_string()));
+}
+
+#[test]
+fn deep_stager_exclude_filters() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("keep.rs"), "code").unwrap();
+    fs::write(src.path().join("junk.log"), "log").unwrap();
+
+    let ws = WorkspaceStager::new()
+        .source_root(src.path())
+        .exclude(vec!["*.log".into()])
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+    let f = files(ws.path());
+    assert!(f.contains(&"keep.rs".to_string()));
+    assert!(!f.contains(&"junk.log".to_string()));
+}
+
+#[test]
+fn deep_stager_with_git_init_true_creates_repo() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("f.txt"), "data").unwrap();
+
+    let ws = WorkspaceStager::new()
+        .source_root(src.path())
+        .with_git_init(true)
+        .stage()
+        .unwrap();
+    assert!(ws.path().join(".git").exists());
+}
+
+#[test]
+fn deep_stager_builder_chaining_order() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("a.rs"), "a").unwrap();
+    fs::write(src.path().join("b.txt"), "b").unwrap();
+
+    // Set exclude before include and source_root last
+    let ws = WorkspaceStager::new()
+        .exclude(vec!["*.txt".into()])
+        .include(vec![])
+        .source_root(src.path())
+        .with_git_init(false)
+        .stage()
+        .unwrap();
+    let f = files(ws.path());
+    assert!(f.contains(&"a.rs".to_string()));
+    assert!(!f.contains(&"b.txt".to_string()));
+}
+
+// ===========================================================================
+// Additional coverage — file content fidelity
+// ===========================================================================
+
+#[test]
+fn deep_file_copy_preserves_exact_byte_content() {
+    let src = tempdir().unwrap();
+    let content: Vec<u8> = (0..=255).collect();
+    fs::write(src.path().join("bytes.bin"), &content).unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let copied = fs::read(ws.path().join("bytes.bin")).unwrap();
+    assert_eq!(content, copied);
+}
+
+#[test]
+fn deep_file_copy_preserves_line_endings() {
+    let src = tempdir().unwrap();
+    let crlf = "line1\r\nline2\r\n";
+    let lf = "line1\nline2\n";
+    fs::write(src.path().join("crlf.txt"), crlf).unwrap();
+    fs::write(src.path().join("lf.txt"), lf).unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_eq!(
+        fs::read_to_string(ws.path().join("crlf.txt")).unwrap(),
+        crlf
+    );
+    assert_eq!(fs::read_to_string(ws.path().join("lf.txt")).unwrap(), lf);
+}
+
+#[test]
+fn deep_file_copy_preserves_trailing_whitespace() {
+    let src = tempdir().unwrap();
+    let content = "line with trailing spaces   \n  \n";
+    fs::write(src.path().join("ws.txt"), content).unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_eq!(
+        fs::read_to_string(ws.path().join("ws.txt")).unwrap(),
+        content
+    );
+}
+
+// ===========================================================================
+// Additional coverage — nested directory edge cases
+// ===========================================================================
+
+#[test]
+fn deep_nested_single_file_deep_path() {
+    let src = tempdir().unwrap();
+    let deep = src.path().join("a").join("b").join("c").join("d");
+    fs::create_dir_all(&deep).unwrap();
+    fs::write(deep.join("leaf.txt"), "deep").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_eq!(
+        fs::read_to_string(ws.path().join("a/b/c/d/leaf.txt")).unwrap(),
+        "deep"
+    );
+}
+
+#[test]
+fn deep_nested_dirs_with_same_name_at_different_levels() {
+    let src = tempdir().unwrap();
+    fs::create_dir_all(src.path().join("data")).unwrap();
+    fs::create_dir_all(src.path().join("sub").join("data")).unwrap();
+    fs::write(src.path().join("data").join("a.txt"), "top").unwrap();
+    fs::write(src.path().join("sub").join("data").join("a.txt"), "nested").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_eq!(
+        fs::read_to_string(ws.path().join("data/a.txt")).unwrap(),
+        "top"
+    );
+    assert_eq!(
+        fs::read_to_string(ws.path().join("sub/data/a.txt")).unwrap(),
+        "nested"
+    );
+}
+
+// ===========================================================================
+// Additional coverage — git initialization details
+// ===========================================================================
+
+#[test]
+fn deep_git_init_head_points_to_valid_commit() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("f.txt"), "data").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let head = git(ws.path(), &["rev-parse", "HEAD"]);
+    assert!(head.is_some());
+    let sha = head.unwrap().trim().to_string();
+    assert_eq!(sha.len(), 40, "SHA should be 40 hex chars");
+    assert!(
+        sha.chars().all(|c| c.is_ascii_hexdigit()),
+        "SHA should be hex"
+    );
+}
+
+#[test]
+fn deep_git_working_tree_clean_after_init() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("a.txt"), "a").unwrap();
+    fs::write(src.path().join("b.txt"), "b").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let status = git(ws.path(), &["status", "--porcelain"]);
+    assert!(status.is_some());
+    assert!(
+        status.unwrap().trim().is_empty(),
+        "working tree should be clean"
+    );
+}
+
+#[test]
+fn deep_git_init_only_once_even_if_source_has_git() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("f.txt"), "data").unwrap();
+    // Initialize a git repo in the source
+    Command::new("git")
+        .args(["init"])
+        .current_dir(src.path())
+        .output()
+        .ok();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(src.path())
+        .output()
+        .ok();
+    Command::new("git")
+        .args(["commit", "-m", "source commit", "--allow-empty"])
+        .current_dir(src.path())
+        .output()
+        .ok();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    // .git should not be copied but a new one should be initialized
+    let log = git(ws.path(), &["log", "--oneline"]);
+    assert!(log.is_some());
+    let lines: Vec<&str> = log.as_ref().unwrap().trim().lines().collect();
+    assert_eq!(lines.len(), 1, "should have exactly one baseline commit");
+}
+
+// ===========================================================================
+// Additional coverage — WorkspaceManager::git_status / git_diff
+// ===========================================================================
+
+#[test]
+fn deep_git_status_on_staged_workspace() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("f.txt"), "data").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    // Clean workspace should have empty status
+    let status = WorkspaceManager::git_status(ws.path());
+    assert!(status.is_some());
+    assert!(status.unwrap().trim().is_empty());
+}
+
+#[test]
+fn deep_git_diff_on_staged_workspace_clean() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("f.txt"), "data").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let diff = WorkspaceManager::git_diff(ws.path());
+    assert!(diff.is_some());
+    assert!(diff.unwrap().trim().is_empty());
+}
+
+#[test]
+fn deep_git_status_after_modification() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("f.txt"), "original").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    fs::write(ws.path().join("f.txt"), "modified").unwrap();
+
+    let status = WorkspaceManager::git_status(ws.path());
+    assert!(status.is_some());
+    assert!(
+        status.unwrap().contains("f.txt"),
+        "modified file should appear in status"
+    );
+}
+
+#[test]
+fn deep_git_diff_after_modification() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("f.txt"), "original\n").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    fs::write(ws.path().join("f.txt"), "modified\n").unwrap();
+
+    let diff = WorkspaceManager::git_diff(ws.path());
+    assert!(diff.is_some());
+    let d = diff.unwrap();
+    assert!(d.contains("-original"));
+    assert!(d.contains("+modified"));
+}
+
+#[test]
+fn deep_git_status_returns_none_for_non_repo() {
+    let dir = tempdir().unwrap();
+    let status = WorkspaceManager::git_status(dir.path());
+    assert!(status.is_none());
+}
+
+#[test]
+fn deep_git_diff_returns_none_for_non_repo() {
+    let dir = tempdir().unwrap();
+    let diff = WorkspaceManager::git_diff(dir.path());
+    assert!(diff.is_none());
+}
+
+// ===========================================================================
+// Additional coverage — hidden files, special filenames
+// ===========================================================================
+
+#[test]
+fn deep_hidden_files_copied() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join(".hidden"), "secret").unwrap();
+    fs::write(src.path().join(".env"), "KEY=VAL").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let f = files(ws.path());
+    assert!(f.contains(&".hidden".to_string()));
+    assert!(f.contains(&".env".to_string()));
+}
+
+#[test]
+fn deep_gitignore_file_copied() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join(".gitignore"), "*.log\ntarget/\n").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_eq!(
+        fs::read_to_string(ws.path().join(".gitignore")).unwrap(),
+        "*.log\ntarget/\n"
+    );
+}
+
+#[test]
+fn deep_files_with_multiple_extensions() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("archive.tar.gz"), "data").unwrap();
+    fs::write(src.path().join("test.spec.ts"), "test").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let f = files(ws.path());
+    assert!(f.contains(&"archive.tar.gz".to_string()));
+    assert!(f.contains(&"test.spec.ts".to_string()));
+}
+
+#[test]
+fn deep_files_starting_with_dot_and_extension() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join(".eslintrc.json"), "{}").unwrap();
+    fs::write(src.path().join(".prettierrc.yaml"), "---").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let f = files(ws.path());
+    assert!(f.contains(&".eslintrc.json".to_string()));
+    assert!(f.contains(&".prettierrc.yaml".to_string()));
+}
+
+// ===========================================================================
+// Additional coverage — permission preservation (Unix-specific)
+// ===========================================================================
+
+#[cfg(unix)]
+#[test]
+fn deep_unix_executable_permission_preserved() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let src = tempdir().unwrap();
+    let script = src.path().join("run.sh");
+    fs::write(&script, "#!/bin/bash\necho hi").unwrap();
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let meta = fs::metadata(ws.path().join("run.sh")).unwrap();
+    let mode = meta.permissions().mode();
+    // fs::copy on Linux preserves permission bits
+    assert!(mode & 0o111 != 0, "executable bits should be preserved");
+}
+
+#[cfg(unix)]
+#[test]
+fn deep_unix_readonly_permission_preserved() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let src = tempdir().unwrap();
+    let file = src.path().join("readonly.txt");
+    fs::write(&file, "locked").unwrap();
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o444)).unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let meta = fs::metadata(ws.path().join("readonly.txt")).unwrap();
+    let mode = meta.permissions().mode();
+    assert_eq!(mode & 0o777, 0o444, "readonly mode should be preserved");
+
+    // Cleanup: make writable so tempdir cleanup works
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
+}
+
+// ===========================================================================
+// Additional coverage — large and stress scenarios
+// ===========================================================================
+
+#[test]
+fn deep_many_nested_dirs_with_files() {
+    let src = tempdir().unwrap();
+    for i in 0..20 {
+        let dir = src.path().join(format!("dir_{i}"));
+        fs::create_dir(&dir).unwrap();
+        for j in 0..5 {
+            fs::write(dir.join(format!("file_{j}.txt")), format!("{i}-{j}")).unwrap();
+        }
+    }
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let f = files(ws.path());
+    assert_eq!(f.len(), 100); // 20 dirs * 5 files
+}
+
+#[test]
+fn deep_file_exactly_zero_bytes() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("empty.bin"), b"").unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    let content = fs::read(ws.path().join("empty.bin")).unwrap();
+    assert!(content.is_empty());
+}
+
+#[test]
+fn deep_file_single_byte() {
+    let src = tempdir().unwrap();
+    fs::write(src.path().join("one.bin"), &[0x42]).unwrap();
+
+    let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
+    assert_eq!(fs::read(ws.path().join("one.bin")).unwrap(), vec![0x42]);
 }

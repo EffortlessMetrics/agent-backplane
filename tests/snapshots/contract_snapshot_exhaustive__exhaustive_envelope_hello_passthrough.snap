@@ -1,0 +1,32 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: snap_json(&env)
+---
+{
+  "t": "hello",
+  "contract_version": "abp/v0.1",
+  "backend": {
+    "id": "sidecar:claude",
+    "backend_version": "3.5.0",
+    "adapter_version": "0.2.0"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_read": "native",
+    "tool_write": "native",
+    "tool_edit": "native",
+    "tool_bash": "native",
+    "tool_glob": "native",
+    "tool_grep": "native",
+    "mcp_client": {
+      "restricted": {
+        "reason": "beta feature"
+      }
+    },
+    "mcp_server": "unsupported",
+    "tool_use": "emulated",
+    "extended_thinking": "native",
+    "image_input": "emulated"
+  },
+  "mode": "passthrough"
+}

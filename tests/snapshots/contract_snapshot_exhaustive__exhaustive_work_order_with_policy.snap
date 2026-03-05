@@ -1,0 +1,55 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: wo
+---
+{
+  "id": "01010101-0202-4303-8404-050505050505",
+  "task": "locked-down task",
+  "lane": "workspace_first",
+  "workspace": {
+    "root": "/secure/ws",
+    "mode": "pass_through",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [
+      "grep",
+      "glob"
+    ],
+    "disallowed_tools": [
+      "bash",
+      "write",
+      "edit"
+    ],
+    "deny_read": [
+      "secrets/**",
+      ".env*",
+      "*.pem"
+    ],
+    "deny_write": [
+      "**/*"
+    ],
+    "allow_network": [],
+    "deny_network": [
+      "*"
+    ],
+    "require_approval_for": [
+      "read"
+    ]
+  },
+  "requirements": {
+    "required": []
+  },
+  "config": {
+    "model": null,
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

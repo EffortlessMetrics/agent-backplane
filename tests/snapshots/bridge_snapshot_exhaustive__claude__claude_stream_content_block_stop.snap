@@ -1,0 +1,8 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&evt"
+---
+{
+  "type": "content_block_stop",
+  "index": 0
+}

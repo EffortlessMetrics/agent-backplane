@@ -1,0 +1,19 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: resp
+---
+{
+  "id": "chatcmpl-err",
+  "object": "chat.completion",
+  "created": 1700000100,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant"
+      },
+      "finish_reason": "content_filter"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: wo
+---
+{
+  "id": "01010101-0202-4303-8404-050505050505",
+  "task": "context-rich task",
+  "lane": "patch_first",
+  "workspace": {
+    "root": ".",
+    "mode": "staged",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [
+      "src/main.rs",
+      "src/lib.rs",
+      "Cargo.toml",
+      "tests/integration.rs"
+    ],
+    "snippets": [
+      {
+        "name": "compile_error",
+        "content": "error[E0308]: mismatched types"
+      },
+      {
+        "name": "user_intent",
+        "content": "Fix the type error in parse_config"
+      },
+      {
+        "name": "git_diff",
+        "content": "diff --git a/src/config.rs b/src/config.rs"
+      }
+    ]
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": []
+  },
+  "config": {
+    "model": null,
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

@@ -7,21 +7,46 @@
 //!
 //! Drop-in Copilot SDK shim that routes through ABP's intermediate representation.
 
+/// HTTP client for the GitHub Copilot Chat API.
+pub mod client;
+/// Conversion layer between Copilot SDK types and ABP core types.
+pub mod convert;
+/// Copilot-specific error types (ApiError, RateLimitError, AuthenticationError).
+pub mod error;
+/// Copilot references and confirmations: builders and re-exports.
+pub mod references;
+/// Translation between Copilot-specific extended types and ABP core types.
+pub mod translate;
+/// Copilot SDK–specific types: messages, request builder, and helpers.
+pub mod types;
+
 use std::pin::Pin;
 
-use abp_copilot_sdk::dialect::{
-    CopilotError, CopilotFunctionCall, CopilotMessage, CopilotReference, CopilotRequest,
-    CopilotResponse, CopilotStreamEvent, CopilotTool, CopilotTurnEntry,
-};
-use abp_copilot_sdk::lowering;
-use abp_core::ir::{IrConversation, IrRole, IrUsage};
-use abp_core::{AgentEvent, AgentEventKind, Receipt, UsageNormalized, WorkOrder, WorkOrderBuilder};
+use abp_copilot_sdk::dialect::{CopilotRequest, CopilotResponse, CopilotStreamEvent};
+use abp_core::{AgentEvent, Receipt, UsageNormalized, WorkOrder};
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
 use tokio_stream::Stream;
 
 // Re-export key types from the Copilot SDK for convenience.
 pub use abp_copilot_sdk::dialect::{CopilotFunctionDef, CopilotToolType};
+
+// Re-export reference and confirmation builders for convenience.
+pub use references::{
+    ConfirmationState, accepted_confirmation, confirmation_state, file_reference,
+    pending_confirmation, rejected_confirmation, repository_reference, snippet_reference,
+    web_search_reference, with_metadata,
+};
+
+// Re-export error types for convenience.
+pub use error::{
+    ApiError, AuthenticationError, ErrorBody, InvalidRequestError, NotFoundError, RateLimitError,
+    ServerError,
+};
+
+// Re-export types and conversions for backward compatibility.
+pub use convert::*;
+pub use translate::*;
+pub use types::*;
 
 // ── Error types ─────────────────────────────────────────────────────────
 
@@ -41,318 +66,6 @@ pub enum ShimError {
 
 /// Result alias for shim operations.
 pub type Result<T> = std::result::Result<T, ShimError>;
-
-// ── Message constructors ────────────────────────────────────────────────
-
-/// A chat message in the Copilot format (convenience wrapper).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Message {
-    /// Message role.
-    pub role: String,
-    /// Text content of the message.
-    pub content: String,
-    /// Optional display name.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    /// References attached to this message.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub copilot_references: Vec<CopilotReference>,
-}
-
-impl Message {
-    /// Create a system message.
-    #[must_use]
-    pub fn system(content: impl Into<String>) -> Self {
-        Self {
-            role: "system".into(),
-            content: content.into(),
-            name: None,
-            copilot_references: Vec::new(),
-        }
-    }
-
-    /// Create a user message.
-    #[must_use]
-    pub fn user(content: impl Into<String>) -> Self {
-        Self {
-            role: "user".into(),
-            content: content.into(),
-            name: None,
-            copilot_references: Vec::new(),
-        }
-    }
-
-    /// Create an assistant message.
-    #[must_use]
-    pub fn assistant(content: impl Into<String>) -> Self {
-        Self {
-            role: "assistant".into(),
-            content: content.into(),
-            name: None,
-            copilot_references: Vec::new(),
-        }
-    }
-
-    /// Create a user message with references.
-    #[must_use]
-    pub fn user_with_refs(content: impl Into<String>, refs: Vec<CopilotReference>) -> Self {
-        Self {
-            role: "user".into(),
-            content: content.into(),
-            name: None,
-            copilot_references: refs,
-        }
-    }
-}
-
-// ── Request builder ─────────────────────────────────────────────────────
-
-/// Builder for [`CopilotRequest`].
-#[derive(Debug, Default)]
-pub struct CopilotRequestBuilder {
-    model: Option<String>,
-    messages: Vec<Message>,
-    tools: Option<Vec<CopilotTool>>,
-    turn_history: Vec<CopilotTurnEntry>,
-    references: Vec<CopilotReference>,
-}
-
-impl CopilotRequestBuilder {
-    /// Create a new builder for a Copilot request.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set the model.
-    #[must_use]
-    pub fn model(mut self, model: impl Into<String>) -> Self {
-        self.model = Some(model.into());
-        self
-    }
-
-    /// Set the messages.
-    #[must_use]
-    pub fn messages(mut self, messages: Vec<Message>) -> Self {
-        self.messages = messages;
-        self
-    }
-
-    /// Set the tools.
-    #[must_use]
-    pub fn tools(mut self, tools: Vec<CopilotTool>) -> Self {
-        self.tools = Some(tools);
-        self
-    }
-
-    /// Set the turn history.
-    #[must_use]
-    pub fn turn_history(mut self, history: Vec<CopilotTurnEntry>) -> Self {
-        self.turn_history = history;
-        self
-    }
-
-    /// Set the references.
-    #[must_use]
-    pub fn references(mut self, refs: Vec<CopilotReference>) -> Self {
-        self.references = refs;
-        self
-    }
-
-    /// Build the request, defaulting model to `"gpt-4o"` if unset.
-    #[must_use]
-    pub fn build(self) -> CopilotRequest {
-        CopilotRequest {
-            model: self.model.unwrap_or_else(|| "gpt-4o".into()),
-            messages: self.messages.into_iter().map(to_copilot_message).collect(),
-            tools: self.tools,
-            turn_history: self.turn_history,
-            references: self.references,
-        }
-    }
-}
-
-/// Convert a shim [`Message`] to a [`CopilotMessage`].
-fn to_copilot_message(msg: Message) -> CopilotMessage {
-    CopilotMessage {
-        role: msg.role,
-        content: msg.content,
-        name: msg.name,
-        copilot_references: msg.copilot_references,
-    }
-}
-
-// ── Conversion: request → IR → WorkOrder ────────────────────────────────
-
-/// Convert a [`CopilotRequest`] into an [`IrConversation`].
-pub fn request_to_ir(request: &CopilotRequest) -> IrConversation {
-    lowering::to_ir(&request.messages)
-}
-
-/// Convert a [`CopilotRequest`] into an ABP [`WorkOrder`].
-pub fn request_to_work_order(request: &CopilotRequest) -> WorkOrder {
-    let conv = request_to_ir(request);
-    let task = conv
-        .messages
-        .iter()
-        .rev()
-        .find(|m| m.role == IrRole::User)
-        .map(|m| m.text_content())
-        .unwrap_or_else(|| "copilot completion".into());
-
-    let mut builder = WorkOrderBuilder::new(task).model(request.model.clone());
-
-    let config = abp_core::RuntimeConfig {
-        model: Some(request.model.clone()),
-        ..Default::default()
-    };
-    builder = builder.config(config);
-
-    builder.build()
-}
-
-// ── Conversion: Receipt → CopilotResponse ───────────────────────────────
-
-/// Build a [`CopilotResponse`] from a [`Receipt`] and the original model name.
-pub fn receipt_to_response(receipt: &Receipt, _model: &str) -> CopilotResponse {
-    let mut message = String::new();
-    let mut errors = Vec::new();
-    let mut function_call: Option<CopilotFunctionCall> = None;
-
-    for event in &receipt.trace {
-        match &event.kind {
-            AgentEventKind::AssistantMessage { text } => {
-                message = text.clone();
-            }
-            AgentEventKind::AssistantDelta { text } => {
-                message.push_str(text);
-            }
-            AgentEventKind::ToolCall {
-                tool_name,
-                tool_use_id,
-                input,
-                ..
-            } => {
-                function_call = Some(CopilotFunctionCall {
-                    name: tool_name.clone(),
-                    arguments: serde_json::to_string(input).unwrap_or_default(),
-                    id: tool_use_id.clone(),
-                });
-            }
-            AgentEventKind::Error {
-                message: msg,
-                error_code,
-            } => {
-                errors.push(CopilotError {
-                    error_type: "backend_error".into(),
-                    message: msg.clone(),
-                    code: error_code.as_ref().map(|c| c.to_string()),
-                    identifier: None,
-                });
-            }
-            _ => {}
-        }
-    }
-
-    CopilotResponse {
-        message,
-        copilot_references: vec![],
-        copilot_errors: errors,
-        copilot_confirmation: None,
-        function_call,
-    }
-}
-
-/// Build [`CopilotStreamEvent`]s from a sequence of [`AgentEvent`]s.
-pub fn events_to_stream_events(events: &[AgentEvent], _model: &str) -> Vec<CopilotStreamEvent> {
-    let mut stream_events = Vec::new();
-
-    // Initial references event (empty)
-    stream_events.push(CopilotStreamEvent::CopilotReferences { references: vec![] });
-
-    for event in events {
-        match &event.kind {
-            AgentEventKind::AssistantDelta { text } => {
-                stream_events.push(CopilotStreamEvent::TextDelta { text: text.clone() });
-            }
-            AgentEventKind::AssistantMessage { text } => {
-                stream_events.push(CopilotStreamEvent::TextDelta { text: text.clone() });
-            }
-            AgentEventKind::ToolCall {
-                tool_name,
-                tool_use_id,
-                input,
-                ..
-            } => {
-                stream_events.push(CopilotStreamEvent::FunctionCall {
-                    function_call: CopilotFunctionCall {
-                        name: tool_name.clone(),
-                        arguments: serde_json::to_string(input).unwrap_or_default(),
-                        id: tool_use_id.clone(),
-                    },
-                });
-            }
-            AgentEventKind::Error { message, .. } => {
-                stream_events.push(CopilotStreamEvent::CopilotErrors {
-                    errors: vec![CopilotError {
-                        error_type: "backend_error".into(),
-                        message: message.clone(),
-                        code: None,
-                        identifier: None,
-                    }],
-                });
-            }
-            _ => {}
-        }
-    }
-
-    // Final done event
-    stream_events.push(CopilotStreamEvent::Done {});
-
-    stream_events
-}
-
-/// Convert a [`CopilotResponse`] into an [`IrConversation`].
-pub fn response_to_ir(response: &CopilotResponse) -> IrConversation {
-    if response.message.is_empty() {
-        return IrConversation::from_messages(vec![]);
-    }
-    let msgs = vec![CopilotMessage {
-        role: "assistant".into(),
-        content: response.message.clone(),
-        name: None,
-        copilot_references: response.copilot_references.clone(),
-    }];
-    lowering::to_ir(&msgs)
-}
-
-/// Convert an [`IrConversation`] back to shim [`Message`]s.
-pub fn ir_to_messages(conv: &IrConversation) -> Vec<Message> {
-    let copilot_msgs = lowering::from_ir(conv);
-    copilot_msgs
-        .into_iter()
-        .map(|m| Message {
-            role: m.role,
-            content: m.content,
-            name: m.name,
-            copilot_references: m.copilot_references,
-        })
-        .collect()
-}
-
-/// Convert shim [`Message`]s to an [`IrConversation`].
-pub fn messages_to_ir(messages: &[Message]) -> IrConversation {
-    let copilot_msgs: Vec<CopilotMessage> = messages
-        .iter()
-        .map(|m| to_copilot_message(m.clone()))
-        .collect();
-    lowering::to_ir(&copilot_msgs)
-}
-
-/// Convert an [`IrUsage`] to a simple usage tuple (input, output, total).
-pub fn ir_usage_to_tuple(ir: &IrUsage) -> (u64, u64, u64) {
-    (ir.input_tokens, ir.output_tokens, ir.total_tokens)
-}
 
 // ── Client types ────────────────────────────────────────────────────────
 
@@ -474,6 +187,8 @@ pub fn mock_receipt_with_usage(events: Vec<AgentEvent>, usage: UsageNormalized) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use abp_core::AgentEventKind;
+    use abp_core::ir::{IrRole, IrUsage};
     use serde_json::json;
     use tokio_stream::StreamExt;
 
@@ -846,5 +561,35 @@ mod tests {
             &chunks[1],
             CopilotStreamEvent::FunctionCall { .. }
         ));
+    }
+
+    // ── 20. translate_to_work_order delegates to request_to_work_order ──
+
+    #[test]
+    fn translate_to_work_order_delegates() {
+        let req = CopilotRequestBuilder::new()
+            .model("gpt-4o")
+            .messages(vec![Message::user("hello")])
+            .build();
+        let wo1 = request_to_work_order(&req);
+        let wo2 = translate_to_work_order(&req);
+        assert_eq!(wo1.task, wo2.task);
+        assert_eq!(wo1.config.model, wo2.config.model);
+    }
+
+    // ── 21. translate_from_receipt delegates to receipt_to_response ──────
+
+    #[test]
+    fn translate_from_receipt_delegates() {
+        let events = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage { text: "ok".into() },
+            ext: None,
+        }];
+        let receipt = mock_receipt(events);
+        let r1 = receipt_to_response(&receipt, "gpt-4o");
+        let r2 = translate_from_receipt(&receipt, "gpt-4o");
+        assert_eq!(r1.message, r2.message);
+        assert_eq!(r1.copilot_errors.len(), r2.copilot_errors.len());
     }
 }

@@ -1,0 +1,89 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: wo
+---
+{
+  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "task": "Implement caching layer with TTL support",
+  "lane": "workspace_first",
+  "workspace": {
+    "root": "/home/dev/project",
+    "mode": "staged",
+    "include": [
+      "src/**/*.rs",
+      "Cargo.toml"
+    ],
+    "exclude": [
+      "target/**",
+      ".git/**"
+    ]
+  },
+  "context": {
+    "files": [
+      "src/cache.rs",
+      "README.md"
+    ],
+    "snippets": [
+      {
+        "name": "architecture",
+        "content": "Use LRU eviction"
+      },
+      {
+        "name": "constraints",
+        "content": "Max 100MB memory"
+      }
+    ]
+  },
+  "policy": {
+    "allowed_tools": [
+      "Read",
+      "Write",
+      "Glob"
+    ],
+    "disallowed_tools": [
+      "WebSearch"
+    ],
+    "deny_read": [
+      "**/.env",
+      "**/secrets/**"
+    ],
+    "deny_write": [
+      "Cargo.lock"
+    ],
+    "allow_network": [
+      "crates.io"
+    ],
+    "deny_network": [
+      "*.evil.com"
+    ],
+    "require_approval_for": [
+      "Bash"
+    ]
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "streaming",
+        "min_support": "native"
+      },
+      {
+        "capability": "tool_edit",
+        "min_support": "emulated"
+      }
+    ]
+  },
+  "config": {
+    "model": "claude-sonnet-4-20250514",
+    "vendor": {
+      "abp": {
+        "mode": "mapped"
+      },
+      "temperature": 0.7
+    },
+    "env": {
+      "RUST_LOG": "debug"
+    },
+    "max_budget_usd": 10.0,
+    "max_turns": 50
+  }
+}

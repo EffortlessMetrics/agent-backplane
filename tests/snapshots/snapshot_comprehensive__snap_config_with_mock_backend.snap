@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: cfg
+---
+{
+  "default_backend": "mock",
+  "log_level": "info",
+  "backends": {
+    "mock": {
+      "type": "mock"
+    }
+  }
+}

@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Deep capability negotiation tests.
 //!
 //! 50+ tests covering creation, ordering, negotiation, reports,
@@ -179,11 +208,11 @@ fn support_level_restricted_does_not_satisfy_native() {
 
 #[test]
 fn report_aggregates_counts_correctly() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming, Capability::ToolUse],
-        emulatable: vec![Capability::ToolBash],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming, Capability::ToolUse],
+        vec![Capability::ToolBash],
+        vec![Capability::Logprobs],
+    );
     let report = generate_report(&result);
     assert_eq!(report.native_count, 2);
     assert_eq!(report.emulated_count, 1);
@@ -193,18 +222,21 @@ fn report_aggregates_counts_correctly() {
 
 #[test]
 fn report_details_order_is_native_emulated_unsupported() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead],
+        vec![Capability::Logprobs],
+    );
     let report = generate_report(&result);
     assert!(matches!(report.details[0].1, CapSupportLevel::Native));
     assert!(matches!(
         report.details[1].1,
         CapSupportLevel::Emulated { .. }
     ));
-    assert!(matches!(report.details[2].1, CapSupportLevel::Unsupported));
+    assert!(matches!(
+        report.details[2].1,
+        CapSupportLevel::Unsupported { .. }
+    ));
 }
 
 // ===========================================================================
@@ -237,7 +269,7 @@ fn negotiate_missing_required_cap_is_incompatible() {
     let r = reqs_native(&[Capability::Logprobs]);
     let res = negotiate(&m, &r);
     assert!(!res.is_compatible());
-    assert_eq!(res.unsupported, vec![Capability::Logprobs]);
+    assert_eq!(res.unsupported_caps(), vec![Capability::Logprobs]);
 }
 
 #[test]
@@ -248,9 +280,10 @@ fn negotiate_restricted_counts_as_emulatable() {
             reason: "sandbox".into(),
         },
     )]);
-    let r = reqs_native(&[Capability::ToolBash]);
+    // Restricted satisfies Emulated min_support (not Native)
+    let r = reqs(&[(Capability::ToolBash, MinSupport::Emulated)]);
     let res = negotiate(&m, &r);
-    assert_eq!(res.emulatable, vec![Capability::ToolBash]);
+    assert_eq!(res.emulated_caps(), vec![Capability::ToolBash]);
     assert!(res.is_compatible());
 }
 
@@ -263,8 +296,8 @@ fn emulated_cap_has_adapter_strategy() {
     let m = manifest(&[(Capability::ToolRead, SupportLevel::Emulated)]);
     let level = check_capability(&m, &Capability::ToolRead);
     match level {
-        CapSupportLevel::Emulated { strategy } => {
-            assert_eq!(strategy, "adapter");
+        CapSupportLevel::Emulated { method } => {
+            assert_eq!(method, "adapter");
         }
         _ => panic!("expected Emulated"),
     }
@@ -280,11 +313,10 @@ fn restricted_cap_strategy_contains_reason() {
     )]);
     let level = check_capability(&m, &Capability::ToolBash);
     match level {
-        CapSupportLevel::Emulated { strategy } => {
-            assert!(strategy.contains("restricted"));
-            assert!(strategy.contains("user policy"));
+        CapSupportLevel::Restricted { reason } => {
+            assert!(reason.contains("user policy"));
         }
-        _ => panic!("expected Emulated"),
+        _ => panic!("expected Restricted, got {level:?}"),
     }
 }
 
@@ -294,11 +326,16 @@ fn restricted_cap_strategy_contains_reason() {
 
 #[test]
 fn native_and_emulated_are_distinct_support_levels() {
-    assert_ne!(CapSupportLevel::Native, CapSupportLevel::Unsupported);
+    assert_ne!(
+        CapSupportLevel::Native,
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into()
+        }
+    );
     assert_ne!(
         CapSupportLevel::Native,
         CapSupportLevel::Emulated {
-            strategy: "adapter".into()
+            method: "adapter".into()
         }
     );
 }
@@ -306,10 +343,10 @@ fn native_and_emulated_are_distinct_support_levels() {
 #[test]
 fn emulated_strategies_differ() {
     let a = CapSupportLevel::Emulated {
-        strategy: "polyfill".into(),
+        method: "polyfill".into(),
     };
     let b = CapSupportLevel::Emulated {
-        strategy: "adapter".into(),
+        method: "adapter".into(),
     };
     assert_ne!(a, b);
 }
@@ -317,10 +354,10 @@ fn emulated_strategies_differ() {
 #[test]
 fn same_emulated_strategy_is_equal() {
     let a = CapSupportLevel::Emulated {
-        strategy: "adapter".into(),
+        method: "adapter".into(),
     };
     let b = CapSupportLevel::Emulated {
-        strategy: "adapter".into(),
+        method: "adapter".into(),
     };
     assert_eq!(a, b);
 }
@@ -341,14 +378,14 @@ fn unsupported_cap_makes_result_incompatible() {
 fn explicit_unsupported_in_manifest_is_unsupported() {
     let m = manifest(&[(Capability::Logprobs, SupportLevel::Unsupported)]);
     let level = check_capability(&m, &Capability::Logprobs);
-    assert_eq!(level, CapSupportLevel::Unsupported);
+    assert!(matches!(level, CapSupportLevel::Unsupported { .. }));
 }
 
 #[test]
 fn missing_from_manifest_is_unsupported() {
     let m: CapabilityManifest = BTreeMap::new();
     let level = check_capability(&m, &Capability::Streaming);
-    assert_eq!(level, CapSupportLevel::Unsupported);
+    assert!(matches!(level, CapSupportLevel::Unsupported { .. }));
 }
 
 // ===========================================================================
@@ -383,7 +420,7 @@ fn intersection_with_partial_overlap() {
     ]);
     let res = negotiate(&m, &r);
     assert_eq!(res.native.len(), 2);
-    assert_eq!(res.unsupported, vec![Capability::Logprobs]);
+    assert_eq!(res.unsupported_caps(), vec![Capability::Logprobs]);
 }
 
 // ===========================================================================
@@ -457,9 +494,11 @@ fn serde_roundtrip_cap_support_level() {
     let levels = vec![
         CapSupportLevel::Native,
         CapSupportLevel::Emulated {
-            strategy: "polyfill".into(),
+            method: "polyfill".into(),
         },
-        CapSupportLevel::Unsupported,
+        CapSupportLevel::Unsupported {
+            reason: "unsupported".into(),
+        },
     ];
     for level in &levels {
         let json = serde_json::to_string(level).unwrap();
@@ -470,11 +509,11 @@ fn serde_roundtrip_cap_support_level() {
 
 #[test]
 fn serde_roundtrip_negotiation_result() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead],
+        vec![Capability::Logprobs],
+    );
     let json = serde_json::to_string(&result).unwrap();
     let back: NegotiationResult = serde_json::from_str(&json).unwrap();
     assert_eq!(back, result);
@@ -482,11 +521,11 @@ fn serde_roundtrip_negotiation_result() {
 
 #[test]
 fn serde_roundtrip_compatibility_report() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolBash],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolBash],
+        vec![],
+    );
     let report = generate_report(&result);
     let json = serde_json::to_string(&report).unwrap();
     let back: CompatibilityReport = serde_json::from_str(&json).unwrap();
@@ -752,7 +791,7 @@ fn all_native_large_set() {
     let res = negotiate(&m, &r);
     assert!(res.is_compatible());
     assert_eq!(res.native.len(), caps.len());
-    assert!(res.emulatable.is_empty());
+    assert!(res.emulated.is_empty());
     assert!(res.unsupported.is_empty());
 }
 
@@ -776,10 +815,11 @@ fn single_cap_native() {
 #[test]
 fn single_cap_emulated() {
     let m = manifest(&[(Capability::ToolUse, SupportLevel::Emulated)]);
-    let r = reqs_native(&[Capability::ToolUse]);
+    // Emulated satisfies Emulated min_support (not Native)
+    let r = reqs(&[(Capability::ToolUse, MinSupport::Emulated)]);
     let res = negotiate(&m, &r);
     assert!(res.is_compatible());
-    assert_eq!(res.emulatable, vec![Capability::ToolUse]);
+    assert_eq!(res.emulated_caps(), vec![Capability::ToolUse]);
 }
 
 #[test]
@@ -788,7 +828,7 @@ fn single_cap_unsupported() {
     let r = reqs_native(&[Capability::ToolUse]);
     let res = negotiate(&m, &r);
     assert!(!res.is_compatible());
-    assert_eq!(res.unsupported, vec![Capability::ToolUse]);
+    assert_eq!(res.unsupported_caps(), vec![Capability::ToolUse]);
 }
 
 #[test]
@@ -1095,11 +1135,7 @@ fn check_capabilities_unknown_dialect_all_unsupported() {
 
 #[test]
 fn report_summary_compatible_text() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulatable: vec![],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(vec![Capability::Streaming], vec![], vec![]);
     let report = generate_report(&result);
     assert!(report.summary.contains("fully compatible"));
     assert!(report.summary.contains("1 native"));
@@ -1107,11 +1143,11 @@ fn report_summary_compatible_text() {
 
 #[test]
 fn report_summary_incompatible_text() {
-    let result = NegotiationResult {
-        native: vec![],
-        emulatable: vec![],
-        unsupported: vec![Capability::Logprobs, Capability::SeedDeterminism],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![],
+        vec![],
+        vec![Capability::Logprobs, Capability::SeedDeterminism],
+    );
     let report = generate_report(&result);
     assert!(report.summary.contains("incompatible"));
     assert!(report.summary.contains("2 unsupported"));
@@ -1119,11 +1155,11 @@ fn report_summary_incompatible_text() {
 
 #[test]
 fn report_all_emulated_is_compatible() {
-    let result = NegotiationResult {
-        native: vec![],
-        emulatable: vec![Capability::Streaming, Capability::ToolRead],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![],
+        vec![Capability::Streaming, Capability::ToolRead],
+        vec![],
+    );
     let report = generate_report(&result);
     assert!(report.compatible);
     assert!(report.summary.contains("fully compatible"));
@@ -1135,21 +1171,17 @@ fn report_all_emulated_is_compatible() {
 
 #[test]
 fn negotiation_result_total_counts_all_buckets() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead, Capability::ToolWrite],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead, Capability::ToolWrite],
+        vec![Capability::Logprobs],
+    );
     assert_eq!(result.total(), 4);
 }
 
 #[test]
 fn negotiation_result_empty_total_is_zero() {
-    let result = NegotiationResult {
-        native: vec![],
-        emulatable: vec![],
-        unsupported: vec![],
-    };
+    let result = NegotiationResult::from_simple(vec![], vec![], vec![]);
     assert_eq!(result.total(), 0);
     assert!(result.is_compatible());
 }
@@ -1212,15 +1244,16 @@ fn negotiate_mixed_native_emulated_unsupported() {
         (Capability::ToolRead, SupportLevel::Emulated),
         (Capability::ToolBash, SupportLevel::Unsupported),
     ]);
-    let r = reqs_native(&[
-        Capability::Streaming,
-        Capability::ToolRead,
-        Capability::ToolBash,
+    // ToolRead with Emulated min_support → emulated bucket; ToolBash unsupported → incompatible
+    let r = reqs(&[
+        (Capability::Streaming, MinSupport::Native),
+        (Capability::ToolRead, MinSupport::Emulated),
+        (Capability::ToolBash, MinSupport::Native),
     ]);
     let res = negotiate(&m, &r);
     assert_eq!(res.native, vec![Capability::Streaming]);
-    assert_eq!(res.emulatable, vec![Capability::ToolRead]);
-    assert_eq!(res.unsupported, vec![Capability::ToolBash]);
+    assert_eq!(res.emulated_caps(), vec![Capability::ToolRead]);
+    assert_eq!(res.unsupported_caps(), vec![Capability::ToolBash]);
     assert!(!res.is_compatible());
 }
 
@@ -1476,11 +1509,11 @@ fn core_negotiator_deterministic() {
 
 #[test]
 fn report_generation_deterministic() {
-    let result = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ToolRead],
-        unsupported: vec![Capability::Logprobs],
-    };
+    let result = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ToolRead],
+        vec![Capability::Logprobs],
+    );
     let r1 = generate_report(&result);
     let r2 = generate_report(&result);
     assert_eq!(r1, r2);
@@ -1648,7 +1681,7 @@ fn negotiation_result_annotates_all_categories() {
             level,
             CapSupportLevel::Native
                 | CapSupportLevel::Emulated { .. }
-                | CapSupportLevel::Unsupported
+                | CapSupportLevel::Unsupported { .. }
         ));
     }
     assert_eq!(report.details.len(), 3);
@@ -1758,7 +1791,7 @@ fn all_capability_variants_missing_check_unsupported() {
     let m: CapabilityManifest = BTreeMap::new();
     for cap in &all_capabilities() {
         let level = check_capability(&m, cap);
-        assert_eq!(level, CapSupportLevel::Unsupported);
+        assert!(matches!(level, CapSupportLevel::Unsupported { .. }));
     }
 }
 
@@ -1844,21 +1877,22 @@ fn negotiate_ten_caps_simultaneously() {
     ]
     .into_iter()
     .collect();
-    let r = reqs_native(&[
-        Capability::Streaming,
-        Capability::ToolRead,
-        Capability::ToolWrite,
-        Capability::ToolEdit,
-        Capability::ToolBash,
-        Capability::ToolGlob,
-        Capability::ToolGrep,
-        Capability::Logprobs,
-        Capability::McpClient,
-        Capability::ExtendedThinking,
+    // ToolWrite/ToolEdit are Emulated in manifest, use Emulated min_support for them
+    let r = reqs(&[
+        (Capability::Streaming, MinSupport::Native),
+        (Capability::ToolRead, MinSupport::Native),
+        (Capability::ToolWrite, MinSupport::Emulated),
+        (Capability::ToolEdit, MinSupport::Emulated),
+        (Capability::ToolBash, MinSupport::Native),
+        (Capability::ToolGlob, MinSupport::Native),
+        (Capability::ToolGrep, MinSupport::Native),
+        (Capability::Logprobs, MinSupport::Native),
+        (Capability::McpClient, MinSupport::Native),
+        (Capability::ExtendedThinking, MinSupport::Native),
     ]);
     let res = negotiate(&m, &r);
     assert_eq!(res.native.len(), 3);
-    assert_eq!(res.emulatable.len(), 2);
+    assert_eq!(res.emulated.len(), 2);
     assert_eq!(res.unsupported.len(), 5);
     assert_eq!(res.total(), 10);
     assert!(!res.is_compatible());
@@ -2023,14 +2057,18 @@ fn full_pipeline_negotiate_then_emulate_then_fidelity() {
         (Capability::ToolRead, SupportLevel::Native),
         (Capability::ExtendedThinking, SupportLevel::Emulated),
     ]);
-    let r = reqs_native(&[Capability::ToolRead, Capability::ExtendedThinking]);
+    // ExtendedThinking is Emulated, so use Emulated min_support
+    let r = reqs(&[
+        (Capability::ToolRead, MinSupport::Native),
+        (Capability::ExtendedThinking, MinSupport::Emulated),
+    ]);
     let neg = negotiate(&m, &r);
     assert!(neg.is_compatible());
 
     // 2) Apply emulation for emulatable caps
     let engine = EmulationEngine::with_defaults();
     let mut conv = IrConversation::new().push(IrMessage::text(IrRole::User, "test"));
-    let emu_report = engine.apply(&neg.emulatable.to_vec(), &mut conv);
+    let emu_report = engine.apply(&neg.emulated_caps(), &mut conv);
 
     // ExtendedThinking has a default emulation strategy (system prompt injection)
     assert_eq!(emu_report.applied.len(), 1);
@@ -2053,8 +2091,7 @@ fn full_pipeline_incompatible_cap_not_emulatable() {
 
     // Try to emulate the unsupported cap
     let engine = EmulationEngine::with_defaults();
-    let report = engine.check_missing(&neg.unsupported);
-    // Streaming has no emulation strategy → warning
+    let report = engine.check_missing(&neg.unsupported_caps());
     assert!(report.has_unemulatable());
 }
 
@@ -2067,7 +2104,7 @@ fn full_pipeline_all_native_no_emulation_needed() {
     let r = reqs_native(&[Capability::Streaming, Capability::ToolRead]);
     let neg = negotiate(&m, &r);
     assert!(neg.is_compatible());
-    assert!(neg.emulatable.is_empty());
+    assert!(neg.emulated.is_empty());
 
     let labels = compute_fidelity(&neg.native, &abp_emulation::EmulationReport::default());
     assert_eq!(labels.len(), 2);

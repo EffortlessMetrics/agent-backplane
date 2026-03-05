@@ -6,6 +6,7 @@
 
 use abp_core::{AgentEvent, AgentEventKind};
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::dialect::OpenAIFunctionCall;
@@ -17,7 +18,7 @@ use crate::dialect::OpenAIFunctionCall;
 /// A single streaming chunk from the Chat Completions API.
 ///
 /// Corresponds to the `chat.completion.chunk` SSE event.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ChatCompletionChunk {
     /// Unique chunk identifier (e.g. `chatcmpl-...`).
     pub id: String,
@@ -35,7 +36,7 @@ pub struct ChatCompletionChunk {
 }
 
 /// A single choice inside a streaming chunk.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ChunkChoice {
     /// Zero-based index of this choice.
     pub index: u32,
@@ -48,7 +49,7 @@ pub struct ChunkChoice {
 /// The delta payload inside a streaming choice.
 ///
 /// Each field is `Option` — only the fields that changed are present.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, JsonSchema)]
 pub struct ChunkDelta {
     /// Role of the message (only in the first chunk).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -62,7 +63,7 @@ pub struct ChunkDelta {
 }
 
 /// A tool call fragment inside a streaming delta.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ChunkToolCall {
     /// Index of the tool call in the overall tool_calls array.
     pub index: u32,
@@ -78,7 +79,7 @@ pub struct ChunkToolCall {
 }
 
 /// Incremental function call data inside a streaming tool call fragment.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ChunkFunctionCall {
     /// Function name (only present in the first fragment).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -93,7 +94,7 @@ pub struct ChunkFunctionCall {
 // ---------------------------------------------------------------------------
 
 /// Token usage statistics attached to the final streaming chunk.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ChunkUsage {
     /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,

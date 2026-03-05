@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir_events"
+---
+[
+  {
+    "type": "stream_start",
+    "id": "chunk-01",
+    "model": "moonshot-v1-8k"
+  },
+  {
+    "type": "text_delta",
+    "index": 0,
+    "text": "你好"
+  }
+]

@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "BackendEntry::Sidecar\n{ command: \"python3\".into(), args: vec![], timeout_secs: None, }"
+---
+{
+  "type": "sidecar",
+  "command": "python3",
+  "args": []
+}

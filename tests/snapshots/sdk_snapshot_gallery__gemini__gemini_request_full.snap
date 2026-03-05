@@ -1,0 +1,74 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: req
+---
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Explain photosynthesis."
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Photosynthesis is..."
+        }
+      ]
+    }
+  ],
+  "systemInstruction": {
+    "parts": [
+      {
+        "text": "You are a biology teacher."
+      }
+    ]
+  },
+  "tools": [
+    {
+      "functionDeclarations": [
+        {
+          "name": "get_diagram",
+          "description": "Retrieve a biology diagram",
+          "parameters": {
+            "properties": {
+              "topic": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    }
+  ],
+  "toolConfig": {
+    "functionCallingConfig": {
+      "mode": "AUTO"
+    }
+  },
+  "generationConfig": {
+    "temperature": 0.8,
+    "topP": 0.95,
+    "topK": 40,
+    "maxOutputTokens": 2048,
+    "candidateCount": 1,
+    "stopSequences": [
+      "END"
+    ]
+  },
+  "safetySettings": [
+    {
+      "category": "HARM_CATEGORY_HARASSMENT",
+      "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+    },
+    {
+      "category": "HARM_CATEGORY_HATE_SPEECH",
+      "threshold": "BLOCK_ONLY_HIGH"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: e
+---
+{
+  "code": "contract_version_mismatch",
+  "message": "Expected abp/v0.1, got abp/v0.2",
+  "details": {
+    "actual": "abp/v0.2",
+    "expected": "abp/v0.1"
+  },
+  "is_retryable": false
+}

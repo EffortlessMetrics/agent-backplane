@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: e
+---
+{
+  "code": "capability_unsupported",
+  "message": "Vision capability not available",
+  "details": {
+    "capability": "vision"
+  },
+  "is_retryable": false
+}

@@ -1,0 +1,16 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir_chunks"
+---
+[
+  {
+    "index": 0,
+    "delta_content": [
+      {
+        "type": "text",
+        "text": "Partial "
+      }
+    ],
+    "role": "assistant"
+  }
+]

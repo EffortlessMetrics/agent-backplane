@@ -1,0 +1,10 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: cfg
+---
+{
+  "log_level": "info",
+  "bind_address": "0.0.0.0",
+  "port": 9090,
+  "backends": {}
+}

@@ -1,0 +1,5 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&any"
+---
+type: any

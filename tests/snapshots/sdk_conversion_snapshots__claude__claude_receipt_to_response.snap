@@ -1,0 +1,21 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: resp
+---
+{
+  "id": "[id]",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello! I can help with that."
+    }
+  ],
+  "model": "claude-sonnet-4-20250514",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 100,
+    "output_tokens": 50
+  }
+}

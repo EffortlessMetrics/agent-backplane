@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: "make_event(AgentEventKind::RunCompleted\n{ message: \"All tasks finished\".into(), })"
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "run_completed",
+  "message": "All tasks finished"
+}

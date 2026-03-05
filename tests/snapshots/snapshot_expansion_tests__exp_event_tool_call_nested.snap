@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: "make_event(AgentEventKind::ToolCall\n{\n    tool_name: \"bash\".into(), tool_use_id: Some(\"tu_child\".into()),\n    parent_tool_use_id: Some(\"tu_parent\".into()), input:\n    json!({\"command\": \"cargo test\"}),\n})"
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "tool_call",
+  "tool_name": "bash",
+  "tool_use_id": "tu_child",
+  "parent_tool_use_id": "tu_parent",
+  "input": {
+    "command": "cargo test"
+  }
+}

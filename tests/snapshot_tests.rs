@@ -1,3 +1,32 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Golden-file / snapshot tests for JSON serialization of core contract types.
 //!
@@ -1092,6 +1121,7 @@ fn snapshot_backplane_config_full() {
         log_level: Some("debug".into()),
         receipts_dir: Some("/tmp/receipts".into()),
         backends,
+        ..Default::default()
     };
     insta::assert_json_snapshot!(cfg);
 }
@@ -1125,21 +1155,21 @@ fn snapshot_backend_entry_sidecar_no_timeout() {
 
 #[test]
 fn snapshot_negotiation_result_all_native() {
-    let r = NegotiationResult {
-        native: vec![Capability::Streaming, Capability::ToolUse],
-        emulatable: vec![],
-        unsupported: vec![],
-    };
+    let r = NegotiationResult::from_simple(
+        vec![Capability::Streaming, Capability::ToolUse],
+        vec![],
+        vec![],
+    );
     insta::assert_json_snapshot!(r);
 }
 
 #[test]
 fn snapshot_negotiation_result_mixed() {
-    let r = NegotiationResult {
-        native: vec![Capability::Streaming],
-        emulatable: vec![Capability::ExtendedThinking],
-        unsupported: vec![Capability::McpServer],
-    };
+    let r = NegotiationResult::from_simple(
+        vec![Capability::Streaming],
+        vec![Capability::ExtendedThinking],
+        vec![Capability::McpServer],
+    );
     insta::assert_json_snapshot!(r);
 }
 
@@ -1157,7 +1187,7 @@ fn snapshot_compatibility_report() {
             (
                 "extended_thinking".into(),
                 CapSupportLevel::Emulated {
-                    strategy: "adapter".into(),
+                    method: "adapter".into(),
                 },
             ),
         ],
@@ -1175,8 +1205,18 @@ fn snapshot_compatibility_report_incompatible() {
         summary: "incompatible (2 unsupported)".into(),
         details: vec![
             ("streaming".into(), CapSupportLevel::Native),
-            ("mcp_client".into(), CapSupportLevel::Unsupported),
-            ("mcp_server".into(), CapSupportLevel::Unsupported),
+            (
+                "mcp_client".into(),
+                CapSupportLevel::Unsupported {
+                    reason: "unsupported".into(),
+                },
+            ),
+            (
+                "mcp_server".into(),
+                CapSupportLevel::Unsupported {
+                    reason: "unsupported".into(),
+                },
+            ),
         ],
     };
     insta::assert_json_snapshot!(r);

@@ -1,0 +1,25 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: resp
+---
+{
+  "id": "chatcmpl-snap001",
+  "object": "chat.completion",
+  "created": 1700000000,
+  "model": "gpt-4o-2024-05-13",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "The answer is 42."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 30,
+    "completion_tokens": 10,
+    "total_tokens": 40
+  }
+}

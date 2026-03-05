@@ -22,8 +22,8 @@
 //! }).unwrap();
 //! let (first, second) = line.as_bytes().split_at(10);
 //!
-//! assert!(parser.push(first).is_empty());
-//! let envelopes = parser.push(second);
+//! assert!(parser.feed(first).is_empty());
+//! let envelopes = parser.feed(second);
 //! assert_eq!(envelopes.len(), 1);
 //! ```
 
@@ -78,6 +78,14 @@ impl StreamParser {
     pub fn push(&mut self, data: &[u8]) -> Vec<Result<Envelope, ProtocolError>> {
         self.buf.extend_from_slice(data);
         self.drain_lines()
+    }
+
+    /// Feed raw bytes into the parser and return parsed envelopes.
+    ///
+    /// This is an alias for [`push`](Self::push) provided for API
+    /// ergonomics — the two methods are functionally identical.
+    pub fn feed(&mut self, data: &[u8]) -> Vec<Result<Envelope, ProtocolError>> {
+        self.push(data)
     }
 
     /// Flush any remaining data in the buffer, treating it as the final

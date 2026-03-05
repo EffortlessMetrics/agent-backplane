@@ -1,0 +1,12 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: cmd
+---
+{
+  "command": "cargo test",
+  "cwd": "src/",
+  "timeout_seconds": 120,
+  "stdout": "test result: ok. 42 passed\n",
+  "stderr": "",
+  "exit_code": 0
+}

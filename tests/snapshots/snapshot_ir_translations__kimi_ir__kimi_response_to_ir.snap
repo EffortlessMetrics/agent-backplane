@@ -1,0 +1,22 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir"
+---
+{
+  "id": "cmpl-kimi-01",
+  "model": "moonshot-v1-8k",
+  "content": [
+    {
+      "type": "text",
+      "text": "你好 means hello."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 20,
+    "output_tokens": 8,
+    "total_tokens": 28,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0
+  }
+}

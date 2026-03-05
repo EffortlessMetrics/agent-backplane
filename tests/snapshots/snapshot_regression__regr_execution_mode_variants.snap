@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_regression.rs
+expression: "json!({\n    \"mapped\": ExecutionMode::Mapped, \"passthrough\":\n    ExecutionMode::Passthrough, \"default_is_mapped\": ExecutionMode::default()\n    == ExecutionMode::Mapped,\n})"
+---
+{
+  "default_is_mapped": true,
+  "mapped": "mapped",
+  "passthrough": "passthrough"
+}

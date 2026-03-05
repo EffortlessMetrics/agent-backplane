@@ -1,0 +1,5 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: r1.receipt_sha256.unwrap()
+---
+e2737bf830b49d27e73871db38d802b151585ae297e5b86fe79c342584ace1f7

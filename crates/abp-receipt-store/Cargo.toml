@@ -1,0 +1,27 @@
+[package]
+name = "abp-receipt-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Persistent receipt storage and querying for the Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "receipt", "store", "persistence"]
+categories = ["development-tools"]
+
+[dependencies]
+abp-core = { path = "../abp-core", version = "0.1.0" }
+async-trait.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "fs", "io-util"] }
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+uuid.workspace = true

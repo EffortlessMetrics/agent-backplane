@@ -1,0 +1,28 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&chunks"
+---
+[
+  {
+    "id": "stream-002",
+    "model": "gpt-4o",
+    "index": 0,
+    "role": "assistant"
+  },
+  {
+    "index": 0,
+    "delta_tool_calls": [
+      {
+        "id": "call_weather",
+        "name": "get_weather",
+        "arguments": {
+          "city": "London"
+        }
+      }
+    ]
+  },
+  {
+    "index": 0,
+    "finish_reason": "tool_use"
+  }
+]

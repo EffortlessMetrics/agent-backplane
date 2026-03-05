@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&report"
+---
+{
+  "compatible": true,
+  "native_count": 0,
+  "emulated_count": 0,
+  "unsupported_count": 0,
+  "summary": "0 native, 0 emulated, 0 unsupported — fully compatible",
+  "details": []
+}

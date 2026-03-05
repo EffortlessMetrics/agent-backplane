@@ -1,0 +1,19 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: cfg
+---
+{
+  "default_backend": "node-sidecar",
+  "log_level": "info",
+  "backends": {
+    "node-sidecar": {
+      "type": "sidecar",
+      "command": "node",
+      "args": [
+        "hosts/node/index.js",
+        "--verbose"
+      ],
+      "timeout_secs": 90
+    }
+  }
+}

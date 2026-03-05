@@ -1,0 +1,81 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: wo
+---
+{
+  "id": "[uuid]",
+  "task": "Refactor auth module with tests",
+  "lane": "workspace_first",
+  "workspace": {
+    "root": "/home/user/project",
+    "mode": "staged",
+    "include": [
+      "src/**/*.rs",
+      "tests/**/*.rs"
+    ],
+    "exclude": [
+      "target/**",
+      ".git/**"
+    ]
+  },
+  "context": {
+    "files": [
+      "src/auth.rs",
+      "README.md"
+    ],
+    "snippets": [
+      {
+        "name": "instructions",
+        "content": "Follow Rust 2024 edition conventions"
+      }
+    ]
+  },
+  "policy": {
+    "allowed_tools": [
+      "Read",
+      "Write",
+      "Bash"
+    ],
+    "disallowed_tools": [
+      "WebSearch"
+    ],
+    "deny_read": [
+      "**/.env"
+    ],
+    "deny_write": [
+      "**/.git/**"
+    ],
+    "allow_network": [
+      "crates.io"
+    ],
+    "deny_network": [
+      "*.evil.com"
+    ],
+    "require_approval_for": [
+      "Bash"
+    ]
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "streaming",
+        "min_support": "native"
+      },
+      {
+        "capability": "tool_read",
+        "min_support": "emulated"
+      }
+    ]
+  },
+  "config": {
+    "model": "claude-sonnet-4-20250514",
+    "vendor": {
+      "temperature": 0.7
+    },
+    "env": {
+      "RUST_LOG": "debug"
+    },
+    "max_budget_usd": 5.0,
+    "max_turns": 25
+  }
+}

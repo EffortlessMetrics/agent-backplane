@@ -1,0 +1,25 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: resp
+---
+{
+  "id": "codex-resp-1",
+  "object": "chat.completion",
+  "created": 1717200000,
+  "model": "codex-mini-latest",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "I've added error handling."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 80,
+    "completion_tokens": 40,
+    "total_tokens": 120
+  }
+}

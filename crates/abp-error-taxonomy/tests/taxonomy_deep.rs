@@ -1,3 +1,30 @@
+#![allow(clippy::all)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 //! Deep tests for the ABP error taxonomy.
 //!
 //! Covers: unique codes, stable strings (snapshot), Display impls, AbpError
@@ -16,25 +43,68 @@ use std::io;
 
 /// Exhaustive list – must stay in sync with `ErrorCode` variants.
 const ALL_CODES: &[ErrorCode] = &[
+    // Protocol
     ErrorCode::ProtocolInvalidEnvelope,
+    ErrorCode::ProtocolHandshakeFailed,
+    ErrorCode::ProtocolMissingRefId,
     ErrorCode::ProtocolUnexpectedMessage,
     ErrorCode::ProtocolVersionMismatch,
+    // Mapping
+    ErrorCode::MappingUnsupportedCapability,
+    ErrorCode::MappingDialectMismatch,
+    ErrorCode::MappingLossyConversion,
+    ErrorCode::MappingUnmappableTool,
+    // Backend
     ErrorCode::BackendNotFound,
+    ErrorCode::BackendUnavailable,
     ErrorCode::BackendTimeout,
+    ErrorCode::BackendRateLimited,
+    ErrorCode::BackendAuthFailed,
+    ErrorCode::BackendModelNotFound,
     ErrorCode::BackendCrashed,
+    // Execution
+    ErrorCode::ExecutionToolFailed,
+    ErrorCode::ExecutionWorkspaceError,
+    ErrorCode::ExecutionPermissionDenied,
+    // Contract
+    ErrorCode::ContractVersionMismatch,
+    ErrorCode::ContractSchemaViolation,
+    ErrorCode::ContractInvalidReceipt,
+    // Capability
     ErrorCode::CapabilityUnsupported,
     ErrorCode::CapabilityEmulationFailed,
+    // Policy
     ErrorCode::PolicyDenied,
     ErrorCode::PolicyInvalid,
+    // Workspace
     ErrorCode::WorkspaceInitFailed,
     ErrorCode::WorkspaceStagingFailed,
+    // IR
     ErrorCode::IrLoweringFailed,
     ErrorCode::IrInvalid,
+    // Receipt
     ErrorCode::ReceiptHashMismatch,
     ErrorCode::ReceiptChainBroken,
+    // Dialect
     ErrorCode::DialectUnknown,
     ErrorCode::DialectMappingFailed,
+    // Config
     ErrorCode::ConfigInvalid,
+    // RateLimit
+    ErrorCode::RateLimitExceeded,
+    ErrorCode::CircuitBreakerOpen,
+    // Stream
+    ErrorCode::StreamClosed,
+    // Receipt (store)
+    ErrorCode::ReceiptStoreFailed,
+    // Validation
+    ErrorCode::ValidationFailed,
+    // Sidecar
+    ErrorCode::SidecarSpawnFailed,
+    // Backend (content)
+    ErrorCode::BackendContentFiltered,
+    ErrorCode::BackendContextLength,
+    // Internal
     ErrorCode::Internal,
 ];
 
@@ -48,6 +118,13 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
     ErrorCategory::Receipt,
     ErrorCategory::Dialect,
     ErrorCategory::Config,
+    ErrorCategory::Mapping,
+    ErrorCategory::Execution,
+    ErrorCategory::Contract,
+    ErrorCategory::RateLimit,
+    ErrorCategory::Stream,
+    ErrorCategory::Validation,
+    ErrorCategory::Sidecar,
     ErrorCategory::Internal,
 ];
 
@@ -63,6 +140,13 @@ fn category_display_str(cat: ErrorCategory) -> &'static str {
         ErrorCategory::Receipt => "receipt",
         ErrorCategory::Dialect => "dialect",
         ErrorCategory::Config => "config",
+        ErrorCategory::Mapping => "mapping",
+        ErrorCategory::Execution => "execution",
+        ErrorCategory::Contract => "contract",
+        ErrorCategory::RateLimit => "rate_limit",
+        ErrorCategory::Stream => "stream",
+        ErrorCategory::Validation => "validation",
+        ErrorCategory::Sidecar => "sidecar",
         ErrorCategory::Internal => "internal",
     }
 }
@@ -84,6 +168,13 @@ fn recovery_suggestion(cat: ErrorCategory) -> &'static str {
         ErrorCategory::Receipt => "Recompute receipt hash or rebuild chain",
         ErrorCategory::Dialect => "Use a supported dialect or install a mapping",
         ErrorCategory::Config => "Fix the configuration file and reload",
+        ErrorCategory::Mapping => "Check dialect compatibility or retry with a supported mapping",
+        ErrorCategory::Execution => "Check tool configuration and workspace permissions",
+        ErrorCategory::Contract => "Validate contract version and schema conformance",
+        ErrorCategory::RateLimit => "Back off and retry after delay",
+        ErrorCategory::Stream => "Reconnect to the event stream",
+        ErrorCategory::Validation => "Fix input validation errors and retry",
+        ErrorCategory::Sidecar => "Restart the sidecar process",
         ErrorCategory::Internal => "Report a bug with diagnostic context",
     }
 }
@@ -150,97 +241,97 @@ fn no_two_categories_share_a_code() {
 fn snapshot_protocol_codes() {
     assert_eq!(
         ErrorCode::ProtocolInvalidEnvelope.as_str(),
-        "PROTOCOL_INVALID_ENVELOPE"
+        "protocol_invalid_envelope"
     );
     assert_eq!(
         ErrorCode::ProtocolUnexpectedMessage.as_str(),
-        "PROTOCOL_UNEXPECTED_MESSAGE"
+        "protocol_unexpected_message"
     );
     assert_eq!(
         ErrorCode::ProtocolVersionMismatch.as_str(),
-        "PROTOCOL_VERSION_MISMATCH"
+        "protocol_version_mismatch"
     );
 }
 
 #[test]
 fn snapshot_backend_codes() {
-    assert_eq!(ErrorCode::BackendNotFound.as_str(), "BACKEND_NOT_FOUND");
-    assert_eq!(ErrorCode::BackendTimeout.as_str(), "BACKEND_TIMEOUT");
-    assert_eq!(ErrorCode::BackendCrashed.as_str(), "BACKEND_CRASHED");
+    assert_eq!(ErrorCode::BackendNotFound.as_str(), "backend_not_found");
+    assert_eq!(ErrorCode::BackendTimeout.as_str(), "backend_timeout");
+    assert_eq!(ErrorCode::BackendCrashed.as_str(), "backend_crashed");
 }
 
 #[test]
 fn snapshot_capability_codes() {
     assert_eq!(
         ErrorCode::CapabilityUnsupported.as_str(),
-        "CAPABILITY_UNSUPPORTED"
+        "capability_unsupported"
     );
     assert_eq!(
         ErrorCode::CapabilityEmulationFailed.as_str(),
-        "CAPABILITY_EMULATION_FAILED"
+        "capability_emulation_failed"
     );
 }
 
 #[test]
 fn snapshot_policy_codes() {
-    assert_eq!(ErrorCode::PolicyDenied.as_str(), "POLICY_DENIED");
-    assert_eq!(ErrorCode::PolicyInvalid.as_str(), "POLICY_INVALID");
+    assert_eq!(ErrorCode::PolicyDenied.as_str(), "policy_denied");
+    assert_eq!(ErrorCode::PolicyInvalid.as_str(), "policy_invalid");
 }
 
 #[test]
 fn snapshot_workspace_codes() {
     assert_eq!(
         ErrorCode::WorkspaceInitFailed.as_str(),
-        "WORKSPACE_INIT_FAILED"
+        "workspace_init_failed"
     );
     assert_eq!(
         ErrorCode::WorkspaceStagingFailed.as_str(),
-        "WORKSPACE_STAGING_FAILED"
+        "workspace_staging_failed"
     );
 }
 
 #[test]
 fn snapshot_ir_codes() {
-    assert_eq!(ErrorCode::IrLoweringFailed.as_str(), "IR_LOWERING_FAILED");
-    assert_eq!(ErrorCode::IrInvalid.as_str(), "IR_INVALID");
+    assert_eq!(ErrorCode::IrLoweringFailed.as_str(), "ir_lowering_failed");
+    assert_eq!(ErrorCode::IrInvalid.as_str(), "ir_invalid");
 }
 
 #[test]
 fn snapshot_receipt_codes() {
     assert_eq!(
         ErrorCode::ReceiptHashMismatch.as_str(),
-        "RECEIPT_HASH_MISMATCH"
+        "receipt_hash_mismatch"
     );
     assert_eq!(
         ErrorCode::ReceiptChainBroken.as_str(),
-        "RECEIPT_CHAIN_BROKEN"
+        "receipt_chain_broken"
     );
 }
 
 #[test]
 fn snapshot_dialect_codes() {
-    assert_eq!(ErrorCode::DialectUnknown.as_str(), "DIALECT_UNKNOWN");
+    assert_eq!(ErrorCode::DialectUnknown.as_str(), "dialect_unknown");
     assert_eq!(
         ErrorCode::DialectMappingFailed.as_str(),
-        "DIALECT_MAPPING_FAILED"
+        "dialect_mapping_failed"
     );
 }
 
 #[test]
 fn snapshot_config_code() {
-    assert_eq!(ErrorCode::ConfigInvalid.as_str(), "CONFIG_INVALID");
+    assert_eq!(ErrorCode::ConfigInvalid.as_str(), "config_invalid");
 }
 
 #[test]
 fn snapshot_internal_code() {
-    assert_eq!(ErrorCode::Internal.as_str(), "INTERNAL");
+    assert_eq!(ErrorCode::Internal.as_str(), "internal");
 }
 
 #[test]
 fn snapshot_total_code_count() {
     assert_eq!(
         ALL_CODES.len(),
-        20,
+        44,
         "variant added/removed without updating ALL_CODES"
     );
 }
@@ -254,8 +345,12 @@ fn category_display_all_variants() {
     for cat in ALL_CATEGORIES {
         let displayed = cat.to_string();
         assert_eq!(displayed, category_display_str(*cat));
-        // Must be lowercase ASCII.
-        assert!(displayed.chars().all(|c| c.is_ascii_lowercase()));
+        // Must be lowercase ASCII (with underscores).
+        assert!(
+            displayed
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c == '_')
+        );
     }
 }
 
@@ -272,18 +367,22 @@ fn category_display_is_nonempty() {
 
 #[test]
 fn error_code_display_matches_as_str() {
+    // Display now returns human-readable messages via message().
     for code in ALL_CODES {
-        assert_eq!(code.to_string(), code.as_str());
+        let display = code.to_string();
+        assert_eq!(display, code.message());
     }
 }
 
 #[test]
 fn error_code_display_is_screaming_snake() {
+    // Display now returns human-readable messages, not SCREAMING_SNAKE_CASE.
+    // Verify as_str() is snake_case instead.
     for code in ALL_CODES {
-        let s = code.to_string();
+        let s = code.as_str();
         assert!(
-            s.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
-            "code {s} is not SCREAMING_SNAKE_CASE"
+            s.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
+            "code {s} is not snake_case"
         );
     }
 }
@@ -312,7 +411,7 @@ fn abp_error_message_preserved() {
 fn abp_error_display_contains_code_and_message() {
     let err = AbpError::new(ErrorCode::BackendNotFound, "not found");
     let display = err.to_string();
-    assert!(display.contains("BACKEND_NOT_FOUND"));
+    assert!(display.contains("backend_not_found"));
     assert!(display.contains("not found"));
 }
 
@@ -328,7 +427,7 @@ fn abp_error_display_includes_context_when_present() {
 fn abp_error_display_no_context_when_empty() {
     let err = AbpError::new(ErrorCode::PolicyDenied, "denied");
     let display = err.to_string();
-    assert_eq!(display, "[POLICY_DENIED] denied");
+    assert_eq!(display, "[policy_denied] denied");
 }
 
 // =========================================================================
@@ -356,7 +455,7 @@ fn source_chain_two_levels() {
     let outer = AbpError::new(ErrorCode::Internal, "wrapper").with_source(mid);
 
     let src1 = outer.source().unwrap();
-    assert!(src1.to_string().contains("WORKSPACE_STAGING_FAILED"));
+    assert!(src1.to_string().contains("workspace_staging_failed"));
 
     let src2 = src1.source().unwrap();
     assert_eq!(src2.to_string(), "no perms");
@@ -476,6 +575,8 @@ fn dto_to_abp_error_loses_source() {
         message: "bad".into(),
         context: BTreeMap::new(),
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.code, ErrorCode::ConfigInvalid);
@@ -503,10 +604,10 @@ fn dto_serialized_omits_null_source() {
 #[test]
 fn dto_from_all_codes() {
     for code in ALL_CODES {
-        let err = AbpError::new(*code, format!("msg for {code}"));
+        let err = AbpError::new(*code, format!("msg for {}", code.as_str()));
         let dto: AbpErrorDto = (&err).into();
         assert_eq!(dto.code, *code);
-        assert!(dto.message.contains(&code.to_string()));
+        assert!(dto.message.contains(code.as_str()));
     }
 }
 
@@ -642,6 +743,8 @@ fn dto_equality() {
         message: "a".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let dto2 = dto1.clone();
     assert_eq!(dto1, dto2);
@@ -654,12 +757,16 @@ fn dto_inequality_on_code() {
         message: "a".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     let dto2 = AbpErrorDto {
         code: ErrorCode::BackendTimeout,
         message: "a".into(),
         context: BTreeMap::new(),
         source_message: None,
+        location: None,
+        cause_chain: Vec::new(),
     };
     assert_ne!(dto1, dto2);
 }
@@ -732,7 +839,7 @@ fn serde_error_source_is_downcastable() {
 fn empty_message_allowed() {
     let err = AbpError::new(ErrorCode::Internal, "");
     assert_eq!(err.message, "");
-    assert!(err.to_string().contains("INTERNAL"));
+    assert!(err.to_string().contains("internal"));
 }
 
 #[test]
@@ -982,6 +1089,8 @@ fn dto_clone() {
         message: "timeout".into(),
         context: BTreeMap::from([("k".into(), serde_json::json!("v"))]),
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let cloned = dto.clone();
     assert_eq!(dto, cloned);

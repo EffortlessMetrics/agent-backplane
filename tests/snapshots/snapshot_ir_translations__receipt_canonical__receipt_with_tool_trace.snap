@@ -1,0 +1,62 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&receipt"
+---
+meta:
+  run_id: 00000000-0000-4000-8000-000000000001
+  work_order_id: 00000000-0000-4000-8000-000000000002
+  contract_version: abp/v0.1
+  started_at: "2025-01-15T12:00:00Z"
+  finished_at: "2025-01-15T12:00:00Z"
+  duration_ms: 1234
+backend:
+  id: "sidecar:test"
+  backend_version: 1.0.0
+  adapter_version: 0.1.0
+capabilities:
+  streaming: native
+  tool_use: native
+  extended_thinking: emulated
+mode: mapped
+usage_raw:
+  input_tokens: 100
+  output_tokens: 50
+usage:
+  input_tokens: 100
+  output_tokens: 50
+  cache_read_tokens: ~
+  cache_write_tokens: ~
+  request_units: ~
+  estimated_cost_usd: 0.001
+trace:
+  - ts: "2025-01-15T12:00:00Z"
+    type: run_started
+    message: starting
+  - ts: "2025-01-15T12:00:00Z"
+    type: tool_call
+    tool_name: read_file
+    tool_use_id: call_01
+    parent_tool_use_id: ~
+    input:
+      path: src/main.rs
+  - ts: "2025-01-15T12:00:00Z"
+    type: tool_result
+    tool_name: read_file
+    tool_use_id: call_01
+    output: "fn main() {}"
+    is_error: false
+  - ts: "2025-01-15T12:00:00Z"
+    type: assistant_message
+    text: Done reviewing.
+  - ts: "2025-01-15T12:00:00Z"
+    type: run_completed
+    message: finished
+artifacts:
+  - kind: file
+    path: output.txt
+verification:
+  git_diff: diff --git a/file.txt
+  git_status: M file.txt
+  harness_ok: true
+outcome: complete
+receipt_sha256: ~

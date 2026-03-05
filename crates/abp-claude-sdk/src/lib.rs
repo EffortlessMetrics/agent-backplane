@@ -8,8 +8,44 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// Claude dialect configuration, model mapping, and capability manifest.
+///
+/// Defines the concrete types (`ClaudeMessage`, `ClaudeContentBlock`, etc.)
+/// used on the wire, and maps between vendor model names and ABP
+/// canonical model identifiers.
 pub mod dialect;
+
+/// Anthropic API error types matching the official error format.
+///
+/// Provides typed error categories (`ErrorType`), error detail objects,
+/// and top-level `ErrorResponse` matching Anthropic's JSON error envelope.
+pub mod errors;
+
+/// Lowering between ABP IR and the Anthropic Claude message format.
+///
+/// `lowering::to_ir` lifts Claude message slices into an IR conversation,
+/// and `lowering::from_ir` lowers back to Claude messages.
 pub mod lowering;
+
+/// Anthropic Messages API surface types and bidirectional conversions.
+///
+/// Provides request/response types mirroring the
+/// [Anthropic Messages API](https://docs.anthropic.com/en/api/messages)
+/// with `From` conversions to/from ABP's `WorkOrder` and `Receipt`.
+pub mod messages;
+
+/// Anthropic Models API type definitions.
+///
+/// Types for listing and retrieving model information via the
+/// [Anthropic Models API](https://docs.anthropic.com/en/api/models).
+pub mod models;
+
+/// Streaming SSE types and helpers for the Anthropic Messages API.
+///
+/// Provides `StreamAccumulator` for building complete responses from
+/// streaming events, SSE wire format helpers, and bidirectional
+/// conversion between stream events and ABP `AgentEvent`s.
+pub mod streaming;
 
 use abp_runtime::Runtime;
 use abp_sidecar_sdk::{register_sidecar_backend, sidecar_script as resolve_sidecar_script};

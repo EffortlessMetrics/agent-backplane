@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Comprehensive capability-system tests — 90+ tests covering every variant,
 //! serde round-trips, BTreeSet operations, support-level semantics,
 //! negotiation, dialect manifests, ordering, edge cases, and property checks.
@@ -47,6 +76,21 @@ fn all_capabilities() -> Vec<Capability> {
         Capability::Logprobs,
         Capability::SeedDeterminism,
         Capability::StopSequences,
+        Capability::FunctionCalling,
+        Capability::Vision,
+        Capability::Audio,
+        Capability::JsonMode,
+        Capability::SystemMessage,
+        Capability::Temperature,
+        Capability::TopP,
+        Capability::TopK,
+        Capability::MaxTokens,
+        Capability::FrequencyPenalty,
+        Capability::PresencePenalty,
+        Capability::CacheControl,
+        Capability::BatchMode,
+        Capability::Embeddings,
+        Capability::ImageGeneration,
     ]
 }
 
@@ -88,7 +132,7 @@ fn all_capability_variants_accounted() {
     let caps = all_capabilities();
     assert_eq!(
         caps.len(),
-        26,
+        41,
         "update all_capabilities() if variants added"
     );
 }
@@ -757,7 +801,7 @@ fn empty_capability_set() {
 #[test]
 fn all_capabilities_set() {
     let set: BTreeSet<Capability> = all_capabilities().into_iter().collect();
-    assert_eq!(set.len(), 26);
+    assert_eq!(set.len(), 41);
 }
 
 #[test]
@@ -1200,7 +1244,7 @@ fn manifest_all_capabilities_inserted() {
     for cap in all_capabilities() {
         m.insert(cap, SupportLevel::Native);
     }
-    assert_eq!(m.len(), 26);
+    assert_eq!(m.len(), 41);
 }
 
 // ===========================================================================

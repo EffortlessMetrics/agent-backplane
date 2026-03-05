@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&classification"
+---
+{
+  "code": "mapping_lossy_conversion",
+  "severity": "degraded",
+  "category": "mapping_failure",
+  "recovery": {
+    "action": "fallback",
+    "description": "Mapping failed — try a compatible dialect or backend",
+    "delay_ms": null
+  }
+}

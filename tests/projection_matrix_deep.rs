@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Deep tests for the projection matrix routing logic.
 
 use abp_core::{
@@ -6,8 +35,13 @@ use abp_core::{
     RuntimeConfig, SupportLevel, WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
+use abp_mapper::{default_ir_mapper, supported_ir_pairs};
 use abp_mapping::{Fidelity, MappingRegistry, MappingRule};
-use abp_projection::{ProjectionError, ProjectionMatrix, ProjectionScore};
+use abp_projection::{
+    CompatibilityScore, DialectPair, ProjectionError, ProjectionMatrix, ProjectionMode,
+    ProjectionScore, RoutingHop, RoutingPath,
+    selection::{ModelCandidate, ModelSelector, SelectionStrategy},
+};
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -1200,4 +1234,1531 @@ fn deterministic_selection_across_runs() {
     for _ in 0..10 {
         assert_eq!(setup(), first, "selection must be deterministic");
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 16. Direct routing — mapper selection for all dialect pairs
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn direct_route_identity_all_dialects() {
+    let pm = ProjectionMatrix::with_defaults();
+    for &d in Dialect::all() {
+        let route = pm.find_route(d, d).unwrap();
+        assert_eq!(route.cost, 0, "identity route should have cost 0 for {d:?}");
+        assert!(route.hops.is_empty());
+        assert!((route.fidelity - 1.0).abs() < f64::EPSILON);
+    }
+}
+
+#[test]
+fn direct_route_openai_to_claude() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::OpenAi, Dialect::Claude).unwrap();
+    assert!(route.is_direct());
+    assert_eq!(route.cost, 1);
+    assert_eq!(route.hops[0].from, Dialect::OpenAi);
+    assert_eq!(route.hops[0].to, Dialect::Claude);
+}
+
+#[test]
+fn direct_route_claude_to_openai() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::Claude, Dialect::OpenAi).unwrap();
+    assert!(route.is_direct());
+    assert_eq!(route.cost, 1);
+}
+
+#[test]
+fn direct_route_openai_to_gemini() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::OpenAi, Dialect::Gemini).unwrap();
+    assert!(route.is_direct());
+    assert_eq!(route.cost, 1);
+}
+
+#[test]
+fn direct_route_gemini_to_openai() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::Gemini, Dialect::OpenAi).unwrap();
+    assert!(route.is_direct());
+}
+
+#[test]
+fn direct_route_claude_to_gemini() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::Claude, Dialect::Gemini).unwrap();
+    assert!(route.is_direct());
+}
+
+#[test]
+fn direct_route_gemini_to_claude() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::Gemini, Dialect::Claude).unwrap();
+    assert!(route.is_direct());
+}
+
+#[test]
+fn direct_route_codex_to_openai() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::Codex, Dialect::OpenAi).unwrap();
+    assert!(route.is_direct());
+    assert_eq!(route.cost, 1);
+}
+
+#[test]
+fn direct_route_openai_to_codex() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::OpenAi, Dialect::Codex).unwrap();
+    assert!(route.is_direct());
+}
+
+#[test]
+fn direct_route_mapper_hint_openai_claude() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::OpenAi, Dialect::Claude).unwrap();
+    assert_eq!(
+        route.hops[0].mapper_hint.as_deref(),
+        Some("openai_to_claude")
+    );
+}
+
+#[test]
+fn direct_route_mapper_hint_claude_openai() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::Claude, Dialect::OpenAi).unwrap();
+    assert_eq!(
+        route.hops[0].mapper_hint.as_deref(),
+        Some("claude_to_openai")
+    );
+}
+
+#[test]
+fn direct_route_codex_openai_identity_hint() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::Codex, Dialect::OpenAi).unwrap();
+    assert_eq!(route.hops[0].mapper_hint.as_deref(), Some("identity"));
+}
+
+#[test]
+fn direct_route_is_not_multi_hop() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::OpenAi, Dialect::Claude).unwrap();
+    assert!(!route.is_multi_hop());
+}
+
+#[test]
+fn direct_route_identity_is_not_multi_hop() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+    assert!(!route.is_multi_hop());
+}
+
+#[test]
+fn direct_route_all_mapped_pairs_have_cost_one() {
+    let pm = ProjectionMatrix::with_defaults();
+    let mapped_pairs = [
+        (Dialect::OpenAi, Dialect::Claude),
+        (Dialect::Claude, Dialect::OpenAi),
+        (Dialect::OpenAi, Dialect::Gemini),
+        (Dialect::Gemini, Dialect::OpenAi),
+        (Dialect::Claude, Dialect::Gemini),
+        (Dialect::Gemini, Dialect::Claude),
+        (Dialect::Codex, Dialect::OpenAi),
+        (Dialect::OpenAi, Dialect::Codex),
+    ];
+    for (src, tgt) in mapped_pairs {
+        let route = pm.find_route(src, tgt).unwrap();
+        assert_eq!(route.cost, 1, "direct route {src:?}→{tgt:?} should cost 1");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 17. Multi-hop routing — chain through intermediate dialects
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn multi_hop_kimi_to_claude_via_openai() {
+    // Kimi→OpenAi is unsupported by default, but let's register Kimi→OpenAi as mapped.
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
+    // Should chain through OpenAI: Kimi→OpenAI→Claude
+    assert!(route.is_multi_hop());
+    assert_eq!(route.cost, 2);
+    assert_eq!(route.hops.len(), 2);
+    assert_eq!(route.hops[0].from, Dialect::Kimi);
+    assert_eq!(route.hops[1].to, Dialect::Claude);
+}
+
+#[test]
+fn multi_hop_copilot_to_gemini_via_openai() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.register(Dialect::Copilot, Dialect::OpenAi, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::Copilot, Dialect::Gemini).unwrap();
+    assert!(route.is_multi_hop());
+    assert_eq!(route.cost, 2);
+}
+
+#[test]
+fn multi_hop_fidelity_is_product_of_hops() {
+    let reg = abp_mapping::known_rules();
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_mapping_features(vec!["tool_use".into()]);
+    pm.register_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+
+    let hop1_fid = pm
+        .compatibility_score(Dialect::Kimi, Dialect::OpenAi)
+        .fidelity;
+    let hop2_fid = pm
+        .compatibility_score(Dialect::OpenAi, Dialect::Claude)
+        .fidelity;
+
+    let route = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
+    let expected = hop1_fid * hop2_fid;
+    assert!(
+        (route.fidelity - expected).abs() < 0.01,
+        "multi-hop fidelity {:.3} should be product {:.3}",
+        route.fidelity,
+        expected
+    );
+}
+
+#[test]
+fn multi_hop_picks_highest_fidelity_intermediate() {
+    let mut pm = ProjectionMatrix::new();
+    // Register two possible intermediates: OpenAI and Gemini
+    pm.register(Dialect::Kimi, Dialect::Kimi, ProjectionMode::Passthrough);
+    pm.register(
+        Dialect::Copilot,
+        Dialect::Copilot,
+        ProjectionMode::Passthrough,
+    );
+    pm.register(
+        Dialect::OpenAi,
+        Dialect::OpenAi,
+        ProjectionMode::Passthrough,
+    );
+    pm.register(
+        Dialect::Gemini,
+        Dialect::Gemini,
+        ProjectionMode::Passthrough,
+    );
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    pm.register(Dialect::OpenAi, Dialect::Copilot, ProjectionMode::Mapped);
+    pm.register(Dialect::Kimi, Dialect::Gemini, ProjectionMode::Mapped);
+    pm.register(Dialect::Gemini, Dialect::Copilot, ProjectionMode::Mapped);
+
+    let route = pm.find_route(Dialect::Kimi, Dialect::Copilot).unwrap();
+    assert!(route.is_multi_hop());
+    assert_eq!(route.cost, 2);
+}
+
+#[test]
+fn multi_hop_not_used_when_direct_exists() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::OpenAi, Dialect::Claude).unwrap();
+    // Direct route exists → should not multi-hop.
+    assert!(route.is_direct());
+    assert_eq!(route.cost, 1);
+}
+
+#[test]
+fn multi_hop_no_route_if_no_intermediate() {
+    // Empty matrix — no routes registered except the pair itself (unsupported).
+    let mut pm = ProjectionMatrix::new();
+    pm.register(Dialect::Kimi, Dialect::Copilot, ProjectionMode::Unsupported);
+    let route = pm.find_route(Dialect::Kimi, Dialect::Copilot);
+    assert!(route.is_none(), "should find no route");
+}
+
+#[test]
+fn multi_hop_through_codex_to_claude() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    // Kimi→Codex mapped, Codex→OpenAI mapped, OpenAI→Claude mapped
+    pm.register(Dialect::Kimi, Dialect::Codex, ProjectionMode::Mapped);
+    // Direct Kimi→Claude is unsupported, but Kimi→Codex→OpenAI chain is two hops.
+    // Also Kimi→Codex is 1 hop and Codex→Claude needs to go through OpenAI.
+    // find_route only does 1-intermediate chains, so we need Kimi→OpenAI to exist
+    // or Kimi→Codex + Codex→Claude. Let's check Codex→Claude.
+    pm.register(Dialect::Codex, Dialect::Claude, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
+    assert!(route.is_multi_hop());
+}
+
+#[test]
+fn multi_hop_identity_source_equals_target() {
+    let pm = ProjectionMatrix::with_defaults();
+    for &d in Dialect::all() {
+        let route = pm.find_route(d, d).unwrap();
+        assert!(!route.is_multi_hop());
+        assert_eq!(route.cost, 0);
+    }
+}
+
+#[test]
+fn multi_hop_fidelity_less_than_direct() {
+    let reg = abp_mapping::known_rules();
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_mapping_features(vec!["tool_use".into(), "streaming".into()]);
+    pm.register_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+
+    let direct = pm.find_route(Dialect::OpenAi, Dialect::Claude).unwrap();
+    let multi = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
+
+    // Multi-hop fidelity should generally be ≤ direct fidelity.
+    assert!(
+        multi.fidelity <= direct.fidelity + 0.01,
+        "multi-hop {:.3} should be ≤ direct {:.3}",
+        multi.fidelity,
+        direct.fidelity
+    );
+}
+
+#[test]
+fn multi_hop_route_has_contiguous_hops() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
+    if route.hops.len() == 2 {
+        assert_eq!(
+            route.hops[0].to, route.hops[1].from,
+            "hops must be contiguous"
+        );
+    }
+}
+
+#[test]
+fn multi_hop_copilot_to_claude() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.register(Dialect::Copilot, Dialect::OpenAi, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::Copilot, Dialect::Claude).unwrap();
+    assert!(route.is_multi_hop());
+    assert_eq!(route.hops[0].from, Dialect::Copilot);
+    assert_eq!(route.hops[1].to, Dialect::Claude);
+}
+
+#[test]
+fn multi_hop_kimi_to_gemini_via_openai() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::Kimi, Dialect::Gemini).unwrap();
+    assert!(route.is_multi_hop());
+    assert_eq!(route.cost, 2);
+}
+
+#[test]
+fn multi_hop_copilot_to_codex_via_openai() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.register(Dialect::Copilot, Dialect::OpenAi, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::Copilot, Dialect::Codex).unwrap();
+    assert!(route.is_multi_hop());
+    // Should route Copilot→OpenAI→Codex
+    assert_eq!(route.hops[0].to, Dialect::OpenAi);
+    assert_eq!(route.hops[1].from, Dialect::OpenAi);
+    assert_eq!(route.hops[1].to, Dialect::Codex);
+}
+
+#[test]
+fn multi_hop_roundtrip_kimi_openai_kimi() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    pm.register(Dialect::OpenAi, Dialect::Kimi, ProjectionMode::Mapped);
+    let fwd = pm.find_route(Dialect::Kimi, Dialect::OpenAi).unwrap();
+    let rev = pm.find_route(Dialect::OpenAi, Dialect::Kimi).unwrap();
+    // Both should be direct since we registered them.
+    assert!(fwd.is_direct());
+    assert!(rev.is_direct());
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 18. Cost-based routing — prefer direct over multi-hop
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn cost_direct_is_one() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::OpenAi, Dialect::Claude).unwrap();
+    assert_eq!(route.cost, 1);
+}
+
+#[test]
+fn cost_identity_is_zero() {
+    let pm = ProjectionMatrix::with_defaults();
+    let route = pm.find_route(Dialect::Claude, Dialect::Claude).unwrap();
+    assert_eq!(route.cost, 0);
+}
+
+#[test]
+fn cost_multi_hop_is_two() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
+    assert_eq!(route.cost, 2);
+}
+
+#[test]
+fn cost_direct_preferred_over_multi_hop() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    // Register direct Kimi→Claude as well.
+    pm.register(Dialect::Kimi, Dialect::Claude, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
+    // Direct exists → cost 1 preferred over cost 2.
+    assert!(route.is_direct());
+    assert_eq!(route.cost, 1);
+}
+
+#[test]
+fn cost_ordering_identity_direct_multihop() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+
+    let identity = pm.find_route(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+    let direct = pm.find_route(Dialect::OpenAi, Dialect::Claude).unwrap();
+    let multi = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
+
+    assert!(identity.cost < direct.cost);
+    assert!(direct.cost < multi.cost);
+}
+
+#[test]
+fn cost_no_route_returns_none() {
+    let pm = ProjectionMatrix::new();
+    assert!(pm.find_route(Dialect::Kimi, Dialect::Copilot).is_none());
+}
+
+#[test]
+fn cost_unsupported_pair_tries_multi_hop() {
+    let pm = ProjectionMatrix::with_defaults();
+    // Kimi→Copilot is unsupported and no intermediate exists.
+    let route = pm.find_route(Dialect::Kimi, Dialect::Copilot);
+    assert!(route.is_none());
+}
+
+#[test]
+fn cost_all_identity_routes_are_zero() {
+    let pm = ProjectionMatrix::with_defaults();
+    for &d in Dialect::all() {
+        assert_eq!(pm.find_route(d, d).unwrap().cost, 0);
+    }
+}
+
+#[test]
+fn cost_fidelity_decreases_with_hops() {
+    let reg = abp_mapping::known_rules();
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_mapping_features(vec!["tool_use".into()]);
+    pm.register_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+
+    let identity = pm.find_route(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+    let multi = pm.find_route(Dialect::Kimi, Dialect::Claude).unwrap();
+    assert!(identity.fidelity >= multi.fidelity);
+}
+
+#[test]
+fn cost_direct_fidelity_higher_than_or_equal_multi_hop() {
+    let reg = abp_mapping::known_rules();
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_mapping_features(vec!["tool_use".into(), "streaming".into()]);
+    pm.register_defaults();
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+
+    if let Some(multi) = pm.find_route(Dialect::Kimi, Dialect::Claude) {
+        let direct_oai_claude = pm.find_route(Dialect::OpenAi, Dialect::Claude).unwrap();
+        // The individual hop's fidelity should be >= entire multi-hop chain.
+        assert!(direct_oai_claude.fidelity >= multi.fidelity - 0.01);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 19. Compatibility scoring — rate mapping fidelity per pair
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn compat_same_dialect_perfect() {
+    let pm = ProjectionMatrix::with_defaults();
+    for &d in Dialect::all() {
+        let score = pm.compatibility_score(d, d);
+        assert!((score.fidelity - 1.0).abs() < f64::EPSILON);
+        assert_eq!(score.lossy_features, 0);
+        assert_eq!(score.unsupported_features, 0);
+    }
+}
+
+#[test]
+fn compat_openai_to_claude_with_features() {
+    let reg = abp_mapping::known_rules();
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_mapping_features(vec!["tool_use".into(), "streaming".into()]);
+    pm.register_defaults();
+    let score = pm.compatibility_score(Dialect::OpenAi, Dialect::Claude);
+    assert!(score.fidelity > 0.0);
+    assert_eq!(score.source, Dialect::OpenAi);
+    assert_eq!(score.target, Dialect::Claude);
+}
+
+#[test]
+fn compat_counts_lossless_features() {
+    let mut reg = MappingRegistry::new();
+    reg.insert(MappingRule {
+        source_dialect: Dialect::OpenAi,
+        target_dialect: Dialect::Claude,
+        feature: "tool_use".into(),
+        fidelity: Fidelity::Lossless,
+    });
+    reg.insert(MappingRule {
+        source_dialect: Dialect::OpenAi,
+        target_dialect: Dialect::Claude,
+        feature: "streaming".into(),
+        fidelity: Fidelity::Lossless,
+    });
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_mapping_features(vec!["tool_use".into(), "streaming".into()]);
+    let score = pm.compatibility_score(Dialect::OpenAi, Dialect::Claude);
+    assert_eq!(score.lossless_features, 2);
+    assert_eq!(score.lossy_features, 0);
+    assert_eq!(score.unsupported_features, 0);
+}
+
+#[test]
+fn compat_counts_lossy_features() {
+    let mut reg = MappingRegistry::new();
+    reg.insert(MappingRule {
+        source_dialect: Dialect::OpenAi,
+        target_dialect: Dialect::Gemini,
+        feature: "tool_use".into(),
+        fidelity: Fidelity::LossyLabeled {
+            warning: "partial".into(),
+        },
+    });
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_mapping_features(vec!["tool_use".into()]);
+    let score = pm.compatibility_score(Dialect::OpenAi, Dialect::Gemini);
+    assert_eq!(score.lossy_features, 1);
+    assert_eq!(score.lossless_features, 0);
+}
+
+#[test]
+fn compat_counts_unsupported_features() {
+    let mut reg = MappingRegistry::new();
+    reg.insert(MappingRule {
+        source_dialect: Dialect::Claude,
+        target_dialect: Dialect::Kimi,
+        feature: "thinking".into(),
+        fidelity: Fidelity::Unsupported {
+            reason: "not supported".into(),
+        },
+    });
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_mapping_features(vec!["thinking".into()]);
+    let score = pm.compatibility_score(Dialect::Claude, Dialect::Kimi);
+    assert_eq!(score.unsupported_features, 1);
+    assert!(score.fidelity.abs() < f64::EPSILON);
+}
+
+#[test]
+fn compat_mixed_features() {
+    let mut reg = MappingRegistry::new();
+    reg.insert(MappingRule {
+        source_dialect: Dialect::OpenAi,
+        target_dialect: Dialect::Claude,
+        feature: "tool_use".into(),
+        fidelity: Fidelity::Lossless,
+    });
+    reg.insert(MappingRule {
+        source_dialect: Dialect::OpenAi,
+        target_dialect: Dialect::Claude,
+        feature: "streaming".into(),
+        fidelity: Fidelity::LossyLabeled {
+            warning: "partial".into(),
+        },
+    });
+    reg.insert(MappingRule {
+        source_dialect: Dialect::OpenAi,
+        target_dialect: Dialect::Claude,
+        feature: "logprobs".into(),
+        fidelity: Fidelity::Unsupported {
+            reason: "N/A".into(),
+        },
+    });
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_mapping_features(vec![
+        "tool_use".into(),
+        "streaming".into(),
+        "logprobs".into(),
+    ]);
+    let score = pm.compatibility_score(Dialect::OpenAi, Dialect::Claude);
+    assert_eq!(score.lossless_features, 1);
+    assert_eq!(score.lossy_features, 1);
+    assert_eq!(score.unsupported_features, 1);
+}
+
+#[test]
+fn compat_no_features_uses_heuristic() {
+    let reg = abp_mapping::known_rules();
+    let pm = ProjectionMatrix::with_mapping_registry(reg);
+    // No features set → fidelity from heuristic.
+    let score = pm.compatibility_score(Dialect::Claude, Dialect::OpenAi);
+    // Should still produce something meaningful via rank_targets.
+    assert!(score.fidelity >= 0.0);
+}
+
+#[test]
+fn compat_score_serde_roundtrip() {
+    let score = CompatibilityScore {
+        source: Dialect::OpenAi,
+        target: Dialect::Claude,
+        fidelity: 0.85,
+        lossless_features: 3,
+        lossy_features: 1,
+        unsupported_features: 0,
+    };
+    let json = serde_json::to_string(&score).unwrap();
+    let deser: CompatibilityScore = serde_json::from_str(&json).unwrap();
+    assert_eq!(deser.source, Dialect::OpenAi);
+    assert_eq!(deser.target, Dialect::Claude);
+    assert!((deser.fidelity - 0.85).abs() < f64::EPSILON);
+    assert_eq!(deser.lossless_features, 3);
+}
+
+#[test]
+fn compat_higher_fidelity_wins_backend_selection() {
+    let mut reg = MappingRegistry::new();
+    reg.insert(MappingRule {
+        source_dialect: Dialect::Claude,
+        target_dialect: Dialect::OpenAi,
+        feature: "tool_use".into(),
+        fidelity: Fidelity::Lossless,
+    });
+    reg.insert(MappingRule {
+        source_dialect: Dialect::Claude,
+        target_dialect: Dialect::Gemini,
+        feature: "tool_use".into(),
+        fidelity: Fidelity::Unsupported {
+            reason: "nope".into(),
+        },
+    });
+
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_source_dialect(Dialect::Claude);
+    pm.set_mapping_features(vec!["tool_use".into()]);
+    pm.register_backend("openai-be", streaming_manifest(), Dialect::OpenAi, 50);
+    pm.register_backend("gemini-be", streaming_manifest(), Dialect::Gemini, 50);
+
+    let oai = pm.compatibility_score(Dialect::Claude, Dialect::OpenAi);
+    let gem = pm.compatibility_score(Dialect::Claude, Dialect::Gemini);
+    assert!(oai.fidelity > gem.fidelity);
+
+    let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
+    assert_eq!(result.selected_backend, "openai-be");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 20. Edge cases — unknown dialects, self-mapping, empty matrix
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn edge_self_mapping_all_dialects_lookup() {
+    let pm = ProjectionMatrix::with_defaults();
+    for &d in Dialect::all() {
+        let entry = pm.lookup(d, d).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    }
+}
+
+#[test]
+fn edge_empty_matrix_find_route_returns_identity_only() {
+    let pm = ProjectionMatrix::new();
+    // Identity still works (no lookup needed).
+    let route = pm.find_route(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+    assert_eq!(route.cost, 0);
+    // Non-identity returns None.
+    assert!(pm.find_route(Dialect::OpenAi, Dialect::Claude).is_none());
+}
+
+#[test]
+fn edge_empty_matrix_compatibility_score_identity() {
+    let pm = ProjectionMatrix::new();
+    let score = pm.compatibility_score(Dialect::OpenAi, Dialect::OpenAi);
+    assert!((score.fidelity - 1.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn edge_remove_backend_reduces_count() {
+    let mut pm = ProjectionMatrix::new();
+    pm.register_backend("a", streaming_manifest(), Dialect::OpenAi, 50);
+    pm.register_backend("b", streaming_manifest(), Dialect::Claude, 50);
+    assert_eq!(pm.backend_count(), 2);
+    assert!(pm.remove_backend("a"));
+    assert_eq!(pm.backend_count(), 1);
+}
+
+#[test]
+fn edge_remove_nonexistent_backend() {
+    let mut pm = ProjectionMatrix::new();
+    assert!(!pm.remove_backend("nonexistent"));
+}
+
+#[test]
+fn edge_remove_dialect_entry() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    let removed = pm.remove(Dialect::OpenAi, Dialect::Claude);
+    assert!(removed.is_some());
+    assert!(pm.lookup(Dialect::OpenAi, Dialect::Claude).is_none());
+}
+
+#[test]
+fn edge_remove_nonexistent_dialect_entry() {
+    let mut pm = ProjectionMatrix::new();
+    assert!(pm.remove(Dialect::Kimi, Dialect::Copilot).is_none());
+}
+
+#[test]
+fn edge_project_after_backend_removal() {
+    let mut pm = ProjectionMatrix::new();
+    pm.register_backend("a", streaming_manifest(), Dialect::OpenAi, 50);
+    pm.register_backend("b", streaming_manifest(), Dialect::Claude, 50);
+    pm.remove_backend("a");
+    let result = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
+    assert_eq!(result.selected_backend, "b");
+}
+
+#[test]
+fn edge_routing_path_serde_roundtrip() {
+    let path = RoutingPath {
+        hops: vec![],
+        cost: 0,
+        fidelity: 1.0,
+    };
+    let json = serde_json::to_string(&path).unwrap();
+    let deser: RoutingPath = serde_json::from_str(&json).unwrap();
+    assert_eq!(deser.cost, 0);
+    assert!((deser.fidelity - 1.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn edge_all_unsupported_pairs_no_route() {
+    let mut pm = ProjectionMatrix::new();
+    // Register everything as unsupported.
+    for &src in Dialect::all() {
+        for &tgt in Dialect::all() {
+            if src != tgt {
+                pm.register(src, tgt, ProjectionMode::Unsupported);
+            }
+        }
+    }
+    // No cross-dialect route should exist.
+    assert!(pm.find_route(Dialect::OpenAi, Dialect::Claude).is_none());
+    assert!(pm.find_route(Dialect::Kimi, Dialect::Copilot).is_none());
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 21. Registration — dynamic mapper registration, override, remove
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn register_custom_dialect_pair() {
+    let mut pm = ProjectionMatrix::new();
+    pm.register(Dialect::Kimi, Dialect::Copilot, ProjectionMode::Mapped);
+    let entry = pm.lookup(Dialect::Kimi, Dialect::Copilot).unwrap();
+    assert_eq!(entry.mode, ProjectionMode::Mapped);
+}
+
+#[test]
+fn register_override_existing_pair() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    // OpenAI→Claude is Mapped by default.
+    assert_eq!(
+        pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap().mode,
+        ProjectionMode::Mapped
+    );
+    // Override to Unsupported.
+    pm.register(
+        Dialect::OpenAi,
+        Dialect::Claude,
+        ProjectionMode::Unsupported,
+    );
+    assert_eq!(
+        pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap().mode,
+        ProjectionMode::Unsupported
+    );
+}
+
+#[test]
+fn register_override_does_not_change_count() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    let before = pm.dialect_entry_count();
+    pm.register(
+        Dialect::OpenAi,
+        Dialect::Claude,
+        ProjectionMode::Unsupported,
+    );
+    assert_eq!(pm.dialect_entry_count(), before);
+}
+
+#[test]
+fn register_same_dialect_forces_passthrough() {
+    let mut pm = ProjectionMatrix::new();
+    // Even if we try to register as Mapped, identity should force Passthrough.
+    pm.register(Dialect::Gemini, Dialect::Gemini, ProjectionMode::Mapped);
+    let entry = pm.lookup(Dialect::Gemini, Dialect::Gemini).unwrap();
+    assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+}
+
+#[test]
+fn register_backend_override_updates_dialect() {
+    let mut pm = ProjectionMatrix::new();
+    pm.register_backend("be", streaming_manifest(), Dialect::OpenAi, 50);
+    pm.set_source_dialect(Dialect::OpenAi);
+    let r1 = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
+    assert!((r1.fidelity_score.mapping_fidelity - 1.0).abs() < f64::EPSILON);
+
+    // Override to Claude dialect.
+    pm.register_backend("be", streaming_manifest(), Dialect::Claude, 50);
+    let r2 = pm.project(&wo(require(&[Capability::Streaming]))).unwrap();
+    // Now source=OpenAI, backend=Claude → fidelity may differ.
+    assert_eq!(r2.selected_backend, "be");
+}
+
+#[test]
+fn register_remove_then_re_register() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    pm.remove(Dialect::OpenAi, Dialect::Claude);
+    assert!(pm.lookup(Dialect::OpenAi, Dialect::Claude).is_none());
+    pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
+    assert!(pm.lookup(Dialect::OpenAi, Dialect::Claude).is_some());
+}
+
+#[test]
+fn register_defaults_populates_all_pairs() {
+    let pm = ProjectionMatrix::with_defaults();
+    let n = Dialect::all().len();
+    // All n*n pairs should be present (including identity).
+    assert_eq!(pm.dialect_entry_count(), n * n);
+}
+
+#[test]
+fn register_backend_remove_last_gives_empty_error() {
+    let mut pm = ProjectionMatrix::new();
+    pm.register_backend("only", streaming_manifest(), Dialect::OpenAi, 50);
+    pm.remove_backend("only");
+    assert_eq!(pm.backend_count(), 0);
+    let err = pm
+        .project(&wo(require(&[Capability::Streaming])))
+        .unwrap_err();
+    assert!(matches!(err, ProjectionError::EmptyMatrix));
+}
+
+#[test]
+fn register_multiple_and_verify_iteration() {
+    let mut pm = ProjectionMatrix::new();
+    pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
+    pm.register(Dialect::Claude, Dialect::Gemini, ProjectionMode::Mapped);
+    pm.register(
+        Dialect::OpenAi,
+        Dialect::OpenAi,
+        ProjectionMode::Passthrough,
+    );
+    assert_eq!(pm.dialect_entry_count(), 3);
+    let entries: Vec<_> = pm.dialect_entries().collect();
+    assert_eq!(entries.len(), 3);
+}
+
+#[test]
+fn register_route_affected_by_removal() {
+    let mut pm = ProjectionMatrix::with_defaults();
+    // Kimi→OpenAI mapped, so Kimi→Claude should find multi-hop.
+    pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
+    assert!(pm.find_route(Dialect::Kimi, Dialect::Claude).is_some());
+
+    // Remove Kimi→OpenAI, now multi-hop should fail (unless another intermediate).
+    pm.remove(Dialect::Kimi, Dialect::OpenAi);
+    // May still find through other intermediates — let's also remove those.
+    pm.register(Dialect::Kimi, Dialect::Claude, ProjectionMode::Unsupported);
+    pm.register(Dialect::Kimi, Dialect::Gemini, ProjectionMode::Unsupported);
+    pm.register(Dialect::Kimi, Dialect::Codex, ProjectionMode::Unsupported);
+    pm.register(Dialect::Kimi, Dialect::Copilot, ProjectionMode::Unsupported);
+    let route = pm.find_route(Dialect::Kimi, Dialect::Claude);
+    assert!(route.is_none(), "no route after removing intermediates");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 22. Model selection strategies — integration with projection
+// ═══════════════════════════════════════════════════════════════════════
+
+fn mk_candidate(name: &str) -> ModelCandidate {
+    ModelCandidate {
+        backend_name: name.to_string(),
+        model_id: "m".to_string(),
+        estimated_latency_ms: None,
+        estimated_cost_per_1k_tokens: None,
+        fidelity_score: None,
+        weight: 1.0,
+    }
+}
+
+#[test]
+fn selection_lowest_latency_picks_fastest() {
+    let sel = ModelSelector::new(
+        SelectionStrategy::LowestLatency,
+        vec![
+            ModelCandidate {
+                estimated_latency_ms: Some(500),
+                ..mk_candidate("slow")
+            },
+            ModelCandidate {
+                estimated_latency_ms: Some(20),
+                ..mk_candidate("fast")
+            },
+            ModelCandidate {
+                estimated_latency_ms: Some(150),
+                ..mk_candidate("mid")
+            },
+        ],
+    );
+    assert_eq!(sel.select().unwrap().backend_name, "fast");
+}
+
+#[test]
+fn selection_lowest_cost_picks_cheapest() {
+    let sel = ModelSelector::new(
+        SelectionStrategy::LowestCost,
+        vec![
+            ModelCandidate {
+                estimated_cost_per_1k_tokens: Some(8.0),
+                ..mk_candidate("expensive")
+            },
+            ModelCandidate {
+                estimated_cost_per_1k_tokens: Some(0.25),
+                ..mk_candidate("cheap")
+            },
+            ModelCandidate {
+                estimated_cost_per_1k_tokens: Some(2.0),
+                ..mk_candidate("mid")
+            },
+        ],
+    );
+    assert_eq!(sel.select().unwrap().backend_name, "cheap");
+}
+
+#[test]
+fn selection_highest_fidelity_picks_best() {
+    let sel = ModelSelector::new(
+        SelectionStrategy::HighestFidelity,
+        vec![
+            ModelCandidate {
+                fidelity_score: Some(0.3),
+                ..mk_candidate("low")
+            },
+            ModelCandidate {
+                fidelity_score: Some(0.99),
+                ..mk_candidate("high")
+            },
+            ModelCandidate {
+                fidelity_score: Some(0.6),
+                ..mk_candidate("mid")
+            },
+        ],
+    );
+    assert_eq!(sel.select().unwrap().backend_name, "high");
+}
+
+#[test]
+fn selection_round_robin_cycles() {
+    let sel = ModelSelector::new(
+        SelectionStrategy::RoundRobin,
+        vec![mk_candidate("a"), mk_candidate("b"), mk_candidate("c")],
+    );
+    assert_eq!(sel.select().unwrap().backend_name, "a");
+    assert_eq!(sel.select().unwrap().backend_name, "b");
+    assert_eq!(sel.select().unwrap().backend_name, "c");
+    assert_eq!(sel.select().unwrap().backend_name, "a");
+}
+
+#[test]
+fn selection_weighted_random_respects_weights() {
+    let sel = ModelSelector::new(
+        SelectionStrategy::WeightedRandom,
+        vec![
+            ModelCandidate {
+                weight: 0.0,
+                ..mk_candidate("zero_a")
+            },
+            ModelCandidate {
+                weight: 10.0,
+                ..mk_candidate("heavy")
+            },
+            ModelCandidate {
+                weight: 0.0,
+                ..mk_candidate("zero_b")
+            },
+        ],
+    );
+    for _ in 0..20 {
+        assert_eq!(sel.select().unwrap().backend_name, "heavy");
+    }
+}
+
+#[test]
+fn selection_fallback_chain_first_in_order() {
+    let sel = ModelSelector::new(
+        SelectionStrategy::FallbackChain,
+        vec![
+            mk_candidate("primary"),
+            mk_candidate("secondary"),
+            mk_candidate("tertiary"),
+        ],
+    );
+    assert_eq!(sel.select().unwrap().backend_name, "primary");
+    // Repeated calls always return first.
+    assert_eq!(sel.select().unwrap().backend_name, "primary");
+}
+
+#[test]
+fn selection_empty_backend_list_returns_none() {
+    for strategy in [
+        SelectionStrategy::LowestLatency,
+        SelectionStrategy::LowestCost,
+        SelectionStrategy::HighestFidelity,
+        SelectionStrategy::RoundRobin,
+        SelectionStrategy::WeightedRandom,
+        SelectionStrategy::FallbackChain,
+    ] {
+        let sel = ModelSelector::new(strategy, vec![]);
+        assert!(
+            sel.select().is_none(),
+            "{strategy:?} should return None on empty"
+        );
+    }
+}
+
+#[test]
+fn selection_single_backend_always_selected() {
+    for strategy in [
+        SelectionStrategy::LowestLatency,
+        SelectionStrategy::LowestCost,
+        SelectionStrategy::HighestFidelity,
+        SelectionStrategy::RoundRobin,
+        SelectionStrategy::WeightedRandom,
+        SelectionStrategy::FallbackChain,
+    ] {
+        let sel = ModelSelector::new(strategy, vec![mk_candidate("only")]);
+        assert_eq!(
+            sel.select().unwrap().backend_name,
+            "only",
+            "{strategy:?} should always pick the single candidate"
+        );
+    }
+}
+
+#[test]
+fn selection_strategy_serde_roundtrip() {
+    for strategy in [
+        SelectionStrategy::LowestLatency,
+        SelectionStrategy::LowestCost,
+        SelectionStrategy::HighestFidelity,
+        SelectionStrategy::RoundRobin,
+        SelectionStrategy::WeightedRandom,
+        SelectionStrategy::FallbackChain,
+    ] {
+        let json = serde_json::to_string(&strategy).unwrap();
+        let back: SelectionStrategy = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, strategy);
+    }
+}
+
+#[test]
+fn selection_custom_strategy_composition_select_n() {
+    let sel = ModelSelector::new(
+        SelectionStrategy::LowestLatency,
+        vec![
+            ModelCandidate {
+                estimated_latency_ms: Some(300),
+                ..mk_candidate("slow")
+            },
+            ModelCandidate {
+                estimated_latency_ms: Some(10),
+                ..mk_candidate("fast")
+            },
+            ModelCandidate {
+                estimated_latency_ms: Some(100),
+                ..mk_candidate("mid")
+            },
+        ],
+    );
+    let top2: Vec<_> = sel
+        .select_n(2)
+        .iter()
+        .map(|c| c.backend_name.as_str())
+        .collect();
+    assert_eq!(top2, vec!["fast", "mid"]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 23. Projection routing — metadata, concurrency, determinism
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn routing_preserves_work_order_metadata() {
+    let mut pm = ProjectionMatrix::new();
+    pm.register_backend("be", streaming_manifest(), Dialect::OpenAi, 50);
+    let work_order = WorkOrderBuilder::new("specific task description")
+        .requirements(require(&[Capability::Streaming]))
+        .root("/custom/path")
+        .max_turns(42)
+        .build();
+    let result = pm.project(&work_order).unwrap();
+    // Projection result references the backend, not the work order itself;
+    // verify the work order was not mutated by projecting it.
+    assert_eq!(work_order.task, "specific task description");
+    assert_eq!(work_order.workspace.root, "/custom/path");
+    assert_eq!(work_order.config.max_turns, Some(42));
+    assert_eq!(result.selected_backend, "be");
+}
+
+#[test]
+fn multiple_concurrent_routes_dont_interfere() {
+    let pm = ProjectionMatrix::with_defaults();
+    let wo1 = wo(require(&[Capability::Streaming]));
+    let wo2 = wo(require(&[Capability::ToolRead]));
+
+    let mut pm_with_backends = ProjectionMatrix::new();
+    pm_with_backends.register_backend(
+        "a",
+        manifest(&[
+            (Capability::Streaming, SupportLevel::Native),
+            (Capability::ToolRead, SupportLevel::Native),
+        ]),
+        Dialect::OpenAi,
+        50,
+    );
+    pm_with_backends.register_backend(
+        "b",
+        manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+        Dialect::Claude,
+        50,
+    );
+
+    let r1 = pm_with_backends.project(&wo1).unwrap();
+    let r2 = pm_with_backends.project(&wo2).unwrap();
+
+    // Both should succeed; routes are independent.
+    assert!(!r1.selected_backend.is_empty());
+    assert!(!r2.selected_backend.is_empty());
+
+    // Routing the same dialect pair multiple times gives the same result.
+    let route_a = pm.find_route(Dialect::OpenAi, Dialect::Claude);
+    let route_b = pm.find_route(Dialect::OpenAi, Dialect::Claude);
+    assert_eq!(
+        route_a.as_ref().map(|r| r.cost),
+        route_b.as_ref().map(|r| r.cost)
+    );
+    assert_eq!(
+        route_a.as_ref().map(|r| r.hops.len()),
+        route_b.as_ref().map(|r| r.hops.len())
+    );
+}
+
+#[test]
+fn route_selection_is_deterministic_across_invocations() {
+    let mut pm = ProjectionMatrix::new();
+    pm.register_defaults();
+    pm.register_backend("a", streaming_manifest(), Dialect::OpenAi, 80);
+    pm.register_backend("b", streaming_manifest(), Dialect::Claude, 60);
+    pm.register_backend("c", streaming_manifest(), Dialect::Gemini, 40);
+
+    let work_order = wo(require(&[Capability::Streaming]));
+    let results: Vec<_> = (0..10)
+        .map(|_| pm.project(&work_order).unwrap().selected_backend.clone())
+        .collect();
+
+    // All results must be identical.
+    assert!(
+        results.windows(2).all(|w| w[0] == w[1]),
+        "projection must be deterministic"
+    );
+}
+
+#[test]
+fn route_openai_to_openai_passthrough_mode() {
+    let pm = ProjectionMatrix::with_defaults();
+    let entry = pm.lookup(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+    assert_eq!(entry.mode, ProjectionMode::Passthrough);
+    let route = pm.find_route(Dialect::OpenAi, Dialect::OpenAi).unwrap();
+    assert_eq!(route.cost, 0);
+    assert!((route.fidelity - 1.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn route_openai_to_claude_mapped_mode() {
+    let pm = ProjectionMatrix::with_defaults();
+    let entry = pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap();
+    assert_eq!(entry.mode, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::OpenAi, Dialect::Claude).unwrap();
+    assert_eq!(route.cost, 1);
+    assert!(route.is_direct());
+}
+
+#[test]
+fn route_claude_to_gemini_mapped_mode() {
+    let pm = ProjectionMatrix::with_defaults();
+    let entry = pm.lookup(Dialect::Claude, Dialect::Gemini).unwrap();
+    assert_eq!(entry.mode, ProjectionMode::Mapped);
+    let route = pm.find_route(Dialect::Claude, Dialect::Gemini).unwrap();
+    assert!(route.is_direct());
+}
+
+#[test]
+fn same_dialect_engine_always_passthrough() {
+    let pm = ProjectionMatrix::with_defaults();
+    for &d in Dialect::all() {
+        let entry = pm.lookup(d, d).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough, "{d} → {d}");
+        let route = pm.find_route(d, d).unwrap();
+        assert_eq!(route.cost, 0, "{d} identity cost");
+        assert_eq!(route.hops.len(), 0, "{d} identity has no hops");
+    }
+}
+
+#[test]
+fn different_dialect_engine_produces_mapped() {
+    let pm = ProjectionMatrix::with_defaults();
+    let mapped_pairs = [
+        (Dialect::OpenAi, Dialect::Claude),
+        (Dialect::Claude, Dialect::OpenAi),
+        (Dialect::OpenAi, Dialect::Gemini),
+        (Dialect::Gemini, Dialect::OpenAi),
+        (Dialect::Claude, Dialect::Gemini),
+        (Dialect::Gemini, Dialect::Claude),
+        (Dialect::OpenAi, Dialect::Codex),
+        (Dialect::Codex, Dialect::OpenAi),
+    ];
+    for (src, tgt) in mapped_pairs {
+        let entry = pm.lookup(src, tgt).unwrap();
+        assert_eq!(
+            entry.mode,
+            ProjectionMode::Mapped,
+            "{src} → {tgt} should be Mapped"
+        );
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 24. Projection matrix structure — symmetry, IR mapper coverage
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn matrix_covers_all_six_dialects() {
+    let pm = ProjectionMatrix::with_defaults();
+    let dialects = Dialect::all();
+    assert_eq!(dialects.len(), 6);
+    for &d in dialects {
+        assert!(pm.lookup(d, d).is_some(), "identity entry missing for {d}");
+    }
+}
+
+#[test]
+fn matrix_diagonal_always_passthrough() {
+    let pm = ProjectionMatrix::with_defaults();
+    for &d in Dialect::all() {
+        let entry = pm.lookup(d, d).unwrap();
+        assert_eq!(entry.mode, ProjectionMode::Passthrough);
+        assert_eq!(entry.mapper_hint.as_deref(), Some("identity"));
+    }
+}
+
+#[test]
+fn matrix_off_diagonal_mapped_entries_have_ir_mappers() {
+    let pm = ProjectionMatrix::with_defaults();
+    for entry in pm.dialect_entries() {
+        if entry.mode == ProjectionMode::Mapped {
+            assert_ne!(
+                entry.pair.source, entry.pair.target,
+                "mapped entry should be off-diagonal"
+            );
+            assert!(
+                entry.mapper_hint.is_some(),
+                "mapped entry {} should have a mapper hint",
+                entry.pair
+            );
+        }
+    }
+}
+
+#[test]
+fn matrix_missing_mappers_produce_none() {
+    let pm = ProjectionMatrix::new();
+    assert!(pm.lookup(Dialect::OpenAi, Dialect::Claude).is_none());
+    assert!(
+        pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+            .is_none()
+    );
+}
+
+#[test]
+fn matrix_symmetry_mapped_pairs() {
+    let pm = ProjectionMatrix::with_defaults();
+    for entry in pm.dialect_entries() {
+        if entry.mode == ProjectionMode::Mapped {
+            let reverse = pm.lookup(entry.pair.target, entry.pair.source);
+            assert!(
+                reverse.is_some(),
+                "reverse entry for {} → {} missing",
+                entry.pair.target,
+                entry.pair.source
+            );
+            let rev = reverse.unwrap();
+            assert_eq!(
+                rev.mode,
+                ProjectionMode::Mapped,
+                "reverse of {} should also be Mapped, got {:?}",
+                entry.pair,
+                rev.mode
+            );
+        }
+    }
+}
+
+#[test]
+fn matrix_unsupported_entries_produce_no_mapper() {
+    let pm = ProjectionMatrix::with_defaults();
+    for entry in pm.dialect_entries() {
+        if entry.mode == ProjectionMode::Unsupported {
+            let mapper = pm.resolve_mapper(entry.pair.source, entry.pair.target);
+            assert!(
+                mapper.is_none(),
+                "unsupported entry {} should not resolve to a mapper",
+                entry.pair
+            );
+        }
+    }
+}
+
+#[test]
+fn matrix_capability_requirements_checked() {
+    let mut pm = ProjectionMatrix::new();
+    pm.register_backend(
+        "limited",
+        manifest(&[(Capability::Streaming, SupportLevel::Native)]),
+        Dialect::OpenAi,
+        50,
+    );
+    let work_order = wo(require(&[Capability::ToolRead, Capability::ToolWrite]));
+    let err = pm.project(&work_order).unwrap_err();
+    assert!(matches!(err, ProjectionError::NoSuitableBackend { .. }));
+}
+
+#[test]
+fn matrix_feature_support_levels_propagate() {
+    let mut reg = MappingRegistry::new();
+    reg.insert(MappingRule {
+        source_dialect: Dialect::OpenAi,
+        target_dialect: Dialect::Claude,
+        feature: "tool_use".into(),
+        fidelity: Fidelity::Lossless,
+    });
+    reg.insert(MappingRule {
+        source_dialect: Dialect::OpenAi,
+        target_dialect: Dialect::Claude,
+        feature: "streaming".into(),
+        fidelity: Fidelity::LossyLabeled {
+            warning: "partial".into(),
+        },
+    });
+
+    let mut pm = ProjectionMatrix::with_mapping_registry(reg);
+    pm.set_mapping_features(vec!["tool_use".into(), "streaming".into()]);
+    pm.register_defaults();
+
+    let score = pm.compatibility_score(Dialect::OpenAi, Dialect::Claude);
+    assert_eq!(score.lossless_features, 1);
+    assert_eq!(score.lossy_features, 1);
+    assert_eq!(score.unsupported_features, 0);
+    assert!(score.fidelity > 0.0);
+}
+
+#[test]
+fn matrix_enumeration_lists_all_supported_pairs() {
+    let pm = ProjectionMatrix::with_defaults();
+    let entries: Vec<_> = pm.dialect_entries().collect();
+    let n = Dialect::all().len();
+    assert_eq!(entries.len(), n * n);
+
+    for &src in Dialect::all() {
+        for &tgt in Dialect::all() {
+            assert!(
+                entries
+                    .iter()
+                    .any(|e| e.pair.source == src && e.pair.target == tgt),
+                "pair {src} → {tgt} missing from enumeration"
+            );
+        }
+    }
+}
+
+#[test]
+fn matrix_entry_lookup_by_dialect_pair() {
+    let pm = ProjectionMatrix::with_defaults();
+    let entry = pm.lookup(Dialect::OpenAi, Dialect::Claude).unwrap();
+    assert_eq!(entry.pair.source, Dialect::OpenAi);
+    assert_eq!(entry.pair.target, Dialect::Claude);
+    assert_eq!(entry.mode, ProjectionMode::Mapped);
+}
+
+#[test]
+fn matrix_size_matches_expected() {
+    let pm = ProjectionMatrix::with_defaults();
+    let n = Dialect::all().len();
+    assert_eq!(n, 6);
+    assert_eq!(pm.dialect_entry_count(), n * n); // 36 entries
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 25. IR mapper factory integration — supported_ir_pairs, default_ir_mapper
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn ir_mapper_factory_covers_all_identity_pairs() {
+    for &d in Dialect::all() {
+        let mapper = default_ir_mapper(d, d);
+        assert!(mapper.is_some(), "identity mapper missing for {d}");
+    }
+}
+
+#[test]
+fn ir_mapper_factory_openai_claude_bidirectional() {
+    assert!(default_ir_mapper(Dialect::OpenAi, Dialect::Claude).is_some());
+    assert!(default_ir_mapper(Dialect::Claude, Dialect::OpenAi).is_some());
+}
+
+#[test]
+fn ir_mapper_factory_supported_pairs_includes_identities() {
+    let pairs = supported_ir_pairs();
+    for &d in Dialect::all() {
+        assert!(
+            pairs.contains(&(d, d)),
+            "supported_ir_pairs missing identity ({d}, {d})"
+        );
+    }
+}
+
+#[test]
+fn ir_mapper_factory_supported_pairs_symmetric() {
+    let pairs = supported_ir_pairs();
+    for &(a, b) in &pairs {
+        if a != b {
+            assert!(
+                pairs.contains(&(b, a)),
+                "supported_ir_pairs has ({a}, {b}) but not ({b}, {a})"
+            );
+        }
+    }
+}
+
+#[test]
+fn ir_mapper_factory_unsupported_returns_none() {
+    let mapper = default_ir_mapper(Dialect::Copilot, Dialect::Codex);
+    assert!(
+        mapper.is_none(),
+        "Copilot→Codex should not have a direct IR mapper"
+    );
+}
+
+#[test]
+fn ir_mapper_factory_all_supported_pairs_resolve() {
+    let pairs = supported_ir_pairs();
+    for (from, to) in &pairs {
+        let mapper = default_ir_mapper(*from, *to);
+        assert!(
+            mapper.is_some(),
+            "supported pair ({from}, {to}) should resolve to a mapper"
+        );
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 26. Routing types — RoutingHop, RoutingPath, DialectPair
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn routing_hop_serde_roundtrip() {
+    let hop = RoutingHop {
+        from: Dialect::OpenAi,
+        to: Dialect::Claude,
+        mapper_hint: Some("openai_to_claude".to_string()),
+    };
+    let json = serde_json::to_string(&hop).unwrap();
+    let back: RoutingHop = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.from, Dialect::OpenAi);
+    assert_eq!(back.to, Dialect::Claude);
+    assert_eq!(back.mapper_hint.as_deref(), Some("openai_to_claude"));
+}
+
+#[test]
+fn routing_path_direct_is_direct() {
+    let path = RoutingPath {
+        hops: vec![RoutingHop {
+            from: Dialect::OpenAi,
+            to: Dialect::Claude,
+            mapper_hint: None,
+        }],
+        cost: 1,
+        fidelity: 0.9,
+    };
+    assert!(path.is_direct());
+    assert!(!path.is_multi_hop());
+}
+
+#[test]
+fn routing_path_multi_hop_is_multi_hop() {
+    let path = RoutingPath {
+        hops: vec![
+            RoutingHop {
+                from: Dialect::Kimi,
+                to: Dialect::OpenAi,
+                mapper_hint: None,
+            },
+            RoutingHop {
+                from: Dialect::OpenAi,
+                to: Dialect::Claude,
+                mapper_hint: None,
+            },
+        ],
+        cost: 2,
+        fidelity: 0.7,
+    };
+    assert!(path.is_multi_hop());
+    assert!(!path.is_direct());
+}
+
+#[test]
+fn routing_path_empty_hops_is_direct() {
+    let path = RoutingPath {
+        hops: vec![],
+        cost: 0,
+        fidelity: 1.0,
+    };
+    assert!(path.is_direct());
+    assert!(!path.is_multi_hop());
+}
+
+#[test]
+fn dialect_pair_display_format() {
+    let pair = DialectPair::new(Dialect::Claude, Dialect::Gemini);
+    assert_eq!(pair.to_string(), "Claude → Gemini");
+}
+
+#[test]
+fn dialect_pair_ordering_consistent() {
+    let a = DialectPair::new(Dialect::OpenAi, Dialect::Claude);
+    let b = DialectPair::new(Dialect::Claude, Dialect::OpenAi);
+    // They should not be equal (direction matters).
+    assert_ne!(a, b);
+    // Ordering should be consistent (not equal means one < other or vice versa).
+    assert!(a < b || b < a);
 }

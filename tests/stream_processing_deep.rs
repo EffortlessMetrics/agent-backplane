@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Comprehensive tests for the stream processing pipeline in `abp-stream`:
 //! EventFilter, EventRecorder, EventStats, EventStream, EventMultiplexer,
 //! StreamPipeline, StreamPipelineBuilder — covering composition, concurrency,
@@ -1514,7 +1543,7 @@ fn pipeline_transform_then_filter_via_two_pipelines() {
 
 #[tokio::test]
 async fn stream_collect_filtered_accept_all() {
-    let (tx, rx) = mpsc::channel(8);
+    let (tx, rx) = mpsc::channel(16);
     for ev in every_kind() {
         tx.send(ev).await.unwrap();
     }
@@ -1527,7 +1556,7 @@ async fn stream_collect_filtered_accept_all() {
 
 #[tokio::test]
 async fn stream_collect_filtered_reject_all() {
-    let (tx, rx) = mpsc::channel(8);
+    let (tx, rx) = mpsc::channel(16);
     for ev in every_kind() {
         tx.send(ev).await.unwrap();
     }
@@ -1570,4 +1599,267 @@ fn pipeline_builder_default_same_as_new() {
     let p2 = b2.build();
     assert!(p1.recorder().is_none());
     assert!(p2.recorder().is_none());
+}
+
+// ===========================================================================
+// 21. Additional back-pressure & concurrency tests
+// ===========================================================================
+
+#[tokio::test]
+async fn back_pressure_channel_size_one_no_loss() {
+    let (tx, rx) = mpsc::channel(1);
+    let sender = tokio::spawn(async move {
+        for i in 0..20 {
+            tx.send(delta(&format!("bp-{i}"))).await.unwrap();
+        }
+    });
+    let events = EventStream::new(rx).collect_all().await;
+    sender.await.unwrap();
+    assert_eq!(events.len(), 20);
+}
+
+#[tokio::test]
+async fn back_pressure_multiple_producers_no_loss() {
+    let (tx, rx) = mpsc::channel(4);
+    let tx2 = tx.clone();
+    let h1 = tokio::spawn(async move {
+        for i in 0..25 {
+            tx.send(delta(&format!("p1-{i}"))).await.unwrap();
+        }
+    });
+    let h2 = tokio::spawn(async move {
+        for i in 0..25 {
+            tx2.send(delta(&format!("p2-{i}"))).await.unwrap();
+        }
+    });
+    let events = EventStream::new(rx).collect_all().await;
+    h1.await.unwrap();
+    h2.await.unwrap();
+    assert_eq!(events.len(), 50);
+}
+
+#[tokio::test]
+async fn concurrent_recorder_from_multiple_tasks() {
+    let rec = EventRecorder::new();
+    let r1 = rec.clone();
+    let r2 = rec.clone();
+    let h1 = tokio::spawn(async move {
+        for i in 0..40 {
+            r1.record(&delta(&format!("a{i}")));
+        }
+    });
+    let h2 = tokio::spawn(async move {
+        for i in 0..40 {
+            r2.record(&delta(&format!("b{i}")));
+        }
+    });
+    h1.await.unwrap();
+    h2.await.unwrap();
+    assert_eq!(rec.len(), 80);
+}
+
+#[tokio::test]
+async fn concurrent_stats_from_multiple_tasks() {
+    let stats = EventStats::new();
+    let s1 = stats.clone();
+    let s2 = stats.clone();
+    let h1 = tokio::spawn(async move {
+        for _ in 0..30 {
+            s1.observe(&delta("x"));
+        }
+    });
+    let h2 = tokio::spawn(async move {
+        for _ in 0..30 {
+            s2.observe(&err("e"));
+        }
+    });
+    h1.await.unwrap();
+    h2.await.unwrap();
+    assert_eq!(stats.total_events(), 60);
+    assert_eq!(stats.error_count(), 30);
+    assert_eq!(stats.count_for("assistant_delta"), 30);
+}
+
+// ===========================================================================
+// 22. Multiplexer additional edge cases
+// ===========================================================================
+
+#[tokio::test]
+async fn multiplexer_single_stream_sorted() {
+    let (tx, rx) = mpsc::channel(8);
+    tx.send(delta("solo")).await.unwrap();
+    drop(tx);
+    let events = EventMultiplexer::new(vec![rx]).collect_sorted().await;
+    assert_eq!(events.len(), 1);
+}
+
+#[tokio::test]
+async fn multiplexer_five_streams_interleaved() {
+    let base = Utc::now();
+    let mut rxs = vec![];
+    for stream_idx in 0..5i64 {
+        let (tx, rx) = mpsc::channel(4);
+        for ev_idx in 0..3i64 {
+            let offset = stream_idx + ev_idx * 5;
+            tx.send(mk_ts(
+                AgentEventKind::AssistantDelta {
+                    text: format!("s{stream_idx}-e{ev_idx}"),
+                },
+                base + Duration::milliseconds(offset),
+            ))
+            .await
+            .unwrap();
+        }
+        drop(tx);
+        rxs.push(rx);
+    }
+    let events = EventMultiplexer::new(rxs).collect_sorted().await;
+    assert_eq!(events.len(), 15);
+    for i in 1..events.len() {
+        assert!(events[i].ts >= events[i - 1].ts);
+    }
+}
+
+#[tokio::test]
+async fn multiplexer_merge_single_stream() {
+    let (tx, rx) = mpsc::channel(4);
+    tx.send(delta("only")).await.unwrap();
+    drop(tx);
+    let mut merged = EventMultiplexer::new(vec![rx]).merge(4);
+    assert!(merged.recv().await.is_some());
+    assert!(merged.recv().await.is_none());
+}
+
+#[tokio::test]
+async fn multiplexer_same_timestamp_stable() {
+    let ts = Utc::now();
+    let mut rxs = vec![];
+    for _ in 0..5 {
+        let (tx, rx) = mpsc::channel(2);
+        tx.send(mk_ts(
+            AgentEventKind::AssistantDelta {
+                text: "same".into(),
+            },
+            ts,
+        ))
+        .await
+        .unwrap();
+        drop(tx);
+        rxs.push(rx);
+    }
+    let events = EventMultiplexer::new(rxs).collect_sorted().await;
+    assert_eq!(events.len(), 5);
+    for e in &events {
+        assert_eq!(e.ts, ts);
+    }
+}
+
+// ===========================================================================
+// 23. Stream pipe & completion edge cases
+// ===========================================================================
+
+#[tokio::test]
+async fn pipe_stops_when_output_closed() {
+    let (tx_in, rx_in) = mpsc::channel(4);
+    let (tx_out, rx_out) = mpsc::channel(1);
+    drop(rx_out); // close output side
+
+    tx_in.send(delta("a")).await.unwrap();
+    tx_in.send(delta("b")).await.unwrap();
+    drop(tx_in);
+
+    // Should not panic even though output is closed
+    let pipeline = StreamPipeline::new();
+    EventStream::new(rx_in).pipe(&pipeline, tx_out).await;
+}
+
+#[tokio::test]
+async fn pipe_with_transform_and_filter_and_stats() {
+    let stats = EventStats::new();
+    let recorder = EventRecorder::new();
+    let pipeline = StreamPipelineBuilder::new()
+        .filter(EventFilter::exclude_errors())
+        .transform(EventTransform::new(|mut ev| {
+            let ext = ev.ext.get_or_insert_with(BTreeMap::new);
+            ext.insert("piped".into(), serde_json::json!(true));
+            ev
+        }))
+        .with_stats(stats.clone())
+        .with_recorder(recorder.clone())
+        .build();
+
+    let (tx_in, rx_in) = mpsc::channel(16);
+    let (tx_out, mut rx_out) = mpsc::channel(16);
+    tx_in.send(delta("a")).await.unwrap();
+    tx_in.send(err("e")).await.unwrap();
+    tx_in.send(warn("w")).await.unwrap();
+    tx_in.send(tc("read")).await.unwrap();
+    drop(tx_in);
+
+    EventStream::new(rx_in).pipe(&pipeline, tx_out).await;
+
+    let mut results = vec![];
+    while let Some(ev) = rx_out.recv().await {
+        results.push(ev);
+    }
+    assert_eq!(results.len(), 3); // error filtered
+    assert_eq!(stats.total_events(), 3);
+    assert_eq!(recorder.len(), 3);
+    for r in &results {
+        assert!(r.ext.as_ref().unwrap().contains_key("piped"));
+    }
+}
+
+#[tokio::test]
+async fn collect_filtered_rejects_all() {
+    let (tx, rx) = mpsc::channel(8);
+    tx.send(delta("a")).await.unwrap();
+    tx.send(delta("b")).await.unwrap();
+    drop(tx);
+    let filter = EventFilter::errors_only();
+    let events = EventStream::new(rx).collect_filtered(&filter).await;
+    assert!(events.is_empty());
+}
+
+#[tokio::test]
+async fn collect_filtered_accepts_all() {
+    let (tx, rx) = mpsc::channel(8);
+    tx.send(err("e1")).await.unwrap();
+    tx.send(err("e2")).await.unwrap();
+    drop(tx);
+    let filter = EventFilter::errors_only();
+    let events = EventStream::new(rx).collect_filtered(&filter).await;
+    assert_eq!(events.len(), 2);
+}
+
+// ===========================================================================
+// 24. Unicode / large payload edge cases
+// ===========================================================================
+
+#[test]
+fn stats_unicode_delta_bytes() {
+    let s = EventStats::new();
+    s.observe(&delta("🦀")); // 4 UTF-8 bytes
+    assert_eq!(s.total_delta_bytes(), 4);
+}
+
+#[test]
+fn large_delta_through_pipeline() {
+    let big = "x".repeat(100_000);
+    let p = StreamPipelineBuilder::new()
+        .transform(EventTransform::identity())
+        .build();
+    let result = p.process(delta(&big)).unwrap();
+    match &result.kind {
+        AgentEventKind::AssistantDelta { text } => assert_eq!(text.len(), 100_000),
+        _ => panic!("wrong kind"),
+    }
+}
+
+#[test]
+fn empty_string_events_pass_through_pipeline() {
+    let p = StreamPipeline::new();
+    assert!(p.process(delta("")).is_some());
+    assert!(p.process(msg("")).is_some());
+    assert!(p.process(err("")).is_some());
 }

@@ -8,10 +8,53 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+/// First-class Rust types matching the OpenAI Chat Completions API surface.
+///
+/// Provides `ChatCompletionRequest`, `ChatCompletionResponse`, and
+/// bidirectional conversions with ABP's `WorkOrder` and `Receipt`.
+pub mod api;
+
+/// OpenAI-compatible error response types.
+///
+/// Models the `{ "error": { ... } }` envelope returned by the OpenAI REST
+/// API, including convenience constructors for common error categories.
+pub mod error;
+
+/// OpenAI dialect configuration, model mapping, and capability manifest.
+///
+/// Defines the concrete types (`OpenAIMessage`, `OpenAIToolCall`, etc.)
+/// used on the wire, and maps between vendor model names and ABP
+/// canonical model identifiers.
 pub mod dialect;
+
+/// Lowering between ABP IR and the OpenAI Chat Completions message format.
+///
+/// `lowering::to_ir` lifts OpenAI message slices into an IR conversation,
+/// and `lowering::from_ir` lowers back to OpenAI messages.
 pub mod lowering;
+
+/// Model listing types for the `/v1/models` endpoint.
+///
+/// Contains `Model`, `ModelList`, and `ModelDeleted` types matching
+/// the OpenAI REST API surface for model enumeration and management.
+pub mod models;
+
+/// Structured output `response_format` types for the Chat Completions API.
+///
+/// Models the `text`, `json_object`, and `json_schema` variants of the
+/// OpenAI `response_format` parameter.
 pub mod response_format;
+
+/// Server-sent event (SSE) streaming chunk types.
+///
+/// Models `chat.completion.chunk` objects and maps them to ABP's
+/// `AgentEvent` stream.
 pub mod streaming;
+
+/// Mapped-mode validation for early failure on unmappable parameters.
+///
+/// Detects vendor-specific parameters that cannot be faithfully
+/// translated to a non-OpenAI backend and surfaces typed diagnostics.
 pub mod validation;
 
 use abp_host::SidecarSpec;

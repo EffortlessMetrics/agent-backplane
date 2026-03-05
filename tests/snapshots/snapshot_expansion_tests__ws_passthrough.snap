@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: passthrough
+---
+{
+  "root": ".",
+  "mode": "pass_through",
+  "include": [],
+  "exclude": []
+}

@@ -1,0 +1,61 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&ir"
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are a coding assistant."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Fix this bug"
+        }
+      ]
+    }
+  ],
+  "max_tokens": 2048,
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Read a file",
+      "parameters": {
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "sampling": {
+    "temperature": 0.5,
+    "top_p": 0.9
+  },
+  "stream": {
+    "enabled": true
+  },
+  "extra": {
+    "copilot_references": [
+      {
+        "data": {
+          "content": "fn main() {}"
+        },
+        "id": "src/main.rs",
+        "type": "file"
+      }
+    ],
+    "n": 1
+  }
+}

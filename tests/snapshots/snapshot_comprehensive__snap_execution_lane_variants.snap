@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: variants
+---
+[
+  "patch_first",
+  "workspace_first"
+]

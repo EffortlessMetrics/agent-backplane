@@ -1,0 +1,31 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: sample_policy()
+---
+{
+  "allowed_tools": [
+    "read",
+    "write",
+    "glob"
+  ],
+  "disallowed_tools": [
+    "bash",
+    "delete"
+  ],
+  "deny_read": [
+    ".env",
+    "secrets/**"
+  ],
+  "deny_write": [
+    "Cargo.lock"
+  ],
+  "allow_network": [
+    "api.example.com"
+  ],
+  "deny_network": [
+    "*.evil.com"
+  ],
+  "require_approval_for": [
+    "execute"
+  ]
+}

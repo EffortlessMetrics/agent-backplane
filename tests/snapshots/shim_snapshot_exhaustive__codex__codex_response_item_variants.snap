@@ -1,0 +1,61 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: items
+---
+[
+  {
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "output_text",
+        "text": "Result text"
+      }
+    ]
+  },
+  {
+    "type": "function_call",
+    "id": "fc_002",
+    "name": "run_cmd",
+    "arguments": "{\"cmd\":\"ls\"}"
+  },
+  {
+    "type": "function_call_output",
+    "call_id": "call_002",
+    "output": "file1.txt\nfile2.txt"
+  },
+  {
+    "type": "file_search_call",
+    "id": "fs_001",
+    "queries": [
+      "error handling"
+    ],
+    "results": [
+      {
+        "file_id": "file_abc",
+        "file_name": "error.rs",
+        "score": 0.95,
+        "text": "impl Error for..."
+      }
+    ]
+  },
+  {
+    "type": "code_interpreter_call",
+    "id": "ci_001",
+    "code": "print('hello')",
+    "outputs": [
+      {
+        "type": "logs",
+        "logs": "hello"
+      }
+    ]
+  },
+  {
+    "type": "reasoning",
+    "summary": [
+      {
+        "text": "I need to analyze the error handling patterns."
+      }
+    ]
+  }
+]

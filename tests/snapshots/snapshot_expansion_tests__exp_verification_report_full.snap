@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: v
+---
+{
+  "git_diff": "+new\n-old",
+  "git_status": "M file.rs\nA new.rs\nD old.rs",
+  "harness_ok": true
+}

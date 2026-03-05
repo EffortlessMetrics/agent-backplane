@@ -1,0 +1,27 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: req
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "What is in this image?"
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data": "iVBORw0KGgo="
+          }
+        }
+      ]
+    }
+  ],
+  "max_tokens": 2048
+}

@@ -70,26 +70,18 @@ cargo run -p abp-cli -- run --task "say hello" --backend mock
 1. Fork the repository and clone your fork.
 2. Create a feature branch from `main`.
 3. Make your changes in small, focused commits.
-4. Ensure all checks pass locally (see [Code Standards](#code-standards)).
-5. Push your branch and open a pull request against `main`.
+4. Push your branch — git hooks validate formatting and linting automatically.
+5. Open a pull request against `main`.
 
 ## Code Standards
 
-### Formatting
+### Enforcement Model
 
-All code must be formatted with `rustfmt`:
+Quality gates are automated via git hooks and CI. See [`DEVEX.md`](DEVEX.md) for the full enforcement model.
 
-```bash
-cargo fmt --check
-```
+**Quick start:** `cargo xtask setup` (once) — then hooks handle formatting, linting, and gating automatically.
 
-### Linting
-
-Clippy must pass with no warnings:
-
-```bash
-cargo clippy --workspace --all-targets -- -D warnings
-```
+The single truth command is `cargo xtask gate --check`. If your push succeeds locally, CI will pass.
 
 ### Unsafe Code
 

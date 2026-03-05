@@ -1,24 +1,57 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-#![doc = "Receipt canonicalization, hashing, chain verification, and diffing."]
+#![doc = include_str!("../README.md")]
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
 //! This crate extracts receipt-focused logic from `abp-core` into a dedicated
 //! microcrate. It provides canonical JSON serialization, SHA-256 hashing,
-//! chain verification, a fluent receipt builder, and field-level diffing.
+//! chain verification, a fluent receipt builder, field-level diffing,
+//! structured validation, pluggable storage, and serialization helpers.
 
+/// In-memory receipt archive with work-order-level querying.
+pub mod archive;
+/// Audit trail for receipt lifecycle events.
+pub mod audit_trail;
 mod builder;
+/// Canonical receipt representation for deterministic hashing.
+pub mod canonical;
 mod chain;
+/// Compliance checking for receipts.
+pub mod compliance;
 mod diff;
+/// Receipt metadata enrichment — compute and attach derived fields.
+pub mod enrich;
+/// Receipt export in multiple formats for bulk reporting.
+pub mod export;
+/// Serialization in JSON and compact binary formats.
+pub mod serde_formats;
+/// Standalone receipt statistics computation.
+pub mod stats;
+/// Pluggable receipt storage with an in-memory implementation.
+pub mod store;
+/// Receipt aggregation summaries (success rate, tokens, error distribution).
+pub mod summary;
+mod validate;
+/// Receipt verification and batch auditing utilities.
+pub mod verify;
+/// Receipt format versioning and compatibility checking.
+pub mod version;
 
 pub use builder::ReceiptBuilder;
-pub use chain::{ChainError, ReceiptChain};
+pub use chain::{
+    ChainBuilder, ChainError, ChainExportError, ChainGap, ChainSummary, ExportedChain,
+    ExportedEntry, ReceiptChain, TamperEvidence, TamperKind,
+};
 pub use diff::{FieldDiff, ReceiptDiff, diff_receipts};
+pub use validate::{ReceiptValidator, ValidationError};
+pub use verify::{AuditIssue, AuditReport, ReceiptAuditor, VerificationResult, verify_receipt};
 
 // Re-export core receipt types so consumers can depend on abp-receipt alone.
-pub use abp_core::{Outcome, Receipt};
+pub use abp_core::{
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, ContractError, ExecutionMode,
+    Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport,
+};
 
-use abp_core::ContractError;
 use sha2::{Digest, Sha256};
 
 /// Produce the canonical JSON representation of a receipt.

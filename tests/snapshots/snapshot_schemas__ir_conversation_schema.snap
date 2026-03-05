@@ -1,0 +1,197 @@
+---
+source: tests/snapshot_schemas.rs
+expression: "serde_json::to_string_pretty(&schema).unwrap()"
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IrConversation",
+  "description": "An ordered sequence of [`IrMessage`]s with helper accessors.",
+  "type": "object",
+  "properties": {
+    "messages": {
+      "description": "The messages in conversation order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/IrMessage"
+      }
+    }
+  },
+  "required": [
+    "messages"
+  ],
+  "$defs": {
+    "IrContentBlock": {
+      "description": "A single content block inside an [`IrMessage`].",
+      "oneOf": [
+        {
+          "description": "Plain text content.",
+          "type": "object",
+          "properties": {
+            "text": {
+              "description": "The text payload.",
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "text"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ]
+        },
+        {
+          "description": "Base64-encoded image data.",
+          "type": "object",
+          "properties": {
+            "data": {
+              "description": "Base64-encoded image bytes.",
+              "type": "string"
+            },
+            "media_type": {
+              "description": "MIME type (e.g. `\"image/png\"`).",
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "image"
+            }
+          },
+          "required": [
+            "type",
+            "media_type",
+            "data"
+          ]
+        },
+        {
+          "description": "A tool invocation requested by the model.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "description": "Unique identifier for this tool invocation.",
+              "type": "string"
+            },
+            "input": {
+              "description": "JSON-encoded input arguments."
+            },
+            "name": {
+              "description": "Tool name.",
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "tool_use"
+            }
+          },
+          "required": [
+            "type",
+            "id",
+            "name",
+            "input"
+          ]
+        },
+        {
+          "description": "The result of a prior tool invocation.",
+          "type": "object",
+          "properties": {
+            "content": {
+              "description": "Nested content blocks for the result payload.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/IrContentBlock"
+              }
+            },
+            "is_error": {
+              "description": "Whether the tool reported an error.",
+              "type": "boolean"
+            },
+            "tool_use_id": {
+              "description": "Identifier of the corresponding [`IrContentBlock::ToolUse`].",
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "tool_result"
+            }
+          },
+          "required": [
+            "type",
+            "tool_use_id",
+            "content",
+            "is_error"
+          ]
+        },
+        {
+          "description": "Extended thinking / chain-of-thought block.",
+          "type": "object",
+          "properties": {
+            "text": {
+              "description": "The thinking text.",
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "thinking"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ]
+        }
+      ]
+    },
+    "IrMessage": {
+      "description": "A single normalized message in a conversation.",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "Ordered content blocks that make up the message body.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IrContentBlock"
+          }
+        },
+        "metadata": {
+          "description": "Optional vendor-opaque metadata carried through the pipeline.",
+          "type": "object",
+          "additionalProperties": true
+        },
+        "role": {
+          "description": "The role of the message author.",
+          "$ref": "#/$defs/IrRole"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ]
+    },
+    "IrRole": {
+      "description": "Normalized message role across all dialects.",
+      "oneOf": [
+        {
+          "description": "System prompt / instructions.",
+          "type": "string",
+          "const": "system"
+        },
+        {
+          "description": "User / human turn.",
+          "type": "string",
+          "const": "user"
+        },
+        {
+          "description": "Assistant / model turn.",
+          "type": "string",
+          "const": "assistant"
+        },
+        {
+          "description": "Tool result turn (correlates with a prior tool-use block).",
+          "type": "string",
+          "const": "tool"
+        }
+      ]
+    }
+  }
+}

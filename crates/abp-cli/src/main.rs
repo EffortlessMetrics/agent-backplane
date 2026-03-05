@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #![deny(unsafe_code)]
 use abp_claude_sdk as claude_sdk;
+use abp_cli::cli::{
+    Cli, Commands, ConfigAction, LaneArg, ReceiptAction, SchemaArg, WorkspaceModeArg,
+};
 use abp_cli::commands::{self, SchemaKind};
+use abp_cli::health as health_cmd;
+use abp_cli::schema as schema_cmd;
+use abp_cli::status as status_cmd;
+use abp_cli::translate as translate_cmd;
+use abp_cli::validate as validate_cmd;
 use abp_codex_sdk as codex_sdk;
 use abp_copilot_sdk as copilot_sdk;
 use abp_core::{
-    CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
-    WorkspaceMode, WorkspaceSpec,
+    CapabilityRequirements, ContextPacket, PolicyProfile, RuntimeConfig, WorkOrder, WorkspaceSpec,
 };
 use abp_gemini_sdk as gemini_sdk;
 use abp_host::SidecarSpec;
@@ -14,7 +21,7 @@ use abp_integrations::SidecarBackend;
 use abp_kimi_sdk as kimi_sdk;
 use abp_runtime::Runtime;
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::Parser;
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -27,214 +34,6 @@ const EXIT_RUNTIME_ERROR: i32 = 1;
 /// Exit code for usage / argument errors (clap exits with 2 automatically).
 #[allow(dead_code)]
 const EXIT_USAGE_ERROR: i32 = 2;
-
-#[derive(Parser, Debug)]
-#[command(name = "abp", version, about = "Agent Backplane CLI")]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-
-    /// Enable debug logging.
-    #[arg(long)]
-    debug: bool,
-
-    /// Path to a TOML configuration file.
-    ///
-    /// Falls back to `backplane.toml` in the current directory if present.
-    #[arg(long, global = true)]
-    config: Option<PathBuf>,
-}
-
-#[allow(clippy::large_enum_variant)]
-#[derive(Subcommand, Debug)]
-enum Commands {
-    /// List available backends.
-    Backends,
-
-    /// Run a work order.
-    Run {
-        /// Backend name: mock | sidecar:node | sidecar:python | sidecar:claude | sidecar:copilot | sidecar:kimi | sidecar:gemini | sidecar:codex.
-        /// Aliases are also supported: node, python, claude, copilot, kimi, gemini, codex.
-        #[arg(long)]
-        backend: Option<String>,
-
-        /// Task to execute.
-        #[arg(long)]
-        task: String,
-
-        /// Preferred model (sets work_order.config.model).
-        #[arg(long)]
-        model: Option<String>,
-
-        /// Workspace root.
-        #[arg(long, default_value = ".")]
-        root: String,
-
-        /// Workspace mode (pass-through or staged).
-        #[arg(long, value_enum, default_value_t = WorkspaceModeArg::Staged)]
-        workspace_mode: WorkspaceModeArg,
-
-        /// Execution lane.
-        #[arg(long, value_enum, default_value_t = LaneArg::PatchFirst)]
-        lane: LaneArg,
-
-        /// Include glob(s) (relative to root). Can be repeated.
-        #[arg(long)]
-        include: Vec<String>,
-
-        /// Exclude glob(s) (relative to root). Can be repeated.
-        #[arg(long)]
-        exclude: Vec<String>,
-
-        /// Vendor params as key=value. Repeated values are merged.
-        ///
-        /// Examples:
-        /// --param model=gemini-2.5-flash
-        /// --param abp.mode=passthrough
-        /// --param stream=true
-        #[arg(long = "param")]
-        params: Vec<String>,
-
-        /// Environment variables passed through to the runtime as KEY=VALUE.
-        #[arg(long = "env")]
-        env_vars: Vec<String>,
-
-        /// Optional hard cap on run budget in USD (best-effort).
-        #[arg(long)]
-        max_budget_usd: Option<f64>,
-
-        /// Optional hard cap on run turns/iterations (best-effort).
-        #[arg(long)]
-        max_turns: Option<u32>,
-
-        /// Where to write the receipt (defaults to .agent-backplane/receipts/<run_id>.json).
-        #[arg(long)]
-        out: Option<PathBuf>,
-
-        /// Print JSON instead of pretty output.
-        #[arg(long)]
-        json: bool,
-
-        /// Path to a policy profile JSON file to load.
-        #[arg(long)]
-        policy: Option<PathBuf>,
-
-        /// Write the receipt to this file path.
-        #[arg(long)]
-        output: Option<PathBuf>,
-
-        /// Write streamed events as JSONL to this file.
-        #[arg(long)]
-        events: Option<PathBuf>,
-    },
-
-    /// Validate a JSON file as a WorkOrder, Receipt, or auto-detect type.
-    Validate {
-        /// Path to the JSON file.
-        #[arg()]
-        file: PathBuf,
-    },
-
-    /// Print a JSON schema to stdout.
-    Schema {
-        /// Which schema to print.
-        #[arg(value_enum)]
-        kind: SchemaArg,
-    },
-
-    /// Inspect a receipt file and verify its hash.
-    Inspect {
-        /// Path to the receipt JSON file.
-        #[arg()]
-        file: PathBuf,
-    },
-
-    /// Load and validate configuration.
-    #[command(name = "config")]
-    ConfigCmd {
-        #[command(subcommand)]
-        action: ConfigAction,
-    },
-
-    /// Receipt inspection and comparison.
-    #[command(name = "receipt")]
-    ReceiptCmd {
-        #[command(subcommand)]
-        action: ReceiptAction,
-    },
-}
-
-/// Actions for the `config` subcommand.
-#[derive(Subcommand, Debug)]
-enum ConfigAction {
-    /// Check (load and validate) the configuration file.
-    Check {
-        /// Path to a TOML configuration file (overrides --config).
-        #[arg(long)]
-        config: Option<PathBuf>,
-    },
-}
-
-/// Actions for the `receipt` subcommand.
-#[derive(Subcommand, Debug)]
-enum ReceiptAction {
-    /// Verify a receipt file's hash integrity.
-    Verify {
-        /// Path to the receipt JSON file.
-        #[arg()]
-        file: PathBuf,
-    },
-    /// Diff two receipt files and show changes.
-    Diff {
-        /// First receipt JSON file.
-        #[arg()]
-        file1: PathBuf,
-        /// Second receipt JSON file.
-        #[arg()]
-        file2: PathBuf,
-    },
-}
-
-/// Schema kind argument for the `schema` subcommand.
-#[derive(Debug, Clone, ValueEnum)]
-enum SchemaArg {
-    /// WorkOrder schema.
-    WorkOrder,
-    /// Receipt schema.
-    Receipt,
-    /// BackplaneConfig schema.
-    Config,
-}
-
-#[derive(Debug, Clone, ValueEnum)]
-enum WorkspaceModeArg {
-    PassThrough,
-    Staged,
-}
-
-impl From<WorkspaceModeArg> for WorkspaceMode {
-    fn from(v: WorkspaceModeArg) -> Self {
-        match v {
-            WorkspaceModeArg::PassThrough => WorkspaceMode::PassThrough,
-            WorkspaceModeArg::Staged => WorkspaceMode::Staged,
-        }
-    }
-}
-
-#[derive(Debug, Clone, ValueEnum)]
-enum LaneArg {
-    PatchFirst,
-    WorkspaceFirst,
-}
-
-impl From<LaneArg> for ExecutionLane {
-    fn from(v: LaneArg) -> Self {
-        match v {
-            LaneArg::PatchFirst => ExecutionLane::PatchFirst,
-            LaneArg::WorkspaceFirst => ExecutionLane::WorkspaceFirst,
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() {
@@ -264,12 +63,21 @@ async fn main() {
     }
 
     let result = match cli.command {
-        Commands::Backends => cmd_backends().await,
-        Commands::Validate { file } => cmd_validate(&file),
-        Commands::Schema { kind } => cmd_schema(kind),
+        Commands::Backends {
+            capabilities,
+            health,
+            json,
+        } => cmd_backends(capabilities, health, json, &config).await,
+        Commands::Validate { file, config_file } => {
+            cmd_validate(file.as_deref(), config_file.as_deref())
+        }
+        Commands::Schema { kind, output } => cmd_schema(kind, output),
         Commands::Inspect { file } => cmd_inspect(&file),
+        Commands::Translate { from, to, file } => cmd_translate(&from, &to, file),
+        Commands::Health { json } => cmd_health(&config, json),
         Commands::ConfigCmd { action } => cmd_config(action, config_path),
         Commands::ReceiptCmd { action } => cmd_receipt(action),
+        Commands::Status { json } => cmd_status(&config, json),
         Commands::Run {
             backend,
             task,
@@ -288,6 +96,10 @@ async fn main() {
             policy,
             output,
             events,
+            stream,
+            timeout,
+            retry,
+            fallback,
         } => {
             cmd_run(
                 backend,
@@ -307,6 +119,10 @@ async fn main() {
                 policy,
                 output,
                 events,
+                stream,
+                timeout,
+                retry,
+                fallback,
                 &config,
             )
             .await
@@ -319,46 +135,160 @@ async fn main() {
     }
 }
 
-async fn cmd_backends() -> Result<()> {
+async fn cmd_backends(
+    capabilities: bool,
+    health: bool,
+    json: bool,
+    config: &abp_config::BackplaneConfig,
+) -> Result<()> {
     let rt = Runtime::with_default_backends();
-    for b in rt.backend_names() {
-        println!("{b}");
+
+    // Register config backends.
+    let mut rt = rt;
+    for (name, entry) in &config.backends {
+        match entry {
+            abp_config::BackendEntry::Mock {} => {
+                rt.register_backend(name, abp_integrations::MockBackend);
+            }
+            abp_config::BackendEntry::Sidecar { command, args, .. } => {
+                let mut spec = SidecarSpec::new(command);
+                spec.args = args.clone();
+                rt.register_backend(name, SidecarBackend::new(spec));
+            }
+        }
     }
-    println!("sidecar:node");
-    println!("sidecar:python");
-    println!("sidecar:claude");
-    println!("sidecar:copilot");
-    println!("sidecar:kimi");
-    println!("sidecar:gemini");
-    println!("sidecar:codex");
-    println!("node");
-    println!("python");
-    println!("claude");
-    println!("copilot");
-    println!("kimi");
-    println!("gemini");
-    println!("codex");
+
+    if json {
+        let mut entries = Vec::new();
+        for name in rt.backend_names() {
+            let mut entry = serde_json::json!({"name": name});
+            if capabilities || health {
+                if let Some(b) = rt.backend(&name) {
+                    if capabilities {
+                        let caps = b.capabilities();
+                        let caps_json: serde_json::Map<String, JsonValue> = caps
+                            .iter()
+                            .map(|(k, v)| {
+                                (
+                                    format!("{k:?}"),
+                                    serde_json::to_value(v).unwrap_or_default(),
+                                )
+                            })
+                            .collect();
+                        entry["capabilities"] = JsonValue::Object(caps_json);
+                    }
+                    if health {
+                        entry["health"] = JsonValue::String("ok".into());
+                    }
+                }
+            }
+            entries.push(entry);
+        }
+        // Add well-known sidecars.
+        for s in SIDECAR_NAMES {
+            if !entries.iter().any(|e| e["name"] == *s) {
+                entries.push(serde_json::json!({"name": s}));
+            }
+        }
+        println!("{}", serde_json::to_string_pretty(&entries)?);
+    } else {
+        for name in rt.backend_names() {
+            if capabilities || health {
+                let mut parts = vec![name.clone()];
+                if let Some(b) = rt.backend(&name) {
+                    if capabilities {
+                        let caps = b.capabilities();
+                        parts.push(format!("capabilities={}", caps.len()));
+                    }
+                    if health {
+                        parts.push("health=ok".into());
+                    }
+                }
+                println!("{}", parts.join("  "));
+            } else {
+                println!("{name}");
+            }
+        }
+        for s in SIDECAR_NAMES {
+            if !rt.backend_names().contains(&s.to_string()) {
+                println!("{s}");
+            }
+        }
+    }
     Ok(())
 }
 
-fn cmd_validate(file: &std::path::Path) -> Result<()> {
-    let detected = commands::validate_file(file)?;
-    match detected {
-        commands::ValidatedType::WorkOrder => println!("valid work_order"),
-        commands::ValidatedType::Receipt => println!("valid receipt"),
+const SIDECAR_NAMES: &[&str] = &[
+    "sidecar:node",
+    "sidecar:python",
+    "sidecar:claude",
+    "sidecar:copilot",
+    "sidecar:kimi",
+    "sidecar:gemini",
+    "sidecar:codex",
+    "node",
+    "python",
+    "claude",
+    "copilot",
+    "kimi",
+    "gemini",
+    "codex",
+];
+
+fn cmd_validate(
+    file: Option<&std::path::Path>,
+    config_file: Option<&std::path::Path>,
+) -> Result<()> {
+    // If --config-file is given, validate that config file.
+    if let Some(cfg_path) = config_file {
+        let result = validate_cmd::validate_config(Some(cfg_path))?;
+        for e in &result.errors {
+            eprintln!("error: {e}");
+        }
+        for w in &result.warnings {
+            eprintln!("warning: {w}");
+        }
+        if result.valid {
+            println!("config: valid");
+        } else {
+            std::process::exit(EXIT_RUNTIME_ERROR);
+        }
+        return Ok(());
+    }
+
+    // If a positional file is given, validate it as a WorkOrder or Receipt.
+    if let Some(path) = file {
+        let detected = commands::validate_file(path)?;
+        match detected {
+            commands::ValidatedType::WorkOrder => println!("valid work_order"),
+            commands::ValidatedType::Receipt => println!("valid receipt"),
+        }
+        return Ok(());
+    }
+
+    // No arguments: validate the current config.
+    let result = validate_cmd::validate_config(None)?;
+    for e in &result.errors {
+        eprintln!("error: {e}");
+    }
+    for w in &result.warnings {
+        eprintln!("warning: {w}");
+    }
+    if result.valid {
+        println!("config: valid");
+    } else {
+        std::process::exit(EXIT_RUNTIME_ERROR);
     }
     Ok(())
 }
 
-fn cmd_schema(kind: SchemaArg) -> Result<()> {
+fn cmd_schema(kind: SchemaArg, output: Option<PathBuf>) -> Result<()> {
     let sk = match kind {
         SchemaArg::WorkOrder => SchemaKind::WorkOrder,
         SchemaArg::Receipt => SchemaKind::Receipt,
         SchemaArg::Config => SchemaKind::Config,
     };
-    let json = commands::schema_json(sk)?;
-    println!("{json}");
-    Ok(())
+    schema_cmd::output_schema(sk, output.as_deref())
 }
 
 fn cmd_inspect(file: &std::path::Path) -> Result<()> {
@@ -379,9 +309,38 @@ fn cmd_inspect(file: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
+fn cmd_translate(from: &str, to: &str, file: Option<PathBuf>) -> Result<()> {
+    let from_dialect = translate_cmd::parse_dialect(from)?;
+    let to_dialect = translate_cmd::parse_dialect(to)?;
+
+    match file {
+        Some(path) => {
+            let result = translate_cmd::translate_file(from_dialect, to_dialect, &path)?;
+            println!("{result}");
+        }
+        None => {
+            let mut input = String::new();
+            std::io::Read::read_to_string(&mut std::io::stdin(), &mut input)
+                .context("read stdin")?;
+            let result = translate_cmd::translate_json_str(from_dialect, to_dialect, &input)?;
+            println!("{result}");
+        }
+    }
+    Ok(())
+}
+
+fn cmd_health(config: &abp_config::BackplaneConfig, json: bool) -> Result<()> {
+    let report = health_cmd::check_health(config)?;
+    if json {
+        health_cmd::print_health_json(&report)
+    } else {
+        health_cmd::print_health(&report)
+    }
+}
+
 fn cmd_config(action: ConfigAction, global_config_path: Option<PathBuf>) -> Result<()> {
     match action {
-        ConfigAction::Check { config } => {
+        ConfigAction::Check { config } | ConfigAction::Validate { config } => {
             let path = config.or(global_config_path);
             let diagnostics = commands::config_check(path.as_deref())?;
             for d in &diagnostics {
@@ -389,6 +348,35 @@ fn cmd_config(action: ConfigAction, global_config_path: Option<PathBuf>) -> Resu
             }
             if diagnostics.iter().any(|d| d.starts_with("error:")) {
                 std::process::exit(EXIT_RUNTIME_ERROR);
+            }
+            Ok(())
+        }
+        ConfigAction::Show { format } => {
+            let path = global_config_path;
+            let cfg = abp_config::load_config(path.as_deref()).unwrap_or_else(|e| {
+                tracing::warn!("failed to load config: {e}");
+                abp_config::BackplaneConfig::default()
+            });
+            match format.as_str() {
+                "json" => {
+                    println!("{}", serde_json::to_string_pretty(&cfg)?);
+                }
+                _ => {
+                    println!("{}", toml::to_string_pretty(&cfg)?);
+                }
+            }
+            Ok(())
+        }
+        ConfigAction::Diff { file1, file2 } => {
+            let cfg1 = abp_config::load_from_file(&file1)
+                .with_context(|| format!("load config '{}'", file1.display()))?;
+            let cfg2 = abp_config::load_from_file(&file2)
+                .with_context(|| format!("load config '{}'", file2.display()))?;
+            let diff = abp_config::diff::diff(&cfg1, &cfg2);
+            if diff.is_empty() {
+                println!("no differences");
+            } else {
+                println!("{diff}");
             }
             Ok(())
         }
@@ -419,6 +407,15 @@ fn cmd_receipt(action: ReceiptAction) -> Result<()> {
     }
 }
 
+fn cmd_status(config: &abp_config::BackplaneConfig, json: bool) -> Result<()> {
+    let info = status_cmd::gather_status(config)?;
+    if json {
+        status_cmd::print_status_json(&info)
+    } else {
+        status_cmd::print_status(&info)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn cmd_run(
     backend: Option<String>,
@@ -438,6 +435,10 @@ async fn cmd_run(
     policy_path: Option<PathBuf>,
     output: Option<PathBuf>,
     events_path: Option<PathBuf>,
+    _stream: bool,
+    timeout: Option<u64>,
+    retry: u32,
+    fallback: Option<String>,
     config: &abp_config::BackplaneConfig,
 ) -> Result<()> {
     // Resolve backend: --backend flag > config default_backend > "mock".
@@ -605,47 +606,103 @@ async fn cmd_run(
         },
     };
 
-    let handle = rt
-        .run_streaming(&backend, wo)
-        .await
-        .with_context(|| format!("run backend={backend}"))?;
-
-    let run_id = handle.run_id;
-
-    if !json {
-        eprintln!("run_id: {run_id}");
-        eprintln!("backend: {backend}");
-        eprintln!("---");
-    }
-
-    let mut events_file = match events_path {
-        Some(ref ep) => {
-            if let Some(parent) = ep.parent() {
-                std::fs::create_dir_all(parent)
-                    .with_context(|| format!("create events directory {}", parent.display()))?;
-            }
-            Some(
-                std::fs::File::create(ep)
-                    .with_context(|| format!("create events file {}", ep.display()))?,
-            )
+    // Run with retry and fallback support.
+    let backends_to_try: Vec<String> = {
+        let mut v = vec![backend.clone()];
+        if let Some(ref fb) = fallback {
+            v.push(normalize_backend_name(fb));
         }
-        None => None,
+        v
     };
+    let max_attempts = retry + 1;
 
-    let mut events = handle.events;
-    while let Some(ev) = events.next().await {
-        if json {
-            println!("{}", serde_json::to_string(&ev)?);
-        } else {
-            print_event(&ev);
-        }
-        if let Some(ref mut f) = events_file {
-            use std::io::Write;
-            writeln!(f, "{}", serde_json::to_string(&ev)?)?;
+    let mut last_err: Option<anyhow::Error> = None;
+    let mut receipt: Option<abp_core::Receipt> = None;
+    let mut run_id = Uuid::nil();
+
+    'outer: for attempt_backend in &backends_to_try {
+        for attempt in 0..max_attempts {
+            if attempt > 0 && !json {
+                eprintln!("retry {attempt}/{retry} on {attempt_backend}...");
+            }
+
+            let wo_clone = wo.clone();
+            let run_result = if let Some(secs) = timeout {
+                let fut = rt.run_streaming(attempt_backend, wo_clone);
+                match tokio::time::timeout(std::time::Duration::from_secs(secs), fut).await {
+                    Ok(r) => r,
+                    Err(_) => {
+                        last_err = Some(anyhow::anyhow!(
+                            "timeout after {secs}s on {attempt_backend}"
+                        ));
+                        continue;
+                    }
+                }
+            } else {
+                rt.run_streaming(attempt_backend, wo_clone).await
+            };
+
+            match run_result {
+                Ok(handle) => {
+                    run_id = handle.run_id;
+
+                    if !json {
+                        eprintln!("run_id: {run_id}");
+                        eprintln!("backend: {attempt_backend}");
+                        eprintln!("---");
+                    }
+
+                    let mut events_file =
+                        match events_path {
+                            Some(ref ep) => {
+                                if let Some(parent) = ep.parent() {
+                                    std::fs::create_dir_all(parent).with_context(|| {
+                                        format!("create events directory {}", parent.display())
+                                    })?;
+                                }
+                                Some(std::fs::File::create(ep).with_context(|| {
+                                    format!("create events file {}", ep.display())
+                                })?)
+                            }
+                            None => None,
+                        };
+
+                    let mut events = handle.events;
+                    while let Some(ev) = events.next().await {
+                        if json {
+                            println!("{}", serde_json::to_string(&ev)?);
+                        } else {
+                            print_event(&ev);
+                        }
+                        if let Some(ref mut f) = events_file {
+                            use std::io::Write;
+                            writeln!(f, "{}", serde_json::to_string(&ev)?)?;
+                        }
+                    }
+
+                    match handle.receipt.await.context("join receipt task")? {
+                        Ok(r) => {
+                            receipt = Some(r);
+                            break 'outer;
+                        }
+                        Err(e) => {
+                            last_err = Some(anyhow::anyhow!("{e}"));
+                        }
+                    }
+                }
+                Err(e) => {
+                    last_err = Some(anyhow::anyhow!("{e}"));
+                }
+            }
         }
     }
 
-    let receipt = handle.receipt.await.context("join receipt task")??;
+    let receipt = match receipt {
+        Some(r) => r,
+        None => {
+            return Err(last_err.unwrap_or_else(|| anyhow::anyhow!("all backends failed")));
+        }
+    };
 
     // --output takes precedence over --out for the receipt destination.
     let effective_out = output.or(out);

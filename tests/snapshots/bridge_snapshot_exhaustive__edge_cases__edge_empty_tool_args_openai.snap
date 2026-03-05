@@ -1,0 +1,12 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&openai_call"
+---
+{
+  "id": "call_empty",
+  "type": "function",
+  "function": {
+    "name": "no_args_tool",
+    "arguments": "{}"
+  }
+}

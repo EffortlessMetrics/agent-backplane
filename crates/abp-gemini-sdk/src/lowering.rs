@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Lowering between ABP IR and the Google Gemini message format.
 //!
-//! [`to_ir`] converts a slice of [`GeminiContent`]s into an [`IrConversation`],
-//! and [`from_ir`] converts an [`IrConversation`] back into Gemini contents.
+//! `to_ir` converts a slice of `GeminiContent`s into an `IrConversation`,
+//! and `from_ir` converts an `IrConversation` back into Gemini contents.
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 

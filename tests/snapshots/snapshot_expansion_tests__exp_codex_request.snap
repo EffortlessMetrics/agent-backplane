@@ -1,0 +1,41 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: req
+---
+{
+  "model": "codex-mini-latest",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are Codex."
+    },
+    {
+      "role": "user",
+      "content": "Add error handling"
+    }
+  ],
+  "instructions": "Follow Rust conventions",
+  "temperature": 0.2,
+  "max_tokens": 8192,
+  "stream": false,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "write_file",
+        "description": "Write file to disk",
+        "parameters": {
+          "properties": {
+            "content": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    }
+  ]
+}

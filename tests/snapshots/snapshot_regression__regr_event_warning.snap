@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_regression.rs
+expression: "make_event(AgentEventKind::Warning\n{ message: \"approaching budget limit\".into(), })"
+---
+{
+  "ts": "2024-01-01T00:00:00Z",
+  "type": "warning",
+  "message": "approaching budget limit"
+}

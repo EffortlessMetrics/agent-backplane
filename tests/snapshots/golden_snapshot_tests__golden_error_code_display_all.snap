@@ -1,0 +1,26 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: display
+---
+[
+    "envelope failed to parse or has invalid fields",
+    "message arrived in unexpected order",
+    "protocol version mismatch between host and sidecar",
+    "requested backend does not exist",
+    "backend timed out",
+    "backend process exited unexpectedly",
+    "required capability is not supported by the backend",
+    "capability emulation layer failed",
+    "policy rule denied the operation",
+    "policy definition is malformed",
+    "failed to initialise the staged workspace",
+    "failed to stage files into the workspace",
+    "IR lowering failed",
+    "IR structure is invalid or inconsistent",
+    "computed receipt hash does not match the declared hash",
+    "receipt chain has a gap or out-of-order entry",
+    "dialect identifier is not recognised",
+    "mapping between dialects failed",
+    "configuration file or value is invalid",
+    "unexpected internal error",
+]

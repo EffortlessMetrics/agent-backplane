@@ -1,0 +1,10 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: reference
+---
+{
+  "type": "git_diff",
+  "id": "diff-001",
+  "uri": "git://HEAD~1..HEAD",
+  "content": "@@ -1,3 +1,4 @@\n+use std::io;\n fn main() {}"
+}

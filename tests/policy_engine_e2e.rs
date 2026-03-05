@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! End-to-end tests for the ABP policy engine.
 
 use std::path::Path;
@@ -1274,4 +1303,426 @@ fn rule_engine_throttle_effect() {
     });
     assert_eq!(engine.evaluate("Bash"), RuleEffect::Throttle { max: 5 });
     assert_eq!(engine.evaluate("Read"), RuleEffect::Allow);
+}
+
+// ===================================================================
+// 16. Extension-based and character-class glob patterns
+// ===================================================================
+
+#[test]
+fn deny_read_extension_based_glob() {
+    let p = PolicyProfile {
+        deny_read: sv(&["**/*.{env,secret,key}"]),
+        ..Default::default()
+    };
+    let e = engine(&p);
+    assert!(!e.can_read_path(Path::new("config/db.env")).allowed);
+    assert!(!e.can_read_path(Path::new("certs/tls.key")).allowed);
+    assert!(!e.can_read_path(Path::new("app.secret")).allowed);
+    assert!(e.can_read_path(Path::new("src/main.rs")).allowed);
+}
+
+#[test]
+fn deny_write_extension_based_glob() {
+    let p = PolicyProfile {
+        deny_write: sv(&["**/*.{lock,bak}"]),
+        ..Default::default()
+    };
+    let e = engine(&p);
+    assert!(!e.can_write_path(Path::new("Cargo.lock")).allowed);
+    assert!(!e.can_write_path(Path::new("data.bak")).allowed);
+    assert!(e.can_write_path(Path::new("src/lib.rs")).allowed);
+}
+
+#[test]
+fn character_class_glob_in_tools() {
+    let p = PolicyProfile {
+        disallowed_tools: sv(&["Tool[ABC]"]),
+        ..Default::default()
+    };
+    let e = engine(&p);
+    assert!(!e.can_use_tool("ToolA").allowed);
+    assert!(!e.can_use_tool("ToolB").allowed);
+    assert!(!e.can_use_tool("ToolC").allowed);
+    assert!(e.can_use_tool("ToolD").allowed);
+    assert!(e.can_use_tool("ToolZ").allowed);
+}
+
+#[test]
+fn character_range_glob_in_deny_read() {
+    let p = PolicyProfile {
+        deny_read: sv(&["log_[0-9].txt"]),
+        ..Default::default()
+    };
+    let e = engine(&p);
+    assert!(!e.can_read_path(Path::new("log_0.txt")).allowed);
+    assert!(!e.can_read_path(Path::new("log_9.txt")).allowed);
+    assert!(e.can_read_path(Path::new("log_a.txt")).allowed);
+}
+
+// ===================================================================
+// 17. Edge cases: empty names, special characters
+// ===================================================================
+
+#[test]
+fn empty_tool_name_with_default_policy() {
+    let e = engine(&PolicyProfile::default());
+    assert!(e.can_use_tool("").allowed);
+}
+
+#[test]
+fn empty_path_with_default_policy() {
+    let e = engine(&PolicyProfile::default());
+    assert!(e.can_read_path(Path::new("")).allowed);
+    assert!(e.can_write_path(Path::new("")).allowed);
+}
+
+#[test]
+fn tool_name_with_special_characters() {
+    let p = PolicyProfile {
+        disallowed_tools: sv(&["my-tool"]),
+        ..Default::default()
+    };
+    let e = engine(&p);
+    assert!(!e.can_use_tool("my-tool").allowed);
+    assert!(e.can_use_tool("my_tool").allowed);
+}
+
+#[test]
+fn path_with_spaces_denied() {
+    let p = PolicyProfile {
+        deny_read: sv(&["**/my docs/**"]),
+        ..Default::default()
+    };
+    let e = engine(&p);
+    assert!(!e.can_read_path(Path::new("my docs/file.txt")).allowed);
+    assert!(e.can_read_path(Path::new("mydocs/file.txt")).allowed);
+}
+
+// ===================================================================
+// 18. Composed engine additional precedence scenarios
+// ===================================================================
+
+#[test]
+fn composed_engine_allow_overrides_read_path() {
+    let profiles = vec![
+        PolicyProfile {
+            deny_read: sv(&["**/.env"]),
+            ..Default::default()
+        },
+        PolicyProfile::default(), // permits everything
+    ];
+    let ce = ComposedEngine::new(profiles, PolicyPrecedence::AllowOverrides).unwrap();
+    // AllowOverrides: the default profile allows, so it wins
+    assert!(ce.check_read(".env").is_allow());
+}
+
+#[test]
+fn composed_engine_deny_overrides_write_path() {
+    let profiles = vec![
+        PolicyProfile::default(),
+        PolicyProfile {
+            deny_write: sv(&["**/.git/**"]),
+            ..Default::default()
+        },
+    ];
+    let ce = ComposedEngine::new(profiles, PolicyPrecedence::DenyOverrides).unwrap();
+    assert!(ce.check_write(".git/config").is_deny());
+    assert!(ce.check_write("src/lib.rs").is_allow());
+}
+
+#[test]
+fn composed_engine_first_applicable_write() {
+    let profiles = vec![
+        PolicyProfile {
+            deny_write: sv(&["locked/**"]),
+            ..Default::default()
+        },
+        PolicyProfile::default(),
+    ];
+    let ce = ComposedEngine::new(profiles, PolicyPrecedence::FirstApplicable).unwrap();
+    assert!(ce.check_write("locked/data.txt").is_deny());
+    assert!(ce.check_write("open/data.txt").is_allow());
+}
+
+// ===================================================================
+// 19. PolicySet edge cases
+// ===================================================================
+
+#[test]
+fn policy_set_empty_merge_returns_default() {
+    let set = PolicySet::new("empty");
+    let merged = set.merge();
+    assert!(merged.allowed_tools.is_empty());
+    assert!(merged.disallowed_tools.is_empty());
+    assert!(merged.deny_read.is_empty());
+    assert!(merged.deny_write.is_empty());
+}
+
+#[test]
+fn policy_set_single_profile_merge() {
+    let mut set = PolicySet::new("single");
+    set.add(PolicyProfile {
+        disallowed_tools: sv(&["Bash"]),
+        deny_read: sv(&["**/.env"]),
+        ..Default::default()
+    });
+    let merged = set.merge();
+    assert_eq!(merged.disallowed_tools, sv(&["Bash"]));
+    assert_eq!(merged.deny_read, sv(&["**/.env"]));
+}
+
+#[test]
+fn policy_set_merge_unions_network_rules() {
+    let mut set = PolicySet::new("network");
+    set.add(PolicyProfile {
+        allow_network: sv(&["*.example.com"]),
+        deny_network: sv(&["evil.com"]),
+        ..Default::default()
+    });
+    set.add(PolicyProfile {
+        allow_network: sv(&["*.safe.org"]),
+        deny_network: sv(&["bad.org"]),
+        ..Default::default()
+    });
+    let merged = set.merge();
+    assert!(merged.allow_network.contains(&s("*.example.com")));
+    assert!(merged.allow_network.contains(&s("*.safe.org")));
+    assert!(merged.deny_network.contains(&s("evil.com")));
+    assert!(merged.deny_network.contains(&s("bad.org")));
+}
+
+#[test]
+fn policy_set_merge_unions_require_approval() {
+    let mut set = PolicySet::new("approval");
+    set.add(PolicyProfile {
+        require_approval_for: sv(&["Bash"]),
+        ..Default::default()
+    });
+    set.add(PolicyProfile {
+        require_approval_for: sv(&["DeleteFile", "Bash"]),
+        ..Default::default()
+    });
+    let merged = set.merge();
+    assert_eq!(merged.require_approval_for.len(), 2); // deduped
+    assert!(merged.require_approval_for.contains(&s("Bash")));
+    assert!(merged.require_approval_for.contains(&s("DeleteFile")));
+}
+
+// ===================================================================
+// 20. Serde roundtrip for composed types
+// ===================================================================
+
+#[test]
+fn policy_decision_allow_serde_roundtrip() {
+    use abp_policy::compose::PolicyDecision;
+    let d = PolicyDecision::Allow {
+        reason: s("permitted"),
+    };
+    let json = serde_json::to_string(&d).unwrap();
+    let back: PolicyDecision = serde_json::from_str(&json).unwrap();
+    assert!(back.is_allow());
+}
+
+#[test]
+fn policy_decision_deny_serde_roundtrip() {
+    use abp_policy::compose::PolicyDecision;
+    let d = PolicyDecision::Deny {
+        reason: s("forbidden"),
+    };
+    let json = serde_json::to_string(&d).unwrap();
+    let back: PolicyDecision = serde_json::from_str(&json).unwrap();
+    assert!(back.is_deny());
+}
+
+#[test]
+fn policy_decision_abstain_serde_roundtrip() {
+    use abp_policy::compose::PolicyDecision;
+    let d = PolicyDecision::Abstain;
+    let json = serde_json::to_string(&d).unwrap();
+    let back: PolicyDecision = serde_json::from_str(&json).unwrap();
+    assert!(back.is_abstain());
+}
+
+#[test]
+fn policy_precedence_serde_roundtrip() {
+    for prec in [
+        PolicyPrecedence::DenyOverrides,
+        PolicyPrecedence::AllowOverrides,
+        PolicyPrecedence::FirstApplicable,
+    ] {
+        let json = serde_json::to_string(&prec).unwrap();
+        let back: PolicyPrecedence = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, prec);
+    }
+}
+
+#[test]
+fn decision_struct_serde_roundtrip() {
+    use abp_policy::Decision;
+    let allow = Decision::allow();
+    let json = serde_json::to_string(&allow).unwrap();
+    let back: Decision = serde_json::from_str(&json).unwrap();
+    assert!(back.allowed);
+    assert!(back.reason.is_none());
+
+    let deny = Decision::deny("not allowed");
+    let json = serde_json::to_string(&deny).unwrap();
+    let back: Decision = serde_json::from_str(&json).unwrap();
+    assert!(!back.allowed);
+    assert_eq!(back.reason.as_deref(), Some("not allowed"));
+}
+
+// ===================================================================
+// 21. Rule condition serde and composition
+// ===================================================================
+
+#[test]
+fn rule_condition_serde_roundtrip() {
+    let cond = RuleCondition::And(vec![
+        RuleCondition::Pattern(s("File*")),
+        RuleCondition::Not(Box::new(RuleCondition::Never)),
+    ]);
+    let json = serde_json::to_string(&cond).unwrap();
+    let back: RuleCondition = serde_json::from_str(&json).unwrap();
+    assert!(back.matches("FileRead"));
+    assert!(!back.matches("Bash"));
+}
+
+#[test]
+fn rule_effect_serde_roundtrip() {
+    let effects = [
+        RuleEffect::Allow,
+        RuleEffect::Deny,
+        RuleEffect::Log,
+        RuleEffect::Throttle { max: 42 },
+    ];
+    for e in &effects {
+        let json = serde_json::to_string(e).unwrap();
+        let back: RuleEffect = serde_json::from_str(&json).unwrap();
+        assert_eq!(&back, e);
+    }
+}
+
+#[test]
+fn rule_engine_log_effect() {
+    let mut engine = RuleEngine::new();
+    engine.add_rule(Rule {
+        id: s("log-reads"),
+        description: s("Log read operations"),
+        condition: RuleCondition::Pattern(s("Read*")),
+        effect: RuleEffect::Log,
+        priority: 5,
+    });
+    assert_eq!(engine.evaluate("ReadFile"), RuleEffect::Log);
+    assert_eq!(engine.evaluate("Write"), RuleEffect::Allow);
+}
+
+#[test]
+fn rule_condition_not_pattern() {
+    let cond = RuleCondition::Not(Box::new(RuleCondition::Pattern(s("Bash"))));
+    assert!(!cond.matches("Bash"));
+    assert!(cond.matches("Read"));
+    assert!(cond.matches("Write"));
+}
+
+// ===================================================================
+// 22. Validator additional scenarios
+// ===================================================================
+
+#[test]
+fn validator_detects_multiple_empty_globs() {
+    let p = PolicyProfile {
+        allowed_tools: sv(&["", ""]),
+        deny_write: sv(&[""]),
+        ..Default::default()
+    };
+    let warnings = PolicyValidator::validate(&p);
+    let empty_count = warnings
+        .iter()
+        .filter(|w| w.kind == WarningKind::EmptyGlob)
+        .count();
+    assert_eq!(empty_count, 3);
+}
+
+#[test]
+fn validator_no_warnings_for_default_profile() {
+    let warnings = PolicyValidator::validate(&PolicyProfile::default());
+    assert!(warnings.is_empty());
+}
+
+#[test]
+fn invalid_glob_in_deny_write_returns_error() {
+    let p = PolicyProfile {
+        deny_write: sv(&["["]),
+        ..Default::default()
+    };
+    let result = PolicyEngine::new(&p);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("deny_write"));
+}
+
+#[test]
+fn invalid_glob_in_allowed_tools_returns_error() {
+    let p = PolicyProfile {
+        allowed_tools: sv(&["["]),
+        ..Default::default()
+    };
+    let result = PolicyEngine::new(&p);
+    assert!(result.is_err());
+}
+
+// ===================================================================
+// 23. Auditor additional scenarios
+// ===================================================================
+
+#[test]
+fn auditor_summary_starts_at_zero() {
+    let e = engine(&PolicyProfile::default());
+    let auditor = PolicyAuditor::new(e);
+    let summary = auditor.summary();
+    assert_eq!(summary.allowed, 0);
+    assert_eq!(summary.denied, 0);
+    assert_eq!(summary.warned, 0);
+}
+
+#[test]
+fn auditor_mixed_sequence() {
+    let p = PolicyProfile {
+        disallowed_tools: sv(&["Bash"]),
+        deny_read: sv(&["**/.env"]),
+        deny_write: sv(&["**/.git/**"]),
+        ..Default::default()
+    };
+    let e = engine(&p);
+    let mut auditor = PolicyAuditor::new(e);
+
+    auditor.check_tool("Read"); // allow
+    auditor.check_tool("Bash"); // deny
+    auditor.check_read("src/lib.rs"); // allow
+    auditor.check_read(".env"); // deny
+    auditor.check_write("src/lib.rs"); // allow
+    auditor.check_write(".git/HEAD"); // deny
+
+    assert_eq!(auditor.allowed_count(), 3);
+    assert_eq!(auditor.denied_count(), 3);
+    assert_eq!(auditor.entries().len(), 6);
+}
+
+#[test]
+fn auditor_entries_preserve_chronological_order() {
+    let e = engine(&PolicyProfile::default());
+    let mut auditor = PolicyAuditor::new(e);
+
+    auditor.check_tool("A");
+    auditor.check_read("b.txt");
+    auditor.check_write("c.txt");
+
+    let entries = auditor.entries();
+    assert_eq!(entries[0].resource, "A");
+    assert_eq!(entries[1].resource, "b.txt");
+    assert_eq!(entries[2].resource, "c.txt");
+    // Timestamps should be non-decreasing
+    assert!(entries[0].timestamp <= entries[1].timestamp);
+    assert!(entries[1].timestamp <= entries[2].timestamp);
 }

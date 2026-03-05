@@ -1,0 +1,32 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: msgs
+---
+[
+  {
+    "role": "system",
+    "content": "system"
+  },
+  {
+    "role": "user",
+    "content": "user query"
+  },
+  {
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "id": "tc_1",
+        "type": "function",
+        "function": {
+          "name": "web_search",
+          "arguments": "{\"query\":\"rust\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "content": "search results",
+    "tool_call_id": "tc_1"
+  }
+]

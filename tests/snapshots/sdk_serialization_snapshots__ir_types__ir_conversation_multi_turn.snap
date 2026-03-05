@@ -1,0 +1,17 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: conv
+---
+messages:
+  - role: system
+    content:
+      - type: text
+        text: You are helpful.
+  - role: user
+    content:
+      - type: text
+        text: Hello
+  - role: assistant
+    content:
+      - type: text
+        text: Hi! How can I help?

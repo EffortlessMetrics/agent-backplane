@@ -1,0 +1,30 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: v
+---
+{
+  "backend": {
+    "adapter_version": "1.2.0",
+    "backend_version": "3.0.0",
+    "id": "sidecar:node"
+  },
+  "capabilities": {
+    "extended_thinking": "unsupported",
+    "mcp_client": {
+      "restricted": {
+        "reason": "experimental feature"
+      }
+    },
+    "streaming": "native",
+    "tool_bash": "native",
+    "tool_edit": "native",
+    "tool_glob": "native",
+    "tool_grep": "native",
+    "tool_read": "native",
+    "tool_use": "emulated",
+    "tool_write": "native"
+  },
+  "contract_version": "abp/v0.1",
+  "mode": "mapped",
+  "t": "hello"
+}

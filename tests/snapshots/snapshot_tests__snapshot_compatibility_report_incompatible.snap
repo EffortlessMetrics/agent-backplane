@@ -18,13 +18,15 @@ expression: r
     [
       "mcp_client",
       {
-        "level": "unsupported"
+        "level": "unsupported",
+        "reason": "unsupported"
       }
     ],
     [
       "mcp_server",
       {
-        "level": "unsupported"
+        "level": "unsupported",
+        "reason": "unsupported"
       }
     ]
   ]

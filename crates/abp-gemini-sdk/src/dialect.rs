@@ -5,6 +5,7 @@ use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Version string for this dialect adapter.
@@ -231,6 +232,9 @@ pub struct GeminiGenerationConfig {
     /// Top-k sampling parameter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_k: Option<u32>,
+    /// Number of candidate completions to generate.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub candidate_count: Option<u32>,
     /// Stop sequences that halt generation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop_sequences: Option<Vec<String>>,
@@ -244,12 +248,30 @@ pub struct GeminiGenerationConfig {
 
 /// Simplified representation of a Gemini generateContent response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GeminiResponse {
     /// Response candidates from the model.
     pub candidates: Vec<GeminiCandidate>,
+    /// Feedback on the prompt (e.g. safety blocking).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt_feedback: Option<GeminiPromptFeedback>,
     /// Token usage metadata.
     #[serde(default)]
     pub usage_metadata: Option<GeminiUsageMetadata>,
+}
+
+/// Feedback about the prompt returned by the Gemini API.
+///
+/// When the API blocks or filters a prompt, this structure explains why.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiPromptFeedback {
+    /// Reason the prompt was blocked, if applicable (e.g. `SAFETY`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block_reason: Option<String>,
+    /// Safety ratings for the prompt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safety_ratings: Option<Vec<GeminiSafetyRating>>,
 }
 
 /// A candidate completion in a Gemini response.
@@ -285,7 +307,7 @@ pub struct GeminiUsageMetadata {
 // ---------------------------------------------------------------------------
 
 /// Harm categories for Gemini safety configuration.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum HarmCategory {
     /// Harassment content.
@@ -301,7 +323,7 @@ pub enum HarmCategory {
 }
 
 /// Threshold levels for blocking harmful content.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum HarmBlockThreshold {
     /// Do not block any content.
@@ -394,7 +416,7 @@ pub struct GeminiTool {
 }
 
 /// Function-calling mode for Gemini requests.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum FunctionCallingMode {
     /// Model decides whether to call functions.
@@ -619,6 +641,37 @@ pub fn map_stream_chunk(chunk: &GeminiStreamChunk) -> Vec<AgentEvent> {
 pub fn map_stream_event(chunk: &GeminiStreamChunk) -> Vec<AgentEvent> {
     map_stream_chunk(chunk)
 }
+
+// ---------------------------------------------------------------------------
+// Public type aliases matching the Gemini GenerateContent API names
+// ---------------------------------------------------------------------------
+
+/// Alias for [`GeminiRequest`] matching the Gemini API name.
+pub type GenerateContentRequest = GeminiRequest;
+
+/// Alias for [`GeminiResponse`] matching the Gemini API name.
+pub type GenerateContentResponse = GeminiResponse;
+
+/// Alias for [`GeminiContent`] matching the Gemini API name.
+pub type Content = GeminiContent;
+
+/// Alias for [`GeminiPart`] matching the Gemini API name.
+pub type Part = GeminiPart;
+
+/// Alias for [`GeminiTool`] matching the Gemini API name.
+pub type Tool = GeminiTool;
+
+/// Alias for [`GeminiGenerationConfig`] matching the Gemini API name.
+pub type GenerationConfig = GeminiGenerationConfig;
+
+/// Alias for [`GeminiCandidate`] matching the Gemini API name.
+pub type Candidate = GeminiCandidate;
+
+/// Alias for [`GeminiStreamChunk`] matching the Gemini API name.
+pub type StreamChunk = GeminiStreamChunk;
+
+/// Alias for [`GeminiPromptFeedback`] matching the Gemini API name.
+pub type PromptFeedback = GeminiPromptFeedback;
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -669,6 +722,7 @@ mod tests {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let events = map_response(&resp);
@@ -694,6 +748,7 @@ mod tests {
                 safety_ratings: None,
                 citation_metadata: None,
             }],
+            prompt_feedback: None,
             usage_metadata: None,
         };
         let events = map_response(&resp);

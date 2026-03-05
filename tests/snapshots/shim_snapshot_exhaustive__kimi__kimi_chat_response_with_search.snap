@@ -1,0 +1,38 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: resp
+---
+{
+  "id": "cmpl-snap001",
+  "object": "chat.completion",
+  "created": 1700000000,
+  "model": "moonshot-v1-128k",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Based on my search, here are the results."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 100,
+    "completion_tokens": 50,
+    "total_tokens": 150
+  },
+  "search_results": [
+    {
+      "index": 1,
+      "url": "https://example.com/article1",
+      "title": "Rust Async Guide",
+      "snippet": "An introduction to async/await in Rust..."
+    },
+    {
+      "index": 2,
+      "url": "https://example.com/article2",
+      "title": "Tokio Runtime"
+    }
+  ]
+}

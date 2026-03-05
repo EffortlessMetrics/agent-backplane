@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: "SupportLevel::Restricted { reason: \"disabled by policy\".into(), }"
+---
+{
+  "restricted": {
+    "reason": "disabled by policy"
+  }
+}

@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: req
+---
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello"
+    }
+  ]
+}

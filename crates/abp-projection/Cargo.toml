@@ -2,6 +2,7 @@
 name = "abp-projection"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -14,6 +15,7 @@ categories = ["development-tools"]
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-capability = { path = "../abp-capability", version = "0.1.0" }
 abp-mapping = { path = "../abp-mapping", version = "0.1.0" }
+abp-mapper = { path = "../abp-mapper", version = "0.1.0" }
 abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true

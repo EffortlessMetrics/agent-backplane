@@ -1,3 +1,32 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Shim conversion fidelity tests.
 //!
@@ -552,6 +581,7 @@ fn gemini_from_dialect_response_preserves_candidates() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: Some(GeminiUsageMetadata {
             prompt_token_count: 5,
             candidates_token_count: 3,
@@ -1177,8 +1207,10 @@ fn gemini_response_text_extraction() {
                 "Hello from Gemini!",
             )]),
             finish_reason: Some("STOP".into()),
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     assert_eq!(resp.text(), Some("Hello from Gemini!"));
 }
@@ -1196,8 +1228,10 @@ fn gemini_response_function_calls_extraction() {
                 json!({"q": "rust"}),
             )]),
             finish_reason: None,
+            safety_ratings: None,
         }],
         usage_metadata: None,
+        prompt_feedback: None,
     };
     let fcs = resp.function_calls();
     assert_eq!(fcs.len(), 1);

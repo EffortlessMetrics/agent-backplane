@@ -1,3 +1,31 @@
+#![allow(clippy::all)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Additional coverage tests for the Gemini SDK: request serde, JSON field names,
 //! edge cases in mapping, citation sources, and config boundaries.
@@ -146,6 +174,7 @@ fn citation_metadata_empty_sources_roundtrip() {
 fn map_response_empty_candidates_produces_no_events() {
     let resp = GeminiResponse {
         candidates: vec![],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = map_response(&resp);
@@ -167,6 +196,7 @@ fn map_response_function_response_produces_tool_result() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = map_response(&resp);
@@ -186,6 +216,7 @@ fn map_response_empty_parts_produces_no_events() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: None,
     };
     let events = map_response(&resp);

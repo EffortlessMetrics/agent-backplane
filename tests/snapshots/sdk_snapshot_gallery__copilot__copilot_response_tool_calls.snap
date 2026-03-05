@@ -1,0 +1,34 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: resp
+---
+{
+  "id": "copilot-resp-002",
+  "object": "chat.completion",
+  "created": 1700003100,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "id": "call_copilot01",
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "arguments": "{\"path\":\"src/lib.rs\"}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 100,
+    "completion_tokens": 25,
+    "total_tokens": 125
+  }
+}

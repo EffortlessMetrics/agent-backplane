@@ -1,0 +1,34 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: req
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Refactor auth module"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "I'll help with that."
+        }
+      ]
+    }
+  ],
+  "max_tokens": 8192,
+  "system": "You are a Rust expert.",
+  "metadata": {
+    "user_id": "user-456"
+  },
+  "stream": true,
+  "stop_sequences": [
+    "---"
+  ],
+  "temperature": 0.5,
+  "top_p": 0.95,
+  "top_k": 40
+}

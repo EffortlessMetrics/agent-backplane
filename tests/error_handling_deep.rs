@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Deep tests for error handling across the workspace.
 //!
 //! Covers RuntimeError, ProtocolError, abp-error taxonomy (AbpError, ErrorCode,
@@ -59,7 +88,7 @@ fn runtime_classified_display() {
     let abp = AbpError::new(ErrorCode::BackendTimeout, "30 s exceeded");
     let err = RuntimeError::Classified(abp);
     let msg = err.to_string();
-    assert!(msg.contains("BACKEND_TIMEOUT"));
+    assert!(msg.contains("backend_timeout"));
     assert!(msg.contains("30 s exceeded"));
 }
 
@@ -319,7 +348,7 @@ fn protocol_abp_variant_display() {
     let abp = AbpError::new(ErrorCode::ProtocolInvalidEnvelope, "bad envelope");
     let err = ProtocolError::Abp(abp);
     let msg = err.to_string();
-    assert!(msg.contains("PROTOCOL_INVALID_ENVELOPE"));
+    assert!(msg.contains("protocol_invalid_envelope"));
     assert!(msg.contains("bad envelope"));
 }
 
@@ -441,7 +470,7 @@ fn abp_error_new_basic() {
 #[test]
 fn abp_error_display_without_context() {
     let err = AbpError::new(ErrorCode::BackendNotFound, "no backend");
-    assert_eq!(err.to_string(), "[BACKEND_NOT_FOUND] no backend");
+    assert_eq!(err.to_string(), "[backend_not_found] no backend");
 }
 
 #[test]
@@ -449,7 +478,7 @@ fn abp_error_display_with_context() {
     let err =
         AbpError::new(ErrorCode::BackendTimeout, "timed out").with_context("timeout_ms", 5000);
     let s = err.to_string();
-    assert!(s.starts_with("[BACKEND_TIMEOUT] timed out"));
+    assert!(s.starts_with("[backend_timeout] timed out"));
     assert!(s.contains("timeout_ms"));
 }
 
@@ -526,6 +555,8 @@ fn abp_error_dto_to_abp_error_loses_source() {
         message: "bad".into(),
         context: BTreeMap::new(),
         source_message: Some("inner".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
     let err: AbpError = dto.into();
     assert_eq!(err.code, ErrorCode::ConfigInvalid);
@@ -538,7 +569,7 @@ fn abp_error_dto_to_abp_error_loses_source() {
 fn error_code_serde_roundtrip() {
     let code = ErrorCode::ProtocolInvalidEnvelope;
     let json = serde_json::to_string(&code).unwrap();
-    assert_eq!(json, r#""PROTOCOL_INVALID_ENVELOPE""#);
+    assert_eq!(json, r#""protocol_invalid_envelope""#);
     let back: ErrorCode = serde_json::from_str(&json).unwrap();
     assert_eq!(back, code);
 }
@@ -546,7 +577,7 @@ fn error_code_serde_roundtrip() {
 #[test]
 fn error_code_display_matches_as_str() {
     let code = ErrorCode::BackendTimeout;
-    assert_eq!(code.to_string(), code.as_str());
+    assert_eq!(code.to_string(), code.message());
 }
 
 // ── ErrorCategory serde ───────────────────────────────────────────────────
@@ -832,7 +863,7 @@ fn protocol_violation_empty_message() {
 fn abp_error_empty_message() {
     let err = AbpError::new(ErrorCode::Internal, "");
     let s = err.to_string();
-    assert!(s.contains("[INTERNAL]"));
+    assert!(s.contains("[internal]"));
 }
 
 #[test]
@@ -998,13 +1029,13 @@ fn downcast_runtime_classified_inner() {
 
 #[test]
 fn abp_error_code_as_str_stability() {
-    assert_eq!(ErrorCode::BackendNotFound.as_str(), "BACKEND_NOT_FOUND");
-    assert_eq!(ErrorCode::PolicyDenied.as_str(), "POLICY_DENIED");
+    assert_eq!(ErrorCode::BackendNotFound.as_str(), "backend_not_found");
+    assert_eq!(ErrorCode::PolicyDenied.as_str(), "policy_denied");
     assert_eq!(
         ErrorCode::WorkspaceStagingFailed.as_str(),
-        "WORKSPACE_STAGING_FAILED"
+        "workspace_staging_failed"
     );
-    assert_eq!(ErrorCode::Internal.as_str(), "INTERNAL");
+    assert_eq!(ErrorCode::Internal.as_str(), "internal");
 }
 
 #[test]

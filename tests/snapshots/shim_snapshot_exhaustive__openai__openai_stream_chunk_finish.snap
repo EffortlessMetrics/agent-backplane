@@ -1,0 +1,17 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: chunk
+---
+{
+  "id": "chatcmpl-snap005",
+  "object": "chat.completion.chunk",
+  "created": 1700000400,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {},
+      "finish_reason": "stop"
+    }
+  ]
+}

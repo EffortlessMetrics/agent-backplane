@@ -1,0 +1,27 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: cfg
+---
+{
+  "log_level": "info",
+  "backends": {
+    "mock": {
+      "type": "mock"
+    },
+    "node": {
+      "type": "sidecar",
+      "command": "node",
+      "args": [
+        "index.js"
+      ]
+    },
+    "python": {
+      "type": "sidecar",
+      "command": "python3",
+      "args": [
+        "main.py"
+      ],
+      "timeout_secs": 30
+    }
+  }
+}

@@ -598,7 +598,13 @@ async def main() -> None:
         except Exception as err:  # noqa: BLE001
             write({"t": "fatal", "ref_id": None, "error": f"invalid json: {safe_string(err)}"})
             continue
-        if msg.get("t") != "run":
+        t = msg.get("t")
+        if t == "ping":
+            write({"t": "pong", "seq": msg.get("seq")})
+            continue
+        if t == "cancel":
+            continue
+        if t != "run":
             continue
         try:
             await handle_run(as_object(msg))

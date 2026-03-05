@@ -1,3 +1,31 @@
+#![allow(clippy::all)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Deeper property-based tests for `abp-workspace`.
 
@@ -50,6 +78,19 @@ proptest! {
         entries in prop::collection::vec(arb_file_entry(), 1..6),
     ) {
         let src = tempfile::tempdir().unwrap();
+
+        // Deduplicate: skip entries where a file path is a prefix of another
+        // (e.g. "k" as file + "k/c/x" would conflict).
+        let paths: Vec<&str> = entries.iter().map(|(p, _)| p.as_str()).collect();
+        let entries: Vec<_> = entries.iter().filter(|(p, _)| {
+            !paths.iter().any(|other| {
+                other != p && other.starts_with(&format!("{}/", p))
+            }) && !paths.iter().any(|other| {
+                other != p && p.starts_with(&format!("{}/", other))
+            })
+        }).collect();
+
+        if entries.is_empty() { return Ok(()); }
 
         // Write arbitrary files into the source tree.
         for (rel_path, content) in &entries {
@@ -135,6 +176,19 @@ proptest! {
         entries in prop::collection::vec(arb_file_entry(), 1..4),
     ) {
         let src = tempfile::tempdir().unwrap();
+
+        // Deduplicate conflicting paths
+        let paths: Vec<&str> = entries.iter().map(|(p, _)| p.as_str()).collect();
+        let entries: Vec<_> = entries.iter().filter(|(p, _)| {
+            !paths.iter().any(|other| {
+                other != p && other.starts_with(&format!("{}/", p))
+            }) && !paths.iter().any(|other| {
+                other != p && p.starts_with(&format!("{}/", other))
+            })
+        }).collect();
+
+        if entries.is_empty() { return Ok(()); }
+
         for (rel_path, content) in &entries {
             let full = src.path().join(rel_path);
             if let Some(parent) = full.parent() {

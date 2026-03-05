@@ -1,0 +1,49 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: wo
+---
+{
+  "id": "[uuid]",
+  "task": "builder test",
+  "lane": "workspace_first",
+  "workspace": {
+    "root": "/projects/app",
+    "mode": "pass_through",
+    "include": [
+      "src/**"
+    ],
+    "exclude": [
+      "target/**"
+    ]
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [
+      "read"
+    ],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "streaming",
+        "min_support": "native"
+      }
+    ]
+  },
+  "config": {
+    "model": "claude-3.5-sonnet",
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": 25.0,
+    "max_turns": 30
+  }
+}

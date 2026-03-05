@@ -1,0 +1,9 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: fc
+---
+{
+  "path": "src/lib.rs",
+  "operation": "create",
+  "content": "pub fn hello() -> &'static str { \"hi\" }"
+}

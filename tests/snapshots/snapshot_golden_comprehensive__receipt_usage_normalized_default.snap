@@ -1,0 +1,12 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: "UsageNormalized::default()"
+---
+{
+  "input_tokens": null,
+  "output_tokens": null,
+  "cache_read_tokens": null,
+  "cache_write_tokens": null,
+  "request_units": null,
+  "estimated_cost_usd": null
+}

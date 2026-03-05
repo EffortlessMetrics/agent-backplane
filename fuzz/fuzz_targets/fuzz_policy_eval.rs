@@ -95,10 +95,7 @@ fuzz_target!(|input: PolicyFuzzInput| {
         _ => PolicyPrecedence::FirstApplicable,
     };
 
-    if let Ok(composed) = ComposedEngine::new(
-        vec![profile1.clone(), profile2],
-        precedence,
-    ) {
+    if let Ok(composed) = ComposedEngine::new(vec![profile1.clone(), profile2], precedence) {
         for tool in &input.tool_queries {
             let _: abp_policy::compose::PolicyDecision = composed.check_tool(tool);
         }

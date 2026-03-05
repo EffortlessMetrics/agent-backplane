@@ -1,0 +1,5 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: line_count.to_string()
+---
+4

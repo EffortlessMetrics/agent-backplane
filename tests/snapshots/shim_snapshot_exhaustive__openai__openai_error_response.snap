@@ -1,0 +1,11 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: err
+---
+{
+  "error": {
+    "message": "Rate limit exceeded",
+    "type": "rate_limit_error",
+    "code": "rate_limit"
+  }
+}

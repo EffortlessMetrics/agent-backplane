@@ -1,0 +1,47 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: req
+---
+{
+  "model": "codex-mini-latest",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a coding assistant."
+    },
+    {
+      "role": "user",
+      "content": "Refactor this function to use async/await."
+    }
+  ],
+  "instructions": "Follow Rust best practices.",
+  "temperature": 0.3,
+  "top_p": 0.9,
+  "max_tokens": 4096,
+  "stream": false,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "apply_edit",
+        "description": "Apply a code edit to a file",
+        "parameters": {
+          "properties": {
+            "content": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}

@@ -1,0 +1,8 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: part
+---
+{
+  "type": "refusal",
+  "refusal": "I cannot help with that request."
+}

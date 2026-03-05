@@ -1,0 +1,12 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&evt"
+---
+{
+  "type": "content_block_delta",
+  "index": 0,
+  "delta": {
+    "type": "thinking_delta",
+    "thinking": "Let me think about this..."
+  }
+}

@@ -5,6 +5,7 @@ use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::response_format::ResponseFormat;
@@ -81,7 +82,7 @@ pub fn capability_manifest() -> CapabilityManifest {
 // ---------------------------------------------------------------------------
 
 /// A vendor-agnostic tool definition used as the ABP canonical form.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CanonicalToolDef {
     /// Tool name.
     pub name: String,
@@ -92,7 +93,7 @@ pub struct CanonicalToolDef {
 }
 
 /// OpenAI-style function tool definition (Chat Completions `tools` array element).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct OpenAIToolDef {
     /// Tool type (always `"function"`).
     #[serde(rename = "type")]
@@ -102,7 +103,7 @@ pub struct OpenAIToolDef {
 }
 
 /// The function payload inside an [`OpenAIToolDef`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct OpenAIFunctionDef {
     /// Function name.
     pub name: String,
@@ -117,7 +118,7 @@ pub struct OpenAIFunctionDef {
 // ---------------------------------------------------------------------------
 
 /// Controls which (if any) tool the model should call.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(untagged)]
 pub enum ToolChoice {
     /// A string shorthand: `"none"`, `"auto"`, or `"required"`.
@@ -133,7 +134,7 @@ pub enum ToolChoice {
 }
 
 /// String-form tool choice modes.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolChoiceMode {
     /// Model will not call any tool.
@@ -145,7 +146,7 @@ pub enum ToolChoiceMode {
 }
 
 /// A reference to a specific function in a [`ToolChoice::Function`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ToolChoiceFunctionRef {
     /// Name of the function to force.
     pub name: String,
@@ -179,7 +180,7 @@ pub fn tool_def_from_openai(def: &OpenAIToolDef) -> CanonicalToolDef {
 // ---------------------------------------------------------------------------
 
 /// Vendor-specific configuration for the OpenAI Chat Completions API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OpenAIConfig {
     /// OpenAI API key (e.g. `sk-...`).
     pub api_key: String,
@@ -214,7 +215,7 @@ impl Default for OpenAIConfig {
 // ---------------------------------------------------------------------------
 
 /// Simplified representation of an OpenAI Chat Completions API request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OpenAIRequest {
     /// Model identifier (e.g. `gpt-4o`).
     pub model: String,
@@ -238,7 +239,7 @@ pub struct OpenAIRequest {
 }
 
 /// A single message in the OpenAI Chat Completions format.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OpenAIMessage {
     /// Message role (`system`, `user`, `assistant`, or `tool`).
     pub role: String,
@@ -254,7 +255,7 @@ pub struct OpenAIMessage {
 }
 
 /// A tool call emitted by the model.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct OpenAIToolCall {
     /// Unique identifier for this tool call.
     pub id: String,
@@ -266,7 +267,7 @@ pub struct OpenAIToolCall {
 }
 
 /// The function invocation inside an [`OpenAIToolCall`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct OpenAIFunctionCall {
     /// Name of the function to invoke.
     pub name: String,
@@ -279,7 +280,7 @@ pub struct OpenAIFunctionCall {
 // ---------------------------------------------------------------------------
 
 /// Simplified representation of an OpenAI Chat Completions API response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OpenAIResponse {
     /// Unique response identifier.
     pub id: String,
@@ -295,7 +296,7 @@ pub struct OpenAIResponse {
 }
 
 /// A single choice in the Chat Completions response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OpenAIChoice {
     /// Zero-based index of this choice.
     pub index: u32,
@@ -306,7 +307,7 @@ pub struct OpenAIChoice {
 }
 
 /// Token usage reported by the OpenAI API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OpenAIUsage {
     /// Tokens consumed by the prompt.
     pub prompt_tokens: u64,

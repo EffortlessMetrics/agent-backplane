@@ -1,0 +1,10 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: e
+---
+{
+  "ts": "2025-01-15T12:00:00Z",
+  "type": "error",
+  "message": "Backend timed out",
+  "error_code": "backend_timeout"
+}

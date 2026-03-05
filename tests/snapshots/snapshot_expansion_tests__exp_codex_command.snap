@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: cmd
+---
+{
+  "command": "cargo test --lib",
+  "cwd": "src",
+  "timeout_seconds": 60,
+  "stdout": "test result: ok. 5 passed",
+  "exit_code": 0
+}

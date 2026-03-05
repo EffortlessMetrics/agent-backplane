@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: e
+---
+{
+  "ts": "2025-08-01T08:00:00Z",
+  "type": "error",
+  "message": "backend timed out after 120s",
+  "error_code": "backend_timeout"
+}

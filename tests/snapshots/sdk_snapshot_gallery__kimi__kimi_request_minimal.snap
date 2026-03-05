@@ -1,0 +1,13 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: req
+---
+{
+  "model": "moonshot-v1-8k",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello"
+    }
+  ]
+}

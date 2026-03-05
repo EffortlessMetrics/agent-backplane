@@ -1,0 +1,19 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: chunk
+---
+{
+  "id": "copilot-stream-001",
+  "object": "chat.completion.chunk",
+  "created": 1700003200,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "role": "assistant",
+        "content": "This"
+      }
+    }
+  ]
+}

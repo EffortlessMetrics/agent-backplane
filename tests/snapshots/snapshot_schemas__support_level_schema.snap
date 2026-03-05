@@ -1,0 +1,48 @@
+---
+source: tests/snapshot_schemas.rs
+expression: "serde_json::to_string_pretty(&schema).unwrap()"
+---
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SupportLevel",
+  "description": "How well a backend supports a given [`Capability`].\n\n# Examples\n\n```\nuse abp_core::{SupportLevel, MinSupport};\n\nlet native = SupportLevel::Native;\nassert!(native.satisfies(&MinSupport::Native));\nassert!(native.satisfies(&MinSupport::Emulated));\n\nlet emulated = SupportLevel::Emulated;\nassert!(!emulated.satisfies(&MinSupport::Native));\nassert!(emulated.satisfies(&MinSupport::Emulated));\n```",
+  "oneOf": [
+    {
+      "description": "First-class support built into the backend.",
+      "type": "string",
+      "const": "native"
+    },
+    {
+      "description": "Support via adapter or polyfill layer.",
+      "type": "string",
+      "const": "emulated"
+    },
+    {
+      "description": "Capability is not available.",
+      "type": "string",
+      "const": "unsupported"
+    },
+    {
+      "description": "Supported in principle, but disabled by policy or environment.",
+      "type": "object",
+      "properties": {
+        "restricted": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "description": "Human-readable explanation of the restriction.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "restricted"
+      ]
+    }
+  ]
+}

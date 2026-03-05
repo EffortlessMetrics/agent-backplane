@@ -13,6 +13,10 @@
 pub mod audit;
 /// Composable policy sets, precedence strategies, and validation.
 pub mod compose;
+/// Composed policy evaluation over multiple engines.
+pub mod composed;
+/// Rate-limiting policy for agent throughput.
+pub mod rate_limit;
 /// Rule-based access control engine.
 pub mod rules;
 

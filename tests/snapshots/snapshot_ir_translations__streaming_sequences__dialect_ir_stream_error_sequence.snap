@@ -1,0 +1,19 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&events"
+---
+[
+  {
+    "type": "stream_start"
+  },
+  {
+    "type": "text_delta",
+    "index": 0,
+    "text": "Partial output..."
+  },
+  {
+    "type": "error",
+    "code": "rate_limit",
+    "message": "Rate limit exceeded, retry after 30s"
+  }
+]

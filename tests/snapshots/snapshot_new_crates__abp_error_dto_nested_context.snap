@@ -3,7 +3,7 @@ source: tests/snapshot_new_crates.rs
 expression: dto
 ---
 {
-  "code": "CONFIG_INVALID",
+  "code": "config_invalid",
   "message": "bad config",
   "context": {
     "details": {

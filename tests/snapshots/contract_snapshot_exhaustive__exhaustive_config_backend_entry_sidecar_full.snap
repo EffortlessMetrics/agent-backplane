@@ -1,0 +1,15 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: "BackendEntry::Sidecar\n{\n    command: \"node\".into(), args:\n    vec![\"hosts/claude/index.js\".into(), \"--debug\".into(), \"--model\".into(),\n    \"claude-3.5-sonnet\".into()], timeout_secs: Some(600),\n}"
+---
+{
+  "type": "sidecar",
+  "command": "node",
+  "args": [
+    "hosts/claude/index.js",
+    "--debug",
+    "--model",
+    "claude-3.5-sonnet"
+  ],
+  "timeout_secs": 600
+}

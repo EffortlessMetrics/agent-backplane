@@ -413,16 +413,15 @@ async function handleRun(runId, workOrder, adapter, backendCaps, mode) {
     emit({ type: "assistant_message", text: String(text || "") });
   }
 
-function writeArtifact(kind, suggestedName, content) {
-  const base = sanitizeFilePart(suggestedName || kind || "artifact") || "artifact";
-  const fileName = base.includes(".") ? base : `${base}.txt`;
-  const abs = path.join(artifactRoot, fileName);
-  fs.writeFileSync(abs, safeString(content), "utf8");
-  const rel = toPosixPath(path.relative(workspaceRoot, abs));
-  const id = path.normalize(rel);
-  artifacts.push({ kind, path: id });
-  return id;
-}
+  function writeArtifact(kind, suggestedName, content) {
+    const base = sanitizeFilePart(suggestedName || kind || "artifact") || "artifact";
+    const fileName = base.includes(".") ? base : `${base}.txt`;
+    const abs = path.join(artifactRoot, fileName);
+    fs.writeFileSync(abs, safeString(content), "utf8");
+    const rel = toPosixPath(path.relative(workspaceRoot, abs));
+    artifacts.push({ kind, path: rel });
+    return rel;
+  }
 
   function emitToolCall({ toolName, toolUseId, parentToolUseId, input }) {
     const decision = policyEngine.preTool(String(toolName || "tool"), input || {});
@@ -597,12 +596,16 @@ async function main() {
       continue;
     }
 
+    if (envelope.t === "ping") {
+      write({ t: "pong", seq: envelope.seq });
+      continue;
+    }
+
+    if (envelope.t === "cancel") {
+      continue;
+    }
+
     if (envelope.t !== "run") {
-      write({
-        t: "fatal",
-        ref_id: null,
-        error: `expected run envelope, got '${safeString(envelope.t)}'`,
-      });
       continue;
     }
 
@@ -622,6 +625,10 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`copilot host failed: ${safeString(err)}`);
+  write({
+    t: "fatal",
+    ref_id: null,
+    error: `copilot host failed: ${safeString(err)}`,
+  });
   process.exitCode = 1;
 });

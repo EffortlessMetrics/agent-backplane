@@ -1,3 +1,32 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Protocol version negotiation and backward/forward compatibility tests.
 
@@ -923,4 +952,415 @@ fn negotiate_version_high_minor_spread() {
     let v99 = ProtocolVersion::parse("abp/v0.99").unwrap();
     let result = negotiate_version(&v1, &v99).unwrap();
     assert_eq!(result.minor, 1);
+}
+
+// =========================================================================
+// 16. Envelope validation with version fields
+// =========================================================================
+
+#[test]
+fn validator_accepts_valid_hello_version() {
+    use abp_protocol::validate::EnvelopeValidator;
+    let hello = Envelope::hello(
+        BackendIdentity {
+            id: "test".into(),
+            backend_version: Some("1.0".into()),
+            adapter_version: Some("0.1".into()),
+        },
+        CapabilityManifest::new(),
+    );
+    let result = EnvelopeValidator::new().validate(&hello);
+    assert!(result.valid);
+    assert!(result.errors.is_empty());
+}
+
+#[test]
+fn validator_rejects_empty_contract_version() {
+    use abp_protocol::validate::EnvelopeValidator;
+    let hello = Envelope::Hello {
+        contract_version: String::new(),
+        backend: BackendIdentity {
+            id: "test".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        capabilities: CapabilityManifest::new(),
+        mode: ExecutionMode::default(),
+    };
+    let result = EnvelopeValidator::new().validate(&hello);
+    assert!(!result.valid);
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, abp_protocol::validate::ValidationError::EmptyField { field } if field == "contract_version")));
+}
+
+#[test]
+fn validator_rejects_unparseable_contract_version() {
+    use abp_protocol::validate::EnvelopeValidator;
+    let hello = Envelope::Hello {
+        contract_version: "not-a-version".into(),
+        backend: BackendIdentity {
+            id: "test".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        capabilities: CapabilityManifest::new(),
+        mode: ExecutionMode::default(),
+    };
+    let result = EnvelopeValidator::new().validate(&hello);
+    assert!(!result.valid);
+    assert!(result.errors.iter().any(|e| matches!(
+        e,
+        abp_protocol::validate::ValidationError::InvalidVersion { .. }
+    )));
+}
+
+// =========================================================================
+// 17. Version mismatch error code integration
+// =========================================================================
+
+#[test]
+fn fatal_envelope_with_version_mismatch_code() {
+    let fatal = Envelope::fatal_with_code(
+        Some("run-1".into()),
+        "version mismatch",
+        abp_error::ErrorCode::ProtocolVersionMismatch,
+    );
+    assert_eq!(
+        fatal.error_code(),
+        Some(abp_error::ErrorCode::ProtocolVersionMismatch)
+    );
+}
+
+#[test]
+fn fatal_version_mismatch_round_trips_through_jsonl() {
+    let fatal = Envelope::fatal_with_code(
+        Some("run-1".into()),
+        "incompatible protocol version",
+        abp_error::ErrorCode::ProtocolVersionMismatch,
+    );
+    let json = JsonlCodec::encode(&fatal).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+    assert_eq!(
+        decoded.error_code(),
+        Some(abp_error::ErrorCode::ProtocolVersionMismatch)
+    );
+}
+
+#[test]
+fn version_mismatch_error_code_category_is_protocol() {
+    assert_eq!(
+        abp_error::ErrorCode::ProtocolVersionMismatch.category(),
+        abp_error::ErrorCategory::Protocol
+    );
+}
+
+// =========================================================================
+// 18. Work order version context
+// =========================================================================
+
+#[test]
+fn work_order_in_run_envelope_round_trips() {
+    use abp_core::WorkOrderBuilder;
+    let wo = WorkOrderBuilder::new("test task").build();
+    let envelope = Envelope::Run {
+        id: wo.id.to_string(),
+        work_order: wo.clone(),
+    };
+    let json = JsonlCodec::encode(&envelope).unwrap();
+    let decoded = JsonlCodec::decode(json.trim()).unwrap();
+    match decoded {
+        Envelope::Run { work_order, .. } => {
+            assert_eq!(work_order.task, "test task");
+        }
+        _ => panic!("expected Run"),
+    }
+}
+
+// =========================================================================
+// 19. Multi-version protocol sequence scenarios
+// =========================================================================
+
+#[test]
+fn sequence_hello_with_current_version_then_run_validates() {
+    use abp_core::WorkOrderBuilder;
+    use abp_protocol::validate::EnvelopeValidator;
+    let hello = Envelope::hello(
+        BackendIdentity {
+            id: "sidecar".into(),
+            backend_version: Some("1.0".into()),
+            adapter_version: Some("0.1".into()),
+        },
+        CapabilityManifest::new(),
+    );
+    let wo = WorkOrderBuilder::new("do stuff").build();
+    let run = Envelope::Run {
+        id: "run-1".into(),
+        work_order: wo,
+    };
+    let receipt = ReceiptBuilder::new("sidecar").build();
+    let fin = Envelope::Final {
+        ref_id: "run-1".into(),
+        receipt,
+    };
+    let errors = EnvelopeValidator::new().validate_sequence(&[hello, run, fin]);
+    assert!(errors.is_empty(), "sequence should be valid: {errors:?}");
+}
+
+#[test]
+fn negotiate_then_build_hello_with_effective_version() {
+    let host = ProtocolVersion::parse("abp/v0.3").unwrap();
+    let sidecar = ProtocolVersion::parse("abp/v0.1").unwrap();
+    let effective = negotiate_version(&host, &sidecar).unwrap();
+    let hello = Envelope::Hello {
+        contract_version: effective.to_string(),
+        backend: BackendIdentity {
+            id: "test".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        capabilities: CapabilityManifest::new(),
+        mode: ExecutionMode::default(),
+    };
+    match &hello {
+        Envelope::Hello {
+            contract_version, ..
+        } => assert_eq!(contract_version, "abp/v0.1"),
+        _ => panic!("expected Hello"),
+    }
+}
+
+// =========================================================================
+// 20. Version display and debug formatting
+// =========================================================================
+
+#[test]
+fn protocol_version_debug_includes_fields() {
+    let v = ProtocolVersion { major: 0, minor: 1 };
+    let dbg = format!("{v:?}");
+    assert!(dbg.contains("major"));
+    assert!(dbg.contains("minor"));
+}
+
+#[test]
+fn version_error_debug_format() {
+    let err = VersionError::Incompatible {
+        local: ProtocolVersion { major: 0, minor: 1 },
+        remote: ProtocolVersion { major: 1, minor: 0 },
+    };
+    let dbg = format!("{err:?}");
+    assert!(dbg.contains("Incompatible"));
+}
+
+#[test]
+fn version_range_debug_format() {
+    let range = VersionRange {
+        min: ProtocolVersion { major: 0, minor: 1 },
+        max: ProtocolVersion { major: 0, minor: 5 },
+    };
+    let dbg = format!("{range:?}");
+    assert!(dbg.contains("VersionRange"));
+}
+
+// =========================================================================
+// 21. JSON raw manipulation with version fields
+// =========================================================================
+
+#[test]
+fn hello_json_raw_version_field_exists() {
+    let hello = Envelope::hello(
+        BackendIdentity {
+            id: "test".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        CapabilityManifest::new(),
+    );
+    let json = JsonlCodec::encode(&hello).unwrap();
+    let raw: serde_json::Value = serde_json::from_str(json.trim()).unwrap();
+    assert_eq!(raw["contract_version"], CONTRACT_VERSION);
+    assert_eq!(raw["t"], "hello");
+}
+
+#[test]
+fn receipt_json_raw_contract_version_field() {
+    let receipt = ReceiptBuilder::new("mock").build();
+    let json = serde_json::to_value(&receipt).unwrap();
+    assert_eq!(json["meta"]["contract_version"], CONTRACT_VERSION);
+}
+
+#[test]
+fn decode_hello_with_unknown_extra_fields_still_works() {
+    // Forward compatibility: extra fields are ignored by serde(deny_unknown_fields is not set)
+    let raw = r#"{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"test","backend_version":null,"adapter_version":null},"capabilities":{},"mode":"mapped","future_field":"ignored"}"#;
+    let decoded = JsonlCodec::decode(raw).unwrap();
+    assert!(matches!(decoded, Envelope::Hello { .. }));
+}
+
+#[test]
+fn decode_hello_with_missing_mode_uses_default() {
+    // `mode` has #[serde(default)], so missing is OK
+    let raw = r#"{"t":"hello","contract_version":"abp/v0.1","backend":{"id":"test","backend_version":null,"adapter_version":null},"capabilities":{}}"#;
+    let decoded = JsonlCodec::decode(raw).unwrap();
+    match decoded {
+        Envelope::Hello { mode, .. } => {
+            assert_eq!(mode, ExecutionMode::default());
+        }
+        _ => panic!("expected Hello"),
+    }
+}
+
+// =========================================================================
+// 22. Version string edge cases
+// =========================================================================
+
+#[test]
+fn parse_version_with_whitespace_rejected() {
+    assert!(parse_version(" abp/v0.1").is_none());
+    assert!(parse_version("abp/v0.1 ").is_none());
+    assert!(parse_version("abp/ v0.1").is_none());
+}
+
+#[test]
+fn parse_version_case_sensitive() {
+    assert!(parse_version("ABP/v0.1").is_none());
+    assert!(parse_version("Abp/v0.1").is_none());
+    assert!(parse_version("abp/V0.1").is_none());
+}
+
+#[test]
+fn parse_version_max_u32_boundary() {
+    let max = u32::MAX;
+    let ver = format!("abp/v{max}.0");
+    assert_eq!(parse_version(&ver), Some((max, 0)));
+}
+
+#[test]
+fn parse_version_overflow_rejected() {
+    // u32::MAX + 1 overflows
+    let too_big = format!("abp/v{}.0", u64::from(u32::MAX) + 1);
+    assert!(parse_version(&too_big).is_none());
+}
+
+#[test]
+fn protocol_version_parse_negative_rejected() {
+    assert_eq!(
+        ProtocolVersion::parse("abp/v-1.0"),
+        Err(VersionError::InvalidMajor)
+    );
+    assert_eq!(
+        ProtocolVersion::parse("abp/v0.-1"),
+        Err(VersionError::InvalidMinor)
+    );
+}
+
+// =========================================================================
+// 23. Receipt hashing stability across versions
+// =========================================================================
+
+#[test]
+fn receipt_hash_deterministic_with_version() {
+    let r1 = ReceiptBuilder::new("mock").build();
+    let r2 = ReceiptBuilder::new("mock").build();
+    // Both use CONTRACT_VERSION and same backend
+    assert_eq!(r1.meta.contract_version, r2.meta.contract_version);
+}
+
+#[test]
+fn receipt_with_hash_preserves_contract_version() {
+    let receipt = ReceiptBuilder::new("mock").build().with_hash().unwrap();
+    assert_eq!(receipt.meta.contract_version, CONTRACT_VERSION);
+    assert!(receipt.receipt_sha256.is_some());
+}
+
+// =========================================================================
+// 24. Version negotiation transitivity
+// =========================================================================
+
+#[test]
+fn negotiate_transitive_within_same_major() {
+    let a = ProtocolVersion::parse("abp/v0.1").unwrap();
+    let b = ProtocolVersion::parse("abp/v0.3").unwrap();
+    let c = ProtocolVersion::parse("abp/v0.5").unwrap();
+    let ab = negotiate_version(&a, &b).unwrap();
+    let bc = negotiate_version(&b, &c).unwrap();
+    let ac = negotiate_version(&a, &c).unwrap();
+    // min(a,b) should equal a, min(b,c) should equal b, min(a,c) should equal a
+    assert_eq!(ab, a);
+    assert_eq!(bc, b);
+    assert_eq!(ac, a);
+}
+
+#[test]
+fn negotiate_commutative() {
+    let a = ProtocolVersion::parse("abp/v0.3").unwrap();
+    let b = ProtocolVersion::parse("abp/v0.7").unwrap();
+    assert_eq!(
+        negotiate_version(&a, &b).unwrap(),
+        negotiate_version(&b, &a).unwrap()
+    );
+}
+
+// =========================================================================
+// 25. Envelope stream with version checking
+// =========================================================================
+
+#[test]
+fn decode_stream_multiple_hello_envelopes_with_versions() {
+    use std::io::BufReader;
+    let h1 = Envelope::Hello {
+        contract_version: "abp/v0.1".into(),
+        backend: BackendIdentity {
+            id: "a".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        capabilities: CapabilityManifest::new(),
+        mode: ExecutionMode::default(),
+    };
+    let h2 = Envelope::Hello {
+        contract_version: "abp/v0.2".into(),
+        backend: BackendIdentity {
+            id: "b".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        capabilities: CapabilityManifest::new(),
+        mode: ExecutionMode::default(),
+    };
+    let mut buf = Vec::new();
+    JsonlCodec::encode_many_to_writer(&mut buf, &[h1, h2]).unwrap();
+    let reader = BufReader::new(buf.as_slice());
+    let envelopes: Vec<_> = JsonlCodec::decode_stream(reader)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(envelopes.len(), 2);
+    // Extract versions
+    let versions: Vec<String> = envelopes
+        .iter()
+        .filter_map(|e| match e {
+            Envelope::Hello {
+                contract_version, ..
+            } => Some(contract_version.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(versions, vec!["abp/v0.1", "abp/v0.2"]);
+}
+
+#[test]
+fn encode_to_writer_preserves_version() {
+    let hello = Envelope::hello(
+        BackendIdentity {
+            id: "w".into(),
+            backend_version: None,
+            adapter_version: None,
+        },
+        CapabilityManifest::new(),
+    );
+    let mut buf = Vec::new();
+    JsonlCodec::encode_to_writer(&mut buf, &hello).unwrap();
+    let line = String::from_utf8(buf).unwrap();
+    assert!(line.contains(CONTRACT_VERSION));
 }

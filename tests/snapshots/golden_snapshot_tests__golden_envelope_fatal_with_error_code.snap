@@ -1,0 +1,10 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": "run-001",
+  "error": "backend not found",
+  "error_code": "backend_not_found"
+}

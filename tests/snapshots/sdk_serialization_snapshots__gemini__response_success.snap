@@ -1,0 +1,24 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: resp
+---
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "The answer is 4."
+          }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 10,
+    "candidatesTokenCount": 8,
+    "totalTokenCount": 18
+  }
+}

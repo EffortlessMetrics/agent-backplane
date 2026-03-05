@@ -7,13 +7,74 @@
 //!
 //! Dialect detection, validation, and metadata for the Agent Backplane.
 
+/// Request fingerprinting for dialect identification.
+///
+/// Provides [`DialectFingerprint`](crate::detect::DialectFingerprint) definitions and free functions
+/// ([`detect_dialect`](crate::detect::detect_dialect),
+/// [`detect_from_headers`](crate::detect::detect_from_headers)) that examine
+/// raw JSON requests and HTTP headers to identify which SDK dialect
+/// produced them.
+pub mod detect;
+
+/// Intermediate representation types for cross-dialect translation.
+///
+/// Provides dialect-agnostic request/response wrappers (`IrRequest`,
+/// `IrResponse`) and content primitives (`IrMessage`, `IrContentBlock`)
+/// that serve as the lingua franca between vendor-specific formats.
+pub mod ir;
+
+/// Strict dialect-specific request parsing with rich error context.
+///
+/// Each vendor gets a dedicated [`DialectParser`](parser::DialectParser)
+/// implementation that validates required fields, enum values, message
+/// roles, tool definitions, streaming flags, and model names.
+pub mod parser;
+
+/// Enhanced request/response validation with severity levels and
+/// machine-readable issue codes.
+pub mod validate;
+
+/// Cross-dialect compatibility analysis.
+///
+/// Compares two dialects and produces a [`CompatibilityReport`](compat::CompatibilityReport)
+/// detailing native matches, emulation opportunities, and feature gaps.
+pub mod compat;
+
+/// Dialect feature enumeration and feature-set queries.
+///
+/// [`DialectFeature`](features::DialectFeature) enumerates capabilities
+/// that agent backends may support.  [`DialectFeatureSet`](features::DialectFeatureSet)
+/// wraps a collection of `(DialectFeature, FeatureSupport)` pairs with
+/// query helpers.
+pub mod features;
+
+/// Static feature matrix mapping every `(Dialect, DialectFeature)` to a
+/// support level across all known dialects.
+pub mod matrix;
+
+/// Dialect registry for parser/serializer lookup.
+///
+/// Stores `DialectEntry` records — one per registered dialect — each
+/// carrying codec functions that lift raw JSON into IR and lower IR
+/// back to raw JSON.
+pub mod registry;
+
+/// API version tracking and compatibility constraints per dialect.
+///
+/// [`DialectVersion`](version::DialectVersion) pairs a dialect with a
+/// version string.  [`VersionConstraint`](version::VersionConstraint)
+/// expresses min / exact / range requirements.
+pub mod version;
+
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 // ── Dialect enum ────────────────────────────────────────────────────────
 
 /// Known agent-protocol dialects.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Dialect {
     /// OpenAI chat-completions style.
@@ -159,6 +220,121 @@ impl DialectDetector {
         });
         results
     }
+
+    /// Detect dialect from HTTP headers.
+    ///
+    /// Header keys in the map should be lowercase. Returns `None` when no
+    /// header matched a known dialect pattern.
+    #[must_use]
+    pub fn detect_from_headers(
+        &self,
+        headers: &BTreeMap<String, String>,
+    ) -> Option<DetectionResult> {
+        let mut best: Option<DetectionResult> = None;
+
+        #[allow(clippy::type_complexity)]
+        let checks: &[(Dialect, &[(&str, Option<&str>)])] = &[
+            (
+                Dialect::Claude,
+                &[("anthropic-version", None), ("x-api-key", None)][..],
+            ),
+            (
+                Dialect::Copilot,
+                &[("copilot-integration-id", None), ("x-github-token", None)][..],
+            ),
+            (Dialect::Gemini, &[("x-goog-api-key", None)][..]),
+            (
+                Dialect::OpenAi,
+                &[("openai-organization", None), ("openai-project", None)][..],
+            ),
+        ];
+
+        for (dialect, markers) in checks {
+            let mut score = 0.0_f64;
+            let mut evidence = Vec::new();
+            for &(key, expected_prefix) in *markers {
+                if let Some(val) = headers.get(key) {
+                    if expected_prefix.is_none() || val.starts_with(expected_prefix.unwrap_or("")) {
+                        score += 0.4;
+                        evidence.push(format!("header \"{key}\" present"));
+                    }
+                }
+            }
+            if score > 0.0 && best.as_ref().is_none_or(|b| score > b.confidence) {
+                best = Some(DetectionResult {
+                    dialect: *dialect,
+                    confidence: score.min(1.0),
+                    evidence,
+                });
+            }
+        }
+
+        best
+    }
+
+    /// Detect dialect from an API endpoint URL.
+    ///
+    /// Examines the URL for known API base paths and returns the most
+    /// likely dialect. Returns `None` when the URL doesn't match any
+    /// known dialect endpoint.
+    #[must_use]
+    pub fn detect_from_endpoint(&self, url: &str) -> Option<DetectionResult> {
+        let lower = url.to_lowercase();
+
+        // Anthropic
+        if lower.contains("api.anthropic.com") {
+            return Some(DetectionResult {
+                dialect: Dialect::Claude,
+                confidence: 0.8,
+                evidence: vec!["endpoint matches Anthropic API".into()],
+            });
+        }
+
+        // Gemini
+        if lower.contains("generativelanguage.googleapis.com") {
+            return Some(DetectionResult {
+                dialect: Dialect::Gemini,
+                confidence: 0.8,
+                evidence: vec!["endpoint matches Gemini API".into()],
+            });
+        }
+
+        // Moonshot / Kimi
+        if lower.contains("api.moonshot.cn") {
+            return Some(DetectionResult {
+                dialect: Dialect::Kimi,
+                confidence: 0.8,
+                evidence: vec!["endpoint matches Moonshot API".into()],
+            });
+        }
+
+        // OpenAI vs Codex (both use api.openai.com)
+        if lower.contains("api.openai.com") {
+            if lower.contains("/v1/responses") {
+                return Some(DetectionResult {
+                    dialect: Dialect::Codex,
+                    confidence: 0.8,
+                    evidence: vec!["endpoint matches OpenAI Responses API".into()],
+                });
+            }
+            return Some(DetectionResult {
+                dialect: Dialect::OpenAi,
+                confidence: 0.8,
+                evidence: vec!["endpoint matches OpenAI API".into()],
+            });
+        }
+
+        // GitHub Copilot
+        if lower.contains("api.github.com") && lower.contains("copilot") {
+            return Some(DetectionResult {
+                dialect: Dialect::Copilot,
+                confidence: 0.8,
+                evidence: vec!["endpoint matches GitHub Copilot API".into()],
+            });
+        }
+
+        None
+    }
 }
 
 // ── Scoring helpers ─────────────────────────────────────────────────────
@@ -168,6 +344,15 @@ type Score = (f64, Vec<String>);
 fn score_openai(obj: &serde_json::Map<String, Value>) -> Score {
     let mut pts = 0.0_f64;
     let mut ev = Vec::new();
+
+    // Model prefix — explicit OpenAI model names.
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        let lower = model.to_lowercase();
+        if lower.starts_with("gpt-") || lower.starts_with("chatgpt-") {
+            pts += 0.35;
+            ev.push(format!("model \"{model}\" matches OpenAI prefix"));
+        }
+    }
 
     if obj.contains_key("choices") {
         pts += 0.4;
@@ -181,9 +366,23 @@ fn score_openai(obj: &serde_json::Map<String, Value>) -> Score {
         pts += 0.35;
         ev.push("has \"messages\" with string \"content\"".into());
     }
+    // Only award generic model points when the model name doesn't belong to
+    // another known dialect.
     if obj.contains_key("model") && !obj.contains_key("contents") && !obj.contains_key("items") {
-        pts += 0.15;
-        ev.push("has \"model\" (not Gemini/Codex)".into());
+        let is_other_dialect_model = obj.get("model").and_then(Value::as_str).is_some_and(|m| {
+            let lower = m.to_lowercase();
+            lower.starts_with("claude-")
+                || lower.starts_with("gemini-")
+                || lower.starts_with("models/gemini-")
+                || lower.starts_with("codex-")
+                || lower.starts_with("moonshot-")
+                || lower.starts_with("kimi")
+                || lower.starts_with("copilot-")
+        });
+        if !is_other_dialect_model {
+            pts += 0.15;
+            ev.push("has \"model\" (not Gemini/Codex)".into());
+        }
     }
     if obj.contains_key("temperature")
         || obj.contains_key("top_p")
@@ -200,6 +399,13 @@ fn score_claude(obj: &serde_json::Map<String, Value>) -> Score {
     let mut pts = 0.0_f64;
     let mut ev = Vec::new();
 
+    // Model prefix — Claude models start with "claude-".
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        if model.to_lowercase().starts_with("claude-") {
+            pts += 0.5;
+            ev.push("model starts with \"claude-\"".into());
+        }
+    }
     if obj.get("type").and_then(Value::as_str) == Some("message") {
         pts += 0.45;
         ev.push("has \"type\":\"message\"".into());
@@ -230,6 +436,15 @@ fn score_gemini(obj: &serde_json::Map<String, Value>) -> Score {
     let mut pts = 0.0_f64;
     let mut ev = Vec::new();
 
+    // Model prefix — Gemini model names.
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        let lower = model.to_lowercase();
+        if lower.starts_with("gemini-") || lower.starts_with("models/gemini") {
+            pts += 0.35;
+            ev.push(format!("model \"{model}\" matches Gemini prefix"));
+        }
+    }
+
     if let Some(Value::Array(contents)) = obj.get("contents")
         && contents.iter().any(|c| c.get("parts").is_some())
     {
@@ -251,6 +466,20 @@ fn score_gemini(obj: &serde_json::Map<String, Value>) -> Score {
 fn score_codex(obj: &serde_json::Map<String, Value>) -> Score {
     let mut pts = 0.0_f64;
     let mut ev = Vec::new();
+
+    // Model prefix — Codex / Responses API model names.
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        let lower = model.to_lowercase();
+        if lower.starts_with("codex-")
+            || lower.starts_with("o1-")
+            || lower.starts_with("o3-")
+            || lower.starts_with("o4-")
+            || lower.contains("codex")
+        {
+            pts += 0.35;
+            ev.push(format!("model \"{model}\" matches Codex prefix"));
+        }
+    }
 
     if let Some(Value::Array(items)) = obj.get("items")
         && items.iter().any(|i| i.get("type").is_some())
@@ -274,6 +503,15 @@ fn score_kimi(obj: &serde_json::Map<String, Value>) -> Score {
     let mut pts = 0.0_f64;
     let mut ev = Vec::new();
 
+    // Model prefix — Kimi / Moonshot model names.
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        let lower = model.to_lowercase();
+        if lower.starts_with("moonshot-") || lower.starts_with("kimi") {
+            pts += 0.35;
+            ev.push(format!("model \"{model}\" matches Kimi prefix"));
+        }
+    }
+
     if obj.contains_key("refs") {
         pts += 0.4;
         ev.push("has \"refs\" field".into());
@@ -296,6 +534,15 @@ fn score_kimi(obj: &serde_json::Map<String, Value>) -> Score {
 fn score_copilot(obj: &serde_json::Map<String, Value>) -> Score {
     let mut pts = 0.0_f64;
     let mut ev = Vec::new();
+
+    // Model prefix — Copilot model names.
+    if let Some(model) = obj.get("model").and_then(Value::as_str) {
+        let lower = model.to_lowercase();
+        if lower.starts_with("copilot-") || lower.contains("copilot") {
+            pts += 0.35;
+            ev.push(format!("model \"{model}\" matches Copilot prefix"));
+        }
+    }
 
     if obj.contains_key("references") {
         pts += 0.45;

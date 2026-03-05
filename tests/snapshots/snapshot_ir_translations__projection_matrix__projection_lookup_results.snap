@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&json!({\n    \"openai_to_claude\": format!(\"{:?}\", lookup_mapped), \"claude_to_claude\":\n    format!(\"{:?}\", lookup_pass), \"kimi_to_codex\":\n    format!(\"{:?}\", lookup_missing),\n})"
+---
+{
+  "claude_to_claude": "Some(ProjectionEntry { pair: DialectPair { source: Claude, target: Claude }, mode: Passthrough, mapper_hint: Some(\"identity\") })",
+  "kimi_to_codex": "None",
+  "openai_to_claude": "Some(ProjectionEntry { pair: DialectPair { source: OpenAi, target: Claude }, mode: Mapped, mapper_hint: Some(\"openai_to_claude\") })"
+}

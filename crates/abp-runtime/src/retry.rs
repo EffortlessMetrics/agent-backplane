@@ -32,6 +32,17 @@ impl Default for RetryPolicy {
 }
 
 impl RetryPolicy {
+    /// A policy that disables retries entirely.
+    #[must_use]
+    pub fn no_retry() -> Self {
+        Self {
+            max_retries: 0,
+            initial_backoff: Duration::ZERO,
+            max_backoff: Duration::ZERO,
+            backoff_multiplier: 1.0,
+        }
+    }
+
     /// Start building a custom [`RetryPolicy`].
     #[must_use]
     pub fn builder() -> RetryPolicyBuilder {
@@ -57,6 +68,13 @@ impl RetryPolicy {
         // Clamp so we never exceed max_backoff or go below zero.
         let final_secs = jittered.max(0.0).min(self.max_backoff.as_secs_f64());
         Duration::from_secs_f64(final_secs)
+    }
+
+    /// Alias for [`compute_delay`](Self::compute_delay) — returns the
+    /// backoff duration (with jitter) for the given attempt.
+    #[must_use]
+    pub fn delay_for(&self, attempt: u32) -> Duration {
+        self.compute_delay(attempt)
     }
 
     /// Returns `true` when the given attempt index should be retried.
@@ -135,6 +153,63 @@ fn jitter(attempt: u32) -> f64 {
     // Map to [0, 1) then scale to [0.75, 1.25].
     let unit = (bits as f64) / (u64::MAX as f64);
     0.75 + unit * 0.5
+}
+
+// --- FallbackChain -----------------------------------------------------------
+
+/// An ordered list of backend names to try when the primary backend fails.
+///
+/// Call [`next_backend`](Self::next_backend) to advance through the chain. Once all backends
+/// have been consumed the iterator yields `None`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FallbackChain {
+    backends: Vec<String>,
+    #[serde(skip, default)]
+    index: usize,
+}
+
+impl FallbackChain {
+    /// Create a new chain from an ordered list of backend names.
+    #[must_use]
+    pub fn new(backends: Vec<String>) -> Self {
+        Self { backends, index: 0 }
+    }
+
+    /// Advance to the next backend in the chain.
+    ///
+    /// Returns `None` when all backends have been exhausted.
+    pub fn next_backend(&mut self) -> Option<&str> {
+        if self.index < self.backends.len() {
+            let name = &self.backends[self.index];
+            self.index += 1;
+            Some(name)
+        } else {
+            None
+        }
+    }
+
+    /// Reset the chain so it can be iterated again from the start.
+    pub fn reset(&mut self) {
+        self.index = 0;
+    }
+
+    /// Returns the number of backends remaining (not yet consumed by [`next_backend`](Self::next_backend)).
+    #[must_use]
+    pub fn remaining(&self) -> usize {
+        self.backends.len().saturating_sub(self.index)
+    }
+
+    /// Returns `true` when the chain has no backends at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.backends.is_empty()
+    }
+
+    /// Returns the total number of backends in the chain.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.backends.len()
+    }
 }
 
 // --- serde helpers for Duration as milliseconds -----------------------------

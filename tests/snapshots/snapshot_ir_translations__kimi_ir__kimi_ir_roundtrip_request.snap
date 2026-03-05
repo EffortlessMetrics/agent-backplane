@@ -1,0 +1,19 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&back"
+---
+{
+  "model": "moonshot-v1-8k",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Translate: goodbye"
+        }
+      ]
+    }
+  ],
+  "config": {}
+}

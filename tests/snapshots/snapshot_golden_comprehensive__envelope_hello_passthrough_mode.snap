@@ -1,0 +1,18 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: v
+---
+{
+  "backend": {
+    "adapter_version": "1.2.0",
+    "backend_version": "3.0.0",
+    "id": "sidecar:node"
+  },
+  "capabilities": {
+    "streaming": "native",
+    "tool_use": "emulated"
+  },
+  "contract_version": "abp/v0.1",
+  "mode": "passthrough",
+  "t": "hello"
+}

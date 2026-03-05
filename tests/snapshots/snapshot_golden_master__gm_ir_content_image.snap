@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "IrContentBlock::Image\n{ media_type: \"image/jpeg\".into(), data: \"L2ltYWdlLWRhdGE=\".into(), }"
+---
+{
+  "type": "image",
+  "media_type": "image/jpeg",
+  "data": "L2ltYWdlLWRhdGE="
+}

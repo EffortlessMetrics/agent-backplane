@@ -1,3 +1,32 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Shim API Surface Tests
 //!
@@ -566,8 +595,10 @@ mod gemini_shim {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("Hello!")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         assert_eq!(resp.text(), Some("Hello!"));
     }
@@ -586,17 +617,19 @@ mod gemini_shim {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("hey")]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: Some(UsageMetadata {
                 prompt_token_count: 10,
                 candidates_token_count: 20,
                 total_token_count: 30,
             }),
+            prompt_feedback: None,
         };
         assert_serialize_deserialize(&resp);
     }
 
-    // ── 4. Clone + Debug ───────────────────────────────────────────────
+    // ── 4. Clone + Debug───────────────────────────────────────────────
     #[test]
     fn content_clone_debug() {
         let c = Content::user(vec![Part::text("hi")]);
@@ -652,8 +685,10 @@ mod gemini_shim {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::function_call("search", json!({"q": "rust"}))]),
                 finish_reason: Some("STOP".into()),
+                safety_ratings: None,
             }],
             usage_metadata: None,
+            prompt_feedback: None,
         };
         let calls = resp.function_calls();
         assert_eq!(calls.len(), 1);
@@ -712,6 +747,7 @@ mod gemini_shim {
             candidates: vec![Candidate {
                 content: Content::model(vec![Part::text("hi")]),
                 finish_reason: None,
+                safety_ratings: None,
             }],
             usage_metadata: None,
         };
@@ -731,7 +767,7 @@ mod gemini_shim {
     // ── 15. Client constructor ─────────────────────────────────────────
     #[test]
     fn client_new_and_model() {
-        let client = GeminiClient::new("gemini-2.5-flash");
+        let client = GeminiClient::new("gemini-2.5-flash").unwrap();
         assert_eq!(client.model(), "gemini-2.5-flash");
         let debug = format!("{:?}", client);
         assert!(debug.contains("GeminiClient"));

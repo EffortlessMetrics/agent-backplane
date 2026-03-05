@@ -1,0 +1,21 @@
+---
+source: tests/snapshot_regression.rs
+expression: result
+---
+{
+  "native": [
+    "streaming"
+  ],
+  "emulated": [
+    [
+      "tool_read",
+      "client_side"
+    ]
+  ],
+  "unsupported": [
+    [
+      "mcp_client",
+      "not declared in manifest"
+    ]
+  ]
+}

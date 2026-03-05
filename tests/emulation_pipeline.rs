@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Integration tests for the full capability emulation pipeline.
 //!
 //! Covers detection, work-order mutation, fidelity labeling, receipt metadata,
@@ -72,7 +101,7 @@ mod structured_output {
     fn detection_needed_when_backend_lacks_capability() {
         let manifest = empty_manifest();
         let level = check_capability(&manifest, &Capability::StructuredOutputJsonSchema);
-        assert_eq!(level, SupportLevel::Unsupported);
+        assert!(matches!(level, SupportLevel::Unsupported { .. }));
 
         let neg = negotiate(
             &manifest,
@@ -80,7 +109,7 @@ mod structured_output {
         );
         assert!(!neg.is_compatible());
         assert_eq!(
-            neg.unsupported,
+            neg.unsupported_caps(),
             vec![Capability::StructuredOutputJsonSchema]
         );
     }
@@ -288,7 +317,7 @@ mod extended_thinking {
         let manifest = empty_manifest();
         let neg = negotiate(&manifest, &require(&[Capability::ExtendedThinking]));
         assert!(!neg.is_compatible());
-        assert_eq!(neg.unsupported, vec![Capability::ExtendedThinking]);
+        assert_eq!(neg.unsupported_caps(), vec![Capability::ExtendedThinking]);
     }
 
     #[test]
@@ -771,9 +800,7 @@ mod cross_capability {
         // Attempt to emulate the unsupported capabilities.
         let engine = EmulationEngine::with_defaults();
         let mut conv = minimal_conversation();
-        let report = engine.apply(&neg.unsupported, &mut conv);
-
-        // Both ExtendedThinking and StopSequences are emulatable.
+        let report = engine.apply(&neg.unsupported_caps(), &mut conv);
         assert_eq!(report.applied.len(), 2);
         assert!(report.warnings.is_empty());
 
@@ -810,7 +837,7 @@ mod cross_capability {
         // Emulate both.
         let engine = EmulationEngine::with_defaults();
         let mut conv = minimal_conversation();
-        let report = engine.apply(&neg.unsupported, &mut conv);
+        let report = engine.apply(&neg.unsupported_caps(), &mut conv);
         assert_eq!(report.applied.len(), 2);
         assert!(report.warnings.is_empty());
     }

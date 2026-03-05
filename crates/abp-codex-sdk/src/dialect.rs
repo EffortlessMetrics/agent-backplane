@@ -6,6 +6,7 @@ use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
 use chrono::Utc;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -84,7 +85,7 @@ pub fn capability_manifest() -> CapabilityManifest {
 // ---------------------------------------------------------------------------
 
 /// A vendor-agnostic tool definition used as the ABP canonical form.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CanonicalToolDef {
     /// Tool name.
     pub name: String,
@@ -95,7 +96,7 @@ pub struct CanonicalToolDef {
 }
 
 /// OpenAI-style function tool definition (legacy format).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexToolDef {
     /// Tool type (always `"function"`).
     #[serde(rename = "type")]
@@ -105,7 +106,7 @@ pub struct CodexToolDef {
 }
 
 /// The function payload inside a [`CodexToolDef`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct CodexFunctionDef {
     /// Function name.
     pub name: String,
@@ -119,7 +120,7 @@ pub struct CodexFunctionDef {
 ///
 /// Maps the three built-in tool types that OpenAI supports:
 /// function (custom), code_interpreter, and file_search.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexTool {
     /// A user-defined function tool.
@@ -190,7 +191,7 @@ pub fn codex_tool_to_canonical(tool: &CodexTool) -> CanonicalToolDef {
 // ---------------------------------------------------------------------------
 
 /// Networking policy for sandboxed execution.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum NetworkAccess {
     /// No network access allowed.
@@ -203,7 +204,7 @@ pub enum NetworkAccess {
 }
 
 /// File-system access policy for sandboxed execution.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FileAccess {
     /// No file access beyond the workspace directory.
@@ -219,7 +220,7 @@ pub enum FileAccess {
 ///
 /// Codex is execution-oriented: it runs code inside containers with
 /// controlled networking and file-system access.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct SandboxConfig {
     /// Container image to use for execution (e.g. `"node:20"`, `"python:3.12"`).
     pub container_image: Option<String>,
@@ -261,7 +262,7 @@ impl Default for SandboxConfig {
 // ---------------------------------------------------------------------------
 
 /// Output text format configuration for the Responses API.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexTextFormat {
     /// Plain text output (default).
@@ -291,7 +292,7 @@ impl Default for CodexTextFormat {
 // ---------------------------------------------------------------------------
 
 /// Vendor-specific configuration for the OpenAI Codex / Responses API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CodexConfig {
     /// OpenAI API key (e.g. `sk-...`).
     pub api_key: String,
@@ -331,7 +332,7 @@ impl Default for CodexConfig {
 // ---------------------------------------------------------------------------
 
 /// Simplified representation of an OpenAI Responses API request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CodexRequest {
     /// Model identifier (e.g. `codex-mini-latest`).
     pub model: String,
@@ -352,7 +353,7 @@ pub struct CodexRequest {
 }
 
 /// An input item in the Codex Responses API format.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexInputItem {
     /// A conversation message.
@@ -369,7 +370,7 @@ pub enum CodexInputItem {
 // ---------------------------------------------------------------------------
 
 /// Simplified representation of an OpenAI Responses API response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CodexResponse {
     /// Unique response identifier.
     pub id: String,
@@ -388,7 +389,7 @@ pub struct CodexResponse {
 ///
 /// Models the four output item types: message, function_call,
 /// function_call_output, and reasoning.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexResponseItem {
     /// An assistant message with content parts.
@@ -426,14 +427,14 @@ pub enum CodexResponseItem {
 }
 
 /// A summary fragment within a reasoning response item.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ReasoningSummary {
     /// The reasoning text.
     pub text: String,
 }
 
 /// A content part within a Codex output message.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexContentPart {
     /// Text output from the model.
@@ -444,7 +445,7 @@ pub enum CodexContentPart {
 }
 
 /// Token usage reported by the OpenAI API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CodexUsage {
     /// Tokens consumed by the input.
     pub input_tokens: u64,
@@ -469,7 +470,7 @@ pub type CodexOutputItem = CodexResponseItem;
 ///
 /// Event names follow the OpenAI convention: `response.created`,
 /// `response.in_progress`, `response.output_item.*`, `response.completed`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexStreamEvent {
     /// The response object has been created (`response.created`).
@@ -524,7 +525,7 @@ pub enum CodexStreamEvent {
 }
 
 /// Delta payload for incremental streaming updates.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CodexStreamDelta {
     /// Incremental text content.

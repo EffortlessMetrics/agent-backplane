@@ -1,0 +1,23 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: chunk
+---
+{
+  "id": "kimi-stream-002",
+  "object": "chat.completion.chunk",
+  "created": 1700002300,
+  "model": "moonshot-v1-8k",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {},
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 60,
+    "completion_tokens": 80,
+    "total_tokens": 140,
+    "search_tokens": 20
+  }
+}

@@ -1,0 +1,10 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&summary"
+---
+{
+  "content_ends_with": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "content_length": 10000,
+  "content_starts_with": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "role": "user"
+}

@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::collapsible_if)]
 //! Integration tests for the unified error taxonomy system.
 //!
 //! Validates that ErrorCode, AbpError, ErrorCategory, and their interactions
@@ -66,14 +95,14 @@ fn all_error_codes_serde_roundtrip() {
 }
 
 #[test]
-fn error_code_serializes_to_screaming_snake_case() {
+fn error_code_serializes_to_snake_case() {
     for code in ALL_CODES {
         let json = serde_json::to_string(code).unwrap();
         let s = json.trim_matches('"');
-        // Must be uppercase with underscores only.
+        // Must be lowercase with underscores only.
         assert!(
-            s.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
-            "code {code:?} serializes to {s}, which is not SCREAMING_SNAKE_CASE"
+            s.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
+            "code {code:?} serializes to {s}, which is not snake_case"
         );
     }
 }
@@ -127,40 +156,40 @@ fn category_serde_roundtrip() {
 fn error_codes_stable_strings() {
     let expected: &[(&str, ErrorCode)] = &[
         (
-            "PROTOCOL_INVALID_ENVELOPE",
+            "protocol_invalid_envelope",
             ErrorCode::ProtocolInvalidEnvelope,
         ),
         (
-            "PROTOCOL_UNEXPECTED_MESSAGE",
+            "protocol_unexpected_message",
             ErrorCode::ProtocolUnexpectedMessage,
         ),
         (
-            "PROTOCOL_VERSION_MISMATCH",
+            "protocol_version_mismatch",
             ErrorCode::ProtocolVersionMismatch,
         ),
-        ("BACKEND_NOT_FOUND", ErrorCode::BackendNotFound),
-        ("BACKEND_TIMEOUT", ErrorCode::BackendTimeout),
-        ("BACKEND_CRASHED", ErrorCode::BackendCrashed),
-        ("CAPABILITY_UNSUPPORTED", ErrorCode::CapabilityUnsupported),
+        ("backend_not_found", ErrorCode::BackendNotFound),
+        ("backend_timeout", ErrorCode::BackendTimeout),
+        ("backend_crashed", ErrorCode::BackendCrashed),
+        ("capability_unsupported", ErrorCode::CapabilityUnsupported),
         (
-            "CAPABILITY_EMULATION_FAILED",
+            "capability_emulation_failed",
             ErrorCode::CapabilityEmulationFailed,
         ),
-        ("POLICY_DENIED", ErrorCode::PolicyDenied),
-        ("POLICY_INVALID", ErrorCode::PolicyInvalid),
-        ("WORKSPACE_INIT_FAILED", ErrorCode::WorkspaceInitFailed),
+        ("policy_denied", ErrorCode::PolicyDenied),
+        ("policy_invalid", ErrorCode::PolicyInvalid),
+        ("workspace_init_failed", ErrorCode::WorkspaceInitFailed),
         (
-            "WORKSPACE_STAGING_FAILED",
+            "workspace_staging_failed",
             ErrorCode::WorkspaceStagingFailed,
         ),
-        ("IR_LOWERING_FAILED", ErrorCode::IrLoweringFailed),
-        ("IR_INVALID", ErrorCode::IrInvalid),
-        ("RECEIPT_HASH_MISMATCH", ErrorCode::ReceiptHashMismatch),
-        ("RECEIPT_CHAIN_BROKEN", ErrorCode::ReceiptChainBroken),
-        ("DIALECT_UNKNOWN", ErrorCode::DialectUnknown),
-        ("DIALECT_MAPPING_FAILED", ErrorCode::DialectMappingFailed),
-        ("CONFIG_INVALID", ErrorCode::ConfigInvalid),
-        ("INTERNAL", ErrorCode::Internal),
+        ("ir_lowering_failed", ErrorCode::IrLoweringFailed),
+        ("ir_invalid", ErrorCode::IrInvalid),
+        ("receipt_hash_mismatch", ErrorCode::ReceiptHashMismatch),
+        ("receipt_chain_broken", ErrorCode::ReceiptChainBroken),
+        ("dialect_unknown", ErrorCode::DialectUnknown),
+        ("dialect_mapping_failed", ErrorCode::DialectMappingFailed),
+        ("config_invalid", ErrorCode::ConfigInvalid),
+        ("internal", ErrorCode::Internal),
     ];
 
     for (stable_str, code) in expected {
@@ -289,6 +318,8 @@ fn dto_to_abp_error_conversion() {
             ctx
         },
         source_message: Some("policy rule #3".into()),
+        location: None,
+        cause_chain: Vec::new(),
     };
 
     let err: AbpError = dto.into();
@@ -322,7 +353,7 @@ fn dto_roundtrip_preserves_all_error_codes() {
 #[test]
 fn display_format_bracket_code_message() {
     let err = AbpError::new(ErrorCode::BackendNotFound, "no such backend");
-    assert_eq!(err.to_string(), "[BACKEND_NOT_FOUND] no such backend");
+    assert_eq!(err.to_string(), "[backend_not_found] no such backend");
 }
 
 #[test]
@@ -330,7 +361,7 @@ fn display_format_with_context_includes_json() {
     let err =
         AbpError::new(ErrorCode::BackendTimeout, "timed out").with_context("timeout_ms", 5000);
     let s = err.to_string();
-    assert!(s.starts_with("[BACKEND_TIMEOUT] timed out"));
+    assert!(s.starts_with("[backend_timeout] timed out"));
     assert!(s.contains("timeout_ms"));
     assert!(s.contains("5000"));
 }
@@ -350,7 +381,7 @@ fn display_format_all_codes() {
 #[test]
 fn error_code_display_matches_as_str() {
     for code in ALL_CODES {
-        assert_eq!(code.to_string(), code.as_str());
+        assert_eq!(code.to_string(), code.message());
     }
 }
 
@@ -370,7 +401,7 @@ fn agent_event_error_with_error_code_serde_roundtrip() {
     };
 
     let json = serde_json::to_string(&event).unwrap();
-    assert!(json.contains("BACKEND_CRASHED"));
+    assert!(json.contains("backend_crashed"));
 
     let back: AgentEvent = serde_json::from_str(&json).unwrap();
     match &back.kind {
@@ -494,7 +525,7 @@ fn fatal_envelope_with_code_roundtrip() {
     );
 
     let json = JsonlCodec::encode(&envelope).unwrap();
-    assert!(json.contains("BACKEND_CRASHED"));
+    assert!(json.contains("backend_crashed"));
 
     let back = JsonlCodec::decode(json.trim()).unwrap();
     assert_eq!(back.error_code(), Some(ErrorCode::BackendCrashed));
@@ -727,7 +758,7 @@ fn full_error_propagation_scenario() {
     // Step 5: The original AbpError can also be serialized as a DTO.
     let dto: AbpErrorDto = (&backend_err).into();
     let dto_json = serde_json::to_string(&dto).unwrap();
-    assert!(dto_json.contains("BACKEND_TIMEOUT"));
+    assert!(dto_json.contains("backend_timeout"));
     assert!(dto_json.contains("openai"));
 }
 

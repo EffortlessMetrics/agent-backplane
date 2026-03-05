@@ -1,0 +1,12 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&err"
+---
+{
+  "error": {
+    "message": "Invalid model specified",
+    "type": "invalid_request_error",
+    "param": "model",
+    "code": "model_not_found"
+  }
+}

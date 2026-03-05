@@ -1,0 +1,67 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&req"
+---
+model: gemini-2.5-pro
+contents:
+  - role: user
+    parts:
+      - text: Analyze this data
+      - inlineData:
+          mimeType: image/png
+          data: base64data==
+  - role: model
+    parts:
+      - functionCall:
+          name: analyze
+          args:
+            data: sample
+            mode: deep
+  - role: user
+    parts:
+      - functionResponse:
+          name: analyze
+          response:
+            confidence: 0.95
+            result: complex output
+tools:
+  - functionDeclarations:
+      - name: analyze
+        description: Analyze data deeply
+        parameters:
+          properties:
+            data:
+              type: string
+            mode:
+              type: string
+          type: object
+      - name: summarize
+        description: Summarize results
+        parameters:
+          properties:
+            text:
+              type: string
+          type: object
+generationConfig:
+  temperature: 0.5
+  topP: 0.85
+  topK: 30
+  maxOutputTokens: 8192
+  candidateCount: 1
+  stopSequences:
+    - HALT
+    - QUIT
+  responseMimeType: application/json
+  responseSchema:
+    properties:
+      answer:
+        type: string
+    type: object
+safetySettings:
+  - category: HARM_CATEGORY_HARASSMENT
+    threshold: BLOCK_NONE
+  - category: HARM_CATEGORY_HATE_SPEECH
+    threshold: BLOCK_NONE
+systemInstruction:
+  parts:
+    - text: You are an advanced data analyst.

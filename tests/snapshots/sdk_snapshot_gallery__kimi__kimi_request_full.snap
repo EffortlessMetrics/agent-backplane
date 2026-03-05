@@ -1,0 +1,47 @@
+---
+source: tests/sdk_snapshot_gallery.rs
+expression: req
+---
+{
+  "model": "moonshot-v1-8k",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant with web search."
+    },
+    {
+      "role": "user",
+      "content": "What happened in the news today?"
+    }
+  ],
+  "temperature": 0.6,
+  "top_p": 0.85,
+  "max_tokens": 2048,
+  "stream": false,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for information",
+        "parameters": {
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "use_search": true,
+  "search_options": {
+    "mode": "auto",
+    "result_count": 5
+  }
+}

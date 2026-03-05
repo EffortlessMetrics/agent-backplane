@@ -1,12 +1,40 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #![doc = include_str!("../README.md")]
-//! abp-core
+//!
+//! # Contract types
+//!
+//! `abp-core` is the foundational crate of the Agent Backplane workspace.
+//! It defines every type that crosses a crate boundary: work orders,
+//! receipts, agent events, capabilities, policies, and configuration.
+//!
+//! **If you only take one dependency from this workspace, take this one.**
+//!
+//! ## Key types
+//!
+//! | Type | Purpose |
+//! |------|---------|
+//! | [`WorkOrder`] | A single unit of work dispatched to a backend |
+//! | [`Receipt`] | Outcome metadata produced after a run completes |
+//! | [`AgentEvent`] / [`AgentEventKind`] | Streaming events emitted during execution |
+//! | [`Capability`] / [`CapabilityManifest`] | Feature flags a backend advertises |
+//! | [`PolicyProfile`] | Tool / path / network security restrictions |
+//! | [`ExecutionMode`] | Passthrough vs. mapped dialect translation |
+//!
+//! ## Companion crates
+//!
+//! * `abp-protocol` — JSONL wire format for sidecar communication
+//! * `abp-mapper` — cross-dialect request/response translation
+//! * `abp-capability` — capability negotiation and registry
+//! * `abp-error` — unified error taxonomy with stable error codes
+//! * `abp-runtime` — orchestration: workspace prep, backend selection, receipt hashing
+//!
+//! ## Receipt hashing
+//!
+//! `receipt_hash()` sets `receipt_sha256` to `null` before hashing so the
+//! stored hash is never self-referential.  Prefer [`Receipt::with_hash`]
+//! over calling `receipt_hash()` directly.
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
-//!
-//! The stable contract for Agent Backplane.
-//!
-//! If you only take one dependency, take this one.
 
 /// Event aggregation and analytics.
 pub mod aggregate;
@@ -88,7 +116,7 @@ pub struct WorkOrder {
 }
 
 /// Strategy for how the agent produces its output.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecutionLane {
     /// Agent proposes a patch/diff. No direct mutation of the user's repo.
@@ -115,7 +143,7 @@ pub struct WorkspaceSpec {
 }
 
 /// How the runtime treats the workspace before handing it to a backend.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkspaceMode {
     /// Use the workspace as-is.
@@ -215,6 +243,9 @@ pub enum MinSupport {
 
     /// Native or emulated is acceptable.
     Emulated,
+
+    /// Any support level is acceptable (including unsupported).
+    Any,
 }
 
 /// A discrete feature that a backend may support (tools, hooks, MCP, etc.).
@@ -294,6 +325,37 @@ pub enum Capability {
     SeedDeterminism,
     /// Support custom stop sequences.
     StopSequences,
+
+    /// Legacy function-calling style (distinct from tool_use in some SDKs).
+    FunctionCalling,
+    /// Accept images as input (vision models).
+    Vision,
+    /// Accept audio as input.
+    Audio,
+    /// Constrain output to valid JSON.
+    JsonMode,
+    /// Support system-level prompt messages.
+    SystemMessage,
+    /// Temperature sampling parameter.
+    Temperature,
+    /// Top-p (nucleus) sampling parameter.
+    TopP,
+    /// Top-k sampling parameter.
+    TopK,
+    /// Maximum token limit parameter.
+    MaxTokens,
+    /// Frequency penalty parameter.
+    FrequencyPenalty,
+    /// Presence penalty parameter.
+    PresencePenalty,
+    /// Prompt caching / cache-control hints.
+    CacheControl,
+    /// Batch request API support.
+    BatchMode,
+    /// Text embedding generation.
+    Embeddings,
+    /// Image generation (e.g. DALL-E).
+    ImageGeneration,
 }
 
 /// How well a backend supports a given [`Capability`].
@@ -311,7 +373,7 @@ pub enum Capability {
 /// assert!(!emulated.satisfies(&MinSupport::Native));
 /// assert!(emulated.satisfies(&MinSupport::Emulated));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportLevel {
     /// First-class support built into the backend.
@@ -333,6 +395,8 @@ impl SupportLevel {
     #[must_use]
     pub fn satisfies(&self, min: &MinSupport) -> bool {
         match (min, self) {
+            (MinSupport::Any, _) => true,
+
             (MinSupport::Native, SupportLevel::Native) => true,
             (MinSupport::Native, _) => false,
 

@@ -2,6 +2,7 @@
 name = "abp-codex-sdk"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -13,11 +14,14 @@ categories = ["development-tools"]
 [dependencies]
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-runtime = { path = "../abp-runtime", version = "0.1.0" }
+abp-sdk-types = { path = "../abp-sdk-types", version = "0.1.0" }
 abp-sidecar-sdk = { path = "../abp-sidecar-sdk", version = "0.1.0" }
 anyhow.workspace = true
 chrono.workspace = true
+schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

@@ -1,0 +1,30 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: config
+---
+{
+  "instructions": "You are a coding assistant.",
+  "model": "codex-mini-latest",
+  "tools": [
+    {
+      "type": "function",
+      "name": "read_file",
+      "description": "Read a file",
+      "parameters": {
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "strict": true
+    }
+  ],
+  "temperature": 0.2,
+  "max_output_tokens": 4096,
+  "reasoning": {
+    "effort": "high",
+    "summary": true
+  }
+}

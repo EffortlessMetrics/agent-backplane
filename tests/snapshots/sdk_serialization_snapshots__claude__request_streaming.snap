@@ -1,0 +1,15 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: req
+---
+{
+  "model": "claude-sonnet-4-20250514",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Stream this"
+    }
+  ],
+  "max_tokens": 1024,
+  "stream": true
+}

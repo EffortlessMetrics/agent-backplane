@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
 //! Deep BDD-style Given/When/Then tests covering 15 major user journeys
 //! across the Agent Backplane: receipt hashing, policy enforcement, workspace
 //! staging, dialect mapping, sequential runs, capability negotiation, sidecar
@@ -531,7 +560,7 @@ fn s06_given_no_tool_use_when_emulation_required_then_emulatable() {
     let reqs = require(&[(Capability::ToolUse, MinSupport::Emulated)]);
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
-    assert_eq!(result.emulatable, vec![Capability::ToolUse]);
+    assert_eq!(result.emulated_caps(), vec![Capability::ToolUse]);
 }
 
 /// Given backend missing extended_thinking, When native required, Then unsupported.
@@ -541,7 +570,10 @@ fn s06_given_no_thinking_when_native_required_then_unsupported() {
     let reqs = require(&[(Capability::ExtendedThinking, MinSupport::Native)]);
     let result = negotiate(&manifest, &reqs);
     assert!(!result.is_compatible());
-    assert_eq!(result.unsupported, vec![Capability::ExtendedThinking]);
+    assert_eq!(
+        result.unsupported_caps(),
+        vec![Capability::ExtendedThinking]
+    );
 }
 
 /// Given empty requirements, When negotiated, Then always compatible.
@@ -567,7 +599,7 @@ fn s06_given_mixed_caps_when_negotiated_then_categorized() {
     let result = negotiate(&manifest, &reqs);
     assert!(result.is_compatible());
     assert_eq!(result.native.len(), 1);
-    assert_eq!(result.emulatable.len(), 1);
+    assert_eq!(result.emulated.len(), 1);
 }
 
 /// Given EmulationEngine, When checking missing caps, Then report generated.
@@ -868,7 +900,7 @@ fn s10_given_error_with_context_when_displayed_then_includes_info() {
     let err =
         AbpError::new(ErrorCode::PolicyDenied, "tool disallowed").with_context("tool", "Bash");
     let display = err.to_string();
-    assert!(display.contains("POLICY_DENIED"));
+    assert!(display.contains("policy_denied"));
     assert!(display.contains("tool disallowed"));
 }
 

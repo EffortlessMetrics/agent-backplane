@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_expansion_tests.rs
+expression: evt
+---
+{
+  "ts": "2025-06-01T10:00:00Z",
+  "type": "assistant_message",
+  "text": "done",
+  "ext": {
+    "latency_ms": 42,
+    "model": "gpt-4o"
+  }
+}

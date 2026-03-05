@@ -1,0 +1,10 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&usage"
+---
+{
+  "input_tokens": 500,
+  "output_tokens": 1200,
+  "cache_creation_input_tokens": 300,
+  "cache_read_input_tokens": 200
+}

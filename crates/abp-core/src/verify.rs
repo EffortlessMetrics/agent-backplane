@@ -620,7 +620,7 @@ pub struct ChainVerification {
     /// Number of receipts in the chain.
     pub chain_length: usize,
     /// Total number of trace events across all receipts.
-    pub total_events: usize,
+    pub total_events: u64,
     /// Sum of `duration_ms` across all receipts.
     pub total_duration_ms: u64,
 }
@@ -639,14 +639,14 @@ pub struct ChainVerification {
 pub fn verify_chain(chain: &ReceiptChain) -> ChainVerification {
     let mut errors = Vec::new();
     let chain_length = chain.len();
-    let mut total_events: usize = 0;
+    let mut total_events: u64 = 0;
     let mut total_duration_ms: u64 = 0;
 
     // First pass: collect IDs, accumulate stats, detect duplicates.
     let mut seen_ids = HashSet::new();
     for entry in &chain.entries {
         let id = entry.receipt.meta.run_id;
-        total_events += entry.receipt.trace.len();
+        total_events += entry.receipt.trace.len() as u64;
         total_duration_ms = total_duration_ms.saturating_add(entry.receipt.meta.duration_ms);
 
         if !seen_ids.insert(id) {

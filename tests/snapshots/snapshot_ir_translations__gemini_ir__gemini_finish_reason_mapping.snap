@@ -1,0 +1,22 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&reasons"
+---
+[
+  {
+    "input": "STOP",
+    "ir": "Some(Stop)"
+  },
+  {
+    "input": "MAX_TOKENS",
+    "ir": "Some(Length)"
+  },
+  {
+    "input": "SAFETY",
+    "ir": "Some(ContentFilter)"
+  },
+  {
+    "input": "OTHER",
+    "ir": "Some(Error)"
+  }
+]

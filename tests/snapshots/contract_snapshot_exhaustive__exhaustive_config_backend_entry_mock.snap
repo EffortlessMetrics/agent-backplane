@@ -1,0 +1,7 @@
+---
+source: tests/contract_snapshot_exhaustive.rs
+expression: "BackendEntry::Mock {}"
+---
+{
+  "type": "mock"
+}

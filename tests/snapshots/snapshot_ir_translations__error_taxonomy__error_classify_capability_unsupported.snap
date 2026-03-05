@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&classification"
+---
+{
+  "code": "capability_unsupported",
+  "severity": "fatal",
+  "category": "capability_unsupported",
+  "recovery": {
+    "action": "fallback",
+    "description": "Capability unsupported — try an alternative backend",
+    "delay_ms": null
+  }
+}

@@ -7,22 +7,52 @@
 //!
 //! Drop-in Kimi SDK shim that routes through ABP's intermediate representation.
 
+/// HTTP client for the Moonshot (Kimi) Chat Completions API.
+pub mod client;
+/// Conversion layer between Kimi shim types and ABP core types.
+pub mod convert;
+/// Kimi-specific error types and classification.
+pub mod error;
+/// SSE-compatible streaming adapter for Kimi chat completions.
+pub mod streaming;
+/// Kimi built-in tools: search, file, code, browser.
+pub mod tools;
+/// Translation between Kimi-specific extension types and ABP core types.
+pub mod translate;
+/// Kimi-specific shim types (messages, usage, request builder).
+pub mod types;
+
+// Re-export named translate functions for cross-SDK consistency.
+pub use translate::{translate_from_receipt, translate_to_work_order};
+
 use std::pin::Pin;
 
-use abp_core::ir::{IrConversation, IrRole, IrUsage};
-use abp_core::{AgentEvent, AgentEventKind, Receipt, UsageNormalized, WorkOrder, WorkOrderBuilder};
-use abp_kimi_sdk::dialect::{
-    KimiChoice, KimiChunk, KimiChunkChoice, KimiChunkDelta, KimiFunctionCall, KimiMessage,
-    KimiRequest, KimiResponse, KimiResponseMessage, KimiToolCall, KimiUsage,
-};
-use abp_kimi_sdk::lowering;
+use abp_core::{AgentEvent, Receipt, UsageNormalized, WorkOrder};
+use abp_kimi_sdk::dialect::{KimiChunk, KimiRequest, KimiResponse};
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
 use tokio_stream::Stream;
 
 // Re-export key types from the Kimi SDK for convenience.
 pub use abp_kimi_sdk::dialect::{
     KimiBuiltinFunction, KimiBuiltinTool, KimiFunctionDef, KimiRole, KimiTool, KimiToolDef,
+};
+
+// Re-export error types.
+pub use error::{
+    ERR_AUTHENTICATION, ERR_INVALID_REQUEST, ERR_RATE_LIMIT, ERR_SERVER, KimiApiError,
+    KimiErrorBody, KimiErrorKind, KimiErrorResponse, KimiShimError,
+};
+
+// Re-export built-in tool types.
+pub use tools::{BrowserTool, BuiltinTools, CodeTool, FileTool, SearchTool};
+
+// Re-export types and convert modules for backward compatibility.
+pub use convert::*;
+pub use types::*;
+
+// Re-export translation functions (Kimi-specific extension types).
+pub use translate::{
+    agent_event_to_kimi_stream, kimi_stream_stop_event, kimi_to_work_order, receipt_to_kimi,
 };
 
 // ── Error types ─────────────────────────────────────────────────────────
@@ -44,419 +74,6 @@ pub enum ShimError {
 /// Result alias for shim operations.
 pub type Result<T> = std::result::Result<T, ShimError>;
 
-// ── Message constructors ────────────────────────────────────────────────
-
-/// A chat message in the Kimi format (convenience wrapper).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Message {
-    /// Message role.
-    pub role: String,
-    /// Text content of the message.
-    pub content: Option<String>,
-    /// Tool calls (assistant messages).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_calls: Option<Vec<KimiToolCall>>,
-    /// Tool call ID this message responds to.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_call_id: Option<String>,
-}
-
-impl Message {
-    /// Create a system message.
-    #[must_use]
-    pub fn system(content: impl Into<String>) -> Self {
-        Self {
-            role: "system".into(),
-            content: Some(content.into()),
-            tool_calls: None,
-            tool_call_id: None,
-        }
-    }
-
-    /// Create a user message.
-    #[must_use]
-    pub fn user(content: impl Into<String>) -> Self {
-        Self {
-            role: "user".into(),
-            content: Some(content.into()),
-            tool_calls: None,
-            tool_call_id: None,
-        }
-    }
-
-    /// Create an assistant message.
-    #[must_use]
-    pub fn assistant(content: impl Into<String>) -> Self {
-        Self {
-            role: "assistant".into(),
-            content: Some(content.into()),
-            tool_calls: None,
-            tool_call_id: None,
-        }
-    }
-
-    /// Create an assistant message with tool calls.
-    #[must_use]
-    pub fn assistant_with_tool_calls(tool_calls: Vec<KimiToolCall>) -> Self {
-        Self {
-            role: "assistant".into(),
-            content: None,
-            tool_calls: Some(tool_calls),
-            tool_call_id: None,
-        }
-    }
-
-    /// Create a tool result message.
-    #[must_use]
-    pub fn tool(tool_call_id: impl Into<String>, content: impl Into<String>) -> Self {
-        Self {
-            role: "tool".into(),
-            content: Some(content.into()),
-            tool_calls: None,
-            tool_call_id: Some(tool_call_id.into()),
-        }
-    }
-}
-
-// ── Token usage ─────────────────────────────────────────────────────────
-
-/// Token usage statistics.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Usage {
-    /// Tokens consumed by the prompt.
-    pub prompt_tokens: u64,
-    /// Tokens generated in the completion.
-    pub completion_tokens: u64,
-    /// Total tokens (prompt + completion).
-    pub total_tokens: u64,
-}
-
-// ── Request builder ─────────────────────────────────────────────────────
-
-/// Builder for [`KimiRequest`].
-#[derive(Debug, Default)]
-pub struct KimiRequestBuilder {
-    model: Option<String>,
-    messages: Vec<Message>,
-    max_tokens: Option<u32>,
-    temperature: Option<f64>,
-    stream: Option<bool>,
-    tools: Option<Vec<KimiTool>>,
-    use_search: Option<bool>,
-}
-
-impl KimiRequestBuilder {
-    /// Create a new builder for a Kimi request.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set the model.
-    #[must_use]
-    pub fn model(mut self, model: impl Into<String>) -> Self {
-        self.model = Some(model.into());
-        self
-    }
-
-    /// Set the messages.
-    #[must_use]
-    pub fn messages(mut self, messages: Vec<Message>) -> Self {
-        self.messages = messages;
-        self
-    }
-
-    /// Set the maximum tokens.
-    #[must_use]
-    pub fn max_tokens(mut self, max: u32) -> Self {
-        self.max_tokens = Some(max);
-        self
-    }
-
-    /// Set the temperature.
-    #[must_use]
-    pub fn temperature(mut self, temp: f64) -> Self {
-        self.temperature = Some(temp);
-        self
-    }
-
-    /// Set the stream flag.
-    #[must_use]
-    pub fn stream(mut self, stream: bool) -> Self {
-        self.stream = Some(stream);
-        self
-    }
-
-    /// Set the tools.
-    #[must_use]
-    pub fn tools(mut self, tools: Vec<KimiTool>) -> Self {
-        self.tools = Some(tools);
-        self
-    }
-
-    /// Set the use_search flag.
-    #[must_use]
-    pub fn use_search(mut self, use_search: bool) -> Self {
-        self.use_search = Some(use_search);
-        self
-    }
-
-    /// Build the request, defaulting model to `"moonshot-v1-8k"` if unset.
-    #[must_use]
-    pub fn build(self) -> KimiRequest {
-        KimiRequest {
-            model: self.model.unwrap_or_else(|| "moonshot-v1-8k".into()),
-            messages: self.messages.into_iter().map(to_kimi_message).collect(),
-            max_tokens: self.max_tokens,
-            temperature: self.temperature,
-            stream: self.stream,
-            tools: self.tools,
-            use_search: self.use_search,
-        }
-    }
-}
-
-/// Convert a shim [`Message`] to a [`KimiMessage`].
-fn to_kimi_message(msg: Message) -> KimiMessage {
-    KimiMessage {
-        role: msg.role,
-        content: msg.content,
-        tool_call_id: msg.tool_call_id,
-        tool_calls: msg.tool_calls,
-    }
-}
-
-// ── Conversion: request → IR → WorkOrder ────────────────────────────────
-
-/// Convert a [`KimiRequest`] into an [`IrConversation`].
-pub fn request_to_ir(request: &KimiRequest) -> IrConversation {
-    lowering::to_ir(&request.messages)
-}
-
-/// Convert a [`KimiRequest`] into an ABP [`WorkOrder`].
-pub fn request_to_work_order(request: &KimiRequest) -> WorkOrder {
-    let conv = request_to_ir(request);
-    let task = conv
-        .messages
-        .iter()
-        .rev()
-        .find(|m| m.role == IrRole::User)
-        .map(|m| m.text_content())
-        .unwrap_or_else(|| "kimi completion".into());
-
-    let mut builder = WorkOrderBuilder::new(task).model(request.model.clone());
-
-    let mut vendor = std::collections::BTreeMap::new();
-    if let Some(temp) = request.temperature {
-        vendor.insert("temperature".to_string(), serde_json::Value::from(temp));
-    }
-    if let Some(max) = request.max_tokens {
-        vendor.insert("max_tokens".to_string(), serde_json::Value::from(max));
-    }
-    let config = abp_core::RuntimeConfig {
-        model: Some(request.model.clone()),
-        vendor,
-        ..Default::default()
-    };
-    builder = builder.config(config);
-
-    builder.build()
-}
-
-// ── Conversion: Receipt → KimiResponse ──────────────────────────────────
-
-/// Build a [`KimiResponse`] from a [`Receipt`] and the original model name.
-pub fn receipt_to_response(receipt: &Receipt, model: &str) -> KimiResponse {
-    let mut content: Option<String> = None;
-    let mut tool_calls: Vec<KimiToolCall> = Vec::new();
-    let mut finish_reason = "stop".to_string();
-
-    for event in &receipt.trace {
-        match &event.kind {
-            AgentEventKind::AssistantMessage { text } => {
-                content = Some(text.clone());
-            }
-            AgentEventKind::AssistantDelta { text } => {
-                let c = content.get_or_insert_with(String::new);
-                c.push_str(text);
-            }
-            AgentEventKind::ToolCall {
-                tool_name,
-                tool_use_id,
-                input,
-                ..
-            } => {
-                tool_calls.push(KimiToolCall {
-                    id: tool_use_id
-                        .clone()
-                        .unwrap_or_else(|| format!("call_{}", uuid::Uuid::new_v4())),
-                    call_type: "function".into(),
-                    function: KimiFunctionCall {
-                        name: tool_name.clone(),
-                        arguments: serde_json::to_string(input).unwrap_or_default(),
-                    },
-                });
-                finish_reason = "tool_calls".to_string();
-            }
-            AgentEventKind::Error { message, .. } => {
-                content = Some(format!("Error: {message}"));
-                finish_reason = "stop".to_string();
-            }
-            _ => {}
-        }
-    }
-
-    let message = KimiResponseMessage {
-        role: "assistant".into(),
-        content,
-        tool_calls: if tool_calls.is_empty() {
-            None
-        } else {
-            Some(tool_calls)
-        },
-    };
-
-    let usage = usage_from_receipt(&receipt.usage);
-
-    KimiResponse {
-        id: format!("cmpl-{}", receipt.meta.run_id),
-        model: model.to_string(),
-        choices: vec![KimiChoice {
-            index: 0,
-            message,
-            finish_reason: Some(finish_reason),
-        }],
-        usage: Some(usage),
-        refs: None,
-    }
-}
-
-/// Convert normalized usage to Kimi-style usage.
-fn usage_from_receipt(usage: &UsageNormalized) -> KimiUsage {
-    let prompt = usage.input_tokens.unwrap_or(0);
-    let completion = usage.output_tokens.unwrap_or(0);
-    KimiUsage {
-        prompt_tokens: prompt,
-        completion_tokens: completion,
-        total_tokens: prompt + completion,
-    }
-}
-
-/// Build [`KimiChunk`]s from a sequence of [`AgentEvent`]s.
-pub fn events_to_stream_chunks(events: &[AgentEvent], model: &str) -> Vec<KimiChunk> {
-    let run_id = format!("cmpl-{}", uuid::Uuid::new_v4());
-    let created = Utc::now().timestamp() as u64;
-    let mut chunks = Vec::new();
-
-    for event in events {
-        match &event.kind {
-            AgentEventKind::AssistantDelta { text } => {
-                chunks.push(KimiChunk {
-                    id: run_id.clone(),
-                    object: "chat.completion.chunk".into(),
-                    created,
-                    model: model.to_string(),
-                    choices: vec![KimiChunkChoice {
-                        index: 0,
-                        delta: KimiChunkDelta {
-                            role: None,
-                            content: Some(text.clone()),
-                            tool_calls: None,
-                        },
-                        finish_reason: None,
-                    }],
-                    usage: None,
-                    refs: None,
-                });
-            }
-            AgentEventKind::AssistantMessage { text } => {
-                chunks.push(KimiChunk {
-                    id: run_id.clone(),
-                    object: "chat.completion.chunk".into(),
-                    created,
-                    model: model.to_string(),
-                    choices: vec![KimiChunkChoice {
-                        index: 0,
-                        delta: KimiChunkDelta {
-                            role: Some("assistant".into()),
-                            content: Some(text.clone()),
-                            tool_calls: None,
-                        },
-                        finish_reason: None,
-                    }],
-                    usage: None,
-                    refs: None,
-                });
-            }
-            _ => {}
-        }
-    }
-
-    // Final stop chunk
-    chunks.push(KimiChunk {
-        id: run_id,
-        object: "chat.completion.chunk".into(),
-        created,
-        model: model.to_string(),
-        choices: vec![KimiChunkChoice {
-            index: 0,
-            delta: KimiChunkDelta::default(),
-            finish_reason: Some("stop".into()),
-        }],
-        usage: None,
-        refs: None,
-    });
-
-    chunks
-}
-
-/// Convert a [`KimiResponse`] into an [`IrConversation`].
-pub fn response_to_ir(response: &KimiResponse) -> IrConversation {
-    let msgs: Vec<KimiMessage> = response
-        .choices
-        .iter()
-        .map(|c| KimiMessage {
-            role: c.message.role.clone(),
-            content: c.message.content.clone(),
-            tool_call_id: None,
-            tool_calls: c.message.tool_calls.clone(),
-        })
-        .collect();
-    lowering::to_ir(&msgs)
-}
-
-/// Convert an [`IrConversation`] back to shim [`Message`]s.
-pub fn ir_to_messages(conv: &IrConversation) -> Vec<Message> {
-    let kimi_msgs = lowering::from_ir(conv);
-    kimi_msgs
-        .into_iter()
-        .map(|m| Message {
-            role: m.role,
-            content: m.content,
-            tool_calls: m.tool_calls,
-            tool_call_id: m.tool_call_id,
-        })
-        .collect()
-}
-
-/// Convert shim [`Message`]s to an [`IrConversation`].
-pub fn messages_to_ir(messages: &[Message]) -> IrConversation {
-    let kimi_msgs: Vec<KimiMessage> = messages
-        .iter()
-        .map(|m| to_kimi_message(m.clone()))
-        .collect();
-    lowering::to_ir(&kimi_msgs)
-}
-
-/// Convert an [`IrUsage`] to shim [`Usage`].
-pub fn ir_usage_to_usage(ir: &IrUsage) -> Usage {
-    Usage {
-        prompt_tokens: ir.input_tokens,
-        completion_tokens: ir.output_tokens,
-        total_tokens: ir.total_tokens,
-    }
-}
-
 // ── Client types ────────────────────────────────────────────────────────
 
 /// A callback function that processes a [`WorkOrder`] and returns a [`Receipt`].
@@ -464,6 +81,7 @@ pub type ProcessFn = Box<dyn Fn(&WorkOrder) -> Receipt + Send + Sync>;
 
 /// Drop-in compatible Kimi client that routes through ABP.
 pub struct KimiClient {
+    api_key: Option<String>,
     model: String,
     processor: Option<ProcessFn>,
 }
@@ -472,15 +90,27 @@ impl std::fmt::Debug for KimiClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KimiClient")
             .field("model", &self.model)
+            .field("has_api_key", &self.api_key.is_some())
             .finish()
     }
 }
 
 impl KimiClient {
-    /// Create a new client targeting the given model.
+    /// Create a new client with an API key, using the default model.
     #[must_use]
-    pub fn new(model: impl Into<String>) -> Self {
+    pub fn new(api_key: impl Into<String>) -> Self {
         Self {
+            api_key: Some(api_key.into()),
+            model: "moonshot-v1-8k".into(),
+            processor: None,
+        }
+    }
+
+    /// Create a new client targeting a specific model (without API key).
+    #[must_use]
+    pub fn with_model(model: impl Into<String>) -> Self {
+        Self {
+            api_key: None,
             model: model.into(),
             processor: None,
         }
@@ -493,10 +123,23 @@ impl KimiClient {
         self
     }
 
+    /// Override the model name.
+    #[must_use]
+    pub fn model_name(mut self, model: impl Into<String>) -> Self {
+        self.model = model.into();
+        self
+    }
+
     /// Get the configured model name.
     #[must_use]
     pub fn model(&self) -> &str {
         &self.model
+    }
+
+    /// Get the API key, if configured.
+    #[must_use]
+    pub fn api_key(&self) -> Option<&str> {
+        self.api_key.as_deref()
     }
 
     /// Create a chat completion (non-streaming).
@@ -512,6 +155,37 @@ impl KimiClient {
         };
 
         Ok(receipt_to_response(&receipt, &request.model))
+    }
+
+    /// Chat completions API — send a request and receive a response.
+    ///
+    /// This is the primary entry point, matching the Moonshot Chat Completions
+    /// endpoint (`POST /v1/chat/completions`).
+    pub async fn chat_completions(&self, request: KimiRequest) -> Result<KimiResponse> {
+        self.create(request).await
+    }
+
+    /// File upload stub — submit a file for use with `ref_file_ids`.
+    ///
+    /// In this shim, file upload is a no-op that returns a synthetic file ID.
+    /// A real implementation would POST to the Kimi Files API.
+    pub async fn file_upload(&self, filename: &str, _content: &[u8]) -> Result<String> {
+        let file_id = format!("file-{}", uuid::Uuid::new_v4().as_simple());
+        tracing_log(format!("file_upload stub: {filename} → {file_id}"));
+        Ok(file_id)
+    }
+
+    /// Web search convenience — send a query with `use_search` enabled.
+    ///
+    /// Constructs a request with `use_search: true` and the given query as
+    /// the user message, then returns the response.
+    pub async fn search(&self, query: impl Into<String>) -> Result<KimiResponse> {
+        let req = KimiRequestBuilder::new()
+            .model(&self.model)
+            .messages(vec![Message::user(query)])
+            .use_search(true)
+            .build();
+        self.chat_completions(req).await
     }
 
     /// Create a streaming chat completion.
@@ -533,6 +207,10 @@ impl KimiClient {
         let chunks = events_to_stream_chunks(&receipt.trace, &model);
         Ok(Box::pin(tokio_stream::iter(chunks)))
     }
+}
+
+fn tracing_log(_msg: String) {
+    // Stub: in a real build this would use tracing::debug!
 }
 
 // ── Test helpers ────────────────────────────────────────────────────────
@@ -577,6 +255,8 @@ pub fn mock_receipt_with_usage(events: Vec<AgentEvent>, usage: UsageNormalized) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use abp_core::AgentEventKind;
+    use abp_core::ir::{IrRole, IrUsage};
     use serde_json::json;
     use tokio_stream::StreamExt;
 
@@ -586,6 +266,12 @@ mod tests {
 
     fn make_processor_with_usage(events: Vec<AgentEvent>, usage: UsageNormalized) -> ProcessFn {
         Box::new(move |_wo| mock_receipt_with_usage(events.clone(), usage.clone()))
+    }
+
+    fn client_with(events: Vec<AgentEvent>) -> KimiClient {
+        KimiClient::new("sk-test-key")
+            .model_name("moonshot-v1-8k")
+            .with_processor(make_processor(events))
     }
 
     // ── 1. Simple chat completion roundtrip ─────────────────────────────
@@ -599,7 +285,9 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client = KimiClient::new("sk-test")
+            .model_name("moonshot-v1-8k")
+            .with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .model("moonshot-v1-8k")
             .messages(vec![Message::user("Hi")])
@@ -628,7 +316,8 @@ mod tests {
                 ext: None,
             },
         ];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("Hi")])
             .stream(true)
@@ -657,7 +346,8 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("Search for rust async")])
             .build();
@@ -682,7 +372,8 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![
                 Message::system("You are a helpful assistant."),
@@ -706,7 +397,8 @@ mod tests {
             kind: AgentEventKind::AssistantMessage { text: "4".into() },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![
                 Message::user("What is 2+2?"),
@@ -762,7 +454,8 @@ mod tests {
             kind: AgentEventKind::AssistantMessage { text: "ok".into() },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-128k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-128k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .model("moonshot-v1-128k")
             .messages(vec![Message::user("test")])
@@ -784,7 +477,8 @@ mod tests {
             },
             ext: None,
         }];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("test")])
             .build();
@@ -866,7 +560,7 @@ mod tests {
 
     #[tokio::test]
     async fn no_processor_returns_error() {
-        let client = KimiClient::new("moonshot-v1-8k");
+        let client = KimiClient::with_model("moonshot-v1-8k");
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("test")])
             .build();
@@ -954,7 +648,8 @@ mod tests {
                 ext: None,
             },
         ];
-        let client = KimiClient::new("moonshot-v1-8k").with_processor(make_processor(events));
+        let client =
+            KimiClient::with_model("moonshot-v1-8k").with_processor(make_processor(events));
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("Search")])
             .build();
@@ -970,12 +665,175 @@ mod tests {
 
     #[tokio::test]
     async fn no_processor_stream_returns_error() {
-        let client = KimiClient::new("moonshot-v1-8k");
+        let client = KimiClient::with_model("moonshot-v1-8k");
         let req = KimiRequestBuilder::new()
             .messages(vec![Message::user("test")])
             .build();
 
         let result = client.create_stream(req).await;
         assert!(result.is_err());
+    }
+
+    // ── 20. new(api_key) stores key ─────────────────────────────────────
+
+    #[test]
+    fn new_with_api_key_stores_key() {
+        let client = KimiClient::new("sk-test-abc123");
+        assert_eq!(client.api_key(), Some("sk-test-abc123"));
+        assert_eq!(client.model(), "moonshot-v1-8k");
+    }
+
+    // ── 21. with_model has no api key ───────────────────────────────────
+
+    #[test]
+    fn with_model_has_no_api_key() {
+        let client = KimiClient::with_model("moonshot-v1-128k");
+        assert!(client.api_key().is_none());
+        assert_eq!(client.model(), "moonshot-v1-128k");
+    }
+
+    // ── 22. model_name override ─────────────────────────────────────────
+
+    #[test]
+    fn model_name_override() {
+        let client = KimiClient::new("sk-key").model_name("moonshot-v1-128k");
+        assert_eq!(client.model(), "moonshot-v1-128k");
+        assert_eq!(client.api_key(), Some("sk-key"));
+    }
+
+    // ── 23. chat_completions alias works ────────────────────────────────
+
+    #[tokio::test]
+    async fn chat_completions_alias() {
+        let events = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "via chat_completions".into(),
+            },
+            ext: None,
+        }];
+        let client = client_with(events);
+        let req = KimiRequestBuilder::new()
+            .messages(vec![Message::user("test")])
+            .build();
+
+        let resp = client.chat_completions(req).await.unwrap();
+        assert_eq!(
+            resp.choices[0].message.content.as_deref(),
+            Some("via chat_completions")
+        );
+    }
+
+    // ── 24. file_upload returns synthetic ID ────────────────────────────
+
+    #[tokio::test]
+    async fn file_upload_returns_file_id() {
+        let client = KimiClient::new("sk-test");
+        let file_id = client.file_upload("test.pdf", b"hello").await.unwrap();
+        assert!(file_id.starts_with("file-"));
+        assert!(file_id.len() > 10);
+    }
+
+    // ── 25. search convenience method ───────────────────────────────────
+
+    #[tokio::test]
+    async fn search_convenience_enables_use_search() {
+        let processor: ProcessFn = Box::new(|_wo| {
+            mock_receipt(vec![AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "search result".into(),
+                },
+                ext: None,
+            }])
+        });
+        let client = KimiClient::new("sk-test").with_processor(processor);
+        let resp = client.search("what is Rust?").await.unwrap();
+        assert_eq!(
+            resp.choices[0].message.content.as_deref(),
+            Some("search result")
+        );
+    }
+
+    // ── 26. debug format includes api_key presence ──────────────────────
+
+    #[test]
+    fn debug_format_shows_has_api_key() {
+        let client = KimiClient::new("sk-secret");
+        let dbg = format!("{:?}", client);
+        assert!(dbg.contains("has_api_key: true"));
+        assert!(!dbg.contains("sk-secret"));
+    }
+
+    // ── 27. debug format without api key ────────────────────────────────
+
+    #[test]
+    fn debug_format_no_api_key() {
+        let client = KimiClient::with_model("moonshot-v1-8k");
+        let dbg = format!("{:?}", client);
+        assert!(dbg.contains("has_api_key: false"));
+    }
+
+    // ── 28. chat_completions without processor errors ───────────────────
+
+    #[tokio::test]
+    async fn chat_completions_without_processor_errors() {
+        let client = KimiClient::new("sk-test");
+        let req = KimiRequestBuilder::new()
+            .messages(vec![Message::user("test")])
+            .build();
+        let err = client.chat_completions(req).await.unwrap_err();
+        assert!(matches!(err, ShimError::Internal(_)));
+    }
+
+    // ── 29. file_upload different filenames ──────────────────────────────
+
+    #[tokio::test]
+    async fn file_upload_unique_ids() {
+        let client = KimiClient::new("sk-test");
+        let id1 = client.file_upload("a.pdf", b"a").await.unwrap();
+        let id2 = client.file_upload("b.pdf", b"b").await.unwrap();
+        assert_ne!(id1, id2);
+    }
+
+    // ── 30. search with empty query ─────────────────────────────────────
+
+    #[tokio::test]
+    async fn search_with_empty_query() {
+        let client = client_with(vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "empty".into(),
+            },
+            ext: None,
+        }]);
+        let resp = client.search("").await.unwrap();
+        assert_eq!(resp.choices[0].message.content.as_deref(), Some("empty"));
+    }
+
+    // ── 31. tool helpers from tools module ──────────────────────────────
+
+    #[test]
+    fn builtin_tools_all_has_four() {
+        let bt = crate::tools::BuiltinTools::all();
+        assert_eq!(bt.enabled_count(), 4);
+    }
+
+    // ── 32. error classification ────────────────────────────────────────
+
+    #[test]
+    fn error_rate_limit_classification() {
+        let err = crate::error::KimiShimError::from_status_and_body(429, "rate limit".into());
+        assert!(err.is_rate_limit());
+        assert!(err.is_retryable());
+    }
+
+    // ── 33. error auth classification ───────────────────────────────────
+
+    #[test]
+    fn error_auth_classification() {
+        let err = crate::error::KimiShimError::from_status_and_body(401, "unauthorized".into());
+        assert!(err.is_auth_error());
+        assert!(!err.is_retryable());
     }
 }

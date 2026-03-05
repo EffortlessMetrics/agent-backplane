@@ -1,4 +1,33 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![allow(clippy::approx_constant)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::needless_update)]
 //! Comprehensive tests for [`WorkOrder`] construction, serialization,
 //! validation, and edge cases.
 
@@ -1231,4 +1260,638 @@ fn workspace_pass_through_mode_roundtrip() {
     assert!(json.contains("pass_through"));
     let rt: WorkspaceSpec = serde_json::from_str(&json).unwrap();
     assert!(matches!(rt.mode, WorkspaceMode::PassThrough));
+}
+
+// ===========================================================================
+// 19. Construction — additional coverage
+// ===========================================================================
+
+#[test]
+fn builder_preserves_leading_trailing_spaces_in_task() {
+    let wo = WorkOrderBuilder::new("  padded task  ").build();
+    assert_eq!(wo.task, "  padded task  ");
+}
+
+#[test]
+fn multiple_builders_are_independent() {
+    let b1 = WorkOrderBuilder::new("task one");
+    let b2 = WorkOrderBuilder::new("task two");
+    let wo1 = b1.lane(ExecutionLane::WorkspaceFirst).build();
+    let wo2 = b2.lane(ExecutionLane::PatchFirst).build();
+    assert_eq!(wo1.task, "task one");
+    assert_eq!(wo2.task, "task two");
+    assert!(matches!(wo1.lane, ExecutionLane::WorkspaceFirst));
+    assert!(matches!(wo2.lane, ExecutionLane::PatchFirst));
+}
+
+#[test]
+fn builder_with_all_methods_chained() {
+    let wo = WorkOrderBuilder::new("full chain")
+        .lane(ExecutionLane::WorkspaceFirst)
+        .root("/workspace")
+        .workspace_mode(WorkspaceMode::PassThrough)
+        .include(vec!["*.rs".into()])
+        .exclude(vec!["target/**".into()])
+        .context(ContextPacket {
+            files: vec!["f.rs".into()],
+            snippets: vec![],
+        })
+        .policy(PolicyProfile {
+            allowed_tools: vec!["read".into()],
+            ..Default::default()
+        })
+        .requirements(CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::Streaming,
+                min_support: MinSupport::Emulated,
+            }],
+        })
+        .model("gpt-4")
+        .max_turns(5)
+        .max_budget_usd(2.0)
+        .build();
+    assert_eq!(wo.task, "full chain");
+    assert_eq!(wo.workspace.root, "/workspace");
+    assert!(matches!(wo.workspace.mode, WorkspaceMode::PassThrough));
+    assert_eq!(wo.workspace.include, vec!["*.rs"]);
+    assert_eq!(wo.context.files, vec!["f.rs"]);
+    assert_eq!(wo.policy.allowed_tools, vec!["read"]);
+    assert_eq!(wo.requirements.required.len(), 1);
+    assert_eq!(wo.config.model.as_deref(), Some("gpt-4"));
+    assert_eq!(wo.config.max_turns, Some(5));
+    assert_eq!(wo.config.max_budget_usd, Some(2.0));
+}
+
+#[test]
+fn builder_empty_include_populated_exclude() {
+    let wo = WorkOrderBuilder::new("task")
+        .include(vec![])
+        .exclude(vec!["*.log".into(), "tmp/**".into()])
+        .build();
+    assert!(wo.workspace.include.is_empty());
+    assert_eq!(wo.workspace.exclude.len(), 2);
+}
+
+#[test]
+fn builder_context_multiple_files_and_snippets() {
+    let wo = WorkOrderBuilder::new("task")
+        .context(ContextPacket {
+            files: vec!["a.rs".into(), "b.rs".into(), "c.rs".into()],
+            snippets: vec![
+                ContextSnippet {
+                    name: "s1".into(),
+                    content: "content1".into(),
+                },
+                ContextSnippet {
+                    name: "s2".into(),
+                    content: "content2".into(),
+                },
+            ],
+        })
+        .build();
+    assert_eq!(wo.context.files.len(), 3);
+    assert_eq!(wo.context.snippets.len(), 2);
+    assert_eq!(wo.context.snippets[1].name, "s2");
+}
+
+#[test]
+fn uuid_is_v4_format() {
+    let wo = minimal_wo();
+    let id_str = wo.id.to_string();
+    // UUID v4 has the form xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+    assert_eq!(id_str.len(), 36);
+    assert_eq!(&id_str[14..15], "4");
+}
+
+#[test]
+fn builder_config_override_replaces_full_config() {
+    let wo = WorkOrderBuilder::new("task")
+        .model("initial-model")
+        .config(RuntimeConfig {
+            model: Some("replaced-model".into()),
+            ..Default::default()
+        })
+        .build();
+    assert_eq!(wo.config.model.as_deref(), Some("replaced-model"));
+}
+
+#[test]
+fn work_order_id_is_not_nil() {
+    for _ in 0..10 {
+        let wo = minimal_wo();
+        assert!(!wo.id.is_nil());
+    }
+}
+
+#[test]
+fn builder_default_model_is_none() {
+    let wo = WorkOrderBuilder::new("task").build();
+    assert!(wo.config.model.is_none());
+}
+
+// ===========================================================================
+// 20. Serialization roundtrip — additional coverage
+// ===========================================================================
+
+#[test]
+fn pretty_and_compact_both_deserialize_identically() {
+    let wo = maximal_wo();
+    let compact = serde_json::to_string(&wo).unwrap();
+    let pretty = serde_json::to_string_pretty(&wo).unwrap();
+    let from_compact: WorkOrder = serde_json::from_str(&compact).unwrap();
+    let from_pretty: WorkOrder = serde_json::from_str(&pretty).unwrap();
+    assert_eq!(from_compact.id, from_pretty.id);
+    assert_eq!(from_compact.task, from_pretty.task);
+    assert_eq!(from_compact.config.model, from_pretty.config.model);
+    assert_eq!(from_compact.config.max_turns, from_pretty.config.max_turns);
+}
+
+#[test]
+fn deserialization_rejects_missing_required_field_task() {
+    let raw = r#"{
+        "id": "00000000-0000-0000-0000-000000000001",
+        "lane": "patch_first",
+        "workspace": {"root": ".", "mode": "staged", "include": [], "exclude": []},
+        "context": {"files": [], "snippets": []},
+        "policy": {"allowed_tools": [], "disallowed_tools": [], "deny_read": [], "deny_write": [], "allow_network": [], "deny_network": [], "require_approval_for": []},
+        "requirements": {"required": []},
+        "config": {"model": null, "vendor": {}, "env": {}, "max_budget_usd": null, "max_turns": null}
+    }"#;
+    assert!(serde_json::from_str::<WorkOrder>(raw).is_err());
+}
+
+#[test]
+fn large_vendor_config_roundtrip() {
+    let mut vendor = BTreeMap::new();
+    for i in 0..100 {
+        vendor.insert(
+            format!("key_{i:04}"),
+            json!({"index": i, "data": "x".repeat(100)}),
+        );
+    }
+    let wo = WorkOrderBuilder::new("task")
+        .config(RuntimeConfig {
+            vendor,
+            ..Default::default()
+        })
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.config.vendor.len(), 100);
+    assert_eq!(wo2.config.vendor["key_0050"]["index"], 50);
+}
+
+#[test]
+fn multiple_sequential_roundtrips_are_stable() {
+    let wo = maximal_wo();
+    let json1 = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json1).unwrap();
+    let json2 = serde_json::to_string(&wo2).unwrap();
+    let wo3: WorkOrder = serde_json::from_str(&json2).unwrap();
+    let json3 = serde_json::to_string(&wo3).unwrap();
+    assert_eq!(json1, json2);
+    assert_eq!(json2, json3);
+}
+
+#[test]
+fn serialized_length_is_deterministic() {
+    let wo = maximal_wo();
+    let len1 = serde_json::to_string(&wo).unwrap().len();
+    let len2 = serde_json::to_string(&wo).unwrap().len();
+    assert_eq!(len1, len2);
+}
+
+#[test]
+fn unicode_in_vendor_config_roundtrip() {
+    let mut vendor = BTreeMap::new();
+    vendor.insert("label".into(), json!("日本語テスト 🎌"));
+    let wo = WorkOrderBuilder::new("task")
+        .config(RuntimeConfig {
+            vendor,
+            ..Default::default()
+        })
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.config.vendor["label"], "日本語テスト 🎌");
+}
+
+#[test]
+fn env_with_special_values_roundtrip() {
+    let mut env = BTreeMap::new();
+    env.insert("PATH".into(), "/usr/bin:/usr/local/bin".into());
+    env.insert("QUOTED".into(), r#"value with "quotes""#.into());
+    env.insert("NEWLINE".into(), "line1\nline2".into());
+    let wo = WorkOrderBuilder::new("task")
+        .config(RuntimeConfig {
+            env,
+            ..Default::default()
+        })
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.config.env["PATH"], "/usr/bin:/usr/local/bin");
+    assert_eq!(wo2.config.env["QUOTED"], r#"value with "quotes""#);
+    assert_eq!(wo2.config.env["NEWLINE"], "line1\nline2");
+}
+
+#[test]
+fn boolean_and_numeric_vendor_values_roundtrip() {
+    let mut vendor = BTreeMap::new();
+    vendor.insert(
+        "flags".into(),
+        json!({"enabled": true, "count": 42, "rate": 3.15}),
+    );
+    let wo = WorkOrderBuilder::new("task")
+        .config(RuntimeConfig {
+            vendor,
+            ..Default::default()
+        })
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.config.vendor["flags"]["enabled"], true);
+    assert_eq!(wo2.config.vendor["flags"]["count"], 42);
+}
+
+#[test]
+fn serialization_to_value_and_back() {
+    let wo = maximal_wo();
+    let value = serde_json::to_value(&wo).unwrap();
+    assert!(value.is_object());
+    let obj = value.as_object().unwrap();
+    assert_eq!(obj["task"].as_str().unwrap(), wo.task);
+    let wo2: WorkOrder = serde_json::from_value(value).unwrap();
+    assert_eq!(wo.id, wo2.id);
+}
+
+// ===========================================================================
+// 21. Validation — additional coverage
+// ===========================================================================
+
+#[test]
+fn validator_accepts_maximal_work_order() {
+    let wo = maximal_wo();
+    let warnings = ConfigValidator::new().validate_work_order(&wo);
+    assert!(warnings.is_empty());
+}
+
+#[test]
+fn validator_rejects_empty_allow_network_glob() {
+    let mut wo = minimal_wo();
+    wo.policy.allow_network = vec!["".into()];
+    let warnings = ConfigValidator::new().validate_work_order(&wo);
+    assert!(warnings.iter().any(|w| w.field == "policy.allow_network"));
+}
+
+#[test]
+fn validator_rejects_empty_deny_network_glob() {
+    let mut wo = minimal_wo();
+    wo.policy.deny_network = vec!["  ".into()];
+    let warnings = ConfigValidator::new().validate_work_order(&wo);
+    assert!(warnings.iter().any(|w| w.field == "policy.deny_network"));
+}
+
+#[test]
+fn validator_rejects_empty_disallowed_tools_entry() {
+    let mut wo = minimal_wo();
+    wo.policy.disallowed_tools = vec!["".into()];
+    let warnings = ConfigValidator::new().validate_work_order(&wo);
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.disallowed_tools")
+    );
+}
+
+#[test]
+fn validator_rejects_empty_require_approval_for_entry() {
+    let mut wo = minimal_wo();
+    wo.policy.require_approval_for = vec!["".into()];
+    let warnings = ConfigValidator::new().validate_work_order(&wo);
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.require_approval_for")
+    );
+}
+
+#[test]
+fn validator_accepts_very_large_max_turns() {
+    let wo = WorkOrderBuilder::new("task").max_turns(u32::MAX).build();
+    let warnings = ConfigValidator::new().validate_work_order(&wo);
+    assert!(warnings.is_empty());
+}
+
+#[test]
+fn validator_accepts_very_large_budget() {
+    let wo = WorkOrderBuilder::new("task")
+        .max_budget_usd(1_000_000.0)
+        .build();
+    let warnings = ConfigValidator::new().validate_work_order(&wo);
+    assert!(warnings.is_empty());
+}
+
+#[test]
+fn validator_multiple_errors_at_once() {
+    let mut wo = minimal_wo();
+    wo.task = String::new();
+    wo.config.max_turns = Some(0);
+    wo.config.max_budget_usd = Some(-1.0);
+    wo.config.model = Some("  ".into());
+    wo.config.vendor.insert("".into(), json!("bad"));
+    let warnings = ConfigValidator::new().validate_work_order(&wo);
+    assert!(warnings.len() >= 4);
+    let fields: Vec<&str> = warnings.iter().map(|w| w.field.as_str()).collect();
+    assert!(fields.contains(&"task"));
+    assert!(fields.contains(&"config.max_turns"));
+    assert!(fields.contains(&"config.max_budget_usd"));
+    assert!(fields.contains(&"config.model"));
+    assert!(fields.contains(&"config.vendor"));
+}
+
+#[test]
+fn validator_duplicate_in_disallowed_tools() {
+    let mut wo = minimal_wo();
+    wo.policy.disallowed_tools = vec!["bash".into(), "bash".into()];
+    let warnings = ConfigValidator::new().validate_work_order(&wo);
+    // disallowed_tools are checked for empty globs, not duplicates per se.
+    // Ensure no panic occurs at minimum.
+    let _ = warnings;
+}
+
+#[test]
+fn validator_conflicting_allow_and_deny_tools() {
+    let mut wo = minimal_wo();
+    wo.policy.allowed_tools = vec!["bash".into()];
+    wo.policy.disallowed_tools = vec!["bash".into()];
+    // Validator does not currently detect conflicts, but should not panic.
+    let _warnings = ConfigValidator::new().validate_work_order(&wo);
+}
+
+// ===========================================================================
+// 22. Policies and capabilities — additional coverage
+// ===========================================================================
+
+#[test]
+fn policy_with_all_fields_populated_roundtrip() {
+    let policy = PolicyProfile {
+        allowed_tools: vec!["read".into(), "write".into(), "edit".into()],
+        disallowed_tools: vec!["bash".into(), "deploy".into()],
+        deny_read: vec!["*.key".into(), "*.pem".into()],
+        deny_write: vec!["/etc/**".into(), "/root/**".into()],
+        allow_network: vec!["api.example.com".into()],
+        deny_network: vec!["*.internal".into(), "10.0.0.0/8".into()],
+        require_approval_for: vec!["deploy".into(), "delete".into()],
+    };
+    let wo = WorkOrderBuilder::new("secured task").policy(policy).build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.policy.allowed_tools.len(), 3);
+    assert_eq!(wo2.policy.disallowed_tools.len(), 2);
+    assert_eq!(wo2.policy.deny_read.len(), 2);
+    assert_eq!(wo2.policy.deny_write.len(), 2);
+    assert_eq!(wo2.policy.allow_network.len(), 1);
+    assert_eq!(wo2.policy.deny_network.len(), 2);
+    assert_eq!(wo2.policy.require_approval_for.len(), 2);
+}
+
+#[test]
+fn capabilities_mixed_support_levels_roundtrip() {
+    let wo = WorkOrderBuilder::new("task")
+        .requirements(CapabilityRequirements {
+            required: vec![
+                CapabilityRequirement {
+                    capability: Capability::ToolRead,
+                    min_support: MinSupport::Native,
+                },
+                CapabilityRequirement {
+                    capability: Capability::Streaming,
+                    min_support: MinSupport::Emulated,
+                },
+                CapabilityRequirement {
+                    capability: Capability::McpClient,
+                    min_support: MinSupport::Native,
+                },
+            ],
+        })
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.requirements.required.len(), 3);
+    assert!(matches!(
+        wo2.requirements.required[0].min_support,
+        MinSupport::Native
+    ));
+    assert!(matches!(
+        wo2.requirements.required[1].min_support,
+        MinSupport::Emulated
+    ));
+}
+
+#[test]
+fn combined_policy_capability_config_roundtrip() {
+    let wo = WorkOrderBuilder::new("complex task")
+        .policy(PolicyProfile {
+            allowed_tools: vec!["read".into()],
+            deny_write: vec!["/secret/**".into()],
+            ..Default::default()
+        })
+        .requirements(CapabilityRequirements {
+            required: vec![CapabilityRequirement {
+                capability: Capability::ToolRead,
+                min_support: MinSupport::Native,
+            }],
+        })
+        .model("claude-3-opus")
+        .max_turns(20)
+        .max_budget_usd(3.0)
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.policy.allowed_tools, vec!["read"]);
+    assert_eq!(wo2.policy.deny_write, vec!["/secret/**"]);
+    assert_eq!(wo2.requirements.required.len(), 1);
+    assert_eq!(wo2.config.model.as_deref(), Some("claude-3-opus"));
+    assert_eq!(wo2.config.max_turns, Some(20));
+    assert_eq!(wo2.config.max_budget_usd, Some(3.0));
+}
+
+#[test]
+fn policy_deny_read_multiple_patterns_preserved() {
+    let patterns = vec![
+        "*.key".into(),
+        "*.pem".into(),
+        "*.env".into(),
+        ".git/**".into(),
+        "secrets/**".into(),
+    ];
+    let wo = WorkOrderBuilder::new("task")
+        .policy(PolicyProfile {
+            deny_read: patterns.clone(),
+            ..Default::default()
+        })
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.policy.deny_read, patterns);
+}
+
+#[test]
+fn all_capability_variants_roundtrip_in_requirements() {
+    let caps = vec![
+        Capability::Streaming,
+        Capability::ToolRead,
+        Capability::ToolWrite,
+        Capability::ToolEdit,
+        Capability::ToolBash,
+        Capability::McpClient,
+        Capability::McpServer,
+        Capability::ExtendedThinking,
+        Capability::ImageInput,
+        Capability::CodeExecution,
+    ];
+    let wo = WorkOrderBuilder::new("task")
+        .requirements(CapabilityRequirements {
+            required: caps
+                .iter()
+                .map(|c| CapabilityRequirement {
+                    capability: c.clone(),
+                    min_support: MinSupport::Emulated,
+                })
+                .collect(),
+        })
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.requirements.required.len(), caps.len());
+    for (i, cap) in caps.iter().enumerate() {
+        assert_eq!(&wo2.requirements.required[i].capability, cap);
+    }
+}
+
+// ===========================================================================
+// 23. Context packet edge cases
+// ===========================================================================
+
+#[test]
+fn context_empty_file_path_roundtrip() {
+    let wo = WorkOrderBuilder::new("task")
+        .context(ContextPacket {
+            files: vec!["".into()],
+            snippets: vec![],
+        })
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.context.files, vec![""]);
+}
+
+#[test]
+fn context_snippet_with_large_content() {
+    let content = "x".repeat(50_000);
+    let wo = WorkOrderBuilder::new("task")
+        .context(ContextPacket {
+            files: vec![],
+            snippets: vec![ContextSnippet {
+                name: "big".into(),
+                content: content.clone(),
+            }],
+        })
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.context.snippets[0].content.len(), 50_000);
+}
+
+#[test]
+fn context_snippet_unicode_name_and_content() {
+    let wo = WorkOrderBuilder::new("task")
+        .context(ContextPacket {
+            files: vec![],
+            snippets: vec![ContextSnippet {
+                name: "提示".into(),
+                content: "使用 JWT 令牌 🔑".into(),
+            }],
+        })
+        .build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert_eq!(wo2.context.snippets[0].name, "提示");
+    assert_eq!(wo2.context.snippets[0].content, "使用 JWT 令牌 🔑");
+}
+
+// ===========================================================================
+// 24. Canonical JSON and hashing
+// ===========================================================================
+
+#[test]
+fn canonical_json_minimal_is_compact() {
+    let wo = minimal_wo();
+    let cj = abp_core::canonical_json(&wo).unwrap();
+    // Canonical JSON has no pretty-printing whitespace
+    assert!(!cj.contains('\n'));
+}
+
+#[test]
+fn canonical_json_maximal_sorted_keys() {
+    let wo = maximal_wo();
+    let cj = abp_core::canonical_json(&wo).unwrap();
+    // Config key "env" should appear before "max_budget_usd" (alphabetical)
+    let env_pos = cj.find("\"env\"").unwrap();
+    let budget_pos = cj.find("\"max_budget_usd\"").unwrap();
+    assert!(env_pos < budget_pos);
+}
+
+#[test]
+fn sha256_hex_of_work_order_json_is_64_chars() {
+    let wo = maximal_wo();
+    let json = serde_json::to_string(&wo).unwrap();
+    let hash = abp_core::sha256_hex(json.as_bytes());
+    assert_eq!(hash.len(), 64);
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+}
+
+// ===========================================================================
+// 25. RuntimeConfig edge cases
+// ===========================================================================
+
+#[test]
+fn runtime_config_default_all_none_empty() {
+    let cfg = RuntimeConfig::default();
+    assert!(cfg.model.is_none());
+    assert!(cfg.vendor.is_empty());
+    assert!(cfg.env.is_empty());
+    assert!(cfg.max_budget_usd.is_none());
+    assert!(cfg.max_turns.is_none());
+}
+
+#[test]
+fn runtime_config_serde_roundtrip() {
+    let mut vendor = BTreeMap::new();
+    vendor.insert("key".into(), json!([1, 2, 3]));
+    let mut env = BTreeMap::new();
+    env.insert("HOME".into(), "/home/user".into());
+    let cfg = RuntimeConfig {
+        model: Some("test-model".into()),
+        vendor,
+        env,
+        max_budget_usd: Some(9.99),
+        max_turns: Some(100),
+    };
+    let json = serde_json::to_string(&cfg).unwrap();
+    let cfg2: RuntimeConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(cfg2.model, cfg.model);
+    assert_eq!(cfg2.max_turns, cfg.max_turns);
+    assert_eq!(cfg2.max_budget_usd, cfg.max_budget_usd);
+    assert_eq!(cfg2.vendor.len(), 1);
+    assert_eq!(cfg2.env.len(), 1);
+}
+
+#[test]
+fn budget_with_fractional_cents() {
+    let wo = WorkOrderBuilder::new("task").max_budget_usd(0.001).build();
+    let json = serde_json::to_string(&wo).unwrap();
+    let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
+    assert!((wo2.config.max_budget_usd.unwrap() - 0.001).abs() < f64::EPSILON);
 }

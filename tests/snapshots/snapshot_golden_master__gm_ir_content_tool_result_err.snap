@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "IrContentBlock::ToolResult\n{\n    tool_use_id: \"tu_gm_301\".into(), content:\n    vec![IrContentBlock::Text { text: \"directory not found\".into(), }],\n    is_error: true,\n}"
+---
+{
+  "type": "tool_result",
+  "tool_use_id": "tu_gm_301",
+  "content": [
+    {
+      "type": "text",
+      "text": "directory not found"
+    }
+  ],
+  "is_error": true
+}

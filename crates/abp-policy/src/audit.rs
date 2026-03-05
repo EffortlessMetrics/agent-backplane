@@ -159,3 +159,117 @@ impl PolicyAuditor {
         });
     }
 }
+
+// ---------------------------------------------------------------------------
+// AuditAction / AuditLog — extended audit trail
+// ---------------------------------------------------------------------------
+
+/// Categorised action stored in an [`AuditLog`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditAction {
+    /// A tool invocation was allowed.
+    ToolAllowed,
+    /// A tool invocation was denied.
+    ToolDenied,
+    /// A file read was allowed.
+    ReadAllowed,
+    /// A file read was denied.
+    ReadDenied,
+    /// A file write was allowed.
+    WriteAllowed,
+    /// A file write was denied.
+    WriteDenied,
+    /// The action was throttled by a rate-limit policy.
+    RateLimited,
+}
+
+impl AuditAction {
+    /// Returns `true` for any denial variant.
+    #[must_use]
+    pub fn is_denied(&self) -> bool {
+        matches!(
+            self,
+            Self::ToolDenied | Self::ReadDenied | Self::WriteDenied | Self::RateLimited
+        )
+    }
+}
+
+/// A single record in an [`AuditLog`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditRecord {
+    /// ISO-8601 timestamp string.
+    pub timestamp: String,
+    /// The categorised action.
+    pub action: AuditAction,
+    /// The resource (tool name or path) involved.
+    pub resource: String,
+    /// Name of the policy that produced this record, if known.
+    pub policy_name: Option<String>,
+    /// Optional human-readable reason.
+    pub reason: Option<String>,
+}
+
+/// Append-only log of [`AuditRecord`]s.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AuditLog {
+    records: Vec<AuditRecord>,
+}
+
+impl AuditLog {
+    /// Create an empty log.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Append a record to the log.
+    pub fn record(
+        &mut self,
+        action: AuditAction,
+        resource: impl Into<String>,
+        policy_name: Option<&str>,
+        reason: Option<&str>,
+    ) {
+        self.records.push(AuditRecord {
+            timestamp: Utc::now().to_rfc3339(),
+            action,
+            resource: resource.into(),
+            policy_name: policy_name.map(String::from),
+            reason: reason.map(String::from),
+        });
+    }
+
+    /// All recorded entries in chronological order.
+    #[must_use]
+    pub fn entries(&self) -> &[AuditRecord] {
+        &self.records
+    }
+
+    /// Filter entries by a specific [`AuditAction`].
+    #[must_use]
+    pub fn filter_by_action(&self, action: &AuditAction) -> Vec<&AuditRecord> {
+        self.records
+            .iter()
+            .filter(|r| &r.action == action)
+            .collect()
+    }
+
+    /// Number of records that represent a denial.
+    #[must_use]
+    pub fn denied_count(&self) -> usize {
+        self.records.iter().filter(|r| r.action.is_denied()).count()
+    }
+
+    /// Total number of records.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.records.len()
+    }
+
+    /// Returns `true` when the log has no records.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.records.is_empty()
+    }
+}

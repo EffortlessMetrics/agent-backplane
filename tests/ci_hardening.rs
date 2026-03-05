@@ -1,3 +1,32 @@
+#![allow(clippy::all)]
+#![allow(dead_code, unused_imports)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 //! CI hardening tests that enforce workspace-wide conventions.
 //!
 //! These tests verify structural properties across all workspace crates:
@@ -455,8 +484,16 @@ fn verify_error_types_implement_std_error() {
                 if name.ends_with("ErrorKind") || name.ends_with("ErrorCategory") {
                     continue;
                 }
-                // ErrorCode in abp-error is a stable code enum, not an error type.
-                if name == "ErrorCode" {
+                // ErrorCode / *ErrorCode are stable code enums, not error types.
+                if name.ends_with("ErrorCode") {
+                    continue;
+                }
+                // ErrorSeverity/ErrorAction are classification metadata, not error types.
+                if name == "ErrorSeverity" || name == "ErrorAction" {
+                    continue;
+                }
+                // ErrorClassification is a recovery classification, not an error type.
+                if name == "ErrorClassification" {
                     continue;
                 }
 

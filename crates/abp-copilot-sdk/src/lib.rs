@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![doc = include_str!("../README.md")]
 //! Microcrate for wiring the GitHub Copilot sidecar into ABP runtimes.
 //!
 //! Registers the Copilot sidecar backend and exposes the
@@ -7,8 +8,12 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod api;
+/// Conversion between Copilot SDK wire types and ABP contract types.
+pub mod convert;
 pub mod dialect;
 pub mod lowering;
+pub mod types;
 
 use abp_runtime::Runtime;
 use abp_sidecar_sdk::{register_sidecar_backend, sidecar_script as resolve_sidecar_script};

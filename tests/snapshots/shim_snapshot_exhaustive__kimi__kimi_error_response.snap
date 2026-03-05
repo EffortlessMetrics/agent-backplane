@@ -1,0 +1,11 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: err
+---
+{
+  "error": {
+    "message": "Context length exceeded",
+    "type": "invalid_request_error",
+    "code": "context_length_exceeded"
+  }
+}

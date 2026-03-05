@@ -1,3 +1,31 @@
+#![allow(clippy::all)]
+#![allow(clippy::manual_repeat_n)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::unnecessary_to_owned)]
+#![allow(clippy::implicit_clone)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::iter_kv_map)]
+#![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+#![allow(clippy::manual_map)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::map_entry)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(unknown_lints)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::needless_update)]
+#![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the Gemini dialect mapping, model names, capabilities, and tool formats.
 
@@ -157,6 +185,7 @@ fn gemini_response_serde_roundtrip() {
             safety_ratings: None,
             citation_metadata: None,
         }],
+        prompt_feedback: None,
         usage_metadata: Some(GeminiUsageMetadata {
             prompt_token_count: 10,
             candidates_token_count: 5,
@@ -221,6 +250,7 @@ fn generation_config_custom_fields() {
         temperature: Some(0.7),
         top_p: Some(0.95),
         top_k: Some(40),
+        candidate_count: None,
         stop_sequences: Some(vec!["DONE".into()]),
         response_mime_type: Some("application/json".into()),
         response_schema: Some(serde_json::json!({"type": "object"})),

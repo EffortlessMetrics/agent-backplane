@@ -1,0 +1,11 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&err"
+---
+{
+  "error": {
+    "code": 400,
+    "message": "Invalid argument: contents is required",
+    "status": "INVALID_ARGUMENT"
+  }
+}

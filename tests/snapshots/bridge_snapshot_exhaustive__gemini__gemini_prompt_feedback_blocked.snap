@@ -1,0 +1,13 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&feedback"
+---
+{
+  "blockReason": "SAFETY",
+  "safetyRatings": [
+    {
+      "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+      "probability": "HIGH"
+    }
+  ]
+}

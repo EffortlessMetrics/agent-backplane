@@ -1,0 +1,20 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: reqs
+---
+{
+  "required": [
+    {
+      "capability": "tool_read",
+      "min_support": "native"
+    },
+    {
+      "capability": "streaming",
+      "min_support": "emulated"
+    },
+    {
+      "capability": "tool_bash",
+      "min_support": "native"
+    }
+  ]
+}

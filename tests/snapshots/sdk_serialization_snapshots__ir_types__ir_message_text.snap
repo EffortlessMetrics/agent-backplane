@@ -1,0 +1,13 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: msg
+---
+{
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello"
+    }
+  ]
+}

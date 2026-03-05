@@ -1,0 +1,25 @@
+---
+source: tests/snapshot_ir_translations.rs
+expression: "&report"
+---
+{
+  "compatible": true,
+  "native_count": 2,
+  "emulated_count": 0,
+  "unsupported_count": 0,
+  "summary": "2 native, 0 emulated, 0 unsupported — fully compatible",
+  "details": [
+    [
+      "Streaming",
+      {
+        "level": "native"
+      }
+    ],
+    [
+      "ToolUse",
+      {
+        "level": "native"
+      }
+    ]
+  ]
+}

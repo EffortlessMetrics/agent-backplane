@@ -1,0 +1,17 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: ir
+---
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "What is 2+2?"
+        }
+      ]
+    }
+  ]
+}

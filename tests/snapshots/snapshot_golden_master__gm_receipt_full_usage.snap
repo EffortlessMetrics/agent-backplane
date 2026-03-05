@@ -1,0 +1,45 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: snap_json(&r)
+---
+{
+  "meta": {
+    "run_id": "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa",
+    "work_order_id": "22222222-3333-4444-8555-666666666666",
+    "contract_version": "abp/v0.1",
+    "started_at": "2025-08-01T08:00:00Z",
+    "finished_at": "2025-08-01T08:05:00Z",
+    "duration_ms": 300000
+  },
+  "backend": {
+    "id": "sidecar:claude",
+    "backend_version": "4.0.0",
+    "adapter_version": "1.0.0"
+  },
+  "capabilities": {
+    "streaming": "native"
+  },
+  "mode": "mapped",
+  "usage_raw": {
+    "cached_tokens": 300,
+    "completion_tokens": 1200,
+    "prompt_tokens": 2500
+  },
+  "usage": {
+    "input_tokens": 2500,
+    "output_tokens": 1200,
+    "cache_read_tokens": 300,
+    "cache_write_tokens": 100,
+    "request_units": 4,
+    "estimated_cost_usd": 0.035
+  },
+  "trace": [],
+  "artifacts": [],
+  "verification": {
+    "git_diff": null,
+    "git_status": null,
+    "harness_ok": false
+  },
+  "outcome": "complete",
+  "receipt_sha256": null
+}

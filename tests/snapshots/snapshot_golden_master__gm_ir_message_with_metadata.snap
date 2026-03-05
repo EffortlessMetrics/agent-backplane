@@ -1,0 +1,17 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: msg
+---
+{
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "response with metadata"
+    }
+  ],
+  "metadata": {
+    "model": "claude-4-opus",
+    "vendor_id": "msg_xyz789"
+  }
+}

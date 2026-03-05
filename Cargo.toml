@@ -31,13 +31,18 @@ members = [
   "crates/abp-ir",
   "crates/abp-integrations",
   "crates/abp-kimi-sdk",
+  "crates/abp-mapper",
   "crates/abp-mapping",
   "crates/abp-openai-sdk",
   "crates/abp-policy",
   "crates/abp-projection",
+  "crates/abp-ratelimit",
   "crates/abp-receipt",
+  "crates/abp-receipt-store",
+  "crates/abp-retry",
   "crates/abp-protocol",
   "crates/abp-runtime",
+  "crates/abp-sdk-types",
   "crates/abp-shim-claude",
   "crates/abp-shim-codex",
   "crates/abp-shim-copilot",
@@ -45,10 +50,17 @@ members = [
   "crates/abp-shim-openai",
   "crates/abp-sidecar-proto",
   "crates/abp-sidecar-sdk",
+  "crates/abp-sidecar-utils",
   "crates/abp-stream",
   "crates/abp-telemetry",
+  "crates/abp-validate",
   "crates/abp-workspace",
   "crates/claude-bridge",
+  "crates/codex-bridge",
+  "crates/copilot-bridge",
+  "crates/gemini-bridge",
+  "crates/kimi-bridge",
+  "crates/openai-bridge",
   "crates/sidecar-kit",
   "xtask",
 ]
@@ -67,7 +79,10 @@ anyhow = "1.0.102"
 async-trait = "0.1.89"
 chrono = { version = "0.4.44", features = ["serde"] }
 clap = { version = "4.5.60", features = ["derive"] }
+flate2 = "1"
 futures = "0.3.32"
+futures-core = "0.3.32"
+reqwest = { version = "0.12", features = ["json", "stream"] }
 globset = "0.4.18"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
@@ -75,12 +90,13 @@ schemars = { version = "1.2.1", features = ["chrono04", "uuid1"] }
 jsonschema = "0.28"
 sha2 = "0.10.9"
 thiserror = "2.0.18"
-tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "fs"] }
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "fs", "signal"] }
 tokio-stream = "0.1.18"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "json"] }
 uuid = { version = "1.21.0", features = ["serde", "v4"] }
 walkdir = "2.5.0"
+zstd = "0.13"
 tempfile = "3.26.0"
 axum = { version = "0.8.8", features = ["ws"] }
 tower = { version = "0.5", features = ["util"] }
@@ -89,11 +105,12 @@ http-body-util = "0.1"
 tokio-tungstenite = "0.28"
 assert_cmd = "2"
 predicates = "3"
-insta = { version = "1", features = ["json", "redactions"] }
+insta = { version = "1", features = ["json", "yaml", "redactions"] }
 toml = "0.8"
 proptest = "1"
 criterion = { version = "0.5", features = ["html_reports"] }
 cucumber = "0.21"
+wiremock = "0.6"
 
 [dev-dependencies]
 criterion = { workspace = true }
@@ -107,10 +124,16 @@ abp-runtime = { path = "crates/abp-runtime" }
 abp-integrations = { path = "crates/abp-integrations" }
 abp-policy = { path = "crates/abp-policy" }
 abp-glob = { path = "crates/abp-glob" }
+abp-git = { path = "crates/abp-git" }
 abp-workspace = { path = "crates/abp-workspace" }
 abp-cli = { path = "crates/abp-cli" }
 sidecar-kit = { path = "crates/sidecar-kit" }
-claude-bridge = { path = "crates/claude-bridge" }
+claude-bridge = { path = "crates/claude-bridge", features = ["ir"] }
+openai-bridge = { path = "crates/openai-bridge", features = ["ir"] }
+gemini-bridge = { path = "crates/gemini-bridge", features = ["normalized"] }
+kimi-bridge = { path = "crates/kimi-bridge", features = ["ir"] }
+codex-bridge = { path = "crates/codex-bridge", features = ["ir"] }
+copilot-bridge = { path = "crates/copilot-bridge", features = ["ir"] }
 abp-emulation = { path = "crates/abp-emulation" }
 abp-telemetry = { path = "crates/abp-telemetry" }
 anyhow = { workspace = true }
@@ -129,8 +152,11 @@ jsonschema.workspace = true
 abp-daemon = { path = "crates/abp-daemon" }
 abp-dialect = { path = "crates/abp-dialect" }
 abp-error = { path = "crates/abp-error" }
+abp-error-taxonomy = { path = "crates/abp-error-taxonomy" }
 abp-capability = { path = "crates/abp-capability" }
 abp-receipt = { path = "crates/abp-receipt" }
+abp-receipt-store = { path = "crates/abp-receipt-store" }
+abp-mapper = { path = "crates/abp-mapper" }
 abp-mapping = { path = "crates/abp-mapping" }
 abp-config = { path = "crates/abp-config" }
 abp-claude-sdk = { path = "crates/abp-claude-sdk" }
@@ -145,15 +171,33 @@ abp-shim-gemini = { path = "crates/abp-shim-gemini" }
 abp-shim-codex = { path = "crates/abp-shim-codex" }
 abp-shim-kimi = { path = "crates/abp-shim-kimi" }
 abp-shim-copilot = { path = "crates/abp-shim-copilot" }
+abp-ir = { path = "crates/abp-ir" }
 abp-projection = { path = "crates/abp-projection" }
 abp-stream = { path = "crates/abp-stream" }
+abp-validate = { path = "crates/abp-validate" }
+abp-backend-core = { path = "crates/abp-backend-core" }
+abp-backend-mock = { path = "crates/abp-backend-mock" }
+abp-ratelimit = { path = "crates/abp-ratelimit" }
+abp-retry = { path = "crates/abp-retry" }
+abp-sidecar-proto = { path = "crates/abp-sidecar-proto" }
+abp-sidecar-sdk = { path = "crates/abp-sidecar-sdk" }
+abp-sidecar-utils = { path = "crates/abp-sidecar-utils" }
+abp-sdk-types = { path = "crates/abp-sdk-types" }
 insta = { workspace = true }
 proptest = { workspace = true }
+sha2 = { workspace = true }
+flate2 = { workspace = true }
+zstd = { workspace = true }
 toml = { workspace = true }
 walkdir = { workspace = true }
 axum = { workspace = true }
 tower = { workspace = true }
 http-body-util = { workspace = true }
+futures = { workspace = true }
+wiremock = { workspace = true }
+reqwest = { workspace = true }
+serial_test = "3.4.0"
+clap = { workspace = true }
 
 [[test]]
 name = "bdd"
@@ -238,4 +282,52 @@ harness = false
 
 [[bench]]
 name = "projection_matrix"
+harness = false
+
+[[bench]]
+name = "core_benchmarks"
+harness = false
+
+[[bench]]
+name = "mapping_benchmarks"
+harness = false
+
+[[bench]]
+name = "protocol_benchmarks"
+harness = false
+
+[[bench]]
+name = "receipt_hash"
+harness = false
+
+[[bench]]
+name = "envelope_parse"
+harness = false
+
+[[bench]]
+name = "ir_transform"
+harness = false
+
+[[bench]]
+name = "policy_eval"
+harness = false
+
+[[bench]]
+name = "dialect_detect"
+harness = false
+
+[[bench]]
+name = "config_parsing"
+harness = false
+
+[[bench]]
+name = "policy_evaluation"
+harness = false
+
+[[bench]]
+name = "protocol_parsing"
+harness = false
+
+[[bench]]
+name = "benchmarks"
 harness = false

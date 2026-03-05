@@ -1,0 +1,61 @@
+---
+source: tests/sdk_conversion_snapshots.rs
+expression: wo
+---
+{
+  "id": "[uuid]",
+  "task": "What's the weather in SF?",
+  "lane": "patch_first",
+  "workspace": {
+    "root": ".",
+    "mode": "staged",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": []
+  },
+  "config": {
+    "model": "gpt-4o",
+    "vendor": {
+      "dialect": "open_ai",
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Get current weather for a location",
+            "name": "get_weather",
+            "parameters": {
+              "properties": {
+                "location": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "location"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    },
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

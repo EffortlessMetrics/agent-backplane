@@ -1,0 +1,7 @@
+---
+source: tests/sdk_serialization_snapshots.rs
+expression: event
+---
+{
+  "type": "ping"
+}

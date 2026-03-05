@@ -1,0 +1,8 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&msg"
+---
+{
+  "role": "system",
+  "content": "You are a coding assistant."
+}

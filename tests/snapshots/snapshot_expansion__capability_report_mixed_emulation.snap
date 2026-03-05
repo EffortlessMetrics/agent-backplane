@@ -7,7 +7,7 @@ expression: report
   "native_count": 1,
   "emulated_count": 1,
   "unsupported_count": 1,
-  "summary": "1 native, 1 emulatable, 1 unsupported — incompatible",
+  "summary": "1 native, 1 emulated, 1 unsupported — incompatible",
   "details": [
     [
       "Streaming",
@@ -19,13 +19,14 @@ expression: report
       "ToolUse",
       {
         "level": "emulated",
-        "strategy": "adapter"
+        "method": "adapter"
       }
     ],
     [
       "ExtendedThinking",
       {
-        "level": "unsupported"
+        "level": "unsupported",
+        "reason": "Unsupported support does not meet minimum Native"
       }
     ]
   ]

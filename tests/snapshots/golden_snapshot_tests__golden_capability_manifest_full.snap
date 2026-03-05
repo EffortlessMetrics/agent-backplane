@@ -1,0 +1,16 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: json
+---
+{
+  "streaming": "native",
+  "tool_read": "native",
+  "tool_write": "native",
+  "tool_edit": "emulated",
+  "tool_bash": "unsupported",
+  "tool_glob": {
+    "restricted": {
+      "reason": "sandbox only"
+    }
+  }
+}

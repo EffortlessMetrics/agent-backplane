@@ -6,5 +6,5 @@ expression: env
   "t": "fatal",
   "ref_id": null,
   "error": "handshake failed",
-  "error_code": "PROTOCOL_VERSION_MISMATCH"
+  "error_code": "protocol_version_mismatch"
 }

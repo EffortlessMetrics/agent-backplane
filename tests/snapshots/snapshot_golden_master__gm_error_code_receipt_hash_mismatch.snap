@@ -1,0 +1,5 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "ErrorCode::ReceiptHashMismatch"
+---
+"receipt_hash_mismatch"

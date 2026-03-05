@@ -76,8 +76,16 @@ fuzz_target!(|input: FuzzReceipt| {
 
     // Set verification.
     builder = builder.verification(VerificationReport {
-        git_diff: if input.has_diff { Some(input.diff.clone()) } else { None },
-        git_status: if input.has_status { Some(input.status.clone()) } else { None },
+        git_diff: if input.has_diff {
+            Some(input.diff.clone())
+        } else {
+            None
+        },
+        git_status: if input.has_status {
+            Some(input.status.clone())
+        } else {
+            None
+        },
         harness_ok: input.harness_ok,
     });
 
@@ -105,22 +113,33 @@ fuzz_target!(|input: FuzzReceipt| {
     if let Ok(ref h) = hash1 {
         assert_eq!(h.len(), 64, "SHA-256 hex must be 64 chars");
         assert!(
-            h.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
+            h.chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
             "hash must be lowercase hex"
         );
     }
 
     // --- Property 3: deterministic ---
     let hash2 = receipt_hash(&receipt);
-    assert_eq!(hash1.as_ref().ok(), hash2.as_ref().ok(), "hashing same receipt must be deterministic");
+    assert_eq!(
+        hash1.as_ref().ok(),
+        hash2.as_ref().ok(),
+        "hashing same receipt must be deterministic"
+    );
 
     // --- Property 4: with_hash embeds correctly ---
     if let Ok(hashed) = receipt.clone().with_hash() {
-        let embedded = hashed.receipt_sha256.as_ref().expect("with_hash must set sha256");
+        let embedded = hashed
+            .receipt_sha256
+            .as_ref()
+            .expect("with_hash must set sha256");
         assert_eq!(embedded.len(), 64);
         // Re-hash and compare.
         let rehash = receipt_hash(&hashed).expect("rehash must succeed");
-        assert_eq!(embedded, &rehash, "embedded hash must match re-computed hash");
+        assert_eq!(
+            embedded, &rehash,
+            "embedded hash must match re-computed hash"
+        );
     }
 
     // --- Property 5: validate never panics ---
@@ -129,7 +148,10 @@ fuzz_target!(|input: FuzzReceipt| {
     // --- Property 6: abp-receipt crate functions agree with abp-core ---
     let receipt_crate_hash = abp_receipt::compute_hash(&receipt);
     if let (Ok(core_h), Ok(crate_h)) = (&hash1, &receipt_crate_hash) {
-        assert_eq!(core_h, crate_h, "abp-core and abp-receipt hashes must agree");
+        assert_eq!(
+            core_h, crate_h,
+            "abp-core and abp-receipt hashes must agree"
+        );
     }
 
     // --- Property 7: abp-receipt canonicalize never panics ---

@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": null,
+  "error": "Handshake timeout"
+}

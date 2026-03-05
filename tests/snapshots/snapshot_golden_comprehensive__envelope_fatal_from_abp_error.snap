@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_golden_comprehensive.rs
+expression: env
+---
+{
+  "t": "fatal",
+  "ref_id": "run-003",
+  "error": "version mismatch: expected abp/v0.1",
+  "error_code": "PROTOCOL_VERSION_MISMATCH"
+}

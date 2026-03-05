@@ -1,0 +1,27 @@
+---
+source: tests/shim_snapshot_exhaustive.rs
+expression: resp
+---
+{
+  "message": "Here is an explanation of the code.",
+  "copilot_references": [
+    {
+      "type": "snippet",
+      "id": "ref_002",
+      "data": {
+        "range": {
+          "end": 15,
+          "start": 10
+        },
+        "uri": "src/lib.rs"
+      },
+      "metadata": {
+        "label": "hello function"
+      }
+    }
+  ],
+  "metadata": {
+    "intent": "explain",
+    "model": "gpt-4o"
+  }
+}

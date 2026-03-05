@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_regression.rs
+expression: "make_event(AgentEventKind::RunStarted { message: \"initializing\".into(), })"
+---
+{
+  "ts": "2024-01-01T00:00:00Z",
+  "type": "run_started",
+  "message": "initializing"
+}

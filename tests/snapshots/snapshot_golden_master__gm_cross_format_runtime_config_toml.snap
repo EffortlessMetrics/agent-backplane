@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: toml_str
+---
+model = "claude-4-opus"
+max_budget_usd = 10.0
+max_turns = 100
+
+[vendor]
+temperature = 0.5
+
+[env]
+LANG = "en_US"

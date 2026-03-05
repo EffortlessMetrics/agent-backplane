@@ -1,0 +1,16 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: e
+---
+{
+  "ts": "2025-01-15T12:00:00Z",
+  "type": "assistant_message",
+  "text": "Raw passthrough",
+  "ext": {
+    "raw_message": {
+      "content": "Raw passthrough",
+      "role": "assistant"
+    },
+    "vendor": "openai"
+  }
+}

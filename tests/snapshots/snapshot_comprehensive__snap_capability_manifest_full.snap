@@ -1,0 +1,17 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: manifest_to_value(&manifest)
+---
+{
+  "extended_thinking": "native",
+  "image_input": "native",
+  "mcp_client": "native",
+  "mcp_server": "emulated",
+  "session_resume": "unsupported",
+  "streaming": "native",
+  "tool_bash": "native",
+  "tool_edit": "native",
+  "tool_read": "native",
+  "tool_use": "native",
+  "tool_write": "native"
+}

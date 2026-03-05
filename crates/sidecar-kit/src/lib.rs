@@ -12,29 +12,46 @@
 
 pub mod builders;
 pub mod cancel;
+pub mod capabilities;
+pub mod capability_builder;
 pub mod client;
 pub mod codec;
 pub mod diagnostics;
 pub mod error;
+pub mod event_builder;
+pub mod events;
 pub mod frame;
+pub mod framing;
+pub mod harness;
 pub mod middleware;
 pub mod pipeline;
 pub mod process;
+pub mod protocol_helpers;
+pub mod protocol_io;
+pub mod protocol_state;
+pub mod receipt_builder;
 pub mod run;
+pub mod sidecar_harness;
 pub mod spec;
+pub mod test_utils;
 pub mod transform;
 pub mod typed_middleware;
+pub mod work_order;
 
 pub use builders::{
-    ReceiptBuilder, event_command_executed, event_error, event_file_changed, event_frame,
-    event_run_completed, event_run_started, event_text_delta, event_text_message, event_tool_call,
-    event_tool_result, event_warning, fatal_frame, hello_frame,
+    EventBuilder, ReceiptBuilder, event_command_executed, event_error, event_file_changed,
+    event_frame, event_run_completed, event_run_started, event_text_delta, event_text_message,
+    event_tool_call, event_tool_result, event_warning, fatal_frame, final_frame, hello_frame,
 };
 pub use cancel::CancelToken;
 pub use client::{HelloData, SidecarClient};
 pub use codec::JsonlCodec;
 pub use error::SidecarError;
 pub use frame::Frame;
+pub use framing::{
+    FrameReader, FrameValidation, FrameWriter, buf_reader_from_bytes, frame_to_json, json_to_frame,
+    read_all_frames, validate_frame, write_frames,
+};
 pub use middleware::{
     ErrorWrapMiddleware, EventMiddleware, FilterMiddleware, LoggingMiddleware, MiddlewareChain,
     TimingMiddleware,
@@ -43,6 +60,7 @@ pub use pipeline::{
     EventPipeline, PipelineError, PipelineStage, RedactStage, TimestampStage, ValidateStage,
 };
 pub use process::SidecarProcess;
+pub use protocol_state::{ProtocolPhase, ProtocolState};
 pub use run::RawRun;
 pub use spec::ProcessSpec;
 pub use transform::{
@@ -53,3 +71,27 @@ pub use typed_middleware::{
     ErrorRecoveryMiddleware as TypedErrorRecoveryMiddleware, MetricsMiddleware, MiddlewareAction,
     RateLimitMiddleware, SidecarMiddleware, SidecarMiddlewareChain,
 };
+
+pub use events::{
+    EventBuilder as TypedEventBuilder, command_event, delta_event, error_event, file_changed_event,
+    run_completed_event, run_started_event, text_event, tool_call_event, tool_result_event,
+    warning_event,
+};
+pub use protocol_helpers::{read_run, send_event, send_fatal, send_final, send_hello};
+pub use receipt_builder::TypedReceiptBuilder;
+pub use test_utils::{
+    MockStdin, MockStdout, SidecarTestHarness, assert_valid_event, assert_valid_fatal,
+    assert_valid_final, assert_valid_hello,
+};
+
+pub use capabilities::{CapabilitySet, default_streaming_capabilities};
+pub use capability_builder::CapabilityBuilder;
+pub use event_builder::{
+    CommandRunBuilder, ErrorBuilder, EventBuildError, FileEditBuilder, RunCompletedBuilder,
+    RunStartedBuilder, TextDeltaBuilder, TextMessageBuilder, ThinkingBuilder, ToolCallBuilder,
+    ToolResultBuilder, UsageBuilder, WarningBuilder,
+};
+pub use harness::{HandlerContext, HarnessError, SidecarHandler, SidecarHarness};
+pub use protocol_io::{ProtocolReader, ProtocolWriter};
+pub use sidecar_harness::{AsyncSidecarTestHarness, InProcessHarness};
+pub use work_order::WorkOrderView;

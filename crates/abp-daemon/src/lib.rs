@@ -4,10 +4,28 @@
 #![warn(missing_docs)]
 /// HTTP control-plane API types and handler signatures.
 pub mod api;
+/// V1 API request/response types for `/api/v1` endpoints.
+pub mod api_types;
+/// Framework-agnostic request/response types.
+pub mod handler;
+/// Request handlers for the `/v1` daemon HTTP endpoints.
+pub mod handlers;
 /// Middleware stack for the daemon HTTP API.
 pub mod middleware;
+/// API request/response models with JSON schema support.
+pub mod models;
 /// Priority-based run queue.
 pub mod queue;
+/// Axum router for the `/api/v1` HTTP endpoints.
+pub mod router;
+/// Trait-based route handler signatures.
+pub mod routes;
+/// Axum-based HTTP server scaffolding.
+pub mod server;
+/// SSE (Server-Sent Events) streaming utilities.
+pub mod sse;
+/// In-memory run registry and event store.
+pub mod state;
 /// Request validation for the daemon API.
 pub mod validation;
 /// API versioning support.
@@ -31,11 +49,142 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use thiserror::Error;
 use tokio::fs;
 use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
 use tracing::{error, info};
 use uuid::Uuid;
+
+// ---------------------------------------------------------------------------
+// DaemonConfig — static configuration for the control-plane server
+// ---------------------------------------------------------------------------
+
+/// Static configuration for the HTTP control-plane daemon.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DaemonConfig {
+    /// Bind address (e.g. `"127.0.0.1"` or `"0.0.0.0"`).
+    pub bind_address: String,
+    /// Port to listen on.
+    pub port: u16,
+    /// Optional bearer token required for authenticated endpoints.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_token: Option<String>,
+}
+
+impl Default for DaemonConfig {
+    fn default() -> Self {
+        Self {
+            bind_address: "127.0.0.1".into(),
+            port: 8088,
+            auth_token: None,
+        }
+    }
+}
+
+impl DaemonConfig {
+    /// Return the `address:port` string suitable for binding a listener.
+    pub fn bind_string(&self) -> String {
+        format!("{}:{}", self.bind_address, self.port)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DaemonState — shared mutable state for the running daemon
+// ---------------------------------------------------------------------------
+
+/// Shared mutable state for the daemon, holding registered backends and active
+/// runs. Intended to be wrapped in `Arc` and shared across handler tasks.
+#[derive(Clone, Default)]
+pub struct DaemonState {
+    /// Names of registered backends.
+    pub backends: Arc<RwLock<Vec<String>>>,
+    /// Active and completed runs keyed by run ID.
+    pub active_runs: Arc<RwLock<HashMap<Uuid, handler::RunStatus>>>,
+}
+
+impl DaemonState {
+    /// Create an empty daemon state.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a backend by name.
+    pub async fn register_backend(&self, name: String) {
+        let mut guard = self.backends.write().await;
+        if !guard.contains(&name) {
+            guard.push(name);
+        }
+    }
+
+    /// Return a snapshot of registered backend names.
+    pub async fn backend_names(&self) -> Vec<String> {
+        self.backends.read().await.clone()
+    }
+
+    /// Insert or update a run status entry.
+    pub async fn set_run_status(&self, id: Uuid, status: handler::RunStatus) {
+        self.active_runs.write().await.insert(id, status);
+    }
+
+    /// Get the status of a run by ID.
+    pub async fn get_run_status(&self, id: Uuid) -> Option<handler::RunStatus> {
+        self.active_runs.read().await.get(&id).cloned()
+    }
+
+    /// Return all tracked run IDs.
+    pub async fn run_ids(&self) -> Vec<Uuid> {
+        self.active_runs.read().await.keys().copied().collect()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DaemonError — thiserror-based error type for the daemon
+// ---------------------------------------------------------------------------
+
+/// Errors originating from the daemon control-plane.
+#[derive(Debug, Error)]
+pub enum DaemonError {
+    /// A requested resource was not found.
+    #[error("not found: {0}")]
+    NotFound(String),
+
+    /// The request was malformed or invalid.
+    #[error("bad request: {0}")]
+    BadRequest(String),
+
+    /// A state conflict (e.g. cancelling a completed run).
+    #[error("conflict: {0}")]
+    Conflict(String),
+
+    /// An unexpected internal error.
+    #[error("internal error: {0}")]
+    Internal(#[from] anyhow::Error),
+
+    /// The underlying runtime returned an error.
+    #[error("runtime error: {0}")]
+    Runtime(#[from] abp_runtime::RuntimeError),
+}
+
+impl DaemonError {
+    /// Map this error to an HTTP status code.
+    pub fn status_code(&self) -> StatusCode {
+        match self {
+            Self::NotFound(_) => StatusCode::NOT_FOUND,
+            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::Conflict(_) => StatusCode::CONFLICT,
+            Self::Internal(_) | Self::Runtime(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+impl IntoResponse for DaemonError {
+    fn into_response(self) -> Response {
+        let status = self.status_code();
+        let body = Json(json!({ "error": self.to_string() }));
+        (status, body).into_response()
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Run lifecycle tracking
@@ -218,6 +367,31 @@ pub struct RunMetrics {
     pub failed: usize,
 }
 
+/// Runtime status response for GET /status.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatusResponse {
+    /// Server status (e.g. `"ok"`).
+    pub status: String,
+    /// Contract version.
+    pub contract_version: String,
+    /// Registered backend names.
+    pub backends: Vec<String>,
+    /// Active (non-terminal) run IDs.
+    pub active_runs: Vec<Uuid>,
+    /// Total number of tracked runs (active + completed + failed).
+    pub total_runs: usize,
+}
+
+/// Response body for `POST /api/v1/validate`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationResponse {
+    /// Whether the work order passed all validation checks.
+    pub valid: bool,
+    /// Validation error messages (empty when `valid` is `true`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<String>,
+}
+
 /// An API error with HTTP status code and message.
 #[derive(Debug)]
 pub struct ApiError {
@@ -252,10 +426,27 @@ impl IntoResponse for ApiError {
     }
 }
 
+/// Build the Axum router with all daemon routes under the `/api/v1` prefix.
+///
+/// Legacy (un-prefixed) routes from [`build_app`] are also included for
+/// backward compatibility.
+pub fn build_versioned_app(state: Arc<AppState>) -> Router {
+    let v1 = Router::new()
+        .route("/run", post(cmd_run))
+        .route("/backends", get(cmd_backends))
+        .route("/health", get(cmd_health))
+        .route("/status/{run_id}", get(cmd_get_run))
+        .route("/validate", post(cmd_validate_v1))
+        .with_state(state.clone());
+
+    build_app(state).nest("/api/v1", v1)
+}
+
 /// Build the Axum router with all daemon routes.
 pub fn build_app(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(cmd_health))
+        .route("/status", get(cmd_status))
         .route("/metrics", get(cmd_metrics))
         .route("/backends", get(cmd_backends))
         .route("/capabilities", get(cmd_capabilities))
@@ -280,6 +471,22 @@ async fn cmd_health() -> impl IntoResponse {
         "contract_version": abp_core::CONTRACT_VERSION,
         "time": Utc::now().to_rfc3339(),
     }))
+}
+
+async fn cmd_status(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let runs = state.run_tracker.list_runs().await;
+    let active_runs: Vec<Uuid> = runs
+        .iter()
+        .filter(|(_, s)| matches!(s, RunStatus::Pending | RunStatus::Running))
+        .map(|(id, _)| *id)
+        .collect();
+    Json(StatusResponse {
+        status: "ok".into(),
+        contract_version: abp_core::CONTRACT_VERSION.into(),
+        backends: state.runtime.backend_names(),
+        active_runs,
+        total_runs: runs.len(),
+    })
 }
 
 async fn cmd_metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -547,6 +754,29 @@ async fn cmd_validate(
     })))
 }
 
+async fn cmd_validate_v1(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<RunRequest>,
+) -> Json<ValidationResponse> {
+    let mut errors = Vec::new();
+
+    if let Err(wo_errors) = validation::RequestValidator::validate_work_order(&req.work_order) {
+        errors.extend(wo_errors);
+    }
+
+    let backend_names = state.runtime.backend_names();
+    if let Err(e) =
+        validation::RequestValidator::validate_backend_name(&req.backend, &backend_names)
+    {
+        errors.push(e);
+    }
+
+    Json(ValidationResponse {
+        valid: errors.is_empty(),
+        errors,
+    })
+}
+
 async fn cmd_schema(
     AxPath(schema_type): AxPath<String>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
@@ -694,4 +924,32 @@ pub async fn persist_receipt(root: &Path, receipt: &Receipt) -> anyhow::Result<(
     let path = receipt_path(root, receipt.meta.run_id);
     let bytes = serde_json::to_vec_pretty(receipt)?;
     fs::write(path, bytes).await.context("write receipt")
+}
+
+/// Wait for a shutdown signal (Ctrl-C).
+///
+/// Returns when the process receives a termination signal, enabling
+/// graceful shutdown of the HTTP server.
+pub async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        () = ctrl_c => info!("received Ctrl+C, shutting down"),
+        () = terminate => info!("received SIGTERM, shutting down"),
+    }
 }

@@ -2,8 +2,12 @@
 
 ## Build Commands
 ```bash
-cargo run -p xtask -- schema          # Generate JSON schemas to contracts/schemas/
-cargo test -p <crate> <test_name>     # Run single test in workspace crate
+cargo build                          # Build all workspace crates
+cargo test                           # Run all tests
+cargo test -p <crate> <test_name>    # Run single test in workspace crate
+cargo run -p xtask -- schema         # Generate JSON schemas to contracts/schemas/
+cargo run -p abp-cli -- run --task "hello" --backend mock  # Run with mock backend
+cargo run -p abp-cli -- backends     # List available backends
 ```
 
 ## Critical Conventions
@@ -26,18 +30,69 @@ cargo test -p <crate> <test_name>     # Run single test in workspace crate
 
 ## Dependency Hierarchy
 ```
-abp-core (stable contract, take only this if needed)
-  ↑
-abp-protocol (JSONL wire format)
-  ↑
-abp-host (sidecar supervision)
-  ↑
-abp-integrations (Backend trait)
-  ↑
-abp-runtime (orchestration)
+abp-glob ──────────┐
+                    ├── abp-policy ──────────┐
+abp-core ──────────┤                         │
+  │   │            └── abp-workspace ────────┤
+  │   │                   │  abp-git         │
+  │   ├── abp-ir ─── abp-mapper             │
+  │   ├── abp-dialect ─── abp-mapping        │
+  │   ├── abp-error ─── abp-error-taxonomy   │
+  │   ├── abp-capability ─── abp-projection  │
+  │   ├── abp-emulation                      │
+  │   ├── abp-receipt ── abp-telemetry       │
+  │   │     └── abp-receipt-store            │
+  │   ├── abp-config                         │
+  │   ├── abp-sdk-types                      │
+  │   │     └── abp-validate                 │
+  │   │                                      │
+abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
+  │                  │              │                abp-backend-sidecar
+  │              sidecar-kit        │
+  │                  │         abp-integrations ─── abp-runtime ─── abp-cli
+  │             *-bridge                                │             │
+  │                                                  abp-stream   abp-daemon
+  ├── abp-sidecar-proto                   abp-ratelimit
+  ├── abp-sidecar-sdk                     abp-retry
+  └── abp-sidecar-utils
+
+SDK shims: abp-shim-{openai,claude,gemini,codex,kimi,copilot}
+Bridges:   {claude,gemini,openai,codex,copilot,kimi}-bridge
+SDK crates: abp-{claude,codex,openai,gemini,kimi,copilot}-sdk
 ```
+
+## Workspace Crates (54)
+
+| Layer | Crates |
+|-------|--------|
+| Contract | abp-core, abp-ir, abp-sdk-types, abp-error, abp-error-taxonomy |
+| Wire | abp-protocol, abp-sidecar-proto, abp-sidecar-utils |
+| Infrastructure | abp-glob, abp-git, abp-workspace, abp-policy, abp-config |
+| Dialect | abp-dialect, abp-mapper, abp-mapping, abp-projection, abp-capability, abp-emulation |
+| Backend | abp-backend-core, abp-backend-mock, abp-backend-sidecar, abp-integrations |
+| Runtime | abp-runtime, abp-stream, abp-receipt, abp-receipt-store, abp-telemetry, abp-ratelimit, abp-retry, abp-validate |
+| Applications | abp-cli, abp-daemon |
+| SDK Shims | abp-shim-openai, abp-shim-claude, abp-shim-gemini, abp-shim-codex, abp-shim-kimi, abp-shim-copilot |
+| SDK Adapters | abp-claude-sdk, abp-codex-sdk, abp-openai-sdk, abp-gemini-sdk, abp-kimi-sdk, abp-copilot-sdk, abp-sidecar-sdk |
+| Bridges | sidecar-kit, claude-bridge, gemini-bridge, openai-bridge, codex-bridge, copilot-bridge, kimi-bridge |
+
+## Developer Workflow (Enforced)
+
+See [`DEVEX.md`](DEVEX.md) for the full enforcement model.
+
+Quick ref: `cargo xtask setup` (once), then hooks handle everything.
+Never use `--no-verify` unless the human operator explicitly instructs you to.
+
+## Generator Guardrails
+
+When generating Rust code, avoid these patterns that trigger clippy warnings or produce churn:
+
+1. **No identity maps** -- `map_err(|e| e)` is a no-op. Remove it.
+2. **Const assertions** -- Compile-time invariants: `const { assert!(...) }`, not runtime `assert!`.
+3. **Prefer `if let`** -- Don't `match` with one meaningful arm and a wildcard.
 
 ## Tracing Targets
 - `abp.sidecar.stderr` - Sidecar stderr capture
 - `abp.runtime` - Runtime events
 - `abp.workspace` - Workspace staging
+- `abp.sidecar` - Sidecar protocol I/O

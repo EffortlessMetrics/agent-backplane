@@ -1,0 +1,13 @@
+---
+source: tests/bridge_snapshot_exhaustive.rs
+expression: "&gemini_part"
+---
+{
+  "functionCall": {
+    "name": "write_file",
+    "args": {
+      "content": "def hello():\n    print('hello')\n\nhello()\n",
+      "path": "/tmp/test.py"
+    }
+  }
+}

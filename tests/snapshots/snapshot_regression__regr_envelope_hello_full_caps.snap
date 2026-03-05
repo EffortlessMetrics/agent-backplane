@@ -1,0 +1,24 @@
+---
+source: tests/snapshot_regression.rs
+expression: v
+---
+{
+  "backend": {
+    "adapter_version": "0.5.0",
+    "backend_version": "2.0.0",
+    "id": "full-sidecar"
+  },
+  "capabilities": {
+    "mcp_client": {
+      "restricted": {
+        "reason": "disabled"
+      }
+    },
+    "streaming": "native",
+    "tool_read": "native",
+    "tool_write": "emulated"
+  },
+  "contract_version": "abp/v0.1",
+  "mode": "mapped",
+  "t": "hello"
+}

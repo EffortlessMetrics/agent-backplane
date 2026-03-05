@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: "IrContentBlock::Thinking\n{ text: \"Step 1: Read the file. Step 2: Find the bug.\".into(), }"
+---
+{
+  "type": "thinking",
+  "text": "Step 1: Read the file. Step 2: Find the bug."
+}

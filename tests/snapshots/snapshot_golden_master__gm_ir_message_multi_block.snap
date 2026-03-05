@@ -1,0 +1,26 @@
+---
+source: tests/snapshot_golden_master.rs
+expression: msg
+---
+{
+  "role": "assistant",
+  "content": [
+    {
+      "type": "thinking",
+      "text": "Let me analyze the code..."
+    },
+    {
+      "type": "text",
+      "text": "Found the issue in line 42."
+    },
+    {
+      "type": "tool_use",
+      "id": "tu_gm_200",
+      "name": "edit_file",
+      "input": {
+        "new_content": "fixed code",
+        "path": "src/main.rs"
+      }
+    }
+  ]
+}

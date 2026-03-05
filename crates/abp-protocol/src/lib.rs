@@ -1,20 +1,54 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #![doc = include_str!("../README.md")]
-//! abp-protocol
+//!
+//! # JSONL wire protocol
+//!
+//! `abp-protocol` defines the message framing used between the ABP control
+//! plane and sidecar processes.  Every message is a single JSON line
+//! (newline-delimited JSON / JSONL) carrying an [`Envelope`].
+//!
+//! ## Handshake sequence
+//!
+//! 1. **Sidecar → Host**: `hello` — announces identity, capabilities, and
+//!    protocol version.
+//! 2. **Host → Sidecar**: `run` — dispatches a `WorkOrder`.
+//! 3. **Sidecar → Host**: zero or more `event` messages streaming
+//!    `AgentEvent`s.
+//! 4. **Sidecar → Host**: `final` (success receipt) **or** `fatal`
+//!    (unrecoverable error).
+//!
+//! ## Envelope discriminator
+//!
+//! The envelope is tagged with `#[serde(tag = "t")]` — the JSON field is
+//! `"t"`, **not** `"type"`.  This is different from `AgentEventKind` in
+//! `abp-core` which uses `"type"`.
+//!
+//! ## Codec
+//!
+//! Use [`JsonlCodec`] for encoding and decoding:
+//!
+//! ```
+//! use abp_protocol::{Envelope, JsonlCodec};
+//!
+//! let line = r#"{"t":"fatal","ref_id":null,"error":"boom"}"#;
+//! let env = JsonlCodec::decode(line).unwrap();
+//! assert!(matches!(env, Envelope::Fatal { .. }));
+//! ```
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
-//!
-//! Wire format for talking to sidecars and daemons.
-//! Current transport: JSONL over stdio.
 
 pub mod batch;
 pub mod builder;
+pub mod capability_advertisement;
 pub mod codec;
 pub mod compress;
+pub mod graceful_shutdown;
+pub mod heartbeat;
 pub mod router;
 pub mod stream;
 pub mod validate;
 pub mod version;
+pub mod version_negotiation;
 
 use std::io::{BufRead, Write};
 

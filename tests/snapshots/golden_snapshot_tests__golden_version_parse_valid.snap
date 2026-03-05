@@ -1,0 +1,10 @@
+---
+source: tests/golden_snapshot_tests.rs
+expression: "abp_protocol::parse_version(\"abp/v0.1\")"
+---
+Some(
+    (
+        0,
+        1,
+    ),
+)
