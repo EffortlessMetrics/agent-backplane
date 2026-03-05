@@ -358,6 +358,30 @@ impl From<Receipt> for MessagesResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Named translation functions
+// ---------------------------------------------------------------------------
+
+/// Translate an Anthropic [`MessagesRequest`] into an ABP [`WorkOrder`].
+///
+/// This is a named wrapper around the `From<MessagesRequest>` impl,
+/// provided for discoverability and use in contexts where method syntax
+/// is preferred over trait conversion.
+#[must_use]
+pub fn translate_to_work_order(req: MessagesRequest) -> WorkOrder {
+    req.into()
+}
+
+/// Translate an ABP [`Receipt`] into an Anthropic [`MessagesResponse`].
+///
+/// This is a named wrapper around the `From<Receipt>` impl,
+/// provided for discoverability and use in contexts where method syntax
+/// is preferred over trait conversion.
+#[must_use]
+pub fn translate_from_receipt(receipt: Receipt) -> MessagesResponse {
+    receipt.into()
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1296,5 +1320,89 @@ mod tests {
         let json = serde_json::to_value(&schema).unwrap();
         let s = serde_json::to_string(&json).unwrap();
         assert!(s.contains("auto") || s.contains("oneOf") || s.contains("anyOf"));
+    }
+
+    // -- Named translation functions --
+
+    #[test]
+    fn translate_to_work_order_basic() {
+        let req = MessagesRequest {
+            model: "claude-sonnet-4-20250514".into(),
+            messages: vec![Message {
+                role: Role::User,
+                content: MessageContent::Text("Explain Rust lifetimes".into()),
+            }],
+            max_tokens: 2048,
+            system: Some(SystemMessage::Text("Be concise.".into())),
+            tools: None,
+            metadata: None,
+            stream: None,
+            stop_sequences: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            tool_choice: None,
+            thinking: None,
+        };
+        let wo = translate_to_work_order(req);
+        assert_eq!(wo.task, "Explain Rust lifetimes");
+        assert_eq!(wo.config.model.as_deref(), Some("claude-sonnet-4-20250514"));
+        assert_eq!(
+            wo.config.vendor["system"],
+            serde_json::Value::String("Be concise.".into())
+        );
+    }
+
+    #[test]
+    fn translate_from_receipt_basic() {
+        let receipt = ReceiptBuilder::new("claude-sonnet-4-20250514")
+            .outcome(Outcome::Complete)
+            .usage(UsageNormalized {
+                input_tokens: Some(50),
+                output_tokens: Some(25),
+                cache_read_tokens: None,
+                cache_write_tokens: None,
+                request_units: None,
+                estimated_cost_usd: None,
+            })
+            .add_trace_event(abp_core::AgentEvent {
+                ts: chrono::Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "Lifetimes are...".into(),
+                },
+                ext: None,
+            })
+            .build();
+        let resp = translate_from_receipt(receipt);
+        assert!(resp.id.starts_with("msg_"));
+        assert_eq!(resp.role, "assistant");
+        assert_eq!(resp.content.len(), 1);
+        assert_eq!(resp.stop_reason.as_deref(), Some("end_turn"));
+        assert_eq!(resp.usage.input_tokens, 50);
+        assert_eq!(resp.usage.output_tokens, 25);
+    }
+
+    #[test]
+    fn translate_roundtrip_preserves_model() {
+        let req = MessagesRequest {
+            model: "claude-opus-4-20250514".into(),
+            messages: vec![Message {
+                role: Role::User,
+                content: MessageContent::Text("hello".into()),
+            }],
+            max_tokens: 1024,
+            system: None,
+            tools: None,
+            metadata: None,
+            stream: None,
+            stop_sequences: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            tool_choice: None,
+            thinking: None,
+        };
+        let wo = translate_to_work_order(req);
+        assert_eq!(wo.config.model.as_deref(), Some("claude-opus-4-20250514"));
     }
 }
