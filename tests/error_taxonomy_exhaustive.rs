@@ -307,8 +307,7 @@ fn cat02_categories_group_related_codes_correctly() {
             ErrorCategory::Internal => "internal",
         };
         assert!(
-            code.as_str().starts_with(prefix)
-                || code.category() == ErrorCategory::RateLimit,
+            code.as_str().starts_with(prefix) || code.category() == ErrorCategory::RateLimit,
             "{:?}: as_str '{}' does not start with '{}'",
             code,
             code.as_str(),

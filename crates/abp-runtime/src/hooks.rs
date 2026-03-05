@@ -8,8 +8,8 @@
 use abp_core::{AgentEvent, Receipt, WorkOrder};
 use std::sync::Arc;
 
-use crate::telemetry::RunMetrics;
 use crate::RuntimeError;
+use crate::telemetry::RunMetrics;
 
 // ---------------------------------------------------------------------------
 // Trait

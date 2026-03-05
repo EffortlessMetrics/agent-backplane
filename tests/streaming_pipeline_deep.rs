@@ -34,9 +34,9 @@
 //! and runtime integration for the ABP streaming pipeline.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
-    Receipt, RunMetadata, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode,
 };
 use abp_integrations::Backend;
 use abp_runtime::Runtime;

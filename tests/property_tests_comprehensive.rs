@@ -18,14 +18,14 @@ use uuid::Uuid;
 
 use abp_config::{BackendEntry, BackplaneConfig};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata,
-    RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_protocol::{Envelope, JsonlCodec};
-use abp_receipt::{compute_hash, verify_hash, ChainBuilder, ReceiptChain};
+use abp_receipt::{ChainBuilder, ReceiptChain, compute_hash, verify_hash};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Strategies

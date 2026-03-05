@@ -41,10 +41,10 @@ use std::collections::BTreeMap;
 
 use abp_backend_mock::scenarios::{MockScenario, ScenarioMockBackend};
 use abp_core::{
-    receipt_hash, validate::validate_receipt, AgentEvent, AgentEventKind, BackendIdentity,
-    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
-    ContextSnippet, ExecutionMode, MinSupport, Outcome, Receipt, RuntimeConfig, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionMode,
+    MinSupport, Outcome, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder, WorkspaceMode,
+    receipt_hash, validate::validate_receipt,
 };
 use abp_integrations::{Backend, MockBackend};
 use abp_runtime::store::ReceiptStore;

@@ -8,12 +8,12 @@
 mod inner {
     use sidecar_kit::RawRun;
     use tokio::sync::{mpsc, oneshot};
-    use tokio_stream::wrappers::ReceiverStream;
     use tokio_stream::StreamExt;
+    use tokio_stream::wrappers::ReceiverStream;
 
     use abp_core::{AgentEvent, Receipt};
 
-    use crate::{raw::RunOptions, BridgeError, ClaudeBridgeConfig};
+    use crate::{BridgeError, ClaudeBridgeConfig, raw::RunOptions};
 
     /// A normalized run with typed events and receipt.
     pub struct NormalizedRun {

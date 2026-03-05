@@ -305,9 +305,10 @@ fn fuzz_sim_receipt_hash_is_valid_hex() {
     let receipt = make_receipt("test-be", Outcome::Complete);
     let hash = abp_core::receipt_hash(&receipt).unwrap();
     assert_eq!(hash.len(), 64);
-    assert!(hash
-        .chars()
-        .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+    assert!(
+        hash.chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    );
 }
 
 #[test]

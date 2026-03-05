@@ -40,13 +40,13 @@ use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
     MinSupport, RuntimeConfig, SupportLevel, WorkOrderBuilder,
 };
+use abp_dialect::Dialect;
 use abp_dialect::ir::{
     IrContentBlock, IrGenerationConfig, IrMessage, IrRequest, IrResponse, IrRole, IrStopReason,
     IrToolDefinition, IrUsage,
 };
-use abp_dialect::registry::{parse_response, DialectEntry, DialectError, DialectRegistry};
-use abp_dialect::Dialect;
-use serde_json::{json, Value};
+use abp_dialect::registry::{DialectEntry, DialectError, DialectRegistry, parse_response};
+use serde_json::{Value, json};
 
 // ═══════════════════════════════════════════════════════════════════════
 // 1. Dialect enum parsing and validation (~15 tests)
@@ -598,10 +598,12 @@ fn cross_dialect_gemini_to_openai_preserves_user_text() {
     let openai_val = r.serialize(Dialect::OpenAi, &ir).unwrap();
     let msgs = openai_val["messages"].as_array().unwrap();
     assert!(!msgs.is_empty());
-    assert!(msgs[0]["content"]
-        .as_str()
-        .unwrap()
-        .contains("Hello from Gemini"));
+    assert!(
+        msgs[0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Hello from Gemini")
+    );
 }
 
 #[test]

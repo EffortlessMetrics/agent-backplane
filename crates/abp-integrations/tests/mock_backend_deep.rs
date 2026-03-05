@@ -36,14 +36,14 @@ use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
-    ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome,
-    PolicyProfile, Receipt, RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement,
+    CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode,
+    MinSupport, Outcome, PolicyProfile, Receipt, RuntimeConfig, SupportLevel, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_integrations::{
-    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
-    Backend, MockBackend, SidecarBackend,
+    Backend, MockBackend, SidecarBackend, ensure_capability_requirements, extract_execution_mode,
+    validate_passthrough_compatibility,
 };
 use serde_json::json;
 use tokio::sync::mpsc;
@@ -950,10 +950,12 @@ async fn t89_emulated_tool_read_requirement_passes() {
         }],
     };
     let (tx, _rx) = mpsc::channel(16);
-    assert!(MockBackend
-        .run(Uuid::new_v4(), work_order, tx)
-        .await
-        .is_ok());
+    assert!(
+        MockBackend
+            .run(Uuid::new_v4(), work_order, tx)
+            .await
+            .is_ok()
+    );
 }
 
 #[tokio::test]
@@ -966,10 +968,12 @@ async fn t90_native_tool_read_requirement_fails() {
         }],
     };
     let (tx, _rx) = mpsc::channel(16);
-    assert!(MockBackend
-        .run(Uuid::new_v4(), work_order, tx)
-        .await
-        .is_err());
+    assert!(
+        MockBackend
+            .run(Uuid::new_v4(), work_order, tx)
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -984,10 +988,12 @@ async fn t91_missing_capability_rejects_run() {
     let (tx, _rx) = mpsc::channel(16);
     let result = MockBackend.run(Uuid::new_v4(), work_order, tx).await;
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("capability requirements not satisfied"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("capability requirements not satisfied")
+    );
 }
 
 #[tokio::test]
@@ -1010,10 +1016,12 @@ async fn t92_multiple_satisfied_requirements() {
         ],
     };
     let (tx, _rx) = mpsc::channel(16);
-    assert!(MockBackend
-        .run(Uuid::new_v4(), work_order, tx)
-        .await
-        .is_ok());
+    assert!(
+        MockBackend
+            .run(Uuid::new_v4(), work_order, tx)
+            .await
+            .is_ok()
+    );
 }
 
 // ===========================================================================

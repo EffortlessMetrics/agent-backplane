@@ -37,7 +37,7 @@
 //! and path normalization.
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
-use abp_workspace::diff::{diff_workspace, DiffAnalysis, DiffAnalyzer, DiffPolicy, WorkspaceDiff};
+use abp_workspace::diff::{DiffAnalysis, DiffAnalyzer, DiffPolicy, WorkspaceDiff, diff_workspace};
 use abp_workspace::ops::{FileOperation, OperationFilter, OperationLog};
 use abp_workspace::snapshot::{capture, compare};
 use abp_workspace::tracker::{ChangeKind, ChangeTracker, FileChange};
@@ -437,10 +437,11 @@ fn diff_analyzer_deleted_change_type() {
     fs::remove_file(ws.path().join("del.txt")).unwrap();
     let analyzer = DiffAnalyzer::new(ws.path());
     let diff = analyzer.analyze().unwrap();
-    assert!(diff
-        .files_deleted
-        .iter()
-        .any(|fc| fc.path == PathBuf::from("del.txt")),);
+    assert!(
+        diff.files_deleted
+            .iter()
+            .any(|fc| fc.path == PathBuf::from("del.txt")),
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

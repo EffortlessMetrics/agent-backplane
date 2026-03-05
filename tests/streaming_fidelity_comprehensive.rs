@@ -33,14 +33,14 @@
 //! receipt generation, and event metadata correctness across all SDK dialects.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
-    Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel, UsageNormalized,
-    VerificationReport, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel, UsageNormalized,
+    VerificationReport, WorkOrder, WorkOrderBuilder,
 };
 use abp_protocol::{Envelope, JsonlCodec};
 use chrono::Utc;
@@ -2552,12 +2552,13 @@ async fn cancel_multiple_receivers_drop_one() {
     let (tx1, rx1) = mpsc::channel(16);
     let (tx2, rx2) = mpsc::channel(16);
     drop(rx1);
-    assert!(tx1
-        .send(make_event(AgentEventKind::AssistantDelta {
+    assert!(
+        tx1.send(make_event(AgentEventKind::AssistantDelta {
             text: "x".into()
         }))
         .await
-        .is_err());
+        .is_err()
+    );
     tx2.send(make_event(AgentEventKind::AssistantDelta {
         text: "y".into(),
     }))

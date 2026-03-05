@@ -71,11 +71,7 @@ impl WorkspaceQuota {
         let exceeded = used > self.limit_bytes;
         let remaining = self.limit_bytes.saturating_sub(used);
         let usage_percent = if self.limit_bytes == 0 {
-            if used > 0 {
-                f64::INFINITY
-            } else {
-                0.0
-            }
+            if used > 0 { f64::INFINITY } else { 0.0 }
         } else {
             (used as f64 / self.limit_bytes as f64) * 100.0
         };

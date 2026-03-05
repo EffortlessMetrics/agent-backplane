@@ -30,22 +30,21 @@
 //! Deep tests for the Backend trait, registry, capabilities, metrics,
 //! selection, health, configuration, streaming, concurrency, and timeouts.
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use abp_backend_core::health::{BackendHealth, HealthStatus};
 use abp_backend_core::metadata::{BackendMetadata, RateLimit};
 use abp_backend_core::registry::BackendRegistry;
 use abp_backend_core::{
-    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
-    Backend,
+    Backend, ensure_capability_requirements, extract_execution_mode,
+    validate_passthrough_compatibility,
 };
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
     RunMetadata, SupportLevel, UsageNormalized, VerificationReport, WorkOrderBuilder,
-    CONTRACT_VERSION,
 };
 use anyhow::Result;
 use async_trait::async_trait;

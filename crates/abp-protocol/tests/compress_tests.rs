@@ -76,7 +76,7 @@ fn gzip_compress_has_header_tag() {
     let compressed = c.compress(data).unwrap();
     assert!(compressed.len() > 1);
     assert_eq!(compressed[0], 0x01); // gzip tag
-                                     // Real compression: round-trip must yield original data
+    // Real compression: round-trip must yield original data
     assert_eq!(c.decompress(&compressed).unwrap(), data);
 }
 
@@ -87,7 +87,7 @@ fn zstd_compress_has_header_tag() {
     let compressed = c.compress(data).unwrap();
     assert!(compressed.len() > 1);
     assert_eq!(compressed[0], 0x02); // zstd tag
-                                     // Real compression: round-trip must yield original data
+    // Real compression: round-trip must yield original data
     assert_eq!(c.decompress(&compressed).unwrap(), data);
 }
 

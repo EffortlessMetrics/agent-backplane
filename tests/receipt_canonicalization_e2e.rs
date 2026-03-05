@@ -31,10 +31,10 @@
 //! End-to-end tests for receipt canonicalization, hashing, and serialization determinism.
 
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, ExecutionMode, Outcome, Receipt,
+    AgentEvent, AgentEventKind, ArtifactRef, ExecutionMode, Outcome, Receipt, receipt_hash,
 };
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
-use abp_receipt::{canonicalize, compute_hash, verify_hash, ReceiptBuilder};
+use abp_receipt::{ReceiptBuilder, canonicalize, compute_hash, verify_hash};
 use chrono::{TimeZone, Utc};
 use std::collections::BTreeMap;
 use uuid::Uuid;
@@ -366,15 +366,21 @@ fn canonical_outcome_serialized_snake_case() {
         .run_id(Uuid::nil())
         .build();
 
-    assert!(canonicalize(&r_complete)
-        .unwrap()
-        .contains("\"outcome\":\"complete\""));
-    assert!(canonicalize(&r_failed)
-        .unwrap()
-        .contains("\"outcome\":\"failed\""));
-    assert!(canonicalize(&r_partial)
-        .unwrap()
-        .contains("\"outcome\":\"partial\""));
+    assert!(
+        canonicalize(&r_complete)
+            .unwrap()
+            .contains("\"outcome\":\"complete\"")
+    );
+    assert!(
+        canonicalize(&r_failed)
+            .unwrap()
+            .contains("\"outcome\":\"failed\"")
+    );
+    assert!(
+        canonicalize(&r_partial)
+            .unwrap()
+            .contains("\"outcome\":\"partial\"")
+    );
 }
 
 #[test]

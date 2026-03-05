@@ -35,17 +35,17 @@
 
 use std::collections::BTreeMap;
 
-use abp_capability::{check_capability, negotiate, SupportLevel};
+use abp_capability::{SupportLevel, check_capability, negotiate};
 use abp_core::ir::{IrConversation, IrMessage, IrRole};
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
     Outcome, ReceiptBuilder, SupportLevel as CoreSupportLevel, WorkOrderBuilder,
 };
 use abp_emulation::{
+    EmulationConfig, EmulationEngine, EmulationReport, EmulationStrategy, FidelityLabel,
     can_emulate, compute_fidelity, default_strategy, emulate_code_execution,
     emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
-    emulate_structured_output, EmulationConfig, EmulationEngine, EmulationReport,
-    EmulationStrategy, FidelityLabel,
+    emulate_structured_output,
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -188,9 +188,11 @@ mod structured_output {
             .build();
 
         // Receipt has no StructuredOutputJsonSchema native capability.
-        assert!(!receipt
-            .capabilities
-            .contains_key(&Capability::StructuredOutputJsonSchema));
+        assert!(
+            !receipt
+                .capabilities
+                .contains_key(&Capability::StructuredOutputJsonSchema)
+        );
         // The emulation report records the applied strategy.
         assert_eq!(report.applied.len(), 1);
         assert_eq!(
@@ -359,9 +361,11 @@ mod extended_thinking {
         engine.apply(&[Capability::ExtendedThinking], &mut conv);
 
         assert_eq!(conv.messages[0].role, IrRole::System);
-        assert!(conv.messages[0]
-            .text_content()
-            .contains("Think step by step"));
+        assert!(
+            conv.messages[0]
+                .text_content()
+                .contains("Think step by step")
+        );
     }
 
     #[test]

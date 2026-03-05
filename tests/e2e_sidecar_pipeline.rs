@@ -40,9 +40,9 @@
 //! 4. Error paths (10+ tests)
 
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
-    PolicyProfile, Receipt, WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    PolicyProfile, Receipt, WorkOrder, WorkOrderBuilder, WorkspaceMode, receipt_hash,
 };
 use abp_integrations::Backend;
 use abp_runtime::{Runtime, RuntimeError};

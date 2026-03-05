@@ -40,10 +40,10 @@ use std::sync::Arc;
 
 use abp_backend_mock::MockBackend;
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
     ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, RuntimeConfig, SupportLevel,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, receipt_hash,
 };
 use abp_integrations::Backend;
 use serde_json::json;

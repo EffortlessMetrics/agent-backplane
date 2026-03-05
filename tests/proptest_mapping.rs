@@ -34,7 +34,7 @@ use proptest::prelude::*;
 
 use abp_dialect::Dialect;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
+    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
 };
 
 // ── Strategies ──────────────────────────────────────────────────────────

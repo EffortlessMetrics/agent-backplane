@@ -8,7 +8,7 @@
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrRole};
 
-use crate::capabilities::{dialect_capabilities, DialectCapabilities};
+use crate::capabilities::{DialectCapabilities, dialect_capabilities};
 
 /// A single issue found during IR validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -293,10 +293,12 @@ mod tests {
         let caps = dialect_capabilities(Dialect::Codex);
         let result = validate_for_target(&conv, &caps);
         assert!(!result.is_valid());
-        assert!(result
-            .issues
-            .iter()
-            .any(|i| i.code == "unsupported_system_prompt"));
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|i| i.code == "unsupported_system_prompt")
+        );
     }
 
     #[test]

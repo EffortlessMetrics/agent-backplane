@@ -40,21 +40,21 @@ use std::collections::{BTreeMap, HashSet};
 use std::io::BufReader;
 use std::path::Path;
 
-use abp_config::{merge_configs, parse_toml, validate_config, BackendEntry, BackplaneConfig};
+use abp_config::{BackendEntry, BackplaneConfig, merge_configs, parse_toml, validate_config};
 use abp_core::filter::EventFilter;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::validate::validate_receipt;
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, BackendIdentity,
-    Capability, CapabilityManifest, ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
-    RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrderBuilder,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig, SupportLevel,
+    UsageNormalized, VerificationReport, WorkOrderBuilder, canonical_json, receipt_hash,
+    sha256_hex,
 };
 use abp_dialect::{Dialect, DialectDetector};
-use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
+use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
 use abp_policy::PolicyEngine;
 use abp_protocol::version::ProtocolVersion;
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
+use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
 use abp_receipt::{canonicalize, compute_hash, verify_hash};
 use chrono::Utc;
 use uuid::Uuid;

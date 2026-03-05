@@ -33,8 +33,8 @@
 use std::sync::Arc;
 
 use abp_core::{
-    filter::EventFilter, receipt_hash, AgentEvent, AgentEventKind, Outcome, Receipt, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode,
+    AgentEvent, AgentEventKind, Outcome, Receipt, WorkOrder, WorkOrderBuilder, WorkspaceMode,
+    filter::EventFilter, receipt_hash,
 };
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_integrations::{Backend, MockBackend};

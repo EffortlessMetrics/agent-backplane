@@ -6,14 +6,14 @@ use std::collections::BTreeMap;
 use serde_json::json;
 
 use abp_dialect::detect::{
-    builtin_fingerprints, detect_dialect, detect_from_headers, DialectDetectionResult,
-    DialectFingerprint,
+    DialectDetectionResult, DialectFingerprint, builtin_fingerprints, detect_dialect,
+    detect_from_headers,
 };
 use abp_dialect::ir::{
     IrContentBlock, IrGenerationConfig, IrMessage, IrRequest, IrResponse, IrRole, IrStopReason,
     IrToolDefinition, IrUsage,
 };
-use abp_dialect::registry::{parse_response, DialectError, DialectRegistry};
+use abp_dialect::registry::{DialectError, DialectRegistry, parse_response};
 use abp_dialect::validate::{
     RequestValidator, Severity, ValidationIssue, ValidationResult as VResult,
 };
@@ -432,9 +432,11 @@ fn detect_from_endpoint_copilot() {
 
 #[test]
 fn detect_from_endpoint_unknown() {
-    assert!(detector()
-        .detect_from_endpoint("https://example.com/api")
-        .is_none());
+    assert!(
+        detector()
+            .detect_from_endpoint("https://example.com/api")
+            .is_none()
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -788,10 +790,11 @@ fn parse_codex_request() {
     let ir = r.parse(Dialect::Codex, &v).unwrap();
     assert_eq!(ir.model.as_deref(), Some("codex-mini"));
     assert_eq!(ir.system_prompt.as_deref(), Some("fix bugs"));
-    assert!(ir
-        .messages
-        .iter()
-        .any(|m| m.text_content().contains("code here")));
+    assert!(
+        ir.messages
+            .iter()
+            .any(|m| m.text_content().contains("code here"))
+    );
 }
 
 #[test]

@@ -46,7 +46,7 @@ use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefi
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_dialect::Dialect;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry,
+    Fidelity, MappingMatrix, MappingRegistry, features, known_rules, validate_mapping,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -101,10 +101,12 @@ mod tool_definition_fidelity {
             ir_tools[0].parameters["properties"]["query"]["type"],
             "string"
         );
-        assert!(ir_tools[0].parameters["required"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("query")));
+        assert!(
+            ir_tools[0].parameters["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("query"))
+        );
     }
 
     #[test]

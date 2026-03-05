@@ -5,15 +5,15 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
-    Outcome, Receipt, ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_protocol::{
-    validate::{EnvelopeValidator, SequenceError, ValidationError, ValidationWarning},
     Envelope, JsonlCodec, ProtocolError,
+    validate::{EnvelopeValidator, SequenceError, ValidationError, ValidationWarning},
 };
 use chrono::Utc;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 // ---------------------------------------------------------------------------
@@ -1293,9 +1293,11 @@ fn sequence_hello_not_first() {
     let validator = EnvelopeValidator::new();
     let seq = vec![make_run("r1"), make_hello(), make_final("r1")];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 }))
+    );
 }
 
 #[test]
@@ -1372,9 +1374,11 @@ fn ref_id_mismatch_on_event() {
         make_final("run-abc"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -1382,9 +1386,11 @@ fn ref_id_mismatch_on_final() {
     let validator = EnvelopeValidator::new();
     let seq = vec![make_hello(), make_run("run-abc"), make_final("wrong-id")];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -1396,9 +1402,11 @@ fn ref_id_mismatch_on_fatal() {
         make_fatal(Some("wrong-id"), "err"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -1452,10 +1460,12 @@ fn validate_hello_invalid_version() {
     };
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]
@@ -1473,10 +1483,12 @@ fn validate_hello_empty_backend_id() {
     };
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id"))
+    );
 }
 
 #[test]

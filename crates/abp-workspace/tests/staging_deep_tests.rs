@@ -34,7 +34,7 @@
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
 use abp_workspace::diff::{
-    diff_workspace, ChangeType, DiffAnalyzer, DiffPolicy, DiffSummary, PolicyResult, WorkspaceDiff,
+    ChangeType, DiffAnalyzer, DiffPolicy, DiffSummary, PolicyResult, WorkspaceDiff, diff_workspace,
 };
 use abp_workspace::snapshot::{capture, compare};
 use abp_workspace::{WorkspaceManager, WorkspaceStager};

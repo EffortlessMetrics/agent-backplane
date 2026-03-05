@@ -41,9 +41,10 @@ use std::io::Write;
 use std::path::Path;
 
 use abp_config::{
-    apply_env_overrides, load_config, merge_configs, parse_toml,
-    validate::{diff_configs, ConfigDiff, ConfigValidator, Severity, ValidationIssue},
-    validate_config, BackendEntry, BackplaneConfig, ConfigError, ConfigWarning,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
+    merge_configs, parse_toml,
+    validate::{ConfigDiff, ConfigValidator, Severity, ValidationIssue, diff_configs},
+    validate_config,
 };
 
 // ===========================================================================
@@ -480,9 +481,11 @@ fn d09_sidecar_empty_command_fails() {
         },
     );
     let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 #[test]
@@ -497,9 +500,11 @@ fn d10_sidecar_whitespace_command_fails() {
         },
     );
     let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 #[test]
@@ -1809,9 +1814,11 @@ fn r04_validator_empty_command_error() {
         },
     );
     let reasons = extract_reasons(ConfigValidator::validate(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 #[test]
@@ -1849,9 +1856,11 @@ fn r07_validator_large_timeout_warning_issue() {
         },
     );
     let issues = ConfigValidator::validate(&cfg).unwrap();
-    assert!(issues
-        .iter()
-        .any(|i| i.severity == Severity::Warning && i.message.contains("large timeout")));
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Warning && i.message.contains("large timeout"))
+    );
 }
 
 #[test]
@@ -1861,9 +1870,11 @@ fn r08_validator_no_backends_info_issue() {
         ..full_config()
     };
     let issues = ConfigValidator::validate(&cfg).unwrap();
-    assert!(issues
-        .iter()
-        .any(|i| i.severity == Severity::Info && i.message.contains("no backends")));
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Info && i.message.contains("no backends"))
+    );
 }
 
 #[test]
@@ -1872,9 +1883,11 @@ fn r09_validate_at_filters_info() {
     let all = ConfigValidator::validate(&cfg).unwrap();
     let warnings_only = ConfigValidator::validate_at(&cfg, Severity::Warning).unwrap();
     assert!(all.len() > warnings_only.len());
-    assert!(warnings_only
-        .iter()
-        .all(|i| i.severity >= Severity::Warning));
+    assert!(
+        warnings_only
+            .iter()
+            .all(|i| i.severity >= Severity::Warning)
+    );
 }
 
 #[test]

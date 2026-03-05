@@ -33,8 +33,8 @@
 use abp_core::ArtifactRef;
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore, StoreError};
 use abp_receipt::{
-    compute_hash, verify_hash, AgentEvent, AgentEventKind, ExecutionMode, Outcome, ReceiptBuilder,
-    VerificationReport,
+    AgentEvent, AgentEventKind, ExecutionMode, Outcome, ReceiptBuilder, VerificationReport,
+    compute_hash, verify_hash,
 };
 use chrono::{TimeZone, Utc};
 use std::time::Duration;

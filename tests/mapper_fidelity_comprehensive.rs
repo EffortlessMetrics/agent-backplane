@@ -26,7 +26,7 @@ use abp_mapper::{
     OpenAiToClaudeMapper, OpenAiToGeminiMapper,
 };
 use chrono::Utc;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2185,10 +2185,11 @@ mod error_cases_and_validation {
         let req = json!({"model": "gpt-4", "messages": []});
         let r = v.validate_pre_mapping(Dialect::OpenAi, &req);
         assert!(r.is_valid()); // warning-only
-        assert!(r
-            .issues
-            .iter()
-            .any(|i| i.severity == ValidationSeverity::Warning));
+        assert!(
+            r.issues
+                .iter()
+                .any(|i| i.severity == ValidationSeverity::Warning)
+        );
     }
 
     #[test]

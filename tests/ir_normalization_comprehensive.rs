@@ -7,6 +7,7 @@
 //! round-trip fidelity, validation rules, edge cases, serde, and determinism.
 
 use abp_ir::{
+    IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage,
     lower::{
         ir_role_to_dialect, lower_for_dialect, lower_to_claude, lower_to_codex, lower_to_copilot,
         lower_to_gemini, lower_to_kimi, lower_to_openai,
@@ -15,7 +16,6 @@ use abp_ir::{
         dedup_system, extract_system, merge_adjacent_text, normalize, normalize_role,
         normalize_tool_schemas, sort_tools, strip_empty, strip_metadata, trim_text,
     },
-    IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage,
 };
 use abp_sdk_types::Dialect;
 use serde_json::json;
@@ -2037,7 +2037,7 @@ fn complex_tool_use_flow_claude() {
     assert_eq!(lowered["system"], "sys");
     let msgs = lowered["messages"].as_array().unwrap();
     assert_eq!(msgs.len(), 3); // user, assistant, tool (mapped to user role)
-                               // Tool-role maps to "user" in Claude
+    // Tool-role maps to "user" in Claude
     assert_eq!(msgs[2]["role"], "user");
     assert_eq!(msgs[2]["content"][0]["type"], "tool_result");
 }

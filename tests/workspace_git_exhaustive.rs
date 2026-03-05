@@ -174,15 +174,21 @@ fn stager_include_and_exclude_combined() {
         .stage()
         .unwrap();
     let files = collect_files(ws.path());
-    assert!(files
-        .iter()
-        .any(|f| f.to_str().unwrap().contains("main.rs")));
-    assert!(!files
-        .iter()
-        .any(|f| f.to_str().unwrap().contains("test.rs")));
-    assert!(!files
-        .iter()
-        .any(|f| f.to_str().unwrap().contains("readme.md")));
+    assert!(
+        files
+            .iter()
+            .any(|f| f.to_str().unwrap().contains("main.rs"))
+    );
+    assert!(
+        !files
+            .iter()
+            .any(|f| f.to_str().unwrap().contains("test.rs"))
+    );
+    assert!(
+        !files
+            .iter()
+            .any(|f| f.to_str().unwrap().contains("readme.md"))
+    );
 }
 
 #[test]
@@ -575,13 +581,17 @@ fn include_directory_glob() {
         .stage()
         .unwrap();
     let files = collect_files(ws.path());
-    assert!(files
-        .iter()
-        .any(|f| f.to_str().unwrap().contains("main.rs")));
+    assert!(
+        files
+            .iter()
+            .any(|f| f.to_str().unwrap().contains("main.rs"))
+    );
     assert!(files.iter().any(|f| f.to_str().unwrap().contains("lib.rs")));
-    assert!(!files
-        .iter()
-        .any(|f| f.to_str().unwrap().contains("test.rs")));
+    assert!(
+        !files
+            .iter()
+            .any(|f| f.to_str().unwrap().contains("test.rs"))
+    );
 }
 
 #[test]
@@ -594,9 +604,11 @@ fn exclude_single_file() {
         .unwrap();
     let files = collect_files(ws.path());
     assert!(files.iter().any(|f| f.to_str().unwrap().contains("a.txt")));
-    assert!(!files
-        .iter()
-        .any(|f| f.to_str().unwrap().contains("secret.key")));
+    assert!(
+        !files
+            .iter()
+            .any(|f| f.to_str().unwrap().contains("secret.key"))
+    );
 }
 
 #[test]
@@ -612,9 +624,11 @@ fn exclude_directory_glob() {
         .stage()
         .unwrap();
     let files = collect_files(ws.path());
-    assert!(files
-        .iter()
-        .any(|f| f.to_str().unwrap().contains("main.rs")));
+    assert!(
+        files
+            .iter()
+            .any(|f| f.to_str().unwrap().contains("main.rs"))
+    );
     assert!(!files.iter().any(|f| f.to_str().unwrap().contains("target")));
 }
 
@@ -628,12 +642,16 @@ fn exclude_takes_precedence_over_include() {
         .stage()
         .unwrap();
     let files = collect_files(ws.path());
-    assert!(files
-        .iter()
-        .any(|f| f.to_str().unwrap().contains("main.rs")));
-    assert!(!files
-        .iter()
-        .any(|f| f.to_str().unwrap().contains("generated.rs")));
+    assert!(
+        files
+            .iter()
+            .any(|f| f.to_str().unwrap().contains("main.rs"))
+    );
+    assert!(
+        !files
+            .iter()
+            .any(|f| f.to_str().unwrap().contains("generated.rs"))
+    );
 }
 
 #[test]
@@ -987,10 +1005,11 @@ fn diff_workspace_detects_added_file() {
     fs::write(ws.path().join("new.txt"), "new content").unwrap();
     let diff = abp_workspace::diff::diff_workspace(&ws).unwrap();
     assert!(!diff.is_empty());
-    assert!(diff
-        .added
-        .iter()
-        .any(|p| p.to_str().unwrap().contains("new.txt")));
+    assert!(
+        diff.added
+            .iter()
+            .any(|p| p.to_str().unwrap().contains("new.txt"))
+    );
 }
 
 #[test]
@@ -1002,10 +1021,11 @@ fn diff_workspace_detects_modified_file() {
         .unwrap();
     fs::write(ws.path().join("a.txt"), "modified\n").unwrap();
     let diff = abp_workspace::diff::diff_workspace(&ws).unwrap();
-    assert!(diff
-        .modified
-        .iter()
-        .any(|p| p.to_str().unwrap().contains("a.txt")));
+    assert!(
+        diff.modified
+            .iter()
+            .any(|p| p.to_str().unwrap().contains("a.txt"))
+    );
 }
 
 #[test]
@@ -1017,10 +1037,11 @@ fn diff_workspace_detects_deleted_file() {
         .unwrap();
     fs::remove_file(ws.path().join("a.txt")).unwrap();
     let diff = abp_workspace::diff::diff_workspace(&ws).unwrap();
-    assert!(diff
-        .deleted
-        .iter()
-        .any(|p| p.to_str().unwrap().contains("a.txt")));
+    assert!(
+        diff.deleted
+            .iter()
+            .any(|p| p.to_str().unwrap().contains("a.txt"))
+    );
 }
 
 #[test]
@@ -1083,12 +1104,16 @@ fn diff_analyzer_changed_files() {
     fs::write(ws.path().join("c.txt"), "new\n").unwrap();
     let analyzer = DiffAnalyzer::new(ws.path());
     let changed = analyzer.changed_files();
-    assert!(changed
-        .iter()
-        .any(|p| p.to_str().unwrap().contains("a.txt")));
-    assert!(changed
-        .iter()
-        .any(|p| p.to_str().unwrap().contains("c.txt")));
+    assert!(
+        changed
+            .iter()
+            .any(|p| p.to_str().unwrap().contains("a.txt"))
+    );
+    assert!(
+        changed
+            .iter()
+            .any(|p| p.to_str().unwrap().contains("c.txt"))
+    );
 }
 
 #[test]
@@ -2179,10 +2204,12 @@ fn file_type_display() {
 #[test]
 fn policy_result_is_pass() {
     assert!(PolicyResult::Pass.is_pass());
-    assert!(!PolicyResult::Fail {
-        violations: vec!["x".into()]
-    }
-    .is_pass());
+    assert!(
+        !PolicyResult::Fail {
+            violations: vec!["x".into()]
+        }
+        .is_pass()
+    );
 }
 
 #[test]

@@ -470,10 +470,11 @@ mod claude {
     fn response_from_events_with_tool_call() {
         let events = vec![event_tool_call()];
         let resp = response_from_events(&events, "claude-sonnet-4-20250514", None);
-        assert!(resp
-            .content
-            .iter()
-            .any(|b| matches!(b, ContentBlock::ToolUse { .. })));
+        assert!(
+            resp.content
+                .iter()
+                .any(|b| matches!(b, ContentBlock::ToolUse { .. }))
+        );
     }
 
     #[test]

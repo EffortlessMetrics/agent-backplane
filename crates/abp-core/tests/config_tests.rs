@@ -47,9 +47,11 @@ fn valid_work_order_no_warnings() {
 fn empty_task_is_error() {
     let wo = WorkOrderBuilder::new("").build();
     let warnings = validator().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "task" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "task" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]
@@ -65,9 +67,11 @@ fn whitespace_only_task_is_error() {
 fn zero_max_turns_is_error() {
     let wo = WorkOrderBuilder::new("task").max_turns(0).build();
     let warnings = validator().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.max_turns" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "config.max_turns" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]
@@ -91,9 +95,11 @@ fn none_max_turns_ok() {
 fn zero_budget_is_error() {
     let wo = WorkOrderBuilder::new("task").max_budget_usd(0.0).build();
     let warnings = validator().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.max_budget_usd" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "config.max_budget_usd" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]
@@ -120,9 +126,11 @@ fn duplicate_allowed_tools_warning() {
     };
     let wo = WorkOrderBuilder::new("task").policy(policy).build();
     let warnings = validator().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.allowed_tools" && w.severity == WarningSeverity::Warning));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.allowed_tools" && w.severity == WarningSeverity::Warning)
+    );
 }
 
 #[test]
@@ -142,9 +150,11 @@ fn unique_allowed_tools_ok() {
 fn empty_model_is_error() {
     let wo = WorkOrderBuilder::new("task").model("").build();
     let warnings = validator().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.model" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "config.model" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]
@@ -179,9 +189,11 @@ fn empty_deny_read_glob_is_error() {
     };
     let wo = WorkOrderBuilder::new("task").policy(policy).build();
     let warnings = validator().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.deny_read" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.deny_read" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]
@@ -203,9 +215,11 @@ fn empty_disallowed_tools_glob_is_error() {
     };
     let wo = WorkOrderBuilder::new("task").policy(policy).build();
     let warnings = validator().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.disallowed_tools"));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.disallowed_tools")
+    );
 }
 
 #[test]
@@ -233,9 +247,11 @@ fn empty_vendor_key_is_error() {
     };
     let wo = WorkOrderBuilder::new("task").config(config).build();
     let warnings = validator().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.vendor" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "config.vendor" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]

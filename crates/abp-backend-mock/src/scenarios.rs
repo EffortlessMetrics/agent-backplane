@@ -1,20 +1,20 @@
 //! Configurable mock backend scenarios for testing various failure and success patterns.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
-use abp_backend_core::{ensure_capability_requirements, extract_execution_mode, Backend};
+use abp_backend_core::{Backend, ensure_capability_requirements, extract_execution_mode};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, Outcome, Receipt, RunMetadata,
-    UsageNormalized, VerificationReport, WorkOrder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, Outcome,
+    Receipt, RunMetadata, UsageNormalized, VerificationReport, WorkOrder,
 };
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use uuid::Uuid;
 
 use crate::MockBackend;

@@ -1622,13 +1622,14 @@ fn mixed_depths_files_all_copied() {
 
     assert!(ws.path().join("root.txt").exists());
     assert!(ws.path().join("a").join("mid.txt").exists());
-    assert!(ws
-        .path()
-        .join("a")
-        .join("b")
-        .join("c")
-        .join("deep.txt")
-        .exists());
+    assert!(
+        ws.path()
+            .join("a")
+            .join("b")
+            .join("c")
+            .join("deep.txt")
+            .exists()
+    );
 }
 
 // ===========================================================================
@@ -2416,14 +2417,15 @@ fn staging_preserves_nested_directory_structure() {
         .stage()
         .unwrap();
 
-    assert!(ws
-        .path()
-        .join("a")
-        .join("b")
-        .join("c")
-        .join("d")
-        .join("leaf.txt")
-        .exists());
+    assert!(
+        ws.path()
+            .join("a")
+            .join("b")
+            .join("c")
+            .join("d")
+            .join("leaf.txt")
+            .exists()
+    );
     assert!(ws.path().join("a").join("mid.txt").exists());
 }
 

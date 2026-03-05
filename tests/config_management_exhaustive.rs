@@ -9,8 +9,8 @@ use abp_config::validate::{
     IssueSeverity, Severity, ValidationIssue,
 };
 use abp_config::{
-    apply_env_overrides, load_config, load_from_file, load_from_str, merge_configs, parse_toml,
-    validate_config, BackendEntry, BackplaneConfig, ConfigError, ConfigWarning,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
+    load_from_file, load_from_str, merge_configs, parse_toml, validate_config,
 };
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -653,9 +653,11 @@ fn validate_sidecar_empty_command_is_error() {
     let err = validate_config(&cfg).unwrap_err();
     match err {
         ConfigError::ValidationError { reasons } => {
-            assert!(reasons
-                .iter()
-                .any(|r| r.contains("command must not be empty")));
+            assert!(
+                reasons
+                    .iter()
+                    .any(|r| r.contains("command must not be empty"))
+            );
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -669,9 +671,11 @@ fn validate_sidecar_whitespace_only_command_is_error() {
     let err = validate_config(&cfg).unwrap_err();
     match err {
         ConfigError::ValidationError { reasons } => {
-            assert!(reasons
-                .iter()
-                .any(|r| r.contains("command must not be empty")));
+            assert!(
+                reasons
+                    .iter()
+                    .any(|r| r.contains("command must not be empty"))
+            );
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -702,9 +706,11 @@ fn validate_sidecar_timeout_exactly_max_is_ok() {
         .insert("sc".into(), sidecar_entry("node", &[], Some(86_400)));
     // This should pass but produce a large timeout warning
     let warnings = validate_config(&cfg).unwrap();
-    assert!(warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+    );
 }
 
 #[test]
@@ -738,9 +744,11 @@ fn validate_sidecar_timeout_at_threshold_no_warning() {
         .insert("sc".into(), sidecar_entry("node", &[], Some(3600)));
     let warnings = validate_config(&cfg).unwrap();
     // 3600 is exactly at threshold, not above — no large timeout warning
-    assert!(!warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
+    assert!(
+        !warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+    );
 }
 
 #[test]
@@ -751,9 +759,11 @@ fn validate_sidecar_timeout_just_above_threshold_produces_warning() {
     cfg.backends
         .insert("sc".into(), sidecar_entry("node", &[], Some(3601)));
     let warnings = validate_config(&cfg).unwrap();
-    assert!(warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+    );
 }
 
 #[test]
@@ -805,9 +815,11 @@ fn validate_no_missing_warnings_when_all_set() {
         ..Default::default()
     };
     let warnings = validate_config(&cfg).unwrap();
-    assert!(!warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::MissingOptionalField { .. })));
+    assert!(
+        !warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::MissingOptionalField { .. }))
+    );
 }
 
 // =========================================================================
@@ -823,9 +835,11 @@ fn validate_empty_policy_profile_path_is_error() {
     let err = validate_config(&cfg).unwrap_err();
     match err {
         ConfigError::ValidationError { reasons } => {
-            assert!(reasons
-                .iter()
-                .any(|r| r.contains("policy profile path must not be empty")));
+            assert!(
+                reasons
+                    .iter()
+                    .any(|r| r.contains("policy profile path must not be empty"))
+            );
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -850,9 +864,11 @@ fn validate_nonexistent_policy_profile_is_error() {
     let err = validate_config(&cfg).unwrap_err();
     match err {
         ConfigError::ValidationError { reasons } => {
-            assert!(reasons
-                .iter()
-                .any(|r| r.contains("policy profile path does not exist")));
+            assert!(
+                reasons
+                    .iter()
+                    .any(|r| r.contains("policy profile path does not exist"))
+            );
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -1290,27 +1306,33 @@ fn config_validator_invalid_log_level_is_error() {
 fn config_validator_empty_backends_produces_info() {
     let cfg = BackplaneConfig::default();
     let issues = ConfigValidator::validate(&cfg).unwrap();
-    assert!(issues
-        .iter()
-        .any(|i| i.severity == Severity::Info && i.message.contains("no backends")));
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Info && i.message.contains("no backends"))
+    );
 }
 
 #[test]
 fn config_validator_missing_default_backend_warning() {
     let cfg = BackplaneConfig::default();
     let issues = ConfigValidator::validate(&cfg).unwrap();
-    assert!(issues
-        .iter()
-        .any(|i| i.severity == Severity::Warning && i.message.contains("default_backend")));
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Warning && i.message.contains("default_backend"))
+    );
 }
 
 #[test]
 fn config_validator_missing_receipts_dir_warning() {
     let cfg = BackplaneConfig::default();
     let issues = ConfigValidator::validate(&cfg).unwrap();
-    assert!(issues
-        .iter()
-        .any(|i| i.severity == Severity::Warning && i.message.contains("receipts_dir")));
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Warning && i.message.contains("receipts_dir"))
+    );
 }
 
 #[test]
@@ -1321,9 +1343,11 @@ fn config_validator_large_timeout_warning() {
     cfg.backends
         .insert("sc".into(), sidecar_entry("node", &[], Some(7200)));
     let issues = ConfigValidator::validate(&cfg).unwrap();
-    assert!(issues
-        .iter()
-        .any(|i| i.severity == Severity::Warning && i.message.contains("large timeout")));
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Warning && i.message.contains("large timeout"))
+    );
 }
 
 #[test]
@@ -1332,9 +1356,11 @@ fn config_validator_validate_at_filters_by_severity() {
     let all_issues = ConfigValidator::validate(&cfg).unwrap();
     let warnings_only = ConfigValidator::validate_at(&cfg, Severity::Warning).unwrap();
     assert!(warnings_only.len() <= all_issues.len());
-    assert!(warnings_only
-        .iter()
-        .all(|i| i.severity >= Severity::Warning));
+    assert!(
+        warnings_only
+            .iter()
+            .all(|i| i.severity >= Severity::Warning)
+    );
 }
 
 #[test]
@@ -1365,10 +1391,12 @@ fn check_invalid_log_level_produces_error() {
     };
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.field == "log_level" && e.severity == IssueSeverity::Error));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.field == "log_level" && e.severity == IssueSeverity::Error)
+    );
 }
 
 #[test]
@@ -1411,10 +1439,12 @@ fn check_empty_sidecar_command_produces_error() {
         .insert("sc".into(), sidecar_entry("", &[], None));
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.field == "backends.sc.command"));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.field == "backends.sc.command")
+    );
 }
 
 #[test]
@@ -1424,10 +1454,12 @@ fn check_timeout_out_of_range_produces_error() {
         .insert("sc".into(), sidecar_entry("node", &[], Some(0)));
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.field == "backends.sc.timeout_secs"));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.field == "backends.sc.timeout_secs")
+    );
 }
 
 #[test]
@@ -1439,10 +1471,12 @@ fn check_large_timeout_produces_warning() {
         .insert("sc".into(), sidecar_entry("node", &[], Some(7200)));
     let result = ConfigValidator::check(&cfg);
     assert!(result.valid);
-    assert!(result
-        .warnings
-        .iter()
-        .any(|w| w.field == "backends.sc.timeout_secs" && w.severity == IssueSeverity::Warning));
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|w| w.field == "backends.sc.timeout_secs" && w.severity == IssueSeverity::Warning)
+    );
 }
 
 #[test]
@@ -1516,10 +1550,12 @@ fn check_empty_policy_profile_path_produces_error() {
     };
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.field == "policy_profiles[0]"));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.field == "policy_profiles[0]")
+    );
 }
 
 #[test]

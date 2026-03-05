@@ -19,8 +19,8 @@ mod inner {
     };
 
     use crate::kimi_types::{
-        builtin, Choice, FunctionCall, FunctionDefinition, KimiRef, KimiRequest, KimiResponse,
-        Message, ResponseMessage, Role, StreamChunk, ToolCall, ToolDefinition, Usage,
+        Choice, FunctionCall, FunctionDefinition, KimiRef, KimiRequest, KimiResponse, Message,
+        ResponseMessage, Role, StreamChunk, ToolCall, ToolDefinition, Usage, builtin,
     };
 
     // ── Role mapping ────────────────────────────────────────────────────
@@ -1220,9 +1220,11 @@ mod tests {
             refs: None,
         };
         let events = kimi_stream_to_ir(&chunk);
-        assert!(events
-            .iter()
-            .any(|e| matches!(e, IrStreamEvent::StreamEnd { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, IrStreamEvent::StreamEnd { .. }))
+        );
     }
 
     // ── 31. Stream usage chunk ──────────────────────────────────────

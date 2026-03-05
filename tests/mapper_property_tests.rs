@@ -34,15 +34,15 @@
 //! preserves content, structure, roles, tool IDs, model names, and parameters.
 
 use proptest::prelude::*;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 use abp_mapper::{
-    default_ir_mapper, ClaudeToOpenAiMapper, DialectRequest, Mapper, OpenAiToClaudeMapper,
+    ClaudeToOpenAiMapper, DialectRequest, Mapper, OpenAiToClaudeMapper, default_ir_mapper,
 };
-use abp_sdk_types::convert::RoleMapper;
 use abp_sdk_types::Dialect as SdkDialect;
+use abp_sdk_types::convert::RoleMapper;
 
 // ── Strategies ──────────────────────────────────────────────────────────
 

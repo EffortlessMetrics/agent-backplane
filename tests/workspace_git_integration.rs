@@ -33,7 +33,7 @@
 //! `WorkspaceManager`, `abp-git` helpers, and the `diff_workspace` analyser.
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
-use abp_workspace::diff::{diff_workspace, DiffSummary};
+use abp_workspace::diff::{DiffSummary, diff_workspace};
 use abp_workspace::snapshot::{capture, compare};
 use abp_workspace::{WorkspaceManager, WorkspaceStager};
 use std::fs;
@@ -211,10 +211,12 @@ fn diff_workspace_detects_single_file_addition() {
     fs::write(ws.path().join("new.txt"), "fresh\n").unwrap();
     let summary = diff_workspace(&ws).unwrap();
     assert_eq!(summary.added.len(), 1);
-    assert!(summary
-        .added
-        .iter()
-        .any(|p| p.to_string_lossy().contains("new.txt")));
+    assert!(
+        summary
+            .added
+            .iter()
+            .any(|p| p.to_string_lossy().contains("new.txt"))
+    );
 }
 
 #[test]
@@ -224,10 +226,12 @@ fn diff_workspace_detects_single_file_modification() {
     fs::write(ws.path().join("a.txt"), "modified\n").unwrap();
     let summary = diff_workspace(&ws).unwrap();
     assert_eq!(summary.modified.len(), 1);
-    assert!(summary
-        .modified
-        .iter()
-        .any(|p| p.to_string_lossy().contains("a.txt")));
+    assert!(
+        summary
+            .modified
+            .iter()
+            .any(|p| p.to_string_lossy().contains("a.txt"))
+    );
 }
 
 #[test]
@@ -273,10 +277,12 @@ fn diff_workspace_binary_addition_shows_in_added() {
     let ws = stage(src.path());
     fs::write(ws.path().join("bin.dat"), [0u8, 1, 2, 255, 0, 128]).unwrap();
     let summary = diff_workspace(&ws).unwrap();
-    assert!(summary
-        .added
-        .iter()
-        .any(|p| p.to_string_lossy().contains("bin.dat")));
+    assert!(
+        summary
+            .added
+            .iter()
+            .any(|p| p.to_string_lossy().contains("bin.dat"))
+    );
 }
 
 #[test]

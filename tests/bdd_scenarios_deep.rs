@@ -39,19 +39,19 @@ use std::path::Path;
 
 use abp_capability::negotiate;
 use abp_core::{
-    canonical_json, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity,
-    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
-    MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig, SupportLevel,
-    VerificationReport, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport,
+    Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig, SupportLevel,
+    VerificationReport, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, canonical_json, sha256_hex,
 };
 use abp_dialect::{Dialect, DialectDetector};
 use abp_emulation::{EmulationConfig, EmulationEngine};
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode};
-use abp_mapping::{features, known_rules, validate_mapping, Fidelity};
+use abp_mapping::{Fidelity, features, known_rules, validate_mapping};
 use abp_policy::PolicyEngine;
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use abp_receipt::{
-    compute_hash, diff_receipts, verify_hash, ReceiptBuilder as ReceiptBuilderExt, ReceiptChain,
+    ReceiptBuilder as ReceiptBuilderExt, ReceiptChain, compute_hash, diff_receipts, verify_hash,
 };
 use abp_runtime::{Runtime, RuntimeError};
 use chrono::Utc;

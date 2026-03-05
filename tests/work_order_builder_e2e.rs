@@ -1008,9 +1008,11 @@ fn validation_minimal_has_no_errors() {
 fn validation_empty_task_is_error() {
     let wo = WorkOrderBuilder::new("").build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "task" && matches!(w.severity, WarningSeverity::Error)));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "task" && matches!(w.severity, WarningSeverity::Error))
+    );
 }
 
 #[test]
@@ -1024,9 +1026,11 @@ fn validation_whitespace_task_is_error() {
 fn validation_zero_max_turns_is_error() {
     let wo = WorkOrderBuilder::new("t").max_turns(0).build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.max_turns" && matches!(w.severity, WarningSeverity::Error)));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "config.max_turns" && matches!(w.severity, WarningSeverity::Error))
+    );
 }
 
 #[test]
@@ -1149,9 +1153,11 @@ fn validation_empty_glob_in_disallowed_tools_is_error() {
     };
     let wo = WorkOrderBuilder::new("t").policy(policy).build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.disallowed_tools"));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.disallowed_tools")
+    );
 }
 
 #[test]
@@ -1162,9 +1168,11 @@ fn validation_empty_glob_in_require_approval_for_is_error() {
     };
     let wo = WorkOrderBuilder::new("t").policy(policy).build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.require_approval_for"));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.require_approval_for")
+    );
 }
 
 #[test]

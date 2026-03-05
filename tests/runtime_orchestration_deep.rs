@@ -36,10 +36,9 @@
 use std::sync::Arc;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RunMetadata, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    CONTRACT_VERSION,
 };
 use abp_dialect::Dialect;
 use abp_integrations::{Backend, MockBackend};

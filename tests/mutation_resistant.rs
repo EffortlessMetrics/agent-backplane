@@ -9,12 +9,12 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_capability::{
-    check_capability, negotiate_capabilities, EmulationStrategy, NegotiationResult, SupportLevel,
+    EmulationStrategy, NegotiationResult, SupportLevel, check_capability, negotiate_capabilities,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::{
-    Capability, CapabilityManifest, ExecutionMode, Outcome, PolicyProfile,
-    SupportLevel as CoreSupportLevel, CONTRACT_VERSION,
+    CONTRACT_VERSION, Capability, CapabilityManifest, ExecutionMode, Outcome, PolicyProfile,
+    SupportLevel as CoreSupportLevel,
 };
 use abp_error::{ErrorCategory, ErrorCode};
 use abp_error_taxonomy::{ClassificationCategory, ErrorClassifier, ErrorSeverity, RecoveryAction};
@@ -22,7 +22,7 @@ use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_ir::normalize;
 use abp_policy::compose::{ComposedEngine, PolicyPrecedence};
 use abp_policy::{Decision, PolicyEngine};
-use abp_receipt::{compute_hash, verify_hash, ReceiptBuilder};
+use abp_receipt::{ReceiptBuilder, compute_hash, verify_hash};
 
 // ═══════════════════════════════════════════════════════════════════════
 // § 1  Receipt hashing — must detect any algorithm / canonicalization change

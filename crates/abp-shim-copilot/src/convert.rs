@@ -17,7 +17,7 @@ use abp_copilot_sdk::lowering;
 use abp_core::ir::{IrConversation, IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, Receipt, WorkOrder, WorkOrderBuilder};
 
-use crate::types::{to_copilot_message, Message};
+use crate::types::{Message, to_copilot_message};
 
 // ── Conversion: request → IR → WorkOrder ────────────────────────────────
 

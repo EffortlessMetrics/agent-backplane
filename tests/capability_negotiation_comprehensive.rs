@@ -34,27 +34,27 @@
 use std::collections::BTreeMap;
 
 use abp_backend_core::ensure_capability_requirements;
-use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy};
+use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_capability::{
-    check_capability, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
+    CapabilityRegistry, CompatibilityReport, EmulationStrategy as CapEmulationStrategy,
+    NegotiationResult as CapNegotiationResult, SupportLevel as CapSupportLevel, check_capability,
+    claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
     default_emulation_strategy as cap_default_emulation, gemini_15_pro_manifest, generate_report,
     kimi_manifest, negotiate as cap_negotiate, negotiate_capabilities as cap_negotiate_caps,
-    openai_gpt4o_manifest, CapabilityRegistry, CompatibilityReport,
-    EmulationStrategy as CapEmulationStrategy, NegotiationResult as CapNegotiationResult,
-    SupportLevel as CapSupportLevel,
+    openai_gpt4o_manifest,
 };
 use abp_core::negotiate::{
-    check_capabilities, dialect_manifest, CapabilityDiff, CapabilityNegotiator,
-    CapabilityReport as NegotiateCapabilityReport, CapabilityReportEntry, DialectSupportLevel,
-    NegotiationRequest,
+    CapabilityDiff, CapabilityNegotiator, CapabilityReport as NegotiateCapabilityReport,
+    CapabilityReportEntry, DialectSupportLevel, NegotiationRequest, check_capabilities,
+    dialect_manifest,
 };
 use abp_core::{
     BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
     MinSupport, SupportLevel, WorkOrderBuilder,
 };
 use abp_emulation::{
-    can_emulate, compute_fidelity, default_strategy, EmulationConfig, EmulationEngine,
-    EmulationStrategy, FidelityLabel,
+    EmulationConfig, EmulationEngine, EmulationStrategy, FidelityLabel, can_emulate,
+    compute_fidelity, default_strategy,
 };
 use abp_integrations::capability::CapabilityMatrix;
 use abp_integrations::selector::{BackendCandidate, BackendSelector, SelectionStrategy};
@@ -586,11 +586,13 @@ fn ensure_requirements_fails_when_level_insufficient() {
 
 #[test]
 fn ensure_requirements_passes_with_empty_requirements() {
-    assert!(ensure_capability_requirements(
-        &CapabilityRequirements::default(),
-        &CapabilityManifest::new()
-    )
-    .is_ok());
+    assert!(
+        ensure_capability_requirements(
+            &CapabilityRequirements::default(),
+            &CapabilityManifest::new()
+        )
+        .is_ok()
+    );
 }
 
 #[test]
@@ -1843,9 +1845,10 @@ fn registry_negotiate_by_name_known_backend() {
 #[test]
 fn registry_negotiate_by_name_unknown_returns_none() {
     let reg = CapabilityRegistry::with_defaults();
-    assert!(reg
-        .negotiate_by_name("ghost", &[Capability::Streaming])
-        .is_none());
+    assert!(
+        reg.negotiate_by_name("ghost", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]

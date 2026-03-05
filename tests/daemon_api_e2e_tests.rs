@@ -41,10 +41,10 @@ use abp_daemon::api::{
     ErrorResponse, HealthResponse, ListBackendsResponse, RunResponse as ApiRunResponse,
     RunStatus as ApiRunStatus,
 };
-use abp_daemon::server::{router, VersionResponse};
+use abp_daemon::server::{VersionResponse, router};
 use abp_daemon::state::{RunPhase, RunRegistry, ServerState};
 use abp_daemon::{
-    build_app, build_versioned_app, AppState, RunMetrics, RunRequest, RunTracker, StatusResponse,
+    AppState, RunMetrics, RunRequest, RunTracker, StatusResponse, build_app, build_versioned_app,
 };
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;

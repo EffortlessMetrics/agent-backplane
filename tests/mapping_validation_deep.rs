@@ -49,8 +49,8 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
-    MappingRegistry, MappingRule, MappingValidation,
+    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
+    features, known_rules, validate_mapping,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -186,31 +186,35 @@ mod mapping_rules_all_pairs {
     #[test]
     fn openai_gemini_tool_use_bidirectional_lossless() {
         let reg = known_rules();
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Gemini, features::TOOL_USE)
-            .unwrap()
-            .fidelity
-            .is_lossless());
-        assert!(reg
-            .lookup(Dialect::Gemini, Dialect::OpenAi, features::TOOL_USE)
-            .unwrap()
-            .fidelity
-            .is_lossless());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Gemini, features::TOOL_USE)
+                .unwrap()
+                .fidelity
+                .is_lossless()
+        );
+        assert!(
+            reg.lookup(Dialect::Gemini, Dialect::OpenAi, features::TOOL_USE)
+                .unwrap()
+                .fidelity
+                .is_lossless()
+        );
     }
 
     #[test]
     fn claude_gemini_tool_use_bidirectional_lossless() {
         let reg = known_rules();
-        assert!(reg
-            .lookup(Dialect::Claude, Dialect::Gemini, features::TOOL_USE)
-            .unwrap()
-            .fidelity
-            .is_lossless());
-        assert!(reg
-            .lookup(Dialect::Gemini, Dialect::Claude, features::TOOL_USE)
-            .unwrap()
-            .fidelity
-            .is_lossless());
+        assert!(
+            reg.lookup(Dialect::Claude, Dialect::Gemini, features::TOOL_USE)
+                .unwrap()
+                .fidelity
+                .is_lossless()
+        );
+        assert!(
+            reg.lookup(Dialect::Gemini, Dialect::Claude, features::TOOL_USE)
+                .unwrap()
+                .fidelity
+                .is_lossless()
+        );
     }
 
     #[test]
@@ -249,11 +253,12 @@ mod mapping_rules_all_pairs {
     #[test]
     fn kimi_copilot_tool_use_lossless() {
         let reg = known_rules();
-        assert!(reg
-            .lookup(Dialect::Kimi, Dialect::Copilot, features::TOOL_USE)
-            .unwrap()
-            .fidelity
-            .is_lossless());
+        assert!(
+            reg.lookup(Dialect::Kimi, Dialect::Copilot, features::TOOL_USE)
+                .unwrap()
+                .fidelity
+                .is_lossless()
+        );
     }
 
     #[test]
@@ -1058,11 +1063,12 @@ mod mapping_configuration {
             },
         });
         assert_eq!(reg.len(), 1);
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "x")
-            .unwrap()
-            .fidelity
-            .is_unsupported());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, "x")
+                .unwrap()
+                .fidelity
+                .is_unsupported()
+        );
     }
 
     #[test]
@@ -1087,12 +1093,14 @@ mod mapping_configuration {
             fidelity: Fidelity::Lossless,
         });
         assert_eq!(reg.len(), 1);
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, features::TOOL_USE)
-            .is_none());
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, features::STREAMING)
-            .is_some());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, features::TOOL_USE)
+                .is_none()
+        );
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, features::STREAMING)
+                .is_some()
+        );
     }
 
     #[test]
@@ -1716,16 +1724,18 @@ mod image_input_mapping {
     fn image_unsupported_to_from_codex() {
         let reg = known_rules();
         for &d in &[Dialect::OpenAi, Dialect::Claude, Dialect::Gemini] {
-            assert!(reg
-                .lookup(d, Dialect::Codex, features::IMAGE_INPUT)
-                .unwrap()
-                .fidelity
-                .is_unsupported());
-            assert!(reg
-                .lookup(Dialect::Codex, d, features::IMAGE_INPUT)
-                .unwrap()
-                .fidelity
-                .is_unsupported());
+            assert!(
+                reg.lookup(d, Dialect::Codex, features::IMAGE_INPUT)
+                    .unwrap()
+                    .fidelity
+                    .is_unsupported()
+            );
+            assert!(
+                reg.lookup(Dialect::Codex, d, features::IMAGE_INPUT)
+                    .unwrap()
+                    .fidelity
+                    .is_unsupported()
+            );
         }
     }
 
@@ -1820,15 +1830,18 @@ mod ir_integration {
 
         // All 5 block types exist
         let reg = known_rules();
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, features::TOOL_USE)
-            .is_some());
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, features::IMAGE_INPUT)
-            .is_some());
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, features::THINKING)
-            .is_some());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, features::TOOL_USE)
+                .is_some()
+        );
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, features::IMAGE_INPUT)
+                .is_some()
+        );
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, features::THINKING)
+                .is_some()
+        );
     }
 
     #[test]

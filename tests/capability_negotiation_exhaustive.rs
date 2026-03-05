@@ -8,16 +8,17 @@
 //! between source and target, graceful degradation, manifest generation,
 //! runtime capability checks, and transition matrix behaviour.
 
-use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationPolicy};
+use abp_capability::negotiate::{NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_capability::{
-    check_capability, classify_transition, copilot_manifest, default_emulation_strategy,
-    generate_report, negotiate, negotiate_capabilities, negotiate_dialects, CapabilityRegistry,
-    CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel, TransitionKind,
-};
-use abp_capability::{
+    CapabilityMismatch, CapabilityTransition, DialectNegotiationResult, RuntimeCheckResult,
     check_runtime_capabilities, claude_35_sonnet_manifest, codex_manifest, gemini_15_pro_manifest,
     kimi_manifest, openai_gpt4o_manifest, report_mismatches, select_emulation_strategy,
-    CapabilityMismatch, CapabilityTransition, DialectNegotiationResult, RuntimeCheckResult,
+};
+use abp_capability::{
+    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
+    TransitionKind, check_capability, classify_transition, copilot_manifest,
+    default_emulation_strategy, generate_report, negotiate, negotiate_capabilities,
+    negotiate_dialects,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -379,10 +380,12 @@ fn compare_registry_based_openai_vs_claude() {
     assert!(result.is_some());
     let result = result.unwrap();
     // OpenAI has logprobs native; Claude does not
-    assert!(result
-        .unsupported
-        .iter()
-        .any(|(c, _)| *c == Capability::Logprobs));
+    assert!(
+        result
+            .unsupported
+            .iter()
+            .any(|(c, _)| *c == Capability::Logprobs)
+    );
 }
 
 #[test]
@@ -392,10 +395,12 @@ fn compare_registry_based_claude_vs_openai() {
     assert!(result.is_some());
     let result = result.unwrap();
     // Claude has extended thinking native; OpenAI does not
-    assert!(result
-        .unsupported
-        .iter()
-        .any(|(c, _)| *c == Capability::ExtendedThinking));
+    assert!(
+        result
+            .unsupported
+            .iter()
+            .any(|(c, _)| *c == Capability::ExtendedThinking)
+    );
 }
 
 #[test]
@@ -632,9 +637,10 @@ fn negotiate_by_name_openai_streaming() {
 #[test]
 fn negotiate_by_name_missing_backend() {
     let reg = CapabilityRegistry::with_defaults();
-    assert!(reg
-        .negotiate_by_name("nonexistent", &[Capability::Streaming])
-        .is_none());
+    assert!(
+        reg.negotiate_by_name("nonexistent", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]
@@ -644,10 +650,12 @@ fn negotiate_by_name_with_unsupported_cap() {
         .negotiate_by_name("openai/gpt-4o", &[Capability::ExtendedThinking])
         .unwrap();
     assert!(!result.is_viable());
-    assert!(result
-        .unsupported
-        .iter()
-        .any(|(c, _)| *c == Capability::ExtendedThinking));
+    assert!(
+        result
+            .unsupported
+            .iter()
+            .any(|(c, _)| *c == Capability::ExtendedThinking)
+    );
 }
 
 #[test]
@@ -952,9 +960,11 @@ fn suggest_alternatives_via_registry() {
     let r = negotiate_capabilities(&[Capability::ExtendedThinking], &openai_gpt4o_manifest());
     let suggestions = reg.suggest_alternatives(&r);
     assert_eq!(suggestions.len(), 1);
-    assert!(suggestions[0]
-        .alternative_backends
-        .contains(&"anthropic/claude-3.5-sonnet".to_string()));
+    assert!(
+        suggestions[0]
+            .alternative_backends
+            .contains(&"anthropic/claude-3.5-sonnet".to_string())
+    );
 }
 
 // ===========================================================================
@@ -1321,10 +1331,12 @@ fn negotiate_dialects_skips_unsupported_source_caps() {
     let tgt = manifest_from(&[(Capability::Streaming, CoreSupportLevel::Native)]);
     let result = negotiate_dialects("src", &src, "tgt", &tgt);
     // Audio was Unsupported in source so should be skipped
-    assert!(result
-        .transitions
-        .iter()
-        .all(|t| t.capability != Capability::Audio));
+    assert!(
+        result
+            .transitions
+            .iter()
+            .all(|t| t.capability != Capability::Audio)
+    );
 }
 
 #[test]
@@ -1453,9 +1465,10 @@ fn pre_negotiate_restricted_classified_as_emulated() {
 #[test]
 fn registry_negotiate_dialects_returns_none_for_unknown() {
     let reg = CapabilityRegistry::with_defaults();
-    assert!(reg
-        .negotiate_dialects("openai/gpt-4o", "nonexistent")
-        .is_none());
+    assert!(
+        reg.negotiate_dialects("openai/gpt-4o", "nonexistent")
+            .is_none()
+    );
 }
 
 #[test]

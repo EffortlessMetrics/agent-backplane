@@ -712,10 +712,11 @@ mod tests {
         let req = json!({"model": "claude-3", "messages": []});
         let r = v.validate_pre_mapping(Dialect::Claude, &req);
         assert!(!r.is_valid());
-        assert!(r
-            .issues
-            .iter()
-            .any(|i| i.field == "max_tokens" && i.code == "missing_required_field"));
+        assert!(
+            r.issues
+                .iter()
+                .any(|i| i.field == "max_tokens" && i.code == "missing_required_field")
+        );
     }
 
     #[test]

@@ -33,15 +33,15 @@
 
 use std::collections::BTreeMap;
 
-use abp_capability::{generate_report, negotiate, NegotiationResult};
+use abp_capability::{NegotiationResult, generate_report, negotiate};
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
     Outcome, SupportLevel as CoreSupportLevel,
 };
 use abp_dialect::{Dialect, DialectDetector};
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode};
-use abp_mapping::{features, known_rules, validate_mapping, Fidelity};
-use abp_receipt::{diff_receipts, ReceiptBuilder, ReceiptChain};
+use abp_mapping::{Fidelity, features, known_rules, validate_mapping};
+use abp_receipt::{ReceiptBuilder, ReceiptChain, diff_receipts};
 
 // ===========================================================================
 // Helpers

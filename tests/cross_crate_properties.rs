@@ -32,19 +32,19 @@
 
 use std::path::Path;
 
-use abp_cli::config::{merge_configs, BackplaneConfig};
+use abp_cli::config::{BackplaneConfig, merge_configs};
 use abp_core::chain::ReceiptChain;
 use abp_core::filter::EventFilter;
 use abp_core::stream::EventStream;
 use abp_core::{
-    canonical_json, receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
     CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized,
-    VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec, canonical_json, receipt_hash,
 };
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_policy::PolicyEngine;
-use abp_protocol::version::{negotiate_version, ProtocolVersion};
+use abp_protocol::version::{ProtocolVersion, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec};
 use chrono::{TimeZone, Utc};
 use proptest::prelude::*;

@@ -525,11 +525,13 @@ fn abp_error_chains_custom_source() {
     let inner = AbpError::new(ErrorCode::BackendTimeout, "inner timeout");
     let outer = AbpError::new(ErrorCode::Internal, "wrapper").with_source(inner);
     assert!(outer.source().is_some());
-    assert!(outer
-        .source()
-        .unwrap()
-        .to_string()
-        .contains("inner timeout"));
+    assert!(
+        outer
+            .source()
+            .unwrap()
+            .to_string()
+            .contains("inner timeout")
+    );
 }
 
 #[test]
@@ -684,11 +686,12 @@ fn abp_error_dto_preserves_source_message() {
     let inner = io::Error::new(io::ErrorKind::NotFound, "file not found");
     let err = AbpError::new(ErrorCode::WorkspaceInitFailed, "workspace error").with_source(inner);
     let dto: AbpErrorDto = (&err).into();
-    assert!(dto
-        .source_message
-        .as_ref()
-        .unwrap()
-        .contains("file not found"));
+    assert!(
+        dto.source_message
+            .as_ref()
+            .unwrap()
+            .contains("file not found")
+    );
     let json = serde_json::to_string(&dto).unwrap();
     let back: AbpErrorDto = serde_json::from_str(&json).unwrap();
     assert_eq!(dto, back);

@@ -30,10 +30,10 @@
 #![allow(clippy::needless_borrow)]
 //! Deep capability negotiation and registry end-to-end tests.
 
-use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy};
+use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_capability::{
-    check_capability, generate_report, negotiate, negotiate_capabilities, CapabilityRegistry,
-    CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
+    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
+    check_capability, generate_report, negotiate, negotiate_capabilities,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -203,9 +203,10 @@ fn reg_negotiate_by_name_known() {
 #[test]
 fn reg_negotiate_by_name_unknown() {
     let reg = CapabilityRegistry::new();
-    assert!(reg
-        .negotiate_by_name("unknown", &[Capability::Streaming])
-        .is_none());
+    assert!(
+        reg.negotiate_by_name("unknown", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]
@@ -529,10 +530,12 @@ fn support_core_satisfies_native_only_native() {
 fn support_core_satisfies_emulated_accepts_native_emulated_restricted() {
     assert!(CoreSupportLevel::Native.satisfies(&MinSupport::Emulated));
     assert!(CoreSupportLevel::Emulated.satisfies(&MinSupport::Emulated));
-    assert!(CoreSupportLevel::Restricted {
-        reason: "test".into()
-    }
-    .satisfies(&MinSupport::Emulated));
+    assert!(
+        CoreSupportLevel::Restricted {
+            reason: "test".into()
+        }
+        .satisfies(&MinSupport::Emulated)
+    );
     assert!(!CoreSupportLevel::Unsupported.satisfies(&MinSupport::Emulated));
 }
 

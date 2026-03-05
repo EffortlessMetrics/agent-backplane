@@ -30,10 +30,10 @@
 //! Tests for rate_limit, audit (AuditLog), and composed policy extensions.
 
 use abp_core::PolicyProfile;
+use abp_policy::PolicyEngine;
 use abp_policy::audit::{AuditAction, AuditLog};
 use abp_policy::composed::{ComposedPolicy, ComposedResult, CompositionStrategy};
 use abp_policy::rate_limit::{RateLimitPolicy, RateLimitResult};
-use abp_policy::PolicyEngine;
 
 // =========================================================================
 // Rate-limit tests

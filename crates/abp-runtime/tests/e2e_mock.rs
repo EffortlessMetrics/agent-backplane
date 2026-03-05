@@ -32,8 +32,8 @@
 //! These tests exercise the full pipeline: Runtime -> Backend -> Receipt
 
 use abp_core::{
-    AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements, ExecutionLane,
-    MinSupport, Outcome, PolicyProfile, WorkOrder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement, CapabilityRequirements,
+    ExecutionLane, MinSupport, Outcome, PolicyProfile, WorkOrder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_runtime::Runtime;
 use std::collections::HashSet;

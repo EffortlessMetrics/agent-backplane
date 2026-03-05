@@ -5,12 +5,12 @@
 #![allow(dead_code)]
 #![allow(unused_must_use)]
 
-use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy};
+use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_capability::{
+    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
     check_capability, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
     default_emulation_strategy, gemini_15_pro_manifest, generate_report, kimi_manifest, negotiate,
-    negotiate_capabilities, openai_gpt4o_manifest, CapabilityRegistry, CompatibilityReport,
-    EmulationStrategy, NegotiationResult, SupportLevel,
+    negotiate_capabilities, openai_gpt4o_manifest,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -1308,9 +1308,10 @@ fn registry_negotiate_by_name_exists() {
 #[test]
 fn registry_negotiate_by_name_missing() {
     let reg = CapabilityRegistry::new();
-    assert!(reg
-        .negotiate_by_name("nope", &[Capability::Streaming])
-        .is_none());
+    assert!(
+        reg.negotiate_by_name("nope", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]
@@ -1458,9 +1459,11 @@ fn registry_with_defaults_contains_copilot() {
 fn registry_with_defaults_all_support_streaming() {
     let reg = CapabilityRegistry::with_defaults();
     let results = reg.query_capability(&Capability::Streaming);
-    assert!(results
-        .iter()
-        .all(|(_, level)| matches!(level, SupportLevel::Native)));
+    assert!(
+        results
+            .iter()
+            .all(|(_, level)| matches!(level, SupportLevel::Native))
+    );
 }
 
 // ===========================================================================

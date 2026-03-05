@@ -10,20 +10,19 @@
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
-    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-    ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome,
-    PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, SupportLevel, UsageNormalized,
-    VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, RunMetadata, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, canonical_json, receipt_hash, sha256_hex,
 };
 use abp_integrations::{Backend, MockBackend};
 use abp_policy::PolicyEngine;
-use abp_receipt::{compute_hash, verify_hash, ReceiptChain};
+use abp_receipt::{ReceiptChain, compute_hash, verify_hash};
 use abp_runtime::{RunHandle, Runtime, RuntimeError};
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};

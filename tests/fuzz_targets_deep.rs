@@ -40,7 +40,7 @@ use std::io::BufReader;
 use std::path::Path;
 
 use abp_capability::{generate_report, negotiate};
-use abp_config::{merge_configs, parse_toml, validate_config, BackendEntry, BackplaneConfig};
+use abp_config::{BackendEntry, BackplaneConfig, merge_configs, parse_toml, validate_config};
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
     AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
@@ -51,10 +51,10 @@ use abp_core::{
 use abp_dialect::{Dialect, DialectDetector};
 use abp_glob::IncludeExcludeGlobs;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
+    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
 };
 use abp_policy::PolicyEngine;
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
+use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
 use abp_receipt::{compute_hash, verify_hash};
 
 // ── Configuration ──────────────────────────────────────────────────────

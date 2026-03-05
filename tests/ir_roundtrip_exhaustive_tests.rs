@@ -834,10 +834,12 @@ fn full_normalize_pipeline_applies_all_passes() {
     );
     // dedup_system joins with "\n" preserving inner whitespace; trim only strips outer edges
     assert_eq!(result.messages[0].text_content(), "First  \n Second");
-    assert!(result
-        .messages
-        .iter()
-        .all(|m| !m.content.is_empty() || m.role == IrRole::System));
+    assert!(
+        result
+            .messages
+            .iter()
+            .all(|m| !m.content.is_empty() || m.role == IrRole::System)
+    );
 }
 
 #[test]

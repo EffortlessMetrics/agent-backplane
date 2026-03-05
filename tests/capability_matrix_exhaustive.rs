@@ -4,12 +4,12 @@
 //! Exhaustive capability matrix tests covering all 41 Capability variants
 //! across all 6 dialects (OpenAI, Claude, Gemini, Kimi, Codex, Copilot).
 
-use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy};
+use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_capability::{
+    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
     check_capability, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
     default_emulation_strategy, gemini_15_pro_manifest, generate_report, kimi_manifest,
-    negotiate_capabilities, openai_gpt4o_manifest, CapabilityRegistry, CompatibilityReport,
-    EmulationStrategy, NegotiationResult, SupportLevel,
+    negotiate_capabilities, openai_gpt4o_manifest,
 };
 use abp_core::negotiate::{
     CapabilityDiff, CapabilityNegotiator, CapabilityReport, CapabilityReportEntry,
@@ -891,9 +891,10 @@ fn registry_negotiate_by_name_known() {
 #[test]
 fn registry_negotiate_by_name_unknown() {
     let reg = CapabilityRegistry::with_defaults();
-    assert!(reg
-        .negotiate_by_name("unknown/backend", &[Capability::Streaming])
-        .is_none());
+    assert!(
+        reg.negotiate_by_name("unknown/backend", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]

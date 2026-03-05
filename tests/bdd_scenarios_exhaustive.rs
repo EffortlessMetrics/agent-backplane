@@ -26,18 +26,18 @@ use abp_backend_core::{
 use abp_backend_mock::MockBackend;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, BackendIdentity,
-    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
-    MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, SupportLevel, UsageNormalized,
-    WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, ReceiptBuilder, SupportLevel, UsageNormalized, WorkOrder,
+    WorkOrderBuilder, canonical_json, receipt_hash, sha256_hex,
 };
 use abp_dialect::Dialect;
 use abp_error::ErrorCode;
 use abp_mapper::{
-    default_ir_mapper, IrIdentityMapper, IrMapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper,
+    IrIdentityMapper, IrMapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper, default_ir_mapper,
 };
 use abp_policy::{Decision, PolicyEngine};
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
+use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
 use abp_receipt::{compute_hash, verify_hash};
 
 // ═══════════════════════════════════════════════════════════════════════════

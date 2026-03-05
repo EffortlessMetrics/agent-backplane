@@ -34,7 +34,7 @@ use std::collections::BTreeMap;
 
 use abp_core::{AgentEvent, AgentEventKind};
 use chrono::Utc;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::diagnostics::{
     Diagnostic, DiagnosticCollector, DiagnosticLevel, DiagnosticSummary, SidecarDiagnostics,
 };
@@ -51,11 +51,11 @@ use sidecar_kit::typed_middleware::{
     SidecarMiddleware, SidecarMiddlewareChain,
 };
 use sidecar_kit::{
+    CancelToken, EventPipeline, Frame, JsonlCodec, MiddlewareChain, PipelineError, ProcessSpec,
+    ReceiptBuilder, RedactStage, SidecarError, TimestampStage, ValidateStage,
     event_command_executed, event_error, event_file_changed, event_frame, event_run_completed,
     event_run_started, event_text_delta, event_text_message, event_tool_call, event_tool_result,
-    event_warning, fatal_frame, hello_frame, CancelToken, EventPipeline, Frame, JsonlCodec,
-    MiddlewareChain, PipelineError, ProcessSpec, ReceiptBuilder, RedactStage, SidecarError,
-    TimestampStage, ValidateStage,
+    event_warning, fatal_frame, hello_frame,
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────

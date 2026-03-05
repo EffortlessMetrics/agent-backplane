@@ -8,12 +8,12 @@
 //! backpressure, metadata propagation, large streams, and deduplication.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use chrono::{DateTime, TimeDelta, Utc};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
 use abp_core::aggregate::{AggregationSummary, EventAggregator, RunAnalytics};

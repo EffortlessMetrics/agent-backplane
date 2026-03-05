@@ -386,9 +386,11 @@ fn detect_tampering_modified_receipt() {
     let evidence = chain2.detect_tampering();
     assert!(!evidence.is_empty());
     assert!(evidence.iter().any(|e| e.index == 1));
-    assert!(evidence
-        .iter()
-        .any(|e| matches!(e.kind, TamperKind::HashMismatch { .. })));
+    assert!(
+        evidence
+            .iter()
+            .any(|e| matches!(e.kind, TamperKind::HashMismatch { .. }))
+    );
 }
 
 #[test]

@@ -33,7 +33,7 @@ use abp_core::{
     CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
     WorkspaceMode, WorkspaceSpec,
 };
-use abp_daemon::{build_app, AppState, RunTracker};
+use abp_daemon::{AppState, RunTracker, build_app};
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;
 use futures::{SinkExt, StreamExt};

@@ -1533,7 +1533,7 @@ mod tool_call_format_parity {
 
     #[test]
     fn openai_canonical_tool_roundtrip() {
-        use abp_openai_sdk::dialect::{tool_def_from_openai, tool_def_to_openai, CanonicalToolDef};
+        use abp_openai_sdk::dialect::{CanonicalToolDef, tool_def_from_openai, tool_def_to_openai};
         let canonical = CanonicalToolDef {
             name: "read_file".into(),
             description: "Read a file".into(),
@@ -1549,7 +1549,7 @@ mod tool_call_format_parity {
 
     #[test]
     fn claude_canonical_tool_roundtrip() {
-        use abp_claude_sdk::dialect::{tool_def_from_claude, tool_def_to_claude, CanonicalToolDef};
+        use abp_claude_sdk::dialect::{CanonicalToolDef, tool_def_from_claude, tool_def_to_claude};
         let canonical = CanonicalToolDef {
             name: "write_file".into(),
             description: "Write a file".into(),

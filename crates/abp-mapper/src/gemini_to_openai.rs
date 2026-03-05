@@ -4,7 +4,7 @@
 
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_dialect::Dialect;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::{DialectRequest, DialectResponse, Mapper, MappingError};
 
@@ -550,10 +550,12 @@ mod tests {
         let parts = msg["content"].as_array().unwrap();
         assert_eq!(parts[0]["type"], "text");
         assert_eq!(parts[1]["type"], "image_url");
-        assert!(parts[1]["image_url"]["url"]
-            .as_str()
-            .unwrap()
-            .starts_with("data:image/png;base64,"));
+        assert!(
+            parts[1]["image_url"]["url"]
+                .as_str()
+                .unwrap()
+                .starts_with("data:image/png;base64,")
+        );
     }
 
     #[test]

@@ -34,13 +34,13 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use cucumber::{given, then, when, World as _};
+use cucumber::{World as _, given, then, when};
 use tokio_stream::StreamExt;
 
 use abp_core::{
-    receipt_hash, AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement,
-    CapabilityRequirements, MinSupport, Outcome, PolicyProfile, Receipt, SupportLevel,
-    WorkOrderBuilder, WorkspaceMode,
+    AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
+    MinSupport, Outcome, PolicyProfile, Receipt, SupportLevel, WorkOrderBuilder, WorkspaceMode,
+    receipt_hash,
 };
 use abp_policy::PolicyEngine;
 use abp_runtime::Runtime;

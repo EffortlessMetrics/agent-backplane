@@ -1737,24 +1737,24 @@ fn policy_profile_serialization() {
 
 #[test]
 fn identify_rust_file() {
-    use abp_workspace::diff::{identify_file_type, FileType};
+    use abp_workspace::diff::{FileType, identify_file_type};
     assert_eq!(identify_file_type("src/main.rs"), FileType::Rust);
 }
 
 #[test]
 fn identify_javascript_file() {
-    use abp_workspace::diff::{identify_file_type, FileType};
+    use abp_workspace::diff::{FileType, identify_file_type};
     assert_eq!(identify_file_type("app.js"), FileType::JavaScript);
 }
 
 #[test]
 fn identify_unknown_file() {
-    use abp_workspace::diff::{identify_file_type, FileType};
+    use abp_workspace::diff::{FileType, identify_file_type};
     assert_eq!(identify_file_type("readme"), FileType::Other);
 }
 
 #[test]
 fn identify_binary_extension() {
-    use abp_workspace::diff::{identify_file_type, FileType};
+    use abp_workspace::diff::{FileType, identify_file_type};
     assert_eq!(identify_file_type("image.png"), FileType::Binary);
 }

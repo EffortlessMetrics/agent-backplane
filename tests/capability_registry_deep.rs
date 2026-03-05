@@ -36,8 +36,8 @@
 //! CapabilityDiff, CapabilityReport, dialect manifests).
 
 use abp_capability::{
-    check_capability, generate_report, negotiate, CompatibilityReport, NegotiationResult,
-    SupportLevel,
+    CompatibilityReport, NegotiationResult, SupportLevel, check_capability, generate_report,
+    negotiate,
 };
 use abp_core::negotiate::{
     CapabilityDiff, CapabilityNegotiator, CapabilityReport as DialectCapabilityReport,

@@ -47,16 +47,16 @@ use serde_json::json;
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, RunMetadata, RuntimeConfig,
-    SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
+    WorkspaceMode, WorkspaceSpec,
 };
 use abp_dialect::Dialect;
 use abp_error::ErrorCode;
 use abp_mapper::{
-    default_ir_mapper, DialectRequest, IdentityMapper, IrIdentityMapper, IrMapper, Mapper,
+    DialectRequest, IdentityMapper, IrIdentityMapper, IrMapper, Mapper, default_ir_mapper,
 };
 use abp_policy::PolicyEngine;
 use abp_protocol::{Envelope, JsonlCodec};

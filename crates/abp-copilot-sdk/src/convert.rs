@@ -408,10 +408,11 @@ mod tests {
     fn to_work_order_maps_file_refs_to_context() {
         let req = sample_request();
         let wo = to_work_order(&req);
-        assert!(wo
-            .context
-            .files
-            .contains(&"file:///src/main.rs".to_string()));
+        assert!(
+            wo.context
+                .files
+                .contains(&"file:///src/main.rs".to_string())
+        );
     }
 
     #[test]

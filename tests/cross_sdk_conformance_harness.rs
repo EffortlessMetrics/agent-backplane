@@ -41,9 +41,9 @@ use abp_capability::{
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement,
-    CapabilityRequirements, MinSupport, Outcome, Receipt, ReceiptBuilder, UsageNormalized,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome, Receipt, ReceiptBuilder,
+    UsageNormalized,
 };
 use abp_dialect::Dialect;
 use abp_error::ErrorCode;
@@ -564,12 +564,13 @@ mod gemini_passthrough {
             .add_content(Content::user(vec![Part::text("test")]));
         let (ir, gen_cfg, _) = request_to_ir(&req).unwrap();
         let wo = ir_to_work_order(&ir, "gemini-1.5-flash", &gen_cfg);
-        assert!(wo
-            .config
-            .model
-            .as_deref()
-            .unwrap()
-            .contains("gemini-1.5-flash"));
+        assert!(
+            wo.config
+                .model
+                .as_deref()
+                .unwrap()
+                .contains("gemini-1.5-flash")
+        );
     }
 }
 

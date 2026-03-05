@@ -36,8 +36,8 @@ use abp_config::validate::{
     ConfigDiff, ConfigMerger, ConfigValidator, IssueSeverity, Severity, ValidationIssue,
 };
 use abp_config::{
-    load_config, load_from_file, load_from_str, merge_configs, parse_toml, validate_config,
-    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, load_config, load_from_file,
+    load_from_str, merge_configs, parse_toml, validate_config,
 };
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -323,9 +323,11 @@ fn policy_profiles_empty_path_is_validation_error() {
     };
     let err = validate_config(&cfg).unwrap_err();
     let reasons = validation_reasons(err);
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("policy profile path must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("policy profile path must not be empty"))
+    );
 }
 
 #[test]
@@ -336,9 +338,11 @@ fn policy_profiles_whitespace_path_is_validation_error() {
     };
     let err = validate_config(&cfg).unwrap_err();
     let reasons = validation_reasons(err);
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("policy profile path must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("policy profile path must not be empty"))
+    );
 }
 
 // ===========================================================================
@@ -403,9 +407,11 @@ fn sidecar_empty_command_validation_error() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 #[test]
@@ -420,9 +426,11 @@ fn sidecar_whitespace_command_validation_error() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 #[test]
@@ -1332,10 +1340,12 @@ fn check_unknown_default_backend_has_suggestion() {
     let mut cfg = fully_valid_config();
     cfg.default_backend = Some("nonexistent".into());
     let result = ConfigValidator::check(&cfg);
-    assert!(result
-        .suggestions
-        .iter()
-        .any(|s| s.contains("Set default_backend")));
+    assert!(
+        result
+            .suggestions
+            .iter()
+            .any(|s| s.contains("Set default_backend"))
+    );
 }
 
 #[test]
@@ -1345,10 +1355,12 @@ fn check_no_backends_has_suggestion() {
         ..fully_valid_config()
     };
     let result = ConfigValidator::check(&cfg);
-    assert!(result
-        .suggestions
-        .iter()
-        .any(|s| s.contains("at least one backend")));
+    assert!(
+        result
+            .suggestions
+            .iter()
+            .any(|s| s.contains("at least one backend"))
+    );
 }
 
 // ===========================================================================

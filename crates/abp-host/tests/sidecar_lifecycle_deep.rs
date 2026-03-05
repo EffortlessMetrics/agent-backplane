@@ -47,16 +47,16 @@
 //! 15. Sidecar-kit helpers
 
 use abp_core::{
-    AgentEventKind, BackendIdentity, CapabilityManifest, CapabilityRequirements, ContextPacket,
-    ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, RunMetadata, RuntimeConfig,
-    UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, CapabilityRequirements,
+    ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, RunMetadata,
+    RuntimeConfig, UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_host::health::{HealthMonitor, HealthStatus};
 use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
 use abp_host::pool::{PoolConfig, PoolEntryState, SidecarPool};
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
-use abp_host::retry::{compute_delay, is_retryable, RetryConfig, RetryMetadata};
+use abp_host::retry::{RetryConfig, RetryMetadata, compute_delay, is_retryable};
 use abp_host::{HostError, SidecarClient, SidecarSpec};
 use abp_protocol::{Envelope, JsonlCodec};
 use std::time::Duration;
@@ -1424,7 +1424,7 @@ fn kit_cancel_token_cancel_signals() {
 
 #[test]
 fn kit_frame_writer_reader_roundtrip() {
-    use sidecar_kit::{read_all_frames, write_frames, Frame};
+    use sidecar_kit::{Frame, read_all_frames, write_frames};
 
     let frames = vec![
         sidecar_kit::hello_frame("test"),

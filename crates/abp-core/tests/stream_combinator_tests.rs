@@ -242,9 +242,11 @@ fn take_until_run_completed() {
     let taken = stream.take_until(|e| matches!(e.kind, AgentEventKind::RunCompleted { .. }));
     assert_eq!(taken.len(), 3);
     // RunCompleted itself should NOT be in the result
-    assert!(taken
-        .iter()
-        .all(|e| !matches!(e.kind, AgentEventKind::RunCompleted { .. })));
+    assert!(
+        taken
+            .iter()
+            .all(|e| !matches!(e.kind, AgentEventKind::RunCompleted { .. }))
+    );
 }
 
 #[test]

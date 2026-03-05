@@ -36,13 +36,13 @@ use abp_core::chain::ReceiptChain;
 use abp_core::filter::EventFilter;
 use abp_core::stream::EventStream;
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
     CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
     Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, receipt_hash,
 };
 use abp_policy::PolicyEngine;
-use abp_protocol::version::{negotiate_version, ProtocolVersion};
+use abp_protocol::version::{ProtocolVersion, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec};
 use chrono::{DateTime, TimeZone, Utc};
 use proptest::prelude::*;

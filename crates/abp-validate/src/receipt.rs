@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Receipt validation.
 
-use abp_core::{receipt_hash, Outcome, Receipt};
+use abp_core::{Outcome, Receipt, receipt_hash};
 
 use crate::{ValidationErrorKind, ValidationErrors, Validator};
 

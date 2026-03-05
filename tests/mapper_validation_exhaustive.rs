@@ -13,7 +13,6 @@ use abp_mapper::validation::{
     DefaultMappingValidator, MappingValidator, PipelineResult, RoundtripResult, ValidationIssue,
     ValidationPipeline, ValidationResult, ValidationSeverity,
 };
-use abp_mapper::{default_ir_mapper, supported_ir_pairs};
 use abp_mapper::{
     ClaudeGeminiIrMapper, ClaudeKimiIrMapper, ClaudeToOpenAiMapper, CodexClaudeIrMapper,
     DialectRequest, DialectResponse, GeminiKimiIrMapper, GeminiToOpenAiMapper, IdentityMapper,
@@ -21,8 +20,9 @@ use abp_mapper::{
     OpenAiCodexIrMapper, OpenAiCopilotIrMapper, OpenAiGeminiIrMapper, OpenAiKimiIrMapper,
     OpenAiToClaudeMapper, OpenAiToGeminiMapper,
 };
+use abp_mapper::{default_ir_mapper, supported_ir_pairs};
 use chrono::Utc;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -811,10 +811,11 @@ fn pre_mapping_claude_missing_max_tokens() {
     let req = json!({"model": "claude-3", "messages": []});
     let r = v.validate_pre_mapping(Dialect::Claude, &req);
     assert!(!r.is_valid());
-    assert!(r
-        .issues
-        .iter()
-        .any(|i| i.field == "max_tokens" && i.code == "missing_required_field"));
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| i.field == "max_tokens" && i.code == "missing_required_field")
+    );
 }
 
 #[test]

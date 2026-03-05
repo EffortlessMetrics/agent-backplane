@@ -1891,9 +1891,11 @@ mod tests {
         let params = &ir[0].parameters;
         assert_eq!(params["type"], "object");
         assert!(params["properties"]["cmd"]["type"] == "string");
-        assert!(params["required"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("cmd")));
+        assert!(
+            params["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("cmd"))
+        );
     }
 }

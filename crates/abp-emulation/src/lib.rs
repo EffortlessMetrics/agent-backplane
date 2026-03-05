@@ -14,8 +14,8 @@ pub mod streaming_emulator;
 pub mod tool_emulator;
 pub mod vision_emulator;
 
-use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::Capability;
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

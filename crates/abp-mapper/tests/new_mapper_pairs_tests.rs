@@ -36,8 +36,8 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 use abp_mapper::{
-    default_ir_mapper, supported_ir_pairs, CodexClaudeIrMapper, GeminiKimiIrMapper, IrMapper,
-    MapError, OpenAiCopilotIrMapper,
+    CodexClaudeIrMapper, GeminiKimiIrMapper, IrMapper, MapError, OpenAiCopilotIrMapper,
+    default_ir_mapper, supported_ir_pairs,
 };
 use serde_json::json;
 
@@ -388,9 +388,11 @@ fn claude_codex_system_message_lost() {
     // System message is emulated as a [System]-prefixed user message
     assert_eq!(mapped.len(), 1);
     assert_eq!(mapped.messages[0].role, IrRole::User);
-    assert!(mapped.messages[0]
-        .text_content()
-        .contains("System prompt only."));
+    assert!(
+        mapped.messages[0]
+            .text_content()
+            .contains("System prompt only.")
+    );
 }
 
 #[test]

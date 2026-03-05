@@ -14,17 +14,17 @@ use std::io::{BufReader, Write};
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
     Receipt, ReceiptBuilder, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_host::health::{HealthCheck, HealthMonitor, HealthReport, HealthStatus};
 use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
 use abp_host::pool::{PoolConfig, PoolEntry, PoolEntryState, PoolStats, SidecarPool};
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
-use abp_host::retry::{compute_delay, is_retryable, RetryConfig};
+use abp_host::retry::{RetryConfig, compute_delay, is_retryable};
 use abp_host::{HostError, SidecarHello, SidecarSpec};
 use abp_protocol::builder::EnvelopeBuilder;
 use abp_protocol::codec::StreamingCodec;
@@ -32,7 +32,7 @@ use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
+use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
 use uuid::Uuid;
@@ -578,9 +578,11 @@ fn missing_hello_detected() {
     let validator = EnvelopeValidator::new();
     let seq = vec![make_run_envelope("r1", "task"), make_final_envelope("r1")];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingHello)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
 }
 
 #[test]
@@ -593,9 +595,11 @@ fn event_before_run_is_error() {
         make_final_envelope("r1"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::OutOfOrderEvents)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
+    );
 }
 
 #[test]
@@ -607,9 +611,11 @@ fn run_before_hello_detected() {
         make_final_envelope("r1"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+    );
 }
 
 #[test]
@@ -622,9 +628,11 @@ fn double_terminal_detected() {
         make_final_envelope("r1"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MultipleTerminals)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MultipleTerminals))
+    );
 }
 
 #[test]
@@ -652,9 +660,11 @@ fn ref_id_mismatch_detected() {
         make_final_envelope("r1"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -666,21 +676,27 @@ fn ref_id_mismatch_in_final_detected() {
         make_final_envelope("WRONG"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
 fn empty_sequence_errors() {
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&[]);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingHello)));
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -692,9 +708,11 @@ fn missing_terminal_detected() {
         make_event_envelope("r1", AgentEventKind::AssistantMessage { text: "x".into() }),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -712,9 +730,11 @@ fn event_after_terminal_is_out_of_order() {
         ),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::OutOfOrderEvents)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
+    );
 }
 
 #[test]
@@ -732,10 +752,12 @@ fn validate_hello_with_empty_backend_id() {
     };
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id"))
+    );
 }
 
 #[test]
@@ -749,10 +771,12 @@ fn validate_hello_with_invalid_version() {
     };
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]

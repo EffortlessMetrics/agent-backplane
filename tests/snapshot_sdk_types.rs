@@ -42,11 +42,11 @@ use abp_claude_sdk::dialect::{
     ClaudeStreamDelta, ClaudeStreamEvent, ClaudeUsage, ThinkingConfig,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
-use abp_core::verify::{verify_chain, ChainBuilder, ChainError};
+use abp_core::verify::{ChainBuilder, ChainError, verify_chain};
 use abp_core::{
-    error::MappingError, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability,
-    CapabilityManifest, ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel,
-    UsageNormalized, VerificationReport, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel, UsageNormalized,
+    VerificationReport, WorkOrderBuilder, error::MappingError,
 };
 use abp_emulation::{EmulationConfig, EmulationEntry, EmulationReport, EmulationStrategy};
 use abp_gemini_sdk::dialect::{
@@ -54,7 +54,7 @@ use abp_gemini_sdk::dialect::{
     GeminiGenerationConfig, GeminiPart, GeminiRequest, GeminiSafetySetting, GeminiTool,
     GeminiToolConfig, HarmBlockThreshold, HarmCategory,
 };
-use abp_integrations::projection::{translate, Dialect, ProjectionMatrix};
+use abp_integrations::projection::{Dialect, ProjectionMatrix, translate};
 use abp_openai_sdk::dialect::{
     OpenAIFunctionCall, OpenAIFunctionDef, OpenAIMessage, OpenAIRequest, OpenAIToolCall,
     OpenAIToolDef, ToolChoice, ToolChoiceFunctionRef, ToolChoiceMode,

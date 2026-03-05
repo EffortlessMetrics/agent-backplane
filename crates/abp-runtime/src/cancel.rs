@@ -2,8 +2,8 @@
 //! Cancellation primitives for runtime work-order execution.
 
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::Notify;
 
 /// A cloneable, cheaply-shareable token used to signal cancellation.

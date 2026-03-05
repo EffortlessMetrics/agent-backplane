@@ -31,10 +31,10 @@
 //! Protocol version negotiation and backward/forward compatibility tests.
 
 use abp_core::{
-    BackendIdentity, CapabilityManifest, ExecutionMode, Receipt, ReceiptBuilder, CONTRACT_VERSION,
+    BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Receipt, ReceiptBuilder,
 };
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionError, VersionRange};
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
+use abp_protocol::version::{ProtocolVersion, VersionError, VersionRange, negotiate_version};
+use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
 
 // =========================================================================
 // 1. Current contract version is "abp/v0.1"

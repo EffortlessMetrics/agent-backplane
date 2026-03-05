@@ -31,11 +31,11 @@
 
 use std::collections::BTreeMap;
 
-use abp_dialect::detect::{
-    builtin_fingerprints, detect_dialect, detect_from_headers, DialectDetectionResult,
-    DialectFingerprint,
-};
 use abp_dialect::Dialect;
+use abp_dialect::detect::{
+    DialectDetectionResult, DialectFingerprint, builtin_fingerprints, detect_dialect,
+    detect_from_headers,
+};
 use serde_json::json;
 
 // ═══════════════════════════════════════════════════════════════════════

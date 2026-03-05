@@ -37,10 +37,10 @@
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
-    ReceiptBuilder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, Outcome, ReceiptBuilder, WorkOrderBuilder, WorkspaceMode,
 };
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 
 // ===========================================================================

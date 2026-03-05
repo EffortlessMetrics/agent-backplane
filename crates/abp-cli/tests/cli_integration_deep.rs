@@ -38,7 +38,7 @@ use abp_cli::cli::{
 };
 use abp_cli::config::{self, BackendConfig, BackplaneConfig};
 use abp_cli::format::{Formatter, OutputFormat};
-use clap::{error::ErrorKind, Parser};
+use clap::{Parser, error::ErrorKind};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -624,9 +624,10 @@ fn config_validate_sidecar_empty_command_fails() {
         ..Default::default()
     };
     let errs = config::validate_config(&cfg).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, config::ConfigError::InvalidBackend { .. })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, config::ConfigError::InvalidBackend { .. }))
+    );
 }
 
 #[test]
@@ -643,9 +644,10 @@ fn config_validate_excessive_timeout_fails() {
         ..Default::default()
     };
     let errs = config::validate_config(&cfg).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, config::ConfigError::InvalidTimeout { .. })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, config::ConfigError::InvalidTimeout { .. }))
+    );
 }
 
 #[test]
@@ -662,9 +664,10 @@ fn config_validate_zero_timeout_fails() {
         ..Default::default()
     };
     let errs = config::validate_config(&cfg).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, config::ConfigError::InvalidTimeout { value: 0 })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, config::ConfigError::InvalidTimeout { value: 0 }))
+    );
 }
 
 #[test]

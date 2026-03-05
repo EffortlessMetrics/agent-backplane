@@ -29,8 +29,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for `abp_dialect::validate`.
 
-use abp_dialect::validate::{RequestValidator, Severity, ValidationIssue, ValidationResult};
 use abp_dialect::Dialect;
+use abp_dialect::validate::{RequestValidator, Severity, ValidationIssue, ValidationResult};
 use serde_json::json;
 
 fn v() -> RequestValidator {
@@ -91,10 +91,11 @@ fn openai_missing_model() {
         &json!({"messages": [{"role": "user", "content": "hi"}]}),
     );
     assert!(!r.is_valid());
-    assert!(r
-        .issues
-        .iter()
-        .any(|i| i.field == "model" && i.code == "missing_required_field"));
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| i.field == "model" && i.code == "missing_required_field")
+    );
 }
 
 #[test]
@@ -111,10 +112,11 @@ fn openai_messages_not_array() {
         &json!({"model": "gpt-4", "messages": "oops"}),
     );
     assert!(!r.is_valid());
-    assert!(r
-        .issues
-        .iter()
-        .any(|i| i.code == "invalid_field_type" && i.field == "messages"));
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| i.code == "invalid_field_type" && i.field == "messages")
+    );
 }
 
 #[test]
@@ -176,10 +178,11 @@ fn claude_max_tokens_wrong_type() {
         }),
     );
     assert!(!r.is_valid());
-    assert!(r
-        .issues
-        .iter()
-        .any(|i| i.field == "max_tokens" && i.code == "invalid_field_type"));
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| i.field == "max_tokens" && i.code == "invalid_field_type")
+    );
 }
 
 #[test]
@@ -249,10 +252,11 @@ fn gemini_parts_not_array() {
         &json!({"model": "gemini-pro", "contents": [{"parts": "oops"}]}),
     );
     assert!(!r.is_valid());
-    assert!(r
-        .issues
-        .iter()
-        .any(|i| i.field.contains("parts") && i.code == "invalid_field_type"));
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| i.field.contains("parts") && i.code == "invalid_field_type")
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -359,10 +363,11 @@ fn model_not_a_string_is_error() {
         &json!({"model": 42, "messages": [{"role": "user", "content": "hi"}]}),
     );
     assert!(!r.is_valid());
-    assert!(r
-        .issues
-        .iter()
-        .any(|i| i.field == "model" && i.code == "invalid_field_type"));
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| i.field == "model" && i.code == "invalid_field_type")
+    );
 }
 
 #[test]
@@ -435,8 +440,9 @@ fn role_not_a_string_is_error() {
         &json!({"model": "gpt-4", "messages": [{"role": 42, "content": "hi"}]}),
     );
     assert!(!r.is_valid());
-    assert!(r
-        .issues
-        .iter()
-        .any(|i| i.field.contains("role") && i.code == "invalid_field_type"));
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| i.field.contains("role") && i.code == "invalid_field_type")
+    );
 }

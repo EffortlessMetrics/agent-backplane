@@ -9,8 +9,8 @@ use std::collections::BTreeMap;
 use std::io::{BufReader, Cursor};
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Receipt,
-    ReceiptBuilder, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, Receipt, ReceiptBuilder, WorkOrder, WorkOrderBuilder,
 };
 use abp_protocol::batch::{
     BatchItemStatus, BatchProcessor, BatchRequest, BatchResponse, BatchResult,
@@ -26,8 +26,8 @@ use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionError, VersionRange};
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::version::{ProtocolVersion, VersionError, VersionRange, negotiate_version};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 
 // ===== Helpers =====
@@ -1168,10 +1168,12 @@ fn validator_hello_empty_backend_id() {
     };
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id"))
+    );
 }
 
 #[test]
@@ -1189,10 +1191,12 @@ fn validator_hello_invalid_version() {
     };
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]
@@ -1362,9 +1366,11 @@ fn sequence_hello_not_first() {
     let validator = EnvelopeValidator::new();
     let seq = vec![make_fatal(None), make_hello()];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 }))
+    );
 }
 
 #[test]
@@ -2224,10 +2230,12 @@ fn validator_run_empty_id() {
     };
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "id")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "id"))
+    );
 }
 
 #[test]

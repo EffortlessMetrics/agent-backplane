@@ -17,7 +17,7 @@ use serde_json::json;
 // Re-exports from the crate under test
 // ---------------------------------------------------------------------------
 
-use abp_gemini_sdk::{sidecar_script, BACKEND_NAME, DEFAULT_NODE_COMMAND, HOST_SCRIPT_RELATIVE};
+use abp_gemini_sdk::{BACKEND_NAME, DEFAULT_NODE_COMMAND, HOST_SCRIPT_RELATIVE, sidecar_script};
 
 // types.rs public API
 use abp_gemini_sdk::types::{
@@ -48,8 +48,8 @@ use abp_gemini_sdk::lowering::{self, extract_system_instruction, from_ir, to_ir}
 
 // abp-core types used in conversions
 use abp_core::{
-    ir::{IrContentBlock, IrConversation, IrMessage, IrRole},
     AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, UsageNormalized, WorkOrderBuilder,
+    ir::{IrContentBlock, IrConversation, IrMessage, IrRole},
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

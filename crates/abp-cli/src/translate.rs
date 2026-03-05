@@ -152,12 +152,14 @@ mod tests {
 
     #[test]
     fn translate_file_missing_file_errors() {
-        assert!(translate_file(
-            Dialect::OpenAi,
-            Dialect::OpenAi,
-            std::path::Path::new("/nonexistent.json")
-        )
-        .is_err());
+        assert!(
+            translate_file(
+                Dialect::OpenAi,
+                Dialect::OpenAi,
+                std::path::Path::new("/nonexistent.json")
+            )
+            .is_err()
+        );
     }
 
     #[test]

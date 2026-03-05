@@ -34,8 +34,8 @@
 //! error propagation, capability pre-checks, and receipt chain verification.
 
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
@@ -152,12 +152,16 @@ async fn full_pipeline_produces_valid_hashed_receipt() {
     assert_eq!(stored_hash, recomputed);
 
     // Events include RunStarted and RunCompleted
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. })));
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+    );
 }
 
 // ===========================================================================

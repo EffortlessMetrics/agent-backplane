@@ -42,11 +42,11 @@ use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
 use abp_host::pool::{PoolConfig, PoolEntryState, PoolStats, SidecarPool};
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
-use abp_host::retry::{compute_delay, is_retryable, RetryConfig, RetryMetadata};
+use abp_host::retry::{RetryConfig, RetryMetadata, compute_delay, is_retryable};
 use abp_host::{HostError, SidecarHello, SidecarSpec};
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -357,9 +357,11 @@ fn hello_must_be_first_in_sequence() {
     let validator = EnvelopeValidator::new();
     let seq = vec![make_run("r1"), make_hello(), make_final("r1")];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+    );
 }
 
 #[test]
@@ -480,10 +482,12 @@ fn hello_with_invalid_version_fails_validation() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&hello);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]
@@ -749,9 +753,11 @@ fn sequence_missing_terminal() {
     let validator = EnvelopeValidator::new();
     let seq = vec![make_hello(), make_run("r1"), make_event("r1")];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -764,9 +770,11 @@ fn sequence_multiple_terminals() {
         make_fatal(Some("r1"), "extra"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MultipleTerminals)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MultipleTerminals))
+    );
 }
 
 #[test]
@@ -779,9 +787,11 @@ fn sequence_ref_id_mismatch() {
         make_final("r1"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -903,9 +913,10 @@ fn lifecycle_failed_from_any_state() {
         for s in path {
             mgr.transition(s, None).unwrap();
         }
-        assert!(mgr
-            .transition(LifecycleState::Failed, Some("crash".into()))
-            .is_ok());
+        assert!(
+            mgr.transition(LifecycleState::Failed, Some("crash".into()))
+                .is_ok()
+        );
         assert_eq!(*mgr.state(), LifecycleState::Failed);
     }
 }
@@ -1785,21 +1796,27 @@ fn hello_sequence_missing_hello_error() {
     let validator = EnvelopeValidator::new();
     let seq = vec![make_run("r1"), make_final("r1")];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingHello)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
 }
 
 #[test]
 fn hello_empty_sequence_errors() {
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&[]);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingHello)));
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -1988,9 +2005,11 @@ fn ref_id_mismatch_in_final_detected() {
         make_final("run-2"), // wrong ref_id
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -2003,9 +2022,11 @@ fn event_before_run_is_out_of_order() {
         make_final("r1"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::OutOfOrderEvents)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
+    );
 }
 
 #[test]

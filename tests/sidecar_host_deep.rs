@@ -36,14 +36,14 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use abp_core::{
-    AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome, ReceiptBuilder,
-    WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Outcome,
+    ReceiptBuilder, WorkOrderBuilder,
 };
 use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
 use abp_host::pool::{PoolConfig, PoolEntryState, SidecarPool};
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
-use abp_host::retry::{compute_delay, is_retryable, RetryConfig};
+use abp_host::retry::{RetryConfig, compute_delay, is_retryable};
 use abp_host::{HostError, SidecarHello, SidecarSpec};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use abp_sidecar_utils::frame::{

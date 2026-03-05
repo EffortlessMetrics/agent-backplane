@@ -11,20 +11,20 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use abp_config::{
-    load_config, load_from_str, merge_configs, parse_toml, validate_config, BackendEntry,
-    BackplaneConfig, ConfigError, ConfigWarning,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, load_config, load_from_str,
+    merge_configs, parse_toml, validate_config,
 };
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
-    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-    ContextPacket, ContextSnippet, ContractError, ExecutionLane, ExecutionMode, MinSupport,
-    Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, UsageNormalized,
-    VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ContractError, ExecutionLane, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, UsageNormalized,
+    VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, canonical_json,
+    receipt_hash, sha256_hex,
 };
 use abp_integrations::{Backend, MockBackend};
 use abp_policy::PolicyEngine;
-use abp_receipt::{compute_hash, verify_hash, ReceiptChain};
+use abp_receipt::{ReceiptChain, compute_hash, verify_hash};
 use abp_runtime::budget::{BudgetLimit, BudgetStatus, BudgetTracker, BudgetViolation};
 use abp_runtime::bus::{EventBus, EventBusStats, FilteredSubscription};
 use abp_runtime::cancel::{CancellableRun, CancellationReason, CancellationToken};

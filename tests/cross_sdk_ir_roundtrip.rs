@@ -1044,7 +1044,7 @@ fn full_tool_cycle_openai_to_claude_to_gemini() {
     assert_eq!(gemini.len(), 4);
     assert_eq!(gemini[0].role, "user");
     assert_eq!(gemini[1].role, "model"); // assistant with tool call
-                                         // Tool result becomes user with FunctionResponse
+    // Tool result becomes user with FunctionResponse
     assert_eq!(gemini[2].role, "user");
     assert_eq!(gemini[3].role, "model");
 }
