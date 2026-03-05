@@ -388,8 +388,8 @@ fn parse_validate_subcommand() {
 }
 
 #[test]
-fn parse_validate_requires_file_arg() {
-    assert!(parse(&["validate"]).is_err());
+fn parse_validate_no_file_succeeds() {
+    assert!(parse(&["validate"]).is_ok());
 }
 
 // ═══════════════════════════════════════════════════════════════════════

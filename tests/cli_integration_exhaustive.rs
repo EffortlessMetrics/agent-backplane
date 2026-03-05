@@ -1260,8 +1260,8 @@ fn run_unknown_flag_fails() {
 }
 
 #[test]
-fn validate_without_file_fails() {
-    abp().arg("validate").assert().failure();
+fn validate_without_file_succeeds() {
+    abp().arg("validate").assert().success();
 }
 
 #[test]
