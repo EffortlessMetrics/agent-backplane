@@ -2,10 +2,8 @@
 //! Vendor-compatibility tests for the Copilot shim.
 
 use abp_shim_copilot::types::{
-    CopilotChatRequest, CopilotChatResponse, CopilotDocContext, CopilotIntent,
-    CopilotLocalStreamEvent, CopilotSkill, SelectionRange,
+    CopilotChatRequest, CopilotDocContext, CopilotIntent, CopilotSkill, SelectionRange,
 };
-use serde_json::json;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. Intent type
@@ -55,6 +53,7 @@ fn doc_context_serialises_correctly() {
             start_column: 0,
             end_line: 45,
             end_column: 0,
+            text: Some("selected code".into()),
         }),
         content: Some("fn main() {}".into()),
     };
@@ -93,7 +92,7 @@ fn skill_serde_roundtrip() {
         id: "code-review".into(),
         name: "Code Review".into(),
         description: Some("Reviews code for bugs".into()),
-        version: Some("1.0.0".into()),
+        parameters_schema: None,
     };
 
     let json = serde_json::to_string(&skill).unwrap();
@@ -102,7 +101,7 @@ fn skill_serde_roundtrip() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 4. Chat request/response wire format
+// 4. Chat request wire format
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
@@ -114,7 +113,10 @@ fn chat_request_serialises_with_copilot_extensions() {
         messages: vec![CopilotMessage {
             role: "user".into(),
             content: "Explain this code".into(),
+            name: None,
+            copilot_references: vec![],
         }],
+        tools: None,
         intent: Some(CopilotIntent::Explain),
         doc_context: Some(CopilotDocContext {
             uri: "file:///main.rs".into(),
@@ -124,11 +126,12 @@ fn chat_request_serialises_with_copilot_extensions() {
             selection: None,
             content: None,
         }),
-        skills: None,
+        references: vec![],
+        skills: vec![],
+        turn_history: vec![],
         temperature: Some(0.3),
         max_tokens: Some(2048),
         stream: None,
-        metadata: Default::default(),
     };
 
     let v = serde_json::to_value(&req).unwrap();

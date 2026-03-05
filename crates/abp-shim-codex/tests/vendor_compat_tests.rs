@@ -2,7 +2,7 @@
 //! Vendor-compatibility tests for the Codex shim.
 
 use abp_shim_codex::types::{CodexContextItem, CodexExtendedRequest, CodexSandboxConfig};
-use serde_json::json;
+use serde_json;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. Extended request wire format
@@ -57,9 +57,10 @@ fn extended_request_with_sandbox_config() {
         tools: vec![],
         text: None,
         sandbox: Some(CodexSandboxConfig {
-            sandbox_type: "docker".into(),
-            image: Some("node:20".into()),
-            timeout_secs: Some(300),
+            container_image: Some("node:20".into()),
+            network_enabled: false,
+            timeout_seconds: Some(300),
+            memory_mb: None,
             env: Default::default(),
         }),
         metadata: Default::default(),
@@ -67,7 +68,7 @@ fn extended_request_with_sandbox_config() {
 
     let v = serde_json::to_value(&req).unwrap();
     assert!(v["sandbox"].is_object());
-    assert_eq!(v["sandbox"]["image"], "node:20");
+    assert_eq!(v["sandbox"]["container_image"], "node:20");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

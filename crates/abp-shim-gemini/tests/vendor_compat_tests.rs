@@ -49,7 +49,7 @@ fn request_with_safety_settings_json() {
     };
 
     let v = serde_json::to_value(&req).unwrap();
-    assert!(v["safetySettings"].is_array());
+    assert!(v["safety_settings"].is_array());
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

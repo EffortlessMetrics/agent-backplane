@@ -2,10 +2,8 @@
 //! Vendor-compatibility tests for the Kimi shim.
 
 use abp_shim_kimi::types::{
-    KimiFileRef, KimiPlugin, KimiRequest, KimiRequestBuilder, KimiResponse, KimiSearchConfig,
-    KimiStreamChunk, Message, Usage,
+    KimiChatRequest, KimiFileReference, KimiPluginConfig, KimiRequestBuilder, Message, Usage,
 };
-use serde_json::json;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. Message constructors
@@ -38,9 +36,12 @@ fn message_tool_constructor() {
 
 #[test]
 fn request_builder_produces_valid_request() {
-    let req = KimiRequestBuilder::new("moonshot-v1-8k")
-        .message(Message::system("Be helpful"))
-        .message(Message::user("What is Rust?"))
+    let req = KimiRequestBuilder::new()
+        .model("moonshot-v1-8k")
+        .messages(vec![
+            Message::system("Be helpful"),
+            Message::user("What is Rust?"),
+        ])
         .temperature(0.7)
         .max_tokens(2048)
         .build();
@@ -52,18 +53,14 @@ fn request_builder_produces_valid_request() {
 }
 
 #[test]
-fn request_builder_with_search_config() {
-    let req = KimiRequestBuilder::new("moonshot-v1-32k")
-        .message(Message::user("Search for Rust"))
-        .search(KimiSearchConfig {
-            enabled: true,
-            forced: Some(true),
-            max_results: Some(5),
-        })
+fn request_builder_with_search() {
+    let req = KimiRequestBuilder::new()
+        .model("moonshot-v1-32k")
+        .messages(vec![Message::user("Search for Rust")])
+        .use_search(true)
         .build();
 
-    let v = serde_json::to_value(&req).unwrap();
-    assert!(v.get("search").is_some() || v.get("web_search").is_some());
+    assert_eq!(req.use_search, Some(true));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -71,18 +68,18 @@ fn request_builder_with_search_config() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn request_serialises_to_kimi_wire_format() {
-    let req = KimiRequest {
+fn chat_request_serialises_to_kimi_wire_format() {
+    let req = KimiChatRequest {
         model: "moonshot-v1-8k".into(),
         messages: vec![Message::user("Hello")],
         temperature: Some(0.5),
+        top_p: None,
         max_tokens: Some(1024),
         stream: None,
-        tools: vec![],
-        search: None,
-        plugins: vec![],
-        file_refs: vec![],
-        metadata: Default::default(),
+        use_search: None,
+        ref_file_ids: None,
+        plugin_ids: None,
+        plugins: None,
     };
 
     let v = serde_json::to_value(&req).unwrap();
@@ -120,28 +117,30 @@ fn usage_from_json() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 5. File reference and plugin types
+// 5. File reference and plugin config types
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn file_ref_serde_roundtrip() {
-    let fref = KimiFileRef {
+fn file_reference_serde_roundtrip() {
+    let fref = KimiFileReference {
         file_id: "file-abc123".into(),
         filename: Some("report.pdf".into()),
+        purpose: Some("file-extract".into()),
     };
     let json = serde_json::to_string(&fref).unwrap();
-    let back: KimiFileRef = serde_json::from_str(&json).unwrap();
+    let back: KimiFileReference = serde_json::from_str(&json).unwrap();
     assert_eq!(fref, back);
 }
 
 #[test]
-fn plugin_serde_roundtrip() {
-    let plugin = KimiPlugin {
-        plugin_type: "web_search".into(),
-        enabled: true,
-        config: Some(json!({"max_results": 5})),
+fn plugin_config_serde_roundtrip() {
+    let plugin = KimiPluginConfig {
+        plugin_id: "web_search".into(),
+        name: Some("Web Search".into()),
+        enabled: Some(true),
+        settings: Default::default(),
     };
     let json = serde_json::to_string(&plugin).unwrap();
-    let back: KimiPlugin = serde_json::from_str(&json).unwrap();
+    let back: KimiPluginConfig = serde_json::from_str(&json).unwrap();
     assert_eq!(plugin, back);
 }
