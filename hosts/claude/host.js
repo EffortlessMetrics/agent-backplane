@@ -1245,6 +1245,15 @@ function main() {
       return;
     }
 
+    if (msg.t === "ping") {
+      write({ t: "pong", seq: msg.seq });
+      return;
+    }
+
+    if (msg.t === "cancel") {
+      return;
+    }
+
     if (msg.t !== "run") {
       return;
     }
@@ -1266,4 +1275,11 @@ function main() {
   });
 }
 
-main();
+main().catch((err) => {
+  write({
+    t: "fatal",
+    ref_id: null,
+    error: `claude host failed: ${safeString(err)}`,
+  });
+  process.exitCode = 1;
+});

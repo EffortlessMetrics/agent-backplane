@@ -604,12 +604,16 @@ async function main() {
       continue;
     }
 
+    if (envelope.t === "ping") {
+      write({ t: "pong", seq: envelope.seq });
+      continue;
+    }
+
+    if (envelope.t === "cancel") {
+      continue;
+    }
+
     if (envelope.t !== "run") {
-      write({
-        t: "fatal",
-        ref_id: null,
-        error: `expected run envelope, got '${safeString(envelope.t)}'`,
-      });
       continue;
     }
 
@@ -630,6 +634,10 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`gemini host failed: ${safeString(err)}`);
+  write({
+    t: "fatal",
+    ref_id: null,
+    error: `gemini host failed: ${safeString(err)}`,
+  });
   process.exitCode = 1;
 });

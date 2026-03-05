@@ -8,5 +8,8 @@
   },
   "dependencies": {
     "@openai/codex-sdk": "^0.1.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
   }
 }
