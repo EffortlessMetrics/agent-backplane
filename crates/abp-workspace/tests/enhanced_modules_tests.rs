@@ -389,11 +389,9 @@ fn git_ops_status_new_file() {
     fs::write(ws.path().join("new_file.txt"), "new\n").unwrap();
     let ops = GitOps::new(ws.path());
     let status = ops.status().unwrap();
-    assert!(
-        status
-            .iter()
-            .any(|e| e.path.contains("new_file.txt") && e.status == GitFileStatus::Added)
-    );
+    assert!(status
+        .iter()
+        .any(|e| e.path.contains("new_file.txt") && e.status == GitFileStatus::Added));
 }
 
 #[test]

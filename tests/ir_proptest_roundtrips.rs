@@ -279,7 +279,11 @@ fn ir_texts(conv: &IrConversation) -> Vec<String> {
         .iter()
         .filter_map(|m| {
             let t = m.text_content();
-            if t.is_empty() { None } else { Some(t) }
+            if t.is_empty() {
+                None
+            } else {
+                Some(t)
+            }
         })
         .collect()
 }

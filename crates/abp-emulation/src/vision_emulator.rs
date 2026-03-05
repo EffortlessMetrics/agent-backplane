@@ -6,7 +6,9 @@
 //! or outright removal.
 
 use crate::strategies::VisionEmulation;
-use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
+use abp_core::ir::{IrContentBlock, IrConversation};
+#[cfg(test)]
+use abp_core::ir::{IrMessage, IrRole};
 use serde::{Deserialize, Serialize};
 
 /// Strategy for handling images on non-vision backends.

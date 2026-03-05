@@ -7,7 +7,7 @@
 //! receipt generation, error handling, and edge cases — all without
 //! spawning actual sidecar processes unless explicitly needed.
 
-use abp_backend_core::{Backend, BackendMetadata, BackendRegistry, ensure_capability_requirements};
+use abp_backend_core::{ensure_capability_requirements, Backend, BackendMetadata, BackendRegistry};
 use abp_backend_sidecar::SidecarBackend;
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,

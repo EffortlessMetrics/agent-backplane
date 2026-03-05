@@ -37,17 +37,17 @@
 //! unexpected envelopes).
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
     Receipt, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkspaceMode, WorkspaceSpec,
+    WorkOrder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_host::health::{HealthMonitor, HealthStatus};
 use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
 use abp_host::pool::{PoolConfig, PoolEntryState, SidecarPool};
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
-use abp_host::retry::{RetryConfig, RetryMetadata, compute_delay, is_retryable};
+use abp_host::retry::{compute_delay, is_retryable, RetryConfig, RetryMetadata};
 use abp_host::{HostError, SidecarClient, SidecarHello, SidecarSpec};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use std::collections::BTreeMap;

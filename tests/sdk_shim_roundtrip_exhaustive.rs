@@ -1812,14 +1812,12 @@ mod error_handling {
         let receipt = make_receipt_with_events(events);
         let wo = WorkOrderBuilder::new("test").model("gpt-4o").build();
         let resp = abp_shim_openai::convert::from_receipt(&receipt, &wo);
-        assert!(
-            resp.choices[0]
-                .message
-                .content
-                .as_ref()
-                .unwrap()
-                .contains("model overloaded")
-        );
+        assert!(resp.choices[0]
+            .message
+            .content
+            .as_ref()
+            .unwrap()
+            .contains("model overloaded"));
     }
 
     #[test]
@@ -1839,14 +1837,12 @@ mod error_handling {
         let events = vec![error_event("connection failed")];
         let receipt = make_receipt_with_events(events);
         let resp = abp_shim_kimi::receipt_to_response(&receipt, "moonshot-v1-8k");
-        assert!(
-            resp.choices[0]
-                .message
-                .content
-                .as_ref()
-                .unwrap()
-                .contains("connection failed")
-        );
+        assert!(resp.choices[0]
+            .message
+            .content
+            .as_ref()
+            .unwrap()
+            .contains("connection failed"));
     }
 
     #[test]
@@ -1879,14 +1875,12 @@ mod error_handling {
         let event = error_event("rate limited");
         let chunk = abp_shim_openai::convert::from_agent_event(&event, "gpt-4o", "chunk_1");
         let chunk = chunk.unwrap();
-        assert!(
-            chunk.choices[0]
-                .delta
-                .content
-                .as_ref()
-                .unwrap()
-                .contains("rate limited")
-        );
+        assert!(chunk.choices[0]
+            .delta
+            .content
+            .as_ref()
+            .unwrap()
+            .contains("rate limited"));
         assert_eq!(chunk.choices[0].finish_reason.as_deref(), Some("stop"));
     }
 

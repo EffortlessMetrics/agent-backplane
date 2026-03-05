@@ -33,8 +33,8 @@
 use abp_error::{ErrorCategory, ErrorCode, ErrorInfo};
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
 use abp_receipt::{
-    ChainError, Outcome, Receipt, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash,
-    diff_receipts, verify_hash,
+    canonicalize, compute_hash, diff_receipts, verify_hash, ChainError, Outcome, Receipt,
+    ReceiptBuilder, ReceiptChain,
 };
 use chrono::{Duration, Utc};
 use uuid::Uuid;
@@ -624,11 +624,10 @@ fn diff_detects_contract_version_change() {
     let mut b = a.clone();
     b.meta.contract_version = "abp/v99".into();
     let diff = diff_receipts(&a, &b);
-    assert!(
-        diff.changes
-            .iter()
-            .any(|d| d.field == "meta.contract_version")
-    );
+    assert!(diff
+        .changes
+        .iter()
+        .any(|d| d.field == "meta.contract_version"));
 }
 
 #[test]
@@ -637,11 +636,10 @@ fn diff_detects_backend_version_change() {
     let mut b = a.clone();
     b.backend.backend_version = Some("2.0".into());
     let diff = diff_receipts(&a, &b);
-    assert!(
-        diff.changes
-            .iter()
-            .any(|d| d.field == "backend.backend_version")
-    );
+    assert!(diff
+        .changes
+        .iter()
+        .any(|d| d.field == "backend.backend_version"));
 }
 
 #[test]

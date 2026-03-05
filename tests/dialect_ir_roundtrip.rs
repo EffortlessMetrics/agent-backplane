@@ -223,16 +223,12 @@ fn openai_to_ir_to_claude_full_conversation() {
 
     // Assistant with tool call becomes structured content blocks
     let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msgs[1].content).unwrap();
-    assert!(
-        blocks
-            .iter()
-            .any(|b| matches!(b, ClaudeContentBlock::ToolUse { name, .. } if name == "read_file"))
-    );
-    assert!(
-        blocks.iter().any(
-            |b| matches!(b, ClaudeContentBlock::Text { text } if text.contains("Let me read"))
-        )
-    );
+    assert!(blocks
+        .iter()
+        .any(|b| matches!(b, ClaudeContentBlock::ToolUse { name, .. } if name == "read_file")));
+    assert!(blocks
+        .iter()
+        .any(|b| matches!(b, ClaudeContentBlock::Text { text } if text.contains("Let me read"))));
 
     // Tool result becomes a user message with ToolResult blocks
     let result_blocks: Vec<ClaudeContentBlock> =
@@ -429,13 +425,11 @@ fn gemini_to_ir_to_openai_function_call_becomes_tool_call() {
     let openai_msgs = openai_ir::from_ir(&ir);
     // System present
     assert_eq!(openai_msgs[0].role, "system");
-    assert!(
-        openai_msgs[0]
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("concise")
-    );
+    assert!(openai_msgs[0]
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("concise"));
 
     // Function call → tool_call
     let asst = openai_msgs.iter().find(|m| m.tool_calls.is_some()).unwrap();
@@ -537,11 +531,9 @@ fn codex_response_to_ir_to_claude() {
     let first_content: Result<Vec<ClaudeContentBlock>, _> =
         serde_json::from_str(&claude_msgs[0].content);
     if let Ok(blocks) = first_content {
-        assert!(
-            blocks
-                .iter()
-                .any(|b| matches!(b, ClaudeContentBlock::Thinking { .. }))
-        );
+        assert!(blocks
+            .iter()
+            .any(|b| matches!(b, ClaudeContentBlock::Thinking { .. })));
     }
 
     // FunctionCall → assistant with ToolUse
@@ -669,13 +661,11 @@ fn copilot_to_ir_to_openai() {
         Some("You are GitHub Copilot.")
     );
     assert_eq!(openai_msgs[2].role, "assistant");
-    assert!(
-        openai_msgs[2]
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("anonymous functions")
-    );
+    assert!(openai_msgs[2]
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("anonymous functions"));
 }
 
 #[test]
@@ -884,12 +874,10 @@ fn tool_call_openai_to_gemini_and_back() {
 
     // Verify FunctionCall
     let model_msg = gemini.iter().find(|c| c.role == "model").unwrap();
-    assert!(
-        model_msg
-            .parts
-            .iter()
-            .any(|p| { matches!(p, GeminiPart::FunctionCall { name, .. } if name == "search") })
-    );
+    assert!(model_msg
+        .parts
+        .iter()
+        .any(|p| { matches!(p, GeminiPart::FunctionCall { name, .. } if name == "search") }));
 
     // Verify FunctionResponse
     let user_msg = gemini.iter().find(|c| {
@@ -940,11 +928,9 @@ fn tool_call_claude_to_kimi_and_back() {
     let claude_back = claude_ir::from_ir(&ir2);
     let back_blocks: Vec<ClaudeContentBlock> =
         serde_json::from_str(&claude_back.last().unwrap().content).unwrap();
-    assert!(
-        back_blocks
-            .iter()
-            .any(|b| matches!(b, ClaudeContentBlock::ToolUse { name, .. } if name == "grep"))
-    );
+    assert!(back_blocks
+        .iter()
+        .any(|b| matches!(b, ClaudeContentBlock::ToolUse { name, .. } if name == "grep")));
 }
 
 #[test]

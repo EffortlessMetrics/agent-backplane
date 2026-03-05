@@ -33,13 +33,13 @@
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode,
+    WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_protocol::codec::StreamingCodec;
 use abp_protocol::stream::StreamParser;
-use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
 use abp_receipt::ReceiptBuilder;
 use chrono::Utc;
 

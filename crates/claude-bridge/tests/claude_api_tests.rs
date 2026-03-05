@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Tests for Claude Messages API types, SSE parsing, and translation to ABP IR.
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use claude_bridge::claude_types::*;
 use claude_bridge::sse::SseParser;
@@ -552,12 +552,10 @@ data: {\"type\":\"message_stop\"}\n\
     fn incremental_feed() {
         let mut parser = SseParser::new();
         assert!(parser.feed_line("event: ping").unwrap().is_none());
-        assert!(
-            parser
-                .feed_line("data: {\"type\":\"ping\"}")
-                .unwrap()
-                .is_none()
-        );
+        assert!(parser
+            .feed_line("data: {\"type\":\"ping\"}")
+            .unwrap()
+            .is_none());
         let event = parser.feed_line("").unwrap().unwrap();
         assert!(matches!(event, StreamEvent::Ping {}));
     }

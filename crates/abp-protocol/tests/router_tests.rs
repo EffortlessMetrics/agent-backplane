@@ -30,8 +30,8 @@
 //! Tests for the message routing module.
 
 use abp_core::{BackendIdentity, CapabilityManifest};
-use abp_protocol::Envelope;
 use abp_protocol::router::{MessageRoute, MessageRouter, RouteTable};
+use abp_protocol::Envelope;
 
 // ---------------------------------------------------------------------------
 // Helpers

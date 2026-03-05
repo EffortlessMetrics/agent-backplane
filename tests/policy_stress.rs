@@ -34,12 +34,12 @@ use std::path::Path;
 use std::time::Instant;
 
 use abp_core::PolicyProfile;
-use abp_policy::PolicyEngine;
 use abp_policy::audit::{AuditSummary, PolicyAuditor};
 use abp_policy::compose::{
     ComposedEngine, PolicyPrecedence, PolicySet, PolicyValidator, WarningKind,
 };
 use abp_policy::rules::{Rule, RuleCondition, RuleEffect, RuleEngine};
+use abp_policy::PolicyEngine;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1106,11 +1106,9 @@ fn validator_catch_all_deny_read() {
     };
     let warnings = PolicyValidator::validate(&policy);
 
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read")));
 }
 
 #[test]
@@ -1121,11 +1119,9 @@ fn validator_catch_all_deny_write() {
     };
     let warnings = PolicyValidator::validate(&policy);
 
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_write"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_write")));
 }
 
 #[test]

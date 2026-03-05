@@ -35,7 +35,7 @@
 //! `WorkspaceManager` APIs.
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
-use abp_workspace::diff::{DiffAnalyzer, DiffPolicy, PolicyResult, diff_workspace};
+use abp_workspace::diff::{diff_workspace, DiffAnalyzer, DiffPolicy, PolicyResult};
 use abp_workspace::{WorkspaceManager, WorkspaceStager};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -1101,12 +1101,10 @@ fn multiple_stages_and_drops() {
 fn stage_failure_no_source_root() {
     let result = WorkspaceStager::new().stage();
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("source_root is required")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("source_root is required"));
 }
 
 #[test]
@@ -1515,10 +1513,8 @@ fn diff_policy_fail_too_many_additions() {
 #[test]
 fn diff_policy_result_is_pass_method() {
     assert!(PolicyResult::Pass.is_pass());
-    assert!(
-        !PolicyResult::Fail {
-            violations: vec!["x".into()]
-        }
-        .is_pass()
-    );
+    assert!(!PolicyResult::Fail {
+        violations: vec!["x".into()]
+    }
+    .is_pass());
 }

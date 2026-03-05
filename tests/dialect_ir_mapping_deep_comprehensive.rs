@@ -38,10 +38,10 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_mapping::{
-    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, features, known_rules,
-    validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
+    MappingRegistry, MappingRule,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 // SDK dialect types
 use abp_claude_sdk::dialect::ClaudeMessage;
@@ -1823,10 +1823,9 @@ fn mapping_registry_insert_and_lookup() {
 #[test]
 fn mapping_registry_lookup_missing_returns_none() {
     let reg = MappingRegistry::new();
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "nonexistent")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "nonexistent")
+        .is_none());
 }
 
 #[test]

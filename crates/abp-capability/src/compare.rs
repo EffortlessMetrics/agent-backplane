@@ -5,7 +5,7 @@
 //! Provides functions to compare two capability sets, identify gaps,
 //! compute a compatibility score, and generate human-readable reports.
 
-use crate::{EmulationStrategy, SupportLevel, check_capability};
+use crate::{check_capability, EmulationStrategy, SupportLevel};
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

@@ -34,14 +34,14 @@
 //! invariants, and round-trip correctly through serialization.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, CONTRACT_VERSION, Capability, CapabilityManifest,
+    receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, Capability, CapabilityManifest,
     ExecutionMode, Outcome, Receipt, SupportLevel, UsageNormalized, VerificationReport,
-    receipt_hash,
+    CONTRACT_VERSION,
 };
 use abp_receipt::ReceiptBuilder;
 use chrono::{DateTime, Utc};
 use schemars::schema_for;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use uuid::Uuid;
 

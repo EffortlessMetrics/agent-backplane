@@ -36,8 +36,8 @@
 
 use abp_core::ArtifactRef;
 use abp_receipt::{
-    AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder, UsageNormalized, canonicalize,
-    compute_hash, verify_hash,
+    canonicalize, compute_hash, verify_hash, AgentEvent, AgentEventKind, Outcome, Receipt,
+    ReceiptBuilder, UsageNormalized,
 };
 use chrono::{TimeZone, Utc};
 use std::collections::BTreeMap;

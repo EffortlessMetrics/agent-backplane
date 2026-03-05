@@ -52,7 +52,7 @@ use abp_daemon::validation::RequestValidator;
 use abp_daemon::versioning::{
     ApiVersion, ApiVersionError, ApiVersionRegistry, VersionNegotiator, VersionedEndpoint,
 };
-use abp_daemon::{AppState, BackendInfo, RunMetrics, RunRequest, RunStatus, RunTracker, build_app};
+use abp_daemon::{build_app, AppState, BackendInfo, RunMetrics, RunRequest, RunStatus, RunTracker};
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;
 use axum::body::Body;
@@ -1001,10 +1001,9 @@ fn queue_capacity_one() {
     q.enqueue(make_queued_run("a", QueuePriority::Normal))
         .unwrap();
     assert!(q.is_full());
-    assert!(
-        q.enqueue(make_queued_run("b", QueuePriority::Normal))
-            .is_err()
-    );
+    assert!(q
+        .enqueue(make_queued_run("b", QueuePriority::Normal))
+        .is_err());
     q.dequeue();
     assert!(!q.is_full());
     q.enqueue(make_queued_run("c", QueuePriority::Normal))
@@ -1601,12 +1600,10 @@ async fn run_tracker_complete_untracked_fails() {
 #[tokio::test]
 async fn run_tracker_fail_untracked_fails() {
     let tracker = RunTracker::new();
-    assert!(
-        tracker
-            .fail_run(Uuid::new_v4(), "err".into())
-            .await
-            .is_err()
-    );
+    assert!(tracker
+        .fail_run(Uuid::new_v4(), "err".into())
+        .await
+        .is_err());
 }
 
 #[tokio::test]

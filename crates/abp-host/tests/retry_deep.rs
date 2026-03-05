@@ -30,14 +30,14 @@
 //! Deep tests for the retry / recovery layer in `abp_host::retry`.
 
 use abp_host::retry::{
-    RetryAttempt, RetryConfig, RetryMetadata, compute_delay, is_retryable, retry_async,
-    spawn_with_retry,
+    compute_delay, is_retryable, retry_async, spawn_with_retry, RetryAttempt, RetryConfig,
+    RetryMetadata,
 };
 use abp_host::{HostError, SidecarSpec};
 use abp_protocol::ProtocolError;
 use std::collections::BTreeMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 // ───────────────────────────────────────────────────────────────────
@@ -1158,16 +1158,12 @@ async fn retry_async_metadata_error_strings_preserved() {
     .unwrap();
 
     assert_eq!(result.metadata.failed_attempts.len(), 2);
-    assert!(
-        result.metadata.failed_attempts[0]
-            .error
-            .contains("attempt 0")
-    );
-    assert!(
-        result.metadata.failed_attempts[1]
-            .error
-            .contains("attempt 1")
-    );
+    assert!(result.metadata.failed_attempts[0]
+        .error
+        .contains("attempt 0"));
+    assert!(result.metadata.failed_attempts[1]
+        .error
+        .contains("attempt 1"));
 }
 
 #[tokio::test]

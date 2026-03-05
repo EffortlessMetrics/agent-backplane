@@ -31,10 +31,10 @@
 
 use abp_core::{Capability, SupportLevel};
 use abp_kimi_sdk::dialect::{
-    CanonicalToolDef, DEFAULT_MODEL, DIALECT_VERSION, KimiChoice, KimiConfig, KimiFunctionCall,
-    KimiFunctionDef, KimiResponse, KimiResponseMessage, KimiToolCall, KimiToolDef, KimiUsage,
     capability_manifest, from_canonical_model, is_known_model, to_canonical_model,
-    tool_def_from_kimi, tool_def_to_kimi,
+    tool_def_from_kimi, tool_def_to_kimi, CanonicalToolDef, KimiChoice, KimiConfig,
+    KimiFunctionCall, KimiFunctionDef, KimiResponse, KimiResponseMessage, KimiToolCall,
+    KimiToolDef, KimiUsage, DEFAULT_MODEL, DIALECT_VERSION,
 };
 
 // ---------------------------------------------------------------------------

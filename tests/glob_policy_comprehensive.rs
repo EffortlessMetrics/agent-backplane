@@ -644,11 +644,9 @@ fn integration_validator_warns_overlapping() {
         ..Default::default()
     };
     let warnings = PolicyValidator::validate(&profile);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
 }
 
 #[test]
@@ -669,11 +667,9 @@ fn integration_validator_warns_unreachable_wildcard_deny() {
         ..Default::default()
     };
     let warnings = PolicyValidator::validate(&profile);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

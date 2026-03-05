@@ -13,15 +13,15 @@ use std::io::{BufRead, BufReader};
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, ReceiptBuilder, WorkOrder, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
+    Receipt, ReceiptBuilder, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_host::health::{HealthMonitor, HealthStatus};
 use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
 use abp_host::pool::{PoolConfig, PoolEntryState, SidecarPool};
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
-use abp_host::retry::{RetryConfig, compute_delay, is_retryable};
+use abp_host::retry::{compute_delay, is_retryable, RetryConfig};
 use abp_host::{HostError, SidecarSpec};
 use abp_protocol::batch::{
     BatchItemStatus, BatchProcessor, BatchRequest, BatchValidationError, MAX_BATCH_SIZE,
@@ -34,8 +34,8 @@ use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::version::{ProtocolVersion, VersionError, VersionRange, negotiate_version};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionError, VersionRange};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
 use serde_json::json;
 use uuid::Uuid;
@@ -259,12 +259,10 @@ mod hello_envelope {
         let validator = EnvelopeValidator::new();
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(
-            result
-                .errors
-                .iter()
-                .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
-        );
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
     }
 
     #[test]
@@ -344,11 +342,9 @@ mod hello_envelope {
         let validator = EnvelopeValidator::new();
         let sequence = vec![make_run("run-1"), make_hello("test"), make_final("run-1")];
         let errors = validator.validate_sequence(&sequence);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 }))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 })));
     }
 
     #[test]
@@ -356,11 +352,9 @@ mod hello_envelope {
         let validator = EnvelopeValidator::new();
         let sequence = vec![make_run("run-1"), make_final("run-1")];
         let errors = validator.validate_sequence(&sequence);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::MissingHello))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello)));
     }
 }
 
@@ -412,12 +406,10 @@ mod run_envelope {
         let validator = EnvelopeValidator::new();
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(
-            result
-                .errors
-                .iter()
-                .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "id"))
-        );
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "id")));
     }
 
     #[test]
@@ -504,11 +496,10 @@ mod event_envelope {
         let validator = EnvelopeValidator::new();
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(
-            result.errors.iter().any(|e| {
-                matches!(e, ValidationError::EmptyField { field } if field == "ref_id")
-            })
-        );
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| { matches!(e, ValidationError::EmptyField { field } if field == "ref_id") }));
     }
 
     #[test]
@@ -746,11 +737,10 @@ mod final_envelope {
         let validator = EnvelopeValidator::new();
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(
-            result.errors.iter().any(|e| {
-                matches!(e, ValidationError::EmptyField { field } if field == "ref_id")
-            })
-        );
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| { matches!(e, ValidationError::EmptyField { field } if field == "ref_id") }));
     }
 
     #[test]
@@ -798,11 +788,9 @@ mod final_envelope {
         ];
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&sequence);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::MultipleTerminals))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MultipleTerminals)));
     }
 }
 
@@ -866,11 +854,10 @@ mod fatal_envelope {
         let validator = EnvelopeValidator::new();
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(
-            result.errors.iter().any(|e| {
-                matches!(e, ValidationError::EmptyField { field } if field == "error")
-            })
-        );
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| { matches!(e, ValidationError::EmptyField { field } if field == "error") }));
     }
 
     #[test]
@@ -939,11 +926,9 @@ mod fatal_envelope {
         ];
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&sequence);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::MultipleTerminals))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MultipleTerminals)));
     }
 }
 
@@ -982,11 +967,9 @@ mod ref_id_correlation {
         ];
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&sequence);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
     }
 
     #[test]
@@ -998,11 +981,9 @@ mod ref_id_correlation {
         ];
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&sequence);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
     }
 
     #[test]
@@ -1024,11 +1005,9 @@ mod ref_id_correlation {
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&sequence);
         // Fatal with None ref_id should not cause a RefIdMismatch
-        assert!(
-            !errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-        );
+        assert!(!errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
     }
 
     #[test]
@@ -1041,11 +1020,9 @@ mod ref_id_correlation {
         ];
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&sequence);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::OutOfOrderEvents)));
     }
 
     #[test]
@@ -2257,12 +2234,10 @@ mod batch_processing {
         let response = processor.process(request);
         assert_eq!(response.request_id, "batch-1");
         assert_eq!(response.results.len(), 2);
-        assert!(
-            response
-                .results
-                .iter()
-                .all(|r| r.status == BatchItemStatus::Success)
-        );
+        assert!(response
+            .results
+            .iter()
+            .all(|r| r.status == BatchItemStatus::Success));
     }
 
     #[test]
@@ -2274,11 +2249,9 @@ mod batch_processing {
             created_at: Utc::now().to_rfc3339(),
         };
         let errors = processor.validate_batch(&request);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, BatchValidationError::EmptyBatch))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, BatchValidationError::EmptyBatch)));
     }
 
     #[test]

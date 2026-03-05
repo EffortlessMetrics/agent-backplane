@@ -40,13 +40,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
-    SupportLevel, WorkOrder, WorkOrderBuilder,
+    SupportLevel, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_integrations::{
-    Backend, MockBackend, ensure_capability_requirements, extract_execution_mode,
-    validate_passthrough_compatibility,
+    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
+    Backend, MockBackend,
 };
 use serde_json::json;
 use tokio::sync::mpsc;
@@ -260,11 +260,9 @@ async fn t22_run_streams_run_completed_last() {
 #[tokio::test]
 async fn t23_run_streams_assistant_message() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. })));
 }
 
 #[tokio::test]

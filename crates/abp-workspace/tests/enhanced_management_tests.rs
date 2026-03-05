@@ -8,7 +8,7 @@ use abp_workspace::pool::{PoolConfig, WorkspacePool};
 use abp_workspace::quota::WorkspaceQuota;
 use abp_workspace::snapshot;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -393,7 +393,7 @@ fn merge_delete_modify_conflict() {
     let dm = report
         .files
         .iter()
-        .find(|f| f.path == PathBuf::from("readme.txt"))
+        .find(|f| f.path == Path::new("readme.txt"))
         .unwrap();
     assert_eq!(dm.outcome, MergeOutcome::DeleteModifyConflict);
 }

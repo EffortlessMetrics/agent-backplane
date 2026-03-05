@@ -22,7 +22,7 @@ mod work_order;
 pub use composite::CompositeValidator;
 pub use config::ConfigValidator;
 pub use dialect::{DialectRequestValidator, DialectResponseValidator};
-pub use envelope::{EnvelopeValidator, RawEnvelopeValidator, validate_hello_version};
+pub use envelope::{validate_hello_version, EnvelopeValidator, RawEnvelopeValidator};
 pub use error::{ValidationError, ValidationErrorKind, ValidationErrors};
 pub use event::EventValidator;
 pub use receipt::ReceiptValidator;

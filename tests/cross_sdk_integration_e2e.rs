@@ -37,16 +37,16 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode,
+    WorkspaceMode, CONTRACT_VERSION,
 };
 use abp_dialect::Dialect;
 use abp_integrations::Backend;
 use abp_policy::PolicyEngine;
 use abp_projection::ProjectionMatrix;
-use abp_receipt::{ReceiptChain, compute_hash, verify_hash};
+use abp_receipt::{compute_hash, verify_hash, ReceiptChain};
 use abp_runtime::{Runtime, RuntimeError};
 use async_trait::async_trait;
 use serde_json::json;

@@ -34,8 +34,8 @@
 //! cross-SDK translation, streaming, tool calls, system messages, and edge cases.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
+    Receipt, RunMetadata, UsageNormalized, VerificationReport, CONTRACT_VERSION,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -309,14 +309,12 @@ mod openai {
         let wo = convert::to_work_order(&req);
         let receipt = mock_receipt(vec![error_event("something went wrong")]);
         let resp = convert::from_receipt(&receipt, &wo);
-        assert!(
-            resp.choices[0]
-                .message
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("Error")
-        );
+        assert!(resp.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Error"));
     }
 }
 
@@ -581,8 +579,8 @@ mod gemini {
 mod codex {
     use super::*;
     use abp_shim_codex::{
-        CodexRequestBuilder, codex_message, events_to_stream_events, ir_usage_to_usage,
-        receipt_to_response, request_to_ir, request_to_work_order,
+        codex_message, events_to_stream_events, ir_usage_to_usage, receipt_to_response,
+        request_to_ir, request_to_work_order, CodexRequestBuilder,
     };
 
     #[test]
@@ -678,8 +676,8 @@ mod codex {
 mod kimi {
     use super::*;
     use abp_shim_kimi::{
-        KimiRequestBuilder, Message, events_to_stream_chunks, ir_to_messages, ir_usage_to_usage,
-        messages_to_ir, receipt_to_response, request_to_work_order,
+        events_to_stream_chunks, ir_to_messages, ir_usage_to_usage, messages_to_ir,
+        receipt_to_response, request_to_work_order, KimiRequestBuilder, Message,
     };
 
     #[test]
@@ -770,8 +768,8 @@ mod copilot {
     use super::*;
     use abp_copilot_sdk::dialect::{CopilotReference, CopilotReferenceType};
     use abp_shim_copilot::{
-        CopilotRequestBuilder, Message, events_to_stream_events, ir_to_messages, ir_usage_to_tuple,
-        messages_to_ir, receipt_to_response, request_to_work_order,
+        events_to_stream_events, ir_to_messages, ir_usage_to_tuple, messages_to_ir,
+        receipt_to_response, request_to_work_order, CopilotRequestBuilder, Message,
     };
 
     #[test]

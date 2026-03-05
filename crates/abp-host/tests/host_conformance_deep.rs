@@ -37,8 +37,8 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, Outcome, ReceiptBuilder, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
+    ReceiptBuilder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
@@ -680,12 +680,10 @@ fn validate_hello_invalid_version_format() {
     };
     let result = validator.validate(&hello);
     assert!(!result.valid, "invalid version format should fail");
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
 }
 
 #[test]

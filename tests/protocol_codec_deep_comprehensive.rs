@@ -39,13 +39,13 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
-    ExecutionMode, Outcome, ReceiptBuilder, SupportLevel, UsageNormalized, WorkOrderBuilder,
-    WorkspaceMode,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
+    Outcome, ReceiptBuilder, SupportLevel, UsageNormalized, WorkOrderBuilder, WorkspaceMode,
+    CONTRACT_VERSION,
 };
 use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
 use serde_json::json;
 
@@ -1882,11 +1882,9 @@ mod validation {
         let (id, run) = run_env("task");
         let seq = vec![run, final_env(&id)];
         let errors = v.validate_sequence(&seq);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::MissingHello))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello)));
     }
 
     #[test]
@@ -1895,11 +1893,9 @@ mod validation {
         let (_, run) = run_env("task");
         let seq = vec![hello_env(), run];
         let errors = v.validate_sequence(&seq);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::MissingTerminal))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal)));
     }
 
     #[test]
@@ -1913,11 +1909,9 @@ mod validation {
             final_env(&id),
         ];
         let errors = v.validate_sequence(&seq);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
     }
 
     #[test]
@@ -1926,27 +1920,21 @@ mod validation {
         let (id, run) = run_env("task");
         let seq = vec![run, hello_env(), final_env(&id)];
         let errors = v.validate_sequence(&seq);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
     }
 
     #[test]
     fn empty_sequence() {
         let v = EnvelopeValidator::new();
         let errors = v.validate_sequence(&[]);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::MissingHello))
-        );
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, SequenceError::MissingTerminal))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello)));
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal)));
     }
 }
 
@@ -1956,7 +1944,7 @@ mod validation {
 
 mod version_negotiation {
     use super::*;
-    use abp_protocol::version::{ProtocolVersion, negotiate_version};
+    use abp_protocol::version::{negotiate_version, ProtocolVersion};
 
     #[test]
     fn parse_valid_version() {
@@ -2405,11 +2393,9 @@ mod batch {
             created_at: "2024-01-01T00:00:00Z".into(),
         };
         let errors = proc.validate_batch(&req);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, BatchValidationError::EmptyBatch))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, BatchValidationError::EmptyBatch)));
     }
 
     #[test]

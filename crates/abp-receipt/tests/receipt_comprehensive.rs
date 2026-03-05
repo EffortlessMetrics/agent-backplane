@@ -10,11 +10,11 @@ use std::time::Duration;
 
 use abp_core::ArtifactRef;
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
-use abp_receipt::verify::{ReceiptAuditor, verify_receipt};
+use abp_receipt::verify::{verify_receipt, ReceiptAuditor};
 use abp_receipt::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, ChainBuilder, ChainError, ExecutionMode, Outcome,
-    Receipt, ReceiptBuilder, ReceiptChain, ReceiptValidator, UsageNormalized, VerificationReport,
-    canonicalize, compute_hash, diff_receipts, verify_hash,
+    canonicalize, compute_hash, diff_receipts, verify_hash, AgentEvent, AgentEventKind,
+    ChainBuilder, ChainError, ExecutionMode, Outcome, Receipt, ReceiptBuilder, ReceiptChain,
+    ReceiptValidator, UsageNormalized, VerificationReport, CONTRACT_VERSION,
 };
 use chrono::{TimeZone, Utc};
 use uuid::Uuid;
@@ -1607,12 +1607,10 @@ fn auditor_detects_duplicate_run_ids() {
     let r2 = ReceiptBuilder::new("b").run_id(id).build();
     let report = auditor.audit_batch(&[r1, r2]);
     assert!(!report.is_clean());
-    assert!(
-        report
-            .issues
-            .iter()
-            .any(|i| i.description.contains("duplicate run_id"))
-    );
+    assert!(report
+        .issues
+        .iter()
+        .any(|i| i.description.contains("duplicate run_id")));
 }
 
 #[test]
@@ -1633,12 +1631,10 @@ fn auditor_detects_overlapping_timeline() {
         .with_hash()
         .unwrap();
     let report = auditor.audit_batch(&[r1, r2]);
-    assert!(
-        report
-            .issues
-            .iter()
-            .any(|i| i.description.contains("overlapping"))
-    );
+    assert!(report
+        .issues
+        .iter()
+        .any(|i| i.description.contains("overlapping")));
 }
 
 #[test]
@@ -1869,24 +1865,18 @@ fn edge_chain_error_display() {
         "broken link at chain index 2"
     );
     let id = Uuid::nil();
-    assert!(
-        ChainError::DuplicateId { id }
-            .to_string()
-            .contains("duplicate")
-    );
-    assert!(
-        ChainError::ParentMismatch { index: 1 }
-            .to_string()
-            .contains("parent hash mismatch")
-    );
-    assert!(
-        ChainError::SequenceGap {
-            expected: 1,
-            actual: 5
-        }
+    assert!(ChainError::DuplicateId { id }
         .to_string()
-        .contains("sequence gap")
-    );
+        .contains("duplicate"));
+    assert!(ChainError::ParentMismatch { index: 1 }
+        .to_string()
+        .contains("parent hash mismatch"));
+    assert!(ChainError::SequenceGap {
+        expected: 1,
+        actual: 5
+    }
+    .to_string()
+    .contains("sequence gap"));
 }
 
 #[test]

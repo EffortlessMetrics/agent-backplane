@@ -4,8 +4,8 @@
 
 use abp_core::Receipt;
 
-use crate::Result;
 use crate::error::StoreError;
+use crate::Result;
 
 /// Export receipts as a single JSON array.
 pub fn export_json(receipts: &[Receipt]) -> Result<String> {

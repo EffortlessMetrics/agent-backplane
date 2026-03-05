@@ -342,11 +342,9 @@ mod tests {
         let result = emulate_system_as_user(&conv);
         assert_eq!(result.notes.len(), 1);
         assert_eq!(result.conversation.messages[0].role, IrRole::User);
-        assert!(
-            result.conversation.messages[0]
-                .text_content()
-                .starts_with("[System]")
-        );
+        assert!(result.conversation.messages[0]
+            .text_content()
+            .starts_with("[System]"));
     }
 
     #[test]
@@ -385,12 +383,10 @@ mod tests {
         assert_eq!(result.notes.len(), 1);
         let asst = &result.conversation.messages[1];
         assert_eq!(asst.content.len(), 1);
-        assert!(
-            !asst
-                .content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-        );
+        assert!(!asst
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
     }
 
     #[test]
@@ -542,17 +538,13 @@ mod tests {
         // System became user
         assert_eq!(r3.conversation.messages[0].role, IrRole::User);
         // Image became placeholder
-        assert!(
-            r3.conversation.messages[1]
-                .text_content()
-                .contains("[Image:")
-        );
+        assert!(r3.conversation.messages[1]
+            .text_content()
+            .contains("[Image:"));
         // Thinking became text
-        assert!(
-            r3.conversation.messages[2]
-                .text_content()
-                .contains("[Thinking]")
-        );
+        assert!(r3.conversation.messages[2]
+            .text_content()
+            .contains("[Thinking]"));
 
         // Collect all notes
         let all_notes: Vec<_> = r1

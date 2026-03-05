@@ -118,7 +118,7 @@ fn openai_chat_completion_request_builder() {
 
 #[test]
 fn openai_function_calling_tools() {
-    use abp_shim_openai::{Tool, tools_to_ir};
+    use abp_shim_openai::{tools_to_ir, Tool};
 
     let tools = vec![Tool::function(
         "get_weather",
@@ -134,7 +134,7 @@ fn openai_function_calling_tools() {
 
 #[test]
 fn openai_request_to_ir_conversion() {
-    use abp_shim_openai::{ChatCompletionRequest, Message, request_to_ir};
+    use abp_shim_openai::{request_to_ir, ChatCompletionRequest, Message};
 
     let req = ChatCompletionRequest::builder()
         .model("gpt-4o")
@@ -150,7 +150,7 @@ fn openai_request_to_ir_conversion() {
 
 #[test]
 fn openai_request_to_work_order() {
-    use abp_shim_openai::{ChatCompletionRequest, Message, request_to_work_order};
+    use abp_shim_openai::{request_to_work_order, ChatCompletionRequest, Message};
 
     let req = ChatCompletionRequest::builder()
         .model("gpt-4o")
@@ -192,7 +192,7 @@ fn openai_events_to_stream_events() {
 
 #[test]
 fn openai_messages_roundtrip_ir() {
-    use abp_shim_openai::{Message, ir_to_messages, messages_to_ir};
+    use abp_shim_openai::{ir_to_messages, messages_to_ir, Message};
 
     let messages = vec![Message::user("Hello"), Message::assistant("World")];
 
@@ -215,7 +215,7 @@ fn openai_ir_usage_conversion() {
 
 #[test]
 fn openai_system_message_handling() {
-    use abp_shim_openai::{ChatCompletionRequest, Message, request_to_ir};
+    use abp_shim_openai::{request_to_ir, ChatCompletionRequest, Message};
 
     let req = ChatCompletionRequest::builder()
         .messages(vec![Message::system("Be concise"), Message::user("Hi")])
@@ -330,7 +330,7 @@ fn claude_thinking_content_block() {
 
 #[test]
 fn claude_system_prompt_in_request() {
-    use abp_shim_claude::{ContentBlock, Message, MessageRequest, Role, request_to_work_order};
+    use abp_shim_claude::{request_to_work_order, ContentBlock, Message, MessageRequest, Role};
 
     let req = MessageRequest {
         model: "claude-sonnet-4-20250514".into(),
@@ -354,7 +354,7 @@ fn claude_system_prompt_in_request() {
 
 #[test]
 fn claude_content_block_ir_roundtrip() {
-    use abp_shim_claude::{ContentBlock, content_block_from_ir, content_block_to_ir};
+    use abp_shim_claude::{content_block_from_ir, content_block_to_ir, ContentBlock};
 
     let block = ContentBlock::Text {
         text: "test".into(),
@@ -366,7 +366,7 @@ fn claude_content_block_ir_roundtrip() {
 
 #[test]
 fn claude_message_to_ir() {
-    use abp_shim_claude::{ContentBlock, Message, Role, message_to_ir};
+    use abp_shim_claude::{message_to_ir, ContentBlock, Message, Role};
 
     let msg = Message {
         role: Role::User,
@@ -381,7 +381,7 @@ fn claude_message_to_ir() {
 
 #[test]
 fn claude_request_to_claude_sdk() {
-    use abp_shim_claude::{ContentBlock, Message, MessageRequest, Role, request_to_claude};
+    use abp_shim_claude::{request_to_claude, ContentBlock, Message, MessageRequest, Role};
 
     let req = MessageRequest {
         model: "claude-sonnet-4-20250514".into(),
@@ -404,7 +404,7 @@ fn claude_request_to_claude_sdk() {
 
 #[test]
 fn claude_request_to_work_order() {
-    use abp_shim_claude::{ContentBlock, Message, MessageRequest, Role, request_to_work_order};
+    use abp_shim_claude::{request_to_work_order, ContentBlock, Message, MessageRequest, Role};
 
     let req = MessageRequest {
         model: "claude-sonnet-4-20250514".into(),
@@ -466,7 +466,7 @@ fn claude_stream_event_variants() {
 
 #[test]
 fn claude_image_source_handling() {
-    use abp_shim_claude::{ContentBlock, ImageSource, content_block_from_ir, content_block_to_ir};
+    use abp_shim_claude::{content_block_from_ir, content_block_to_ir, ContentBlock, ImageSource};
 
     let block = ContentBlock::Image {
         source: ImageSource::Base64 {
@@ -580,7 +580,7 @@ fn gemini_generation_config() {
 
 #[test]
 fn gemini_to_dialect_request() {
-    use abp_shim_gemini::{Content, GenerateContentRequest, Part, to_dialect_request};
+    use abp_shim_gemini::{to_dialect_request, Content, GenerateContentRequest, Part};
 
     let req = GenerateContentRequest::new("gemini-2.5-flash")
         .add_content(Content::user(vec![Part::text("Hello")]));
@@ -675,7 +675,7 @@ fn gemini_tool_declarations() {
 
 #[test]
 fn gemini_usage_to_ir() {
-    use abp_shim_gemini::{UsageMetadata, usage_to_ir};
+    use abp_shim_gemini::{usage_to_ir, UsageMetadata};
 
     let usage = UsageMetadata {
         prompt_token_count: 50,
@@ -691,7 +691,7 @@ fn gemini_usage_to_ir() {
 
 #[test]
 fn gemini_usage_roundtrip_ir() {
-    use abp_shim_gemini::{UsageMetadata, usage_from_ir, usage_to_ir};
+    use abp_shim_gemini::{usage_from_ir, usage_to_ir, UsageMetadata};
 
     let original = UsageMetadata {
         prompt_token_count: 100,
@@ -757,7 +757,7 @@ fn kimi_search_integration() {
 
 #[test]
 fn kimi_request_to_ir() {
-    use abp_shim_kimi::{KimiRequestBuilder, Message, request_to_ir};
+    use abp_shim_kimi::{request_to_ir, KimiRequestBuilder, Message};
 
     let req = KimiRequestBuilder::new()
         .messages(vec![Message::user("Hello")])
@@ -769,7 +769,7 @@ fn kimi_request_to_ir() {
 
 #[test]
 fn kimi_request_to_work_order() {
-    use abp_shim_kimi::{KimiRequestBuilder, Message, request_to_work_order};
+    use abp_shim_kimi::{request_to_work_order, KimiRequestBuilder, Message};
 
     let req = KimiRequestBuilder::new()
         .model("moonshot-v1-8k")
@@ -796,7 +796,7 @@ fn kimi_receipt_to_response() {
 
 #[test]
 fn kimi_messages_roundtrip() {
-    use abp_shim_kimi::{Message, ir_to_messages, messages_to_ir};
+    use abp_shim_kimi::{ir_to_messages, messages_to_ir, Message};
 
     let messages = vec![Message::user("Hello"), Message::assistant("Hi")];
 
@@ -823,7 +823,7 @@ fn kimi_usage_conversion() {
 
 #[test]
 fn codex_request_builder() {
-    use abp_shim_codex::{CodexRequestBuilder, codex_message};
+    use abp_shim_codex::{codex_message, CodexRequestBuilder};
 
     let req = CodexRequestBuilder::new()
         .model("codex-mini-latest")
@@ -848,7 +848,7 @@ fn codex_message_helper() {
 
 #[test]
 fn codex_request_to_ir() {
-    use abp_shim_codex::{CodexRequestBuilder, codex_message, request_to_ir};
+    use abp_shim_codex::{codex_message, request_to_ir, CodexRequestBuilder};
 
     let req = CodexRequestBuilder::new()
         .input(vec![codex_message("user", "code a parser")])
@@ -860,7 +860,7 @@ fn codex_request_to_ir() {
 
 #[test]
 fn codex_request_to_work_order() {
-    use abp_shim_codex::{CodexRequestBuilder, codex_message, request_to_work_order};
+    use abp_shim_codex::{codex_message, request_to_work_order, CodexRequestBuilder};
 
     let req = CodexRequestBuilder::new()
         .model("codex-mini-latest")
@@ -953,7 +953,7 @@ fn copilot_request_builder() {
 
 #[test]
 fn copilot_request_to_ir() {
-    use abp_shim_copilot::{CopilotRequestBuilder, Message, request_to_ir};
+    use abp_shim_copilot::{request_to_ir, CopilotRequestBuilder, Message};
 
     let req = CopilotRequestBuilder::new()
         .messages(vec![Message::user("Hello")])
@@ -965,7 +965,7 @@ fn copilot_request_to_ir() {
 
 #[test]
 fn copilot_request_to_work_order() {
-    use abp_shim_copilot::{CopilotRequestBuilder, Message, request_to_work_order};
+    use abp_shim_copilot::{request_to_work_order, CopilotRequestBuilder, Message};
 
     let req = CopilotRequestBuilder::new()
         .model("gpt-4o")
@@ -1002,7 +1002,7 @@ fn copilot_events_to_stream() {
 
 #[test]
 fn copilot_messages_roundtrip() {
-    use abp_shim_copilot::{Message, ir_to_messages, messages_to_ir};
+    use abp_shim_copilot::{ir_to_messages, messages_to_ir, Message};
 
     let messages = vec![Message::user("Hello"), Message::assistant("Hi there")];
 

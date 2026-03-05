@@ -15,10 +15,10 @@ use tokio_stream::StreamExt;
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_error::ErrorCode;
 use abp_stream::{
-    BufferedStream, EventCollector, EventFilter, EventMultiplexer, EventRecorder, EventStats,
-    EventStream, EventTransform, MergedStream, StreamAggregator, StreamBuffer, StreamMetrics,
-    StreamPipeline, StreamPipelineBuilder, StreamSummary, StreamTee, TeeError, TimeoutStream,
-    event_kind_name,
+    event_kind_name, BufferedStream, EventCollector, EventFilter, EventMultiplexer, EventRecorder,
+    EventStats, EventStream, EventTransform, MergedStream, StreamAggregator, StreamBuffer,
+    StreamMetrics, StreamPipeline, StreamPipelineBuilder, StreamSummary, StreamTee, TeeError,
+    TimeoutStream,
 };
 
 // =========================================================================

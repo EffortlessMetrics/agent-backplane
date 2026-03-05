@@ -14,7 +14,7 @@ use abp_host::pool::{PoolConfig, PoolEntry, PoolEntryState, PoolStats, SidecarPo
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
 use abp_host::retry::{
-    RetryAttempt, RetryConfig, RetryMetadata, RetryOutcome, compute_delay, is_retryable,
+    compute_delay, is_retryable, RetryAttempt, RetryConfig, RetryMetadata, RetryOutcome,
 };
 use abp_host::{HostError, SidecarClient, SidecarHello, SidecarSpec};
 use abp_protocol::{Envelope, JsonlCodec};

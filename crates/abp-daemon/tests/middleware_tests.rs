@@ -28,13 +28,13 @@
 #![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 use abp_daemon::middleware::{
-    BearerAuth, CorsConfig, RateLimiter, RequestId, RequestLogger, request_id_middleware,
+    request_id_middleware, BearerAuth, CorsConfig, RateLimiter, RequestId, RequestLogger,
 };
-use axum::Router;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use axum::middleware;
 use axum::routing::get;
+use axum::Router;
 use http_body_util::BodyExt;
 use std::collections::HashSet;
 use std::time::Duration;
@@ -108,7 +108,7 @@ async fn request_id_available_as_extension() {
     let app = Router::new()
         .route(
             "/ext",
-            get(|ext: axum::Extension<RequestId>| async move { ext.0.0.to_string() }),
+            get(|ext: axum::Extension<RequestId>| async move { ext.0 .0.to_string() }),
         )
         .layer(middleware::from_fn(request_id_middleware));
 

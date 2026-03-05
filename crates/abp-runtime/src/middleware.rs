@@ -6,16 +6,16 @@
 //!
 //! Built-in implementations:
 //!
-//! - [`LoggingMiddleware`] — structured `tracing` output with configurable verbosity
-//! - [`TelemetryMiddleware`] — records timing/outcomes in `RunMetrics`
-//! - [`PolicyMiddleware`] — validates the work order against its policy
-//! - [`MetricsMiddleware`] — collects timing and token usage metrics
-//! - [`RateLimitMiddleware`] — per-request rate limiting via `abp-ratelimit`
-//! - [`CachingMiddleware`] — optional response caching with TTL and key strategy
-//! - [`RetryMiddleware`] — automatic retry planning with `RecoveryExecutor`
-//! - [`ValidationMiddleware`] — validates work orders against schema
-//! - [`TransformMiddleware`] — request/response transformation hooks
-//! - [`AuditMiddleware`] — records processed work order ids
+//! - `LoggingMiddleware` — structured `tracing` output with configurable verbosity
+//! - `TelemetryMiddleware` — records timing/outcomes in `RunMetrics`
+//! - `PolicyMiddleware` — validates the work order against its policy
+//! - `MetricsMiddleware` — collects timing and token usage metrics
+//! - `RateLimitMiddleware` — per-request rate limiting via `abp-ratelimit`
+//! - `CachingMiddleware` — optional response caching with TTL and key strategy
+//! - `RetryMiddleware` — automatic retry planning with `RecoveryExecutor`
+//! - `ValidationMiddleware` — validates work orders against schema
+//! - `TransformMiddleware` — request/response transformation hooks
+//! - `AuditMiddleware` — records processed work order ids
 
 use abp_core::{Receipt, WorkOrder};
 use abp_error::recovery::{RecoveryExecutor, RecoveryReport};

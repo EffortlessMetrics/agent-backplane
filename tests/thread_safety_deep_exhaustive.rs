@@ -17,14 +17,14 @@ use abp_capability::registry::{CapabilitySet, SharedCapabilityRegistry};
 use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, Outcome, Receipt, SupportLevel,
 };
-use abp_dialect::Dialect;
 use abp_dialect::registry::DialectRegistry;
+use abp_dialect::Dialect;
 use abp_ratelimit::{
     AdaptiveLimiter, CircuitBreaker, CircuitState, ModelLimitResult, ModelRateLimiter,
     RateLimitPolicy, TokenBucket,
 };
 use abp_receipt::audit_trail::{AuditAction, AuditTrail};
-use abp_receipt::{ReceiptBuilder, ReceiptChain, compute_hash};
+use abp_receipt::{compute_hash, ReceiptBuilder, ReceiptChain};
 use abp_stream::{FanOut, ReplayBuffer};
 
 // ---------------------------------------------------------------------------

@@ -38,7 +38,7 @@ use abp_core::filter::EventFilter;
 use abp_core::stream::EventStream;
 use abp_core::{AgentEvent, AgentEventKind};
 use chrono::{DateTime, TimeZone, Utc};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -45,9 +45,9 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 use abp_mapper::{
-    ClaudeGeminiIrMapper, ClaudeKimiIrMapper, CodexClaudeIrMapper, GeminiKimiIrMapper, IrMapper,
-    MapError, OpenAiClaudeIrMapper, OpenAiCodexIrMapper, OpenAiCopilotIrMapper,
-    OpenAiGeminiIrMapper, OpenAiKimiIrMapper, default_ir_mapper, supported_ir_pairs,
+    default_ir_mapper, supported_ir_pairs, ClaudeGeminiIrMapper, ClaudeKimiIrMapper,
+    CodexClaudeIrMapper, GeminiKimiIrMapper, IrMapper, MapError, OpenAiClaudeIrMapper,
+    OpenAiCodexIrMapper, OpenAiCopilotIrMapper, OpenAiGeminiIrMapper, OpenAiKimiIrMapper,
 };
 use serde_json::json;
 
@@ -407,12 +407,10 @@ fn oai_claude_image_preserved() {
     let back = m
         .map_request(Dialect::Claude, Dialect::OpenAi, &mid)
         .unwrap();
-    assert!(
-        back.messages[0]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::Image { .. }))
-    );
+    assert!(back.messages[0]
+        .content
+        .iter()
+        .any(|b| matches!(b, IrContentBlock::Image { .. })));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -568,12 +566,10 @@ fn oai_gemini_image_preserved() {
     let back = m
         .map_request(Dialect::Gemini, Dialect::OpenAi, &mid)
         .unwrap();
-    assert!(
-        back.messages[0]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::Image { .. }))
-    );
+    assert!(back.messages[0]
+        .content
+        .iter()
+        .any(|b| matches!(b, IrContentBlock::Image { .. })));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -689,12 +685,10 @@ fn claude_gemini_image_roundtrip() {
     let back = m
         .map_request(Dialect::Gemini, Dialect::Claude, &mid)
         .unwrap();
-    assert!(
-        back.messages[0]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::Image { .. }))
-    );
+    assert!(back.messages[0]
+        .content
+        .iter()
+        .any(|b| matches!(b, IrContentBlock::Image { .. })));
 }
 
 // ═══════════════════════════════════════════════════════════════════════

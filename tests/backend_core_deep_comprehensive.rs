@@ -42,15 +42,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use abp_backend_core::{
-    Backend, ensure_capability_requirements, extract_execution_mode,
-    validate_passthrough_compatibility,
+    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
+    Backend,
 };
 use abp_backend_mock::MockBackend;
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionMode,
     MinSupport, Outcome, PolicyProfile, Receipt, SupportLevel, WorkOrder, WorkOrderBuilder,
-    receipt_hash,
+    CONTRACT_VERSION,
 };
 use abp_host::SidecarSpec;
 use abp_integrations::capability::CapabilityMatrix;

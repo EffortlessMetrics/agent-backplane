@@ -13,7 +13,7 @@ pub use health::{BackendHealth, HealthStatus};
 pub use metadata::{BackendMetadata, RateLimit};
 pub use metrics::BackendMetrics;
 pub use registry::BackendRegistry;
-pub use selection::{SelectionStrategy, select_backend};
+pub use selection::{select_backend, SelectionStrategy};
 
 use abp_core::{
     AgentEvent, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode,

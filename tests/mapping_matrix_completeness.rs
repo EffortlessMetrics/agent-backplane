@@ -32,7 +32,7 @@
 //! for all SDK pairs, with correct fidelity annotations for every cell.
 
 use abp_dialect::Dialect;
-use abp_mapping::{Fidelity, MappingMatrix, MappingRule, features, known_rules, validate_mapping};
+use abp_mapping::{features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRule};
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -576,7 +576,7 @@ fn total_rule_count_matches_expected() {
     let reg = known_rules();
     let n_dialects = Dialect::all().len(); // 6
     let n_features = ALL_FEATURES.len(); // 5
-    // Total: n_dialects * n_dialects * n_features (self + cross)
+                                         // Total: n_dialects * n_dialects * n_features (self + cross)
     let expected = n_dialects * n_dialects * n_features;
     assert_eq!(
         reg.len(),

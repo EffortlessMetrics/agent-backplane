@@ -38,9 +38,9 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement,
-    CapabilityRequirements, ContextPacket, ExecutionLane, MinSupport, Outcome, PolicyProfile,
-    RuntimeConfig, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
+    AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
+    ContextPacket, ExecutionLane, MinSupport, Outcome, PolicyProfile, RuntimeConfig, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_runtime::cancel::{CancellableRun, CancellationReason, CancellationToken};
 use abp_runtime::multiplex::EventMultiplexer;
@@ -139,16 +139,12 @@ async fn full_pipeline_events_include_start_and_complete() {
     )
     .await;
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. }))
-    );
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. })));
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
 }
 
 #[tokio::test]
@@ -169,11 +165,9 @@ async fn full_pipeline_receipt_outcome_is_complete() {
 async fn full_pipeline_events_contain_assistant_messages() {
     let rt = Runtime::with_default_backends();
     let (events, _) = drain(rt.run_streaming("mock", wo("assistant msg")).await.unwrap()).await;
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. })));
 }
 
 #[tokio::test]

@@ -2,12 +2,12 @@
 //! Integration tests for the hot-reload pipeline:
 //! ConfigWatcher → diff → analyze → policy → transaction → history.
 
-use abp_config::BackplaneConfig;
 use abp_config::diff_analyzer::{ConfigDiffAnalyzer, Impact};
 use abp_config::hot_reload_policy::HotReloadPolicy;
 use abp_config::store::ConfigStore;
 use abp_config::transaction::{ConfigHistory, ConfigTransaction};
 use abp_config::watcher::ConfigWatcher;
+use abp_config::BackplaneConfig;
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::sync::{Arc, Mutex};

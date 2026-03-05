@@ -47,9 +47,9 @@
 //! ```
 
 use abp_core::{
-    AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirements, ContextPacket,
-    ExecutionLane, Outcome, PolicyProfile, RuntimeConfig, SupportLevel, WorkOrder, WorkspaceMode,
-    WorkspaceSpec,
+    AgentEventKind, Capability, CapabilityRequirements, ContextPacket, ExecutionLane, Outcome,
+    PolicyProfile, RuntimeConfig, SupportLevel, WorkOrder, WorkspaceMode, WorkspaceSpec,
+    CONTRACT_VERSION,
 };
 use abp_host::{SidecarClient, SidecarSpec};
 use std::time::Duration;

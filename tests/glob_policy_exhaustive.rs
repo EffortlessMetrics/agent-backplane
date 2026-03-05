@@ -4,7 +4,7 @@
 //! Exhaustive test suite for `abp-glob` and `abp-policy` crates.
 
 use abp_core::{Capability, PolicyProfile};
-use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
+use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
 use abp_policy::{Decision, PolicyEngine};
 use std::path::Path;
 

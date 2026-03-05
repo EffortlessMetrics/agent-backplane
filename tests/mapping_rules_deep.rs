@@ -42,8 +42,8 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_dialect::Dialect;
 use abp_mapping::{
-    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
-    features, known_rules, validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
+    MappingRegistry, MappingRule, MappingValidation,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1150,10 +1150,9 @@ mod registry_lookup {
     #[test]
     fn lookup_missing_rule() {
         let reg = MappingRegistry::new();
-        assert!(
-            reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-                .is_none()
-        );
+        assert!(reg
+            .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+            .is_none());
     }
 
     #[test]
@@ -1165,10 +1164,9 @@ mod registry_lookup {
             feature: "tool_use".into(),
             fidelity: Fidelity::Lossless,
         });
-        assert!(
-            reg.lookup(Dialect::Claude, Dialect::Claude, "tool_use")
-                .is_none()
-        );
+        assert!(reg
+            .lookup(Dialect::Claude, Dialect::Claude, "tool_use")
+            .is_none());
     }
 
     #[test]
@@ -1180,10 +1178,9 @@ mod registry_lookup {
             feature: "tool_use".into(),
             fidelity: Fidelity::Lossless,
         });
-        assert!(
-            reg.lookup(Dialect::OpenAi, Dialect::Gemini, "tool_use")
-                .is_none()
-        );
+        assert!(reg
+            .lookup(Dialect::OpenAi, Dialect::Gemini, "tool_use")
+            .is_none());
     }
 
     #[test]
@@ -1195,10 +1192,9 @@ mod registry_lookup {
             feature: "tool_use".into(),
             fidelity: Fidelity::Lossless,
         });
-        assert!(
-            reg.lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
-                .is_none()
-        );
+        assert!(reg
+            .lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
+            .is_none());
     }
 
     #[test]
@@ -1473,10 +1469,9 @@ mod composition {
             fidelity: Fidelity::Lossless,
         });
         assert_eq!(reg.len(), initial_len + 1);
-        assert!(
-            reg.lookup(Dialect::OpenAi, Dialect::Claude, "custom_feature")
-                .is_some()
-        );
+        assert!(reg
+            .lookup(Dialect::OpenAi, Dialect::Claude, "custom_feature")
+            .is_some());
     }
 
     #[test]

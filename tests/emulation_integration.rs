@@ -32,9 +32,9 @@
 //! capability behavior across the `abp-emulation` and `abp-capability` crates.
 
 use abp_capability::{
-    CapabilityRegistry, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
-    gemini_15_pro_manifest, generate_report, kimi_manifest, negotiate_capabilities,
-    openai_gpt4o_manifest,
+    claude_35_sonnet_manifest, codex_manifest, copilot_manifest, gemini_15_pro_manifest,
+    generate_report, kimi_manifest, negotiate_capabilities, openai_gpt4o_manifest,
+    CapabilityRegistry,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
@@ -42,10 +42,10 @@ use abp_emulation::strategies::{
     StreamingEmulation, ThinkingEmulation, ToolUseEmulation, VisionEmulation,
 };
 use abp_emulation::{
-    EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy,
-    FidelityLabel, apply_emulation, can_emulate, compute_fidelity, emulate_code_execution,
+    apply_emulation, can_emulate, compute_fidelity, emulate_code_execution,
     emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
-    emulate_structured_output,
+    emulate_structured_output, EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport,
+    EmulationStrategy, FidelityLabel,
 };
 
 // =========================================================================
@@ -132,16 +132,12 @@ mod emulation_registration {
         );
         config.set(Capability::CodeExecution, emulate_code_execution());
         assert_eq!(config.strategies.len(), 3);
-        assert!(
-            config
-                .strategies
-                .contains_key(&Capability::ExtendedThinking)
-        );
-        assert!(
-            config
-                .strategies
-                .contains_key(&Capability::StructuredOutputJsonSchema)
-        );
+        assert!(config
+            .strategies
+            .contains_key(&Capability::ExtendedThinking));
+        assert!(config
+            .strategies
+            .contains_key(&Capability::StructuredOutputJsonSchema));
         assert!(config.strategies.contains_key(&Capability::CodeExecution));
     }
 
@@ -269,12 +265,11 @@ mod emulation_execution {
 
         assert_eq!(report.applied.len(), 1);
         assert!(conv.system_message().is_some());
-        assert!(
-            conv.system_message()
-                .unwrap()
-                .text_content()
-                .contains("XML tags")
-        );
+        assert!(conv
+            .system_message()
+            .unwrap()
+            .text_content()
+            .contains("XML tags"));
     }
 
     #[test]

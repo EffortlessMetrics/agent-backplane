@@ -36,8 +36,8 @@
 use std::collections::BTreeMap;
 
 use abp_capability::{
-    CompatibilityReport, NegotiationResult, SupportLevel as CapSupportLevel, check_capability,
-    generate_report, negotiate,
+    check_capability, generate_report, negotiate, CompatibilityReport, NegotiationResult,
+    SupportLevel as CapSupportLevel,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -1085,12 +1085,10 @@ fn multi_backend_incompatible_still_in_fallback() {
     ]));
     let result = pm.project(&wo).unwrap();
     assert_eq!(result.selected_backend, "compatible");
-    assert!(
-        result
-            .fallback_chain
-            .iter()
-            .any(|e| e.backend_id == "partial")
-    );
+    assert!(result
+        .fallback_chain
+        .iter()
+        .any(|e| e.backend_id == "partial"));
 }
 
 #[test]

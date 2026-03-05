@@ -4,7 +4,7 @@
 //! [`WorkspaceMerge`] compares a set of *branch* workspace snapshots against a
 //! common *base* snapshot and produces a merged result directory.
 
-use crate::snapshot::{self, FileSnapshot, SnapshotContents, WorkspaceSnapshot};
+use crate::snapshot::{self, SnapshotContents, WorkspaceSnapshot};
 use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -113,7 +113,8 @@ impl WorkspaceMerge {
         }
 
         // Track which branches touched which files, and what content.
-        let mut file_branches: BTreeMap<PathBuf, Vec<(usize, Option<Vec<u8>>)>> = BTreeMap::new();
+        type FileBranches = BTreeMap<PathBuf, Vec<(usize, Option<Vec<u8>>)>>;
+        let mut file_branches: FileBranches = BTreeMap::new();
 
         for (idx, (snap, contents)) in branches.iter().enumerate() {
             let diff = snapshot::compare(base, snap);
@@ -166,7 +167,7 @@ impl WorkspaceMerge {
                 if has_delete && has_modify {
                     conflict_count += 1;
                     let outcome = MergeOutcome::DeleteModifyConflict;
-                    let chosen = self.resolve_conflict(&touches, &mut merged, path);
+                    let chosen = self.resolve_conflict(touches, &mut merged, path);
                     report_files.push(FileMergeResult {
                         path: path.clone(),
                         outcome,
@@ -195,7 +196,7 @@ impl WorkspaceMerge {
                         });
                     } else {
                         conflict_count += 1;
-                        let chosen = self.resolve_conflict(&touches, &mut merged, path);
+                        let chosen = self.resolve_conflict(touches, &mut merged, path);
                         report_files.push(FileMergeResult {
                             path: path.clone(),
                             outcome: MergeOutcome::Conflict,

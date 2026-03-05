@@ -4,7 +4,6 @@
 //! [`WorkspaceLifecycle`] tracks workspace registrations and provides
 //! expiry-based cleanup so that stale temporary directories do not accumulate.
 
-use anyhow::{Context, Result};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -155,7 +154,7 @@ impl WorkspaceLifecycle {
     /// Returns `true` if the workspace was found and extended.
     pub fn extend_ttl(&mut self, path: impl AsRef<Path>, extra_secs: i64) -> bool {
         if let Some(rec) = self.workspaces.get_mut(path.as_ref()) {
-            rec.expires_at = rec.expires_at + Duration::seconds(extra_secs);
+            rec.expires_at += Duration::seconds(extra_secs);
             true
         } else {
             false

@@ -28,8 +28,8 @@
 #![allow(clippy::useless_vec, clippy::needless_borrows_for_generic_args)]
 
 use abp_capability::{
-    CompatibilityReport, NegotiationResult, SupportLevel as CapSupportLevel, check_capability,
-    generate_report, negotiate,
+    check_capability, generate_report, negotiate, CompatibilityReport, NegotiationResult,
+    SupportLevel as CapSupportLevel,
 };
 use abp_core::negotiate::{
     CapabilityDiff, CapabilityNegotiator, CapabilityReport, CapabilityReportEntry,

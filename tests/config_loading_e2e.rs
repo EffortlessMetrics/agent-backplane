@@ -35,8 +35,8 @@
 //! values because parallel tests may set `ABP_*` variables concurrently.
 
 use abp_config::{
-    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
-    merge_configs, parse_toml, validate_config,
+    apply_env_overrides, load_config, merge_configs, parse_toml, validate_config, BackendEntry,
+    BackplaneConfig, ConfigError, ConfigWarning,
 };
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -757,11 +757,9 @@ fn validate_empty_sidecar_command() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
 }
 
 #[test]
@@ -776,11 +774,9 @@ fn validate_whitespace_only_sidecar_command() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
 }
 
 #[test]

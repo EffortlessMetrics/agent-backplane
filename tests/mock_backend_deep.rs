@@ -36,9 +36,8 @@ use std::sync::Arc;
 use abp_backend_core::{BackendHealth, BackendMetadata, BackendRegistry, HealthStatus, RateLimit};
 use abp_backend_mock::MockBackend;
 use abp_core::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement,
-    CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt, SupportLevel,
-    WorkOrderBuilder,
+    AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
+    ExecutionMode, MinSupport, Outcome, Receipt, SupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_integrations::Backend;
 use tokio::sync::mpsc;

@@ -37,15 +37,16 @@ use std::io::BufReader;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode,
+    CONTRACT_VERSION,
 };
 use abp_error::ErrorCode;
-use abp_policy::PolicyEngine;
 use abp_policy::rate_limit::{RateLimitPolicy, RateLimitResult};
-use abp_protocol::{Envelope, JsonlCodec, is_compatible_version};
-use abp_receipt::{ReceiptChain, compute_hash, verify_hash};
+use abp_policy::PolicyEngine;
+use abp_protocol::{is_compatible_version, Envelope, JsonlCodec};
+use abp_receipt::{compute_hash, verify_hash, ReceiptChain};
 use abp_runtime::{Runtime, RuntimeError};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -653,13 +654,11 @@ fn feature_policy_denied_tool_not_in_allowlist() {
 
         then!("Write is denied because it is not in allowlist", {
             assert!(!decision.allowed);
-            assert!(
-                decision
-                    .reason
-                    .as_deref()
-                    .unwrap()
-                    .contains("not in allowlist")
-            );
+            assert!(decision
+                .reason
+                .as_deref()
+                .unwrap()
+                .contains("not in allowlist"));
         });
     });
 }

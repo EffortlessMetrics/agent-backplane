@@ -32,8 +32,8 @@
 
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_mapping::{
-    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
-    features, known_rules, validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
+    MappingRegistry, MappingRule, MappingValidation,
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -110,10 +110,9 @@ fn registry_lookup_existing() {
 #[test]
 fn registry_lookup_missing_returns_none() {
     let reg = MappingRegistry::new();
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+        .is_none());
 }
 
 #[test]
@@ -126,10 +125,9 @@ fn registry_lookup_wrong_direction() {
         Fidelity::Lossless,
     ));
     // Reverse direction should not match.
-    assert!(
-        reg.lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
+        .is_none());
 }
 
 #[test]
@@ -141,10 +139,9 @@ fn registry_lookup_wrong_feature() {
         "tool_use",
         Fidelity::Lossless,
     ));
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
+        .is_none());
 }
 
 #[test]
@@ -165,12 +162,11 @@ fn registry_insert_replaces_same_key() {
         },
     ));
     assert_eq!(reg.len(), 1);
-    assert!(
-        !reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-            .unwrap()
-            .fidelity
-            .is_lossless()
-    );
+    assert!(!reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+        .unwrap()
+        .fidelity
+        .is_lossless());
 }
 
 #[test]
@@ -387,12 +383,10 @@ fn validate_lossy_feature_produces_fidelity_loss_error() {
     );
     assert_eq!(results.len(), 1);
     assert!(!results[0].fidelity.is_lossless());
-    assert!(
-        results[0]
-            .errors
-            .iter()
-            .any(|e| matches!(e, MappingError::FidelityLoss { .. }))
-    );
+    assert!(results[0]
+        .errors
+        .iter()
+        .any(|e| matches!(e, MappingError::FidelityLoss { .. })));
 }
 
 #[test]
@@ -406,12 +400,10 @@ fn validate_unsupported_feature_produces_error() {
     );
     assert_eq!(results.len(), 1);
     assert!(results[0].fidelity.is_unsupported());
-    assert!(
-        results[0]
-            .errors
-            .iter()
-            .any(|e| matches!(e, MappingError::FeatureUnsupported { .. }))
-    );
+    assert!(results[0]
+        .errors
+        .iter()
+        .any(|e| matches!(e, MappingError::FeatureUnsupported { .. })));
 }
 
 #[test]
@@ -438,12 +430,10 @@ fn validate_empty_feature_name_returns_invalid_input() {
     let reg = known_rules();
     let results = validate_mapping(&reg, Dialect::OpenAi, Dialect::Claude, &["".into()]);
     assert_eq!(results.len(), 1);
-    assert!(
-        results[0]
-            .errors
-            .iter()
-            .any(|e| matches!(e, MappingError::InvalidInput { .. }))
-    );
+    assert!(results[0]
+        .errors
+        .iter()
+        .any(|e| matches!(e, MappingError::InvalidInput { .. })));
 }
 
 #[test]

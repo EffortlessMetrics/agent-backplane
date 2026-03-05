@@ -47,7 +47,7 @@
 use std::collections::BTreeMap;
 
 use abp_core::ir::{IrContentBlock, IrRole, IrUsage};
-use abp_core::{AgentEvent, AgentEventKind, CONTRACT_VERSION, UsageNormalized, WorkOrderBuilder};
+use abp_core::{AgentEvent, AgentEventKind, UsageNormalized, WorkOrderBuilder, CONTRACT_VERSION};
 use abp_dialect::Dialect;
 use abp_kimi_sdk::dialect::{
     self, CanonicalToolDef, KimiBuiltinFunction, KimiBuiltinTool, KimiChoice, KimiChunk,
@@ -56,11 +56,11 @@ use abp_kimi_sdk::dialect::{
     KimiResponseMessage, KimiRole, KimiTool, KimiToolCall, KimiUsage, ToolCallAccumulator,
 };
 use abp_kimi_sdk::lowering;
-use abp_mapping::{Fidelity, MappingError, features, known_rules, validate_mapping};
+use abp_mapping::{features, known_rules, validate_mapping, Fidelity, MappingError};
 use abp_shim_kimi::{
-    KimiClient, KimiRequestBuilder, Message, ProcessFn, events_to_stream_chunks, ir_to_messages,
-    ir_usage_to_usage, messages_to_ir, mock_receipt, mock_receipt_with_usage, receipt_to_response,
-    request_to_work_order, response_to_ir,
+    events_to_stream_chunks, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
+    mock_receipt_with_usage, receipt_to_response, request_to_work_order, response_to_ir,
+    KimiClient, KimiRequestBuilder, Message, ProcessFn,
 };
 use chrono::Utc;
 use serde_json::json;

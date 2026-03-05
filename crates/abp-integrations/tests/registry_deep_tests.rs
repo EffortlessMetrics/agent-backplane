@@ -7,9 +7,7 @@
 use abp_core::Capability;
 use abp_integrations::discovery::{BackendDiscovery, DiscoveryError};
 use abp_integrations::health::{BackendHealthTracker, HealthStatus};
-use abp_integrations::metrics::{
-    BackendMetrics, ExtendedBackendMetrics, LatencyTracker, MetricsRegistry,
-};
+use abp_integrations::metrics::{ExtendedBackendMetrics, LatencyTracker};
 use abp_integrations::pool::{BackendPool, PoolConfig, PoolError};
 use abp_integrations::selector::{
     BackendCandidate, BackendHealth, BackendSelector, SelectionStrategy,

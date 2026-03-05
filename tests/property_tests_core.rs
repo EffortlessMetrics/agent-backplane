@@ -35,11 +35,11 @@ use std::path::Path;
 
 use abp_core::negotiate::{CapabilityNegotiator, NegotiationRequest};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig,
-    SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, canonical_json,
-    receipt_hash,
+    canonical_json, receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity,
+    Capability, CapabilityManifest, CapabilityRequirements, ContextPacket, ContextSnippet,
+    ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
+    RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
+    CONTRACT_VERSION,
 };
 use abp_policy::PolicyEngine;
 use abp_protocol::{Envelope, JsonlCodec};

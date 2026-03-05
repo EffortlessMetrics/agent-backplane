@@ -39,7 +39,7 @@
 // ============================================================================
 mod core_mutations {
     use abp_core::config::{ConfigDefaults, ConfigValidator, WarningSeverity};
-    use abp_core::validate::{ValidationError, validate_receipt};
+    use abp_core::validate::{validate_receipt, ValidationError};
     use abp_core::*;
     use chrono::{TimeDelta, Utc};
     use std::collections::BTreeMap;
@@ -236,10 +236,9 @@ mod core_mutations {
     fn validate_receipt_catches_empty_backend_id() {
         let r = ReceiptBuilder::new("").build();
         let errs = validate_receipt(&r).unwrap_err();
-        assert!(
-            errs.iter()
-                .any(|e| matches!(e, ValidationError::EmptyBackendId))
-        );
+        assert!(errs
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyBackendId)));
     }
 
     #[test]
@@ -247,10 +246,9 @@ mod core_mutations {
         let mut r = ReceiptBuilder::new("mock").build();
         r.meta.contract_version = "wrong".into();
         let errs = validate_receipt(&r).unwrap_err();
-        assert!(
-            errs.iter()
-                .any(|e| matches!(e, ValidationError::InvalidOutcome { .. }))
-        );
+        assert!(errs
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidOutcome { .. })));
     }
 
     #[test]
@@ -281,10 +279,9 @@ mod core_mutations {
         r.receipt_sha256 =
             Some("0000000000000000000000000000000000000000000000000000000000000000".into());
         let errs = validate_receipt(&r).unwrap_err();
-        assert!(
-            errs.iter()
-                .any(|e| matches!(e, ValidationError::InvalidHash { .. }))
-        );
+        assert!(errs
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidHash { .. })));
     }
 
     #[test]
@@ -300,11 +297,9 @@ mod core_mutations {
     fn config_validator_empty_task_is_error() {
         let wo = WorkOrderBuilder::new("").build();
         let warnings = ConfigValidator::new().validate_work_order(&wo);
-        assert!(
-            warnings
-                .iter()
-                .any(|w| w.field == "task" && w.severity == WarningSeverity::Error)
-        );
+        assert!(warnings
+            .iter()
+            .any(|w| w.field == "task" && w.severity == WarningSeverity::Error));
     }
 
     #[test]
@@ -318,11 +313,9 @@ mod core_mutations {
     fn config_validator_zero_max_turns_is_error() {
         let wo = WorkOrderBuilder::new("hi").max_turns(0).build();
         let warnings = ConfigValidator::new().validate_work_order(&wo);
-        assert!(
-            warnings
-                .iter()
-                .any(|w| w.field == "config.max_turns" && w.severity == WarningSeverity::Error)
-        );
+        assert!(warnings
+            .iter()
+            .any(|w| w.field == "config.max_turns" && w.severity == WarningSeverity::Error));
     }
 
     #[test]
@@ -461,7 +454,7 @@ mod core_mutations {
 // abp-glob: pattern matching edge cases
 // ============================================================================
 mod glob_mutations {
-    use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
+    use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
 
     fn p(xs: &[&str]) -> Vec<String> {
         xs.iter().map(|s| s.to_string()).collect()
@@ -734,7 +727,7 @@ mod policy_mutations {
 mod protocol_mutations {
     use abp_core::{BackendIdentity, CapabilityManifest, ExecutionMode};
     use abp_protocol::validate::EnvelopeValidator;
-    use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
+    use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
     use abp_protocol::*;
 
     // -- JsonlCodec round-trip -------------------------------------------
@@ -1076,16 +1069,12 @@ mod protocol_mutations {
     fn validate_empty_sequence() {
         let v = EnvelopeValidator::new();
         let errors = v.validate_sequence(&[]);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, validate::SequenceError::MissingHello))
-        );
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, validate::SequenceError::MissingTerminal))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, validate::SequenceError::MissingHello)));
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, validate::SequenceError::MissingTerminal)));
     }
 
     #[test]
@@ -1105,10 +1094,8 @@ mod protocol_mutations {
             CapabilityManifest::new(),
         );
         let errors = v.validate_sequence(&[fatal, hello]);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, validate::SequenceError::HelloNotFirst { .. }))
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, validate::SequenceError::HelloNotFirst { .. })));
     }
 }

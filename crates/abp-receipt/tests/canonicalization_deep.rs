@@ -31,10 +31,10 @@
 //! Deep tests for receipt canonicalization and hashing.
 
 use abp_core::{ArtifactRef, Capability, SupportLevel};
-use abp_receipt::verify::{ReceiptAuditor, verify_receipt};
+use abp_receipt::verify::{verify_receipt, ReceiptAuditor};
 use abp_receipt::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, ExecutionMode, Outcome, Receipt, ReceiptBuilder,
-    ReceiptChain, canonicalize, compute_hash, verify_hash,
+    canonicalize, compute_hash, verify_hash, AgentEvent, AgentEventKind, ExecutionMode, Outcome,
+    Receipt, ReceiptBuilder, ReceiptChain, CONTRACT_VERSION,
 };
 use chrono::{TimeZone, Utc};
 use std::collections::BTreeMap;

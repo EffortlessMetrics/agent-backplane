@@ -591,14 +591,12 @@ async fn error_event_maps_to_response_content() {
         .create(minimal_shim_request())
         .await
         .unwrap();
-    assert!(
-        resp.choices[0]
-            .message
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("rate limit exceeded")
-    );
+    assert!(resp.choices[0]
+        .message
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("rate limit exceeded"));
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -1159,14 +1157,12 @@ fn receipt_to_response_error_event() {
         error_code: None,
     })]);
     let resp = shim::receipt_to_response(&receipt, "gpt-4o");
-    assert!(
-        resp.choices[0]
-            .message
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("context length exceeded")
-    );
+    assert!(resp.choices[0]
+        .message
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("context length exceeded"));
 }
 
 // ═════════════════════════════════════════════════════════════════════════

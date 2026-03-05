@@ -36,8 +36,8 @@
 use abp_core::ir::{IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, UsageNormalized};
 use chrono::Utc;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use serde_json::json;
 use tokio_stream::StreamExt;
 
@@ -241,14 +241,12 @@ mod openai {
         let events = vec![error_event("rate limit")];
         let receipt = mock_receipt(events);
         let resp = receipt_to_response(&receipt, "gpt-4o");
-        assert!(
-            resp.choices[0]
-                .message
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("rate limit")
-        );
+        assert!(resp.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("rate limit"));
     }
 
     // ── 1d. Streaming ──────────────────────────────────────────────────
@@ -563,11 +561,10 @@ mod claude {
             ext: None,
         }];
         let resp = response_from_events(&events, "claude-sonnet-4-20250514", None);
-        assert!(
-            resp.content
-                .iter()
-                .any(|b| matches!(b, ContentBlock::ToolUse { name, .. } if name == "read_file"))
-        );
+        assert!(resp
+            .content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::ToolUse { name, .. } if name == "read_file")));
         assert_eq!(resp.stop_reason.as_deref(), Some("tool_use"));
     }
 
@@ -763,16 +760,12 @@ mod claude {
         let stream = client.create_stream(req).await.unwrap();
         let events = stream.collect_all().await;
         assert!(!events.is_empty());
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(e, StreamEvent::MessageStart { .. }))
-        );
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(e, StreamEvent::MessageStop { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, StreamEvent::MessageStart { .. })));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, StreamEvent::MessageStop { .. })));
     }
 
     #[test]
@@ -1815,26 +1808,22 @@ mod cross_shim {
         // OpenAI: appears in content
         let r = abp_shim_openai::mock_receipt(events.clone());
         let oai = abp_shim_openai::receipt_to_response(&r, "gpt-4o");
-        assert!(
-            oai.choices[0]
-                .message
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("something went wrong")
-        );
+        assert!(oai.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("something went wrong"));
 
         // Kimi: appears in content
         let r = abp_shim_kimi::mock_receipt(events.clone());
         let kimi = abp_shim_kimi::receipt_to_response(&r, "moonshot-v1-8k");
-        assert!(
-            kimi.choices[0]
-                .message
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("something went wrong")
-        );
+        assert!(kimi.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("something went wrong"));
 
         // Codex: appears in output text
         let r = abp_shim_codex::mock_receipt(events.clone());
@@ -1854,10 +1843,9 @@ mod cross_shim {
         // Copilot: appears in copilot_errors
         let r = abp_shim_copilot::mock_receipt(events);
         let cop = abp_shim_copilot::receipt_to_response(&r, "gpt-4o");
-        assert!(
-            cop.copilot_errors
-                .iter()
-                .any(|e| e.message.contains("something went wrong"))
-        );
+        assert!(cop
+            .copilot_errors
+            .iter()
+            .any(|e| e.message.contains("something went wrong")));
     }
 }

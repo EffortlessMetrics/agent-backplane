@@ -31,7 +31,7 @@
 //! Integration tests: abp-receipt wired into abp-runtime.
 
 use abp_core::{Outcome, WorkOrderBuilder};
-use abp_receipt::{ReceiptBuilder, ReceiptChain, diff_receipts, verify_hash};
+use abp_receipt::{diff_receipts, verify_hash, ReceiptBuilder, ReceiptChain};
 use abp_runtime::Runtime;
 use chrono::{TimeZone, Utc};
 use tokio_stream::StreamExt;
