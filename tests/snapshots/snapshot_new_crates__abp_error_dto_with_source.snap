@@ -6,5 +6,8 @@ expression: dto
   "code": "backend_crashed",
   "message": "sidecar crashed",
   "context": {},
-  "source_message": "pipe broke"
+  "source_message": "pipe broke",
+  "cause_chain": [
+    "pipe broke"
+  ]
 }

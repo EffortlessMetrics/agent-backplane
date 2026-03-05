@@ -260,6 +260,11 @@ expression: schema
           "description": "Native or emulated is acceptable.",
           "type": "string",
           "const": "emulated"
+        },
+        {
+          "description": "Any support level is acceptable (including unsupported).",
+          "type": "string",
+          "const": "any"
         }
       ]
     }

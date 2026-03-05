@@ -366,6 +366,11 @@ expression: "serde_json::to_string_pretty(&schema).unwrap()"
           "description": "Native or emulated is acceptable.",
           "type": "string",
           "const": "emulated"
+        },
+        {
+          "description": "Any support level is acceptable (including unsupported).",
+          "type": "string",
+          "const": "any"
         }
       ]
     },
