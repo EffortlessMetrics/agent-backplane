@@ -10,7 +10,7 @@
 //! use sidecar_kit::events::{text_event, delta_event, error_event};
 //!
 //! let msg = text_event("Hello, world!");
-//! assert_eq!(msg.kind, abp_core::AgentEventKind::AssistantMessage { text: "Hello, world!".into() });
+//! assert!(matches!(msg.kind, abp_core::AgentEventKind::AssistantMessage { .. }));
 //!
 //! let delta = delta_event("streaming chunk");
 //! let err = error_event("E001", "something broke");

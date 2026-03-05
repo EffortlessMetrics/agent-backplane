@@ -976,9 +976,9 @@ mod daemon_routes {
     use abp_daemon::routes::*;
 
     #[test]
-    fn api_routes_returns_six() {
+    fn api_routes_returns_nine() {
         let routes = api_routes();
-        assert_eq!(routes.len(), 6);
+        assert_eq!(routes.len(), 9);
     }
 
     #[test]

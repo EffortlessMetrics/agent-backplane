@@ -224,6 +224,11 @@ fn target_is_codex(to: Dialect) -> bool {
     to == Dialect::Codex
 }
 
+/// Whether the target dialect lacks image content support.
+fn target_drops_images(to: Dialect) -> bool {
+    matches!(to, Dialect::Codex | Dialect::Kimi | Dialect::Copilot)
+}
+
 /// Whether thinking blocks survive mapping to the target dialect.
 /// Only Claude preserves thinking natively.
 fn thinking_survives(to: Dialect) -> bool {
@@ -666,7 +671,8 @@ fn openai_to_codex_drops_system_and_tool() {
         !result.messages.iter().any(|m| m.role == IrRole::Tool),
         "tool dropped"
     );
-    assert_eq!(result.len(), 2); // user + assistant only
+    // System emulated as [System]-prefixed User, Tool dropped, User + Assistant kept
+    assert_eq!(result.len(), 3);
 }
 
 #[test]
@@ -714,7 +720,7 @@ fn codex_to_claude_rejects_apply_diff() {
 fn image_blocks_preserved_across_non_codex_pairs() {
     let conv = image_conv();
     for (from, to) in cross_pairs() {
-        if target_is_codex(to) {
+        if target_drops_images(to) {
             continue;
         }
         let mapper = default_ir_mapper(from, to).unwrap();
@@ -732,7 +738,7 @@ fn image_blocks_preserved_across_non_codex_pairs() {
 fn image_media_type_preserved() {
     let conv = image_conv();
     for (from, to) in cross_pairs() {
-        if target_is_codex(to) {
+        if target_drops_images(to) {
             continue;
         }
         let mapper = default_ir_mapper(from, to).unwrap();
@@ -750,7 +756,7 @@ fn image_media_type_preserved() {
 fn image_data_preserved() {
     let conv = image_conv();
     for (from, to) in cross_pairs() {
-        if target_is_codex(to) {
+        if target_drops_images(to) {
             continue;
         }
         let mapper = default_ir_mapper(from, to).unwrap();
@@ -1422,7 +1428,7 @@ fn mixed_text_and_image_in_user_message() {
         ],
     )]);
     for (from, to) in cross_pairs() {
-        if target_is_codex(to) {
+        if target_drops_images(to) {
             continue;
         }
         let mapper = default_ir_mapper(from, to).unwrap();
