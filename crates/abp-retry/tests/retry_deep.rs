@@ -28,12 +28,12 @@
 #![allow(clippy::approx_constant)]
 //! Comprehensive tests for `abp-retry` retry policies, backoff strategies, and circuit breakers.
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use abp_retry::{
-    retry_with_policy, CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy,
+    CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy, retry_with_policy,
 };
 
 // ===========================================================================
@@ -534,11 +534,7 @@ async fn retry_succeeds_on_last_attempt() {
         let c = c.clone();
         async move {
             let n = c.fetch_add(1, Ordering::SeqCst);
-            if n < 4 {
-                Err("not yet")
-            } else {
-                Ok("last")
-            }
+            if n < 4 { Err("not yet") } else { Ok("last") }
         }
     })
     .await;

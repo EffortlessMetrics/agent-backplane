@@ -2,7 +2,7 @@
 //! Comprehensive benchmarks for envelope parse/serialize, JSONL stream
 //! processing, batch operations, validation, and routing.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use std::io::BufReader;
 
 use abp_core::{

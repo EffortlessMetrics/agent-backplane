@@ -43,7 +43,7 @@ use abp_core::{
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
+    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
 };
 use abp_projection::{ProjectionError, ProjectionMatrix};
 use chrono::Utc;
@@ -1066,9 +1066,11 @@ fn claude_usage_maps_to_normalized() {
         "cache_read_input_tokens": 20
     });
     assert!(claude_usage["input_tokens"].as_u64().is_some());
-    assert!(claude_usage["cache_creation_input_tokens"]
-        .as_u64()
-        .is_some());
+    assert!(
+        claude_usage["cache_creation_input_tokens"]
+            .as_u64()
+            .is_some()
+    );
 }
 
 #[test]
@@ -1673,9 +1675,10 @@ fn mapping_registry_insert_and_lookup() {
 #[test]
 fn mapping_registry_lookup_missing_returns_none() {
     let reg = MappingRegistry::new();
-    assert!(reg
-        .lookup(Dialect::OpenAi, Dialect::Claude, "nonexistent")
-        .is_none());
+    assert!(
+        reg.lookup(Dialect::OpenAi, Dialect::Claude, "nonexistent")
+            .is_none()
+    );
 }
 
 #[test]

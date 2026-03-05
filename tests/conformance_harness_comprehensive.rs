@@ -31,14 +31,14 @@
 // Helpers shared across all modules
 // ---------------------------------------------------------------------------
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
-    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-    ContextPacket, ContextSnippet, ContractError, ExecutionLane, ExecutionMode, MinSupport,
-    Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ContractError, ExecutionLane, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel,
     UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    canonical_json, receipt_hash, sha256_hex,
 };
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -1392,9 +1392,11 @@ mod sidecar_handshake {
         };
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&[run, final_env]);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingHello)));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingHello))
+        );
     }
 
     #[test]
@@ -1410,9 +1412,11 @@ mod sidecar_handshake {
         };
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&[run, hello, final_env]);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+        );
     }
 
     #[test]
@@ -1424,21 +1428,27 @@ mod sidecar_handshake {
         };
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&[hello, run]);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal)));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingTerminal))
+        );
     }
 
     #[test]
     fn empty_sequence_errors() {
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&[]);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingHello)));
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal)));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingHello))
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::MissingTerminal))
+        );
     }
 
     #[test]
@@ -1458,9 +1468,11 @@ mod sidecar_handshake {
         };
         let validator = EnvelopeValidator::new();
         let errors = validator.validate_sequence(&[hello, run, event, final_env]);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+        );
     }
 
     #[test]

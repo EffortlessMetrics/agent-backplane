@@ -38,8 +38,8 @@
 use abp_dialect::Dialect;
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode};
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
-    MappingRegistry, MappingRule, MappingValidation,
+    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
+    features, known_rules, validate_mapping,
 };
 
 // ===========================================================================
@@ -225,9 +225,10 @@ fn unknown_feature_in_populated_registry() {
 fn lookup_returns_none_for_unpopulated_dialect_pair() {
     let reg = registry_with_lossless(Dialect::OpenAi, Dialect::Claude, features::TOOL_USE);
     // Reversed direction not registered
-    assert!(reg
-        .lookup(Dialect::Claude, Dialect::OpenAi, features::TOOL_USE)
-        .is_none());
+    assert!(
+        reg.lookup(Dialect::Claude, Dialect::OpenAi, features::TOOL_USE)
+            .is_none()
+    );
 }
 
 #[test]

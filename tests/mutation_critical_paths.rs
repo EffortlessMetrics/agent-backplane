@@ -37,7 +37,7 @@
 // ─── Receipt hash computation ────────────────────────────────────────────────
 
 mod receipt_hash {
-    use abp_receipt::{canonicalize, compute_hash, verify_hash, ReceiptBuilder};
+    use abp_receipt::{ReceiptBuilder, canonicalize, compute_hash, verify_hash};
 
     fn minimal_receipt() -> abp_core::Receipt {
         ReceiptBuilder::new("test-backend").build()
@@ -331,7 +331,7 @@ mod composed_policy {
 
 mod capability_negotiation {
     use abp_capability::{
-        check_capability, generate_report, negotiate::apply_policy, negotiate::NegotiationPolicy,
+        check_capability, generate_report, negotiate::NegotiationPolicy, negotiate::apply_policy,
         negotiate_capabilities,
     };
     use abp_core::{Capability, CapabilityManifest, SupportLevel};
@@ -645,7 +645,7 @@ mod error_codes {
 // ─── Dialect detection scoring ───────────────────────────────────────────────
 
 mod dialect_detection {
-    use abp_dialect::{detect::detect_dialect, Dialect, DialectDetector};
+    use abp_dialect::{Dialect, DialectDetector, detect::detect_dialect};
     use serde_json::json;
 
     #[test]

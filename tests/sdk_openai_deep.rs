@@ -1565,11 +1565,13 @@ fn map_work_order_uses_task_as_user_message() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0]
-        .content
-        .as_deref()
-        .unwrap()
-        .contains("Refactor auth"));
+    assert!(
+        req.messages[0]
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Refactor auth")
+    );
 }
 
 #[test]

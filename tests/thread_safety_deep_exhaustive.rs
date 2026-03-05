@@ -17,15 +17,15 @@ use uuid::Uuid;
 
 use abp_backend_core::{BackendHealth, BackendMetadata, BackendRegistry, HealthStatus};
 use abp_capability::registry::{CapabilitySet, SharedCapabilityRegistry};
+use abp_config::BackplaneConfig;
 use abp_config::store::ConfigStore;
 use abp_config::transaction::ConfigTransaction;
-use abp_config::BackplaneConfig;
 use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, Outcome, PolicyProfile, Receipt,
     SupportLevel,
 };
-use abp_dialect::registry::DialectRegistry;
 use abp_dialect::Dialect;
+use abp_dialect::registry::DialectRegistry;
 use abp_integrations::pool::{BackendPool, PoolConfig as BackendPoolConfig};
 use abp_policy::PolicyEngine;
 use abp_ratelimit::{
@@ -33,7 +33,7 @@ use abp_ratelimit::{
     ModelRateLimiter, RateLimitPolicy, SlidingWindowCounter, TokenBucket,
 };
 use abp_receipt::audit_trail::{AuditAction, AuditTrail};
-use abp_receipt::{compute_hash, ReceiptBuilder, ReceiptChain};
+use abp_receipt::{ReceiptBuilder, ReceiptChain, compute_hash};
 use abp_runtime::store::ReceiptStore;
 use abp_runtime::telemetry::RunMetrics;
 use abp_stream::{FanOut, ReplayBuffer, StreamMultiplexer};

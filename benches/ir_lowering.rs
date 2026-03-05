@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Benchmarks for IR lowering performance across all 6 SDK dialects.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 

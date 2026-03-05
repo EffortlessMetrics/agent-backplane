@@ -8,8 +8,8 @@
 
 use abp_core::ir::{IrConversation, IrRole, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, ExecutionMode, Outcome, Receipt, RunMetadata,
-    UsageNormalized, WorkOrder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, ExecutionMode, Outcome, Receipt,
+    RunMetadata, UsageNormalized, WorkOrder,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -275,12 +275,14 @@ mod openai {
     fn receipt_to_response_with_error() {
         let receipt = make_receipt(vec![error_event("something broke")]);
         let resp = receipt_to_response(&receipt, "gpt-4o");
-        assert!(resp.choices[0]
-            .message
-            .content
-            .as_ref()
-            .unwrap()
-            .contains("Error"));
+        assert!(
+            resp.choices[0]
+                .message
+                .content
+                .as_ref()
+                .unwrap()
+                .contains("Error")
+        );
     }
 
     #[test]
@@ -653,10 +655,11 @@ mod claude {
         let wo = convert::to_work_order(&wo_req);
         let resp = convert::from_receipt(&receipt, &wo);
         assert_eq!(resp.stop_reason, Some("tool_use".into()));
-        assert!(resp
-            .content
-            .iter()
-            .any(|b| matches!(b, ContentBlock::ToolUse { name, .. } if name == "search")));
+        assert!(
+            resp.content
+                .iter()
+                .any(|b| matches!(b, ContentBlock::ToolUse { name, .. } if name == "search"))
+        );
     }
 
     #[test]
@@ -1405,12 +1408,14 @@ mod kimi {
     fn receipt_to_response_error_event() {
         let receipt = make_receipt(vec![error_event("kimi error")]);
         let resp = receipt_to_response(&receipt, "moonshot-v1-8k");
-        assert!(resp.choices[0]
-            .message
-            .content
-            .as_ref()
-            .unwrap()
-            .contains("Error"));
+        assert!(
+            resp.choices[0]
+                .message
+                .content
+                .as_ref()
+                .unwrap()
+                .contains("Error")
+        );
     }
 
     #[test]
@@ -2092,23 +2097,27 @@ mod receipt_consumption {
         let receipt = make_receipt(vec![error_event("backend failure")]);
 
         let oai = abp_shim_openai::receipt_to_response(&receipt, "gpt-4o");
-        assert!(oai.choices[0]
-            .message
-            .content
-            .as_ref()
-            .unwrap()
-            .contains("Error"));
+        assert!(
+            oai.choices[0]
+                .message
+                .content
+                .as_ref()
+                .unwrap()
+                .contains("Error")
+        );
 
         let codex = abp_shim_codex::receipt_to_response(&receipt, "codex-mini-latest");
         assert!(!codex.output.is_empty());
 
         let kimi = abp_shim_kimi::receipt_to_response(&receipt, "moonshot-v1-8k");
-        assert!(kimi.choices[0]
-            .message
-            .content
-            .as_ref()
-            .unwrap()
-            .contains("Error"));
+        assert!(
+            kimi.choices[0]
+                .message
+                .content
+                .as_ref()
+                .unwrap()
+                .contains("Error")
+        );
 
         let copilot = abp_shim_copilot::receipt_to_response(&receipt, "gpt-4o");
         assert!(!copilot.copilot_errors.is_empty());

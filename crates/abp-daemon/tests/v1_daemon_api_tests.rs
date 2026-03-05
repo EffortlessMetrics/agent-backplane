@@ -16,10 +16,10 @@ use abp_daemon::models::{RunRequest, TranslateRequest};
 use abp_daemon::routes::v1_routes;
 use abp_daemon::state::{RunPhase, ServerState};
 use abp_dialect::Dialect;
+use axum::Router;
 use axum::body::Body;
 use axum::http::{self, Request, StatusCode};
 use axum::response::Response;
-use axum::Router;
 use chrono::Utc;
 use http_body_util::BodyExt;
 use std::collections::BTreeMap;
@@ -118,10 +118,12 @@ async fn post_run_unknown_backend_returns_400() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let json = body_json(resp).await;
-    assert!(json["message"]
-        .as_str()
-        .unwrap()
-        .contains("unknown backend"));
+    assert!(
+        json["message"]
+            .as_str()
+            .unwrap()
+            .contains("unknown backend")
+    );
 }
 
 #[tokio::test]

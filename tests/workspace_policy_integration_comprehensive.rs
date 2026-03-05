@@ -36,8 +36,8 @@
 
 use abp_core::{PolicyProfile, WorkspaceMode, WorkspaceSpec};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
-use abp_policy::compose::{ComposedEngine, PolicyPrecedence, PolicySet};
 use abp_policy::PolicyEngine;
+use abp_policy::compose::{ComposedEngine, PolicyPrecedence, PolicySet};
 use abp_workspace::{WorkspaceManager, WorkspaceStager};
 use std::fs;
 use std::path::Path;

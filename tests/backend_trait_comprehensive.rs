@@ -44,17 +44,17 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
-    SupportLevel, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_integrations::capability::CapabilityMatrix;
 use abp_integrations::health::{HealthChecker, HealthStatus};
 use abp_integrations::metrics::{BackendMetrics, MetricsRegistry};
 use abp_integrations::selector::{BackendCandidate, BackendSelector, SelectionStrategy};
 use abp_integrations::{
-    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
-    Backend, MockBackend,
+    Backend, MockBackend, ensure_capability_requirements, extract_execution_mode,
+    validate_passthrough_compatibility,
 };
 use serde_json::json;
 use tokio::sync::mpsc;
@@ -326,17 +326,21 @@ fn t030_mock_backend_no_unsupported_cap() {
 #[tokio::test]
 async fn t031_mock_streams_run_started() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. }))
+    );
 }
 
 #[tokio::test]
 async fn t032_mock_streams_run_completed() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+    );
 }
 
 #[tokio::test]
@@ -494,33 +498,41 @@ async fn t046_mock_second_assistant_msg_mentions_sidecar() {
 #[tokio::test]
 async fn t047_mock_no_tool_call_events() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(!events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::ToolCall { .. })));
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::ToolCall { .. }))
+    );
 }
 
 #[tokio::test]
 async fn t048_mock_no_error_events() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(!events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::Error { .. })));
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::Error { .. }))
+    );
 }
 
 #[tokio::test]
 async fn t049_mock_no_warning_events() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(!events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::Warning { .. })));
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::Warning { .. }))
+    );
 }
 
 #[tokio::test]
 async fn t050_mock_no_file_changed_events() {
     let (_, events) = run_mock(&MockBackend, base_work_order()).await;
-    assert!(!events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::FileChanged { .. })));
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::FileChanged { .. }))
+    );
 }
 
 // ===========================================================================
@@ -1123,7 +1135,7 @@ async fn t117_dropped_receiver_run_succeeds() {
     let run_id = Uuid::new_v4();
     let (tx, rx) = mpsc::channel(64);
     drop(rx); // drop receiver immediately
-              // Run should still succeed (sends fail silently)
+    // Run should still succeed (sends fail silently)
     let result = backend.run(run_id, base_work_order(), tx).await;
     assert!(result.is_ok());
 }

@@ -12,17 +12,17 @@ use std::io::BufReader;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, Outcome, PolicyProfile,
-    Receipt, ReceiptBuilder, UsageNormalized, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, Outcome,
+    PolicyProfile, Receipt, ReceiptBuilder, UsageNormalized, WorkOrder, WorkOrderBuilder,
 };
 use abp_glob::IncludeExcludeGlobs;
+use abp_policy::PolicyEngine;
 use abp_policy::audit::PolicyAuditor;
 use abp_policy::compose::{ComposedEngine, PolicyPrecedence, PolicySet, PolicyValidator};
 use abp_policy::rules::{Rule, RuleCondition, RuleEffect, RuleEngine};
-use abp_policy::PolicyEngine;
 use abp_protocol::validate::{EnvelopeValidator, ValidationWarning};
 use abp_protocol::{Envelope, JsonlCodec};
-use abp_receipt::{compute_hash, verify_hash, ReceiptChain};
+use abp_receipt::{ReceiptChain, compute_hash, verify_hash};
 use chrono::Utc;
 use serde_json::json;
 
@@ -112,10 +112,12 @@ fn audit_oversized_fatal_message_flagged() {
         error_code: None,
     };
     let result = EnvelopeValidator::new().validate(&envelope);
-    assert!(result
-        .warnings
-        .iter()
-        .any(|w| matches!(w, ValidationWarning::LargePayload { .. })));
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|w| matches!(w, ValidationWarning::LargePayload { .. }))
+    );
 }
 
 #[test]
@@ -711,10 +713,12 @@ fn audit_oversized_event_produces_warning() {
         event,
     };
     let result = EnvelopeValidator::new().validate(&envelope);
-    assert!(result
-        .warnings
-        .iter()
-        .any(|w| matches!(w, ValidationWarning::LargePayload { .. })));
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|w| matches!(w, ValidationWarning::LargePayload { .. }))
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

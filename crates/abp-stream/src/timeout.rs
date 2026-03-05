@@ -8,7 +8,7 @@ use std::time::Duration;
 use abp_core::AgentEvent;
 use futures_core::Stream;
 use pin_project_lite::pin_project;
-use tokio::time::{sleep, Sleep};
+use tokio::time::{Sleep, sleep};
 
 pin_project! {
     /// Wraps an event stream and yields a timeout error if no item arrives

@@ -37,15 +37,15 @@ use std::time::Duration;
 use abp_backend_core::Backend;
 use abp_backend_mock::MockBackend;
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, Capability, CapabilityManifest, ExecutionMode,
-    Outcome, Receipt, SupportLevel, VerificationReport, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, SupportLevel, VerificationReport, WorkOrderBuilder,
 };
 use abp_error::ErrorCode;
 use abp_receipt::{
-    canonicalize, compute_hash, diff_receipts,
+    ReceiptBuilder, ReceiptChain, ReceiptValidator, canonicalize, compute_hash, diff_receipts,
     store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore},
-    verify::{verify_receipt, ReceiptAuditor},
-    verify_hash, ReceiptBuilder, ReceiptChain, ReceiptValidator,
+    verify::{ReceiptAuditor, verify_receipt},
+    verify_hash,
 };
 use chrono::{Duration as ChronoDuration, Utc};
 use uuid::Uuid;

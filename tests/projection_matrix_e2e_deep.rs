@@ -35,7 +35,7 @@ use abp_core::{
     RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
-use abp_mapping::{features, Fidelity, MappingRegistry, MappingRule};
+use abp_mapping::{Fidelity, MappingRegistry, MappingRule, features};
 use abp_projection::{
     FallbackEntry, ProjectionError, ProjectionMatrix, ProjectionResult, ProjectionScore,
     RequiredEmulation,
@@ -840,10 +840,12 @@ fn fallback_includes_incompatible_backends() {
         .project(&wo(require(&[Capability::Streaming, Capability::ToolRead])))
         .unwrap();
     assert_eq!(result.selected_backend, "full");
-    assert!(result
-        .fallback_chain
-        .iter()
-        .any(|e| e.backend_id == "partial"));
+    assert!(
+        result
+            .fallback_chain
+            .iter()
+            .any(|e| e.backend_id == "partial")
+    );
 }
 
 #[test]

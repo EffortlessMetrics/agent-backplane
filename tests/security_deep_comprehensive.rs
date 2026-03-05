@@ -11,11 +11,11 @@ use std::collections::BTreeMap;
 use std::io::{BufReader, Cursor, Write};
 use std::path::Path;
 
-use abp_config::{parse_toml, validate_config, BackendEntry, BackplaneConfig};
+use abp_config::{BackendEntry, BackplaneConfig, parse_toml, validate_config};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
-    PolicyProfile, Receipt, ReceiptBuilder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder, WorkOrderBuilder,
+    WorkspaceMode, WorkspaceSpec,
 };
 use abp_error::ErrorCode;
 use abp_glob::IncludeExcludeGlobs;
@@ -23,7 +23,7 @@ use abp_host::SidecarSpec;
 use abp_policy::PolicyEngine;
 use abp_protocol::validate::{EnvelopeValidator, ValidationWarning};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
-use abp_receipt::{compute_hash, verify_hash, ReceiptChain};
+use abp_receipt::{ReceiptChain, compute_hash, verify_hash};
 use abp_workspace::WorkspaceStager;
 use chrono::Utc;
 use serde_json::json;
@@ -613,10 +613,12 @@ fn oversized_fatal_error_produces_warning() {
     };
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&envelope);
-    assert!(result
-        .warnings
-        .iter()
-        .any(|w| matches!(w, ValidationWarning::LargePayload { .. })),);
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|w| matches!(w, ValidationWarning::LargePayload { .. })),
+    );
 }
 
 #[test]
@@ -885,9 +887,11 @@ fn unicode_glob_patterns_compile_safely() {
 #[test]
 fn unicode_path_matching_works() {
     let globs = IncludeExcludeGlobs::new(&["**/données/**".into()], &[]).unwrap();
-    assert!(globs
-        .decide_path(Path::new("données/file.txt"))
-        .is_allowed());
+    assert!(
+        globs
+            .decide_path(Path::new("données/file.txt"))
+            .is_allowed()
+    );
 }
 
 #[test]
@@ -1497,9 +1501,11 @@ fn glob_exclude_takes_precedence() {
 fn glob_no_patterns_allows_everything() {
     let globs = IncludeExcludeGlobs::new(&[], &[]).unwrap();
     assert!(globs.decide_path(Path::new("anything")).is_allowed());
-    assert!(globs
-        .decide_path(Path::new("deeply/nested/file.txt"))
-        .is_allowed());
+    assert!(
+        globs
+            .decide_path(Path::new("deeply/nested/file.txt"))
+            .is_allowed()
+    );
 }
 
 #[test]

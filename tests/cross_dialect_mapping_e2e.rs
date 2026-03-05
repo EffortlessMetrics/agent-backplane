@@ -39,7 +39,7 @@ use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefi
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_dialect::Dialect;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix, MappingRule,
+    Fidelity, MappingError, MappingMatrix, MappingRule, features, known_rules, validate_mapping,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -1446,11 +1446,13 @@ mod content_blocks {
 
         let openai = abp_openai_sdk::lowering::from_ir(&ir);
         // Thinking becomes part of text content in OpenAI
-        assert!(openai[0]
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("let me think"));
+        assert!(
+            openai[0]
+                .content
+                .as_deref()
+                .unwrap()
+                .contains("let me think")
+        );
     }
 
     #[test]

@@ -37,8 +37,8 @@
 use abp_core::ir::{IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind};
 use chrono::Utc;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_json::json;
 
 // ═══════════════════════════════════════════════════════════════════════

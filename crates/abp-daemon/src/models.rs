@@ -4,7 +4,7 @@
 //! All types derive `Serialize`, `Deserialize`, and `JsonSchema` for
 //! deterministic wire-format compatibility and automatic OpenAPI documentation.
 
-use abp_core::{ir::IrConversation, Receipt, WorkOrder};
+use abp_core::{Receipt, WorkOrder, ir::IrConversation};
 use abp_dialect::Dialect;
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;

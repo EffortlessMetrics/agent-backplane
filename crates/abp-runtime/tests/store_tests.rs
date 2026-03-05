@@ -29,8 +29,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use abp_core::{
-    BackendIdentity, ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized,
-    VerificationReport, CONTRACT_VERSION,
+    BackendIdentity, CONTRACT_VERSION, ExecutionMode, Outcome, Receipt, RunMetadata,
+    UsageNormalized, VerificationReport,
 };
 use abp_runtime::store::ReceiptStore;
 use chrono::{TimeZone, Utc};

@@ -42,12 +42,12 @@
 use std::time::Instant;
 
 use abp_core::{
-    canonical_json, receipt_hash, AgentEvent, AgentEventKind, CapabilityManifest, ExecutionLane,
-    Outcome, PolicyProfile, Receipt, ReceiptBuilder, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, CapabilityManifest, ExecutionLane, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, WorkOrderBuilder, canonical_json, receipt_hash,
 };
 use abp_glob::IncludeExcludeGlobs;
 use abp_policy::PolicyEngine;
-use abp_protocol::{parse_version, Envelope, JsonlCodec};
+use abp_protocol::{Envelope, JsonlCodec, parse_version};
 use chrono::Utc;
 
 // ---------------------------------------------------------------------------

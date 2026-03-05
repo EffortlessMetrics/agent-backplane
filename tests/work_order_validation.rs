@@ -35,9 +35,9 @@
 use abp_core::config::{ConfigDefaults, ConfigValidator, WarningSeverity};
 use abp_core::ext::WorkOrderExt;
 use abp_core::{
-    Capability, CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet,
-    ExecutionLane, ExecutionMode, MinSupport, PolicyProfile, RuntimeConfig, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    CONTRACT_VERSION, Capability, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, PolicyProfile, RuntimeConfig,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -348,9 +348,10 @@ fn validator_rejects_empty_task() {
     let mut wo = minimal_wo();
     wo.task = String::new();
     let w = ConfigValidator::new().validate_work_order(&wo);
-    assert!(w
-        .iter()
-        .any(|w| w.field == "task" && matches!(w.severity, WarningSeverity::Error)));
+    assert!(
+        w.iter()
+            .any(|w| w.field == "task" && matches!(w.severity, WarningSeverity::Error))
+    );
 }
 
 #[test]
@@ -365,9 +366,10 @@ fn validator_rejects_whitespace_task() {
 fn validator_rejects_zero_max_turns() {
     let wo = WorkOrderBuilder::new("t").max_turns(0).build();
     let w = ConfigValidator::new().validate_work_order(&wo);
-    assert!(w
-        .iter()
-        .any(|w| w.field == "config.max_turns" && matches!(w.severity, WarningSeverity::Error)));
+    assert!(
+        w.iter()
+            .any(|w| w.field == "config.max_turns" && matches!(w.severity, WarningSeverity::Error))
+    );
 }
 
 #[test]

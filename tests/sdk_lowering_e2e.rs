@@ -1436,12 +1436,16 @@ mod cross_sdk_roundtrip {
         ];
         let ir = claude::to_ir(&[claude_blocks("assistant", blocks)], None);
         let codex_items = codex::from_ir(&ir);
-        assert!(codex_items
-            .iter()
-            .any(|i| matches!(i, CodexResponseItem::Reasoning { .. })));
-        assert!(codex_items
-            .iter()
-            .any(|i| matches!(i, CodexResponseItem::Message { .. })));
+        assert!(
+            codex_items
+                .iter()
+                .any(|i| matches!(i, CodexResponseItem::Reasoning { .. }))
+        );
+        assert!(
+            codex_items
+                .iter()
+                .any(|i| matches!(i, CodexResponseItem::Message { .. }))
+        );
     }
 
     #[test]
@@ -2248,15 +2252,18 @@ mod edge_cases {
         assert_eq!(ir.len(), 5);
         let back = codex::from_ir(&ir);
         // Reasoning, message, function_call, function_call_output, message
-        assert!(back
-            .iter()
-            .any(|i| matches!(i, CodexResponseItem::Reasoning { .. })));
-        assert!(back
-            .iter()
-            .any(|i| matches!(i, CodexResponseItem::FunctionCall { .. })));
-        assert!(back
-            .iter()
-            .any(|i| matches!(i, CodexResponseItem::FunctionCallOutput { .. })));
+        assert!(
+            back.iter()
+                .any(|i| matches!(i, CodexResponseItem::Reasoning { .. }))
+        );
+        assert!(
+            back.iter()
+                .any(|i| matches!(i, CodexResponseItem::FunctionCall { .. }))
+        );
+        assert!(
+            back.iter()
+                .any(|i| matches!(i, CodexResponseItem::FunctionCallOutput { .. }))
+        );
     }
 
     // ── OpenAI text + tool call in same message ─────────────────────

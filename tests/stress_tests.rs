@@ -36,21 +36,21 @@
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use chrono::Utc;
 
 use abp_capability::{generate_report, negotiate};
 use abp_config::{
-    merge_configs, parse_toml, validate_config, BackendEntry as ConfigBackendEntry, BackplaneConfig,
+    BackendEntry as ConfigBackendEntry, BackplaneConfig, merge_configs, parse_toml, validate_config,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
 use abp_core::{
-    canonical_json, receipt_hash, AgentEvent, AgentEventKind, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    MinSupport, Outcome, PolicyProfile, ReceiptBuilder, SupportLevel, WorkOrderBuilder,
-    WorkspaceMode,
+    AgentEvent, AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement,
+    CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane, MinSupport, Outcome,
+    PolicyProfile, ReceiptBuilder, SupportLevel, WorkOrderBuilder, WorkspaceMode, canonical_json,
+    receipt_hash,
 };
 use abp_dialect::{Dialect, DialectDetector};
 use abp_glob::IncludeExcludeGlobs;
@@ -58,7 +58,7 @@ use abp_mapping::{Fidelity, MappingMatrix, MappingRegistry, MappingRule};
 use abp_policy::PolicyEngine;
 use abp_projection::ProjectionMatrix;
 use abp_protocol::{Envelope, JsonlCodec};
-use abp_receipt::{compute_hash, diff_receipts, verify_hash, ReceiptChain};
+use abp_receipt::{ReceiptChain, compute_hash, diff_receipts, verify_hash};
 use abp_stream::{EventFilter, EventRecorder, EventStats, EventTransform, StreamPipelineBuilder};
 use tokio::task::JoinSet;
 
@@ -974,9 +974,11 @@ fn stress_glob_repeated_compilation() {
         let inc = vec![format!("pattern_{i}/**")];
         let exc = vec![format!("**/exclude_{i}/**")];
         let globs = IncludeExcludeGlobs::new(&inc, &exc).unwrap();
-        assert!(globs
-            .decide_str(&format!("pattern_{i}/file.rs"))
-            .is_allowed());
+        assert!(
+            globs
+                .decide_str(&format!("pattern_{i}/file.rs"))
+                .is_allowed()
+        );
     }
 }
 

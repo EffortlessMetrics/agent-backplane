@@ -30,8 +30,8 @@
 
 //! Integration tests for receipt verification and batch auditing.
 
-use abp_receipt::verify::{verify_receipt, AuditIssue, ReceiptAuditor};
-use abp_receipt::{Outcome, Receipt, ReceiptBuilder, CONTRACT_VERSION};
+use abp_receipt::verify::{AuditIssue, ReceiptAuditor, verify_receipt};
+use abp_receipt::{CONTRACT_VERSION, Outcome, Receipt, ReceiptBuilder};
 use chrono::{TimeZone, Utc};
 use std::time::Duration;
 use uuid::Uuid;
@@ -173,10 +173,11 @@ fn verify_failed_with_no_error_event_flagged() {
         .build();
     let res = verify_receipt(&r);
     assert!(!res.outcome_consistent);
-    assert!(res
-        .issues
-        .iter()
-        .any(|i| i.contains("Failed") && i.contains("no error")));
+    assert!(
+        res.issues
+            .iter()
+            .any(|i| i.contains("Failed") && i.contains("no error"))
+    );
 }
 
 #[test]
@@ -196,10 +197,11 @@ fn verify_complete_with_error_event_flagged() {
         .build();
     let res = verify_receipt(&r);
     assert!(!res.outcome_consistent);
-    assert!(res
-        .issues
-        .iter()
-        .any(|i| i.contains("Complete") && i.contains("error")));
+    assert!(
+        res.issues
+            .iter()
+            .any(|i| i.contains("Complete") && i.contains("error"))
+    );
 }
 
 #[test]
@@ -315,10 +317,12 @@ fn audit_detects_duplicate_run_ids() {
     let r1 = ReceiptBuilder::new("a").run_id(id).with_hash().unwrap();
     let r2 = ReceiptBuilder::new("b").run_id(id).with_hash().unwrap();
     let report = auditor.audit_batch(&[r1, r2]);
-    assert!(report
-        .issues
-        .iter()
-        .any(|i| i.description.contains("duplicate run_id")));
+    assert!(
+        report
+            .issues
+            .iter()
+            .any(|i| i.description.contains("duplicate run_id"))
+    );
 }
 
 // ── ReceiptAuditor: timeline consistency ───────────────────────────
@@ -334,10 +338,12 @@ fn audit_detects_overlapping_timeline() {
     let r2 = valid_receipt_at("same-backend", t2, Duration::from_secs(5));
 
     let report = auditor.audit_batch(&[r1, r2]);
-    assert!(report
-        .issues
-        .iter()
-        .any(|i| i.description.contains("overlapping")));
+    assert!(
+        report
+            .issues
+            .iter()
+            .any(|i| i.description.contains("overlapping"))
+    );
 }
 
 #[test]
@@ -351,10 +357,12 @@ fn audit_allows_non_overlapping_same_backend() {
 
     let report = auditor.audit_batch(&[r1, r2]);
     // No timeline overlap issues
-    assert!(!report
-        .issues
-        .iter()
-        .any(|i| i.description.contains("overlapping")));
+    assert!(
+        !report
+            .issues
+            .iter()
+            .any(|i| i.description.contains("overlapping"))
+    );
 }
 
 #[test]
@@ -366,10 +374,12 @@ fn audit_allows_overlapping_different_backends() {
     let r2 = valid_receipt_at("backend-b", t1, Duration::from_secs(30));
 
     let report = auditor.audit_batch(&[r1, r2]);
-    assert!(!report
-        .issues
-        .iter()
-        .any(|i| i.description.contains("overlapping")));
+    assert!(
+        !report
+            .issues
+            .iter()
+            .any(|i| i.description.contains("overlapping"))
+    );
 }
 
 // ── ReceiptAuditor: invalid receipt in batch ───────────────────────

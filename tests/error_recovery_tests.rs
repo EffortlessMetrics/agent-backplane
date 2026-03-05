@@ -45,14 +45,14 @@ use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode, ErrorInfo};
 use abp_error_taxonomy::{
     ClassificationCategory, ErrorClassification, ErrorClassifier, ErrorSeverity, RecoveryAction,
 };
+use abp_protocol::ProtocolError;
 use abp_protocol::batch::BatchValidationError;
 use abp_protocol::builder::BuilderError;
 use abp_protocol::compress::CompressError;
 use abp_protocol::validate::{SequenceError, ValidationError};
 use abp_protocol::version::VersionError;
-use abp_protocol::ProtocolError;
-use abp_runtime::multiplex::MultiplexError;
 use abp_runtime::RuntimeError;
+use abp_runtime::multiplex::MultiplexError;
 
 // ---------------------------------------------------------------------------
 // Helpers

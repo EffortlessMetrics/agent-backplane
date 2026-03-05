@@ -33,8 +33,8 @@
 use std::sync::Arc;
 
 use abp_backend_core::{
-    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
-    Backend,
+    Backend, ensure_capability_requirements, extract_execution_mode,
+    validate_passthrough_compatibility,
 };
 use abp_backend_mock::MockBackend;
 use abp_core::{

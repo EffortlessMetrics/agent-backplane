@@ -34,9 +34,9 @@
 //! sessions, and timeout behaviour.
 
 use abp_core::{
-    AgentEventKind, BackendIdentity, CapabilityManifest, CapabilityRequirements, ContextPacket,
-    ExecutionLane, PolicyProfile, Receipt, RuntimeConfig, WorkOrder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, CapabilityRequirements,
+    ContextPacket, ExecutionLane, PolicyProfile, Receipt, RuntimeConfig, WorkOrder, WorkspaceMode,
+    WorkspaceSpec,
 };
 use abp_host::{HostError, SidecarClient, SidecarSpec};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
@@ -1116,9 +1116,11 @@ fn validate_sequence_missing_hello() {
         error_code: None,
     }];
     let errors = validator.validate_sequence(&sequence);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, abp_protocol::validate::SequenceError::MissingHello)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, abp_protocol::validate::SequenceError::MissingHello))
+    );
 }
 
 #[test]

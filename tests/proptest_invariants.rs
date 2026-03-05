@@ -37,12 +37,12 @@ use std::path::Path;
 use proptest::prelude::*;
 
 use abp_core::{
-    canonical_json, receipt_hash, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome, Receipt, ReceiptBuilder,
-    SupportLevel as CoreSupportLevel,
+    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
+    MinSupport, Outcome, Receipt, ReceiptBuilder, SupportLevel as CoreSupportLevel, canonical_json,
+    receipt_hash,
 };
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingRegistry, MappingRule,
+    Fidelity, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
 };
 use abp_protocol::{Envelope, JsonlCodec};
 

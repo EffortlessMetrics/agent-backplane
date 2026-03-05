@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Benchmark glob pattern matching.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 
-use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
+use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
 
 fn patterns(xs: &[&str]) -> Vec<String> {
     xs.iter().map(|x| x.to_string()).collect()

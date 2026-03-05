@@ -6,7 +6,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::warn;
 
-use super::{cancel::CancelToken, frame::Frame, process::SidecarProcess, SidecarError};
+use super::{SidecarError, cancel::CancelToken, frame::Frame, process::SidecarProcess};
 
 /// An in-progress value-based sidecar run.
 ///

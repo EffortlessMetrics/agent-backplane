@@ -3,8 +3,8 @@
 
 use abp_dialect::Dialect;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
-    MappingRegistry, MappingRule, MappingValidation,
+    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
+    features, known_rules, validate_mapping,
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -472,9 +472,10 @@ fn registry_insert_and_lookup() {
 #[test]
 fn registry_lookup_returns_none_for_missing() {
     let reg = MappingRegistry::new();
-    assert!(reg
-        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-        .is_none());
+    assert!(
+        reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+            .is_none()
+    );
 }
 
 #[test]
@@ -594,9 +595,10 @@ fn registry_direction_matters() {
         Fidelity::Lossless,
     ));
     // Reverse direction should not exist
-    assert!(reg
-        .lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
-        .is_none());
+    assert!(
+        reg.lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
+            .is_none()
+    );
 }
 
 #[test]
@@ -610,9 +612,10 @@ fn registry_clone() {
     ));
     let reg2 = reg.clone();
     assert_eq!(reg2.len(), 1);
-    assert!(reg2
-        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-        .is_some());
+    assert!(
+        reg2.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+            .is_some()
+    );
 }
 
 #[test]
@@ -2000,9 +2003,10 @@ fn registry_handles_long_feature_name() {
         &long_name,
         Fidelity::Lossless,
     ));
-    assert!(reg
-        .lookup(Dialect::OpenAi, Dialect::Claude, &long_name)
-        .is_some());
+    assert!(
+        reg.lookup(Dialect::OpenAi, Dialect::Claude, &long_name)
+            .is_some()
+    );
 }
 
 #[test]

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Benchmarks for dialect detection performance.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use serde_json::{json, Value};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use serde_json::{Value, json};
 
 use abp_dialect::DialectDetector;
 

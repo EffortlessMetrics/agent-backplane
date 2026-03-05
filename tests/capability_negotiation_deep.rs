@@ -36,21 +36,21 @@
 use std::collections::BTreeMap;
 
 use abp_capability::{
-    check_capability, generate_report, negotiate, CompatibilityReport, NegotiationResult,
-    SupportLevel as CapSupportLevel,
+    CompatibilityReport, NegotiationResult, SupportLevel as CapSupportLevel, check_capability,
+    generate_report, negotiate,
 };
 use abp_core::ir::{IrConversation, IrMessage, IrRole};
 use abp_core::negotiate::{
-    check_capabilities, dialect_manifest, CapabilityDiff, CapabilityNegotiator, CapabilityReport,
-    CapabilityReportEntry, DialectSupportLevel, NegotiationRequest,
+    CapabilityDiff, CapabilityNegotiator, CapabilityReport, CapabilityReportEntry,
+    DialectSupportLevel, NegotiationRequest, check_capabilities, dialect_manifest,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
     SupportLevel, WorkOrderBuilder,
 };
 use abp_emulation::{
-    can_emulate, compute_fidelity, default_strategy, EmulationConfig, EmulationEngine,
-    EmulationStrategy, FidelityLabel,
+    EmulationConfig, EmulationEngine, EmulationStrategy, FidelityLabel, can_emulate,
+    compute_fidelity, default_strategy,
 };
 
 // ===========================================================================

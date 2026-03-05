@@ -9,10 +9,10 @@
 
 use std::sync::Arc;
 
-use abp_core::{receipt_hash, Outcome, Receipt, CONTRACT_VERSION};
+use abp_core::{CONTRACT_VERSION, Outcome, Receipt, receipt_hash};
 use abp_receipt_store::{
-    validate_chain, ChainValidation, ChainValidationError, FileReceiptStore, InMemoryReceiptStore,
-    ReceiptFilter, ReceiptIndex, ReceiptStore, StoreError,
+    ChainValidation, ChainValidationError, FileReceiptStore, InMemoryReceiptStore, ReceiptFilter,
+    ReceiptIndex, ReceiptStore, StoreError, validate_chain,
 };
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use uuid::Uuid;

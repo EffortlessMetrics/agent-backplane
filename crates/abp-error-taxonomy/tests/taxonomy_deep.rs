@@ -346,9 +346,11 @@ fn category_display_all_variants() {
         let displayed = cat.to_string();
         assert_eq!(displayed, category_display_str(*cat));
         // Must be lowercase ASCII (with underscores).
-        assert!(displayed
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c == '_'));
+        assert!(
+            displayed
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c == '_')
+        );
     }
 }
 

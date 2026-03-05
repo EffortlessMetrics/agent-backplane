@@ -5,10 +5,10 @@
 use std::collections::BTreeMap;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig, SupportLevel, UsageNormalized,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_protocol::Envelope;
 use chrono::{TimeZone, Utc};

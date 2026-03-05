@@ -36,9 +36,9 @@
 use std::collections::BTreeMap;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CapabilityManifest, ExecutionMode,
-    Outcome, Receipt, ReceiptBuilder, RunMetadata, UsageNormalized, VerificationReport,
-    WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, UsageNormalized,
+    VerificationReport, WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
 use abp_protocol::Envelope;

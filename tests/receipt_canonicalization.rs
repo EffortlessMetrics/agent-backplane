@@ -35,10 +35,9 @@
 use std::collections::BTreeMap;
 
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
-    BackendIdentity, Capability, CapabilityManifest, ExecutionMode, Outcome, Receipt,
-    ReceiptBuilder, RunMetadata, SupportLevel, UsageNormalized, VerificationReport,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel,
+    UsageNormalized, VerificationReport, canonical_json, receipt_hash, sha256_hex,
 };
 use chrono::{DateTime, TimeZone, Utc};
 use schemars::schema_for;

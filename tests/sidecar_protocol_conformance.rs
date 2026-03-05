@@ -40,8 +40,8 @@ use std::io::BufReader;
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
-    Outcome, Receipt, ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_protocol::capability_advertisement::{
     CapabilityAdvertisement, ContentType, Dialect, StreamingMode, ToolSupportLevel,
@@ -50,14 +50,13 @@ use abp_protocol::graceful_shutdown::{
     GoodbyeResponse, GoodbyeStatus, ShutdownCoordinator, ShutdownReason, ShutdownRequest,
 };
 use abp_protocol::heartbeat::{HeartbeatConfig, HeartbeatMonitor, HeartbeatState, Ping, Pong};
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
+use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
 use abp_protocol::version_negotiation::{
-    negotiate, NegotiationError, VersionOffer, VersionSelection,
+    NegotiationError, VersionOffer, VersionSelection, negotiate,
 };
 use abp_protocol::{
-    is_compatible_version, parse_version,
+    Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version,
     validate::{EnvelopeValidator, SequenceError, ValidationError, ValidationWarning},
-    Envelope, JsonlCodec, ProtocolError,
 };
 use chrono::Utc;
 
@@ -327,9 +326,11 @@ fn hello_not_first_detected_by_validator() {
     let rid = wo.id.to_string();
     let seq = vec![run_env(&wo), hello(), final_env(&rid)];
     let errors = EnvelopeValidator::new().validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+    );
 }
 
 // =========================================================================
@@ -1235,9 +1236,11 @@ fn sequence_missing_hello() {
     let wo = work_order();
     let rid = wo.id.to_string();
     let seq = vec![run_env(&wo), final_env(&rid)];
-    assert!(EnvelopeValidator::new()
-        .validate_sequence(&seq)
-        .contains(&SequenceError::MissingHello));
+    assert!(
+        EnvelopeValidator::new()
+            .validate_sequence(&seq)
+            .contains(&SequenceError::MissingHello)
+    );
 }
 
 #[test]
@@ -1254,9 +1257,11 @@ fn sequence_missing_terminal() {
             },
         ),
     ];
-    assert!(EnvelopeValidator::new()
-        .validate_sequence(&seq)
-        .contains(&SequenceError::MissingTerminal));
+    assert!(
+        EnvelopeValidator::new()
+            .validate_sequence(&seq)
+            .contains(&SequenceError::MissingTerminal)
+    );
 }
 
 #[test]
@@ -1274,9 +1279,11 @@ fn sequence_event_before_run_out_of_order() {
         run_env(&wo),
         final_env(&rid),
     ];
-    assert!(EnvelopeValidator::new()
-        .validate_sequence(&seq)
-        .contains(&SequenceError::OutOfOrderEvents));
+    assert!(
+        EnvelopeValidator::new()
+            .validate_sequence(&seq)
+            .contains(&SequenceError::OutOfOrderEvents)
+    );
 }
 
 #[test]
@@ -1289,9 +1296,11 @@ fn sequence_multiple_terminals_invalid() {
         final_env(&rid),
         fatal_env(Some(&rid), "extra"),
     ];
-    assert!(EnvelopeValidator::new()
-        .validate_sequence(&seq)
-        .contains(&SequenceError::MultipleTerminals));
+    assert!(
+        EnvelopeValidator::new()
+            .validate_sequence(&seq)
+            .contains(&SequenceError::MultipleTerminals)
+    );
 }
 
 // =========================================================================
@@ -1332,20 +1341,24 @@ fn mismatched_event_ref_id_detected() {
         ),
         final_env(&rid),
     ];
-    assert!(EnvelopeValidator::new()
-        .validate_sequence(&seq)
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        EnvelopeValidator::new()
+            .validate_sequence(&seq)
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
 fn mismatched_final_ref_id_detected() {
     let wo = work_order();
     let seq = vec![hello(), run_env(&wo), final_env("wrong-final-ref")];
-    assert!(EnvelopeValidator::new()
-        .validate_sequence(&seq)
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        EnvelopeValidator::new()
+            .validate_sequence(&seq)
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 // =========================================================================
@@ -1407,10 +1420,12 @@ fn large_payload_triggers_validation_warning() {
     let env = event_env("r1", AgentEventKind::AssistantMessage { text: big_text });
     let result = EnvelopeValidator::new().validate(&env);
     assert!(result.valid);
-    assert!(result
-        .warnings
-        .iter()
-        .any(|w| matches!(w, ValidationWarning::LargePayload { .. })));
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|w| matches!(w, ValidationWarning::LargePayload { .. }))
+    );
 }
 
 // =========================================================================
@@ -1429,10 +1444,12 @@ fn validator_rejects_empty_backend_id() {
     );
     let result = EnvelopeValidator::new().validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id"))
+    );
 }
 
 #[test]
@@ -1445,10 +1462,12 @@ fn validator_rejects_invalid_contract_version() {
     };
     let result = EnvelopeValidator::new().validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]

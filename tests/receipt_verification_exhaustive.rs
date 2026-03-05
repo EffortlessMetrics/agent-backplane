@@ -9,16 +9,16 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, ContractError,
-    ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel, UsageNormalized,
-    VerificationReport, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    ContractError, ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel, UsageNormalized,
+    VerificationReport,
 };
 use abp_receipt::serde_formats;
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
-use abp_receipt::verify::{verify_receipt, ReceiptAuditor};
+use abp_receipt::verify::{ReceiptAuditor, verify_receipt};
 use abp_receipt::{
-    canonicalize, compute_hash, diff_receipts as receipt_diff_receipts, verify_hash, ChainBuilder,
-    ChainError, ReceiptBuilder, ReceiptChain, ReceiptValidator, ValidationError,
+    ChainBuilder, ChainError, ReceiptBuilder, ReceiptChain, ReceiptValidator, ValidationError,
+    canonicalize, compute_hash, diff_receipts as receipt_diff_receipts, verify_hash,
 };
 use chrono::{TimeZone, Utc};
 use serde_json::json;

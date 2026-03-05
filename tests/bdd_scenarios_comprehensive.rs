@@ -36,26 +36,26 @@
 
 use std::path::Path;
 
-use abp_capability::{negotiate_capabilities, NegotiationResult};
+use abp_capability::{NegotiationResult, negotiate_capabilities};
 use abp_core::{
-    canonical_json,
-    ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition},
-    receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
     CapabilityManifest, ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, MinSupport,
     Outcome, PolicyProfile, Receipt, ReceiptBuilder, SupportLevel, UsageNormalized,
-    VerificationReport, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    VerificationReport, WorkOrder, WorkOrderBuilder, canonical_json,
+    ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition},
+    receipt_hash, sha256_hex,
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_error::{AbpError, ErrorCategory, ErrorCode};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_ir::lower::{lower_to_claude, lower_to_gemini, lower_to_openai};
 use abp_mapping::{
-    known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix, MappingRegistry,
-    MappingRule,
+    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, known_rules,
+    validate_mapping,
 };
 use abp_policy::PolicyEngine;
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
-use abp_receipt::{compute_hash, verify_hash, ReceiptChain};
+use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
+use abp_receipt::{ReceiptChain, compute_hash, verify_hash};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -301,9 +301,11 @@ fn given_copilot_dialect_request_when_detected_then_copilot_returned() {
 fn given_non_object_json_when_detect_called_then_none_returned() {
     // Scenario: Non-object JSON returns None.
     let detector = DialectDetector::new();
-    assert!(detector
-        .detect(&serde_json::json!("just a string"))
-        .is_none());
+    assert!(
+        detector
+            .detect(&serde_json::json!("just a string"))
+            .is_none()
+    );
     assert!(detector.detect(&serde_json::json!(42)).is_none());
     assert!(detector.detect(&serde_json::json!([])).is_none());
 }
@@ -451,9 +453,11 @@ fn given_same_dialect_mapping_when_any_feature_then_lossless() {
 fn given_empty_registry_when_lookup_then_none() {
     // Scenario: An empty registry returns None for any lookup.
     let registry = MappingRegistry::new();
-    assert!(registry
-        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-        .is_none());
+    assert!(
+        registry
+            .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+            .is_none()
+    );
 }
 
 #[test]

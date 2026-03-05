@@ -42,12 +42,12 @@
 //! 11. Backoff calculation
 //! 12. Integration: retry + circuit breaker together
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use abp_retry::{
-    retry_with_policy, CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy,
+    CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy, retry_with_policy,
 };
 
 // ===========================================================================
@@ -138,11 +138,7 @@ async fn backoff_success_on_second_attempt_has_one_delay() {
         let c = c.clone();
         async move {
             let n = c.fetch_add(1, Ordering::SeqCst);
-            if n == 0 {
-                Err("transient")
-            } else {
-                Ok("ok")
-            }
+            if n == 0 { Err("transient") } else { Ok("ok") }
         }
     })
     .await;
@@ -773,11 +769,7 @@ async fn max_attempts_early_success_stops_retrying() {
         let c = c.clone();
         async move {
             let n = c.fetch_add(1, Ordering::SeqCst);
-            if n == 2 {
-                Ok("done")
-            } else {
-                Err("not yet")
-            }
+            if n == 2 { Ok("done") } else { Err("not yet") }
         }
     })
     .await;
@@ -800,11 +792,7 @@ async fn max_attempts_succeeds_on_exact_last() {
         let c = c.clone();
         async move {
             let n = c.fetch_add(1, Ordering::SeqCst);
-            if n == 3 {
-                Ok("last")
-            } else {
-                Err("not yet")
-            }
+            if n == 3 { Ok("last") } else { Err("not yet") }
         }
     })
     .await;

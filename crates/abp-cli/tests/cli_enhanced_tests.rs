@@ -10,11 +10,11 @@
 
 use abp_cli::cli::{Cli, Commands, SchemaArg};
 use abp_cli::commands::{
-    config_check, inspect_receipt_file, receipt_diff, schema_json, validate_file,
-    validate_work_order_file, verify_receipt_file, SchemaKind, ValidatedType,
+    SchemaKind, ValidatedType, config_check, inspect_receipt_file, receipt_diff, schema_json,
+    validate_file, validate_work_order_file, verify_receipt_file,
 };
 use abp_cli::format::{Formatter, OutputFormat};
-use abp_cli::health::{check_health, BackendHealthStatus, BackendProbe, HealthReport};
+use abp_cli::health::{BackendHealthStatus, BackendProbe, HealthReport, check_health};
 use abp_cli::schema::{generate_schema, write_schema_to_file};
 use abp_cli::translate::{
     list_supported_pairs, parse_dialect, translate_json_str, translate_request,

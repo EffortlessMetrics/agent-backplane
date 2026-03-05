@@ -34,16 +34,16 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use abp_core::{
-    BackendIdentity, Capability, CapabilityManifest, ExecutionMode, SupportLevel, CONTRACT_VERSION,
+    BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest, ExecutionMode, SupportLevel,
 };
 use abp_host::health::{HealthMonitor, HealthStatus};
 use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
 use abp_host::pool::{PoolConfig, PoolEntryState, PoolStats, SidecarPool};
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
-use abp_host::retry::{compute_delay, is_retryable, RetryConfig, RetryMetadata};
+use abp_host::retry::{RetryConfig, RetryMetadata, compute_delay, is_retryable};
 use abp_host::{HostError, SidecarHello, SidecarSpec};
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 
 // ═══════════════════════════════════════════════════════════════════════
 // 1. SidecarSpec construction

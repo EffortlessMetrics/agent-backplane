@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Benchmarks for cross-dialect mapping validation.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
 use abp_dialect::Dialect;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
+    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────

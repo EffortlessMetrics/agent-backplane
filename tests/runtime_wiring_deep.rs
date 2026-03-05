@@ -33,17 +33,17 @@
 //! capability negotiation, and mapper factory together.
 
 use abp_capability::{
-    check_capability, generate_report, negotiate, negotiate_capabilities, CapabilityRegistry,
-    NegotiationResult, SupportLevel,
+    CapabilityRegistry, NegotiationResult, SupportLevel, check_capability, generate_report,
+    negotiate, negotiate_capabilities,
 };
 use abp_core::{
-    ir::{IrContentBlock, IrConversation, IrMessage, IrRole},
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
     SupportLevel as CoreSupportLevel, WorkOrderBuilder,
+    ir::{IrContentBlock, IrConversation, IrMessage, IrRole},
 };
 use abp_dialect::Dialect;
 use abp_error::{AbpError, ErrorCode};
-use abp_mapper::{default_ir_mapper, supported_ir_pairs, MapError};
+use abp_mapper::{MapError, default_ir_mapper, supported_ir_pairs};
 use abp_projection::{ProjectionMatrix, ProjectionMode};
 use abp_runtime::{Runtime, RuntimeError};
 
@@ -561,9 +561,11 @@ fn ir_mapper_roundtrip_openai_claude_openai() {
         .filter(|m| m.role == IrRole::User)
         .collect();
     assert!(!roundtrip_user_msgs.is_empty());
-    assert!(roundtrip_user_msgs
-        .iter()
-        .any(|m| m.text_content() == original_user));
+    assert!(
+        roundtrip_user_msgs
+            .iter()
+            .any(|m| m.text_content() == original_user)
+    );
 }
 
 #[test]

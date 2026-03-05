@@ -49,10 +49,10 @@
 //! ```
 
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, Capability, CapabilityRequirement,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement,
     CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane, MinSupport, Outcome,
     PolicyProfile, RuntimeConfig, SupportLevel, WorkOrder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    receipt_hash,
 };
 use abp_host::{HostError, SidecarClient, SidecarSpec};
 use abp_policy::PolicyEngine;

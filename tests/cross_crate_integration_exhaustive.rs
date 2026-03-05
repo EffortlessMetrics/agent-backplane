@@ -16,9 +16,9 @@ use abp_backend_core::registry::BackendRegistry;
 use abp_backend_core::{ensure_capability_requirements, extract_execution_mode};
 use abp_backend_mock::MockBackend;
 use abp_capability::{
-    check_capability, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
-    gemini_15_pro_manifest, generate_report, kimi_manifest, negotiate_capabilities,
-    openai_gpt4o_manifest, NegotiationResult,
+    NegotiationResult, check_capability, claude_35_sonnet_manifest, codex_manifest,
+    copilot_manifest, gemini_15_pro_manifest, generate_report, kimi_manifest,
+    negotiate_capabilities, openai_gpt4o_manifest,
 };
 use abp_config::load_from_str;
 use abp_core::aggregate::{EventAggregator, RunAnalytics};
@@ -31,11 +31,10 @@ use abp_core::stream::EventStream;
 use abp_core::validate::validate_receipt;
 use abp_core::verify::ReceiptVerifier;
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
     ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, RuntimeConfig, SupportLevel,
     UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    CONTRACT_VERSION,
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_emulation::EmulationEngine;
@@ -47,7 +46,7 @@ use abp_ir::normalize::{
     dedup_system, merge_adjacent_text, normalize, strip_empty, strip_metadata, trim_text,
 };
 use abp_mapper::{IdentityMapper, Mapper};
-use abp_mapping::{known_rules, validate_mapping, Fidelity, MappingRegistry};
+use abp_mapping::{Fidelity, MappingRegistry, known_rules, validate_mapping};
 use abp_policy::PolicyEngine;
 use abp_projection::{ProjectionMatrix, ProjectionScore};
 use abp_protocol::{Envelope, JsonlCodec};
@@ -727,10 +726,12 @@ mod work_order_to_receipt_pipeline {
         let (tx, _rx) = mpsc::channel(32);
         let result = backend.run(Uuid::new_v4(), wo, tx).await;
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("intentional failure"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("intentional failure")
+        );
     }
 
     #[tokio::test]

@@ -50,8 +50,8 @@
 
 use abp_dialect::Dialect;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingError, MappingMatrix,
-    MappingRegistry, MappingRule, MappingValidation,
+    Fidelity, MappingError, MappingMatrix, MappingRegistry, MappingRule, MappingValidation,
+    features, known_rules, validate_mapping,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -257,36 +257,40 @@ mod registry_basics {
     fn lookup_existing_rule_returns_some() {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-            .is_some());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+                .is_some()
+        );
     }
 
     #[test]
     fn lookup_missing_source_returns_none() {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
-        assert!(reg
-            .lookup(Dialect::Gemini, Dialect::Claude, "tool_use")
-            .is_none());
+        assert!(
+            reg.lookup(Dialect::Gemini, Dialect::Claude, "tool_use")
+                .is_none()
+        );
     }
 
     #[test]
     fn lookup_missing_target_returns_none() {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Gemini, "tool_use")
-            .is_none());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Gemini, "tool_use")
+                .is_none()
+        );
     }
 
     #[test]
     fn lookup_missing_feature_returns_none() {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
-            .is_none());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, "streaming")
+                .is_none()
+        );
     }
 
     #[test]
@@ -294,9 +298,10 @@ mod registry_basics {
         let mut reg = MappingRegistry::new();
         reg.insert(make_lossless(Dialect::OpenAi, Dialect::Claude, "tool_use"));
         // Reverse direction should not match
-        assert!(reg
-            .lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
-            .is_none());
+        assert!(
+            reg.lookup(Dialect::Claude, Dialect::OpenAi, "tool_use")
+                .is_none()
+        );
     }
 
     #[test]
@@ -1496,9 +1501,10 @@ mod edge_cases {
             ));
         }
         assert_eq!(reg.len(), 200);
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "feat_199")
-            .is_some());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, "feat_199")
+                .is_some()
+        );
     }
 
     #[test]
@@ -1533,9 +1539,10 @@ mod edge_cases {
             Dialect::Claude,
             "feat-with-dashes",
         ));
-        assert!(reg
-            .lookup(Dialect::OpenAi, Dialect::Claude, "feat-with-dashes")
-            .is_some());
+        assert!(
+            reg.lookup(Dialect::OpenAi, Dialect::Claude, "feat-with-dashes")
+                .is_some()
+        );
     }
 
     #[test]

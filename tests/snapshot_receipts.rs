@@ -42,8 +42,8 @@ use abp_core::{
     VerificationReport,
 };
 use abp_receipt::{
-    canonicalize, compute_hash, diff_receipts, verify_hash, ReceiptBuilder, ReceiptChain,
-    ReceiptDiff,
+    ReceiptBuilder, ReceiptChain, ReceiptDiff, canonicalize, compute_hash, diff_receipts,
+    verify_hash,
 };
 
 // ---------------------------------------------------------------------------

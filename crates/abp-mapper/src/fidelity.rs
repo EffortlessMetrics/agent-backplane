@@ -12,7 +12,7 @@ use abp_dialect::Dialect;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::capabilities::{dialect_capabilities, Support};
+use crate::capabilities::{Support, dialect_capabilities};
 
 // ── FidelityLevel ───────────────────────────────────────────────────────
 

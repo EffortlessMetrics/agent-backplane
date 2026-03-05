@@ -36,8 +36,8 @@ use std::io::Write;
 use std::path::Path;
 
 use abp_config::{
-    load_config, merge_configs, parse_toml, validate_config, BackendEntry, BackplaneConfig,
-    ConfigError, ConfigWarning,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, load_config, merge_configs,
+    parse_toml, validate_config,
 };
 use abp_core::config::{ConfigDefaults, ConfigValidator, WarningSeverity};
 use abp_core::{ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrderBuilder, WorkspaceMode};
@@ -314,9 +314,11 @@ fn validation_empty_sidecar_command() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 #[test]
@@ -331,9 +333,11 @@ fn validation_whitespace_only_command() {
         },
     );
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 #[test]
@@ -602,9 +606,11 @@ fn merge_overlay_introduces_bad_backend_detected() {
     };
     let merged = merge_configs(base, overlay);
     let reasons = validation_reasons(validate_config(&merged).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 // ===========================================================================
@@ -727,9 +733,11 @@ fn workorder_empty_task_is_error() {
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
     assert!(warnings.iter().any(|w| w.field == "task"));
-    assert!(warnings
-        .iter()
-        .any(|w| w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]
@@ -753,9 +761,11 @@ fn workorder_zero_max_turns_is_error() {
     let wo = WorkOrderBuilder::new("test").max_turns(0).build();
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.max_turns" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "config.max_turns" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]
@@ -771,9 +781,11 @@ fn workorder_zero_budget_is_error() {
     let wo = WorkOrderBuilder::new("test").max_budget_usd(0.0).build();
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.max_budget_usd" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "config.max_budget_usd" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]
@@ -797,9 +809,11 @@ fn workorder_empty_model_name_is_error() {
     let wo = WorkOrderBuilder::new("test").model("  ").build();
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.model" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "config.model" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]
@@ -820,9 +834,11 @@ fn workorder_duplicate_tools_in_allowlist() {
         .build();
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.allowed_tools" && w.message.contains("Duplicate")));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.allowed_tools" && w.message.contains("Duplicate"))
+    );
 }
 
 #[test]
@@ -835,9 +851,11 @@ fn workorder_empty_glob_in_deny_read() {
         .build();
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.deny_read" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.deny_read" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]
@@ -849,9 +867,11 @@ fn workorder_vendor_config_empty_key_is_error() {
     let wo = WorkOrderBuilder::new("test").config(config).build();
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.vendor" && w.severity == WarningSeverity::Error));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "config.vendor" && w.severity == WarningSeverity::Error)
+    );
 }
 
 #[test]

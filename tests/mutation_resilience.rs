@@ -762,10 +762,12 @@ fn dialect_all_contains_known_variants() {
 #[test]
 fn fidelity_is_lossless_only_for_lossless() {
     assert!(abp_mapping::Fidelity::Lossless.is_lossless());
-    assert!(!abp_mapping::Fidelity::LossyLabeled {
-        warning: "w".into()
-    }
-    .is_lossless());
+    assert!(
+        !abp_mapping::Fidelity::LossyLabeled {
+            warning: "w".into()
+        }
+        .is_lossless()
+    );
     assert!(!abp_mapping::Fidelity::Unsupported { reason: "r".into() }.is_lossless());
 }
 
@@ -774,10 +776,12 @@ fn fidelity_is_lossless_only_for_lossless() {
 fn fidelity_is_unsupported_only_for_unsupported() {
     assert!(abp_mapping::Fidelity::Unsupported { reason: "r".into() }.is_unsupported());
     assert!(!abp_mapping::Fidelity::Lossless.is_unsupported());
-    assert!(!abp_mapping::Fidelity::LossyLabeled {
-        warning: "w".into()
-    }
-    .is_unsupported());
+    assert!(
+        !abp_mapping::Fidelity::LossyLabeled {
+            warning: "w".into()
+        }
+        .is_unsupported()
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -801,9 +805,11 @@ fn contract_version_exact_value() {
 fn mapping_matrix_default_is_unsupported() {
     let matrix = abp_mapping::MappingMatrix::new();
     assert!(!matrix.is_supported(abp_dialect::Dialect::OpenAi, abp_dialect::Dialect::Claude));
-    assert!(matrix
-        .get(abp_dialect::Dialect::OpenAi, abp_dialect::Dialect::Claude)
-        .is_none());
+    assert!(
+        matrix
+            .get(abp_dialect::Dialect::OpenAi, abp_dialect::Dialect::Claude)
+            .is_none()
+    );
 }
 
 /// After set(true), is_supported returns true.

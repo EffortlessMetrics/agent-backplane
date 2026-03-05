@@ -3,14 +3,14 @@
 //! roundtrips, glob matching, IR lowering (OpenAI→Gemini), and capability
 //! negotiation.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use std::collections::BTreeMap;
 
 use abp_capability::{check_capability, negotiate};
 use abp_core::{
-    canonical_json, receipt_hash, AgentEvent, AgentEventKind, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome, Receipt, ReceiptBuilder,
-    SupportLevel, WorkOrder, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement,
+    CapabilityRequirements, MinSupport, Outcome, Receipt, ReceiptBuilder, SupportLevel, WorkOrder,
+    WorkOrderBuilder, canonical_json, receipt_hash,
 };
 use abp_gemini_sdk::lowering as gemini_lowering;
 use abp_glob::IncludeExcludeGlobs;

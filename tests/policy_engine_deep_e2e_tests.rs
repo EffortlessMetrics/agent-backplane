@@ -654,9 +654,11 @@ fn policy_set_merge_network_and_approval() {
     ps.add(p1);
     ps.add(p2);
     let merged = ps.merge();
-    assert!(merged
-        .allow_network
-        .contains(&"api.example.com".to_string()));
+    assert!(
+        merged
+            .allow_network
+            .contains(&"api.example.com".to_string())
+    );
     assert!(merged.deny_network.contains(&"evil.com".to_string()));
     assert!(merged.require_approval_for.contains(&"Bash".to_string()));
     assert!(merged.require_approval_for.contains(&"Delete".to_string()));
@@ -697,9 +699,11 @@ fn validator_detects_overlapping_allow_deny_tools() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
+    );
 }
 
 #[test]
@@ -710,9 +714,11 @@ fn validator_detects_unreachable_rule_wildcard_deny() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule)
+    );
 }
 
 #[test]
@@ -722,9 +728,11 @@ fn validator_detects_catchall_deny_read() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read")));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read"))
+    );
 }
 
 #[test]
@@ -734,9 +742,11 @@ fn validator_detects_catchall_deny_write() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_write")));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_write"))
+    );
 }
 
 #[test]

@@ -34,9 +34,9 @@
 //! Covers: full pipeline, workspace integration, error paths, and event streaming.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
-    Outcome, PolicyProfile, Receipt, RunMetadata, SupportLevel, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, PolicyProfile, Receipt, RunMetadata, SupportLevel, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode,
 };
 use abp_integrations::Backend;
 use abp_receipt::{compute_hash, verify_hash};

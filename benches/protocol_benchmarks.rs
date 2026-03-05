@@ -2,7 +2,7 @@
 //! Protocol-layer benchmarks: JSONL envelope serialization, parsing,
 //! roundtrip, and large work-order serialization.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use std::io::BufReader;
 
 use abp_core::{

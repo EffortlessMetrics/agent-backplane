@@ -6,8 +6,8 @@
 use std::collections::BTreeMap;
 
 use abp_dialect::detect::{
-    builtin_fingerprints, detect_dialect, detect_from_headers, DialectDetectionResult,
-    DialectFingerprint,
+    DialectDetectionResult, DialectFingerprint, builtin_fingerprints, detect_dialect,
+    detect_from_headers,
 };
 use abp_dialect::ir::{
     IrContentBlock, IrGenerationConfig, IrMessage, IrRequest, IrResponse, IrRole, IrStopReason,
@@ -579,9 +579,10 @@ fn endpoint_detect_github_copilot() {
 #[test]
 fn endpoint_detect_none_for_unknown_url() {
     let d = DialectDetector::new();
-    assert!(d
-        .detect_from_endpoint("https://example.com/api/chat")
-        .is_none());
+    assert!(
+        d.detect_from_endpoint("https://example.com/api/chat")
+            .is_none()
+    );
 }
 
 #[test]
@@ -935,10 +936,11 @@ fn builtin_fingerprints_openai_has_gpt_prefix() {
 fn builtin_fingerprints_claude_has_anthropic_header() {
     let fps = builtin_fingerprints();
     let fp = fps.get(&Dialect::Claude).unwrap();
-    assert!(fp
-        .header_markers
-        .iter()
-        .any(|(k, _)| k == "anthropic-version"));
+    assert!(
+        fp.header_markers
+            .iter()
+            .any(|(k, _)| k == "anthropic-version")
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════

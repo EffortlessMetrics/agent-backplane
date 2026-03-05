@@ -32,9 +32,9 @@
 //! and capability detection per model.
 
 use abp_capability::{
-    check_capability, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
-    gemini_15_pro_manifest, generate_report, kimi_manifest, negotiate_capabilities,
-    openai_gpt4o_manifest, CapabilityRegistry, NegotiationResult, SupportLevel,
+    CapabilityRegistry, NegotiationResult, SupportLevel, check_capability,
+    claude_35_sonnet_manifest, codex_manifest, copilot_manifest, gemini_15_pro_manifest,
+    generate_report, kimi_manifest, negotiate_capabilities, openai_gpt4o_manifest,
 };
 use abp_core::{Capability, SupportLevel as CoreSupportLevel};
 use abp_dialect::Dialect;
@@ -848,9 +848,10 @@ fn unknown_model_not_in_registry() {
 #[test]
 fn negotiate_by_name_unknown_returns_none() {
     let reg = CapabilityRegistry::with_defaults();
-    assert!(reg
-        .negotiate_by_name("unknown/model", &[Capability::Streaming])
-        .is_none());
+    assert!(
+        reg.negotiate_by_name("unknown/model", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]

@@ -4,14 +4,14 @@
 //! Deep comprehensive tests for abp-validate.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ContextSnippet, ExecutionMode,
-    Outcome, ReceiptBuilder, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ContextSnippet, ExecutionMode, Outcome, ReceiptBuilder, WorkOrderBuilder,
 };
 use abp_protocol::Envelope;
 use abp_validate::{
-    validate_hello_version, EnvelopeValidator, EventValidator, JsonType, RawEnvelopeValidator,
-    ReceiptValidator, SchemaValidator, ValidationErrorKind, ValidationErrors, Validator,
-    WorkOrderValidator,
+    EnvelopeValidator, EventValidator, JsonType, RawEnvelopeValidator, ReceiptValidator,
+    SchemaValidator, ValidationErrorKind, ValidationErrors, Validator, WorkOrderValidator,
+    validate_hello_version,
 };
 use chrono::Utc;
 
@@ -75,9 +75,10 @@ fn wo_valid_minimal_passes() {
 fn wo_empty_task_required_error() {
     let wo = WorkOrderBuilder::new("").build();
     let err = WorkOrderValidator.validate(&wo).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "task" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "task" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -98,9 +99,10 @@ fn wo_newline_only_task_required_error() {
 fn wo_empty_workspace_root_required_error() {
     let wo = WorkOrderBuilder::new("task").root("").build();
     let err = WorkOrderValidator.validate(&wo).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "workspace.root" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "workspace.root" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -196,9 +198,10 @@ fn wo_no_budget_passes() {
 fn wo_zero_max_turns_out_of_range() {
     let wo = WorkOrderBuilder::new("task").max_turns(0).build();
     let err = WorkOrderValidator.validate(&wo).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "config.max_turns" && e.kind == ValidationErrorKind::OutOfRange));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "config.max_turns" && e.kind == ValidationErrorKind::OutOfRange)
+    );
 }
 
 #[test]
@@ -298,9 +301,10 @@ fn wo_conflicting_tool_policy_invalid_reference() {
     wo.policy.allowed_tools.push("bash".into());
     wo.policy.disallowed_tools.push("bash".into());
     let err = WorkOrderValidator.validate(&wo).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "policy" && e.kind == ValidationErrorKind::InvalidReference));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "policy" && e.kind == ValidationErrorKind::InvalidReference)
+    );
 }
 
 #[test]
@@ -384,9 +388,10 @@ fn receipt_valid_passes() {
 fn receipt_empty_backend_id_required() {
     let receipt = ReceiptBuilder::new("").build();
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "backend.id" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "backend.id" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -401,9 +406,10 @@ fn receipt_empty_contract_version_required() {
     let mut receipt = ReceiptBuilder::new("mock").build();
     receipt.meta.contract_version = "".into();
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "meta.contract_version" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "meta.contract_version" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -456,9 +462,10 @@ fn receipt_incorrect_hash_invalid_reference() {
     let mut receipt = ReceiptBuilder::new("mock").with_hash().unwrap();
     receipt.receipt_sha256 = Some("a".repeat(64));
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "receipt_sha256" && e.kind == ValidationErrorKind::InvalidReference));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "receipt_sha256" && e.kind == ValidationErrorKind::InvalidReference)
+    );
 }
 
 #[test]
@@ -466,9 +473,10 @@ fn receipt_short_hash_invalid_format() {
     let mut receipt = ReceiptBuilder::new("mock").build();
     receipt.receipt_sha256 = Some("abc123".into());
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "receipt_sha256" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "receipt_sha256" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -476,9 +484,10 @@ fn receipt_long_hash_invalid_format() {
     let mut receipt = ReceiptBuilder::new("mock").build();
     receipt.receipt_sha256 = Some("a".repeat(65));
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "receipt_sha256" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "receipt_sha256" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -517,9 +526,10 @@ fn receipt_finished_before_started_out_of_range() {
         .finished_at(earlier)
         .build();
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "meta.finished_at" && e.kind == ValidationErrorKind::OutOfRange));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "meta.finished_at" && e.kind == ValidationErrorKind::OutOfRange)
+    );
 }
 
 #[test]
@@ -552,10 +562,10 @@ fn receipt_failed_harness_ok_invalid_reference() {
     let mut receipt = ReceiptBuilder::new("mock").outcome(Outcome::Failed).build();
     receipt.verification.harness_ok = true;
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "verification.harness_ok"
-            && e.kind == ValidationErrorKind::InvalidReference));
+    assert!(
+        err.iter().any(|e| e.path == "verification.harness_ok"
+            && e.kind == ValidationErrorKind::InvalidReference)
+    );
 }
 
 #[test]
@@ -657,9 +667,10 @@ fn events_non_monotonic_ts_fails() {
         ),
     ];
     let err = EventValidator.validate(&events).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "events[1].ts" && e.kind == ValidationErrorKind::OutOfRange));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "events[1].ts" && e.kind == ValidationErrorKind::OutOfRange)
+    );
 }
 
 #[test]
@@ -718,9 +729,10 @@ fn events_first_not_run_started_fails() {
         text: "hi".into(),
     })];
     let err = EventValidator.validate(&events).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "events[0].kind" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "events[0].kind" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -782,9 +794,10 @@ fn events_tool_result_without_call_invalid_reference() {
         ),
     ];
     let err = EventValidator.validate(&events).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidReference));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidReference)
+    );
 }
 
 #[test]
@@ -917,9 +930,10 @@ fn events_mismatched_tool_result_name_fails() {
         ),
     ];
     let err = EventValidator.validate(&events).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidReference));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidReference)
+    );
 }
 
 #[test]
@@ -1033,9 +1047,10 @@ fn envelope_hello_empty_contract_version_fails() {
         mode: ExecutionMode::default(),
     };
     let err = EnvelopeValidator.validate(&env).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "contract_version" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "contract_version" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -1047,9 +1062,10 @@ fn envelope_hello_invalid_contract_version_format() {
         mode: ExecutionMode::default(),
     };
     let err = EnvelopeValidator.validate(&env).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "contract_version" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "contract_version" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -1086,9 +1102,10 @@ fn envelope_run_empty_id_fails() {
         work_order: wo,
     };
     let err = EnvelopeValidator.validate(&env).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "id" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "id" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -1175,9 +1192,10 @@ fn envelope_fatal_empty_error_fails() {
         error_code: None,
     };
     let err = EnvelopeValidator.validate(&env).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "error" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "error" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -1209,63 +1227,70 @@ fn envelope_fatal_no_ref_id_passes() {
 fn raw_envelope_not_object_fails() {
     let val = serde_json::json!("just a string");
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
 fn raw_envelope_array_fails() {
     let val = serde_json::json!([1, 2, 3]);
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
 fn raw_envelope_null_fails() {
     let val = serde_json::Value::Null;
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
 fn raw_envelope_number_fails() {
     let val = serde_json::json!(42);
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
 fn raw_envelope_missing_tag_required() {
     let val = serde_json::json!({"ref_id": "run-1"});
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "t" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "t" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
 fn raw_envelope_unknown_tag_invalid_format() {
     let val = serde_json::json!({"t": "bogus"});
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "t" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "t" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
 fn raw_envelope_tag_not_string_fails() {
     let val = serde_json::json!({"t": 42});
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "t" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "t" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -1286,9 +1311,10 @@ fn raw_envelope_tag_null_fails() {
 fn raw_hello_missing_contract_version_required() {
     let val = serde_json::json!({"t": "hello", "backend": {"id": "x"}});
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "contract_version" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "contract_version" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -1302,9 +1328,10 @@ fn raw_hello_with_contract_version_passes() {
 fn raw_run_missing_id_required() {
     let val = serde_json::json!({"t": "run", "work_order": {}});
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "id" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "id" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -1317,9 +1344,10 @@ fn raw_run_with_id_passes() {
 fn raw_event_missing_ref_id_required() {
     let val = serde_json::json!({"t": "event", "event": {}});
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "ref_id" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "ref_id" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -1396,9 +1424,10 @@ fn hello_version_incompatible_major_fails() {
         mode: ExecutionMode::default(),
     };
     let err = validate_hello_version(&env).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidReference));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidReference)
+    );
 }
 
 #[test]
@@ -1463,9 +1492,10 @@ fn schema_wo_null_field_fails() {
         "workspace": {}, "context": {}, "policy": {}, "config": {},
     });
     let err = SchemaValidator::work_order().validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "task" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "task" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -1475,9 +1505,10 @@ fn schema_wo_wrong_type_number_for_string() {
         "workspace": {}, "context": {}, "policy": {}, "config": {},
     });
     let err = SchemaValidator::work_order().validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "task" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "task" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -1487,9 +1518,10 @@ fn schema_wo_wrong_type_string_for_object() {
         "workspace": "not-an-object", "context": {}, "policy": {}, "config": {},
     });
     let err = SchemaValidator::work_order().validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "workspace" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "workspace" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1509,9 +1541,10 @@ fn schema_receipt_missing_meta_fails() {
         "backend": {"id": "mock"}, "outcome": "complete", "trace": [], "artifacts": [],
     });
     let err = SchemaValidator::receipt().validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "meta" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "meta" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -1529,9 +1562,10 @@ fn schema_receipt_wrong_trace_type_fails() {
         "meta": {}, "backend": {}, "outcome": "complete", "trace": "not-array", "artifacts": [],
     });
     let err = SchemaValidator::receipt().validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "trace" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "trace" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -1639,9 +1673,10 @@ fn schema_custom_wrong_type_string_for_number() {
     let v = SchemaValidator::new(vec![("count".into(), JsonType::Number)]);
     let val = serde_json::json!({"count": "not-a-number"});
     let err = v.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "count" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "count" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -1673,9 +1708,10 @@ fn schema_custom_missing_field() {
     let v = SchemaValidator::new(vec![("required_field".into(), JsonType::String)]);
     let val = serde_json::json!({});
     let err = v.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "required_field" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "required_field" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -1683,9 +1719,10 @@ fn schema_custom_null_field_required() {
     let v = SchemaValidator::new(vec![("name".into(), JsonType::String)]);
     let val = serde_json::json!({"name": null});
     let err = v.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "name" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "name" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -1716,9 +1753,10 @@ fn schema_not_object_fails() {
     let v = SchemaValidator::new(vec![("x".into(), JsonType::String)]);
     let val = serde_json::json!([1, 2, 3]);
     let err = v.validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -1958,9 +1996,11 @@ impl Validator<String> for NonEmptyStringValidator {
 
 #[test]
 fn custom_validator_passes_valid() {
-    assert!(NonEmptyStringValidator
-        .validate(&"hello".to_string())
-        .is_ok());
+    assert!(
+        NonEmptyStringValidator
+            .validate(&"hello".to_string())
+            .is_ok()
+    );
 }
 
 #[test]
@@ -2011,9 +2051,10 @@ fn custom_positive_validator_fails_zero() {
 #[test]
 fn custom_positive_validator_fails_negative() {
     let err = PositiveNumberValidator.validate(&-5.0).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::OutOfRange));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::OutOfRange)
+    );
 }
 
 struct RangeValidator {

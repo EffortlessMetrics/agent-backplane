@@ -9,9 +9,9 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 use abp_mapper::{
-    default_ir_mapper, ClaudeGeminiIrMapper, ClaudeToOpenAiMapper, DialectRequest,
-    GeminiToOpenAiMapper, IrMapper, MapError, Mapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper,
-    OpenAiToClaudeMapper, OpenAiToGeminiMapper,
+    ClaudeGeminiIrMapper, ClaudeToOpenAiMapper, DialectRequest, GeminiToOpenAiMapper, IrMapper,
+    MapError, Mapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper, OpenAiToClaudeMapper,
+    OpenAiToGeminiMapper, default_ir_mapper,
 };
 use serde_json::json;
 
@@ -531,10 +531,11 @@ fn claude_to_openai_ir_tool_use_in_assistant_preserved() {
         .unwrap();
     let asst = &result.messages[1];
     assert_eq!(asst.role, IrRole::Assistant);
-    assert!(asst
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::ToolUse { name, .. } if name == "get_weather")));
+    assert!(
+        asst.content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::ToolUse { name, .. } if name == "get_weather"))
+    );
 }
 
 #[test]
@@ -681,10 +682,12 @@ fn openai_to_gemini_ir_thinking_dropped() {
         .map_request(Dialect::OpenAi, Dialect::Gemini, &thinking_ir())
         .unwrap();
     let asst = &result.messages[1];
-    assert!(!asst
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
+    assert!(
+        !asst
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
+    );
     assert_eq!(asst.text_content(), "The answer is 42.");
 }
 
@@ -870,10 +873,12 @@ fn claude_to_gemini_ir_thinking_dropped() {
         .map_request(Dialect::Claude, Dialect::Gemini, &thinking_ir())
         .unwrap();
     let asst = &result.messages[1];
-    assert!(!asst
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
+    assert!(
+        !asst
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
+    );
     assert_eq!(asst.text_content(), "The answer is 42.");
 }
 

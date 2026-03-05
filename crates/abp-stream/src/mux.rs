@@ -4,10 +4,10 @@
 
 use abp_core::AgentEvent;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 
 /// Unique identifier for a subscriber.
 pub type SubscriberId = u64;

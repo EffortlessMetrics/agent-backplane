@@ -34,12 +34,12 @@ use std::collections::BTreeMap;
 use std::io::{Read, Write};
 
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, ExecutionMode, Outcome, Receipt,
-    UsageNormalized, VerificationReport, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, CONTRACT_VERSION, ExecutionMode, Outcome, Receipt,
+    UsageNormalized, VerificationReport, receipt_hash,
 };
 use abp_receipt::{
-    canonicalize, compute_hash, diff_receipts, verify_hash, ChainError, ReceiptBuilder,
-    ReceiptChain,
+    ChainError, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash, diff_receipts,
+    verify_hash,
 };
 use abp_runtime::store::{ReceiptStorage, ReceiptStore, StoreError};
 use chrono::{DateTime, Duration, TimeZone, Utc};

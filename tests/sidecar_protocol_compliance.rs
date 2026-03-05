@@ -35,14 +35,13 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionLane,
-    ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder, SupportLevel, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder, SupportLevel,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
 use abp_protocol::{
-    is_compatible_version, parse_version,
+    Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version,
     validate::{EnvelopeValidator, SequenceError, ValidationError},
-    Envelope, JsonlCodec, ProtocolError,
 };
 use chrono::Utc;
 use uuid::Uuid;
@@ -936,9 +935,11 @@ fn state_hello_must_be_first() {
     let seq = vec![make_run(&wo), make_hello(), make_final(&run_id)];
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+    );
 }
 
 #[test]
@@ -948,9 +949,11 @@ fn state_missing_hello() {
     let seq = vec![make_run(&wo), make_final(&run_id)];
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingHello)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
 }
 
 #[test]
@@ -967,9 +970,11 @@ fn state_missing_terminal() {
     ];
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -988,9 +993,11 @@ fn state_multiple_terminals() {
     ];
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MultipleTerminals)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MultipleTerminals))
+    );
 }
 
 #[test]
@@ -1008,9 +1015,11 @@ fn state_ref_id_mismatch_event() {
     ];
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -1019,9 +1028,11 @@ fn state_ref_id_mismatch_final() {
     let seq = vec![make_hello(), make_run(&wo), make_final("wrong-ref-id")];
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -1039,21 +1050,27 @@ fn state_event_before_run_is_out_of_order() {
     ];
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::OutOfOrderEvents)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
+    );
 }
 
 #[test]
 fn state_empty_sequence() {
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&[]);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingHello)));
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -1061,9 +1078,11 @@ fn state_hello_only() {
     let seq = vec![make_hello()];
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -1144,10 +1163,12 @@ fn state_validator_hello_invalid_version() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&hello);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 // =========================================================================

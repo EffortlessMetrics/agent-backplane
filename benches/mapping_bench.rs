@@ -2,11 +2,11 @@
 //! Comprehensive benchmarks for IR conversion, mapping lookup, matrix queries,
 //! and cross-dialect validation.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 
 use abp_dialect::Dialect;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
+    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────

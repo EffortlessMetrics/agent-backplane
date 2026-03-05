@@ -13,6 +13,8 @@ pub mod client;
 pub mod convert;
 /// Kimi-specific error types and classification.
 pub mod error;
+/// SSE-compatible streaming adapter for Kimi chat completions.
+pub mod streaming;
 /// Kimi built-in tools: search, file, code, browser.
 pub mod tools;
 /// Translation between Kimi-specific extension types and ABP core types.
@@ -36,7 +38,10 @@ pub use abp_kimi_sdk::dialect::{
 };
 
 // Re-export error types.
-pub use error::{KimiErrorBody, KimiErrorKind, KimiErrorResponse, KimiShimError};
+pub use error::{
+    ERR_AUTHENTICATION, ERR_INVALID_REQUEST, ERR_RATE_LIMIT, ERR_SERVER, KimiApiError,
+    KimiErrorBody, KimiErrorKind, KimiErrorResponse, KimiShimError,
+};
 
 // Re-export built-in tool types.
 pub use tools::{BrowserTool, BuiltinTools, CodeTool, FileTool, SearchTool};
@@ -250,8 +255,8 @@ pub fn mock_receipt_with_usage(events: Vec<AgentEvent>, usage: UsageNormalized) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use abp_core::ir::{IrRole, IrUsage};
     use abp_core::AgentEventKind;
+    use abp_core::ir::{IrRole, IrUsage};
     use serde_json::json;
     use tokio_stream::StreamExt;
 

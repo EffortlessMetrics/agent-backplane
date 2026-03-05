@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Benchmark receipt_hash on various receipt sizes.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 
-use abp_core::{receipt_hash, AgentEvent, AgentEventKind, Outcome, ReceiptBuilder};
-use abp_receipt::{canonicalize, compute_hash, verify_hash, ReceiptChain};
+use abp_core::{AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, receipt_hash};
+use abp_receipt::{ReceiptChain, canonicalize, compute_hash, verify_hash};
 use chrono::Utc;
 
 fn make_receipt(trace_len: usize) -> abp_core::Receipt {

@@ -31,7 +31,7 @@
 //! Comprehensive tests for SDK dialect detection via `DialectDetector`.
 
 use abp_dialect::{DetectionResult, Dialect, DialectDetector};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn detector() -> DialectDetector {
     DialectDetector::new()

@@ -38,9 +38,9 @@ use abp_dialect::Dialect;
 use abp_mapper::{default_ir_mapper, supported_ir_pairs};
 use abp_mapping::{Fidelity, MappingRegistry, MappingRule};
 use abp_projection::{
-    selection::{ModelCandidate, ModelSelector, SelectionStrategy},
     CompatibilityScore, DialectPair, ProjectionError, ProjectionMatrix, ProjectionMode,
     ProjectionScore, RoutingHop, RoutingPath,
+    selection::{ModelCandidate, ModelSelector, SelectionStrategy},
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -2494,9 +2494,10 @@ fn matrix_off_diagonal_mapped_entries_have_ir_mappers() {
 fn matrix_missing_mappers_produce_none() {
     let pm = ProjectionMatrix::new();
     assert!(pm.lookup(Dialect::OpenAi, Dialect::Claude).is_none());
-    assert!(pm
-        .resolve_mapper(Dialect::OpenAi, Dialect::Claude)
-        .is_none());
+    assert!(
+        pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+            .is_none()
+    );
 }
 
 #[test]

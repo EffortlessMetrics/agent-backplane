@@ -31,7 +31,7 @@ use abp_core::{
     CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
     WorkspaceMode, WorkspaceSpec,
 };
-use abp_daemon::{build_app, AppState, BackendInfo, RunRequest, RunResponse, RunTracker};
+use abp_daemon::{AppState, BackendInfo, RunRequest, RunResponse, RunTracker, build_app};
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;
 use axum::body::Body;
@@ -675,7 +675,7 @@ mod v1_api_types {
         ListBackendsResponse, RunRequest as ApiRunRequest, RunResponse as ApiRunResponse,
         RunStatus as ApiRunStatus,
     };
-    use abp_daemon::routes::{api_routes, Route};
+    use abp_daemon::routes::{Route, api_routes};
 
     // -- api::RunRequest ------------------------------------------------
 
@@ -906,41 +906,51 @@ mod v1_api_types {
     #[test]
     fn api_routes_contains_post_run() {
         let routes = api_routes();
-        assert!(routes
-            .iter()
-            .any(|r| r.method == "POST" && r.path == "/api/v1/run"));
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "POST" && r.path == "/api/v1/run")
+        );
     }
 
     #[test]
     fn api_routes_contains_get_health() {
         let routes = api_routes();
-        assert!(routes
-            .iter()
-            .any(|r| r.method == "GET" && r.path == "/api/v1/health"));
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "GET" && r.path == "/api/v1/health")
+        );
     }
 
     #[test]
     fn api_routes_contains_get_backends() {
         let routes = api_routes();
-        assert!(routes
-            .iter()
-            .any(|r| r.method == "GET" && r.path == "/api/v1/backends"));
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "GET" && r.path == "/api/v1/backends")
+        );
     }
 
     #[test]
     fn api_routes_contains_get_run_events() {
         let routes = api_routes();
-        assert!(routes
-            .iter()
-            .any(|r| r.method == "GET" && r.path == "/api/v1/run/{id}/events"));
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "GET" && r.path == "/api/v1/run/{id}/events")
+        );
     }
 
     #[test]
     fn api_routes_contains_get_run_receipt() {
         let routes = api_routes();
-        assert!(routes
-            .iter()
-            .any(|r| r.method == "GET" && r.path == "/api/v1/run/{id}/receipt"));
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "GET" && r.path == "/api/v1/run/{id}/receipt")
+        );
     }
 
     #[test]
@@ -958,8 +968,10 @@ mod v1_api_types {
     #[test]
     fn api_routes_contains_get_run_status() {
         let routes = api_routes();
-        assert!(routes
-            .iter()
-            .any(|r| r.method == "GET" && r.path == "/api/v1/run/{id}"));
+        assert!(
+            routes
+                .iter()
+                .any(|r| r.method == "GET" && r.path == "/api/v1/run/{id}")
+        );
     }
 }

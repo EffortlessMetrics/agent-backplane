@@ -39,14 +39,13 @@ use std::path::Path;
 use abp_backend_core::Backend;
 use abp_backend_mock::scenarios::{MockScenario, ScenarioMockBackend};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    CONTRACT_VERSION,
 };
 use abp_emulation::{EmulationConfig, EmulationEngine, EmulationStrategy};
 use abp_policy::PolicyEngine;
-use abp_receipt::{compute_hash, verify_hash, ReceiptBuilder};
+use abp_receipt::{ReceiptBuilder, compute_hash, verify_hash};
 use abp_runtime::multiplex::EventMultiplexer;
 use abp_runtime::retry::{FallbackChain, RetryPolicy};
 use abp_runtime::{Runtime, RuntimeError};
@@ -421,9 +420,11 @@ async fn streaming_events_are_received_via_channel() {
                 &e.kind,
                 AgentEventKind::AssistantDelta { text } if text == "Hello"
             )));
-            assert!(events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+            assert!(
+                events
+                    .iter()
+                    .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+            );
             assert_eq!(receipt.outcome, Outcome::Complete);
         });
     });

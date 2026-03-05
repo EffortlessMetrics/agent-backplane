@@ -33,7 +33,7 @@
 use proptest::prelude::*;
 use std::collections::BTreeMap;
 
-use abp_config::{merge_configs, parse_toml, validate_config, BackendEntry, BackplaneConfig};
+use abp_config::{BackendEntry, BackplaneConfig, merge_configs, parse_toml, validate_config};
 
 // ── Strategies ──────────────────────────────────────────────────────────
 

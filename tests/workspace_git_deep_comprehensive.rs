@@ -111,11 +111,7 @@ fn collect_dirs(root: &Path) -> Vec<String> {
                 .unwrap()
                 .to_string_lossy()
                 .replace('\\', "/");
-            if rel.is_empty() {
-                None
-            } else {
-                Some(rel)
-            }
+            if rel.is_empty() { None } else { Some(rel) }
         })
         .collect();
     dirs.sort();

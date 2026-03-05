@@ -5,7 +5,20 @@
 //! HTTP status code mapping, rate-limit detection, and retryable-error
 //! classification.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
+
+// ── Error type constants ────────────────────────────────────────────────
+
+/// Error type string for invalid request errors.
+pub const ERR_INVALID_REQUEST: &str = "invalid_request_error";
+/// Error type string for authentication errors.
+pub const ERR_AUTHENTICATION: &str = "authentication_error";
+/// Error type string for rate-limit errors.
+pub const ERR_RATE_LIMIT: &str = "rate_limit_error";
+/// Error type string for server-side errors.
+pub const ERR_SERVER: &str = "server_error";
 
 // ── API error response ──────────────────────────────────────────────────
 
@@ -32,10 +45,111 @@ pub struct KimiErrorResponse {
     pub error: KimiErrorBody,
 }
 
+// ── KimiApiError ────────────────────────────────────────────────────────
+
+/// A parsed Kimi API error with its HTTP status code and classified kind.
+///
+/// This is the primary error type for structured API failures — it pairs
+/// the deserialized [`KimiErrorBody`] with the HTTP status and a
+/// [`KimiErrorKind`] classification.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiApiError {
+    /// HTTP status code that accompanied the error.
+    pub status: u16,
+    /// The structured error body from the API.
+    pub body: KimiErrorBody,
+    /// Classified error kind (derived from status + code, not serialized).
+    #[serde(skip, default)]
+    pub kind: KimiErrorKind,
+}
+
+impl KimiApiError {
+    /// Create from a status code and error body.
+    #[must_use]
+    pub fn new(status: u16, body: KimiErrorBody) -> Self {
+        let kind = KimiErrorKind::from_status(status, body.code.as_deref());
+        Self { status, body, kind }
+    }
+
+    /// Convenience: create an invalid-request error (400).
+    #[must_use]
+    pub fn invalid_request(message: impl Into<String>) -> Self {
+        Self::new(
+            400,
+            KimiErrorBody {
+                message: message.into(),
+                error_type: ERR_INVALID_REQUEST.into(),
+                param: None,
+                code: None,
+            },
+        )
+    }
+
+    /// Convenience: create an authentication error (401).
+    #[must_use]
+    pub fn authentication(message: impl Into<String>) -> Self {
+        Self::new(
+            401,
+            KimiErrorBody {
+                message: message.into(),
+                error_type: ERR_AUTHENTICATION.into(),
+                param: None,
+                code: None,
+            },
+        )
+    }
+
+    /// Convenience: create a rate-limit error (429).
+    #[must_use]
+    pub fn rate_limit(message: impl Into<String>) -> Self {
+        Self::new(
+            429,
+            KimiErrorBody {
+                message: message.into(),
+                error_type: ERR_RATE_LIMIT.into(),
+                param: None,
+                code: None,
+            },
+        )
+    }
+
+    /// Convenience: create a server error (500).
+    #[must_use]
+    pub fn server_error(message: impl Into<String>) -> Self {
+        Self::new(
+            500,
+            KimiErrorBody {
+                message: message.into(),
+                error_type: ERR_SERVER.into(),
+                param: None,
+                code: None,
+            },
+        )
+    }
+
+    /// Returns `true` if the error is likely retryable (rate limit or server error).
+    #[must_use]
+    pub fn is_retryable(&self) -> bool {
+        matches!(self.kind, KimiErrorKind::RateLimit | KimiErrorKind::Server)
+    }
+}
+
+impl fmt::Display for KimiApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "kimi api error (status {}): {}",
+            self.status, self.body.message
+        )
+    }
+}
+
+impl std::error::Error for KimiApiError {}
+
 // ── Error kind enum ─────────────────────────────────────────────────────
 
 /// Classification of Kimi API errors by HTTP status or error type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum KimiErrorKind {
     /// 400 — bad request / invalid parameters.
     InvalidRequest,
@@ -52,6 +166,7 @@ pub enum KimiErrorKind {
     /// Context length exceeded.
     ContextLengthExceeded,
     /// Unknown / unmapped error.
+    #[default]
     Unknown,
 }
 
@@ -390,5 +505,76 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         let parsed: KimiErrorResponse = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, resp);
+    }
+
+    // ── KimiApiError tests ──────────────────────────────────────────────
+
+    #[test]
+    fn api_error_invalid_request_constructor() {
+        let err = KimiApiError::invalid_request("bad param");
+        assert_eq!(err.status, 400);
+        assert_eq!(err.body.error_type, ERR_INVALID_REQUEST);
+        assert_eq!(err.kind, KimiErrorKind::InvalidRequest);
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn api_error_authentication_constructor() {
+        let err = KimiApiError::authentication("invalid key");
+        assert_eq!(err.status, 401);
+        assert_eq!(err.body.error_type, ERR_AUTHENTICATION);
+        assert_eq!(err.kind, KimiErrorKind::Authentication);
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn api_error_rate_limit_constructor() {
+        let err = KimiApiError::rate_limit("too many requests");
+        assert_eq!(err.status, 429);
+        assert_eq!(err.body.error_type, ERR_RATE_LIMIT);
+        assert_eq!(err.kind, KimiErrorKind::RateLimit);
+        assert!(err.is_retryable());
+    }
+
+    #[test]
+    fn api_error_server_error_constructor() {
+        let err = KimiApiError::server_error("internal failure");
+        assert_eq!(err.status, 500);
+        assert_eq!(err.body.error_type, ERR_SERVER);
+        assert_eq!(err.kind, KimiErrorKind::Server);
+        assert!(err.is_retryable());
+    }
+
+    #[test]
+    fn api_error_display() {
+        let err = KimiApiError::rate_limit("slow down");
+        let msg = err.to_string();
+        assert!(msg.contains("429"));
+        assert!(msg.contains("slow down"));
+    }
+
+    #[test]
+    fn api_error_serde_roundtrip() {
+        let err = KimiApiError::new(
+            400,
+            KimiErrorBody {
+                message: "Bad request".into(),
+                error_type: ERR_INVALID_REQUEST.into(),
+                param: Some("temperature".into()),
+                code: Some("invalid_value".into()),
+            },
+        );
+        let json = serde_json::to_string(&err).unwrap();
+        let parsed: KimiApiError = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.status, err.status);
+        assert_eq!(parsed.body, err.body);
+    }
+
+    #[test]
+    fn error_type_constants() {
+        assert_eq!(ERR_INVALID_REQUEST, "invalid_request_error");
+        assert_eq!(ERR_AUTHENTICATION, "authentication_error");
+        assert_eq!(ERR_RATE_LIMIT, "rate_limit_error");
+        assert_eq!(ERR_SERVER, "server_error");
     }
 }

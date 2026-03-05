@@ -29,7 +29,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for `abp-sidecar-utils` protocol helpers.
 
-use abp_core::{AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, CONTRACT_VERSION};
+use abp_core::{AgentEvent, AgentEventKind, CONTRACT_VERSION, Outcome, ReceiptBuilder};
 use abp_protocol::{Envelope, JsonlCodec};
 use abp_sidecar_utils::frame::{
     decode_envelope, encode_envelope, encode_event, encode_fatal, encode_final, encode_hello,

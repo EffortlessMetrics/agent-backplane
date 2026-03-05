@@ -33,9 +33,9 @@
 //! cases for the full sidecar process lifecycle managed by `SidecarClient`.
 
 use abp_core::{
-    AgentEventKind, BackendIdentity, CapabilityManifest, CapabilityRequirements, ContextPacket,
-    ExecutionLane, Outcome, PolicyProfile, RuntimeConfig, WorkOrder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, CapabilityRequirements,
+    ContextPacket, ExecutionLane, Outcome, PolicyProfile, RuntimeConfig, WorkOrder, WorkspaceMode,
+    WorkspaceSpec,
 };
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
 use abp_host::{HostError, SidecarClient, SidecarSpec};

@@ -4,17 +4,17 @@
 //! Exhaustive tests for the emulation engine, capability negotiation,
 //! and strategy subsystems across all capability variants and support levels.
 
-use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy};
+use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_capability::{
+    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
     check_capability, default_emulation_strategy, generate_report, negotiate,
-    negotiate_capabilities, CapabilityRegistry, CompatibilityReport, EmulationStrategy,
-    NegotiationResult, SupportLevel,
+    negotiate_capabilities,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::negotiate::{
-    check_capabilities, dialect_manifest, CapabilityDiff, CapabilityNegotiator, CapabilityReport,
-    CapabilityReportEntry, DialectSupportLevel, NegotiationRequest,
-    NegotiationResult as CoreNegotiationResult,
+    CapabilityDiff, CapabilityNegotiator, CapabilityReport, CapabilityReportEntry,
+    DialectSupportLevel, NegotiationRequest, NegotiationResult as CoreNegotiationResult,
+    check_capabilities, dialect_manifest,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -25,10 +25,10 @@ use abp_emulation::strategies::{
     ToolUseEmulation, VisionEmulation,
 };
 use abp_emulation::{
-    apply_emulation, can_emulate, compute_fidelity, default_strategy, emulate_code_execution,
-    emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
-    emulate_structured_output, EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport,
-    EmulationStrategy as EmuStrategy, FidelityLabel,
+    EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport,
+    EmulationStrategy as EmuStrategy, FidelityLabel, apply_emulation, can_emulate,
+    compute_fidelity, default_strategy, emulate_code_execution, emulate_extended_thinking,
+    emulate_image_input, emulate_stop_sequences, emulate_structured_output,
 };
 use std::collections::BTreeMap;
 
@@ -617,9 +617,11 @@ fn config_set_and_get() {
             reason: "off".into(),
         },
     );
-    assert!(config
-        .strategies
-        .contains_key(&Capability::ExtendedThinking));
+    assert!(
+        config
+            .strategies
+            .contains_key(&Capability::ExtendedThinking)
+    );
 }
 
 #[test]
@@ -1200,10 +1202,11 @@ fn registry_register_and_get() {
     let m = make_manifest(&[(Capability::Streaming, CoreSupportLevel::Native)]);
     reg.register("test", m);
     assert!(reg.contains("test"));
-    assert!(reg
-        .get("test")
-        .unwrap()
-        .contains_key(&Capability::Streaming));
+    assert!(
+        reg.get("test")
+            .unwrap()
+            .contains_key(&Capability::Streaming)
+    );
 }
 
 #[test]
@@ -1255,9 +1258,10 @@ fn registry_negotiate_by_name() {
 #[test]
 fn registry_negotiate_by_name_missing() {
     let reg = CapabilityRegistry::new();
-    assert!(reg
-        .negotiate_by_name("nonexistent", &[Capability::Streaming])
-        .is_none());
+    assert!(
+        reg.negotiate_by_name("nonexistent", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]

@@ -2,7 +2,7 @@
 
 //! Compliance checking for receipts.
 
-use abp_core::{Receipt, CONTRACT_VERSION};
+use abp_core::{CONTRACT_VERSION, Receipt};
 use chrono::{Duration, Utc};
 
 /// Severity level for compliance findings.

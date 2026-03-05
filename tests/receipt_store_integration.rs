@@ -32,8 +32,8 @@
 //! Deep integration tests for the receipt store and verification modules.
 
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
-use abp_receipt::verify::{verify_receipt, ReceiptAuditor};
-use abp_receipt::{compute_hash, verify_hash, Outcome, Receipt, ReceiptBuilder, CONTRACT_VERSION};
+use abp_receipt::verify::{ReceiptAuditor, verify_receipt};
+use abp_receipt::{CONTRACT_VERSION, Outcome, Receipt, ReceiptBuilder, compute_hash, verify_hash};
 use chrono::{Duration, Utc};
 use uuid::Uuid;
 
@@ -416,10 +416,12 @@ mod verification_pipeline {
         let result = verify_receipt(&receipt);
         assert!(!result.is_verified());
         assert!(!result.hash_valid);
-        assert!(result
-            .issues
-            .iter()
-            .any(|i| i.contains("hash") || i.contains("Hash")));
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|i| i.contains("hash") || i.contains("Hash"))
+        );
     }
 
     #[test]
@@ -455,10 +457,12 @@ mod verification_pipeline {
         let result = verify_receipt(&receipt);
         assert!(!result.is_verified());
         assert!(!result.outcome_consistent);
-        assert!(result
-            .issues
-            .iter()
-            .any(|i| i.contains("Complete") || i.contains("error")));
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|i| i.contains("Complete") || i.contains("error"))
+        );
     }
 
     #[test]
@@ -528,10 +532,12 @@ mod verification_pipeline {
 
         let report = auditor.audit_batch(&[r1, r2]);
         assert!(!report.is_clean());
-        assert!(report
-            .issues
-            .iter()
-            .any(|i| i.description.contains("duplicate run_id")));
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|i| i.description.contains("duplicate run_id"))
+        );
     }
 
     #[test]

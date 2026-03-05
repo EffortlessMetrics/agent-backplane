@@ -1574,13 +1574,15 @@ fn t121_config_error_debug_variants() {
         format!("{:?}", ConfigError::FileNotFound { path: "/p".into() }).contains("FileNotFound")
     );
     assert!(format!("{:?}", ConfigError::ParseError { reason: "x".into() }).contains("ParseError"));
-    assert!(format!(
-        "{:?}",
-        ConfigError::ValidationError {
-            reasons: vec!["r".into()]
-        }
-    )
-    .contains("ValidationError"));
+    assert!(
+        format!(
+            "{:?}",
+            ConfigError::ValidationError {
+                reasons: vec!["r".into()]
+            }
+        )
+        .contains("ValidationError")
+    );
     assert!(
         format!("{:?}", ConfigError::MergeConflict { reason: "c".into() })
             .contains("MergeConflict")
@@ -2260,9 +2262,10 @@ fn t173_sidecar_timeout_just_below_max_valid() {
     );
     // 86_399 is above large threshold (3600) so warning, but no hard error.
     let w = validate_config(&c).unwrap();
-    assert!(w
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
+    assert!(
+        w.iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+    );
 }
 
 #[test]

@@ -29,8 +29,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the pre-execution capability negotiation protocol.
 
-use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy};
 use abp_capability::NegotiationResult;
+use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
 
 fn make_manifest(entries: &[(Capability, CoreSupportLevel)]) -> CapabilityManifest {

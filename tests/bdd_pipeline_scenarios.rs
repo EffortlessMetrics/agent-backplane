@@ -37,13 +37,13 @@
 use std::path::Path;
 
 use abp_core::negotiate::{CapabilityNegotiator, NegotiationRequest};
-use abp_core::validate::{validate_receipt, ValidationError};
+use abp_core::validate::{ValidationError, validate_receipt};
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
-    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata,
-    SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport,
+    Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, SupportLevel, UsageNormalized,
+    VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, canonical_json, receipt_hash,
+    sha256_hex,
 };
 use abp_integrations::{Backend, MockBackend};
 use abp_policy::PolicyEngine;
@@ -547,9 +547,11 @@ async fn given_invalid_work_order_when_run_then_validation_error() {
     let result = validate_receipt(&receipt);
     assert!(result.is_err());
     let errors = result.unwrap_err();
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::EmptyBackendId)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyBackendId))
+    );
 }
 
 #[tokio::test]

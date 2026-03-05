@@ -6,13 +6,13 @@
 //! Tests cover: request parsing, response parsing, tool calls, tool results,
 //! streaming formats, error handling, edge cases, and IR normalization.
 
+use abp_dialect::Dialect;
 use abp_dialect::ir::{
     IrContentBlock, IrGenerationConfig, IrMessage, IrRequest, IrResponse, IrRole, IrStopReason,
     IrToolDefinition, IrUsage,
 };
-use abp_dialect::registry::{parse_response, DialectError, DialectRegistry};
-use abp_dialect::Dialect;
-use serde_json::{json, Value};
+use abp_dialect::registry::{DialectError, DialectRegistry, parse_response};
+use serde_json::{Value, json};
 
 // ═══════════════════════════════════════════════════════════════════════
 // Helpers

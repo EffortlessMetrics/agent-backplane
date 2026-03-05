@@ -34,8 +34,8 @@
 
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_stream::{
-    event_kind_name, EventFilter, EventMultiplexer, EventRecorder, EventStats, EventStream,
-    EventTransform, StreamPipeline, StreamPipelineBuilder,
+    EventFilter, EventMultiplexer, EventRecorder, EventStats, EventStream, EventTransform,
+    StreamPipeline, StreamPipelineBuilder, event_kind_name,
 };
 use chrono::Utc;
 use std::collections::BTreeMap;
@@ -682,11 +682,13 @@ fn pipeline_filters_run_before_transforms_always() {
 
     // Error passes filter and reaches transform/stats
     let result = p.process(error("e")).unwrap();
-    assert!(result
-        .ext
-        .as_ref()
-        .unwrap()
-        .contains_key("reached_transform"));
+    assert!(
+        result
+            .ext
+            .as_ref()
+            .unwrap()
+            .contains_key("reached_transform")
+    );
     assert_eq!(stats.total_events(), 1);
 }
 

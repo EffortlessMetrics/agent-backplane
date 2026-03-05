@@ -8,10 +8,10 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RunMetadata, RuntimeConfig, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, receipt_hash,
 };
 use abp_integrations::Backend;
 use abp_policy::PolicyEngine;

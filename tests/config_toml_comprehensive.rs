@@ -7,12 +7,12 @@
 #![allow(unused_unsafe)]
 
 use abp_config::validate::{
-    diff_configs, from_env_overrides, ConfigChange, ConfigDiff, ConfigIssue, ConfigMerger,
-    ConfigValidationResult, ConfigValidator, IssueSeverity, Severity, ValidationIssue,
+    ConfigChange, ConfigDiff, ConfigIssue, ConfigMerger, ConfigValidationResult, ConfigValidator,
+    IssueSeverity, Severity, ValidationIssue, diff_configs, from_env_overrides,
 };
 use abp_config::{
-    apply_env_overrides, load_config, load_from_file, load_from_str, merge_configs, parse_toml,
-    validate_config, BackendEntry, BackplaneConfig, ConfigError, ConfigWarning,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
+    load_from_file, load_from_str, merge_configs, parse_toml, validate_config,
 };
 use serial_test::serial;
 use std::collections::BTreeMap;
@@ -931,9 +931,11 @@ fn validate_large_timeout_warning() {
     cfg.backends
         .insert("sc".into(), sidecar_entry("node", vec![], Some(7200)));
     let warnings = validate_config(&cfg).unwrap();
-    assert!(warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { secs: 7200, .. })));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { secs: 7200, .. }))
+    );
 }
 
 #[test]
@@ -1522,18 +1524,22 @@ fn config_validator_invalid_log_level() {
 fn config_validator_empty_backends_info() {
     let cfg = BackplaneConfig::default();
     let issues = ConfigValidator::validate(&cfg).unwrap();
-    assert!(issues
-        .iter()
-        .any(|i| i.severity == Severity::Info && i.message.contains("no backends")));
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Info && i.message.contains("no backends"))
+    );
 }
 
 #[test]
 fn config_validator_validate_at_filters_severity() {
     let cfg = BackplaneConfig::default();
     let warnings_only = ConfigValidator::validate_at(&cfg, Severity::Warning).unwrap();
-    assert!(warnings_only
-        .iter()
-        .all(|i| i.severity >= Severity::Warning));
+    assert!(
+        warnings_only
+            .iter()
+            .all(|i| i.severity >= Severity::Warning)
+    );
 }
 
 #[test]
@@ -1564,10 +1570,12 @@ fn config_validator_check_default_backend_mismatch_warning() {
         ..Default::default()
     };
     let result = ConfigValidator::check(&cfg);
-    assert!(result
-        .warnings
-        .iter()
-        .any(|w| w.message.contains("does not match")));
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|w| w.message.contains("does not match"))
+    );
     assert!(!result.suggestions.is_empty());
 }
 

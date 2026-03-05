@@ -17,9 +17,9 @@ mod retention;
 mod stats;
 
 pub use chain::{
-    validate_chain, validate_chain_with_parents, ChainValidation, ChainValidationError,
+    ChainValidation, ChainValidationError, validate_chain, validate_chain_with_parents,
 };
-pub use diff::{diff_receipts, FieldDiff, ReceiptDiff};
+pub use diff::{FieldDiff, ReceiptDiff, diff_receipts};
 pub use error::StoreError;
 pub use export::{
     export_csv, export_json, export_jsonl, export_summary, import_json, import_jsonl,

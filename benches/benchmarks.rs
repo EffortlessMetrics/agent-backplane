@@ -5,24 +5,24 @@
 #![allow(unused_mut)]
 #![allow(unreachable_code)]
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use std::collections::BTreeMap;
 use std::io::BufReader;
 use std::path::Path;
 
-use abp_capability::{negotiate_capabilities, NegotiationResult};
+use abp_capability::{NegotiationResult, negotiate_capabilities};
 use abp_config::BackplaneConfig;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability,
-    CapabilityManifest, CapabilityRequirements, ExecutionMode, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
+    CapabilityRequirements, ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
+    RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder, receipt_hash,
 };
 use abp_dialect::Dialect;
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_ir::normalize;
 use abp_mapper::{
-    default_ir_mapper, ClaudeGeminiIrMapper, IrMapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper,
+    ClaudeGeminiIrMapper, IrMapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper, default_ir_mapper,
 };
 use abp_policy::PolicyEngine;
 use abp_protocol::{Envelope, JsonlCodec};

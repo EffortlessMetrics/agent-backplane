@@ -1317,9 +1317,10 @@ mod validator {
             ..Default::default()
         };
         let w = PolicyValidator::validate(&p);
-        assert!(w
-            .iter()
-            .any(|x| x.kind == WarningKind::OverlappingAllowDeny));
+        assert!(
+            w.iter()
+                .any(|x| x.kind == WarningKind::OverlappingAllowDeny)
+        );
     }
 
     #[test]
@@ -1330,9 +1331,10 @@ mod validator {
             ..Default::default()
         };
         let w = PolicyValidator::validate(&p);
-        assert!(w
-            .iter()
-            .any(|x| x.kind == WarningKind::OverlappingAllowDeny));
+        assert!(
+            w.iter()
+                .any(|x| x.kind == WarningKind::OverlappingAllowDeny)
+        );
     }
 
     #[test]
@@ -2204,9 +2206,10 @@ mod validator_advanced {
             ..Default::default()
         };
         let w = PolicyValidator::validate(&p);
-        assert!(!w
-            .iter()
-            .any(|x| x.kind == WarningKind::OverlappingAllowDeny));
+        assert!(
+            !w.iter()
+                .any(|x| x.kind == WarningKind::OverlappingAllowDeny)
+        );
     }
 }
 

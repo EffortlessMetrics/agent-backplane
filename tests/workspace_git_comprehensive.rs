@@ -35,7 +35,7 @@
 //! cleanup on drop, snapshots, templates, ops/tracker, and edge cases.
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
-use abp_workspace::diff::{diff_workspace, DiffSummary};
+use abp_workspace::diff::{DiffSummary, diff_workspace};
 use abp_workspace::ops::{FileOperation, OperationFilter, OperationLog, OperationSummary};
 use abp_workspace::snapshot::{self, SnapshotDiff};
 use abp_workspace::template::{TemplateRegistry, WorkspaceTemplate};
@@ -368,9 +368,11 @@ fn multiple_exclude_patterns() {
     let spec = staged_spec_globs(src.path(), vec![], vec!["*.md".into(), "*.json".into()]);
     let ws = WorkspaceManager::prepare(&spec).unwrap();
     let files = collect_files(ws.path());
-    assert!(!files
-        .iter()
-        .any(|f| f.ends_with(".md") || f.ends_with(".json")));
+    assert!(
+        !files
+            .iter()
+            .any(|f| f.ends_with(".md") || f.ends_with(".json"))
+    );
 }
 
 #[test]
@@ -577,13 +579,14 @@ fn git_objects_not_leaked_from_source() {
 
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     // Check the staged .git/objects/ab/cdef does NOT exist
-    assert!(!ws
-        .path()
-        .join(".git")
-        .join("objects")
-        .join("ab")
-        .join("cdef")
-        .exists());
+    assert!(
+        !ws.path()
+            .join(".git")
+            .join("objects")
+            .join("ab")
+            .join("cdef")
+            .exists()
+    );
 }
 
 // ===========================================================================

@@ -30,15 +30,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Comprehensive tests for capability negotiation and registry.
 
-use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy};
+use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
 use abp_capability::{
+    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
     check_capability, default_emulation_strategy, generate_report, negotiate,
-    negotiate_capabilities, CapabilityRegistry, CompatibilityReport, EmulationStrategy,
-    NegotiationResult, SupportLevel,
+    negotiate_capabilities,
 };
 use abp_core::negotiate::{
-    check_capabilities, dialect_manifest, CapabilityDiff, CapabilityNegotiator,
-    CapabilityReport as CoreCapabilityReport, DialectSupportLevel, NegotiationRequest,
+    CapabilityDiff, CapabilityNegotiator, CapabilityReport as CoreCapabilityReport,
+    DialectSupportLevel, NegotiationRequest, check_capabilities, dialect_manifest,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -974,9 +974,10 @@ fn registry_negotiate_by_name() {
 #[test]
 fn registry_negotiate_by_name_unknown_returns_none() {
     let reg = CapabilityRegistry::new();
-    assert!(reg
-        .negotiate_by_name("unknown", &[Capability::Streaming])
-        .is_none());
+    assert!(
+        reg.negotiate_by_name("unknown", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]
