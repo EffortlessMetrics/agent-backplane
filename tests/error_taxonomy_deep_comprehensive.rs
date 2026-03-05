@@ -47,33 +47,66 @@ use chrono::Utc;
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const ALL_CODES: &[ErrorCode] = &[
+    // Protocol
     ErrorCode::ProtocolInvalidEnvelope,
+    ErrorCode::ProtocolHandshakeFailed,
+    ErrorCode::ProtocolMissingRefId,
     ErrorCode::ProtocolUnexpectedMessage,
     ErrorCode::ProtocolVersionMismatch,
+    // Mapping
+    ErrorCode::MappingUnsupportedCapability,
+    ErrorCode::MappingDialectMismatch,
+    ErrorCode::MappingLossyConversion,
+    ErrorCode::MappingUnmappableTool,
+    // Backend
     ErrorCode::BackendNotFound,
+    ErrorCode::BackendUnavailable,
     ErrorCode::BackendTimeout,
+    ErrorCode::BackendRateLimited,
+    ErrorCode::BackendAuthFailed,
+    ErrorCode::BackendModelNotFound,
     ErrorCode::BackendCrashed,
-    ErrorCode::CapabilityUnsupported,
-    ErrorCode::CapabilityEmulationFailed,
-    ErrorCode::PolicyDenied,
-    ErrorCode::PolicyInvalid,
-    ErrorCode::WorkspaceInitFailed,
-    ErrorCode::WorkspaceStagingFailed,
-    ErrorCode::IrLoweringFailed,
-    ErrorCode::IrInvalid,
-    ErrorCode::ReceiptHashMismatch,
-    ErrorCode::ReceiptChainBroken,
-    ErrorCode::DialectUnknown,
-    ErrorCode::DialectMappingFailed,
-    ErrorCode::ConfigInvalid,
-    ErrorCode::RateLimitExceeded,
-    ErrorCode::CircuitBreakerOpen,
-    ErrorCode::StreamClosed,
-    ErrorCode::ReceiptStoreFailed,
-    ErrorCode::ValidationFailed,
-    ErrorCode::SidecarSpawnFailed,
     ErrorCode::BackendContentFiltered,
     ErrorCode::BackendContextLength,
+    // Execution
+    ErrorCode::ExecutionToolFailed,
+    ErrorCode::ExecutionWorkspaceError,
+    ErrorCode::ExecutionPermissionDenied,
+    // Contract
+    ErrorCode::ContractVersionMismatch,
+    ErrorCode::ContractSchemaViolation,
+    ErrorCode::ContractInvalidReceipt,
+    // Capability
+    ErrorCode::CapabilityUnsupported,
+    ErrorCode::CapabilityEmulationFailed,
+    // Policy
+    ErrorCode::PolicyDenied,
+    ErrorCode::PolicyInvalid,
+    // Workspace
+    ErrorCode::WorkspaceInitFailed,
+    ErrorCode::WorkspaceStagingFailed,
+    // IR
+    ErrorCode::IrLoweringFailed,
+    ErrorCode::IrInvalid,
+    // Receipt
+    ErrorCode::ReceiptHashMismatch,
+    ErrorCode::ReceiptChainBroken,
+    ErrorCode::ReceiptStoreFailed,
+    // Dialect
+    ErrorCode::DialectUnknown,
+    ErrorCode::DialectMappingFailed,
+    // Config
+    ErrorCode::ConfigInvalid,
+    // RateLimit
+    ErrorCode::RateLimitExceeded,
+    ErrorCode::CircuitBreakerOpen,
+    // Stream
+    ErrorCode::StreamClosed,
+    // Validation
+    ErrorCode::ValidationFailed,
+    // Sidecar
+    ErrorCode::SidecarSpawnFailed,
+    // Internal
     ErrorCode::Internal,
 ];
 
@@ -163,7 +196,7 @@ fn error_code_as_str_is_snake_case() {
 
 #[test]
 fn error_code_count_is_20() {
-    assert_eq!(ALL_CODES.len(), 28);
+    assert_eq!(ALL_CODES.len(), 44);
 }
 
 #[test]
@@ -262,7 +295,7 @@ fn protocol_category_has_3_codes() {
         .iter()
         .filter(|c| c.category() == ErrorCategory::Protocol)
         .count();
-    assert_eq!(count, 3);
+    assert_eq!(count, 5);
 }
 
 #[test]
@@ -271,7 +304,7 @@ fn backend_category_has_3_codes() {
         .iter()
         .filter(|c| c.category() == ErrorCategory::Backend)
         .count();
-    assert_eq!(count, 3);
+    assert_eq!(count, 9);
 }
 
 #[test]
@@ -316,7 +349,7 @@ fn receipt_category_has_2_codes() {
         .iter()
         .filter(|c| c.category() == ErrorCategory::Receipt)
         .count();
-    assert_eq!(count, 2);
+    assert_eq!(count, 3);
 }
 
 #[test]
@@ -352,7 +385,7 @@ fn category_hash_in_hashmap() {
     for code in ALL_CODES {
         *m.entry(code.category()).or_default() += 1;
     }
-    assert_eq!(m.len(), 10);
+    assert_eq!(m.len(), 17);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1290,16 +1323,23 @@ fn codes_grouped_by_category() {
             .or_default()
             .push(code.as_str());
     }
-    assert_eq!(groups.len(), 10);
-    assert_eq!(groups["protocol"].len(), 3);
-    assert_eq!(groups["backend"].len(), 3);
+    assert_eq!(groups.len(), 17);
+    assert_eq!(groups["protocol"].len(), 5);
+    assert_eq!(groups["backend"].len(), 9);
     assert_eq!(groups["capability"].len(), 2);
     assert_eq!(groups["policy"].len(), 2);
     assert_eq!(groups["workspace"].len(), 2);
     assert_eq!(groups["ir"].len(), 2);
-    assert_eq!(groups["receipt"].len(), 2);
+    assert_eq!(groups["receipt"].len(), 3);
     assert_eq!(groups["dialect"].len(), 2);
     assert_eq!(groups["config"].len(), 1);
+    assert_eq!(groups["mapping"].len(), 4);
+    assert_eq!(groups["execution"].len(), 3);
+    assert_eq!(groups["contract"].len(), 3);
+    assert_eq!(groups["rate_limit"].len(), 2);
+    assert_eq!(groups["stream"].len(), 1);
+    assert_eq!(groups["validation"].len(), 1);
+    assert_eq!(groups["sidecar"].len(), 1);
     assert_eq!(groups["internal"].len(), 1);
 }
 
@@ -1309,7 +1349,9 @@ fn code_prefix_matches_category() {
         let s = code.as_str();
         let cat = code.category().to_string().to_lowercase();
         assert!(
-            s.starts_with(&cat) || code.category() == ErrorCategory::Ir,
+            s.starts_with(&cat)
+                || code.category() == ErrorCategory::Ir
+                || code.category() == ErrorCategory::RateLimit,
             "code {s} doesn't start with category prefix {cat}"
         );
     }
@@ -1333,7 +1375,7 @@ fn batch_errors_collected() {
         .iter()
         .map(|c| make_error(*c, &format!("error for {}", c.as_str())))
         .collect();
-    assert_eq!(errors.len(), 20);
+    assert_eq!(errors.len(), 44);
 }
 
 #[test]
@@ -1343,14 +1385,14 @@ fn batch_errors_by_category() {
         .iter()
         .filter(|e| e.category() == ErrorCategory::Backend)
         .collect();
-    assert_eq!(backend_errors.len(), 3);
+    assert_eq!(backend_errors.len(), 9);
 }
 
 #[test]
 fn batch_errors_to_dtos() {
     let errors: Vec<AbpError> = ALL_CODES.iter().map(|c| make_error(*c, "err")).collect();
     let dtos: Vec<AbpErrorDto> = errors.iter().map(|e| e.into()).collect();
-    assert_eq!(dtos.len(), 20);
+    assert_eq!(dtos.len(), 44);
     let json = serde_json::to_string(&dtos).unwrap();
     let back: Vec<AbpErrorDto> = serde_json::from_str(&json).unwrap();
     assert_eq!(dtos, back);
@@ -1846,7 +1888,7 @@ fn error_code_can_be_used_as_hashmap_key() {
     for code in ALL_CODES {
         map.insert(*code, code.as_str().to_string());
     }
-    assert_eq!(map.len(), 20);
+    assert_eq!(map.len(), 44);
     assert_eq!(map[&ErrorCode::Internal], "internal");
 }
 
@@ -1856,7 +1898,7 @@ fn error_category_can_be_used_as_hashmap_key() {
     for cat in ALL_CATEGORIES {
         map.insert(*cat, 0);
     }
-    assert_eq!(map.len(), 10);
+    assert_eq!(map.len(), 17);
 }
 
 #[test]

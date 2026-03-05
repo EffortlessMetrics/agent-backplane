@@ -393,9 +393,10 @@ mod tests {
         let err = AbpError::new(ErrorCode::ProtocolInvalidEnvelope, "bad json");
         let diag = generate_diagnostic(&err);
         assert!(!diag.related_errors.is_empty());
-        assert!(diag
-            .related_errors
-            .contains(&ErrorCode::ProtocolHandshakeFailed));
+        assert!(
+            diag.related_errors
+                .contains(&ErrorCode::ProtocolHandshakeFailed)
+        );
     }
 
     #[test]

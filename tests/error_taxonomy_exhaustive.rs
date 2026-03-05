@@ -138,7 +138,7 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
 
 #[test]
 fn ec01_every_error_code_variant_is_constructible() {
-    assert_eq!(ALL_CODES.len(), 36);
+    assert_eq!(ALL_CODES.len(), 44);
     for &code in ALL_CODES {
         let _copy = code;
     }
@@ -236,11 +236,14 @@ fn ec08_retryable_codes_identified_correctly() {
         .copied()
         .filter(|c| c.is_retryable())
         .collect();
-    assert_eq!(retryable.len(), 4);
+    assert_eq!(retryable.len(), 7);
     assert!(retryable.contains(&ErrorCode::BackendUnavailable));
     assert!(retryable.contains(&ErrorCode::BackendTimeout));
     assert!(retryable.contains(&ErrorCode::BackendRateLimited));
     assert!(retryable.contains(&ErrorCode::BackendCrashed));
+    assert!(retryable.contains(&ErrorCode::RateLimitExceeded));
+    assert!(retryable.contains(&ErrorCode::CircuitBreakerOpen));
+    assert!(retryable.contains(&ErrorCode::StreamClosed));
 }
 
 #[test]
@@ -250,7 +253,7 @@ fn ec09_non_retryable_codes_identified_correctly() {
         .copied()
         .filter(|c| !c.is_retryable())
         .collect();
-    assert_eq!(non_retryable.len(), ALL_CODES.len() - 4);
+    assert_eq!(non_retryable.len(), ALL_CODES.len() - 7);
     assert!(non_retryable.contains(&ErrorCode::BackendNotFound));
     assert!(non_retryable.contains(&ErrorCode::BackendAuthFailed));
     assert!(non_retryable.contains(&ErrorCode::PolicyDenied));
@@ -304,7 +307,8 @@ fn cat02_categories_group_related_codes_correctly() {
             ErrorCategory::Internal => "internal",
         };
         assert!(
-            code.as_str().starts_with(prefix),
+            code.as_str().starts_with(prefix)
+                || code.category() == ErrorCategory::RateLimit,
             "{:?}: as_str '{}' does not start with '{}'",
             code,
             code.as_str(),
@@ -387,6 +391,8 @@ fn cat07_runtime_backend_errors_category() {
         ErrorCode::BackendAuthFailed,
         ErrorCode::BackendModelNotFound,
         ErrorCode::BackendCrashed,
+        ErrorCode::BackendContentFiltered,
+        ErrorCode::BackendContextLength,
     ];
     for code in &backend_codes {
         assert_eq!(code.category(), ErrorCategory::Backend);
@@ -395,7 +401,7 @@ fn cat07_runtime_backend_errors_category() {
         .iter()
         .filter(|c| c.category() == ErrorCategory::Backend)
         .count();
-    assert_eq!(count, 7);
+    assert_eq!(count, 9);
 }
 
 #[test]
