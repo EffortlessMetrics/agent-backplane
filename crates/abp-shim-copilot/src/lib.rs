@@ -562,4 +562,34 @@ mod tests {
             CopilotStreamEvent::FunctionCall { .. }
         ));
     }
+
+    // ── 20. translate_to_work_order delegates to request_to_work_order ──
+
+    #[test]
+    fn translate_to_work_order_delegates() {
+        let req = CopilotRequestBuilder::new()
+            .model("gpt-4o")
+            .messages(vec![Message::user("hello")])
+            .build();
+        let wo1 = request_to_work_order(&req);
+        let wo2 = translate_to_work_order(&req);
+        assert_eq!(wo1.task, wo2.task);
+        assert_eq!(wo1.config.model, wo2.config.model);
+    }
+
+    // ── 21. translate_from_receipt delegates to receipt_to_response ──────
+
+    #[test]
+    fn translate_from_receipt_delegates() {
+        let events = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage { text: "ok".into() },
+            ext: None,
+        }];
+        let receipt = mock_receipt(events);
+        let r1 = receipt_to_response(&receipt, "gpt-4o");
+        let r2 = translate_from_receipt(&receipt, "gpt-4o");
+        assert_eq!(r1.message, r2.message);
+        assert_eq!(r1.copilot_errors.len(), r2.copilot_errors.len());
+    }
 }

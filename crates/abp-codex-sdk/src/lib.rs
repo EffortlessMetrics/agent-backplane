@@ -12,7 +12,11 @@ pub mod api;
 /// Conversion between Codex SDK wire types and ABP contract types.
 pub mod convert;
 pub mod dialect;
+/// Error types matching the Codex / OpenAI error response format.
+pub mod error;
 pub mod lowering;
+/// Streaming helpers for mapping Codex SSE chunks to ABP events.
+pub mod streaming;
 pub mod types;
 
 use abp_runtime::Runtime;

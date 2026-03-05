@@ -201,6 +201,24 @@ pub fn event_to_file_change(event: &AgentEvent) -> Option<CodexFileChange> {
     }
 }
 
+// ── Named translation functions ─────────────────────────────────────────
+
+/// Translate a [`CodexRequest`] into an ABP [`WorkOrder`].
+///
+/// This is a named alias for [`to_work_order`] following the ABP SDK shim
+/// convention of `translate_to_work_order` / `translate_from_receipt` pairs.
+pub fn translate_to_work_order(req: &CodexRequest) -> WorkOrder {
+    to_work_order(req)
+}
+
+/// Translate an ABP [`Receipt`] back into a [`CodexResponse`].
+///
+/// This is a named alias for [`from_receipt`] following the ABP SDK shim
+/// convention.
+pub fn translate_from_receipt(receipt: &Receipt, wo: &WorkOrder) -> CodexResponse {
+    from_receipt(receipt, wo)
+}
+
 /// Collect all file-change events from a receipt trace as [`CodexFileChange`]s.
 pub fn extract_file_changes(receipt: &Receipt) -> Vec<CodexFileChange> {
     receipt
@@ -476,6 +494,29 @@ mod tests {
             ext: None,
         };
         assert!(event_to_file_change(&event).is_none());
+    }
+
+    // ── translate_ aliases ─────────────────────────────────────────
+
+    #[test]
+    fn translate_to_work_order_delegates() {
+        let req = sample_request();
+        let wo1 = to_work_order(&req);
+        let wo2 = translate_to_work_order(&req);
+        assert_eq!(wo1.task, wo2.task);
+        assert_eq!(wo1.config.model, wo2.config.model);
+    }
+
+    #[test]
+    fn translate_from_receipt_delegates() {
+        let wo = WorkOrderBuilder::new("task")
+            .model("codex-mini-latest")
+            .build();
+        let receipt = sample_receipt(&wo);
+        let r1 = from_receipt(&receipt, &wo);
+        let r2 = translate_from_receipt(&receipt, &wo);
+        assert_eq!(r1.model, r2.model);
+        assert_eq!(r1.choices[0].message.content, r2.choices[0].message.content);
     }
 
     #[test]

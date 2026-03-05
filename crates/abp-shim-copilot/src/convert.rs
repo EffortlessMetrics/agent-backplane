@@ -195,3 +195,21 @@ pub fn messages_to_ir(messages: &[Message]) -> IrConversation {
 pub fn ir_usage_to_tuple(ir: &IrUsage) -> (u64, u64, u64) {
     (ir.input_tokens, ir.output_tokens, ir.total_tokens)
 }
+
+// ── Named translation functions ─────────────────────────────────────────
+
+/// Translate a [`CopilotRequest`](abp_copilot_sdk::dialect::CopilotRequest)
+/// into an ABP [`WorkOrder`].
+///
+/// Named alias for [`request_to_work_order`] following the ABP SDK shim
+/// convention of `translate_to_work_order` / `translate_from_receipt` pairs.
+pub fn translate_to_work_order(request: &abp_copilot_sdk::dialect::CopilotRequest) -> WorkOrder {
+    request_to_work_order(request)
+}
+
+/// Translate an ABP [`Receipt`] into a [`CopilotResponse`].
+///
+/// Named alias for [`receipt_to_response`] following the ABP SDK shim convention.
+pub fn translate_from_receipt(receipt: &Receipt, model: &str) -> CopilotResponse {
+    receipt_to_response(receipt, model)
+}
