@@ -20,6 +20,26 @@ use crate::types::{
     KimiStreamChoice, KimiStreamDelta, KimiStreamEvent, Message, Usage,
 };
 
+// ── Named convenience wrappers ──────────────────────────────────────────
+
+/// Convert a [`KimiChatRequest`] into an ABP [`WorkOrder`].
+///
+/// Named convenience wrapper matching the convention used across ABP SDK
+/// shims (OpenAI, Claude, Gemini).  Delegates to [`kimi_to_work_order`].
+#[must_use]
+pub fn translate_to_work_order(request: &KimiChatRequest) -> WorkOrder {
+    kimi_to_work_order(request)
+}
+
+/// Convert an ABP [`Receipt`] into a [`KimiChatResponse`].
+///
+/// Named convenience wrapper matching the convention used across ABP SDK
+/// shims (OpenAI, Claude, Gemini).  Delegates to [`receipt_to_kimi`].
+#[must_use]
+pub fn translate_from_receipt(receipt: &Receipt, model: &str) -> KimiChatResponse {
+    receipt_to_kimi(receipt, model)
+}
+
 // ── KimiChatRequest → WorkOrder ─────────────────────────────────────────
 
 /// Convert a [`KimiChatRequest`] into an ABP [`WorkOrder`].
@@ -72,6 +92,30 @@ pub fn kimi_to_work_order(request: &KimiChatRequest) -> WorkOrder {
             "kimi.plugins".to_string(),
             serde_json::to_value(plugins).unwrap_or(serde_json::Value::Null),
         );
+    }
+    if let Some(stop) = &request.stop {
+        vendor.insert(
+            "stop".to_string(),
+            serde_json::to_value(stop).unwrap_or(serde_json::Value::Null),
+        );
+    }
+    if let Some(n) = request.n {
+        vendor.insert("n".to_string(), serde_json::Value::from(n));
+    }
+    if let Some(pp) = request.presence_penalty {
+        vendor.insert("presence_penalty".to_string(), serde_json::Value::from(pp));
+    }
+    if let Some(fp) = request.frequency_penalty {
+        vendor.insert("frequency_penalty".to_string(), serde_json::Value::from(fp));
+    }
+    if let Some(rf) = &request.response_format {
+        vendor.insert(
+            "response_format".to_string(),
+            serde_json::to_value(rf).unwrap_or(serde_json::Value::Null),
+        );
+    }
+    if let Some(tc) = &request.tool_choice {
+        vendor.insert("tool_choice".to_string(), tc.clone());
     }
 
     let config = RuntimeConfig {
@@ -334,14 +378,7 @@ mod tests {
         let req = KimiChatRequest {
             model: "moonshot-v1-8k".into(),
             messages: vec![Message::user("Hello Kimi")],
-            temperature: None,
-            top_p: None,
-            max_tokens: None,
-            stream: None,
-            use_search: None,
-            ref_file_ids: None,
-            plugin_ids: None,
-            plugins: None,
+            ..Default::default()
         };
         let wo = kimi_to_work_order(&req);
         assert_eq!(wo.task, "Hello Kimi");
@@ -356,11 +393,7 @@ mod tests {
             temperature: Some(0.7),
             top_p: Some(0.9),
             max_tokens: Some(2048),
-            stream: None,
-            use_search: None,
-            ref_file_ids: None,
-            plugin_ids: None,
-            plugins: None,
+            ..Default::default()
         };
         let wo = kimi_to_work_order(&req);
         assert_eq!(
@@ -382,14 +415,8 @@ mod tests {
         let req = KimiChatRequest {
             model: "moonshot-v1-8k".into(),
             messages: vec![Message::user("What is Rust?")],
-            temperature: None,
-            top_p: None,
-            max_tokens: None,
-            stream: None,
             use_search: Some(true),
-            ref_file_ids: None,
-            plugin_ids: None,
-            plugins: None,
+            ..Default::default()
         };
         let wo = kimi_to_work_order(&req);
         assert_eq!(
@@ -403,14 +430,8 @@ mod tests {
         let req = KimiChatRequest {
             model: "moonshot-v1-8k".into(),
             messages: vec![Message::user("Summarize this file")],
-            temperature: None,
-            top_p: None,
-            max_tokens: None,
-            stream: None,
-            use_search: None,
             ref_file_ids: Some(vec!["file-abc123".into(), "file-xyz456".into()]),
-            plugin_ids: None,
-            plugins: None,
+            ..Default::default()
         };
         let wo = kimi_to_work_order(&req);
         let file_ids = wo.config.vendor.get("kimi.ref_file_ids").unwrap();
@@ -423,14 +444,8 @@ mod tests {
         let req = KimiChatRequest {
             model: "moonshot-v1-8k".into(),
             messages: vec![Message::user("use plugins")],
-            temperature: None,
-            top_p: None,
-            max_tokens: None,
-            stream: None,
-            use_search: None,
-            ref_file_ids: None,
             plugin_ids: Some(vec!["plugin-web".into()]),
-            plugins: None,
+            ..Default::default()
         };
         let wo = kimi_to_work_order(&req);
         let pids = wo.config.vendor.get("kimi.plugin_ids").unwrap();
@@ -443,19 +458,13 @@ mod tests {
         let req = KimiChatRequest {
             model: "moonshot-v1-8k".into(),
             messages: vec![Message::user("use plugins")],
-            temperature: None,
-            top_p: None,
-            max_tokens: None,
-            stream: None,
-            use_search: None,
-            ref_file_ids: None,
-            plugin_ids: None,
             plugins: Some(vec![KimiPluginConfig {
                 plugin_id: "plugin-calc".into(),
                 name: Some("Calculator".into()),
                 enabled: Some(true),
                 settings: BTreeMap::new(),
             }]),
+            ..Default::default()
         };
         let wo = kimi_to_work_order(&req);
         let plugins_val = wo.config.vendor.get("kimi.plugins").unwrap();
@@ -467,16 +476,8 @@ mod tests {
     #[test]
     fn request_defaults_task_when_no_user_message() {
         let req = KimiChatRequest {
-            model: "moonshot-v1-8k".into(),
             messages: vec![Message::system("You are helpful.")],
-            temperature: None,
-            top_p: None,
-            max_tokens: None,
-            stream: None,
-            use_search: None,
-            ref_file_ids: None,
-            plugin_ids: None,
-            plugins: None,
+            ..Default::default()
         };
         let wo = kimi_to_work_order(&req);
         assert_eq!(wo.task, "kimi completion");
@@ -733,14 +734,7 @@ mod tests {
         let req = KimiChatRequest {
             model: "moonshot-v1-128k".into(),
             messages: vec![Message::user("test")],
-            temperature: None,
-            top_p: None,
-            max_tokens: None,
-            stream: None,
-            use_search: None,
-            ref_file_ids: None,
-            plugin_ids: None,
-            plugins: None,
+            ..Default::default()
         };
         let wo = kimi_to_work_order(&req);
         assert_eq!(wo.config.model.as_deref(), Some("moonshot-v1-128k"));
@@ -749,20 +743,12 @@ mod tests {
     #[test]
     fn roundtrip_multi_turn_uses_last_user_message() {
         let req = KimiChatRequest {
-            model: "moonshot-v1-8k".into(),
             messages: vec![
                 Message::user("First question"),
                 Message::assistant("First answer"),
                 Message::user("Second question"),
             ],
-            temperature: None,
-            top_p: None,
-            max_tokens: None,
-            stream: None,
-            use_search: None,
-            ref_file_ids: None,
-            plugin_ids: None,
-            plugins: None,
+            ..Default::default()
         };
         let wo = kimi_to_work_order(&req);
         assert_eq!(wo.task, "Second question");
@@ -773,16 +759,14 @@ mod tests {
     #[test]
     fn kimi_chat_request_serde_roundtrip() {
         let req = KimiChatRequest {
-            model: "moonshot-v1-8k".into(),
             messages: vec![Message::user("hi")],
             temperature: Some(0.5),
-            top_p: None,
             max_tokens: Some(1024),
             stream: Some(false),
             use_search: Some(true),
             ref_file_ids: Some(vec!["file-1".into()]),
             plugin_ids: Some(vec!["p1".into()]),
-            plugins: None,
+            ..Default::default()
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: KimiChatRequest = serde_json::from_str(&json).unwrap();
@@ -905,5 +889,201 @@ mod tests {
         };
         let json = serde_json::to_string(&pc).unwrap();
         assert!(!json.contains("settings"));
+    }
+
+    // ── translate_to_work_order / translate_from_receipt ─────────────────
+
+    #[test]
+    fn translate_to_work_order_extracts_task() {
+        let req = KimiChatRequest {
+            messages: vec![Message::user("Hello Kimi")],
+            ..Default::default()
+        };
+        let wo = translate_to_work_order(&req);
+        assert_eq!(wo.task, "Hello Kimi");
+        assert_eq!(wo.config.model.as_deref(), Some("moonshot-v1-8k"));
+    }
+
+    #[test]
+    fn translate_to_work_order_preserves_model() {
+        let req = KimiChatRequest {
+            model: "moonshot-v1-128k".into(),
+            messages: vec![Message::user("test")],
+            ..Default::default()
+        };
+        let wo = translate_to_work_order(&req);
+        assert_eq!(wo.config.model.as_deref(), Some("moonshot-v1-128k"));
+    }
+
+    #[test]
+    fn translate_from_receipt_produces_valid_response() {
+        let events = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "Hello!".into(),
+            },
+            ext: None,
+        }];
+        let receipt = make_receipt(events);
+        let resp = translate_from_receipt(&receipt, "moonshot-v1-8k");
+        assert_eq!(resp.model, "moonshot-v1-8k");
+        assert_eq!(resp.choices[0].message.content.as_deref(), Some("Hello!"));
+        assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("stop"));
+    }
+
+    #[test]
+    fn translate_from_receipt_with_tool_calls() {
+        let events = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "search".into(),
+                tool_use_id: Some("call_abc".into()),
+                parent_tool_use_id: None,
+                input: json!({"q": "test"}),
+            },
+            ext: None,
+        }];
+        let receipt = make_receipt(events);
+        let resp = translate_from_receipt(&receipt, "moonshot-v1-8k");
+        assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("tool_calls"));
+        let tcs = resp.choices[0].message.tool_calls.as_ref().unwrap();
+        assert_eq!(tcs[0].id, "call_abc");
+    }
+
+    #[test]
+    fn translate_roundtrip_preserves_semantics() {
+        let req = KimiChatRequest {
+            model: "moonshot-v1-32k".into(),
+            messages: vec![Message::user("test roundtrip")],
+            temperature: Some(0.5),
+            ..Default::default()
+        };
+        let wo = translate_to_work_order(&req);
+        assert_eq!(wo.task, "test roundtrip");
+        assert_eq!(
+            wo.config.vendor.get("temperature"),
+            Some(&serde_json::Value::from(0.5))
+        );
+
+        let events = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "result".into(),
+            },
+            ext: None,
+        }];
+        let receipt = make_receipt(events);
+        let resp = translate_from_receipt(&receipt, "moonshot-v1-32k");
+        assert_eq!(resp.model, "moonshot-v1-32k");
+        assert_eq!(resp.choices[0].message.content.as_deref(), Some("result"));
+    }
+
+    // ── New field mapping tests ──────────────────────────────────────────
+
+    #[test]
+    fn stop_sequences_mapped_to_work_order() {
+        let req = KimiChatRequest {
+            messages: vec![Message::user("test")],
+            stop: Some(vec!["END".into(), "STOP".into()]),
+            ..Default::default()
+        };
+        let wo = translate_to_work_order(&req);
+        let stop_val = wo.config.vendor.get("stop").unwrap();
+        let stops: Vec<String> = serde_json::from_value(stop_val.clone()).unwrap();
+        assert_eq!(stops, vec!["END", "STOP"]);
+    }
+
+    #[test]
+    fn n_mapped_to_work_order() {
+        let req = KimiChatRequest {
+            messages: vec![Message::user("test")],
+            n: Some(3),
+            ..Default::default()
+        };
+        let wo = translate_to_work_order(&req);
+        assert_eq!(wo.config.vendor.get("n"), Some(&serde_json::Value::from(3)));
+    }
+
+    #[test]
+    fn presence_penalty_mapped_to_work_order() {
+        let req = KimiChatRequest {
+            messages: vec![Message::user("test")],
+            presence_penalty: Some(0.5),
+            ..Default::default()
+        };
+        let wo = translate_to_work_order(&req);
+        assert_eq!(
+            wo.config.vendor.get("presence_penalty"),
+            Some(&serde_json::Value::from(0.5))
+        );
+    }
+
+    #[test]
+    fn frequency_penalty_mapped_to_work_order() {
+        let req = KimiChatRequest {
+            messages: vec![Message::user("test")],
+            frequency_penalty: Some(-0.5),
+            ..Default::default()
+        };
+        let wo = translate_to_work_order(&req);
+        assert_eq!(
+            wo.config.vendor.get("frequency_penalty"),
+            Some(&serde_json::Value::from(-0.5))
+        );
+    }
+
+    #[test]
+    fn response_format_mapped_to_work_order() {
+        use crate::types::KimiResponseFormat;
+        let req = KimiChatRequest {
+            messages: vec![Message::user("test")],
+            response_format: Some(KimiResponseFormat::json_object()),
+            ..Default::default()
+        };
+        let wo = translate_to_work_order(&req);
+        let rf = wo.config.vendor.get("response_format").unwrap();
+        assert_eq!(rf["type"], "json_object");
+    }
+
+    #[test]
+    fn tool_choice_mapped_to_work_order() {
+        let req = KimiChatRequest {
+            messages: vec![Message::user("test")],
+            tool_choice: Some(json!("auto")),
+            ..Default::default()
+        };
+        let wo = translate_to_work_order(&req);
+        assert_eq!(wo.config.vendor.get("tool_choice"), Some(&json!("auto")));
+    }
+
+    #[test]
+    fn kimi_chat_request_default_has_correct_model() {
+        let req = KimiChatRequest::default();
+        assert_eq!(req.model, "moonshot-v1-8k");
+        assert!(req.messages.is_empty());
+        assert!(req.temperature.is_none());
+        assert!(req.stop.is_none());
+        assert!(req.n.is_none());
+        assert!(req.tools.is_none());
+        assert!(req.tool_choice.is_none());
+        assert!(req.response_format.is_none());
+    }
+
+    #[test]
+    fn kimi_chat_request_new_fields_serde_roundtrip() {
+        use crate::types::KimiResponseFormat;
+        let req = KimiChatRequest {
+            messages: vec![Message::user("hi")],
+            stop: Some(vec!["END".into()]),
+            n: Some(2),
+            presence_penalty: Some(0.1),
+            frequency_penalty: Some(0.2),
+            response_format: Some(KimiResponseFormat::json_object()),
+            tool_choice: Some(json!("required")),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let parsed: KimiChatRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, req);
     }
 }

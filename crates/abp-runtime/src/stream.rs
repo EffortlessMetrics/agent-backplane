@@ -5,8 +5,8 @@
 //! [`StreamPipeline`](abp_stream::StreamPipeline) into the runtime's two-stage event channel.
 
 pub use abp_stream::{
-    event_kind_name, EventFilter, EventMultiplexer, EventRecorder, EventStats, EventStream,
-    EventTransform, StreamPipeline, StreamPipelineBuilder,
+    EventFilter, EventMultiplexer, EventRecorder, EventStats, EventStream, EventTransform,
+    StreamPipeline, StreamPipelineBuilder, event_kind_name,
 };
 
 use abp_core::AgentEvent;

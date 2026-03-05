@@ -20,6 +20,9 @@ pub mod translate;
 /// Kimi-specific shim types (messages, usage, request builder).
 pub mod types;
 
+// Re-export named translate functions for cross-SDK consistency.
+pub use translate::{translate_from_receipt, translate_to_work_order};
+
 use std::pin::Pin;
 
 use abp_core::{AgentEvent, Receipt, UsageNormalized, WorkOrder};
@@ -41,6 +44,11 @@ pub use tools::{BrowserTool, BuiltinTools, CodeTool, FileTool, SearchTool};
 // Re-export types and convert modules for backward compatibility.
 pub use convert::*;
 pub use types::*;
+
+// Re-export translation functions (Kimi-specific extension types).
+pub use translate::{
+    agent_event_to_kimi_stream, kimi_stream_stop_event, kimi_to_work_order, receipt_to_kimi,
+};
 
 // ── Error types ─────────────────────────────────────────────────────────
 

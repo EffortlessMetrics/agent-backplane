@@ -73,13 +73,8 @@ fn chat_request_serialises_to_kimi_wire_format() {
         model: "moonshot-v1-8k".into(),
         messages: vec![Message::user("Hello")],
         temperature: Some(0.5),
-        top_p: None,
         max_tokens: Some(1024),
-        stream: None,
-        use_search: None,
-        ref_file_ids: None,
-        plugin_ids: None,
-        plugins: None,
+        ..Default::default()
     };
 
     let v = serde_json::to_value(&req).unwrap();

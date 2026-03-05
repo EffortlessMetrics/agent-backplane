@@ -1147,6 +1147,7 @@ mod kimi {
                 enabled: Some(true),
                 settings: BTreeMap::new(),
             }]),
+            ..Default::default()
         };
         insta::assert_json_snapshot!(req);
     }

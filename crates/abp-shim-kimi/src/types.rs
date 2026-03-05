@@ -6,7 +6,7 @@
 //! [`KimiRequestBuilder`] for constructing [`KimiRequest`]s, and Kimi-specific
 //! extension types for file references, plugins, web search, and streaming.
 
-use abp_kimi_sdk::dialect::{KimiMessage, KimiRequest, KimiTool, KimiToolCall};
+use abp_kimi_sdk::dialect::{KimiMessage, KimiRequest, KimiTool, KimiToolCall, KimiToolDef};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -109,6 +109,12 @@ pub struct KimiRequestBuilder {
     stream: Option<bool>,
     tools: Option<Vec<KimiTool>>,
     use_search: Option<bool>,
+    n: Option<u32>,
+    stop: Option<Vec<String>>,
+    presence_penalty: Option<f64>,
+    frequency_penalty: Option<f64>,
+    response_format: Option<KimiResponseFormat>,
+    tool_choice: Option<serde_json::Value>,
 }
 
 impl KimiRequestBuilder {
@@ -167,6 +173,48 @@ impl KimiRequestBuilder {
         self
     }
 
+    /// Set the number of completions to generate.
+    #[must_use]
+    pub fn n(mut self, n: u32) -> Self {
+        self.n = Some(n);
+        self
+    }
+
+    /// Set stop sequences.
+    #[must_use]
+    pub fn stop(mut self, stop: Vec<String>) -> Self {
+        self.stop = Some(stop);
+        self
+    }
+
+    /// Set the presence penalty.
+    #[must_use]
+    pub fn presence_penalty(mut self, penalty: f64) -> Self {
+        self.presence_penalty = Some(penalty);
+        self
+    }
+
+    /// Set the frequency penalty.
+    #[must_use]
+    pub fn frequency_penalty(mut self, penalty: f64) -> Self {
+        self.frequency_penalty = Some(penalty);
+        self
+    }
+
+    /// Set the response format.
+    #[must_use]
+    pub fn response_format(mut self, format: KimiResponseFormat) -> Self {
+        self.response_format = Some(format);
+        self
+    }
+
+    /// Set the tool choice.
+    #[must_use]
+    pub fn tool_choice(mut self, choice: serde_json::Value) -> Self {
+        self.tool_choice = Some(choice);
+        self
+    }
+
     /// Build the request, defaulting model to `"moonshot-v1-8k"` if unset.
     #[must_use]
     pub fn build(self) -> KimiRequest {
@@ -217,6 +265,27 @@ pub struct KimiChatRequest {
     /// Whether to stream the response via SSE.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
+    /// Number of completions to generate.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub n: Option<u32>,
+    /// Stop sequences — the model will stop generating when it encounters one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop: Option<Vec<String>>,
+    /// Presence penalty (−2.0 to 2.0).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub presence_penalty: Option<f64>,
+    /// Frequency penalty (−2.0 to 2.0).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frequency_penalty: Option<f64>,
+    /// Tool definitions available to the model.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<KimiToolDef>>,
+    /// Controls which tool the model should call.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice: Option<serde_json::Value>,
+    /// Response format constraint (e.g. JSON mode).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_format: Option<KimiResponseFormat>,
 
     // ── Kimi extensions ─────────────────────────────────────────────
     /// Enable Kimi's built-in web search.
@@ -231,6 +300,58 @@ pub struct KimiChatRequest {
     /// Detailed plugin configurations for this request.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugins: Option<Vec<KimiPluginConfig>>,
+}
+
+impl Default for KimiChatRequest {
+    fn default() -> Self {
+        Self {
+            model: "moonshot-v1-8k".into(),
+            messages: Vec::new(),
+            temperature: None,
+            top_p: None,
+            max_tokens: None,
+            stream: None,
+            n: None,
+            stop: None,
+            presence_penalty: None,
+            frequency_penalty: None,
+            tools: None,
+            tool_choice: None,
+            response_format: None,
+            use_search: None,
+            ref_file_ids: None,
+            plugin_ids: None,
+            plugins: None,
+        }
+    }
+}
+
+/// Response format constraint for Kimi Chat Completions.
+///
+/// Used to request structured output (e.g. JSON mode) from the model.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiResponseFormat {
+    /// Format type: `"text"` (default) or `"json_object"` for JSON mode.
+    #[serde(rename = "type")]
+    pub format_type: String,
+}
+
+impl KimiResponseFormat {
+    /// Create a text response format (the default).
+    #[must_use]
+    pub fn text() -> Self {
+        Self {
+            format_type: "text".into(),
+        }
+    }
+
+    /// Create a JSON object response format.
+    #[must_use]
+    pub fn json_object() -> Self {
+        Self {
+            format_type: "json_object".into(),
+        }
+    }
 }
 
 /// Kimi Chat Completions response with Kimi-specific metadata.
@@ -382,4 +503,35 @@ pub struct KimiSearchResult {
     /// Snippet / summary of the cited content.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub snippet: Option<String>,
+}
+
+/// A streaming tool call fragment inside a delta.
+///
+/// In the SSE stream, tool calls arrive incrementally: the first fragment
+/// carries the `id` and function `name`; subsequent fragments carry argument
+/// chunks.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiStreamToolCallFragment {
+    /// Index of the tool call in the array.
+    pub index: u32,
+    /// Tool call ID (first fragment only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// Call type (first fragment only, always `"function"`).
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub call_type: Option<String>,
+    /// Incremental function call data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub function: Option<KimiStreamFunctionFragment>,
+}
+
+/// Incremental function call data inside a streaming tool call fragment.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KimiStreamFunctionFragment {
+    /// Function name (first fragment only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// Incremental arguments fragment.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arguments: Option<String>,
 }
