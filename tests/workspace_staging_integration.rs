@@ -900,13 +900,12 @@ fn exclude_nested_directory_pattern() {
         .unwrap();
 
     assert!(ws.path().join("src").join("main.rs").is_file());
-    assert!(
-        !ws.path()
-            .join("src")
-            .join("generated")
-            .join("out.rs")
-            .exists()
-    );
+    assert!(!ws
+        .path()
+        .join("src")
+        .join("generated")
+        .join("out.rs")
+        .exists());
 }
 
 fn count_files_recursive(path: &Path) -> usize {

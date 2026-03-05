@@ -40,14 +40,14 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
-    ExecutionMode, Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
+    Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::version::{ProtocolVersion, VersionError, VersionRange, negotiate_version};
+use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionError, VersionRange};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
 
@@ -919,10 +919,9 @@ fn e2e_ref_id_mismatch_in_event() {
         event_msg("wrong-id", "bad"),
         final_env(&run_id),
     ]);
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -930,10 +929,9 @@ fn e2e_ref_id_mismatch_in_final() {
     let (_, run_env) = run_envelope();
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[hello(), run_env, final_env("other-run")]);
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -942,10 +940,9 @@ fn e2e_ref_id_mismatch_in_fatal() {
     let validator = EnvelopeValidator::new();
     let errs =
         validator.validate_sequence(&[hello(), run_env, fatal_env(Some("wrong-ref"), "error")]);
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -953,11 +950,9 @@ fn e2e_ref_id_fatal_none_no_mismatch() {
     let (_, run_env) = run_envelope();
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[hello(), run_env, fatal_env(None, "error")]);
-    assert!(
-        !errs
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(!errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 // ===========================================================================
@@ -1023,12 +1018,10 @@ fn e2e_invalid_contract_version_format() {
     };
     let result = EnvelopeValidator::new().validate(&env);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
 }
 
 #[test]
@@ -1321,10 +1314,9 @@ fn e2e_missing_hello_sequence_error() {
     let (run_id, run_env) = run_envelope();
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[run_env, event_msg(&run_id, "m"), final_env(&run_id)]);
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, SequenceError::MissingHello))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingHello)));
 }
 
 #[test]
@@ -1332,10 +1324,9 @@ fn e2e_hello_not_first_sequence_error() {
     let (run_id, run_env) = run_envelope();
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[run_env, hello(), final_env(&run_id)]);
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
 }
 
 #[test]
@@ -1346,10 +1337,9 @@ fn e2e_event_before_run_is_out_of_order() {
         event_msg("r", "early"),
         fatal_env(Some("r"), "abort"),
     ]);
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::OutOfOrderEvents)));
 }
 
 #[test]
@@ -1357,10 +1347,9 @@ fn e2e_missing_terminal_sequence_error() {
     let (run_id, run_env) = run_envelope();
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[hello(), run_env, event_msg(&run_id, "m")]);
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingTerminal)));
 }
 
 #[test]
@@ -1373,24 +1362,21 @@ fn e2e_multiple_terminals_sequence_error() {
         final_env(&run_id),
         fatal_env(Some(&run_id), "also"),
     ]);
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, SequenceError::MultipleTerminals))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::MultipleTerminals)));
 }
 
 #[test]
 fn e2e_empty_sequence_errors() {
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[]);
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, SequenceError::MissingHello))
-    );
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, SequenceError::MissingTerminal))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingHello)));
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::MissingTerminal)));
 }
 
 #[test]
@@ -1405,11 +1391,9 @@ fn e2e_valid_minimal_sequence() {
 fn e2e_valid_hello_then_fatal_no_run() {
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[hello(), fatal_env(None, "startup error")]);
-    assert!(
-        !errs
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(!errs
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 // ===========================================================================

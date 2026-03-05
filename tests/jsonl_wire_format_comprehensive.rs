@@ -36,8 +36,8 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, Outcome, ReceiptBuilder, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
+    ReceiptBuilder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;

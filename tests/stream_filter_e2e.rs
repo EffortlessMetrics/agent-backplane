@@ -35,8 +35,8 @@ use std::collections::BTreeMap;
 
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_stream::{
-    EventFilter, EventMultiplexer, EventRecorder, EventStats, EventStream, EventTransform,
-    StreamPipeline, StreamPipelineBuilder, event_kind_name,
+    event_kind_name, EventFilter, EventMultiplexer, EventRecorder, EventStats, EventStream,
+    EventTransform, StreamPipeline, StreamPipelineBuilder,
 };
 use chrono::{Duration, Utc};
 use tokio::sync::mpsc;

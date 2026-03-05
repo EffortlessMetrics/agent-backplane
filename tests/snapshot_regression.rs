@@ -37,7 +37,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_capability::{
-    CapabilityRegistry, NegotiationResult, generate_report, negotiate, negotiate_capabilities,
+    generate_report, negotiate, negotiate_capabilities, CapabilityRegistry, NegotiationResult,
 };
 use abp_core::*;
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode, ErrorInfo};

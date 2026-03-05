@@ -39,9 +39,10 @@ use std::collections::BTreeMap;
 
 use abp_core::chain::ReceiptChain;
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel,
-    UsageNormalized, VerificationReport, canonical_json, receipt_hash, sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    BackendIdentity, Capability, CapabilityManifest, ExecutionMode, Outcome, Receipt,
+    ReceiptBuilder, RunMetadata, SupportLevel, UsageNormalized, VerificationReport,
+    CONTRACT_VERSION,
 };
 use abp_receipt::{canonicalize, compute_hash, verify_hash};
 use chrono::{DateTime, TimeZone, Utc};

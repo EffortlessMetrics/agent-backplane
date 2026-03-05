@@ -38,13 +38,12 @@
 use std::collections::BTreeMap;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel,
-    UsageNormalized, VerificationReport, WorkOrderBuilder, canonical_json, receipt_hash,
-    sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    BackendIdentity, Capability, CapabilityManifest, ExecutionMode, Outcome, Receipt, RunMetadata,
+    SupportLevel, UsageNormalized, VerificationReport, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_receipt::{
-    ReceiptBuilder, ReceiptChain, canonicalize, compute_hash, diff_receipts, verify_hash,
+    canonicalize, compute_hash, diff_receipts, verify_hash, ReceiptBuilder, ReceiptChain,
 };
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use uuid::Uuid;
@@ -818,13 +817,12 @@ fn validation_valid_receipt_passes() {
 
 #[test]
 fn validation_empty_backend_id_fails() {
-    use abp_core::validate::{ValidationError, validate_receipt};
+    use abp_core::validate::{validate_receipt, ValidationError};
     let r = ReceiptBuilder::new("").build();
     let errs = validate_receipt(&r).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, ValidationError::EmptyBackendId))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, ValidationError::EmptyBackendId)));
 }
 
 #[test]
@@ -850,14 +848,13 @@ fn validation_started_after_finished_fails() {
 
 #[test]
 fn validation_tampered_hash_fails() {
-    use abp_core::validate::{ValidationError, validate_receipt};
+    use abp_core::validate::{validate_receipt, ValidationError};
     let mut r = builder_receipt().with_hash().unwrap();
     r.receipt_sha256 = Some("tampered".into());
     let errs = validate_receipt(&r).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, ValidationError::InvalidHash { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, ValidationError::InvalidHash { .. })));
 }
 
 #[test]
@@ -1693,21 +1690,15 @@ fn chain_error_display_messages() {
     use abp_receipt::ChainError;
 
     assert_eq!(ChainError::EmptyChain.to_string(), "chain is empty");
-    assert!(
-        ChainError::HashMismatch { index: 5 }
-            .to_string()
-            .contains("5")
-    );
-    assert!(
-        ChainError::BrokenLink { index: 2 }
-            .to_string()
-            .contains("2")
-    );
-    assert!(
-        ChainError::DuplicateId { id: Uuid::nil() }
-            .to_string()
-            .contains("duplicate")
-    );
+    assert!(ChainError::HashMismatch { index: 5 }
+        .to_string()
+        .contains("5"));
+    assert!(ChainError::BrokenLink { index: 2 }
+        .to_string()
+        .contains("2"));
+    assert!(ChainError::DuplicateId { id: Uuid::nil() }
+        .to_string()
+        .contains("duplicate"));
 }
 
 #[test]
@@ -1857,11 +1848,10 @@ fn diff_detects_backend_version_change() {
     let mut b = a.clone();
     b.backend.backend_version = Some("2.0".into());
     let d = diff_receipts(&a, &b);
-    assert!(
-        d.changes
-            .iter()
-            .any(|c| c.field == "backend.backend_version")
-    );
+    assert!(d
+        .changes
+        .iter()
+        .any(|c| c.field == "backend.backend_version"));
 }
 
 #[test]
@@ -1876,11 +1866,10 @@ fn diff_detects_adapter_version_change() {
     let mut b = a.clone();
     b.backend.adapter_version = Some("0.2".into());
     let d = diff_receipts(&a, &b);
-    assert!(
-        d.changes
-            .iter()
-            .any(|c| c.field == "backend.adapter_version")
-    );
+    assert!(d
+        .changes
+        .iter()
+        .any(|c| c.field == "backend.adapter_version"));
 }
 
 #[test]

@@ -35,7 +35,7 @@
 use std::path::Path;
 
 use abp_capability::negotiate;
-use abp_config::{BackplaneConfig, load_config};
+use abp_config::{load_config, BackplaneConfig};
 use abp_core::{
     AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
     MinSupport, Outcome, PolicyProfile, ReceiptBuilder, SupportLevel as CoreSupportLevel,
@@ -43,7 +43,7 @@ use abp_core::{
 };
 use abp_dialect::Dialect;
 use abp_error::{AbpError, ErrorCode};
-use abp_mapping::{Fidelity, features, known_rules, validate_mapping};
+use abp_mapping::{features, known_rules, validate_mapping, Fidelity};
 use abp_policy::PolicyEngine;
 use abp_receipt::{diff_receipts, verify_hash};
 use abp_runtime::{Runtime, RuntimeError};

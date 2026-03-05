@@ -7,7 +7,7 @@
 //! stages.
 
 use abp_core::{AgentEvent, Receipt, WorkOrder};
-use abp_integrations::{Backend, ensure_capability_requirements};
+use abp_integrations::{ensure_capability_requirements, Backend};
 use abp_policy::PolicyEngine;
 use abp_receipt::ReceiptBuilder;
 use abp_workspace::WorkspaceManager;
@@ -15,7 +15,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{mpsc, Mutex};
 use tracing::debug;
 
 // ---------------------------------------------------------------------------

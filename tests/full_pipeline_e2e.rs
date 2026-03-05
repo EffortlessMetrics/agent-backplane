@@ -32,9 +32,9 @@
 //! WorkOrder submission through event streaming to Receipt generation.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, receipt_hash,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
 };
 use abp_integrations::Backend;
 use abp_runtime::{Runtime, RuntimeError};

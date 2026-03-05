@@ -92,7 +92,7 @@ mod tests {
     /// Scenario: Given an OpenAI request with tool definitions,
     /// When lowered to IR and lifted back, Then tool definitions are preserved.
     fn given_openai_request_with_tools_when_lowered_then_tool_defs_preserved() {
-        use abp_openai_sdk::dialect::{CanonicalToolDef, tool_def_from_openai, tool_def_to_openai};
+        use abp_openai_sdk::dialect::{tool_def_from_openai, tool_def_to_openai, CanonicalToolDef};
 
         let canonical = CanonicalToolDef {
             name: "read_file".into(),
@@ -118,7 +118,7 @@ mod tests {
     /// Scenario: Given an OpenAI streaming response with text chunks,
     /// When chunks are mapped, Then assistant deltas arrive in order.
     fn given_openai_streaming_response_when_events_emitted_then_arrive_in_order() {
-        use abp_openai_sdk::streaming::{ChatCompletionChunk, ChunkChoice, ChunkDelta, map_chunk};
+        use abp_openai_sdk::streaming::{map_chunk, ChatCompletionChunk, ChunkChoice, ChunkDelta};
 
         let chunks: Vec<ChatCompletionChunk> = (0..3)
             .map(|i| ChatCompletionChunk {
@@ -222,8 +222,8 @@ mod tests {
     /// When mapped to events, Then each tool call becomes a separate event.
     fn given_openai_response_with_multiple_tool_calls_when_mapped_then_separate_events() {
         use abp_openai_sdk::dialect::{
-            OpenAIChoice, OpenAIFunctionCall, OpenAIMessage, OpenAIResponse, OpenAIToolCall,
-            map_response,
+            map_response, OpenAIChoice, OpenAIFunctionCall, OpenAIMessage, OpenAIResponse,
+            OpenAIToolCall,
         };
 
         let resp = OpenAIResponse {
@@ -276,7 +276,7 @@ mod tests {
     /// Scenario: Given an OpenAI work order mapping,
     /// When the work order has a model override, Then the request uses that model.
     fn given_openai_work_order_when_model_override_then_request_uses_override() {
-        use abp_openai_sdk::dialect::{OpenAIConfig, map_work_order};
+        use abp_openai_sdk::dialect::{map_work_order, OpenAIConfig};
 
         let wo = WorkOrderBuilder::new("Fix bug")
             .model("gpt-4-turbo")
@@ -388,7 +388,7 @@ mod tests {
     /// Scenario: Given OpenAI extended request fields with logprobs,
     /// When validated for mapped mode, Then validation fails.
     fn given_openai_extended_fields_with_logprobs_when_validated_then_fails() {
-        use abp_openai_sdk::validation::{ExtendedRequestFields, validate_for_mapped_mode};
+        use abp_openai_sdk::validation::{validate_for_mapped_mode, ExtendedRequestFields};
 
         let fields = ExtendedRequestFields {
             logprobs: Some(true),
@@ -466,7 +466,7 @@ mod tests {
     /// Scenario: Given a Claude tool_use response,
     /// When events are mapped, Then tool calls arrive correctly.
     fn given_claude_tool_use_response_when_events_mapped_then_tool_calls_correct() {
-        use abp_claude_sdk::dialect::{ClaudeContentBlock, ClaudeResponse, map_response};
+        use abp_claude_sdk::dialect::{map_response, ClaudeContentBlock, ClaudeResponse};
 
         let resp = ClaudeResponse {
             id: "msg_tool".into(),
@@ -598,7 +598,7 @@ mod tests {
     /// Scenario: Given a Claude work order mapping with system prompt config,
     /// When mapped, Then the request has the system prompt set.
     fn given_claude_work_order_with_system_prompt_when_mapped_then_system_set() {
-        use abp_claude_sdk::dialect::{ClaudeConfig, map_work_order};
+        use abp_claude_sdk::dialect::{map_work_order, ClaudeConfig};
 
         let wo = WorkOrderBuilder::new("Explain async").build();
         let cfg = ClaudeConfig {
@@ -614,7 +614,7 @@ mod tests {
     /// Scenario: Given a Claude stream event with text delta,
     /// When mapped, Then it produces an AssistantDelta event.
     fn given_claude_stream_text_delta_when_mapped_then_assistant_delta() {
-        use abp_claude_sdk::dialect::{ClaudeStreamDelta, ClaudeStreamEvent, map_stream_event};
+        use abp_claude_sdk::dialect::{map_stream_event, ClaudeStreamDelta, ClaudeStreamEvent};
 
         let event = ClaudeStreamEvent::ContentBlockDelta {
             index: 0,
@@ -635,7 +635,7 @@ mod tests {
     /// Scenario: Given a Claude stream tool_use block start,
     /// When mapped, Then it produces a ToolCall event.
     fn given_claude_stream_tool_use_start_when_mapped_then_tool_call() {
-        use abp_claude_sdk::dialect::{ClaudeContentBlock, ClaudeStreamEvent, map_stream_event};
+        use abp_claude_sdk::dialect::{map_stream_event, ClaudeContentBlock, ClaudeStreamEvent};
 
         let event = ClaudeStreamEvent::ContentBlockStart {
             index: 0,
@@ -715,7 +715,7 @@ mod tests {
     /// Scenario: Given Gemini function declarations,
     /// When lowered to canonical, Then they match IR tool format.
     fn given_gemini_function_declarations_when_lowered_then_match_ir_format() {
-        use abp_gemini_sdk::dialect::{CanonicalToolDef, tool_def_from_gemini, tool_def_to_gemini};
+        use abp_gemini_sdk::dialect::{tool_def_from_gemini, tool_def_to_gemini, CanonicalToolDef};
 
         let canonical = CanonicalToolDef {
             name: "search".into(),
@@ -857,7 +857,7 @@ mod tests {
     /// When mapped to events, Then it produces an AssistantMessage.
     fn given_gemini_response_when_mapped_then_assistant_message() {
         use abp_gemini_sdk::dialect::{
-            GeminiCandidate, GeminiContent, GeminiPart, GeminiResponse, map_response,
+            map_response, GeminiCandidate, GeminiContent, GeminiPart, GeminiResponse,
         };
 
         let resp = GeminiResponse {
@@ -889,7 +889,7 @@ mod tests {
     /// When mapped, Then it produces an AssistantDelta.
     fn given_gemini_stream_chunk_when_mapped_then_assistant_delta() {
         use abp_gemini_sdk::dialect::{
-            GeminiCandidate, GeminiContent, GeminiPart, GeminiStreamChunk, map_stream_chunk,
+            map_stream_chunk, GeminiCandidate, GeminiContent, GeminiPart, GeminiStreamChunk,
         };
 
         let chunk = GeminiStreamChunk {
@@ -1233,8 +1233,8 @@ mod tests {
     /// Scenario: Given an OpenAI tool definition,
     /// When mapped to Claude canonical, Then field names are translated.
     fn given_openai_tool_def_when_mapped_to_claude_then_field_names_translated() {
-        use abp_claude_sdk::dialect::{CanonicalToolDef as ClaudeCanonical, tool_def_to_claude};
-        use abp_openai_sdk::dialect::{OpenAIFunctionDef, OpenAIToolDef, tool_def_from_openai};
+        use abp_claude_sdk::dialect::{tool_def_to_claude, CanonicalToolDef as ClaudeCanonical};
+        use abp_openai_sdk::dialect::{tool_def_from_openai, OpenAIFunctionDef, OpenAIToolDef};
 
         let openai_def = OpenAIToolDef {
             tool_type: "function".into(),
@@ -1266,8 +1266,8 @@ mod tests {
     /// Scenario: Given an OpenAI tool definition,
     /// When mapped to Gemini function declaration, Then parameters map.
     fn given_openai_tool_def_when_mapped_to_gemini_then_parameters_map() {
-        use abp_gemini_sdk::dialect::{CanonicalToolDef as GeminiCanonical, tool_def_to_gemini};
-        use abp_openai_sdk::dialect::{OpenAIFunctionDef, OpenAIToolDef, tool_def_from_openai};
+        use abp_gemini_sdk::dialect::{tool_def_to_gemini, CanonicalToolDef as GeminiCanonical};
+        use abp_openai_sdk::dialect::{tool_def_from_openai, OpenAIFunctionDef, OpenAIToolDef};
 
         let openai_def = OpenAIToolDef {
             tool_type: "function".into(),
@@ -1519,7 +1519,7 @@ mod tests {
     /// Scenario: Given OpenAI extended fields with seed,
     /// When validated for mapped mode, Then validation fails for seed.
     fn given_openai_extended_fields_with_seed_when_validated_then_seed_error() {
-        use abp_openai_sdk::validation::{ExtendedRequestFields, validate_for_mapped_mode};
+        use abp_openai_sdk::validation::{validate_for_mapped_mode, ExtendedRequestFields};
 
         let fields = ExtendedRequestFields {
             logprobs: None,
@@ -1538,7 +1538,7 @@ mod tests {
     /// Scenario: Given OpenAI extended fields with logit_bias,
     /// When validated for mapped mode, Then validation fails for logit_bias.
     fn given_openai_extended_fields_with_logit_bias_when_validated_then_logit_bias_error() {
-        use abp_openai_sdk::validation::{ExtendedRequestFields, validate_for_mapped_mode};
+        use abp_openai_sdk::validation::{validate_for_mapped_mode, ExtendedRequestFields};
         use std::collections::BTreeMap;
 
         let mut bias = BTreeMap::new();
@@ -1561,7 +1561,7 @@ mod tests {
     /// Scenario: Given OpenAI extended fields with all unmappable params,
     /// When validated, Then all errors are reported.
     fn given_openai_all_unmappable_params_when_validated_then_all_errors_reported() {
-        use abp_openai_sdk::validation::{ExtendedRequestFields, validate_for_mapped_mode};
+        use abp_openai_sdk::validation::{validate_for_mapped_mode, ExtendedRequestFields};
         use std::collections::BTreeMap;
 
         let mut bias = BTreeMap::new();
@@ -1584,7 +1584,7 @@ mod tests {
     /// Scenario: Given OpenAI extended fields with no unmappable params,
     /// When validated, Then validation succeeds.
     fn given_openai_no_unmappable_params_when_validated_then_succeeds() {
-        use abp_openai_sdk::validation::{ExtendedRequestFields, validate_for_mapped_mode};
+        use abp_openai_sdk::validation::{validate_for_mapped_mode, ExtendedRequestFields};
 
         let fields = ExtendedRequestFields {
             logprobs: None,
@@ -1600,7 +1600,7 @@ mod tests {
     /// Scenario: Given a Claude API error during streaming,
     /// When mapped to event, Then Error event is produced with message.
     fn given_claude_stream_error_when_mapped_then_error_event() {
-        use abp_claude_sdk::dialect::{ClaudeApiError, ClaudeStreamEvent, map_stream_event};
+        use abp_claude_sdk::dialect::{map_stream_event, ClaudeApiError, ClaudeStreamEvent};
 
         let event = ClaudeStreamEvent::Error {
             error: ClaudeApiError {
@@ -1662,7 +1662,7 @@ mod tests {
     /// When roundtripped, Then the original event is preserved.
     fn given_claude_passthrough_event_when_roundtripped_then_preserved() {
         use abp_claude_sdk::dialect::{
-            ClaudeStreamDelta, ClaudeStreamEvent, from_passthrough_event, to_passthrough_event,
+            from_passthrough_event, to_passthrough_event, ClaudeStreamDelta, ClaudeStreamEvent,
         };
 
         let event = ClaudeStreamEvent::ContentBlockDelta {
@@ -1688,7 +1688,7 @@ mod tests {
     /// When verified with multiple events, Then all events roundtrip.
     fn given_claude_passthrough_fidelity_when_verified_then_all_roundtrip() {
         use abp_claude_sdk::dialect::{
-            ClaudeResponse, ClaudeStreamDelta, ClaudeStreamEvent, verify_passthrough_fidelity,
+            verify_passthrough_fidelity, ClaudeResponse, ClaudeStreamDelta, ClaudeStreamEvent,
         };
 
         let events = vec![
@@ -1718,7 +1718,7 @@ mod tests {
     /// Scenario: Given a Claude tool result helper,
     /// When constructed, Then the message has correct format.
     fn given_claude_tool_result_helper_when_constructed_then_correct_format() {
-        use abp_claude_sdk::dialect::{ClaudeContentBlock, map_tool_result};
+        use abp_claude_sdk::dialect::{map_tool_result, ClaudeContentBlock};
 
         let msg = map_tool_result("tu_1", "file contents here", false);
         assert_eq!(msg.role, "user");
@@ -1742,7 +1742,7 @@ mod tests {
     /// Scenario: Given a Claude tool result helper with error,
     /// When constructed, Then is_error is Some(true).
     fn given_claude_tool_result_error_helper_when_constructed_then_error_flag_set() {
-        use abp_claude_sdk::dialect::{ClaudeContentBlock, map_tool_result};
+        use abp_claude_sdk::dialect::{map_tool_result, ClaudeContentBlock};
 
         let msg = map_tool_result("tu_err", "not found", true);
         let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
@@ -1788,7 +1788,7 @@ mod tests {
     /// Scenario: Given a Claude stop reason string,
     /// When parsed, Then the typed enum is returned.
     fn given_claude_stop_reason_when_parsed_then_typed_enum() {
-        use abp_claude_sdk::dialect::{ClaudeStopReason, parse_stop_reason};
+        use abp_claude_sdk::dialect::{parse_stop_reason, ClaudeStopReason};
 
         assert_eq!(
             parse_stop_reason("end_turn"),

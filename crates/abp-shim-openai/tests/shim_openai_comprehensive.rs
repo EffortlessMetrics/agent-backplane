@@ -34,11 +34,11 @@ use abp_core::ir::{IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, UsageNormalized};
 use abp_shim_openai::ResponseFormat;
 use abp_shim_openai::{
-    ChatCompletionRequest, ChatCompletionResponse, Choice, Delta, FunctionCall, FunctionDef,
-    Message, OpenAiClient, ProcessFn, Role, ShimError, StreamChoice, StreamEvent, Tool, ToolCall,
-    Usage, events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir,
-    mock_receipt, mock_receipt_with_usage, receipt_to_response, request_to_ir,
-    request_to_work_order, tools_to_ir,
+    events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
+    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
+    tools_to_ir, ChatCompletionRequest, ChatCompletionResponse, Choice, Delta, FunctionCall,
+    FunctionDef, Message, OpenAiClient, ProcessFn, Role, ShimError, StreamChoice, StreamEvent,
+    Tool, ToolCall, Usage,
 };
 use chrono::Utc;
 use serde_json::json;

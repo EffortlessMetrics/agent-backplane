@@ -7,13 +7,13 @@
 use std::collections::BTreeMap;
 
 use abp_core::verify::{
-    ChainBuilder, ChainEntry, ChainError, ChainVerification, ChainVerifier, ReceiptChain,
-    ReceiptVerifier, verify_chain,
+    verify_chain, ChainBuilder, ChainEntry, ChainError, ChainVerification, ChainVerifier,
+    ReceiptChain, ReceiptVerifier,
 };
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability,
     ContractError, ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel,
-    UsageNormalized, VerificationReport as CoreVerificationReport, receipt_hash, sha256_hex,
+    UsageNormalized, VerificationReport as CoreVerificationReport, CONTRACT_VERSION,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
@@ -641,12 +641,10 @@ fn chain_with_missing_parent_reference() {
         .build();
     let result = verify_chain(&chain);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ChainError::MissingParent { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ChainError::MissingParent { .. })));
 }
 
 #[test]
@@ -657,12 +655,10 @@ fn chain_out_of_order_detected() {
     let chain = ChainBuilder::new().push(r1).push(r2).build();
     let result = verify_chain(&chain);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ChainError::OutOfOrder { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ChainError::OutOfOrder { .. })));
 }
 
 #[test]
@@ -675,12 +671,10 @@ fn chain_duplicate_run_id_detected() {
     let chain = ChainBuilder::new().push(r1).push(r2).build();
     let result = verify_chain(&chain);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ChainError::DuplicateId { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ChainError::DuplicateId { .. })));
 }
 
 #[test]
@@ -693,12 +687,10 @@ fn chain_version_mismatch_detected() {
     let chain = ChainBuilder::new().push(r1).push(r2).build();
     let result = verify_chain(&chain);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ChainError::ContractVersionMismatch { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ChainError::ContractVersionMismatch { .. })));
 }
 
 #[test]
@@ -711,12 +703,10 @@ fn chain_broken_hash_detected() {
     let chain = ChainBuilder::new().push(r1).push(r2).build();
     let result = verify_chain(&chain);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ChainError::BrokenHash { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ChainError::BrokenHash { .. })));
 }
 
 #[test]
@@ -1474,12 +1464,10 @@ fn verifier_detects_tampered_hash() {
     let verifier = ReceiptVerifier::new();
     let report = verifier.verify(&receipt);
     assert!(!report.passed);
-    assert!(
-        report
-            .checks
-            .iter()
-            .any(|c| c.name == "hash_integrity" && !c.passed)
-    );
+    assert!(report
+        .checks
+        .iter()
+        .any(|c| c.name == "hash_integrity" && !c.passed));
 }
 
 #[test]
@@ -1488,12 +1476,10 @@ fn verifier_passes_no_hash() {
     let verifier = ReceiptVerifier::new();
     let report = verifier.verify(&receipt);
     // No hash means hash check is skipped (passes)
-    assert!(
-        report
-            .checks
-            .iter()
-            .any(|c| c.name == "hash_integrity" && c.passed)
-    );
+    assert!(report
+        .checks
+        .iter()
+        .any(|c| c.name == "hash_integrity" && c.passed));
 }
 
 #[test]
@@ -1501,12 +1487,10 @@ fn verifier_checks_contract_version() {
     let receipt = minimal_receipt();
     let verifier = ReceiptVerifier::new();
     let report = verifier.verify(&receipt);
-    assert!(
-        report
-            .checks
-            .iter()
-            .any(|c| c.name == "contract_version" && c.passed)
-    );
+    assert!(report
+        .checks
+        .iter()
+        .any(|c| c.name == "contract_version" && c.passed));
 }
 
 #[test]
@@ -1514,12 +1498,10 @@ fn verifier_checks_timestamps() {
     let receipt = minimal_receipt();
     let verifier = ReceiptVerifier::new();
     let report = verifier.verify(&receipt);
-    assert!(
-        report
-            .checks
-            .iter()
-            .any(|c| c.name == "timestamps" && c.passed)
-    );
+    assert!(report
+        .checks
+        .iter()
+        .any(|c| c.name == "timestamps" && c.passed));
 }
 
 // ─── 15. Additional hash edge cases ─────────────────────────────────

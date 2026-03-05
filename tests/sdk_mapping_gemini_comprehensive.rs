@@ -41,8 +41,8 @@ use serde_json::json;
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
 use abp_core::{
-    AgentEventKind, CONTRACT_VERSION, Capability, ContextPacket, ContextSnippet, SupportLevel,
-    WorkOrderBuilder,
+    AgentEventKind, Capability, ContextPacket, ContextSnippet, SupportLevel, WorkOrderBuilder,
+    CONTRACT_VERSION,
 };
 use abp_gemini_sdk::dialect::{
     self, CanonicalToolDef, DynamicRetrievalConfig, FunctionCallingMode, GeminiCandidate,
@@ -54,10 +54,10 @@ use abp_gemini_sdk::dialect::{
 };
 use abp_gemini_sdk::lowering;
 use abp_shim_gemini::{
-    Candidate, Content, FunctionCallingConfig, FunctionDeclaration, GenerateContentRequest,
-    GenerateContentResponse, GenerationConfig, Part, PipelineClient, SafetySetting, StreamEvent,
-    ToolConfig, ToolDeclaration, UsageMetadata, from_dialect_response, from_dialect_stream_chunk,
-    gen_config_from_dialect, to_dialect_request, usage_from_ir, usage_to_ir,
+    from_dialect_response, from_dialect_stream_chunk, gen_config_from_dialect, to_dialect_request,
+    usage_from_ir, usage_to_ir, Candidate, Content, FunctionCallingConfig, FunctionDeclaration,
+    GenerateContentRequest, GenerateContentResponse, GenerationConfig, Part, PipelineClient,
+    SafetySetting, StreamEvent, ToolConfig, ToolDeclaration, UsageMetadata,
 };
 
 // =========================================================================
@@ -1895,12 +1895,11 @@ mod grounding_citation_metadata {
         };
         let json = serde_json::to_string(&config).unwrap();
         let back: GeminiGroundingConfig = serde_json::from_str(&json).unwrap();
-        assert!(
-            back.google_search_retrieval
-                .unwrap()
-                .dynamic_retrieval_config
-                .is_none()
-        );
+        assert!(back
+            .google_search_retrieval
+            .unwrap()
+            .dynamic_retrieval_config
+            .is_none());
     }
 
     #[test]

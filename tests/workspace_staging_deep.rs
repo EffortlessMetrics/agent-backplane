@@ -817,12 +817,10 @@ fn many_files_in_single_directory() {
 fn stager_missing_source_root_errors() {
     let result = WorkspaceStager::new().stage();
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("source_root is required")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("source_root is required"));
 }
 
 #[test]

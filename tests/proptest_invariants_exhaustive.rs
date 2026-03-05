@@ -45,28 +45,28 @@ use proptest::prelude::*;
 use serde_json::json;
 
 use abp_capability::{
-    CapabilityRegistry, CompatibilityReport, NegotiationResult, check_capability, generate_report,
-    negotiate, negotiate_capabilities, negotiate_dialects,
+    check_capability, generate_report, negotiate, negotiate_capabilities, negotiate_dialects,
+    CapabilityRegistry, CompatibilityReport, NegotiationResult,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    canonical_json, receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity,
+    Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
     ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
     RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
-    WorkspaceMode, WorkspaceSpec, canonical_json, receipt_hash,
+    WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_dialect::Dialect;
 use abp_emulation::{
-    EmulationConfig, EmulationEngine, EmulationStrategy as EmuStrategy, can_emulate,
-    default_strategy,
+    can_emulate, default_strategy, EmulationConfig, EmulationEngine,
+    EmulationStrategy as EmuStrategy,
 };
 use abp_mapper::{
-    DialectRequest, IdentityMapper, IrIdentityMapper, IrMapper, Mapper, default_ir_mapper,
-    supported_ir_pairs,
+    default_ir_mapper, supported_ir_pairs, DialectRequest, IdentityMapper, IrIdentityMapper,
+    IrMapper, Mapper,
 };
 use abp_mapping::{
-    Fidelity, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingRegistry, MappingRule,
 };
 use abp_policy::PolicyEngine;
 use abp_protocol::{Envelope, JsonlCodec};

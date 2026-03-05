@@ -45,19 +45,19 @@ use abp_core::{
     UsageNormalized, WorkOrderBuilder,
 };
 use abp_emulation::{
-    EmulationEngine, EmulationReport, EmulationStrategy, FidelityLabel, compute_fidelity,
-    default_strategy,
+    compute_fidelity, default_strategy, EmulationEngine, EmulationReport, EmulationStrategy,
+    FidelityLabel,
 };
 use chrono::Utc;
 use serde_json::json;
 
-use abp_capability::negotiate::{NegotiationPolicy, apply_policy, pre_negotiate};
+use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationPolicy};
 use abp_capability::{
-    CapabilityRegistry, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
-    gemini_15_pro_manifest, kimi_manifest, negotiate_capabilities, openai_gpt4o_manifest,
+    claude_35_sonnet_manifest, codex_manifest, copilot_manifest, gemini_15_pro_manifest,
+    kimi_manifest, negotiate_capabilities, openai_gpt4o_manifest, CapabilityRegistry,
 };
 use abp_dialect::Dialect;
-use abp_mapper::{MapError, default_ir_mapper, supported_ir_pairs};
+use abp_mapper::{default_ir_mapper, supported_ir_pairs, MapError};
 use abp_mapping::{Fidelity, MappingError, MappingRegistry, MappingRule};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -401,11 +401,10 @@ mod claude {
         let events = vec![tool_call_event("search", "tool_1", json!({"q": "rust"}))];
         let resp = abp_shim_claude::response_from_events(&events, "claude-sonnet-4-20250514", None);
 
-        assert!(
-            resp.content
-                .iter()
-                .any(|b| matches!(b, ContentBlock::ToolUse { name, .. } if name == "search"))
-        );
+        assert!(resp
+            .content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::ToolUse { name, .. } if name == "search")));
         assert_eq!(resp.stop_reason.as_deref(), Some("tool_use"));
     }
 
@@ -548,7 +547,7 @@ mod gemini {
 
 mod codex {
     use super::*;
-    use abp_shim_codex::{CodexRequestBuilder, Usage, codex_message};
+    use abp_shim_codex::{codex_message, CodexRequestBuilder, Usage};
 
     #[test]
     fn request_to_ir_preserves_messages() {
@@ -1338,23 +1337,19 @@ mod feature_fidelity {
         // OpenAI: error becomes content
         let receipt = mock_receipt(vec![err_event.clone()]);
         let openai_resp = abp_shim_openai::receipt_to_response(&receipt, "gpt-4o");
-        assert!(
-            openai_resp.choices[0]
-                .message
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("rate limit")
-        );
+        assert!(openai_resp.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("rate limit"));
 
         // Copilot: error becomes copilot_errors
         let copilot_resp = abp_shim_copilot::receipt_to_response(&receipt, "gpt-4o");
         assert_eq!(copilot_resp.copilot_errors.len(), 1);
-        assert!(
-            copilot_resp.copilot_errors[0]
-                .message
-                .contains("rate limit")
-        );
+        assert!(copilot_resp.copilot_errors[0]
+            .message
+            .contains("rate limit"));
 
         // Codex: error becomes error message in output
         let codex_resp = abp_shim_codex::receipt_to_response(&receipt, "codex-mini-latest");
@@ -1979,121 +1974,97 @@ mod ir_mapping_specific {
     #[test]
     fn codex_to_claude_simple() {
         let mapper = default_ir_mapper(Dialect::Codex, Dialect::Claude).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::Codex, Dialect::Claude, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::Codex, Dialect::Claude, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn codex_to_openai_simple() {
         let mapper = default_ir_mapper(Dialect::Codex, Dialect::OpenAi).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::Codex, Dialect::OpenAi, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::Codex, Dialect::OpenAi, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn kimi_to_openai_simple() {
         let mapper = default_ir_mapper(Dialect::Kimi, Dialect::OpenAi).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::Kimi, Dialect::OpenAi, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::Kimi, Dialect::OpenAi, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn openai_to_kimi_simple() {
         let mapper = default_ir_mapper(Dialect::OpenAi, Dialect::Kimi).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::OpenAi, Dialect::Kimi, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::OpenAi, Dialect::Kimi, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn copilot_to_openai_simple() {
         let mapper = default_ir_mapper(Dialect::Copilot, Dialect::OpenAi).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::Copilot, Dialect::OpenAi, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::Copilot, Dialect::OpenAi, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn openai_to_copilot_simple() {
         let mapper = default_ir_mapper(Dialect::OpenAi, Dialect::Copilot).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::OpenAi, Dialect::Copilot, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::OpenAi, Dialect::Copilot, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn claude_to_gemini_simple() {
         let mapper = default_ir_mapper(Dialect::Claude, Dialect::Gemini).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::Claude, Dialect::Gemini, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::Claude, Dialect::Gemini, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn gemini_to_claude_simple() {
         let mapper = default_ir_mapper(Dialect::Gemini, Dialect::Claude).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::Gemini, Dialect::Claude, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::Gemini, Dialect::Claude, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn claude_to_kimi_simple() {
         let mapper = default_ir_mapper(Dialect::Claude, Dialect::Kimi).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::Claude, Dialect::Kimi, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::Claude, Dialect::Kimi, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn kimi_to_claude_simple() {
         let mapper = default_ir_mapper(Dialect::Kimi, Dialect::Claude).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::Kimi, Dialect::Claude, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::Kimi, Dialect::Claude, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn gemini_to_kimi_simple() {
         let mapper = default_ir_mapper(Dialect::Gemini, Dialect::Kimi).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::Gemini, Dialect::Kimi, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::Gemini, Dialect::Kimi, &ir_simple())
+            .is_ok());
     }
 
     #[test]
     fn kimi_to_gemini_simple() {
         let mapper = default_ir_mapper(Dialect::Kimi, Dialect::Gemini).unwrap();
-        assert!(
-            mapper
-                .map_request(Dialect::Kimi, Dialect::Gemini, &ir_simple())
-                .is_ok()
-        );
+        assert!(mapper
+            .map_request(Dialect::Kimi, Dialect::Gemini, &ir_simple())
+            .is_ok());
     }
 
     #[test]

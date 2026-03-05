@@ -1607,10 +1607,9 @@ fn mapping_registry_empty() {
     let reg = MappingRegistry::new();
     assert!(reg.is_empty());
     assert_eq!(reg.len(), 0);
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "tool_use")
+        .is_none());
 }
 
 #[test]

@@ -39,10 +39,10 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{Capability, CapabilityRequirement, MinSupport};
 use abp_emulation::{
-    EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy,
-    FidelityLabel, apply_emulation, can_emulate, compute_fidelity, default_strategy,
-    emulate_code_execution, emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
-    emulate_structured_output,
+    apply_emulation, can_emulate, compute_fidelity, default_strategy, emulate_code_execution,
+    emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
+    emulate_structured_output, EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport,
+    EmulationStrategy, FidelityLabel,
 };
 use std::collections::BTreeMap;
 
@@ -701,12 +701,11 @@ fn cross_dialect_emulate_thinking_on_text_only_backend() {
     let engine = EmulationEngine::with_defaults();
     let report = engine.apply(&[Capability::ExtendedThinking], &mut conv);
     assert_eq!(report.applied.len(), 1);
-    assert!(
-        conv.system_message()
-            .unwrap()
-            .text_content()
-            .contains("step by step")
-    );
+    assert!(conv
+        .system_message()
+        .unwrap()
+        .text_content()
+        .contains("step by step"));
 }
 
 #[test]
@@ -727,12 +726,11 @@ fn cross_dialect_emulate_image_input_on_text_only_backend() {
     let engine = EmulationEngine::with_defaults();
     let report = engine.apply(&[Capability::ImageInput], &mut conv);
     assert_eq!(report.applied.len(), 1);
-    assert!(
-        conv.system_message()
-            .unwrap()
-            .text_content()
-            .contains("Image")
-    );
+    assert!(conv
+        .system_message()
+        .unwrap()
+        .text_content()
+        .contains("Image"));
 }
 
 #[test]
@@ -1406,21 +1404,15 @@ fn result_type_strategy_serde_type_tags() {
     let spi = EmulationStrategy::SystemPromptInjection { prompt: "x".into() };
     let pp = EmulationStrategy::PostProcessing { detail: "x".into() };
     let dis = EmulationStrategy::Disabled { reason: "x".into() };
-    assert!(
-        serde_json::to_string(&spi)
-            .unwrap()
-            .contains("\"type\":\"system_prompt_injection\"")
-    );
-    assert!(
-        serde_json::to_string(&pp)
-            .unwrap()
-            .contains("\"type\":\"post_processing\"")
-    );
-    assert!(
-        serde_json::to_string(&dis)
-            .unwrap()
-            .contains("\"type\":\"disabled\"")
-    );
+    assert!(serde_json::to_string(&spi)
+        .unwrap()
+        .contains("\"type\":\"system_prompt_injection\""));
+    assert!(serde_json::to_string(&pp)
+        .unwrap()
+        .contains("\"type\":\"post_processing\""));
+    assert!(serde_json::to_string(&dis)
+        .unwrap()
+        .contains("\"type\":\"disabled\""));
 }
 
 #[test]

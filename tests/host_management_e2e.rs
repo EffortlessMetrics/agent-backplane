@@ -39,8 +39,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
-    Outcome, Receipt, ReceiptBuilder, SupportLevel, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, Outcome, Receipt,
+    ReceiptBuilder, SupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_host::health::{HealthMonitor, HealthStatus};
 use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};

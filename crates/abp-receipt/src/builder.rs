@@ -3,8 +3,8 @@
 //! Fluent builder for constructing [`Receipt`]s.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CapabilityManifest, ExecutionMode,
+    Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport, CONTRACT_VERSION,
 };
 use chrono::{DateTime, Utc};
 use std::time::Duration;

@@ -37,7 +37,7 @@
 //! Also exercises the [`ProjectionMatrix`] translation pipeline.
 
 use abp_core::{AgentEventKind, ContextPacket, ContextSnippet, WorkOrderBuilder};
-use abp_integrations::projection::{Dialect, ProjectionMatrix, translate};
+use abp_integrations::projection::{translate, Dialect, ProjectionMatrix};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -76,11 +76,9 @@ mod claude {
         assert!(!req.model.is_empty(), "model must be set");
         assert_eq!(req.messages.len(), 1);
         assert_eq!(req.messages[0].role, "user");
-        assert!(
-            req.messages[0]
-                .content
-                .contains("Refactor the authentication module")
-        );
+        assert!(req.messages[0]
+            .content
+            .contains("Refactor the authentication module"));
 
         let resp = ClaudeResponse {
             id: "msg_int_1".into(),
@@ -276,13 +274,11 @@ mod kimi {
         assert!(!req.model.is_empty());
         assert_eq!(req.messages.len(), 1);
         assert_eq!(req.messages[0].role, "user");
-        assert!(
-            req.messages[0]
-                .content
-                .as_deref()
-                .unwrap_or("")
-                .contains("Refactor the authentication module")
-        );
+        assert!(req.messages[0]
+            .content
+            .as_deref()
+            .unwrap_or("")
+            .contains("Refactor the authentication module"));
 
         let resp = KimiResponse {
             id: "cmpl_int_1".into(),
@@ -327,20 +323,16 @@ mod kimi {
         let cfg = KimiConfig::default();
         let req = map_work_order(&wo, &cfg);
 
-        assert!(
-            req.messages[0]
-                .content
-                .as_deref()
-                .unwrap_or("")
-                .contains("error log")
-        );
-        assert!(
-            req.messages[0]
-                .content
-                .as_deref()
-                .unwrap_or("")
-                .contains("panic at auth.rs:42")
-        );
+        assert!(req.messages[0]
+            .content
+            .as_deref()
+            .unwrap_or("")
+            .contains("error log"));
+        assert!(req.messages[0]
+            .content
+            .as_deref()
+            .unwrap_or("")
+            .contains("panic at auth.rs:42"));
     }
 }
 
@@ -361,12 +353,10 @@ fn projection_abp_to_claude_has_correct_structure() {
     let messages = obj["messages"].as_array().unwrap();
     assert_eq!(messages.len(), 1);
     assert_eq!(messages[0]["role"], "user");
-    assert!(
-        messages[0]["content"]
-            .as_str()
-            .unwrap()
-            .contains("Refactor")
-    );
+    assert!(messages[0]["content"]
+        .as_str()
+        .unwrap()
+        .contains("Refactor"));
 }
 
 #[test]
@@ -427,12 +417,10 @@ fn projection_abp_to_openai_has_correct_structure() {
     let messages = obj["messages"].as_array().unwrap();
     assert_eq!(messages.len(), 1);
     assert_eq!(messages[0]["role"], "user");
-    assert!(
-        messages[0]["content"]
-            .as_str()
-            .unwrap()
-            .contains("Refactor")
-    );
+    assert!(messages[0]["content"]
+        .as_str()
+        .unwrap()
+        .contains("Refactor"));
 }
 
 #[test]

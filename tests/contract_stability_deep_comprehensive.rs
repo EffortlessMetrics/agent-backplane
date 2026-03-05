@@ -11,7 +11,7 @@
 use abp_core::*;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use uuid::Uuid;

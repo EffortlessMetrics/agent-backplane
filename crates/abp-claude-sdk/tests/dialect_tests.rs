@@ -30,11 +30,11 @@
 //! Integration tests for the Claude dialect mapping, model names, capabilities, and tool formats.
 
 use abp_claude_sdk::dialect::{
-    CanonicalToolDef, ClaudeApiError, ClaudeCacheControl, ClaudeConfig, ClaudeContentBlock,
-    ClaudeImageSource, ClaudeMessageDelta, ClaudeResponse, ClaudeStreamDelta, ClaudeStreamEvent,
-    ClaudeSystemBlock, ClaudeToolDef, ClaudeUsage, DEFAULT_MODEL, DIALECT_VERSION,
     capability_manifest, from_canonical_model, is_known_model, map_stream_event, map_tool_result,
-    to_canonical_model, tool_def_from_claude, tool_def_to_claude,
+    to_canonical_model, tool_def_from_claude, tool_def_to_claude, CanonicalToolDef, ClaudeApiError,
+    ClaudeCacheControl, ClaudeConfig, ClaudeContentBlock, ClaudeImageSource, ClaudeMessageDelta,
+    ClaudeResponse, ClaudeStreamDelta, ClaudeStreamEvent, ClaudeSystemBlock, ClaudeToolDef,
+    ClaudeUsage, DEFAULT_MODEL, DIALECT_VERSION,
 };
 use abp_core::{AgentEventKind, Capability, SupportLevel};
 

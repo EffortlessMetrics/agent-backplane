@@ -30,11 +30,11 @@
 //! Extended MockBackend tests: concurrency, edge cases, config extraction.
 
 use abp_core::{
-    AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement, CapabilityRequirements,
-    ExecutionMode, MinSupport, Outcome, WorkOrderBuilder,
+    AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements, ExecutionMode,
+    MinSupport, Outcome, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_integrations::{
-    Backend, MockBackend, extract_execution_mode, validate_passthrough_compatibility,
+    extract_execution_mode, validate_passthrough_compatibility, Backend, MockBackend,
 };
 use serde_json::json;
 use tokio::sync::mpsc;

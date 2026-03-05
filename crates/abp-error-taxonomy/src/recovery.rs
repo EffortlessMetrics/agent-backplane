@@ -256,8 +256,8 @@ impl RecoveryPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ErrorCode;
     use crate::classification::ErrorClassifier;
+    use crate::ErrorCode;
 
     #[test]
     fn rate_limited_plan_starts_with_retry() {

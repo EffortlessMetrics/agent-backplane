@@ -854,10 +854,9 @@ fn route_direct_preferred_over_multi_hop_same_endpoints() {
 #[test]
 fn resolve_mapper_returns_none_for_unregistered_pair() {
     let pm = ProjectionMatrix::new();
-    assert!(
-        pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
-            .is_none()
-    );
+    assert!(pm
+        .resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+        .is_none());
 }
 
 #[test]

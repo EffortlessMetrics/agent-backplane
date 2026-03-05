@@ -6,7 +6,7 @@
 
 use abp_receipt::audit_trail::{AuditAction, AuditEntry, AuditTrail};
 use abp_receipt::canonical::{
-    CanonicalReceipt, canonical_hash, canonicalize, diff_canonical, verify,
+    canonical_hash, canonicalize, diff_canonical, verify, CanonicalReceipt,
 };
 use abp_receipt::compliance::{ComplianceCheck, Severity};
 use abp_receipt::export;
@@ -381,12 +381,10 @@ fn compliance_missing_hash_is_warning() {
     let r = sample_receipt();
     let report = ComplianceCheck::new().check(&r);
     assert!(report.is_compliant());
-    assert!(
-        report
-            .warnings()
-            .iter()
-            .any(|f| f.field == "receipt_sha256")
-    );
+    assert!(report
+        .warnings()
+        .iter()
+        .any(|f| f.field == "receipt_sha256"));
 }
 
 #[test]
@@ -405,12 +403,10 @@ fn compliance_wrong_contract_version() {
     r.receipt_sha256 = Some(abp_receipt::compute_hash(&r).unwrap());
     let report = ComplianceCheck::new().check(&r);
     assert!(!report.is_compliant());
-    assert!(
-        report
-            .errors()
-            .iter()
-            .any(|f| f.field == "meta.contract_version")
-    );
+    assert!(report
+        .errors()
+        .iter()
+        .any(|f| f.field == "meta.contract_version"));
 }
 
 #[test]
@@ -447,12 +443,10 @@ fn compliance_excessive_duration_warning() {
         .unwrap();
     let report = ComplianceCheck::new().max_duration_ms(3_600_000).check(&r);
     assert!(report.is_compliant());
-    assert!(
-        report
-            .warnings()
-            .iter()
-            .any(|f| f.field == "meta.duration_ms")
-    );
+    assert!(report
+        .warnings()
+        .iter()
+        .any(|f| f.field == "meta.duration_ms"));
 }
 
 #[test]
@@ -478,12 +472,10 @@ fn compliance_custom_max_duration() {
         .with_hash()
         .unwrap();
     let report = ComplianceCheck::new().max_duration_ms(100).check(&r);
-    assert!(
-        report
-            .warnings()
-            .iter()
-            .any(|f| f.message.contains("exceeds threshold"))
-    );
+    assert!(report
+        .warnings()
+        .iter()
+        .any(|f| f.message.contains("exceeds threshold")));
 }
 
 #[test]

@@ -9,15 +9,15 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
-use claude_bridge::ClaudeBridge;
 use claude_bridge::config::ClaudeBridgeConfig;
 use claude_bridge::discovery::{
-    DEFAULT_NODE_COMMAND, HOST_SCRIPT_ENV, HOST_SCRIPT_RELATIVE, resolve_host_script, resolve_node,
+    resolve_host_script, resolve_node, DEFAULT_NODE_COMMAND, HOST_SCRIPT_ENV, HOST_SCRIPT_RELATIVE,
 };
 use claude_bridge::error::BridgeError;
 use claude_bridge::raw::RunOptions;
+use claude_bridge::ClaudeBridge;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 1: ClaudeBridgeConfig — defaults and builder
@@ -869,12 +869,10 @@ fn claude_tool_result_event_structure() {
     });
     assert_eq!(tool_result["type"], "tool_result");
     assert_eq!(tool_result["is_error"], false);
-    assert!(
-        tool_result["tool_use_id"]
-            .as_str()
-            .unwrap()
-            .starts_with("toolu_")
-    );
+    assert!(tool_result["tool_use_id"]
+        .as_str()
+        .unwrap()
+        .starts_with("toolu_"));
 }
 
 #[test]

@@ -29,12 +29,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Integration tests for the dialect registry and IR types.
 
-use abp_dialect::Dialect;
 use abp_dialect::ir::{
     IrContentBlock, IrGenerationConfig, IrMessage, IrRequest, IrResponse, IrRole, IrStopReason,
     IrToolDefinition, IrUsage,
 };
-use abp_dialect::registry::{DialectEntry, DialectError, DialectRegistry, parse_response};
+use abp_dialect::registry::{parse_response, DialectEntry, DialectError, DialectRegistry};
+use abp_dialect::Dialect;
 use serde_json::json;
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -482,11 +482,10 @@ fn codex_parse_request() {
         ir.system_prompt.as_deref(),
         Some("You are a coding assistant.")
     );
-    assert!(
-        ir.messages
-            .iter()
-            .any(|m| m.text_content().contains("hello world"))
-    );
+    assert!(ir
+        .messages
+        .iter()
+        .any(|m| m.text_content().contains("hello world")));
 }
 
 #[test]

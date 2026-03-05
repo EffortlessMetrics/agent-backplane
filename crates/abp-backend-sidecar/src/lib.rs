@@ -3,7 +3,7 @@
 #![warn(missing_docs)]
 //! Sidecar backend implementation for JSONL protocol adapters.
 
-use abp_backend_core::{Backend, ensure_capability_requirements};
+use abp_backend_core::{ensure_capability_requirements, Backend};
 use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};
 use abp_host::{HostError, SidecarClient, SidecarSpec};
 use anyhow::{Context, Result};

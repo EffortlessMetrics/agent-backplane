@@ -35,7 +35,7 @@ use abp_core::{
     RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
-use abp_mapping::{Fidelity, MappingRegistry, MappingRule, features, known_rules};
+use abp_mapping::{features, known_rules, Fidelity, MappingRegistry, MappingRule};
 use abp_projection::{ProjectionError, ProjectionMatrix};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1150,12 +1150,10 @@ mod route_ranking {
         let wo = work_order(require_caps(&[Capability::Streaming, Capability::ToolRead]));
         let result = pm.project(&wo).unwrap();
         assert_eq!(result.selected_backend, "full");
-        assert!(
-            result
-                .fallback_chain
-                .iter()
-                .any(|e| e.backend_id == "partial")
-        );
+        assert!(result
+            .fallback_chain
+            .iter()
+            .any(|e| e.backend_id == "partial"));
     }
 
     #[test]
@@ -3832,10 +3830,9 @@ mod mapper_integration {
     #[test]
     fn resolve_mapper_for_unregistered_pair_returns_none() {
         let pm = ProjectionMatrix::new();
-        assert!(
-            pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
-                .is_none()
-        );
+        assert!(pm
+            .resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+            .is_none());
     }
 
     #[test]

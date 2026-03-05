@@ -418,7 +418,7 @@ mod standard_parameters {
 
     #[test]
     fn openai_maps_temperature_and_max_tokens() {
-        use abp_openai_sdk::dialect::{OpenAIConfig, map_work_order};
+        use abp_openai_sdk::dialect::{map_work_order, OpenAIConfig};
 
         let wo = WorkOrderBuilder::new("test task").build();
         let config = OpenAIConfig {
@@ -433,7 +433,7 @@ mod standard_parameters {
 
     #[test]
     fn claude_maps_max_tokens() {
-        use abp_claude_sdk::dialect::{ClaudeConfig, map_work_order};
+        use abp_claude_sdk::dialect::{map_work_order, ClaudeConfig};
 
         let wo = WorkOrderBuilder::new("test task").build();
         let config = ClaudeConfig {
@@ -446,7 +446,7 @@ mod standard_parameters {
 
     #[test]
     fn gemini_maps_temperature_and_max_tokens() {
-        use abp_gemini_sdk::dialect::{GeminiConfig, map_work_order};
+        use abp_gemini_sdk::dialect::{map_work_order, GeminiConfig};
 
         let wo = WorkOrderBuilder::new("test task").build();
         let config = GeminiConfig {
@@ -464,7 +464,7 @@ mod standard_parameters {
 
     #[test]
     fn codex_maps_temperature_and_max_tokens() {
-        use abp_codex_sdk::dialect::{CodexConfig, map_work_order};
+        use abp_codex_sdk::dialect::{map_work_order, CodexConfig};
 
         let wo = WorkOrderBuilder::new("test task").build();
         let config = CodexConfig {
@@ -479,7 +479,7 @@ mod standard_parameters {
 
     #[test]
     fn kimi_maps_temperature_and_max_tokens() {
-        use abp_kimi_sdk::dialect::{KimiConfig, map_work_order};
+        use abp_kimi_sdk::dialect::{map_work_order, KimiConfig};
 
         let wo = WorkOrderBuilder::new("test task").build();
         let config = KimiConfig {
@@ -496,7 +496,7 @@ mod standard_parameters {
     fn copilot_has_no_temperature_or_max_tokens_config() {
         // Document: CopilotConfig does not expose temperature or max_tokens;
         // these are server-side concerns in the Copilot API.
-        use abp_copilot_sdk::dialect::{CopilotConfig, map_work_order};
+        use abp_copilot_sdk::dialect::{map_work_order, CopilotConfig};
 
         let wo = WorkOrderBuilder::new("test task").build();
         let config = CopilotConfig::default();
@@ -510,32 +510,32 @@ mod standard_parameters {
         let wo = WorkOrderBuilder::new("test").model("custom-model").build();
 
         {
-            use abp_openai_sdk::dialect::{OpenAIConfig, map_work_order};
+            use abp_openai_sdk::dialect::{map_work_order, OpenAIConfig};
             let req = map_work_order(&wo, &OpenAIConfig::default());
             assert_eq!(req.model, "custom-model");
         }
         {
-            use abp_claude_sdk::dialect::{ClaudeConfig, map_work_order};
+            use abp_claude_sdk::dialect::{map_work_order, ClaudeConfig};
             let req = map_work_order(&wo, &ClaudeConfig::default());
             assert_eq!(req.model, "custom-model");
         }
         {
-            use abp_gemini_sdk::dialect::{GeminiConfig, map_work_order};
+            use abp_gemini_sdk::dialect::{map_work_order, GeminiConfig};
             let req = map_work_order(&wo, &GeminiConfig::default());
             assert_eq!(req.model, "custom-model");
         }
         {
-            use abp_codex_sdk::dialect::{CodexConfig, map_work_order};
+            use abp_codex_sdk::dialect::{map_work_order, CodexConfig};
             let req = map_work_order(&wo, &CodexConfig::default());
             assert_eq!(req.model, "custom-model");
         }
         {
-            use abp_kimi_sdk::dialect::{KimiConfig, map_work_order};
+            use abp_kimi_sdk::dialect::{map_work_order, KimiConfig};
             let req = map_work_order(&wo, &KimiConfig::default());
             assert_eq!(req.model, "custom-model");
         }
         {
-            use abp_copilot_sdk::dialect::{CopilotConfig, map_work_order};
+            use abp_copilot_sdk::dialect::{map_work_order, CopilotConfig};
             let req = map_work_order(&wo, &CopilotConfig::default());
             assert_eq!(req.model, "custom-model");
         }
@@ -551,7 +551,7 @@ mod tool_definitions {
 
     #[test]
     fn openai_tool_def_roundtrip() {
-        use abp_openai_sdk::dialect::{CanonicalToolDef, tool_def_from_openai, tool_def_to_openai};
+        use abp_openai_sdk::dialect::{tool_def_from_openai, tool_def_to_openai, CanonicalToolDef};
 
         let def = CanonicalToolDef {
             name: "read_file".into(),
@@ -570,7 +570,7 @@ mod tool_definitions {
 
     #[test]
     fn claude_tool_def_roundtrip() {
-        use abp_claude_sdk::dialect::{CanonicalToolDef, tool_def_from_claude, tool_def_to_claude};
+        use abp_claude_sdk::dialect::{tool_def_from_claude, tool_def_to_claude, CanonicalToolDef};
 
         let def = CanonicalToolDef {
             name: "read_file".into(),
@@ -588,7 +588,7 @@ mod tool_definitions {
 
     #[test]
     fn gemini_tool_def_roundtrip() {
-        use abp_gemini_sdk::dialect::{CanonicalToolDef, tool_def_from_gemini, tool_def_to_gemini};
+        use abp_gemini_sdk::dialect::{tool_def_from_gemini, tool_def_to_gemini, CanonicalToolDef};
 
         let def = CanonicalToolDef {
             name: "search".into(),
@@ -605,7 +605,7 @@ mod tool_definitions {
 
     #[test]
     fn codex_tool_def_roundtrip() {
-        use abp_codex_sdk::dialect::{CanonicalToolDef, tool_def_from_codex, tool_def_to_codex};
+        use abp_codex_sdk::dialect::{tool_def_from_codex, tool_def_to_codex, CanonicalToolDef};
 
         let def = CanonicalToolDef {
             name: "write_file".into(),
@@ -621,7 +621,7 @@ mod tool_definitions {
 
     #[test]
     fn kimi_tool_def_roundtrip() {
-        use abp_kimi_sdk::dialect::{CanonicalToolDef, tool_def_from_kimi, tool_def_to_kimi};
+        use abp_kimi_sdk::dialect::{tool_def_from_kimi, tool_def_to_kimi, CanonicalToolDef};
 
         let def = CanonicalToolDef {
             name: "search".into(),
@@ -638,7 +638,7 @@ mod tool_definitions {
     #[test]
     fn copilot_tool_def_roundtrip() {
         use abp_copilot_sdk::dialect::{
-            CanonicalToolDef, tool_def_from_copilot, tool_def_to_copilot,
+            tool_def_from_copilot, tool_def_to_copilot, CanonicalToolDef,
         };
 
         let def = CanonicalToolDef {
@@ -662,7 +662,7 @@ mod tool_definitions {
         // OpenAI
         {
             use abp_openai_sdk::dialect::{
-                CanonicalToolDef, tool_def_from_openai, tool_def_to_openai,
+                tool_def_from_openai, tool_def_to_openai, CanonicalToolDef,
             };
             let def = CanonicalToolDef {
                 name: name.into(),
@@ -677,7 +677,7 @@ mod tool_definitions {
         // Claude
         {
             use abp_claude_sdk::dialect::{
-                CanonicalToolDef, tool_def_from_claude, tool_def_to_claude,
+                tool_def_from_claude, tool_def_to_claude, CanonicalToolDef,
             };
             let def = CanonicalToolDef {
                 name: name.into(),
@@ -692,7 +692,7 @@ mod tool_definitions {
         // Gemini
         {
             use abp_gemini_sdk::dialect::{
-                CanonicalToolDef, tool_def_from_gemini, tool_def_to_gemini,
+                tool_def_from_gemini, tool_def_to_gemini, CanonicalToolDef,
             };
             let def = CanonicalToolDef {
                 name: name.into(),
@@ -716,7 +716,7 @@ mod streaming_events {
 
     #[test]
     fn openai_text_delta_maps_to_assistant_delta() {
-        use abp_openai_sdk::streaming::{ChatCompletionChunk, ChunkChoice, ChunkDelta, map_chunk};
+        use abp_openai_sdk::streaming::{map_chunk, ChatCompletionChunk, ChunkChoice, ChunkDelta};
 
         let chunk = ChatCompletionChunk {
             id: "chatcmpl-1".into(),
@@ -783,7 +783,7 @@ mod streaming_events {
 
     #[test]
     fn claude_text_delta_maps_to_assistant_delta() {
-        use abp_claude_sdk::dialect::{ClaudeStreamDelta, ClaudeStreamEvent, map_stream_event};
+        use abp_claude_sdk::dialect::{map_stream_event, ClaudeStreamDelta, ClaudeStreamEvent};
 
         let event = ClaudeStreamEvent::ContentBlockDelta {
             index: 0,
@@ -801,7 +801,7 @@ mod streaming_events {
 
     #[test]
     fn claude_message_start_maps_to_run_started() {
-        use abp_claude_sdk::dialect::{ClaudeResponse, ClaudeStreamEvent, map_stream_event};
+        use abp_claude_sdk::dialect::{map_stream_event, ClaudeResponse, ClaudeStreamEvent};
 
         let event = ClaudeStreamEvent::MessageStart {
             message: ClaudeResponse {
@@ -814,30 +814,26 @@ mod streaming_events {
             },
         };
         let events = map_stream_event(&event);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. })));
     }
 
     #[test]
     fn claude_message_stop_maps_to_run_completed() {
-        use abp_claude_sdk::dialect::{ClaudeStreamEvent, map_stream_event};
+        use abp_claude_sdk::dialect::{map_stream_event, ClaudeStreamEvent};
 
         let event = ClaudeStreamEvent::MessageStop {};
         let events = map_stream_event(&event);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
     }
 
     #[test]
     fn gemini_text_delta_maps_to_assistant_delta() {
         use abp_gemini_sdk::dialect::{
-            GeminiCandidate, GeminiContent, GeminiPart, GeminiStreamChunk, map_stream_chunk,
+            map_stream_chunk, GeminiCandidate, GeminiContent, GeminiPart, GeminiStreamChunk,
         };
 
         let chunk = GeminiStreamChunk {
@@ -862,7 +858,7 @@ mod streaming_events {
 
     #[test]
     fn codex_text_delta_maps_to_assistant_delta() {
-        use abp_codex_sdk::dialect::{CodexStreamDelta, CodexStreamEvent, map_stream_event};
+        use abp_codex_sdk::dialect::{map_stream_event, CodexStreamDelta, CodexStreamEvent};
 
         let event = CodexStreamEvent::OutputItemDelta {
             output_index: 0,
@@ -871,16 +867,14 @@ mod streaming_events {
             },
         };
         let events = map_stream_event(&event);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { .. })));
     }
 
     #[test]
     fn kimi_text_delta_maps_to_assistant_delta() {
-        use abp_kimi_sdk::dialect::{KimiChunk, KimiChunkChoice, KimiChunkDelta, map_stream_event};
+        use abp_kimi_sdk::dialect::{map_stream_event, KimiChunk, KimiChunkChoice, KimiChunkDelta};
 
         let chunk = KimiChunk {
             id: "chunk_1".into(),
@@ -909,17 +903,15 @@ mod streaming_events {
 
     #[test]
     fn copilot_text_delta_maps_to_assistant_delta() {
-        use abp_copilot_sdk::dialect::{CopilotStreamEvent, map_stream_event};
+        use abp_copilot_sdk::dialect::{map_stream_event, CopilotStreamEvent};
 
         let event = CopilotStreamEvent::TextDelta {
             text: "copilot output".into(),
         };
         let events = map_stream_event(&event);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { .. })));
     }
 }
 
@@ -1127,8 +1119,8 @@ mod missing_features {
     fn gemini_safety_settings_not_in_ir() {
         // Document: Gemini safety settings/ratings have no IR representation
         use abp_gemini_sdk::dialect::{
-            GeminiCandidate, GeminiContent, GeminiPart, GeminiResponse, GeminiSafetyRating,
-            HarmCategory, HarmProbability, map_response,
+            map_response, GeminiCandidate, GeminiContent, GeminiPart, GeminiResponse,
+            GeminiSafetyRating, HarmCategory, HarmProbability,
         };
 
         let resp = GeminiResponse {
@@ -1221,12 +1213,10 @@ mod ir_tool_call_roundtrip {
             .iter()
             .find(|m| m.role == IrRole::Assistant)
             .expect("should have assistant");
-        assert!(
-            assistant_msg
-                .content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::ToolUse { .. }))
-        );
+        assert!(assistant_msg
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::ToolUse { .. })));
     }
 
     #[test]

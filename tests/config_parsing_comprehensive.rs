@@ -38,8 +38,8 @@ use std::io::Write;
 use std::path::Path;
 
 use abp_config::{
-    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
-    merge_configs, parse_toml, validate_config,
+    apply_env_overrides, load_config, merge_configs, parse_toml, validate_config, BackendEntry,
+    BackplaneConfig, ConfigError, ConfigWarning,
 };
 
 // ---------------------------------------------------------------------------
@@ -413,11 +413,9 @@ fn validate_catches_empty_sidecar_command() {
     let err = validate_config(&cfg).unwrap_err();
     match err {
         ConfigError::ValidationError { reasons } => {
-            assert!(
-                reasons
-                    .iter()
-                    .any(|r| r.contains("command must not be empty"))
-            );
+            assert!(reasons
+                .iter()
+                .any(|r| r.contains("command must not be empty")));
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -582,11 +580,9 @@ fn validate_large_timeout_produces_warning() {
         },
     );
     let warnings = validate_config(&cfg).unwrap();
-    assert!(
-        warnings
-            .iter()
-            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
 }
 
 #[test]
@@ -1114,10 +1110,9 @@ fn cli_config_validate_catches_empty_command() {
         ..Default::default()
     };
     let errs = abp_cli::config::validate_config(&cfg).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, abp_cli::config::ConfigError::InvalidBackend { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, abp_cli::config::ConfigError::InvalidBackend { .. })));
 }
 
 #[test]
@@ -1134,10 +1129,9 @@ fn cli_config_validate_catches_zero_timeout() {
         ..Default::default()
     };
     let errs = abp_cli::config::validate_config(&cfg).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, abp_cli::config::ConfigError::InvalidTimeout { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, abp_cli::config::ConfigError::InvalidTimeout { .. })));
 }
 
 #[test]

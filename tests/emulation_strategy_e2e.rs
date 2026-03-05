@@ -1233,25 +1233,19 @@ fn edge_strategy_serde_roundtrip_all_variants() {
 #[test]
 fn edge_strategy_json_type_tags() {
     let spi = EmulationStrategy::SystemPromptInjection { prompt: "x".into() };
-    assert!(
-        serde_json::to_string(&spi)
-            .unwrap()
-            .contains("\"type\":\"system_prompt_injection\"")
-    );
+    assert!(serde_json::to_string(&spi)
+        .unwrap()
+        .contains("\"type\":\"system_prompt_injection\""));
 
     let pp = EmulationStrategy::PostProcessing { detail: "x".into() };
-    assert!(
-        serde_json::to_string(&pp)
-            .unwrap()
-            .contains("\"type\":\"post_processing\"")
-    );
+    assert!(serde_json::to_string(&pp)
+        .unwrap()
+        .contains("\"type\":\"post_processing\""));
 
     let dis = EmulationStrategy::Disabled { reason: "x".into() };
-    assert!(
-        serde_json::to_string(&dis)
-            .unwrap()
-            .contains("\"type\":\"disabled\"")
-    );
+    assert!(serde_json::to_string(&dis)
+        .unwrap()
+        .contains("\"type\":\"disabled\""));
 }
 
 #[test]

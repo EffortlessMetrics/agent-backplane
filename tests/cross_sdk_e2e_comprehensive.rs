@@ -36,7 +36,7 @@
 use std::collections::BTreeMap;
 
 use abp_capability::{
-    SupportLevel as CapSupportLevel, check_capability, generate_report, negotiate,
+    check_capability, generate_report, negotiate, SupportLevel as CapSupportLevel,
 };
 use abp_claude_sdk::dialect::{
     self as claude_dialect, CanonicalToolDef as ClaudeCanonical, ClaudeConfig, ClaudeContentBlock,
@@ -53,13 +53,13 @@ use abp_copilot_sdk::dialect::{
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::{
-    AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement, CapabilityRequirements,
-    MinSupport, Outcome, Receipt, SupportLevel, WorkOrderBuilder,
+    AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome,
+    Receipt, SupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_dialect::Dialect;
 use abp_emulation::{
-    EmulationConfig, EmulationEngine, EmulationStrategy, FidelityLabel, can_emulate,
-    compute_fidelity, default_strategy,
+    can_emulate, compute_fidelity, default_strategy, EmulationConfig, EmulationEngine,
+    EmulationStrategy, FidelityLabel,
 };
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode};
 use abp_gemini_sdk::dialect::{
@@ -71,12 +71,12 @@ use abp_kimi_sdk::dialect::{
     KimiChunkChoice, KimiChunkDelta, KimiConfig, KimiMessage, KimiResponse, KimiResponseMessage,
     KimiUsage,
 };
-use abp_mapping::{Fidelity, MappingMatrix, features, known_rules, validate_mapping};
+use abp_mapping::{features, known_rules, validate_mapping, Fidelity, MappingMatrix};
 use abp_openai_sdk::dialect::{
     self as openai_dialect, CanonicalToolDef as OpenAICanonical, OpenAIChoice, OpenAIConfig,
     OpenAIFunctionCall, OpenAIMessage, OpenAIResponse, OpenAIToolCall, OpenAIUsage,
 };
-use abp_receipt::{ReceiptBuilder, canonicalize, compute_hash, diff_receipts, verify_hash};
+use abp_receipt::{canonicalize, compute_hash, diff_receipts, verify_hash, ReceiptBuilder};
 use serde_json::json;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -288,11 +288,10 @@ mod openai_to_claude {
         let config = OpenAIConfig::default();
         let req = openai_dialect::map_work_order(&wo, &config);
         assert_eq!(req.model, "gpt-4o");
-        assert!(
-            req.messages
-                .iter()
-                .any(|m| m.content.as_deref() == Some("Refactor code"))
-        );
+        assert!(req
+            .messages
+            .iter()
+            .any(|m| m.content.as_deref() == Some("Refactor code")));
     }
 
     #[test]
@@ -461,12 +460,10 @@ mod claude_to_gemini {
             content: serde_json::to_string(&blocks).unwrap(),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
-        assert!(
-            ir.messages[0]
-                .content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::ToolUse { .. }))
-        );
+        assert!(ir.messages[0]
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::ToolUse { .. })));
     }
 
     #[test]
@@ -541,12 +538,10 @@ mod claude_to_gemini {
             content: serde_json::to_string(&blocks).unwrap(),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&msgs, None);
-        assert!(
-            ir.messages[0]
-                .content
-                .iter()
-                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
-        );
+        assert!(ir.messages[0]
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
     }
 
     #[test]
@@ -825,11 +820,9 @@ mod streaming_events {
     fn claude_stream_message_stop() {
         let event = ClaudeStreamEvent::MessageStop {};
         let events = claude_dialect::map_stream_event(&event);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
     }
 
     #[test]
@@ -870,11 +863,9 @@ mod streaming_events {
             refs: None,
         };
         let events = kimi_dialect::map_stream_event(&chunk);
-        assert!(
-            events.iter().any(
-                |e| matches!(&e.kind, AgentEventKind::AssistantDelta { text } if text == "hi")
-            )
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { text } if text == "hi")));
     }
 
     #[test]
@@ -893,11 +884,9 @@ mod streaming_events {
             refs: None,
         };
         let events = kimi_dialect::map_stream_event(&chunk);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
     }
 
     #[test]
@@ -915,11 +904,9 @@ mod streaming_events {
     fn copilot_stream_done() {
         let event = CopilotStreamEvent::Done {};
         let events = copilot_dialect::map_stream_event(&event);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
     }
 
     #[test]
@@ -933,11 +920,9 @@ mod streaming_events {
             }],
         };
         let events = copilot_dialect::map_stream_event(&event);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::Error { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::Error { .. })));
     }
 
     #[test]
@@ -2425,11 +2410,9 @@ mod response_mapping {
             function_call: None,
         };
         let events = copilot_dialect::map_response(&resp);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::Error { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::Error { .. })));
     }
 
     #[test]
@@ -2447,11 +2430,9 @@ mod response_mapping {
             function_call: None,
         };
         let events = copilot_dialect::map_response(&resp);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(&e.kind, AgentEventKind::Warning { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::Warning { .. })));
     }
 
     #[test]

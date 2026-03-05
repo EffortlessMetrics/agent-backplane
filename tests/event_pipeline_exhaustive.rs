@@ -9,7 +9,7 @@ use abp_core::ext::AgentEventExt;
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_error::ErrorCode;
 use chrono::{DateTime, Duration, Utc};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 // =========================================================================

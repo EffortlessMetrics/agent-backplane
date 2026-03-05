@@ -1711,11 +1711,9 @@ fn very_long_content() {
 fn special_chars_in_content() {
     let msgs = vec![claude_msg("user", r#"{"key": "value", "arr": [1,2,3]}"#)];
     let conv = lowering::to_ir(&msgs, None);
-    assert!(
-        conv.messages[0]
-            .text_content()
-            .contains(r#"{"key": "value""#)
-    );
+    assert!(conv.messages[0]
+        .text_content()
+        .contains(r#"{"key": "value""#));
 }
 
 #[test]

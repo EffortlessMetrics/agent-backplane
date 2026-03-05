@@ -40,12 +40,12 @@ use abp_core::{
     AgentEvent, AgentEventKind, Outcome, PolicyProfile, ReceiptBuilder, UsageNormalized,
     WorkOrderBuilder,
 };
-use abp_policy::PolicyEngine;
 use abp_policy::audit::PolicyAuditor;
 use abp_policy::compose::{
     ComposedEngine, PolicyPrecedence, PolicySet, PolicyValidator, WarningKind,
 };
 use abp_policy::rules::{Rule, RuleCondition, RuleEffect, RuleEngine};
+use abp_policy::PolicyEngine;
 use abp_protocol::validate::{EnvelopeValidator, ValidationWarning};
 use abp_protocol::{Envelope, JsonlCodec};
 use chrono::Utc;
@@ -758,10 +758,9 @@ fn composed_engine_first_applicable_strategy() {
 fn receipt_empty_backend_id_rejected() {
     let receipt = ReceiptBuilder::new("").outcome(Outcome::Complete).build();
     let errs = validate_receipt(&receipt).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, abp_core::validate::ValidationError::EmptyBackendId)),
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, abp_core::validate::ValidationError::EmptyBackendId)),);
 }
 
 #[test]

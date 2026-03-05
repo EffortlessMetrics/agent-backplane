@@ -37,15 +37,15 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_config::{
-    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
-    merge_configs, parse_toml, validate_config,
+    apply_env_overrides, load_config, merge_configs, parse_toml, validate_config, BackendEntry,
+    BackplaneConfig, ConfigError, ConfigWarning,
 };
 use abp_core::{
+    config::{ConfigDefaults, ConfigValidator, WarningSeverity},
     ContextPacket, ExecutionLane, ExecutionMode, PolicyProfile, RuntimeConfig, WorkOrder,
     WorkOrderBuilder, WorkspaceMode,
-    config::{ConfigDefaults, ConfigValidator, WarningSeverity},
 };
-use serde_json::{Map as JsonMap, Value as JsonValue, json};
+use serde_json::{json, Map as JsonMap, Value as JsonValue};
 
 // =========================================================================
 // Helper: env var guard for process-global env var tests
@@ -411,7 +411,7 @@ fn wo_apply_defaults_fills_missing() {
 
 #[test]
 fn cli_schema_work_order_produces_valid_json() {
-    use abp_cli::commands::{SchemaKind, schema_json};
+    use abp_cli::commands::{schema_json, SchemaKind};
     let json = schema_json(SchemaKind::WorkOrder).unwrap();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(v.is_object());
@@ -419,7 +419,7 @@ fn cli_schema_work_order_produces_valid_json() {
 
 #[test]
 fn cli_schema_receipt_produces_valid_json() {
-    use abp_cli::commands::{SchemaKind, schema_json};
+    use abp_cli::commands::{schema_json, SchemaKind};
     let json = schema_json(SchemaKind::Receipt).unwrap();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(v.is_object());
@@ -427,7 +427,7 @@ fn cli_schema_receipt_produces_valid_json() {
 
 #[test]
 fn cli_schema_config_produces_valid_json() {
-    use abp_cli::commands::{SchemaKind, schema_json};
+    use abp_cli::commands::{schema_json, SchemaKind};
     let json = schema_json(SchemaKind::Config).unwrap();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(v.is_object());
@@ -435,7 +435,7 @@ fn cli_schema_config_produces_valid_json() {
 
 #[test]
 fn cli_validate_file_detects_work_order() {
-    use abp_cli::commands::{ValidatedType, validate_file};
+    use abp_cli::commands::{validate_file, ValidatedType};
     let wo = WorkOrderBuilder::new("test").build();
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("wo.json");
@@ -445,7 +445,7 @@ fn cli_validate_file_detects_work_order() {
 
 #[test]
 fn cli_validate_file_detects_receipt() {
-    use abp_cli::commands::{ValidatedType, validate_file};
+    use abp_cli::commands::{validate_file, ValidatedType};
     let receipt = abp_core::ReceiptBuilder::new("mock")
         .outcome(abp_core::Outcome::Complete)
         .build();
@@ -530,11 +530,9 @@ fn config_validation_zero_max_turns_is_error() {
     let mut wo2 = WorkOrderBuilder::new("task").build();
     wo2.config.max_turns = Some(0);
     let warnings2 = validator.validate_work_order(&wo2);
-    assert!(
-        warnings2
-            .iter()
-            .any(|w| w.field == "config.max_turns" && matches!(w.severity, WarningSeverity::Error))
-    );
+    assert!(warnings2
+        .iter()
+        .any(|w| w.field == "config.max_turns" && matches!(w.severity, WarningSeverity::Error)));
 }
 
 #[test]
@@ -564,11 +562,9 @@ fn config_validation_empty_model_name_is_error() {
     let wo = WorkOrderBuilder::new("task").model("   ").build();
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.field == "config.model" && matches!(w.severity, WarningSeverity::Error))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.field == "config.model" && matches!(w.severity, WarningSeverity::Error)));
 }
 
 #[test]
@@ -594,11 +590,9 @@ fn config_validation_empty_glob_in_deny_read() {
     let wo = WorkOrderBuilder::new("task").policy(policy).build();
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.field == "policy.deny_read" && matches!(w.severity, WarningSeverity::Error))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.field == "policy.deny_read" && matches!(w.severity, WarningSeverity::Error)));
 }
 
 #[test]
@@ -653,11 +647,9 @@ fn config_validation_empty_vendor_key_is_error() {
     wo.config.vendor.insert("  ".to_string(), json!("value"));
     let validator = ConfigValidator::new();
     let warnings = validator.validate_work_order(&wo);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.field == "config.vendor" && matches!(w.severity, WarningSeverity::Error))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.field == "config.vendor" && matches!(w.severity, WarningSeverity::Error)));
 }
 
 // =========================================================================
@@ -748,11 +740,9 @@ fn config_validation_empty_sidecar_command() {
     let err = validate_config(&cfg).unwrap_err();
     match err {
         ConfigError::ValidationError { reasons } => {
-            assert!(
-                reasons
-                    .iter()
-                    .any(|r| r.contains("command must not be empty"))
-            );
+            assert!(reasons
+                .iter()
+                .any(|r| r.contains("command must not be empty")));
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -804,11 +794,9 @@ fn config_validation_large_timeout_warning() {
         ..Default::default()
     };
     let warnings = validate_config(&cfg).unwrap();
-    assert!(
-        warnings
-            .iter()
-            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
 }
 
 #[test]

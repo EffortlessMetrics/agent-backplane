@@ -31,8 +31,8 @@
 //! `DiffReport`, and supporting types.
 
 use abp_workspace::diff::{
-    ChangeClassifier, DiffAnalysis, DiffChangeKind, DiffLineKind, DiffReport, FileBreakdown,
-    FileCategory, FileStats, FileType, RiskLevel, identify_file_type,
+    identify_file_type, ChangeClassifier, DiffAnalysis, DiffChangeKind, DiffLineKind, DiffReport,
+    FileBreakdown, FileCategory, FileStats, FileType, RiskLevel,
 };
 
 // ===========================================================================

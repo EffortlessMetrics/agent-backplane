@@ -31,12 +31,12 @@
 //! merging, diffing, serialization, env overrides, defaults, and edge cases.
 
 use abp_config::validate::{
-    ConfigChange, ConfigDiff, ConfigIssue, ConfigMerger, ConfigValidationResult, ConfigValidator,
-    IssueSeverity, Severity, ValidationIssue, diff_configs, from_env_overrides,
+    diff_configs, from_env_overrides, ConfigChange, ConfigDiff, ConfigIssue, ConfigMerger,
+    ConfigValidationResult, ConfigValidator, IssueSeverity, Severity, ValidationIssue,
 };
 use abp_config::{
-    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
-    load_from_file, load_from_str, merge_configs, parse_toml, validate_config,
+    apply_env_overrides, load_config, load_from_file, load_from_str, merge_configs, parse_toml,
+    validate_config, BackendEntry, BackplaneConfig, ConfigError, ConfigWarning,
 };
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -257,11 +257,9 @@ fn validate_rejects_empty_sidecar_command() {
         },
     );
     let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
 }
 
 #[test]
@@ -276,11 +274,9 @@ fn validate_rejects_whitespace_only_command() {
         },
     );
     let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
 }
 
 #[test]
@@ -969,12 +965,10 @@ fn check_default_backend_references_unknown_produces_warning() {
     cfg.default_backend = Some("nonexistent".into());
     let result = ConfigValidator::check(&cfg);
     assert!(result.valid);
-    assert!(
-        result
-            .warnings
-            .iter()
-            .any(|w| w.message.contains("nonexistent"))
-    );
+    assert!(result
+        .warnings
+        .iter()
+        .any(|w| w.message.contains("nonexistent")));
 }
 
 #[test]
@@ -983,12 +977,10 @@ fn check_empty_workspace_dir_produces_warning() {
     cfg.workspace_dir = Some("".into());
     let result = ConfigValidator::check(&cfg);
     assert!(result.valid);
-    assert!(
-        result
-            .warnings
-            .iter()
-            .any(|w| w.field == "workspace_dir" && w.message.contains("empty"))
-    );
+    assert!(result
+        .warnings
+        .iter()
+        .any(|w| w.field == "workspace_dir" && w.message.contains("empty")));
 }
 
 #[test]
@@ -998,12 +990,10 @@ fn check_suggestions_for_no_backends() {
         ..full_config()
     };
     let result = ConfigValidator::check(&cfg);
-    assert!(
-        result
-            .suggestions
-            .iter()
-            .any(|s| s.contains("at least one backend"))
-    );
+    assert!(result
+        .suggestions
+        .iter()
+        .any(|s| s.contains("at least one backend")));
 }
 
 // ===========================================================================
@@ -1323,11 +1313,9 @@ fn validate_policy_profile_nonexistent_path_is_error() {
     let mut cfg = full_config();
     cfg.policy_profiles = vec!["/nonexistent/policy.toml".into()];
     let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("policy profile path does not exist"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("policy profile path does not exist")));
 }
 
 #[test]
@@ -1335,11 +1323,9 @@ fn validate_policy_profile_empty_path_is_error() {
     let mut cfg = full_config();
     cfg.policy_profiles = vec!["".into()];
     let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("policy profile path must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("policy profile path must not be empty")));
 }
 
 #[test]
@@ -1347,11 +1333,9 @@ fn validate_policy_profile_whitespace_only_is_error() {
     let mut cfg = full_config();
     cfg.policy_profiles = vec!["   ".into()];
     let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("policy profile path must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("policy profile path must not be empty")));
 }
 
 // ===========================================================================
@@ -1438,11 +1422,9 @@ fn validate_bind_address_empty_is_error() {
     let mut cfg = full_config();
     cfg.bind_address = Some("".into());
     let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("bind_address must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("bind_address must not be empty")));
 }
 
 #[test]
@@ -1450,11 +1432,9 @@ fn validate_bind_address_invalid_is_error() {
     let mut cfg = full_config();
     cfg.bind_address = Some("not a valid address!!!".into());
     let reasons = extract_reasons(validate_config(&cfg).unwrap_err());
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("not a valid IP address or hostname"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("not a valid IP address or hostname")));
 }
 
 #[test]
@@ -1801,10 +1781,8 @@ fn check_empty_policy_profile_produces_error_issue() {
     cfg.policy_profiles = vec!["".into()];
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| e.field.starts_with("policy_profiles"))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| e.field.starts_with("policy_profiles")));
 }

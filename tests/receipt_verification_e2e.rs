@@ -32,12 +32,12 @@
 //! serialization round-trips, and edge cases.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, CONTRACT_VERSION, Capability, ExecutionMode,
-    SupportLevel, UsageNormalized, VerificationReport,
+    AgentEvent, AgentEventKind, ArtifactRef, Capability, ExecutionMode, SupportLevel,
+    UsageNormalized, VerificationReport, CONTRACT_VERSION,
 };
 use abp_receipt::{
-    ChainError, Outcome, Receipt, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash,
-    diff_receipts, verify_hash,
+    canonicalize, compute_hash, diff_receipts, verify_hash, ChainError, Outcome, Receipt,
+    ReceiptBuilder, ReceiptChain,
 };
 use chrono::{DateTime, TimeZone, Utc};
 use std::collections::BTreeMap;
@@ -878,11 +878,10 @@ mod receipt_diffing {
         let mut b = minimal_receipt();
         b.meta.contract_version = "abp/v99".into();
         let diff = diff_receipts(&a, &b);
-        assert!(
-            diff.changes
-                .iter()
-                .any(|d| d.field == "meta.contract_version")
-        );
+        assert!(diff
+            .changes
+            .iter()
+            .any(|d| d.field == "meta.contract_version"));
     }
 
     #[test]
@@ -918,11 +917,10 @@ mod receipt_diffing {
         let mut b = minimal_receipt();
         b.backend.backend_version = Some("new".into());
         let diff = diff_receipts(&a, &b);
-        assert!(
-            diff.changes
-                .iter()
-                .any(|d| d.field == "backend.backend_version")
-        );
+        assert!(diff
+            .changes
+            .iter()
+            .any(|d| d.field == "backend.backend_version"));
     }
 
     #[test]
@@ -931,11 +929,10 @@ mod receipt_diffing {
         let mut b = minimal_receipt();
         b.backend.adapter_version = Some("new".into());
         let diff = diff_receipts(&a, &b);
-        assert!(
-            diff.changes
-                .iter()
-                .any(|d| d.field == "backend.adapter_version")
-        );
+        assert!(diff
+            .changes
+            .iter()
+            .any(|d| d.field == "backend.adapter_version"));
     }
 
     #[test]

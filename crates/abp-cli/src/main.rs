@@ -50,7 +50,11 @@ async fn main() {
     // Load configuration from --config path, backplane.toml fallback, or defaults.
     let config_path = cli.config.clone().or_else(|| {
         let p = PathBuf::from("backplane.toml");
-        if p.exists() { Some(p) } else { None }
+        if p.exists() {
+            Some(p)
+        } else {
+            None
+        }
     });
     let config = abp_config::load_config(config_path.as_deref()).unwrap_or_else(|e| {
         tracing::warn!("failed to load config: {e}");

@@ -5,10 +5,10 @@
 
 pub mod scenarios;
 
-use abp_backend_core::{Backend, ensure_capability_requirements, extract_execution_mode};
+use abp_backend_core::{ensure_capability_requirements, extract_execution_mode, Backend};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, Outcome,
-    Receipt, RunMetadata, UsageNormalized, VerificationReport, WorkOrder,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, Outcome, Receipt, RunMetadata,
+    UsageNormalized, VerificationReport, WorkOrder, CONTRACT_VERSION,
 };
 use anyhow::{Context, Result};
 use async_trait::async_trait;

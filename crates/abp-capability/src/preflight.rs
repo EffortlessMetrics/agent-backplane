@@ -8,8 +8,8 @@
 //! or alternative backends from a registry.
 
 use crate::{
-    CapabilityRegistry, EmulationStrategy, NegotiationResult, SupportLevel, check_capability,
-    default_emulation_strategy, negotiate_capabilities,
+    check_capability, default_emulation_strategy, negotiate_capabilities, CapabilityRegistry,
+    EmulationStrategy, NegotiationResult, SupportLevel,
 };
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel, WorkOrder};
 use serde::{Deserialize, Serialize};
@@ -975,10 +975,9 @@ mod tests {
         let gaps = vec![CapabilityGap::NoVision];
         let alts = suggest_alternatives_with_registry(&gaps, &reg);
         // Only emulation alternatives, no backend alternatives.
-        assert!(
-            alts.iter()
-                .all(|a| matches!(a, Alternative::Emulate { .. }))
-        );
+        assert!(alts
+            .iter()
+            .all(|a| matches!(a, Alternative::Emulate { .. })));
     }
 
     #[test]

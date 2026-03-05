@@ -34,7 +34,7 @@
 //! concurrent staging, cleanup, and error conditions.
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
-use abp_workspace::diff::{DiffAnalyzer, DiffPolicy, WorkspaceDiff, diff_workspace};
+use abp_workspace::diff::{diff_workspace, DiffAnalyzer, DiffPolicy, WorkspaceDiff};
 use abp_workspace::{PreparedWorkspace, WorkspaceManager, WorkspaceStager};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -841,14 +841,13 @@ fn nested_empty_intermediate_dirs() {
     )
     .unwrap();
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
-    assert!(
-        ws.path()
-            .join("a")
-            .join("b")
-            .join("c")
-            .join("f.txt")
-            .exists()
-    );
+    assert!(ws
+        .path()
+        .join("a")
+        .join("b")
+        .join("c")
+        .join("f.txt")
+        .exists());
 }
 
 #[test]

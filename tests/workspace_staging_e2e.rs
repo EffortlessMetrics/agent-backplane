@@ -38,7 +38,7 @@
 //! utilities, template application, change tracking, and operation filtering.
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
-use abp_workspace::diff::{DiffSummary, diff_workspace};
+use abp_workspace::diff::{diff_workspace, DiffSummary};
 use abp_workspace::ops::{FileOperation, OperationFilter, OperationLog};
 use abp_workspace::snapshot::{capture, compare};
 use abp_workspace::template::{TemplateRegistry, WorkspaceTemplate};
@@ -107,7 +107,11 @@ fn collect_dirs(root: &Path) -> Vec<String> {
                 .unwrap()
                 .to_string_lossy()
                 .replace('\\', "/");
-            if rel.is_empty() { None } else { Some(rel) }
+            if rel.is_empty() {
+                None
+            } else {
+                Some(rel)
+            }
         })
         .collect();
     dirs.sort();

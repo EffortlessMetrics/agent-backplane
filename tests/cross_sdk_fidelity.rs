@@ -37,8 +37,8 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 use abp_mapper::{
-    ClaudeGeminiIrMapper, IrIdentityMapper, IrMapper, MapError, OpenAiClaudeIrMapper,
-    OpenAiGeminiIrMapper, default_ir_mapper,
+    default_ir_mapper, ClaudeGeminiIrMapper, IrIdentityMapper, IrMapper, MapError,
+    OpenAiClaudeIrMapper, OpenAiGeminiIrMapper,
 };
 use serde_json::json;
 

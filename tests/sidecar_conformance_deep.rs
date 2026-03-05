@@ -44,8 +44,8 @@
 
 use abp_core::*;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError};
-use abp_protocol::version::{ProtocolVersion, negotiate_version};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::version::{negotiate_version, ProtocolVersion};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
 use std::collections::BTreeMap;
 use std::io::BufReader;

@@ -39,8 +39,8 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_dialect::Dialect;
 use abp_mapper::{
-    IrMapper, MapError, OpenAiClaudeIrMapper, OpenAiCodexIrMapper, OpenAiCopilotIrMapper,
-    OpenAiGeminiIrMapper, OpenAiKimiIrMapper, default_ir_mapper, supported_ir_pairs,
+    default_ir_mapper, supported_ir_pairs, IrMapper, MapError, OpenAiClaudeIrMapper,
+    OpenAiCodexIrMapper, OpenAiCopilotIrMapper, OpenAiGeminiIrMapper, OpenAiKimiIrMapper,
 };
 use serde_json::json;
 
@@ -2044,7 +2044,7 @@ fn error_code_all_variants_serde_roundtrip() {
 
 #[test]
 fn streaming_content_delta_registry() {
-    use abp_mapping::{Fidelity, MappingRegistry, StreamingEventMapping, streaming_events};
+    use abp_mapping::{streaming_events, Fidelity, MappingRegistry, StreamingEventMapping};
     let mut reg = MappingRegistry::new();
     let dialects = [Dialect::OpenAi, Dialect::Claude, Dialect::Gemini];
     for &src in &dialects {
@@ -2071,7 +2071,7 @@ fn streaming_content_delta_registry() {
 
 #[test]
 fn streaming_thinking_delta_lossy_claude_to_openai() {
-    use abp_mapping::{Fidelity, MappingRegistry, StreamingEventMapping, streaming_events};
+    use abp_mapping::{streaming_events, Fidelity, MappingRegistry, StreamingEventMapping};
     let mut reg = MappingRegistry::new();
     reg.insert_streaming_rule(StreamingEventMapping {
         source_dialect: Dialect::Claude,
@@ -2094,7 +2094,7 @@ fn streaming_thinking_delta_lossy_claude_to_openai() {
 
 #[test]
 fn streaming_message_start_stop_mapped() {
-    use abp_mapping::{Fidelity, MappingRegistry, StreamingEventMapping, streaming_events};
+    use abp_mapping::{streaming_events, Fidelity, MappingRegistry, StreamingEventMapping};
     let mut reg = MappingRegistry::new();
     reg.insert_streaming_rule(StreamingEventMapping {
         source_dialect: Dialect::OpenAi,
@@ -2110,27 +2110,25 @@ fn streaming_message_start_stop_mapped() {
         target_event: streaming_events::MESSAGE_STOP.into(),
         fidelity: Fidelity::Lossless,
     });
-    assert!(
-        reg.lookup_streaming(
+    assert!(reg
+        .lookup_streaming(
             Dialect::OpenAi,
             Dialect::Claude,
             streaming_events::MESSAGE_START
         )
-        .is_some()
-    );
-    assert!(
-        reg.lookup_streaming(
+        .is_some());
+    assert!(reg
+        .lookup_streaming(
             Dialect::OpenAi,
             Dialect::Claude,
             streaming_events::MESSAGE_STOP
         )
-        .is_some()
-    );
+        .is_some());
 }
 
 #[test]
 fn streaming_error_event_mapped() {
-    use abp_mapping::{Fidelity, MappingRegistry, StreamingEventMapping, streaming_events};
+    use abp_mapping::{streaming_events, Fidelity, MappingRegistry, StreamingEventMapping};
     let mut reg = MappingRegistry::new();
     reg.insert_streaming_rule(StreamingEventMapping {
         source_dialect: Dialect::Claude,
@@ -2141,19 +2139,17 @@ fn streaming_error_event_mapped() {
             warning: "error format differs".into(),
         },
     });
-    assert!(
-        reg.lookup_streaming(Dialect::Claude, Dialect::OpenAi, streaming_events::ERROR)
-            .is_some()
-    );
+    assert!(reg
+        .lookup_streaming(Dialect::Claude, Dialect::OpenAi, streaming_events::ERROR)
+        .is_some());
 }
 
 #[test]
 fn streaming_lookup_nonexistent_returns_none() {
     let reg = abp_mapping::MappingRegistry::new();
-    assert!(
-        reg.lookup_streaming(Dialect::OpenAi, Dialect::Claude, "nonexistent")
-            .is_none()
-    );
+    assert!(reg
+        .lookup_streaming(Dialect::OpenAi, Dialect::Claude, "nonexistent")
+        .is_none());
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2471,18 +2467,14 @@ fn chain_validation_claude_openai_gemini_thinking_lossy() {
 fn bidirectional_openai_claude_tool_use() {
     let reg = abp_mapping::known_rules();
     let report = reg.validate_bidirectional(Dialect::OpenAi, Dialect::Claude, "tool_use");
-    assert!(
-        report
-            .forward_fidelity
-            .as_ref()
-            .map_or(false, |f| f.is_lossless())
-    );
-    assert!(
-        report
-            .reverse_fidelity
-            .as_ref()
-            .map_or(false, |f| f.is_lossless())
-    );
+    assert!(report
+        .forward_fidelity
+        .as_ref()
+        .map_or(false, |f| f.is_lossless()));
+    assert!(report
+        .reverse_fidelity
+        .as_ref()
+        .map_or(false, |f| f.is_lossless()));
 }
 
 #[test]

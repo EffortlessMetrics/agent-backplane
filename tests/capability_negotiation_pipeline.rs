@@ -37,10 +37,10 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
+use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy};
 use abp_capability::{
-    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
-    check_capability, generate_report, negotiate, negotiate_capabilities,
+    check_capability, generate_report, negotiate, negotiate_capabilities, CapabilityRegistry,
+    CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -194,10 +194,9 @@ mod registry_operations {
     #[test]
     fn negotiate_by_name_returns_none_for_unknown() {
         let reg = CapabilityRegistry::new();
-        assert!(
-            reg.negotiate_by_name("ghost", &[Capability::Streaming])
-                .is_none()
-        );
+        assert!(reg
+            .negotiate_by_name("ghost", &[Capability::Streaming])
+            .is_none());
     }
 
     #[test]
@@ -1361,33 +1360,27 @@ mod cross_cutting {
     #[test]
     fn support_level_display_variants() {
         assert_eq!(format!("{}", SupportLevel::Native), "native");
-        assert!(
-            format!(
-                "{}",
-                SupportLevel::Emulated {
-                    method: "polyfill".into()
-                }
-            )
-            .contains("polyfill")
-        );
-        assert!(
-            format!(
-                "{}",
-                SupportLevel::Restricted {
-                    reason: "sandbox".into()
-                }
-            )
-            .contains("sandbox")
-        );
-        assert!(
-            format!(
-                "{}",
-                SupportLevel::Unsupported {
-                    reason: "no api".into()
-                }
-            )
-            .contains("no api")
-        );
+        assert!(format!(
+            "{}",
+            SupportLevel::Emulated {
+                method: "polyfill".into()
+            }
+        )
+        .contains("polyfill"));
+        assert!(format!(
+            "{}",
+            SupportLevel::Restricted {
+                reason: "sandbox".into()
+            }
+        )
+        .contains("sandbox"));
+        assert!(format!(
+            "{}",
+            SupportLevel::Unsupported {
+                reason: "no api".into()
+            }
+        )
+        .contains("no api"));
     }
 
     #[test]

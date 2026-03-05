@@ -241,11 +241,10 @@ mod tests {
         let mut new = base_config();
         new.workspace_dir = Some("/work".into());
         let d = diff(&old, &new);
-        assert!(
-            d.changes
-                .iter()
-                .any(|c| matches!(c, ConfigChange::Added(k, _) if k == "workspace_dir"))
-        );
+        assert!(d
+            .changes
+            .iter()
+            .any(|c| matches!(c, ConfigChange::Added(k, _) if k == "workspace_dir")));
     }
 
     #[test]
@@ -254,11 +253,10 @@ mod tests {
         let mut new = base_config();
         new.default_backend = None;
         let d = diff(&old, &new);
-        assert!(
-            d.changes
-                .iter()
-                .any(|c| matches!(c, ConfigChange::Removed(k) if k == "default_backend"))
-        );
+        assert!(d
+            .changes
+            .iter()
+            .any(|c| matches!(c, ConfigChange::Removed(k) if k == "default_backend")));
     }
 
     #[test]
@@ -267,11 +265,10 @@ mod tests {
         let mut new = base_config();
         new.backends.insert("m".into(), BackendEntry::Mock {});
         let d = diff(&old, &new);
-        assert!(
-            d.changes
-                .iter()
-                .any(|c| matches!(c, ConfigChange::Added(k, _) if k == "backends.m"))
-        );
+        assert!(d
+            .changes
+            .iter()
+            .any(|c| matches!(c, ConfigChange::Added(k, _) if k == "backends.m")));
     }
 
     #[test]
@@ -280,11 +277,10 @@ mod tests {
         old.backends.insert("m".into(), BackendEntry::Mock {});
         let new = base_config();
         let d = diff(&old, &new);
-        assert!(
-            d.changes
-                .iter()
-                .any(|c| matches!(c, ConfigChange::Removed(k) if k == "backends.m"))
-        );
+        assert!(d
+            .changes
+            .iter()
+            .any(|c| matches!(c, ConfigChange::Removed(k) if k == "backends.m")));
     }
 
     #[test]
@@ -308,11 +304,10 @@ mod tests {
             },
         );
         let d = diff(&old, &new);
-        assert!(
-            d.changes
-                .iter()
-                .any(|c| matches!(c, ConfigChange::Modified(k, ..) if k == "backends.sc"))
-        );
+        assert!(d
+            .changes
+            .iter()
+            .any(|c| matches!(c, ConfigChange::Modified(k, ..) if k == "backends.sc")));
     }
 
     #[test]

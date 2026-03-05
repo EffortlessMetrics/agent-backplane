@@ -37,15 +37,15 @@ use std::io::BufReader;
 use serde_json::json;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel, UsageNormalized,
-    VerificationReport, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
+    Outcome, Receipt, RunMetadata, SupportLevel, UsageNormalized, VerificationReport,
+    WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_protocol::codec::StreamingCodec;
 use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::EnvelopeValidator;
 use abp_protocol::version::{self, ProtocolVersion, VersionError, VersionRange};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
 
 // =========================================================================
 // Helpers
@@ -1090,11 +1090,9 @@ mod validator_sequence {
         ];
         let v = EnvelopeValidator::new();
         let errors = v.validate_sequence(&seq);
-        assert!(
-            errors
-                .iter()
-                .any(|e| matches!(e, abp_protocol::validate::SequenceError::MissingHello)),
-        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, abp_protocol::validate::SequenceError::MissingHello)),);
     }
 }
 

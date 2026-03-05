@@ -27,12 +27,12 @@ use abp_core::ext::{AgentEventExt, ReceiptExt, WorkOrderExt};
 use abp_core::filter::EventFilter;
 use abp_core::ir::IrUsage;
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
-    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, canonical_json, receipt_hash,
-    sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
+    ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel,
+    UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
+    CONTRACT_VERSION,
 };
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_policy::{Decision, PolicyEngine};
@@ -751,12 +751,10 @@ fn logic_any_min_support_accepts_all() {
     assert!(SupportLevel::Native.satisfies(&MinSupport::Any));
     assert!(SupportLevel::Emulated.satisfies(&MinSupport::Any));
     assert!(SupportLevel::Unsupported.satisfies(&MinSupport::Any));
-    assert!(
-        SupportLevel::Restricted {
-            reason: "test".into()
-        }
-        .satisfies(&MinSupport::Any)
-    );
+    assert!(SupportLevel::Restricted {
+        reason: "test".into()
+    }
+    .satisfies(&MinSupport::Any));
 }
 
 /// WorkOrderBuilder default lane is PatchFirst.

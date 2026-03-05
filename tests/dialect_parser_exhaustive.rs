@@ -6,8 +6,8 @@
 use std::collections::BTreeMap;
 
 use abp_dialect::detect::{
-    DialectDetectionResult, DialectFingerprint, builtin_fingerprints, detect_dialect,
-    detect_from_headers,
+    builtin_fingerprints, detect_dialect, detect_from_headers, DialectDetectionResult,
+    DialectFingerprint,
 };
 use abp_dialect::ir::{
     IrContentBlock, IrGenerationConfig, IrMessage, IrRequest, IrResponse, IrRole, IrStopReason,
@@ -16,7 +16,7 @@ use abp_dialect::ir::{
 use abp_dialect::registry::{DialectEntry, DialectError, DialectRegistry};
 use abp_dialect::validate::{RequestValidator, Severity, ValidationIssue, ValidationResult};
 use abp_dialect::{Dialect, DialectDetector, DialectValidator, ValidationError};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 // ═══════════════════════════════════════════════════════════════════════
 // Helper constructors
@@ -619,11 +619,9 @@ fn detect_endpoint_github_copilot() {
 
 #[test]
 fn detect_endpoint_unknown_returns_none() {
-    assert!(
-        detector()
-            .detect_from_endpoint("https://example.com/api")
-            .is_none()
-    );
+    assert!(detector()
+        .detect_from_endpoint("https://example.com/api")
+        .is_none());
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1432,11 +1430,10 @@ fn req_validator_claude_missing_max_tokens() {
     let v = json!({"model": "claude-3", "messages": [{"role": "user", "content": "hi"}]});
     let r = req_validator().validate(Dialect::Claude, &v);
     assert!(!r.is_valid());
-    assert!(
-        r.issues
-            .iter()
-            .any(|i| i.code == "missing_required_field" && i.field == "max_tokens")
-    );
+    assert!(r
+        .issues
+        .iter()
+        .any(|i| i.code == "missing_required_field" && i.field == "max_tokens"));
 }
 
 #[test]
@@ -1483,11 +1480,10 @@ fn req_validator_non_string_model_error() {
     let v = json!({"model": 42, "messages": [{"role": "user", "content": "hi"}]});
     let r = req_validator().validate(Dialect::OpenAi, &v);
     assert!(!r.is_valid());
-    assert!(
-        r.issues
-            .iter()
-            .any(|i| i.code == "invalid_field_type" && i.field == "model")
-    );
+    assert!(r
+        .issues
+        .iter()
+        .any(|i| i.code == "invalid_field_type" && i.field == "model"));
 }
 
 #[test]

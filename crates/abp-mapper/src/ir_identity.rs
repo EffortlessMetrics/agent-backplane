@@ -5,8 +5,8 @@
 use abp_core::ir::IrConversation;
 use abp_dialect::Dialect;
 
-use crate::MapError;
 use crate::ir_mapper::IrMapper;
+use crate::MapError;
 
 /// A no-op IR mapper that returns conversations unchanged.
 ///

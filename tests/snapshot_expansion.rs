@@ -45,7 +45,7 @@ use abp_core::{
 };
 use abp_emulation::{EmulationConfig, EmulationEngine, EmulationStrategy};
 use abp_error::{AbpError, AbpErrorDto, ErrorCode};
-use abp_mapping::{MappingMatrix, known_rules, validate_mapping};
+use abp_mapping::{known_rules, validate_mapping, MappingMatrix};
 use abp_policy::PolicyEngine;
 use abp_receipt::{ReceiptBuilder, ReceiptChain};
 
@@ -169,7 +169,7 @@ fn shim_gemini_request_to_dialect_roundtrip() {
 
 #[test]
 fn shim_codex_request_to_ir_roundtrip() {
-    use abp_shim_codex::{CodexRequestBuilder, codex_message};
+    use abp_shim_codex::{codex_message, CodexRequestBuilder};
 
     let req = CodexRequestBuilder::new()
         .model("codex-mini-latest")

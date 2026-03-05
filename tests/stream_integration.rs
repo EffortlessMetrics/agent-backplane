@@ -33,8 +33,8 @@
 //! runtime-produced agent events.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, WorkOrder, WorkOrderBuilder, WorkspaceMode,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
+    Receipt, WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
 };
 use abp_integrations::Backend;
 use abp_runtime::Runtime;

@@ -35,8 +35,8 @@ use abp_core::{
 };
 use abp_protocol::Envelope;
 use abp_validate::{
-    EnvelopeValidator, EventValidator, JsonType, RawEnvelopeValidator, ReceiptValidator,
-    SchemaValidator, ValidationErrorKind, Validator, WorkOrderValidator, validate_hello_version,
+    validate_hello_version, EnvelopeValidator, EventValidator, JsonType, RawEnvelopeValidator,
+    ReceiptValidator, SchemaValidator, ValidationErrorKind, Validator, WorkOrderValidator,
 };
 use chrono::Utc;
 
@@ -77,10 +77,9 @@ fn negative_budget_fails() {
     let wo = WorkOrderBuilder::new("task").max_budget_usd(-1.0).build();
     let err = WorkOrderValidator.validate(&wo).unwrap_err();
     assert!(err.iter().any(|e| e.path == "config.max_budget_usd"));
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::OutOfRange)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::OutOfRange));
 }
 
 #[test]
@@ -114,10 +113,9 @@ fn conflicting_policy_tools_fail() {
     wo.policy.disallowed_tools.push("bash".into());
     let err = WorkOrderValidator.validate(&wo).unwrap_err();
     assert!(err.iter().any(|e| e.path == "policy"));
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidReference)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidReference));
 }
 
 #[test]
@@ -141,10 +139,9 @@ fn nan_budget_fails() {
         .build();
     let err = WorkOrderValidator.validate(&wo).unwrap_err();
     assert!(err.iter().any(|e| e.path == "config.max_budget_usd"));
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -183,10 +180,9 @@ fn receipt_with_incorrect_hash_fails() {
     receipt.receipt_sha256 = Some("a".repeat(64));
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
     assert!(err.iter().any(|e| e.path == "receipt_sha256"));
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidReference)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidReference));
 }
 
 #[test]
@@ -195,10 +191,9 @@ fn receipt_short_hash_fails() {
     receipt.receipt_sha256 = Some("tooshort".into());
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
     assert!(err.iter().any(|e| e.path == "receipt_sha256"));
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -242,10 +237,9 @@ fn receipt_failed_with_harness_ok_fails() {
     receipt.verification.harness_ok = true;
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
     assert!(err.iter().any(|e| e.path == "verification.harness_ok"));
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidReference)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidReference));
 }
 
 #[test]
@@ -389,10 +383,9 @@ fn tool_result_without_call_fails() {
         ),
     ];
     let err = EventValidator.validate(&events).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidReference)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidReference));
 }
 
 #[test]
@@ -593,10 +586,9 @@ fn raw_envelope_unknown_tag_fails() {
     let val = serde_json::json!({"t": "bogus"});
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
     assert!(err.iter().any(|e| e.path == "t"));
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -610,10 +602,9 @@ fn raw_envelope_tag_not_string_fails() {
 fn raw_envelope_not_object_fails() {
     let val = serde_json::json!("just a string");
     let err = RawEnvelopeValidator.validate(&val).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -680,10 +671,9 @@ fn hello_version_incompatible_fails() {
         mode: ExecutionMode::default(),
     };
     let err = validate_hello_version(&env).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidReference)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidReference));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -717,10 +707,9 @@ fn schema_null_required_field_fails() {
         "config": {},
     });
     let err = SchemaValidator::work_order().validate(&val).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.path == "task" && e.kind == ValidationErrorKind::Required)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.path == "task" && e.kind == ValidationErrorKind::Required));
 }
 
 #[test]
@@ -735,10 +724,9 @@ fn schema_wrong_type_fails() {
         "config": {},
     });
     let err = SchemaValidator::work_order().validate(&val).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.path == "task" && e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.path == "task" && e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -780,10 +768,9 @@ fn schema_agent_event_missing_type_fails() {
 fn schema_not_object_fails() {
     let val = serde_json::json!([1, 2, 3]);
     let err = SchemaValidator::work_order().validate(&val).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]
@@ -909,10 +896,9 @@ fn schema_nested_object_field_check() {
     let validator = SchemaValidator::new(vec![("meta".into(), JsonType::Object)]);
     let val = serde_json::json!({"meta": "not-an-object"});
     let err = validator.validate(&val).unwrap_err();
-    assert!(
-        err.iter()
-            .any(|e| e.path == "meta" && e.kind == ValidationErrorKind::InvalidFormat)
-    );
+    assert!(err
+        .iter()
+        .any(|e| e.path == "meta" && e.kind == ValidationErrorKind::InvalidFormat));
 }
 
 #[test]

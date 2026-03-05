@@ -13,9 +13,9 @@
 //! model name mapping, and tool definition mapping.
 
 use abp_capability::{
-    CapabilityRegistry, NegotiationResult, SupportLevel, check_capability,
-    claude_35_sonnet_manifest, codex_manifest, copilot_manifest, gemini_15_pro_manifest,
-    kimi_manifest, negotiate, negotiate_capabilities, openai_gpt4o_manifest,
+    check_capability, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
+    gemini_15_pro_manifest, kimi_manifest, negotiate, negotiate_capabilities,
+    openai_gpt4o_manifest, CapabilityRegistry, NegotiationResult, SupportLevel,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::{
@@ -24,19 +24,19 @@ use abp_core::{
 };
 use abp_dialect::Dialect;
 use abp_emulation::{
-    EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy,
-    FidelityLabel, apply_emulation, can_emulate, compute_fidelity, default_strategy,
+    apply_emulation, can_emulate, compute_fidelity, default_strategy, EmulationConfig,
+    EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy, FidelityLabel,
 };
 use abp_ir::lower::{ir_role_to_dialect, lower_to_claude, lower_to_gemini, lower_to_openai};
 use abp_ir::normalize;
 use abp_mapper::{
-    ClaudeGeminiIrMapper, ClaudeKimiIrMapper, CodexClaudeIrMapper, DialectRequest, DialectResponse,
-    GeminiKimiIrMapper, IdentityMapper, IrIdentityMapper, IrMapper, MapError, Mapper, MappingError,
-    OpenAiClaudeIrMapper, OpenAiCodexIrMapper, OpenAiCopilotIrMapper, OpenAiGeminiIrMapper,
-    OpenAiKimiIrMapper, default_ir_mapper, supported_ir_pairs,
+    default_ir_mapper, supported_ir_pairs, ClaudeGeminiIrMapper, ClaudeKimiIrMapper,
+    CodexClaudeIrMapper, DialectRequest, DialectResponse, GeminiKimiIrMapper, IdentityMapper,
+    IrIdentityMapper, IrMapper, MapError, Mapper, MappingError, OpenAiClaudeIrMapper,
+    OpenAiCodexIrMapper, OpenAiCopilotIrMapper, OpenAiGeminiIrMapper, OpenAiKimiIrMapper,
 };
 use abp_mapping::{
-    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
 };
 use abp_projection::{
     BackendEntry, CompatibilityScore, DialectPair, ProjectionEntry, ProjectionError,

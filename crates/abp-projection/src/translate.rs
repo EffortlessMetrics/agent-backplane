@@ -10,9 +10,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use abp_core::ir::IrConversation;
-use abp_dialect::Dialect;
 use abp_dialect::features::DialectFeature;
-use abp_mapper::{IrMapper, default_ir_mapper, supported_ir_pairs};
+use abp_dialect::Dialect;
+use abp_mapper::{default_ir_mapper, supported_ir_pairs, IrMapper};
 use serde::{Deserialize, Serialize};
 
 use crate::ProjectionError;

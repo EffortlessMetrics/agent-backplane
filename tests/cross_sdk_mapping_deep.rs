@@ -1457,8 +1457,8 @@ fn openai_tool_flow_through_gemini() {
 
 #[test]
 fn tool_def_openai_to_claude_canonical() {
-    use abp_claude_sdk::dialect::{CanonicalToolDef as ClaudeCanon, tool_def_to_claude};
-    use abp_openai_sdk::dialect::{OpenAIFunctionDef, OpenAIToolDef, tool_def_from_openai};
+    use abp_claude_sdk::dialect::{tool_def_to_claude, CanonicalToolDef as ClaudeCanon};
+    use abp_openai_sdk::dialect::{tool_def_from_openai, OpenAIFunctionDef, OpenAIToolDef};
 
     let openai_tool = OpenAIToolDef {
         tool_type: "function".into(),
@@ -1481,8 +1481,8 @@ fn tool_def_openai_to_claude_canonical() {
 
 #[test]
 fn tool_def_claude_to_gemini_canonical() {
-    use abp_claude_sdk::dialect::{ClaudeToolDef, tool_def_from_claude};
-    use abp_gemini_sdk::dialect::{CanonicalToolDef as GemCanon, tool_def_to_gemini};
+    use abp_claude_sdk::dialect::{tool_def_from_claude, ClaudeToolDef};
+    use abp_gemini_sdk::dialect::{tool_def_to_gemini, CanonicalToolDef as GemCanon};
 
     let claude_tool = ClaudeToolDef {
         name: "search".into(),
@@ -1502,8 +1502,8 @@ fn tool_def_claude_to_gemini_canonical() {
 
 #[test]
 fn tool_def_gemini_to_kimi_canonical() {
-    use abp_gemini_sdk::dialect::{GeminiFunctionDeclaration, tool_def_from_gemini};
-    use abp_kimi_sdk::dialect::{CanonicalToolDef as KimiCanon, tool_def_to_kimi};
+    use abp_gemini_sdk::dialect::{tool_def_from_gemini, GeminiFunctionDeclaration};
+    use abp_kimi_sdk::dialect::{tool_def_to_kimi, CanonicalToolDef as KimiCanon};
 
     let gemini_func = GeminiFunctionDeclaration {
         name: "grep".into(),
@@ -1587,13 +1587,11 @@ fn thinking_block_claude_to_all() {
 
     // OpenAI: thinking becomes text content
     let openai = openai_ir::from_ir(&ir);
-    assert!(
-        openai[0]
-            .content
-            .as_deref()
-            .unwrap()
-            .contains("deep thought")
-    );
+    assert!(openai[0]
+        .content
+        .as_deref()
+        .unwrap()
+        .contains("deep thought"));
 
     // Gemini: thinking becomes text part
     let gemini = gemini_ir::from_ir(&ir);

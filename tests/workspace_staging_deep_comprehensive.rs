@@ -52,7 +52,7 @@
 //! 18. ChangeTracker / OperationLog
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
-use abp_workspace::diff::{DiffSummary, diff_workspace};
+use abp_workspace::diff::{diff_workspace, DiffSummary};
 use abp_workspace::ops::{FileOperation, OperationFilter, OperationLog, OperationSummary};
 use abp_workspace::snapshot::{capture, compare};
 use abp_workspace::template::{TemplateRegistry, WorkspaceTemplate};
@@ -724,12 +724,10 @@ fn diff_summary_detects_addition() {
     fs::write(ws.path().join("new.txt"), "new content\n").unwrap();
     let summary = diff_workspace(&ws).unwrap();
     assert!(!summary.is_empty());
-    assert!(
-        summary
-            .added
-            .iter()
-            .any(|p| p.to_string_lossy().contains("new.txt"))
-    );
+    assert!(summary
+        .added
+        .iter()
+        .any(|p| p.to_string_lossy().contains("new.txt")));
 }
 
 #[test]
@@ -739,12 +737,10 @@ fn diff_summary_detects_modification() {
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     fs::write(ws.path().join("f.txt"), "modified\n").unwrap();
     let summary = diff_workspace(&ws).unwrap();
-    assert!(
-        summary
-            .modified
-            .iter()
-            .any(|p| p.to_string_lossy().contains("f.txt"))
-    );
+    assert!(summary
+        .modified
+        .iter()
+        .any(|p| p.to_string_lossy().contains("f.txt")));
 }
 
 #[test]
@@ -754,12 +750,10 @@ fn diff_summary_detects_deletion() {
     let ws = WorkspaceManager::prepare(&staged_spec(src.path())).unwrap();
     fs::remove_file(ws.path().join("f.txt")).unwrap();
     let summary = diff_workspace(&ws).unwrap();
-    assert!(
-        summary
-            .deleted
-            .iter()
-            .any(|p| p.to_string_lossy().contains("f.txt"))
-    );
+    assert!(summary
+        .deleted
+        .iter()
+        .any(|p| p.to_string_lossy().contains("f.txt")));
 }
 
 #[test]

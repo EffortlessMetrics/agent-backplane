@@ -673,16 +673,12 @@ mod claude_roundtrip {
         let req = make_request("claude-sonnet-4-20250514", "Hello");
         let stream = client.create_stream(req).await.unwrap();
         let events = stream.collect_all().await;
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(e, StreamEvent::MessageStart { .. }))
-        );
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(e, StreamEvent::MessageStop {}))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, StreamEvent::MessageStart { .. })));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, StreamEvent::MessageStop {})));
     }
 
     // ── Error handling ──
@@ -1580,22 +1576,18 @@ mod cross_shim {
         let oai = abp_shim_openai::receipt_to_response(&receipt, "gpt-4o");
         let kimi = abp_shim_kimi::receipt_to_response(&receipt, "moonshot-v1-8k");
         // Both should contain the same text
-        assert!(
-            oai.choices[0]
-                .message
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("response")
-        );
-        assert!(
-            kimi.choices[0]
-                .message
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("response")
-        );
+        assert!(oai.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("response"));
+        assert!(kimi.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("response"));
     }
 
     #[test]

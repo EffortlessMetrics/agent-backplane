@@ -18,7 +18,7 @@ use abp_daemon::handler::{
 use abp_daemon::middleware::{CorsConfig, RateLimiter, RequestId};
 use abp_daemon::queue::{QueueError, QueuePriority, QueueStats, QueuedRun, RunQueue};
 use abp_daemon::routes::{
-    Endpoint, MatchResult, Method, Route, RouteError, RouteTable, api_routes,
+    api_routes, Endpoint, MatchResult, Method, Route, RouteError, RouteTable,
 };
 use abp_daemon::server::{DaemonServer, VersionResponse};
 use abp_daemon::state::{
@@ -349,12 +349,10 @@ async fn run_tracker_fail_run() {
 #[tokio::test]
 async fn run_tracker_fail_untracked_fails() {
     let tracker = RunTracker::new();
-    assert!(
-        tracker
-            .fail_run(Uuid::new_v4(), "err".into())
-            .await
-            .is_err()
-    );
+    assert!(tracker
+        .fail_run(Uuid::new_v4(), "err".into())
+        .await
+        .is_err());
 }
 
 #[tokio::test]
@@ -603,11 +601,9 @@ fn api_routes_contains_backends() {
 #[test]
 fn api_routes_contains_run() {
     let routes = api_routes();
-    assert!(
-        routes
-            .iter()
-            .any(|r| r.path.contains("run") && r.method == "POST")
-    );
+    assert!(routes
+        .iter()
+        .any(|r| r.path.contains("run") && r.method == "POST"));
 }
 
 #[test]

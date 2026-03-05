@@ -34,7 +34,7 @@
 #![allow(clippy::float_cmp)]
 
 use abp_telemetry::hooks::{
-    ErrorClassification, RequestOutcome, on_error, on_request_complete, on_request_start,
+    on_error, on_request_complete, on_request_start, ErrorClassification, RequestOutcome,
 };
 use abp_telemetry::metrics::{
     ActiveRequestGauge, ErrorCounter, RequestCounter, RequestKey, TokenAccumulator,

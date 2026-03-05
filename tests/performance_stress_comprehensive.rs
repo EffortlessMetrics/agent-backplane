@@ -35,9 +35,9 @@ use std::path::Path;
 use std::time::Instant;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, CONTRACT_VERSION, ExecutionLane, ExecutionMode,
-    Outcome, PolicyProfile, Receipt, ReceiptBuilder, VerificationReport, WorkOrder,
-    WorkOrderBuilder, canonical_json, receipt_hash, sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
+    VerificationReport, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_dialect::{Dialect, DialectDetector};
 use abp_glob::IncludeExcludeGlobs;

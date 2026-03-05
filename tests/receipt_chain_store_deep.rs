@@ -39,8 +39,8 @@ use abp_core::{
 };
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore, StoreError};
 use abp_receipt::{
-    ChainError, ReceiptBuilder, ReceiptChain, ReceiptValidator, canonicalize, compute_hash,
-    diff_receipts, verify_hash,
+    canonicalize, compute_hash, diff_receipts, verify_hash, ChainError, ReceiptBuilder,
+    ReceiptChain, ReceiptValidator,
 };
 use chrono::{TimeZone, Utc};
 use uuid::Uuid;

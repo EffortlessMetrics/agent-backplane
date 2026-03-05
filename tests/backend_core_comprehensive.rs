@@ -7,17 +7,17 @@
 use std::sync::Arc;
 
 use abp_backend_core::{
-    Backend, BackendHealth, BackendMetadata, BackendRegistry, HealthStatus, RateLimit,
     ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
+    Backend, BackendHealth, BackendMetadata, BackendRegistry, HealthStatus, RateLimit,
 };
-use abp_backend_mock::MockBackend;
 use abp_backend_mock::scenarios::{
     MockBackendRecorder, MockScenario, RecordedCall, ScenarioMockBackend,
 };
+use abp_backend_mock::MockBackend;
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
-    SupportLevel, WorkOrder, WorkOrderBuilder,
+    SupportLevel, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -1291,17 +1291,15 @@ async fn scenario_transient_then_success() {
 
     // first two calls should fail
     let (tx, _rx) = mpsc::channel(32);
-    assert!(
-        b.run(Uuid::new_v4(), simple_work_order("t1"), tx)
-            .await
-            .is_err()
-    );
+    assert!(b
+        .run(Uuid::new_v4(), simple_work_order("t1"), tx)
+        .await
+        .is_err());
     let (tx, _rx) = mpsc::channel(32);
-    assert!(
-        b.run(Uuid::new_v4(), simple_work_order("t2"), tx)
-            .await
-            .is_err()
-    );
+    assert!(b
+        .run(Uuid::new_v4(), simple_work_order("t2"), tx)
+        .await
+        .is_err());
 
     // third call should succeed
     let (tx, _rx) = mpsc::channel(32);
@@ -1503,7 +1501,7 @@ async fn channel_drop_receiver_doesnt_panic() {
     let b = MockBackend;
     let (tx, rx) = mpsc::channel(32);
     drop(rx); // drop receiver before run
-    // The mock backend uses `let _ = tx.send(...)` so it should not panic
+              // The mock backend uses `let _ = tx.send(...)` so it should not panic
     let result = b.run(Uuid::new_v4(), simple_work_order("drop"), tx).await;
     // It may or may not succeed, but should not panic
     let _ = result;

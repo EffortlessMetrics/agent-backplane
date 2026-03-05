@@ -30,7 +30,7 @@
 //! Integration tests for `DialectDetector` using realistic SDK message examples.
 
 use abp_dialect::{Dialect, DialectDetector};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 fn detector() -> DialectDetector {
     DialectDetector::new()

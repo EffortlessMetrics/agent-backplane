@@ -111,7 +111,11 @@ impl ValidationErrors {
     ///
     /// Returns `Err(self)` if any validation errors were recorded.
     pub fn into_result(self) -> Result<(), Self> {
-        if self.is_empty() { Ok(()) } else { Err(self) }
+        if self.is_empty() {
+            Ok(())
+        } else {
+            Err(self)
+        }
     }
 
     /// Merge all errors from `other` into this collection.
