@@ -264,6 +264,7 @@ version = "0.1.0"
 dependencies = [
  "abp-core",
  "abp-protocol",
+ "abp-retry",
  "anyhow",
  "chrono",
  "futures",
@@ -411,6 +412,16 @@ dependencies = [
  "sha2",
  "thiserror 2.0.18",
  "uuid",
+]
+
+[[package]]
+name = "abp-retry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
