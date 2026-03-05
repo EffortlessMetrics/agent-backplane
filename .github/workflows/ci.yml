@@ -23,7 +23,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Gate (lint + compile)
-        run: cargo xtask gate --check
+        run: cargo run -p xtask -- gate --check
 
   test:
     name: Test (${{ matrix.os }})
