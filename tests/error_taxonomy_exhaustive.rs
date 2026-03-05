@@ -94,6 +94,20 @@ const ALL_CODES: &[ErrorCode] = &[
     ErrorCode::DialectMappingFailed,
     // Config
     ErrorCode::ConfigInvalid,
+    // RateLimit
+    ErrorCode::RateLimitExceeded,
+    ErrorCode::CircuitBreakerOpen,
+    // Stream
+    ErrorCode::StreamClosed,
+    // ReceiptStore
+    ErrorCode::ReceiptStoreFailed,
+    // Validation
+    ErrorCode::ValidationFailed,
+    // Sidecar
+    ErrorCode::SidecarSpawnFailed,
+    // Backend (extended)
+    ErrorCode::BackendContentFiltered,
+    ErrorCode::BackendContextLength,
     // Internal
     ErrorCode::Internal,
 ];
@@ -111,6 +125,10 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
     ErrorCategory::Mapping,
     ErrorCategory::Execution,
     ErrorCategory::Contract,
+    ErrorCategory::RateLimit,
+    ErrorCategory::Stream,
+    ErrorCategory::Validation,
+    ErrorCategory::Sidecar,
     ErrorCategory::Internal,
 ];
 
@@ -257,7 +275,7 @@ fn ec10_unknown_error_code_string_rejected() {
 
 #[test]
 fn cat01_every_error_category_variant_exists() {
-    assert_eq!(ALL_CATEGORIES.len(), 13);
+    assert_eq!(ALL_CATEGORIES.len(), 17);
     for &cat in ALL_CATEGORIES {
         let _copy = cat;
     }
@@ -279,6 +297,10 @@ fn cat02_categories_group_related_codes_correctly() {
             ErrorCategory::Mapping => "mapping_",
             ErrorCategory::Execution => "execution_",
             ErrorCategory::Contract => "contract_",
+            ErrorCategory::RateLimit => "rate_limit_",
+            ErrorCategory::Stream => "stream_",
+            ErrorCategory::Validation => "validation_",
+            ErrorCategory::Sidecar => "sidecar_",
             ErrorCategory::Internal => "internal",
         };
         assert!(
@@ -306,6 +328,10 @@ fn cat03_category_display_formatting() {
         (ErrorCategory::Mapping, "mapping"),
         (ErrorCategory::Execution, "execution"),
         (ErrorCategory::Contract, "contract"),
+        (ErrorCategory::RateLimit, "rate_limit"),
+        (ErrorCategory::Stream, "stream"),
+        (ErrorCategory::Validation, "validation"),
+        (ErrorCategory::Sidecar, "sidecar"),
         (ErrorCategory::Internal, "internal"),
     ];
     for (cat, s) in expected {

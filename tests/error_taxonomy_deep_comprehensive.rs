@@ -66,6 +66,14 @@ const ALL_CODES: &[ErrorCode] = &[
     ErrorCode::DialectUnknown,
     ErrorCode::DialectMappingFailed,
     ErrorCode::ConfigInvalid,
+    ErrorCode::RateLimitExceeded,
+    ErrorCode::CircuitBreakerOpen,
+    ErrorCode::StreamClosed,
+    ErrorCode::ReceiptStoreFailed,
+    ErrorCode::ValidationFailed,
+    ErrorCode::SidecarSpawnFailed,
+    ErrorCode::BackendContentFiltered,
+    ErrorCode::BackendContextLength,
     ErrorCode::Internal,
 ];
 
@@ -79,6 +87,13 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
     ErrorCategory::Receipt,
     ErrorCategory::Dialect,
     ErrorCategory::Config,
+    ErrorCategory::Mapping,
+    ErrorCategory::Execution,
+    ErrorCategory::Contract,
+    ErrorCategory::RateLimit,
+    ErrorCategory::Stream,
+    ErrorCategory::Validation,
+    ErrorCategory::Sidecar,
     ErrorCategory::Internal,
 ];
 
@@ -148,7 +163,7 @@ fn error_code_as_str_is_snake_case() {
 
 #[test]
 fn error_code_count_is_20() {
-    assert_eq!(ALL_CODES.len(), 20);
+    assert_eq!(ALL_CODES.len(), 28);
 }
 
 #[test]
@@ -189,7 +204,7 @@ fn error_code_hash_consistency() {
 
 #[test]
 fn category_count_is_10() {
-    assert_eq!(ALL_CATEGORIES.len(), 10);
+    assert_eq!(ALL_CATEGORIES.len(), 17);
 }
 
 #[test]
@@ -204,6 +219,13 @@ fn category_display_all() {
         (ErrorCategory::Receipt, "receipt"),
         (ErrorCategory::Dialect, "dialect"),
         (ErrorCategory::Config, "config"),
+        (ErrorCategory::Mapping, "mapping"),
+        (ErrorCategory::Execution, "execution"),
+        (ErrorCategory::Contract, "contract"),
+        (ErrorCategory::RateLimit, "rate_limit"),
+        (ErrorCategory::Stream, "stream"),
+        (ErrorCategory::Validation, "validation"),
+        (ErrorCategory::Sidecar, "sidecar"),
         (ErrorCategory::Internal, "internal"),
     ];
     for (cat, s) in &expected {

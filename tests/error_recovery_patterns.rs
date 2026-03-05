@@ -134,10 +134,13 @@ fn suggested_http_status(code: &ErrorCode) -> u16 {
         | ErrorCode::CapabilityEmulationFailed => 424,
 
         // 429 Too Many Requests
-        ErrorCode::BackendRateLimited => 429,
+        ErrorCode::BackendRateLimited | ErrorCode::RateLimitExceeded => 429,
 
         // 502 Bad Gateway — upstream backend error
         ErrorCode::BackendCrashed | ErrorCode::BackendUnavailable => 502,
+
+        // 503 Service Unavailable — circuit breaker
+        ErrorCode::CircuitBreakerOpen | ErrorCode::StreamClosed => 503,
 
         // 504 Gateway Timeout
         ErrorCode::BackendTimeout => 504,
@@ -146,7 +149,12 @@ fn suggested_http_status(code: &ErrorCode) -> u16 {
         ErrorCode::MappingLossyConversion => 206,
 
         // 500 Internal
-        ErrorCode::Internal => 500,
+        ErrorCode::Internal
+        | ErrorCode::ReceiptStoreFailed
+        | ErrorCode::ValidationFailed
+        | ErrorCode::SidecarSpawnFailed
+        | ErrorCode::BackendContentFiltered
+        | ErrorCode::BackendContextLength => 500,
     }
 }
 

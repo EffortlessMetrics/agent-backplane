@@ -42,11 +42,27 @@ use abp_runtime::RuntimeError;
 /// Exhaustive list of all 20 error codes.
 const ALL_CODES: &[ErrorCode] = &[
     ErrorCode::ProtocolInvalidEnvelope,
+    ErrorCode::ProtocolHandshakeFailed,
+    ErrorCode::ProtocolMissingRefId,
     ErrorCode::ProtocolUnexpectedMessage,
     ErrorCode::ProtocolVersionMismatch,
+    ErrorCode::MappingUnsupportedCapability,
+    ErrorCode::MappingDialectMismatch,
+    ErrorCode::MappingLossyConversion,
+    ErrorCode::MappingUnmappableTool,
     ErrorCode::BackendNotFound,
+    ErrorCode::BackendUnavailable,
     ErrorCode::BackendTimeout,
+    ErrorCode::BackendRateLimited,
+    ErrorCode::BackendAuthFailed,
+    ErrorCode::BackendModelNotFound,
     ErrorCode::BackendCrashed,
+    ErrorCode::ExecutionToolFailed,
+    ErrorCode::ExecutionWorkspaceError,
+    ErrorCode::ExecutionPermissionDenied,
+    ErrorCode::ContractVersionMismatch,
+    ErrorCode::ContractSchemaViolation,
+    ErrorCode::ContractInvalidReceipt,
     ErrorCode::CapabilityUnsupported,
     ErrorCode::CapabilityEmulationFailed,
     ErrorCode::PolicyDenied,
@@ -60,6 +76,14 @@ const ALL_CODES: &[ErrorCode] = &[
     ErrorCode::DialectUnknown,
     ErrorCode::DialectMappingFailed,
     ErrorCode::ConfigInvalid,
+    ErrorCode::RateLimitExceeded,
+    ErrorCode::CircuitBreakerOpen,
+    ErrorCode::StreamClosed,
+    ErrorCode::ReceiptStoreFailed,
+    ErrorCode::ValidationFailed,
+    ErrorCode::SidecarSpawnFailed,
+    ErrorCode::BackendContentFiltered,
+    ErrorCode::BackendContextLength,
     ErrorCode::Internal,
 ];
 
@@ -74,6 +98,13 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
     ErrorCategory::Receipt,
     ErrorCategory::Dialect,
     ErrorCategory::Config,
+    ErrorCategory::Mapping,
+    ErrorCategory::Execution,
+    ErrorCategory::Contract,
+    ErrorCategory::RateLimit,
+    ErrorCategory::Stream,
+    ErrorCategory::Validation,
+    ErrorCategory::Sidecar,
     ErrorCategory::Internal,
 ];
 
@@ -571,7 +602,7 @@ fn all_error_codes_have_unique_serde_representations() {
 
 #[test]
 fn error_code_count_is_twenty() {
-    assert_eq!(ALL_CODES.len(), 20);
+    assert_eq!(ALL_CODES.len(), 44);
 }
 
 #[test]
@@ -603,7 +634,7 @@ fn protocol_category_has_exactly_three_codes() {
         .iter()
         .filter(|c| c.category() == ErrorCategory::Protocol)
         .count();
-    assert_eq!(count, 3);
+    assert_eq!(count, 5);
 }
 
 #[test]
@@ -612,7 +643,7 @@ fn backend_category_has_exactly_three_codes() {
         .iter()
         .filter(|c| c.category() == ErrorCategory::Backend)
         .count();
-    assert_eq!(count, 3);
+    assert_eq!(count, 9);
 }
 
 #[test]
@@ -931,6 +962,10 @@ fn http_status_class(code: &ErrorCode) -> u16 {
         ErrorCategory::Mapping => 422,
         ErrorCategory::Execution => 500,
         ErrorCategory::Contract => 422,
+        ErrorCategory::RateLimit => 429,
+        ErrorCategory::Stream => 500,
+        ErrorCategory::Validation => 400,
+        ErrorCategory::Sidecar => 500,
         ErrorCategory::Internal => 500,
     }
 }

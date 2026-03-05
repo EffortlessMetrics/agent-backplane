@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Strict dialect parsing for vendor-specific request JSON.
 //!
-//! Each [`DialectParser`] implementation validates that a raw JSON value
+//! Each `DialectParser` implementation validates that a raw JSON value
 //! conforms to the vendor's request schema — required fields, correct
 //! types, valid enum values, tool definitions, streaming flags, and model
-//! names — returning rich [`ParseError`]s with field paths, expected
+//! names — returning rich `ParseError`s with field paths, expected
 //! types, and actual values.
 
 use serde_json::Value;

@@ -90,6 +90,20 @@ const ALL_CODES: &[ErrorCode] = &[
     ErrorCode::DialectMappingFailed,
     // Config
     ErrorCode::ConfigInvalid,
+    // RateLimit
+    ErrorCode::RateLimitExceeded,
+    ErrorCode::CircuitBreakerOpen,
+    // Stream
+    ErrorCode::StreamClosed,
+    // Receipt (store)
+    ErrorCode::ReceiptStoreFailed,
+    // Validation
+    ErrorCode::ValidationFailed,
+    // Sidecar
+    ErrorCode::SidecarSpawnFailed,
+    // Backend (content)
+    ErrorCode::BackendContentFiltered,
+    ErrorCode::BackendContextLength,
     // Internal
     ErrorCode::Internal,
 ];
@@ -107,25 +121,33 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
     ErrorCategory::Mapping,
     ErrorCategory::Execution,
     ErrorCategory::Contract,
+    ErrorCategory::RateLimit,
+    ErrorCategory::Stream,
+    ErrorCategory::Validation,
+    ErrorCategory::Sidecar,
     ErrorCategory::Internal,
 ];
 
 /// Maps each category to the expected set of error code `as_str()` prefixes.
-fn expected_prefix_for_category(cat: ErrorCategory) -> &'static str {
+fn expected_prefix_for_category(cat: ErrorCategory) -> &'static [&'static str] {
     match cat {
-        ErrorCategory::Protocol => "protocol_",
-        ErrorCategory::Backend => "backend_",
-        ErrorCategory::Capability => "capability_",
-        ErrorCategory::Policy => "policy_",
-        ErrorCategory::Workspace => "workspace_",
-        ErrorCategory::Ir => "ir_",
-        ErrorCategory::Receipt => "receipt_",
-        ErrorCategory::Dialect => "dialect_",
-        ErrorCategory::Config => "config_",
-        ErrorCategory::Mapping => "mapping_",
-        ErrorCategory::Execution => "execution_",
-        ErrorCategory::Contract => "contract_",
-        ErrorCategory::Internal => "internal",
+        ErrorCategory::Protocol => &["protocol_"],
+        ErrorCategory::Backend => &["backend_"],
+        ErrorCategory::Capability => &["capability_"],
+        ErrorCategory::Policy => &["policy_"],
+        ErrorCategory::Workspace => &["workspace_"],
+        ErrorCategory::Ir => &["ir_"],
+        ErrorCategory::Receipt => &["receipt_"],
+        ErrorCategory::Dialect => &["dialect_"],
+        ErrorCategory::Config => &["config_"],
+        ErrorCategory::Mapping => &["mapping_"],
+        ErrorCategory::Execution => &["execution_"],
+        ErrorCategory::Contract => &["contract_"],
+        ErrorCategory::RateLimit => &["rate_limit_", "circuit_breaker_"],
+        ErrorCategory::Stream => &["stream_"],
+        ErrorCategory::Validation => &["validation_"],
+        ErrorCategory::Sidecar => &["sidecar_"],
+        ErrorCategory::Internal => &["internal"],
     }
 }
 
@@ -165,7 +187,7 @@ fn error_code_messages_are_all_unique() {
 
 #[test]
 fn error_code_variant_count_is_36() {
-    assert_eq!(ALL_CODES.len(), 36, "ErrorCode variant count changed");
+    assert_eq!(ALL_CODES.len(), 44, "ErrorCode variant count changed");
 }
 
 // =========================================================================
@@ -306,7 +328,7 @@ fn category_display_is_lowercase_ascii() {
     for cat in ALL_CATEGORIES {
         let display = cat.to_string();
         assert!(
-            display.chars().all(|c| c.is_ascii_lowercase()),
+            display.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
             "{:?} display is not lowercase ASCII: {display}",
             cat
         );
@@ -341,11 +363,11 @@ fn every_category_has_at_least_one_error_code() {
 fn error_code_prefix_matches_category() {
     for code in ALL_CODES {
         let cat = code.category();
-        let prefix = expected_prefix_for_category(cat);
+        let prefixes = expected_prefix_for_category(cat);
         let as_str = code.as_str();
         assert!(
-            as_str.starts_with(prefix),
-            "{:?} (as_str={as_str}) should start with prefix {prefix} for category {:?}",
+            prefixes.iter().any(|p| as_str.starts_with(p)),
+            "{:?} (as_str={as_str}) should start with one of {prefixes:?} for category {:?}",
             code,
             cat
         );
@@ -367,7 +389,7 @@ fn backend_category_has_seven_codes() {
         .iter()
         .filter(|c| c.category() == ErrorCategory::Backend)
         .count();
-    assert_eq!(count, 7);
+    assert_eq!(count, 9);
 }
 
 #[test]
@@ -415,7 +437,7 @@ fn category_rejects_unknown_variant() {
 fn category_count_is_13() {
     assert_eq!(
         ALL_CATEGORIES.len(),
-        13,
+        17,
         "ErrorCategory variant count changed"
     );
 }
@@ -596,12 +618,18 @@ fn no_error_message_ends_with_period() {
 
 #[test]
 fn only_backend_codes_are_retryable() {
+    let retryable_categories: HashSet<ErrorCategory> = [
+        ErrorCategory::Backend,
+        ErrorCategory::RateLimit,
+        ErrorCategory::Stream,
+    ]
+    .into_iter()
+    .collect();
     for code in ALL_CODES {
         if code.is_retryable() {
-            assert_eq!(
-                code.category(),
-                ErrorCategory::Backend,
-                "retryable code {:?} is not in Backend category",
+            assert!(
+                retryable_categories.contains(&code.category()),
+                "retryable code {:?} is not in an expected retryable category",
                 code
             );
         }
@@ -611,7 +639,7 @@ fn only_backend_codes_are_retryable() {
 #[test]
 fn retryable_set_is_exactly_four() {
     let retryable: Vec<_> = ALL_CODES.iter().filter(|c| c.is_retryable()).collect();
-    assert_eq!(retryable.len(), 4);
+    assert_eq!(retryable.len(), 7);
 }
 
 #[test]
@@ -622,8 +650,8 @@ fn non_retryable_backend_codes_exist() {
         .collect();
     assert_eq!(
         non_retryable_backend.len(),
-        3,
-        "expected BackendNotFound, BackendAuthFailed, BackendModelNotFound"
+        5,
+        "expected BackendNotFound, BackendAuthFailed, BackendModelNotFound, BackendContentFiltered, BackendContextLength"
     );
 }
 

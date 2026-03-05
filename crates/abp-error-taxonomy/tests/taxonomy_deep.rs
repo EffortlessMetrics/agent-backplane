@@ -90,6 +90,20 @@ const ALL_CODES: &[ErrorCode] = &[
     ErrorCode::DialectMappingFailed,
     // Config
     ErrorCode::ConfigInvalid,
+    // RateLimit
+    ErrorCode::RateLimitExceeded,
+    ErrorCode::CircuitBreakerOpen,
+    // Stream
+    ErrorCode::StreamClosed,
+    // Receipt (store)
+    ErrorCode::ReceiptStoreFailed,
+    // Validation
+    ErrorCode::ValidationFailed,
+    // Sidecar
+    ErrorCode::SidecarSpawnFailed,
+    // Backend (content)
+    ErrorCode::BackendContentFiltered,
+    ErrorCode::BackendContextLength,
     // Internal
     ErrorCode::Internal,
 ];
@@ -107,6 +121,10 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
     ErrorCategory::Mapping,
     ErrorCategory::Execution,
     ErrorCategory::Contract,
+    ErrorCategory::RateLimit,
+    ErrorCategory::Stream,
+    ErrorCategory::Validation,
+    ErrorCategory::Sidecar,
     ErrorCategory::Internal,
 ];
 
@@ -125,6 +143,10 @@ fn category_display_str(cat: ErrorCategory) -> &'static str {
         ErrorCategory::Mapping => "mapping",
         ErrorCategory::Execution => "execution",
         ErrorCategory::Contract => "contract",
+        ErrorCategory::RateLimit => "rate_limit",
+        ErrorCategory::Stream => "stream",
+        ErrorCategory::Validation => "validation",
+        ErrorCategory::Sidecar => "sidecar",
         ErrorCategory::Internal => "internal",
     }
 }
@@ -149,6 +171,10 @@ fn recovery_suggestion(cat: ErrorCategory) -> &'static str {
         ErrorCategory::Mapping => "Check dialect compatibility or retry with a supported mapping",
         ErrorCategory::Execution => "Check tool configuration and workspace permissions",
         ErrorCategory::Contract => "Validate contract version and schema conformance",
+        ErrorCategory::RateLimit => "Back off and retry after delay",
+        ErrorCategory::Stream => "Reconnect to the event stream",
+        ErrorCategory::Validation => "Fix input validation errors and retry",
+        ErrorCategory::Sidecar => "Restart the sidecar process",
         ErrorCategory::Internal => "Report a bug with diagnostic context",
     }
 }
@@ -305,7 +331,7 @@ fn snapshot_internal_code() {
 fn snapshot_total_code_count() {
     assert_eq!(
         ALL_CODES.len(),
-        36,
+        44,
         "variant added/removed without updating ALL_CODES"
     );
 }
@@ -319,8 +345,12 @@ fn category_display_all_variants() {
     for cat in ALL_CATEGORIES {
         let displayed = cat.to_string();
         assert_eq!(displayed, category_display_str(*cat));
-        // Must be lowercase ASCII.
-        assert!(displayed.chars().all(|c| c.is_ascii_lowercase()));
+        // Must be lowercase ASCII (with underscores).
+        assert!(
+            displayed
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c == '_')
+        );
     }
 }
 

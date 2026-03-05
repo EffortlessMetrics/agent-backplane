@@ -75,6 +75,20 @@ const ALL_CODES: &[ErrorCode] = &[
     ErrorCode::DialectUnknown,
     ErrorCode::DialectMappingFailed,
     ErrorCode::ConfigInvalid,
+    // RateLimit
+    ErrorCode::RateLimitExceeded,
+    ErrorCode::CircuitBreakerOpen,
+    // Stream
+    ErrorCode::StreamClosed,
+    // Receipt (store)
+    ErrorCode::ReceiptStoreFailed,
+    // Validation
+    ErrorCode::ValidationFailed,
+    // Sidecar
+    ErrorCode::SidecarSpawnFailed,
+    // Backend (content)
+    ErrorCode::BackendContentFiltered,
+    ErrorCode::BackendContextLength,
     ErrorCode::Internal,
 ];
 
@@ -91,6 +105,10 @@ const ALL_CATEGORIES: &[ErrorCategory] = &[
     ErrorCategory::Mapping,
     ErrorCategory::Execution,
     ErrorCategory::Contract,
+    ErrorCategory::RateLimit,
+    ErrorCategory::Stream,
+    ErrorCategory::Validation,
+    ErrorCategory::Sidecar,
     ErrorCategory::Internal,
 ];
 
@@ -120,13 +138,20 @@ fn recovery_strategy(cat: ErrorCategory) -> &'static str {
         ErrorCategory::Mapping => "check_dialect_compatibility",
         ErrorCategory::Execution => "check_tool_and_permissions",
         ErrorCategory::Contract => "validate_contract_schema",
+        ErrorCategory::RateLimit => "back_off_and_retry",
+        ErrorCategory::Stream => "reconnect_stream",
+        ErrorCategory::Validation => "fix_input_and_retry",
+        ErrorCategory::Sidecar => "restart_sidecar",
         ErrorCategory::Internal => "report_bug",
     }
 }
 
 /// Whether a category should recommend retry with backoff.
 fn suggests_backoff(cat: ErrorCategory) -> bool {
-    matches!(cat, ErrorCategory::Backend)
+    matches!(
+        cat,
+        ErrorCategory::Backend | ErrorCategory::RateLimit | ErrorCategory::Stream
+    )
 }
 
 /// Whether a category should recommend circuit breaker.
@@ -182,12 +207,18 @@ fn classify_every_code_has_known_severity() {
 
 #[test]
 fn classify_retryable_codes_are_backend_subset() {
+    let retryable_categories: std::collections::HashSet<ErrorCategory> = [
+        ErrorCategory::Backend,
+        ErrorCategory::RateLimit,
+        ErrorCategory::Stream,
+    ]
+    .into_iter()
+    .collect();
     for code in ALL_CODES {
         if code.is_retryable() {
-            assert_eq!(
-                code.category(),
-                ErrorCategory::Backend,
-                "retryable code {:?} should be in Backend category",
+            assert!(
+                retryable_categories.contains(&code.category()),
+                "retryable code {:?} should be in a retryable category",
                 code
             );
         }
@@ -206,11 +237,14 @@ fn classify_non_retryable_includes_all_non_backend_transient() {
 #[test]
 fn classify_exactly_four_retryable_codes() {
     let retryable: Vec<_> = ALL_CODES.iter().filter(|c| c.is_retryable()).collect();
-    assert_eq!(retryable.len(), 4);
+    assert_eq!(retryable.len(), 7);
     assert!(retryable.contains(&&ErrorCode::BackendUnavailable));
     assert!(retryable.contains(&&ErrorCode::BackendTimeout));
     assert!(retryable.contains(&&ErrorCode::BackendRateLimited));
     assert!(retryable.contains(&&ErrorCode::BackendCrashed));
+    assert!(retryable.contains(&&ErrorCode::RateLimitExceeded));
+    assert!(retryable.contains(&&ErrorCode::CircuitBreakerOpen));
+    assert!(retryable.contains(&&ErrorCode::StreamClosed));
 }
 
 #[test]
@@ -573,9 +607,20 @@ fn recovery_every_category_has_strategy() {
 
 #[test]
 fn recovery_backoff_only_for_backend() {
+    let backoff_categories: std::collections::HashSet<ErrorCategory> = [
+        ErrorCategory::Backend,
+        ErrorCategory::RateLimit,
+        ErrorCategory::Stream,
+    ]
+    .into_iter()
+    .collect();
     for cat in ALL_CATEGORIES {
         if suggests_backoff(*cat) {
-            assert_eq!(*cat, ErrorCategory::Backend);
+            assert!(
+                backoff_categories.contains(cat),
+                "{:?} should not suggest backoff",
+                cat
+            );
         }
     }
 }

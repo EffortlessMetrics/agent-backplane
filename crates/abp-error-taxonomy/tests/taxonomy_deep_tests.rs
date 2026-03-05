@@ -93,6 +93,20 @@ const ALL_CODES: &[ErrorCode] = &[
     ErrorCode::DialectMappingFailed,
     // Config (1)
     ErrorCode::ConfigInvalid,
+    // RateLimit (2)
+    ErrorCode::RateLimitExceeded,
+    ErrorCode::CircuitBreakerOpen,
+    // Stream (1)
+    ErrorCode::StreamClosed,
+    // Receipt (store) (1)
+    ErrorCode::ReceiptStoreFailed,
+    // Validation (1)
+    ErrorCode::ValidationFailed,
+    // Sidecar (1)
+    ErrorCode::SidecarSpawnFailed,
+    // Backend (content) (2)
+    ErrorCode::BackendContentFiltered,
+    ErrorCode::BackendContextLength,
     // Internal (1)
     ErrorCode::Internal,
 ];
@@ -107,7 +121,7 @@ fn classifier() -> ErrorClassifier {
 
 #[test]
 fn exactly_36_error_codes() {
-    assert_eq!(ALL_CODES.len(), 36);
+    assert_eq!(ALL_CODES.len(), 44);
 }
 
 #[test]
@@ -167,6 +181,10 @@ fn all_codes_have_a_category() {
         ErrorCategory::Mapping,
         ErrorCategory::Execution,
         ErrorCategory::Contract,
+        ErrorCategory::RateLimit,
+        ErrorCategory::Stream,
+        ErrorCategory::Validation,
+        ErrorCategory::Sidecar,
         ErrorCategory::Internal,
     ]
     .into_iter()
@@ -707,12 +725,16 @@ fn error_category_display_is_lowercase() {
         ErrorCategory::Mapping,
         ErrorCategory::Execution,
         ErrorCategory::Contract,
+        ErrorCategory::RateLimit,
+        ErrorCategory::Stream,
+        ErrorCategory::Validation,
+        ErrorCategory::Sidecar,
         ErrorCategory::Internal,
     ];
     for cat in &all_cats {
         let s = cat.to_string();
         assert!(
-            s.chars().all(|c| c.is_ascii_lowercase()),
+            s.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
             "{:?} display is not lowercase: {}",
             cat,
             s
@@ -836,6 +858,10 @@ fn error_category_json_roundtrip() {
         ErrorCategory::Mapping,
         ErrorCategory::Execution,
         ErrorCategory::Contract,
+        ErrorCategory::RateLimit,
+        ErrorCategory::Stream,
+        ErrorCategory::Validation,
+        ErrorCategory::Sidecar,
         ErrorCategory::Internal,
     ];
     for cat in &all_cats {
