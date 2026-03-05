@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Agent Backplane (ABP) is a **translation layer between agent SDKs**. It provides vendor-agnostic SDK shims that map each vendor's surface area onto a stable internal contract, then routes work orders to any backend (OpenAI, Anthropic, Gemini, Kimi, Copilot, local models) via a projection matrix. The workspace contains **54 crates** — contract types, sidecar protocol, SDK shims, IR translators, bridge crates, and a CLI + HTTP daemon.
+Agent Backplane (ABP) is a **translation layer between agent SDKs**. It provides vendor-agnostic SDK shims that map each vendor's surface area onto a stable internal contract, then routes work orders to any backend (OpenAI, Anthropic, Gemini, Kimi, Copilot, local models) via a projection matrix. The workspace contains **55 crates** — contract types, sidecar protocol, SDK shims, IR translators, bridge crates, and a CLI + HTTP daemon.
 
 ## Build & Test Commands
 

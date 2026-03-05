@@ -27,7 +27,7 @@ faithfully map SDK semantics into that contract and back out.
 
 ## Architecture
 
-The workspace contains **54 crates** organized in layers:
+The workspace contains **55 crates** organized in layers:
 
 ```
 abp-glob ──────────┐
