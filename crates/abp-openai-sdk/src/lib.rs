@@ -14,6 +14,7 @@ pub mod response_format;
 pub mod streaming;
 pub mod validation;
 
+use abp_command_discovery::command_exists;
 use abp_host::SidecarSpec;
 use abp_integrations::SidecarBackend;
 use abp_runtime::Runtime;
@@ -85,36 +86,6 @@ fn resolve_command(command_override: Option<&str>) -> Result<Option<String>> {
     }
 
     Ok(None)
-}
-
-fn command_exists(command: &str) -> bool {
-    let candidate = Path::new(command);
-    let has_path = candidate.components().count() > 1;
-
-    if has_path {
-        return candidate.exists();
-    }
-
-    std::env::var_os("PATH")
-        .is_some_and(|path| std::env::split_paths(&path).any(|dir| path_has_command(&dir, command)))
-}
-
-fn path_has_command(dir: &Path, command: &str) -> bool {
-    if dir.join(command).exists() {
-        return true;
-    }
-
-    if !cfg!(windows) {
-        return false;
-    }
-
-    for ext in ["", ".exe", ".cmd", ".bat", ".com"] {
-        if dir.join(format!("{command}{ext}")).exists() {
-            return true;
-        }
-    }
-
-    false
 }
 
 #[cfg(test)]

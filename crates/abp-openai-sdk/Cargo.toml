@@ -15,6 +15,7 @@ abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-host = { path = "../abp-host", version = "0.1.0" }
 abp-integrations = { path = "../abp-integrations", version = "0.1.0" }
 abp-runtime = { path = "../abp-runtime", version = "0.1.0" }
+abp-command-discovery = { path = "../abp-command-discovery", version = "0.1.0" }
 anyhow.workspace = true
 chrono.workspace = true
 serde.workspace = true

@@ -113,6 +113,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-command-discovery"
+version = "0.1.0"
+
+[[package]]
 name = "abp-config"
 version = "0.1.0"
 dependencies = [
@@ -341,6 +345,7 @@ dependencies = [
 name = "abp-openai-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-command-discovery",
  "abp-core",
  "abp-host",
  "abp-integrations",
@@ -553,6 +558,7 @@ dependencies = [
 name = "abp-sidecar-sdk"
 version = "0.1.0"
 dependencies = [
+ "abp-command-discovery",
  "abp-host",
  "abp-integrations",
  "abp-runtime",
@@ -1028,6 +1034,7 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 name = "claude-bridge"
 version = "0.1.0"
 dependencies = [
+ "abp-command-discovery",
  "abp-core",
  "futures",
  "proptest",

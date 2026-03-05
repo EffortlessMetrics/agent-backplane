@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 use std::path::{Path, PathBuf};
 
+use abp_command_discovery::command_exists;
+
 use crate::BridgeError;
 
 /// Default node command.
@@ -77,36 +79,6 @@ pub fn resolve_host_script(explicit: Option<&Path>) -> Result<PathBuf, BridgeErr
     Err(BridgeError::HostScriptNotFound(
         "could not find hosts/claude/host.js in any search path".to_string(),
     ))
-}
-
-fn command_exists(command: &str) -> bool {
-    let candidate = Path::new(command);
-    let has_path = candidate.components().count() > 1;
-
-    if has_path {
-        return candidate.exists();
-    }
-
-    std::env::var_os("PATH")
-        .is_some_and(|path| std::env::split_paths(&path).any(|dir| path_has_command(&dir, command)))
-}
-
-fn path_has_command(dir: &Path, command: &str) -> bool {
-    if dir.join(command).exists() {
-        return true;
-    }
-
-    if !cfg!(windows) {
-        return false;
-    }
-
-    for ext in ["", ".exe", ".cmd", ".bat", ".com"] {
-        if dir.join(format!("{command}{ext}")).exists() {
-            return true;
-        }
-    }
-
-    false
 }
 
 fn home_dir() -> Option<PathBuf> {

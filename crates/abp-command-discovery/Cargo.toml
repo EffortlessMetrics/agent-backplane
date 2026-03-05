@@ -1,0 +1,12 @@
+[package]
+name = "abp-command-discovery"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Microcrate for cross-platform command discovery on PATH"
+keywords = ["agent", "backplane", "command", "path", "discovery"]
+categories = ["development-tools"]
+
+[dependencies]
