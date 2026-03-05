@@ -496,6 +496,11 @@ fn verify_error_types_implement_std_error() {
                 if name == "ErrorClassification" {
                     continue;
                 }
+                // ErrorType (e.g. Anthropic error categories) and GeminiErrorStatus
+                // (gRPC status codes) are classification/status enums, not error types.
+                if name == "ErrorType" || name.ends_with("ErrorStatus") {
+                    continue;
+                }
 
                 // Check for thiserror derive OR manual std::error::Error impl.
                 let mut found = false;
