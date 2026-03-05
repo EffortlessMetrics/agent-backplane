@@ -457,6 +457,28 @@ impl From<Receipt> for ChatCompletionResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Named translation functions
+// ---------------------------------------------------------------------------
+
+/// Convert a [`ChatCompletionRequest`] into an ABP [`WorkOrder`].
+///
+/// This is a named convenience wrapper around the `From` impl for
+/// discoverability.  It delegates to `WorkOrder::from(request)`.
+#[must_use]
+pub fn translate_to_work_order(request: ChatCompletionRequest) -> WorkOrder {
+    WorkOrder::from(request)
+}
+
+/// Convert an ABP [`Receipt`] into a [`ChatCompletionResponse`].
+///
+/// This is a named convenience wrapper around the `From` impl for
+/// discoverability.  It delegates to `ChatCompletionResponse::from(receipt)`.
+#[must_use]
+pub fn translate_from_receipt(receipt: Receipt) -> ChatCompletionResponse {
+    ChatCompletionResponse::from(receipt)
+}
+
+// ---------------------------------------------------------------------------
 // Map OpenAI ToolCall → ABP AgentEvent
 // ---------------------------------------------------------------------------
 
@@ -1221,5 +1243,98 @@ mod tests {
         assert!(d.role.is_none());
         assert!(d.content.is_none());
         assert!(d.tool_calls.is_none());
+    }
+
+    // ── translate_to_work_order / translate_from_receipt ─────────────────
+
+    #[test]
+    fn translate_to_work_order_extracts_task() {
+        let req = make_request(vec![
+            Message::System {
+                content: "Be terse.".into(),
+            },
+            Message::User {
+                content: "Explain closures".into(),
+            },
+        ]);
+        let wo = translate_to_work_order(req);
+        assert_eq!(wo.task, "Explain closures");
+        assert_eq!(wo.context.snippets.len(), 1);
+        assert_eq!(wo.context.snippets[0].content, "Be terse.");
+    }
+
+    #[test]
+    fn translate_to_work_order_preserves_model() {
+        let mut req = make_request(vec![Message::User {
+            content: "hi".into(),
+        }]);
+        req.model = "o3-mini".into();
+        let wo = translate_to_work_order(req);
+        assert_eq!(wo.config.model.as_deref(), Some("o3-mini"));
+    }
+
+    #[test]
+    fn translate_from_receipt_produces_valid_response() {
+        let trace = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "Done!".into(),
+            },
+            ext: None,
+        }];
+        let usage = UsageNormalized {
+            input_tokens: Some(10),
+            output_tokens: Some(5),
+            ..UsageNormalized::default()
+        };
+        let receipt = make_receipt(trace, usage);
+        let resp = translate_from_receipt(receipt);
+        assert_eq!(resp.object, "chat.completion");
+        assert_eq!(resp.choices[0].message.content.as_deref(), Some("Done!"));
+        assert_eq!(resp.choices[0].finish_reason, FinishReason::Stop);
+        let u = resp.usage.unwrap();
+        assert_eq!(u.prompt_tokens, 10);
+        assert_eq!(u.completion_tokens, 5);
+        assert_eq!(u.total_tokens, 15);
+    }
+
+    #[test]
+    fn translate_from_receipt_with_tool_calls() {
+        let trace = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::ToolCall {
+                tool_name: "grep".into(),
+                tool_use_id: Some("call_99".into()),
+                parent_tool_use_id: None,
+                input: json!({"pattern": "fn main"}),
+            },
+            ext: None,
+        }];
+        let receipt = make_receipt(trace, UsageNormalized::default());
+        let resp = translate_from_receipt(receipt);
+        assert_eq!(resp.choices[0].finish_reason, FinishReason::ToolCalls);
+        let tcs = resp.choices[0].message.tool_calls.as_ref().unwrap();
+        assert_eq!(tcs[0].id, "call_99");
+        assert_eq!(tcs[0].function.name, "grep");
+    }
+
+    #[test]
+    fn translate_roundtrip_request_to_receipt_to_response() {
+        let req = make_request(vec![Message::User {
+            content: "ping".into(),
+        }]);
+        let wo = translate_to_work_order(req);
+        assert_eq!(wo.task, "ping");
+
+        let trace = vec![AgentEvent {
+            ts: Utc::now(),
+            kind: AgentEventKind::AssistantMessage {
+                text: "pong".into(),
+            },
+            ext: None,
+        }];
+        let receipt = make_receipt(trace, UsageNormalized::default());
+        let resp = translate_from_receipt(receipt);
+        assert_eq!(resp.choices[0].message.content.as_deref(), Some("pong"));
     }
 }

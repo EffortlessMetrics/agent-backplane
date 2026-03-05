@@ -14,6 +14,12 @@
 /// bidirectional conversions with ABP's `WorkOrder` and `Receipt`.
 pub mod api;
 
+/// OpenAI-compatible error response types.
+///
+/// Models the `{ "error": { ... } }` envelope returned by the OpenAI REST
+/// API, including convenience constructors for common error categories.
+pub mod error;
+
 /// OpenAI dialect configuration, model mapping, and capability manifest.
 ///
 /// Defines the concrete types (`OpenAIMessage`, `OpenAIToolCall`, etc.)
