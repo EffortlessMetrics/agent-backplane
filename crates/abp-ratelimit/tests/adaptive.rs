@@ -50,10 +50,7 @@ fn remaining_and_reset_adapt_rate() {
         .as_secs();
     let mut headers = HashMap::new();
     headers.insert("x-ratelimit-remaining".to_string(), "20".to_string());
-    headers.insert(
-        "x-ratelimit-reset".to_string(),
-        (now_unix + 10).to_string(),
-    );
+    headers.insert("x-ratelimit-reset".to_string(), (now_unix + 10).to_string());
     limiter.update_from_headers(&headers);
     let rate = limiter.current_rate();
     // ~20 remaining / ~10s ≈ 2.0

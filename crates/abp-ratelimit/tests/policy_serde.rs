@@ -52,7 +52,10 @@ fn policy_unlimited_json_roundtrip() {
 
 #[test]
 fn fallback_strategy_roundtrip() {
-    for strat in [FallbackStrategy::AllMustAllow, FallbackStrategy::AnyMustAllow] {
+    for strat in [
+        FallbackStrategy::AllMustAllow,
+        FallbackStrategy::AnyMustAllow,
+    ] {
         let json = serde_json::to_string(&strat).unwrap();
         let parsed: FallbackStrategy = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, strat);

@@ -57,8 +57,7 @@ fn call_propagates_success_value() {
 #[test]
 fn call_propagates_inner_error() {
     let cb = CircuitBreaker::new(3, Duration::from_secs(60));
-    let result: Result<i32, CircuitBreakerError<String>> =
-        cb.call(|| Err("boom".to_string()));
+    let result: Result<i32, CircuitBreakerError<String>> = cb.call(|| Err("boom".to_string()));
     match result {
         Err(CircuitBreakerError::Inner(msg)) => assert_eq!(msg, "boom"),
         other => panic!("expected Inner error, got {other:?}"),
@@ -75,7 +74,10 @@ fn open_circuit_rejects_without_calling() {
         called = true;
         Ok(())
     });
-    assert!(!called, "function should not be invoked when circuit is open");
+    assert!(
+        !called,
+        "function should not be invoked when circuit is open"
+    );
     assert!(matches!(result, Err(CircuitBreakerError::Open)));
 }
 

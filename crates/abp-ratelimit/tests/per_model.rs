@@ -11,10 +11,7 @@ use abp_ratelimit::{ModelLimitResult, ModelRateLimiter, RateLimitPolicy};
 #[test]
 fn unregistered_model_returns_unknown() {
     let limiter = ModelRateLimiter::new();
-    assert_eq!(
-        limiter.try_acquire("gpt-4"),
-        ModelLimitResult::UnknownModel
-    );
+    assert_eq!(limiter.try_acquire("gpt-4"), ModelLimitResult::UnknownModel);
 }
 
 #[test]

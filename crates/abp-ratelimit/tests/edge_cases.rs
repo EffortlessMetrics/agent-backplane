@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use abp_ratelimit::{
-    BackendRateLimiter, RateLimitChain, RateLimitError, RateLimitPolicy, FallbackStrategy,
+    BackendRateLimiter, FallbackStrategy, RateLimitChain, RateLimitError, RateLimitPolicy,
     SlidingWindowCounter, TokenBucket,
 };
 
