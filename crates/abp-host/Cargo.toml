@@ -16,6 +16,7 @@ abp-protocol = { path = "../abp-protocol", version = "0.1.0" }
 sidecar-kit = { path = "../sidecar-kit", version = "0.1.0" }
 anyhow.workspace = true
 serde.workspace = true
+abp-serde-duration = { path = "../abp-serde-duration", version = "0.1.0" }
 serde_json.workspace = true
 thiserror.workspace = true
 futures.workspace = true

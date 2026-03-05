@@ -22,6 +22,7 @@ abp-receipt = { path = "../abp-receipt", version = "0.1.0" }
 abp-stream = { path = "../abp-stream", version = "0.1.0" }
 abp-workspace = { path = "../abp-workspace", version = "0.1.0" }
 serde.workspace = true
+abp-serde-duration = { path = "../abp-serde-duration", version = "0.1.0" }
 anyhow.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true
