@@ -378,8 +378,10 @@ pub trait ReceiptHandler: Send + Sync {
 ///
 /// Routes:
 /// - `POST /v1/run`              — submit work order, get run ID
-/// - `GET  /v1/run/{id}`         — get run status and receipt
+/// - `GET  /v1/run/{id}`         — get run status (alias)
 /// - `GET  /v1/run/{id}/events`  — SSE stream of agent events
+/// - `GET  /v1/status/{id}`      — get run status
+/// - `GET  /v1/receipt/{id}`     — get receipt for completed run
 /// - `GET  /v1/backends`         — list available backends and health
 /// - `POST /v1/translate`        — translate between dialects
 /// - `GET  /v1/health`           — overall system health
@@ -394,6 +396,8 @@ pub fn v1_routes(state: std::sync::Arc<crate::state::ServerState>) -> axum::Rout
         .route("/v1/run", post(handlers::run_handler))
         .route("/v1/run/{run_id}", get(handlers::status_handler))
         .route("/v1/run/{run_id}/events", get(handlers::events_handler))
+        .route("/v1/status/{run_id}", get(handlers::status_handler))
+        .route("/v1/receipt/{run_id}", get(handlers::receipt_handler))
         .route("/v1/backends", get(handlers::backends_handler))
         .route("/v1/translate", post(handlers::translate_handler))
         .route("/v1/health", get(handlers::health_handler))

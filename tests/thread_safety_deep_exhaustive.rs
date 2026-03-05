@@ -1281,3 +1281,1137 @@ async fn mixed_registry_and_ratelimit_contention() {
 
     assert_eq!(registry.len(), CONCURRENCY);
 }
+
+// ===========================================================================
+// 5. RunMetrics concurrent access
+// ===========================================================================
+
+#[tokio::test]
+async fn run_metrics_concurrent_record() {
+    let metrics = RunMetrics::new();
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let m = metrics.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            m.record_run((i as u64) * 10, i % 2 == 0, (i as u64) + 1);
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+
+    let snap = metrics.snapshot();
+    assert_eq!(snap.total_runs, CONCURRENCY as u64);
+}
+
+#[tokio::test]
+async fn run_metrics_concurrent_snapshot_while_recording() {
+    let metrics = RunMetrics::new();
+    let barrier = Arc::new(Barrier::new(CONCURRENCY * 2));
+    let mut handles = Vec::new();
+
+    // Writers
+    for i in 0..CONCURRENCY {
+        let m = metrics.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            m.record_run(100, i % 2 == 0, 5);
+        }));
+    }
+
+    // Readers
+    for _ in 0..CONCURRENCY {
+        let m = metrics.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let snap = m.snapshot();
+            // total_runs monotonically increases
+            assert!(snap.total_runs <= CONCURRENCY as u64);
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+}
+
+// ===========================================================================
+// 6. PolicyEngine concurrent evaluation
+// ===========================================================================
+
+fn make_policy_engine() -> PolicyEngine {
+    let profile = PolicyProfile {
+        tools: Some(abp_core::IncludeExclude {
+            include: vec!["read_*".into(), "write_*".into(), "list_*".into()],
+            exclude: vec!["write_secret*".into()],
+        }),
+        deny_read: Some(vec!["**/.env".into(), "**/secrets/**".into()]),
+        deny_write: Some(vec!["**/node_modules/**".into()]),
+    };
+    PolicyEngine::new(&profile).expect("valid policy")
+}
+
+#[tokio::test]
+async fn policy_engine_concurrent_tool_checks() {
+    let engine = Arc::new(make_policy_engine());
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    let tools = [
+        "read_file",
+        "write_file",
+        "list_dir",
+        "write_secret_key",
+        "unknown_tool",
+    ];
+
+    for i in 0..CONCURRENCY {
+        let eng = engine.clone();
+        let bar = barrier.clone();
+        let tool = tools[i % tools.len()].to_string();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let decision = eng.can_use_tool(&tool);
+            (tool, decision)
+        }));
+    }
+
+    for h in handles {
+        let (tool, decision) = h.await.unwrap();
+        if tool == "write_secret_key" {
+            assert!(!decision.allowed, "write_secret_key should be denied");
+        }
+    }
+}
+
+#[tokio::test]
+async fn policy_engine_concurrent_read_path_checks() {
+    let engine = Arc::new(make_policy_engine());
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let eng = engine.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let path = if i % 3 == 0 {
+                "src/main.rs".to_string()
+            } else if i % 3 == 1 {
+                ".env".to_string()
+            } else {
+                "secrets/api_key.txt".to_string()
+            };
+            let decision = eng.can_read_path(Path::new(&path));
+            (path, decision)
+        }));
+    }
+
+    for h in handles {
+        let (path, decision) = h.await.unwrap();
+        if path == ".env" || path.starts_with("secrets/") {
+            assert!(!decision.allowed, "{path} should be denied for read");
+        }
+    }
+}
+
+#[tokio::test]
+async fn policy_engine_concurrent_write_path_checks() {
+    let engine = Arc::new(make_policy_engine());
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let eng = engine.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let path = if i % 2 == 0 {
+                "src/lib.rs".to_string()
+            } else {
+                "node_modules/pkg/index.js".to_string()
+            };
+            let decision = eng.can_write_path(Path::new(&path));
+            (path, decision)
+        }));
+    }
+
+    for h in handles {
+        let (path, decision) = h.await.unwrap();
+        if path.starts_with("node_modules/") {
+            assert!(!decision.allowed, "{path} should be denied for write");
+        }
+    }
+}
+
+#[tokio::test]
+async fn policy_engine_concurrent_mixed_checks() {
+    let engine = Arc::new(make_policy_engine());
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let eng = engine.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            match i % 3 {
+                0 => {
+                    let _ = eng.can_use_tool("read_file");
+                }
+                1 => {
+                    let _ = eng.can_read_path(Path::new("src/main.rs"));
+                }
+                _ => {
+                    let _ = eng.can_write_path(Path::new("src/lib.rs"));
+                }
+            }
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+}
+
+// ===========================================================================
+// 7. ReceiptChain concurrent verification and append (extended)
+// ===========================================================================
+
+#[tokio::test]
+async fn receipt_chain_concurrent_verify_consistency() {
+    let chain = Arc::new(tokio::sync::Mutex::new(ReceiptChain::new()));
+
+    // Build a chain
+    for i in 0..10 {
+        let mut ch = chain.lock().await;
+        let receipt = make_receipt(&format!("verify-be-{i}"));
+        let _ = ch.push(receipt);
+    }
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let c = chain.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let ch = c.lock().await;
+            ch.verify()
+        }));
+    }
+
+    for h in handles {
+        let result = h.await.unwrap();
+        assert!(result.is_ok(), "chain verification must succeed");
+    }
+}
+
+#[tokio::test]
+async fn receipt_chain_concurrent_summary_reads() {
+    let chain = Arc::new(tokio::sync::Mutex::new(ReceiptChain::new()));
+
+    for i in 0..10 {
+        let mut ch = chain.lock().await;
+        let _ = ch.push(make_receipt(&format!("summary-{i}")));
+    }
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let c = chain.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let ch = c.lock().await;
+            let summary = ch.chain_summary();
+            assert_eq!(summary.total, 10);
+            let _ = ch.latest();
+            ch.len()
+        }));
+    }
+
+    for h in handles {
+        assert_eq!(h.await.unwrap(), 10);
+    }
+}
+
+// ===========================================================================
+// 8. BackendPool concurrent acquire/release
+// ===========================================================================
+
+#[tokio::test]
+async fn backend_pool_concurrent_checkout_checkin() {
+    let pool = Arc::new(tokio::sync::Mutex::new(BackendPool::new()));
+    {
+        let mut p = pool.lock().await;
+        p.register(
+            "test-be",
+            BackendPoolConfig {
+                min_connections: 0,
+                max_connections: CONCURRENCY,
+            },
+        )
+        .unwrap();
+    }
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let p = pool.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let mut pool = p.lock().await;
+            let conn_id = pool.checkout("test-be").unwrap();
+            pool.checkin("test-be", conn_id).unwrap();
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+
+    let p = pool.lock().await;
+    let status = p.status("test-be").unwrap();
+    assert_eq!(status.active, 0);
+}
+
+#[tokio::test]
+async fn backend_pool_concurrent_register_and_checkout() {
+    let pool = Arc::new(tokio::sync::Mutex::new(BackendPool::new()));
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let p = pool.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let mut pool = p.lock().await;
+            let name = format!("be-{i}");
+            let _ = pool.register(
+                &name,
+                BackendPoolConfig {
+                    min_connections: 0,
+                    max_connections: 10,
+                },
+            );
+            let _ = pool.checkout(&name);
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+
+    let p = pool.lock().await;
+    assert_eq!(p.backend_count(), CONCURRENCY);
+}
+
+#[tokio::test]
+async fn backend_pool_concurrent_status_reads() {
+    let pool = Arc::new(tokio::sync::Mutex::new(BackendPool::new()));
+    {
+        let mut p = pool.lock().await;
+        for i in 0..5 {
+            p.register(
+                &format!("be-{i}"),
+                BackendPoolConfig {
+                    min_connections: 0,
+                    max_connections: 10,
+                },
+            )
+            .unwrap();
+        }
+    }
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let p = pool.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let pool = p.lock().await;
+            let _ = pool.status(&format!("be-{}", i % 5));
+            let _ = pool.status_all();
+            pool.backend_count()
+        }));
+    }
+
+    for h in handles {
+        assert_eq!(h.await.unwrap(), 5);
+    }
+}
+
+// ===========================================================================
+// 9. ConfigTransaction concurrent begin/commit/rollback
+// ===========================================================================
+
+#[tokio::test]
+async fn config_store_concurrent_reads() {
+    let store = ConfigStore::new(BackplaneConfig::default());
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let s = store.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let cfg = s.get();
+            let _ = cfg.log_level.clone();
+            s.version()
+        }));
+    }
+
+    for h in handles {
+        let v = h.await.unwrap();
+        assert_eq!(v, 0);
+    }
+}
+
+#[tokio::test]
+async fn config_store_concurrent_updates() {
+    let store = ConfigStore::new(BackplaneConfig::default());
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let s = store.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let mut cfg = BackplaneConfig::default();
+            cfg.log_level = Some(format!("level-{i}"));
+            let _ = s.update(cfg);
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+
+    // Version should have incremented for each successful update
+    assert!(store.version() > 0);
+}
+
+#[tokio::test]
+async fn config_transaction_concurrent_begin_commit() {
+    let store = ConfigStore::new(BackplaneConfig::default());
+    let store_arc = Arc::new(store);
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let s = store_arc.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let mut tx = ConfigTransaction::begin(&s);
+            let mut cfg = BackplaneConfig::default();
+            cfg.log_level = Some(format!("tx-level-{i}"));
+            let _ = tx.commit(cfg);
+            tx.is_committed()
+        }));
+    }
+
+    let mut committed = 0;
+    for h in handles {
+        if h.await.unwrap() {
+            committed += 1;
+        }
+    }
+    assert!(committed > 0, "at least some transactions should commit");
+}
+
+#[tokio::test]
+async fn config_transaction_concurrent_rollback() {
+    let store = ConfigStore::new(BackplaneConfig::default());
+    let store_arc = Arc::new(store);
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let s = store_arc.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let mut tx = ConfigTransaction::begin(&s);
+            let _ = tx.rollback();
+            tx.is_rolled_back()
+        }));
+    }
+
+    for h in handles {
+        assert!(h.await.unwrap(), "rollback should succeed");
+    }
+
+    // Original config unchanged
+    assert_eq!(store_arc.version(), 0);
+}
+
+#[tokio::test]
+async fn config_transaction_mixed_commit_rollback() {
+    let store = ConfigStore::new(BackplaneConfig::default());
+    let store_arc = Arc::new(store);
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let s = store_arc.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let mut tx = ConfigTransaction::begin(&s);
+            if i % 2 == 0 {
+                let mut cfg = BackplaneConfig::default();
+                cfg.port = Some(8080 + i as u16);
+                let _ = tx.commit(cfg);
+            } else {
+                let _ = tx.rollback();
+            }
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+}
+
+// ===========================================================================
+// 10. ReceiptStore concurrent save/load/list
+// ===========================================================================
+
+#[tokio::test]
+async fn receipt_store_concurrent_save() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = ReceiptStore::new(tmp.path());
+    let store_arc = Arc::new(store);
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let s = store_arc.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let receipt = make_receipt(&format!("store-be-{i}"));
+            s.save(&receipt)
+        }));
+    }
+
+    for h in handles {
+        let result = h.await.unwrap();
+        assert!(result.is_ok(), "save should succeed");
+    }
+
+    let ids = store_arc.list().unwrap();
+    assert_eq!(ids.len(), CONCURRENCY);
+}
+
+#[tokio::test]
+async fn receipt_store_concurrent_save_and_load() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = ReceiptStore::new(tmp.path());
+
+    // Pre-save some receipts
+    let mut saved_ids = Vec::new();
+    for i in 0..10 {
+        let receipt = make_receipt(&format!("preload-{i}"));
+        let id = receipt.meta.run_id;
+        store.save(&receipt).unwrap();
+        saved_ids.push(id);
+    }
+
+    let store_arc = Arc::new(store);
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let s = store_arc.clone();
+        let bar = barrier.clone();
+        let load_id = saved_ids[i % saved_ids.len()];
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            if i % 2 == 0 {
+                let receipt = make_receipt(&format!("new-{i}"));
+                let _ = s.save(&receipt);
+            } else {
+                let _ = s.load(load_id);
+            }
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn receipt_store_concurrent_list() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = ReceiptStore::new(tmp.path());
+
+    for i in 0..10 {
+        let receipt = make_receipt(&format!("list-{i}"));
+        store.save(&receipt).unwrap();
+    }
+
+    let store_arc = Arc::new(store);
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let s = store_arc.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            s.list()
+        }));
+    }
+
+    for h in handles {
+        let ids = h.await.unwrap().unwrap();
+        assert_eq!(ids.len(), 10);
+    }
+}
+
+#[tokio::test]
+async fn receipt_store_concurrent_verify() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = ReceiptStore::new(tmp.path());
+
+    let receipt = make_receipt("verify-be");
+    let run_id = receipt.meta.run_id;
+    store.save(&receipt).unwrap();
+
+    let store_arc = Arc::new(store);
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let s = store_arc.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            s.verify(run_id)
+        }));
+    }
+
+    for h in handles {
+        let result = h.await.unwrap();
+        assert!(result.is_ok());
+    }
+}
+
+// ===========================================================================
+// 11. StreamMultiplexer concurrent subscribe/publish
+// ===========================================================================
+
+#[tokio::test]
+async fn stream_mux_concurrent_subscribe() {
+    let mux = Arc::new(StreamMultiplexer::new(64));
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let m = mux.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let (id, _rx) = m.subscribe().await;
+            id
+        }));
+    }
+
+    let mut ids = Vec::new();
+    for h in handles {
+        ids.push(h.await.unwrap());
+    }
+
+    let count = mux.subscriber_count().await;
+    assert_eq!(count, CONCURRENCY);
+
+    // All IDs should be unique
+    let unique: std::collections::HashSet<_> = ids.iter().collect();
+    assert_eq!(unique.len(), CONCURRENCY);
+}
+
+#[tokio::test]
+async fn stream_mux_concurrent_broadcast() {
+    let mux = Arc::new(StreamMultiplexer::new(256));
+    let (_id, mut rx) = mux.subscribe().await;
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let m = mux.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            m.broadcast(&make_event(&format!("mux-msg-{i}"))).await;
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+
+    let mut count = 0;
+    while rx.try_recv().is_ok() {
+        count += 1;
+    }
+    assert_eq!(count, CONCURRENCY);
+}
+
+#[tokio::test]
+async fn stream_mux_concurrent_subscribe_and_broadcast() {
+    let mux = Arc::new(StreamMultiplexer::new(128));
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let m = mux.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            if i % 2 == 0 {
+                let (_id, _rx) = m.subscribe().await;
+            } else {
+                m.broadcast(&make_event(&format!("mixed-{i}"))).await;
+            }
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+
+    // Must not panic; subscriber count is consistent
+    let _ = mux.subscriber_count().await;
+}
+
+#[tokio::test]
+async fn stream_mux_concurrent_unsubscribe() {
+    let mux = Arc::new(StreamMultiplexer::new(64));
+    let mut sub_ids = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let (id, _rx) = mux.subscribe().await;
+        sub_ids.push(id);
+    }
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for id in sub_ids {
+        let m = mux.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            m.unsubscribe(id).await
+        }));
+    }
+
+    for h in handles {
+        assert!(h.await.unwrap(), "unsubscribe should succeed");
+    }
+
+    assert_eq!(mux.subscriber_count().await, 0);
+}
+
+// ===========================================================================
+// 12. WorkspacePool concurrent checkout/return
+// ===========================================================================
+
+#[tokio::test]
+async fn workspace_pool_concurrent_checkout() {
+    let pool = WorkspacePool::new(WsPoolConfig {
+        capacity: CONCURRENCY,
+        prefix: Some("test-ws".into()),
+    });
+    let _ = pool.warm(CONCURRENCY);
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let p = pool.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            p.checkout()
+        }));
+    }
+
+    let mut checked_out = 0;
+    for h in handles {
+        if h.await.unwrap().is_ok() {
+            checked_out += 1;
+        }
+    }
+    assert!(checked_out > 0, "at least some checkouts should succeed");
+}
+
+#[tokio::test]
+async fn workspace_pool_concurrent_checkout_and_return() {
+    let pool = WorkspacePool::new(WsPoolConfig {
+        capacity: CONCURRENCY,
+        prefix: Some("test-ws-cr".into()),
+    });
+    let _ = pool.warm(CONCURRENCY);
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let p = pool.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            if let Ok(ws) = p.checkout() {
+                // PooledWorkspace is returned on drop
+                drop(ws);
+            }
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn workspace_pool_concurrent_status_reads() {
+    let pool = WorkspacePool::new(WsPoolConfig {
+        capacity: CONCURRENCY,
+        prefix: Some("test-ws-sr".into()),
+    });
+    let _ = pool.warm(5);
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let p = pool.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let _ = p.available();
+            let _ = p.capacity();
+            p.total_checkouts()
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn workspace_pool_concurrent_drain_and_checkout() {
+    let pool = WorkspacePool::new(WsPoolConfig {
+        capacity: 10,
+        prefix: Some("test-ws-dc".into()),
+    });
+    let _ = pool.warm(10);
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let p = pool.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            if i % 3 == 0 {
+                p.drain();
+            } else {
+                let _ = p.checkout();
+            }
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+}
+
+// ===========================================================================
+// 13. RateLimit concurrent acquire/check (extended)
+// ===========================================================================
+
+#[tokio::test]
+async fn sliding_window_concurrent_acquire() {
+    let counter = SlidingWindowCounter::new(Duration::from_secs(60), 100);
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let c = counter.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            c.try_acquire()
+        }));
+    }
+
+    let mut acquired = 0;
+    for h in handles {
+        if h.await.unwrap() {
+            acquired += 1;
+        }
+    }
+    assert!(acquired > 0, "some requests should be allowed");
+    assert!(acquired <= 100, "cannot exceed max_requests");
+}
+
+#[tokio::test]
+async fn sliding_window_concurrent_remaining() {
+    let counter = SlidingWindowCounter::new(Duration::from_secs(60), 100);
+    // Consume some permits
+    for _ in 0..10 {
+        counter.try_acquire();
+    }
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let c = counter.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            c.remaining()
+        }));
+    }
+
+    for h in handles {
+        let remaining = h.await.unwrap();
+        assert!(remaining <= 100);
+    }
+}
+
+#[tokio::test]
+async fn backend_rate_limiter_concurrent_acquire() {
+    let limiter = BackendRateLimiter::new();
+    for i in 0..5 {
+        limiter.set_policy(
+            &format!("be-{i}"),
+            RateLimitPolicy::TokenBucket {
+                rate: 1000.0,
+                burst: 50,
+            },
+        );
+    }
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let lim = limiter.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let result = lim.try_acquire(&format!("be-{}", i % 5));
+            result.is_ok()
+        }));
+    }
+
+    let mut allowed = 0;
+    for h in handles {
+        if h.await.unwrap() {
+            allowed += 1;
+        }
+    }
+    assert!(allowed > 0);
+}
+
+#[tokio::test]
+async fn backend_rate_limiter_concurrent_set_policy_and_acquire() {
+    let limiter = BackendRateLimiter::new();
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let lim = limiter.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let name = format!("be-{i}");
+            lim.set_policy(
+                &name,
+                RateLimitPolicy::TokenBucket {
+                    rate: 100.0,
+                    burst: 20,
+                },
+            );
+            let _ = lim.try_acquire(&name);
+            lim.has_policy(&name)
+        }));
+    }
+
+    for h in handles {
+        assert!(h.await.unwrap(), "policy should be registered");
+    }
+}
+
+#[tokio::test]
+async fn backend_rate_limiter_concurrent_permit_tracking() {
+    let limiter = BackendRateLimiter::new();
+    limiter.set_policy(
+        "tracked",
+        RateLimitPolicy::Fixed {
+            max_concurrent: CONCURRENCY,
+        },
+    );
+
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for _ in 0..CONCURRENCY {
+        let lim = limiter.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let permit = lim.try_acquire("tracked");
+            if let Ok(_permit) = permit {
+                // permit is dropped here, decrementing count
+            }
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+
+    // After all permits dropped, active should be 0
+    assert_eq!(limiter.active_permits("tracked"), 0);
+}
+
+// ===========================================================================
+// 14. Additional cross-category stress tests
+// ===========================================================================
+
+#[tokio::test]
+async fn mixed_policy_and_ratelimit_contention() {
+    let engine = Arc::new(make_policy_engine());
+    let bucket = TokenBucket::new(5000.0, 200);
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let eng = engine.clone();
+        let bkt = bucket.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let decision = eng.can_use_tool(&format!("read_file_{i}"));
+            let acquired = bkt.try_acquire(1);
+            (decision.allowed, acquired)
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn mixed_receipt_store_and_chain() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = Arc::new(ReceiptStore::new(tmp.path()));
+    let chain = Arc::new(tokio::sync::Mutex::new(ReceiptChain::new()));
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let s = store.clone();
+        let c = chain.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let receipt = make_receipt(&format!("mixed-{i}"));
+            let _ = s.save(&receipt);
+            let mut ch = c.lock().await;
+            let _ = ch.push(receipt);
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+
+    let ids = store.list().unwrap();
+    assert_eq!(ids.len(), CONCURRENCY);
+}
+
+#[tokio::test]
+async fn mixed_mux_and_fanout_contention() {
+    let mux = Arc::new(StreamMultiplexer::new(128));
+    let fanout = Arc::new(FanOut::new(128));
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    let _mux_rx = {
+        let (_id, rx) = mux.subscribe().await;
+        rx
+    };
+    let _fan_rx = fanout.add_subscriber();
+
+    for i in 0..CONCURRENCY {
+        let m = mux.clone();
+        let fo = fanout.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let event = make_event(&format!("dual-{i}"));
+            m.broadcast(&event).await;
+            fo.broadcast(&event);
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn mixed_config_store_and_metrics() {
+    let store = ConfigStore::new(BackplaneConfig::default());
+    let metrics = RunMetrics::new();
+    let barrier = Arc::new(Barrier::new(CONCURRENCY));
+    let mut handles = Vec::new();
+
+    for i in 0..CONCURRENCY {
+        let s = store.clone();
+        let m = metrics.clone();
+        let bar = barrier.clone();
+        handles.push(tokio::spawn(async move {
+            bar.wait().await;
+            let _ = s.get();
+            m.record_run(50, i % 2 == 0, 1);
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
+
+    let snap = metrics.snapshot();
+    assert_eq!(snap.total_runs, CONCURRENCY as u64);
+}
