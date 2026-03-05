@@ -35,14 +35,14 @@
 use abp_core::ir::{IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, UsageNormalized};
 use abp_shim_openai::{
-    events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
-    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    tools_to_ir,
-};
-use abp_shim_openai::{
     ChatCompletionRequest, ChatCompletionResponse, Choice, Delta, FunctionCall, FunctionDef,
     Message, OpenAiClient, ProcessFn, ResponseFormat, Role, ShimError, StreamChoice, StreamEvent,
     Tool, ToolCall, ToolChoice, ToolChoiceFunctionRef, ToolChoiceMode, Usage,
+};
+use abp_shim_openai::{
+    events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
+    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
+    tools_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -1069,12 +1069,14 @@ fn t80_receipt_error_event_produces_content() {
     let events = vec![error_event("timeout")];
     let receipt = mock_receipt(events);
     let resp = receipt_to_response(&receipt, "gpt-4o");
-    assert!(resp.choices[0]
-        .message
-        .content
-        .as_deref()
-        .unwrap()
-        .contains("timeout"));
+    assert!(
+        resp.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("timeout")
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -17,6 +17,7 @@ version = "0.1.0"
 dependencies = [
  "schemars",
  "serde",
+ "serde_json",
  "thiserror",
  "toml",
 ]
@@ -63,6 +64,7 @@ dependencies = [
  "abp-dialect",
  "abp-error",
  "abp-glob",
+ "abp-ir",
  "abp-policy",
  "abp-protocol",
  "abp-receipt",
@@ -81,6 +83,16 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "globset",
+]
+
+[[package]]
+name = "abp-ir"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "abp-sdk-types",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -120,6 +132,16 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "abp-sdk-types"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
  "uuid",
 ]
 
@@ -763,6 +785,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

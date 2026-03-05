@@ -4,7 +4,8 @@
 //! All types derive `Serialize`, `Deserialize`, and `JsonSchema` for
 //! deterministic wire-format compatibility and automatic OpenAPI documentation.
 
-use abp_core::{Receipt, WorkOrder};
+use abp_core::{Receipt, WorkOrder, ir::IrConversation};
+use abp_dialect::Dialect;
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -184,6 +185,59 @@ impl ErrorBody {
     pub fn internal(message: impl Into<String>) -> Self {
         Self::new("internal_error", message)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Translate
+// ---------------------------------------------------------------------------
+
+/// Request body for `POST /v1/translate`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranslateRequest {
+    /// Source dialect (e.g. `"openai"`, `"claude"`).
+    pub from: Dialect,
+    /// Target dialect.
+    pub to: Dialect,
+    /// The IR conversation to translate.
+    pub conversation: IrConversation,
+}
+
+/// Response body for `POST /v1/translate`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranslateResponse {
+    /// The translated IR conversation.
+    pub conversation: IrConversation,
+    /// Source dialect.
+    pub from: Dialect,
+    /// Target dialect.
+    pub to: Dialect,
+    /// Translation classification.
+    pub mode: String,
+    /// Detected capability gaps (non-fatal warnings).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gaps: Vec<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Receipts list
+// ---------------------------------------------------------------------------
+
+/// Response body for `GET /v1/receipts`.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ReceiptsListResponse {
+    /// Stored receipt summaries.
+    pub receipts: Vec<ReceiptSummary>,
+}
+
+/// Summary of a stored receipt.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ReceiptSummary {
+    /// Run identifier.
+    pub run_id: Uuid,
+    /// Backend that produced the receipt.
+    pub backend: String,
+    /// Outcome of the run.
+    pub outcome: String,
 }
 
 // ---------------------------------------------------------------------------

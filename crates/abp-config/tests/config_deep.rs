@@ -48,12 +48,12 @@ use std::io::Write;
 use std::path::Path;
 
 use abp_config::validate::{
-    diff_configs, from_env_overrides, ConfigChange, ConfigMerger, ConfigValidationResult,
-    ConfigValidator, IssueSeverity, Severity, ValidationIssue,
+    ConfigChange, ConfigMerger, ConfigValidationResult, ConfigValidator, IssueSeverity, Severity,
+    ValidationIssue, diff_configs, from_env_overrides,
 };
 use abp_config::{
-    apply_env_overrides, load_config, load_from_file, load_from_str, merge_configs, parse_toml,
-    validate_config, BackendEntry, BackplaneConfig, ConfigError, ConfigWarning,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
+    load_from_file, load_from_str, merge_configs, parse_toml, validate_config,
 };
 
 // ===========================================================================
@@ -524,9 +524,11 @@ fn validation_empty_sidecar_command() {
     let err = validate_config(&cfg).unwrap_err();
     match err {
         ConfigError::ValidationError { reasons } => {
-            assert!(reasons
-                .iter()
-                .any(|r| r.contains("command must not be empty")));
+            assert!(
+                reasons
+                    .iter()
+                    .any(|r| r.contains("command must not be empty"))
+            );
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -590,9 +592,11 @@ fn validation_timeout_at_max_is_ok() {
     );
     // 86400 > 3600, so it produces a warning but no error
     let warnings = validate_config(&cfg).unwrap();
-    assert!(warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+    );
 }
 
 #[test]
@@ -631,9 +635,11 @@ fn validation_empty_policy_profile_path() {
     let err = validate_config(&cfg).unwrap_err();
     match err {
         ConfigError::ValidationError { reasons } => {
-            assert!(reasons
-                .iter()
-                .any(|r| r.contains("policy profile path must not be empty")));
+            assert!(
+                reasons
+                    .iter()
+                    .any(|r| r.contains("policy profile path must not be empty"))
+            );
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -849,9 +855,11 @@ fn timeout_at_threshold_no_warning() {
         },
     );
     let warnings = validate_config(&cfg).unwrap();
-    assert!(!warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
+    assert!(
+        !warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+    );
 }
 
 // ===========================================================================
@@ -1535,10 +1543,12 @@ fn config_validator_check_warns_unmatched_default_backend() {
     let mut cfg = full_config();
     cfg.default_backend = Some("nonexistent".into());
     let result = ConfigValidator::check(&cfg);
-    assert!(result
-        .warnings
-        .iter()
-        .any(|w| w.message.contains("nonexistent")));
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|w| w.message.contains("nonexistent"))
+    );
     assert!(!result.suggestions.is_empty());
 }
 
@@ -1597,9 +1607,11 @@ fn diff_detects_backend_removed() {
     a.backends.insert("mock".into(), BackendEntry::Mock {});
     let b = BackplaneConfig::default();
     let diffs = diff_configs(&a, &b);
-    assert!(diffs
-        .iter()
-        .any(|d| d.path == "backends.mock" && d.new_value.contains("absent")));
+    assert!(
+        diffs
+            .iter()
+            .any(|d| d.path == "backends.mock" && d.new_value.contains("absent"))
+    );
 }
 
 #[test]

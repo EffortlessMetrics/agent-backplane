@@ -36,8 +36,8 @@
 
 use std::collections::BTreeMap;
 
-use abp_core::{BackendIdentity, CapabilityManifest, CONTRACT_VERSION};
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionError, VersionRange};
+use abp_core::{BackendIdentity, CONTRACT_VERSION, CapabilityManifest};
+use abp_protocol::version::{ProtocolVersion, VersionError, VersionRange, negotiate_version};
 use abp_protocol::{Envelope, JsonlCodec};
 
 // ═══════════════════════════════════════════════════════════════════════════

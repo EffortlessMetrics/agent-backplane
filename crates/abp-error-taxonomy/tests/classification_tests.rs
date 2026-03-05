@@ -31,11 +31,11 @@
 //! Validates severity mapping, category assignment, recovery suggestions,
 //! serialisation round-trips, and exhaustive coverage of all error codes.
 
+use abp_error_taxonomy::ErrorCode;
 use abp_error_taxonomy::classification::{
     ClassificationCategory, ErrorClassification, ErrorClassifier, ErrorSeverity, RecoveryAction,
     RecoverySuggestion,
 };
-use abp_error_taxonomy::ErrorCode;
 
 // =========================================================================
 // Helpers

@@ -11,8 +11,8 @@
 //! emulated capability would be fulfilled.
 
 use crate::{
-    check_capability, default_emulation_strategy, negotiate_capabilities, EmulationStrategy,
-    NegotiationResult, SupportLevel,
+    EmulationStrategy, NegotiationResult, SupportLevel, check_capability,
+    default_emulation_strategy, negotiate_capabilities,
 };
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
 use serde::{Deserialize, Serialize};
@@ -492,7 +492,7 @@ impl CapabilityNegotiator {
     ///   (capability is lost).
     #[must_use]
     pub fn negotiate(&self) -> DetailedNegotiationResult {
-        use crate::{classify_transition, default_emulation_strategy, TransitionKind};
+        use crate::{TransitionKind, classify_transition, default_emulation_strategy};
         use abp_core::SupportLevel as CoreSupportLevel;
 
         let mut native = Vec::new();

@@ -8,10 +8,10 @@
 //! Comprehensive test suite for the `abp-openai-sdk` crate.
 
 use abp_core::{
-    ir::{IrContentBlock, IrConversation, IrMessage, IrRole},
     AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ContextPacket,
     ContextSnippet, ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel, UsageNormalized,
     VerificationReport, WorkOrder, WorkOrderBuilder,
+    ir::{IrContentBlock, IrConversation, IrMessage, IrRole},
 };
 use abp_openai_sdk::api::{
     AssistantMessage, ChatCompletionRequest, ChatCompletionResponse, Choice, Delta, FinishReason,
@@ -575,11 +575,13 @@ fn map_work_order_creates_user_message() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0]
-        .content
-        .as_deref()
-        .unwrap()
-        .contains("Fix the bug"));
+    assert!(
+        req.messages[0]
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Fix the bug")
+    );
 }
 
 #[test]

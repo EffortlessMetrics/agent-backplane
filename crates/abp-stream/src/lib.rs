@@ -27,15 +27,17 @@ pub mod transform;
 
 pub use aggregate::{StreamAggregator, StreamSummary, ToolCallAggregate};
 pub use backpressure::{BackpressurePolicy, BackpressuredSender, SendOutcome};
-pub use buffer::{BufferFullError, EventBuffer, RingBuffer, StreamBuffer};
+pub use buffer::{
+    BufferFullError, EventBuffer, FlushStrategy, FlushableBuffer, RingBuffer, StreamBuffer,
+};
 pub use buffered::BufferedStream;
 pub use collector::EventCollector;
 pub use demux::StreamDemux;
 pub use fanout::FanOut;
 pub use merged::MergedStream;
-pub use metrics::{MetricsSummary, StreamMetrics};
+pub use metrics::{MetricsSummary, PerStreamMetrics, StreamMetrics};
 pub use mux::StreamMultiplexer;
-pub use replay::{ReplayBuffer, ReplaySubscription};
+pub use replay::{ReplayBuffer, ReplaySubscription, StreamRecorder, TimedEvent};
 pub use tee::{StreamTee, TeeError};
 pub use timeout::{StreamTimeout, TimeoutItem, TimeoutStream};
 pub use transform::{BatchStream, FilterStream, MapStream, TakeUntilStream, ThrottleStream};
@@ -92,6 +94,27 @@ impl EventFilter {
         Self::new(move |ev| {
             let name = event_kind_name(&ev.kind);
             names.contains(&name)
+        })
+    }
+
+    /// Filter for error and warning events (i.e. severity-based).
+    pub fn severity_errors_and_warnings() -> Self {
+        Self::new(|ev| {
+            matches!(
+                ev.kind,
+                AgentEventKind::Error { .. } | AgentEventKind::Warning { .. }
+            )
+        })
+    }
+
+    /// Filter events whose assistant text contains the given substring.
+    pub fn text_contains(needle: &str) -> Self {
+        let needle = needle.to_string();
+        Self::new(move |ev| match &ev.kind {
+            AgentEventKind::AssistantDelta { text } | AgentEventKind::AssistantMessage { text } => {
+                text.contains(&needle)
+            }
+            _ => false,
         })
     }
 
@@ -197,6 +220,19 @@ impl EventTransform {
         Self {
             transform: Arc::new(move |ev| b(a(ev))),
         }
+    }
+
+    /// Redact text in `AssistantDelta` and `AssistantMessage` events by
+    /// replacing occurrences of `needle` with `replacement`.
+    pub fn redact_text(needle: impl Into<String>, replacement: impl Into<String>) -> Self {
+        let needle = needle.into();
+        let replacement = replacement.into();
+        Self::map_text(move |s| s.replace(&needle, &replacement))
+    }
+
+    /// Enrich every event with a `stream_id` metadata field.
+    pub fn enrich_with_stream_id(stream_id: impl Into<String>) -> Self {
+        Self::add_metadata("stream_id", serde_json::Value::String(stream_id.into()))
     }
 
     /// Apply the transform to an event.

@@ -30,8 +30,8 @@
 //! Deep tests for [`ReceiptStore`] — chain verification, concurrency, and edge cases.
 
 use abp_core::{
-    BackendIdentity, ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized,
-    VerificationReport, CONTRACT_VERSION,
+    BackendIdentity, CONTRACT_VERSION, ExecutionMode, Outcome, Receipt, RunMetadata,
+    UsageNormalized, VerificationReport,
 };
 use abp_runtime::store::ReceiptStore;
 use chrono::{TimeZone, Utc};

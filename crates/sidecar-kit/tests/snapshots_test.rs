@@ -30,7 +30,7 @@
 //! Snapshot tests for `sidecar-kit` types.
 
 use insta::{assert_json_snapshot, assert_snapshot};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::{Frame, ProcessSpec, SidecarError};
 
 // ── SidecarError Display snapshots ──────────────────────────────────────

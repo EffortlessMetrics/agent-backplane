@@ -265,3 +265,23 @@ doc = false
 name = "fuzz_mapper_roundtrip"
 path = "fuzz_targets/fuzz_mapper_roundtrip.rs"
 doc = false
+
+[[bin]]
+name = "fuzz_work_order_deserialize"
+path = "fuzz_targets/fuzz_work_order_deserialize.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_receipt_deserialize"
+path = "fuzz_targets/fuzz_receipt_deserialize.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy_evaluate"
+path = "fuzz_targets/fuzz_policy_evaluate.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_ir_translate"
+path = "fuzz_targets/fuzz_ir_translate.rs"
+doc = false

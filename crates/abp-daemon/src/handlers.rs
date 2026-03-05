@@ -7,12 +7,16 @@
 
 use crate::models::{
     BackendInfo, BackendsListResponse, CancelResponse, ErrorBody, HealthResponse, ReceiptResponse,
-    RunRequest, RunResponse, RunStatusKind, StatusResponse,
+    ReceiptSummary, ReceiptsListResponse, RunRequest, RunResponse, RunStatusKind, StatusResponse,
+    TranslateRequest, TranslateResponse,
 };
+use crate::sse;
 use crate::state::{RunPhase, ServerState};
+use axum::Json;
 use axum::extract::{Path as AxPath, State};
 use axum::http::StatusCode;
-use axum::Json;
+use axum::response::sse::{Event as SseEvent, Sse};
+use std::convert::Infallible;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -208,6 +212,117 @@ pub async fn cancel_handler(
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorBody::internal(e.to_string())),
+        )),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// GET /v1/run/:id/events — SSE event stream
+// ---------------------------------------------------------------------------
+
+/// Return an SSE stream of events for a run.
+///
+/// Replays all collected events for the run as SSE messages. For live runs a
+/// production implementation would hold open the connection; this replays the
+/// snapshot.
+pub async fn events_handler(
+    AxPath(run_id): AxPath<Uuid>,
+    State(state): State<Arc<ServerState>>,
+) -> Result<
+    Sse<impl tokio_stream::Stream<Item = Result<SseEvent, Infallible>>>,
+    (StatusCode, Json<ErrorBody>),
+> {
+    match state.registry.events(run_id).await {
+        Ok(events) => Ok(sse::replay_event_stream(events)),
+        Err(_) => Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorBody::not_found(format!("run {run_id} not found"))),
+        )),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// POST /v1/translate — translate between dialects
+// ---------------------------------------------------------------------------
+
+/// Translate an IR conversation between agent dialects.
+pub async fn translate_handler(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<TranslateRequest>,
+) -> Result<Json<TranslateResponse>, (StatusCode, Json<ErrorBody>)> {
+    let engine = state.translation_engine();
+    if !engine.supports(req.from, req.to) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorBody::bad_request(format!(
+                "translation from {:?} to {:?} is not supported",
+                req.from, req.to
+            ))),
+        ));
+    }
+
+    match engine.translate(req.from, req.to, &req.conversation) {
+        Ok(result) => Ok(Json(TranslateResponse {
+            conversation: result.conversation,
+            from: result.from,
+            to: result.to,
+            mode: format!("{:?}", result.mode),
+            gaps: result.gaps.iter().map(|g| g.description.clone()).collect(),
+        })),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorBody::internal(e.to_string())),
+        )),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// GET /v1/receipts — list stored receipts
+// ---------------------------------------------------------------------------
+
+/// List receipt summaries from the registry.
+pub async fn receipts_list_handler(
+    State(state): State<Arc<ServerState>>,
+) -> Json<ReceiptsListResponse> {
+    let all = state.registry.list_all().await;
+    let receipts = all
+        .iter()
+        .filter_map(|r| {
+            r.receipt.as_ref().map(|receipt| ReceiptSummary {
+                run_id: r.id,
+                backend: r.backend.clone(),
+                outcome: format!("{:?}", receipt.outcome),
+            })
+        })
+        .collect();
+    Json(ReceiptsListResponse { receipts })
+}
+
+// ---------------------------------------------------------------------------
+// GET /v1/receipts/:id — get specific receipt
+// ---------------------------------------------------------------------------
+
+/// Get a specific receipt by run ID.
+pub async fn receipt_by_id_handler(
+    AxPath(run_id): AxPath<Uuid>,
+    State(state): State<Arc<ServerState>>,
+) -> Result<Json<ReceiptResponse>, (StatusCode, Json<ErrorBody>)> {
+    match state.registry.get(run_id).await {
+        Some(record) => match record.receipt {
+            Some(receipt) => Ok(Json(ReceiptResponse {
+                run_id: record.id,
+                receipt,
+            })),
+            None => Err((
+                StatusCode::NOT_FOUND,
+                Json(ErrorBody::not_found(format!(
+                    "run {run_id} has no receipt yet"
+                ))),
+            )),
+        },
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorBody::not_found(format!("run {run_id} not found"))),
         )),
     }
 }

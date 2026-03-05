@@ -30,12 +30,12 @@
 //! Exhaustive tests for all public core types in `abp-core`.
 
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
-    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-    ContextPacket, ContextSnippet, ContractError, ExecutionLane, ExecutionMode, MinSupport,
-    Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ContractError, ExecutionLane, ExecutionMode, MinSupport, Outcome,
+    PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel,
     UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    canonical_json, receipt_hash, sha256_hex,
 };
 use chrono::Utc;
 use serde_json::json;

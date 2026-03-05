@@ -30,12 +30,12 @@
 //! Tests for the retry / recovery layer in `abp_host::retry`.
 
 use abp_host::retry::{
-    compute_delay, is_retryable, retry_async, spawn_with_retry, RetryConfig, RetryMetadata,
+    RetryConfig, RetryMetadata, compute_delay, is_retryable, retry_async, spawn_with_retry,
 };
 use abp_host::{HostError, SidecarSpec};
 use abp_protocol::ProtocolError;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 // ---------------------------------------------------------------------------

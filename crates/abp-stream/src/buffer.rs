@@ -77,6 +77,100 @@ impl StreamBuffer {
 }
 
 // ---------------------------------------------------------------------------
+// FlushStrategy — configurable flush triggers
+// ---------------------------------------------------------------------------
+
+/// Strategy that determines when a [`FlushableBuffer`] should be flushed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlushStrategy {
+    /// Flush when the buffer reaches the given count.
+    WhenFull,
+    /// Flush when at least `threshold` events have accumulated.
+    AtThreshold(usize),
+}
+
+/// A buffer that accumulates events and flushes them according to a
+/// [`FlushStrategy`].
+#[derive(Debug, Clone)]
+pub struct FlushableBuffer {
+    events: Vec<AgentEvent>,
+    capacity: usize,
+    strategy: FlushStrategy,
+}
+
+impl FlushableBuffer {
+    /// Create a new buffer with the given capacity and flush strategy.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `capacity` is zero, or if an `AtThreshold` value exceeds
+    /// `capacity`.
+    #[must_use]
+    pub fn new(capacity: usize, strategy: FlushStrategy) -> Self {
+        assert!(capacity > 0, "FlushableBuffer capacity must be > 0");
+        if let FlushStrategy::AtThreshold(t) = strategy {
+            assert!(t > 0 && t <= capacity, "threshold must be in 1..=capacity");
+        }
+        Self {
+            events: Vec::with_capacity(capacity),
+            capacity,
+            strategy,
+        }
+    }
+
+    /// Push an event. Returns `true` if the buffer should be flushed now
+    /// according to the configured strategy.
+    pub fn push(&mut self, event: AgentEvent) -> bool {
+        if self.events.len() < self.capacity {
+            self.events.push(event);
+        } else {
+            // At capacity — evict oldest
+            self.events.remove(0);
+            self.events.push(event);
+        }
+        self.should_flush()
+    }
+
+    /// Check whether the flush condition is met.
+    #[must_use]
+    pub fn should_flush(&self) -> bool {
+        match self.strategy {
+            FlushStrategy::WhenFull => self.events.len() == self.capacity,
+            FlushStrategy::AtThreshold(t) => self.events.len() >= t,
+        }
+    }
+
+    /// Drain all events, returning them in insertion order.
+    pub fn flush(&mut self) -> Vec<AgentEvent> {
+        std::mem::take(&mut self.events)
+    }
+
+    /// Number of buffered events.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.events.len()
+    }
+
+    /// Whether the buffer is empty.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.events.is_empty()
+    }
+
+    /// Maximum capacity.
+    #[must_use]
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// The active flush strategy.
+    #[must_use]
+    pub fn strategy(&self) -> FlushStrategy {
+        self.strategy
+    }
+}
+
+// ---------------------------------------------------------------------------
 // EventBuffer — error on full
 // ---------------------------------------------------------------------------
 

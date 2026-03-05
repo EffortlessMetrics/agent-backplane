@@ -982,10 +982,11 @@ mod tests {
             "messages": [{"role": "user", "content": "hi"}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path == "model" && e.code == ParseErrorCode::MissingField));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.field_path == "model" && e.code == ParseErrorCode::MissingField)
+        );
     }
 
     #[test]
@@ -1002,10 +1003,11 @@ mod tests {
             "messages": []
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.code == ParseErrorCode::EmptyArray));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.code == ParseErrorCode::EmptyArray)
+        );
     }
 
     #[test]
@@ -1015,10 +1017,11 @@ mod tests {
             "messages": [{"role": "narrator", "content": "hi"}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.code == ParseErrorCode::InvalidEnumValue));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.code == ParseErrorCode::InvalidEnumValue)
+        );
     }
 
     #[test]
@@ -1070,10 +1073,11 @@ mod tests {
             "tools": [{"type": "function", "function": {}}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path.contains("function.name")));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.field_path.contains("function.name"))
+        );
     }
 
     #[test]
@@ -1112,10 +1116,11 @@ mod tests {
             "messages": [{"role": "user", "content": "hi"}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path == "model" && e.code == ParseErrorCode::InvalidType));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.field_path == "model" && e.code == ParseErrorCode::InvalidType)
+        );
     }
 
     #[test]
@@ -1135,10 +1140,11 @@ mod tests {
             "messages": "not an array"
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path == "messages" && e.code == ParseErrorCode::InvalidType));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.field_path == "messages" && e.code == ParseErrorCode::InvalidType)
+        );
     }
 
     #[test]
@@ -1193,10 +1199,11 @@ mod tests {
             "messages": [{"role": "user", "content": "hi"}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path == "max_tokens" && e.code == ParseErrorCode::InvalidType));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.field_path == "max_tokens" && e.code == ParseErrorCode::InvalidType)
+        );
     }
 
     #[test]
@@ -1207,10 +1214,11 @@ mod tests {
             "messages": [{"role": "system", "content": "hi"}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.code == ParseErrorCode::InvalidEnumValue));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.code == ParseErrorCode::InvalidEnumValue)
+        );
     }
 
     #[test]
@@ -1231,10 +1239,11 @@ mod tests {
             "messages": [{"role": "user", "content": [{"text": "hi"}]}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path.contains("content[0].type")));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.field_path.contains("content[0].type"))
+        );
     }
 
     #[test]
@@ -1303,10 +1312,11 @@ mod tests {
             "tools": [{"name": "search"}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path.contains("input_schema")));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.field_path.contains("input_schema"))
+        );
     }
 
     #[test]
@@ -1361,10 +1371,11 @@ mod tests {
             "contents": []
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.code == ParseErrorCode::EmptyArray));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.code == ParseErrorCode::EmptyArray)
+        );
     }
 
     #[test]
@@ -1384,10 +1395,11 @@ mod tests {
             "contents": [{"parts": []}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path == "contents[0].parts" && e.code == ParseErrorCode::EmptyArray));
+        assert!(
+            r.errors.iter().any(
+                |e| e.field_path == "contents[0].parts" && e.code == ParseErrorCode::EmptyArray
+            )
+        );
     }
 
     #[test]
@@ -1397,10 +1409,11 @@ mod tests {
             "contents": [{"role": "system", "parts": [{"text": "hi"}]}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.code == ParseErrorCode::InvalidEnumValue));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.code == ParseErrorCode::InvalidEnumValue)
+        );
     }
 
     #[test]
@@ -1442,10 +1455,11 @@ mod tests {
             "tools": [{"functionDeclarations": [{"description": "no name"}]}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path.contains("functionDeclarations")));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.field_path.contains("functionDeclarations"))
+        );
     }
 
     #[test]
@@ -1465,10 +1479,12 @@ mod tests {
             "contents": [{"parts": "bad"}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path == "contents[0].parts" && e.code == ParseErrorCode::InvalidType));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.field_path == "contents[0].parts"
+                    && e.code == ParseErrorCode::InvalidType)
+        );
     }
 
     #[test]
@@ -1523,10 +1539,11 @@ mod tests {
             "input": []
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.code == ParseErrorCode::EmptyArray));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.code == ParseErrorCode::EmptyArray)
+        );
     }
 
     #[test]
@@ -1536,10 +1553,11 @@ mod tests {
             "input": 42
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.field_path == "input" && e.code == ParseErrorCode::InvalidType));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.field_path == "input" && e.code == ParseErrorCode::InvalidType)
+        );
     }
 
     #[test]
@@ -1549,10 +1567,11 @@ mod tests {
             "input": [{"role": "narrator", "content": "hi"}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.code == ParseErrorCode::InvalidEnumValue));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.code == ParseErrorCode::InvalidEnumValue)
+        );
     }
 
     #[test]
@@ -1620,10 +1639,11 @@ mod tests {
             "messages": [{"role": "tool", "content": "hi"}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.code == ParseErrorCode::InvalidEnumValue));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.code == ParseErrorCode::InvalidEnumValue)
+        );
     }
 
     #[test]
@@ -1709,10 +1729,11 @@ mod tests {
             "messages": [{"role": "function", "content": "hi"}]
         }));
         assert!(!r.is_ok());
-        assert!(r
-            .errors
-            .iter()
-            .any(|e| e.code == ParseErrorCode::InvalidEnumValue));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.code == ParseErrorCode::InvalidEnumValue)
+        );
     }
 
     #[test]

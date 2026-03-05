@@ -5,7 +5,7 @@ use abp_backend_core::health::{BackendHealth, HealthStatus};
 use abp_backend_core::metadata::BackendMetadata;
 use abp_backend_core::metrics::BackendMetrics;
 use abp_backend_core::registry::BackendRegistry;
-use abp_backend_core::selection::{select_backend, SelectionStrategy};
+use abp_backend_core::selection::{SelectionStrategy, select_backend};
 
 fn sample_metadata(name: &str, dialect: &str) -> BackendMetadata {
     BackendMetadata {

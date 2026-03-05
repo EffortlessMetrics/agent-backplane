@@ -44,9 +44,9 @@ use abp_core::ir::{IrRole, IrUsage};
 use abp_core::{AgentEvent, AgentEventKind, Capability, UsageNormalized, WorkOrderBuilder};
 use abp_shim_copilot::client::{Client, ClientError};
 use abp_shim_copilot::{
-    events_to_stream_events, ir_to_messages, ir_usage_to_tuple, messages_to_ir, mock_receipt,
-    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
-    response_to_ir, CopilotClient, CopilotRequestBuilder, Message, ShimError,
+    CopilotClient, CopilotRequestBuilder, Message, ShimError, events_to_stream_events,
+    ir_to_messages, ir_usage_to_tuple, messages_to_ir, mock_receipt, mock_receipt_with_usage,
+    receipt_to_response, request_to_ir, request_to_work_order, response_to_ir,
 };
 use chrono::Utc;
 use serde_json::json;

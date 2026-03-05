@@ -39,9 +39,9 @@ use abp_kimi_sdk::dialect::{
     KimiResponseMessage, KimiRole, KimiTool, KimiToolCall, KimiUsage, ToolCallAccumulator,
 };
 use abp_shim_kimi::{
-    events_to_stream_chunks, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
-    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order, KimiClient,
-    KimiRequestBuilder, Message, ProcessFn, ShimError,
+    KimiClient, KimiRequestBuilder, Message, ProcessFn, ShimError, events_to_stream_chunks,
+    ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt, mock_receipt_with_usage,
+    receipt_to_response, request_to_ir, request_to_work_order,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -1269,11 +1269,13 @@ fn t79_dialect_map_work_order() {
     let cfg = KimiConfig::default();
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.model, "moonshot-v1-8k");
-    assert!(req.messages[0]
-        .content
-        .as_deref()
-        .unwrap()
-        .contains("Summarize this article"));
+    assert!(
+        req.messages[0]
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Summarize this article")
+    );
 }
 
 // ── 80. map_response from dialect ───────────────────────────────────────

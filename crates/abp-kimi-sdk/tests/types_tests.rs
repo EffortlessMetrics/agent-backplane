@@ -30,7 +30,7 @@
 //! Tests for the Kimi API types.
 
 use abp_kimi_sdk::types::*;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ── Helper builders ─────────────────────────────────────────────────────
 

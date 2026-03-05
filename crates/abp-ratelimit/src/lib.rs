@@ -38,6 +38,7 @@ mod circuit_breaker;
 mod metrics;
 mod per_model;
 mod policy;
+mod quota;
 mod sliding_window;
 mod token_bucket;
 
@@ -46,6 +47,7 @@ pub use backend_limiter::{BackendRateLimiter, RateLimitError, RatePermit};
 pub use circuit_breaker::{CircuitBreaker, CircuitBreakerError, CircuitState};
 pub use metrics::{MetricsSnapshot, RateLimitMetrics};
 pub use per_model::{ModelLimitResult, ModelRateLimiter};
-pub use policy::{RateLimitConfig, RateLimitPolicy};
+pub use policy::{FallbackStrategy, RateLimitChain, RateLimitConfig, RateLimitPolicy};
+pub use quota::{QuotaLimit, QuotaManager, QuotaResult};
 pub use sliding_window::SlidingWindowCounter;
 pub use token_bucket::TokenBucket;

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use crate::health::{BackendHealth, HealthStatus};
 use crate::metadata::BackendMetadata;
 use crate::metrics::BackendMetrics;
-use crate::selection::{select_backend, SelectionStrategy};
+use crate::selection::{SelectionStrategy, select_backend};
 
 /// A registry that tracks [`BackendMetadata`], [`BackendHealth`], and
 /// [`BackendMetrics`] by name.

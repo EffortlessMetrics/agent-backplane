@@ -194,3 +194,78 @@ impl Default for StreamMetrics {
         Self::new()
     }
 }
+
+// ---------------------------------------------------------------------------
+// PerStreamMetrics — track metrics per named stream
+// ---------------------------------------------------------------------------
+
+/// Tracks metrics independently for multiple named streams plus aggregate
+/// backpressure counters.
+#[derive(Debug, Default)]
+pub struct PerStreamMetrics {
+    streams: std::collections::BTreeMap<String, StreamMetrics>,
+    backpressure_drops: u64,
+    backpressure_blocks: u64,
+}
+
+impl PerStreamMetrics {
+    /// Create a new empty per-stream tracker.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record an event for the given stream name.
+    pub fn record(&mut self, stream_name: &str, event: &AgentEvent) {
+        self.streams
+            .entry(stream_name.to_string())
+            .or_default()
+            .record_event(event);
+    }
+
+    /// Record a backpressure drop (event lost due to full channel).
+    pub fn record_drop(&mut self) {
+        self.backpressure_drops += 1;
+    }
+
+    /// Record a backpressure block (sender had to wait).
+    pub fn record_block(&mut self) {
+        self.backpressure_blocks += 1;
+    }
+
+    /// Metrics for a specific stream.
+    #[must_use]
+    pub fn get(&self, stream_name: &str) -> Option<&StreamMetrics> {
+        self.streams.get(stream_name)
+    }
+
+    /// Total events across all streams.
+    #[must_use]
+    pub fn total_events(&self) -> u64 {
+        self.streams.values().map(|m| m.event_count()).sum()
+    }
+
+    /// Names of all tracked streams.
+    #[must_use]
+    pub fn stream_names(&self) -> Vec<&str> {
+        self.streams.keys().map(|s| s.as_str()).collect()
+    }
+
+    /// Number of tracked streams.
+    #[must_use]
+    pub fn stream_count(&self) -> usize {
+        self.streams.len()
+    }
+
+    /// Total backpressure drops across all streams.
+    #[must_use]
+    pub fn backpressure_drops(&self) -> u64 {
+        self.backpressure_drops
+    }
+
+    /// Total backpressure blocks across all streams.
+    #[must_use]
+    pub fn backpressure_blocks(&self) -> u64 {
+        self.backpressure_blocks
+    }
+}

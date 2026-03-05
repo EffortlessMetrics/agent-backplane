@@ -37,7 +37,7 @@ use abp_core::{
     CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, Receipt, RuntimeConfig,
     WorkOrder, WorkspaceMode, WorkspaceSpec,
 };
-use abp_daemon::{build_app, AppState, RunMetrics, RunRequest, RunResponse, RunTracker};
+use abp_daemon::{AppState, RunMetrics, RunRequest, RunResponse, RunTracker, build_app};
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;
 use axum::body::Body;

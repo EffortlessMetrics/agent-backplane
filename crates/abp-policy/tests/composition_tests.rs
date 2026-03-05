@@ -134,11 +134,13 @@ fn single_allow_list_restricts_to_only_listed_items() {
 
     let denied = engine.can_use_tool("Bash");
     assert!(!denied.allowed);
-    assert!(denied
-        .reason
-        .as_deref()
-        .unwrap()
-        .contains("not in allowlist"));
+    assert!(
+        denied
+            .reason
+            .as_deref()
+            .unwrap()
+            .contains("not in allowlist")
+    );
 
     let denied2 = engine.can_use_tool("Write");
     assert!(!denied2.allowed);
@@ -577,9 +579,11 @@ fn edge_policy_validation_comprehensive() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&overlapping);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
+    );
 
     // Wildcard deny makes specific allows unreachable
     let unreachable = PolicyProfile {

@@ -3,8 +3,8 @@
 
 use std::time::Duration;
 
-use abp_core::{BackendIdentity, CapabilityManifest, ExecutionMode, CONTRACT_VERSION};
-use abp_protocol::{is_compatible_version, Envelope, JsonlCodec, ProtocolError};
+use abp_core::{BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version};
 use thiserror::Error;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 

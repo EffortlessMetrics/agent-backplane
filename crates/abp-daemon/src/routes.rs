@@ -158,9 +158,24 @@ pub fn api_routes() -> Vec<Route> {
             description: "List backends".into(),
         },
         Route {
+            method: "POST".into(),
+            path: "/api/v1/translate".into(),
+            description: "Translate between dialects".into(),
+        },
+        Route {
             method: "GET".into(),
             path: "/api/v1/health".into(),
             description: "Health check".into(),
+        },
+        Route {
+            method: "GET".into(),
+            path: "/api/v1/receipts".into(),
+            description: "Query stored receipts".into(),
+        },
+        Route {
+            method: "GET".into(),
+            path: "/api/v1/receipts/{id}".into(),
+            description: "Get specific receipt".into(),
         },
     ]
 }
@@ -217,6 +232,15 @@ pub enum Endpoint {
     /// `DELETE /api/v1/runs/:id`
     DeleteRun {
         /// The run identifier extracted from the path.
+        run_id: String,
+    },
+    /// `POST /api/v1/translate`
+    Translate,
+    /// `GET /api/v1/receipts`
+    ListReceipts,
+    /// `GET /api/v1/receipts/:id`
+    GetReceipt {
+        /// The run identifier for the receipt.
         run_id: String,
     },
 }
@@ -299,6 +323,29 @@ impl RouteTable {
                     MatchResult::MethodNotAllowed
                 }
             }
+            ["translate"] => {
+                if method == Method::Post {
+                    MatchResult::Matched(Endpoint::Translate)
+                } else {
+                    MatchResult::MethodNotAllowed
+                }
+            }
+            ["receipts"] => {
+                if method == Method::Get {
+                    MatchResult::Matched(Endpoint::ListReceipts)
+                } else {
+                    MatchResult::MethodNotAllowed
+                }
+            }
+            ["receipts", id] => {
+                if method == Method::Get {
+                    MatchResult::Matched(Endpoint::GetReceipt {
+                        run_id: (*id).to_string(),
+                    })
+                } else {
+                    MatchResult::MethodNotAllowed
+                }
+            }
             _ => MatchResult::NotFound,
         }
     }
@@ -330,22 +377,31 @@ pub trait ReceiptHandler: Send + Sync {
 /// Build an Axum `Router` for the `/v1` daemon HTTP API endpoints.
 ///
 /// Routes:
-/// - `POST /v1/run`         — submit work order
-/// - `GET  /v1/status/:id`  — check run status
-/// - `GET  /v1/receipt/:id` — get receipt
-/// - `GET  /v1/backends`    — list backends
-/// - `GET  /v1/health`      — health check
-/// - `POST /v1/cancel/:id`  — cancel run
+/// - `POST /v1/run`              — submit work order, get run ID
+/// - `GET  /v1/run/{id}`         — get run status and receipt
+/// - `GET  /v1/run/{id}/events`  — SSE stream of agent events
+/// - `GET  /v1/backends`         — list available backends and health
+/// - `POST /v1/translate`        — translate between dialects
+/// - `GET  /v1/health`           — overall system health
+/// - `GET  /v1/receipts`         — query stored receipts
+/// - `GET  /v1/receipts/{id}`    — get specific receipt
+/// - `POST /v1/cancel/{id}`      — cancel run
 pub fn v1_routes(state: std::sync::Arc<crate::state::ServerState>) -> axum::Router {
     use crate::handlers;
     use axum::routing::{get, post};
 
     axum::Router::new()
         .route("/v1/run", post(handlers::run_handler))
-        .route("/v1/status/{run_id}", get(handlers::status_handler))
-        .route("/v1/receipt/{run_id}", get(handlers::receipt_handler))
+        .route("/v1/run/{run_id}", get(handlers::status_handler))
+        .route("/v1/run/{run_id}/events", get(handlers::events_handler))
         .route("/v1/backends", get(handlers::backends_handler))
+        .route("/v1/translate", post(handlers::translate_handler))
         .route("/v1/health", get(handlers::health_handler))
+        .route("/v1/receipts", get(handlers::receipts_list_handler))
+        .route(
+            "/v1/receipts/{run_id}",
+            get(handlers::receipt_by_id_handler),
+        )
         .route("/v1/cancel/{run_id}", post(handlers::cancel_handler))
         .with_state(state)
 }

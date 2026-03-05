@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use abp_kimi_sdk::dialect::{KimiChunk, KimiRequest, KimiResponse};
 use futures_core::Stream;
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
 
 // ── Error type ──────────────────────────────────────────────────────────
 

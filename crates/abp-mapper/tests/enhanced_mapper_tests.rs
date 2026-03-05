@@ -5,7 +5,7 @@
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
-use abp_mapper::capabilities::{check_feature_support, dialect_capabilities, Support};
+use abp_mapper::capabilities::{Support, check_feature_support, dialect_capabilities};
 use abp_mapper::emulation::{
     emulate_images_as_placeholder, emulate_system_as_user, emulate_thinking_as_text,
     strip_thinking, tool_results_to_user_role, user_tool_results_to_tool_role,
@@ -191,10 +191,12 @@ fn openai_to_claude_preserves_images() {
     let result = mapper
         .map_request(Dialect::OpenAi, Dialect::Claude, &with_image())
         .unwrap();
-    assert!(result.messages[0]
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Image { .. })));
+    assert!(
+        result.messages[0]
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Image { .. }))
+    );
 }
 
 #[test]
@@ -203,10 +205,12 @@ fn openai_to_gemini_preserves_images() {
     let result = mapper
         .map_request(Dialect::OpenAi, Dialect::Gemini, &with_image())
         .unwrap();
-    assert!(result.messages[0]
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Image { .. })));
+    assert!(
+        result.messages[0]
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Image { .. }))
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -222,9 +226,11 @@ fn openai_to_codex_emulates_system_as_user() {
     // System is emulated as [System]-prefixed user message
     assert_eq!(result.messages[0].role, IrRole::User);
     assert!(result.messages[0].text_content().starts_with("[System]"));
-    assert!(result.messages[0]
-        .text_content()
-        .contains("You are helpful."));
+    assert!(
+        result.messages[0]
+            .text_content()
+            .contains("You are helpful.")
+    );
 }
 
 #[test]
@@ -270,12 +276,16 @@ fn codex_to_openai_lossless() {
 fn emulate_thinking_preserves_content() {
     let result = emulate_thinking_as_text(&with_thinking());
     assert_eq!(result.conversation.messages[1].content.len(), 2);
-    assert!(result.conversation.messages[1]
-        .text_content()
-        .contains("[Thinking]"));
-    assert!(result.conversation.messages[1]
-        .text_content()
-        .contains("The answer is 42."));
+    assert!(
+        result.conversation.messages[1]
+            .text_content()
+            .contains("[Thinking]")
+    );
+    assert!(
+        result.conversation.messages[1]
+            .text_content()
+            .contains("The answer is 42.")
+    );
 }
 
 #[test]
@@ -291,9 +301,11 @@ fn strip_thinking_removes_block() {
 fn emulate_system_as_user_converts_role() {
     let result = emulate_system_as_user(&system_user_assistant());
     assert_eq!(result.conversation.messages[0].role, IrRole::User);
-    assert!(result.conversation.messages[0]
-        .text_content()
-        .contains("[System]"));
+    assert!(
+        result.conversation.messages[0]
+            .text_content()
+            .contains("[System]")
+    );
     assert_eq!(result.notes.len(), 1);
 }
 
@@ -302,10 +314,11 @@ fn emulate_images_replaces_with_placeholder() {
     let result = emulate_images_as_placeholder(&with_image());
     let msg = &result.conversation.messages[0];
     assert!(msg.text_content().contains("[Image: image/png]"));
-    assert!(!msg
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Image { .. })));
+    assert!(
+        !msg.content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Image { .. }))
+    );
 }
 
 #[test]
@@ -357,11 +370,13 @@ fn user_tool_results_split_to_tool_role() {
     )]);
     let result = user_tool_results_to_tool_role(&conv);
     assert_eq!(result.conversation.messages.len(), 2);
-    assert!(result
-        .conversation
-        .messages
-        .iter()
-        .all(|m| m.role == IrRole::Tool));
+    assert!(
+        result
+            .conversation
+            .messages
+            .iter()
+            .all(|m| m.role == IrRole::Tool)
+    );
 }
 
 #[test]
@@ -400,20 +415,26 @@ fn chained_emulations_for_codex() {
 
     // System → user
     assert_eq!(r3.conversation.messages[0].role, IrRole::User);
-    assert!(r3.conversation.messages[0]
-        .text_content()
-        .contains("[System]"));
+    assert!(
+        r3.conversation.messages[0]
+            .text_content()
+            .contains("[System]")
+    );
 
     // Image → placeholder
-    assert!(r3.conversation.messages[1]
-        .text_content()
-        .contains("[Image:"));
+    assert!(
+        r3.conversation.messages[1]
+            .text_content()
+            .contains("[Image:")
+    );
 
     // Thinking → stripped
-    assert!(!r3.conversation.messages[2]
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
+    assert!(
+        !r3.conversation.messages[2]
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
+    );
 
     // Total emulation notes
     let total_notes = r1.notes.len() + r2.notes.len() + r3.notes.len();
@@ -469,10 +490,12 @@ fn validate_thinking_for_openai_target() {
     let caps = dialect_capabilities(Dialect::OpenAi);
     let result = validate_for_target(&with_thinking(), &caps);
     assert!(!result.is_valid());
-    assert!(result
-        .issues
-        .iter()
-        .any(|i| i.code == "unsupported_thinking"));
+    assert!(
+        result
+            .issues
+            .iter()
+            .any(|i| i.code == "unsupported_thinking")
+    );
 }
 
 #[test]
@@ -495,20 +518,24 @@ fn validate_system_for_codex_target() {
     let caps = dialect_capabilities(Dialect::Codex);
     let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::System, "Be helpful")]);
     let result = validate_for_target(&conv, &caps);
-    assert!(result
-        .issues
-        .iter()
-        .any(|i| i.code == "unsupported_system_prompt"));
+    assert!(
+        result
+            .issues
+            .iter()
+            .any(|i| i.code == "unsupported_system_prompt")
+    );
 }
 
 #[test]
 fn validate_tool_use_for_codex_target() {
     let caps = dialect_capabilities(Dialect::Codex);
     let result = validate_for_target(&with_tool_call(), &caps);
-    assert!(result
-        .issues
-        .iter()
-        .any(|i| i.code == "unsupported_tool_use"));
+    assert!(
+        result
+            .issues
+            .iter()
+            .any(|i| i.code == "unsupported_tool_use")
+    );
 }
 
 #[test]
@@ -585,10 +612,12 @@ fn roundtrip_thinking_lossy_to_openai() {
     // Text survives
     assert_eq!(back.messages[1].text_content(), "The answer is 42.");
     // Thinking is gone
-    assert!(!back.messages[1]
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
+    assert!(
+        !back.messages[1]
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════

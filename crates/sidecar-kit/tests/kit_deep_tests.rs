@@ -29,8 +29,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Deep tests for sidecar-kit: construction, protocol, and serde.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::{
+    CancelToken, Frame, JsonlCodec, ProcessSpec, ReceiptBuilder,
     builders::{
         event_command_executed, event_error, event_file_changed, event_frame, event_run_completed,
         event_run_started, event_text_delta, event_text_message, event_tool_call,
@@ -38,7 +39,6 @@ use sidecar_kit::{
     },
     diagnostics::{Diagnostic, DiagnosticCollector, DiagnosticLevel, DiagnosticSummary},
     pipeline::{EventPipeline, RedactStage, TimestampStage, ValidateStage},
-    CancelToken, Frame, JsonlCodec, ProcessSpec, ReceiptBuilder,
 };
 
 // ═══════════════════════════════════════════════════════════════════════

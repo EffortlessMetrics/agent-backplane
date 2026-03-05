@@ -40,9 +40,9 @@ use abp_daemon::api::{
     HealthResponse as ApiHealthResponse, ListBackendsResponse, RunResponse as ApiRunResponse,
     RunStatus as ApiRunStatus,
 };
-use abp_daemon::server::{router as server_router, VersionResponse};
+use abp_daemon::server::{VersionResponse, router as server_router};
 use abp_daemon::state::{BackendList, RunPhase, RunRegistry, ServerState};
-use abp_daemon::{build_app, build_versioned_app, AppState, RunRequest, RunTracker};
+use abp_daemon::{AppState, RunRequest, RunTracker, build_app, build_versioned_app};
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;
 use axum::body::Body;

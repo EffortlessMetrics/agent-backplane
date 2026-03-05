@@ -97,6 +97,118 @@ impl ReplayBuffer {
     }
 }
 
+// ---------------------------------------------------------------------------
+// StreamRecorder — records events with timing for replay
+// ---------------------------------------------------------------------------
+
+/// A recorded event with the offset from the start of recording.
+#[derive(Debug, Clone)]
+pub struct TimedEvent {
+    /// The event.
+    pub event: AgentEvent,
+    /// Offset from the start of the recording.
+    pub offset: std::time::Duration,
+}
+
+/// Records events with timing information for later replay at configurable
+/// speed.
+#[derive(Debug, Clone)]
+pub struct StreamRecorder {
+    events: Vec<TimedEvent>,
+    start: Option<std::time::Instant>,
+}
+
+impl StreamRecorder {
+    /// Create a new empty recorder.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            events: Vec::new(),
+            start: None,
+        }
+    }
+
+    /// Record an event, capturing the time offset from the first event.
+    pub fn record(&mut self, event: AgentEvent) {
+        let now = std::time::Instant::now();
+        let start = *self.start.get_or_insert(now);
+        self.events.push(TimedEvent {
+            event,
+            offset: now.duration_since(start),
+        });
+    }
+
+    /// Number of recorded events.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.events.len()
+    }
+
+    /// Whether no events have been recorded.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.events.is_empty()
+    }
+
+    /// Return the recorded events.
+    #[must_use]
+    pub fn events(&self) -> &[TimedEvent] {
+        &self.events
+    }
+
+    /// Replay events at the given speed multiplier (e.g. 2.0 = 2× speed),
+    /// sending them to the provided sender.
+    ///
+    /// A `speed` of 0.0 replays instantly (no delays).
+    pub async fn replay(
+        &self,
+        speed: f64,
+        tx: &tokio::sync::mpsc::Sender<AgentEvent>,
+    ) -> Result<usize, tokio::sync::mpsc::error::SendError<AgentEvent>> {
+        let mut count = 0usize;
+        let mut prev_offset = std::time::Duration::ZERO;
+        for timed in &self.events {
+            if speed > 0.0 {
+                let gap = timed.offset.saturating_sub(prev_offset);
+                let delay = gap.div_f64(speed);
+                tokio::time::sleep(delay).await;
+            }
+            prev_offset = timed.offset;
+            tx.send(timed.event.clone()).await?;
+            count += 1;
+        }
+        Ok(count)
+    }
+
+    /// Replay only events that pass the given filter.
+    pub async fn replay_filtered(
+        &self,
+        filter: &dyn Fn(&AgentEvent) -> bool,
+        tx: &tokio::sync::mpsc::Sender<AgentEvent>,
+    ) -> Result<usize, tokio::sync::mpsc::error::SendError<AgentEvent>> {
+        let mut count = 0usize;
+        for timed in &self.events {
+            if filter(&timed.event) {
+                tx.send(timed.event.clone()).await?;
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
+
+    /// Clear all recorded events.
+    pub fn clear(&mut self) {
+        self.events.clear();
+        self.start = None;
+    }
+}
+
+impl Default for StreamRecorder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

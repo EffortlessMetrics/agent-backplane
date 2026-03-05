@@ -1,10 +1,13 @@
 //! Comprehensive thread safety and concurrent access tests.
 //!
-//! 40+ tests covering registry, stream, rate limiter, and receipt concurrency.
+//! 70+ tests covering registry, stream, rate limiter, receipt, policy engine,
+//! backend pool, config transaction, receipt store, stream multiplexer,
+//! workspace pool, sliding window, and backend rate limiter concurrency.
 
 #![allow(clippy::needless_return)]
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -14,18 +17,27 @@ use uuid::Uuid;
 
 use abp_backend_core::{BackendHealth, BackendMetadata, BackendRegistry, HealthStatus};
 use abp_capability::registry::{CapabilitySet, SharedCapabilityRegistry};
+use abp_config::store::ConfigStore;
+use abp_config::transaction::ConfigTransaction;
+use abp_config::BackplaneConfig;
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityManifest, Outcome, Receipt, SupportLevel,
+    AgentEvent, AgentEventKind, Capability, CapabilityManifest, Outcome, PolicyProfile, Receipt,
+    SupportLevel,
 };
 use abp_dialect::registry::DialectRegistry;
 use abp_dialect::Dialect;
+use abp_integrations::pool::{BackendPool, PoolConfig as BackendPoolConfig};
+use abp_policy::{Decision, PolicyEngine};
 use abp_ratelimit::{
-    AdaptiveLimiter, CircuitBreaker, CircuitState, ModelLimitResult, ModelRateLimiter,
-    RateLimitPolicy, TokenBucket,
+    AdaptiveLimiter, BackendRateLimiter, CircuitBreaker, CircuitState, ModelLimitResult,
+    ModelRateLimiter, RateLimitPolicy, SlidingWindowCounter, TokenBucket,
 };
 use abp_receipt::audit_trail::{AuditAction, AuditTrail};
 use abp_receipt::{compute_hash, ReceiptBuilder, ReceiptChain};
-use abp_stream::{FanOut, ReplayBuffer};
+use abp_runtime::store::ReceiptStore;
+use abp_runtime::telemetry::RunMetrics;
+use abp_stream::{FanOut, ReplayBuffer, StreamMultiplexer};
+use abp_workspace::pool::{PoolConfig as WsPoolConfig, WorkspacePool};
 
 // ---------------------------------------------------------------------------
 // Helpers

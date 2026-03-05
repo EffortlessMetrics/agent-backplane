@@ -6,8 +6,8 @@
 //! compatibility matrix that can be rendered as a plain-text table, Markdown,
 //! or JSON.
 
-use crate::emulation::{self, build_emulation_plan, EmulationPlan};
-use crate::{negotiate_dialects, CapabilityRegistry, DialectNegotiationResult, TransitionKind};
+use crate::emulation::{self, EmulationPlan, build_emulation_plan};
+use crate::{CapabilityRegistry, DialectNegotiationResult, TransitionKind, negotiate_dialects};
 use abp_core::{Capability, CapabilityManifest, SupportLevel as CoreSupportLevel};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -398,11 +398,13 @@ mod tests {
             &openai_gpt4o_manifest(),
         );
         // Claude→OpenAI loses ExtendedThinking
-        assert!(report
-            .entries
-            .iter()
-            .any(|e| e.capability == Capability::ExtendedThinking
-                && e.status == FeatureStatus::Unsupported));
+        assert!(
+            report
+                .entries
+                .iter()
+                .any(|e| e.capability == Capability::ExtendedThinking
+                    && e.status == FeatureStatus::Unsupported)
+        );
         assert!(!report.is_viable());
     }
 

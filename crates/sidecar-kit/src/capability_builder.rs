@@ -20,7 +20,7 @@
 //! assert_eq!(caps["streaming"], "native");
 //! ```
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 /// Fluent builder for constructing sidecar capability advertisements.

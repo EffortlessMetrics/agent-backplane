@@ -5,6 +5,7 @@
 //! that tracks run lifecycle state and per-run event logs.
 
 use abp_core::{AgentEvent, Receipt};
+use abp_projection::translate::TranslationEngine;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -364,6 +365,8 @@ pub struct ServerState {
     pub registry: RunRegistry,
     /// Instant the server was created (for uptime calculation).
     pub start_time: std::time::Instant,
+    /// Translation engine for dialect mapping.
+    translation_engine: Arc<TranslationEngine>,
 }
 
 impl ServerState {
@@ -373,12 +376,18 @@ impl ServerState {
             backends: BackendList::from_names(backend_names),
             registry: RunRegistry::new(),
             start_time: std::time::Instant::now(),
+            translation_engine: Arc::new(TranslationEngine::with_defaults()),
         }
     }
 
     /// Server uptime in whole seconds since creation.
     pub fn uptime_secs(&self) -> u64 {
         self.start_time.elapsed().as_secs()
+    }
+
+    /// Return a reference to the translation engine.
+    pub fn translation_engine(&self) -> &TranslationEngine {
+        &self.translation_engine
     }
 }
 

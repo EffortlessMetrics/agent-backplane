@@ -9,26 +9,27 @@ use abp_backend_core::{
     BackendHealth, BackendMetadata, BackendRegistry, HealthStatus as CoreHealthStatus, RateLimit,
 };
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
     ExecutionMode, MinSupport, Outcome, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig,
     SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    WorkspaceSpec, CONTRACT_VERSION,
+    WorkspaceSpec,
 };
 use abp_integrations::capability::{CapabilityMatrix, CapabilityReport};
 use abp_integrations::health::{HealthCheck, HealthChecker, HealthStatus, SystemHealth};
 use abp_integrations::metrics::{BackendMetrics, MetricsRegistry, MetricsSnapshot};
 use abp_integrations::projection::{
-    detect_dialect, map_via_ir, supported_translations, translate, translate_model_name, Dialect,
-    EventMapping, Message, MessageRole, ProjectionMatrix, ToolCall, ToolDefinitionIr, ToolResult,
-    ToolTranslation, TranslationFidelity, TranslationReport, MODEL_EQUIVALENCE_TABLE,
+    Dialect, EventMapping, MODEL_EQUIVALENCE_TABLE, Message, MessageRole, ProjectionMatrix,
+    ToolCall, ToolDefinitionIr, ToolResult, ToolTranslation, TranslationFidelity,
+    TranslationReport, detect_dialect, map_via_ir, supported_translations, translate,
+    translate_model_name,
 };
 use abp_integrations::selector::{
     BackendCandidate, BackendSelector, SelectionResult, SelectionStrategy,
 };
 use abp_integrations::{
-    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
-    Backend, MockBackend, SidecarBackend,
+    Backend, MockBackend, SidecarBackend, ensure_capability_requirements, extract_execution_mode,
+    validate_passthrough_compatibility,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -1434,9 +1435,10 @@ fn map_model_name_cross_dialect() {
 #[test]
 fn map_model_name_unknown_model_errors() {
     let pm = ProjectionMatrix::new();
-    assert!(pm
-        .map_model_name(Dialect::OpenAi, Dialect::Claude, "unknown-model")
-        .is_err());
+    assert!(
+        pm.map_model_name(Dialect::OpenAi, Dialect::Claude, "unknown-model")
+            .is_err()
+    );
 }
 
 #[test]

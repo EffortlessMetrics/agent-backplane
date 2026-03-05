@@ -32,16 +32,16 @@
 //! batch validation, and edge cases.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, ReceiptBuilder, RuntimeConfig, SupportLevel,
-    WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile,
+    ReceiptBuilder, RuntimeConfig, SupportLevel, WorkOrderBuilder, WorkspaceMode,
 };
 use abp_protocol::Envelope;
 use abp_validate::{
-    validate_hello_version, EnvelopeValidator, EventValidator, JsonType, RawEnvelopeValidator,
-    ReceiptValidator, SchemaValidator, ValidationErrorKind, ValidationErrors, Validator,
-    WorkOrderValidator,
+    EnvelopeValidator, EventValidator, JsonType, RawEnvelopeValidator, ReceiptValidator,
+    SchemaValidator, ValidationErrorKind, ValidationErrors, Validator, WorkOrderValidator,
+    validate_hello_version,
 };
 use chrono::Utc;
 
@@ -341,9 +341,10 @@ fn receipt_partial_outcome_with_harness_ok_passes() {
 fn receipt_whitespace_only_backend_id_fails() {
     let receipt = ReceiptBuilder::new("   ").build();
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "backend.id" && e.kind == ValidationErrorKind::Required));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "backend.id" && e.kind == ValidationErrorKind::Required)
+    );
 }
 
 #[test]
@@ -433,9 +434,10 @@ fn receipt_hash_empty_string_wrong_length_fails() {
     let mut receipt = ReceiptBuilder::new("mock").build();
     receipt.receipt_sha256 = Some(String::new());
     let err = ReceiptValidator.validate(&receipt).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "receipt_sha256" && e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "receipt_sha256" && e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -771,9 +773,10 @@ fn custom_task_length_validator_fails() {
     let validator = TaskLengthValidator { max_len: 5 };
     let wo = WorkOrderBuilder::new("this is too long").build();
     let err = validator.validate(&wo).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::Custom && e.path == "task"));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::Custom && e.path == "task")
+    );
 }
 
 #[test]
@@ -790,9 +793,10 @@ fn custom_non_empty_trace_validator_passes() {
 fn custom_non_empty_trace_validator_fails() {
     let receipt = ReceiptBuilder::new("mock").build();
     let err = NonEmptyTraceValidator.validate(&receipt).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.path == "trace" && e.kind == ValidationErrorKind::Custom));
+    assert!(
+        err.iter()
+            .any(|e| e.path == "trace" && e.kind == ValidationErrorKind::Custom)
+    );
 }
 
 #[test]
@@ -934,27 +938,30 @@ fn edge_empty_json_object_schema() {
 fn edge_null_json_value_schema() {
     let val = serde_json::Value::Null;
     let err = SchemaValidator::work_order().validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
 fn edge_boolean_json_value_schema() {
     let val = serde_json::json!(true);
     let err = SchemaValidator::work_order().validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
 fn edge_number_json_value_schema() {
     let val = serde_json::json!(42);
     let err = SchemaValidator::receipt().validate(&val).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidFormat));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidFormat)
+    );
 }
 
 #[test]
@@ -1047,9 +1054,10 @@ fn edge_tool_call_different_name_from_result_fails() {
         ),
     ];
     let err = EventValidator.validate(&events).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidReference));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidReference)
+    );
 }
 
 #[test]
@@ -1137,9 +1145,10 @@ fn edge_hello_version_different_major_fails() {
         mode: ExecutionMode::default(),
     };
     let err = validate_hello_version(&env).unwrap_err();
-    assert!(err
-        .iter()
-        .any(|e| e.kind == ValidationErrorKind::InvalidReference));
+    assert!(
+        err.iter()
+            .any(|e| e.kind == ValidationErrorKind::InvalidReference)
+    );
 }
 
 #[test]

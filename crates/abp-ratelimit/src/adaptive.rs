@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_imports)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -33,6 +33,14 @@ struct AdaptiveInner {
     reset_at: Option<Instant>,
     /// Minimum rate floor (never adapt below this).
     min_rate: f64,
+    /// Moving window of recent response latencies.
+    latency_samples: VecDeque<Duration>,
+    /// Max latency samples to keep.
+    max_samples: usize,
+    /// Consecutive error count.
+    consecutive_errors: u32,
+    /// Consecutive success count.
+    consecutive_successes: u32,
 }
 
 impl AdaptiveLimiter {
@@ -48,6 +56,10 @@ impl AdaptiveLimiter {
                 remaining: None,
                 reset_at: None,
                 min_rate: 0.1,
+                latency_samples: VecDeque::new(),
+                max_samples: 100,
+                consecutive_errors: 0,
+                consecutive_successes: 0,
             })),
         }
     }
@@ -158,6 +170,52 @@ impl AdaptiveLimiter {
         inner.bucket.try_acquire(1)
     }
 
+    /// Record the outcome of a backend call for adaptive rate adjustment.
+    ///
+    /// On errors the rate is halved (floored at `min_rate`).
+    /// After 5 consecutive successes the rate cautiously increases toward the base rate.
+    pub fn record_response(&self, latency: Duration, success: bool) {
+        let mut inner = self.inner.lock().unwrap();
+
+        inner.latency_samples.push_back(latency);
+        while inner.latency_samples.len() > inner.max_samples {
+            inner.latency_samples.pop_front();
+        }
+
+        if !success {
+            inner.consecutive_errors += 1;
+            inner.consecutive_successes = 0;
+            let new_rate = (inner.current_rate * 0.5).max(inner.min_rate);
+            inner.current_rate = new_rate;
+            inner.bucket = TokenBucket::new(new_rate, inner.burst);
+        } else {
+            inner.consecutive_successes += 1;
+            inner.consecutive_errors = 0;
+            if inner.consecutive_successes >= 5 && inner.current_rate < inner.base_rate {
+                let new_rate = (inner.current_rate * 1.1).min(inner.base_rate);
+                inner.current_rate = new_rate;
+                inner.bucket = TokenBucket::new(new_rate, inner.burst);
+            }
+        }
+    }
+
+    /// Return the average observed latency, or `None` if no samples.
+    pub fn avg_latency(&self) -> Option<Duration> {
+        let inner = self.inner.lock().unwrap();
+        if inner.latency_samples.is_empty() {
+            None
+        } else {
+            let total: Duration = inner.latency_samples.iter().sum();
+            Some(total / inner.latency_samples.len() as u32)
+        }
+    }
+
+    /// Return the number of consecutive errors recorded via [`record_response`].
+    pub fn consecutive_errors(&self) -> u32 {
+        let inner = self.inner.lock().unwrap();
+        inner.consecutive_errors
+    }
+
     /// Reset the limiter back to its base rate, clearing any adaptive state.
     pub fn reset(&self) {
         let mut inner = self.inner.lock().unwrap();
@@ -166,6 +224,9 @@ impl AdaptiveLimiter {
         inner.retry_after = None;
         inner.remaining = None;
         inner.reset_at = None;
+        inner.latency_samples.clear();
+        inner.consecutive_errors = 0;
+        inner.consecutive_successes = 0;
     }
 }
 
@@ -297,5 +358,85 @@ mod tests {
         limiter.try_acquire();
         limiter.try_acquire();
         assert!(!clone.try_acquire());
+    }
+
+    #[test]
+    fn record_error_halves_rate() {
+        let limiter = AdaptiveLimiter::new(100.0, 50).with_min_rate(1.0);
+        limiter.record_response(Duration::from_millis(500), false);
+        assert!((limiter.current_rate() - 50.0).abs() < f64::EPSILON);
+        limiter.record_response(Duration::from_millis(500), false);
+        assert!((limiter.current_rate() - 25.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn record_error_respects_min_rate() {
+        let limiter = AdaptiveLimiter::new(10.0, 5).with_min_rate(5.0);
+        limiter.record_response(Duration::from_millis(100), false);
+        assert!((limiter.current_rate() - 5.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn consecutive_successes_increase_rate() {
+        let limiter = AdaptiveLimiter::new(100.0, 50).with_min_rate(1.0);
+        // Drop rate first
+        limiter.record_response(Duration::from_millis(100), false);
+        let rate_after_error = limiter.current_rate();
+        // 5 successes should trigger increase
+        for _ in 0..5 {
+            limiter.record_response(Duration::from_millis(10), true);
+        }
+        assert!(limiter.current_rate() > rate_after_error);
+    }
+
+    #[test]
+    fn avg_latency_none_when_empty() {
+        let limiter = AdaptiveLimiter::new(10.0, 5);
+        assert!(limiter.avg_latency().is_none());
+    }
+
+    #[test]
+    fn avg_latency_computed() {
+        let limiter = AdaptiveLimiter::new(10.0, 5);
+        limiter.record_response(Duration::from_millis(100), true);
+        limiter.record_response(Duration::from_millis(300), true);
+        let avg = limiter.avg_latency().unwrap();
+        assert!(avg >= Duration::from_millis(190) && avg <= Duration::from_millis(210));
+    }
+
+    #[test]
+    fn consecutive_errors_tracked() {
+        let limiter = AdaptiveLimiter::new(100.0, 50);
+        assert_eq!(limiter.consecutive_errors(), 0);
+        limiter.record_response(Duration::from_millis(100), false);
+        assert_eq!(limiter.consecutive_errors(), 1);
+        limiter.record_response(Duration::from_millis(100), false);
+        assert_eq!(limiter.consecutive_errors(), 2);
+        limiter.record_response(Duration::from_millis(100), true);
+        assert_eq!(limiter.consecutive_errors(), 0);
+    }
+
+    #[test]
+    fn reset_clears_response_tracking() {
+        let limiter = AdaptiveLimiter::new(100.0, 50);
+        limiter.record_response(Duration::from_millis(100), false);
+        limiter.record_response(Duration::from_millis(100), false);
+        assert!(limiter.consecutive_errors() > 0);
+        assert!(limiter.avg_latency().is_some());
+        limiter.reset();
+        assert_eq!(limiter.consecutive_errors(), 0);
+        assert!(limiter.avg_latency().is_none());
+        assert!((limiter.current_rate() - 100.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn rate_does_not_exceed_base_on_recovery() {
+        let limiter = AdaptiveLimiter::new(10.0, 50).with_min_rate(1.0);
+        limiter.record_response(Duration::from_millis(100), false);
+        // Many successes should not exceed base rate
+        for _ in 0..100 {
+            limiter.record_response(Duration::from_millis(10), true);
+        }
+        assert!(limiter.current_rate() <= 10.0);
     }
 }

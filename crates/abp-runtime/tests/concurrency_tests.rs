@@ -36,8 +36,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use abp_core::{ExecutionLane, Outcome, WorkOrder, WorkspaceMode, WorkspaceSpec};
-use abp_runtime::telemetry::RunMetrics;
 use abp_runtime::Runtime;
+use abp_runtime::telemetry::RunMetrics;
 use tokio_stream::StreamExt;
 
 /// Build a minimal work order suitable for mock-backend tests.

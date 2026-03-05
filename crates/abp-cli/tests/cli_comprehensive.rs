@@ -9,12 +9,12 @@ use abp_cli::cli::{
     Cli, Commands, ConfigAction, LaneArg, ReceiptAction, SchemaArg, WorkspaceModeArg,
 };
 use abp_cli::commands::{
-    config_check, inspect_receipt_file, receipt_diff, schema_json, validate_file,
-    validate_work_order_file, verify_receipt_file, SchemaKind, ValidatedType,
+    SchemaKind, ValidatedType, config_check, inspect_receipt_file, receipt_diff, schema_json,
+    validate_file, validate_work_order_file, verify_receipt_file,
 };
 use abp_cli::config::{
-    apply_env_overrides, load_config, merge_configs, validate_config, BackendConfig,
-    BackplaneConfig, ConfigError,
+    BackendConfig, BackplaneConfig, ConfigError, apply_env_overrides, load_config, merge_configs,
+    validate_config,
 };
 use abp_cli::format::{Formatter, OutputFormat};
 use abp_core::{
@@ -910,9 +910,10 @@ fn validate_empty_command_fails() {
         ..Default::default()
     };
     let errs = validate_config(&cfg).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, ConfigError::InvalidBackend { .. })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, ConfigError::InvalidBackend { .. }))
+    );
 }
 
 #[test]
@@ -929,9 +930,10 @@ fn validate_zero_timeout_fails() {
         ..Default::default()
     };
     let errs = validate_config(&cfg).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, ConfigError::InvalidTimeout { value: 0 })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, ConfigError::InvalidTimeout { value: 0 }))
+    );
 }
 
 #[test]
@@ -948,9 +950,10 @@ fn validate_huge_timeout_fails() {
         ..Default::default()
     };
     let errs = validate_config(&cfg).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, ConfigError::InvalidTimeout { .. })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, ConfigError::InvalidTimeout { .. }))
+    );
 }
 
 #[test]

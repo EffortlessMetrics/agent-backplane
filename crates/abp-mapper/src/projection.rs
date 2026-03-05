@@ -1078,12 +1078,14 @@ mod tests {
             ProjectionDialect::Claude,
             MappingRuleSet::identity(),
         );
-        assert!(m
-            .get_rule(ProjectionDialect::OpenAi, ProjectionDialect::Claude)
-            .is_some());
-        assert!(m
-            .get_rule(ProjectionDialect::Claude, ProjectionDialect::OpenAi)
-            .is_none());
+        assert!(
+            m.get_rule(ProjectionDialect::OpenAi, ProjectionDialect::Claude)
+                .is_some()
+        );
+        assert!(
+            m.get_rule(ProjectionDialect::Claude, ProjectionDialect::OpenAi)
+                .is_none()
+        );
     }
 
     #[test]

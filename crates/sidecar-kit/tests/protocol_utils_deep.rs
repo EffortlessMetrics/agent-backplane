@@ -32,14 +32,14 @@
 
 use std::io::BufReader;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::{
+    Frame, FrameReader, FrameWriter, JsonlCodec, ProtocolPhase, ProtocolState,
     builders::{event_frame, event_text_delta, fatal_frame, hello_frame},
     framing::{
-        buf_reader_from_bytes, frame_to_json, json_to_frame, read_all_frames, validate_frame,
-        write_frames, DEFAULT_MAX_FRAME_SIZE,
+        DEFAULT_MAX_FRAME_SIZE, buf_reader_from_bytes, frame_to_json, json_to_frame,
+        read_all_frames, validate_frame, write_frames,
     },
-    Frame, FrameReader, FrameWriter, JsonlCodec, ProtocolPhase, ProtocolState,
 };
 
 // ═══════════════════════════════════════════════════════════════════════

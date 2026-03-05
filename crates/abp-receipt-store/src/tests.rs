@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use abp_core::{Outcome, Receipt};
 
-use crate::chain::{validate_chain, ChainValidationError};
+use crate::chain::{ChainValidationError, validate_chain};
 use crate::diff::diff_receipts;
 use crate::export::{
     export_csv, export_json, export_jsonl, export_summary, import_json, import_jsonl,
@@ -93,11 +93,13 @@ async fn memory_store_and_get() {
 #[tokio::test]
 async fn memory_get_missing() {
     let store = InMemoryReceiptStore::new();
-    assert!(store
-        .get(&Uuid::new_v4().to_string())
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        store
+            .get(&Uuid::new_v4().to_string())
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -363,11 +365,13 @@ async fn file_get_missing() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("receipts.jsonl");
     let store = FileReceiptStore::new(&path);
-    assert!(store
-        .get(&Uuid::new_v4().to_string())
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        store
+            .get(&Uuid::new_v4().to_string())
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -631,10 +635,12 @@ fn chain_duplicate_ids() {
     let r2 = make_receipt_with_id("b", Outcome::Complete, id);
     let result = validate_chain(&[r1, r2]);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.message.contains("duplicate")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("duplicate"))
+    );
 }
 
 #[test]
@@ -1286,10 +1292,11 @@ fn diff_different_usage() {
     r2.usage.input_tokens = Some(200);
 
     let diff = diff_receipts(&r1, &r2);
-    assert!(diff
-        .differences
-        .iter()
-        .any(|d| d.field == "usage.input_tokens"));
+    assert!(
+        diff.differences
+            .iter()
+            .any(|d| d.field == "usage.input_tokens")
+    );
 }
 
 #[test]
@@ -1300,10 +1307,11 @@ fn diff_different_duration() {
     r2.meta.duration_ms = 999;
 
     let diff = diff_receipts(&r1, &r2);
-    assert!(diff
-        .differences
-        .iter()
-        .any(|d| d.field == "meta.duration_ms"));
+    assert!(
+        diff.differences
+            .iter()
+            .any(|d| d.field == "meta.duration_ms")
+    );
 }
 
 #[test]
@@ -1409,10 +1417,12 @@ fn chain_with_parents_broken_link() {
         &[None, Some("wrong_hash".to_string())],
     );
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.message.contains("parent hash mismatch")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("parent hash mismatch"))
+    );
 }
 
 #[test]
@@ -1420,10 +1430,12 @@ fn chain_with_parents_genesis_should_not_have_parent() {
     let r1 = make_hashed_receipt("a", Outcome::Complete);
     let result = crate::chain::validate_chain_with_parents(&[r1], &[Some("some_hash".to_string())]);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.message.contains("genesis receipt")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("genesis receipt"))
+    );
 }
 
 #[test]
@@ -1440,10 +1452,12 @@ fn chain_with_parents_missing_prev_hash() {
         &[None, Some("expected_parent".to_string())],
     );
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.message.contains("previous receipt has no hash")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.message.contains("previous receipt has no hash"))
+    );
 }
 
 // ── Concurrent access with index ──────────────────────────────────
@@ -2070,10 +2084,11 @@ fn diff_different_verification() {
     r2.verification.harness_ok = true;
 
     let diff = diff_receipts(&r1, &r2);
-    assert!(diff
-        .differences
-        .iter()
-        .any(|d| d.field == "verification.harness_ok"));
+    assert!(
+        diff.differences
+            .iter()
+            .any(|d| d.field == "verification.harness_ok")
+    );
 }
 
 #[test]
