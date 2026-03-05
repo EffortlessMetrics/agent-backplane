@@ -69,6 +69,8 @@ pub fn capability_manifest() -> CapabilityManifest {
     m.insert(Capability::ToolGrep, SupportLevel::Unsupported);
     m.insert(Capability::McpClient, SupportLevel::Unsupported);
     m.insert(Capability::McpServer, SupportLevel::Unsupported);
+    m.insert(Capability::FunctionCalling, SupportLevel::Native);
+    m.insert(Capability::SystemMessage, SupportLevel::Native);
     m
 }
 

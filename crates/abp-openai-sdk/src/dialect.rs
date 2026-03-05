@@ -74,6 +74,9 @@ pub fn capability_manifest() -> CapabilityManifest {
     m.insert(Capability::HooksPostToolUse, SupportLevel::Emulated);
     m.insert(Capability::McpClient, SupportLevel::Unsupported);
     m.insert(Capability::McpServer, SupportLevel::Unsupported);
+    m.insert(Capability::FunctionCalling, SupportLevel::Native);
+    m.insert(Capability::SystemMessage, SupportLevel::Native);
+    m.insert(Capability::Temperature, SupportLevel::Native);
     m
 }
 

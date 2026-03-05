@@ -78,6 +78,9 @@ pub fn capability_manifest() -> CapabilityManifest {
     m.insert(Capability::McpClient, SupportLevel::Native);
     m.insert(Capability::McpServer, SupportLevel::Unsupported);
     m.insert(Capability::Checkpointing, SupportLevel::Emulated);
+    m.insert(Capability::FunctionCalling, SupportLevel::Native);
+    m.insert(Capability::SystemMessage, SupportLevel::Native);
+    m.insert(Capability::ExtendedThinking, SupportLevel::Native);
     m
 }
 
