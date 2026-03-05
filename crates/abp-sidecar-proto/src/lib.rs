@@ -11,8 +11,14 @@
 //! for *implementing* a sidecar that speaks the JSONL protocol over
 //! stdin/stdout.
 
+pub mod backpressure;
+pub mod heartbeat;
+pub mod multi_run;
 pub mod negotiation;
+pub mod recovery;
+pub mod shutdown;
 pub mod state_machine;
+pub mod version_negotiation;
 
 use abp_core::{AgentEvent, BackendIdentity, CapabilityManifest, Receipt, WorkOrder};
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
