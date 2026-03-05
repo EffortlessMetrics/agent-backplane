@@ -39,8 +39,10 @@ uuid.workspace = true
 
 [dev-dependencies]
 abp-backend-core = { path = "../abp-backend-core", version = "0.1.0" }
+abp-capability = { path = "../abp-capability", version = "0.1.0" }
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
+abp-emulation = { path = "../abp-emulation", version = "0.1.0" }
 abp-projection = { path = "../abp-projection", version = "0.1.0" }
 abp-receipt = { path = "../abp-receipt", version = "0.1.0" }
 anyhow.workspace = true
