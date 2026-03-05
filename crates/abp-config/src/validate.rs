@@ -5,7 +5,7 @@
 //! [`diff_configs`] for debugging, and [`from_env_overrides`] as a
 //! convenience re-export.
 
-use crate::{is_valid_hostname, BackendEntry, BackplaneConfig, ConfigError};
+use crate::{BackendEntry, BackplaneConfig, ConfigError, is_valid_hostname};
 use crate::{LARGE_TIMEOUT_THRESHOLD, MAX_TIMEOUT_SECS, VALID_LOG_LEVELS};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;

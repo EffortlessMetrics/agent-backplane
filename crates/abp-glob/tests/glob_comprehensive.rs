@@ -30,7 +30,7 @@
 //! Comprehensive tests for the abp-glob crate covering pattern matching,
 //! include/exclude logic, edge cases, and performance.
 
-use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
+use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
 use std::path::Path;
 
 fn p(xs: &[&str]) -> Vec<String> {

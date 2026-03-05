@@ -36,11 +36,11 @@
 use std::path::Path;
 
 use abp_core::PolicyProfile;
+use abp_policy::PolicyEngine;
 use abp_policy::audit::{AuditSummary, PolicyAuditor, PolicyDecision as AuditDecision};
 use abp_policy::compose::{
     ComposedEngine, PolicyDecision, PolicyPrecedence, PolicySet, PolicyValidator, WarningKind,
 };
-use abp_policy::PolicyEngine;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -856,9 +856,11 @@ fn validator_catchall_deny_read_star_star_slash_star() {
         ..Default::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule)
+    );
 }
 
 #[test]

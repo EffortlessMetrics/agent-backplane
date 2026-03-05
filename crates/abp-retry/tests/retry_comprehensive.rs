@@ -3,12 +3,12 @@
 //! Comprehensive tests for `abp-retry` retry policies, backoff strategies,
 //! circuit breaker state transitions, and combined resilience patterns.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use abp_retry::{
-    retry_with_policy, CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy,
+    CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy, retry_with_policy,
 };
 
 // ===========================================================================

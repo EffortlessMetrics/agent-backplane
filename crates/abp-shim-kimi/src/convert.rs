@@ -24,7 +24,7 @@ use abp_kimi_sdk::dialect::{
 use abp_kimi_sdk::lowering;
 use chrono::Utc;
 
-use crate::types::{to_kimi_message, Message, Usage};
+use crate::types::{Message, Usage, to_kimi_message};
 
 // ── Conversion: request → IR → WorkOrder ────────────────────────────────
 

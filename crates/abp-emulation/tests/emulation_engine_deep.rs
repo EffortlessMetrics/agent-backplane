@@ -35,24 +35,23 @@
 use std::collections::BTreeMap;
 
 use abp_capability::{
-    check_capability, generate_report, negotiate, negotiate::apply_policy,
-    negotiate::pre_negotiate, negotiate::NegotiationPolicy, negotiate_capabilities,
-    CapabilityRegistry, NegotiationResult, SupportLevel,
+    CapabilityRegistry, NegotiationResult, SupportLevel, check_capability, generate_report,
+    negotiate, negotiate::NegotiationPolicy, negotiate::apply_policy, negotiate::pre_negotiate,
+    negotiate_capabilities,
 };
 use abp_core::{
-    ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition},
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
     SupportLevel as CoreSupportLevel,
+    ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition},
 };
 use abp_emulation::{
-    apply_emulation, can_emulate, compute_fidelity, default_strategy, emulate_code_execution,
-    emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
+    EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy,
+    FidelityLabel, apply_emulation, can_emulate, compute_fidelity, default_strategy,
+    emulate_code_execution, emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
     emulate_structured_output,
     strategies::{
         ParsedToolCall, StreamingEmulation, ThinkingEmulation, ToolUseEmulation, VisionEmulation,
     },
-    EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy,
-    FidelityLabel,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -204,9 +203,11 @@ fn pipeline_system_prompt_injection_creates_new_when_missing() {
     engine.apply(&[Capability::ExtendedThinking], &mut conv);
 
     assert_eq!(conv.messages[0].role, IrRole::System);
-    assert!(conv.messages[0]
-        .text_content()
-        .contains("Think step by step"));
+    assert!(
+        conv.messages[0]
+            .text_content()
+            .contains("Think step by step")
+    );
 }
 
 #[test]
@@ -604,9 +605,11 @@ fn detect_registry_compare_finds_gaps() {
     assert!(result.is_some());
     let result = result.unwrap();
     // Claude has ExtendedThinking natively; Gemini doesn't
-    assert!(result
-        .unsupported_caps()
-        .contains(&Capability::ExtendedThinking));
+    assert!(
+        result
+            .unsupported_caps()
+            .contains(&Capability::ExtendedThinking)
+    );
 }
 
 #[test]
@@ -1205,9 +1208,11 @@ fn cross_compare_claude_to_openai_gaps() {
         .compare("anthropic/claude-3.5-sonnet", "openai/gpt-4o")
         .unwrap();
     // Claude has ExtendedThinking native; OpenAI doesn't
-    assert!(result
-        .unsupported_caps()
-        .contains(&Capability::ExtendedThinking));
+    assert!(
+        result
+            .unsupported_caps()
+            .contains(&Capability::ExtendedThinking)
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1456,9 +1461,10 @@ fn edge_compatibility_report_all_unsupported() {
 #[test]
 fn edge_negotiate_by_name_unknown_returns_none() {
     let reg = CapabilityRegistry::with_defaults();
-    assert!(reg
-        .negotiate_by_name("unknown/model", &[Capability::Streaming])
-        .is_none());
+    assert!(
+        reg.negotiate_by_name("unknown/model", &[Capability::Streaming])
+            .is_none()
+    );
 }
 
 #[test]

@@ -6,8 +6,8 @@
 //! to get the [`DialectFeatureSet`](crate::features::DialectFeatureSet) for
 //! a single dialect.
 
-use crate::features::{DialectFeature, DialectFeatureSet, FeatureSupport};
 use crate::Dialect;
+use crate::features::{DialectFeature, DialectFeatureSet, FeatureSupport};
 
 use DialectFeature::*;
 use FeatureSupport::*;

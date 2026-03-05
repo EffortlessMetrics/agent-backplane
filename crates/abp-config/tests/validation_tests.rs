@@ -31,9 +31,9 @@
 //! from_env_overrides.
 
 use abp_config::validate::{
-    diff_configs, from_env_overrides, ConfigDiff, ConfigValidator, Severity, ValidationIssue,
+    ConfigDiff, ConfigValidator, Severity, ValidationIssue, diff_configs, from_env_overrides,
 };
-use abp_config::{merge_configs, validate_config, BackendEntry, BackplaneConfig, ConfigError};
+use abp_config::{BackendEntry, BackplaneConfig, ConfigError, merge_configs, validate_config};
 use std::collections::BTreeMap;
 
 // ---------------------------------------------------------------------------
@@ -127,9 +127,11 @@ fn validator_empty_command_error() {
         },
     );
     let reasons = validation_reasons(ConfigValidator::validate(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("command must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("command must not be empty"))
+    );
 }
 
 // ===========================================================================
@@ -198,9 +200,11 @@ fn validator_large_timeout_warning() {
         },
     );
     let issues = ConfigValidator::validate(&cfg).unwrap();
-    assert!(issues
-        .iter()
-        .any(|i| i.severity == Severity::Warning && i.message.contains("large timeout")));
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Warning && i.message.contains("large timeout"))
+    );
 }
 
 // ===========================================================================
@@ -214,9 +218,11 @@ fn validator_no_backends_info_issue() {
         ..fully_valid_config()
     };
     let issues = ConfigValidator::validate(&cfg).unwrap();
-    assert!(issues
-        .iter()
-        .any(|i| i.severity == Severity::Info && i.message.contains("no backends")));
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.severity == Severity::Info && i.message.contains("no backends"))
+    );
 }
 
 // ===========================================================================
@@ -229,9 +235,11 @@ fn validator_validate_at_filters_info() {
     let all = ConfigValidator::validate(&cfg).unwrap();
     let warnings_only = ConfigValidator::validate_at(&cfg, Severity::Warning).unwrap();
     assert!(all.len() > warnings_only.len());
-    assert!(warnings_only
-        .iter()
-        .all(|i| i.severity >= Severity::Warning));
+    assert!(
+        warnings_only
+            .iter()
+            .all(|i| i.severity >= Severity::Warning)
+    );
 }
 
 // ===========================================================================

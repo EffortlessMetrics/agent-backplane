@@ -36,6 +36,12 @@ pub enum VendorKind {
     Anthropic,
     /// Google Gemini API errors.
     Gemini,
+    /// OpenAI Codex API errors.
+    Codex,
+    /// GitHub Copilot API errors.
+    Copilot,
+    /// Kimi (Moonshot) API errors.
+    Kimi,
     /// A vendor not covered by the built-in mappings.
     Custom,
 }
@@ -125,6 +131,9 @@ impl VendorErrorMapper {
             VendorKind::OpenAi => Self::map_openai_type(&err.error_type),
             VendorKind::Anthropic => Self::map_anthropic_type(&err.error_type),
             VendorKind::Gemini => Self::map_gemini_type(&err.error_type),
+            VendorKind::Codex => Self::map_codex_type(&err.error_type),
+            VendorKind::Copilot => Self::map_copilot_type(&err.error_type),
+            VendorKind::Kimi => Self::map_kimi_type(&err.error_type),
             VendorKind::Custom => None,
         }
     }
@@ -164,6 +173,46 @@ impl VendorErrorMapper {
             "DEADLINE_EXCEEDED" => ErrorCode::BackendTimeout,
             "INTERNAL" => ErrorCode::Internal,
             "PERMISSION_DENIED" => ErrorCode::ExecutionPermissionDenied,
+            _ => return None,
+        })
+    }
+
+    fn map_codex_type(error_type: &str) -> Option<ErrorCode> {
+        Some(match error_type {
+            "rate_limit_exceeded" => ErrorCode::BackendRateLimited,
+            "invalid_api_key" | "authentication_error" => ErrorCode::BackendAuthFailed,
+            "model_not_found" => ErrorCode::BackendModelNotFound,
+            "invalid_request_error" => ErrorCode::ContractSchemaViolation,
+            "context_length_exceeded" => ErrorCode::BackendContextLength,
+            "content_filter" => ErrorCode::BackendContentFiltered,
+            "server_error" | "engine_overloaded" => ErrorCode::BackendUnavailable,
+            "timeout" => ErrorCode::BackendTimeout,
+            _ => return None,
+        })
+    }
+
+    fn map_copilot_type(error_type: &str) -> Option<ErrorCode> {
+        Some(match error_type {
+            "rate_limit_exceeded" => ErrorCode::BackendRateLimited,
+            "authentication_error" | "forbidden" => ErrorCode::BackendAuthFailed,
+            "model_not_found" | "not_found" => ErrorCode::BackendModelNotFound,
+            "invalid_request_error" => ErrorCode::ContractSchemaViolation,
+            "content_filter" => ErrorCode::BackendContentFiltered,
+            "context_length_exceeded" => ErrorCode::BackendContextLength,
+            "server_error" => ErrorCode::BackendUnavailable,
+            _ => return None,
+        })
+    }
+
+    fn map_kimi_type(error_type: &str) -> Option<ErrorCode> {
+        Some(match error_type {
+            "rate_limit_exceeded" => ErrorCode::BackendRateLimited,
+            "invalid_api_key" | "authentication_error" => ErrorCode::BackendAuthFailed,
+            "model_not_found" => ErrorCode::BackendModelNotFound,
+            "invalid_request_error" => ErrorCode::ContractSchemaViolation,
+            "context_length_exceeded" => ErrorCode::BackendContextLength,
+            "content_filter" => ErrorCode::BackendContentFiltered,
+            "server_error" => ErrorCode::BackendUnavailable,
             _ => return None,
         })
     }

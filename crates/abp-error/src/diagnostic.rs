@@ -303,6 +303,58 @@ fn diagnostic_template(code: ErrorCode) -> (&'static str, &'static str, &'static
             &[ErrorCode::PolicyInvalid],
         ),
 
+        // -- RateLimit --
+        ErrorCode::RateLimitExceeded => (
+            "ABP's internal rate limiter blocked the request before it reached the backend",
+            "Wait for the rate-limit window to reset; reduce request frequency",
+            &[ErrorCode::BackendRateLimited],
+        ),
+        ErrorCode::CircuitBreakerOpen => (
+            "The circuit breaker for the target backend is open due to repeated failures",
+            "Wait for the circuit breaker to transition to half-open; check backend health",
+            &[ErrorCode::BackendUnavailable, ErrorCode::RateLimitExceeded],
+        ),
+
+        // -- Stream --
+        ErrorCode::StreamClosed => (
+            "The event stream was closed before the operation completed (all receivers dropped)",
+            "Ensure at least one event receiver stays alive for the duration of the run",
+            &[ErrorCode::BackendCrashed],
+        ),
+
+        // -- ReceiptStore --
+        ErrorCode::ReceiptStoreFailed => (
+            "Persisting a receipt to the store failed (I/O, serialization, or duplicate ID)",
+            "Check disk space and permissions; verify receipt IDs are unique",
+            &[ErrorCode::ContractInvalidReceipt],
+        ),
+
+        // -- Validation --
+        ErrorCode::ValidationFailed => (
+            "Structured validation of the request failed (missing fields, type errors)",
+            "Fix the request payload according to the validation error details",
+            &[ErrorCode::ContractSchemaViolation],
+        ),
+
+        // -- Sidecar --
+        ErrorCode::SidecarSpawnFailed => (
+            "The sidecar process could not be spawned (missing binary, permission denied)",
+            "Verify the sidecar binary path exists and is executable",
+            &[ErrorCode::BackendCrashed, ErrorCode::BackendNotFound],
+        ),
+
+        // -- Backend (extended) --
+        ErrorCode::BackendContentFiltered => (
+            "The vendor's safety/content filter blocked the request or response",
+            "Review the request content; rephrase or use a less restrictive model",
+            &[ErrorCode::PolicyDenied],
+        ),
+        ErrorCode::BackendContextLength => (
+            "The input exceeds the model's maximum context window length",
+            "Reduce input size, summarize, or switch to a model with a larger context window",
+            &[ErrorCode::ContractSchemaViolation],
+        ),
+
         // -- Internal --
         ErrorCode::Internal => (
             "An unexpected internal error occurred",
@@ -341,9 +393,10 @@ mod tests {
         let err = AbpError::new(ErrorCode::ProtocolInvalidEnvelope, "bad json");
         let diag = generate_diagnostic(&err);
         assert!(!diag.related_errors.is_empty());
-        assert!(diag
-            .related_errors
-            .contains(&ErrorCode::ProtocolHandshakeFailed));
+        assert!(
+            diag.related_errors
+                .contains(&ErrorCode::ProtocolHandshakeFailed)
+        );
     }
 
     #[test]
@@ -423,6 +476,8 @@ mod tests {
             ErrorCode::BackendAuthFailed,
             ErrorCode::BackendModelNotFound,
             ErrorCode::BackendCrashed,
+            ErrorCode::BackendContentFiltered,
+            ErrorCode::BackendContextLength,
             ErrorCode::ExecutionToolFailed,
             ErrorCode::ExecutionWorkspaceError,
             ErrorCode::ExecutionPermissionDenied,
@@ -439,9 +494,15 @@ mod tests {
             ErrorCode::IrInvalid,
             ErrorCode::ReceiptHashMismatch,
             ErrorCode::ReceiptChainBroken,
+            ErrorCode::ReceiptStoreFailed,
             ErrorCode::DialectUnknown,
             ErrorCode::DialectMappingFailed,
             ErrorCode::ConfigInvalid,
+            ErrorCode::RateLimitExceeded,
+            ErrorCode::CircuitBreakerOpen,
+            ErrorCode::StreamClosed,
+            ErrorCode::ValidationFailed,
+            ErrorCode::SidecarSpawnFailed,
             ErrorCode::Internal,
         ];
         for code in all_codes {

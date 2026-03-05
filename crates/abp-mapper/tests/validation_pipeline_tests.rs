@@ -111,10 +111,11 @@ fn pre_mapping_claude_missing_max_tokens() {
     let req = json!({"model": "claude-3", "messages": [{"role": "user", "content": "hi"}]});
     let r = v().validate_pre_mapping(Dialect::Claude, &req);
     assert!(!r.is_valid());
-    assert!(r
-        .issues
-        .iter()
-        .any(|i| i.field == "max_tokens" && i.code == "missing_required_field"));
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| i.field == "max_tokens" && i.code == "missing_required_field")
+    );
     // 2 out of 3 required fields
     let expected_coverage = (2.0 / 3.0) * 100.0;
     assert!((r.field_coverage - expected_coverage).abs() < 0.1);
@@ -142,10 +143,11 @@ fn pre_mapping_empty_messages_warns() {
     let r = v().validate_pre_mapping(Dialect::OpenAi, &req);
     assert!(r.is_valid()); // only warning, not error
     assert!(r.warning_count() > 0);
-    assert!(r
-        .issues
-        .iter()
-        .any(|i| i.severity == ValidationSeverity::Warning && i.code == "empty_messages"));
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| i.severity == ValidationSeverity::Warning && i.code == "empty_messages")
+    );
 }
 
 #[test]
@@ -393,8 +395,9 @@ fn gemini_empty_contents_warns() {
     let req = json!({"model": "gemini-pro", "contents": []});
     let r = v().validate_pre_mapping(Dialect::Gemini, &req);
     assert!(r.is_valid());
-    assert!(r
-        .issues
-        .iter()
-        .any(|i| i.severity == ValidationSeverity::Warning && i.code == "empty_messages"));
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| i.severity == ValidationSeverity::Warning && i.code == "empty_messages")
+    );
 }

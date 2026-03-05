@@ -4,7 +4,7 @@
 //! These functions are library-level so they can be tested without
 //! spawning the binary.
 
-use abp_core::{receipt_hash, Receipt, WorkOrder};
+use abp_core::{Receipt, WorkOrder, receipt_hash};
 use anyhow::{Context, Result};
 use schemars::schema_for;
 use std::path::Path;

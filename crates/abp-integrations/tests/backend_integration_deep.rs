@@ -37,9 +37,9 @@ use std::sync::Arc;
 use abp_backend_core::registry::BackendRegistry;
 use abp_backend_core::{BackendHealth, BackendMetadata, HealthStatus, RateLimit};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
-    ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_host::SidecarSpec;
 use abp_integrations::capability::CapabilityMatrix;
@@ -47,8 +47,8 @@ use abp_integrations::health::{HealthChecker, HealthStatus as IntegrationHealthS
 use abp_integrations::metrics::{BackendMetrics, MetricsRegistry};
 use abp_integrations::selector::{BackendCandidate, BackendSelector, SelectionStrategy};
 use abp_integrations::{
-    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
-    Backend, MockBackend, SidecarBackend,
+    Backend, MockBackend, SidecarBackend, ensure_capability_requirements, extract_execution_mode,
+    validate_passthrough_compatibility,
 };
 use async_trait::async_trait;
 use serde_json::json;
@@ -295,25 +295,31 @@ fn t10_mock_has_structured_output_emulated() {
 #[tokio::test]
 async fn t11_mock_run_streams_run_started() {
     let (_, events) = run_mock("stream test").await;
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. }))
+    );
 }
 
 #[tokio::test]
 async fn t12_mock_run_streams_assistant_message() {
     let (_, events) = run_mock("stream test").await;
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. }))
+    );
 }
 
 #[tokio::test]
 async fn t13_mock_run_streams_run_completed() {
     let (_, events) = run_mock("stream test").await;
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+    );
 }
 
 #[tokio::test]

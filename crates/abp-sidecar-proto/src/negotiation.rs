@@ -8,10 +8,10 @@
 use std::fmt;
 
 use abp_core::{
-    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirements, SupportLevel,
-    CONTRACT_VERSION,
+    BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest, CapabilityRequirements,
+    SupportLevel,
 };
-use abp_protocol::{is_compatible_version, parse_version, Envelope, ProtocolError};
+use abp_protocol::{Envelope, ProtocolError, is_compatible_version, parse_version};
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------

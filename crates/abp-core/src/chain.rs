@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use uuid::Uuid;
 
-use crate::{receipt_hash, Outcome, Receipt};
+use crate::{Outcome, Receipt, receipt_hash};
 
 /// Error type for receipt chain operations.
 #[derive(Debug, Clone)]

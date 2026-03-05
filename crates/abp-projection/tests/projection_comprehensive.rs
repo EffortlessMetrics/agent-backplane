@@ -1203,9 +1203,10 @@ mod empty_matrix {
     #[test]
     fn empty_matrix_resolve_mapper_returns_none() {
         let pm = ProjectionMatrix::new();
-        assert!(pm
-            .resolve_mapper(Dialect::OpenAi, Dialect::Claude)
-            .is_none());
+        assert!(
+            pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+                .is_none()
+        );
     }
 
     #[test]
@@ -2246,17 +2247,19 @@ mod mapper_resolution {
     #[test]
     fn resolve_mapper_openai_to_claude() {
         let pm = ProjectionMatrix::with_defaults();
-        assert!(pm
-            .resolve_mapper(Dialect::OpenAi, Dialect::Claude)
-            .is_some());
+        assert!(
+            pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+                .is_some()
+        );
     }
 
     #[test]
     fn resolve_mapper_claude_to_openai() {
         let pm = ProjectionMatrix::with_defaults();
-        assert!(pm
-            .resolve_mapper(Dialect::Claude, Dialect::OpenAi)
-            .is_some());
+        assert!(
+            pm.resolve_mapper(Dialect::Claude, Dialect::OpenAi)
+                .is_some()
+        );
     }
 
     #[test]

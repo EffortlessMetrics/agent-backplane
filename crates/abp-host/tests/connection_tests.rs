@@ -32,7 +32,7 @@
 //! Covers SidecarSpec serialization, SidecarClient timeout / reconnect
 //! behaviour, and SidecarHello parsing edge cases.
 
-use abp_core::{BackendIdentity, Capability, CapabilityManifest, SupportLevel, CONTRACT_VERSION};
+use abp_core::{BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest, SupportLevel};
 use abp_host::{SidecarClient, SidecarHello, SidecarSpec};
 use abp_protocol::{Envelope, JsonlCodec};
 use std::collections::BTreeMap;

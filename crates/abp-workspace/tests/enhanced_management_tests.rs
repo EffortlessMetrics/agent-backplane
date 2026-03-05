@@ -3,7 +3,7 @@
 //! pool, merge, quota, lifecycle, and snapshot enhancements.
 
 use abp_workspace::lifecycle::{LifecycleConfig, WorkspaceLifecycle};
-use abp_workspace::merge::{merge_two, ConflictStrategy, MergeOutcome, WorkspaceMerge};
+use abp_workspace::merge::{ConflictStrategy, MergeOutcome, WorkspaceMerge, merge_two};
 use abp_workspace::pool::{PoolConfig, WorkspacePool};
 use abp_workspace::quota::WorkspaceQuota;
 use abp_workspace::snapshot;

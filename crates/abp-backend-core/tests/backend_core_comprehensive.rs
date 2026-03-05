@@ -4,15 +4,15 @@
 //! mock implementations, trait object safety, serialization, and edge cases.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use abp_backend_core::health::{BackendHealth, HealthStatus};
 use abp_backend_core::metadata::{BackendMetadata, RateLimit};
 use abp_backend_core::registry::BackendRegistry;
 use abp_backend_core::{
-    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
-    Backend,
+    Backend, ensure_capability_requirements, extract_execution_mode,
+    validate_passthrough_compatibility,
 };
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,

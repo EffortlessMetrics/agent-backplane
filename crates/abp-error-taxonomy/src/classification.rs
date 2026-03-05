@@ -288,6 +288,44 @@ impl ErrorClassifier {
                 (ErrorSeverity::Fatal, ClassificationCategory::InvalidRequest)
             }
 
+            // RateLimit
+            ErrorCode::RateLimitExceeded => {
+                (ErrorSeverity::Retriable, ClassificationCategory::RateLimit)
+            }
+            ErrorCode::CircuitBreakerOpen => (
+                ErrorSeverity::Retriable,
+                ClassificationCategory::ServerError,
+            ),
+
+            // Stream
+            ErrorCode::StreamClosed => (
+                ErrorSeverity::Retriable,
+                ClassificationCategory::NetworkError,
+            ),
+
+            // ReceiptStore
+            ErrorCode::ReceiptStoreFailed => {
+                (ErrorSeverity::Fatal, ClassificationCategory::ServerError)
+            }
+
+            // Validation
+            ErrorCode::ValidationFailed => {
+                (ErrorSeverity::Fatal, ClassificationCategory::InvalidRequest)
+            }
+
+            // Sidecar
+            ErrorCode::SidecarSpawnFailed => {
+                (ErrorSeverity::Fatal, ClassificationCategory::ServerError)
+            }
+
+            // Backend (extended)
+            ErrorCode::BackendContentFiltered => {
+                (ErrorSeverity::Fatal, ClassificationCategory::ContentFilter)
+            }
+            ErrorCode::BackendContextLength => {
+                (ErrorSeverity::Fatal, ClassificationCategory::ContextLength)
+            }
+
             // Internal
             ErrorCode::Internal => (ErrorSeverity::Fatal, ClassificationCategory::ServerError),
         }

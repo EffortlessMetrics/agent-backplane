@@ -97,7 +97,20 @@ pub fn categorize(code: ErrorCode) -> RecoveryCategory {
         ErrorCode::WorkspaceInitFailed
         | ErrorCode::WorkspaceStagingFailed
         | ErrorCode::ExecutionToolFailed
-        | ErrorCode::ExecutionWorkspaceError => RecoveryCategory::ResourceExhausted,
+        | ErrorCode::ExecutionWorkspaceError
+        | ErrorCode::ReceiptStoreFailed => RecoveryCategory::ResourceExhausted,
+
+        ErrorCode::RateLimitExceeded | ErrorCode::CircuitBreakerOpen => RecoveryCategory::RateLimit,
+
+        ErrorCode::StreamClosed => RecoveryCategory::NetworkTransient,
+
+        ErrorCode::ValidationFailed | ErrorCode::BackendContextLength => {
+            RecoveryCategory::InputValidation
+        }
+
+        ErrorCode::SidecarSpawnFailed => RecoveryCategory::ServerInternal,
+
+        ErrorCode::BackendContentFiltered => RecoveryCategory::PolicyViolation,
     }
 }
 

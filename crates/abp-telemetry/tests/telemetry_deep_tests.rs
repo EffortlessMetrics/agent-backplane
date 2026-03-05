@@ -177,9 +177,10 @@ fn collector_query_by_type_run_started() {
 fn collector_query_by_type_returns_empty_for_absent_type() {
     let mut c = TelemetryCollector::new();
     c.record(ev(TelemetryEventType::RunStarted));
-    assert!(c
-        .events_of_type(TelemetryEventType::FallbackTriggered)
-        .is_empty());
+    assert!(
+        c.events_of_type(TelemetryEventType::FallbackTriggered)
+            .is_empty()
+    );
 }
 
 #[test]

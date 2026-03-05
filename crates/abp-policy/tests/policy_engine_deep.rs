@@ -34,11 +34,11 @@
 use std::path::Path;
 
 use abp_core::PolicyProfile;
+use abp_policy::PolicyEngine;
 use abp_policy::compose::{
     ComposedEngine, PolicyPrecedence, PolicySet, PolicyValidator, WarningKind,
 };
 use abp_policy::composed::{ComposedPolicy, ComposedResult, CompositionStrategy};
-use abp_policy::PolicyEngine;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -993,9 +993,11 @@ fn edge_validator_detects_overlapping_allow_deny() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
+    );
 }
 
 #[test]
@@ -1006,9 +1008,11 @@ fn edge_validator_detects_unreachable_rules() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule)
+    );
 }
 
 #[test]
@@ -1018,9 +1022,11 @@ fn edge_validator_catch_all_deny_read() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule)
+    );
 }
 
 #[test]

@@ -360,10 +360,12 @@ mod ir_construction {
 
         let assistant = &conv.messages[1];
         assert_eq!(assistant.role, IrRole::Assistant);
-        assert!(assistant
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::ToolUse { name, .. } if name == "calc")));
+        assert!(
+            assistant
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolUse { name, .. } if name == "calc"))
+        );
 
         let tool_msg = &conv.messages[2];
         assert_eq!(tool_msg.role, IrRole::Tool);
@@ -428,14 +430,18 @@ mod ir_construction {
         });
         let (conv, _) = lift_claude_json(&req);
         assert_eq!(conv.len(), 2);
-        assert!(conv.messages[0]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::ToolUse { .. })));
-        assert!(conv.messages[1]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::ToolResult { .. })));
+        assert!(
+            conv.messages[0]
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolUse { .. }))
+        );
+        assert!(
+            conv.messages[1]
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolResult { .. }))
+        );
     }
 
     #[test]
@@ -464,10 +470,12 @@ mod ir_construction {
         });
         let (conv, tools) = lift_gemini_json(&req);
         assert_eq!(conv.len(), 2);
-        assert!(conv.messages[0]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::ToolUse { name, .. } if name == "calc")));
+        assert!(
+            conv.messages[0]
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::ToolUse { name, .. } if name == "calc"))
+        );
         assert_eq!(tools.len(), 1);
     }
 
@@ -659,9 +667,11 @@ mod normalization {
         // System messages merged (dedup joins raw, then trim only outer ws)
         assert_eq!(result.messages_by_role(IrRole::System).len(), 1);
         // dedup_system joins "  A  " + "  B  " → "  A  \n  B  ", then trim → "A  \n  B"
-        assert!(result.messages_by_role(IrRole::System)[0]
-            .text_content()
-            .starts_with("A"));
+        assert!(
+            result.messages_by_role(IrRole::System)[0]
+                .text_content()
+                .starts_with("A")
+        );
         // Empty user message stripped, remaining user has merged trimmed text
         let user_msgs = result.messages_by_role(IrRole::User);
         assert_eq!(user_msgs.len(), 1);
@@ -817,10 +827,12 @@ mod sdk_to_ir {
             }]
         });
         let (conv, _) = lift_claude_json(&req);
-        assert!(conv.messages[0]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
+        assert!(
+            conv.messages[0]
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
+        );
     }
 
     #[test]
@@ -1929,7 +1941,7 @@ mod model_mapping {
 
     #[test]
     fn model_in_dialect_request_extracted() {
-        use abp_sdk_types::{openai::OpenAiRequest, DialectRequest};
+        use abp_sdk_types::{DialectRequest, openai::OpenAiRequest};
         let req = DialectRequest::OpenAi(OpenAiRequest {
             model: "gpt-4o".into(),
             messages: vec![],

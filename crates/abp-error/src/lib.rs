@@ -107,6 +107,14 @@ pub enum ErrorCategory {
     Execution,
     /// Contract validation errors.
     Contract,
+    /// Rate-limiting / circuit-breaker errors.
+    RateLimit,
+    /// Event stream errors.
+    Stream,
+    /// Input validation errors.
+    Validation,
+    /// Sidecar lifecycle errors.
+    Sidecar,
     /// Catch-all for unexpected internal errors.
     Internal,
 }
@@ -126,6 +134,10 @@ impl fmt::Display for ErrorCategory {
             Self::Mapping => "mapping",
             Self::Execution => "execution",
             Self::Contract => "contract",
+            Self::RateLimit => "rate_limit",
+            Self::Stream => "stream",
+            Self::Validation => "validation",
+            Self::Sidecar => "sidecar",
             Self::Internal => "internal",
         };
         f.write_str(s)
@@ -260,6 +272,34 @@ pub enum ErrorCode {
     /// Configuration file or value is invalid.
     ConfigInvalid,
 
+    // -- RateLimit --
+    /// ABP's own rate limiter blocked the request.
+    RateLimitExceeded,
+    /// Circuit breaker is open for the target backend.
+    CircuitBreakerOpen,
+
+    // -- Stream --
+    /// Event stream closed prematurely (all receivers dropped).
+    StreamClosed,
+
+    // -- ReceiptStore --
+    /// Receipt persistence (store I/O) failed.
+    ReceiptStoreFailed,
+
+    // -- Validation --
+    /// Structured validation of the request failed.
+    ValidationFailed,
+
+    // -- Sidecar --
+    /// Sidecar process could not be spawned.
+    SidecarSpawnFailed,
+
+    // -- Backend (extended) --
+    /// Content was blocked by the vendor's safety/content filter.
+    BackendContentFiltered,
+    /// Input exceeds the model's context window limit.
+    BackendContextLength,
+
     // -- Internal --
     /// Catch-all for unexpected internal errors.
     Internal,
@@ -312,6 +352,18 @@ impl ErrorCode {
 
             Self::ConfigInvalid => ErrorCategory::Config,
 
+            Self::RateLimitExceeded | Self::CircuitBreakerOpen => ErrorCategory::RateLimit,
+
+            Self::StreamClosed => ErrorCategory::Stream,
+
+            Self::ReceiptStoreFailed => ErrorCategory::Receipt,
+
+            Self::ValidationFailed => ErrorCategory::Validation,
+
+            Self::SidecarSpawnFailed => ErrorCategory::Sidecar,
+
+            Self::BackendContentFiltered | Self::BackendContextLength => ErrorCategory::Backend,
+
             Self::Internal => ErrorCategory::Internal,
         }
     }
@@ -355,6 +407,14 @@ impl ErrorCode {
             Self::DialectUnknown => "dialect_unknown",
             Self::DialectMappingFailed => "dialect_mapping_failed",
             Self::ConfigInvalid => "config_invalid",
+            Self::RateLimitExceeded => "rate_limit_exceeded",
+            Self::CircuitBreakerOpen => "circuit_breaker_open",
+            Self::StreamClosed => "stream_closed",
+            Self::ReceiptStoreFailed => "receipt_store_failed",
+            Self::ValidationFailed => "validation_failed",
+            Self::SidecarSpawnFailed => "sidecar_spawn_failed",
+            Self::BackendContentFiltered => "backend_content_filtered",
+            Self::BackendContextLength => "backend_context_length",
             Self::Internal => "internal",
         }
     }
@@ -399,6 +459,14 @@ impl ErrorCode {
             Self::DialectUnknown => "dialect identifier is not recognised",
             Self::DialectMappingFailed => "mapping between dialects failed",
             Self::ConfigInvalid => "configuration file or value is invalid",
+            Self::RateLimitExceeded => "rate limiter blocked the request",
+            Self::CircuitBreakerOpen => "circuit breaker is open for the backend",
+            Self::StreamClosed => "event stream closed prematurely",
+            Self::ReceiptStoreFailed => "receipt persistence failed",
+            Self::ValidationFailed => "request validation failed",
+            Self::SidecarSpawnFailed => "sidecar process could not be spawned",
+            Self::BackendContentFiltered => "content blocked by vendor safety filter",
+            Self::BackendContextLength => "input exceeds model context window",
             Self::Internal => "unexpected internal error",
         }
     }
@@ -412,6 +480,9 @@ impl ErrorCode {
                 | Self::BackendTimeout
                 | Self::BackendRateLimited
                 | Self::BackendCrashed
+                | Self::RateLimitExceeded
+                | Self::CircuitBreakerOpen
+                | Self::StreamClosed
         )
     }
 }
@@ -511,6 +582,115 @@ impl ErrorLocation {
 impl fmt::Display for ErrorLocation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}:{}", self.file, self.line, self.column)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ErrorContext
+// ---------------------------------------------------------------------------
+
+/// Rich error context builder for attaching structured metadata (file, line,
+/// operation, and arbitrary details) to an [`AbpError`].
+///
+/// # Examples
+///
+/// ```
+/// use abp_error::{AbpError, ErrorCode, ErrorContext};
+///
+/// let err = ErrorContext::new(ErrorCode::BackendTimeout, "timed out")
+///     .file("src/backend.rs")
+///     .line(42)
+///     .operation("send_request")
+///     .detail("backend", "openai")
+///     .detail("timeout_ms", 30_000)
+///     .build();
+/// assert_eq!(err.code, ErrorCode::BackendTimeout);
+/// assert_eq!(err.context["operation"], serde_json::json!("send_request"));
+/// ```
+#[derive(Debug)]
+pub struct ErrorContext {
+    code: ErrorCode,
+    message: String,
+    file: Option<String>,
+    line_num: Option<u32>,
+    column: Option<u32>,
+    operation: Option<String>,
+    details: BTreeMap<String, serde_json::Value>,
+    source: Option<Box<dyn std::error::Error + Send + Sync>>,
+}
+
+impl ErrorContext {
+    /// Start building an error with the given code and message.
+    pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            file: None,
+            line_num: None,
+            column: None,
+            operation: None,
+            details: BTreeMap::new(),
+            source: None,
+        }
+    }
+
+    /// Set the source file where the error occurred.
+    pub fn file(mut self, file: impl Into<String>) -> Self {
+        self.file = Some(file.into());
+        self
+    }
+
+    /// Set the line number.
+    pub fn line(mut self, line: u32) -> Self {
+        self.line_num = Some(line);
+        self
+    }
+
+    /// Set the column number.
+    pub fn col(mut self, column: u32) -> Self {
+        self.column = Some(column);
+        self
+    }
+
+    /// Set the operation name that was being performed.
+    pub fn operation(mut self, op: impl Into<String>) -> Self {
+        self.operation = Some(op.into());
+        self
+    }
+
+    /// Add an arbitrary key-value detail.
+    pub fn detail(mut self, key: impl Into<String>, value: impl Serialize) -> Self {
+        if let Ok(v) = serde_json::to_value(value) {
+            self.details.insert(key.into(), v);
+        }
+        self
+    }
+
+    /// Attach an underlying cause.
+    pub fn source(mut self, err: impl std::error::Error + Send + Sync + 'static) -> Self {
+        self.source = Some(Box::new(err));
+        self
+    }
+
+    /// Consume the builder and produce an [`AbpError`].
+    pub fn build(self) -> AbpError {
+        let location = match (&self.file, self.line_num) {
+            (Some(f), Some(l)) => Some(ErrorLocation::new(f.as_str(), l, self.column.unwrap_or(0))),
+            _ => None,
+        };
+
+        let mut err = AbpError {
+            code: self.code,
+            message: self.message,
+            source: self.source,
+            context: self.details,
+            location,
+        };
+
+        if let Some(op) = self.operation {
+            err = err.with_context("operation", op);
+        }
+        err
     }
 }
 
@@ -955,6 +1135,8 @@ mod tests {
         ErrorCode::BackendAuthFailed,
         ErrorCode::BackendModelNotFound,
         ErrorCode::BackendCrashed,
+        ErrorCode::BackendContentFiltered,
+        ErrorCode::BackendContextLength,
         // Execution
         ErrorCode::ExecutionToolFailed,
         ErrorCode::ExecutionWorkspaceError,
@@ -978,11 +1160,21 @@ mod tests {
         // Receipt
         ErrorCode::ReceiptHashMismatch,
         ErrorCode::ReceiptChainBroken,
+        ErrorCode::ReceiptStoreFailed,
         // Dialect
         ErrorCode::DialectUnknown,
         ErrorCode::DialectMappingFailed,
         // Config
         ErrorCode::ConfigInvalid,
+        // RateLimit
+        ErrorCode::RateLimitExceeded,
+        ErrorCode::CircuitBreakerOpen,
+        // Stream
+        ErrorCode::StreamClosed,
+        // Validation
+        ErrorCode::ValidationFailed,
+        // Sidecar
+        ErrorCode::SidecarSpawnFailed,
         // Internal
         ErrorCode::Internal,
     ];
@@ -1397,7 +1589,7 @@ mod tests {
     #[test]
     fn error_code_count() {
         // Ensure we don't silently drop a variant from ALL_CODES.
-        assert_eq!(ALL_CODES.len(), 36);
+        assert_eq!(ALL_CODES.len(), 44);
     }
 
     #[test]

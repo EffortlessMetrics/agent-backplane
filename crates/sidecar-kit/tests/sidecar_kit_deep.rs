@@ -30,11 +30,11 @@
 //! Comprehensive tests for sidecar-kit: JSONL transport, framing, streaming,
 //! error handling, concurrency, Unicode, and protocol integration.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::{
+    CancelToken, Frame, FrameReader, FrameWriter, JsonlCodec, ReceiptBuilder, SidecarError,
     buf_reader_from_bytes, frame_to_json, json_to_frame, read_all_frames, validate_frame,
-    write_frames, CancelToken, Frame, FrameReader, FrameWriter, JsonlCodec, ReceiptBuilder,
-    SidecarError,
+    write_frames,
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -692,7 +692,7 @@ mod concurrent_rw {
 mod backpressure {
     use super::*;
     use tokio::sync::mpsc;
-    use tokio::time::{timeout, Duration};
+    use tokio::time::{Duration, timeout};
 
     #[tokio::test]
     async fn bounded_channel_blocks_fast_writer() {
@@ -1075,10 +1075,12 @@ mod abp_integration {
         };
         let validation = validate_frame(&frame, 16 * 1024 * 1024);
         assert!(!validation.valid);
-        assert!(validation
-            .issues
-            .iter()
-            .any(|i| i.contains("contract_version")));
+        assert!(
+            validation
+                .issues
+                .iter()
+                .any(|i| i.contains("contract_version"))
+        );
     }
 
     #[test]

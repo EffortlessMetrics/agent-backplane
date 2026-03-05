@@ -310,9 +310,10 @@ fn collector_events_of_type() {
 #[test]
 fn collector_events_of_type_empty() {
     let c = TelemetryCollector::new();
-    assert!(c
-        .events_of_type(TelemetryEventType::RetryAttempted)
-        .is_empty());
+    assert!(
+        c.events_of_type(TelemetryEventType::RetryAttempted)
+            .is_empty()
+    );
 }
 
 #[test]

@@ -33,8 +33,8 @@
 
 use abp_core::{WorkspaceMode, WorkspaceSpec};
 use abp_workspace::diff::{
-    diff_workspace, ChangeType, DiffAnalyzer, DiffPolicy, DiffSummary, FileChange, PolicyResult,
-    WorkspaceDiff,
+    ChangeType, DiffAnalyzer, DiffPolicy, DiffSummary, FileChange, PolicyResult, WorkspaceDiff,
+    diff_workspace,
 };
 use abp_workspace::{PreparedWorkspace, WorkspaceManager, WorkspaceStager};
 use std::fs;
@@ -158,13 +158,14 @@ fn staging_copies_nested_directories() {
     fs::write(src.path().join("root.txt"), "root").unwrap();
 
     let ws = stage_from(src.path());
-    assert!(ws
-        .path()
-        .join("a")
-        .join("b")
-        .join("c")
-        .join("deep.txt")
-        .exists());
+    assert!(
+        ws.path()
+            .join("a")
+            .join("b")
+            .join("c")
+            .join("deep.txt")
+            .exists()
+    );
     assert!(ws.path().join("root.txt").exists());
 }
 
@@ -352,9 +353,11 @@ fn diff_nested_file_paths_use_forward_slash() {
 
     let summary = diff_workspace(&ws).unwrap();
     // Git uses forward slashes in paths regardless of OS
-    assert!(summary
-        .modified
-        .contains(&PathBuf::from("sub/dir/file.txt")));
+    assert!(
+        summary
+            .modified
+            .contains(&PathBuf::from("sub/dir/file.txt"))
+    );
 }
 
 // ===========================================================================
@@ -435,12 +438,13 @@ fn exclude_glob_with_directory_pattern() {
     let ws = WorkspaceManager::prepare(&spec).unwrap();
 
     assert!(ws.path().join("src.rs").exists());
-    assert!(!ws
-        .path()
-        .join("target")
-        .join("debug")
-        .join("binary")
-        .exists());
+    assert!(
+        !ws.path()
+            .join("target")
+            .join("debug")
+            .join("binary")
+            .exists()
+    );
 }
 
 #[test]
@@ -1279,10 +1283,12 @@ fn change_type_display() {
 #[test]
 fn policy_result_is_pass() {
     assert!(PolicyResult::Pass.is_pass());
-    assert!(!PolicyResult::Fail {
-        violations: vec!["oops".into()]
-    }
-    .is_pass());
+    assert!(
+        !PolicyResult::Fail {
+            violations: vec!["oops".into()]
+        }
+        .is_pass()
+    );
 }
 
 #[test]

@@ -40,8 +40,8 @@ use std::collections::BTreeMap;
 
 use abp_core::*;
 use chrono::Utc;
-use serde::{de::DeserializeOwned, Serialize};
-use serde_json::{json, Value};
+use serde::{Serialize, de::DeserializeOwned};
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 // ---------------------------------------------------------------------------

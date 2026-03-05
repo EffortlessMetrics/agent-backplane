@@ -23,6 +23,13 @@ pub mod detect;
 /// that serve as the lingua franca between vendor-specific formats.
 pub mod ir;
 
+/// Strict dialect-specific request parsing with rich error context.
+///
+/// Each vendor gets a dedicated [`DialectParser`](parser::DialectParser)
+/// implementation that validates required fields, enum values, message
+/// roles, tool definitions, streaming flags, and model names.
+pub mod parser;
+
 /// Enhanced request/response validation with severity levels and
 /// machine-readable issue codes.
 pub mod validate;

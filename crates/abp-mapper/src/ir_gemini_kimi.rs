@@ -10,8 +10,8 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 
-use crate::ir_mapper::IrMapper;
 use crate::MapError;
+use crate::ir_mapper::IrMapper;
 
 /// Bidirectional IR mapper between Gemini and Kimi dialects.
 ///

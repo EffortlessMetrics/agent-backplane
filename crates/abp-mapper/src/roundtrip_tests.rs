@@ -309,10 +309,12 @@ fn rt_oai_claude_oai_image_preserved() {
     let back = m
         .map_request(Dialect::Claude, Dialect::OpenAi, &mid)
         .unwrap();
-    assert!(back.messages[0]
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Image { .. })));
+    assert!(
+        back.messages[0]
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Image { .. }))
+    );
 }
 
 #[test]
@@ -470,10 +472,12 @@ fn rt_oai_gemini_oai_image_preserved() {
     let back = m
         .map_request(Dialect::Gemini, Dialect::OpenAi, &mid)
         .unwrap();
-    assert!(back.messages[0]
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Image { .. })));
+    assert!(
+        back.messages[0]
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Image { .. }))
+    );
 }
 
 #[test]
@@ -630,10 +634,12 @@ fn rt_claude_gemini_claude_image_preserved() {
     let back = m
         .map_request(Dialect::Gemini, Dialect::Claude, &mid)
         .unwrap();
-    assert!(back.messages[0]
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Image { .. })));
+    assert!(
+        back.messages[0]
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Image { .. }))
+    );
 }
 
 #[test]

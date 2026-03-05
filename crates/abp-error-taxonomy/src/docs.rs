@@ -390,6 +390,98 @@ pub fn error_code_doc(code: &ErrorCode) -> ErrorCodeDoc {
             see_also: vec![],
         },
 
+        // -- RateLimit ------------------------------------------------------
+        ErrorCode::RateLimitExceeded => ErrorCodeDoc {
+            code: *code,
+            description: "ABP's internal rate limiter blocked the request \
+                          before it reached the backend. This is distinct from \
+                          vendor-side rate limiting (BackendRateLimited)."
+                .into(),
+            example: r#"AbpError::new(ErrorCode::RateLimitExceeded, "10 req/s limit exceeded")"#
+                .into(),
+            see_also: vec![ErrorCode::BackendRateLimited, ErrorCode::CircuitBreakerOpen],
+        },
+        ErrorCode::CircuitBreakerOpen => ErrorCodeDoc {
+            code: *code,
+            description: "The circuit breaker for the target backend is open \
+                          due to repeated recent failures. Requests are \
+                          rejected immediately until the breaker transitions \
+                          to half-open."
+                .into(),
+            example: r#"AbpError::new(ErrorCode::CircuitBreakerOpen, "openai circuit breaker open")"#
+                .into(),
+            see_also: vec![ErrorCode::BackendUnavailable, ErrorCode::RateLimitExceeded],
+        },
+
+        // -- Stream ---------------------------------------------------------
+        ErrorCode::StreamClosed => ErrorCodeDoc {
+            code: *code,
+            description: "The event stream was closed prematurely because all \
+                          receivers were dropped. The backend may still be \
+                          running but has nowhere to send events."
+                .into(),
+            example: r#"AbpError::new(ErrorCode::StreamClosed, "all event receivers dropped")"#
+                .into(),
+            see_also: vec![ErrorCode::BackendCrashed],
+        },
+
+        // -- ReceiptStore ---------------------------------------------------
+        ErrorCode::ReceiptStoreFailed => ErrorCodeDoc {
+            code: *code,
+            description: "Persisting a receipt to the receipt store failed due \
+                          to I/O error, serialization failure, or duplicate ID."
+                .into(),
+            example: r#"AbpError::new(ErrorCode::ReceiptStoreFailed, "disk full")"#
+                .into(),
+            see_also: vec![ErrorCode::ContractInvalidReceipt],
+        },
+
+        // -- Validation -----------------------------------------------------
+        ErrorCode::ValidationFailed => ErrorCodeDoc {
+            code: *code,
+            description: "Structured validation of the request payload failed. \
+                          This covers field-level type checks and constraint \
+                          violations beyond schema conformance."
+                .into(),
+            example: r#"AbpError::new(ErrorCode::ValidationFailed, "temperature must be 0..2")"#
+                .into(),
+            see_also: vec![ErrorCode::ContractSchemaViolation],
+        },
+
+        // -- Sidecar --------------------------------------------------------
+        ErrorCode::SidecarSpawnFailed => ErrorCodeDoc {
+            code: *code,
+            description: "The sidecar process could not be spawned. The binary \
+                          may not exist, may not be executable, or the OS may \
+                          have rejected the spawn."
+                .into(),
+            example: r#"AbpError::new(ErrorCode::SidecarSpawnFailed, "node not found in PATH")"#
+                .into(),
+            see_also: vec![ErrorCode::BackendCrashed, ErrorCode::BackendNotFound],
+        },
+
+        // -- Backend (extended) ---------------------------------------------
+        ErrorCode::BackendContentFiltered => ErrorCodeDoc {
+            code: *code,
+            description: "The vendor's safety or content filter blocked the \
+                          request or response. The content was deemed unsafe \
+                          or in violation of the vendor's usage policy."
+                .into(),
+            example: r#"AbpError::new(ErrorCode::BackendContentFiltered, "response flagged by safety filter")"#
+                .into(),
+            see_also: vec![ErrorCode::PolicyDenied],
+        },
+        ErrorCode::BackendContextLength => ErrorCodeDoc {
+            code: *code,
+            description: "The input exceeds the model's maximum context window \
+                          length. Reduce input size or switch to a model with \
+                          a larger context window."
+                .into(),
+            example: r#"AbpError::new(ErrorCode::BackendContextLength, "128k token limit exceeded")"#
+                .into(),
+            see_also: vec![ErrorCode::ContractSchemaViolation],
+        },
+
         // -- Internal -------------------------------------------------------
         ErrorCode::Internal => ErrorCodeDoc {
             code: *code,
@@ -407,7 +499,7 @@ pub fn error_code_doc(code: &ErrorCode) -> ErrorCodeDoc {
 mod tests {
     use super::*;
 
-    /// All 36 error codes for exhaustive iteration.
+    /// All 44 error codes for exhaustive iteration.
     const ALL_CODES: &[ErrorCode] = &[
         ErrorCode::ProtocolInvalidEnvelope,
         ErrorCode::ProtocolHandshakeFailed,
@@ -444,6 +536,14 @@ mod tests {
         ErrorCode::DialectUnknown,
         ErrorCode::DialectMappingFailed,
         ErrorCode::ConfigInvalid,
+        ErrorCode::RateLimitExceeded,
+        ErrorCode::CircuitBreakerOpen,
+        ErrorCode::StreamClosed,
+        ErrorCode::ReceiptStoreFailed,
+        ErrorCode::ValidationFailed,
+        ErrorCode::SidecarSpawnFailed,
+        ErrorCode::BackendContentFiltered,
+        ErrorCode::BackendContextLength,
         ErrorCode::Internal,
     ];
 

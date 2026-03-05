@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
 use abp_core::{
-    canonical_json, receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity,
-    ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, RunMetadata, UsageNormalized,
-    VerificationReport, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, ExecutionLane,
+    ExecutionMode, Outcome, PolicyProfile, Receipt, RunMetadata, UsageNormalized,
+    VerificationReport, WorkOrder, WorkOrderBuilder, canonical_json, receipt_hash,
 };
 use chrono::Utc;
 use std::collections::BTreeMap;

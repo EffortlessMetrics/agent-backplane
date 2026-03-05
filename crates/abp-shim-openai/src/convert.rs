@@ -841,14 +841,15 @@ mod tests {
             tc.function.as_ref().unwrap().name.as_deref(),
             Some("search")
         );
-        assert!(tc
-            .function
-            .as_ref()
-            .unwrap()
-            .arguments
-            .as_ref()
-            .unwrap()
-            .contains("rust"));
+        assert!(
+            tc.function
+                .as_ref()
+                .unwrap()
+                .arguments
+                .as_ref()
+                .unwrap()
+                .contains("rust")
+        );
         assert_eq!(tc.id.as_deref(), Some("call_s1"));
         assert_eq!(tc.call_type.as_deref(), Some("function"));
     }

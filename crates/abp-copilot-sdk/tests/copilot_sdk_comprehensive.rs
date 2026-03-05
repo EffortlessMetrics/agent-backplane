@@ -17,13 +17,14 @@ use abp_copilot_sdk::convert::{
     git_diff_reference, repo_reference, selection_reference, to_work_order,
 };
 use abp_copilot_sdk::dialect::{
-    capability_manifest, from_canonical_model, from_passthrough_event, is_known_model,
-    map_response, map_stream_event, map_work_order, to_canonical_model, to_passthrough_event,
-    tool_def_from_copilot, tool_def_to_copilot, verify_passthrough_fidelity, CanonicalToolDef,
-    CopilotConfig, CopilotConfirmation, CopilotError, CopilotFunctionCall as DialectFunctionCall,
-    CopilotFunctionDef, CopilotMessage as DialectMessage, CopilotReference, CopilotReferenceType,
+    CanonicalToolDef, CopilotConfig, CopilotConfirmation, CopilotError,
+    CopilotFunctionCall as DialectFunctionCall, CopilotFunctionDef,
+    CopilotMessage as DialectMessage, CopilotReference, CopilotReferenceType,
     CopilotRequest as DialectRequest, CopilotResponse as DialectResponse, CopilotStreamEvent,
     CopilotTool as DialectTool, CopilotToolType, CopilotTurnEntry, DEFAULT_MODEL, DIALECT_VERSION,
+    capability_manifest, from_canonical_model, from_passthrough_event, is_known_model,
+    map_response, map_stream_event, map_work_order, to_canonical_model, to_passthrough_event,
+    tool_def_from_copilot, tool_def_to_copilot, verify_passthrough_fidelity,
 };
 use abp_copilot_sdk::lowering::{
     self, extract_references as lowering_extract_references, from_ir, to_ir,
@@ -35,7 +36,7 @@ use abp_copilot_sdk::types::{
     CopilotTool as TypesTool, CopilotToolCall, CopilotToolFunction, CopilotUsage as TypesUsage,
     Reference, ReferenceType,
 };
-use abp_copilot_sdk::{sidecar_script, BACKEND_NAME, DEFAULT_NODE_COMMAND, HOST_SCRIPT_RELATIVE};
+use abp_copilot_sdk::{BACKEND_NAME, DEFAULT_NODE_COMMAND, HOST_SCRIPT_RELATIVE, sidecar_script};
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{
@@ -453,10 +454,11 @@ fn convert_to_work_order_stores_stream_flag() {
 fn convert_to_work_order_maps_file_refs_to_context_files() {
     let req = sample_chat_request();
     let wo = to_work_order(&req);
-    assert!(wo
-        .context
-        .files
-        .contains(&"file:///src/main.rs".to_string()));
+    assert!(
+        wo.context
+            .files
+            .contains(&"file:///src/main.rs".to_string())
+    );
 }
 
 #[test]

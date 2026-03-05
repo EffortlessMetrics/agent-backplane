@@ -891,6 +891,12 @@ impl ProjectionMatrix {
         self.backends.len()
     }
 
+    /// Look up a registered backend entry by id.
+    #[must_use]
+    pub fn backend_entry(&self, id: &str) -> Option<&BackendEntry> {
+        self.backends.get(id)
+    }
+
     /// Project a work order onto the backend registry.
     ///
     /// Returns the best-fit backend, its score, required emulations, and a

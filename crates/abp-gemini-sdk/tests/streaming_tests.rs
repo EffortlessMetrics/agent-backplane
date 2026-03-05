@@ -31,11 +31,11 @@
 
 use abp_core::AgentEventKind;
 use abp_gemini_sdk::dialect::{
-    map_stream_chunk, map_stream_event, FunctionCallingMode, GeminiCandidate,
-    GeminiCitationMetadata, GeminiCitationSource, GeminiContent, GeminiFunctionCallingConfig,
-    GeminiFunctionDeclaration, GeminiGenerationConfig, GeminiInlineData, GeminiPart,
-    GeminiSafetyRating, GeminiSafetySetting, GeminiStreamChunk, GeminiTool, GeminiToolConfig,
-    GeminiUsageMetadata, HarmBlockThreshold, HarmCategory, HarmProbability,
+    FunctionCallingMode, GeminiCandidate, GeminiCitationMetadata, GeminiCitationSource,
+    GeminiContent, GeminiFunctionCallingConfig, GeminiFunctionDeclaration, GeminiGenerationConfig,
+    GeminiInlineData, GeminiPart, GeminiSafetyRating, GeminiSafetySetting, GeminiStreamChunk,
+    GeminiTool, GeminiToolConfig, GeminiUsageMetadata, HarmBlockThreshold, HarmCategory,
+    HarmProbability, map_stream_chunk, map_stream_event,
 };
 
 // ---------------------------------------------------------------------------

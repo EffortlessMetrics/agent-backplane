@@ -211,6 +211,118 @@ pub fn map_gemini_error(status: u16, body: &str) -> AbpError {
     attach_vendor_context(AbpError::new(code, message), &ve)
 }
 
+// ---------------------------------------------------------------------------
+// Codex
+// ---------------------------------------------------------------------------
+
+/// Map a Codex API error response into an [`AbpError`].
+///
+/// Codex errors follow the same shape as OpenAI errors.
+pub fn map_codex_error(status: u16, body: &str) -> AbpError {
+    let vendor_code = json_nested(body, "error", "type");
+    let vendor_message = json_nested(body, "error", "message");
+
+    let code = match (status, vendor_code.as_deref()) {
+        (401, _) => ErrorCode::BackendAuthFailed,
+        (429, _) => ErrorCode::BackendRateLimited,
+        (404, _) => ErrorCode::BackendModelNotFound,
+        (_, Some("context_length_exceeded")) => ErrorCode::BackendContextLength,
+        (_, Some("invalid_request_error")) => ErrorCode::ContractSchemaViolation,
+        (_, Some("content_filter")) => ErrorCode::BackendContentFiltered,
+        _ => error_code_for_status(status),
+    };
+
+    let message = vendor_message
+        .as_deref()
+        .unwrap_or("Codex API error")
+        .to_string();
+
+    let mut ve = VendorError::new("codex", status, body);
+    if let Some(ref vc) = vendor_code {
+        ve = ve.with_vendor_code(vc.as_str());
+    }
+    if let Some(ref vm) = vendor_message {
+        ve = ve.with_vendor_message(vm.as_str());
+    }
+
+    attach_vendor_context(AbpError::new(code, message), &ve)
+}
+
+// ---------------------------------------------------------------------------
+// Copilot
+// ---------------------------------------------------------------------------
+
+/// Map a GitHub Copilot API error response into an [`AbpError`].
+///
+/// Copilot errors may include a top-level `error` field or simple `message`.
+pub fn map_copilot_error(status: u16, body: &str) -> AbpError {
+    let vendor_code = json_nested(body, "error", "type").or_else(|| json_field(body, "error_code"));
+    let vendor_message =
+        json_nested(body, "error", "message").or_else(|| json_field(body, "message"));
+
+    let code = match (status, vendor_code.as_deref()) {
+        (401, _) | (403, _) => ErrorCode::BackendAuthFailed,
+        (429, _) => ErrorCode::BackendRateLimited,
+        (404, _) => ErrorCode::BackendModelNotFound,
+        (_, Some("content_filter")) => ErrorCode::BackendContentFiltered,
+        (_, Some("context_length_exceeded")) => ErrorCode::BackendContextLength,
+        _ => error_code_for_status(status),
+    };
+
+    let message = vendor_message
+        .as_deref()
+        .unwrap_or("Copilot API error")
+        .to_string();
+
+    let mut ve = VendorError::new("copilot", status, body);
+    if let Some(ref vc) = vendor_code {
+        ve = ve.with_vendor_code(vc.as_str());
+    }
+    if let Some(ref vm) = vendor_message {
+        ve = ve.with_vendor_message(vm.as_str());
+    }
+
+    attach_vendor_context(AbpError::new(code, message), &ve)
+}
+
+// ---------------------------------------------------------------------------
+// Kimi
+// ---------------------------------------------------------------------------
+
+/// Map a Kimi API error response into an [`AbpError`].
+///
+/// Kimi errors use a shape similar to OpenAI.
+pub fn map_kimi_error(status: u16, body: &str) -> AbpError {
+    let vendor_code = json_nested(body, "error", "type").or_else(|| json_field(body, "code"));
+    let vendor_message =
+        json_nested(body, "error", "message").or_else(|| json_field(body, "message"));
+
+    let code = match (status, vendor_code.as_deref()) {
+        (401, _) => ErrorCode::BackendAuthFailed,
+        (429, _) => ErrorCode::BackendRateLimited,
+        (404, _) => ErrorCode::BackendModelNotFound,
+        (_, Some("invalid_request_error")) => ErrorCode::ContractSchemaViolation,
+        (_, Some("content_filter")) => ErrorCode::BackendContentFiltered,
+        (_, Some("context_length_exceeded")) => ErrorCode::BackendContextLength,
+        _ => error_code_for_status(status),
+    };
+
+    let message = vendor_message
+        .as_deref()
+        .unwrap_or("Kimi API error")
+        .to_string();
+
+    let mut ve = VendorError::new("kimi", status, body);
+    if let Some(ref vc) = vendor_code {
+        ve = ve.with_vendor_code(vc.as_str());
+    }
+    if let Some(ref vm) = vendor_message {
+        ve = ve.with_vendor_message(vm.as_str());
+    }
+
+    attach_vendor_context(AbpError::new(code, message), &ve)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

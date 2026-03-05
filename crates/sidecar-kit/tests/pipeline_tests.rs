@@ -27,8 +27,8 @@
 #![allow(clippy::needless_update)]
 #![allow(clippy::approx_constant)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 use sidecar_kit::pipeline::{
     EventPipeline, PipelineError, PipelineStage, RedactStage, TimestampStage, ValidateStage,
 };

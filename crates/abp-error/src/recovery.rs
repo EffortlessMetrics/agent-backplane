@@ -15,14 +15,14 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+use crate::ErrorCode;
 use crate::mapping_errors::MappingError;
 use crate::protocol_errors::ProtocolError;
 use crate::vendor_errors::VendorApiError;
-use crate::ErrorCode;
 
 // ---------------------------------------------------------------------------
 // RecoveryStrategy
@@ -154,7 +154,11 @@ impl ErrorClassifier {
             | ErrorCode::ProtocolHandshakeFailed
             | ErrorCode::WorkspaceInitFailed
             | ErrorCode::WorkspaceStagingFailed
-            | ErrorCode::ExecutionToolFailed => ErrorClassification::Transient,
+            | ErrorCode::ExecutionToolFailed
+            | ErrorCode::RateLimitExceeded
+            | ErrorCode::CircuitBreakerOpen
+            | ErrorCode::StreamClosed
+            | ErrorCode::ReceiptStoreFailed => ErrorClassification::Transient,
 
             // Degraded — partial success possible
             ErrorCode::MappingLossyConversion
@@ -186,6 +190,10 @@ impl ErrorClassifier {
             | ErrorCode::DialectUnknown
             | ErrorCode::DialectMappingFailed
             | ErrorCode::ConfigInvalid
+            | ErrorCode::ValidationFailed
+            | ErrorCode::SidecarSpawnFailed
+            | ErrorCode::BackendContentFiltered
+            | ErrorCode::BackendContextLength
             | ErrorCode::Internal => ErrorClassification::Permanent,
         }
     }

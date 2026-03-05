@@ -36,7 +36,7 @@
 use std::collections::BTreeMap;
 
 use abp_dialect::{Dialect, DialectDetector};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn detector() -> DialectDetector {
     DialectDetector::new()
@@ -581,9 +581,11 @@ fn endpoint_github_copilot_api() {
 
 #[test]
 fn endpoint_unknown_returns_none() {
-    assert!(detector()
-        .detect_from_endpoint("https://custom-llm.example.com/v1/generate")
-        .is_none());
+    assert!(
+        detector()
+            .detect_from_endpoint("https://custom-llm.example.com/v1/generate")
+            .is_none()
+    );
 }
 
 #[test]

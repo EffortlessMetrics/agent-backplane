@@ -33,7 +33,7 @@
 
 use abp_config::validate::ConfigValidator;
 use abp_config::{
-    load_from_file, load_from_str, validate_config, BackendEntry, BackplaneConfig, ConfigError,
+    BackendEntry, BackplaneConfig, ConfigError, load_from_file, load_from_str, validate_config,
 };
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -298,9 +298,11 @@ fn validate_bind_address_empty_is_error() {
     let mut cfg = fully_valid_config();
     cfg.bind_address = Some("".into());
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("bind_address must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("bind_address must not be empty"))
+    );
 }
 
 // ===========================================================================
@@ -312,9 +314,11 @@ fn validate_bind_address_invalid_is_error() {
     let mut cfg = fully_valid_config();
     cfg.bind_address = Some("not a valid address!!!".into());
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("not a valid IP address or hostname")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("not a valid IP address or hostname"))
+    );
 }
 
 // ===========================================================================
@@ -383,9 +387,11 @@ fn validate_policy_profile_nonexistent_path_is_error() {
     let mut cfg = fully_valid_config();
     cfg.policy_profiles = vec!["/nonexistent/policy.toml".into()];
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("policy profile path does not exist")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("policy profile path does not exist"))
+    );
 }
 
 // ===========================================================================
@@ -397,9 +403,11 @@ fn validate_policy_profile_empty_path_is_error() {
     let mut cfg = fully_valid_config();
     cfg.policy_profiles = vec!["".into()];
     let reasons = validation_reasons(validate_config(&cfg).unwrap_err());
-    assert!(reasons
-        .iter()
-        .any(|r| r.contains("policy profile path must not be empty")));
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("policy profile path must not be empty"))
+    );
 }
 
 // ===========================================================================
@@ -449,10 +457,12 @@ fn check_empty_policy_profile_error() {
     cfg.policy_profiles = vec!["".into()];
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| e.field.starts_with("policy_profiles")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| e.field.starts_with("policy_profiles"))
+    );
 }
 
 // ===========================================================================

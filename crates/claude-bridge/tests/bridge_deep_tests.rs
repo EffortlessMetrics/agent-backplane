@@ -30,7 +30,7 @@
 //! Deep tests for claude-bridge: content block construction, message/work-order
 //! format, Frame-level event mapping, and serde round-trips.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use claude_bridge::config::ClaudeBridgeConfig;
 use claude_bridge::error::BridgeError;

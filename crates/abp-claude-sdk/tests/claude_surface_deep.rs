@@ -35,7 +35,7 @@ use std::collections::BTreeMap;
 use abp_claude_sdk::dialect::{
     self, CanonicalToolDef, ClaudeApiError, ClaudeConfig, ClaudeContentBlock, ClaudeMessage,
     ClaudeMessageDelta, ClaudeResponse, ClaudeStopReason, ClaudeStreamDelta, ClaudeStreamEvent,
-    ClaudeUsage, ThinkingConfig, DEFAULT_MODEL, DIALECT_VERSION,
+    ClaudeUsage, DEFAULT_MODEL, DIALECT_VERSION, ThinkingConfig,
 };
 use abp_claude_sdk::lowering;
 use abp_claude_sdk::messages::{

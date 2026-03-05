@@ -9,7 +9,7 @@ use std::time::Duration;
 use abp_core::AgentEvent;
 use futures_core::Stream;
 use pin_project_lite::pin_project;
-use tokio::time::{sleep, Instant, Sleep};
+use tokio::time::{Instant, Sleep, sleep};
 
 // ---------------------------------------------------------------------------
 // MapStream
