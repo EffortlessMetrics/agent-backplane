@@ -884,8 +884,10 @@ fn validate_missing_file_fails() {
 }
 
 #[test]
-fn validate_missing_arg_fails() {
-    abp().args(["validate"]).assert().failure();
+fn validate_no_file_validates_config() {
+    // When no file argument is given, `validate` falls back to config
+    // validation and succeeds with "config: valid".
+    abp().args(["validate"]).assert().success();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
