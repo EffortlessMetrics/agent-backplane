@@ -50,8 +50,8 @@ use abp_dialect::DialectDetector;
 use abp_ir::lower::{lower_for_dialect, lower_to_claude, lower_to_gemini, lower_to_openai};
 use abp_ir::normalize::normalize;
 use abp_mapper::{
-    ClaudeGeminiIrMapper, IrMapper, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper, default_ir_mapper,
-    supported_ir_pairs,
+    default_ir_mapper, supported_ir_pairs, ClaudeGeminiIrMapper, IrMapper, OpenAiClaudeIrMapper,
+    OpenAiGeminiIrMapper,
 };
 use abp_policy::PolicyEngine;
 use abp_projection::{ProjectionMatrix, ProjectionMode};
@@ -808,7 +808,7 @@ fn given_ir_conversation_when_lowered_to_gemini_then_has_contents() {
 /// Then the roundtripped messages preserve semantic content.
 #[test]
 fn given_openai_request_when_roundtripped_through_ir_then_equivalent() {
-    use abp_shim_openai::{ChatCompletionRequest, Message, ir_to_messages, messages_to_ir};
+    use abp_shim_openai::{ir_to_messages, messages_to_ir, ChatCompletionRequest, Message};
 
     let request = ChatCompletionRequest::builder()
         .model("gpt-4")
@@ -979,7 +979,7 @@ fn given_ir_normalization_when_applied_then_text_trimmed() {
 /// Then the task and model fields are populated.
 #[test]
 fn given_openai_request_when_converted_to_work_order_then_fields_populated() {
-    use abp_shim_openai::{ChatCompletionRequest, Message, request_to_work_order};
+    use abp_shim_openai::{request_to_work_order, ChatCompletionRequest, Message};
 
     let request = ChatCompletionRequest::builder()
         .model("gpt-4o")
@@ -996,7 +996,7 @@ fn given_openai_request_when_converted_to_work_order_then_fields_populated() {
 /// Then the task is populated from messages.
 #[test]
 fn given_claude_request_when_converted_to_work_order_then_task_populated() {
-    use abp_shim_claude::{ContentBlock, Message, MessageRequest, Role, request_to_work_order};
+    use abp_shim_claude::{request_to_work_order, ContentBlock, Message, MessageRequest, Role};
 
     let request = MessageRequest {
         model: "claude-3-5-sonnet-20241022".into(),

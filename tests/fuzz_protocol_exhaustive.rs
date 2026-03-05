@@ -6,16 +6,16 @@
 #![allow(dead_code, unused_imports)]
 
 use abp_capability::{
-    CapabilityRegistry, CompatibilityReport, NegotiationResult, check_capability, generate_report,
-    negotiate_capabilities,
+    check_capability, generate_report, negotiate_capabilities, CapabilityRegistry,
+    CompatibilityReport, NegotiationResult,
 };
-use abp_config::{BackendEntry, BackplaneConfig, parse_toml, validate_config};
+use abp_config::{parse_toml, validate_config, BackendEntry, BackplaneConfig};
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability,
     CapabilityManifest, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
     Receipt, ReceiptBuilder, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, receipt_hash,
+    WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
 };
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_ir::lower::{
@@ -25,7 +25,7 @@ use abp_ir::lower::{
 use abp_ir::normalize;
 use abp_policy::PolicyEngine;
 use abp_protocol::codec::StreamingCodec;
-use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::path::Path;

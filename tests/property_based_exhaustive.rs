@@ -13,14 +13,14 @@ use std::path::Path;
 use proptest::prelude::*;
 use serde_json::json;
 
-use abp_config::{BackendEntry, BackplaneConfig, merge_configs};
+use abp_config::{merge_configs, BackendEntry, BackplaneConfig};
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
-    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkspaceMode, WorkspaceSpec,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
+    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata,
+    RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode,
+    WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_error::{AbpError, ErrorCategory, ErrorCode, ErrorInfo};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};

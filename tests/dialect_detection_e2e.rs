@@ -33,7 +33,7 @@
 use std::collections::HashSet;
 
 use abp_dialect::{Dialect, DialectDetector, DialectValidator, ValidationError};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -803,11 +803,9 @@ fn detect_none_for_empty_object() {
 
 #[test]
 fn detect_none_for_unknown_keys() {
-    assert!(
-        detector()
-            .detect(&json!({"foo": "bar", "baz": 1}))
-            .is_none()
-    );
+    assert!(detector()
+        .detect(&json!({"foo": "bar", "baz": 1}))
+        .is_none());
 }
 
 #[test]

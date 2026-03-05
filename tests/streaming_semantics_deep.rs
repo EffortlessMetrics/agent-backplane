@@ -37,8 +37,8 @@ use abp_core::aggregate::EventAggregator;
 use abp_core::filter::EventFilter;
 use abp_core::stream::EventStream;
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, ReceiptBuilder, WorkOrder, WorkOrderBuilder, WorkspaceMode,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
+    Receipt, ReceiptBuilder, WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
 };
 use abp_integrations::Backend;
 use abp_runtime::{Runtime, RuntimeError};

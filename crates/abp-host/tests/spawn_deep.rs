@@ -975,31 +975,21 @@ async fn sidecar_varied_event_kinds_all_arrive() {
     assert_eq!(events.len(), 5);
 
     // Verify different kinds came through.
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. }))
-    );
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { .. }))
-    );
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. }))
-    );
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::FileChanged { .. }))
-    );
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. })));
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { .. })));
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. })));
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::FileChanged { .. })));
+    assert!(events
+        .iter()
+        .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
 
     let receipt = sidecar_run.receipt.await.unwrap().unwrap();
     assert!(matches!(receipt.outcome, abp_core::Outcome::Complete));

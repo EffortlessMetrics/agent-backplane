@@ -38,13 +38,13 @@
 use std::collections::BTreeSet;
 
 use abp_capability::{
-    CapabilityRegistry, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
-    gemini_15_pro_manifest, kimi_manifest, openai_gpt4o_manifest,
+    claude_35_sonnet_manifest, codex_manifest, copilot_manifest, gemini_15_pro_manifest,
+    kimi_manifest, openai_gpt4o_manifest, CapabilityRegistry,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_core::{Capability, SupportLevel};
 use abp_dialect::Dialect;
-use abp_mapper::{MapError, default_ir_mapper, supported_ir_pairs};
+use abp_mapper::{default_ir_mapper, supported_ir_pairs, MapError};
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 

@@ -33,12 +33,12 @@
 use std::path::Path;
 
 use abp_core::PolicyProfile;
-use abp_policy::PolicyEngine;
 use abp_policy::audit::{PolicyAuditor, PolicyDecision as AuditDecision};
 use abp_policy::compose::{
     ComposedEngine, PolicyPrecedence, PolicySet, PolicyValidator, WarningKind,
 };
 use abp_policy::rules::{Rule, RuleCondition, RuleEffect, RuleEngine};
+use abp_policy::PolicyEngine;
 
 // ───────────────────────────────────────────────────────────────────
 // Helpers
@@ -983,11 +983,9 @@ fn validator_detects_empty_globs() {
         ..Default::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::EmptyGlob && w.message.contains("allowed_tools"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::EmptyGlob && w.message.contains("allowed_tools")));
 }
 
 #[test]
@@ -997,11 +995,9 @@ fn validator_detects_empty_glob_in_deny_read() {
         ..Default::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::EmptyGlob && w.message.contains("deny_read"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::EmptyGlob && w.message.contains("deny_read")));
 }
 
 #[test]
@@ -1012,11 +1008,9 @@ fn validator_detects_overlapping_allow_deny_tools() {
         ..Default::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
 }
 
 #[test]
@@ -1027,11 +1021,9 @@ fn validator_detects_overlapping_allow_deny_network() {
         ..Default::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny && w.message.contains("network"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::OverlappingAllowDeny && w.message.contains("network")));
 }
 
 #[test]
@@ -1042,11 +1034,9 @@ fn validator_detects_unreachable_rules_wildcard_deny() {
         ..Default::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule));
 }
 
 #[test]
@@ -1056,11 +1046,9 @@ fn validator_detects_catch_all_deny_read() {
         ..Default::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read")));
 }
 
 #[test]
@@ -1070,11 +1058,9 @@ fn validator_detects_catch_all_deny_write() {
         ..Default::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_write"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_write")));
 }
 
 #[test]

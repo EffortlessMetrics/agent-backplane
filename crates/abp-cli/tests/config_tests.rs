@@ -29,8 +29,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use abp_cli::config::{
-    BackendConfig, BackplaneConfig, apply_env_overrides, load_config, merge_configs,
-    validate_config,
+    apply_env_overrides, load_config, merge_configs, validate_config, BackendConfig,
+    BackplaneConfig,
 };
 use std::collections::HashMap;
 
@@ -277,10 +277,9 @@ fn validate_detects_empty_sidecar_command() {
         ..Default::default()
     };
     let errs = validate_config(&config).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, abp_cli::config::ConfigError::InvalidBackend { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, abp_cli::config::ConfigError::InvalidBackend { .. })));
 }
 
 #[test]
@@ -297,10 +296,9 @@ fn validate_detects_excessive_timeout() {
         ..Default::default()
     };
     let errs = validate_config(&config).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, abp_cli::config::ConfigError::InvalidTimeout { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, abp_cli::config::ConfigError::InvalidTimeout { .. })));
 }
 
 // ---------------------------------------------------------------------------

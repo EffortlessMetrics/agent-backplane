@@ -38,7 +38,7 @@ use abp_core::{
     RuntimeConfig, SupportLevel, WorkOrderBuilder,
 };
 use abp_dialect::{Dialect, DialectDetector};
-use abp_mapper::{IrMapper, MapError, default_ir_mapper, supported_ir_pairs};
+use abp_mapper::{default_ir_mapper, supported_ir_pairs, IrMapper, MapError};
 use abp_mapping::{Fidelity, MappingRegistry, MappingRule};
 use abp_projection::{
     DialectPair, ProjectionError, ProjectionMatrix, ProjectionMode, ProjectionResult,

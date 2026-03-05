@@ -2,8 +2,8 @@
 //! Cooperative cancellation token for sidecar runs.
 
 use std::sync::{
-    Arc,
     atomic::{AtomicBool, Ordering},
+    Arc,
 };
 use tokio::sync::Notify;
 

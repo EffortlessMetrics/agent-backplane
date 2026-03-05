@@ -41,7 +41,7 @@ use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
 use abp_protocol::{
-    Envelope, JsonlCodec, ProtocolError, RawFrame, is_compatible_version, parse_version,
+    is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError, RawFrame,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -290,12 +290,10 @@ fn hello_empty_backend_id_fails_validation() {
     };
     let result = validator().validate(&env);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id"))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id")));
 }
 
 #[test]
@@ -803,11 +801,9 @@ fn invalid_sequence_missing_hello() {
 fn invalid_sequence_hello_not_first() {
     let seq = vec![make_run("run-1"), make_hello(), make_final("run-1")];
     let errors = validator().validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
 }
 
 #[test]
@@ -906,11 +902,9 @@ fn event_with_mismatched_ref_id() {
 fn final_with_mismatched_ref_id() {
     let seq = vec![make_hello(), make_run("run-1"), make_final("wrong-run")];
     let errors = validator().validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -921,11 +915,9 @@ fn fatal_with_mismatched_ref_id() {
         make_fatal(Some("wrong-run"), "err"),
     ];
     let errors = validator().validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -1073,12 +1065,10 @@ fn large_payload_validation_warning() {
         },
     );
     let result = validator().validate(&env);
-    assert!(
-        result
-            .warnings
-            .iter()
-            .any(|w| matches!(w, ValidationWarning::LargePayload { .. }))
-    );
+    assert!(result
+        .warnings
+        .iter()
+        .any(|w| matches!(w, ValidationWarning::LargePayload { .. })));
 }
 
 #[test]
@@ -1997,12 +1987,10 @@ fn command_executed_with_all_fields() {
         {
             assert_eq!(command, "cargo build");
             assert_eq!(*exit_code, Some(1));
-            assert!(
-                output_preview
-                    .as_ref()
-                    .unwrap()
-                    .contains("mismatched types")
-            );
+            assert!(output_preview
+                .as_ref()
+                .unwrap()
+                .contains("mismatched types"));
         } else {
             panic!("expected CommandExecuted");
         }

@@ -40,13 +40,13 @@ use abp_mapper::validation::{
     DefaultMappingValidator, MappingValidator, ValidationPipeline, ValidationSeverity,
 };
 use abp_mapper::{
-    ClaudeGeminiIrMapper, ClaudeToOpenAiMapper, CodexClaudeIrMapper, DialectRequest,
-    DialectResponse, GeminiToOpenAiMapper, IdentityMapper, IrIdentityMapper, IrMapper, MapError,
-    Mapper, MappingError, OpenAiClaudeIrMapper, OpenAiCodexIrMapper, OpenAiGeminiIrMapper,
-    OpenAiToClaudeMapper, OpenAiToGeminiMapper, default_ir_mapper, supported_ir_pairs,
+    default_ir_mapper, supported_ir_pairs, ClaudeGeminiIrMapper, ClaudeToOpenAiMapper,
+    CodexClaudeIrMapper, DialectRequest, DialectResponse, GeminiToOpenAiMapper, IdentityMapper,
+    IrIdentityMapper, IrMapper, MapError, Mapper, MappingError, OpenAiClaudeIrMapper,
+    OpenAiCodexIrMapper, OpenAiGeminiIrMapper, OpenAiToClaudeMapper, OpenAiToGeminiMapper,
 };
 use chrono::Utc;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -759,12 +759,10 @@ fn gemini_to_openai_inline_data_to_image_url() {
     let content = result["messages"][0]["content"].as_array().unwrap();
     assert_eq!(content[0]["type"], "text");
     assert_eq!(content[1]["type"], "image_url");
-    assert!(
-        content[1]["image_url"]["url"]
-            .as_str()
-            .unwrap()
-            .starts_with("data:image/png;base64,")
-    );
+    assert!(content[1]["image_url"]["url"]
+        .as_str()
+        .unwrap()
+        .starts_with("data:image/png;base64,"));
 }
 
 #[test]
@@ -1287,13 +1285,11 @@ fn roundtrip_openai_claude_openai_simple_ir() {
     // User and assistant messages should survive
     assert!(!roundtripped.messages_by_role(IrRole::User).is_empty());
     assert!(roundtripped.last_assistant().is_some());
-    assert!(
-        roundtripped
-            .last_assistant()
-            .unwrap()
-            .text_content()
-            .contains("Hi there")
-    );
+    assert!(roundtripped
+        .last_assistant()
+        .unwrap()
+        .text_content()
+        .contains("Hi there"));
 }
 
 #[test]
@@ -1748,12 +1744,10 @@ fn edge_validation_empty_messages_warning() {
     let result = v.validate_pre_mapping(Dialect::OpenAi, &req);
     // Valid (required fields present) but should have warning
     assert!(result.is_valid());
-    assert!(
-        result
-            .issues
-            .iter()
-            .any(|i| i.code == "empty_messages" && i.severity == ValidationSeverity::Warning)
-    );
+    assert!(result
+        .issues
+        .iter()
+        .any(|i| i.code == "empty_messages" && i.severity == ValidationSeverity::Warning));
 }
 
 #[test]
@@ -1764,12 +1758,10 @@ fn edge_multiline_system_prompt() {
         {"role": "user", "content": "Go"}
     ]));
     let result = mapper.map_request(&req).unwrap();
-    assert!(
-        result["system"]
-            .as_str()
-            .unwrap()
-            .contains("Line 1\nLine 2\nLine 3")
-    );
+    assert!(result["system"]
+        .as_str()
+        .unwrap()
+        .contains("Line 1\nLine 2\nLine 3"));
 }
 
 #[test]

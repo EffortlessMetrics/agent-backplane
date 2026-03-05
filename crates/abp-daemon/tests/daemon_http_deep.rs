@@ -34,22 +34,22 @@
 //! with a real `Runtime` + `MockBackend`).
 
 use abp_core::{
-    CONTRACT_VERSION, CapabilityRequirements, ContextPacket, ExecutionLane, Outcome, PolicyProfile,
-    ReceiptBuilder, RuntimeConfig, WorkOrder, WorkspaceMode, WorkspaceSpec,
+    CapabilityRequirements, ContextPacket, ExecutionLane, Outcome, PolicyProfile, ReceiptBuilder,
+    RuntimeConfig, WorkOrder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_daemon::api::{
     HealthResponse as V1HealthResponse, ListBackendsResponse, RunRequest as V1RunRequest,
 };
 use abp_daemon::middleware::{CorsConfig, RateLimiter};
 use abp_daemon::queue::{QueuePriority, QueuedRun, RunQueue};
-use abp_daemon::routes::{Endpoint, MatchResult, Method, RouteTable, api_routes};
-use abp_daemon::server::{DaemonServer, VersionResponse, router as server_router};
+use abp_daemon::routes::{api_routes, Endpoint, MatchResult, Method, RouteTable};
+use abp_daemon::server::{router as server_router, DaemonServer, VersionResponse};
 use abp_daemon::state::{BackendList, RunPhase, RunRegistry, ServerState};
 use abp_daemon::validation::RequestValidator;
 use abp_daemon::versioning::{ApiVersion, VersionNegotiator};
 use abp_daemon::{
-    AppState, BackendInfo, DaemonConfig, DaemonError, DaemonState, RunMetrics, RunRequest,
-    RunStatus, RunTracker, StatusResponse, ValidationResponse, build_app, build_versioned_app,
+    build_app, build_versioned_app, AppState, BackendInfo, DaemonConfig, DaemonError, DaemonState,
+    RunMetrics, RunRequest, RunStatus, RunTracker, StatusResponse, ValidationResponse,
 };
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;
@@ -1706,8 +1706,8 @@ fn queue_full_rejected() {
         metadata: BTreeMap::new(),
     })
     .unwrap();
-    assert!(
-        q.enqueue(QueuedRun {
+    assert!(q
+        .enqueue(QueuedRun {
             id: "b".into(),
             work_order_id: "wo".into(),
             priority: QueuePriority::Normal,
@@ -1715,8 +1715,7 @@ fn queue_full_rejected() {
             backend: None,
             metadata: BTreeMap::new(),
         })
-        .is_err()
-    );
+        .is_err());
 }
 
 #[test]

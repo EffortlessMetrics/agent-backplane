@@ -33,11 +33,11 @@
 //! that glob filtering works correctly, and that auxiliary modules (snapshot,
 //! diff, template, tracker) integrate properly with staged workspaces.
 
-use abp_workspace::WorkspaceStager;
 use abp_workspace::diff::diff_workspace;
 use abp_workspace::snapshot;
 use abp_workspace::template::WorkspaceTemplate;
 use abp_workspace::tracker::{ChangeKind, ChangeTracker, FileChange};
+use abp_workspace::WorkspaceStager;
 use std::fs;
 use std::path::Path;
 

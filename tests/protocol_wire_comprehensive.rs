@@ -10,16 +10,16 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, Outcome, ReceiptBuilder, WorkOrderBuilder,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
+    ReceiptBuilder, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_protocol::codec::StreamingCodec;
 use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
 
 // =========================================================================
 // Helpers
@@ -1197,12 +1197,10 @@ fn validate_hello_invalid_version() {
     };
     let result = v.validate(&env);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
 }
 
 #[test]
@@ -1316,11 +1314,9 @@ fn sequence_hello_not_first() {
     let v = EnvelopeValidator::new();
     let envs = vec![make_run("r1"), make_hello(), make_final("r1")];
     let errors = v.validate_sequence(&envs);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 })));
 }
 
 #[test]
@@ -1368,11 +1364,9 @@ fn sequence_ref_id_mismatch_in_final() {
     let v = EnvelopeValidator::new();
     let envs = vec![make_hello(), make_run("r1"), make_final("wrong-ref")];
     let errors = v.validate_sequence(&envs);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -1900,12 +1894,10 @@ fn validate_normal_sized_envelope_no_large_payload_warning() {
     let v = EnvelopeValidator::new();
     let env = make_fatal(None, "small error");
     let result = v.validate(&env);
-    assert!(
-        !result
-            .warnings
-            .iter()
-            .any(|w| matches!(w, ValidationWarning::LargePayload { .. }))
-    );
+    assert!(!result
+        .warnings
+        .iter()
+        .any(|w| matches!(w, ValidationWarning::LargePayload { .. })));
 }
 
 // =========================================================================
@@ -2097,11 +2089,9 @@ fn fatal_ref_id_mismatch_in_sequence() {
         make_fatal(Some("wrong-ref"), "crash"),
     ];
     let errors = v.validate_sequence(&envs);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]

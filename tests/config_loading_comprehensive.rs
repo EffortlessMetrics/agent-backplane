@@ -41,8 +41,8 @@
 //! 8. Edge cases: missing fields, unknown fields, empty values
 
 use abp_config::{
-    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, load_config, merge_configs,
-    parse_toml, validate_config,
+    load_config, merge_configs, parse_toml, validate_config, BackendEntry, BackplaneConfig,
+    ConfigError, ConfigWarning,
 };
 use std::collections::BTreeMap;
 use std::io::Write;

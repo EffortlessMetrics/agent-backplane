@@ -34,7 +34,7 @@ use abp_core::{
     WorkspaceMode, WorkspaceSpec,
 };
 use abp_daemon::{
-    AppState, RunRequest, RunResponse, RunTracker, ValidationResponse, build_versioned_app,
+    build_versioned_app, AppState, RunRequest, RunResponse, RunTracker, ValidationResponse,
 };
 use abp_integrations::MockBackend;
 use abp_runtime::Runtime;
@@ -398,11 +398,9 @@ async fn v1_validate_rejects_unknown_backend() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json["valid"], false);
     let errors = json["errors"].as_array().unwrap();
-    assert!(
-        errors
-            .iter()
-            .any(|e| e.as_str().unwrap().contains("unknown backend"))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| e.as_str().unwrap().contains("unknown backend")));
 }
 
 // ===========================================================================

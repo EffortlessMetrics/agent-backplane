@@ -32,8 +32,8 @@ use abp_core::{
     SupportLevel,
 };
 use abp_integrations::{
-    Backend, MockBackend, ensure_capability_requirements, extract_execution_mode,
-    validate_passthrough_compatibility,
+    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
+    Backend, MockBackend,
 };
 use serde_json::json;
 use tokio::sync::mpsc;

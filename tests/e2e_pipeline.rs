@@ -39,14 +39,14 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    receipt_hash,
+    CONTRACT_VERSION,
 };
 use abp_integrations::Backend;
 use abp_policy::PolicyEngine;
-use abp_receipt::{ReceiptChain, diff_receipts, verify_hash};
+use abp_receipt::{diff_receipts, verify_hash, ReceiptChain};
 use abp_runtime::budget::{BudgetLimit, BudgetStatus, BudgetTracker, BudgetViolation};
 use abp_runtime::bus::{EventBus, FilteredSubscription};
 use abp_runtime::cancel::{CancellableRun, CancellationReason, CancellationToken};
@@ -1490,15 +1490,13 @@ async fn workspace_pipeline_nested_directories_staged() {
         .stage()
         .unwrap();
 
-    assert!(
-        prepared
-            .path()
-            .join("a")
-            .join("b")
-            .join("c")
-            .join("deep.rs")
-            .exists()
-    );
+    assert!(prepared
+        .path()
+        .join("a")
+        .join("b")
+        .join("c")
+        .join("deep.rs")
+        .exists());
 }
 
 #[tokio::test]

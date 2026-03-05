@@ -39,9 +39,9 @@ pub mod typed_middleware;
 pub mod work_order;
 
 pub use builders::{
-    EventBuilder, ReceiptBuilder, event_command_executed, event_error, event_file_changed,
-    event_frame, event_run_completed, event_run_started, event_text_delta, event_text_message,
-    event_tool_call, event_tool_result, event_warning, fatal_frame, final_frame, hello_frame,
+    event_command_executed, event_error, event_file_changed, event_frame, event_run_completed,
+    event_run_started, event_text_delta, event_text_message, event_tool_call, event_tool_result,
+    event_warning, fatal_frame, final_frame, hello_frame, EventBuilder, ReceiptBuilder,
 };
 pub use cancel::CancelToken;
 pub use client::{HelloData, SidecarClient};
@@ -49,8 +49,8 @@ pub use codec::JsonlCodec;
 pub use error::SidecarError;
 pub use frame::Frame;
 pub use framing::{
-    FrameReader, FrameValidation, FrameWriter, buf_reader_from_bytes, frame_to_json, json_to_frame,
-    read_all_frames, validate_frame, write_frames,
+    buf_reader_from_bytes, frame_to_json, json_to_frame, read_all_frames, validate_frame,
+    write_frames, FrameReader, FrameValidation, FrameWriter,
 };
 pub use middleware::{
     ErrorWrapMiddleware, EventMiddleware, FilterMiddleware, LoggingMiddleware, MiddlewareChain,
@@ -73,18 +73,18 @@ pub use typed_middleware::{
 };
 
 pub use events::{
-    EventBuilder as TypedEventBuilder, command_event, delta_event, error_event, file_changed_event,
-    run_completed_event, run_started_event, text_event, tool_call_event, tool_result_event,
-    warning_event,
+    command_event, delta_event, error_event, file_changed_event, run_completed_event,
+    run_started_event, text_event, tool_call_event, tool_result_event, warning_event,
+    EventBuilder as TypedEventBuilder,
 };
 pub use protocol_helpers::{read_run, send_event, send_fatal, send_final, send_hello};
 pub use receipt_builder::TypedReceiptBuilder;
 pub use test_utils::{
-    MockStdin, MockStdout, SidecarTestHarness, assert_valid_event, assert_valid_fatal,
-    assert_valid_final, assert_valid_hello,
+    assert_valid_event, assert_valid_fatal, assert_valid_final, assert_valid_hello, MockStdin,
+    MockStdout, SidecarTestHarness,
 };
 
-pub use capabilities::{CapabilitySet, default_streaming_capabilities};
+pub use capabilities::{default_streaming_capabilities, CapabilitySet};
 pub use capability_builder::CapabilityBuilder;
 pub use event_builder::{
     CommandRunBuilder, ErrorBuilder, EventBuildError, FileEditBuilder, RunCompletedBuilder,

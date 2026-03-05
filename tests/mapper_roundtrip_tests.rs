@@ -37,12 +37,12 @@
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
+use abp_mapper::{default_ir_mapper, supported_ir_pairs};
 use abp_mapper::{
     ClaudeGeminiIrMapper, ClaudeKimiIrMapper, CodexClaudeIrMapper, GeminiKimiIrMapper,
     IrIdentityMapper, IrMapper, MapError, OpenAiClaudeIrMapper, OpenAiCodexIrMapper,
     OpenAiCopilotIrMapper, OpenAiGeminiIrMapper, OpenAiKimiIrMapper,
 };
-use abp_mapper::{default_ir_mapper, supported_ir_pairs};
 use serde_json::json;
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -769,12 +769,10 @@ fn content_image_preserved_claude_gemini() {
     let result = mapper
         .map_request(Dialect::Claude, Dialect::Gemini, &conv)
         .unwrap();
-    assert!(
-        result.messages[0]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::Image { .. }))
-    );
+    assert!(result.messages[0]
+        .content
+        .iter()
+        .any(|b| matches!(b, IrContentBlock::Image { .. })));
 }
 
 #[test]
@@ -785,11 +783,10 @@ fn content_tool_use_preserved_openai_claude() {
         .map_request(Dialect::OpenAi, Dialect::Claude, &conv)
         .unwrap();
     let asst = &result.messages[1];
-    assert!(
-        asst.content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::ToolUse { name, .. } if name == "get_weather"))
-    );
+    assert!(asst
+        .content
+        .iter()
+        .any(|b| matches!(b, IrContentBlock::ToolUse { name, .. } if name == "get_weather")));
 }
 
 #[test]

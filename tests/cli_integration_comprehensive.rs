@@ -12,8 +12,8 @@ use abp_cli::commands::{self, SchemaKind, ValidatedType};
 use abp_cli::config::{BackendConfig, BackplaneConfig};
 use abp_cli::format::{Formatter, OutputFormat};
 use abp_core::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, ExecutionLane, Outcome, ReceiptBuilder,
-    WorkOrderBuilder, WorkspaceMode,
+    AgentEvent, AgentEventKind, ExecutionLane, Outcome, ReceiptBuilder, WorkOrderBuilder,
+    WorkspaceMode, CONTRACT_VERSION,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -977,10 +977,9 @@ fn config_validate_empty_command_invalid() {
         ..Default::default()
     };
     let errs = abp_cli::config::validate_config(&config).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, ConfigError::InvalidBackend { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, ConfigError::InvalidBackend { .. })));
 }
 
 #[test]
@@ -998,10 +997,9 @@ fn config_validate_zero_timeout_invalid() {
         ..Default::default()
     };
     let errs = abp_cli::config::validate_config(&config).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, ConfigError::InvalidTimeout { value: 0 }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, ConfigError::InvalidTimeout { value: 0 })));
 }
 
 #[test]

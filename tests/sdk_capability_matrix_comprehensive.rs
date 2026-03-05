@@ -36,13 +36,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use abp_capability::{
-    SupportLevel as CapSupportLevel, check_capability, generate_report, negotiate,
+    check_capability, generate_report, negotiate, SupportLevel as CapSupportLevel,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
     SupportLevel,
 };
-use abp_emulation::{EmulationEngine, EmulationStrategy, can_emulate, default_strategy};
+use abp_emulation::{can_emulate, default_strategy, EmulationEngine, EmulationStrategy};
 
 // ===========================================================================
 // Helpers

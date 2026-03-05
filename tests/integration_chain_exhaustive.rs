@@ -19,17 +19,17 @@ use std::path::Path;
 use std::time::Duration;
 
 use abp_capability::{
-    NegotiationResult, check_capability, claude_35_sonnet_manifest, codex_manifest,
-    copilot_manifest, gemini_15_pro_manifest, generate_report, kimi_manifest,
-    negotiate_capabilities, openai_gpt4o_manifest,
+    check_capability, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
+    gemini_15_pro_manifest, generate_report, kimi_manifest, negotiate_capabilities,
+    openai_gpt4o_manifest, NegotiationResult,
 };
 use abp_config::load_from_str;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, Outcome,
     PolicyProfile, Receipt, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode};
@@ -38,7 +38,7 @@ use abp_glob::IncludeExcludeGlobs;
 use abp_ir::lower::{lower_for_dialect, lower_to_claude, lower_to_openai};
 use abp_ir::normalize::{dedup_system, merge_adjacent_text, normalize, strip_empty, trim_text};
 use abp_mapper::{IdentityMapper, Mapper};
-use abp_mapping::{Fidelity, MappingRegistry, known_rules, validate_mapping};
+use abp_mapping::{known_rules, validate_mapping, Fidelity, MappingRegistry};
 use abp_policy::PolicyEngine;
 use abp_projection::{ProjectionMatrix, ProjectionScore};
 use abp_protocol::{Envelope, JsonlCodec};
@@ -1244,18 +1244,14 @@ mod sdk_ir_mapping_chain {
     #[test]
     fn mapping_fidelity_lossless_check() {
         assert!(Fidelity::Lossless.is_lossless());
-        assert!(
-            !Fidelity::LossyLabeled {
-                warning: "loss".into()
-            }
-            .is_lossless()
-        );
-        assert!(
-            Fidelity::Unsupported {
-                reason: "no".into()
-            }
-            .is_unsupported()
-        );
+        assert!(!Fidelity::LossyLabeled {
+            warning: "loss".into()
+        }
+        .is_lossless());
+        assert!(Fidelity::Unsupported {
+            reason: "no".into()
+        }
+        .is_unsupported());
     }
 
     #[test]

@@ -12,8 +12,8 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 
-use crate::MapError;
 use crate::ir_mapper::IrMapper;
+use crate::MapError;
 
 /// Bidirectional IR mapper between Claude and Gemini dialects.
 ///

@@ -33,12 +33,12 @@
 //! `ReceiptChain` (in-memory ordered chain).
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, Outcome, Receipt, UsageNormalized, VerificationReport,
-    receipt_hash,
+    receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, Outcome, Receipt, UsageNormalized,
+    VerificationReport,
 };
 use abp_receipt::{
-    ChainError, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash, diff_receipts,
-    verify_hash,
+    canonicalize, compute_hash, diff_receipts, verify_hash, ChainError, ReceiptBuilder,
+    ReceiptChain,
 };
 use abp_runtime::store::ReceiptStore;
 use chrono::{DateTime, Duration, TimeZone, Utc};

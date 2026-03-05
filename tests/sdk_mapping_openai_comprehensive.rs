@@ -38,8 +38,8 @@ use std::collections::BTreeMap;
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, CONTRACT_VERSION, Outcome, ReceiptBuilder, UsageNormalized,
-    WorkOrderBuilder,
+    AgentEvent, AgentEventKind, Outcome, ReceiptBuilder, UsageNormalized, WorkOrderBuilder,
+    CONTRACT_VERSION,
 };
 use abp_openai_sdk::dialect::{
     self, CanonicalToolDef, OpenAIChoice, OpenAIConfig, OpenAIFunctionCall, OpenAIFunctionDef,
@@ -54,10 +54,10 @@ use abp_openai_sdk::streaming::{
 };
 use abp_openai_sdk::validation::{ExtendedRequestFields, UnmappableParam, ValidationErrors};
 use abp_shim_openai::{
-    ChatCompletionRequest, FunctionCall, Message, OpenAiClient, ProcessFn, Role, StreamEvent, Tool,
-    ToolCall, Usage, events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir,
-    mock_receipt, mock_receipt_with_usage, receipt_to_response, request_to_ir,
-    request_to_work_order, tools_to_ir,
+    events_to_stream_events, ir_to_messages, ir_usage_to_usage, messages_to_ir, mock_receipt,
+    mock_receipt_with_usage, receipt_to_response, request_to_ir, request_to_work_order,
+    tools_to_ir, ChatCompletionRequest, FunctionCall, Message, OpenAiClient, ProcessFn, Role,
+    StreamEvent, Tool, ToolCall, Usage,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -1495,14 +1495,12 @@ mod error_code_mapping {
         };
         let receipt = mock_receipt(vec![event]);
         let resp = receipt_to_response(&receipt, "gpt-4o");
-        assert!(
-            resp.choices[0]
-                .message
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("backend not found")
-        );
+        assert!(resp.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("backend not found"));
     }
 
     #[test]
@@ -1928,13 +1926,11 @@ mod response_mapping {
         let cfg = OpenAIConfig::default();
         let req = dialect::map_work_order(&wo, &cfg);
         assert_eq!(req.model, "gpt-4-turbo");
-        assert!(
-            req.messages[0]
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("Refactor auth")
-        );
+        assert!(req.messages[0]
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Refactor auth"));
     }
 }
 

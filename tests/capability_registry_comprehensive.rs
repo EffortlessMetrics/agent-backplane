@@ -2,12 +2,12 @@
 #![allow(dead_code, unused_imports)]
 #![allow(unused_imports)]
 
-use abp_capability::negotiate::{NegotiationError, NegotiationPolicy, apply_policy, pre_negotiate};
+use abp_capability::negotiate::{apply_policy, pre_negotiate, NegotiationError, NegotiationPolicy};
 use abp_capability::{
-    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
     check_capability, claude_35_sonnet_manifest, codex_manifest, copilot_manifest,
     default_emulation_strategy, gemini_15_pro_manifest, generate_report, kimi_manifest, negotiate,
-    negotiate_capabilities, openai_gpt4o_manifest,
+    negotiate_capabilities, openai_gpt4o_manifest, CapabilityRegistry, CompatibilityReport,
+    EmulationStrategy, NegotiationResult, SupportLevel,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,
@@ -1030,10 +1030,9 @@ fn registry_negotiate_by_name_found() {
 #[test]
 fn registry_negotiate_by_name_missing() {
     let reg = CapabilityRegistry::new();
-    assert!(
-        reg.negotiate_by_name("missing", &[Capability::Streaming])
-            .is_none()
-    );
+    assert!(reg
+        .negotiate_by_name("missing", &[Capability::Streaming])
+        .is_none());
 }
 
 #[test]

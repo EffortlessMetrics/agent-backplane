@@ -355,8 +355,7 @@ fn no_candidate_has_all_caps() {
     let mut sel = BackendSelector::new(SelectionStrategy::FirstMatch);
     sel.add_candidate(candidate("a", &[Capability::ToolRead], 1));
     sel.add_candidate(candidate("b", &[Capability::ToolWrite], 2));
-    assert!(
-        sel.select(&[Capability::ToolRead, Capability::ToolWrite])
-            .is_none()
-    );
+    assert!(sel
+        .select(&[Capability::ToolRead, Capability::ToolWrite])
+        .is_none());
 }

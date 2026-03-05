@@ -261,12 +261,10 @@ fn response_types_for_each_sdk_are_complete() {
             total_tokens: 15,
         }),
     };
-    assert!(
-        serde_json::to_value(&openai_resp)
-            .unwrap()
-            .get("id")
-            .is_some()
-    );
+    assert!(serde_json::to_value(&openai_resp)
+        .unwrap()
+        .get("id")
+        .is_some());
 
     // Claude
     let claude_resp = ClaudeResponse {
@@ -282,12 +280,10 @@ fn response_types_for_each_sdk_are_complete() {
             cache_read_input_tokens: None,
         }),
     };
-    assert!(
-        serde_json::to_value(&claude_resp)
-            .unwrap()
-            .get("id")
-            .is_some()
-    );
+    assert!(serde_json::to_value(&claude_resp)
+        .unwrap()
+        .get("id")
+        .is_some());
 
     // Gemini
     let gemini_resp = GeminiResponse {
@@ -304,12 +300,10 @@ fn response_types_for_each_sdk_are_complete() {
             total_token_count: 15,
         }),
     };
-    assert!(
-        serde_json::to_value(&gemini_resp)
-            .unwrap()
-            .get("candidates")
-            .is_some()
-    );
+    assert!(serde_json::to_value(&gemini_resp)
+        .unwrap()
+        .get("candidates")
+        .is_some());
 
     // Codex
     let codex_resp = CodexResponse {
@@ -326,12 +320,10 @@ fn response_types_for_each_sdk_are_complete() {
         }),
         status: Some("completed".into()),
     };
-    assert!(
-        serde_json::to_value(&codex_resp)
-            .unwrap()
-            .get("id")
-            .is_some()
-    );
+    assert!(serde_json::to_value(&codex_resp)
+        .unwrap()
+        .get("id")
+        .is_some());
 
     // Kimi
     let kimi_resp = KimiResponse {
@@ -353,12 +345,10 @@ fn response_types_for_each_sdk_are_complete() {
         }),
         refs: None,
     };
-    assert!(
-        serde_json::to_value(&kimi_resp)
-            .unwrap()
-            .get("id")
-            .is_some()
-    );
+    assert!(serde_json::to_value(&kimi_resp)
+        .unwrap()
+        .get("id")
+        .is_some());
 
     // Copilot
     let copilot_resp = CopilotResponse {
@@ -368,12 +358,10 @@ fn response_types_for_each_sdk_are_complete() {
         copilot_confirmation: None,
         function_call: None,
     };
-    assert!(
-        serde_json::to_value(&copilot_resp)
-            .unwrap()
-            .get("message")
-            .is_some()
-    );
+    assert!(serde_json::to_value(&copilot_resp)
+        .unwrap()
+        .get("message")
+        .is_some());
 }
 
 #[test]

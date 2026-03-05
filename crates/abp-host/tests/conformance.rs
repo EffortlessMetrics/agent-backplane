@@ -33,8 +33,8 @@
 //! verifying handshake, event streaming, receipt delivery, and error handling.
 
 use abp_core::{
-    CONTRACT_VERSION, CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile,
-    RuntimeConfig, WorkOrder, WorkspaceMode, WorkspaceSpec,
+    CapabilityRequirements, ContextPacket, ExecutionLane, PolicyProfile, RuntimeConfig, WorkOrder,
+    WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_host::{HostError, SidecarClient, SidecarSpec};
 use tokio_stream::StreamExt;

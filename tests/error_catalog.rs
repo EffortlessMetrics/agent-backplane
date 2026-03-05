@@ -94,12 +94,11 @@ mod contract_error {
         let serde_err = serde_json::from_str::<serde_json::Value>("!").unwrap_err();
         let err = ContractError::Json(serde_err);
         assert!(err.source().is_some(), "Json variant should have a source");
-        assert!(
-            err.source()
-                .unwrap()
-                .downcast_ref::<serde_json::Error>()
-                .is_some()
-        );
+        assert!(err
+            .source()
+            .unwrap()
+            .downcast_ref::<serde_json::Error>()
+            .is_some());
     }
 
     #[test]

@@ -35,9 +35,10 @@
 use std::collections::HashSet;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
     RunMetadata, SupportLevel, UsageNormalized, VerificationReport, WorkOrderBuilder,
+    CONTRACT_VERSION,
 };
 use abp_integrations::{Backend, MockBackend};
 use anyhow::Result;
@@ -643,12 +644,10 @@ async fn roundtrip_unsatisfied_capability_rejects() {
     let (tx, _rx) = mpsc::channel(64);
     let result = backend.run(Uuid::new_v4(), wo, tx).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("capability requirements not satisfied")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("capability requirements not satisfied"));
 }
 
 // ---------------------------------------------------------------------------

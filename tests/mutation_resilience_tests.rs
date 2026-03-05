@@ -8,24 +8,25 @@
 //! and return value mutations) that cargo-mutants might introduce.
 
 use abp_capability::{
-    CapabilityRegistry, CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
-    check_capability, generate_report, negotiate, negotiate_capabilities,
+    check_capability, generate_report, negotiate, negotiate_capabilities, CapabilityRegistry,
+    CompatibilityReport, EmulationStrategy, NegotiationResult, SupportLevel,
 };
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ContractError, ExecutionMode, MinSupport,
     Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, SupportLevel as CoreSupportLevel,
-    UsageNormalized, VerificationReport, WorkOrderBuilder,
+    UsageNormalized, VerificationReport, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_dialect::{DetectionResult, Dialect, DialectDetector};
 use abp_error::{AbpError, ErrorCategory, ErrorCode, ErrorInfo};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_policy::{Decision, PolicyEngine};
 use abp_protocol::{
-    Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version,
-    version::{ProtocolVersion, VersionRange, negotiate_version},
+    is_compatible_version, parse_version,
+    version::{negotiate_version, ProtocolVersion, VersionRange},
+    Envelope, JsonlCodec, ProtocolError,
 };
-use abp_receipt::{ReceiptBuilder as ReceiptCrateBuilder, canonicalize, compute_hash, verify_hash};
+use abp_receipt::{canonicalize, compute_hash, verify_hash, ReceiptBuilder as ReceiptCrateBuilder};
 use chrono::Utc;
 use serde_json::json;
 use std::collections::BTreeMap;

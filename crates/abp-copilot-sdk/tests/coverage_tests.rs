@@ -31,11 +31,11 @@
 //! tool types, edge cases in mapping, and config boundaries.
 
 use abp_copilot_sdk::dialect::{
+    from_canonical_model, is_known_model, map_response, map_stream_event, map_work_order,
     CopilotConfig, CopilotConfirmation, CopilotError, CopilotFunctionCall, CopilotFunctionDef,
     CopilotMessage, CopilotReference, CopilotReferenceType, CopilotRequest, CopilotResponse,
     CopilotStreamEvent, CopilotTool, CopilotToolType, CopilotTurnEntry, DEFAULT_MODEL,
-    DIALECT_VERSION, from_canonical_model, is_known_model, map_response, map_stream_event,
-    map_work_order,
+    DIALECT_VERSION,
 };
 use abp_core::{AgentEventKind, WorkOrderBuilder};
 use std::collections::BTreeMap;

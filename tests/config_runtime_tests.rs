@@ -37,8 +37,8 @@ use abp_config::validate::{
     IssueSeverity, Severity, ValidationIssue,
 };
 use abp_config::{
-    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, load_config, load_from_file,
-    load_from_str, merge_configs, parse_toml, validate_config,
+    load_config, load_from_file, load_from_str, merge_configs, parse_toml, validate_config,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning,
 };
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -544,11 +544,9 @@ fn validation_rejects_empty_bind_address() {
     cfg.bind_address = Some("".into());
     let err = validate_config(&cfg).unwrap_err();
     let reasons = validation_reasons(err);
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("bind_address must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("bind_address must not be empty")));
 }
 
 #[test]
@@ -557,11 +555,9 @@ fn validation_rejects_invalid_bind_address() {
     cfg.bind_address = Some("not!valid!address".into());
     let err = validate_config(&cfg).unwrap_err();
     let reasons = validation_reasons(err);
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("not a valid IP address or hostname"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("not a valid IP address or hostname")));
 }
 
 #[test]
@@ -577,11 +573,9 @@ fn validation_rejects_empty_sidecar_command() {
     );
     let err = validate_config(&cfg).unwrap_err();
     let reasons = validation_reasons(err);
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("command must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("command must not be empty")));
 }
 
 #[test]
@@ -845,11 +839,9 @@ fn backend_large_timeout_produces_warning() {
         },
     );
     let warnings = validate_config(&cfg).unwrap();
-    assert!(
-        warnings
-            .iter()
-            .any(|w| matches!(w, ConfigWarning::LargeTimeout { backend, .. } if backend == "slow"))
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| matches!(w, ConfigWarning::LargeTimeout { backend, .. } if backend == "slow")));
 }
 
 // ===========================================================================
@@ -888,11 +880,9 @@ fn policy_profiles_empty_path_is_validation_error() {
     cfg.policy_profiles = vec!["".into()];
     let err = validate_config(&cfg).unwrap_err();
     let reasons = validation_reasons(err);
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("policy profile path must not be empty"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("policy profile path must not be empty")));
 }
 
 #[test]
@@ -901,11 +891,9 @@ fn policy_profiles_nonexistent_path_is_validation_error() {
     cfg.policy_profiles = vec!["/this/path/does/not/exist.toml".into()];
     let err = validate_config(&cfg).unwrap_err();
     let reasons = validation_reasons(err);
-    assert!(
-        reasons
-            .iter()
-            .any(|r| r.contains("policy profile path does not exist"))
-    );
+    assert!(reasons
+        .iter()
+        .any(|r| r.contains("policy profile path does not exist")));
 }
 
 #[test]
@@ -1313,18 +1301,14 @@ fn config_validator_check_warns_about_unknown_default_backend() {
     cfg.default_backend = Some("nonexistent".into());
     let result = ConfigValidator::check(&cfg);
     assert!(result.valid);
-    assert!(
-        result
-            .warnings
-            .iter()
-            .any(|w| w.message.contains("nonexistent"))
-    );
-    assert!(
-        result
-            .suggestions
-            .iter()
-            .any(|s| s.contains("Set default_backend"))
-    );
+    assert!(result
+        .warnings
+        .iter()
+        .any(|w| w.message.contains("nonexistent")));
+    assert!(result
+        .suggestions
+        .iter()
+        .any(|s| s.contains("Set default_backend")));
 }
 
 #[test]
@@ -1333,11 +1317,9 @@ fn config_validator_validate_at_filters_by_severity() {
     let warnings_only = ConfigValidator::validate_at(&cfg, Severity::Warning).unwrap();
     let all = ConfigValidator::validate(&cfg).unwrap();
     assert!(warnings_only.len() <= all.len());
-    assert!(
-        warnings_only
-            .iter()
-            .all(|i| i.severity >= Severity::Warning)
-    );
+    assert!(warnings_only
+        .iter()
+        .all(|i| i.severity >= Severity::Warning));
 }
 
 #[test]

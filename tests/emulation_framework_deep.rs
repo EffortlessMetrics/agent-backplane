@@ -36,8 +36,8 @@ use abp_emulation::strategies::{
     StreamingEmulation, ThinkingEmulation, ToolUseEmulation, VisionEmulation,
 };
 use abp_emulation::{
-    EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy,
-    FidelityLabel, apply_emulation, can_emulate, compute_fidelity, default_strategy,
+    apply_emulation, can_emulate, compute_fidelity, default_strategy, EmulationConfig,
+    EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy, FidelityLabel,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

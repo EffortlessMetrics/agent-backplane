@@ -35,10 +35,10 @@ use abp_core::{
     RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
-use abp_mapping::{Fidelity, MappingRegistry, MappingRule, features, known_rules};
+use abp_mapping::{features, known_rules, Fidelity, MappingRegistry, MappingRule};
 use abp_projection::{
-    ProjectionError, ProjectionMatrix, ProjectionMode, ProjectionResult,
     selection::{ModelCandidate, ModelSelector, SelectionStrategy},
+    ProjectionError, ProjectionMatrix, ProjectionMode, ProjectionResult,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -387,12 +387,10 @@ mod fallback_routing {
         // Claude should be selected (higher priority, has mapping from OpenAI)
         assert_eq!(result.selected_backend, "claude-be");
         // Gemini should be in fallback
-        assert!(
-            result
-                .fallback_chain
-                .iter()
-                .any(|f| f.backend_id == "gemini-be")
-        );
+        assert!(result
+            .fallback_chain
+            .iter()
+            .any(|f| f.backend_id == "gemini-be"));
     }
 }
 
@@ -1423,10 +1421,9 @@ mod edge_cases {
     #[test]
     fn resolve_mapper_openai_to_claude() {
         let pm = ProjectionMatrix::with_defaults();
-        assert!(
-            pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
-                .is_some()
-        );
+        assert!(pm
+            .resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+            .is_some());
     }
 
     #[test]

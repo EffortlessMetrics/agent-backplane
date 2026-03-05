@@ -1362,12 +1362,10 @@ async fn server_rejects_event_as_first_non_blank() {
     let server = SidecarServer::new(NoopHandler, default_identity(), caps());
     let result = server.run_with_io(line.as_bytes(), &mut w).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("unexpected message")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("unexpected message"));
 }
 
 #[tokio::test]
@@ -1404,12 +1402,10 @@ async fn server_rejects_hello_as_input() {
     let server = SidecarServer::new(NoopHandler, default_identity(), caps());
     let result = server.run_with_io(line.as_bytes(), &mut w).await;
     assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("unexpected message")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("unexpected message"));
 }
 
 #[tokio::test]

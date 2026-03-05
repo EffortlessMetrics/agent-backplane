@@ -31,7 +31,7 @@
 //! Tests for the `verify` module.
 
 use abp_core::verify::{ChainVerifier, ReceiptVerifier};
-use abp_core::{AgentEvent, AgentEventKind, CONTRACT_VERSION, Outcome, Receipt, ReceiptBuilder};
+use abp_core::{AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder, CONTRACT_VERSION};
 use chrono::{Duration, Utc};
 use uuid::Uuid;
 

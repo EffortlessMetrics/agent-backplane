@@ -1337,11 +1337,9 @@ fn validator_detects_overlapping_allow_deny() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
 }
 
 #[test]
@@ -1352,11 +1350,9 @@ fn validator_detects_unreachable_rule_wildcard_deny() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule));
 }
 
 #[test]
@@ -1366,11 +1362,9 @@ fn validator_detects_catch_all_deny_read() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule));
 }
 
 #[test]
@@ -1380,11 +1374,9 @@ fn validator_detects_catch_all_deny_write() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::UnreachableRule));
 }
 
 #[test]
@@ -1428,11 +1420,9 @@ fn validator_detects_network_overlap() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
 }
 
 // =========================================================================

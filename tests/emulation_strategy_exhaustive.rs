@@ -7,17 +7,17 @@
 //! strip-thinking, tool emulation, streaming emulation, JSON mode,
 //! graceful degradation, emulation labeling, and metadata tracking.
 
-use abp_core::Capability;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
+use abp_core::Capability;
 use abp_emulation::strategies::{
     ParsedToolCall, StreamChunk, StreamingEmulation, ThinkingDetail, ThinkingEmulation,
     ToolUseEmulation, VisionEmulation,
 };
 use abp_emulation::{
-    EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy,
-    FidelityLabel, apply_emulation, can_emulate, compute_fidelity, default_strategy,
-    emulate_code_execution, emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
-    emulate_structured_output,
+    apply_emulation, can_emulate, compute_fidelity, default_strategy, emulate_code_execution,
+    emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
+    emulate_structured_output, EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport,
+    EmulationStrategy, FidelityLabel,
 };
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -198,11 +198,9 @@ mod thinking_as_text {
         let emu = ThinkingEmulation::brief();
         emu.inject(&mut conv);
         assert_eq!(conv.messages[0].role, IrRole::System);
-        assert!(
-            conv.messages[0]
-                .text_content()
-                .contains("Think step by step")
-        );
+        assert!(conv.messages[0]
+            .text_content()
+            .contains("Think step by step"));
     }
 
     #[test]
@@ -1142,11 +1140,9 @@ mod emulation_metadata {
                 reason: "user pref".into(),
             },
         );
-        assert!(
-            config
-                .strategies
-                .contains_key(&Capability::ExtendedThinking)
-        );
+        assert!(config
+            .strategies
+            .contains_key(&Capability::ExtendedThinking));
     }
 
     #[test]

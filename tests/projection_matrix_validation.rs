@@ -36,7 +36,7 @@ use abp_core::{
 };
 use abp_dialect::Dialect;
 use abp_mapping::{
-    Fidelity, MappingMatrix, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
+    features, known_rules, validate_mapping, Fidelity, MappingMatrix, MappingRegistry, MappingRule,
 };
 use abp_projection::{ProjectionError, ProjectionMatrix, ProjectionResult, ProjectionScore};
 
@@ -838,10 +838,9 @@ fn backend_id_sort_breaks_tie_deterministically() {
 #[test]
 fn mapping_registry_lookup_miss_returns_none() {
     let reg = MappingRegistry::new();
-    assert!(
-        reg.lookup(Dialect::OpenAi, Dialect::Claude, "nonexistent")
-            .is_none()
-    );
+    assert!(reg
+        .lookup(Dialect::OpenAi, Dialect::Claude, "nonexistent")
+        .is_none());
 }
 
 #[test]
@@ -1335,12 +1334,10 @@ fn fallback_includes_incompatible_backends() {
         .project(&wo(require(&[Capability::Streaming, Capability::ToolRead])))
         .unwrap();
     assert_eq!(result.selected_backend, "good");
-    assert!(
-        result
-            .fallback_chain
-            .iter()
-            .any(|e| e.backend_id == "partial")
-    );
+    assert!(result
+        .fallback_chain
+        .iter()
+        .any(|e| e.backend_id == "partial"));
 }
 
 #[test]

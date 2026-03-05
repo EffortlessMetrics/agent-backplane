@@ -32,7 +32,7 @@
 
 use proptest::prelude::*;
 
-use abp_core::{CONTRACT_VERSION, ContextPacket, ContextSnippet, WorkOrderBuilder};
+use abp_core::{ContextPacket, ContextSnippet, WorkOrderBuilder, CONTRACT_VERSION};
 
 // ---------------------------------------------------------------------------
 // Proptest strategies

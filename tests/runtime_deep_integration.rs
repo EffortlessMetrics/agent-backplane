@@ -41,10 +41,10 @@ use std::path::Path;
 use std::sync::Arc;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RunMetadata, RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode,
+    WorkspaceMode, CONTRACT_VERSION,
 };
 use abp_emulation::{EmulationConfig, EmulationStrategy};
 use abp_integrations::Backend;

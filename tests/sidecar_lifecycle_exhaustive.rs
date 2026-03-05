@@ -13,8 +13,8 @@ use std::time::Duration;
 use abp_core::*;
 use abp_host::{HostError, SidecarHello, SidecarSpec};
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
-use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -395,11 +395,9 @@ fn hello_at_position_two_detected() {
         make_final("r1"),
     ];
     let errors = validator().validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 2 }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 2 })));
 }
 
 #[test]
@@ -506,12 +504,10 @@ fn validate_hello_with_invalid_version_format() {
     };
     let result = validator().validate(&hello);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
 }
 
 #[test]
@@ -522,12 +518,10 @@ fn validate_run_with_empty_id() {
     };
     let result = validator().validate(&run);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "id"))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "id")));
 }
 
 #[test]
@@ -548,12 +542,10 @@ fn validate_event_with_empty_ref_id() {
     };
     let result = validator().validate(&event);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "ref_id"))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "ref_id")));
 }
 
 #[test]
@@ -575,12 +567,10 @@ fn validate_fatal_with_empty_error() {
     };
     let result = validator().validate(&fatal);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "error"))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "error")));
 }
 
 #[test]
@@ -633,11 +623,9 @@ fn ref_id_mismatch_final_detected() {
         make_final("wrong-ref"),
     ];
     let errors = validator().validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -648,11 +636,9 @@ fn ref_id_mismatch_fatal_detected() {
         make_fatal(Some("wrong-ref"), "error"),
     ];
     let errors = validator().validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 #[test]
@@ -700,11 +686,9 @@ fn multiple_events_with_mixed_ref_ids_detected() {
         make_final("r1"),
     ];
     let errors = validator().validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
 }
 
 // ===========================================================================
@@ -807,11 +791,9 @@ fn out_of_order_event_before_run_detected() {
         make_final("r1"),
     ];
     let errors = validator().validate_sequence(&seq);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, SequenceError::OutOfOrderEvents)));
 }
 
 #[test]

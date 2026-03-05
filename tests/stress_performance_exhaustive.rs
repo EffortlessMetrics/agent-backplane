@@ -10,8 +10,8 @@
 use std::collections::BTreeMap;
 use std::io::BufReader;
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 
 use chrono::Utc;
@@ -20,21 +20,21 @@ use uuid::Uuid;
 
 use abp_capability::{generate_report, negotiate};
 use abp_config::{
-    BackendEntry as ConfigBackendEntry, BackplaneConfig, merge_configs, parse_toml, validate_config,
+    merge_configs, parse_toml, validate_config, BackendEntry as ConfigBackendEntry, BackplaneConfig,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder as CoreReceiptBuilder,
-    SupportLevel, WorkOrderBuilder, WorkspaceMode, canonical_json, receipt_hash,
+    canonical_json, receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, MinSupport, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder as CoreReceiptBuilder, SupportLevel, WorkOrderBuilder, WorkspaceMode,
 };
 use abp_dialect::Dialect;
 use abp_glob::IncludeExcludeGlobs;
-use abp_mapper::{IrMapper, default_ir_mapper, supported_ir_pairs};
+use abp_mapper::{default_ir_mapper, supported_ir_pairs, IrMapper};
 use abp_policy::PolicyEngine;
 use abp_protocol::{Envelope, JsonlCodec};
-use abp_receipt::{ReceiptBuilder, ReceiptChain, compute_hash, diff_receipts, verify_hash};
+use abp_receipt::{compute_hash, diff_receipts, verify_hash, ReceiptBuilder, ReceiptChain};
 use abp_receipt_store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
 use abp_stream::{EventFilter, EventRecorder, EventStats, EventTransform, StreamPipelineBuilder};
 use tokio::task::JoinSet;
@@ -984,11 +984,9 @@ fn stress_glob_compile_500_patterns() {
     let excludes: Vec<String> = (0..500).map(|i| format!("src/mod_{i}/test_*")).collect();
     let globs = IncludeExcludeGlobs::new(&includes, &excludes).unwrap();
     for i in 0..500 {
-        assert!(
-            globs
-                .decide_str(&format!("src/mod_{i}/lib.rs"))
-                .is_allowed()
-        );
+        assert!(globs
+            .decide_str(&format!("src/mod_{i}/lib.rs"))
+            .is_allowed());
     }
 }
 

@@ -34,8 +34,8 @@
 use std::time::Duration;
 
 use abp_error::{AbpError, ErrorCategory, ErrorCode, ErrorInfo};
-use abp_runtime::RuntimeError;
 use abp_runtime::retry::{FallbackChain, RetryPolicy};
+use abp_runtime::RuntimeError;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // (a) Retry policy correctness — 10 tests

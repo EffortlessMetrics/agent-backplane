@@ -15,10 +15,10 @@
 //! - Edge cases & error handling
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
-    Receipt, RunMetadata, RuntimeConfig, UsageNormalized, VerificationReport, WorkOrder,
-    WorkspaceMode, WorkspaceSpec,
+    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, CapabilityRequirements,
+    ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile, Receipt, RunMetadata,
+    RuntimeConfig, UsageNormalized, VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec,
+    CONTRACT_VERSION,
 };
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
@@ -30,7 +30,7 @@ use abp_host::lifecycle::{LifecycleError, LifecycleManager, LifecycleState};
 use abp_host::pool::{PoolConfig, PoolEntryState, PoolStats, SidecarPool};
 use abp_host::process::{ProcessConfig, ProcessInfo, ProcessStatus};
 use abp_host::registry::{SidecarConfig, SidecarRegistry};
-use abp_host::retry::{RetryAttempt, RetryConfig, RetryMetadata, compute_delay, is_retryable};
+use abp_host::retry::{compute_delay, is_retryable, RetryAttempt, RetryConfig, RetryMetadata};
 use abp_host::{HostError, SidecarHello, SidecarSpec};
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2281,8 +2281,8 @@ async fn retry_async_succeeds_first_try() {
 #[tokio::test]
 async fn retry_async_fails_then_succeeds() {
     use abp_host::retry::retry_async;
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
 
     let cfg = RetryConfig {
         max_retries: 3,

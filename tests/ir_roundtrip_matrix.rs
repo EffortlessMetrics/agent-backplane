@@ -36,7 +36,7 @@
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrUsage};
 use abp_dialect::Dialect;
-use abp_mapping::{MappingMatrix, features, known_rules, validate_mapping};
+use abp_mapping::{features, known_rules, validate_mapping, MappingMatrix};
 
 // SDK lowering modules
 use abp_claude_sdk::dialect::ClaudeMessage;

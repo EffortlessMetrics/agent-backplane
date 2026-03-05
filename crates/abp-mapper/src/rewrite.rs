@@ -1052,12 +1052,10 @@ mod tests {
         assert!(!report.is_identity);
         assert!(report.transform_count() > 0);
         // Should have a system message transform
-        assert!(
-            report
-                .transforms
-                .iter()
-                .any(|t| t.source_field.contains("system"))
-        );
+        assert!(report
+            .transforms
+            .iter()
+            .any(|t| t.source_field.contains("system")));
     }
 
     #[test]

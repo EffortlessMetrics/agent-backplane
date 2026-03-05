@@ -32,13 +32,12 @@
 //! produce receipts with valid hashes, and receipt chains maintain integrity.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
-    CapabilityManifest, ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel,
-    UsageNormalized, VerificationReport, WorkOrderBuilder, canonical_json, receipt_hash,
-    sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
+    BackendIdentity, Capability, CapabilityManifest, ExecutionMode, Outcome, Receipt, RunMetadata,
+    SupportLevel, UsageNormalized, VerificationReport, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_receipt::{
-    ChainError, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash, verify_hash,
+    canonicalize, compute_hash, verify_hash, ChainError, ReceiptBuilder, ReceiptChain,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;

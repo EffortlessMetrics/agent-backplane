@@ -2,15 +2,15 @@
 //! Comprehensive tests for the sidecar-kit SDK enhancements:
 //! harness, capabilities, work_order, and enhanced builders.
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::io::BufReader;
 
 use sidecar_kit::builders::{
-    EventBuilder, ReceiptBuilder, event_error, event_frame, event_run_completed, event_run_started,
-    event_text_delta, event_text_message, event_tool_call, event_tool_result, event_warning,
-    fatal_frame, final_frame, hello_frame,
+    event_error, event_frame, event_run_completed, event_run_started, event_text_delta,
+    event_text_message, event_tool_call, event_tool_result, event_warning, fatal_frame,
+    final_frame, hello_frame, EventBuilder, ReceiptBuilder,
 };
-use sidecar_kit::capabilities::{CapabilitySet, default_streaming_capabilities};
+use sidecar_kit::capabilities::{default_streaming_capabilities, CapabilitySet};
 use sidecar_kit::codec::JsonlCodec;
 use sidecar_kit::frame::Frame;
 use sidecar_kit::harness::{HandlerContext, SidecarHandler, SidecarHarness};

@@ -26,8 +26,8 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use abp_core::{
-    AgentEvent, ArtifactRef, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode,
-    Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport, receipt_hash,
+    receipt_hash, AgentEvent, ArtifactRef, BackendIdentity, CapabilityManifest, ExecutionMode,
+    Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport, CONTRACT_VERSION,
 };
 
 /// Typed receipt builder that produces an [`abp_core::Receipt`].

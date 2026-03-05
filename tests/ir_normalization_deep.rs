@@ -38,13 +38,13 @@
 use std::collections::BTreeMap;
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
-use abp_dialect::Dialect;
 use abp_dialect::ir::{
     IrContentBlock as DialectBlock, IrGenerationConfig, IrMessage as DialectMsg, IrRequest,
     IrResponse, IrRole as DialectRole, IrStopReason, IrToolDefinition as DialectTool,
     IrUsage as DialectUsage,
 };
-use abp_mapper::{IrIdentityMapper, IrMapper, default_ir_mapper};
+use abp_dialect::Dialect;
+use abp_mapper::{default_ir_mapper, IrIdentityMapper, IrMapper};
 use serde_json::json;
 
 // ═══════════════════════════════════════════════════════════════════════════

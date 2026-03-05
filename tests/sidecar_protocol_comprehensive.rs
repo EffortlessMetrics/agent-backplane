@@ -22,15 +22,15 @@ use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::version::{ProtocolVersion, VersionError, VersionRange, negotiate_version};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionError, VersionRange};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
 use chrono::Utc;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use uuid::Uuid;
 
 use sidecar_kit::{
-    Frame, FrameReader, FrameWriter, ProtocolPhase, ProtocolState, buf_reader_from_bytes,
-    frame_to_json, json_to_frame, read_all_frames, validate_frame, write_frames,
+    buf_reader_from_bytes, frame_to_json, json_to_frame, read_all_frames, validate_frame,
+    write_frames, Frame, FrameReader, FrameWriter, ProtocolPhase, ProtocolState,
 };
 
 // ===========================================================================
@@ -709,11 +709,9 @@ fn validate_run_empty_id() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .contains(&ValidationError::EmptyField { field: "id".into() })
-    );
+    assert!(result
+        .errors
+        .contains(&ValidationError::EmptyField { field: "id".into() }));
 }
 
 #[test]
@@ -1535,12 +1533,10 @@ fn batch_processor_processes_valid_envelopes() {
     let response = processor.process(request);
     assert_eq!(response.request_id, "batch-1");
     assert_eq!(response.results.len(), 2);
-    assert!(
-        response
-            .results
-            .iter()
-            .all(|r| r.status == BatchItemStatus::Success)
-    );
+    assert!(response
+        .results
+        .iter()
+        .all(|r| r.status == BatchItemStatus::Success));
 }
 
 #[test]
@@ -1703,20 +1699,16 @@ fn validation_warning_display() {
 fn sequence_error_display() {
     assert!(!SequenceError::MissingHello.to_string().is_empty());
     assert!(!SequenceError::MissingTerminal.to_string().is_empty());
-    assert!(
-        !SequenceError::HelloNotFirst { position: 2 }
-            .to_string()
-            .is_empty()
-    );
-    assert!(!SequenceError::MultipleTerminals.to_string().is_empty());
-    assert!(
-        !SequenceError::RefIdMismatch {
-            expected: "a".into(),
-            found: "b".into(),
-        }
+    assert!(!SequenceError::HelloNotFirst { position: 2 }
         .to_string()
-        .is_empty()
-    );
+        .is_empty());
+    assert!(!SequenceError::MultipleTerminals.to_string().is_empty());
+    assert!(!SequenceError::RefIdMismatch {
+        expected: "a".into(),
+        found: "b".into(),
+    }
+    .to_string()
+    .is_empty());
     assert!(!SequenceError::OutOfOrderEvents.to_string().is_empty());
 }
 
@@ -2666,11 +2658,9 @@ fn batch_validate_empty_batch_error() {
         created_at: Utc::now().to_rfc3339(),
     };
     let errors = processor.validate_batch(&req);
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, BatchValidationError::EmptyBatch))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, BatchValidationError::EmptyBatch)));
 }
 
 // ===========================================================================

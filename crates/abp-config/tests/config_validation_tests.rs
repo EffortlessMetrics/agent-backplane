@@ -117,12 +117,10 @@ fn check_empty_command_error_field_path() {
     );
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| e.field == "backends.bad.command")
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| e.field == "backends.bad.command"));
 }
 
 // ===========================================================================
@@ -142,12 +140,10 @@ fn check_zero_timeout_error_field_path() {
     );
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| e.field == "backends.z.timeout_secs")
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| e.field == "backends.z.timeout_secs"));
 }
 
 // ===========================================================================
@@ -167,12 +163,10 @@ fn check_timeout_above_max_error() {
     );
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| e.field == "backends.big.timeout_secs")
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| e.field == "backends.big.timeout_secs"));
 }
 
 // ===========================================================================
@@ -208,12 +202,10 @@ fn check_empty_backend_name_error() {
     cfg.backends.insert("".into(), BackendEntry::Mock {});
     let result = ConfigValidator::check(&cfg);
     assert!(!result.valid);
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| e.message.contains("name must not be empty"))
-    );
+    assert!(result
+        .errors
+        .iter()
+        .any(|e| e.message.contains("name must not be empty")));
 }
 
 // ===========================================================================
@@ -252,12 +244,10 @@ fn check_empty_workspace_dir_string_warning() {
     cfg.workspace_dir = Some("".into());
     let result = ConfigValidator::check(&cfg);
     assert!(result.valid);
-    assert!(
-        result
-            .warnings
-            .iter()
-            .any(|w| w.field == "workspace_dir" && w.message.contains("empty"))
-    );
+    assert!(result
+        .warnings
+        .iter()
+        .any(|w| w.field == "workspace_dir" && w.message.contains("empty")));
 }
 
 // ===========================================================================
@@ -270,18 +260,14 @@ fn check_unknown_default_backend_warning_and_suggestion() {
     cfg.default_backend = Some("nonexistent".into());
     let result = ConfigValidator::check(&cfg);
     assert!(result.valid);
-    assert!(
-        result
-            .warnings
-            .iter()
-            .any(|w| w.field == "default_backend" && w.message.contains("nonexistent"))
-    );
-    assert!(
-        result
-            .suggestions
-            .iter()
-            .any(|s| s.contains("Set default_backend"))
-    );
+    assert!(result
+        .warnings
+        .iter()
+        .any(|w| w.field == "default_backend" && w.message.contains("nonexistent")));
+    assert!(result
+        .suggestions
+        .iter()
+        .any(|s| s.contains("Set default_backend")));
 }
 
 // ===========================================================================
@@ -295,12 +281,10 @@ fn check_no_backends_suggestion() {
         ..fully_valid_config()
     };
     let result = ConfigValidator::check(&cfg);
-    assert!(
-        result
-            .suggestions
-            .iter()
-            .any(|s| s.contains("at least one backend"))
-    );
+    assert!(result
+        .suggestions
+        .iter()
+        .any(|s| s.contains("at least one backend")));
 }
 
 // ===========================================================================
@@ -322,12 +306,10 @@ fn check_all_errors_have_error_severity() {
         },
     );
     let result = ConfigValidator::check(&cfg);
-    assert!(
-        result
-            .errors
-            .iter()
-            .all(|e| e.severity == IssueSeverity::Error)
-    );
+    assert!(result
+        .errors
+        .iter()
+        .all(|e| e.severity == IssueSeverity::Error));
 }
 
 // ===========================================================================
@@ -337,12 +319,10 @@ fn check_all_errors_have_error_severity() {
 #[test]
 fn check_all_warnings_have_warning_severity() {
     let result = ConfigValidator::check(&BackplaneConfig::default());
-    assert!(
-        result
-            .warnings
-            .iter()
-            .all(|w| w.severity == IssueSeverity::Warning)
-    );
+    assert!(result
+        .warnings
+        .iter()
+        .all(|w| w.severity == IssueSeverity::Warning));
 }
 
 // ===========================================================================

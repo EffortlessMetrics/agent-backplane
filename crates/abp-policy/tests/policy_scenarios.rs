@@ -44,9 +44,9 @@
 //!  12. Real-world scenarios
 
 use abp_core::PolicyProfile;
-use abp_policy::PolicyEngine;
 use abp_policy::compose::{ComposedEngine, PolicyPrecedence, PolicySet, PolicyValidator};
 use abp_policy::composed::{ComposedPolicy, CompositionStrategy};
+use abp_policy::PolicyEngine;
 use std::path::Path;
 
 // ---------------------------------------------------------------------------
@@ -796,11 +796,9 @@ fn merge_unions_require_approval_for() {
     });
     let merged = set.merge();
     assert!(merged.require_approval_for.contains(&"Bash".to_string()));
-    assert!(
-        merged
-            .require_approval_for
-            .contains(&"DeleteFile".to_string())
-    );
+    assert!(merged
+        .require_approval_for
+        .contains(&"DeleteFile".to_string()));
 }
 
 #[test]
@@ -1084,11 +1082,9 @@ fn validator_detects_overlapping_tool_allow_deny() {
         ..profile_default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == abp_policy::compose::WarningKind::OverlappingAllowDeny)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == abp_policy::compose::WarningKind::OverlappingAllowDeny));
 }
 
 #[test]
@@ -1098,11 +1094,9 @@ fn validator_detects_empty_glob() {
         ..profile_default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == abp_policy::compose::WarningKind::EmptyGlob)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == abp_policy::compose::WarningKind::EmptyGlob));
 }
 
 #[test]
@@ -1113,11 +1107,9 @@ fn validator_detects_unreachable_rule_wildcard_deny() {
         ..profile_default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == abp_policy::compose::WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == abp_policy::compose::WarningKind::UnreachableRule));
 }
 
 #[test]
@@ -1127,11 +1119,9 @@ fn validator_detects_catch_all_deny_read() {
         ..profile_default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == abp_policy::compose::WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == abp_policy::compose::WarningKind::UnreachableRule));
 }
 
 #[test]
@@ -1141,11 +1131,9 @@ fn validator_detects_catch_all_deny_write() {
         ..profile_default()
     };
     let warnings = PolicyValidator::validate(&p);
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.kind == abp_policy::compose::WarningKind::UnreachableRule)
-    );
+    assert!(warnings
+        .iter()
+        .any(|w| w.kind == abp_policy::compose::WarningKind::UnreachableRule));
 }
 
 #[test]

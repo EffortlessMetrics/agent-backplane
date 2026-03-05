@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use chrono::{TimeZone, Utc};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use sidecar_kit::builders::*;
 use sidecar_kit::cancel::CancelToken;

@@ -35,7 +35,7 @@
 
 use std::path::Path;
 
-use abp_glob::{IncludeExcludeGlobs, MatchDecision, build_globset};
+use abp_glob::{build_globset, IncludeExcludeGlobs, MatchDecision};
 
 // ---------------------------------------------------------------------------
 // Helpers

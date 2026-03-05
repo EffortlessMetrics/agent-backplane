@@ -6,8 +6,8 @@
 //! classification, emulation strategies, explicit labeling (no silent degradation),
 //! emulation reporting in receipts, edge cases, error cases, and serde round-trips.
 
-use abp_core::Capability;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
+use abp_core::Capability;
 use abp_emulation::strategies::*;
 use abp_emulation::*;
 
@@ -656,11 +656,9 @@ fn system_prompt_injection_creates_new_system_message_if_missing() {
     let mut conv = bare_conv();
     let _ = engine.apply(&[Capability::ExtendedThinking], &mut conv);
     assert_eq!(conv.messages[0].role, IrRole::System);
-    assert!(
-        conv.messages[0]
-            .text_content()
-            .contains("Think step by step")
-    );
+    assert!(conv.messages[0]
+        .text_content()
+        .contains("Think step by step"));
 }
 
 #[test]

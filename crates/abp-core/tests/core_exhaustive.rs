@@ -1291,10 +1291,9 @@ fn validate_valid_receipt() {
 fn validate_empty_backend_id() {
     let r = ReceiptBuilder::new("").outcome(Outcome::Complete).build();
     let errs = abp_core::validate::validate_receipt(&r).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, abp_core::validate::ValidationError::EmptyBackendId))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, abp_core::validate::ValidationError::EmptyBackendId)));
 }
 
 #[test]
@@ -1302,10 +1301,9 @@ fn validate_bad_hash() {
     let mut r = make_receipt();
     r.receipt_sha256 = Some("bad_hash".into());
     let errs = abp_core::validate::validate_receipt(&r).unwrap_err();
-    assert!(
-        errs.iter()
-            .any(|e| matches!(e, abp_core::validate::ValidationError::InvalidHash { .. }))
-    );
+    assert!(errs
+        .iter()
+        .any(|e| matches!(e, abp_core::validate::ValidationError::InvalidHash { .. })));
 }
 
 // ═══════════════════════════════════════════════════════════════════════

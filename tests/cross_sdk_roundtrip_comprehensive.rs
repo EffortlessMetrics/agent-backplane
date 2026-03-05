@@ -1153,12 +1153,10 @@ fn lossy_claude_thinking_to_openai_becomes_text() {
     assert!(text.contains("reasoning step"));
     // Roundtrip loses thinking block type
     let ir2 = openai_ir::to_ir(&oai);
-    assert!(
-        ir2.messages[0]
-            .content
-            .iter()
-            .all(|b| !matches!(b, IrContentBlock::Thinking { .. }))
-    );
+    assert!(ir2.messages[0]
+        .content
+        .iter()
+        .all(|b| !matches!(b, IrContentBlock::Thinking { .. })));
 }
 
 /// LOSSY: Claude thinking blocks become plain text in Gemini.
@@ -1293,12 +1291,10 @@ fn lossy_codex_reasoning_not_in_other_sdks() {
     assert!(copilot[0].content.contains("reasoning about the problem"));
     let ir2 = copilot_ir::to_ir(&copilot);
     // No longer a thinking block
-    assert!(
-        ir2.messages[0]
-            .content
-            .iter()
-            .all(|b| !matches!(b, IrContentBlock::Thinking { .. }))
-    );
+    assert!(ir2.messages[0]
+        .content
+        .iter()
+        .all(|b| !matches!(b, IrContentBlock::Thinking { .. })));
 }
 
 /// LOSSY: Image blocks only supported by Claude and Gemini natively.

@@ -37,19 +37,19 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use abp_config::{BackendEntry, BackplaneConfig, parse_toml, validate_config};
+use abp_config::{parse_toml, validate_config, BackendEntry, BackplaneConfig};
 use abp_core::{
     AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, PolicyProfile, Receipt,
     WorkOrderBuilder,
 };
 use abp_glob::IncludeExcludeGlobs;
-use abp_policy::PolicyEngine;
 use abp_policy::audit::PolicyAuditor;
 use abp_policy::compose::{ComposedEngine, PolicyPrecedence, PolicySet, PolicyValidator};
 use abp_policy::rules::{Rule, RuleCondition, RuleEffect, RuleEngine};
+use abp_policy::PolicyEngine;
 use abp_protocol::validate::EnvelopeValidator;
 use abp_protocol::{Envelope, JsonlCodec};
-use abp_receipt::{Outcome, ReceiptBuilder, ReceiptChain, compute_hash, verify_hash};
+use abp_receipt::{compute_hash, verify_hash, Outcome, ReceiptBuilder, ReceiptChain};
 use chrono::Utc;
 use serde_json::json;
 
@@ -430,11 +430,9 @@ fn unicode_glob_patterns_compile_safely() {
 #[test]
 fn unicode_path_matching_works() {
     let globs = IncludeExcludeGlobs::new(&["**/données/**".into()], &[]).unwrap();
-    assert!(
-        globs
-            .decide_path(Path::new("données/file.txt"))
-            .is_allowed()
-    );
+    assert!(globs
+        .decide_path(Path::new("données/file.txt"))
+        .is_allowed());
 }
 
 // ===========================================================================
@@ -700,11 +698,9 @@ fn workspace_glob_excludes_git_directory() {
 #[test]
 fn workspace_glob_excludes_secrets_directory() {
     let globs = IncludeExcludeGlobs::new(&["**/*".into()], &["**/secrets/**".into()]).unwrap();
-    assert!(
-        !globs
-            .decide_path(Path::new("secrets/api_key.txt"))
-            .is_allowed()
-    );
+    assert!(!globs
+        .decide_path(Path::new("secrets/api_key.txt"))
+        .is_allowed());
     assert!(globs.decide_path(Path::new("src/main.rs")).is_allowed());
 }
 
@@ -719,11 +715,9 @@ fn workspace_glob_include_restricts_to_src_only() {
 #[test]
 fn workspace_glob_traversal_outside_root_excluded() {
     let globs = IncludeExcludeGlobs::new(&["src/**".into()], &["**/../**".into()]).unwrap();
-    assert!(
-        !globs
-            .decide_path(Path::new("src/../../../etc/passwd"))
-            .is_allowed()
-    );
+    assert!(!globs
+        .decide_path(Path::new("src/../../../etc/passwd"))
+        .is_allowed());
 }
 
 // ===========================================================================

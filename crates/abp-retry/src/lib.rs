@@ -43,8 +43,8 @@
 //! ```
 
 use std::future::Future;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -845,8 +845,8 @@ fn pseudo_random_factor() -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
 
     // -----------------------------------------------------------------------
     // RetryPolicy construction & defaults
@@ -1091,7 +1091,11 @@ mod tests {
             let c = c.clone();
             async move {
                 let n = c.fetch_add(1, Ordering::SeqCst);
-                if n < 2 { Err("not yet") } else { Ok("done") }
+                if n < 2 {
+                    Err("not yet")
+                } else {
+                    Ok("done")
+                }
             }
         })
         .await;
@@ -1177,7 +1181,11 @@ mod tests {
             let c = c.clone();
             async move {
                 let n = c.fetch_add(1, Ordering::SeqCst);
-                if n < 3 { Err("not yet") } else { Ok("last") }
+                if n < 3 {
+                    Err("not yet")
+                } else {
+                    Ok("last")
+                }
             }
         })
         .await;

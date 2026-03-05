@@ -35,14 +35,14 @@
 use std::collections::BTreeMap;
 use std::io::BufReader;
 
-use abp_capability::{SupportLevel as CapSupportLevel, check_capability, negotiate_capabilities};
+use abp_capability::{check_capability, negotiate_capabilities, SupportLevel as CapSupportLevel};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
-    ExecutionMode, MinSupport, Outcome, Receipt, ReceiptBuilder, RuntimeConfig,
-    SupportLevel as CoreSupportLevel, WorkOrderBuilder, canonical_json, receipt_hash, sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, BackendIdentity,
+    Capability, CapabilityManifest, ExecutionMode, MinSupport, Outcome, Receipt, ReceiptBuilder,
+    RuntimeConfig, SupportLevel as CoreSupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
 };
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode, ErrorInfo};
-use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
 use abp_receipt::{canonicalize, compute_hash, verify_hash};
 use chrono::Utc;
 use serde_json::json;

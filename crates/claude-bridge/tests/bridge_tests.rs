@@ -32,7 +32,7 @@ use std::time::Duration;
 
 use claude_bridge::config::ClaudeBridgeConfig;
 use claude_bridge::discovery::{
-    DEFAULT_NODE_COMMAND, HOST_SCRIPT_ENV, HOST_SCRIPT_RELATIVE, resolve_host_script, resolve_node,
+    resolve_host_script, resolve_node, DEFAULT_NODE_COMMAND, HOST_SCRIPT_ENV, HOST_SCRIPT_RELATIVE,
 };
 use claude_bridge::error::BridgeError;
 use claude_bridge::raw::RunOptions;

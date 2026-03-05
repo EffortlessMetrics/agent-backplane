@@ -38,17 +38,17 @@ use std::io::BufReader;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ContractError,
     ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
     RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode, WorkspaceSpec,
+    WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
 };
 use abp_integrations::{
-    Backend, MockBackend, ensure_capability_requirements, extract_execution_mode,
+    ensure_capability_requirements, extract_execution_mode, Backend, MockBackend,
 };
 use abp_policy::PolicyEngine;
-use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
+use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
 use abp_runtime::{Runtime, RuntimeError};
 use abp_workspace::WorkspaceManager;
 use chrono::Utc;
@@ -717,11 +717,9 @@ fn receipt_with_tampered_hash_fails_validation() {
 
     receipt.receipt_sha256 = Some("deadbeef".repeat(8));
     let errors = abp_core::validate::validate_receipt(&receipt).unwrap_err();
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, abp_core::validate::ValidationError::InvalidHash { .. }))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, abp_core::validate::ValidationError::InvalidHash { .. })));
 }
 
 // ===========================================================================
@@ -1199,7 +1197,7 @@ fn runtime_unknown_backend_check_returns_error() {
 
 #[test]
 fn validation_catches_wrong_contract_version() {
-    use abp_core::validate::{ValidationError, validate_receipt};
+    use abp_core::validate::{validate_receipt, ValidationError};
 
     let mut receipt = ReceiptBuilder::new("mock")
         .outcome(Outcome::Complete)
@@ -1212,14 +1210,12 @@ fn validation_catches_wrong_contract_version() {
 
 #[test]
 fn validation_catches_empty_backend_id() {
-    use abp_core::validate::{ValidationError, validate_receipt};
+    use abp_core::validate::{validate_receipt, ValidationError};
 
     let receipt = ReceiptBuilder::new("").outcome(Outcome::Complete).build();
 
     let errors = validate_receipt(&receipt).unwrap_err();
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::EmptyBackendId))
-    );
+    assert!(errors
+        .iter()
+        .any(|e| matches!(e, ValidationError::EmptyBackendId)));
 }

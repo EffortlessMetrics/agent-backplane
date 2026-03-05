@@ -36,8 +36,8 @@
 //! graceful degradation, resource cleanup on error, and error event generation.
 
 use std::error::Error;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use abp_core::aggregate::EventAggregator;
@@ -49,7 +49,7 @@ use abp_error_taxonomy::classification::{
 use abp_host::HostError;
 use abp_protocol::{Envelope, JsonlCodec, ProtocolError};
 use abp_retry::{
-    CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy, retry_with_policy,
+    retry_with_policy, CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy,
 };
 use abp_runtime::RuntimeError;
 use chrono::Utc;
@@ -1139,12 +1139,11 @@ fn abp_error_source_chain() {
     let inner = std::io::Error::new(std::io::ErrorKind::TimedOut, "deadline exceeded");
     let err = AbpError::new(ErrorCode::BackendTimeout, "backend timed out").with_source(inner);
     assert!(err.source().is_some());
-    assert!(
-        err.source()
-            .unwrap()
-            .to_string()
-            .contains("deadline exceeded")
-    );
+    assert!(err
+        .source()
+        .unwrap()
+        .to_string()
+        .contains("deadline exceeded"));
 }
 
 #[test]

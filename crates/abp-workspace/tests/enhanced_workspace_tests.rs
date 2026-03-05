@@ -2,7 +2,7 @@
 //! Tests for enhanced workspace staging: metadata, validation, cleanup,
 //! snapshots, diff extraction, and content hashing.
 
-use abp_workspace::{WorkspaceStager, workspace_content_hash};
+use abp_workspace::{workspace_content_hash, WorkspaceStager};
 use std::fs;
 use tempfile::tempdir;
 
@@ -185,11 +185,9 @@ fn changed_files_classifies_modifications() {
         !changes.is_empty(),
         "should detect at least one changed file"
     );
-    assert!(
-        changes
-            .iter()
-            .any(|fc| fc.change_type == abp_workspace::diff::ChangeType::Modified)
-    );
+    assert!(changes
+        .iter()
+        .any(|fc| fc.change_type == abp_workspace::diff::ChangeType::Modified));
 }
 
 // ── Cleanup tests ───────────────────────────────────────────────────────

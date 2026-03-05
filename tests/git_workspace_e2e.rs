@@ -1203,14 +1203,13 @@ fn workspace_stager_preserves_nested_structure() {
         .source_root(src.path())
         .stage()
         .unwrap();
-    assert!(
-        ws.path()
-            .join("a")
-            .join("b")
-            .join("c")
-            .join("deep.txt")
-            .exists()
-    );
+    assert!(ws
+        .path()
+        .join("a")
+        .join("b")
+        .join("c")
+        .join("deep.txt")
+        .exists());
 }
 
 #[test]

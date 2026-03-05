@@ -8,7 +8,7 @@
 //!   and ends with exactly one `Final` or `Fatal`.
 
 use abp_core::CONTRACT_VERSION;
-use abp_protocol::{Envelope, ProtocolError, is_compatible_version};
+use abp_protocol::{is_compatible_version, Envelope, ProtocolError};
 
 /// Validate that an envelope is a well-formed `Hello`.
 ///

@@ -42,15 +42,15 @@ use chrono::{TimeZone, Utc};
 use uuid::Uuid;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
-    ExecutionMode, Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CapabilityManifest, ExecutionMode,
+    Outcome, Receipt, RunMetadata, UsageNormalized, VerificationReport, CONTRACT_VERSION,
 };
 use abp_receipt::{
-    ChainBuilder, ChainError, ReceiptBuilder, ReceiptChain, ReceiptValidator, TamperKind,
-    canonicalize, compute_hash, verify_hash,
+    canonicalize, compute_hash, verify_hash, ChainBuilder, ChainError, ReceiptBuilder,
+    ReceiptChain, ReceiptValidator, TamperKind,
 };
 use abp_receipt_store::{
-    InMemoryReceiptStore, ReceiptFilter, ReceiptIndex, ReceiptStore, validate_chain,
+    validate_chain, InMemoryReceiptStore, ReceiptFilter, ReceiptIndex, ReceiptStore,
 };
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -513,11 +513,9 @@ fn detect_tampering_reports_hash_mismatch() {
 
     let evidence = chain.detect_tampering();
     assert!(!evidence.is_empty());
-    assert!(
-        evidence
-            .iter()
-            .any(|e| matches!(e.kind, TamperKind::HashMismatch { .. }))
-    );
+    assert!(evidence
+        .iter()
+        .any(|e| matches!(e.kind, TamperKind::HashMismatch { .. })));
 }
 
 #[test]

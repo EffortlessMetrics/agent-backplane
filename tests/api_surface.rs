@@ -257,7 +257,7 @@ fn core_receipt_with_hash() {
 
 #[test]
 fn core_module_validate_accessible() {
-    use abp_core::validate::{ValidationError, validate_receipt};
+    use abp_core::validate::{validate_receipt, ValidationError};
     let receipt = abp_core::ReceiptBuilder::new("mock")
         .outcome(abp_core::Outcome::Complete)
         .with_hash()
@@ -363,8 +363,8 @@ fn protocol_jsonl_codec_accessible() {
 
 #[test]
 fn protocol_streaming_codec_accessible() {
-    use abp_protocol::Envelope;
     use abp_protocol::codec::StreamingCodec;
+    use abp_protocol::Envelope;
     let envs = vec![
         Envelope::Fatal {
             ref_id: None,

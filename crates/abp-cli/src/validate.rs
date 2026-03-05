@@ -26,7 +26,11 @@ pub struct ValidationResult {
 pub fn validate_config(path: Option<&Path>) -> Result<ValidationResult> {
     let effective_path = path.map(|p| p.to_path_buf()).or_else(|| {
         let p = std::path::PathBuf::from("backplane.toml");
-        if p.exists() { Some(p) } else { None }
+        if p.exists() {
+            Some(p)
+        } else {
+            None
+        }
     });
 
     let config = match abp_config::load_config(effective_path.as_deref()) {
