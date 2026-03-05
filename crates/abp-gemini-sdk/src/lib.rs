@@ -19,6 +19,8 @@ pub mod conversions;
 /// Free-function conversions using `crate::types` (camelCase wire types):
 /// [`convert::to_work_order`], [`convert::from_receipt`], and
 /// [`convert::from_agent_event`].
+/// Also exposes [`convert::translate_to_work_order`] and
+/// [`convert::translate_from_receipt`] convenience aliases.
 pub mod convert;
 
 /// Gemini dialect configuration, model mapping, and capability manifest.
@@ -28,11 +30,25 @@ pub mod convert;
 /// canonical model identifiers.
 pub mod dialect;
 
+/// Error types matching the Google Gemini REST API error format.
+///
+/// Provides [`error::GeminiErrorResponse`], [`error::GeminiErrorDetail`],
+/// and [`error::GeminiErrorStatus`] for deserialising API error bodies.
+pub mod error;
+
 /// Lowering between ABP IR and the Google Gemini message format.
 ///
 /// `lowering::to_ir` lifts Gemini content slices into an IR conversation,
 /// and `lowering::from_ir` lowers back to Gemini contents.
 pub mod lowering;
+
+/// Streaming types and conversions for the `streamGenerateContent` endpoint.
+///
+/// Provides [`streaming::StreamGenerateContentResponse`],
+/// [`streaming::map_stream_chunk`], and a
+/// [`streaming::FunctionCallAccumulator`] for reassembling streamed
+/// function-call fragments.
+pub mod streaming;
 
 /// Gemini GenerateContent API request and response types.
 ///

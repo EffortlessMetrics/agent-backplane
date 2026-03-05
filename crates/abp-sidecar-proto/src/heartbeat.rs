@@ -160,9 +160,9 @@ mod tests {
     #[test]
     fn respond_increments_counters() {
         let mut r = PingResponder::new();
-        r.respond(&make_ping(0));
-        r.respond(&make_ping(1));
-        r.respond(&make_ping(2));
+        let _ = r.respond(&make_ping(0));
+        let _ = r.respond(&make_ping(1));
+        let _ = r.respond(&make_ping(2));
         assert_eq!(r.pings_received(), 3);
         assert_eq!(r.pongs_sent(), 3);
         assert_eq!(r.last_ping_seq(), Some(2));
@@ -171,14 +171,14 @@ mod tests {
     #[test]
     fn respond_tracks_max_response_time() {
         let mut r = PingResponder::new();
-        r.respond(&make_ping(0));
+        let _ = r.respond(&make_ping(0));
         assert!(r.max_response_time().is_some());
     }
 
     #[test]
     fn reset_clears_state() {
         let mut r = PingResponder::new();
-        r.respond(&make_ping(0));
+        let _ = r.respond(&make_ping(0));
         r.reset();
         assert_eq!(r.pings_received(), 0);
         assert_eq!(r.pongs_sent(), 0);

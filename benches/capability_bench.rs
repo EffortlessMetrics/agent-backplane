@@ -2,7 +2,7 @@
 //! Comprehensive benchmarks for capability negotiation with various
 //! requirement sets, manifest sizes, and edge cases.
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::BTreeMap;
 
 use abp_capability::{check_capability, generate_report, negotiate};

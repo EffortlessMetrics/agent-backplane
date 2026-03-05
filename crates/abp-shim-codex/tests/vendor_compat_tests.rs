@@ -2,7 +2,6 @@
 //! Vendor-compatibility tests for the Codex shim.
 
 use abp_shim_codex::types::{CodexContextItem, CodexExtendedRequest, CodexSandboxConfig};
-use serde_json;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. Extended request wire format

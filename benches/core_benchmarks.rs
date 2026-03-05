@@ -4,7 +4,7 @@
 //! evaluation, capability negotiation, IR conversion, stream processing,
 //! and protocol parsing.
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::BTreeMap;
 use std::io::BufReader;
 use std::path::Path;
@@ -12,9 +12,9 @@ use std::path::Path;
 use abp_capability::{check_capability, negotiate};
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome, PolicyProfile,
-    ReceiptBuilder, SupportLevel, WorkOrderBuilder, receipt_hash,
+    ReceiptBuilder, SupportLevel, WorkOrderBuilder,
 };
 use abp_openai_sdk::dialect::{OpenAIFunctionCall, OpenAIMessage, OpenAIToolCall};
 use abp_openai_sdk::lowering;

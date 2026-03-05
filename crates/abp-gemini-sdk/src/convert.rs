@@ -379,6 +379,28 @@ pub fn generation_config_to_map(cfg: &GenerationConfig) -> BTreeMap<String, serd
 }
 
 // ---------------------------------------------------------------------------
+// Convenience aliases
+// ---------------------------------------------------------------------------
+
+/// Convenience alias for [`to_work_order`].
+///
+/// Converts an incoming Gemini [`GenerateContentRequest`] into an ABP
+/// [`WorkOrder`], suitable for dispatch to any backend.
+#[must_use]
+pub fn translate_to_work_order(req: &GenerateContentRequest) -> WorkOrder {
+    to_work_order(req)
+}
+
+/// Convenience alias for [`from_receipt`].
+///
+/// Projects an ABP [`Receipt`] back into a Gemini
+/// [`GenerateContentResponse`], suitable for returning to the caller.
+#[must_use]
+pub fn translate_from_receipt(receipt: &Receipt, wo: &WorkOrder) -> GenerateContentResponse {
+    from_receipt(receipt, wo)
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -997,5 +1019,62 @@ mod tests {
         let p = Part::Text("hello".into());
         let v = part_to_json(&p);
         assert!(v.is_object() || v.is_string());
+    }
+
+    // ── translate_to_work_order / translate_from_receipt aliases ─────────
+
+    #[test]
+    fn translate_to_work_order_delegates_to_to_work_order() {
+        let req = simple_request("Alias test");
+        let wo = translate_to_work_order(&req);
+        assert_eq!(wo.task, "Alias test");
+        assert_eq!(wo.config.vendor["dialect"], "gemini");
+    }
+
+    #[test]
+    fn translate_from_receipt_delegates_to_from_receipt() {
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .add_trace_event(AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "Alias response".into(),
+                },
+                ext: None,
+            })
+            .build();
+        let wo = make_wo();
+        let resp = translate_from_receipt(&receipt, &wo);
+        assert_eq!(resp.candidates.len(), 1);
+        match &resp.candidates[0].content.parts[0] {
+            Part::Text(t) => assert_eq!(t, "Alias response"),
+            other => panic!("expected Text, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn translate_roundtrip() {
+        let req = simple_request("Roundtrip");
+        let wo = translate_to_work_order(&req);
+        assert_eq!(wo.task, "Roundtrip");
+
+        let receipt = ReceiptBuilder::new("gemini")
+            .outcome(Outcome::Complete)
+            .work_order_id(wo.id)
+            .add_trace_event(AgentEvent {
+                ts: Utc::now(),
+                kind: AgentEventKind::AssistantMessage {
+                    text: "Done".into(),
+                },
+                ext: None,
+            })
+            .build();
+
+        let resp = translate_from_receipt(&receipt, &wo);
+        assert_eq!(resp.candidates[0].finish_reason.as_deref(), Some("STOP"));
+        match &resp.candidates[0].content.parts[0] {
+            Part::Text(t) => assert_eq!(t, "Done"),
+            other => panic!("expected Text, got {other:?}"),
+        }
     }
 }

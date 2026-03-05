@@ -321,5 +321,13 @@ name = "config_parsing"
 harness = false
 
 [[bench]]
+name = "policy_evaluation"
+harness = false
+
+[[bench]]
+name = "protocol_parsing"
+harness = false
+
+[[bench]]
 name = "benchmarks"
 harness = false

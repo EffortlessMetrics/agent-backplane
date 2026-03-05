@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Benchmarks for config TOML parsing, validation, serialization, and merging.
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::BTreeMap;
 
 use abp_config::validate::ConfigValidator;
 use abp_config::{
-    BackendEntry, BackplaneConfig, merge_configs, parse_toml, to_toml, to_toml_pretty,
-    validate_config,
+    merge_configs, parse_toml, to_toml, to_toml_pretty, validate_config, BackendEntry,
+    BackplaneConfig,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

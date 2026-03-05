@@ -2,13 +2,13 @@
 //! Comprehensive benchmarks for receipt construction, hashing, chain
 //! operations, and canonical JSON serialization.
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::BTreeMap;
 
 use abp_core::chain::ReceiptChain;
 use abp_core::{
-    AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder, canonical_json, receipt_hash,
-    sha256_hex,
+    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, Outcome, Receipt,
+    ReceiptBuilder,
 };
 use chrono::Utc;
 

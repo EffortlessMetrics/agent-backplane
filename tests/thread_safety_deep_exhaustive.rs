@@ -1663,9 +1663,10 @@ async fn backend_pool_concurrent_status_reads() {
 
 fn make_valid_config(i: usize) -> BackplaneConfig {
     let levels = ["info", "debug", "warn", "error", "trace"];
-    let mut cfg = BackplaneConfig::default();
-    cfg.log_level = Some(levels[i % levels.len()].into());
-    cfg
+    BackplaneConfig {
+        log_level: Some(levels[i % levels.len()].into()),
+        ..Default::default()
+    }
 }
 
 #[tokio::test]

@@ -114,7 +114,7 @@ pub struct GenerateContentResponse {
 }
 
 /// A single candidate completion.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Candidate {
     /// Generated content.
@@ -258,6 +258,48 @@ pub struct PromptFeedback {
     /// Safety ratings for the prompt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub safety_ratings: Option<Vec<SafetyRating>>,
+}
+
+// ---------------------------------------------------------------------------
+// Finish reason
+// ---------------------------------------------------------------------------
+
+/// The reason a model stopped generating tokens.
+///
+/// Maps to the `finishReason` field in a Gemini [`Candidate`].
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinishReason {
+    /// Natural stop.
+    Stop,
+    /// Maximum output token limit reached.
+    MaxTokens,
+    /// Safety filter triggered.
+    Safety,
+    /// Recitation filter triggered.
+    Recitation,
+    /// Other / unspecified reason.
+    Other,
+}
+
+// ---------------------------------------------------------------------------
+// Streaming
+// ---------------------------------------------------------------------------
+
+/// A single chunk in a `streamGenerateContent` SSE response.
+///
+/// Each line of the SSE stream deserialises into one of these. The final
+/// chunk typically includes `usage_metadata` and a `finish_reason`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamGenerateContentResponse {
+    /// Candidate completions in this chunk.
+    #[serde(default)]
+    pub candidates: Vec<Candidate>,
+
+    /// Token usage metadata (usually only in the final chunk).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usage_metadata: Option<UsageMetadata>,
 }
 
 // ---------------------------------------------------------------------------

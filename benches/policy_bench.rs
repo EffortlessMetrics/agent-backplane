@@ -3,7 +3,7 @@
 //! (10, 100, 1000 rules), covering compilation, tool checks, path checks,
 //! and batch evaluation scenarios.
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::path::Path;
 
 use abp_core::PolicyProfile;
