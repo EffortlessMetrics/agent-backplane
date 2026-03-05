@@ -6,6 +6,7 @@
 //! filtering, and timestamp management.
 
 use abp_core::{AgentEvent, AgentEventKind};
+use abp_event_kind::event_kind_name;
 use chrono::Utc;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Mutex;
@@ -24,22 +25,6 @@ pub trait EventTransformer: Send + Sync {
 }
 
 // ── helpers ──────────────────────────────────────────────────────────
-
-/// Extract the snake_case name of an [`AgentEventKind`] variant.
-fn kind_name(kind: &AgentEventKind) -> &'static str {
-    match kind {
-        AgentEventKind::RunStarted { .. } => "run_started",
-        AgentEventKind::RunCompleted { .. } => "run_completed",
-        AgentEventKind::AssistantDelta { .. } => "assistant_delta",
-        AgentEventKind::AssistantMessage { .. } => "assistant_message",
-        AgentEventKind::ToolCall { .. } => "tool_call",
-        AgentEventKind::ToolResult { .. } => "tool_result",
-        AgentEventKind::FileChanged { .. } => "file_changed",
-        AgentEventKind::CommandExecuted { .. } => "command_executed",
-        AgentEventKind::Warning { .. } => "warning",
-        AgentEventKind::Error { .. } => "error",
-    }
-}
 
 // ── RedactTransformer ────────────────────────────────────────────────
 
@@ -190,7 +175,7 @@ impl EventTransformer for ThrottleTransformer {
     }
 
     fn transform(&self, event: AgentEvent) -> Option<AgentEvent> {
-        let kind = kind_name(&event.kind).to_string();
+        let kind = event_kind_name(&event.kind).to_string();
         let mut counts = self.counts.lock().unwrap();
         let count = counts.entry(kind).or_insert(0);
         *count += 1;

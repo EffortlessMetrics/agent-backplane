@@ -4,7 +4,8 @@
 //! Unlike the value-based [`crate::middleware`] module, this module operates
 //! on strongly-typed [`AgentEvent`] values from `abp-core`.
 
-use abp_core::{AgentEvent, AgentEventKind};
+use abp_core::AgentEvent;
+use abp_event_kind::event_kind_name;
 use std::collections::HashMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Mutex;
@@ -96,22 +97,6 @@ impl SidecarMiddlewareChain {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
-
-/// Return a static string label for an [`AgentEventKind`] variant.
-fn event_kind_name(kind: &AgentEventKind) -> &'static str {
-    match kind {
-        AgentEventKind::RunStarted { .. } => "run_started",
-        AgentEventKind::RunCompleted { .. } => "run_completed",
-        AgentEventKind::AssistantDelta { .. } => "assistant_delta",
-        AgentEventKind::AssistantMessage { .. } => "assistant_message",
-        AgentEventKind::ToolCall { .. } => "tool_call",
-        AgentEventKind::ToolResult { .. } => "tool_result",
-        AgentEventKind::FileChanged { .. } => "file_changed",
-        AgentEventKind::CommandExecuted { .. } => "command_executed",
-        AgentEventKind::Warning { .. } => "warning",
-        AgentEventKind::Error { .. } => "error",
-    }
-}
 
 // ── LoggingMiddleware ───────────────────────────────────────────────
 

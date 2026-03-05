@@ -20,6 +20,7 @@ members = [
   "crates/abp-core",
   "crates/abp-daemon",
   "crates/abp-emulation",
+  "crates/abp-event-kind",
   "crates/abp-error",
   "crates/abp-error-taxonomy",
   "crates/abp-dialect",

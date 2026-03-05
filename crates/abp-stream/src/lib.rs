@@ -4,6 +4,7 @@
 #![warn(missing_docs)]
 
 use abp_core::{AgentEvent, AgentEventKind};
+use abp_event_kind::event_kind_name;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
@@ -41,7 +42,7 @@ impl EventFilter {
     /// (e.g. `"assistant_delta"`, `"tool_call"`, `"error"`).
     pub fn by_kind(kind_name: &str) -> Self {
         let kind_name = kind_name.to_string();
-        Self::new(move |ev| event_kind_name(&ev.kind) == kind_name)
+        Self::new(move |ev| event_kind_name(&ev.kind) == kind_name.as_str())
     }
 
     /// Filter to allow only error events.
@@ -171,7 +172,7 @@ impl EventStats {
     pub fn observe(&self, event: &AgentEvent) {
         let mut inner = self.inner.lock().expect("stats lock poisoned");
         let name = event_kind_name(&event.kind);
-        *inner.counts.entry(name).or_insert(0) += 1;
+        *inner.counts.entry(name.to_string()).or_insert(0) += 1;
         inner.total_events += 1;
 
         if let AgentEventKind::AssistantDelta { ref text } = event.kind {
@@ -466,22 +467,6 @@ impl StreamPipelineBuilder {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// Return the snake_case discriminant name for an [`AgentEventKind`].
-pub fn event_kind_name(kind: &AgentEventKind) -> String {
-    match kind {
-        AgentEventKind::RunStarted { .. } => "run_started".to_string(),
-        AgentEventKind::RunCompleted { .. } => "run_completed".to_string(),
-        AgentEventKind::AssistantDelta { .. } => "assistant_delta".to_string(),
-        AgentEventKind::AssistantMessage { .. } => "assistant_message".to_string(),
-        AgentEventKind::ToolCall { .. } => "tool_call".to_string(),
-        AgentEventKind::ToolResult { .. } => "tool_result".to_string(),
-        AgentEventKind::FileChanged { .. } => "file_changed".to_string(),
-        AgentEventKind::CommandExecuted { .. } => "command_executed".to_string(),
-        AgentEventKind::Warning { .. } => "warning".to_string(),
-        AgentEventKind::Error { .. } => "error".to_string(),
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Tests

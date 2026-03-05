@@ -227,6 +227,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-event-kind"
+version = "0.1.0"
+dependencies = [
+ "abp-core",
+ "serde_json",
+]
+
+[[package]]
 name = "abp-gemini-sdk"
 version = "0.1.0"
 dependencies = [
@@ -564,6 +572,7 @@ name = "abp-stream"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-event-kind",
  "chrono",
  "serde_json",
  "tokio",
@@ -2834,6 +2843,7 @@ name = "sidecar-kit"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-event-kind",
  "chrono",
  "insta",
  "proptest",
