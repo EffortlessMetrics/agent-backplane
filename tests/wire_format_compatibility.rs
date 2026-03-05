@@ -36,13 +36,12 @@
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome, ReceiptBuilder,
-    WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest, ExecutionMode, Outcome,
+    ReceiptBuilder, WorkOrderBuilder,
 };
 use abp_protocol::{
-    is_compatible_version, parse_version,
-    version::{negotiate_version, ProtocolVersion, VersionError, VersionRange},
-    Envelope, JsonlCodec, ProtocolError,
+    Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version,
+    version::{ProtocolVersion, VersionError, VersionRange, negotiate_version},
 };
 
 // =========================================================================

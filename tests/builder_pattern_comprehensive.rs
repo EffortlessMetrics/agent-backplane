@@ -14,18 +14,18 @@ use serde_json::json;
 use uuid::Uuid;
 
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ContractError,
     ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, RuntimeConfig,
     SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    WorkspaceSpec, CONTRACT_VERSION,
+    WorkspaceSpec, receipt_hash,
 };
 use abp_policy::PolicyEngine;
+use abp_protocol::Envelope;
 use abp_protocol::builder::{
     BuilderError, EnvelopeBuilder, EventBuilder, FatalBuilder, FinalBuilder, HelloBuilder,
     RunBuilder,
 };
-use abp_protocol::Envelope;
 use abp_receipt::{ChainBuilder, ChainError, ReceiptBuilder, ReceiptChain};
 use abp_runtime::retry::{RetryPolicy, RetryPolicyBuilder};
 use abp_runtime::stages::{

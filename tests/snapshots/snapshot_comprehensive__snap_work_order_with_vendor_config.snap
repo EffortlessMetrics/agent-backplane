@@ -1,0 +1,45 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: wo
+---
+{
+  "id": "00000000-0000-0000-0000-000000000001",
+  "task": "Generate code",
+  "lane": "patch_first",
+  "workspace": {
+    "root": ".",
+    "mode": "staged",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [],
+    "disallowed_tools": [],
+    "deny_read": [],
+    "deny_write": [],
+    "allow_network": [],
+    "deny_network": [],
+    "require_approval_for": []
+  },
+  "requirements": {
+    "required": []
+  },
+  "config": {
+    "model": "claude-3-opus",
+    "vendor": {
+      "openai": {
+        "temperature": 0.7,
+        "top_p": 0.9
+      }
+    },
+    "env": {
+      "OPENAI_API_KEY": "sk-test"
+    },
+    "max_budget_usd": null,
+    "max_turns": 5
+  }
+}

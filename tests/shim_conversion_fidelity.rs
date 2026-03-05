@@ -1087,22 +1087,26 @@ fn error_events_surface_in_openai_and_kimi() {
     let receipt_oai = abp_shim_openai::mock_receipt(events.clone());
     let resp_oai = abp_shim_openai::receipt_to_response(&receipt_oai, "gpt-4o");
     // OpenAI puts errors as text in the message
-    assert!(resp_oai.choices[0]
-        .message
-        .content
-        .as_deref()
-        .unwrap_or("")
-        .contains("rate limit"));
+    assert!(
+        resp_oai.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap_or("")
+            .contains("rate limit")
+    );
 
     // Kimi: error should appear in response content
     let receipt_kimi = abp_shim_kimi::mock_receipt(events);
     let resp_kimi = abp_shim_kimi::receipt_to_response(&receipt_kimi, "moonshot-v1-8k");
-    assert!(resp_kimi.choices[0]
-        .message
-        .content
-        .as_deref()
-        .unwrap_or("")
-        .contains("rate limit"));
+    assert!(
+        resp_kimi.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap_or("")
+            .contains("rate limit")
+    );
 }
 
 // =========================================================================

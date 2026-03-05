@@ -35,7 +35,7 @@
 //! serialization, and validation invariants.
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // §1  IrConversation construction and accessors

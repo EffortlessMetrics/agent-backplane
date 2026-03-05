@@ -21,10 +21,10 @@
 //!   7. Capability negotiation integration
 
 use abp_capability::{
-    negotiate,
+    EmulationStrategy, NegotiationResult, negotiate,
     negotiate::NegotiationPolicy,
     negotiate::{apply_policy, pre_negotiate},
-    negotiate_capabilities, EmulationStrategy, NegotiationResult,
+    negotiate_capabilities,
 };
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
@@ -34,9 +34,9 @@ use abp_core::{
 };
 use abp_dialect::Dialect;
 use abp_mapper::{
-    default_ir_mapper, supported_ir_pairs, ClaudeGeminiIrMapper, ClaudeKimiIrMapper,
-    CodexClaudeIrMapper, GeminiKimiIrMapper, IrMapper, MapError, OpenAiClaudeIrMapper,
-    OpenAiCodexIrMapper, OpenAiCopilotIrMapper, OpenAiGeminiIrMapper, OpenAiKimiIrMapper,
+    ClaudeGeminiIrMapper, ClaudeKimiIrMapper, CodexClaudeIrMapper, GeminiKimiIrMapper, IrMapper,
+    MapError, OpenAiClaudeIrMapper, OpenAiCodexIrMapper, OpenAiCopilotIrMapper,
+    OpenAiGeminiIrMapper, OpenAiKimiIrMapper, default_ir_mapper, supported_ir_pairs,
 };
 use abp_projection::{
     BackendEntry, CompatibilityScore, DialectPair, FallbackEntry, ProjectionEntry, ProjectionError,
@@ -44,8 +44,8 @@ use abp_projection::{
     RoutingPath,
 };
 use abp_receipt::{
-    canonicalize, compute_hash, diff_receipts, verify_hash, ChainBuilder, ReceiptBuilder,
-    ReceiptChain,
+    ChainBuilder, ReceiptBuilder, ReceiptChain, canonicalize, compute_hash, diff_receipts,
+    verify_hash,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -930,10 +930,11 @@ mod claude_gemini_mapping {
             ext: None,
         }];
         let resp = abp_shim_claude::response_from_events(&events, "claude-sonnet-4-20250514", None);
-        assert!(resp
-            .content
-            .iter()
-            .any(|b| matches!(b, abp_shim_claude::ContentBlock::ToolUse { .. })));
+        assert!(
+            resp.content
+                .iter()
+                .any(|b| matches!(b, abp_shim_claude::ContentBlock::ToolUse { .. }))
+        );
         assert_eq!(resp.stop_reason.as_deref(), Some("tool_use"));
     }
 
@@ -1547,10 +1548,11 @@ mod receipt_chain_integration {
             .error("something failed")
             .build();
         assert_eq!(r.outcome, Outcome::Failed);
-        assert!(r
-            .trace
-            .iter()
-            .any(|e| matches!(&e.kind, AgentEventKind::Error { .. })));
+        assert!(
+            r.trace
+                .iter()
+                .any(|e| matches!(&e.kind, AgentEventKind::Error { .. }))
+        );
     }
 
     #[test]

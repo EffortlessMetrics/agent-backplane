@@ -1,0 +1,7 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: manifest_to_value(&manifest)
+---
+{
+  "streaming": "native"
+}

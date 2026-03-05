@@ -31,7 +31,7 @@
 //! value-based (`middleware`) and typed (`typed_middleware`) systems,
 //! plus the `pipeline` and `transform` layers.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::middleware::{
     ErrorWrapMiddleware, EventMiddleware, FilterMiddleware, LoggingMiddleware, MiddlewareChain,
     TimingMiddleware,
@@ -316,10 +316,12 @@ fn error_wrap_wraps_string_value() {
     let event = json!("raw string");
     let result = mw.process(&event).unwrap();
     assert_eq!(result["type"], "error");
-    assert!(result["message"]
-        .as_str()
-        .unwrap()
-        .contains("non-object event replaced"));
+    assert!(
+        result["message"]
+            .as_str()
+            .unwrap()
+            .contains("non-object event replaced")
+    );
     assert_eq!(result["_original"], "raw string");
 }
 

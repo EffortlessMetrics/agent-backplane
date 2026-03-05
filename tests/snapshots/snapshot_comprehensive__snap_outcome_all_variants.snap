@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: variants
+---
+[
+  "complete",
+  "partial",
+  "failed"
+]

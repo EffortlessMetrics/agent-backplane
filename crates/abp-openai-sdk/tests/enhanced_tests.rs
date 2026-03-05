@@ -31,16 +31,16 @@
 
 use abp_core::AgentEventKind;
 use abp_openai_sdk::dialect::{
-    from_canonical_model, is_known_model, to_canonical_model, tool_def_from_openai,
-    tool_def_to_openai, CanonicalToolDef, OpenAIFunctionCall, OpenAIToolCall, ToolChoice,
-    ToolChoiceFunctionRef, ToolChoiceMode,
+    CanonicalToolDef, OpenAIFunctionCall, OpenAIToolCall, ToolChoice, ToolChoiceFunctionRef,
+    ToolChoiceMode, from_canonical_model, is_known_model, to_canonical_model, tool_def_from_openai,
+    tool_def_to_openai,
 };
 use abp_openai_sdk::response_format::{JsonSchemaSpec, ResponseFormat};
 use abp_openai_sdk::streaming::{
-    map_chunk, ChatCompletionChunk, ChunkChoice, ChunkDelta, ChunkFunctionCall, ChunkToolCall,
-    ChunkUsage, ToolCallAccumulator,
+    ChatCompletionChunk, ChunkChoice, ChunkDelta, ChunkFunctionCall, ChunkToolCall, ChunkUsage,
+    ToolCallAccumulator, map_chunk,
 };
-use abp_openai_sdk::validation::{validate_for_mapped_mode, ExtendedRequestFields};
+use abp_openai_sdk::validation::{ExtendedRequestFields, validate_for_mapped_mode};
 
 // ===========================================================================
 // Streaming chunk serialization roundtrip

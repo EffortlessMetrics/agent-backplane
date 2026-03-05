@@ -1,0 +1,25 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: cfg
+---
+{
+  "default_backend": "node",
+  "workspace_dir": "/tmp/abp-workspaces",
+  "log_level": "debug",
+  "receipts_dir": "/var/log/abp/receipts",
+  "bind_address": "127.0.0.1",
+  "port": 8080,
+  "policy_profiles": [
+    "policies/default.toml"
+  ],
+  "backends": {
+    "node": {
+      "type": "sidecar",
+      "command": "node",
+      "args": [
+        "hosts/node/index.js"
+      ],
+      "timeout_secs": 120
+    }
+  }
+}

@@ -7,8 +7,8 @@
 
 #![allow(dead_code)]
 
-use crate::diff::{self, ConfigChange, ConfigDiff};
 use crate::BackplaneConfig;
+use crate::diff::{self, ConfigChange, ConfigDiff};
 use std::fmt;
 
 // ---------------------------------------------------------------------------

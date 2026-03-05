@@ -7,11 +7,11 @@ use std::thread;
 use std::time::Duration;
 
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore, StoreError};
-use abp_receipt::verify::{verify_receipt, ReceiptAuditor};
+use abp_receipt::verify::{ReceiptAuditor, verify_receipt};
 use abp_receipt::{
-    canonicalize, compute_hash, diff_receipts, verify_hash, ChainBuilder, ChainError, ChainGap,
-    ChainSummary, FieldDiff, Outcome, Receipt, ReceiptBuilder, ReceiptChain, ReceiptDiff,
-    ReceiptValidator, TamperEvidence, TamperKind, ValidationError,
+    ChainBuilder, ChainError, ChainGap, ChainSummary, FieldDiff, Outcome, Receipt, ReceiptBuilder,
+    ReceiptChain, ReceiptDiff, ReceiptValidator, TamperEvidence, TamperKind, ValidationError,
+    canonicalize, compute_hash, diff_receipts, verify_hash,
 };
 use chrono::{Duration as ChronoDuration, TimeZone, Utc};
 use uuid::Uuid;
@@ -816,10 +816,11 @@ fn diff_different_backend_version() {
     let a = ReceiptBuilder::new("mock").backend_version("1.0").build();
     let b = ReceiptBuilder::new("mock").backend_version("2.0").build();
     let diff = diff_receipts(&a, &b);
-    assert!(diff
-        .changes
-        .iter()
-        .any(|d| d.field == "backend.backend_version"));
+    assert!(
+        diff.changes
+            .iter()
+            .any(|d| d.field == "backend.backend_version")
+    );
 }
 
 #[test]
@@ -827,10 +828,11 @@ fn diff_different_adapter_version() {
     let a = ReceiptBuilder::new("mock").adapter_version("1.0").build();
     let b = ReceiptBuilder::new("mock").adapter_version("2.0").build();
     let diff = diff_receipts(&a, &b);
-    assert!(diff
-        .changes
-        .iter()
-        .any(|d| d.field == "backend.adapter_version"));
+    assert!(
+        diff.changes
+            .iter()
+            .any(|d| d.field == "backend.adapter_version")
+    );
 }
 
 #[test]
@@ -1453,10 +1455,12 @@ fn auditor_detects_duplicate_run_id() {
     let r2 = r.clone();
     let report = auditor.audit_batch(&[r, r2]);
     assert!(!report.is_clean());
-    assert!(report
-        .issues
-        .iter()
-        .any(|i| i.description.contains("duplicate run_id")));
+    assert!(
+        report
+            .issues
+            .iter()
+            .any(|i| i.description.contains("duplicate run_id"))
+    );
 }
 
 #[test]

@@ -1,0 +1,28 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: cfg
+---
+{
+  "default_backend": "claude",
+  "log_level": "info",
+  "backends": {
+    "claude": {
+      "type": "sidecar",
+      "command": "node",
+      "args": [
+        "hosts/claude/index.js"
+      ],
+      "timeout_secs": 300
+    },
+    "mock": {
+      "type": "mock"
+    },
+    "openai": {
+      "type": "sidecar",
+      "command": "python",
+      "args": [
+        "hosts/openai/main.py"
+      ]
+    }
+  }
+}

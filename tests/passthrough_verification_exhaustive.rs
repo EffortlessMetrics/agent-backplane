@@ -36,9 +36,9 @@
 use std::collections::BTreeMap;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
-    Receipt, ReceiptBuilder, RunMetadata, UsageNormalized, VerificationReport, WorkOrderBuilder,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, UsageNormalized,
+    VerificationReport, WorkOrderBuilder,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -337,8 +337,8 @@ mod tests {
     mod openai_passthrough {
         use super::*;
         use abp_shim_openai::{
-            mock_receipt_with_usage, ChatCompletionRequest, ChatCompletionResponse, Choice,
-            Message, OpenAiClient, Role, Usage,
+            ChatCompletionRequest, ChatCompletionResponse, Choice, Message, OpenAiClient, Role,
+            Usage, mock_receipt_with_usage,
         };
 
         type ProcessFn = Box<dyn Fn(&abp_core::WorkOrder) -> Receipt + Send + Sync>;
@@ -459,9 +459,9 @@ mod tests {
     mod claude_passthrough {
         use super::*;
         use abp_shim_claude::{
-            request_to_work_order, response_from_events, AnthropicClient, ContentBlock, Message,
-            MessageDeltaPayload, MessageRequest, MessageResponse, Role, ShimError, StreamDelta,
-            StreamEvent, Usage,
+            AnthropicClient, ContentBlock, Message, MessageDeltaPayload, MessageRequest,
+            MessageResponse, Role, ShimError, StreamDelta, StreamEvent, Usage,
+            request_to_work_order, response_from_events,
         };
 
         #[tokio::test]
@@ -732,7 +732,7 @@ mod tests {
         use super::*;
         use abp_codex_sdk::dialect::{CodexContentPart, CodexResponseItem, CodexStreamEvent};
         use abp_shim_codex::{
-            codex_message, mock_receipt, mock_receipt_with_usage, CodexClient, CodexRequestBuilder,
+            CodexClient, CodexRequestBuilder, codex_message, mock_receipt, mock_receipt_with_usage,
         };
 
         type ProcessFn = Box<dyn Fn(&abp_core::WorkOrder) -> Receipt + Send + Sync>;
@@ -864,8 +864,8 @@ mod tests {
         use super::*;
         use abp_kimi_sdk::dialect::KimiChunk;
         use abp_shim_kimi::{
-            mock_receipt, mock_receipt_with_usage, KimiClient, KimiRequestBuilder,
-            Message as KimiMessage,
+            KimiClient, KimiRequestBuilder, Message as KimiMessage, mock_receipt,
+            mock_receipt_with_usage,
         };
 
         type ProcessFn = Box<dyn Fn(&abp_core::WorkOrder) -> Receipt + Send + Sync>;
@@ -896,12 +896,14 @@ mod tests {
             let resp = client.create(req).await.unwrap();
             assert_eq!(resp.model, "moonshot-v1-8k");
             assert_eq!(resp.choices.len(), 1);
-            assert!(resp.choices[0]
-                .message
-                .content
-                .as_deref()
-                .unwrap()
-                .contains("Rust"));
+            assert!(
+                resp.choices[0]
+                    .message
+                    .content
+                    .as_deref()
+                    .unwrap()
+                    .contains("Rust")
+            );
             assert_eq!(resp.choices[0].finish_reason.as_deref(), Some("stop"));
         }
 
@@ -984,8 +986,8 @@ mod tests {
         use super::*;
         use abp_copilot_sdk::dialect::CopilotStreamEvent;
         use abp_shim_copilot::{
-            mock_receipt, mock_receipt_with_usage, CopilotClient, CopilotRequestBuilder,
-            Message as CopilotMessage,
+            CopilotClient, CopilotRequestBuilder, Message as CopilotMessage, mock_receipt,
+            mock_receipt_with_usage,
         };
 
         type ProcessFn = Box<dyn Fn(&abp_core::WorkOrder) -> Receipt + Send + Sync>;

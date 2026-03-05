@@ -960,9 +960,11 @@ fn validator_detects_overlapping_tool_allow_deny() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&profile);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
+    );
 }
 
 #[test]
@@ -973,9 +975,11 @@ fn validator_detects_overlapping_network_allow_deny() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&profile);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
+    );
 }
 
 #[test]
@@ -986,9 +990,11 @@ fn validator_detects_unreachable_tools_with_wildcard_deny() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&profile);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule)
+    );
     assert_eq!(
         warnings
             .iter()
@@ -1005,9 +1011,11 @@ fn validator_detects_catch_all_deny_read() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&profile);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read")));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read"))
+    );
 }
 
 #[test]
@@ -1017,9 +1025,11 @@ fn validator_detects_catch_all_deny_read_star_slash() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&profile);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read")));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_read"))
+    );
 }
 
 #[test]
@@ -1029,9 +1039,11 @@ fn validator_detects_catch_all_deny_write() {
         ..PolicyProfile::default()
     };
     let warnings = PolicyValidator::validate(&profile);
-    assert!(warnings
-        .iter()
-        .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_write")));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == WarningKind::UnreachableRule && w.message.contains("deny_write"))
+    );
 }
 
 #[test]

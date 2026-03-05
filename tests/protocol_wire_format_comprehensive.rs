@@ -39,15 +39,15 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
-    Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder, WorkspaceMode,
 };
 use abp_protocol::codec::StreamingCodec;
 use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 
 // ===========================================================================
@@ -831,10 +831,12 @@ fn large_payload_triggers_validation_warning() {
     let huge_text = "y".repeat(11 * 1024 * 1024);
     let env = event_env("r-huge", &huge_text);
     let result = validator.validate(&env);
-    assert!(result
-        .warnings
-        .iter()
-        .any(|w| matches!(w, ValidationWarning::LargePayload { .. })));
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|w| matches!(w, ValidationWarning::LargePayload { .. }))
+    );
 }
 
 #[test]
@@ -1198,9 +1200,11 @@ fn hello_not_first_detected() {
     let (run_id, run) = run_env("hello second");
     let sequence = vec![run, hello_env(), final_env(&run_id)];
     let errors = validator.validate_sequence(&sequence);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { position: 1 }))
+    );
 }
 
 #[test]
@@ -1237,9 +1241,11 @@ fn ref_id_mismatch_detected() {
         final_env(&run_id),
     ];
     let errors = validator.validate_sequence(&sequence);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -1312,10 +1318,12 @@ fn validate_hello_invalid_contract_version() {
     };
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]

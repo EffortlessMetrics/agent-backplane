@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: json_codes
+---
+[
+  "protocol_invalid_envelope",
+  "backend_timeout",
+  "policy_denied",
+  "internal",
+  "receipt_hash_mismatch"
+]

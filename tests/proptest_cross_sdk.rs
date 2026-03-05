@@ -42,11 +42,11 @@ use serde_json::json;
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
-    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-    ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome,
-    PolicyProfile, Receipt, RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized,
-    VerificationReport, WorkOrder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    RunMetadata, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
+    WorkspaceMode, WorkspaceSpec, canonical_json, receipt_hash, sha256_hex,
 };
 use abp_dialect::{Dialect, DialectDetector};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};

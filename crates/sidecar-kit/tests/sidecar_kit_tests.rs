@@ -29,7 +29,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Extended unit tests for sidecar-kit pure Rust code paths.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::{
     CancelToken, EventMiddleware, EventPipeline, FilterMiddleware, Frame, JsonlCodec,
     LoggingMiddleware, MiddlewareChain, PipelineError, PipelineStage, ProcessSpec, RedactStage,
@@ -700,8 +700,8 @@ fn redact_transformer_replaces_patterns() {
 #[test]
 fn transformer_chain_processes_in_order() {
     use abp_core::{AgentEvent, AgentEventKind};
-    use sidecar_kit::transform::{EnrichTransformer, TimestampTransformer};
     use sidecar_kit::TransformerChain;
+    use sidecar_kit::transform::{EnrichTransformer, TimestampTransformer};
 
     let mut metadata = BTreeMap::new();
     metadata.insert("source".into(), "test".into());
@@ -729,8 +729,8 @@ fn transformer_chain_processes_in_order() {
 #[test]
 fn transformer_chain_batch_processes_all() {
     use abp_core::{AgentEvent, AgentEventKind};
-    use sidecar_kit::transform::TimestampTransformer;
     use sidecar_kit::TransformerChain;
+    use sidecar_kit::transform::TimestampTransformer;
 
     let chain = TransformerChain::new().with(Box::new(TimestampTransformer::new()));
 

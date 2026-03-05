@@ -33,12 +33,12 @@
 //! Covers: full pipeline flow, backend selection, event streaming,
 //! receipt generation, and error propagation.
 
-use abp_backend_mock::scenarios::{MockScenario, ScenarioMockBackend};
 use abp_backend_mock::MockBackend;
+use abp_backend_mock::scenarios::{MockScenario, ScenarioMockBackend};
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityRequirement, CapabilityRequirements,
-    ExecutionMode, MinSupport, Outcome, Receipt, SupportLevel, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement,
+    CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt, SupportLevel, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode,
 };
 use abp_dialect::Dialect;
 use abp_runtime::{ProjectionMatrix, Runtime, RuntimeError};

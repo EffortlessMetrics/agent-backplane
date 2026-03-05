@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: e
+---
+{
+  "ts": "2025-01-15T10:30:00Z",
+  "type": "tool_call",
+  "tool_name": "Read",
+  "tool_use_id": "tu_001",
+  "parent_tool_use_id": null,
+  "input": {
+    "path": "src/main.rs"
+  }
+}

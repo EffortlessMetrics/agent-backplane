@@ -30,8 +30,8 @@
 //! Deep TOML parsing tests for `abp-config`.
 
 use abp_config::{
-    apply_env_overrides, load_config, merge_configs, parse_toml, validate_config, BackendEntry,
-    BackplaneConfig, ConfigError, ConfigWarning,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
+    merge_configs, parse_toml, validate_config,
 };
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -984,9 +984,11 @@ timeout_secs = 7200
 "#;
     let cfg = parse_toml(toml).unwrap();
     let warnings = validate_config(&cfg).unwrap();
-    assert!(warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+    );
 }
 
 // ===========================================================================

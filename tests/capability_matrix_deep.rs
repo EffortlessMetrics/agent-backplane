@@ -35,8 +35,8 @@
 use std::collections::BTreeSet;
 
 use abp_core::negotiate::{
-    check_capabilities, dialect_manifest, CapabilityDiff, CapabilityNegotiator,
-    DialectSupportLevel, NegotiationRequest,
+    CapabilityDiff, CapabilityNegotiator, DialectSupportLevel, NegotiationRequest,
+    check_capabilities, dialect_manifest,
 };
 use abp_core::{
     Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements, MinSupport,

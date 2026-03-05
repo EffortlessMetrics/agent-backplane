@@ -310,9 +310,11 @@ fn validator_duplicate_hello_detected_as_not_first() {
     // Should pass since first envelope is Hello
     let errors = v.validate_sequence(&seq);
     // No HelloNotFirst error because position 0 is Hello
-    assert!(!errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+    assert!(
+        !errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+    );
 }
 
 #[test]

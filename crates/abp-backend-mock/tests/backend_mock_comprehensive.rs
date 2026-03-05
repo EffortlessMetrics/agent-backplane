@@ -10,14 +10,14 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use abp_backend_core::Backend;
+use abp_backend_mock::MockBackend;
 use abp_backend_mock::scenarios::{
     MockBackendRecorder, MockScenario, RecordedCall, ScenarioMockBackend,
 };
-use abp_backend_mock::MockBackend;
 use abp_core::{
-    AgentEvent, AgentEventKind, Capability, CapabilityManifest, CapabilityRequirement,
-    CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt, RuntimeConfig,
-    SupportLevel, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityManifest,
+    CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
+    RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use serde_json::json;
 use tokio::sync::mpsc;
@@ -176,10 +176,12 @@ async fn mock_caps_has_exactly_six_entries() {
 
 #[tokio::test]
 async fn mock_caps_does_not_include_vision() {
-    assert!(MockBackend
-        .capabilities()
-        .get(&Capability::Vision)
-        .is_none());
+    assert!(
+        MockBackend
+            .capabilities()
+            .get(&Capability::Vision)
+            .is_none()
+    );
 }
 
 // ===========================================================================

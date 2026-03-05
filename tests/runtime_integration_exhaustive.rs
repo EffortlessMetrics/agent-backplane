@@ -19,10 +19,10 @@
 
 use abp_backend_mock::scenarios::{EventSequenceBuilder, MockScenario, ScenarioMockBackend};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RunMetadata, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
 use abp_integrations::Backend;
 use abp_policy::PolicyEngine;

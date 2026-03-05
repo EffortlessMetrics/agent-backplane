@@ -34,11 +34,11 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig,
-    SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_dialect::{Dialect, DialectDetector, DialectValidator};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};

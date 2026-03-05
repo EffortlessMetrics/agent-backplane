@@ -39,10 +39,10 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RunMetadata, RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode, CONTRACT_VERSION,
+    WorkspaceMode,
 };
 use abp_emulation::{EmulationConfig, EmulationStrategy};
 use abp_integrations::Backend;
@@ -567,27 +567,33 @@ async fn basic_run_receipt_has_timing() {
 async fn event_stream_contains_run_started() {
     let rt = Runtime::with_default_backends();
     let (events, _) = run_full(&rt, "mock", passthrough_wo("started")).await;
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::RunStarted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.kind, AgentEventKind::RunStarted { .. }))
+    );
 }
 
 #[tokio::test]
 async fn event_stream_contains_run_completed() {
     let rt = Runtime::with_default_backends();
     let (events, _) = run_full(&rt, "mock", passthrough_wo("completed")).await;
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::RunCompleted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.kind, AgentEventKind::RunCompleted { .. }))
+    );
 }
 
 #[tokio::test]
 async fn event_stream_contains_assistant_messages() {
     let rt = Runtime::with_default_backends();
     let (events, _) = run_full(&rt, "mock", passthrough_wo("messages")).await;
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::AssistantMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.kind, AgentEventKind::AssistantMessage { .. }))
+    );
 }
 
 #[tokio::test]
@@ -615,15 +621,21 @@ async fn tool_using_backend_streams_tool_events() {
     rt.register_backend("tool-user", ToolUsingBackend);
     let (events, receipt) = run_full(&rt, "tool-user", passthrough_wo("tools")).await;
     assert!(receipt.is_ok());
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::ToolCall { .. })));
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::ToolResult { .. })));
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::FileChanged { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.kind, AgentEventKind::ToolCall { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.kind, AgentEventKind::ToolResult { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.kind, AgentEventKind::FileChanged { .. }))
+    );
 }
 
 // ===========================================================================

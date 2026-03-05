@@ -1171,9 +1171,11 @@ mod policy_set_merge {
             ..PolicyProfile::default()
         });
         let merged = set.merge();
-        assert!(merged
-            .allow_network
-            .contains(&"api.example.com".to_string()));
+        assert!(
+            merged
+                .allow_network
+                .contains(&"api.example.com".to_string())
+        );
         assert!(merged.deny_network.contains(&"evil.com".to_string()));
         assert_eq!(merged.require_approval_for.len(), 2);
     }
@@ -1336,9 +1338,11 @@ mod validation {
             ..PolicyProfile::default()
         };
         let warnings = PolicyValidator::validate(&p);
-        assert!(warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
+        );
     }
 
     #[test]
@@ -1349,9 +1353,11 @@ mod validation {
             ..PolicyProfile::default()
         };
         let warnings = PolicyValidator::validate(&p);
-        assert!(warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
+        );
     }
 
     #[test]
@@ -1362,9 +1368,11 @@ mod validation {
             ..PolicyProfile::default()
         };
         let warnings = PolicyValidator::validate(&p);
-        assert!(warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule));
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.kind == WarningKind::UnreachableRule)
+        );
     }
 
     #[test]
@@ -1374,9 +1382,11 @@ mod validation {
             ..PolicyProfile::default()
         };
         let warnings = PolicyValidator::validate(&p);
-        assert!(warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule));
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.kind == WarningKind::UnreachableRule)
+        );
     }
 
     #[test]
@@ -1386,9 +1396,11 @@ mod validation {
             ..PolicyProfile::default()
         };
         let warnings = PolicyValidator::validate(&p);
-        assert!(warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::UnreachableRule));
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.kind == WarningKind::UnreachableRule)
+        );
     }
 
     #[test]
@@ -1399,9 +1411,11 @@ mod validation {
             ..PolicyProfile::default()
         };
         let warnings = PolicyValidator::validate(&p);
-        assert!(!warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
+        assert!(
+            !warnings
+                .iter()
+                .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
+        );
     }
 
     #[test]
@@ -2053,9 +2067,11 @@ mod complex_combinations {
             ..PolicyProfile::default()
         };
         let warnings = PolicyValidator::validate(&p);
-        assert!(warnings
-            .iter()
-            .any(|w| w.kind == WarningKind::OverlappingAllowDeny));
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.kind == WarningKind::OverlappingAllowDeny)
+        );
         assert!(warnings.iter().any(|w| w.kind == WarningKind::EmptyGlob));
 
         // Engine still compiles and enforces deny-wins

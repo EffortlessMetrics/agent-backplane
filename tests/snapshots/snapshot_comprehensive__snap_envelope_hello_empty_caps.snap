@@ -1,0 +1,15 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: envelope_to_value(&env)
+---
+{
+  "backend": {
+    "adapter_version": null,
+    "backend_version": null,
+    "id": "mock"
+  },
+  "capabilities": {},
+  "contract_version": "abp/v0.1",
+  "mode": "mapped",
+  "t": "hello"
+}

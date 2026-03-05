@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use futures_core::Stream;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 
 use crate::types::{MessagesRequest, MessagesResponse, StreamEvent};
 

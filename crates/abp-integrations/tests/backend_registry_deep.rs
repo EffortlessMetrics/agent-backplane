@@ -37,16 +37,16 @@ use std::sync::Arc;
 use abp_backend_core::registry::BackendRegistry;
 use abp_backend_core::{BackendHealth, BackendMetadata, HealthStatus, RateLimit};
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
-    ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    ReceiptBuilder, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_host::SidecarSpec;
 use abp_integrations::capability::CapabilityMatrix;
 use abp_integrations::selector::{BackendCandidate, BackendSelector, SelectionStrategy};
 use abp_integrations::{
-    ensure_capability_requirements, extract_execution_mode, validate_passthrough_compatibility,
-    Backend, MockBackend, SidecarBackend,
+    Backend, MockBackend, SidecarBackend, ensure_capability_requirements, extract_execution_mode,
+    validate_passthrough_compatibility,
 };
 use async_trait::async_trait;
 use tokio::sync::mpsc;

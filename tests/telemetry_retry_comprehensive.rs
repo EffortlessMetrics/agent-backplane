@@ -2,16 +2,16 @@
 #![allow(dead_code)]
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use abp_retry::{
-    retry_with_policy, CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy,
+    CircuitBreaker, CircuitBreakerError, CircuitState, RetryPolicy, retry_with_policy,
 };
 use abp_telemetry::hooks::{
-    on_error, on_request_complete, on_request_start, ErrorClassification, RequestOutcome,
+    ErrorClassification, RequestOutcome, on_error, on_request_complete, on_request_start,
 };
 use abp_telemetry::metrics::{
     ActiveRequestGauge, ErrorCounter, RequestCounter, RequestKey, TokenAccumulator,
@@ -1783,11 +1783,7 @@ async fn retry_succeeds_after_failures() {
         let c = c.clone();
         async move {
             let n = c.fetch_add(1, Ordering::SeqCst);
-            if n < 2 {
-                Err("not yet")
-            } else {
-                Ok("done")
-            }
+            if n < 2 { Err("not yet") } else { Ok("done") }
         }
     })
     .await;
@@ -1872,11 +1868,7 @@ async fn retry_succeeds_on_last_attempt() {
         let c = c.clone();
         async move {
             let n = c.fetch_add(1, Ordering::SeqCst);
-            if n < 3 {
-                Err("not yet")
-            } else {
-                Ok("last")
-            }
+            if n < 3 { Err("not yet") } else { Ok("last") }
         }
     })
     .await;
@@ -1949,11 +1941,7 @@ async fn retry_with_high_max_retries_succeeds_early() {
         let c = c.clone();
         async move {
             let n = c.fetch_add(1, Ordering::SeqCst);
-            if n == 0 {
-                Err("first fail")
-            } else {
-                Ok("ok")
-            }
+            if n == 0 { Err("first fail") } else { Ok("ok") }
         }
     })
     .await;
@@ -2175,11 +2163,7 @@ async fn retry_records_in_telemetry_collector() {
         let c = c.clone();
         async move {
             let n = c.fetch_add(1, Ordering::SeqCst);
-            if n < 1 {
-                Err("transient")
-            } else {
-                Ok("ok")
-            }
+            if n < 1 { Err("transient") } else { Ok("ok") }
         }
     })
     .await;

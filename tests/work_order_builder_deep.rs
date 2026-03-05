@@ -35,9 +35,9 @@
 use abp_core::config::{ConfigDefaults, ConfigValidator, WarningSeverity};
 use abp_core::ext::WorkOrderExt;
 use abp_core::{
-    Capability, CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet,
-    ExecutionLane, ExecutionMode, MinSupport, PolicyProfile, RuntimeConfig, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    CONTRACT_VERSION, Capability, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, PolicyProfile, RuntimeConfig,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -898,9 +898,11 @@ fn validator_empty_glob_in_disallowed_tools() {
     let mut wo = builder_minimal().build();
     wo.policy.disallowed_tools = vec!["".into()];
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.disallowed_tools"));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.disallowed_tools")
+    );
 }
 
 #[test]
@@ -908,9 +910,11 @@ fn validator_empty_glob_in_require_approval() {
     let mut wo = builder_minimal().build();
     wo.policy.require_approval_for = vec![" ".into()];
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.require_approval_for"));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.require_approval_for")
+    );
 }
 
 #[test]
@@ -1439,10 +1443,12 @@ fn vendor_with_empty_object_value() {
         .build();
     let json = serde_json::to_string(&wo).unwrap();
     let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
-    assert!(wo2.config.vendor["empty_obj"]
-        .as_object()
-        .unwrap()
-        .is_empty());
+    assert!(
+        wo2.config.vendor["empty_obj"]
+            .as_object()
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]
@@ -1457,10 +1463,12 @@ fn vendor_with_empty_array_value() {
         .build();
     let json = serde_json::to_string(&wo).unwrap();
     let wo2: WorkOrder = serde_json::from_str(&json).unwrap();
-    assert!(wo2.config.vendor["empty_arr"]
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert!(
+        wo2.config.vendor["empty_arr"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]

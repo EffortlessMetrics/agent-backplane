@@ -7,8 +7,8 @@
 //! EmulationEngine, SystemPromptInjection, PostProcessing, Disabled strategy,
 //! edge cases, serde roundtrips, and integration labeling.
 
-use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::Capability;
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_emulation::strategies::*;
 use abp_emulation::*;
 
@@ -285,9 +285,11 @@ fn config_set_single_strategy() {
         },
     );
     assert_eq!(config.strategies.len(), 1);
-    assert!(config
-        .strategies
-        .contains_key(&Capability::ExtendedThinking));
+    assert!(
+        config
+            .strategies
+            .contains_key(&Capability::ExtendedThinking)
+    );
 }
 
 #[test]
@@ -504,9 +506,11 @@ fn injection_creates_system_message_if_missing() {
     let engine = EmulationEngine::with_defaults();
     engine.apply(&[Capability::ExtendedThinking], &mut conv);
     assert_eq!(conv.messages[0].role, IrRole::System);
-    assert!(conv.messages[0]
-        .text_content()
-        .contains("Think step by step"));
+    assert!(
+        conv.messages[0]
+            .text_content()
+            .contains("Think step by step")
+    );
 }
 
 #[test]
@@ -849,11 +853,12 @@ fn edge_config_change_strategy_type() {
         report.applied[0].strategy,
         EmulationStrategy::SystemPromptInjection { .. }
     ));
-    assert!(conv
-        .system_message()
-        .unwrap()
-        .text_content()
-        .contains("JSON"));
+    assert!(
+        conv.system_message()
+            .unwrap()
+            .text_content()
+            .contains("JSON")
+    );
 }
 
 #[test]
@@ -1205,9 +1210,11 @@ fn thinking_detail_levels_differ() {
 
 #[test]
 fn thinking_brief_mentions_step_by_step() {
-    assert!(ThinkingEmulation::brief()
-        .prompt_text()
-        .contains("step by step"));
+    assert!(
+        ThinkingEmulation::brief()
+            .prompt_text()
+            .contains("step by step")
+    );
 }
 
 #[test]
@@ -1219,16 +1226,20 @@ fn thinking_standard_mentions_thinking_tags() {
 
 #[test]
 fn thinking_detailed_mentions_verification() {
-    assert!(ThinkingEmulation::detailed()
-        .prompt_text()
-        .contains("Verify"));
+    assert!(
+        ThinkingEmulation::detailed()
+            .prompt_text()
+            .contains("Verify")
+    );
 }
 
 #[test]
 fn thinking_detailed_mentions_sub_problems() {
-    assert!(ThinkingEmulation::detailed()
-        .prompt_text()
-        .contains("sub-problems"));
+    assert!(
+        ThinkingEmulation::detailed()
+            .prompt_text()
+            .contains("sub-problems")
+    );
 }
 
 #[test]

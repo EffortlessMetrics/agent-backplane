@@ -9,7 +9,7 @@ use std::thread;
 use std::time::Instant;
 
 use abp_telemetry::hooks::{
-    on_error, on_request_complete, on_request_start, ErrorClassification, RequestOutcome,
+    ErrorClassification, RequestOutcome, on_error, on_request_complete, on_request_start,
 };
 use abp_telemetry::metrics::{
     ActiveRequestGauge, ErrorCounter, RequestCounter, RequestKey, TokenAccumulator,

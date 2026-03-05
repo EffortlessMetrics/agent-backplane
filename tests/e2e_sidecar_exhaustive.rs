@@ -49,21 +49,21 @@ use std::path::Path;
 use std::time::Duration;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
     Receipt, RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    WorkspaceSpec, CONTRACT_VERSION,
+    WorkspaceSpec,
 };
 use abp_host::{HostError, SidecarClient, SidecarSpec};
-use abp_policy::rate_limit::{RateLimitPolicy, RateLimitResult};
 use abp_policy::PolicyEngine;
+use abp_policy::rate_limit::{RateLimitPolicy, RateLimitResult};
 use abp_protocol::graceful_shutdown::{
     GoodbyeResponse, GoodbyeStatus, ShutdownCoordinator, ShutdownReason, ShutdownRequest,
 };
 use abp_protocol::heartbeat::{HeartbeatConfig, HeartbeatMonitor, HeartbeatState};
 use abp_protocol::version::ProtocolVersion;
-use abp_protocol::version_negotiation::{negotiate, NegotiationError, VersionOffer};
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
+use abp_protocol::version_negotiation::{NegotiationError, VersionOffer, negotiate};
+use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
@@ -371,21 +371,31 @@ async fn lifecycle_mixed_event_kinds() {
     let (events, _receipt) = drain_run(sidecar_run).await;
     assert_eq!(events.len(), 5);
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. })));
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { .. })));
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. })));
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::FileChanged { .. })));
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunStarted { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::AssistantDelta { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::AssistantMessage { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::FileChanged { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+    );
 }
 
 #[tokio::test]

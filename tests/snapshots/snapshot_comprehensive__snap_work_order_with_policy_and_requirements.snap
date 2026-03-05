@@ -1,0 +1,62 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: wo
+---
+{
+  "id": "00000000-0000-0000-0000-000000000001",
+  "task": "Secure refactor",
+  "lane": "patch_first",
+  "workspace": {
+    "root": ".",
+    "mode": "staged",
+    "include": [],
+    "exclude": []
+  },
+  "context": {
+    "files": [],
+    "snippets": []
+  },
+  "policy": {
+    "allowed_tools": [
+      "Read",
+      "Grep"
+    ],
+    "disallowed_tools": [
+      "Bash"
+    ],
+    "deny_read": [
+      "**/.env"
+    ],
+    "deny_write": [
+      "**/.git/**"
+    ],
+    "allow_network": [
+      "*.example.com"
+    ],
+    "deny_network": [
+      "evil.example.com"
+    ],
+    "require_approval_for": [
+      "DeleteFile"
+    ]
+  },
+  "requirements": {
+    "required": [
+      {
+        "capability": "tool_read",
+        "min_support": "native"
+      },
+      {
+        "capability": "streaming",
+        "min_support": "emulated"
+      }
+    ]
+  },
+  "config": {
+    "model": null,
+    "vendor": {},
+    "env": {},
+    "max_budget_usd": null,
+    "max_turns": null
+  }
+}

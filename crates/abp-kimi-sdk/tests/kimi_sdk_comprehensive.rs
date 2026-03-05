@@ -954,11 +954,13 @@ fn dialect_map_work_order_basic() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0]
-        .content
-        .as_deref()
-        .unwrap()
-        .contains("Optimize queries"));
+    assert!(
+        req.messages[0]
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Optimize queries")
+    );
 }
 
 #[test]
@@ -1116,9 +1118,11 @@ fn dialect_map_stream_event_finish_reason() {
         refs: None,
     };
     let events = dialect::map_stream_event(&chunk);
-    assert!(events
-        .iter()
-        .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(&e.kind, AgentEventKind::RunCompleted { .. }))
+    );
 }
 
 #[test]

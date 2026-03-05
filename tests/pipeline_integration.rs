@@ -41,15 +41,15 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RuntimeConfig, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    CONTRACT_VERSION,
+    receipt_hash,
 };
 use abp_dialect::{Dialect, DialectDetector};
 use abp_emulation::{EmulationConfig, EmulationStrategy};
 use abp_integrations::Backend;
-use abp_mapping::{known_rules, MappingMatrix};
+use abp_mapping::{MappingMatrix, known_rules};
 use abp_policy::PolicyEngine;
 use abp_runtime::store::ReceiptStore;
 use abp_runtime::{Runtime, RuntimeError};

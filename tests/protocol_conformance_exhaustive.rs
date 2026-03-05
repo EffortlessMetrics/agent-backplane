@@ -10,10 +10,10 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
-    ReceiptBuilder, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, Outcome,
+    PolicyProfile, ReceiptBuilder, RuntimeConfig, SupportLevel, UsageNormalized,
+    VerificationReport, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_error::ErrorCode;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError};
@@ -509,9 +509,11 @@ mod hello_handshake {
         let (id, run) = run_env("t");
         let seq = vec![run, hello_env(), final_env(&id)];
         let errors = validator().validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })),);
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })),
+        );
     }
 
     #[test]

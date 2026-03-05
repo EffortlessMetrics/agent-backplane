@@ -30,8 +30,8 @@
 //! Tests for the audit module.
 
 use abp_core::PolicyProfile;
-use abp_policy::audit::{AuditEntry, AuditSummary, PolicyAuditor, PolicyDecision};
 use abp_policy::PolicyEngine;
+use abp_policy::audit::{AuditEntry, AuditSummary, PolicyAuditor, PolicyDecision};
 
 fn permissive_engine() -> PolicyEngine {
     PolicyEngine::new(&PolicyProfile::default()).unwrap()

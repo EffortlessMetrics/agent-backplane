@@ -888,6 +888,18 @@ pub fn resolve_model(model: &str) -> &str {
 // Re-export error response types from the types module.
 pub use crate::types::{ErrorDetail, ErrorResponse};
 
+// ── Vendor-compatible type aliases ──────────────────────────────────────
+
+/// Alias matching the OpenAI Python/Node SDK name `ChatCompletion`.
+pub type ChatCompletion = ChatCompletionResponse;
+
+/// Alias matching the OpenAI Python/Node SDK name `ChatCompletionChunk`.
+pub type ChatCompletionChunk = StreamEvent;
+
+/// Alias matching the OpenAI Python/Node SDK name
+/// `ChatCompletionCreateParams`.
+pub type ChatCompletionCreateParams = ChatCompletionRequest;
+
 // ── Client types ────────────────────────────────────────────────────────
 
 /// A callback function that processes a [`WorkOrder`] and returns a [`Receipt`].
@@ -1891,9 +1903,11 @@ mod tests {
         let params = &ir[0].parameters;
         assert_eq!(params["type"], "object");
         assert!(params["properties"]["cmd"]["type"] == "string");
-        assert!(params["required"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("cmd")));
+        assert!(
+            params["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("cmd"))
+        );
     }
 }

@@ -33,7 +33,7 @@
 use chrono::{Duration, Utc};
 use uuid::Uuid;
 
-use abp_core::verify::{verify_chain, ChainBuilder, ChainError, ReceiptChain};
+use abp_core::verify::{ChainBuilder, ChainError, ReceiptChain, verify_chain};
 use abp_core::{AgentEvent, AgentEventKind, Outcome, Receipt, ReceiptBuilder};
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -151,10 +151,12 @@ fn broken_hash_detected() {
     let chain = ChainBuilder::new().push(r).build();
     let result = verify_chain(&chain);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ChainError::BrokenHash { index: 0, .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ChainError::BrokenHash { index: 0, .. }))
+    );
 }
 
 #[test]
@@ -211,10 +213,12 @@ fn missing_parent_in_middle_of_chain() {
         .build();
     let result = verify_chain(&chain);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ChainError::MissingParent { index: 1, .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ChainError::MissingParent { index: 1, .. }))
+    );
 }
 
 // ── Out-of-order receipts ──────────────────────────────────────────
@@ -229,10 +233,12 @@ fn out_of_order_receipts_detected() {
     let chain = ChainBuilder::new().push(r_late).push(r_early).build();
     let result = verify_chain(&chain);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ChainError::OutOfOrder { index: 1 })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ChainError::OutOfOrder { index: 1 }))
+    );
 }
 
 #[test]
@@ -248,10 +254,12 @@ fn out_of_order_with_parent() {
         .build();
     let result = verify_chain(&chain);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ChainError::OutOfOrder { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ChainError::OutOfOrder { .. }))
+    );
 }
 
 // ── Duplicate receipt IDs ──────────────────────────────────────────
@@ -266,10 +274,12 @@ fn duplicate_receipt_ids_detected() {
     let chain = ChainBuilder::new().push(r1).push(r2).build();
     let result = verify_chain(&chain);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ChainError::DuplicateId { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ChainError::DuplicateId { .. }))
+    );
 }
 
 // ── Contract version mismatch ──────────────────────────────────────
@@ -484,18 +494,24 @@ fn multiple_errors_reported() {
     assert!(!result.valid);
     // Should have at least OutOfOrder, BrokenHash, and MissingParent
     assert!(result.errors.len() >= 3);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ChainError::OutOfOrder { .. })));
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ChainError::BrokenHash { .. })));
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ChainError::MissingParent { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ChainError::OutOfOrder { .. }))
+    );
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ChainError::BrokenHash { .. }))
+    );
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ChainError::MissingParent { .. }))
+    );
 }
 
 #[test]

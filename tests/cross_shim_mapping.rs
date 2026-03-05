@@ -38,8 +38,8 @@
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 use abp_mapper::{
-    default_ir_mapper, ClaudeGeminiIrMapper, IrMapper, MapError, OpenAiClaudeIrMapper,
-    OpenAiGeminiIrMapper,
+    ClaudeGeminiIrMapper, IrMapper, MapError, OpenAiClaudeIrMapper, OpenAiGeminiIrMapper,
+    default_ir_mapper,
 };
 use serde_json::json;
 
@@ -952,9 +952,11 @@ mod roundtrip_fidelity {
         // Text survives
         assert_eq!(back.messages[1].text_content(), "Answer.");
         // Thinking block is lost
-        assert!(!back.messages[1]
-            .content
-            .iter()
-            .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
+        assert!(
+            !back.messages[1]
+                .content
+                .iter()
+                .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
+        );
     }
 }

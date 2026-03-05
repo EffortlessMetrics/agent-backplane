@@ -10,8 +10,8 @@ use std::io;
 
 // ── abp-error (unified taxonomy) ──────────────────────────────────────
 use abp_error::{
-    abp_err, AbpError, AbpErrorDto, ErrorCategory, ErrorChain, ErrorCode, ErrorInfo, ErrorLocation,
-    ErrorStats,
+    AbpError, AbpErrorDto, ErrorCategory, ErrorChain, ErrorCode, ErrorInfo, ErrorLocation,
+    ErrorStats, abp_err,
 };
 
 // ── abp-error-taxonomy ────────────────────────────────────────────────

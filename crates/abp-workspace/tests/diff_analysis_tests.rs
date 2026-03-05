@@ -29,10 +29,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Tests for diff analysis utilities: `WorkspaceDiff`, `DiffAnalyzer`, `DiffPolicy`.
 
+use abp_workspace::WorkspaceStager;
 use abp_workspace::diff::{
     ChangeType, DiffAnalyzer, DiffPolicy, FileChange, PolicyResult, WorkspaceDiff,
 };
-use abp_workspace::WorkspaceStager;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
@@ -378,10 +378,11 @@ fn analyzer_nested_directory() {
     let analyzer = DiffAnalyzer::new(ws.path());
     let diff = analyzer.analyze().unwrap();
 
-    assert!(diff
-        .files_added
-        .iter()
-        .any(|fc| fc.path == Path::new("sub/deep/file.txt")));
+    assert!(
+        diff.files_added
+            .iter()
+            .any(|fc| fc.path == Path::new("sub/deep/file.txt"))
+    );
 }
 
 // ===========================================================================
@@ -515,9 +516,11 @@ fn policy_denied_paths_violation() {
     let result = policy.check(&diff).unwrap();
     assert!(!result.is_pass());
     if let PolicyResult::Fail { violations } = &result {
-        assert!(violations
-            .iter()
-            .any(|v| v.contains("denied path") && v.contains("creds.secret")));
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.contains("denied path") && v.contains("creds.secret"))
+        );
     }
 }
 

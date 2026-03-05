@@ -1,0 +1,14 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: variants
+---
+[
+  "native",
+  "emulated",
+  "unsupported",
+  {
+    "restricted": {
+      "reason": "policy restriction"
+    }
+  }
+]

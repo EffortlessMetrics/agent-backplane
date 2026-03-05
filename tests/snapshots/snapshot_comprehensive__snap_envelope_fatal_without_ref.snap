@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: envelope_to_value(&env)
+---
+{
+  "error": "process crashed",
+  "ref_id": null,
+  "t": "fatal"
+}

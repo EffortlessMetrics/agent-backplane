@@ -304,12 +304,14 @@ fn openai_with_system_prompt_roundtrip() {
         default_usage(),
     );
     let resp: ChatCompletionResponse = receipt.into();
-    assert!(resp.choices[0]
-        .message
-        .content
-        .as_deref()
-        .unwrap()
-        .contains("Rust"));
+    assert!(
+        resp.choices[0]
+            .message
+            .content
+            .as_deref()
+            .unwrap()
+            .contains("Rust")
+    );
 }
 
 #[test]
@@ -1388,14 +1390,16 @@ fn cross_dialect_tool_call_openai_to_claude() {
     );
     let resp: MessagesResponse = receipt.into();
     // tool_use blocks should appear
-    assert!(resp
-        .content
-        .iter()
-        .any(|b| matches!(b, ContentBlock::ToolUse { .. })));
-    assert!(resp
-        .content
-        .iter()
-        .any(|b| matches!(b, ContentBlock::Text { .. })));
+    assert!(
+        resp.content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::ToolUse { .. }))
+    );
+    assert!(
+        resp.content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::Text { .. }))
+    );
 }
 
 #[test]
@@ -1734,14 +1738,16 @@ fn tool_call_and_text_in_same_response_claude() {
         default_usage(),
     );
     let resp: MessagesResponse = receipt.into();
-    assert!(resp
-        .content
-        .iter()
-        .any(|b| matches!(b, ContentBlock::Text { .. })));
-    assert!(resp
-        .content
-        .iter()
-        .any(|b| matches!(b, ContentBlock::ToolUse { .. })));
+    assert!(
+        resp.content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::Text { .. }))
+    );
+    assert!(
+        resp.content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::ToolUse { .. }))
+    );
     assert_eq!(resp.stop_reason.as_deref(), Some("tool_use"));
 }
 
@@ -1878,14 +1884,16 @@ fn claude_thinking_preserved_in_claude_response() {
     );
     let resp: MessagesResponse = receipt.into();
     // Claude response should have a Thinking block
-    assert!(resp
-        .content
-        .iter()
-        .any(|b| matches!(b, ContentBlock::Thinking { .. })));
-    assert!(resp
-        .content
-        .iter()
-        .any(|b| matches!(b, ContentBlock::Text { .. })));
+    assert!(
+        resp.content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::Thinking { .. }))
+    );
+    assert!(
+        resp.content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::Text { .. }))
+    );
 }
 
 #[test]

@@ -484,8 +484,8 @@ fn verify_error_types_implement_std_error() {
                 if name.ends_with("ErrorKind") || name.ends_with("ErrorCategory") {
                     continue;
                 }
-                // ErrorCode in abp-error is a stable code enum, not an error type.
-                if name == "ErrorCode" {
+                // ErrorCode / *ErrorCode are stable code enums, not error types.
+                if name.ends_with("ErrorCode") {
                     continue;
                 }
                 // ErrorSeverity/ErrorAction are classification metadata, not error types.

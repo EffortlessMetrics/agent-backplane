@@ -38,8 +38,8 @@ use std::collections::BTreeMap;
 use std::io::BufReader;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest, ExecutionMode,
-    Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionMode, Outcome, ReceiptBuilder, SupportLevel, WorkOrderBuilder,
 };
 use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
@@ -435,9 +435,10 @@ fn final_ref_id_must_match_run_id() {
     let validator = EnvelopeValidator::new();
     let errs =
         validator.validate_sequence(&[make_hello(), run_env, make_event(&run_id, "m"), bad_final]);
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -447,9 +448,11 @@ fn fatal_with_matching_ref_id_no_mismatch() {
 
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[make_hello(), run_env, fatal]);
-    assert!(!errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        !errs
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -459,9 +462,10 @@ fn fatal_with_wrong_ref_id_is_mismatch() {
 
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[make_hello(), run_env, fatal]);
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 // ===========================================================================
@@ -512,10 +516,12 @@ fn invalid_contract_version_format_is_error() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]
@@ -760,10 +766,11 @@ fn empty_task_in_work_order() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "work_order.task")));
+    assert!(
+        result.errors.iter().any(
+            |e| matches!(e, ValidationError::EmptyField { field } if field == "work_order.task")
+        )
+    );
 }
 
 #[test]
@@ -1018,9 +1025,10 @@ fn missing_hello_is_sequence_error() {
     let validator = EnvelopeValidator::new();
     let errs =
         validator.validate_sequence(&[run_env, make_event(&run_id, "m"), make_final(&run_id)]);
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingHello)));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
 }
 
 #[test]
@@ -1028,9 +1036,10 @@ fn hello_not_first_is_sequence_error() {
     let (run_id, run_env) = make_run();
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[run_env, make_hello(), make_final(&run_id)]);
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+    );
 }
 
 #[test]
@@ -1041,9 +1050,10 @@ fn event_before_run_is_out_of_order() {
         make_event("run-1", "early"),
         make_fatal(Some("run-1"), "abort"),
     ]);
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::OutOfOrderEvents)));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, SequenceError::OutOfOrderEvents))
+    );
 }
 
 #[test]
@@ -1051,21 +1061,24 @@ fn missing_terminal_is_error() {
     let (run_id, run_env) = make_run();
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[make_hello(), run_env, make_event(&run_id, "m")]);
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
 fn empty_sequence_has_missing_hello_and_terminal() {
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[]);
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingHello)));
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -1078,9 +1091,10 @@ fn multiple_terminals_is_error() {
         make_final(&run_id),
         make_fatal(Some(&run_id), "also done"),
     ]);
-    assert!(errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::MultipleTerminals)));
+    assert!(
+        errs.iter()
+            .any(|e| matches!(e, SequenceError::MultipleTerminals))
+    );
 }
 
 #[test]
@@ -1111,9 +1125,11 @@ fn valid_hello_then_fatal_no_run() {
     let validator = EnvelopeValidator::new();
     let errs = validator.validate_sequence(&[make_hello(), make_fatal(None, "startup error")]);
     // No run → no ref_id mismatch, and fatal is terminal
-    assert!(!errs
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        !errs
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 // ===========================================================================
@@ -1467,7 +1483,7 @@ fn codec_validate_jsonl_detects_bad_lines() {
 
 #[test]
 fn version_negotiation_same_version() {
-    use abp_protocol::version::{negotiate_version, ProtocolVersion};
+    use abp_protocol::version::{ProtocolVersion, negotiate_version};
 
     let v = ProtocolVersion::parse("abp/v0.1").unwrap();
     let result = negotiate_version(&v, &v).unwrap();
@@ -1476,7 +1492,7 @@ fn version_negotiation_same_version() {
 
 #[test]
 fn version_negotiation_compatible_picks_min() {
-    use abp_protocol::version::{negotiate_version, ProtocolVersion};
+    use abp_protocol::version::{ProtocolVersion, negotiate_version};
 
     let v01 = ProtocolVersion::parse("abp/v0.1").unwrap();
     let v02 = ProtocolVersion::parse("abp/v0.2").unwrap();
@@ -1486,7 +1502,7 @@ fn version_negotiation_compatible_picks_min() {
 
 #[test]
 fn version_negotiation_incompatible_fails() {
-    use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionError};
+    use abp_protocol::version::{ProtocolVersion, VersionError, negotiate_version};
 
     let v01 = ProtocolVersion::parse("abp/v0.1").unwrap();
     let v10 = ProtocolVersion::parse("abp/v1.0").unwrap();

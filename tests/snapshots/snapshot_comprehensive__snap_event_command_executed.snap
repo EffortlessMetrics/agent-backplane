@@ -1,0 +1,11 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: e
+---
+{
+  "ts": "2025-01-15T10:30:00Z",
+  "type": "command_executed",
+  "command": "cargo test",
+  "exit_code": 0,
+  "output_preview": "test result: ok. 42 passed"
+}

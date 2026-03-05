@@ -1,0 +1,10 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: envelope_to_value(&env)
+---
+{
+  "error": "backend timed out",
+  "error_code": "backend_timeout",
+  "ref_id": "run-002",
+  "t": "fatal"
+}

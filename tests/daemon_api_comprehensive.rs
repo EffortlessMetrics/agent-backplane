@@ -1693,8 +1693,8 @@ mod sdk_types_common {
 // ═══════════════════════════════════════════════════════════════════════════
 
 mod sdk_types_convert {
-    use abp_sdk_types::convert::*;
     use abp_sdk_types::Dialect;
+    use abp_sdk_types::convert::*;
 
     #[test]
     fn message_serde_roundtrip() {

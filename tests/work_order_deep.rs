@@ -34,9 +34,9 @@
 use abp_core::config::{ConfigDefaults, ConfigValidator, WarningSeverity};
 use abp_core::ext::WorkOrderExt;
 use abp_core::{
-    Capability, CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet,
-    ExecutionLane, ExecutionMode, MinSupport, PolicyProfile, RuntimeConfig, WorkOrder,
-    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    CONTRACT_VERSION, Capability, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, PolicyProfile, RuntimeConfig,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -558,9 +558,11 @@ fn validator_rejects_whitespace_only_task() {
 fn validator_rejects_zero_max_turns() {
     let wo = WorkOrderBuilder::new("task").max_turns(0).build();
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "config.max_turns" && matches!(w.severity, WarningSeverity::Error)));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "config.max_turns" && matches!(w.severity, WarningSeverity::Error))
+    );
 }
 
 #[test]
@@ -1555,9 +1557,11 @@ fn validator_rejects_empty_disallowed_tools_entry() {
     let mut wo = minimal_wo();
     wo.policy.disallowed_tools = vec!["".into()];
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.disallowed_tools"));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.disallowed_tools")
+    );
 }
 
 #[test]
@@ -1565,9 +1569,11 @@ fn validator_rejects_empty_require_approval_for_entry() {
     let mut wo = minimal_wo();
     wo.policy.require_approval_for = vec!["".into()];
     let warnings = ConfigValidator::new().validate_work_order(&wo);
-    assert!(warnings
-        .iter()
-        .any(|w| w.field == "policy.require_approval_for"));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.field == "policy.require_approval_for")
+    );
 }
 
 #[test]

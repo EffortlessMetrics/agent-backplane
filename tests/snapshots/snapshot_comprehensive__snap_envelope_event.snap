@@ -1,0 +1,13 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: envelope_to_value(&env)
+---
+{
+  "event": {
+    "text": "Hello",
+    "ts": "2025-01-15T10:30:00Z",
+    "type": "assistant_delta"
+  },
+  "ref_id": "run-001",
+  "t": "event"
+}

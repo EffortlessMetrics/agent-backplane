@@ -4,18 +4,17 @@
 //! Covers valid transitions, invalid transitions, error recovery,
 //! protocol edge cases, and concurrent/multi-run scenarios.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sidecar_kit::{
+    Frame, ProtocolPhase, ProtocolState,
     builders::{
-        event_command_executed, event_error, event_file_changed, event_frame, event_run_completed,
-        event_run_started, event_text_delta, event_text_message, event_tool_call,
-        event_tool_result, event_warning, fatal_frame, final_frame, hello_frame, EventBuilder,
-        ReceiptBuilder,
+        EventBuilder, ReceiptBuilder, event_command_executed, event_error, event_file_changed,
+        event_frame, event_run_completed, event_run_started, event_text_delta, event_text_message,
+        event_tool_call, event_tool_result, event_warning, fatal_frame, final_frame, hello_frame,
     },
     codec::JsonlCodec,
-    framing::{read_all_frames, validate_frame, write_frames, FrameReader, FrameWriter},
+    framing::{FrameReader, FrameWriter, read_all_frames, validate_frame, write_frames},
     test_utils::MockStdin,
-    Frame, ProtocolPhase, ProtocolState,
 };
 
 // ═══════════════════════════════════════════════════════════════════════

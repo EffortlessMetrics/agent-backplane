@@ -12,11 +12,11 @@ use std::time::Duration;
 
 use abp_core::ArtifactRef;
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore};
-use abp_receipt::verify::{verify_receipt, ReceiptAuditor};
+use abp_receipt::verify::{ReceiptAuditor, verify_receipt};
 use abp_receipt::{
-    canonicalize, compute_hash, diff_receipts, verify_hash, AgentEvent, AgentEventKind,
-    ChainBuilder, ChainError, ExecutionMode, Outcome, Receipt, ReceiptBuilder, ReceiptChain,
-    ReceiptValidator, UsageNormalized, VerificationReport, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, ChainBuilder, ChainError, ExecutionMode, Outcome,
+    Receipt, ReceiptBuilder, ReceiptChain, ReceiptValidator, UsageNormalized, VerificationReport,
+    canonicalize, compute_hash, diff_receipts, verify_hash,
 };
 use chrono::{TimeZone, Utc};
 use uuid::Uuid;
@@ -1267,10 +1267,12 @@ fn auditor_detects_duplicate_run_ids() {
         .build();
     let report = auditor.audit_batch(&[r1, r2]);
     assert!(!report.is_clean());
-    assert!(report
-        .issues
-        .iter()
-        .any(|i| i.description.contains("duplicate run_id")));
+    assert!(
+        report
+            .issues
+            .iter()
+            .any(|i| i.description.contains("duplicate run_id"))
+    );
 }
 
 #[test]
@@ -1473,10 +1475,11 @@ fn diff_detects_contract_version_change() {
     let mut b = a.clone();
     b.meta.contract_version = "different".into();
     let diff = diff_receipts(&a, &b);
-    assert!(diff
-        .changes
-        .iter()
-        .any(|d| d.field == "meta.contract_version"));
+    assert!(
+        diff.changes
+            .iter()
+            .any(|d| d.field == "meta.contract_version")
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════

@@ -1,0 +1,9 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: envelope_to_value(&env)
+---
+{
+  "error": "out of memory",
+  "ref_id": "run-001",
+  "t": "fatal"
+}

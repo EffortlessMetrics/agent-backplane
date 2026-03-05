@@ -20,13 +20,13 @@ use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
     CapabilityManifest, ExecutionMode, Outcome, Receipt, ReceiptBuilder, RunMetadata, SupportLevel,
-    UsageNormalized, VerificationReport, CONTRACT_VERSION,
+    UsageNormalized, VerificationReport, receipt_hash,
 };
 use abp_error::{AbpError, ErrorCategory, ErrorCode, ErrorInfo};
 use abp_policy::{Decision, PolicyEngine};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

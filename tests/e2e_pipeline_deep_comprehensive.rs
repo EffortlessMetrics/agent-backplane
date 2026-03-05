@@ -5,23 +5,23 @@
 //! WorkOrder → Backend → EventStream → Receipt flow.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use abp_backend_core::Backend;
-use abp_backend_mock::scenarios::{MockScenario, ScenarioMockBackend};
 use abp_backend_mock::MockBackend;
+use abp_backend_mock::scenarios::{MockScenario, ScenarioMockBackend};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, RunMetadata, SupportLevel,
-    UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    RunMetadata, SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder,
+    WorkspaceMode, WorkspaceSpec,
 };
 use abp_error::ErrorCode;
 use abp_policy::PolicyEngine;
-use abp_receipt::{compute_hash, verify_hash, ReceiptBuilder};
+use abp_receipt::{ReceiptBuilder, compute_hash, verify_hash};
 use abp_runtime::{Runtime, RuntimeError};
 use abp_stream::{
     EventFilter, EventRecorder, EventStats, EventTransform, StreamPipeline, StreamPipelineBuilder,
@@ -459,27 +459,33 @@ mod basic_pipeline {
     async fn mock_emits_run_started_event() {
         let rt = default_runtime();
         let (events, _) = run_and_collect(&rt, "mock", passthrough_wo("events test")).await;
-        assert!(events
-            .iter()
-            .any(|e| matches!(e.kind, AgentEventKind::RunStarted { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e.kind, AgentEventKind::RunStarted { .. }))
+        );
     }
 
     #[tokio::test]
     async fn mock_emits_run_completed_event() {
         let rt = default_runtime();
         let (events, _) = run_and_collect(&rt, "mock", passthrough_wo("complete test")).await;
-        assert!(events
-            .iter()
-            .any(|e| matches!(e.kind, AgentEventKind::RunCompleted { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e.kind, AgentEventKind::RunCompleted { .. }))
+        );
     }
 
     #[tokio::test]
     async fn mock_emits_assistant_message() {
         let rt = default_runtime();
         let (events, _) = run_and_collect(&rt, "mock", passthrough_wo("msg test")).await;
-        assert!(events
-            .iter()
-            .any(|e| matches!(e.kind, AgentEventKind::AssistantMessage { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e.kind, AgentEventKind::AssistantMessage { .. }))
+        );
     }
 
     #[tokio::test]

@@ -33,9 +33,9 @@
 //! Each test uses the real `Runtime` type with `MockBackend` (no real API calls).
 
 use abp_core::{
-    chain::ReceiptChain, receipt_hash, AgentEvent, AgentEventKind, Capability,
-    CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome, PolicyProfile, Receipt,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, CONTRACT_VERSION, Capability, CapabilityRequirement,
+    CapabilityRequirements, MinSupport, Outcome, PolicyProfile, Receipt, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode, chain::ReceiptChain, receipt_hash,
 };
 use abp_runtime::{Runtime, RuntimeError};
 use tokio_stream::StreamExt;

@@ -38,8 +38,8 @@ use std::collections::BTreeMap;
 use std::io::{BufReader, Write};
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, CapabilityManifest, ExecutionMode, Outcome,
-    Receipt, ReceiptBuilder, WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, CapabilityManifest,
+    ExecutionMode, Outcome, Receipt, ReceiptBuilder, WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
 use abp_protocol::batch::{
     BatchItemStatus, BatchProcessor, BatchRequest, BatchValidationError, MAX_BATCH_SIZE,
@@ -51,8 +51,8 @@ use abp_protocol::stream::StreamParser;
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 
 // ===========================================================================
@@ -768,9 +768,11 @@ mod batch_processing {
             .collect();
         let req = make_batch_request(envs);
         let errors = processor.validate_batch(&req);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, BatchValidationError::TooManyItems { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, BatchValidationError::TooManyItems { .. }))
+        );
     }
 
     #[test]
@@ -892,9 +894,11 @@ mod sequence_validation {
         let (id, run) = make_run();
         let seq = vec![run, make_hello(), make_final_envelope(&id)];
         let errors = validator.validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::HelloNotFirst { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::HelloNotFirst { .. }))
+        );
     }
 
     #[test]
@@ -922,9 +926,11 @@ mod sequence_validation {
             make_final_envelope(&id),
         ];
         let errors = validator.validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+        );
     }
 
     #[test]
@@ -933,9 +939,11 @@ mod sequence_validation {
         let (_id, run) = make_run();
         let seq = vec![make_hello(), run, make_final_envelope("wrong-ref")];
         let errors = validator.validate_sequence(&seq);
-        assert!(errors
-            .iter()
-            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+        );
     }
 
     #[test]
@@ -1029,10 +1037,12 @@ mod envelope_validation {
         };
         let result = validator.validate(&env);
         assert!(!result.valid);
-        assert!(result
-            .errors
-            .iter()
-            .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+        assert!(
+            result
+                .errors
+                .iter()
+                .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+        );
     }
 
     #[test]
@@ -1067,10 +1077,12 @@ mod envelope_validation {
         };
         let result = validator.validate(&env);
         assert!(result.valid);
-        assert!(result
-            .warnings
-            .iter()
-            .any(|w| matches!(w, ValidationWarning::MissingOptionalField { .. })));
+        assert!(
+            result
+                .warnings
+                .iter()
+                .any(|w| matches!(w, ValidationWarning::MissingOptionalField { .. }))
+        );
     }
 
     #[test]

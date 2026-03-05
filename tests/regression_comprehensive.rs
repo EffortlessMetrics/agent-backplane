@@ -11,21 +11,21 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_capability::{
-    check_capability, negotiate, negotiate_capabilities, NegotiationResult,
-    SupportLevel as CapSupportLevel,
+    NegotiationResult, SupportLevel as CapSupportLevel, check_capability, negotiate,
+    negotiate_capabilities,
 };
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
-    BackendIdentity, Capability, CapabilityManifest, CapabilityRequirement, CapabilityRequirements,
-    ContextPacket, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
-    ReceiptBuilder, RuntimeConfig, SupportLevel as CoreSupportLevel, UsageNormalized,
-    VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder,
+    RuntimeConfig, SupportLevel as CoreSupportLevel, UsageNormalized, VerificationReport,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, canonical_json, receipt_hash, sha256_hex,
 };
 use abp_error::{AbpError, ErrorCategory, ErrorCode, ErrorInfo};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_policy::PolicyEngine;
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec};
-use abp_receipt::{self, verify_hash, ReceiptBuilder as ReceiptReceiptBuilder};
+use abp_protocol::{Envelope, JsonlCodec, is_compatible_version, parse_version};
+use abp_receipt::{self, ReceiptBuilder as ReceiptReceiptBuilder, verify_hash};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -539,34 +539,42 @@ fn serde_envelope_all_variant_names_snake_case() {
         },
         CapabilityManifest::new(),
     );
-    assert!(JsonlCodec::encode(&hello)
-        .unwrap()
-        .contains(r#""t":"hello""#));
+    assert!(
+        JsonlCodec::encode(&hello)
+            .unwrap()
+            .contains(r#""t":"hello""#)
+    );
 
     let run_env = Envelope::Run {
         id: "r".into(),
         work_order: WorkOrderBuilder::new("t").build(),
     };
-    assert!(JsonlCodec::encode(&run_env)
-        .unwrap()
-        .contains(r#""t":"run""#));
+    assert!(
+        JsonlCodec::encode(&run_env)
+            .unwrap()
+            .contains(r#""t":"run""#)
+    );
 
     let final_env = Envelope::Final {
         ref_id: "r".into(),
         receipt: make_receipt(),
     };
-    assert!(JsonlCodec::encode(&final_env)
-        .unwrap()
-        .contains(r#""t":"final""#));
+    assert!(
+        JsonlCodec::encode(&final_env)
+            .unwrap()
+            .contains(r#""t":"final""#)
+    );
 
     let fatal = Envelope::Fatal {
         ref_id: None,
         error: "e".into(),
         error_code: None,
     };
-    assert!(JsonlCodec::encode(&fatal)
-        .unwrap()
-        .contains(r#""t":"fatal""#));
+    assert!(
+        JsonlCodec::encode(&fatal)
+            .unwrap()
+            .contains(r#""t":"fatal""#)
+    );
 }
 
 #[test]

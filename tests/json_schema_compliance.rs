@@ -51,17 +51,17 @@ use abp_config::{BackendEntry as CfgBackendEntry, BackplaneConfig};
 use abp_core::error::MappingErrorKind;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityRequirement,
-    CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode,
-    MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig,
-    SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
+    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata,
+    RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder,
+    WorkspaceMode, WorkspaceSpec,
 };
 use abp_error::ErrorCode;
 use abp_policy::Decision;
 use chrono::Utc;
 use schemars::schema_for;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 // ── helpers ──────────────────────────────────────────────────────────────

@@ -37,11 +37,10 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode, Outcome,
-    PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig, SupportLevel, UsageNormalized,
-    VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
-    CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
+    ExecutionMode, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig, SupportLevel,
+    UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_error::{AbpError, AbpErrorDto, ErrorCategory, ErrorCode};
 use abp_glob::IncludeExcludeGlobs;

@@ -31,16 +31,16 @@
 //! Comprehensive receipt creation, hashing, and chain tests (80+).
 
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, ArtifactRef,
-    BackendIdentity, Capability, CapabilityManifest, ExecutionMode, Outcome, Receipt, RunMetadata,
-    SupportLevel, UsageNormalized, VerificationReport, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, ExecutionMode, Outcome, Receipt, RunMetadata, SupportLevel,
+    UsageNormalized, VerificationReport, canonical_json, receipt_hash, sha256_hex,
 };
 use abp_receipt::serde_formats;
 use abp_receipt::store::{InMemoryReceiptStore, ReceiptFilter, ReceiptStore, ReceiptSummary};
 use abp_receipt::{
-    canonicalize, compute_hash, diff_receipts, verify_hash, verify_receipt, ChainBuilder,
-    ChainError, ChainSummary, ReceiptAuditor, ReceiptBuilder, ReceiptChain, ReceiptValidator,
-    TamperEvidence, TamperKind, ValidationError,
+    ChainBuilder, ChainError, ChainSummary, ReceiptAuditor, ReceiptBuilder, ReceiptChain,
+    ReceiptValidator, TamperEvidence, TamperKind, ValidationError, canonicalize, compute_hash,
+    diff_receipts, verify_hash, verify_receipt,
 };
 use chrono::{TimeZone, Utc};
 use std::collections::BTreeMap;
@@ -1815,10 +1815,12 @@ fn auditor_detects_duplicate_run_ids() {
         .unwrap();
     let report = auditor.audit_batch(&[r1, r2]);
     assert!(!report.is_clean());
-    assert!(report
-        .issues
-        .iter()
-        .any(|i| i.description.contains("duplicate")));
+    assert!(
+        report
+            .issues
+            .iter()
+            .any(|i| i.description.contains("duplicate"))
+    );
 }
 
 #[test]

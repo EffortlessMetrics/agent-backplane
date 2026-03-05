@@ -32,8 +32,8 @@
 use abp_core::{AgentEvent, AgentEventKind};
 use abp_runtime::multiplex::{EventMultiplexer, EventRouter, MultiplexError};
 use chrono::Utc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn make_event(kind: AgentEventKind) -> AgentEvent {
     AgentEvent {

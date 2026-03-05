@@ -38,8 +38,8 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use abp_config::{
-    apply_env_overrides, load_config, merge_configs, parse_toml, validate_config, BackendEntry,
-    BackplaneConfig, ConfigError, ConfigWarning,
+    BackendEntry, BackplaneConfig, ConfigError, ConfigWarning, apply_env_overrides, load_config,
+    merge_configs, parse_toml, validate_config,
 };
 
 // =========================================================================
@@ -317,9 +317,11 @@ fn validation_accepts_boundary_timeout_values() {
     );
     let warnings = validate_config(&cfg).expect("timeout=86400 should be valid");
     // 86400 > 3600, so it should produce a LargeTimeout warning
-    assert!(warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { secs: 86400, .. })));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { secs: 86400, .. }))
+    );
 }
 
 #[test]
@@ -336,9 +338,11 @@ fn validation_rejects_empty_sidecar_command() {
     let err = validate_config(&cfg).unwrap_err();
     match err {
         ConfigError::ValidationError { reasons } => {
-            assert!(reasons
-                .iter()
-                .any(|r| r.contains("command must not be empty")));
+            assert!(
+                reasons
+                    .iter()
+                    .any(|r| r.contains("command must not be empty"))
+            );
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -972,9 +976,11 @@ fn large_timeout_warning_threshold() {
         },
     );
     let warnings = validate_config(&cfg).unwrap();
-    assert!(warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { secs: 3601, .. })));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { secs: 3601, .. }))
+    );
 }
 
 // =========================================================================
@@ -1846,9 +1852,11 @@ fn sidecar_timeout_at_large_threshold_exactly_no_warning() {
         },
     );
     let warnings = validate_config(&cfg).unwrap();
-    assert!(!warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
+    assert!(
+        !warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+    );
 }
 
 #[test]
@@ -1867,7 +1875,9 @@ fn sidecar_timeout_one_above_threshold_warns() {
         },
     );
     let warnings = validate_config(&cfg).unwrap();
-    assert!(warnings
-        .iter()
-        .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. })));
+    assert!(
+        warnings
+            .iter()
+            .any(|w| matches!(w, ConfigWarning::LargeTimeout { .. }))
+    );
 }

@@ -19,10 +19,10 @@ use std::path::Path;
 
 use abp_backend_mock::scenarios::{EventSequenceBuilder, MockScenario, ScenarioMockBackend};
 use abp_core::{
-    receipt_hash, AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome,
     PolicyProfile, Receipt, RunMetadata, SupportLevel, UsageNormalized, VerificationReport,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode, receipt_hash,
 };
 use abp_integrations::{Backend, MockBackend};
 use abp_policy::{Decision, PolicyEngine};

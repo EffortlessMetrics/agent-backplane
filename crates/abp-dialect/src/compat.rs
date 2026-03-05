@@ -7,9 +7,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::Dialect;
 use crate::features::{DialectFeature, FeatureSupport};
 use crate::matrix::dialect_features;
-use crate::Dialect;
 
 // ── FeatureGap ──────────────────────────────────────────────────────────
 
@@ -257,9 +257,10 @@ mod tests {
     fn kimi_to_openai_parallel_tool_calls() {
         let r = dialect_compatibility(Dialect::Kimi, Dialect::OpenAi);
         // Kimi ParallelToolCalls=Emulated (available), OpenAI=Native
-        assert!(r
-            .native_matches
-            .contains(&DialectFeature::ParallelToolCalls));
+        assert!(
+            r.native_matches
+                .contains(&DialectFeature::ParallelToolCalls)
+        );
     }
 
     #[test]

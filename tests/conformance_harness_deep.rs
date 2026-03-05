@@ -40,15 +40,15 @@ use std::io::BufReader;
 
 use abp_capability::negotiate_capabilities;
 use abp_core::{
-    canonical_json, receipt_hash, sha256_hex, AgentEvent, AgentEventKind, BackendIdentity,
-    Capability, CapabilityManifest, ExecutionLane, ExecutionMode, Outcome, ReceiptBuilder,
-    RuntimeConfig, SupportLevel, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
+    ExecutionLane, ExecutionMode, Outcome, ReceiptBuilder, RuntimeConfig, SupportLevel,
+    WorkOrderBuilder, WorkspaceMode, canonical_json, receipt_hash, sha256_hex,
 };
 use abp_error_taxonomy::{ErrorCategory, ErrorCode};
 use abp_protocol::builder::EnvelopeBuilder;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
-use abp_protocol::version::{negotiate_version, ProtocolVersion};
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::version::{ProtocolVersion, negotiate_version};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 use serde_json::Value;
 use uuid::Uuid;
@@ -509,10 +509,12 @@ fn handshake_hello_bad_version_format() {
     };
     let result = validator.validate(&hello);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]
@@ -652,9 +654,11 @@ fn lifecycle_final_ref_id_mismatch_detected() {
         make_final("run-OTHER"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -672,9 +676,11 @@ fn lifecycle_missing_terminal() {
         ),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]
@@ -687,21 +693,27 @@ fn lifecycle_multiple_terminals_detected() {
         make_fatal(Some("r"), "extra"),
     ];
     let errors = validator.validate_sequence(&seq);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MultipleTerminals)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MultipleTerminals))
+    );
 }
 
 #[test]
 fn lifecycle_empty_sequence_detected() {
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&[]);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingHello)));
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::MissingTerminal)));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingHello))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::MissingTerminal))
+    );
 }
 
 #[test]

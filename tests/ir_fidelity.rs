@@ -37,7 +37,7 @@ use std::collections::BTreeMap;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition, IrUsage};
 use abp_dialect::Dialect;
 use abp_mapping::{
-    features, known_rules, validate_mapping, Fidelity, MappingRegistry, MappingRule,
+    Fidelity, MappingRegistry, MappingRule, features, known_rules, validate_mapping,
 };
 use serde_json::json;
 
@@ -1157,9 +1157,10 @@ fn fidelity_tracking_registry_lookup() {
         .lookup(Dialect::Claude, Dialect::OpenAi, "thinking")
         .unwrap();
     assert!(!rule.fidelity.is_lossless());
-    assert!(reg
-        .lookup(Dialect::Claude, Dialect::Gemini, "thinking")
-        .is_none());
+    assert!(
+        reg.lookup(Dialect::Claude, Dialect::Gemini, "thinking")
+            .is_none()
+    );
 }
 
 #[test]

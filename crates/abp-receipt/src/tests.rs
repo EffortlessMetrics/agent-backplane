@@ -593,10 +593,11 @@ fn diff_detects_backend_version_change() {
     let mut b = a.clone();
     b.backend.backend_version = Some("2.0".into());
     let d = diff_receipts(&a, &b);
-    assert!(d
-        .changes
-        .iter()
-        .any(|c| c.field == "backend.backend_version"));
+    assert!(
+        d.changes
+            .iter()
+            .any(|c| c.field == "backend.backend_version")
+    );
 }
 
 #[test]
@@ -913,9 +914,11 @@ fn chain_error_display() {
         "broken link at chain index 1"
     );
     let id = Uuid::nil();
-    assert!(ChainError::DuplicateId { id }
-        .to_string()
-        .contains("duplicate"));
+    assert!(
+        ChainError::DuplicateId { id }
+            .to_string()
+            .contains("duplicate")
+    );
 }
 
 #[test]
@@ -1598,7 +1601,7 @@ fn chain_builder_basic() {
 fn chain_builder_skip_validation() {
     let mut r = ReceiptBuilder::new("mock").with_hash().unwrap();
     r.outcome = Outcome::Failed; // tamper
-                                 // Should succeed with skip_validation
+    // Should succeed with skip_validation
     let chain = ChainBuilder::new()
         .skip_validation()
         .append(r)

@@ -5,16 +5,16 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Cursor, Write};
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirements, ContextPacket, ExecutionLane, ExecutionMode, Outcome, PolicyProfile,
     Receipt, ReceiptBuilder, RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
-    WorkspaceMode, WorkspaceSpec, CONTRACT_VERSION,
+    WorkspaceMode, WorkspaceSpec,
 };
 use abp_protocol::validate::{
     EnvelopeValidator, SequenceError, ValidationError, ValidationWarning,
 };
 use abp_protocol::{
-    is_compatible_version, parse_version, stream::StreamParser, Envelope, JsonlCodec, ProtocolError,
+    Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version, stream::StreamParser,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -1384,9 +1384,11 @@ fn sequence_ref_id_mismatch() {
     ];
     let validator = EnvelopeValidator::new();
     let errors = validator.validate_sequence(&sequence);
-    assert!(errors
-        .iter()
-        .any(|e| matches!(e, SequenceError::RefIdMismatch { .. })));
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, SequenceError::RefIdMismatch { .. }))
+    );
 }
 
 #[test]
@@ -1458,10 +1460,12 @@ fn validate_hello_invalid_version() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]
@@ -2330,9 +2334,11 @@ fn validate_run_empty_id() {
     let validator = EnvelopeValidator::new();
     let result = validator.validate(&env);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .contains(&ValidationError::EmptyField { field: "id".into() }));
+    assert!(
+        result
+            .errors
+            .contains(&ValidationError::EmptyField { field: "id".into() })
+    );
 }
 
 #[test]

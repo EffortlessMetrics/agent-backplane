@@ -33,15 +33,15 @@
 //! serialization, roundtrips, backward compatibility, and diff detection.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityRequirement,
-    CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane, ExecutionMode,
-    MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata, RuntimeConfig,
-    SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
+    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RunMetadata,
+    RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder,
+    WorkspaceMode, WorkspaceSpec,
 };
 use chrono::Utc;
 use schemars::schema_for;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 // ── helpers ──────────────────────────────────────────────────────────

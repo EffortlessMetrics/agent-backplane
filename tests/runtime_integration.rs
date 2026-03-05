@@ -37,9 +37,9 @@
 //! - `runtime_configuration` — TOML loading, env overrides, validation
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, MinSupport, Outcome, Receipt, SupportLevel,
-    WorkOrder, WorkOrderBuilder, WorkspaceMode, CONTRACT_VERSION,
+    WorkOrder, WorkOrderBuilder, WorkspaceMode,
 };
 use abp_integrations::Backend;
 use abp_runtime::execution::{ExecutionConfig, ExecutionPipeline, PipelineEvent};
@@ -775,7 +775,7 @@ mod runtime_retry_fallback {
 // ===========================================================================
 
 mod runtime_configuration {
-    use abp_config::{parse_toml, validate_config, BackendEntry, BackplaneConfig};
+    use abp_config::{BackendEntry, BackplaneConfig, parse_toml, validate_config};
 
     #[test]
     fn config_from_toml_minimal() {

@@ -50,6 +50,21 @@ pub enum ShimError {
 }
 
 // ---------------------------------------------------------------------------
+// Vendor-compatible type aliases (mirrors Anthropic Python/TypeScript SDK)
+// ---------------------------------------------------------------------------
+
+/// Alias matching the Anthropic SDK name `MessageCreateParams`.
+///
+/// In the official Anthropic Python SDK, the request type is called
+/// `MessageCreateParams`.  This alias lets users write code that looks
+/// identical to the vendor SDK while routing through ABP.
+pub type MessageCreateParams = MessageRequest;
+
+/// Alias matching the Anthropic SDK streaming event name
+/// `MessageStreamEvent`.
+pub type MessageStreamEvent = StreamEvent;
+
+// ---------------------------------------------------------------------------
 // Public request/response types (mirrors Anthropic SDK)
 // ---------------------------------------------------------------------------
 

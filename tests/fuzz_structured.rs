@@ -40,7 +40,7 @@ use std::io::BufReader;
 use std::path::Path;
 
 use abp_core::{
-    receipt_hash, AgentEvent, Outcome, PolicyProfile, Receipt, ReceiptBuilder, WorkOrder,
+    AgentEvent, Outcome, PolicyProfile, Receipt, ReceiptBuilder, WorkOrder, receipt_hash,
 };
 use abp_error::{AbpError, AbpErrorDto, ErrorCode, ErrorInfo};
 use abp_policy::PolicyEngine;

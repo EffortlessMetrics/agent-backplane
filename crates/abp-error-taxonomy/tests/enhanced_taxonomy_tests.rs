@@ -242,14 +242,16 @@ fn model_not_found_plan_has_change_model_and_fallback() {
     let c = ErrorClassifier::new();
     let cl = c.classify(&ErrorCode::BackendModelNotFound);
     let plan = RecoveryPlan::from_classification(&cl);
-    assert!(plan
-        .steps
-        .iter()
-        .any(|s| s.action == RecoveryAction::ChangeModel));
-    assert!(plan
-        .steps
-        .iter()
-        .any(|s| s.action == RecoveryAction::Fallback));
+    assert!(
+        plan.steps
+            .iter()
+            .any(|s| s.action == RecoveryAction::ChangeModel)
+    );
+    assert!(
+        plan.steps
+            .iter()
+            .any(|s| s.action == RecoveryAction::Fallback)
+    );
 }
 
 // =========================================================================

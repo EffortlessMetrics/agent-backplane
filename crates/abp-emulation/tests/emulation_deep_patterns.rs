@@ -29,17 +29,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Deep-pattern tests for the emulation framework.
 
-use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_core::Capability;
+use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole, IrToolDefinition};
 use abp_emulation::strategies::{
     StreamChunk, StreamingEmulation, ThinkingDetail, ThinkingEmulation, ToolUseEmulation,
     VisionEmulation,
 };
 use abp_emulation::{
-    apply_emulation, can_emulate, compute_fidelity, default_strategy, emulate_code_execution,
-    emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
-    emulate_structured_output, EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport,
-    EmulationStrategy, FidelityLabel,
+    EmulationConfig, EmulationEngine, EmulationEntry, EmulationReport, EmulationStrategy,
+    FidelityLabel, apply_emulation, can_emulate, compute_fidelity, default_strategy,
+    emulate_code_execution, emulate_extended_thinking, emulate_image_input, emulate_stop_sequences,
+    emulate_structured_output,
 };
 use std::collections::BTreeMap;
 

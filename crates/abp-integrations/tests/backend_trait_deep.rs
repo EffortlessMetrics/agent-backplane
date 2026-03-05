@@ -34,12 +34,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionLane, ExecutionMode, MinSupport,
-    Outcome, Receipt, SupportLevel, WorkOrder, WorkOrderBuilder, CONTRACT_VERSION,
+    Outcome, Receipt, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_integrations::{
-    ensure_capability_requirements, extract_execution_mode, Backend, MockBackend,
+    Backend, MockBackend, ensure_capability_requirements, extract_execution_mode,
 };
 use async_trait::async_trait;
 use tokio::sync::mpsc;

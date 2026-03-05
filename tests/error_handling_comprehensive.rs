@@ -25,13 +25,13 @@ use abp_error_taxonomy::{
 };
 
 // ── abp-core error types ─────────────────────────────────────────────────
+use abp_core::ContractError;
 use abp_core::chain::ChainError;
 use abp_core::error::{
     ErrorCatalog, ErrorCode as CoreErrorCode, ErrorInfo as CoreErrorInfo,
     MappingError as CoreMappingError, MappingErrorKind,
 };
 use abp_core::validate::ValidationError;
-use abp_core::ContractError;
 
 // =========================================================================
 // Helpers

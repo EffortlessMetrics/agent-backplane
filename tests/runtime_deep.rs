@@ -39,10 +39,9 @@
 //! retry, receipt store, telemetry, and projection integration.
 
 use abp_core::{
-    AgentEvent, AgentEventKind, BackendIdentity, Capability, CapabilityManifest,
+    AgentEvent, AgentEventKind, BackendIdentity, CONTRACT_VERSION, Capability, CapabilityManifest,
     CapabilityRequirement, CapabilityRequirements, ExecutionMode, MinSupport, Outcome, Receipt,
     RunMetadata, RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    CONTRACT_VERSION,
 };
 use abp_integrations::{Backend, MockBackend};
 use abp_runtime::*;

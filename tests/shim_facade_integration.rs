@@ -829,9 +829,11 @@ mod cross_shim_consistency {
         let receipt = abp_shim_copilot::mock_receipt(events.clone());
         let resp = abp_shim_copilot::receipt_to_response(&receipt, "gpt-4o");
         assert!(!resp.copilot_errors.is_empty());
-        assert!(resp.copilot_errors[0]
-            .message
-            .contains("service unavailable"));
+        assert!(
+            resp.copilot_errors[0]
+                .message
+                .contains("service unavailable")
+        );
     }
 
     #[test]

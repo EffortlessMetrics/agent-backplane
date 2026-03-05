@@ -1,0 +1,8 @@
+---
+source: tests/snapshot_comprehensive.rs
+expression: variants
+---
+[
+  "staged",
+  "pass_through"
+]

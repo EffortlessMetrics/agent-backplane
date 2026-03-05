@@ -145,12 +145,13 @@ fn staged_preserves_directory_structure() {
     let src = make_source_dir_with_nested();
     let spec = workspace_spec(src.path(), WorkspaceMode::Staged);
     let ws = WorkspaceManager::prepare(&spec).unwrap();
-    assert!(ws
-        .path()
-        .join("src")
-        .join("nested")
-        .join("deep.rs")
-        .exists());
+    assert!(
+        ws.path()
+            .join("src")
+            .join("nested")
+            .join("deep.rs")
+            .exists()
+    );
     assert!(ws.path().join("tests").join("test_it.rs").exists());
     assert!(ws.path().join("docs").join("guide.md").exists());
 }
@@ -484,12 +485,13 @@ fn staged_include_and_exclude_combined() {
     );
     let ws = WorkspaceManager::prepare(&spec).unwrap();
     assert!(ws.path().join("src").join("main.rs").exists());
-    assert!(!ws
-        .path()
-        .join("src")
-        .join("nested")
-        .join("deep.rs")
-        .exists());
+    assert!(
+        !ws.path()
+            .join("src")
+            .join("nested")
+            .join("deep.rs")
+            .exists()
+    );
 }
 
 #[test]
@@ -670,12 +672,13 @@ fn stager_include_and_exclude_combined() {
         .stage()
         .unwrap();
     assert!(ws.path().join("src").join("main.rs").exists());
-    assert!(!ws
-        .path()
-        .join("src")
-        .join("nested")
-        .join("deep.rs")
-        .exists());
+    assert!(
+        !ws.path()
+            .join("src")
+            .join("nested")
+            .join("deep.rs")
+            .exists()
+    );
     assert!(!ws.path().join("hello.txt").exists());
 }
 
@@ -772,10 +775,11 @@ fn snapshot_compare_detects_addition() {
     let snap2 = snapshot::capture(src.path()).unwrap();
 
     let diff = snapshot::compare(&snap1, &snap2);
-    assert!(diff
-        .added
-        .iter()
-        .any(|p| p.to_string_lossy().contains("new_file.txt")));
+    assert!(
+        diff.added
+            .iter()
+            .any(|p| p.to_string_lossy().contains("new_file.txt"))
+    );
 }
 
 #[test]
@@ -786,10 +790,11 @@ fn snapshot_compare_detects_removal() {
     let snap2 = snapshot::capture(src.path()).unwrap();
 
     let diff = snapshot::compare(&snap1, &snap2);
-    assert!(diff
-        .removed
-        .iter()
-        .any(|p| p.to_string_lossy().contains("hello.txt")));
+    assert!(
+        diff.removed
+            .iter()
+            .any(|p| p.to_string_lossy().contains("hello.txt"))
+    );
 }
 
 #[test]
@@ -800,10 +805,11 @@ fn snapshot_compare_detects_modification() {
     let snap2 = snapshot::capture(src.path()).unwrap();
 
     let diff = snapshot::compare(&snap1, &snap2);
-    assert!(diff
-        .modified
-        .iter()
-        .any(|p| p.to_string_lossy().contains("hello.txt")));
+    assert!(
+        diff.modified
+            .iter()
+            .any(|p| p.to_string_lossy().contains("hello.txt"))
+    );
 }
 
 #[test]
@@ -879,13 +885,14 @@ fn template_apply_creates_parent_dirs() {
 
     let tmp = tempfile::tempdir().unwrap();
     t.apply(tmp.path()).unwrap();
-    assert!(tmp
-        .path()
-        .join("a")
-        .join("b")
-        .join("c")
-        .join("deep.txt")
-        .exists());
+    assert!(
+        tmp.path()
+            .join("a")
+            .join("b")
+            .join("c")
+            .join("deep.txt")
+            .exists()
+    );
 }
 
 #[test]
@@ -2242,15 +2249,16 @@ fn staged_deep_nesting() {
         .stage()
         .unwrap();
 
-    assert!(ws
-        .path()
-        .join("a")
-        .join("b")
-        .join("c")
-        .join("d")
-        .join("e")
-        .join("deep.txt")
-        .exists());
+    assert!(
+        ws.path()
+            .join("a")
+            .join("b")
+            .join("c")
+            .join("d")
+            .join("e")
+            .join("deep.txt")
+            .exists()
+    );
     let content = fs::read_to_string(
         ws.path()
             .join("a")
@@ -2310,22 +2318,26 @@ fn snapshot_compare_mixed_changes() {
     let snap2 = snapshot::capture(src.path()).unwrap();
     let diff = snapshot::compare(&snap1, &snap2);
 
-    assert!(diff
-        .added
-        .iter()
-        .any(|p| p.to_string_lossy().contains("new.txt")));
-    assert!(diff
-        .removed
-        .iter()
-        .any(|p| p.to_string_lossy().contains("delete.txt")));
-    assert!(diff
-        .modified
-        .iter()
-        .any(|p| p.to_string_lossy().contains("modify.txt")));
-    assert!(diff
-        .unchanged
-        .iter()
-        .any(|p| p.to_string_lossy().contains("keep.txt")));
+    assert!(
+        diff.added
+            .iter()
+            .any(|p| p.to_string_lossy().contains("new.txt"))
+    );
+    assert!(
+        diff.removed
+            .iter()
+            .any(|p| p.to_string_lossy().contains("delete.txt"))
+    );
+    assert!(
+        diff.modified
+            .iter()
+            .any(|p| p.to_string_lossy().contains("modify.txt"))
+    );
+    assert!(
+        diff.unchanged
+            .iter()
+            .any(|p| p.to_string_lossy().contains("keep.txt"))
+    );
 }
 
 // =========================================================================

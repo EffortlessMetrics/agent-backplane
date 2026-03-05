@@ -1196,9 +1196,10 @@ fn resolve_mapper_for_unsupported_pair_returns_none() {
 #[test]
 fn resolve_mapper_unregistered_returns_none() {
     let pm = ProjectionMatrix::new();
-    assert!(pm
-        .resolve_mapper(Dialect::OpenAi, Dialect::Claude)
-        .is_none());
+    assert!(
+        pm.resolve_mapper(Dialect::OpenAi, Dialect::Claude)
+            .is_none()
+    );
 }
 
 #[test]

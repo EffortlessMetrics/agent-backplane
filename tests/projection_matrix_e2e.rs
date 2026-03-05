@@ -35,7 +35,7 @@ use abp_core::{
     RuntimeConfig, SupportLevel, WorkOrder, WorkOrderBuilder,
 };
 use abp_dialect::Dialect;
-use abp_mapping::{features, known_rules, Fidelity, MappingRegistry, MappingRule};
+use abp_mapping::{Fidelity, MappingRegistry, MappingRule, features, known_rules};
 use abp_projection::{
     FallbackEntry, ProjectionError, ProjectionMatrix, ProjectionResult, ProjectionScore,
     RequiredEmulation,

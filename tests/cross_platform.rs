@@ -37,7 +37,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use abp_cli::config::{load_config, BackendConfig};
+use abp_cli::config::{BackendConfig, load_config};
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_protocol::{Envelope, JsonlCodec};
 

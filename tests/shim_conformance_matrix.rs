@@ -282,12 +282,16 @@ mod claude {
         let stream = client.create_stream(req).await.unwrap();
         let events = stream.collect_all().await;
         assert!(!events.is_empty());
-        assert!(events
-            .iter()
-            .any(|e| matches!(e, StreamEvent::MessageStart { .. })));
-        assert!(events
-            .iter()
-            .any(|e| matches!(e, StreamEvent::MessageStop {})));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, StreamEvent::MessageStart { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, StreamEvent::MessageStop {}))
+        );
     }
 
     #[tokio::test]

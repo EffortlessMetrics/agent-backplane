@@ -38,18 +38,18 @@ use std::io::BufReader;
 use std::path::Path;
 
 use abp_core::{
-    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, Capability, CapabilityManifest,
-    CapabilityRequirement, CapabilityRequirements, ContextPacket, ContextSnippet, ExecutionLane,
-    ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt, ReceiptBuilder, RuntimeConfig,
-    SupportLevel, UsageNormalized, VerificationReport, WorkOrder, WorkOrderBuilder, WorkspaceMode,
-    WorkspaceSpec, CONTRACT_VERSION,
+    AgentEvent, AgentEventKind, ArtifactRef, BackendIdentity, CONTRACT_VERSION, Capability,
+    CapabilityManifest, CapabilityRequirement, CapabilityRequirements, ContextPacket,
+    ContextSnippet, ExecutionLane, ExecutionMode, MinSupport, Outcome, PolicyProfile, Receipt,
+    ReceiptBuilder, RuntimeConfig, SupportLevel, UsageNormalized, VerificationReport, WorkOrder,
+    WorkOrderBuilder, WorkspaceMode, WorkspaceSpec,
 };
 use abp_glob::{IncludeExcludeGlobs, MatchDecision};
 use abp_policy::{Decision, PolicyEngine};
 use abp_protocol::builder::EnvelopeBuilder;
 use abp_protocol::validate::{EnvelopeValidator, SequenceError, ValidationError};
-use abp_protocol::version::{negotiate_version, ProtocolVersion, VersionRange};
-use abp_protocol::{is_compatible_version, parse_version, Envelope, JsonlCodec, ProtocolError};
+use abp_protocol::version::{ProtocolVersion, VersionRange, negotiate_version};
+use abp_protocol::{Envelope, JsonlCodec, ProtocolError, is_compatible_version, parse_version};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -894,10 +894,12 @@ fn doc_validator_hello_empty_backend_id() {
     let v = EnvelopeValidator::new();
     let result = v.validate(&hello);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id")));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyField { field } if field == "backend.id"))
+    );
 }
 
 #[test]
@@ -915,10 +917,12 @@ fn doc_validator_hello_invalid_version() {
     let v = EnvelopeValidator::new();
     let result = v.validate(&hello);
     assert!(!result.valid);
-    assert!(result
-        .errors
-        .iter()
-        .any(|e| matches!(e, ValidationError::InvalidVersion { .. })));
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidVersion { .. }))
+    );
 }
 
 #[test]

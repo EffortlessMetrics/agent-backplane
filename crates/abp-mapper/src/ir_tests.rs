@@ -6,12 +6,12 @@ use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 use abp_dialect::Dialect;
 use serde_json::json;
 
+use crate::MapError;
 use crate::factory::{default_ir_mapper, supported_ir_pairs};
 use crate::ir_identity::IrIdentityMapper;
 use crate::ir_mapper::IrMapper;
 use crate::ir_openai_claude::OpenAiClaudeIrMapper;
 use crate::ir_openai_gemini::OpenAiGeminiIrMapper;
-use crate::MapError;
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -347,10 +347,11 @@ fn claude_to_openai_preserves_tool_use_in_assistant() {
         .unwrap();
     let asst = &result.messages[1];
     assert_eq!(asst.role, IrRole::Assistant);
-    assert!(asst
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::ToolUse { name, .. } if name == "get_weather")));
+    assert!(
+        asst.content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::ToolUse { name, .. } if name == "get_weather"))
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -389,10 +390,12 @@ fn openai_to_gemini_thinking_dropped() {
         .unwrap();
     let asst = &result.messages[1];
     assert_eq!(asst.content.len(), 1);
-    assert!(!asst
-        .content
-        .iter()
-        .any(|b| matches!(b, IrContentBlock::Thinking { .. })));
+    assert!(
+        !asst
+            .content
+            .iter()
+            .any(|b| matches!(b, IrContentBlock::Thinking { .. }))
+    );
 }
 
 #[test]

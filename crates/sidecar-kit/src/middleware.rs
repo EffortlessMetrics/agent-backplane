@@ -93,11 +93,7 @@ impl EventMiddleware for FilterMiddleware {
             FilterMode::Exclude => !in_set,
         };
 
-        if passes {
-            Some(event.clone())
-        } else {
-            None
-        }
+        if passes { Some(event.clone()) } else { None }
     }
 }
 
