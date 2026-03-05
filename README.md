@@ -169,9 +169,9 @@ Receipt { status: success, events: [...], receipt_sha256: "ab3f…" }
 | **OpenAI Chat** | `abp-openai-sdk` | — | ✅ | ✅ | ✅ | ✅ |
 | **Google Gemini** | `abp-gemini-sdk` | `hosts/gemini` | ✅ | ✅ | ✅ | ✅ |
 | **Moonshot Kimi** | `abp-kimi-sdk` | `hosts/kimi` | ✅ | ✅ | ✅ | ✅ |
-| **GitHub Copilot** | `abp-copilot-sdk` | `hosts/copilot` | 🚧 scaffold | 🚧 scaffold | 🚧 scaffold | 🚧 scaffold |
+| **GitHub Copilot** | `abp-copilot-sdk` | `hosts/copilot` | ✅ | ✅ | ✅ | ✅ |
 
-✅ = implemented · 🚧 = scaffold / in progress
+✅ = implemented
 
 See [`docs/sdk_mapping.md`](docs/sdk_mapping.md) for the full dialect × engine
 mapping matrix, tool name tables, and capability comparison.
@@ -236,7 +236,7 @@ Example sidecars live in `hosts/`. Each speaks the JSONL protocol over stdio:
 | `hosts/python` | Python | Minimal example, optional `claude_agent_sdk` client mode |
 | `hosts/claude` | Node.js | Claude-oriented sidecar with pluggable adapter module |
 | `hosts/codex` | Node.js | Codex-oriented sidecar with passthrough/mapped modes |
-| `hosts/copilot` | Node.js | GitHub Copilot sidecar scaffold |
+| `hosts/copilot` | Node.js | GitHub Copilot sidecar with agent protocol adapter |
 | `hosts/kimi` | Node.js | Kimi sidecar with SDK-first adapter and CLI fallback |
 | `hosts/gemini` | Node.js | Gemini sidecar with Claude-to-Gemini mapping |
 

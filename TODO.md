@@ -1,6 +1,6 @@
 # TODO / Open questions
 
-This repo is a scaffold. The hard part is the mapping layer.
+Open questions and remaining work items. See CHANGELOG.md for completed work.
 
 ## Completed ✅
 
@@ -27,6 +27,23 @@ This repo is a scaffold. The hard part is the mapping layer.
 - [x] Capability negotiation (native/emulated/unsupported)
 - [x] Conformance tests for sidecars
 - [x] Capability satisfiability checks (required vs provided)
+- [x] Full 6×6 cross-dialect mapping matrix (OpenAI, Claude, Gemini, Codex, Kimi, Copilot)
+- [x] IR layer for vendor-neutral intermediate representation
+- [x] Projection matrix wired for capability-based routing
+- [x] CLI `translate`, `health`, `schema`, `inspect`, `status` subcommands
+- [x] HTTP daemon with full REST API + WebSocket streaming
+- [x] Receipt store with persistence and retrieval (abp-receipt-store)
+- [x] Rate limiting with token bucket and sliding window (abp-ratelimit)
+- [x] Retry logic with circuit-breaker middleware (abp-retry)
+- [x] Validation crate for work orders, receipts, events (abp-validate)
+- [x] Git repository helpers (abp-git)
+- [x] Agent event stream processing and multiplexing (abp-stream)
+- [x] Labeled metrics with runtime integration and Prometheus export (abp-telemetry)
+- [x] Middleware system with 8 built-in middlewares (logging, retry, timeout, auth, rate-limit, metrics, cache, circuit-breaker)
+- [x] All 6 SDK shims complete (abp-shim-openai, -claude, -gemini, -codex, -kimi, -copilot)
+- [x] All 6 SDK adapters complete (abp-openai-sdk, -claude-sdk, -gemini-sdk, -codex-sdk, -kimi-sdk, -copilot-sdk)
+- [x] All 6 bridges complete (openai-bridge, claude-bridge, gemini-bridge, codex-bridge, copilot-bridge, kimi-bridge)
+- [x] 52 fuzz targets, 32 benchmark suites
 
 ## Cross-SDK questions we need precise answers for
 
@@ -69,31 +86,10 @@ This repo is a scaffold. The hard part is the mapping layer.
 
 ## Implementation TODOs
 
-### Real SDK Adapters (scaffold → production)
-
-- [ ] Implement real Claude adapter with live Anthropic API calls
-- [ ] Implement real OpenAI adapter with Chat Completions + Responses API
-- [ ] Implement real Gemini adapter with generateContent API
-- [ ] Implement real Codex adapter with Codex CLI integration
-- [ ] Implement real Kimi adapter with Moonshot API
-- [ ] Implement real Copilot adapter with Copilot agent protocol
-- [ ] Wire projection matrix for cross-dialect translation (not just scaffolded)
-
-### HTTP Daemon
-
-- [ ] Implement a real `abp-daemon` HTTP API (currently a stub)
-- [ ] Add WebSocket streaming for live event feeds
-- [ ] Add receipt store with query/replay API
-- [ ] Add health check and readiness endpoints
-
 ### Production Hardening
 
-- [ ] Wire `backplane.toml` into `abp` CLI (backend registry)
-- [ ] Add rate limiting and backpressure handling
-- [ ] Add retry logic with configurable policies
 - [ ] Add OpenTelemetry export in abp-telemetry (currently in-process only)
 - [ ] Add credential management for API keys
-- [ ] Implement receipt store + replay tooling
 - [ ] Add TLS/mTLS for daemon API
 
 ### Testing & Quality

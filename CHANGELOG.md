@@ -76,14 +76,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Applications
 
-- **abp-cli** — CLI binary with `run`, `backends`, `validate`, `schema`, `inspect`, `config check`,
-  `receipt verify`, and `receipt diff` subcommands
+- **abp-cli** — CLI binary with `run`, `backends`, `validate`, `schema`, `inspect`, `translate`,
+  `health`, `config check`, `receipt verify`, `receipt diff`, and `status` subcommands
 - **abp-daemon** — HTTP daemon scaffold with axum REST API and WebSocket support
 - **abp-host** — Sidecar process supervision and JSONL handshake over stdio
 - **abp-runtime** — Orchestration layer: workspace prep, backend selection, event multiplexing, receipt hashing
 
 ### Added
 
+- **Post-Wave 101**: Labeled metrics with runtime integration and Prometheus export;
+  Gemini response structure and snapshot format updates; rustfmt edition 2024;
+  new error codes added to receipt schema for enhanced error handling
+- **Wave 101**: Codex/Copilot shim completeness, security audit (66 tests),
+  contract stability (49 tests), CI fixes
+- **Wave 100**: Copilot SDK adapter full implementation with 77+ tests,
+  abp-shim-copilot full converters, copilot-bridge sidecar-kit integration
+- **Wave 99**: Kimi SDK adapter completion, abp-shim-kimi full converters,
+  kimi-bridge standalone transport
+- **Wave 98**: Codex SDK adapter production implementation, abp-shim-codex
+  file change support, codex-bridge IR translation layer
+- **Wave 97**: abp-receipt-store persistence and retrieval; abp-retry with
+  circuit-breaker middleware; abp-validate crate for work order/receipt/event
+  validation; fuzz target expansion to 52 targets
+- **Wave 96**: abp-git repository helpers; abp-stream event processing and
+  multiplexing; benchmark suite expansion to 32 suites
+- **Wave 95**: CLI `translate`, `health`, `status` subcommands; daemon
+  endpoint hardening; abp-sidecar-sdk shared registration helpers
 - **Wave 94**: Middleware system with 8 built-in middlewares (logging, retry, timeout, auth,
   rate-limit, metrics, cache, circuit-breaker); backend registry deepening with health checks,
   discovery, connection pooling, and metrics; workspace pool, merge, quota, and lifecycle
@@ -139,11 +157,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sidecar conformance tests**: contract and protocol conformance suites
 - **E2E scenario tests**: full pipeline, roundtrip, and multi-backend scenario tests
 - **CI hardening tests**: build verification, lint checks, cross-platform validation
-- **42 fuzz targets**: envelopes, receipts, work orders, policies, globs, config, capabilities,
-  dialect detection, IR roundtrip/lowering, mapping validation, protocol streams, JSONL parsing
-- **21 benchmark suites**: receipt hashing, serde roundtrip, policy evaluation, projection matrix,
+- **52 fuzz targets**: envelopes, receipts, work orders, policies, globs, config, capabilities,
+  dialect detection, IR roundtrip/lowering, mapping validation, protocol streams, JSONL parsing,
+  SDK shim converters, sidecar protocol, error taxonomy
+- **32 benchmark suites**: receipt hashing, serde roundtrip, policy evaluation, projection matrix,
   IR lowering/roundtrip, dialect detection, capability negotiation, mapping validation,
-  protocol encoding, glob matching, envelope serde, work order serde, core benchmarks
+  protocol encoding, glob matching, envelope serde, work order serde, core benchmarks,
+  stream processing, rate limiting, retry policies, SDK translation
 
 ## [0.1.0] - 2024-XX-XX
 

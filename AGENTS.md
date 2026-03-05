@@ -34,16 +34,18 @@ abp-glob ──────────┐
                     ├── abp-policy ──────────┐
 abp-core ──────────┤                         │
   │   │            └── abp-workspace ────────┤
-  │   │                      │               │
+  │   │                   │  abp-git         │
   │   ├── abp-ir ─── abp-mapper             │
   │   ├── abp-dialect ─── abp-mapping        │
   │   ├── abp-error ─── abp-error-taxonomy   │
   │   ├── abp-capability ─── abp-projection  │
   │   ├── abp-emulation                      │
   │   ├── abp-receipt ── abp-telemetry       │
+  │   │     └── abp-receipt-store            │
   │   ├── abp-config                         │
-  │   └── abp-sdk-types                      │
-  │                                          │
+  │   ├── abp-sdk-types                      │
+  │   │     └── abp-validate                 │
+  │   │                                      │
 abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
   │                  │              │                abp-backend-sidecar
   │              sidecar-kit        │
@@ -51,6 +53,7 @@ abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend
   │             *-bridge                                │             │
   │                                                  abp-stream   abp-daemon
   ├── abp-sidecar-proto                   abp-ratelimit
+  ├── abp-sidecar-sdk                     abp-retry
   └── abp-sidecar-utils
 
 SDK shims: abp-shim-{openai,claude,gemini,codex,kimi,copilot}
