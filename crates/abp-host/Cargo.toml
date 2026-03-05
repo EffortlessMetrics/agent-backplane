@@ -11,6 +11,7 @@ keywords = ["agent", "backplane", "ai", "sidecar", "process"]
 categories = ["development-tools"]
 
 [dependencies]
+abp-serde = { path = "../abp-serde", version = "0.1.0" }
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-protocol = { path = "../abp-protocol", version = "0.1.0" }
 sidecar-kit = { path = "../sidecar-kit", version = "0.1.0" }

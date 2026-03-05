@@ -6,20 +6,7 @@ use std::collections::BTreeMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-/// Serde helper for `Duration` as milliseconds.
-mod duration_millis {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use std::time::Duration;
-
-    pub fn serialize<S: Serializer>(val: &Duration, ser: S) -> Result<S::Ok, S::Error> {
-        val.as_millis().serialize(ser)
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<Duration, D::Error> {
-        let ms: u64 = u64::deserialize(de)?;
-        Ok(Duration::from_millis(ms))
-    }
-}
+use abp_serde::duration_millis;
 
 /// Configuration for a sidecar pool.
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -36,6 +36,7 @@ members = [
   "crates/abp-policy",
   "crates/abp-projection",
   "crates/abp-receipt",
+  "crates/abp-serde",
   "crates/abp-protocol",
   "crates/abp-runtime",
   "crates/abp-shim-claude",
@@ -147,6 +148,7 @@ abp-shim-kimi = { path = "crates/abp-shim-kimi" }
 abp-shim-copilot = { path = "crates/abp-shim-copilot" }
 abp-projection = { path = "crates/abp-projection" }
 abp-stream = { path = "crates/abp-stream" }
+abp-serde = { path = "crates/abp-serde" }
 insta = { workspace = true }
 proptest = { workspace = true }
 toml = { workspace = true }

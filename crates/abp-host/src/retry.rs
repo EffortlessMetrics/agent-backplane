@@ -5,6 +5,7 @@
 //! overall timeout, and captures per-attempt metadata for receipt enrichment.
 
 use crate::{HostError, SidecarClient, SidecarSpec};
+use abp_serde::duration_millis;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -41,21 +42,6 @@ impl Default for RetryConfig {
             overall_timeout: Duration::from_secs(60),
             jitter_factor: 0.5,
         }
-    }
-}
-
-/// Serde helper — `Duration` as integer milliseconds.
-mod duration_millis {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use std::time::Duration;
-
-    pub fn serialize<S: Serializer>(val: &Duration, ser: S) -> Result<S::Ok, S::Error> {
-        val.as_millis().serialize(ser)
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<Duration, D::Error> {
-        let ms: u64 = u64::deserialize(de)?;
-        Ok(Duration::from_millis(ms))
     }
 }
 
