@@ -686,14 +686,8 @@ fn test_all_publishable_crates_have_categories() {
 fn test_all_publishable_crates_have_src() {
     let ws_root = workspace_root();
     for c in publishable_crates() {
-        let src_lib = ws_root
-            .join(&c.member_path)
-            .join("src")
-            .join("lib.rs");
-        let src_main = ws_root
-            .join(&c.member_path)
-            .join("src")
-            .join("main.rs");
+        let src_lib = ws_root.join(&c.member_path).join("src").join("lib.rs");
+        let src_main = ws_root.join(&c.member_path).join("src").join("main.rs");
         assert!(
             src_lib.is_file() || src_main.is_file(),
             "{} should have src/lib.rs or src/main.rs",
@@ -793,10 +787,7 @@ fn test_intentional_publish_false_only_on_known_crates() {
 fn test_all_crate_libs_warn_missing_docs() {
     let ws_root = workspace_root();
     for c in publishable_crates() {
-        let lib_rs = ws_root
-            .join(&c.member_path)
-            .join("src")
-            .join("lib.rs");
+        let lib_rs = ws_root.join(&c.member_path).join("src").join("lib.rs");
         if lib_rs.is_file() {
             let content = fs::read_to_string(&lib_rs).unwrap();
             assert!(
@@ -824,14 +815,8 @@ fn test_root_lib_warns_missing_docs() {
 fn test_all_crate_libs_exist() {
     let ws_root = workspace_root();
     for c in publishable_crates() {
-        let lib_rs = ws_root
-            .join(&c.member_path)
-            .join("src")
-            .join("lib.rs");
-        let main_rs = ws_root
-            .join(&c.member_path)
-            .join("src")
-            .join("main.rs");
+        let lib_rs = ws_root.join(&c.member_path).join("src").join("lib.rs");
+        let main_rs = ws_root.join(&c.member_path).join("src").join("main.rs");
         assert!(
             lib_rs.is_file() || main_rs.is_file(),
             "{} should have src/lib.rs or src/main.rs",
@@ -1356,9 +1341,7 @@ fn test_no_build_script_in_leaf_crates() {
     for name in &leaf_crates {
         let crates = publishable_crates();
         let c = find_crate(&crates, name);
-        let build_rs = ws_root
-            .join(&c.member_path)
-            .join("build.rs");
+        let build_rs = ws_root.join(&c.member_path).join("build.rs");
         assert!(
             !build_rs.is_file(),
             "{name} should not have a build.rs script"
