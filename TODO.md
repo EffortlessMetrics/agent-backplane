@@ -81,8 +81,8 @@ Open questions and remaining work items. See CHANGELOG.md for completed work.
 - OpenAI Responses/Chat Completions (Python/TypeScript)
 - Anthropic SDK (Python/TypeScript)
 - Google Gemini SDK (Python/TypeScript)
-- LangChain/LangGraph adapters (optional)
-- Vercel AI SDK adapters (optional)
+- LangChain/LangGraph adapters (future/aspirational)
+- Vercel AI SDK adapters (future/aspirational)
 
 ## Implementation TODOs
 
@@ -96,5 +96,6 @@ Open questions and remaining work items. See CHANGELOG.md for completed work.
 
 - [ ] Add live integration tests against real vendor APIs (behind feature flags)
 - [ ] Expand fuzz corpus with real-world protocol traces
-- [ ] Add mutation testing baseline with cargo-mutants
+- [ ] Add mutation testing baseline with cargo-mutants (`mutants.yml` workflow exists but baseline not yet established)
 - [ ] Add load/stress testing for daemon endpoints
+- [x] Add cargo-deny enforcement to CI (`deny` job in `ci.yml`)

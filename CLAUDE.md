@@ -23,6 +23,8 @@ cargo run -p abp-cli -- run --task "hello" --backend sidecar:copilot # Copilot s
 cargo run -p abp-cli -- run --task "hello" --backend sidecar:kimi    # Kimi sidecar (requires node)
 cargo run -p abp-cli -- run --task "hello" --backend sidecar:gemini  # Gemini sidecar (requires node)
 cargo run -p abp-cli -- backends               # List available backends
+cargo run -p xtask -- gate --check             # Full quality gate (CI-parity)
+cargo run -p xtask -- check                    # Gate + run tests + doc-tests
 ```
 
 The CLI must be run from the repo root for sidecar backends (they resolve `hosts/` scripts relative to CWD).
@@ -39,6 +41,57 @@ See [`DEVEX.md`](DEVEX.md) for the full enforcement model (hooks, gate, CI parit
 - Pre-push hook runs `cargo xtask gate --check` (blocks on failure)
 - CI runs the same gate, so local push success = CI success
 - **Agents: never use `--no-verify` unless the human operator explicitly instructs you to.**
+
+## xtask Subcommands
+
+| Subcommand | Purpose | Key Flags |
+|------------|---------|-----------|
+| `setup` | One-time: sets `core.hooksPath=.githooks`, chmod +x on Unix | — |
+| `schema` | Generate JSON schemas to `contracts/schemas/` | — |
+| `check` | Gate + run tests + doc-tests | — |
+| `coverage` | Run `cargo tarpaulin` with project config | — |
+| `lint` | Check formatting + clippy (non-mutating) | — |
+| `lint-fix` | Auto-format + best-effort clippy fix | `--check` (non-mutating), `--no-clippy` |
+| `gate` | Pre-push quality gate (no test execution) | `--check` (strict/CI-parity mode) |
+| `release-check` | Verify release readiness (versions, required fields, README presence, dry-run packaging) | — |
+| `docs` | Build rustdoc for all crates | `--open` |
+| `list-crates` | Print all workspace crate names | — |
+| `audit` | Check required Cargo.toml fields, version consistency, and unused dependencies | — |
+| `stats` | Print workspace statistics (crate count, LOC, test count) | — |
+
+## Workspace Modes
+
+- **Staged** (default): ABP copies the project into a temp directory (with glob filtering), auto-initializes git, and captures diffs after the agent run.
+- **PassThrough**: No workspace staging — the agent operates directly on the original directory.
+
+Set via `--workspace-mode PassThrough|Staged` CLI flag or `work_order.workspace.mode`.
+
+## Execution Lanes
+
+- **PatchFirst** (default): Agent produces a patch; ABP applies it to the workspace.
+- **WorkspaceFirst**: Agent works directly in the staged workspace; ABP captures the diff afterward.
+
+Set via `--lane PatchFirst|WorkspaceFirst` CLI flag or `work_order.lane`.
+
+## CLI Flags
+
+Key runtime flags for `abp run`:
+
+- `--max-budget-usd <N>` — Cap spend per run (wired into runtime budget tracker)
+- `--max-turns <N>` — Limit agent turn count
+- `--workspace-mode PassThrough|Staged` — Workspace staging strategy
+- `--lane PatchFirst|WorkspaceFirst` — Execution lane strategy
+- `--model <name>` — Override model selection
+- `--param key=value` — Pass vendor-specific parameters (repeatable)
+- `--env KEY=VALUE` — Set environment variables for sidecar (repeatable)
+
+## CI Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `ci.yml` | Push to `main`, PRs | Format, lint, test, docs, coverage, cargo-deny, schema generation |
+| `mutants.yml` | Manual dispatch | Mutation testing via `cargo-mutants` |
+| `release.yml` | Tag push (`v*`) | Automated release pipeline |
 
 ## Architecture
 
@@ -74,10 +127,10 @@ abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend
   │             gemini-bridge                        abp-stream   abp-daemon
   │             openai-bridge
   │             codex-bridge
-  │             copilot-bridge                   abp-ratelimit
-  │             kimi-bridge                      abp-retry
-  ├── abp-sidecar-proto
-  ├── abp-sidecar-sdk
+  │             copilot-bridge                   abp-ratelimit ──┐
+  │             kimi-bridge                      abp-retry ─────┤
+  ├── abp-sidecar-proto              (abp-ratelimit and abp-retry
+  ├── abp-sidecar-sdk                feed into abp-runtime layer)
   └── abp-sidecar-utils
 
 SDK shims (drop-in client replacements):

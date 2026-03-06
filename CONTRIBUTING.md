@@ -24,7 +24,7 @@ By participating, you are expected to uphold this code.
 
 ### Prerequisites
 
-- **Rust nightly** — the workspace uses edition 2024
+- **Rust nightly** — pinned via `rust-toolchain.toml`
   ```bash
   rustup toolchain install nightly
   rustup default nightly
@@ -81,7 +81,7 @@ Quality gates are automated via git hooks and CI. See [`DEVEX.md`](DEVEX.md) for
 
 **Quick start:** `cargo xtask setup` (once) — then hooks handle formatting, linting, and gating automatically.
 
-The single truth command is `cargo xtask gate --check`. If your push succeeds locally, CI will pass.
+The single truth command is `cargo xtask gate --check`. If your push succeeds locally, CI will pass. See [`DEVEX.md`](DEVEX.md) for all 12 xtask subcommands.
 
 ### Unsafe Code
 
@@ -126,7 +126,7 @@ for the full guide.
 | **BDD** | `cargo test --test bdd` | Cucumber scenarios in `tests/features/` |
 | **Snapshot** | `cargo insta review` | JSON serialization stability ([insta](https://insta.rs)) |
 | **Property** | `cargo test -p abp-core proptest` | Randomized input via [proptest](https://proptest-rs.github.io/proptest/) |
-| **Fuzz** | `cd fuzz && cargo +nightly fuzz run <target>` | 20 targets for envelope/receipt/work-order/policy parsing |
+| **Fuzz** | `cd fuzz && cargo +nightly fuzz run <target>` | 52 targets covering envelopes, receipts, work orders, policies, globs, config, capabilities, dialect detection, IR roundtrip/lowering, mapping validation, protocol streams, JSONL parsing, SDK shim converters, sidecar protocol, error taxonomy |
 | **Benchmarks** | `cargo bench --workspace` | [Criterion](https://bheisler.github.io/criterion.rs/) micro-benchmarks |
 | **Conformance** | `cargo test --test conformance_suite` | Contract and sidecar protocol conformance |
 | **Doc tests** | `cargo test --doc --workspace` | In-doc examples |
@@ -153,9 +153,11 @@ abp-glob ──────────┐
                     ├── abp-policy ──────────┐
 abp-core ──────────┤                         │
   │                └── abp-workspace ────────┤
-  │                                          │
-abp-protocol ─── abp-host ─── abp-integrations ─── abp-runtime ─── abp-cli
+  │                       │  abp-git         │
+abp-protocol ─── abp-host ─── abp-backend-core ─── abp-integrations ─── abp-runtime ─── abp-cli
 ```
+
+See [`CLAUDE.md`](CLAUDE.md) for the full crate dependency hierarchy (54 crates) or [`docs/architecture.md`](docs/architecture.md) for the detailed walkthrough.
 
 **The contract is the product.** `abp-core` defines the canonical types and is the
 only crate most consumers need to depend on.
