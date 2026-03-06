@@ -62,12 +62,12 @@ Bridges:   {claude,gemini,openai,codex,copilot,kimi}-bridge
 SDK crates: abp-{claude,codex,openai,gemini,kimi,copilot}-sdk
 ```
 
-## Workspace Crates (54)
+## Workspace Crates (55)
 
 | Layer | Crates |
 |-------|--------|
 | Contract | abp-core, abp-ir, abp-sdk-types, abp-error, abp-error-taxonomy |
-| Wire | abp-protocol, abp-sidecar-proto, abp-sidecar-utils |
+| Wire | abp-protocol, abp-host, abp-sidecar-proto, abp-sidecar-utils |
 | Infrastructure | abp-glob, abp-git, abp-workspace, abp-policy, abp-config |
 | Dialect | abp-dialect, abp-mapper, abp-mapping, abp-projection, abp-capability, abp-emulation |
 | Backend | abp-backend-core, abp-backend-mock, abp-backend-sidecar, abp-integrations |

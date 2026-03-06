@@ -100,7 +100,7 @@ else exists to faithfully translate SDK semantics into that contract and back ou
 
 ## Crate Hierarchy
 
-The project uses a micro-crate architecture (**54 crates**) where each crate has
+The project uses a micro-crate architecture (**55 crates**) where each crate has
 a single clear purpose and one primary dependency edge. This keeps compile units
 small and makes it possible for downstream consumers to depend on only what they
 need.
