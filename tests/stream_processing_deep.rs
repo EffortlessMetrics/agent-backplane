@@ -1212,15 +1212,21 @@ async fn multiplexer_merge_preserves_all_events() {
     }
     assert_eq!(events.len(), 3);
     // Verify all event kinds are present (merge order is nondeterministic)
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::RunStarted { .. })));
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::ToolCall { .. })));
-    assert!(events
-        .iter()
-        .any(|e| matches!(e.kind, AgentEventKind::AssistantDelta { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.kind, AgentEventKind::RunStarted { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.kind, AgentEventKind::ToolCall { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e.kind, AgentEventKind::AssistantDelta { .. }))
+    );
 }
 
 // ===========================================================================

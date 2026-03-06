@@ -894,7 +894,13 @@ fn workspace_stager_exclude_patterns() {
 
     assert!(prepared.path().join("keep.txt").exists());
     // Files inside node_modules are excluded by the glob pattern.
-    assert!(!prepared.path().join("node_modules").join("pkg.json").exists());
+    assert!(
+        !prepared
+            .path()
+            .join("node_modules")
+            .join("pkg.json")
+            .exists()
+    );
 }
 
 #[test]

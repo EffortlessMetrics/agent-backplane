@@ -1616,7 +1616,11 @@ fn cost_direct_preferred_over_multi_hop() {
 fn cost_ordering_identity_direct_multihop() {
     // Use explicit registrations to force multi-hop routing.
     let mut pm = ProjectionMatrix::new();
-    pm.register(Dialect::OpenAi, Dialect::OpenAi, ProjectionMode::Passthrough);
+    pm.register(
+        Dialect::OpenAi,
+        Dialect::OpenAi,
+        ProjectionMode::Passthrough,
+    );
     pm.register(Dialect::OpenAi, Dialect::Claude, ProjectionMode::Mapped);
     pm.register(Dialect::Kimi, Dialect::OpenAi, ProjectionMode::Mapped);
 
