@@ -1,5 +1,7 @@
 # Architecture
 
+> **Historical Design Note:** This is a historical design document. See [docs/architecture.md](architecture.md) for the current architecture reference.
+
 ## Layers
 
 Think of the system like a power distribution panel:
@@ -121,5 +123,3 @@ Instead:
   - `ABP_COPILOT_ADAPTER_MODULE` to inject your real SDK binding.
   - `ABP_COPILOT_RUNNER` for process-based runners that accept ABI-shaped JSON request payloads.
 - `work_order.config.vendor.copilot` for Copilot overrides and `work_order.config.vendor.kimi` for Kimi overrides (`model`, `reasoningEffort`, `agentMode`, `agentSwarm`, `topP`, tool policy).
-
-

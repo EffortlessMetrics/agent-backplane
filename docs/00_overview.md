@@ -1,5 +1,7 @@
 # Overview
 
+> **Historical Design Note:** This is a historical design document from the initial project planning phase.
+
 Agent Backplane is a **translation layer** for agent SDKs.
 
 - Developers already picked an SDK (OpenAI Agents SDK, Anthropic, LangChain/LangGraph, Vercel AI, etc.).
@@ -35,4 +37,4 @@ Not “semantic equivalence”; rather:
 - **Semantic intent preservation**: keep the *meaning* where possible.
 - **Explicit fallbacks**: when a feature cannot be represented, fail loudly and predictably.
 - **Receipts**: always produce a structured execution record.
-
+

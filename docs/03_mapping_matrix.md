@@ -1,5 +1,7 @@
 # Mapping matrix
 
+> **Historical Design Note:** This is a historical design document. See [docs/sdk_mapping.md](sdk_mapping.md) for the current mapping matrix.
+
 This document is a planning aid for building real SDK shims.
 
 ## Normalized primitives
@@ -81,4 +83,4 @@ Before implementing real mappings, you need hard answers per SDK:
 - cost/usage reporting formats
 - retry semantics and idempotency hooks
 - how “runs” are represented (run id, steps)
-
+

@@ -295,3 +295,7 @@ Key observations:
 - **`RuntimeError`** wraps most inner errors as `anyhow::Error` sources, preserving the full chain.
 - **`ValidationError`** stands alone — it is used for post-hoc receipt auditing, not during execution.
 - **`ConfigError`** stands alone — it is used during config loading before any backend is started.
+
+---
+
+See also: [error_codes.md](error_codes.md) — stable, machine-readable error code reference with quick-lookup table.

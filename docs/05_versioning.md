@@ -1,5 +1,7 @@
 # Versioning
 
+> **Historical Design Note:** This is a historical design document. See [docs/versioning.md](versioning.md) for the current versioning reference.
+
 Backplane has two separate version surfaces:
 
 1) **Contract version** (`abp-core::CONTRACT_VERSION`)
@@ -30,4 +32,4 @@ This enables:
 - dedupe
 - auditability
 - offline verification
-
+

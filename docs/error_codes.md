@@ -349,3 +349,7 @@ Error in a `fatal` protocol envelope:
 | `DIALECT_MAPPING_FAILED` | Dialect | Cross-dialect feature mapping failed |
 | `CONFIG_INVALID` | Config | Configuration file/value is invalid |
 | `INTERNAL` | Internal | Unexpected internal error (likely a bug) |
+
+---
+
+See also: [errors.md](errors.md) — comprehensive error catalog with per-crate variant tables and decision tree.

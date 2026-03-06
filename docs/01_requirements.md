@@ -1,5 +1,7 @@
 # Requirements
 
+> **Historical Design Note:** This is a historical design document from the initial project planning phase.
+
 ## Functional requirements
 
 ### Contract and compatibility
@@ -67,4 +69,4 @@
 - **N5. Microcrate structure**: small crates with single responsibility and minimal dependency edges.
 - **N6. Logging**: structured logs in host/runtime.
 - **N7. Testability**: mock backend for unit tests.
-
+

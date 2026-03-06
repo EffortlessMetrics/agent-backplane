@@ -287,7 +287,32 @@ cargo run -p abp-daemon -- --bind 127.0.0.1:8088
 # Runtime flags
 cargo run -p abp-cli -- run --task "hello" --backend mock \
   --max-budget-usd 1.00 --max-turns 5 \
-  --workspace-mode Staged --lane PatchFirst
+  --workspace-mode Staged --lane PatchFirst \
+  --model gpt-4 --param stream=true --env API_KEY=sk-xxx
+
+# Additional run flags
+#   --policy <path>       Path to a policy profile JSON file
+#   --output <path>       Write the receipt to this file path
+#   --out <path>          Alias for receipt output path
+#   --events <path>       Write streamed events as JSONL to this file
+#   --stream              Stream events to stdout as they arrive
+#   --timeout <secs>      Timeout in seconds for the entire run
+#   --retry <n>           Number of times to retry on failure (default: 0)
+#   --fallback <backend>  Fallback backend name if the primary fails
+#   --json                Print JSON instead of pretty output
+#   --include <glob>      Include glob (relative to root, repeatable)
+#   --exclude <glob>      Exclude glob (relative to root, repeatable)
+#   --root <path>         Workspace root (default: ".")
+
+# Config sub-commands
+cargo run -p abp-cli -- config check              # Validate the configuration file
+cargo run -p abp-cli -- config show                # Display effective config (--format toml|json)
+cargo run -p abp-cli -- config validate            # Alias for check
+cargo run -p abp-cli -- config diff a.toml b.toml  # Diff two config files
+
+# Receipt sub-commands
+cargo run -p abp-cli -- receipt verify receipt.json             # Verify receipt hash integrity
+cargo run -p abp-cli -- receipt diff receipt1.json receipt2.json # Diff two receipts
 ```
 
 Enable debug logging with `--debug` or `RUST_LOG=abp=debug`.

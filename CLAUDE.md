@@ -84,6 +84,30 @@ Key runtime flags for `abp run`:
 - `--model <name>` — Override model selection
 - `--param key=value` — Pass vendor-specific parameters (repeatable)
 - `--env KEY=VALUE` — Set environment variables for sidecar (repeatable)
+- `--policy <path>` — Path to a policy profile JSON file to load
+- `--output <path>` — Write the receipt to this file path
+- `--out <path>` — Where to write the receipt (defaults to `.agent-backplane/receipts/<run_id>.json`)
+- `--events <path>` — Write streamed events as JSONL to this file
+- `--stream` — Stream events to stdout as they arrive (implies no buffering)
+- `--timeout <secs>` — Timeout in seconds for the entire run
+- `--retry <n>` — Number of times to retry on failure (default: 0)
+- `--fallback <backend>` — Fallback backend name if the primary fails
+- `--json` — Print JSON instead of pretty output
+- `--include <glob>` — Include glob(s) relative to root (repeatable)
+- `--exclude <glob>` — Exclude glob(s) relative to root (repeatable)
+- `--root <path>` — Workspace root (default: `.`)
+
+### `config` Sub-commands
+
+- `abp config check [--config <path>]` — Check (load and validate) the configuration file
+- `abp config show [--format toml|json]` — Display the current effective configuration
+- `abp config validate [--config <path>]` — Validate a configuration file (alias for check)
+- `abp config diff <file1> <file2>` — Diff two configuration files and show changes
+
+### `receipt` Sub-commands
+
+- `abp receipt verify <file>` — Verify a receipt file's hash integrity
+- `abp receipt diff <file1> <file2>` — Diff two receipt files and show changes
 
 ## CI Workflows
 

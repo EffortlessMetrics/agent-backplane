@@ -1,5 +1,7 @@
 # Implementation plan
 
+> **Historical Design Note:** This is a historical design document from the initial project planning phase. See the project README for current status.
+
 ## Milestone 0: contract hardening
 
 - [ ] Freeze `abp-core` v0.1 types (WorkOrder, Receipt, events).
@@ -43,4 +45,4 @@ Pick one SDK and ship a drop-in shim.
 - [x] HTTP daemon API
 - [x] receipt store
 - [ ] replay/debug tools
-
+
