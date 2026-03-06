@@ -1692,8 +1692,11 @@ fn env_override_abp_bind_address() {
     unsafe { std::env::remove_var("ABP_BIND_ADDRESS") };
 }
 
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn env_override_abp_port_valid() {
+    let _lock = ENV_LOCK.lock().unwrap();
     unsafe { std::env::set_var("ABP_PORT", "9090") };
     let mut cfg = BackplaneConfig::default();
     apply_env_overrides(&mut cfg);
@@ -1703,6 +1706,7 @@ fn env_override_abp_port_valid() {
 
 #[test]
 fn env_override_abp_port_invalid_ignored() {
+    let _lock = ENV_LOCK.lock().unwrap();
     unsafe { std::env::set_var("ABP_PORT", "not_a_number") };
     let mut cfg = BackplaneConfig::default();
     apply_env_overrides(&mut cfg);

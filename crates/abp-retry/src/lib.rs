@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 #![warn(missing_docs)]
 //! Retry and circuit breaker middleware for Agent Backplane backend calls.
 //!

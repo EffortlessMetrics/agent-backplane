@@ -652,7 +652,16 @@ fn shim_crates_do_not_depend_on_runtime() {
 // ===========================================================================
 
 /// The only two workspace crates allowed outside `abp-*` naming.
-const NAMING_EXCEPTIONS: &[&str] = &["claude-bridge", "sidecar-kit", "xtask"];
+const NAMING_EXCEPTIONS: &[&str] = &[
+    "claude-bridge",
+    "codex-bridge",
+    "copilot-bridge",
+    "gemini-bridge",
+    "kimi-bridge",
+    "openai-bridge",
+    "sidecar-kit",
+    "xtask",
+];
 
 #[test]
 fn all_crate_names_follow_abp_or_are_exceptions() {

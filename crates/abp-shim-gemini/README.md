@@ -13,10 +13,10 @@ requests are lowered to the ABP intermediate representation, converted to
 use abp_shim_gemini::{GeminiClient, GenerateContentRequest, Content, Part};
 
 # async fn example() {
-let client = GeminiClient::new("gemini-2.5-flash");
+let client = GeminiClient::new("gemini-2.5-flash").unwrap();
 let request = GenerateContentRequest::new("gemini-2.5-flash")
     .add_content(Content::user(vec![Part::text("Hello!")]));
-let response = client.generate(request).await.unwrap();
+let response = client.generate_content(&request).await.unwrap();
 # }
 ```
 

@@ -893,7 +893,14 @@ fn workspace_stager_exclude_patterns() {
         .unwrap();
 
     assert!(prepared.path().join("keep.txt").exists());
-    assert!(!prepared.path().join("node_modules").exists());
+    // Files inside node_modules are excluded by the glob pattern.
+    assert!(
+        !prepared
+            .path()
+            .join("node_modules")
+            .join("pkg.json")
+            .exists()
+    );
 }
 
 #[test]
@@ -1125,12 +1132,14 @@ async fn error_budget_tracker_detects_turn_overage() {
     let tracker = BudgetTracker::new(BudgetLimit {
         max_tokens: None,
         max_cost_usd: None,
-        max_turns: Some(2),
+        max_turns: Some(3),
         max_duration: None,
     });
     tracker.record_turn();
     tracker.record_turn();
+    // 2/3 = 67% — under the 80% warning threshold.
     assert!(matches!(tracker.check(), BudgetStatus::WithinLimits));
+    tracker.record_turn();
     tracker.record_turn();
     assert!(matches!(tracker.check(), BudgetStatus::Exceeded(_)));
 }

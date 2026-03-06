@@ -1116,8 +1116,8 @@ fn thinking_text_content_survives_even_when_thinking_dropped() {
 fn image_preserved_non_codex_targets() {
     let conv = image_conversation();
     for (from, to) in supported_ir_pairs() {
-        if to == Dialect::Codex {
-            continue; // Codex drops images
+        if to == Dialect::Codex || to == Dialect::Kimi || to == Dialect::Copilot {
+            continue; // Codex/Kimi/Copilot drop images
         }
         let mapper = default_ir_mapper(from, to).unwrap();
         let result = mapper.map_request(from, to, &conv).unwrap();

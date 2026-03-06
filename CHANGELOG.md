@@ -130,6 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security hardening: policy engine deny-overrides-allow, network access control,
   glob-based path restrictions, require-approval-for patterns
 - Sidecar hosts: Node, Python, Claude, Copilot, Gemini, Codex, Kimi
+- CI: add cargo-deny license/advisory audit to pipeline
 - GitHub Actions CI/CD pipeline
 - JSON schema generation via xtask
 - `backplane.toml` configuration support with layered merging
@@ -145,6 +146,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Runtime race condition in `tokio::select` event loop
 - Axum 0.8 route syntax (`/receipts/{run_id}`)
+- Runtime: drain buffered events before returning backend error
+- Test suite: resolve 20+ test failures (snapshot updates, SDK manifests)
+- Budget tracker: turn overage test and workspace exclude pattern assertion
+- Schemas: regenerate for capability variant changes
+- Safety: add `#![deny(unsafe_code)]` to abp-ratelimit and abp-retry
 
 ### Testing
 
@@ -165,7 +171,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   protocol encoding, glob matching, envelope serde, work order serde, core benchmarks,
   stream processing, rate limiting, retry policies, SDK translation
 
-## [0.1.0] - 2024-XX-XX
+## [0.1.0] - 2025-XX-XX
 
 ### Added
 

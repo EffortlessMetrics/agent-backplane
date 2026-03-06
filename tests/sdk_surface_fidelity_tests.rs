@@ -725,7 +725,7 @@ mod gemini {
             "gemini-1.5-flash",
             "gemini-1.5-pro",
         ] {
-            let client = GeminiClient::new(*model).unwrap();
+            let client = GeminiClient::with_model("test-key", *model).unwrap();
             assert_eq!(client.model(), *model);
         }
     }
@@ -1230,7 +1230,7 @@ mod kimi {
             "moonshot-v1-128k",
             "kimi-latest",
         ] {
-            let client = KimiClient::new(*model);
+            let client = KimiClient::with_model(*model);
             assert_eq!(client.model(), *model);
         }
     }

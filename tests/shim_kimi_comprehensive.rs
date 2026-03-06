@@ -146,19 +146,19 @@ fn make_tool_call(id: &str, name: &str, args: &str) -> KimiToolCall {
 
 #[test]
 fn client_new_stores_model() {
-    let client = KimiClient::new("moonshot-v1-8k");
+    let client = KimiClient::new("test-api-key");
     assert_eq!(client.model(), "moonshot-v1-8k");
 }
 
 #[test]
 fn client_new_custom_model() {
-    let client = KimiClient::new("moonshot-v1-128k");
+    let client = KimiClient::with_model("moonshot-v1-128k");
     assert_eq!(client.model(), "moonshot-v1-128k");
 }
 
 #[test]
 fn client_debug_includes_model() {
-    let client = KimiClient::new("moonshot-v1-32k");
+    let client = KimiClient::with_model("moonshot-v1-32k");
     let debug = format!("{client:?}");
     assert!(debug.contains("moonshot-v1-32k"));
 }

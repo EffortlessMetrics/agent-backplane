@@ -474,14 +474,12 @@ fn analyze_request_transforms(
                 });
             }
         }
-        (Dialect::Claude, Dialect::OpenAi) => {
-            if src_obj.and_then(|o| o.get("system")).is_some() {
-                report.transforms.push(TransformRecord {
-                    source_field: "system".into(),
-                    target_field: "messages[0]{role:system}".into(),
-                    description: "Top-level `system` prepended as system message".into(),
-                });
-            }
+        (Dialect::Claude, Dialect::OpenAi) if src_obj.and_then(|o| o.get("system")).is_some() => {
+            report.transforms.push(TransformRecord {
+                source_field: "system".into(),
+                target_field: "messages[0]{role:system}".into(),
+                description: "Top-level `system` prepended as system message".into(),
+            });
         }
         _ => {}
     }

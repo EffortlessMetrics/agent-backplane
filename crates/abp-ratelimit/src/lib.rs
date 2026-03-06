@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 #![warn(missing_docs)]
 #![allow(dead_code, unused_imports)]
 //! Rate limiting primitives for Agent Backplane backends.

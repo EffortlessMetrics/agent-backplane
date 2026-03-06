@@ -2265,7 +2265,7 @@ mod construction_extended {
             .dialect_entries()
             .filter(|e| e.mode == ProjectionMode::Mapped)
             .count();
-        assert_eq!(mapped, 8);
+        assert_eq!(mapped, 18);
     }
 }
 

@@ -60,6 +60,8 @@ pub fn is_known_model(model: &str) -> bool {
 pub fn capability_manifest() -> CapabilityManifest {
     let mut m = CapabilityManifest::new();
     m.insert(Capability::Streaming, SupportLevel::Native);
+    m.insert(Capability::FunctionCalling, SupportLevel::Native);
+    m.insert(Capability::SystemMessage, SupportLevel::Native);
     m.insert(Capability::ToolRead, SupportLevel::Native);
     m.insert(Capability::ToolWrite, SupportLevel::Emulated);
     m.insert(Capability::ToolEdit, SupportLevel::Emulated);
@@ -69,6 +71,8 @@ pub fn capability_manifest() -> CapabilityManifest {
     m.insert(Capability::ToolGrep, SupportLevel::Unsupported);
     m.insert(Capability::McpClient, SupportLevel::Unsupported);
     m.insert(Capability::McpServer, SupportLevel::Unsupported);
+    m.insert(Capability::FunctionCalling, SupportLevel::Native);
+    m.insert(Capability::SystemMessage, SupportLevel::Native);
     m
 }
 

@@ -34,17 +34,19 @@ abp-glob ──────────┐
                     ├── abp-policy ──────────┐
 abp-core ──────────┤                         │
   │   │            └── abp-workspace ────────┤
-  │   │                      │               │
+  │   │                   │  abp-git         │
   │   ├── abp-ir ─── abp-mapper             │
   │   ├── abp-dialect ─── abp-mapping        │
   │   ├── abp-error ─── abp-error-taxonomy   │
   │   ├── abp-capability ─── abp-projection  │
   │   ├── abp-emulation                      │
   │   ├── abp-receipt                        │
-  │   │     └── abp-telemetry                │
+  │   │     ├── abp-telemetry                │
+  │   │     └── abp-receipt-store            │
   │   ├── abp-config                         │
-  │   └── abp-sdk-types                      │
-  │                                          │
+  │   ├── abp-sdk-types                      │
+  │   │     └── abp-validate                 │
+  │   │                                      │
 abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend-mock
   │                  │              │                abp-backend-sidecar
   │              sidecar-kit        │
@@ -53,10 +55,10 @@ abp-protocol ─── abp-host ─── abp-backend-core ─── abp-backend
   │             gemini-bridge                        abp-stream   abp-daemon
   │             openai-bridge
   │             codex-bridge
-  │             copilot-bridge
-  │             kimi-bridge
-  │                                            abp-ratelimit
+  │             copilot-bridge                   abp-ratelimit
+  │             kimi-bridge                      abp-retry
   ├── abp-sidecar-proto
+  ├── abp-sidecar-sdk
   └── abp-sidecar-utils
 
 SDK shims (drop-in client replacements):
@@ -135,7 +137,7 @@ Receipt { status: success, events: [...], receipt_sha256: "ab3f…" }
 | [`abp-validate`](crates/abp-validate) | Validation utilities for work orders, receipts, events, and envelopes |
 | [`abp-receipt-store`](crates/abp-receipt-store) | Receipt persistence and retrieval |
 | [`abp-runtime`](crates/abp-runtime) | Orchestration — workspace → backend → event multiplexing → hashed receipt |
-| [`abp-cli`](crates/abp-cli) | `abp` binary with `run`, `backends`, `validate`, `config`, `receipt` subcommands |
+| [`abp-cli`](crates/abp-cli) | `abp` binary with `run`, `backends`, `validate`, `schema`, `inspect`, `translate`, `health`, `config`, `receipt`, `status` subcommands |
 | [`abp-daemon`](crates/abp-daemon) | HTTP control-plane API with receipt persistence, metrics, validation, and WebSocket |
 | [`abp-shim-openai`](crates/abp-shim-openai) | Drop-in OpenAI SDK shim that routes through ABP |
 | [`abp-shim-claude`](crates/abp-shim-claude) | Drop-in Anthropic Claude SDK shim that routes through ABP |
@@ -244,7 +246,7 @@ Example sidecars live in `hosts/`. Each speaks the JSONL protocol over stdio:
 
 ### Prerequisites
 
-- **Rust** (nightly recommended — workspace uses edition 2024)
+- **Rust nightly** (pinned via `rust-toolchain.toml`)
 - **Node.js** (for sidecar hosts)
 - **Python** (optional, for the Python sidecar)
 
@@ -279,6 +281,13 @@ cargo run -p abp-cli -- run --task "summarize this codebase" --backend gemini \
 
 # Start the HTTP daemon
 cargo run -p abp-daemon -- --bind 127.0.0.1:8088
+```
+
+```bash
+# Runtime flags
+cargo run -p abp-cli -- run --task "hello" --backend mock \
+  --max-budget-usd 1.00 --max-turns 5 \
+  --workspace-mode Staged --lane PatchFirst
 ```
 
 Enable debug logging with `--debug` or `RUST_LOG=abp=debug`.
@@ -343,6 +352,8 @@ The HTTP daemon (`abp-daemon`) exposes a REST API:
 | `/receipts/:run_id` | GET | Fetch a specific receipt |
 | `/ws` | GET | WebSocket connection for real-time events |
 
+All routes are also available under the `/api/v1` prefix (e.g., `/api/v1/health`, `/api/v1/run`).
+
 ## Testing
 
 | Category | Description | Example |
@@ -350,7 +361,7 @@ The HTTP daemon (`abp-daemon`) exposes a REST API:
 | **Unit tests** | Per-crate module-level tests | `cargo test -p abp-core` |
 | **Snapshot tests** | JSON serialization stability via [insta](https://insta.rs) | `crates/*/tests/snapshots/` |
 | **Property tests** | Randomized input via [proptest](https://proptest-rs.github.io/proptest/) | `crates/abp-core/tests/proptest_types.rs` |
-| **Fuzz tests** | [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) targets | `fuzz/fuzz_targets/` |
+| **Fuzz tests** | [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) — 52 targets | `fuzz/fuzz_targets/` |
 | **Benchmarks** | [criterion](https://bheisler.github.io/criterion.rs/) micro-benchmarks | `benches/` |
 | **Conformance tests** | End-to-end sidecar protocol conformance (JS) | `tests/conformance/` |
 | **Doc tests** | In-doc examples verified by CI | `cargo test --doc --workspace` |
@@ -373,6 +384,10 @@ and PR:
 - `cargo doc --workspace --no-deps` with `-D warnings`
 - Cargo Deny — license and advisory audit
 - Schema generation — verifies `contracts/schemas/` are up-to-date
+
+Additional workflows:
+- [`mutants.yml`](.github/workflows/mutants.yml) — Manual-dispatch mutation testing via `cargo-mutants`
+- [`release.yml`](.github/workflows/release.yml) — Tag-triggered release pipeline
 
 ## Documentation
 

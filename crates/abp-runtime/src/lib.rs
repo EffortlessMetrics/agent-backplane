@@ -700,6 +700,7 @@ impl Runtime {
 
             let mut trace: Vec<AgentEvent> = Vec::new();
             let mut receipt_opt: Option<Receipt> = None;
+            let mut backend_error: Option<RuntimeError> = None;
 
             loop {
                 tokio::select! {
@@ -715,22 +716,26 @@ impl Runtime {
                         }
                     }
                     res = &mut backend_handle => {
-                        let r = match res {
-                            Ok(Ok(receipt)) => receipt,
-                            Ok(Err(e)) => return Err(RuntimeError::BackendFailed(
-                                e.context(format!("backend '{backend_name}'")),
-                            )),
-                            Err(e) => return Err(RuntimeError::BackendFailed(
-                                anyhow::Error::new(e).context(format!("backend '{backend_name}' task panicked")),
-                            )),
-                        };
-                        receipt_opt = Some(r);
+                        match res {
+                            Ok(Ok(receipt)) => { receipt_opt = Some(receipt); }
+                            Ok(Err(e)) => {
+                                backend_error = Some(RuntimeError::BackendFailed(
+                                    e.context(format!("backend '{backend_name}'")),
+                                ));
+                            }
+                            Err(e) => {
+                                backend_error = Some(RuntimeError::BackendFailed(
+                                    anyhow::Error::new(e).context(format!("backend '{backend_name}' task panicked")),
+                                ));
+                            }
+                        }
                         break;
                     }
                 }
             }
 
-            // Drain any remaining events (best-effort).
+            // Drain any remaining events so the caller sees everything the
+            // backend sent, even when the backend ultimately fails.
             while let Some(ev) = from_backend_rx.recv().await {
                 if let Some(ev) = stream::apply_pipeline(pipeline.as_ref(), ev) {
                     trace.push(ev.clone());
@@ -740,16 +745,16 @@ impl Runtime {
 
             // If the channel closed before the select polled the backend handle,
             // await it now so we don't lose the real receipt or error.
-            if receipt_opt.is_none() {
+            if receipt_opt.is_none() && backend_error.is_none() {
                 match backend_handle.await {
                     Ok(Ok(r)) => receipt_opt = Some(r),
                     Ok(Err(e)) => {
-                        return Err(RuntimeError::BackendFailed(
+                        backend_error = Some(RuntimeError::BackendFailed(
                             e.context(format!("backend '{backend_name}'")),
                         ));
                     }
                     Err(e) => {
-                        return Err(RuntimeError::BackendFailed(
+                        backend_error = Some(RuntimeError::BackendFailed(
                             anyhow::Error::new(e)
                                 .context(format!("backend '{backend_name}' task panicked")),
                         ));
@@ -757,7 +762,13 @@ impl Runtime {
                 }
             }
 
+            // Close the caller event stream before returning any error so
+            // the caller's drain loop terminates cleanly.
             drop(to_caller_tx);
+
+            if let Some(err) = backend_error {
+                return Err(err);
+            }
 
             let mut receipt = receipt_opt.unwrap_or_else(|| {
                 // Backend crashed before returning a receipt — build via ReceiptBuilder.

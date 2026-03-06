@@ -25,9 +25,17 @@ The edit→commit→push loop requires **zero manual rituals**. You write code, 
 | Subcommand | Purpose | Flags |
 |------------|---------|-------|
 | `setup` | One-time: sets `core.hooksPath=.githooks`, chmod +x on Unix | — |
+| `schema` | Generate JSON schemas to `contracts/schemas/` | — |
+| `check` | Gate + run tests + doc-tests | — |
+| `coverage` | Run `cargo tarpaulin` with project config | — |
+| `lint` | Check formatting + clippy (non-mutating) | — |
 | `lint-fix` | Auto-format + best-effort clippy fix | `--check` (non-mutating), `--no-clippy` (skip clippy) |
 | `gate` | Pre-push quality gate (no test execution) | `--check` (strict/CI-parity mode) |
-| `check` | Gate + run tests + doc-tests | — |
+| `release-check` | Verify release readiness (versions, required fields, README presence, dry-run packaging) | — |
+| `docs` | Build rustdoc for all crates | `--open` |
+| `list-crates` | Print all workspace crate names | — |
+| `audit` | Check required Cargo.toml fields, version consistency, and unused dependencies | — |
+| `stats` | Print workspace statistics (crate count, LOC, test count) | — |
 
 ### `gate --check` Steps (the truth table)
 
@@ -109,7 +117,10 @@ The `check` job runs `cargo xtask gate --check` — the same command as the pre-
 | `test` | `cargo test --workspace --all-features` on ubuntu-latest + windows-latest |
 | `doc` | `cargo doc --workspace --no-deps` with `RUSTDOCFLAGS="-D warnings"` |
 | `coverage` | `cargo tarpaulin` → Codecov upload |
+| `deny` | `cargo deny check` — license and advisory audit |
 | `schema` | `cargo run -p xtask -- schema` + verify non-empty output |
+| `mutants.yml` | Manual-dispatch mutation testing via `cargo-mutants` |
+| `release.yml` | Tag-triggered (`v*`) automated release pipeline |
 
 ### Local/CI Parity
 

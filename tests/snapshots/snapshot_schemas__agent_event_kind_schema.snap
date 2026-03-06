@@ -433,6 +433,46 @@ expression: "serde_json::to_string_pretty(&schema).unwrap()"
           "const": "config_invalid"
         },
         {
+          "description": "ABP's own rate limiter blocked the request.",
+          "type": "string",
+          "const": "rate_limit_exceeded"
+        },
+        {
+          "description": "Circuit breaker is open for the target backend.",
+          "type": "string",
+          "const": "circuit_breaker_open"
+        },
+        {
+          "description": "Event stream closed prematurely (all receivers dropped).",
+          "type": "string",
+          "const": "stream_closed"
+        },
+        {
+          "description": "Receipt persistence (store I/O) failed.",
+          "type": "string",
+          "const": "receipt_store_failed"
+        },
+        {
+          "description": "Structured validation of the request failed.",
+          "type": "string",
+          "const": "validation_failed"
+        },
+        {
+          "description": "Sidecar process could not be spawned.",
+          "type": "string",
+          "const": "sidecar_spawn_failed"
+        },
+        {
+          "description": "Content was blocked by the vendor's safety/content filter.",
+          "type": "string",
+          "const": "backend_content_filtered"
+        },
+        {
+          "description": "Input exceeds the model's context window limit.",
+          "type": "string",
+          "const": "backend_context_length"
+        },
+        {
           "description": "Catch-all for unexpected internal errors.",
           "type": "string",
           "const": "internal"

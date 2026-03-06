@@ -1088,9 +1088,12 @@ proptest! {
     fn btreemap_string_deterministic(
         pairs in prop::collection::vec((arb_safe_string(), arb_safe_string()), 0..10),
     ) {
-        let m1: BTreeMap<String, String> = pairs.iter().cloned().collect();
+        // Deduplicate keys to ensure both maps have the same values.
+        let deduped: BTreeMap<String, String> = pairs.iter().cloned().collect();
+        let pairs_deduped: Vec<(String, String)> = deduped.into_iter().collect();
+        let m1: BTreeMap<String, String> = pairs_deduped.iter().cloned().collect();
         let mut m2 = BTreeMap::new();
-        for (k, v) in pairs.iter().rev() {
+        for (k, v) in pairs_deduped.iter().rev() {
             m2.insert(k.clone(), v.clone());
         }
         let j1 = serde_json::to_string(&m1).unwrap();

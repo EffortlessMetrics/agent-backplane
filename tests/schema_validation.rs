@@ -312,6 +312,21 @@ fn capability_enum_variants_in_schema() {
         "logprobs",
         "seed_determinism",
         "stop_sequences",
+        "function_calling",
+        "vision",
+        "audio",
+        "json_mode",
+        "system_message",
+        "temperature",
+        "top_p",
+        "top_k",
+        "max_tokens",
+        "frequency_penalty",
+        "presence_penalty",
+        "cache_control",
+        "batch_mode",
+        "embeddings",
+        "image_generation",
     ];
     for variant in &expected {
         assert!(

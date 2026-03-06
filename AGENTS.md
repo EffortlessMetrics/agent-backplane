@@ -8,6 +8,7 @@ cargo test -p <crate> <test_name>    # Run single test in workspace crate
 cargo run -p xtask -- schema         # Generate JSON schemas to contracts/schemas/
 cargo run -p abp-cli -- run --task "hello" --backend mock  # Run with mock backend
 cargo run -p abp-cli -- backends     # List available backends
+cargo run -p xtask -- <cmd>          # xtask subcommands (gate --check, lint-fix, audit, stats, etc.)
 ```
 
 ## Critical Conventions
@@ -90,6 +91,14 @@ When generating Rust code, avoid these patterns that trigger clippy warnings or 
 1. **No identity maps** -- `map_err(|e| e)` is a no-op. Remove it.
 2. **Const assertions** -- Compile-time invariants: `const { assert!(...) }`, not runtime `assert!`.
 3. **Prefer `if let`** -- Don't `match` with one meaningful arm and a wildcard.
+4. **No collapsible match** -- Avoid `match` inside `match` when the outer has one arm + wildcard. Use `if let` chains.
+
+## Workspace Modes & Execution Lanes
+
+- `--workspace-mode PassThrough|Staged` — PassThrough skips staging; Staged (default) copies to temp dir with git init.
+- `--lane PatchFirst|WorkspaceFirst` — PatchFirst (default) applies patches; WorkspaceFirst captures diffs from direct workspace edits.
+- `--max-budget-usd <N>` — Cap spend per run.
+- `--max-turns <N>` — Limit agent turn count.
 
 ## Tracing Targets
 - `abp.sidecar.stderr` - Sidecar stderr capture

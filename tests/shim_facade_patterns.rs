@@ -1357,7 +1357,7 @@ mod kimi {
 
     #[test]
     fn client_model_accessor() {
-        let client = KimiClient::new("moonshot-v1-128k");
+        let client = KimiClient::with_model("moonshot-v1-128k");
         assert_eq!(client.model(), "moonshot-v1-128k");
     }
 
