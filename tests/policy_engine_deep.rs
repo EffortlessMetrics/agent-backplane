@@ -1673,6 +1673,7 @@ mod read_advanced {
     }
 
     #[test]
+    #[cfg(windows)]
     fn deny_read_windows_style_separators() {
         // Path::new normalizes on each OS; test that the deny pattern works
         let e = engine(&PolicyProfile {
