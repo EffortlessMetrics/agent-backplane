@@ -64,6 +64,7 @@ pub fn is_known_model(model: &str) -> bool {
 pub fn capability_manifest() -> CapabilityManifest {
     let mut m = CapabilityManifest::new();
     m.insert(Capability::Streaming, SupportLevel::Native);
+    m.insert(Capability::FunctionCalling, SupportLevel::Native);
     m.insert(Capability::ToolRead, SupportLevel::Emulated);
     m.insert(Capability::ToolWrite, SupportLevel::Emulated);
     m.insert(Capability::ToolEdit, SupportLevel::Emulated);
