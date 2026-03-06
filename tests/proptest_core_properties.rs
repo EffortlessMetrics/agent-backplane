@@ -1536,8 +1536,9 @@ proptest! {
         pairs in prop::collection::vec((arb_safe_string(), arb_safe_string()), 0..10),
     ) {
         let m1: BTreeMap<String, String> = pairs.iter().cloned().collect();
+        let entries: Vec<_> = m1.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
         let mut m2 = BTreeMap::new();
-        for (k, v) in pairs.iter().rev() {
+        for (k, v) in entries.iter().rev() {
             m2.insert(k.clone(), v.clone());
         }
         prop_assert_eq!(

@@ -78,7 +78,7 @@ fn all_workspace_crates() -> Vec<CrateInfo> {
     members
         .into_iter()
         .map(|member| {
-            let cargo_toml_path = ws_root.join(member.replace('/', "\\")).join("Cargo.toml");
+            let cargo_toml_path = ws_root.join(&member).join("Cargo.toml");
             let toml = parse_toml(&cargo_toml_path);
             let name = toml
                 .get("package")
@@ -230,7 +230,7 @@ fn test_no_orphan_workspace_members() {
     let root = root_cargo_toml();
     let ws_root = workspace_root();
     for member in workspace_members_list(&root) {
-        let dir = ws_root.join(member.replace('/', "\\"));
+        let dir = ws_root.join(&member);
         assert!(dir.is_dir(), "workspace member {member} directory missing");
     }
 }
@@ -250,7 +250,7 @@ fn test_all_member_cargo_tomls_exist() {
     let root = root_cargo_toml();
     let ws_root = workspace_root();
     for member in workspace_members_list(&root) {
-        let toml_path = ws_root.join(member.replace('/', "\\")).join("Cargo.toml");
+        let toml_path = ws_root.join(&member).join("Cargo.toml");
         assert!(
             toml_path.is_file(),
             "Cargo.toml missing for member {member}"
@@ -687,11 +687,11 @@ fn test_all_publishable_crates_have_src() {
     let ws_root = workspace_root();
     for c in publishable_crates() {
         let src_lib = ws_root
-            .join(c.member_path.replace('/', "\\"))
+            .join(&c.member_path)
             .join("src")
             .join("lib.rs");
         let src_main = ws_root
-            .join(c.member_path.replace('/', "\\"))
+            .join(&c.member_path)
             .join("src")
             .join("main.rs");
         assert!(
@@ -794,7 +794,7 @@ fn test_all_crate_libs_warn_missing_docs() {
     let ws_root = workspace_root();
     for c in publishable_crates() {
         let lib_rs = ws_root
-            .join(c.member_path.replace('/', "\\"))
+            .join(&c.member_path)
             .join("src")
             .join("lib.rs");
         if lib_rs.is_file() {
@@ -825,11 +825,11 @@ fn test_all_crate_libs_exist() {
     let ws_root = workspace_root();
     for c in publishable_crates() {
         let lib_rs = ws_root
-            .join(c.member_path.replace('/', "\\"))
+            .join(&c.member_path)
             .join("src")
             .join("lib.rs");
         let main_rs = ws_root
-            .join(c.member_path.replace('/', "\\"))
+            .join(&c.member_path)
             .join("src")
             .join("main.rs");
         assert!(
@@ -918,8 +918,8 @@ fn test_internal_dep_paths_exist() {
                 for (dep_name, val) in deps {
                     if let Value::Table(t) = val {
                         if let Some(path_val) = t.get("path").and_then(|p| p.as_str()) {
-                            let base = ws_root.join(c.member_path.replace('/', "\\"));
-                            let dep_dir = base.join(path_val.replace('/', "\\"));
+                            let base = ws_root.join(&c.member_path);
+                            let dep_dir = base.join(path_val);
                             assert!(
                                 dep_dir.is_dir(),
                                 "{}: path dep '{dep_name}' -> '{path_val}' does not exist",
@@ -1357,7 +1357,7 @@ fn test_no_build_script_in_leaf_crates() {
         let crates = publishable_crates();
         let c = find_crate(&crates, name);
         let build_rs = ws_root
-            .join(c.member_path.replace('/', "\\"))
+            .join(&c.member_path)
             .join("build.rs");
         assert!(
             !build_rs.is_file(),
@@ -1495,7 +1495,7 @@ fn test_readme_files_exist_for_publishable_crates() {
     for c in publishable_crates() {
         let pkg = c.package();
         if let Some(readme) = pkg.get("readme").and_then(|r| r.as_str()) {
-            let readme_path = ws_root.join(c.member_path.replace('/', "\\")).join(readme);
+            let readme_path = ws_root.join(&c.member_path).join(readme);
             assert!(
                 readme_path.is_file(),
                 "{}: readme file '{}' does not exist",
