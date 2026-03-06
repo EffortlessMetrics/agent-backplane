@@ -1,9 +1,20 @@
-# Gemini Sidecar for Agent Backplane
+# Gemini Sidecar
 
 This host implements the ABP sidecar protocol for Gemini with two transport modes:
 
 - `sdk` mode via `@google/genai` (default in `auto`)
 - `cli` mode via an external Gemini command/runner
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `host.js` | Main sidecar entry point -- JSONL protocol handler |
+| `adapter.js` | Transport adapter -- spawns CLI/runner subprocesses |
+| `mapper.js` | Claude-to-Gemini dialect mapper for mapped mode |
+| `capabilities.js` | Capability manifest builder |
+| `package.json` | Node.js dependencies (`@google/genai`) |
+| `test/` | Test directory |
 
 ## Install
 
@@ -49,3 +60,7 @@ For Gemini, un-namespaced params (for example `--param stream=true`) are written
 - `ABP_GEMINI_MAX_INLINE_OUTPUT_BYTES`: max inline tool output before artifact spill
 
 Auth-related env vars are passed through as usual (`GEMINI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_GENAI_USE_VERTEXAI`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`).
+
+## Protocol
+
+Speaks the ABP JSONL protocol over stdio. See [docs/sidecar_protocol.md](../../docs/sidecar_protocol.md).

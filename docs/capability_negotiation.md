@@ -401,3 +401,7 @@ pub fn can_emulate(capability: &Capability) -> bool;
 /// Apply emulations with a given config (free function).
 pub fn apply_emulation(config: &EmulationConfig, capabilities: &[Capability], conv: &mut IrConversation) -> EmulationReport;
 ```
+
+---
+
+See also: [capabilities.md](capabilities.md) — capability matrix, support levels, and backend compatibility table.

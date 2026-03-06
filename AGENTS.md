@@ -99,6 +99,36 @@ When generating Rust code, avoid these patterns that trigger clippy warnings or 
 - `--lane PatchFirst|WorkspaceFirst` — PatchFirst (default) applies patches; WorkspaceFirst captures diffs from direct workspace edits.
 - `--max-budget-usd <N>` — Cap spend per run.
 - `--max-turns <N>` — Limit agent turn count.
+- `--policy <path>` — Load a policy profile JSON file.
+- `--output <path>` / `--out <path>` — Write receipt to a specific file.
+- `--events <path>` — Write streamed events as JSONL to a file.
+- `--stream` — Stream events to stdout as they arrive.
+- `--timeout <secs>` — Timeout for the entire run.
+- `--retry <n>` — Retry on failure (default: 0).
+- `--fallback <backend>` — Fallback backend if the primary fails.
+- `--json` — JSON output instead of pretty printing.
+- `--include <glob>` / `--exclude <glob>` — Workspace file filtering (repeatable).
+
+## Config & Receipt Sub-commands
+
+```bash
+# Config: validate your backplane.toml
+cargo run -p abp-cli -- config check
+cargo run -p abp-cli -- config check --config /path/to/custom.toml
+
+# Config: display effective configuration
+cargo run -p abp-cli -- config show
+cargo run -p abp-cli -- config show --format json
+
+# Config: compare two config files
+cargo run -p abp-cli -- config diff staging.toml production.toml
+
+# Receipt: verify hash integrity
+cargo run -p abp-cli -- receipt verify .agent-backplane/receipts/abc123.json
+
+# Receipt: diff two receipts
+cargo run -p abp-cli -- receipt diff receipt-a.json receipt-b.json
+```
 
 ## Tracing Targets
 - `abp.sidecar.stderr` - Sidecar stderr capture

@@ -218,3 +218,7 @@ let wo = WorkOrderBuilder::new("task")
 3. Regenerate JSON schemas: `cargo run -p xtask -- schema`.
 4. Add tests in `crates/abp-core/tests/capability_tests.rs`.
 5. Update the matrix table above.
+
+---
+
+See also: [capability_negotiation.md](capability_negotiation.md) — negotiation flow, emulation strategies, and API reference.
