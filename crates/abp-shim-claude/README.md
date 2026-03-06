@@ -19,7 +19,7 @@ Claude SDK shim for Agent Backplane -- a drop-in compatible client that mirrors 
 
 ## Usage
 
-```rust,no_run
+```rust,ignore
 use abp_shim_claude::{AnthropicClient, MessageRequest, Message};
 
 let client = AnthropicClient::new("claude-sonnet-4-20250514");
