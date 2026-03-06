@@ -26,10 +26,10 @@ event pipelines, protocol state tracking, and test harnesses.
 ## Usage
 
 ```rust
-use sidecar_kit::{Frame, hello_frame, event_text_message, final_frame};
+use sidecar_kit::{hello_frame, event_text_message};
 
-let hello = hello_frame("my-sidecar", None);
-let event = event_text_message("run-1", "Hello from sidecar");
+let hello = hello_frame("my-sidecar");
+let event = event_text_message("Hello from sidecar");
 ```
 
 Part of the [Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
