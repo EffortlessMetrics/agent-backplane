@@ -28,16 +28,10 @@ implementing sidecar hosts and clients:
 
 ## Usage
 
-```rust,no_run
-use abp_sidecar_utils::{encode_hello, decode_envelope, validate_hello};
-use abp_core::{BackendIdentity, CapabilityManifest};
+```rust
+use abp_sidecar_utils::{encode_hello, decode_envelope};
 
-let identity = BackendIdentity {
-    id: "my-sidecar".into(),
-    backend_version: Some("1.0".into()),
-    adapter_version: None,
-};
-let line = encode_hello(&identity, &CapabilityManifest::new()).unwrap();
+let line = encode_hello("my-sidecar", "1.0", &["code_execution"]);
 let envelope = decode_envelope(&line).unwrap();
 ```
 
