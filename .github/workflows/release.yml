@@ -36,26 +36,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Dry-run publish for library crates
-        run: |
-          crates=(
-            abp-glob
-            abp-core
-            abp-protocol
-            abp-host
-            abp-workspace
-            abp-policy
-            abp-integrations
-            abp-runtime
-            abp-codex-sdk
-            abp-gemini-sdk
-            abp-claude-sdk
-            abp-kimi-sdk
-            sidecar-kit
-            claude-bridge
-          )
-          for crate in "${crates[@]}"; do
-            echo "::group::$crate"
-            cargo publish -p "$crate" --dry-run
-            echo "::endgroup::"
-          done
+      - name: Validate release metadata and package manifests
+        run: cargo run -p xtask -- release-check
+
+      - name: Dry-run publish for workspace crates
+        run: cargo publish --workspace --allow-dirty --dry-run

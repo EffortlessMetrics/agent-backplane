@@ -372,6 +372,18 @@ fn release_check() -> Result<()> {
         .and_then(|m| m.as_array())
         .context("workspace.members not found")?;
 
+    let required_fields = [
+        "version",
+        "edition",
+        "rust-version",
+        "license",
+        "authors",
+        "repository",
+        "description",
+        "readme",
+        "keywords",
+        "categories",
+    ];
     let mut ok = true;
     for member in members {
         let Some(path) = member.as_str() else {
@@ -396,16 +408,30 @@ fn release_check() -> Result<()> {
             .and_then(|n| n.as_str())
             .unwrap_or(path);
 
+        let is_not_publishable = pkg
+            .and_then(|p| p.get("publish"))
+            .and_then(|p| p.as_bool())
+            .is_some_and(|publish| !publish);
+        if is_not_publishable {
+            continue;
+        }
+
         // Check required fields (may be inherited via `.workspace = true`)
-        for field in ["version", "edition", "license"] {
+        for field in required_fields {
             if pkg.and_then(|p| p.get(field)).is_none() {
                 eprintln!("  ✗ {name}: missing package.{field}");
                 ok = false;
             }
         }
 
-        // Check README exists
-        let readme_path = root.join(path).join("README.md");
+        // Check README exists (path comes from manifest or defaults to README.md).
+        let readme_path = pkg
+            .and_then(|p| p.get("readme"))
+            .and_then(|r| r.as_str())
+            .map_or_else(
+                || root.join(path).join("README.md"),
+                |r| root.join(path).join(r),
+            );
         if !readme_path.exists() {
             eprintln!("  ✗ {name}: missing README.md");
             ok = false;
@@ -423,7 +449,9 @@ fn release_check() -> Result<()> {
     }
 
     if ok {
-        eprintln!("  ✓ all crates have required fields, README, and consistent versions");
+        eprintln!(
+            "  ✓ all publishable crates have required metadata, READMEs, and consistent versions"
+        );
     }
 
     // Dry-run packaging
