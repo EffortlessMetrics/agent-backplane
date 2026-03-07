@@ -813,8 +813,11 @@ fn config_merger_struct_delegates_to_merge() {
 // 9. Environment variable overrides
 // ===================================================================
 
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn env_override_default_backend() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let mut cfg = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_DEFAULT_BACKEND", "envmock") };
     apply_env_overrides(&mut cfg);
@@ -824,6 +827,7 @@ fn env_override_default_backend() {
 
 #[test]
 fn env_override_log_level() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let mut cfg = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_LOG_LEVEL", "trace") };
     apply_env_overrides(&mut cfg);
@@ -833,6 +837,7 @@ fn env_override_log_level() {
 
 #[test]
 fn env_override_receipts_dir() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let mut cfg = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_RECEIPTS_DIR", "/env/receipts") };
     apply_env_overrides(&mut cfg);
@@ -842,6 +847,7 @@ fn env_override_receipts_dir() {
 
 #[test]
 fn env_override_workspace_dir() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let mut cfg = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_WORKSPACE_DIR", "/env/ws") };
     apply_env_overrides(&mut cfg);
@@ -851,6 +857,7 @@ fn env_override_workspace_dir() {
 
 #[test]
 fn env_override_bind_address() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let mut cfg = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_BIND_ADDRESS", "0.0.0.0") };
     apply_env_overrides(&mut cfg);
@@ -860,6 +867,7 @@ fn env_override_bind_address() {
 
 #[test]
 fn env_override_port_valid() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let mut cfg = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_PORT", "9090") };
     apply_env_overrides(&mut cfg);
@@ -869,6 +877,7 @@ fn env_override_port_valid() {
 
 #[test]
 fn env_override_port_invalid_ignored() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let mut cfg = BackplaneConfig::default();
     unsafe { std::env::set_var("ABP_PORT", "not_a_number") };
     apply_env_overrides(&mut cfg);
@@ -878,6 +887,7 @@ fn env_override_port_invalid_ignored() {
 
 #[test]
 fn env_override_replaces_existing_value() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let mut cfg = BackplaneConfig {
         default_backend: Some("original".into()),
         ..Default::default()
