@@ -34,6 +34,8 @@ let pipeline = StreamPipelineBuilder::new()
     .build();
 ```
 
+Part of the [Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
+
 ## License
 
 MIT OR Apache-2.0

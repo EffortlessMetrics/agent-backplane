@@ -10,6 +10,8 @@ Provides a `ReceiptStore` async trait with two implementations:
 Also includes `ReceiptIndex` for fast in-memory lookup by backend, outcome,
 and time range, plus `validate_chain` for receipt chain integrity verification.
 
+Part of the [Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
+
 ## License
 
 MIT OR Apache-2.0

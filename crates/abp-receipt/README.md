@@ -1,7 +1,7 @@
 # abp-receipt
 
 Receipt canonicalization, hashing, chain verification, and diffing for the
-[Agent Backplane](https://github.com/paiml/agent-backplane) project.
+[Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
 
 This crate extracts receipt-focused logic into a dedicated microcrate. It
 provides canonical JSON serialization (with `receipt_sha256` set to `null`

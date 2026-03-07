@@ -1,7 +1,7 @@
 # abp-emulation
 
 Labeled capability emulation for the
-[Agent Backplane](https://github.com/paiml/agent-backplane) project.
+[Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
 
 When a backend does not natively support a capability (e.g. `ExtendedThinking`),
 ABP can emulate it through system-prompt injection or post-processing — but

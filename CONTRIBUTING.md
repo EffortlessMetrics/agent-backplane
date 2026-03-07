@@ -157,7 +157,7 @@ abp-core ──────────┤                         │
 abp-protocol ─── abp-host ─── abp-backend-core ─── abp-integrations ─── abp-runtime ─── abp-cli
 ```
 
-See [`CLAUDE.md`](CLAUDE.md) for the full crate dependency hierarchy (54 crates) or [`docs/architecture.md`](docs/architecture.md) for the detailed walkthrough.
+See [`CLAUDE.md`](CLAUDE.md) for the full crate dependency hierarchy (55 crates) or [`docs/architecture.md`](docs/architecture.md) for the detailed walkthrough.
 
 **The contract is the product.** `abp-core` defines the canonical types and is the
 only crate most consumers need to depend on.

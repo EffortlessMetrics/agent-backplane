@@ -2,7 +2,7 @@
 
 Deep tests for the Agent Backplane error taxonomy.
 
-Part of the [Agent Backplane](https://github.com/anthropics/agent-backplane) project.
+Part of the [Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
 
 ## Overview
 
