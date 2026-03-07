@@ -21,6 +21,8 @@ validate_config(&config)?;
 # }
 ```
 
+Part of the [Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
+
 ## License
 
 Licensed under either of [Apache License, Version 2.0](../../LICENSE-APACHE)

@@ -1,7 +1,7 @@
 # abp-capability
 
 Capability negotiation between work-order requirements and backend manifests for the
-[Agent Backplane](https://github.com/paiml/agent-backplane) project.
+[Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
 
 This crate compares a `CapabilityManifest` (what a backend advertises) against
 `CapabilityRequirements` (what a work order needs) and produces structured

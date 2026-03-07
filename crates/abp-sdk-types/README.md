@@ -16,3 +16,9 @@ dialect translation, projection, and testing.
 | `Kimi` | Moonshot | Chat Completions (extended) |
 | `Codex` | OpenAI | Responses API |
 | `Copilot` | GitHub | Copilot Extensions |
+
+Part of the [Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
+
+## License
+
+Dual-licensed under MIT OR Apache-2.0.

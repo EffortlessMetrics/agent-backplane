@@ -1,7 +1,7 @@
 # abp-error
 
 Unified error taxonomy with stable error codes for the
-[Agent Backplane](https://github.com/paiml/agent-backplane) project.
+[Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
 
 Every ABP error carries a machine-readable `ErrorCode` (a stable
 `SCREAMING_SNAKE_CASE` string tag), a human-readable message, an optional

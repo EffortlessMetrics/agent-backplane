@@ -39,6 +39,8 @@ When a work order requests passthrough mode (via
 dialect matches the work order's source dialect receive a bonus, making
 same-dialect passthrough the preferred path.
 
+Part of the [Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
+
 ## License
 
 MIT OR Apache-2.0

@@ -2,7 +2,7 @@
 
 Intermediate Representation types and property-based tests for the Agent Backplane.
 
-Part of the [Agent Backplane](https://github.com/anthropics/agent-backplane) project.
+Part of the [Agent Backplane](https://github.com/EffortlessMetrics/agent-backplane) workspace.
 
 ## Overview
 
