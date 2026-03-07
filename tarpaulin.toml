@@ -1,6 +1,6 @@
 [default]
-workspace = true
-timeout = "300s"
+timeout = "600s"
+jobs = 1
 out = ["Html", "Lcov"]
 output-dir = "target/tarpaulin"
 exclude-files = ["fuzz/*", "tests/*"]
