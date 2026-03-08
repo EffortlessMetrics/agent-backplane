@@ -1549,6 +1549,11 @@ proptest! {
     fn btreemap_insertion_order_irrelevant(
         pairs in prop::collection::vec((arb_safe_string(), arb_safe_string()), 0..10),
     ) {
+        // Property only holds for unique keys — duplicate keys cause
+        // last-writer-wins semantics that depend on insertion order.
+        let mut seen = BTreeSet::new();
+        prop_assume!(pairs.iter().all(|(k, _)| seen.insert(k.clone())));
+
         let m1: BTreeMap<String, String> = pairs.iter().cloned().collect();
         let mut m2 = BTreeMap::new();
         for (k, v) in pairs.iter().rev() {
