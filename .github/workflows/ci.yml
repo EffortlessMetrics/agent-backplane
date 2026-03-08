@@ -122,7 +122,7 @@ jobs:
         run: cargo deny check
 
   schema:
-    name: Schema Generation
+    name: Schema Drift Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -140,5 +140,12 @@ jobs:
           echo "Found $count schema files"
           if [ "$count" -eq 0 ]; then
             echo "::error::No schema files generated in contracts/schemas/"
+            exit 1
+          fi
+
+      - name: Check for schema drift
+        run: |
+          if ! git diff --exit-code -- contracts/schemas; then
+            echo "::error::Schema drift detected! Regenerate with: cargo run -p xtask -- schema"
             exit 1
           fi
