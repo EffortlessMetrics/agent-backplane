@@ -153,8 +153,11 @@ function defaultCapabilities() {
     tool_web_fetch: "emulated",
     hooks_pre_tool_use: "native",
     hooks_post_tool_use: "native",
-    session_resume: "emulated",
-    checkpointing: "emulated",
+    session_resume: "native",
+    session_fork: "emulated",
+    tool_ask_user: "native",
+    permission_callback: "native",
+    checkpointing: "native",
     structured_output_json_schema: "emulated",
     mcp_client: "emulated",
   };
@@ -811,6 +814,49 @@ function createPassthroughAdapter(sdkProbe) {
   };
 }
 
+/**
+ * Detect whether this work order requests the V2 preview surface.
+ *
+ * Checks:
+ *   - config.vendor.claude.v2_preview === true
+ *   - config.vendor.claude.sdk_surface === "ts_v2_preview"
+ *   - config.vendor["claude.v2_preview"] === true
+ *   - config.vendor["claude.sdk_surface"] === "ts_v2_preview"
+ */
+function isV2PreviewRequest(workOrder) {
+  const vendor = (workOrder.config && workOrder.config.vendor) || {};
+  const claudeNested = (vendor.claude && typeof vendor.claude === "object") ? vendor.claude : {};
+
+  if (claudeNested.v2_preview === true) return true;
+  if (claudeNested.sdk_surface === "ts_v2_preview") return true;
+  if (vendor["claude.v2_preview"] === true) return true;
+  if (vendor["claude.sdk_surface"] === "ts_v2_preview") return true;
+
+  return false;
+}
+
+/**
+ * Try to load the V2 preview adapter from adapter-v2.js.
+ * Returns the materialized adapter or null on failure.
+ */
+function tryLoadV2Adapter() {
+  const v2AdapterPath = path.join(__dirname, "adapter-v2.js");
+  if (!fs.existsSync(v2AdapterPath)) {
+    return null;
+  }
+
+  try {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    const loaded = require(v2AdapterPath);
+    return materializeAdapter(loaded, "claude_sdk_v2_preview_adapter");
+  } catch (err) {
+    process.stderr.write(
+      `[claude-host] failed to load V2 preview adapter '${v2AdapterPath}': ${safeString(err)}\n`
+    );
+    return null;
+  }
+}
+
 function resolveAdapterModulePath(rawPath) {
   const fromCwd = path.resolve(process.cwd(), rawPath);
   if (fs.existsSync(fromCwd)) {
@@ -923,8 +969,33 @@ function createRunContext(runId, workOrder, trace, artifacts, emitEvent) {
   function emitToolCall(payload) {
     const toolName = String(payload.toolName || "unknown_tool");
     const input = payload.input || {};
+
+    // Map AskUserQuestion events to tool_call with tool_name "ask_user"
+    if (toolName === "AskUserQuestion" || toolName === "ask_user_question") {
+      emit({
+        type: "tool_call",
+        tool_name: "ask_user",
+        tool_use_id: payload.toolUseId || null,
+        parent_tool_use_id: payload.parentToolUseId || null,
+        input,
+      });
+      return true;
+    }
+
     const pre = policy.preTool(toolName, input);
     if (!pre.allowed) {
+      // Emit permission_requested event before denial
+      emit({
+        type: "permission_requested",
+        tool_name: toolName,
+        input,
+      });
+      emit({
+        type: "permission_resolved",
+        tool_name: toolName,
+        granted: false,
+        reason: pre.reason,
+      });
       emit({
         type: "warning",
         message: `Denied ${toolName}: ${pre.reason}`,
@@ -937,6 +1008,20 @@ function createRunContext(runId, workOrder, trace, artifacts, emitEvent) {
         is_error: true,
       });
       return false;
+    }
+
+    // Emit permission_requested/resolved for tools that require approval
+    if (policy.requiresApproval(toolName)) {
+      emit({
+        type: "permission_requested",
+        tool_name: toolName,
+        input,
+      });
+      emit({
+        type: "permission_resolved",
+        tool_name: toolName,
+        granted: true,
+      });
     }
 
     emit({
@@ -968,10 +1053,17 @@ function createRunContext(runId, workOrder, trace, artifacts, emitEvent) {
     });
   }
 
+  // Build SDK options and wire policy canUseTool callback
+  const sdkOptions = buildSdkOptions(workOrder);
+  sdkOptions.canUseTool = (toolName, input) => {
+    const decision = policy.canUseTool(toolName);
+    return decision.allowed;
+  };
+
   return {
     workOrder,
     policy,
-    sdkOptions: buildSdkOptions(workOrder),
+    sdkOptions,
     emitRaw(kind) {
       emit(kind);
     },
@@ -1170,15 +1262,17 @@ async function handleRun(runMsg, adapter, backend, capabilities, mode = Executio
   write({ t: "final", ref_id: runId, receipt });
 }
 
-function main() {
-  // Pre-load adapters for both modes
+async function main() {
+  // Pre-load adapters for all modes (mapped, passthrough, v2 preview)
   let mappedAdapter;
   let passthroughAdapter;
+  let v2PreviewAdapter;
   let defaultAdapter;
 
   try {
     mappedAdapter = loadAdapter(ExecutionMode.Mapped);
     passthroughAdapter = loadAdapter(ExecutionMode.Passthrough);
+    v2PreviewAdapter = tryLoadV2Adapter(); // may be null — not fatal
     defaultAdapter = mappedAdapter;
   } catch (err) {
     const backend = {
@@ -1262,8 +1356,15 @@ function main() {
     const workOrder = msg.work_order || {};
     const mode = getExecutionMode(workOrder);
 
-    // Select adapter based on mode
-    const adapter = mode === ExecutionMode.Passthrough ? passthroughAdapter : mappedAdapter;
+    // Select adapter: V2 preview takes priority if requested and available
+    let adapter;
+    if (isV2PreviewRequest(workOrder) && v2PreviewAdapter) {
+      adapter = v2PreviewAdapter;
+    } else if (mode === ExecutionMode.Passthrough) {
+      adapter = passthroughAdapter;
+    } else {
+      adapter = mappedAdapter;
+    }
 
     handleRun(msg, adapter, backend, capabilities, mode).catch((err) => {
       write({

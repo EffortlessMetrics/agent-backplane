@@ -8,7 +8,76 @@ function normalizeRequest(requestOrPrompt, maybeOptions) {
   };
 }
 
+function buildHookMessages() {
+  return [
+    {
+      type: "pre_tool_use",
+      tool_name: "Write",
+      tool_use_id: "toolu_hook_write",
+      input: { file_path: "test.txt", content: "hello" },
+    },
+    {
+      type: "post_tool_use",
+      tool_name: "Write",
+      tool_use_id: "toolu_hook_write",
+      output: "write ok",
+      is_error: false,
+    },
+  ];
+}
+
+function buildTypedSdkMessages() {
+  return [
+    {
+      type: "message_start",
+      message: { usage: { input_tokens: 10 } },
+    },
+    {
+      type: "content_block_start",
+      content_block: { type: "text", text: "Typed " },
+    },
+    {
+      type: "content_block_delta",
+      delta: { type: "text_delta", text: "hello" },
+    },
+    {
+      type: "content_block_stop",
+    },
+    {
+      type: "message_delta",
+      delta: { stop_reason: "end_turn" },
+      usage: { output_tokens: 5 },
+    },
+    {
+      type: "message_stop",
+    },
+  ];
+}
+
+function buildAskUserMessages() {
+  return [
+    {
+      type: "tool_call",
+      tool_name: "AskUserQuestion",
+      tool_use_id: "toolu_ask_user",
+      input: { question: "Should I proceed?" },
+    },
+  ];
+}
+
 function buildMappedMessages(prompt) {
+  // Hook messages mode
+  if (process.env.MOCK_CLAUDE_HOOK_MODE === "1") {
+    return buildHookMessages();
+  }
+  // Typed SDK messages mode
+  if (process.env.MOCK_CLAUDE_TYPED_MODE === "1") {
+    return buildTypedSdkMessages();
+  }
+  // AskUser messages mode
+  if (process.env.MOCK_CLAUDE_ASK_USER_MODE === "1") {
+    return buildAskUserMessages();
+  }
   return [
     {
       type: "assistant_delta",
