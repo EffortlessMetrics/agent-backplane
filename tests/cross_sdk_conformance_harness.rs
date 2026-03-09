@@ -366,7 +366,11 @@ mod claude_passthrough {
             }],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         }
@@ -484,7 +488,7 @@ mod claude_passthrough {
             ],
         };
         let ir = message_to_ir(&msg);
-        assert!(!ir.content.is_empty());
+        assert!(!ir.content.text().is_empty());
     }
 }
 

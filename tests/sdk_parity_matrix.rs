@@ -242,7 +242,7 @@ mod to_ir_conversion {
         };
         let claude_msg = abp_shim_claude::message_to_ir(&msg);
         assert_eq!(claude_msg.role, "user");
-        assert_eq!(claude_msg.content, "Hello");
+        assert_eq!(claude_msg.content.text(), "Hello");
     }
 
     #[test]
@@ -727,7 +727,11 @@ mod model_name {
             }],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };

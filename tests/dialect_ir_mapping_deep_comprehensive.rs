@@ -1093,7 +1093,7 @@ fn claude_multi_turn_roundtrip() {
     assert_eq!(ir.len(), 3);
     let back = claude_ir::from_ir(&ir);
     assert_eq!(back.len(), 3);
-    assert_eq!(back[2].content, "q2");
+    assert_eq!(back[2].content.text(), "q2");
 }
 
 // ═══════════════════════════════════════════════════════════════════════

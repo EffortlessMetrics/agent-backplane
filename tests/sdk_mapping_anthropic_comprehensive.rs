@@ -72,7 +72,11 @@ fn simple_request(text: &str) -> MessageRequest {
         }],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     }
@@ -108,7 +112,7 @@ fn claude_msg(role: &str, content: &str) -> ClaudeMessage {
 fn claude_blocks_msg(role: &str, blocks: &[ClaudeContentBlock]) -> ClaudeMessage {
     ClaudeMessage {
         role: role.into(),
-        content: serde_json::to_string(blocks).unwrap(),
+        content: blocks.to_vec().into(),
     }
 }
 
@@ -200,7 +204,11 @@ mod messages_api_to_work_order {
             ],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -257,7 +265,11 @@ mod messages_api_to_work_order {
             ],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -275,7 +287,7 @@ mod messages_api_to_work_order {
         let req = dialect::map_work_order(&wo, &cfg);
         assert_eq!(req.messages.len(), 1);
         assert_eq!(req.messages[0].role, "user");
-        assert!(req.messages[0].content.contains("Summarize this code"));
+        assert!(req.messages[0].content.text().contains("Summarize this code"));
     }
 
     #[test]
@@ -936,7 +948,11 @@ mod system_prompt_handling {
             }],
             system: Some("System instructions".into()),
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1223,15 +1239,15 @@ mod multi_turn_tool_result {
         assert_eq!(conv.len(), 4);
         let back = lowering::from_ir(&conv);
         assert_eq!(back.len(), 4);
-        assert_eq!(back[0].content, "Find tests");
-        assert_eq!(back[3].content, "I found 3 matches.");
+        assert_eq!(back[0].content.text(), "Find tests");
+        assert_eq!(back[3].content.text(), "I found 3 matches.");
     }
 
     #[test]
     fn map_tool_result_helper_success() {
         let msg = dialect::map_tool_result("toolu_01", "output text", false);
         assert_eq!(msg.role, "user");
-        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+        let parsed: Vec<ClaudeContentBlock> = msg.content.blocks();
         match &parsed[0] {
             ClaudeContentBlock::ToolResult {
                 tool_use_id,
@@ -1249,7 +1265,7 @@ mod multi_turn_tool_result {
     #[test]
     fn map_tool_result_helper_error() {
         let msg = dialect::map_tool_result("toolu_err", "failed", true);
-        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+        let parsed: Vec<ClaudeContentBlock> = msg.content.blocks();
         match &parsed[0] {
             ClaudeContentBlock::ToolResult { is_error, .. } => {
                 assert_eq!(*is_error, Some(true));
@@ -1603,7 +1619,11 @@ mod error_type_mapping {
             messages: vec![],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1665,7 +1685,11 @@ mod error_type_mapping {
             messages: vec![],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1801,6 +1825,10 @@ mod metadata_and_tracking {
             stop_sequences: Some(vec!["STOP".into()]),
             thinking: Some(ThinkingConfig::new(2048)),
             stream: Some(false),
+            top_p: None,
+            top_k: None,
+            tools: None,
+            tool_choice: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let back: MessageRequest = serde_json::from_str(&json).unwrap();
@@ -2168,6 +2196,13 @@ mod content_block_serde {
             system: Some("system prompt".into()),
             messages: vec![claude_msg("user", "hi")],
             thinking: Some(ThinkingConfig::new(5000)),
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            stream: None,
+            stop_sequences: None,
+            tools: None,
+            tool_choice: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let back: ClaudeRequest = serde_json::from_str(&json).unwrap();
@@ -2220,7 +2255,7 @@ mod ir_lowering_roundtrips {
         let conv = lowering::to_ir(&msgs, None);
         let back = lowering::from_ir(&conv);
         assert_eq!(back[0].role, "user");
-        assert_eq!(back[0].content, "Hello world");
+        assert_eq!(back[0].content.text(), "Hello world");
     }
 
     #[test]
@@ -2229,7 +2264,7 @@ mod ir_lowering_roundtrips {
         let conv = lowering::to_ir(&msgs, None);
         let back = lowering::from_ir(&conv);
         assert_eq!(back[0].role, "assistant");
-        assert_eq!(back[0].content, "I will help you");
+        assert_eq!(back[0].content.text(), "I will help you");
     }
 
     #[test]
@@ -2243,8 +2278,8 @@ mod ir_lowering_roundtrips {
         let conv = lowering::to_ir(&msgs, None);
         let back = lowering::from_ir(&conv);
         assert_eq!(back.len(), 4);
-        assert_eq!(back[0].content, "Hello");
-        assert_eq!(back[3].content, "Done");
+        assert_eq!(back[0].content.text(), "Hello");
+        assert_eq!(back[3].content.text(), "Done");
     }
 
     #[test]
@@ -2257,7 +2292,7 @@ mod ir_lowering_roundtrips {
         let msgs = vec![claude_blocks_msg("assistant", &blocks)];
         let conv = lowering::to_ir(&msgs, None);
         let back = lowering::from_ir(&conv);
-        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+        let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
         match &parsed[0] {
             ClaudeContentBlock::ToolUse { id, name, input } => {
                 assert_eq!(id, "toolu_rt");
@@ -2277,7 +2312,7 @@ mod ir_lowering_roundtrips {
         let msgs = vec![claude_blocks_msg("assistant", &blocks)];
         let conv = lowering::to_ir(&msgs, None);
         let back = lowering::from_ir(&conv);
-        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+        let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
         match &parsed[0] {
             ClaudeContentBlock::Thinking { thinking, .. } => {
                 assert_eq!(thinking, "Let me reason step by step");
@@ -2297,7 +2332,7 @@ mod ir_lowering_roundtrips {
         let msgs = vec![claude_blocks_msg("user", &blocks)];
         let conv = lowering::to_ir(&msgs, None);
         let back = lowering::from_ir(&conv);
-        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+        let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
         match &parsed[0] {
             ClaudeContentBlock::Image {
                 source: ClaudeImageSource::Base64 { media_type, data },

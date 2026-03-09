@@ -357,7 +357,11 @@ mod claude {
             }],
             system: Some("You are helpful.".into()),
             temperature: Some(0.5),
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         }
@@ -441,7 +445,7 @@ mod claude {
         };
         let ir_msg = message_to_ir(&msg);
         assert_eq!(ir_msg.role, "user");
-        assert_eq!(ir_msg.content, "hello");
+        assert_eq!(ir_msg.content.text(), "hello");
     }
 
     #[test]
@@ -622,7 +626,11 @@ mod claude {
             messages: vec![],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };

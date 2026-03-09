@@ -291,7 +291,7 @@ fn claude_thinking_block_through_ir() {
     let claude_msgs: Vec<_> = msgs.iter().map(abp_shim_claude::message_to_ir).collect();
     // Just verify the messages can be created and are non-empty
     assert!(!claude_msgs.is_empty());
-    assert!(!claude_msgs[0].content.is_empty());
+    assert!(!claude_msgs[0].content.text().is_empty());
 }
 
 // ── 15. Gemini function call part through IR ───────────────────────────

@@ -1009,7 +1009,11 @@ fn given_claude_request_when_converted_to_work_order_then_task_populated() {
         }],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };

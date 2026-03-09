@@ -143,7 +143,11 @@ fn shim_claude_request_to_ir_roundtrip() {
         ],
         system: Some("Be concise.".into()),
         temperature: Some(0.7),
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };

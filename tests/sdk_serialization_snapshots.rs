@@ -481,8 +481,8 @@ mod claude {
                 },
             ]),
             tool_choice: Some(ClaudeToolChoice::Any {}),
-            thinking: None,
             stop_sequences: None,
+            thinking: None,
         };
         insta::assert_json_snapshot!(req);
     }

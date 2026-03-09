@@ -282,7 +282,7 @@ fn claude_ir_lowering_roundtrip() {
     let back = abp_claude_sdk::lowering::from_ir(&ir);
     assert_eq!(back.len(), 1);
     assert_eq!(back[0].role, "user");
-    assert_eq!(back[0].content, "hello from test");
+    assert_eq!(back[0].content.text(), "hello from test");
 }
 
 #[test]
@@ -712,7 +712,7 @@ fn cross_sdk_ir_interop_openai_to_claude() {
     let claude_msgs = abp_claude_sdk::lowering::from_ir(&ir);
     assert_eq!(claude_msgs.len(), 1);
     assert_eq!(claude_msgs[0].role, "user");
-    assert_eq!(claude_msgs[0].content, "translate me");
+    assert_eq!(claude_msgs[0].content.text(), "translate me");
 }
 
 #[test]

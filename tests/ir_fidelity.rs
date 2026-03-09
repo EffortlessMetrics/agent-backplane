@@ -641,7 +641,7 @@ fn fidelity_lift_claude_image_base64() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_low::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
@@ -734,8 +734,8 @@ fn fidelity_rt_claude_text() {
     ];
     let back = claude_low::from_ir(&claude_low::to_ir(&orig, None));
     assert_eq!(back.len(), 2);
-    assert_eq!(back[0].content, "q");
-    assert_eq!(back[1].content, "a");
+    assert_eq!(back[0].content.text(), "q");
+    assert_eq!(back[1].content.text(), "a");
 }
 
 #[test]
@@ -1058,7 +1058,7 @@ fn fidelity_cross_claude_image_to_gemini() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_low::to_ir(&msgs, None);
     let gemini = gemini_low::from_ir(&ir);
@@ -1079,7 +1079,7 @@ fn fidelity_cross_thinking_claude_to_openai_becomes_text() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_low::to_ir(&msgs, None);
     let oai = openai_low::from_ir(&ir);

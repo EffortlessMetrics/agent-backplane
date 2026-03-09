@@ -1077,11 +1077,11 @@ mod missing_features {
         }];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
         let conv = to_ir(&msgs, None);
         let back = from_ir(&conv);
-        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+        let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
         match &parsed[0] {
             ClaudeContentBlock::Thinking { signature, .. } => {
                 assert!(

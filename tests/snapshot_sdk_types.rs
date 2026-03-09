@@ -352,6 +352,13 @@ fn claude_request_with_thinking() {
             content: "Explain ownership in Rust.".into(),
         }],
         thinking: Some(ThinkingConfig::new(10000)),
+        temperature: None,
+        top_p: None,
+        top_k: None,
+        stream: None,
+        stop_sequences: None,
+        tools: None,
+        tool_choice: None,
     };
     insta::assert_json_snapshot!("claude_request_with_thinking", req);
 }

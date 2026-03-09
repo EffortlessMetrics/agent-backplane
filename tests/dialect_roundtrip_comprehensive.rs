@@ -292,7 +292,7 @@ mod claude_roundtrip {
         assert_eq!(sys_extracted.as_deref(), Some("You are helpful."));
         assert_eq!(native.len(), 2); // system stripped
         assert_eq!(native[0].role, "user");
-        assert_eq!(native[0].content, "Hello");
+        assert_eq!(native[0].content.text(), "Hello");
 
         // Step 3: re-parse → IR
         let ir2 = claude_ir::to_ir(&native, sys_extracted.as_deref());
@@ -332,11 +332,11 @@ mod claude_roundtrip {
             claude_msg("user", "Show me lib.rs"),
             ClaudeMessage {
                 role: "assistant".into(),
-                content: serde_json::to_string(&tool_blocks).unwrap(),
+                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&tool_blocks).unwrap()),
             },
             ClaudeMessage {
                 role: "user".into(),
-                content: serde_json::to_string(&result_blocks).unwrap(),
+                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&result_blocks).unwrap()),
             },
             claude_msg("assistant", "It defines a hello function."),
         ];
@@ -385,7 +385,7 @@ mod claude_roundtrip {
         ];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
 
         let ir = claude_ir::to_ir(&msgs, None);
@@ -418,7 +418,7 @@ mod claude_roundtrip {
         ];
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
 
         let ir = claude_ir::to_ir(&msgs, None);
@@ -455,7 +455,7 @@ mod claude_roundtrip {
         }];
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&result_blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&result_blocks).unwrap()),
         }];
 
         let ir = claude_ir::to_ir(&msgs, None);
@@ -1426,7 +1426,7 @@ mod edge_cases {
         ];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
 
         let ir = claude_ir::to_ir(&msgs, None);

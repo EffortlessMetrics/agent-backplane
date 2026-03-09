@@ -104,7 +104,7 @@ fn claude_text(role: &str, text: &str) -> ClaudeMessage {
 fn claude_blocks(role: &str, blocks: &[ClaudeContentBlock]) -> ClaudeMessage {
     ClaudeMessage {
         role: role.into(),
-        content: serde_json::to_string(blocks).unwrap(),
+        content: blocks.to_vec().into(),
     }
 }
 
@@ -268,7 +268,7 @@ fn claude_openai_rt_simple_text() {
     let (rt, _) = claude_openai_claude(&[claude_text("user", "Hello from Claude")], None);
     assert_eq!(rt.len(), 1);
     assert_eq!(rt[0].role, "user");
-    assert_eq!(rt[0].content, "Hello from Claude");
+    assert_eq!(rt[0].content.text(), "Hello from Claude");
 }
 
 #[test]
@@ -279,7 +279,7 @@ fn claude_openai_rt_system_prompt_preserved() {
     );
     assert_eq!(sys.as_deref(), Some("You are a coding assistant."));
     assert_eq!(rt.len(), 1);
-    assert_eq!(rt[0].content, "Hi");
+    assert_eq!(rt[0].content.text(), "Hi");
 }
 
 #[test]
@@ -291,7 +291,7 @@ fn claude_openai_rt_tool_use_block() {
     }];
     let msgs = vec![claude_blocks("assistant", &blocks)];
     let (rt, _) = claude_openai_claude(&msgs, None);
-    let rt_blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&rt[0].content).unwrap();
+    let rt_blocks: Vec<ClaudeContentBlock> = rt[0].content.blocks();
     match &rt_blocks[0] {
         ClaudeContentBlock::ToolUse { id, name, input } => {
             assert_eq!(id, "tu_1");
@@ -501,7 +501,7 @@ fn openai_gemini_rt_unicode_preserved() {
 fn claude_gemini_rt_simple_text() {
     let (rt, _) = claude_gemini_claude(&[claude_text("user", "Hello from Claude")], None);
     assert_eq!(rt.len(), 1);
-    assert_eq!(rt[0].content, "Hello from Claude");
+    assert_eq!(rt[0].content.text(), "Hello from Claude");
 }
 
 #[test]
@@ -511,7 +511,7 @@ fn claude_gemini_rt_assistant_text() {
         None,
     );
     assert_eq!(rt[1].role, "assistant");
-    assert_eq!(rt[1].content, "Hey!");
+    assert_eq!(rt[1].content.text(), "Hey!");
 }
 
 #[test]
@@ -533,7 +533,7 @@ fn claude_gemini_rt_tool_use_block() {
     let gemini = gemini_ir::from_ir(&ir1);
     let ir2 = gemini_ir::to_ir(&gemini, None);
     let claude2 = claude_ir::from_ir(&ir2);
-    let rt_blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude2[0].content).unwrap();
+    let rt_blocks: Vec<ClaudeContentBlock> = claude2[0].content.blocks();
     match &rt_blocks[0] {
         ClaudeContentBlock::ToolUse { name, input, .. } => {
             assert_eq!(name, "read_file");
@@ -556,7 +556,7 @@ fn claude_gemini_rt_tool_id_lossy() {
     let gemini = gemini_ir::from_ir(&ir1);
     let ir2 = gemini_ir::to_ir(&gemini, None);
     let claude2 = claude_ir::from_ir(&ir2);
-    let rt_blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude2[0].content).unwrap();
+    let rt_blocks: Vec<ClaudeContentBlock> = claude2[0].content.blocks();
     match &rt_blocks[0] {
         ClaudeContentBlock::ToolUse { id, .. } => {
             // LOSSY: Gemini does not preserve original tool call IDs
@@ -611,9 +611,9 @@ fn claude_gemini_rt_multi_turn() {
         None,
     );
     assert_eq!(rt.len(), 3);
-    assert_eq!(rt[0].content, "First");
-    assert_eq!(rt[1].content, "Second");
-    assert_eq!(rt[2].content, "Third");
+    assert_eq!(rt[0].content.text(), "First");
+    assert_eq!(rt[1].content.text(), "Second");
+    assert_eq!(rt[2].content.text(), "Third");
 }
 
 #[test]
@@ -783,7 +783,7 @@ fn claude_kimi_rt_simple_text() {
     let kimi = kimi_ir::from_ir(&ir1);
     let ir2 = kimi_ir::to_ir(&kimi);
     let claude2 = claude_ir::from_ir(&ir2);
-    assert_eq!(claude2[0].content, "Claude to Kimi");
+    assert_eq!(claude2[0].content.text(), "Claude to Kimi");
 }
 
 #[test]
@@ -798,7 +798,7 @@ fn claude_codex_rt_simple_text() {
     );
     let ir2 = codex_ir::to_ir(&codex);
     let claude2 = claude_ir::from_ir(&ir2);
-    assert_eq!(claude2[0].content, "Claude to Codex");
+    assert_eq!(claude2[0].content.text(), "Claude to Codex");
 }
 
 #[test]
@@ -808,7 +808,7 @@ fn claude_copilot_rt_simple_text() {
     let copilot = copilot_ir::from_ir(&ir1);
     let ir2 = copilot_ir::to_ir(&copilot);
     let claude2 = claude_ir::from_ir(&ir2);
-    assert_eq!(claude2[0].content, "Claude to Copilot");
+    assert_eq!(claude2[0].content.text(), "Claude to Copilot");
 }
 
 #[test]

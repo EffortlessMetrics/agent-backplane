@@ -1205,6 +1205,12 @@ async fn stream_all_event_kinds_can_be_streamed() {
             AgentEventKind::CommandExecuted { .. } => "command_executed",
             AgentEventKind::Warning { .. } => "warning",
             AgentEventKind::Error { .. } => "error",
+            AgentEventKind::SessionStarted { .. } => "session_started",
+            AgentEventKind::SessionResumed { .. } => "session_resumed",
+            AgentEventKind::PermissionRequested { .. } => "permission_requested",
+            AgentEventKind::PermissionResolved { .. } => "permission_resolved",
+            AgentEventKind::SubagentSpawned { .. } => "subagent_spawned",
+            AgentEventKind::SubagentCompleted { .. } => "subagent_completed",
         };
         kinds.push(kind.to_string());
     }

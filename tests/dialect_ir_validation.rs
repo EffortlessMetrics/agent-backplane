@@ -540,7 +540,7 @@ mod dialect_lowering {
             .unwrap();
             let msgs = vec![ClaudeMessage {
                 role: "assistant".into(),
-                content: content_json,
+                content: content_json.into(),
             }];
             let conv = lowering::to_ir(&msgs, None);
             let blocks = &conv.messages[0].content;
@@ -1048,7 +1048,7 @@ mod ir_lifting {
             assert_eq!(msgs[0].role, "assistant");
             // Content should be structured JSON for multi-block messages
             let content = &msgs[0].content;
-            assert!(!content.is_empty());
+            assert!(!content.text().is_empty());
         }
 
         #[test]

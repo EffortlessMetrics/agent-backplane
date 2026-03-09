@@ -63,7 +63,11 @@ fn simple_request(text: &str) -> MessageRequest {
         }],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     }
@@ -98,6 +102,10 @@ fn full_request() -> MessageRequest {
         stop_sequences: Some(vec!["STOP".into()]),
         thinking: Some(ThinkingConfig::new(2048)),
         stream: Some(false),
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     }
 }
 
@@ -207,7 +215,7 @@ fn request_to_claude_simple_text() {
     assert_eq!(claude_req.max_tokens, 4096);
     assert_eq!(claude_req.messages.len(), 1);
     assert_eq!(claude_req.messages[0].role, "user");
-    assert_eq!(claude_req.messages[0].content, "Hello world");
+    assert_eq!(claude_req.messages[0].content.text(), "Hello world");
 }
 
 #[test]
@@ -281,14 +289,18 @@ fn request_to_claude_structured_content_serialized() {
         }],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
     let claude_req = request_to_claude(&req);
     // Multi-block content is JSON-serialized
     let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude_req.messages[0].content).unwrap();
+        claude_req.messages[0].content.blocks();
     assert_eq!(blocks.len(), 2);
 }
 
@@ -296,7 +308,7 @@ fn request_to_claude_structured_content_serialized() {
 fn request_to_claude_single_text_message_is_plain() {
     let req = simple_request("Plain text");
     let claude_req = request_to_claude(&req);
-    assert_eq!(claude_req.messages[0].content, "Plain text");
+    assert_eq!(claude_req.messages[0].content.text(), "Plain text");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -536,7 +548,7 @@ fn tool_use_message_conversion() {
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "user");
     // ToolResult is structured so serialized as JSON
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msg.content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = claude_msg.content.blocks();
     assert_eq!(blocks.len(), 1);
 }
 
@@ -832,7 +844,7 @@ fn mixed_content_message_to_ir() {
     };
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "user");
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msg.content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = claude_msg.content.blocks();
     assert_eq!(blocks.len(), 2);
 }
 
@@ -1098,7 +1110,11 @@ async fn empty_messages_returns_invalid_request() {
         messages: vec![],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -1115,7 +1131,11 @@ async fn empty_messages_stream_returns_invalid_request() {
         messages: vec![],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -1399,7 +1419,7 @@ fn message_to_ir_empty_content() {
     };
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "user");
-    assert!(claude_msg.content.is_empty());
+    assert!(claude_msg.content.text().is_empty());
 }
 
 #[test]
@@ -1441,7 +1461,11 @@ fn request_to_work_order_extracts_task_from_last_message() {
         ],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -1464,7 +1488,11 @@ fn request_to_work_order_fallback_task() {
         }],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -1957,7 +1985,11 @@ async fn full_roundtrip_multi_turn() {
         ],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -2017,7 +2049,11 @@ fn many_messages_conversion() {
         messages,
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };

@@ -688,7 +688,7 @@ fn claude_user_text_roundtrip() {
     let conv = claude_ir::to_ir(&msgs, None);
     assert_eq!(conv.messages[0].role, IrRole::User);
     let back = claude_ir::from_ir(&conv);
-    assert_eq!(back[0].content, "Hello");
+    assert_eq!(back[0].content.text(), "Hello");
 }
 
 #[test]
@@ -712,11 +712,11 @@ fn claude_tool_use_roundtrip() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_ir::to_ir(&msgs, None);
     let back = claude_ir::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolUse { id, name, .. } => {
             assert_eq!(id, "tu_1");
@@ -735,7 +735,7 @@ fn claude_tool_result_roundtrip() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_ir::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
@@ -760,7 +760,7 @@ fn claude_tool_result_error_flag() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_ir::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
@@ -777,7 +777,7 @@ fn claude_thinking_roundtrip() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_ir::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
@@ -796,7 +796,7 @@ fn claude_image_base64_roundtrip() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_ir::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
@@ -1925,7 +1925,7 @@ fn cross_dialect_image_same_ir() {
     }];
     let claude_msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&claude_blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&claude_blocks).unwrap()),
     }];
 
     // Gemini
@@ -1979,7 +1979,7 @@ fn cross_dialect_openai_to_claude_via_ir() {
     let claude_msgs = claude_ir::from_ir(&ir);
     assert_eq!(claude_msgs.len(), 2);
     assert_eq!(claude_msgs[0].role, "user");
-    assert_eq!(claude_msgs[0].content, "Hello");
+    assert_eq!(claude_msgs[0].content.text(), "Hello");
 
     // System prompt extracted separately
     let sys = claude_ir::extract_system_prompt(&ir);

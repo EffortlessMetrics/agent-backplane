@@ -409,8 +409,8 @@ fn roundtrip_claude_text() {
     let conv = claude_low::to_ir(&orig, None);
     let back = claude_low::from_ir(&conv);
     assert_eq!(back.len(), 2);
-    assert_eq!(back[0].content, "hi");
-    assert_eq!(back[1].content, "hello");
+    assert_eq!(back[0].content.text(), "hi");
+    assert_eq!(back[1].content.text(), "hello");
 }
 
 #[test]
@@ -422,11 +422,11 @@ fn roundtrip_claude_tool_use() {
     }];
     let orig = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_low::to_ir(&orig, None);
     let back = claude_low::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolUse { id, name, .. } => {
             assert_eq!(id, "tu_1");
@@ -887,7 +887,7 @@ fn image_cross_dialect_claude_to_gemini() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_low::to_ir(&msgs, None);
     let gemini = gemini_low::from_ir(&ir);
@@ -908,7 +908,7 @@ fn thinking_block_claude_to_openai_becomes_text() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_low::to_ir(&msgs, None);
     let openai = openai_low::from_ir(&ir);
@@ -1207,7 +1207,7 @@ fn claude_url_image_degrades_to_text() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_low::to_ir(&msgs, None);
     // URL images become text placeholders
@@ -1538,7 +1538,7 @@ fn gemini_inline_data_cross_to_claude_image() {
     let ir = gemini_low::to_ir(&gemini, None);
     let claude = claude_low::from_ir(&ir);
     // Should produce structured content with image block
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&claude[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::Image { source } => match source {
             ClaudeImageSource::Base64 { media_type, data } => {

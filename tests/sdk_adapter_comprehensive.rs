@@ -313,7 +313,7 @@ mod request_construction {
         let req = claude_dialect::map_work_order(&wo, &cfg);
         assert_eq!(req.messages.len(), 1);
         assert_eq!(req.messages[0].role, "user");
-        assert!(req.messages[0].content.contains("Fix bug"));
+        assert!(req.messages[0].content.text().contains("Fix bug"));
     }
 
     #[test]
@@ -1692,7 +1692,7 @@ mod cross_sdk_compatibility {
         }];
         let claude_msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&claude_blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&claude_blocks).unwrap()),
         }];
 
         let ir_openai = abp_openai_sdk::lowering::to_ir(&openai_msgs);
@@ -1737,7 +1737,7 @@ mod cross_sdk_compatibility {
         }];
         let claude_msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&claude_blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&claude_blocks).unwrap()),
         }];
 
         let ir_openai = abp_openai_sdk::lowering::to_ir(&openai_msgs);
@@ -2059,7 +2059,7 @@ mod edge_cases {
     fn claude_map_tool_result_success() {
         let msg = map_tool_result("tu_1", "output data", false);
         assert_eq!(msg.role, "user");
-        let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = msg.content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::ToolResult {
                 tool_use_id,
@@ -2077,7 +2077,7 @@ mod edge_cases {
     #[test]
     fn claude_map_tool_result_error() {
         let msg = map_tool_result("tu_err", "failed", true);
-        let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = msg.content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::ToolResult { is_error, .. } => {
                 assert_eq!(*is_error, Some(true));
@@ -2336,6 +2336,13 @@ mod edge_cases {
                 content: "hi".into(),
             }],
             thinking: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            stream: None,
+            stop_sequences: None,
+            tools: None,
+            tool_choice: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: ClaudeRequest = serde_json::from_str(&json).unwrap();

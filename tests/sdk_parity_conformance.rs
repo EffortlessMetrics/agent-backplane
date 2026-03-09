@@ -267,8 +267,8 @@ mod claude_parity {
             temperature: Some(0.7),
             top_p: None,
             top_k: None,
-            thinking: None,
             tool_choice: None,
+            thinking: None,
         };
         let v = serde_json::to_value(&req).unwrap();
         assert_eq!(v["model"], "claude-sonnet-4-20250514");
@@ -1664,8 +1664,8 @@ mod system_message_parity {
             temperature: None,
             top_p: None,
             top_k: None,
-            thinking: None,
             tool_choice: None,
+            thinking: None,
         };
         let v = serde_json::to_value(&req).unwrap();
         assert_eq!(v["system"], "You are helpful");
