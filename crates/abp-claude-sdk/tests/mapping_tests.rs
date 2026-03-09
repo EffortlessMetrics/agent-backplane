@@ -49,7 +49,7 @@ fn work_order_maps_to_correct_claude_request_fields() {
     assert_eq!(req.max_tokens, 8192);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0].content.contains("Fix the login bug"));
+    assert!(req.messages[0].content.text().contains("Fix the login bug"));
 }
 
 #[test]
@@ -74,8 +74,8 @@ fn context_snippets_are_included_in_user_message() {
     let cfg = ClaudeConfig::default();
     let req = map_work_order(&wo, &cfg);
 
-    assert!(req.messages[0].content.contains("README"));
-    assert!(req.messages[0].content.contains("# My Project"));
+    assert!(req.messages[0].content.text().contains("README"));
+    assert!(req.messages[0].content.text().contains("# My Project"));
 }
 
 #[test]

@@ -7,7 +7,7 @@
 
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
 
-use crate::dialect::{ClaudeContentBlock, ClaudeImageSource, ClaudeMessage};
+use crate::dialect::{ClaudeContentBlock, ClaudeImageSource, ClaudeMessage, ClaudeMessageContent};
 
 /// Convert a slice of [`ClaudeMessage`]s into an [`IrConversation`].
 ///
@@ -77,14 +77,21 @@ fn map_role_from_ir(role: IrRole) -> &'static str {
 fn message_to_ir(msg: &ClaudeMessage) -> IrMessage {
     let role = map_role_to_ir(&msg.role);
 
-    // Try parsing content as a JSON array of ClaudeContentBlock
-    if let Ok(blocks) = serde_json::from_str::<Vec<ClaudeContentBlock>>(&msg.content) {
-        let ir_blocks: Vec<IrContentBlock> = blocks.iter().map(block_to_ir).collect();
-        return IrMessage::new(role, ir_blocks);
+    match &msg.content {
+        ClaudeMessageContent::Text(text) => {
+            // Legacy path: try parsing as a JSON array of ClaudeContentBlock
+            // for backward compatibility with existing serialized data.
+            if let Ok(blocks) = serde_json::from_str::<Vec<ClaudeContentBlock>>(text) {
+                let ir_blocks: Vec<IrContentBlock> = blocks.iter().map(block_to_ir).collect();
+                return IrMessage::new(role, ir_blocks);
+            }
+            IrMessage::text(role, text)
+        }
+        ClaudeMessageContent::Blocks(blocks) => {
+            let ir_blocks: Vec<IrContentBlock> = blocks.iter().map(block_to_ir).collect();
+            IrMessage::new(role, ir_blocks)
+        }
     }
-
-    // Plain text content
-    IrMessage::text(role, &msg.content)
 }
 
 fn block_to_ir(block: &ClaudeContentBlock) -> IrContentBlock {
@@ -141,16 +148,15 @@ fn message_from_ir(msg: &IrMessage) -> ClaudeMessage {
 
     if has_structured {
         let blocks: Vec<ClaudeContentBlock> = msg.content.iter().map(block_from_ir).collect();
-        let content = serde_json::to_string(&blocks).unwrap_or_default();
         ClaudeMessage {
             role: role.to_string(),
-            content,
+            content: ClaudeMessageContent::Blocks(blocks),
         }
     } else {
         // Simple text
         ClaudeMessage {
             role: role.to_string(),
-            content: msg.text_content(),
+            content: ClaudeMessageContent::Text(msg.text_content()),
         }
     }
 }
@@ -216,7 +222,7 @@ mod tests {
         let back = from_ir(&conv);
         assert_eq!(back.len(), 1);
         assert_eq!(back[0].role, "user");
-        assert_eq!(back[0].content, "Hello");
+        assert_eq!(back[0].content.text(), "Hello");
     }
 
     #[test]
@@ -230,7 +236,7 @@ mod tests {
 
         let back = from_ir(&conv);
         assert_eq!(back[0].role, "assistant");
-        assert_eq!(back[0].content, "Sure thing!");
+        assert_eq!(back[0].content.text(), "Sure thing!");
     }
 
     // ── System prompt ───────────────────────────────────────────────────
@@ -279,7 +285,7 @@ mod tests {
         }];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: ClaudeMessageContent::Blocks(blocks),
         }];
         let conv = to_ir(&msgs, None);
         match &conv.messages[0].content[0] {
@@ -301,12 +307,12 @@ mod tests {
         }];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: ClaudeMessageContent::Blocks(blocks),
         }];
         let conv = to_ir(&msgs, None);
         let back = from_ir(&conv);
-        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
-        match &parsed[0] {
+        let back_blocks = back[0].content.blocks();
+        match &back_blocks[0] {
             ClaudeContentBlock::ToolUse { id, name, .. } => {
                 assert_eq!(id, "tu_42");
                 assert_eq!(name, "grep");
@@ -326,7 +332,7 @@ mod tests {
         }];
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: ClaudeMessageContent::Blocks(blocks),
         }];
         let conv = to_ir(&msgs, None);
         match &conv.messages[0].content[0] {
@@ -352,7 +358,7 @@ mod tests {
         }];
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: ClaudeMessageContent::Blocks(blocks),
         }];
         let conv = to_ir(&msgs, None);
         match &conv.messages[0].content[0] {
@@ -361,8 +367,8 @@ mod tests {
         }
 
         let back = from_ir(&conv);
-        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
-        match &parsed[0] {
+        let back_blocks = back[0].content.blocks();
+        match &back_blocks[0] {
             ClaudeContentBlock::ToolResult { is_error, .. } => {
                 assert_eq!(*is_error, Some(true));
             }
@@ -385,7 +391,7 @@ mod tests {
         ];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: ClaudeMessageContent::Blocks(blocks),
         }];
         let conv = to_ir(&msgs, None);
         assert_eq!(conv.messages[0].content.len(), 2);
@@ -403,12 +409,12 @@ mod tests {
         }];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: ClaudeMessageContent::Blocks(blocks),
         }];
         let conv = to_ir(&msgs, None);
         let back = from_ir(&conv);
-        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
-        match &parsed[0] {
+        let back_blocks = back[0].content.blocks();
+        match &back_blocks[0] {
             ClaudeContentBlock::Thinking { thinking, .. } => assert_eq!(thinking, "hmm"),
             other => panic!("expected Thinking, got {other:?}"),
         }
@@ -459,11 +465,11 @@ mod tests {
             },
             ClaudeMessage {
                 role: "assistant".into(),
-                content: serde_json::to_string(&tool_use).unwrap(),
+                content: ClaudeMessageContent::Blocks(tool_use),
             },
             ClaudeMessage {
                 role: "user".into(),
-                content: serde_json::to_string(&tool_result).unwrap(),
+                content: ClaudeMessageContent::Blocks(tool_result),
             },
             ClaudeMessage {
                 role: "assistant".into(),
@@ -507,7 +513,7 @@ mod tests {
     fn empty_content_string() {
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: String::new(),
+            content: ClaudeMessageContent::Text(String::new()),
         }];
         let conv = to_ir(&msgs, None);
         assert_eq!(conv.messages[0].text_content(), "");
@@ -523,7 +529,7 @@ mod tests {
         }];
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: ClaudeMessageContent::Blocks(blocks),
         }];
         let conv = to_ir(&msgs, None);
         match &conv.messages[0].content[0] {
@@ -549,7 +555,7 @@ mod tests {
         ];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: ClaudeMessageContent::Blocks(blocks),
         }];
         let conv = to_ir(&msgs, None);
         assert_eq!(conv.messages[0].content.len(), 2);
@@ -564,7 +570,7 @@ mod tests {
         }];
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: ClaudeMessageContent::Blocks(blocks),
         }];
         let conv = to_ir(&msgs, None);
         match &conv.messages[0].content[0] {

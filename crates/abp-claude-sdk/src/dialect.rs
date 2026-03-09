@@ -80,7 +80,13 @@ pub fn capability_manifest() -> CapabilityManifest {
     m.insert(Capability::HooksPostToolUse, SupportLevel::Native);
     m.insert(Capability::McpClient, SupportLevel::Native);
     m.insert(Capability::McpServer, SupportLevel::Unsupported);
-    m.insert(Capability::Checkpointing, SupportLevel::Emulated);
+    m.insert(Capability::SessionResume, SupportLevel::Native);
+    m.insert(Capability::Checkpointing, SupportLevel::Native);
+    m.insert(Capability::ToolAskUser, SupportLevel::Native);
+    m.insert(Capability::Interrupt, SupportLevel::Native);
+    m.insert(Capability::PermissionCallback, SupportLevel::Native);
+    m.insert(Capability::Subagents, SupportLevel::Native);
+    m.insert(Capability::CustomTools, SupportLevel::Native);
     m.insert(Capability::FunctionCalling, SupportLevel::Native);
     m.insert(Capability::SystemMessage, SupportLevel::Native);
     m.insert(Capability::ExtendedThinking, SupportLevel::Native);
@@ -207,6 +213,97 @@ pub struct ClaudeRequest {
     /// Extended thinking configuration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thinking: Option<ThinkingConfig>,
+    /// Sampling temperature (0.0–1.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
+    /// Nucleus-sampling probability mass.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f64>,
+    /// Top-K sampling parameter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_k: Option<u32>,
+    /// Whether to stream the response via SSE.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stream: Option<bool>,
+    /// Custom stop sequences.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_sequences: Option<Vec<String>>,
+    /// Tool definitions available to the model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<ClaudeToolDef>>,
+    /// How the model should choose which tool to use.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_choice: Option<ClaudeToolChoice>,
+}
+
+/// Message content — the Claude API accepts either a bare string or an array
+/// of typed content blocks.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(untagged)]
+pub enum ClaudeMessageContent {
+    /// Array of structured content blocks.
+    Blocks(Vec<ClaudeContentBlock>),
+    /// Simple text string.
+    Text(String),
+}
+
+impl ClaudeMessageContent {
+    /// Return the text content as a plain string.
+    ///
+    /// For `Text`, returns the string directly. For `Blocks`, concatenates the
+    /// text from all `Text` blocks.
+    #[must_use]
+    pub fn text(&self) -> String {
+        match self {
+            Self::Text(s) => s.clone(),
+            Self::Blocks(blocks) => blocks
+                .iter()
+                .filter_map(|b| match b {
+                    ClaudeContentBlock::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join(""),
+        }
+    }
+
+    /// Return `true` if this contains structured (non-text) blocks.
+    #[must_use]
+    pub fn has_structured_blocks(&self) -> bool {
+        match self {
+            Self::Text(_) => false,
+            Self::Blocks(blocks) => blocks
+                .iter()
+                .any(|b| !matches!(b, ClaudeContentBlock::Text { .. })),
+        }
+    }
+
+    /// Return the content blocks, wrapping a plain string as a single `Text` block.
+    #[must_use]
+    pub fn blocks(&self) -> Vec<ClaudeContentBlock> {
+        match self {
+            Self::Text(s) => vec![ClaudeContentBlock::Text { text: s.clone() }],
+            Self::Blocks(blocks) => blocks.clone(),
+        }
+    }
+}
+
+impl From<String> for ClaudeMessageContent {
+    fn from(s: String) -> Self {
+        Self::Text(s)
+    }
+}
+
+impl From<&str> for ClaudeMessageContent {
+    fn from(s: &str) -> Self {
+        Self::Text(s.to_string())
+    }
+}
+
+impl From<Vec<ClaudeContentBlock>> for ClaudeMessageContent {
+    fn from(blocks: Vec<ClaudeContentBlock>) -> Self {
+        Self::Blocks(blocks)
+    }
 }
 
 /// A single message in the Claude conversation format.
@@ -214,8 +311,8 @@ pub struct ClaudeRequest {
 pub struct ClaudeMessage {
     /// Message role (`user` or `assistant`).
     pub role: String,
-    /// Text content of the message.
-    pub content: String,
+    /// Message content — either a plain string or an array of content blocks.
+    pub content: ClaudeMessageContent,
 }
 
 /// Simplified representation of an Anthropic Messages API response.
@@ -529,9 +626,16 @@ pub fn map_work_order(wo: &WorkOrder, config: &ClaudeConfig) -> ClaudeRequest {
         system,
         messages: vec![ClaudeMessage {
             role: "user".into(),
-            content: user_content,
+            content: ClaudeMessageContent::Text(user_content),
         }],
         thinking: config.thinking.clone(),
+        temperature: None,
+        top_p: None,
+        top_k: None,
+        stream: None,
+        stop_sequences: None,
+        tools: None,
+        tool_choice: None,
     }
 }
 
@@ -689,11 +793,108 @@ pub fn map_tool_result(tool_use_id: &str, output: &str, is_error: bool) -> Claud
         content: Some(output.to_string()),
         is_error: if is_error { Some(true) } else { None },
     };
-    let content = serde_json::to_string(&vec![block]).unwrap_or_default();
     ClaudeMessage {
         role: "user".into(),
-        content,
+        content: ClaudeMessageContent::Blocks(vec![block]),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Claude Agent SDK vendor config helpers
+// ---------------------------------------------------------------------------
+
+/// Typed helper for extracting Claude Agent SDK configuration from vendor config.
+///
+/// These are ergonomic helpers, NOT contract types. They parse from the
+/// `config.vendor.claude` namespace of a work order.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
+pub struct ClaudeVendorConfig {
+    /// SDK surface: `"python_v1"`, `"ts_v1"`, or `"ts_v2_preview"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sdk_surface: Option<String>,
+    /// Transport mode: `"query"`, `"client"`, `"prompt"`, or `"session"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transport: Option<String>,
+    /// Session ID for resume or fork operations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    /// Whether to use V2 preview APIs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub v2_preview: Option<bool>,
+    /// Arbitrary vendor-specific options.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub options: Option<serde_json::Value>,
+}
+
+/// Session metadata stored in receipt `usage_raw` for interop.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
+pub struct SessionMetadata {
+    /// Session identifier, if a session was created/resumed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    /// Transport mode used for this run.
+    pub transport: String,
+    /// SDK surface identifier.
+    pub sdk_surface: String,
+    /// Number of turns completed in this session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub num_turns: Option<u32>,
+    /// Session ID this run was resumed from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resumed_from: Option<String>,
+    /// Checkpoint identifier, if checkpointing was active.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkpoint_id: Option<String>,
+}
+
+/// Parse Claude vendor config from a work order's vendor map.
+///
+/// Reads from `config.vendor.claude` and `config.vendor["claude.*"]` keys.
+#[must_use]
+pub fn parse_claude_vendor_config(
+    vendor: &BTreeMap<String, serde_json::Value>,
+) -> ClaudeVendorConfig {
+    // Try nested "claude" key first
+    if let Some(claude_val) = vendor.get("claude") {
+        if let Ok(cfg) = serde_json::from_value::<ClaudeVendorConfig>(claude_val.clone()) {
+            return cfg;
+        }
+    }
+
+    // Fall back to dotted keys
+    ClaudeVendorConfig {
+        sdk_surface: vendor
+            .get("claude.sdk_surface")
+            .and_then(|v| v.as_str().map(String::from)),
+        transport: vendor
+            .get("claude.transport")
+            .and_then(|v| v.as_str().map(String::from)),
+        session_id: vendor
+            .get("claude.session_id")
+            .or_else(|| vendor.get("claude.sessionId"))
+            .and_then(|v| v.as_str().map(String::from)),
+        v2_preview: vendor.get("claude.v2_preview").and_then(|v| v.as_bool()),
+        options: vendor.get("claude.options").cloned(),
+    }
+}
+
+/// Inject session metadata into a receipt's `usage_raw` value.
+pub fn inject_session_metadata(usage_raw: &mut serde_json::Value, meta: &SessionMetadata) {
+    if let Ok(meta_val) = serde_json::to_value(meta) {
+        if let serde_json::Value::Object(map) = usage_raw {
+            if let serde_json::Value::Object(meta_map) = meta_val {
+                for (k, v) in meta_map {
+                    map.insert(k, v);
+                }
+            }
+        }
+    }
+}
+
+/// Extract session metadata from a receipt's `usage_raw` value.
+#[must_use]
+pub fn extract_session_metadata(usage_raw: &serde_json::Value) -> Option<SessionMetadata> {
+    serde_json::from_value::<SessionMetadata>(usage_raw.clone()).ok()
 }
 
 // ---------------------------------------------------------------------------
@@ -769,7 +970,12 @@ mod tests {
 
         assert_eq!(req.messages.len(), 1);
         assert_eq!(req.messages[0].role, "user");
-        assert!(req.messages[0].content.contains("Refactor auth module"));
+        assert!(
+            req.messages[0]
+                .content
+                .text()
+                .contains("Refactor auth module")
+        );
     }
 
     #[test]
