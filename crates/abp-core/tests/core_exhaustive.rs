@@ -324,7 +324,7 @@ fn outcome_equality() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Capability — all 26 variants
+// Capability — all 30 variants
 // ═══════════════════════════════════════════════════════════════════════
 
 fn all_capabilities() -> Vec<Capability> {
@@ -355,12 +355,16 @@ fn all_capabilities() -> Vec<Capability> {
         Capability::Logprobs,
         Capability::SeedDeterminism,
         Capability::StopSequences,
+        Capability::Interrupt,
+        Capability::PermissionCallback,
+        Capability::Subagents,
+        Capability::CustomTools,
     ]
 }
 
 #[test]
-fn capability_count_is_26() {
-    assert_eq!(all_capabilities().len(), 26);
+fn capability_count_is_30() {
+    assert_eq!(all_capabilities().len(), 30);
 }
 
 #[test]

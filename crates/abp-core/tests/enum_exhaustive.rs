@@ -372,6 +372,10 @@ fn all_capabilities() -> Vec<Capability> {
         Capability::Logprobs,
         Capability::SeedDeterminism,
         Capability::StopSequences,
+        Capability::Interrupt,
+        Capability::PermissionCallback,
+        Capability::Subagents,
+        Capability::CustomTools,
     ]
 }
 
@@ -408,7 +412,7 @@ fn capability_clone_eq() {
 fn capability_count() {
     assert_eq!(
         all_capabilities().len(),
-        26,
+        30,
         "Capability variant count changed"
     );
 }
@@ -449,6 +453,30 @@ fn all_agent_event_kinds() -> Vec<AgentEventKind> {
             command: "cargo build".into(),
             exit_code: Some(0),
             output_preview: Some("Compiling...".into()),
+        },
+        AgentEventKind::SessionStarted {
+            session_id: "sess-1".into(),
+        },
+        AgentEventKind::SessionResumed {
+            session_id: "sess-2".into(),
+            resumed_from: "sess-1".into(),
+        },
+        AgentEventKind::PermissionRequested {
+            tool_name: "bash".into(),
+            input: serde_json::json!({"command": "rm -rf /"}),
+        },
+        AgentEventKind::PermissionResolved {
+            tool_name: "bash".into(),
+            granted: false,
+            reason: Some("dangerous command".into()),
+        },
+        AgentEventKind::SubagentSpawned {
+            agent_id: "agent-1".into(),
+            task: "refactor module".into(),
+        },
+        AgentEventKind::SubagentCompleted {
+            agent_id: "agent-1".into(),
+            success: true,
         },
         AgentEventKind::Warning {
             message: "caution".into(),
@@ -494,7 +522,7 @@ fn agent_event_kind_clone_eq() {
 fn agent_event_kind_count() {
     assert_eq!(
         all_agent_event_kinds().len(),
-        10,
+        16,
         "AgentEventKind variant count changed"
     );
 }

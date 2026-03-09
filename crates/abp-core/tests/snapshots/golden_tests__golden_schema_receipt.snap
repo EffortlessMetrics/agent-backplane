@@ -206,6 +206,145 @@ expression: value
           "type": "object"
         },
         {
+          "description": "An agent session has been started.",
+          "properties": {
+            "session_id": {
+              "description": "Unique identifier for the session.",
+              "type": "string"
+            },
+            "type": {
+              "const": "session_started",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "session_id"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "An agent session has been resumed from a previous state.",
+          "properties": {
+            "resumed_from": {
+              "description": "Identifier of the session or checkpoint being resumed from.",
+              "type": "string"
+            },
+            "session_id": {
+              "description": "Unique identifier for the resumed session.",
+              "type": "string"
+            },
+            "type": {
+              "const": "session_resumed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "session_id",
+            "resumed_from"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A tool permission request was made by the agent.",
+          "properties": {
+            "input": {
+              "description": "The input that would be passed to the tool."
+            },
+            "tool_name": {
+              "description": "Name of the tool requesting permission.",
+              "type": "string"
+            },
+            "type": {
+              "const": "permission_requested",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "tool_name",
+            "input"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A tool permission request was resolved.",
+          "properties": {
+            "granted": {
+              "description": "Whether the permission was granted.",
+              "type": "boolean"
+            },
+            "reason": {
+              "description": "Optional reason for the decision.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tool_name": {
+              "description": "Name of the tool whose permission was resolved.",
+              "type": "string"
+            },
+            "type": {
+              "const": "permission_resolved",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "tool_name",
+            "granted"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A sub-agent was spawned by the primary agent.",
+          "properties": {
+            "agent_id": {
+              "description": "Unique identifier for the sub-agent.",
+              "type": "string"
+            },
+            "task": {
+              "description": "Description of the task assigned to the sub-agent.",
+              "type": "string"
+            },
+            "type": {
+              "const": "subagent_spawned",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "agent_id",
+            "task"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A sub-agent has completed its work.",
+          "properties": {
+            "agent_id": {
+              "description": "Unique identifier of the completed sub-agent.",
+              "type": "string"
+            },
+            "success": {
+              "description": "Whether the sub-agent completed successfully.",
+              "type": "boolean"
+            },
+            "type": {
+              "const": "subagent_completed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "agent_id",
+            "success"
+          ],
+          "type": "object"
+        },
+        {
           "description": "A non-fatal warning emitted during the run.",
           "properties": {
             "message": {

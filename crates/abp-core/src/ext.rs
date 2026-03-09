@@ -212,6 +212,12 @@ fn event_kind_name(kind: &AgentEventKind) -> String {
         AgentEventKind::ToolResult { .. } => "tool_result".into(),
         AgentEventKind::FileChanged { .. } => "file_changed".into(),
         AgentEventKind::CommandExecuted { .. } => "command_executed".into(),
+        AgentEventKind::SessionStarted { .. } => "session_started".into(),
+        AgentEventKind::SessionResumed { .. } => "session_resumed".into(),
+        AgentEventKind::PermissionRequested { .. } => "permission_requested".into(),
+        AgentEventKind::PermissionResolved { .. } => "permission_resolved".into(),
+        AgentEventKind::SubagentSpawned { .. } => "subagent_spawned".into(),
+        AgentEventKind::SubagentCompleted { .. } => "subagent_completed".into(),
         AgentEventKind::Warning { .. } => "warning".into(),
         AgentEventKind::Error { .. } => "error".into(),
     }
