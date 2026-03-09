@@ -82,7 +82,7 @@ expression: schema
       "type": "object",
       "properties": {
         "ext": {
-          "description": "Extension field for passthrough mode raw data.\n\nIn passthrough mode, this contains the original SDK message\nfor lossless reconstruction. The key `raw_message` contains\nthe verbatim SDK message.",
+          "description": "Optional extension metadata. Sidecar-specific, not part of the\ncore contract.\n\nIn passthrough mode, this contains the original SDK message\nfor lossless reconstruction. The key `raw_message` contains\nthe verbatim SDK message.\n\nWell-known keys emitted by Claude Agent SDK surfaces:\n- `hook`: Hook phase (`\"pre_tool_use\"`, `\"post_tool_use\"`, `\"post_tool_use_failure\"`)\n- `decision`: Hook decision (`\"allow\"`, `\"deny\"`) when `hook = \"pre_tool_use\"`\n- `partial`: `true` for streaming partial messages\n- `notification`: `true` when a warning originates from an SDK notification\n- `level`: Severity level (`\"info\"`, `\"warn\"`, `\"error\"`) for notification warnings\n- `checkpoint_id`: Checkpoint identifier for checkpoint events\n- `checkpoint`: `true` when no specific checkpoint_id is available",
           "type": [
             "object",
             "null"
