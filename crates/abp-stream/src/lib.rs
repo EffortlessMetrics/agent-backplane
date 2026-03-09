@@ -704,6 +704,12 @@ pub fn event_kind_name(kind: &AgentEventKind) -> String {
         AgentEventKind::ToolResult { .. } => "tool_result".to_string(),
         AgentEventKind::FileChanged { .. } => "file_changed".to_string(),
         AgentEventKind::CommandExecuted { .. } => "command_executed".to_string(),
+        AgentEventKind::SessionStarted { .. } => "session_started".to_string(),
+        AgentEventKind::SessionResumed { .. } => "session_resumed".to_string(),
+        AgentEventKind::PermissionRequested { .. } => "permission_requested".to_string(),
+        AgentEventKind::PermissionResolved { .. } => "permission_resolved".to_string(),
+        AgentEventKind::SubagentSpawned { .. } => "subagent_spawned".to_string(),
+        AgentEventKind::SubagentCompleted { .. } => "subagent_completed".to_string(),
         AgentEventKind::Warning { .. } => "warning".to_string(),
         AgentEventKind::Error { .. } => "error".to_string(),
     }

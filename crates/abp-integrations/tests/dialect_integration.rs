@@ -79,6 +79,7 @@ mod claude {
         assert!(
             req.messages[0]
                 .content
+                .text()
                 .contains("Refactor the authentication module")
         );
 
@@ -119,8 +120,13 @@ mod claude {
         let cfg = ClaudeConfig::default();
         let req = map_work_order(&wo, &cfg);
 
-        assert!(req.messages[0].content.contains("error log"));
-        assert!(req.messages[0].content.contains("panic at auth.rs:42"));
+        assert!(req.messages[0].content.text().contains("error log"));
+        assert!(
+            req.messages[0]
+                .content
+                .text()
+                .contains("panic at auth.rs:42")
+        );
     }
 }
 
