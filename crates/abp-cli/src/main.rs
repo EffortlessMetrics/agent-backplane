@@ -863,6 +863,29 @@ fn print_event(ev: &abp_core::AgentEvent) {
             eprintln!("[bash] {:?} => {:?}", command, exit_code);
         }
 
+        SessionStarted { session_id } => eprintln!("[session] started {session_id}"),
+        SessionResumed {
+            session_id,
+            resumed_from,
+        } => eprintln!("[session] resumed {session_id} from {resumed_from}"),
+        PermissionRequested { tool_name, .. } => {
+            eprintln!("[perm] requested for {tool_name}")
+        }
+        PermissionResolved {
+            tool_name, granted, ..
+        } => {
+            let decision = if *granted { "granted" } else { "denied" };
+            eprintln!("[perm] {tool_name} {decision}");
+        }
+        SubagentSpawned { agent_id, task } => {
+            eprintln!("[subagent] spawn {agent_id}: {task}")
+        }
+        SubagentCompleted {
+            agent_id, success, ..
+        } => {
+            let status = if *success { "ok" } else { "failed" };
+            eprintln!("[subagent] {agent_id} {status}");
+        }
         Warning { message } => eprintln!("[warn] {message}"),
         Error { message, .. } => eprintln!("[error] {message}"),
     }

@@ -75,6 +75,10 @@ fn shim_request(text: &str) -> MessageRequest {
         stop_sequences: None,
         thinking: None,
         stream: None,
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     }
 }
 
@@ -150,6 +154,10 @@ async fn create_all_parameters_accepted() {
         stop_sequences: Some(vec!["HALT".into()]),
         thinking: Some(ThinkingConfig::new(1024)),
         stream: Some(false),
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
     let resp = client.create(req).await.unwrap();
     assert!(!resp.content.is_empty());
@@ -241,6 +249,10 @@ fn create_request_serde_preserves_all_fields() {
         stop_sequences: Some(vec!["X".into()]),
         thinking: Some(ThinkingConfig::new(512)),
         stream: Some(true),
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let back: MessageRequest = serde_json::from_str(&json).unwrap();

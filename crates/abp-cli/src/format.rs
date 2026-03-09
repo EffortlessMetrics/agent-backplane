@@ -148,6 +148,12 @@ fn event_kind_tag(kind: &AgentEventKind) -> &'static str {
         AgentEventKind::ToolResult { .. } => "tool_result",
         AgentEventKind::FileChanged { .. } => "file_changed",
         AgentEventKind::CommandExecuted { .. } => "command_executed",
+        AgentEventKind::SessionStarted { .. } => "session_started",
+        AgentEventKind::SessionResumed { .. } => "session_resumed",
+        AgentEventKind::PermissionRequested { .. } => "permission_requested",
+        AgentEventKind::PermissionResolved { .. } => "permission_resolved",
+        AgentEventKind::SubagentSpawned { .. } => "subagent_spawned",
+        AgentEventKind::SubagentCompleted { .. } => "subagent_completed",
         AgentEventKind::Warning { .. } => "warning",
         AgentEventKind::Error { .. } => "error",
     }
@@ -178,6 +184,26 @@ fn event_brief(kind: &AgentEventKind) -> String {
             Some(code) => format!("{} => {code}", truncate(command, 40)),
             None => truncate(command, 40),
         },
+        AgentEventKind::SessionStarted { session_id } => format!("session {session_id}"),
+        AgentEventKind::SessionResumed { session_id, .. } => format!("resume {session_id}"),
+        AgentEventKind::PermissionRequested { tool_name, .. } => {
+            format!("permission? {tool_name}")
+        }
+        AgentEventKind::PermissionResolved {
+            tool_name, granted, ..
+        } => {
+            let decision = if *granted { "granted" } else { "denied" };
+            format!("{tool_name} {decision}")
+        }
+        AgentEventKind::SubagentSpawned { agent_id, task } => {
+            format!("spawn {agent_id}: {}", truncate(task, 40))
+        }
+        AgentEventKind::SubagentCompleted {
+            agent_id, success, ..
+        } => {
+            let status = if *success { "ok" } else { "failed" };
+            format!("{agent_id} ({status})")
+        }
         AgentEventKind::Warning { message } => truncate(message, 60),
         AgentEventKind::Error { message, .. } => truncate(message, 60),
     }
