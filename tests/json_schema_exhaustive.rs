@@ -813,6 +813,10 @@ fn capability_enum_has_all_variants() {
         "batch_mode",
         "embeddings",
         "image_generation",
+        "interrupt",
+        "permission_callback",
+        "subagents",
+        "custom_tools",
     ];
     for v in &expected {
         assert!(
@@ -872,7 +876,7 @@ fn composed_result_uses_one_of() {
 fn agent_event_kind_one_of_count() {
     let s = schema_value::<AgentEventKind>();
     let variants = s["oneOf"].as_array().expect("should have oneOf");
-    assert_eq!(variants.len(), 10, "AgentEventKind should have 10 variants");
+    assert_eq!(variants.len(), 16, "AgentEventKind should have 16 variants");
 }
 
 #[test]
