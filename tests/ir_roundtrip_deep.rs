@@ -1925,7 +1925,9 @@ fn cross_dialect_image_same_ir() {
     }];
     let claude_msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&claude_blocks).unwrap()),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+            serde_json::to_string(&claude_blocks).unwrap(),
+        ),
     }];
 
     // Gemini

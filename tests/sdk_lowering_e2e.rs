@@ -1365,8 +1365,7 @@ mod cross_sdk_roundtrip {
         };
         let ir = openai::to_ir(&[msg]);
         let claude_msgs = claude::from_ir(&ir);
-        let blocks: Vec<ClaudeContentBlock> =
-            claude_msgs[0].content.blocks();
+        let blocks: Vec<ClaudeContentBlock> = claude_msgs[0].content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::ToolUse { id, name, .. } => {
                 assert_eq!(id, "c1");
@@ -1456,8 +1455,7 @@ mod cross_sdk_roundtrip {
             }],
         }]);
         let claude_msgs = claude::from_ir(&ir);
-        let blocks: Vec<ClaudeContentBlock> =
-            claude_msgs[0].content.blocks();
+        let blocks: Vec<ClaudeContentBlock> = claude_msgs[0].content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::Thinking { thinking, .. } => {
                 assert_eq!(thinking, "reasoning...");
@@ -1498,8 +1496,7 @@ mod cross_sdk_roundtrip {
         };
         let ir = kimi::to_ir(&[msg]);
         let claude_msgs = claude::from_ir(&ir);
-        let blocks: Vec<ClaudeContentBlock> =
-            claude_msgs[0].content.blocks();
+        let blocks: Vec<ClaudeContentBlock> = claude_msgs[0].content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::ToolUse { id, name, .. } => {
                 assert_eq!(id, "c1");

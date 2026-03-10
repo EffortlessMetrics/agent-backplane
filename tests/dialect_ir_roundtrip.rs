@@ -161,11 +161,15 @@ fn claude_full_conversation() -> (Option<&'static str>, Vec<ClaudeMessage>) {
         claude_msg("user", "Show me lib.rs"),
         ClaudeMessage {
             role: "assistant".into(),
-            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&thinking_and_tool).unwrap()),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                serde_json::to_string(&thinking_and_tool).unwrap(),
+            ),
         },
         ClaudeMessage {
             role: "user".into(),
-            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&tool_result).unwrap()),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                serde_json::to_string(&tool_result).unwrap(),
+            ),
         },
         claude_msg("assistant", "The file defines a hello function."),
     ];
@@ -235,15 +239,19 @@ fn openai_to_ir_to_claude_full_conversation() {
     );
 
     // Tool result becomes a user message with ToolResult blocks
-    let result_blocks: Vec<ClaudeContentBlock> =
-        claude_msgs[2].content.blocks();
+    let result_blocks: Vec<ClaudeContentBlock> = claude_msgs[2].content.blocks();
     assert!(
         matches!(&result_blocks[0], ClaudeContentBlock::ToolResult { tool_use_id, .. } if tool_use_id == "call_abc")
     );
 
     // Final text
     assert_eq!(claude_msgs[3].role, "assistant");
-    assert!(claude_msgs[3].content.text().contains("hello world program"));
+    assert!(
+        claude_msgs[3]
+            .content
+            .text()
+            .contains("hello world program")
+    );
 }
 
 #[test]
@@ -546,7 +554,8 @@ fn codex_response_to_ir_to_claude() {
 
     // FunctionCall → assistant with ToolUse
     let fc_msg = claude_msgs.iter().find(|m| {
-        m.content.blocks()
+        m.content
+            .blocks()
             .iter()
             .any(|b| matches!(b, ClaudeContentBlock::ToolUse { name, .. } if name == "write_file"))
     });
@@ -934,8 +943,7 @@ fn tool_call_claude_to_kimi_and_back() {
     // Kimi → IR → Claude
     let ir2 = kimi_ir::to_ir(&kimi_msgs);
     let claude_back = claude_ir::from_ir(&ir2);
-    let back_blocks: Vec<ClaudeContentBlock> =
-        claude_back.last().unwrap().content.blocks();
+    let back_blocks: Vec<ClaudeContentBlock> = claude_back.last().unwrap().content.blocks();
     assert!(
         back_blocks
             .iter()

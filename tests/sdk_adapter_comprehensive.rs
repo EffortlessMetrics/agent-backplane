@@ -1692,7 +1692,9 @@ mod cross_sdk_compatibility {
         }];
         let claude_msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&claude_blocks).unwrap()),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                serde_json::to_string(&claude_blocks).unwrap(),
+            ),
         }];
 
         let ir_openai = abp_openai_sdk::lowering::to_ir(&openai_msgs);
@@ -1737,7 +1739,9 @@ mod cross_sdk_compatibility {
         }];
         let claude_msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&claude_blocks).unwrap()),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                serde_json::to_string(&claude_blocks).unwrap(),
+            ),
         }];
 
         let ir_openai = abp_openai_sdk::lowering::to_ir(&openai_msgs);

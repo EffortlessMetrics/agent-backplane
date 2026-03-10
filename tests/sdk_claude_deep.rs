@@ -138,7 +138,12 @@ fn request_from_work_order_basic() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0].content.text().contains("Summarize this code"));
+    assert!(
+        req.messages[0]
+            .content
+            .text()
+            .contains("Summarize this code")
+    );
     assert_eq!(req.model, cfg.model);
     assert_eq!(req.max_tokens, cfg.max_tokens);
 }

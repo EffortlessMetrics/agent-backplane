@@ -332,11 +332,15 @@ mod claude_roundtrip {
             claude_msg("user", "Show me lib.rs"),
             ClaudeMessage {
                 role: "assistant".into(),
-                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&tool_blocks).unwrap()),
+                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                    serde_json::to_string(&tool_blocks).unwrap(),
+                ),
             },
             ClaudeMessage {
                 role: "user".into(),
-                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&result_blocks).unwrap()),
+                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                    serde_json::to_string(&result_blocks).unwrap(),
+                ),
             },
             claude_msg("assistant", "It defines a hello function."),
         ];
@@ -455,7 +459,9 @@ mod claude_roundtrip {
         }];
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&result_blocks).unwrap()),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                serde_json::to_string(&result_blocks).unwrap(),
+            ),
         }];
 
         let ir = claude_ir::to_ir(&msgs, None);

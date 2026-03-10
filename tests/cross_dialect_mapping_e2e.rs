@@ -205,7 +205,10 @@ mod openai_to_claude {
         let tool_msg = &claude_msgs[claude_msgs.len() - 1];
         assert!(
             tool_msg.content.blocks().iter().any(|b| {
-                matches!(b, abp_claude_sdk::dialect::ClaudeContentBlock::ToolResult { .. })
+                matches!(
+                    b,
+                    abp_claude_sdk::dialect::ClaudeContentBlock::ToolResult { .. }
+                )
             }) || tool_msg.content.text().contains("contents of a.rs")
         );
     }
@@ -1319,8 +1322,7 @@ mod content_blocks {
         )]);
 
         let claude = abp_claude_sdk::lowering::from_ir(&ir);
-        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> =
-            claude[0].content.blocks();
+        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> = claude[0].content.blocks();
         match &parsed[0] {
             abp_claude_sdk::dialect::ClaudeContentBlock::Image { source } => match source {
                 abp_claude_sdk::dialect::ClaudeImageSource::Base64 { media_type, data } => {
@@ -1437,8 +1439,7 @@ mod content_blocks {
         )]);
 
         let claude = abp_claude_sdk::lowering::from_ir(&ir);
-        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> =
-            claude[0].content.blocks();
+        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> = claude[0].content.blocks();
         assert_eq!(parsed.len(), 2);
         match &parsed[0] {
             abp_claude_sdk::dialect::ClaudeContentBlock::Thinking { thinking, .. } => {
@@ -1777,8 +1778,7 @@ mod roundtrip_fidelity {
         let ir2 = abp_gemini_sdk::lowering::to_ir(&gemini, None);
         let back = abp_claude_sdk::lowering::from_ir(&ir2);
 
-        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> =
-            back[0].content.blocks();
+        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> = back[0].content.blocks();
         match &parsed[0] {
             abp_claude_sdk::dialect::ClaudeContentBlock::Image { source } => match source {
                 abp_claude_sdk::dialect::ClaudeImageSource::Base64 { media_type, data } => {

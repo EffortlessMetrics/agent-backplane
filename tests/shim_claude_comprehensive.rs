@@ -299,8 +299,7 @@ fn request_to_claude_structured_content_serialized() {
     };
     let claude_req = request_to_claude(&req);
     // Multi-block content is JSON-serialized
-    let blocks: Vec<ClaudeContentBlock> =
-        claude_req.messages[0].content.blocks();
+    let blocks: Vec<ClaudeContentBlock> = claude_req.messages[0].content.blocks();
     assert_eq!(blocks.len(), 2);
 }
 

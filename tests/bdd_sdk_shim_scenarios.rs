@@ -1113,8 +1113,7 @@ mod tests {
 
         assert_eq!(claude_msgs.len(), 1);
         assert_eq!(claude_msgs[0].role, "assistant");
-        let parsed: Vec<ClaudeContentBlock> =
-            claude_msgs[0].content.blocks();
+        let parsed: Vec<ClaudeContentBlock> = claude_msgs[0].content.blocks();
         match &parsed[0] {
             ClaudeContentBlock::ToolUse { id, name, input } => {
                 assert_eq!(id, "call_1");
@@ -1317,11 +1316,15 @@ mod tests {
             },
             ClaudeMessage {
                 role: "assistant".into(),
-                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&tool_use).unwrap()),
+                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                    serde_json::to_string(&tool_use).unwrap(),
+                ),
             },
             ClaudeMessage {
                 role: "user".into(),
-                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(serde_json::to_string(&tool_result).unwrap()),
+                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                    serde_json::to_string(&tool_result).unwrap(),
+                ),
             },
             ClaudeMessage {
                 role: "assistant".into(),
