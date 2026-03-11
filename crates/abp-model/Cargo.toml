@@ -1,0 +1,14 @@
+[package]
+name = "abp-model"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Canonical model identifier helpers for Agent Backplane SDK adapters"
+readme = "README.md"
+keywords = ["agent", "backplane", "model", "canonical"]
+categories = ["development-tools"]
+
+[dependencies]
