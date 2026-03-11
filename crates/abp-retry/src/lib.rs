@@ -50,6 +50,9 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
+pub mod runtime_policy;
+pub use runtime_policy::{FallbackChain, RetryPolicyBuilder, RuntimeRetryPolicy, TimeoutConfig};
+
 /// Policy controlling retry behavior for fallible operations.
 ///
 /// Supports exponential backoff with optional jitter to prevent thundering-herd effects.
