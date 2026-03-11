@@ -1,0 +1,20 @@
+[package]
+name = "abp-workspace-quota"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Workspace disk quota checks and cleanup helpers for Agent Backplane"
+readme = "README.md"
+keywords = ["agent", "backplane", "workspace", "quota", "cleanup"]
+categories = ["development-tools"]
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+walkdir.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

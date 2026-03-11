@@ -55,6 +55,7 @@ members = [
   "crates/abp-telemetry",
   "crates/abp-validate",
   "crates/abp-workspace",
+  "crates/abp-workspace-quota",
   "crates/claude-bridge",
   "crates/codex-bridge",
   "crates/copilot-bridge",
