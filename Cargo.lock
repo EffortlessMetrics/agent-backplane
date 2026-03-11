@@ -60,6 +60,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-circuit-breaker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "abp-claude-sdk"
 version = "0.1.0"
 dependencies = [
@@ -489,6 +500,7 @@ dependencies = [
 name = "abp-retry"
 version = "0.1.0"
 dependencies = [
+ "abp-circuit-breaker",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
