@@ -402,6 +402,11 @@ cargo bench --workspace                   # benchmarks
 cd fuzz && cargo +nightly fuzz run fuzz_envelope  # fuzz
 ```
 
+Cryptographic test fixtures are generated at runtime with
+[`uselesskey`](https://docs.rs/uselesskey/0.2.0/uselesskey/). That keeps PEM and
+X.509 material deterministic for tests without committing static private keys or
+certificates into the repository.
+
 ### CI Pipeline
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push
