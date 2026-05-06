@@ -11,6 +11,9 @@ readme = "README.md"
 keywords = ["openai", "sidecar", "bridge", "ai", "chat-completions"]
 categories = ["development-tools"]
 
+[lints]
+workspace = true
+
 [features]
 default = []
 normalized = ["dep:abp-core"]

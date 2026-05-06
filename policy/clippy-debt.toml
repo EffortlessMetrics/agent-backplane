@@ -1,0 +1,12 @@
+schema = 1
+
+# Temporary Clippy exceptions belong here. Every entry must be explicit,
+# owned, justified, path-scoped, and expiring. The initial rollout has no
+# lint debt entries; future debt should use this shape:
+#
+# [[debt]]
+# lint = "clippy::indexing_slicing"
+# path = "crates/example/src/parser/table.rs"
+# owner = "parser"
+# reason = "Generated table access; replace with checked table abstraction."
+# expires = "2026-07-01"

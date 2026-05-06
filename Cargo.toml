@@ -4,6 +4,9 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [workspace]
 resolver = "2"
 exclude = ["fuzz"]
@@ -68,7 +71,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.93"
 license = "MIT OR Apache-2.0"
 description = "Translation layer between agent SDKs"
 authors = ["Effortless Metrics"]
@@ -331,3 +334,9 @@ harness = false
 [[bench]]
 name = "benchmarks"
 harness = false
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unexpected_cfgs = "warn"
+
+[workspace.lints.clippy]

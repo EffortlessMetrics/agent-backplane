@@ -11,6 +11,9 @@ readme = "README.md"
 keywords = ["agent", "backplane", "ai", "cli", "tool"]
 categories = ["command-line-utilities"]
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "abp"
 path = "src/main.rs"

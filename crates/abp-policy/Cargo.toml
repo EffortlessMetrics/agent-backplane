@@ -26,6 +26,9 @@ proptest = { workspace = true }
 insta.workspace = true
 serde_json.workspace = true
 
+[lints]
+workspace = true
+
 [[bench]]
 name = "policy_eval"
 harness = false
