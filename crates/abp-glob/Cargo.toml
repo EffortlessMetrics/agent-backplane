@@ -30,3 +30,6 @@ harness = false
 [[bench]]
 name = "glob_bench"
 harness = false
+
+[lints]
+workspace = true

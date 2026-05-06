@@ -1,0 +1,37 @@
+schema_version = "1.0"
+
+[[allow]]
+glob = "docs/**"
+kind = "documentation"
+owner = "docs"
+reason = "Markdown documentation is the reviewed documentation surface for the workspace."
+surface = "docs"
+classification = "documentation"
+covered_by = ["cargo xtask check-lint-policy"]
+
+[[allow]]
+glob = ".github/workflows/*.yml"
+kind = "ci_declarative"
+owner = "release/ci"
+reason = "GitHub Actions workflow definitions are platform-required YAML."
+surface = "ci"
+classification = "config"
+covered_by = ["cargo xtask check-lint-policy"]
+
+[[allow]]
+glob = "contracts/schemas/*.json"
+kind = "generated_contract_schema"
+owner = "contracts"
+reason = "Generated JSON schemas are the wire-contract publication format."
+surface = "contracts"
+classification = "generated"
+covered_by = ["cargo run -p xtask -- schema"]
+
+[[allow]]
+glob = "features/**/*.feature"
+kind = "bdd_specification"
+owner = "testing"
+reason = "Cucumber feature files define behavior scenarios consumed by the Rust BDD harness."
+surface = "tests"
+classification = "test"
+covered_by = ["cargo test --test bdd"]

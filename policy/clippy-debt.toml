@@ -1,0 +1,29 @@
+schema = 1
+
+[[debt]]
+lint = "clippy::unwrap_used"
+path = "**/*.rs"
+owner = "workspace"
+reason = "Bootstrap debt for the workspace-wide panic-free lint ratchet; replace with narrower entries as code is migrated."
+expires = "2026-07-01"
+
+[[debt]]
+lint = "clippy::expect_used"
+path = "**/*.rs"
+owner = "workspace"
+reason = "Bootstrap debt for the workspace-wide panic-free lint ratchet; replace with narrower entries as code is migrated."
+expires = "2026-07-01"
+
+[[debt]]
+lint = "clippy::panic"
+path = "**/*.rs"
+owner = "workspace"
+reason = "Bootstrap debt for panic-family macros while tests and invariants move to Result-returning helpers."
+expires = "2026-07-01"
+
+[[debt]]
+lint = "clippy::indexing_slicing"
+path = "**/*.rs"
+owner = "workspace"
+reason = "Bootstrap debt for parser/protocol-safe indexing migration; replace with checked abstractions and narrow entries."
+expires = "2026-07-01"

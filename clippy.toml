@@ -1,0 +1,6 @@
+# Effortless Metrics Clippy policy configuration.
+#
+# Keep this file for repo-specific disallowed methods/types/macros and Clippy
+# settings that cannot live in Cargo.toml. Do not add test carveouts such as
+# allow-unwrap-in-tests, allow-expect-in-tests, allow-panic-in-tests,
+# allow-indexing-slicing-in-tests, or allow-dbg-in-tests.

@@ -173,7 +173,8 @@ fn help_lists_all_subcommands() {
         .stdout(predicate::str::contains("schema"))
         .stdout(predicate::str::contains("audit"))
         .stdout(predicate::str::contains("stats"))
-        .stdout(predicate::str::contains("setup"));
+        .stdout(predicate::str::contains("setup"))
+        .stdout(predicate::str::contains("check-lint-policy"));
 }
 
 #[test]
@@ -197,6 +198,35 @@ fn audit_runs_successfully() {
         .stdout(predicate::str::contains("required fields"))
         .stdout(predicate::str::contains("version consistency"))
         .stdout(predicate::str::contains("unused dependencies"));
+}
+
+#[test]
+fn check_lint_policy_subcommand_exists() {
+    xtask()
+        .arg("check-lint-policy")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Clippy policy"));
+}
+
+#[test]
+fn policy_report_subcommand_exists() {
+    xtask()
+        .arg("policy-report")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("policy"));
+}
+
+#[test]
+fn check_lint_policy_runs_successfully() {
+    xtask()
+        .arg("check-lint-policy")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("lint policy passed"));
 }
 
 #[test]

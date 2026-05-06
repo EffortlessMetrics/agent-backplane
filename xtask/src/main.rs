@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 use anyhow::{Context, Result};
+use chrono::{NaiveDate, Utc};
 use clap::{Parser, Subcommand};
 use schemars::schema_for;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command as Cmd;
 
 #[derive(Parser, Debug)]
@@ -56,6 +57,10 @@ enum Command {
     Audit,
     /// Show workspace statistics (crates, tests, LOC, dependency depth).
     Stats,
+    /// Check Clippy policy files, workspace lint inheritance, and debt metadata.
+    CheckLintPolicy,
+    /// Summarize policy debt and planned lint flips.
+    PolicyReport,
     /// Configure local repo for development (install git hooks).
     Setup,
 }
@@ -75,6 +80,8 @@ fn main() -> Result<()> {
         Command::ListCrates => list_crates(),
         Command::Audit => audit(),
         Command::Stats => stats(),
+        Command::CheckLintPolicy => check_lint_policy(),
+        Command::PolicyReport => policy_report(),
         Command::Setup => setup(),
     }
 }
@@ -206,7 +213,8 @@ fn check() -> Result<()> {
         ("doc-test", &["test", "--doc", "--workspace"]),
     ];
 
-    let mut results: Vec<(&str, bool)> = vec![("fmt", fmt_ok)];
+    let policy_ok = check_lint_policy().is_ok();
+    let mut results: Vec<(&str, bool)> = vec![("fmt", fmt_ok), ("lint-policy", policy_ok)];
     for (name, args) in steps {
         let ok = run_cargo(args).is_ok();
         results.push((name, ok));
@@ -333,6 +341,7 @@ fn gate(check: bool) -> Result<()> {
         // Local dev mode: fix fmt first, then verify the rest
         run_fmt(false)?;
     }
+    check_lint_policy()?;
     // Warm dependency graph
     run_cargo(&["check", "--workspace", "--all-targets", "--all-features"])?;
     // Clippy
@@ -833,6 +842,378 @@ fn dep_depth(
     }
     cache.insert(name.to_string(), max_child);
     max_child
+}
+
+// ── lint policy ──────────────────────────────────────────────────────
+
+fn check_lint_policy() -> Result<()> {
+    let root = workspace_root()?;
+    let root_manifest = read_toml(&root.join("Cargo.toml"))?;
+    let policy = read_toml(&root.join("policy/clippy-lints.toml"))?;
+    let debt = read_toml(&root.join("policy/clippy-debt.toml"))?;
+    let no_panic = read_toml(&root.join("policy/no-panic-allowlist.toml"))?;
+    let non_rust = read_toml(&root.join("policy/non-rust-allowlist.toml"))?;
+
+    let mut issues = 0u32;
+
+    let policy_msrv = required_str(&policy, &["msrv"], "policy/clippy-lints.toml msrv")?;
+    let workspace_msrv = required_str(
+        &root_manifest,
+        &["workspace", "package", "rust-version"],
+        "workspace.package.rust-version",
+    )?;
+    if workspace_msrv != policy_msrv {
+        eprintln!(
+            "  ✗ workspace.package.rust-version ({workspace_msrv}) does not match policy msrv ({policy_msrv})"
+        );
+        issues += 1;
+    }
+
+    let policy_table = required_table(&policy, &["policy"], "policy table")?;
+    for (key, expected) in [
+        ("panic_free_tests", true),
+        ("allow_test_carveouts", false),
+        ("blanket_categories", false),
+    ] {
+        if policy_table.get(key).and_then(toml::Value::as_bool) != Some(expected) {
+            eprintln!("  ✗ policy.{key} must be {expected}");
+            issues += 1;
+        }
+    }
+    if policy_table
+        .get("suppression_style")
+        .and_then(toml::Value::as_str)
+        != Some("expect-with-reason")
+    {
+        eprintln!("  ✗ policy.suppression_style must be expect-with-reason");
+        issues += 1;
+    }
+
+    if required_table(&root_manifest, &["workspace", "lints"], "workspace.lints").is_err() {
+        eprintln!("  ✗ root Cargo.toml must define [workspace.lints]");
+        issues += 1;
+    }
+
+    let members = root_manifest
+        .get("workspace")
+        .and_then(|w| w.get("members"))
+        .and_then(toml::Value::as_array)
+        .context("workspace.members not found")?;
+    for manifest in std::iter::once(root.join("Cargo.toml")).chain(
+        members
+            .iter()
+            .filter_map(toml::Value::as_str)
+            .map(|member| root.join(member).join("Cargo.toml")),
+    ) {
+        let display = manifest.strip_prefix(&root).unwrap_or(&manifest).display();
+        let doc = read_toml(&manifest)?;
+        if doc
+            .get("lints")
+            .and_then(|l| l.get("workspace"))
+            .and_then(toml::Value::as_bool)
+            != Some(true)
+        {
+            eprintln!("  ✗ {display}: missing [lints] workspace = true");
+            issues += 1;
+        }
+    }
+
+    issues += check_lint_entries(&policy)?;
+    issues += check_planned_lints(&policy, policy_msrv)?;
+    issues += check_clippy_toml(&root)?;
+    issues += check_debt_entries(&debt)?;
+    issues += check_no_panic_allowlist(&no_panic)?;
+    issues += check_non_rust_allowlist(&non_rust)?;
+
+    if issues == 0 {
+        eprintln!("lint policy passed ✓");
+        Ok(())
+    } else {
+        anyhow::bail!("lint policy found {issues} issue(s)");
+    }
+}
+
+fn policy_report() -> Result<()> {
+    let root = workspace_root()?;
+    let policy = read_toml(&root.join("policy/clippy-lints.toml"))?;
+    let debt = read_toml(&root.join("policy/clippy-debt.toml"))?;
+    let no_panic = read_toml(&root.join("policy/no-panic-allowlist.toml"))?;
+    let non_rust = read_toml(&root.join("policy/non-rust-allowlist.toml"))?;
+
+    let active = policy_array(&policy, "lint")?
+        .iter()
+        .filter(|lint| lint.get("status").and_then(toml::Value::as_str) == Some("active"))
+        .count();
+    let debt_tracked = policy_array(&policy, "lint")?
+        .iter()
+        .filter(|lint| lint.get("status").and_then(toml::Value::as_str) == Some("debt-tracked"))
+        .count();
+    let planned = policy_array(&policy, "planned")?.len();
+    let debt_count = policy_array(&debt, "debt")?.len();
+    let panic_exceptions = optional_policy_array(&no_panic, "allow").len();
+    let non_rust_exceptions = optional_policy_array(&non_rust, "allow").len();
+
+    println!("lint policy report");
+    println!("  active lints:       {active}");
+    println!("  debt-tracked lints: {debt_tracked}");
+    println!("  planned flips:      {planned}");
+    println!("  debt entries:       {debt_count}");
+    println!("  panic exceptions:   {panic_exceptions}");
+    println!("  non-Rust entries:   {non_rust_exceptions}");
+    Ok(())
+}
+
+fn read_toml(path: &Path) -> Result<toml::Value> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    text.parse()
+        .with_context(|| format!("parse {}", path.display()))
+}
+
+fn required_table<'a>(
+    doc: &'a toml::Value,
+    path: &[&str],
+    label: &str,
+) -> Result<&'a toml::map::Map<String, toml::Value>> {
+    let mut current = doc;
+    for key in path {
+        current = current
+            .get(*key)
+            .with_context(|| format!("{label} missing"))?;
+    }
+    current
+        .as_table()
+        .with_context(|| format!("{label} must be a table"))
+}
+
+fn required_str<'a>(doc: &'a toml::Value, path: &[&str], label: &str) -> Result<&'a str> {
+    let mut current = doc;
+    for key in path {
+        current = current
+            .get(*key)
+            .with_context(|| format!("{label} missing"))?;
+    }
+    current
+        .as_str()
+        .with_context(|| format!("{label} must be a string"))
+}
+
+fn optional_policy_array<'a>(doc: &'a toml::Value, key: &str) -> Vec<&'a toml::Value> {
+    doc.get(key)
+        .and_then(toml::Value::as_array)
+        .map(|items| items.iter().collect())
+        .unwrap_or_default()
+}
+
+fn policy_array<'a>(doc: &'a toml::Value, key: &str) -> Result<&'a Vec<toml::Value>> {
+    doc.get(key)
+        .and_then(toml::Value::as_array)
+        .with_context(|| format!("policy array [[{key}]] missing"))
+}
+
+fn check_lint_entries(policy: &toml::Value) -> Result<u32> {
+    let mut issues = 0;
+    let mut names = HashSet::new();
+    for lint in policy_array(policy, "lint")? {
+        for field in ["name", "level", "status", "class", "reason"] {
+            if lint
+                .get(field)
+                .and_then(toml::Value::as_str)
+                .is_none_or(str::is_empty)
+            {
+                eprintln!("  ✗ [[lint]] entry missing non-empty {field}");
+                issues += 1;
+            }
+        }
+        if let Some(name) = lint.get("name").and_then(toml::Value::as_str) {
+            if !names.insert(name.to_string()) {
+                eprintln!("  ✗ duplicate lint entry for {name}");
+                issues += 1;
+            }
+        }
+    }
+    Ok(issues)
+}
+
+fn check_planned_lints(policy: &toml::Value, policy_msrv: &str) -> Result<u32> {
+    let mut issues = 0;
+    let mut seen_194 = false;
+    let mut seen_195 = false;
+    for planned in policy_array(policy, "planned")? {
+        for field in ["name", "level", "activate_when_msrv", "reason"] {
+            if planned
+                .get(field)
+                .and_then(toml::Value::as_str)
+                .is_none_or(str::is_empty)
+            {
+                eprintln!("  ✗ [[planned]] entry missing non-empty {field}");
+                issues += 1;
+            }
+        }
+        if let Some(msrv) = planned
+            .get("activate_when_msrv")
+            .and_then(toml::Value::as_str)
+        {
+            seen_194 |= msrv == "1.94";
+            seen_195 |= msrv == "1.95";
+            if msrv <= policy_msrv {
+                eprintln!(
+                    "  ✗ planned lint activates at {msrv}, which is not after policy MSRV {policy_msrv}"
+                );
+                issues += 1;
+            }
+        }
+    }
+    if !seen_194 || !seen_195 {
+        eprintln!("  ✗ planned lint ledger must include both Rust 1.94 and 1.95 flips");
+        issues += 1;
+    }
+    Ok(issues)
+}
+
+fn check_clippy_toml(root: &Path) -> Result<u32> {
+    let path = root.join("clippy.toml");
+    let text =
+        std::fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+    let mut issues = 0;
+    for carveout in [
+        "allow-unwrap-in-tests",
+        "allow-expect-in-tests",
+        "allow-panic-in-tests",
+        "allow-indexing-slicing-in-tests",
+        "allow-dbg-in-tests",
+    ] {
+        if text.lines().any(|line| {
+            let trimmed = line.trim_start();
+            !trimmed.starts_with('#') && trimmed.starts_with(carveout)
+        }) {
+            eprintln!("  ✗ clippy.toml must not set {carveout}");
+            issues += 1;
+        }
+    }
+    Ok(issues)
+}
+
+fn check_no_panic_allowlist(doc: &toml::Value) -> Result<u32> {
+    let mut issues = 0;
+    if doc.get("schema_version").and_then(toml::Value::as_str) != Some("0.3") {
+        eprintln!("  ✗ policy/no-panic-allowlist.toml schema_version must be 0.3");
+        issues += 1;
+    }
+    let today = Utc::now().date_naive();
+    for entry in optional_policy_array(doc, "allow") {
+        for field in ["path", "family", "classification", "owner", "explanation"] {
+            if entry
+                .get(field)
+                .and_then(toml::Value::as_str)
+                .is_none_or(str::is_empty)
+            {
+                eprintln!("  ✗ [[allow]] panic entry missing non-empty {field}");
+                issues += 1;
+            }
+        }
+        if entry
+            .get("selector")
+            .and_then(toml::Value::as_table)
+            .is_none()
+        {
+            eprintln!("  ✗ [[allow]] panic entry missing [allow.selector]");
+            issues += 1;
+        }
+        if let Some(expires) = entry.get("expires").and_then(toml::Value::as_str) {
+            match NaiveDate::parse_from_str(expires, "%Y-%m-%d") {
+                Ok(date) if date < today => {
+                    eprintln!("  ✗ [[allow]] panic entry expired on {expires}");
+                    issues += 1;
+                }
+                Ok(_) => {}
+                Err(_) => {
+                    eprintln!("  ✗ [[allow]] panic expires must be YYYY-MM-DD: {expires}");
+                    issues += 1;
+                }
+            }
+        }
+    }
+    Ok(issues)
+}
+
+fn check_non_rust_allowlist(doc: &toml::Value) -> Result<u32> {
+    let mut issues = 0;
+    if doc.get("schema_version").and_then(toml::Value::as_str) != Some("1.0") {
+        eprintln!("  ✗ policy/non-rust-allowlist.toml schema_version must be 1.0");
+        issues += 1;
+    }
+    let today = Utc::now().date_naive();
+    for entry in optional_policy_array(doc, "allow") {
+        let has_locator = entry.get("path").and_then(toml::Value::as_str).is_some()
+            || entry.get("glob").and_then(toml::Value::as_str).is_some();
+        if !has_locator {
+            eprintln!("  ✗ [[allow]] non-Rust entry must set path or glob");
+            issues += 1;
+        }
+        for field in ["kind", "owner", "reason", "surface", "classification"] {
+            if entry
+                .get(field)
+                .and_then(toml::Value::as_str)
+                .is_none_or(str::is_empty)
+            {
+                eprintln!("  ✗ [[allow]] non-Rust entry missing non-empty {field}");
+                issues += 1;
+            }
+        }
+        if entry
+            .get("covered_by")
+            .and_then(toml::Value::as_array)
+            .is_none_or(Vec::is_empty)
+        {
+            eprintln!("  ✗ [[allow]] non-Rust entry missing covered_by commands");
+            issues += 1;
+        }
+        if let Some(expires) = entry.get("expires").and_then(toml::Value::as_str) {
+            match NaiveDate::parse_from_str(expires, "%Y-%m-%d") {
+                Ok(date) if date < today => {
+                    eprintln!("  ✗ [[allow]] non-Rust entry expired on {expires}");
+                    issues += 1;
+                }
+                Ok(_) => {}
+                Err(_) => {
+                    eprintln!("  ✗ [[allow]] non-Rust expires must be YYYY-MM-DD: {expires}");
+                    issues += 1;
+                }
+            }
+        }
+    }
+    Ok(issues)
+}
+
+fn check_debt_entries(debt: &toml::Value) -> Result<u32> {
+    let mut issues = 0;
+    let today = Utc::now().date_naive();
+    for entry in policy_array(debt, "debt")? {
+        for field in ["lint", "path", "owner", "reason", "expires"] {
+            if entry
+                .get(field)
+                .and_then(toml::Value::as_str)
+                .is_none_or(str::is_empty)
+            {
+                eprintln!("  ✗ [[debt]] entry missing non-empty {field}");
+                issues += 1;
+            }
+        }
+        if let Some(expires) = entry.get("expires").and_then(toml::Value::as_str) {
+            match NaiveDate::parse_from_str(expires, "%Y-%m-%d") {
+                Ok(date) if date < today => {
+                    eprintln!("  ✗ [[debt]] entry expired on {expires}");
+                    issues += 1;
+                }
+                Ok(_) => {}
+                Err(_) => {
+                    eprintln!("  ✗ [[debt]] expires must be YYYY-MM-DD: {expires}");
+                    issues += 1;
+                }
+            }
+        }
+    }
+    Ok(issues)
 }
 
 // ── setup ────────────────────────────────────────────────────────────
