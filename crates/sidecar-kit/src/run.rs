@@ -35,8 +35,14 @@ impl Drop for RawRun {
 impl RawRun {
     /// Consume the `RawRun` and return its constituent parts, disabling
     /// the automatic cancel-on-drop behavior.
-    #[allow(clippy::type_complexity)]
-    #[allow(unsafe_code)]
+    #[expect(
+        clippy::type_complexity,
+        reason = "public API returns the four independent handles owned by RawRun"
+    )]
+    #[expect(
+        unsafe_code,
+        reason = "move fields out of a Drop type while preventing cancel-on-drop in into_parts"
+    )]
     pub fn into_parts(
         self,
     ) -> (

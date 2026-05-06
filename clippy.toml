@@ -1,0 +1,6 @@
+# Effortless Metrics strict Clippy policy configuration.
+#
+# This file is intentionally reserved for repo-specific disallowed methods,
+# types, macros, fields, and similar domain policy. It must not contain test
+# carveouts such as allow-unwrap-in-tests or allow-panic-in-tests; workspace
+# panic-free policy applies to production and tests alike.
