@@ -21,3 +21,6 @@ serde_json.workspace = true
 abp-sdk-types = { path = "../abp-sdk-types", version = "0.1.0" }
 proptest = { workspace = true }
 serde_json.workspace = true
+
+[lints]
+workspace = true

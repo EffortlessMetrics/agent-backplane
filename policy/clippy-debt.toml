@@ -1,0 +1,485 @@
+schema = 1
+
+# Existing suppression debt carried forward during the strict lint rollout.
+# New suppressions should use #[expect(..., reason = "...")] and avoid expanding this list.
+
+[[debt]]
+lint = "deprecated"
+path = "xtask/tests/xtask_tests.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 7
+
+[[debt]]
+lint = "deprecated"
+path = "tests/cli_integration_deep_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 45
+
+[[debt]]
+lint = "dead_code"
+path = "tests/workspace_git_deep_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 99
+
+[[debt]]
+lint = "clippy::permissions_set_readonly_false"
+path = "tests/workspace_git_deep_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 1136
+
+[[debt]]
+lint = "dead_code"
+path = "crates/abp-projection/src/lib.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 152
+
+[[debt]]
+lint = "clippy::should_implement_trait"
+path = "crates/abp-validate/src/composite.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 42
+
+[[debt]]
+lint = "unused"
+path = "tests/conformance_suite.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 117
+
+[[debt]]
+lint = "dead_code"
+path = "tests/e2e_pipeline.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 308
+
+[[debt]]
+lint = "clippy::permissions_set_readonly_false"
+path = "tests/cross_platform.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 97
+
+[[debt]]
+lint = "clippy::too_many_arguments"
+path = "tests/telemetry_tracing_deep.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 123
+
+[[debt]]
+lint = "clippy::too_many_lines"
+path = "crates/abp-integrations/src/projection.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 519
+
+[[debt]]
+lint = "clippy::too_many_lines"
+path = "crates/abp-integrations/src/projection.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 829
+
+[[debt]]
+lint = "dead_code"
+path = "crates/abp-integrations/tests/backend_integration_deep.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 140
+
+[[debt]]
+lint = "dead_code"
+path = "crates/abp-integrations/tests/backend_trait_deep.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 84
+
+[[debt]]
+lint = "dead_code"
+path = "tests/projection_matrix_e2e.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 64
+
+[[debt]]
+lint = "clippy::too_many_arguments"
+path = "crates/abp-backend-mock/src/scenarios.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 616
+
+[[debt]]
+lint = "clippy::too_many_arguments"
+path = "crates/abp-backend-mock/src/scenarios.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 811
+
+[[debt]]
+lint = "deprecated"
+path = "tests/cli_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 42
+
+[[debt]]
+lint = "clippy::collapsible_match"
+path = "crates/abp-daemon/src/lib.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 811
+
+[[debt]]
+lint = "unused_imports"
+path = "crates/abp-backend-sidecar/tests/sidecar_backend_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 1857
+
+[[debt]]
+lint = "clippy::permissions_set_readonly_false"
+path = "tests/workspace_deep_e2e_tests.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 1233
+
+[[debt]]
+lint = "clippy::should_implement_trait"
+path = "crates/abp-stream/src/lib.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 140
+
+[[debt]]
+lint = "dead_code"
+path = "tests/sdk_mapping_anthropic_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 89
+
+[[debt]]
+lint = "deprecated"
+path = "tests/cli_integration.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 42
+
+[[debt]]
+lint = "clippy::type_complexity"
+path = "crates/abp-dialect/src/lib.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 235
+
+[[debt]]
+lint = "clippy::permissions_set_readonly_false"
+path = "tests/git_operations_deep_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 1587
+
+[[debt]]
+lint = "dead_code"
+path = "crates/abp-cli/src/main.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 35
+
+[[debt]]
+lint = "clippy::too_many_arguments"
+path = "crates/abp-cli/src/main.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 419
+
+[[debt]]
+lint = "clippy::large_enum_variant"
+path = "crates/abp-cli/src/cli.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 32
+
+[[debt]]
+lint = "deprecated"
+path = "crates/abp-cli/tests/cli_integration_tests.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 40
+
+[[debt]]
+lint = "deprecated"
+path = "crates/abp-cli/tests/cli_integration.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 37
+
+[[debt]]
+lint = "deprecated"
+path = "crates/abp-cli/tests/cli_tests.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 39
+
+[[debt]]
+lint = "clippy::clone_on_copy"
+path = "tests/dialect_parser_deep.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 126
+
+[[debt]]
+lint = "clippy::clone_on_copy"
+path = "crates/abp-error-taxonomy/tests/taxonomy_deep.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 678
+
+[[debt]]
+lint = "clippy::clone_on_copy"
+path = "crates/abp-error-taxonomy/tests/taxonomy_deep.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 699
+
+[[debt]]
+lint = "clippy::clone_on_copy"
+path = "crates/abp-error-taxonomy/tests/taxonomy_deep_tests.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 477
+
+[[debt]]
+lint = "clippy::inherent_to_string_shadow_display"
+path = "crates/abp-protocol/src/version.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 87
+
+[[debt]]
+lint = "dead_code"
+path = "crates/abp-protocol/src/builder.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 309
+
+[[debt]]
+lint = "deprecated"
+path = "tests/cli_integration_exhaustive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 17
+
+[[debt]]
+lint = "clippy::too_many_arguments"
+path = "tests/telemetry_deep_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 136
+
+[[debt]]
+lint = "clippy::clone_on_copy"
+path = "tests/dialect_detection_e2e.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 381
+
+[[debt]]
+lint = "clippy::too_many_arguments"
+path = "tests/telemetry_integration_deep.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 43
+
+[[debt]]
+lint = "clippy::field_reassign_with_default"
+path = "crates/abp-config/src/lib.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 695
+
+[[debt]]
+lint = "unsafe_code"
+path = "crates/abp-config/src/lib.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 696
+
+[[debt]]
+lint = "unsafe_code"
+path = "crates/abp-config/src/env.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 115
+
+[[debt]]
+lint = "clippy::permissions_set_readonly_false"
+path = "crates/abp-workspace/tests/staging_tests.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 750
+
+[[debt]]
+lint = "clippy::permissions_set_readonly_false"
+path = "crates/abp-workspace/tests/workspace_staging_deep.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 1317
+
+[[debt]]
+lint = "clippy::permissions_set_readonly_false"
+path = "crates/abp-workspace/tests/staging_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 1052
+
+[[debt]]
+lint = "clippy::type_complexity"
+path = "crates/sidecar-kit/src/run.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 38
+
+[[debt]]
+lint = "unsafe_code"
+path = "crates/sidecar-kit/src/run.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 39
+
+[[debt]]
+lint = "dead_code"
+path = "crates/sidecar-kit/tests/sidecar_kit_tests.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 533
+
+[[debt]]
+lint = "clippy::clone_on_copy"
+path = "tests/error_handling_deep_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 169
+
+[[debt]]
+lint = "clippy::assertions_on_constants"
+path = "crates/abp-sidecar-utils/src/stdio.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 118
+
+[[debt]]
+lint = "deprecated"
+path = "tests/cli_e2e.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 42
+
+[[debt]]
+lint = "unused_imports"
+path = "tests/cross_dialect_fidelity.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 1379
+
+[[debt]]
+lint = "clippy::clone_on_copy"
+path = "crates/abp-error/tests/error_taxonomy_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 1040
+
+[[debt]]
+lint = "clippy::clone_on_copy"
+path = "crates/abp-error/tests/error_taxonomy_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 1054
+
+[[debt]]
+lint = "clippy::permissions_set_readonly_false"
+path = "tests/workspace_staging_integration.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 689
+
+[[debt]]
+lint = "dead_code"
+path = "tests/event_streaming_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 52
+
+[[debt]]
+lint = "clippy::useless_vec"
+path = "tests/event_streaming_comprehensive.rs"
+owner = "lint-policy"
+reason = "Existing allow attribute preserved as reviewed rollout debt; migrate to #[expect(..., reason = ...)] or remove."
+expires = "2026-07-01"
+last_seen_line = 995
+

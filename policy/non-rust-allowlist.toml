@@ -1,0 +1,19 @@
+schema_version = "1.0"
+
+[[allow]]
+glob = ".github/workflows/*.yml"
+kind = "ci_declarative"
+owner = "release/ci"
+reason = "GitHub Actions workflow definitions are platform-required YAML."
+surface = "ci"
+classification = "config"
+covered_by = ["cargo xtask check-lint-policy"]
+
+[[allow]]
+glob = "docs/**"
+kind = "documentation"
+owner = "documentation"
+reason = "Repository documentation is authored in Markdown."
+surface = "docs"
+classification = "docs"
+covered_by = ["cargo xtask check-lint-policy"]

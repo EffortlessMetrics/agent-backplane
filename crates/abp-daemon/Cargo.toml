@@ -55,3 +55,6 @@ tempfile = { workspace = true }
 tokio-tungstenite = "0.28"
 futures = { workspace = true }
 proptest = { workspace = true }
+
+[lints]
+workspace = true

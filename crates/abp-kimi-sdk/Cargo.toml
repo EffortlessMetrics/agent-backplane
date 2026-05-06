@@ -26,3 +26,6 @@ uuid.workspace = true
 [dev-dependencies]
 insta.workspace = true
 
+
+[lints]
+workspace = true

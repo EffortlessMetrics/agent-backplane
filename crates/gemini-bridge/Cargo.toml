@@ -34,3 +34,6 @@ proptest = "1"
 tempfile = "3"
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-sdk-types = { path = "../abp-sdk-types", version = "0.1.0" }
+
+[lints]
+workspace = true
