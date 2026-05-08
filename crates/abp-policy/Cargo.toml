@@ -33,3 +33,6 @@ harness = false
 [[bench]]
 name = "policy_benches"
 harness = false
+
+[lints]
+workspace = true

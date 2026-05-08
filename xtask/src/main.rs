@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use schemars::schema_for;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command as Cmd;
 
 #[derive(Parser, Debug)]
@@ -58,6 +58,10 @@ enum Command {
     Stats,
     /// Configure local repo for development (install git hooks).
     Setup,
+    /// Verify the governed Clippy/MSRV policy ledgers.
+    CheckLintPolicy,
+    /// Print a concise policy summary.
+    PolicyReport,
 }
 
 fn main() -> Result<()> {
@@ -76,6 +80,8 @@ fn main() -> Result<()> {
         Command::Audit => audit(),
         Command::Stats => stats(),
         Command::Setup => setup(),
+        Command::CheckLintPolicy => check_lint_policy(),
+        Command::PolicyReport => policy_report(),
     }
 }
 
@@ -206,7 +212,8 @@ fn check() -> Result<()> {
         ("doc-test", &["test", "--doc", "--workspace"]),
     ];
 
-    let mut results: Vec<(&str, bool)> = vec![("fmt", fmt_ok)];
+    let policy_ok = check_lint_policy().is_ok();
+    let mut results: Vec<(&str, bool)> = vec![("fmt", fmt_ok), ("lint-policy", policy_ok)];
     for (name, args) in steps {
         let ok = run_cargo(args).is_ok();
         results.push((name, ok));
@@ -333,6 +340,7 @@ fn gate(check: bool) -> Result<()> {
         // Local dev mode: fix fmt first, then verify the rest
         run_fmt(false)?;
     }
+    check_lint_policy()?;
     // Warm dependency graph
     run_cargo(&["check", "--workspace", "--all-targets", "--all-features"])?;
     // Clippy
@@ -349,6 +357,285 @@ fn gate(check: bool) -> Result<()> {
     run_cargo(&["test", "--workspace", "--no-run"])?;
     eprintln!("gate passed ✓");
     Ok(())
+}
+
+// ── lint-policy ─────────────────────────────────────────────────────
+
+fn check_lint_policy() -> Result<()> {
+    let root = workspace_root()?;
+    let cargo_path = root.join("Cargo.toml");
+    let cargo_doc = read_toml(&cargo_path)?;
+    let policy_path = root.join("policy/clippy-lints.toml");
+    let policy_doc = read_toml(&policy_path)?;
+    let debt_path = root.join("policy/clippy-debt.toml");
+    let debt_doc = read_toml(&debt_path)?;
+
+    let mut issues = Vec::new();
+
+    let workspace = cargo_doc.get("workspace");
+    let msrv = workspace
+        .and_then(|w| w.get("package"))
+        .and_then(|p| p.get("rust-version"))
+        .and_then(|v| v.as_str());
+    let policy_msrv = policy_doc.get("msrv").and_then(|v| v.as_str());
+    if msrv != policy_msrv {
+        issues.push(format!(
+            "workspace.package.rust-version ({}) must match policy msrv ({})",
+            msrv.unwrap_or("<missing>"),
+            policy_msrv.unwrap_or("<missing>")
+        ));
+    }
+
+    let policy = policy_doc.get("policy");
+    require_bool(policy, "panic_free_tests", true, &mut issues);
+    require_bool(policy, "allow_test_carveouts", false, &mut issues);
+    require_bool(policy, "blanket_categories", false, &mut issues);
+    if policy
+        .and_then(|p| p.get("suppression_style"))
+        .and_then(|v| v.as_str())
+        != Some("expect-with-reason")
+    {
+        issues.push("policy.suppression_style must be expect-with-reason".to_string());
+    }
+
+    check_member_lint_inheritance(&root, &cargo_doc, &mut issues)?;
+    check_clippy_toml(&root, &mut issues)?;
+    check_active_lints(&cargo_doc, &policy_doc, msrv.unwrap_or("0.0"), &mut issues);
+    check_debt(&debt_doc, &mut issues);
+
+    if issues.is_empty() {
+        eprintln!("lint policy passed ✓");
+        Ok(())
+    } else {
+        for issue in &issues {
+            eprintln!("  ✗ {issue}");
+        }
+        anyhow::bail!("lint policy found {} issue(s)", issues.len())
+    }
+}
+
+fn policy_report() -> Result<()> {
+    let root = workspace_root()?;
+    let policy_doc = read_toml(&root.join("policy/clippy-lints.toml"))?;
+    let debt_doc = read_toml(&root.join("policy/clippy-debt.toml"))?;
+    let lints = policy_doc
+        .get("lint")
+        .and_then(|v| v.as_array())
+        .map(Vec::len)
+        .unwrap_or(0);
+    let active = lint_entries(&policy_doc, "active").len();
+    let planned = lint_entries(&policy_doc, "planned").len();
+    let debt = debt_doc
+        .get("debt")
+        .and_then(|v| v.as_array())
+        .map(Vec::len)
+        .unwrap_or(0);
+
+    println!("policy lints: {lints} total, {active} active, {planned} planned");
+    println!("suppression debt: {debt} active entries");
+    check_lint_policy()
+}
+
+fn read_toml(path: &Path) -> Result<toml::Value> {
+    let content =
+        std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    content
+        .parse()
+        .with_context(|| format!("parse {}", path.display()))
+}
+
+fn require_bool(policy: Option<&toml::Value>, key: &str, expected: bool, issues: &mut Vec<String>) {
+    if policy.and_then(|p| p.get(key)).and_then(|v| v.as_bool()) != Some(expected) {
+        issues.push(format!("policy.{key} must be {expected}"));
+    }
+}
+
+fn check_member_lint_inheritance(
+    root: &Path,
+    cargo_doc: &toml::Value,
+    issues: &mut Vec<String>,
+) -> Result<()> {
+    let root_lints_workspace = cargo_doc
+        .get("lints")
+        .and_then(|l| l.get("workspace"))
+        .and_then(|v| v.as_bool())
+        == Some(true);
+    if !root_lints_workspace {
+        issues.push("root package must set [lints] workspace = true".to_string());
+    }
+
+    let Some(members) = cargo_doc
+        .get("workspace")
+        .and_then(|w| w.get("members"))
+        .and_then(|m| m.as_array())
+    else {
+        issues.push("workspace.members missing".to_string());
+        return Ok(());
+    };
+
+    for member in members {
+        let Some(path) = member.as_str() else {
+            continue;
+        };
+        let manifest_path = root.join(path).join("Cargo.toml");
+        if !manifest_path.exists() {
+            issues.push(format!("{path}: Cargo.toml missing"));
+            continue;
+        }
+        let doc = read_toml(&manifest_path)?;
+        let inherits = doc
+            .get("lints")
+            .and_then(|l| l.get("workspace"))
+            .and_then(|v| v.as_bool())
+            == Some(true);
+        if !inherits {
+            issues.push(format!("{path}: missing [lints] workspace = true"));
+        }
+    }
+    Ok(())
+}
+
+fn check_clippy_toml(root: &Path, issues: &mut Vec<String>) -> Result<()> {
+    let path = root.join("clippy.toml");
+    if !path.exists() {
+        issues.push("clippy.toml missing".to_string());
+        return Ok(());
+    }
+    let text = std::fs::read_to_string(&path).context("read clippy.toml")?;
+    for key in [
+        "allow-unwrap-in-tests",
+        "allow-expect-in-tests",
+        "allow-panic-in-tests",
+        "allow-indexing-slicing-in-tests",
+        "allow-dbg-in-tests",
+    ] {
+        if text.lines().any(|line| line.trim_start().starts_with(key)) {
+            issues.push(format!("clippy.toml must not set {key}"));
+        }
+    }
+    Ok(())
+}
+
+fn check_active_lints(
+    cargo_doc: &toml::Value,
+    policy_doc: &toml::Value,
+    msrv: &str,
+    issues: &mut Vec<String>,
+) {
+    let workspace_lints = cargo_doc.get("workspace").and_then(|w| w.get("lints"));
+    let mut configured = HashMap::new();
+    for section in ["rust", "clippy"] {
+        if let Some(table) = workspace_lints
+            .and_then(|l| l.get(section))
+            .and_then(|s| s.as_table())
+        {
+            for (name, level) in table {
+                let full_name = if section == "clippy" {
+                    format!("clippy::{name}")
+                } else {
+                    name.to_string()
+                };
+                configured.insert(
+                    full_name,
+                    level.as_str().unwrap_or("<non-string>").to_string(),
+                );
+            }
+        }
+    }
+
+    for lint in lint_entries(policy_doc, "active") {
+        let name = lint
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("<missing>");
+        let level = lint
+            .get("level")
+            .and_then(|v| v.as_str())
+            .unwrap_or("<missing>");
+        if configured.get(name).map(String::as_str) != Some(level) {
+            issues.push(format!("active lint {name} must be {level} in Cargo.toml"));
+        }
+    }
+
+    for lint in lint_entries(policy_doc, "planned") {
+        let name = lint
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("<missing>");
+        let activate = lint
+            .get("activate_when_msrv")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0.0");
+        if version_lt(msrv, activate) && configured.contains_key(name) {
+            issues.push(format!(
+                "planned lint {name} must not be active before MSRV {activate}"
+            ));
+        }
+    }
+}
+
+fn lint_entries<'a>(policy_doc: &'a toml::Value, status: &str) -> Vec<&'a toml::Value> {
+    policy_doc
+        .get("lint")
+        .and_then(|v| v.as_array())
+        .map(|entries| {
+            entries
+                .iter()
+                .filter(|entry| entry.get("status").and_then(|v| v.as_str()) == Some(status))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn check_debt(debt_doc: &toml::Value, issues: &mut Vec<String>) {
+    if debt_doc.get("schema").and_then(|v| v.as_integer()) != Some(1) {
+        issues.push("policy/clippy-debt.toml schema must be 1".to_string());
+    }
+
+    let today = chrono::Utc::now().date_naive();
+    let Some(entries) = debt_doc.get("debt").and_then(|v| v.as_array()) else {
+        return;
+    };
+
+    for (idx, entry) in entries.iter().enumerate() {
+        for key in ["lint", "path", "owner", "reason", "expires"] {
+            if entry
+                .get(key)
+                .and_then(|v| v.as_str())
+                .is_none_or(str::is_empty)
+            {
+                issues.push(format!("debt entry {idx} missing {key}"));
+            }
+        }
+        if let Some(expires) = entry.get("expires").and_then(|v| v.as_str()) {
+            match chrono::NaiveDate::parse_from_str(expires, "%Y-%m-%d") {
+                Ok(date) if date < today => {
+                    issues.push(format!("debt entry {idx} expired on {expires}"))
+                }
+                Ok(_) => {}
+                Err(_) => issues.push(format!("debt entry {idx} expires must use YYYY-MM-DD")),
+            }
+        }
+    }
+}
+
+fn version_lt(left: &str, right: &str) -> bool {
+    let parse = |version: &str| -> Vec<u32> {
+        version
+            .split('.')
+            .map(|part| part.parse::<u32>().unwrap_or(0))
+            .collect()
+    };
+    let left = parse(left);
+    let right = parse(right);
+    for idx in 0..left.len().max(right.len()) {
+        let l = *left.get(idx).unwrap_or(&0);
+        let r = *right.get(idx).unwrap_or(&0);
+        if l != r {
+            return l < r;
+        }
+    }
+    false
 }
 
 // ── release-check ────────────────────────────────────────────────────
