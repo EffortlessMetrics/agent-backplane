@@ -77,6 +77,37 @@ jobs:
           abp-stream abp-ratelimit abp-retry abp-validate
         timeout-minutes: 30
 
+      - name: Detect Codecov token
+        id: codecov-token
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          if [ -n "${CODECOV_TOKEN:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload coverage to Codecov (main)
+        if: ${{ always() && github.event_name == 'push' && hashFiles('target/tarpaulin/lcov.info') != '' && steps.codecov-token.outputs.present == 'true' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: target/tarpaulin/lcov.info
+          flags: rust-core-runtime
+          name: agent-backplane-rust-core-runtime
+          fail_ci_if_error: true
+
+      - name: Upload coverage to Codecov (advisory)
+        if: ${{ always() && github.event_name != 'push' && hashFiles('target/tarpaulin/lcov.info') != '' && steps.codecov-token.outputs.present == 'true' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: target/tarpaulin/lcov.info
+          flags: rust-core-runtime
+          name: agent-backplane-rust-core-runtime
+          fail_ci_if_error: false
+
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
