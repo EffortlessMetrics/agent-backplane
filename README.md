@@ -4,7 +4,7 @@
 [![crates.io](https://img.shields.io/crates/v/abp-core.svg)](https://crates.io/crates/abp-core)
 [![docs.rs](https://docs.rs/abp-core/badge.svg)](https://docs.rs/abp-core)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
-[![codecov](https://codecov.io/gh/EffortlessMetrics/agent-backplane/branch/main/graph/badge.svg)](https://codecov.io/gh/EffortlessMetrics/agent-backplane)
+[![Codecov](https://codecov.io/gh/EffortlessMetrics/agent-backplane/branch/main/graph/badge.svg)](https://codecov.io/gh/EffortlessMetrics/agent-backplane)
 
 ## What is ABP?
 
