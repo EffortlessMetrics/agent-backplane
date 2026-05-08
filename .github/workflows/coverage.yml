@@ -1,0 +1,87 @@
+name: Coverage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/**"
+      - "tarpaulin.toml"
+      - ".github/workflows/coverage.yml"
+      - "codecov.yml"
+      - "docs/ci/coverage.md"
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/**"
+      - "tarpaulin.toml"
+      - ".github/workflows/coverage.yml"
+      - "codecov.yml"
+      - "docs/ci/coverage.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coverage-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: "1"
+  CARGO_INCREMENTAL: "0"
+  RUSTFLAGS: "-C debuginfo=0"
+
+jobs:
+  coverage:
+    name: Codecov Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'coverage') ||
+      contains(github.event.pull_request.labels.*.name, 'full-ci') ||
+      contains(github.event.pull_request.labels.*.name, 'ci:full')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo docker image prune --all --force || true
+          df -h /
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --version 0.32.7 --locked
+
+      - name: Run coverage
+        run: >-
+          cargo tarpaulin --config tarpaulin.toml --lib
+          --packages abp-core abp-protocol abp-host abp-runtime
+          abp-policy abp-glob abp-workspace abp-capability
+          abp-ir abp-mapper abp-dialect abp-receipt
+          abp-config abp-error abp-backend-core abp-backend-mock
+          abp-stream abp-ratelimit abp-retry abp-validate
+        timeout-minutes: 30
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: target/tarpaulin/
+          if-no-files-found: ignore
+          retention-days: 14
