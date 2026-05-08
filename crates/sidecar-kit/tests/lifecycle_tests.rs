@@ -42,27 +42,11 @@ use tokio_stream::StreamExt;
 // ---------------------------------------------------------------------------
 
 fn mock_script_path() -> String {
-    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .join("tests")
-        .join("mock_sidecar.py")
-        .to_string_lossy()
-        .into_owned()
+    "default".to_string()
 }
 
 fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+    Some(env!("CARGO_BIN_EXE_sidecar_kit_mock_sidecar").to_string())
 }
 
 macro_rules! require_python {
@@ -70,7 +54,7 @@ macro_rules! require_python {
         match python_cmd() {
             Some(cmd) => cmd,
             None => {
-                eprintln!("SKIP: python not found");
+                eprintln!("SKIP: mock sidecar binary not found");
                 return;
             }
         }

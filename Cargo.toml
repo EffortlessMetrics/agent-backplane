@@ -112,6 +112,10 @@ criterion = { version = "0.5", features = ["html_reports"] }
 cucumber = "0.21"
 wiremock = "0.6"
 
+[dependencies]
+chrono.workspace = true
+serde_json.workspace = true
+
 [dev-dependencies]
 criterion = { workspace = true }
 cucumber = { workspace = true }
@@ -331,3 +335,9 @@ harness = false
 [[bench]]
 name = "benchmarks"
 harness = false
+
+[[bin]]
+name = "abp_host_mock_sidecar_root"
+path = "crates/abp-host/tests/fixtures/mock_sidecar.rs"
+test = false
+bench = false
