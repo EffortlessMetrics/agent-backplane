@@ -64,36 +64,20 @@ fn test_work_order() -> WorkOrder {
     }
 }
 
-fn mock_script_path() -> String {
-    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .join("tests")
-        .join("mock_sidecar.py")
-        .to_string_lossy()
-        .into_owned()
+fn mock_sidecar_cmd() -> String {
+    env!("CARGO_BIN_EXE_abp-host-mock-sidecar").to_owned()
 }
 
-fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+fn mock_sidecar_cmd_opt() -> Option<String> {
+    Some(mock_sidecar_cmd())
 }
 
-macro_rules! require_python {
+macro_rules! require_mock_sidecar {
     () => {
-        match python_cmd() {
+        match mock_sidecar_cmd_opt() {
             Some(cmd) => cmd,
             None => {
-                eprintln!("SKIP: python not found");
+                eprintln!("SKIP: Rust mock sidecar binary not built");
                 return;
             }
         }
@@ -102,7 +86,7 @@ macro_rules! require_python {
 
 fn mock_spec_with_mode(py: &str, mode: &str) -> SidecarSpec {
     let mut spec = SidecarSpec::new(py);
-    spec.args = vec![mock_script_path(), mode.to_string()];
+    spec.args = vec![mode.to_string()];
     spec
 }
 
@@ -112,7 +96,7 @@ fn mock_spec_with_mode(py: &str, mode: &str) -> SidecarSpec {
 
 #[tokio::test]
 async fn sidecar_exit_nonzero_returns_exited_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "exit_nonzero");
 
     let result = SidecarClient::spawn(spec).await;
@@ -134,7 +118,7 @@ async fn sidecar_exit_nonzero_returns_exited_error() {
 
 #[tokio::test]
 async fn sidecar_invalid_json_midstream_yields_protocol_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "bad_json_midstream");
 
     let client = SidecarClient::spawn(spec)
@@ -174,7 +158,7 @@ async fn sidecar_invalid_json_midstream_yields_protocol_error() {
 
 #[tokio::test]
 async fn sidecar_no_hello_returns_protocol_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "no_hello");
 
     let result = SidecarClient::spawn(spec).await;
@@ -199,7 +183,7 @@ async fn sidecar_no_hello_returns_protocol_error() {
 
 #[tokio::test]
 async fn sidecar_no_final_yields_exited_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "no_final");
 
     let client = SidecarClient::spawn(spec)
@@ -239,7 +223,7 @@ async fn sidecar_no_final_yields_exited_error() {
 
 #[tokio::test]
 async fn sidecar_multi_final_first_wins() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "multi_final");
 
     let client = SidecarClient::spawn(spec)
@@ -273,7 +257,7 @@ async fn sidecar_multi_final_first_wins() {
 
 #[tokio::test]
 async fn sidecar_drop_midstream_handled_gracefully() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "drop_midstream");
 
     let client = SidecarClient::spawn(spec)
@@ -317,7 +301,7 @@ async fn sidecar_drop_midstream_handled_gracefully() {
 
 #[tokio::test]
 async fn sidecar_fatal_error_propagated() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "fatal");
 
     let client = SidecarClient::spawn(spec)
@@ -439,7 +423,7 @@ fn host_error_from_protocol_error() {
 
 #[tokio::test]
 async fn spawn_failure_then_success() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
 
     // First: fail to spawn.
     let bad_spec = SidecarSpec::new("nonexistent-binary-error-handling-test");

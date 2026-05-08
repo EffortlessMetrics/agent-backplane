@@ -41,27 +41,20 @@ use std::collections::BTreeMap;
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+fn mock_sidecar_cmd() -> String {
+    env!("CARGO_BIN_EXE_abp-host-mock-sidecar").to_owned()
 }
 
-macro_rules! require_python {
+fn mock_sidecar_cmd_opt() -> Option<String> {
+    Some(mock_sidecar_cmd())
+}
+
+macro_rules! require_mock_sidecar {
     () => {
-        match python_cmd() {
+        match mock_sidecar_cmd_opt() {
             Some(cmd) => cmd,
             None => {
-                eprintln!("SKIP: python not found");
+                eprintln!("SKIP: Rust mock sidecar binary not built");
                 return;
             }
         }
@@ -122,11 +115,11 @@ fn sidecar_spec_with_env_vars_round_trips() {
 
 #[tokio::test]
 async fn sidecar_client_timeout_on_no_response() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
 
     // Sidecar that sleeps without producing any output.
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec!["-c".into(), "import time; time.sleep(5)".into()];
+    spec.args = vec!["no_hello_hang".into()];
 
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(2),
@@ -147,16 +140,7 @@ async fn sidecar_client_timeout_on_no_response() {
 
 #[tokio::test]
 async fn sidecar_client_reconnect_after_failure() {
-    let py = require_python!();
-    let mock_script = {
-        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-        manifest
-            .join("tests")
-            .join("mock_sidecar.py")
-            .to_string_lossy()
-            .into_owned()
-    };
-
+    let py = require_mock_sidecar!();
     // First attempt: bad command that fails.
     let bad_spec = SidecarSpec::new("nonexistent-binary-abp-reconnect-xyz");
     let result = SidecarClient::spawn(bad_spec).await;
@@ -164,7 +148,7 @@ async fn sidecar_client_reconnect_after_failure() {
 
     // Second attempt: valid command succeeds.
     let mut good_spec = SidecarSpec::new(&py);
-    good_spec.args = vec![mock_script];
+    good_spec.args = vec![];
     let client = SidecarClient::spawn(good_spec)
         .await
         .expect("second spawn should succeed after prior failure");

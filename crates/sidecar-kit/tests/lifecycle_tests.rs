@@ -41,36 +41,20 @@ use tokio_stream::StreamExt;
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn mock_script_path() -> String {
-    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .join("tests")
-        .join("mock_sidecar.py")
-        .to_string_lossy()
-        .into_owned()
+fn mock_sidecar_cmd() -> String {
+    env!("CARGO_BIN_EXE_sidecar-kit-mock-sidecar").to_owned()
 }
 
-fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+fn mock_sidecar_cmd_opt() -> Option<String> {
+    Some(mock_sidecar_cmd())
 }
 
-macro_rules! require_python {
+macro_rules! require_mock_sidecar {
     () => {
-        match python_cmd() {
+        match mock_sidecar_cmd_opt() {
             Some(cmd) => cmd,
             None => {
-                eprintln!("SKIP: python not found");
+                eprintln!("SKIP: Rust mock sidecar binary not built");
                 return;
             }
         }
@@ -79,7 +63,7 @@ macro_rules! require_python {
 
 fn mock_spec(py: &str, mode: &str) -> ProcessSpec {
     let mut spec = ProcessSpec::new(py);
-    spec.args = vec![mock_script_path(), mode.to_string()];
+    spec.args = vec![mode.to_string()];
     spec
 }
 
@@ -89,7 +73,7 @@ fn mock_spec(py: &str, mode: &str) -> ProcessSpec {
 
 #[tokio::test]
 async fn lifecycle_full_init_process_complete() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py, "default"))
         .await
         .expect("spawn should succeed");
@@ -124,7 +108,7 @@ async fn lifecycle_full_init_process_complete() {
 
 #[tokio::test]
 async fn lifecycle_error_midstream_graceful_shutdown() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py, "error_midstream"))
         .await
         .expect("spawn should succeed");
@@ -156,7 +140,7 @@ async fn lifecycle_error_midstream_graceful_shutdown() {
 
 #[tokio::test]
 async fn lifecycle_large_event_stream() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py, "large_stream"))
         .await
         .expect("spawn should succeed");
@@ -190,7 +174,7 @@ async fn lifecycle_large_event_stream() {
 
 #[tokio::test]
 async fn lifecycle_empty_work_order() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py, "empty_work_order"))
         .await
         .expect("spawn should succeed");
@@ -222,7 +206,7 @@ async fn lifecycle_empty_work_order() {
 
 #[tokio::test]
 async fn lifecycle_tool_call_handling() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py, "tool_call"))
         .await
         .expect("spawn should succeed");
@@ -259,7 +243,7 @@ async fn lifecycle_tool_call_handling() {
 
 #[tokio::test]
 async fn lifecycle_multiple_sequential_work_orders() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
 
     // The multi_run mock handles 3 sequential runs in one process.
     // But SidecarClient consumes self on run_raw, so we test sequential spawns.
@@ -295,7 +279,7 @@ async fn lifecycle_multiple_sequential_work_orders() {
 
 #[tokio::test]
 async fn lifecycle_timeout_slow_sidecar() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py, "slow"))
         .await
         .expect("spawn should succeed");
@@ -336,7 +320,7 @@ async fn lifecycle_timeout_slow_sidecar() {
 
 #[tokio::test]
 async fn lifecycle_resource_cleanup_on_crash() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py, "crash"))
         .await
         .expect("spawn should succeed");
@@ -384,7 +368,7 @@ async fn lifecycle_resource_cleanup_on_crash() {
 
 #[tokio::test]
 async fn lifecycle_cancel_stops_run() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py, "slow"))
         .await
         .expect("spawn should succeed");
@@ -419,7 +403,7 @@ async fn lifecycle_cancel_stops_run() {
 
 #[tokio::test]
 async fn lifecycle_spawn_failure_then_success() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
 
     let bad_spec = ProcessSpec::new("nonexistent-binary-lifecycle-test-xyz");
     let result = SidecarClient::spawn(bad_spec).await;
@@ -437,7 +421,7 @@ async fn lifecycle_spawn_failure_then_success() {
 
 #[tokio::test]
 async fn lifecycle_hello_data_typed_extraction() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py, "default"))
         .await
         .expect("spawn should succeed");
