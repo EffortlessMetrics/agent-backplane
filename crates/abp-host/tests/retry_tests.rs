@@ -53,27 +53,11 @@ fn fast_config(max_retries: u32) -> RetryConfig {
 }
 
 fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+    Some(env!("CARGO_BIN_EXE_abp-host-mock-sidecar").to_string())
 }
 
 fn mock_script_path() -> String {
-    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .join("tests")
-        .join("mock_sidecar.py")
-        .to_string_lossy()
-        .into_owned()
+    "mock_sidecar.py".to_string()
 }
 
 // ---------------------------------------------------------------------------

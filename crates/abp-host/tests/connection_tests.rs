@@ -42,18 +42,7 @@ use std::collections::BTreeMap;
 // ---------------------------------------------------------------------------
 
 fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+    Some(env!("CARGO_BIN_EXE_abp-host-mock-sidecar").to_string())
 }
 
 macro_rules! require_python {

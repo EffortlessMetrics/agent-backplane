@@ -92,6 +92,19 @@ fn schema_still_works() {
 }
 
 #[test]
+fn generate_types_still_works() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    xtask()
+        .args(["generate-types", "--out-dir"])
+        .arg(tmp.path())
+        .assert()
+        .success();
+
+    assert!(tmp.path().join("work_order.schema.json").exists());
+    assert!(tmp.path().join("receipt.schema.json").exists());
+}
+
+#[test]
 fn audit_subcommand_exists() {
     xtask()
         .arg("audit")
@@ -171,6 +184,7 @@ fn help_lists_all_subcommands() {
         .assert()
         .success()
         .stdout(predicate::str::contains("schema"))
+        .stdout(predicate::str::contains("generate-types"))
         .stdout(predicate::str::contains("audit"))
         .stdout(predicate::str::contains("stats"))
         .stdout(predicate::str::contains("setup"));

@@ -17,7 +17,7 @@ This repo does not pin a specific generator yet.
 
 ```bash
 # 1) Generate schemas
-cargo run -p xtask -- schema
+cargo run -p xtask -- generate-types
 
 # 2) TypeScript types (example)
 npx quicktype \

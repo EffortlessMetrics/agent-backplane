@@ -21,6 +21,12 @@ enum Command {
         #[arg(long, default_value = "contracts/schemas")]
         out_dir: PathBuf,
     },
+    /// Generate all checked-in contract artifacts.
+    GenerateTypes {
+        /// Output directory for JSON Schemas.
+        #[arg(long, default_value = "contracts/schemas")]
+        out_dir: PathBuf,
+    },
     /// Run full CI checks locally (fmt, clippy, test, doc-test).
     Check,
     /// Print instructions for running code coverage with tarpaulin.
@@ -65,6 +71,7 @@ fn main() -> Result<()> {
     warn_if_hooks_missing();
     match cli.command {
         Command::Schema { out_dir } => schema(out_dir),
+        Command::GenerateTypes { out_dir } => generate_types(out_dir),
         Command::Check => check(),
         Command::Coverage => coverage(),
         Command::Lint => lint(),
@@ -99,6 +106,15 @@ fn schema(out_dir: PathBuf) -> Result<()> {
 fn write_schema(path: &PathBuf, schema: &schemars::Schema) -> Result<()> {
     let s = serde_json::to_string_pretty(schema)?;
     std::fs::write(path, s).with_context(|| format!("write {}", path.display()))?;
+    Ok(())
+}
+
+fn generate_types(out_dir: PathBuf) -> Result<()> {
+    schema(out_dir.clone())?;
+    eprintln!("Schemas generated under {}", out_dir.display());
+    eprintln!(
+        "Generate TypeScript / Python types from these schemas with a pinned project generator when needed."
+    );
     Ok(())
 }
 
