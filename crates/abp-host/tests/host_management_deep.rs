@@ -154,28 +154,12 @@ fn make_fatal_json(ref_id: Option<&str>, error: &str) -> String {
     JsonlCodec::encode(&env).unwrap()
 }
 
-fn mock_script_path() -> String {
-    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .join("tests")
-        .join("mock_sidecar.py")
-        .to_string_lossy()
-        .into_owned()
+fn mock_sidecar_cmd() -> String {
+    env!("CARGO_BIN_EXE_abp-host-mock-sidecar").to_owned()
 }
 
-fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+fn mock_sidecar_cmd_opt() -> Option<String> {
+    Some(mock_sidecar_cmd())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1583,7 +1567,7 @@ fn retry_config_serde_roundtrip() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Integration tests (require Python)
+// Integration tests (require Rust mock sidecar binary)
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[tokio::test]
@@ -1596,16 +1580,16 @@ async fn integration_spawn_invalid_binary() {
 
 #[tokio::test]
 async fn integration_spawn_and_hello() {
-    let py = match python_cmd() {
+    let py = match mock_sidecar_cmd_opt() {
         Some(cmd) => cmd,
         None => {
-            eprintln!("SKIP: python not found");
+            eprintln!("SKIP: Rust mock sidecar binary not built");
             return;
         }
     };
 
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec![mock_script_path()];
+    spec.args = vec![];
 
     let client = abp_host::SidecarClient::spawn(spec).await.unwrap();
     assert_eq!(client.hello.backend.id, "mock-test");
@@ -1614,16 +1598,16 @@ async fn integration_spawn_and_hello() {
 
 #[tokio::test]
 async fn integration_run_receives_events_and_final() {
-    let py = match python_cmd() {
+    let py = match mock_sidecar_cmd_opt() {
         Some(cmd) => cmd,
         None => {
-            eprintln!("SKIP: python not found");
+            eprintln!("SKIP: Rust mock sidecar binary not built");
             return;
         }
     };
 
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec![mock_script_path()];
+    spec.args = vec![];
 
     let client = abp_host::SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1641,16 +1625,16 @@ async fn integration_run_receives_events_and_final() {
 
 #[tokio::test]
 async fn integration_fatal_mode() {
-    let py = match python_cmd() {
+    let py = match mock_sidecar_cmd_opt() {
         Some(cmd) => cmd,
         None => {
-            eprintln!("SKIP: python not found");
+            eprintln!("SKIP: Rust mock sidecar binary not built");
             return;
         }
     };
 
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec![mock_script_path(), "fatal".into()];
+    spec.args = vec!["fatal".into()];
 
     let client = abp_host::SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1667,16 +1651,16 @@ async fn integration_fatal_mode() {
 
 #[tokio::test]
 async fn integration_multi_events_mode() {
-    let py = match python_cmd() {
+    let py = match mock_sidecar_cmd_opt() {
         Some(cmd) => cmd,
         None => {
-            eprintln!("SKIP: python not found");
+            eprintln!("SKIP: Rust mock sidecar binary not built");
             return;
         }
     };
 
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec![mock_script_path(), "multi_events".into()];
+    spec.args = vec!["multi_events".into()];
 
     let client = abp_host::SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1694,16 +1678,16 @@ async fn integration_multi_events_mode() {
 
 #[tokio::test]
 async fn integration_no_hello_mode_returns_error() {
-    let py = match python_cmd() {
+    let py = match mock_sidecar_cmd_opt() {
         Some(cmd) => cmd,
         None => {
-            eprintln!("SKIP: python not found");
+            eprintln!("SKIP: Rust mock sidecar binary not built");
             return;
         }
     };
 
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec![mock_script_path(), "no_hello".into()];
+    spec.args = vec!["no_hello".into()];
 
     let result = abp_host::SidecarClient::spawn(spec).await;
     assert!(result.is_err());
@@ -1711,16 +1695,16 @@ async fn integration_no_hello_mode_returns_error() {
 
 #[tokio::test]
 async fn integration_bad_json_midstream() {
-    let py = match python_cmd() {
+    let py = match mock_sidecar_cmd_opt() {
         Some(cmd) => cmd,
         None => {
-            eprintln!("SKIP: python not found");
+            eprintln!("SKIP: Rust mock sidecar binary not built");
             return;
         }
     };
 
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec![mock_script_path(), "bad_json_midstream".into()];
+    spec.args = vec!["bad_json_midstream".into()];
 
     let client = abp_host::SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1736,16 +1720,16 @@ async fn integration_bad_json_midstream() {
 
 #[tokio::test]
 async fn integration_env_var_passed_to_sidecar() {
-    let py = match python_cmd() {
+    let py = match mock_sidecar_cmd_opt() {
         Some(cmd) => cmd,
         None => {
-            eprintln!("SKIP: python not found");
+            eprintln!("SKIP: Rust mock sidecar binary not built");
             return;
         }
     };
 
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec![mock_script_path(), "echo_env".into()];
+    spec.args = vec!["echo_env".into()];
     spec.env
         .insert("ABP_TEST_VAR".into(), "hello_from_test".into());
 

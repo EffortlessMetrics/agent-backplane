@@ -60,30 +60,14 @@ fn test_work_order() -> WorkOrder {
     }
 }
 
-/// Returns the path to the mock sidecar Python script.
-fn mock_script_path() -> String {
-    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .join("tests")
-        .join("mock_sidecar.py")
-        .to_string_lossy()
-        .into_owned()
+/// Returns the path to the Rust mock sidecar binary.
+fn mock_sidecar_cmd() -> String {
+    env!("CARGO_BIN_EXE_abp-host-mock-sidecar").to_owned()
 }
 
-/// Check whether `python3` (or `python` on Windows) is available.
-fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+/// Returns the Rust mock sidecar command when Cargo built it.
+fn mock_sidecar_cmd_opt() -> Option<String> {
+    Some(mock_sidecar_cmd())
 }
 
 // ---------------------------------------------------------------------------
@@ -176,21 +160,21 @@ fn host_error_exited_no_code() {
 }
 
 // ---------------------------------------------------------------------------
-// Integration tests – require Python
+// Integration tests – require the Rust mock sidecar binary
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn spawn_receives_hello() {
-    let py = match python_cmd() {
+    let py = match mock_sidecar_cmd_opt() {
         Some(cmd) => cmd,
         None => {
-            eprintln!("SKIP: python not found");
+            eprintln!("SKIP: Rust mock sidecar binary not built");
             return;
         }
     };
 
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec![mock_script_path()];
+    spec.args = vec![];
 
     let client = SidecarClient::spawn(spec)
         .await
@@ -202,16 +186,16 @@ async fn spawn_receives_hello() {
 
 #[tokio::test]
 async fn run_receives_events_and_receipt() {
-    let py = match python_cmd() {
+    let py = match mock_sidecar_cmd_opt() {
         Some(cmd) => cmd,
         None => {
-            eprintln!("SKIP: python not found");
+            eprintln!("SKIP: Rust mock sidecar binary not built");
             return;
         }
     };
 
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec![mock_script_path()];
+    spec.args = vec![];
 
     let client = SidecarClient::spawn(spec)
         .await

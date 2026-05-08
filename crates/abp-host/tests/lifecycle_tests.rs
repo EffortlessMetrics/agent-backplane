@@ -67,36 +67,20 @@ fn test_work_order() -> WorkOrder {
     }
 }
 
-fn mock_script_path() -> String {
-    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .join("tests")
-        .join("mock_sidecar.py")
-        .to_string_lossy()
-        .into_owned()
+fn mock_sidecar_cmd() -> String {
+    env!("CARGO_BIN_EXE_abp-host-mock-sidecar").to_owned()
 }
 
-fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+fn mock_sidecar_cmd_opt() -> Option<String> {
+    Some(mock_sidecar_cmd())
 }
 
-macro_rules! require_python {
+macro_rules! require_mock_sidecar {
     () => {
-        match python_cmd() {
+        match mock_sidecar_cmd_opt() {
             Some(cmd) => cmd,
             None => {
-                eprintln!("SKIP: python not found");
+                eprintln!("SKIP: Rust mock sidecar binary not built");
                 return;
             }
         }
@@ -109,7 +93,7 @@ fn mock_spec(py: &str) -> SidecarSpec {
 
 fn mock_spec_with_mode(py: &str, mode: &str) -> SidecarSpec {
     let mut spec = SidecarSpec::new(py);
-    spec.args = vec![mock_script_path(), mode.to_string()];
+    spec.args = vec![mode.to_string()];
     spec
 }
 
@@ -130,7 +114,7 @@ fn hosts_dir() -> std::path::PathBuf {
 
 #[tokio::test]
 async fn handshake_valid_hello_accepted() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py))
         .await
         .expect("spawn should succeed with valid hello");
@@ -146,7 +130,7 @@ async fn handshake_valid_hello_accepted() {
 
 #[tokio::test]
 async fn handshake_missing_hello_fails_with_protocol_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "no_hello");
 
     let result = SidecarClient::spawn(spec).await;
@@ -168,7 +152,7 @@ async fn handshake_missing_hello_fails_with_protocol_error() {
 
 #[tokio::test]
 async fn handshake_wrong_contract_version_still_accepted() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "wrong_version"))
         .await
         .expect("spawn should succeed even with wrong version");
@@ -185,7 +169,7 @@ async fn handshake_wrong_contract_version_still_accepted() {
 
 #[tokio::test]
 async fn handshake_extra_fields_forward_compatible() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "hello_extra_fields"))
         .await
         .expect("spawn should succeed with extra hello fields");
@@ -217,7 +201,7 @@ async fn handshake_extra_fields_forward_compatible() {
 async fn handshake_hello_timeout_via_process_exit() {
     // Instead of actually waiting for a long timeout, test that a sidecar
     // which exits immediately without sending hello produces the right error.
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "exit_nonzero");
 
     let result = SidecarClient::spawn(spec).await;
@@ -243,7 +227,7 @@ async fn handshake_hello_timeout_via_process_exit() {
 
 #[tokio::test]
 async fn events_single_event_received() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py)).await.expect("spawn");
 
     let run_id = Uuid::new_v4().to_string();
@@ -271,7 +255,7 @@ async fn events_single_event_received() {
 
 #[tokio::test]
 async fn events_multiple_in_sequence() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "multi_events"))
         .await
         .expect("spawn");
@@ -304,7 +288,7 @@ async fn events_multiple_in_sequence() {
 
 #[tokio::test]
 async fn events_different_kinds() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "multi_event_kinds"))
         .await
         .expect("spawn");
@@ -347,7 +331,7 @@ async fn events_different_kinds() {
 
 #[tokio::test]
 async fn events_malformed_line_errors() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "bad_json_midstream"))
         .await
         .expect("hello should succeed before bad JSON");
@@ -375,7 +359,7 @@ async fn events_malformed_line_errors() {
 
 #[tokio::test]
 async fn events_empty_lines_ignored() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "empty_lines"))
         .await
         .expect("spawn");
@@ -402,7 +386,7 @@ async fn events_empty_lines_ignored() {
 
 #[tokio::test]
 async fn events_large_payload() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "large_payload"))
         .await
         .expect("spawn");
@@ -435,7 +419,7 @@ async fn events_large_payload() {
 
 #[tokio::test]
 async fn events_unicode_content() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "unicode_content"))
         .await
         .expect("spawn");
@@ -476,7 +460,7 @@ async fn events_unicode_content() {
 
 #[tokio::test]
 async fn events_ref_id_correlation() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "wrong_ref_id"))
         .await
         .expect("spawn");
@@ -516,7 +500,7 @@ async fn events_ref_id_correlation() {
 
 #[tokio::test]
 async fn completion_final_produces_receipt() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py)).await.expect("spawn");
 
     let run_id = Uuid::new_v4().to_string();
@@ -541,7 +525,7 @@ async fn completion_final_produces_receipt() {
 
 #[tokio::test]
 async fn completion_fatal_produces_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "fatal"))
         .await
         .expect("spawn");
@@ -566,7 +550,7 @@ async fn completion_fatal_produces_error() {
 
 #[tokio::test]
 async fn completion_unexpected_disconnect() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "drop_midstream"))
         .await
         .expect("spawn");
@@ -592,7 +576,7 @@ async fn completion_unexpected_disconnect() {
 
 #[tokio::test]
 async fn completion_exit_code_nonzero() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "exit_nonzero");
 
     let result = SidecarClient::spawn(spec).await;
@@ -608,7 +592,7 @@ async fn completion_exit_code_nonzero() {
 
 #[tokio::test]
 async fn completion_exit_code_zero_graceful() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "graceful_exit"))
         .await
         .expect("spawn");
@@ -633,7 +617,7 @@ async fn completion_exit_code_zero_graceful() {
 
 #[tokio::test]
 async fn completion_graceful_shutdown_no_final() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "no_final"))
         .await
         .expect("spawn");
@@ -772,7 +756,7 @@ fn error_protocol_violation_messages() {
 
 #[tokio::test]
 async fn error_multiple_spawn_failures_recoverable() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
 
     // Multiple failures in a row.
     for _ in 0..3 {
@@ -793,7 +777,7 @@ async fn error_multiple_spawn_failures_recoverable() {
 
 #[tokio::test]
 async fn error_recovery_after_protocol_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
 
     // First run: protocol error (no hello).
     let result = SidecarClient::spawn(mock_spec_with_mode(&py, "no_hello")).await;
@@ -1025,7 +1009,7 @@ fn protocol_error_converts_to_host_error() {
 
 #[tokio::test]
 async fn lifecycle_normal_spawn_run_exit() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec(&py))
         .await
         .expect("spawn should succeed");
@@ -1065,7 +1049,7 @@ async fn lifecycle_normal_spawn_run_exit() {
 
 #[tokio::test]
 async fn lifecycle_env_vars_forwarded() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let mut spec = mock_spec_with_mode(&py, "echo_env");
     spec.env
         .insert("ABP_TEST_VAR".into(), "hello_from_test".into());
@@ -1104,7 +1088,7 @@ async fn lifecycle_env_vars_forwarded() {
 
 #[tokio::test]
 async fn lifecycle_multiple_sequential_spawns() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
 
     for i in 0..3 {
         let client = SidecarClient::spawn(mock_spec(&py))
@@ -1138,7 +1122,7 @@ async fn lifecycle_multiple_sequential_spawns() {
 
 #[tokio::test]
 async fn lifecycle_registry_then_spawn() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
 
     let mut registry = SidecarRegistry::default();
     let spec = mock_spec(&py);
@@ -1231,7 +1215,7 @@ fn lifecycle_registry_list_sorted() {
 
 #[tokio::test]
 async fn events_tool_call_and_result() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let client = SidecarClient::spawn(mock_spec_with_mode(&py, "tool_call_events"))
         .await
         .expect("spawn");

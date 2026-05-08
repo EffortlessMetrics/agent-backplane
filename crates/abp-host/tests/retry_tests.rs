@@ -52,28 +52,12 @@ fn fast_config(max_retries: u32) -> RetryConfig {
     }
 }
 
-fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+fn mock_sidecar_cmd_opt() -> Option<String> {
+    Some(mock_sidecar_cmd())
 }
 
-fn mock_script_path() -> String {
-    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .join("tests")
-        .join("mock_sidecar.py")
-        .to_string_lossy()
-        .into_owned()
+fn mock_sidecar_cmd() -> String {
+    env!("CARGO_BIN_EXE_abp-host-mock-sidecar").to_owned()
 }
 
 // ---------------------------------------------------------------------------
@@ -453,16 +437,16 @@ async fn spawn_with_retry_invalid_binary_exhausts_retries() {
 
 #[tokio::test]
 async fn spawn_with_retry_success_first_try() {
-    let py = match python_cmd() {
+    let py = match mock_sidecar_cmd_opt() {
         Some(cmd) => cmd,
         None => {
-            eprintln!("SKIP: python not found");
+            eprintln!("SKIP: Rust mock sidecar binary not built");
             return;
         }
     };
 
     let mut spec = SidecarSpec::new(&py);
-    spec.args = vec![mock_script_path()];
+    spec.args = vec![];
 
     let cfg = fast_config(3);
     let outcome = spawn_with_retry(spec, &cfg).await.expect("should succeed");

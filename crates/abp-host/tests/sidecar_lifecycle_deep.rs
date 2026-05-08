@@ -85,36 +85,20 @@ fn test_work_order() -> WorkOrder {
     }
 }
 
-fn mock_script_path() -> String {
-    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .join("tests")
-        .join("mock_sidecar.py")
-        .to_string_lossy()
-        .into_owned()
+fn mock_sidecar_cmd() -> String {
+    env!("CARGO_BIN_EXE_abp-host-mock-sidecar").to_owned()
 }
 
-fn python_cmd() -> Option<String> {
-    for cmd in &["python3", "python"] {
-        if std::process::Command::new(cmd)
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return Some(cmd.to_string());
-        }
-    }
-    None
+fn mock_sidecar_cmd_opt() -> Option<String> {
+    Some(mock_sidecar_cmd())
 }
 
-macro_rules! require_python {
+macro_rules! require_mock_sidecar {
     () => {
-        match python_cmd() {
+        match mock_sidecar_cmd_opt() {
             Some(cmd) => cmd,
             None => {
-                eprintln!("SKIP: python not found");
+                eprintln!("SKIP: Rust mock sidecar binary not built");
                 return;
             }
         }
@@ -127,7 +111,7 @@ fn mock_spec(py: &str) -> SidecarSpec {
 
 fn mock_spec_with_mode(py: &str, mode: &str) -> SidecarSpec {
     let mut spec = SidecarSpec::new(py);
-    spec.args = vec![mock_script_path(), mode.to_string()];
+    spec.args = vec![mode.to_string()];
     spec
 }
 
@@ -169,7 +153,7 @@ fn test_receipt(run_id: Uuid) -> Receipt {
 
 #[tokio::test]
 async fn spawn_default_mode_succeeds() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec(&py);
     let client = SidecarClient::spawn(spec).await;
     assert!(client.is_ok(), "spawn should succeed: {:?}", client.err());
@@ -177,7 +161,7 @@ async fn spawn_default_mode_succeeds() {
 
 #[tokio::test]
 async fn spawn_returns_backend_id() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec(&py);
     let client = SidecarClient::spawn(spec).await.unwrap();
     assert_eq!(client.hello.backend.id, "mock-test");
@@ -185,7 +169,7 @@ async fn spawn_returns_backend_id() {
 
 #[tokio::test]
 async fn spawn_returns_backend_version() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec(&py);
     let client = SidecarClient::spawn(spec).await.unwrap();
     assert_eq!(client.hello.backend.backend_version.as_deref(), Some("0.1"));
@@ -193,7 +177,7 @@ async fn spawn_returns_backend_version() {
 
 #[tokio::test]
 async fn spawn_returns_contract_version() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec(&py);
     let client = SidecarClient::spawn(spec).await.unwrap();
     assert_eq!(client.hello.contract_version, CONTRACT_VERSION);
@@ -244,7 +228,7 @@ fn sidecar_spec_serde_roundtrip() {
 
 #[tokio::test]
 async fn hello_handshake_default_mode() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec(&py);
     let client = SidecarClient::spawn(spec).await.unwrap();
     assert_eq!(client.hello.contract_version, "abp/v0.1");
@@ -253,7 +237,7 @@ async fn hello_handshake_default_mode() {
 
 #[tokio::test]
 async fn hello_with_extra_fields_tolerated() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "hello_extra_fields");
     let client = SidecarClient::spawn(spec).await.unwrap();
     assert_eq!(client.hello.backend.id, "mock-test");
@@ -261,7 +245,7 @@ async fn hello_with_extra_fields_tolerated() {
 
 #[tokio::test]
 async fn hello_wrong_version_still_parses() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "wrong_version");
     let client = SidecarClient::spawn(spec).await.unwrap();
     assert_eq!(client.hello.contract_version, "abp/v999.0");
@@ -299,7 +283,7 @@ fn hello_envelope_has_correct_tag() {
 
 #[tokio::test]
 async fn no_hello_is_protocol_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "no_hello");
     let result = SidecarClient::spawn(spec).await;
     assert!(result.is_err());
@@ -312,7 +296,7 @@ async fn no_hello_is_protocol_error() {
 
 #[tokio::test]
 async fn bad_json_midstream_terminates_run() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "bad_json_midstream");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -351,7 +335,7 @@ fn run_envelope_not_accepted_as_hello() {
 
 #[tokio::test]
 async fn graceful_exit_code_zero() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "graceful_exit");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -365,7 +349,7 @@ async fn graceful_exit_code_zero() {
 
 #[tokio::test]
 async fn graceful_exit_receipt_is_complete() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "graceful_exit");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -424,7 +408,7 @@ fn process_info_is_terminated_after_timeout() {
 
 #[tokio::test]
 async fn nonzero_exit_before_hello_is_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "exit_nonzero");
     let result = SidecarClient::spawn(spec).await;
     assert!(result.is_err());
@@ -437,7 +421,7 @@ async fn nonzero_exit_before_hello_is_error() {
 
 #[tokio::test]
 async fn drop_midstream_produces_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "drop_midstream");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -454,7 +438,7 @@ async fn drop_midstream_produces_error() {
 
 #[tokio::test]
 async fn no_final_produces_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "no_final");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -571,7 +555,7 @@ fn crashed_error_is_retryable() {
 async fn stderr_does_not_block_sidecar() {
     // The mock sidecar in "default" mode may emit nothing on stderr.
     // Verify the run still completes.
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec(&py);
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -605,7 +589,7 @@ fn host_error_stdin_display() {
 
 #[tokio::test]
 async fn multiple_concurrent_spawns() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let futures: Vec<_> = (0..3)
         .map(|_| {
             let spec = mock_spec(&py);
@@ -621,7 +605,7 @@ async fn multiple_concurrent_spawns() {
 
 #[tokio::test]
 async fn multiple_concurrent_runs() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
 
     let mut handles = Vec::new();
     for _ in 0..3 {
@@ -677,7 +661,7 @@ fn pool_max_size_enforced() {
 
 #[tokio::test]
 async fn env_var_passed_to_sidecar() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let mut spec = mock_spec_with_mode(&py, "echo_env");
     spec.env
         .insert("ABP_TEST_VAR".into(), "hello_from_test".into());
@@ -698,7 +682,7 @@ async fn env_var_passed_to_sidecar() {
 
 #[tokio::test]
 async fn env_var_unset_by_default() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "echo_env");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -729,7 +713,7 @@ fn sidecar_spec_env_btreemap_is_sorted() {
 
 #[tokio::test]
 async fn cwd_passed_to_sidecar() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let dir = tempfile::tempdir().unwrap();
     let dir_path = dir.path().to_string_lossy().into_owned();
     let mut spec = mock_spec_with_mode(&py, "echo_cwd");
@@ -936,7 +920,7 @@ fn sidecar_config_validate_ok() {
 
 #[tokio::test]
 async fn multi_events_all_received() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "multi_events");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -947,7 +931,7 @@ async fn multi_events_all_received() {
 
 #[tokio::test]
 async fn multi_event_kinds_parsed() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "multi_event_kinds");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -972,7 +956,7 @@ async fn multi_event_kinds_parsed() {
 
 #[tokio::test]
 async fn tool_call_events_streamed() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "tool_call_events");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -986,7 +970,7 @@ async fn tool_call_events_streamed() {
 
 #[tokio::test]
 async fn unicode_content_events() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "unicode_content");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1003,7 +987,7 @@ async fn unicode_content_events() {
 
 #[tokio::test]
 async fn large_payload_event() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "large_payload");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1020,7 +1004,7 @@ async fn large_payload_event() {
 
 #[tokio::test]
 async fn empty_lines_ignored() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "empty_lines");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1031,7 +1015,7 @@ async fn empty_lines_ignored() {
 
 #[tokio::test]
 async fn wrong_ref_id_events_skipped() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "wrong_ref_id");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1043,7 +1027,7 @@ async fn wrong_ref_id_events_skipped() {
 
 #[tokio::test]
 async fn slow_events_still_arrive() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "slow");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1058,7 +1042,7 @@ async fn slow_events_still_arrive() {
 
 #[tokio::test]
 async fn fatal_envelope_produces_error() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "fatal");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1075,7 +1059,7 @@ async fn fatal_envelope_produces_error() {
 
 #[tokio::test]
 async fn fatal_error_message_preserved() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec_with_mode(&py, "fatal");
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1095,7 +1079,7 @@ async fn fatal_error_message_preserved() {
 
 #[tokio::test]
 async fn final_receipt_backend_id() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec(&py);
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
@@ -1107,7 +1091,7 @@ async fn final_receipt_backend_id() {
 
 #[tokio::test]
 async fn final_receipt_outcome_complete() {
-    let py = require_python!();
+    let py = require_mock_sidecar!();
     let spec = mock_spec(&py);
     let client = SidecarClient::spawn(spec).await.unwrap();
     let run_id = Uuid::new_v4().to_string();
