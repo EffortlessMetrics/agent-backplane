@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use schemars::schema_for;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command as Cmd;
 
 #[derive(Parser, Debug)]
@@ -21,6 +21,12 @@ enum Command {
         #[arg(long, default_value = "contracts/schemas")]
         out_dir: PathBuf,
     },
+    /// Generate schemas and print follow-up language binding guidance.
+    GenerateTypes {
+        /// Output directory for generated JSON Schemas.
+        #[arg(long, default_value = "contracts/schemas")]
+        out_dir: PathBuf,
+    },
     /// Run full CI checks locally (fmt, clippy, test, doc-test).
     Check,
     /// Print instructions for running code coverage with tarpaulin.
@@ -35,6 +41,12 @@ enum Command {
         /// Skip clippy --fix (only format).
         #[arg(long)]
         no_clippy: bool,
+    },
+    /// Run rustfmt over the comprehensive top-level test suite.
+    FmtComprehensiveTests {
+        /// Validate formatting without modifying files.
+        #[arg(long)]
+        check: bool,
     },
     /// Pre-push gate: fmt + cargo check + clippy + test compile (no test execution).
     Gate {
@@ -58,6 +70,12 @@ enum Command {
     Stats,
     /// Configure local repo for development (install git hooks).
     Setup,
+    /// Close known superseded GitHub pull requests (dry-run unless --execute is set).
+    CloseSupersededPrs {
+        /// Actually invoke `gh pr close`; omit for a dry-run preview.
+        #[arg(long)]
+        execute: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -65,10 +83,12 @@ fn main() -> Result<()> {
     warn_if_hooks_missing();
     match cli.command {
         Command::Schema { out_dir } => schema(out_dir),
+        Command::GenerateTypes { out_dir } => generate_types(out_dir),
         Command::Check => check(),
         Command::Coverage => coverage(),
         Command::Lint => lint(),
         Command::LintFix { check, no_clippy } => lint_fix(check, no_clippy),
+        Command::FmtComprehensiveTests { check } => fmt_comprehensive_tests(check),
         Command::Gate { check } => gate(check),
         Command::ReleaseCheck => release_check(),
         Command::Docs { open } => docs(open),
@@ -76,6 +96,7 @@ fn main() -> Result<()> {
         Command::Audit => audit(),
         Command::Stats => stats(),
         Command::Setup => setup(),
+        Command::CloseSupersededPrs { execute } => close_superseded_prs(execute),
     }
 }
 
@@ -102,21 +123,35 @@ fn write_schema(path: &PathBuf, schema: &schemars::Schema) -> Result<()> {
     Ok(())
 }
 
+// ── generate-types ───────────────────────────────────────────────────
+
+fn generate_types(out_dir: PathBuf) -> Result<()> {
+    schema(out_dir.clone())?;
+    println!("Schemas generated under {}", out_dir.display());
+    println!("Now generate TypeScript / Python types using your preferred generator.");
+    Ok(())
+}
+
 // ── check ────────────────────────────────────────────────────────────
 
-fn run_cargo(args: &[&str]) -> Result<()> {
-    eprintln!("→ cargo {}", args.join(" "));
-    let status = Cmd::new("cargo")
+fn run_cmd(program: &str, args: &[&str]) -> Result<()> {
+    eprintln!("→ {} {}", program, args.join(" "));
+    let status = Cmd::new(program)
         .args(args)
         .status()
-        .with_context(|| format!("spawn cargo {}", args.join(" ")))?;
+        .with_context(|| format!("spawn {} {}", program, args.join(" ")))?;
     anyhow::ensure!(
         status.success(),
-        "cargo {} failed ({})",
+        "{} {} failed ({})",
+        program,
         args.join(" "),
         status
     );
     Ok(())
+}
+
+fn run_cargo(args: &[&str]) -> Result<()> {
+    run_cmd("cargo", args)
 }
 
 /// Run `cargo fmt` with optional check mode.
@@ -160,7 +195,7 @@ fn run_fmt(check: bool) -> Result<()> {
             let manifest_path = pkg["manifest_path"]
                 .as_str()
                 .context("package missing manifest_path")?;
-            let pkg_dir = std::path::Path::new(manifest_path)
+            let pkg_dir = Path::new(manifest_path)
                 .parent()
                 .context("manifest_path has no parent")?;
             let src_dir = pkg_dir.join("src");
@@ -320,6 +355,41 @@ fn lint_fix(check: bool, no_clippy: bool) -> Result<()> {
         }
     }
     eprintln!("lint-fix passed ✓");
+    Ok(())
+}
+
+// ── fmt-comprehensive-tests ──────────────────────────────────────────
+
+const COMPREHENSIVE_TESTS: &[&str] = &[
+    "tests/api_surface_comprehensive.rs",
+    "tests/serde_canonical_comprehensive.rs",
+    "tests/bdd_scenarios_comprehensive.rs",
+    "tests/fuzz_harness_comprehensive.rs",
+    "tests/contract_version_comprehensive.rs",
+    "tests/daemon_comprehensive.rs",
+    "tests/sdk_adapter_comprehensive.rs",
+    "tests/cross_crate_comprehensive.rs",
+    "tests/policy_enforcement_comprehensive.rs",
+];
+
+fn fmt_comprehensive_tests(check: bool) -> Result<()> {
+    let root = workspace_root()?;
+    let mut args = Vec::new();
+    if check {
+        args.push("--check".to_string());
+    }
+
+    let mut files = Vec::new();
+    for file in COMPREHENSIVE_TESTS {
+        let path = root.join(file);
+        anyhow::ensure!(path.exists(), "comprehensive test file missing: {file}");
+        files.push(path);
+    }
+
+    args.extend(files.iter().map(|path| path.display().to_string()));
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    run_cmd("rustfmt", &arg_refs)?;
+    eprintln!("formatted {} comprehensive test files ✓", files.len());
     Ok(())
 }
 
@@ -519,7 +589,7 @@ fn read_crate_name(path: &PathBuf) -> Option<String> {
     doc.get("package")?.get("name")?.as_str().map(String::from)
 }
 
-fn read_workspace(root: &std::path::Path) -> Result<(String, Vec<toml::Value>)> {
+fn read_workspace(root: &Path) -> Result<(String, Vec<toml::Value>)> {
     let ws_manifest =
         std::fs::read_to_string(root.join("Cargo.toml")).context("read workspace Cargo.toml")?;
     let ws_doc: toml::Value = ws_manifest.parse().context("parse workspace Cargo.toml")?;
@@ -542,7 +612,7 @@ fn read_workspace(root: &std::path::Path) -> Result<(String, Vec<toml::Value>)> 
     Ok((ws_version, members))
 }
 
-fn walk_rs_files(dir: &std::path::Path) -> impl Iterator<Item = PathBuf> {
+fn walk_rs_files(dir: &Path) -> impl Iterator<Item = PathBuf> {
     walkdir::WalkDir::new(dir)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -771,7 +841,7 @@ fn stats() -> Result<()> {
     Ok(())
 }
 
-fn max_dep_depth(root: &std::path::Path, members: &[toml::Value]) -> Result<usize> {
+fn max_dep_depth(root: &Path, members: &[toml::Value]) -> Result<usize> {
     let mut member_names: HashSet<String> = HashSet::new();
     let mut dep_graph: HashMap<String, Vec<String>> = HashMap::new();
 
@@ -833,6 +903,48 @@ fn dep_depth(
     }
     cache.insert(name.to_string(), max_child);
     max_child
+}
+
+// ── close-superseded-prs ─────────────────────────────────────────────
+
+const SUPERSEDED_PRS: &[(u32, &str)] = &[
+    (
+        11,
+        "Closing as superseded by #6 (Split integrations into SRP backend microcrates) which was already merged to main.",
+    ),
+    (
+        12,
+        "Closing as superseded by #9 (Extract shared sidecar registration into SRP microcrate) which was already merged to main.",
+    ),
+    (
+        13,
+        "Closing as superseded by #6 (Split integrations into SRP backend microcrates) which was already merged to main.",
+    ),
+    (
+        14,
+        "Closing as superseded by #9 (Extract shared sidecar registration into SRP microcrate) which was already merged to main.",
+    ),
+    (
+        8,
+        "Closing as superseded by #15 which implements the same abp-which extraction.",
+    ),
+];
+
+fn close_superseded_prs(execute: bool) -> Result<()> {
+    if !execute {
+        println!("dry-run: pass --execute to close these superseded PRs");
+    }
+
+    for (number, message) in SUPERSEDED_PRS {
+        if execute {
+            let pr = number.to_string();
+            run_cmd("gh", &["pr", "close", &pr, "-c", message])?;
+        } else {
+            println!("gh pr close {number} -c {message:?}");
+        }
+    }
+
+    Ok(())
 }
 
 // ── setup ────────────────────────────────────────────────────────────
