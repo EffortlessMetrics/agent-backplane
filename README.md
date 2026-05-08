@@ -411,6 +411,7 @@ and PR:
 - Schema generation — verifies `contracts/schemas/` are up-to-date
 
 Additional workflows:
+- [`coverage.yml`](.github/workflows/coverage.yml) — Scoped Rust execution-surface coverage via `cargo-tarpaulin` and Codecov
 - [`mutants.yml`](.github/workflows/mutants.yml) — Manual-dispatch mutation testing via `cargo-mutants`
 - [`release.yml`](.github/workflows/release.yml) — Tag-triggered release pipeline
 
@@ -421,6 +422,7 @@ Additional workflows:
 - [`docs/sdk_mapping.md`](docs/sdk_mapping.md) — Dialect × engine mapping matrix and fidelity rules
 - [`docs/dialect_engine_matrix.md`](docs/dialect_engine_matrix.md) — Passthrough vs mapped routing design
 - [`docs/capabilities.md`](docs/capabilities.md) — Capability model reference
+- [`docs/ci/coverage.md`](docs/ci/coverage.md) — Codecov scoped execution-surface coverage lane
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — Contribution guidelines
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — Contributor Covenant Code of Conduct
 
