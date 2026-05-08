@@ -4,7 +4,7 @@
 [![crates.io](https://img.shields.io/crates/v/abp-core.svg)](https://crates.io/crates/abp-core)
 [![docs.rs](https://docs.rs/abp-core/badge.svg)](https://docs.rs/abp-core)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
-[![codecov](https://codecov.io/gh/EffortlessMetrics/agent-backplane/branch/main/graph/badge.svg)](https://codecov.io/gh/EffortlessMetrics/agent-backplane)
+[![Codecov](https://codecov.io/gh/EffortlessMetrics/agent-backplane/branch/main/graph/badge.svg)](https://codecov.io/gh/EffortlessMetrics/agent-backplane)
 
 ## What is ABP?
 
@@ -411,6 +411,7 @@ and PR:
 - Schema generation — verifies `contracts/schemas/` are up-to-date
 
 Additional workflows:
+- [`coverage.yml`](.github/workflows/coverage.yml) — Scoped Rust execution-surface coverage via `cargo-tarpaulin` and Codecov
 - [`mutants.yml`](.github/workflows/mutants.yml) — Manual-dispatch mutation testing via `cargo-mutants`
 - [`release.yml`](.github/workflows/release.yml) — Tag-triggered release pipeline
 
@@ -421,6 +422,7 @@ Additional workflows:
 - [`docs/sdk_mapping.md`](docs/sdk_mapping.md) — Dialect × engine mapping matrix and fidelity rules
 - [`docs/dialect_engine_matrix.md`](docs/dialect_engine_matrix.md) — Passthrough vs mapped routing design
 - [`docs/capabilities.md`](docs/capabilities.md) — Capability model reference
+- [`docs/ci/coverage.md`](docs/ci/coverage.md) — Codecov scoped execution-surface coverage lane
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — Contribution guidelines
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — Contributor Covenant Code of Conduct
 
