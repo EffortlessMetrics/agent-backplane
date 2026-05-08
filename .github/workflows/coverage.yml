@@ -77,6 +77,65 @@ jobs:
           abp-stream abp-ratelimit abp-retry abp-validate
         timeout-minutes: 30
 
+      - name: Write coverage receipt
+        if: always()
+        run: |
+          mkdir -p target/tarpaulin
+          python3 - <<'PY'
+          import json
+          import pathlib
+          receipt = {
+              "schema_version": 1,
+              "repo": "agent-backplane",
+              "lane": "coverage",
+              "tool": "cargo-tarpaulin",
+              "flag": "rust-core-runtime",
+              "workflow": "Coverage",
+              "scope": [
+                  "abp-core",
+                  "abp-protocol",
+                  "abp-host",
+                  "abp-runtime",
+                  "abp-policy",
+                  "abp-glob",
+                  "abp-workspace",
+                  "abp-capability",
+                  "abp-ir",
+                  "abp-mapper",
+                  "abp-dialect",
+                  "abp-receipt",
+                  "abp-config",
+                  "abp-error",
+                  "abp-backend-core",
+                  "abp-backend-mock",
+                  "abp-stream",
+                  "abp-ratelimit",
+                  "abp-retry",
+                  "abp-validate"
+              ],
+              "artifacts": {
+                  "lcov": pathlib.Path("target/tarpaulin/lcov.info").exists(),
+                  "html": pathlib.Path("target/tarpaulin/tarpaulin-report.html").exists(),
+              },
+              "claim_boundary": [
+                  "execution_surface_only",
+                  "not_sdk_semantic_fidelity",
+                  "not_sidecar_protocol_correctness",
+                  "not_backend_behavior",
+                  "not_receipt_integrity",
+                  "not_daemon_websocket_correctness",
+                  "not_policy_safety",
+                  "not_bdd_adequacy",
+                  "not_fuzz_robustness",
+                  "not_release_readiness"
+              ],
+          }
+          pathlib.Path("target/tarpaulin/coverage-receipt.json").write_text(
+              json.dumps(receipt, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
       - name: Detect Codecov token
         id: codecov-token
         env:
@@ -116,3 +175,19 @@ jobs:
           path: target/tarpaulin/
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Summarize coverage artifacts
+        if: always()
+        run: |
+          {
+            echo "## Coverage"
+            echo ""
+            echo "| Artifact | Present |"
+            echo "| --- | ---: |"
+            echo "| lcov.info | $([ -s target/tarpaulin/lcov.info ] && echo yes || echo no) |"
+            echo "| HTML report | $([ -s target/tarpaulin/tarpaulin-report.html ] && echo yes || echo no) |"
+            echo "| coverage-receipt.json | $([ -s target/tarpaulin/coverage-receipt.json ] && echo yes || echo no) |"
+            echo ""
+            echo "Codecov flag: \`rust-core-runtime\`"
+            echo "Claim boundary: scoped Rust execution-surface evidence only."
+          } >> "$GITHUB_STEP_SUMMARY"
