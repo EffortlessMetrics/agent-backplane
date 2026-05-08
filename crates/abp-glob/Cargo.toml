@@ -19,6 +19,9 @@ globset.workspace = true
 criterion.workspace = true
 proptest = { workspace = true }
 
+[lints]
+workspace = true
+
 [[bench]]
 name = "matching"
 harness = false

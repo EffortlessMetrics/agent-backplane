@@ -15,6 +15,9 @@ categories = ["command-line-utilities"]
 name = "abp_daemon"
 path = "src/lib.rs"
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "abp-daemon"
 path = "src/main.rs"

@@ -1,0 +1,139 @@
+schema_version = "1.0"
+
+[[allow]]
+glob = "hosts/**/*.js"
+kind = "sdk_host_fixture"
+owner = "sdk-hosts"
+reason = "JavaScript host adapters, mocks, and vendored SDK test fixtures are required to exercise non-Rust sidecar integrations."
+surface = "host-integration"
+classification = "production-and-test"
+covered_by = [
+  "cargo test --workspace",
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = "hosts/**/*.mjs"
+kind = "sdk_host_fixture"
+owner = "sdk-hosts"
+reason = "ES module host adapter fixtures are required for Node-compatible integration coverage."
+surface = "host-integration"
+classification = "production-and-test"
+covered_by = [
+  "cargo test --workspace",
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = "hosts/**/*.cjs"
+kind = "sdk_host_fixture"
+owner = "sdk-hosts"
+reason = "CommonJS host adapter fixtures are required for Node-compatible integration coverage."
+surface = "host-integration"
+classification = "production-and-test"
+covered_by = [
+  "cargo test --workspace",
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = "hosts/**/*.ts"
+kind = "sdk_host_type_surface"
+owner = "sdk-hosts"
+reason = "TypeScript declaration files under host fixtures document and validate non-Rust SDK boundaries."
+surface = "host-integration"
+classification = "generated-or-vendored"
+covered_by = [
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = "hosts/**/*.map"
+kind = "vendored_source_map"
+owner = "sdk-hosts"
+reason = "Source maps are carried with vendored Node SDK fixtures for debuggable host integration failures."
+surface = "host-integration"
+classification = "vendored"
+covered_by = [
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = ".github/workflows/*.yml"
+kind = "ci_declarative"
+owner = "release/ci"
+reason = "GitHub Actions workflow definitions are platform-required YAML."
+surface = "ci"
+classification = "config"
+covered_by = [
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = "tests/**/*.js"
+kind = "conformance_test"
+owner = "sdk-hosts"
+reason = "JavaScript conformance tests validate host protocol behavior that Rust-only tests cannot represent."
+surface = "conformance"
+classification = "test"
+covered_by = [
+  "cargo test --workspace",
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = "crates/**/*.py"
+kind = "sidecar_test_fixture"
+owner = "sidecar"
+reason = "Python mock sidecars exercise JSONL protocol behavior across process boundaries."
+surface = "sidecar-integration"
+classification = "test"
+covered_by = [
+  "cargo test --workspace",
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = "hosts/**/*.py"
+kind = "python_host_fixture"
+owner = "sdk-hosts"
+reason = "Python host adapters and tests validate non-Rust SDK bridge behavior."
+surface = "host-integration"
+classification = "production-and-test"
+covered_by = [
+  "cargo test --workspace",
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = "hosts/**/*.yml"
+kind = "vendored_host_config"
+owner = "sdk-hosts"
+reason = "YAML files under host fixtures are vendored package metadata or agent definitions required by SDK integration fixtures."
+surface = "host-integration"
+classification = "vendored"
+covered_by = [
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = "hosts/**/*.yaml"
+kind = "vendored_host_config"
+owner = "sdk-hosts"
+reason = "YAML files under host fixtures are vendored package metadata or agent definitions required by SDK integration fixtures."
+surface = "host-integration"
+classification = "vendored"
+covered_by = [
+  "cargo run -p xtask -- check-file-policy",
+]
+
+[[allow]]
+glob = "codegen/*.sh"
+kind = "codegen_tooling"
+owner = "sdk-surface"
+reason = "Shell codegen entrypoints wrap SDK surface generation steps while the Rust xtask replacement is staged."
+surface = "codegen"
+classification = "tooling"
+covered_by = [
+  "cargo run -p xtask -- check-file-policy",
+]

@@ -11,6 +11,9 @@ readme = "README.md"
 keywords = ["copilot", "sidecar", "bridge", "ai", "github"]
 categories = ["development-tools"]
 
+[lints]
+workspace = true
+
 [features]
 default = []
 normalized = ["dep:abp-core"]

@@ -11,6 +11,9 @@ readme = "README.md"
 keywords = ["codex", "bridge", "ai", "openai", "responses"]
 categories = ["development-tools"]
 
+[lints]
+workspace = true
+
 [features]
 default = []
 ir = ["dep:abp-dialect"]

@@ -1,0 +1,10 @@
+# Agent Backplane Clippy policy configuration.
+#
+# Keep this file for repo-specific disallowed methods, macros, names, and types.
+# Do not add test carveouts such as allow-unwrap-in-tests or allow-panic-in-tests;
+# workspace panic-free posture is governed by Cargo.toml and policy/clippy-lints.toml.
+
+# No repo-specific disallowed items are active yet.
+disallowed-methods = []
+disallowed-types = []
+disallowed-macros = []

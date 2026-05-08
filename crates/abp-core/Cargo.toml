@@ -38,6 +38,9 @@ harness = false
 name = "core_bench"
 harness = false
 
+[lints]
+workspace = true
+
 [features]
 # Keep a feature gate for anything that could be “heavy” later.
 default = []
