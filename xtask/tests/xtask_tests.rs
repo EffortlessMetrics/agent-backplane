@@ -79,6 +79,30 @@ fn list_crates_produces_output() {
 }
 
 #[test]
+fn generate_types_subcommand_exists() {
+    xtask()
+        .arg("generate-types")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("schemas"));
+}
+
+#[test]
+fn generate_types_writes_schemas() {
+    let tmp = tempfile::tempdir().expect("create temp dir");
+    xtask()
+        .args(["generate-types", "--out-dir"])
+        .arg(tmp.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Schemas generated under"));
+
+    assert!(tmp.path().join("work_order.schema.json").exists());
+    assert!(tmp.path().join("receipt.schema.json").exists());
+}
+
+#[test]
 fn schema_still_works() {
     let tmp = tempfile::tempdir().expect("create temp dir");
     xtask()
@@ -149,6 +173,26 @@ fn gate_has_check_flag() {
         .assert()
         .success()
         .stdout(predicate::str::contains("--check"));
+}
+
+#[test]
+fn fmt_comprehensive_tests_subcommand_exists() {
+    xtask()
+        .arg("fmt-comprehensive-tests")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("comprehensive"));
+}
+
+#[test]
+fn close_superseded_prs_is_dry_run_by_default() {
+    xtask()
+        .arg("close-superseded-prs")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("dry-run"))
+        .stdout(predicate::str::contains("gh pr close 11"));
 }
 
 #[test]

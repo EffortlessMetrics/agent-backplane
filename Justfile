@@ -22,6 +22,12 @@ test-compile:
 schema:
     cargo run -p xtask -- schema
 
+generate-types:
+    cargo run -p xtask -- generate-types
+
+fmt-comprehensive-tests:
+    cargo run -p xtask -- fmt-comprehensive-tests
+
 check:
     cargo xtask check
 
@@ -36,3 +42,6 @@ docs:
 
 docs-open:
     cargo xtask docs --open
+
+close-superseded-prs:
+    cargo xtask close-superseded-prs
