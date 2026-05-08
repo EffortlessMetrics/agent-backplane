@@ -21,6 +21,12 @@ enum Command {
         #[arg(long, default_value = "contracts/schemas")]
         out_dir: PathBuf,
     },
+    /// Generate all language contract artifacts handled by the Rust toolchain.
+    GenerateTypes {
+        /// Schema output directory.
+        #[arg(long, default_value = "contracts/schemas")]
+        out_dir: PathBuf,
+    },
     /// Run full CI checks locally (fmt, clippy, test, doc-test).
     Check,
     /// Print instructions for running code coverage with tarpaulin.
@@ -65,6 +71,7 @@ fn main() -> Result<()> {
     warn_if_hooks_missing();
     match cli.command {
         Command::Schema { out_dir } => schema(out_dir),
+        Command::GenerateTypes { out_dir } => generate_types(out_dir),
         Command::Check => check(),
         Command::Coverage => coverage(),
         Command::Lint => lint(),
@@ -99,6 +106,16 @@ fn schema(out_dir: PathBuf) -> Result<()> {
 fn write_schema(path: &PathBuf, schema: &schemars::Schema) -> Result<()> {
     let s = serde_json::to_string_pretty(schema)?;
     std::fs::write(path, s).with_context(|| format!("write {}", path.display()))?;
+    Ok(())
+}
+
+// ── generate-types ───────────────────────────────────────────────────
+
+fn generate_types(out_dir: PathBuf) -> Result<()> {
+    schema(out_dir)?;
+    eprintln!(
+        "Rust xtask generated JSON schemas. Generate TypeScript/Python bindings with a pinned generator when those language artifacts are required."
+    );
     Ok(())
 }
 

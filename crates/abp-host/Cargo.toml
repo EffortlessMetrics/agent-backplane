@@ -35,3 +35,9 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 tokio-stream.workspace = true
 abp-error = { path = "../abp-error", version = "0.1.0" }
 uuid = { workspace = true }
+
+[[bin]]
+name = "abp_host_mock_sidecar"
+path = "tests/fixtures/mock_sidecar.rs"
+test = false
+bench = false

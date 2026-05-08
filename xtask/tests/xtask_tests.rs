@@ -30,6 +30,16 @@ fn lint_subcommand_exists() {
 }
 
 #[test]
+fn generate_types_subcommand_exists() {
+    xtask()
+        .arg("generate-types")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("contract artifacts"));
+}
+
+#[test]
 fn release_check_subcommand_exists() {
     xtask()
         .arg("release-check")
