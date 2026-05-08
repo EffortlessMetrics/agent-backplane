@@ -35,3 +35,6 @@ tempfile = "3"
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-dialect = { path = "../abp-dialect", version = "0.1.0" }
 claude-bridge = { path = ".", version = "0.1.0", features = ["ir"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,6 @@
+schema_version = "0.3"
+
+# Semantic panic-family exceptions use identity = path + family + selector.
+# last_seen locations are advisory and should be updated by policy tooling.
+# Keep this file empty until broad bootstrap debt is converted into reviewed,
+# narrow receipts.
