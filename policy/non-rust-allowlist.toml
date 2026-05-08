@@ -1,0 +1,28 @@
+schema_version = "1.0"
+
+[[allow]]
+glob = ".github/workflows/*.yml"
+kind = "ci_declarative"
+owner = "release/ci"
+reason = "GitHub Actions workflow definitions are platform-required YAML."
+surface = "ci"
+classification = "config"
+covered_by = ["cargo xtask check-lint-policy"]
+
+[[allow]]
+glob = "hosts/**/package*.json"
+kind = "sidecar_package_manifest"
+owner = "sidecar-platform"
+reason = "Node package manifests are required for sidecar host package metadata."
+surface = "sidecar"
+classification = "config"
+covered_by = ["cargo xtask check-lint-policy"]
+
+[[allow]]
+glob = "hosts/**/*.js"
+kind = "sidecar_host"
+owner = "sidecar-platform"
+reason = "JavaScript sidecar host fixtures and adapters model external SDK boundary behavior."
+surface = "sidecar"
+classification = "tooling"
+covered_by = ["cargo xtask check-lint-policy"]

@@ -1,0 +1,20 @@
+schema = 1
+
+# Existing lint debt is tracked here as reviewed, expiring entries while the
+# workspace moves from policy infrastructure to full remediation. New entries
+# must be narrower than these wave-0 buckets and include owner, reason, path,
+# lint, and expires.
+
+[[debt]]
+lint = "clippy::allow_attributes"
+path = "tests/**/*.rs"
+owner = "quality-platform"
+reason = "Legacy generated and exhaustive integration tests currently use broad crate-level allow attributes; migrate to panic-free helpers and #[expect(..., reason = ...)] in follow-up cleanup PRs."
+expires = "2026-07-01"
+
+[[debt]]
+lint = "clippy::arithmetic_side_effects"
+path = "crates/**/*.rs"
+owner = "runtime-platform"
+reason = "Large runtime, protocol, and SDK workspace needs reviewed checked/wrapping/saturating numeric policy before arithmetic_side_effects can be made warning-clean."
+expires = "2026-07-01"

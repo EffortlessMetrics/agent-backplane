@@ -4,9 +4,12 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 
-#[allow(deprecated)] // cargo_bin works fine; the replacement macro is unstable
+#[allow(
+    deprecated,
+    reason = "cargo_bin works fine; the replacement macro is unstable"
+)]
 fn xtask() -> Command {
-    Command::cargo_bin("xtask").unwrap()
+    Command::cargo_bin("xtask").expect("xtask test binary should be available")
 }
 
 #[test]
@@ -112,6 +115,26 @@ fn stats_subcommand_exists() {
 }
 
 #[test]
+fn check_lint_policy_subcommand_exists() {
+    xtask()
+        .arg("check-lint-policy")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("lint policy"));
+}
+
+#[test]
+fn policy_report_subcommand_exists() {
+    xtask()
+        .arg("policy-report")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("policy"));
+}
+
+#[test]
 fn lint_fix_subcommand_exists() {
     xtask()
         .arg("lint-fix")
@@ -172,6 +195,8 @@ fn help_lists_all_subcommands() {
         .success()
         .stdout(predicate::str::contains("schema"))
         .stdout(predicate::str::contains("audit"))
+        .stdout(predicate::str::contains("check-lint-policy"))
+        .stdout(predicate::str::contains("policy-report"))
         .stdout(predicate::str::contains("stats"))
         .stdout(predicate::str::contains("setup"));
 }

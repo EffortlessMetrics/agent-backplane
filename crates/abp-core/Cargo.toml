@@ -41,3 +41,6 @@ harness = false
 [features]
 # Keep a feature gate for anything that could be “heavy” later.
 default = []
+
+[lints]
+workspace = true

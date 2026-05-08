@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use schemars::schema_for;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command as Cmd;
 
 #[derive(Parser, Debug)]
@@ -54,6 +54,10 @@ enum Command {
     ListCrates,
     /// Run workspace quality checks (required fields, unused deps, version consistency).
     Audit,
+    /// Verify the governed workspace lint policy ledgers and inheritance.
+    CheckLintPolicy,
+    /// Print a compact policy exception/debt report.
+    PolicyReport,
     /// Show workspace statistics (crates, tests, LOC, dependency depth).
     Stats,
     /// Configure local repo for development (install git hooks).
@@ -74,6 +78,8 @@ fn main() -> Result<()> {
         Command::Docs { open } => docs(open),
         Command::ListCrates => list_crates(),
         Command::Audit => audit(),
+        Command::CheckLintPolicy => check_lint_policy(),
+        Command::PolicyReport => policy_report(),
         Command::Stats => stats(),
         Command::Setup => setup(),
     }
@@ -503,6 +509,355 @@ fn list_crates() -> Result<()> {
         }
     }
     Ok(())
+}
+
+// ── lint policy ─────────────────────────────────────────────────────
+
+fn check_lint_policy() -> Result<()> {
+    let report = lint_policy_report()?;
+    report.print();
+    if report.failures.is_empty() {
+        eprintln!("check-lint-policy passed ✓");
+        Ok(())
+    } else {
+        for failure in &report.failures {
+            eprintln!("  ✗ {failure}");
+        }
+        anyhow::bail!("check-lint-policy found {} issue(s)", report.failures.len())
+    }
+}
+
+fn policy_report() -> Result<()> {
+    lint_policy_report()?.print();
+    Ok(())
+}
+
+#[derive(Default)]
+struct LintPolicyReport {
+    active_lints: usize,
+    planned_lints: usize,
+    debt_entries: usize,
+    failures: Vec<String>,
+}
+
+impl LintPolicyReport {
+    fn print(&self) {
+        eprintln!("lint policy report");
+        eprintln!("  active lints:  {}", self.active_lints);
+        eprintln!("  planned lints: {}", self.planned_lints);
+        eprintln!("  debt entries:  {}", self.debt_entries);
+        eprintln!("  failures:      {}", self.failures.len());
+    }
+}
+
+fn lint_policy_report() -> Result<LintPolicyReport> {
+    let root = workspace_root()?;
+    let cargo_path = root.join("Cargo.toml");
+    let cargo_doc = read_toml(&cargo_path)?;
+    let policy_path = root.join("policy/clippy-lints.toml");
+    let policy_doc = read_toml(&policy_path)?;
+    let debt_path = root.join("policy/clippy-debt.toml");
+    let debt_doc = read_toml(&debt_path)?;
+
+    let mut report = LintPolicyReport::default();
+
+    let workspace = cargo_doc
+        .get("workspace")
+        .and_then(toml::Value::as_table)
+        .context("Cargo.toml missing [workspace]")?;
+    let workspace_package = workspace
+        .get("package")
+        .and_then(toml::Value::as_table)
+        .context("Cargo.toml missing [workspace.package]")?;
+    let cargo_msrv = workspace_package
+        .get("rust-version")
+        .and_then(toml::Value::as_str)
+        .unwrap_or_default();
+    let policy_msrv = policy_doc
+        .get("msrv")
+        .and_then(toml::Value::as_str)
+        .unwrap_or_default();
+    if cargo_msrv != policy_msrv {
+        report.failures.push(format!(
+            "workspace.package.rust-version ({cargo_msrv}) != policy msrv ({policy_msrv})"
+        ));
+    }
+
+    validate_policy_flags(&policy_doc, &mut report);
+    validate_workspace_lints(&cargo_doc, &policy_doc, &mut report);
+    validate_lint_inheritance(&root, &cargo_doc, &mut report)?;
+    validate_clippy_config(&root.join("clippy.toml"), &mut report)?;
+    validate_debt(&debt_doc, &mut report);
+
+    Ok(report)
+}
+
+fn validate_policy_flags(policy_doc: &toml::Value, report: &mut LintPolicyReport) {
+    let Some(policy) = policy_doc.get("policy").and_then(toml::Value::as_table) else {
+        report
+            .failures
+            .push("policy/clippy-lints.toml missing [policy]".to_string());
+        return;
+    };
+    let expected = [
+        ("panic_free_tests", true),
+        ("allow_test_carveouts", false),
+        ("blanket_categories", false),
+    ];
+    for (key, value) in expected {
+        if policy.get(key).and_then(toml::Value::as_bool) != Some(value) {
+            report
+                .failures
+                .push(format!("policy.{key} must be {value}"));
+        }
+    }
+    if policy
+        .get("suppression_style")
+        .and_then(toml::Value::as_str)
+        != Some("expect-with-reason")
+    {
+        report
+            .failures
+            .push("policy.suppression_style must be expect-with-reason".to_string());
+    }
+}
+
+fn validate_workspace_lints(
+    cargo_doc: &toml::Value,
+    policy_doc: &toml::Value,
+    report: &mut LintPolicyReport,
+) {
+    let cargo_lints = workspace_lint_levels(cargo_doc);
+    let Some(active) = policy_doc.get("lint").and_then(toml::Value::as_array) else {
+        report
+            .failures
+            .push("policy/clippy-lints.toml must contain [[lint]] active entries".to_string());
+        return;
+    };
+    report.active_lints = active.len();
+    for entry in active {
+        let name = entry
+            .get("name")
+            .and_then(toml::Value::as_str)
+            .unwrap_or_default();
+        let level = entry
+            .get("level")
+            .and_then(toml::Value::as_str)
+            .unwrap_or_default();
+        let status = entry
+            .get("status")
+            .and_then(toml::Value::as_str)
+            .unwrap_or_default();
+        if name.is_empty() || level.is_empty() || status != "active" {
+            report
+                .failures
+                .push("each [[lint]] needs name, level, and status = active".to_string());
+            continue;
+        }
+        match cargo_lints.get(name) {
+            Some(found) if found == level => {}
+            Some(found) => report.failures.push(format!(
+                "active lint {name} level mismatch: Cargo.toml has {found}, policy has {level}"
+            )),
+            None => report.failures.push(format!(
+                "active lint {name} missing from workspace Cargo.toml"
+            )),
+        }
+        require_policy_text(entry, "class", report, name);
+        require_policy_text(entry, "reason", report, name);
+    }
+
+    let planned = policy_doc
+        .get("planned")
+        .and_then(toml::Value::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    report.planned_lints = planned.len();
+    for entry in planned {
+        let name = entry
+            .get("name")
+            .and_then(toml::Value::as_str)
+            .unwrap_or_default();
+        let level = entry
+            .get("level")
+            .and_then(toml::Value::as_str)
+            .unwrap_or_default();
+        let activate_when_msrv = entry
+            .get("activate_when_msrv")
+            .and_then(toml::Value::as_str)
+            .unwrap_or_default();
+        if name.is_empty() || level.is_empty() || activate_when_msrv.is_empty() {
+            report
+                .failures
+                .push("each [[planned]] needs name, level, and activate_when_msrv".to_string());
+            continue;
+        }
+        if cargo_lints.contains_key(name) {
+            report.failures.push(format!(
+                "planned lint {name} is active before MSRV {activate_when_msrv}"
+            ));
+        }
+        require_policy_text(entry, "reason", report, name);
+    }
+}
+
+fn require_policy_text(entry: &toml::Value, key: &str, report: &mut LintPolicyReport, name: &str) {
+    if entry
+        .get(key)
+        .and_then(toml::Value::as_str)
+        .is_none_or(str::is_empty)
+    {
+        report.failures.push(format!("lint {name} missing {key}"));
+    }
+}
+
+fn workspace_lint_levels(cargo_doc: &toml::Value) -> HashMap<String, String> {
+    let mut lints = HashMap::new();
+    let Some(workspace_lints) = cargo_doc
+        .get("workspace")
+        .and_then(|workspace| workspace.get("lints"))
+        .and_then(toml::Value::as_table)
+    else {
+        return lints;
+    };
+    for (tool, table) in workspace_lints {
+        let Some(table) = table.as_table() else {
+            continue;
+        };
+        for (name, value) in table {
+            let Some(level) = lint_level(value) else {
+                continue;
+            };
+            let full_name = if tool == "clippy" {
+                format!("clippy::{name}")
+            } else {
+                name.to_string()
+            };
+            lints.insert(full_name, level.to_string());
+        }
+    }
+    lints
+}
+
+fn lint_level(value: &toml::Value) -> Option<&str> {
+    value.as_str().or_else(|| {
+        value
+            .as_table()
+            .and_then(|table| table.get("level"))
+            .and_then(toml::Value::as_str)
+    })
+}
+
+fn validate_lint_inheritance(
+    root: &Path,
+    cargo_doc: &toml::Value,
+    report: &mut LintPolicyReport,
+) -> Result<()> {
+    validate_manifest_inherits_lints(&root.join("Cargo.toml"), report)?;
+    let members = cargo_doc
+        .get("workspace")
+        .and_then(|workspace| workspace.get("members"))
+        .and_then(toml::Value::as_array)
+        .context("workspace.members not found")?;
+    for member in members {
+        let Some(member) = member.as_str() else {
+            continue;
+        };
+        validate_manifest_inherits_lints(&root.join(member).join("Cargo.toml"), report)?;
+    }
+    Ok(())
+}
+
+fn validate_manifest_inherits_lints(path: &Path, report: &mut LintPolicyReport) -> Result<()> {
+    let doc = read_toml(path)?;
+    if doc
+        .get("lints")
+        .and_then(|lints| lints.get("workspace"))
+        .and_then(toml::Value::as_bool)
+        != Some(true)
+    {
+        report.failures.push(format!(
+            "{} missing [lints] workspace = true",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+fn validate_clippy_config(path: &Path, report: &mut LintPolicyReport) -> Result<()> {
+    if !path.exists() {
+        report.failures.push("clippy.toml is missing".to_string());
+        return Ok(());
+    }
+    let content =
+        std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    let banned = [
+        "allow-unwrap-in-tests",
+        "allow-expect-in-tests",
+        "allow-panic-in-tests",
+        "allow-indexing-slicing-in-tests",
+        "allow-dbg-in-tests",
+    ];
+    for carveout in banned {
+        if content.contains(carveout) && content.contains(&format!("{carveout} = true")) {
+            report.failures.push(format!(
+                "clippy.toml must not enable test carveout {carveout}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_debt(debt_doc: &toml::Value, report: &mut LintPolicyReport) {
+    let entries = debt_doc
+        .get("debt")
+        .and_then(toml::Value::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    report.debt_entries = entries.len();
+    let today = current_date_string();
+    for entry in entries {
+        for key in ["lint", "path", "owner", "reason", "expires"] {
+            if entry
+                .get(key)
+                .and_then(toml::Value::as_str)
+                .is_none_or(str::is_empty)
+            {
+                report
+                    .failures
+                    .push(format!("debt entry missing required field {key}"));
+            }
+        }
+        if let Some(expires) = entry.get("expires").and_then(toml::Value::as_str) {
+            if expires < today.as_str() {
+                report.failures.push(format!(
+                    "debt entry for {} expired on {expires}",
+                    entry
+                        .get("lint")
+                        .and_then(toml::Value::as_str)
+                        .unwrap_or("<unknown>")
+                ));
+            }
+        }
+    }
+}
+
+fn current_date_string() -> String {
+    Cmd::new("date")
+        .arg("+%F")
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|date| date.trim().to_string())
+        .filter(|date| date.len() == 10)
+        .unwrap_or_else(|| "1970-01-01".to_string())
+}
+
+fn read_toml(path: &Path) -> Result<toml::Value> {
+    let content =
+        std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    content
+        .parse()
+        .with_context(|| format!("parse {}", path.display()))
 }
 
 fn workspace_root() -> Result<PathBuf> {
