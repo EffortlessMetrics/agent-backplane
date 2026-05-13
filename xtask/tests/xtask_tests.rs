@@ -30,6 +30,46 @@ fn lint_subcommand_exists() {
 }
 
 #[test]
+fn badges_subcommand_exists() {
+    xtask()
+        .arg("badges")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Shields"));
+}
+
+#[test]
+fn badges_has_check_flag() {
+    xtask()
+        .arg("badges")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--check"));
+}
+
+#[test]
+fn ripr_pr_subcommand_exists() {
+    xtask()
+        .arg("ripr-pr")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("RIPR"));
+}
+
+#[test]
+fn ripr_review_comments_subcommand_exists() {
+    xtask()
+        .arg("ripr-review-comments")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("RIPR"));
+}
+
+#[test]
 fn release_check_subcommand_exists() {
     xtask()
         .arg("release-check")
@@ -173,6 +213,8 @@ fn help_lists_all_subcommands() {
         .stdout(predicate::str::contains("schema"))
         .stdout(predicate::str::contains("audit"))
         .stdout(predicate::str::contains("stats"))
+        .stdout(predicate::str::contains("badges"))
+        .stdout(predicate::str::contains("ripr-pr"))
         .stdout(predicate::str::contains("setup"));
 }
 
