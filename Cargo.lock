@@ -4857,6 +4857,7 @@ dependencies = [
  "clap",
  "predicates",
  "schemars",
+ "serde",
  "serde_json",
  "tempfile",
  "toml",

@@ -17,6 +17,7 @@
 | [security.md](security.md) | Security model and threat boundaries |
 | [sidecar_protocol.md](sidecar_protocol.md) | Sidecar JSONL protocol specification |
 | [testing.md](testing.md) | Testing guide |
+| [VERIFICATION.md](VERIFICATION.md) | README badge meanings, generated endpoints, and PR evidence boundaries |
 | [versioning.md](versioning.md) | Versioning policy (contract and crate versions) |
 
 ### Historical Design Documents
