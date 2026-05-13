@@ -18,6 +18,7 @@
 | [sidecar_protocol.md](sidecar_protocol.md) | Sidecar JSONL protocol specification |
 | [testing.md](testing.md) | Testing guide |
 | [versioning.md](versioning.md) | Versioning policy (contract and crate versions) |
+| [VERIFICATION.md](VERIFICATION.md) | README badge meanings, generated endpoints, and PR evidence boundaries |
 
 ### Historical Design Documents
 
