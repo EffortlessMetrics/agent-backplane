@@ -208,3 +208,33 @@ fn setup_subcommand_exists() {
         .success()
         .stdout(predicate::str::contains("hook").or(predicate::str::contains("development")));
 }
+
+#[test]
+fn badges_subcommand_has_check_flag() {
+    xtask()
+        .arg("badges")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--check"));
+}
+
+#[test]
+fn ripr_pr_subcommand_has_check_flag() {
+    xtask()
+        .arg("ripr-pr")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--check"));
+}
+
+#[test]
+fn ripr_review_comments_subcommand_has_check_flag() {
+    xtask()
+        .arg("ripr-review-comments")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--check"));
+}
