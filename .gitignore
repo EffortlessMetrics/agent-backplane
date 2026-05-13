@@ -2,3 +2,6 @@
 /fuzz/target
 /.agent-backplane
 **/*.rs.bk
+
+# Host package-manager installs
+hosts/*/node_modules/
