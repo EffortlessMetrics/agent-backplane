@@ -4,6 +4,7 @@
 |----------|-------------|
 | [architecture.md](architecture.md) | Architecture reference (contract version `abp/v0.1`) |
 | [capabilities.md](capabilities.md) | Capability matrix — variants, support levels, backend compatibility |
+| [crate-classification.md](crate-classification.md) | Crate classification tiers and publish surface audit |
 | [capability_negotiation.md](capability_negotiation.md) | Capability negotiation flow, emulation strategies, and API reference |
 | [dialect_engine_matrix.md](dialect_engine_matrix.md) | Dialect-by-engine routing model design |
 | [error_codes.md](error_codes.md) | Stable, machine-readable error code taxonomy |
