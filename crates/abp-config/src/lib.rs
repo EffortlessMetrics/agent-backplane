@@ -19,6 +19,7 @@ pub mod schema;
 pub mod store;
 pub mod transaction;
 pub mod validate;
+mod validators;
 pub mod watcher;
 
 use schemars::JsonSchema;
@@ -299,97 +300,18 @@ pub fn apply_env_overrides(config: &mut BackplaneConfig) {
 ///
 /// Hard errors (empty sidecar commands, out-of-range timeouts) are returned
 /// as a [`ConfigError::ValidationError`]; soft issues come back as warnings.
+///
+/// The implementation delegates to focused, single-responsibility checks in
+/// the [`validators`] module; this function is the orchestrator that combines
+/// their findings into the public result.
 pub fn validate_config(config: &BackplaneConfig) -> Result<Vec<ConfigWarning>, ConfigError> {
-    let mut errors: Vec<String> = Vec::new();
-    let mut warnings: Vec<ConfigWarning> = Vec::new();
-
-    // Validate log_level value.
-    if let Some(ref level) = config.log_level
-        && !VALID_LOG_LEVELS.contains(&level.as_str())
-    {
-        errors.push(format!("invalid log_level '{level}'"));
-    }
-
-    // Validate port (u16 already guarantees <= 65535, but 0 is invalid).
-    if let Some(p) = config.port {
-        if p == 0 {
-            errors.push("port must be between 1 and 65535".into());
-        }
-    }
-
-    // Validate bind_address (must parse as an IP address or be a non-empty
-    // hostname-like string).
-    if let Some(ref addr) = config.bind_address {
-        if addr.trim().is_empty() {
-            errors.push("bind_address must not be empty".into());
-        } else if addr.parse::<std::net::IpAddr>().is_err() && !is_valid_hostname(addr) {
-            errors.push(format!(
-                "bind_address '{addr}' is not a valid IP address or hostname"
-            ));
-        }
-    }
-
-    // Validate policy profile paths exist on disk (when specified).
-    for path_str in &config.policy_profiles {
-        if path_str.trim().is_empty() {
-            errors.push("policy profile path must not be empty".into());
-        } else if !Path::new(path_str).exists() {
-            errors.push(format!("policy profile path does not exist: {path_str}"));
-        }
-    }
-
-    // Validate each backend entry.
-    for (name, backend) in &config.backends {
-        if name.is_empty() {
-            errors.push("backend name must not be empty".into());
-        }
-
-        match backend {
-            BackendEntry::Sidecar {
-                command,
-                timeout_secs,
-                ..
-            } => {
-                if command.trim().is_empty() {
-                    errors.push(format!(
-                        "backend '{name}': sidecar command must not be empty"
-                    ));
-                }
-                if let Some(t) = timeout_secs {
-                    if *t == 0 || *t > MAX_TIMEOUT_SECS {
-                        errors.push(format!(
-                            "backend '{name}': timeout {t}s out of range (1..{MAX_TIMEOUT_SECS})"
-                        ));
-                    } else if *t > LARGE_TIMEOUT_THRESHOLD {
-                        warnings.push(ConfigWarning::LargeTimeout {
-                            backend: name.clone(),
-                            secs: *t,
-                        });
-                    }
-                }
-            }
-            BackendEntry::Mock {} => {}
-        }
-    }
-
-    // Advisory: missing optional fields.
-    if config.default_backend.is_none() {
-        warnings.push(ConfigWarning::MissingOptionalField {
-            field: "default_backend".into(),
-            hint: "callers must always specify --backend explicitly".into(),
-        });
-    }
-    if config.receipts_dir.is_none() {
-        warnings.push(ConfigWarning::MissingOptionalField {
-            field: "receipts_dir".into(),
-            hint: "receipts will not be persisted to disk".into(),
-        });
-    }
-
-    if errors.is_empty() {
-        Ok(warnings)
+    let findings = validators::run_all(config);
+    if findings.errors.is_empty() {
+        Ok(findings.warnings)
     } else {
-        Err(ConfigError::ValidationError { reasons: errors })
+        Err(ConfigError::ValidationError {
+            reasons: findings.errors,
+        })
     }
 }
 
